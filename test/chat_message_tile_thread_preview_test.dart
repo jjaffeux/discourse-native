@@ -898,7 +898,9 @@ void main() {
       await tester.pumpAndSettle();
       await _hoverMessage(tester);
 
-      final action = find.byTooltip('Add reaction');
+      await tester.tap(find.byTooltip('More message actions'));
+      await tester.pumpAndSettle();
+      final action = find.widgetWithText(DDropdownMenuItem, 'Add reaction');
       expect(action, findsOneWidget);
       await tester.tap(action);
       await tester.pumpAndSettle();

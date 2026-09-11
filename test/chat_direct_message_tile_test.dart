@@ -9,6 +9,7 @@ import 'package:discourse_native/src/plugins/chat/chat_preview.dart';
 import 'package:discourse_native/src/plugins/chat/chat_services.dart';
 import 'package:discourse_native/src/plugins/chat/chat_user_avatar.dart';
 import 'package:discourse_native/src/shell/cooked_html.dart';
+import 'package:discourse_native/src/shell/hover_action_toolbar.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/styleguide/styleguide_theme.dart';
@@ -57,11 +58,17 @@ ChatMessage _message({
 ChatChannel _channel({
   ChatChannelKind kind = ChatChannelKind.directMessage,
   bool group = false,
+  ChatChannelStatus status = ChatChannelStatus.open,
+  bool canDeleteSelf = false,
+  bool canManagePins = false,
 }) => ChatChannel(
   id: 9,
   title: 'Chat',
   kind: kind,
   isGroup: group,
+  status: status,
+  canDeleteSelf: canDeleteSelf,
+  canManagePins: canManagePins,
   membership: const ChatMembership(following: true),
 );
 
@@ -125,6 +132,9 @@ Widget _tile(
   bool selecting = false,
   bool selected = false,
   ValueChanged<bool>? onSelectedChanged,
+  ValueChanged<ChatMessage>? onReply,
+  ValueChanged<ChatMessage>? onEdit,
+  VoidCallback? onSelect,
   ValueChanged<int>? onJump,
   ValueChanged<ChatThreadPreview>? onThread,
 }) => ShellScope(
@@ -156,7 +166,9 @@ Widget _tile(
                       onSelectedChanged: onSelectedChanged,
                       onJumpToMessage: onJump,
                       onOpenThread: onThread,
-                      onReply: (_) {},
+                      onReply: onReply ?? (_) {},
+                      onEdit: onEdit,
+                      onSelect: onSelect,
                     ),
                   ),
                 ),
@@ -216,6 +228,247 @@ void main() {
       }
     }
   }
+
+  group('desktop DM dropdown', () {
+    final trigger = find.byKey(const ValueKey('chat-message-more-actions-7'));
+    double triggerOpacity(WidgetTester tester) => tester
+        .widget<Opacity>(
+          find.ancestor(of: trigger, matching: find.byType(Opacity)).first,
+        )
+        .opacity;
+
+    Future<TestGesture> hover(WidgetTester tester) async {
+      final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      await mouse.addPointer(location: Offset.zero);
+      addTearDown(mouse.removePointer);
+      await mouse.moveTo(tester.getCenter(find.byKey(_bodyKey)));
+      await tester.pump();
+      return mouse;
+    }
+
+    for (final group in [false, true]) {
+      for (final outgoing in [false, true]) {
+        for (final direction in TextDirection.values) {
+          testWidgets(
+            'group=$group outgoing=$outgoing trailing trigger in $direction',
+            (tester) async {
+              final controller = await _controller(
+                _message(author: outgoing ? 1 : 2),
+                channel: _channel(group: group),
+              );
+              int? replied;
+              await tester.pumpWidget(
+                _tile(
+                  controller,
+                  theme: AppTheme.dark.copyWith(platform: TargetPlatform.macOS),
+                  direction: direction,
+                  onReply: (message) => replied = message.id,
+                ),
+              );
+              await tester.pumpAndSettle();
+              expect(triggerOpacity(tester), 0);
+              final bubble = tester.getRect(find.byType(DBubbleContent));
+              final body = tester.element(
+                find.byKey(ChatMessageTile.bodySelectionKey(7)),
+              );
+              final mouse = await hover(tester);
+              expect(triggerOpacity(tester), 1);
+              expect(find.byType(HoverActionToolbar), findsNothing);
+              expect(find.byType(DButton), findsOneWidget);
+              expect(tester.getRect(find.byType(DBubbleContent)), bubble);
+              expect(
+                tester.element(find.byKey(ChatMessageTile.bodySelectionKey(7))),
+                same(body),
+              );
+              final control = tester.getRect(trigger);
+              expect(bubble.contains(control.center), isTrue);
+              expect(
+                direction == TextDirection.ltr
+                    ? control.center.dx > bubble.center.dx
+                    : control.center.dx < bubble.center.dx,
+                isTrue,
+              );
+              await tester.tap(trigger);
+              await tester.pumpAndSettle();
+              expect(find.byType(DDropdownMenuContent), findsOneWidget);
+              expect(find.text('Reply'), findsOneWidget);
+              expect(find.text('Add reaction'), findsOneWidget);
+              expect(find.text('Bookmark'), findsOneWidget);
+              await mouse.moveTo(const Offset(790, 590));
+              await tester.pumpAndSettle();
+              expect(find.text('Copy link'), findsOneWidget);
+              await tester.tap(find.text('Reply'));
+              await tester.pumpAndSettle();
+              expect(replied, 7);
+              expect(find.byType(DDropdownMenuContent), findsNothing);
+              expect(tester.takeException(), isNull);
+            },
+          );
+        }
+      }
+    }
+
+    testWidgets(
+      'keyboard opens the menu, Escape restores focus, and outside click closes it',
+      (tester) async {
+        final controller = await _controller(_message());
+        await tester.pumpWidget(
+          _tile(
+            controller,
+            theme: AppTheme.light.copyWith(platform: TargetPlatform.macOS),
+          ),
+        );
+        await tester.pumpAndSettle();
+        await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+        await tester.pump();
+        await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+        await tester.sendKeyEvent(LogicalKeyboardKey.f10);
+        await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+        await tester.pumpAndSettle();
+        expect(find.byType(DDropdownMenuContent), findsOneWidget);
+        await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+        await tester.pumpAndSettle();
+        expect(tester.widget<DButton>(trigger).focusNode!.hasFocus, isTrue);
+        expect(triggerOpacity(tester), 1);
+        await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+        await tester.pumpAndSettle();
+        expect(find.text('Copy link'), findsOneWidget);
+        await tester.tapAt(const Offset(790, 590));
+        await tester.pumpAndSettle();
+        expect(find.byType(DDropdownMenuContent), findsNothing);
+      },
+    );
+
+    testWidgets(
+      'attachment-only messages have one accessible dropdown at narrow 200% RTL',
+      (tester) async {
+        final controller = await _controller(
+          _message(cooked: '', uploads: [_upload]),
+        );
+        await tester.pumpWidget(
+          _tile(
+            controller,
+            theme: StyleguideTheme.plum
+                .resolve(AppTheme.dark)
+                .copyWith(platform: TargetPlatform.macOS),
+            width: 360,
+            scale: 2,
+            direction: TextDirection.rtl,
+          ),
+        );
+        await tester.pumpAndSettle();
+        await hover(tester);
+        expect(find.byType(DBubble), findsNothing);
+        expect(find.byType(DDropdownMenu), findsOneWidget);
+        final semantics = tester.ensureSemantics();
+        expect(find.bySemanticsLabel('More message actions'), findsOneWidget);
+        expect(
+          find.bySemanticsLabel(RegExp('Open attachment: notes.pdf')),
+          findsOneWidget,
+        );
+        await tester.tap(trigger);
+        await tester.pumpAndSettle();
+        expect(find.byType(DDropdownMenuContent), findsOneWidget);
+        expect(tester.takeException(), isNull);
+        semantics.dispose();
+      },
+    );
+
+    testWidgets(
+      'permissions and editing callbacks stay live while the dropdown is open',
+      (tester) async {
+        final controller = await _controller(
+          _message(),
+          channel: _channel(canDeleteSelf: true, canManagePins: true),
+        );
+        int? edited;
+        await tester.pumpWidget(
+          _tile(
+            controller,
+            theme: AppTheme.light.copyWith(platform: TargetPlatform.macOS),
+            onEdit: (message) => edited = message.id,
+            onSelect: () {},
+          ),
+        );
+        await tester.pumpAndSettle();
+        await hover(tester);
+        await tester.tap(trigger);
+        await tester.pumpAndSettle();
+        expect(find.text('Pin'), findsOneWidget);
+        expect(find.text('Select'), findsOneWidget);
+        expect(
+          tester
+              .widget<DDropdownMenuItem>(
+                find.widgetWithText(DDropdownMenuItem, 'Delete'),
+              )
+              .variant,
+          DDropdownMenuItemVariant.destructive,
+        );
+        await tester.tap(find.text('Edit'));
+        await tester.pumpAndSettle();
+        expect(edited, 7);
+        await tester.tap(trigger);
+        await tester.pumpAndSettle();
+        controller.chatRecords.put(
+          _site,
+          _channel(status: ChatChannelStatus.readOnly),
+        );
+        await tester.pumpAndSettle();
+        for (final label in [
+          'Reply',
+          'Add reaction',
+          'Bookmark',
+          'Pin',
+          'Edit',
+          'Delete',
+        ]) {
+          expect(find.text(label), findsNothing);
+        }
+        expect(find.text('Copy link'), findsOneWidget);
+        expect(find.text('Select'), findsOneWidget);
+        await tester.pumpWidget(const SizedBox.shrink());
+        await tester.pumpAndSettle();
+        expect(find.byType(DDropdownMenuContent), findsNothing);
+        expect(tester.takeException(), isNull);
+      },
+    );
+
+    testWidgets(
+      'scrolling closes the dropdown and hides its trigger until pointer movement',
+      (tester) async {
+        final controller = await _controller(
+          _message(
+            cooked: '<p>${List.filled(150, 'Long message').join(' ')}</p>',
+          ),
+        );
+        await tester.pumpWidget(
+          _tile(
+            controller,
+            theme: AppTheme.light.copyWith(platform: TargetPlatform.macOS),
+            width: 360,
+          ),
+        );
+        await tester.pumpAndSettle();
+        final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+        await mouse.addPointer(location: const Offset(40, 40));
+        addTearDown(mouse.removePointer);
+        await mouse.moveTo(tester.getCenter(trigger));
+        await tester.pump();
+        await tester.tap(trigger);
+        await tester.pumpAndSettle();
+        final scroll = tester
+            .state<ScrollableState>(find.byType(Scrollable).first)
+            .position;
+        scroll.jumpTo(20);
+        await tester.pumpAndSettle();
+        expect(find.byType(DDropdownMenuContent), findsNothing);
+        expect(triggerOpacity(tester), 0);
+        await mouse.moveBy(const Offset(1, 0));
+        await tester.pumpAndSettle();
+        expect(triggerOpacity(tester), 1);
+      },
+    );
+  });
 
   testWidgets('category channels retain the compact unboxed presentation', (
     tester,

@@ -124,7 +124,12 @@ void main() {
         addTearDown(controller.dispose);
         await controller.chat.loadChannels(firstSite);
         await controller.chat.openChannel(firstSite, 9);
-        await tester.pumpWidget(_TestView(controller: controller));
+        await tester.pumpWidget(
+          _TestView(
+            controller: controller,
+            theme: AppTheme.light.copyWith(platform: TargetPlatform.macOS),
+          ),
+        );
         await tester.pumpAndSettle();
         expect(find.byKey(ChatMessageTile.timestampKey(1)), findsOneWidget);
         FakeSiteTracker.built
@@ -2196,9 +2201,9 @@ Future<void> _startSelectingNewestMessage(WidgetTester tester) async {
     tester.getCenter(find.byKey(const ValueKey('chat-message-2'))),
   );
   await tester.pump();
-  await tester.tap(find.byTooltip('More message actions'));
+  await tester.tap(find.byKey(const ValueKey('chat-message-more-actions-2')));
   await tester.pumpAndSettle();
-  await tester.tap(find.widgetWithText(MenuItemButton, 'Select'));
+  await tester.tap(find.text('Select'));
   await tester.pumpAndSettle();
   await mouse.removePointer();
 }
@@ -2238,10 +2243,12 @@ final class _TestView extends StatelessWidget {
   const _TestView({
     required this.controller,
     this.onScroll,
+    this.theme,
     this.tickerEnabled = true,
   });
 
   final ShellController controller;
+  final ThemeData? theme;
   final NotificationListenerCallback<ScrollNotification>? onScroll;
   final bool tickerEnabled;
 
@@ -2251,7 +2258,7 @@ final class _TestView extends StatelessWidget {
     child: PluginUiScope.own(
       chatPluginId,
       MaterialApp(
-        theme: AppTheme.light,
+        theme: theme ?? AppTheme.light,
         builder: (context, child) =>
             DToaster(position: DToastPosition.topEnd, child: child!),
         home: Scaffold(

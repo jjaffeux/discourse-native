@@ -256,3 +256,36 @@ bubble reported DM 204. Independent link, reaction, attachment and status AX
 nodes remained available. The isolated app was quit, its process absence verified,
 and the desktop lease released. No physical touch device or spoken VoiceOver
 review was performed.
+
+
+### DM hover dropdown (2026-09-11)
+
+Desktop DM tiles replace the floating hover toolbar with one trailing chevron
+inside the message bubble, using `DDropdownMenu`, `DDropdownMenuTrigger`,
+`DButton.iconOnly` and `DDropdownMenuItem` from the public kit. The trigger's
+space is reserved, so pointer hover changes neither text wrapping nor message
+height. Attachment-only messages place the trigger beside their attachments.
+The trigger also appears for keyboard focus and while its menu is open.
+Channels retain their compact toolbar, and touch long press retains its sheet.
+
+The dropdown preserves available reply, reaction, bookmark, pin, copy-link,
+editing, flagging, deletion, restoration, rebuild and selection actions with
+their existing callbacks and busy/permission checks. Actions close the dropdown
+before handing focus to another surface. Keyboard opening, Escape restoration,
+outside dismissal, pointer exit, scrolling and disposal are covered. No kit API,
+network/model or setting changes were needed.
+
+165 focused DM, message-action, lifecycle, fixture, search and upload tests
+passed. The complete 49-test lifecycle suite passed again with the live-append
+selection test running the new desktop dropdown. Analysis, touched-file
+formatting, `git diff --check` and the macOS fixture build passed.
+
+Native review inspected group and one-to-one DM triggers and menus, including
+light and dark Plum at 360px, 200% text and RTL. Only one action trigger appeared
+on the pointed-to bubble. Reply from its dropdown reported DM 204, and Add
+reaction opened the existing picker (the offline fixture has no selectable emoji;
+reaction submission is covered by the widget regression). Independent trigger,
+menu-item and rich-link AX nodes remained present. The initial new bundle timed
+out in the inspection tool; rebuilding the closed, previously inspected fixture
+bundle allowed the native check to complete. Both isolated processes were
+stopped/quit, their absence verified, and the desktop lease released.
