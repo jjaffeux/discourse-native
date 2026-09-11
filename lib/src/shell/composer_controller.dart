@@ -1407,6 +1407,39 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
     _replaceGallery(gallery, '', preservePendingTarget: false);
   }
 
+  void moveImageToOffset(ComposerImageBlock image, int offset) {
+    if (!isEditing || !_stillContainsImage(image)) return;
+    final gallery = galleryForImage(image);
+    if (gallery != null) {
+      moveImageOutOfGallery(gallery, image, offset: offset);
+      return;
+    }
+    final old = text.value;
+    if (offset < 0 ||
+        offset > old.text.length ||
+        (offset >= image.start && offset <= image.end) ||
+        text.galleryBlocks.any(
+          (block) => offset > block.start && offset < block.end,
+        )) {
+      return;
+    }
+    final withoutImage = old.text.replaceRange(image.start, image.end, '');
+    final destination = offset > image.end
+        ? offset - (image.end - image.start)
+        : offset;
+    final before = withoutImage.substring(0, destination);
+    final after = withoutImage.substring(destination);
+    final insertion =
+        '${_separatorAfter(before)}${image.source}${_separatorBefore(after)}';
+    text.value = old.copyWith(
+      text: withoutImage.replaceRange(destination, destination, insertion),
+      selection: TextSelection.collapsed(
+        offset: destination + insertion.length,
+      ),
+      composing: TextRange.empty,
+    );
+  }
+
   void moveImageOutOfGallery(
     ComposerImageGalleryBlock gallery,
     ComposerImageBlock image, {
