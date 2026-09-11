@@ -329,7 +329,7 @@ void _expectSmallDButton(
   final size = tester.getSize(target);
   expect(button.size, DButtonSize.small);
   expect(button.variant, DButtonVariant.primary);
-  final dimension = compact ? 32.0 : 40.0;
+  const dimension = 28.0;
   expect(size.height, dimension);
   if (iconOnly) {
     expect(size.width, dimension);

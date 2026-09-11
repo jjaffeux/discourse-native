@@ -2,7 +2,6 @@ import 'dart:ui' show SemanticsValidationResult, lerpDouble;
 
 import 'package:flutter/material.dart';
 
-import '../../theme/discourse_typography.dart';
 import '../foundation/control_style.dart';
 import '../foundation/joined_control.dart';
 import '../foundation/tokens.dart';
@@ -350,13 +349,11 @@ class DButton extends StatelessWidget {
     this.focusNode,
     this.autofocus = false,
     this.alignment = Alignment.center,
-    this.padding,
     this.borderRadius,
     this.backgroundColor,
     this.borderColor,
     this.interactiveBackgroundColor,
-  }) : insetSurface = false,
-       _iconOnly = false;
+  }) : _iconOnly = false;
 
   const DButton.iconOnly({
     super.key,
@@ -365,7 +362,6 @@ class DButton extends StatelessWidget {
     required this.onPressed,
     this.variant = DButtonVariant.primary,
     this.size = DButtonSize.regular,
-    this.insetSurface = false,
     this.loading = false,
     this.loadingSemanticLabel = 'Loading',
     this.shortcut,
@@ -383,7 +379,6 @@ class DButton extends StatelessWidget {
     this.isLink = false,
   }) : iconPosition = DButtonIconPosition.start,
        label = const SizedBox.shrink(),
-       padding = null,
        loadingLabel = null,
        // ignore: prefer_initializing_formals
        icon = icon,
@@ -412,8 +407,6 @@ class DButton extends StatelessWidget {
   final DButtonVariant variant;
   final DButtonSize size;
 
-  /// Insets the icon surface while preserving the size's full hit target.
-  final bool insetSurface;
   final bool loading;
 
   /// Localizable busy status, separate from the persistent action name.
@@ -426,8 +419,6 @@ class DButton extends StatelessWidget {
   final bool autofocus;
   final AlignmentGeometry alignment;
 
-  /// Replaces the size's padding, including its 1px border inset.
-  final EdgeInsetsGeometry? padding;
   final BorderRadiusGeometry? borderRadius;
 
   /// Overrides the variant's fill in every state, including expanded and
@@ -444,25 +435,13 @@ class DButton extends StatelessWidget {
   final Color? interactiveBackgroundColor;
   final bool _iconOnly;
 
-  static const double minimumDimension = 48;
-  static const double flatSurfacePadding = 4;
-
-  static double fontSizeFor(DButtonSize size) => switch (size) {
-    DButtonSize.extraSmall => DiscourseTypography.xs,
-    DButtonSize.small => DiscourseTypography.base * .8,
-    _ => DiscourseTypography.sm,
-  };
+  static double fontSizeFor(DButtonSize size) => DControlStyle.fontSize(size);
 
   static double visualDimensionFor(DButtonSize size) =>
       DControlStyle.height(size);
 
-  /// Legacy shell hit targets remain available for inset icon actions.
-  static double iconOnlyDimensionFor(DButtonSize size) => switch (size) {
-    DButtonSize.extraSmall => 48,
-    DButtonSize.small => 40,
-    DButtonSize.regular => minimumDimension,
-    DButtonSize.large => 56,
-  };
+  static double iconOnlyDimensionFor(DButtonSize size) =>
+      DControlStyle.height(size);
 
   DButtonVariant get _visualVariant => switch (variant) {
     DButtonVariant.standard => DButtonVariant.outline,
@@ -570,22 +549,14 @@ class DButton extends StatelessWidget {
     final gap = size == DButtonSize.extraSmall || size == DButtonSize.small
         ? 4.0
         : DControlStyle.gap;
-    final visualDimension = visualDimensionFor(size);
+    final visualDimension = DControlStyle.scaledHeight(
+      size,
+      MediaQuery.textScalerOf(context),
+    );
     final touch =
         theme.platform == TargetPlatform.iOS ||
         theme.platform == TargetPlatform.android;
-    final iconOnlyDimension = iconOnlyDimensionFor(size);
-    final iconTargetDimension = touch
-        ? iconOnlyDimension.clamp(DSpacing.touchTarget, double.infinity)
-        : iconOnlyDimension;
-    final insetIconSurface =
-        _iconOnly &&
-        (insetSurface ||
-            variant == DButtonVariant.flat ||
-            variant == DButtonVariant.flatClose);
-    final iconOnlySurfaceDimension = insetIconSurface
-        ? iconOnlyDimension - flatSurfacePadding * 2
-        : visualDimension;
+    final iconOnlySurfaceDimension = visualDimension;
     final enabled = onPressed != null && !loading;
     final baseRadius =
         borderRadius ??
@@ -661,38 +632,33 @@ class DButton extends StatelessWidget {
           ? WidgetStatePropertyAll(Size.square(iconOnlySurfaceDimension))
           : const WidgetStatePropertyAll(Size.infinite),
       padding: WidgetStatePropertyAll(
-        padding ??
-            (_iconOnly
-                ? EdgeInsets.zero
-                : EdgeInsetsDirectional.only(
-                    start:
-                        (icon != null || (loading && loadingLabel != null)) &&
-                            iconPosition == DButtonIconPosition.start
-                        ? (size == DButtonSize.extraSmall ||
-                                  size == DButtonSize.small
-                              ? 7
-                              : 9)
-                        : (size == DButtonSize.extraSmall ? 9 : 11),
-                    end:
-                        (icon != null || (loading && loadingLabel != null)) &&
-                            iconPosition == DButtonIconPosition.end
-                        ? (size == DButtonSize.extraSmall ||
-                                  size == DButtonSize.small
-                              ? 7
-                              : 9)
-                        : (size == DButtonSize.extraSmall ? 9 : 11),
-                    top: 1,
-                    bottom: 1,
-                  )),
+        (_iconOnly
+            ? EdgeInsets.zero
+            : EdgeInsetsDirectional.only(
+                start:
+                    (icon != null || (loading && loadingLabel != null)) &&
+                        iconPosition == DButtonIconPosition.start
+                    ? (size == DButtonSize.extraSmall ||
+                              size == DButtonSize.small
+                          ? 7
+                          : 9)
+                    : (size == DButtonSize.extraSmall ? 9 : 11),
+                end:
+                    (icon != null || (loading && loadingLabel != null)) &&
+                        iconPosition == DButtonIconPosition.end
+                    ? (size == DButtonSize.extraSmall ||
+                              size == DButtonSize.small
+                          ? 7
+                          : 9)
+                    : (size == DButtonSize.extraSmall ? 9 : 11),
+                top: 1,
+                bottom: 1,
+              )),
       ),
       textStyle: WidgetStateProperty.resolveWith(
         (states) => theme.textTheme.labelLarge!.copyWith(
           fontSize: fontSize,
-          height: switch (size) {
-            DButtonSize.extraSmall => 16 / fontSize,
-            DButtonSize.small => 22.4 / fontSize,
-            _ => 20 / fontSize,
-          },
+          height: DControlStyle.lineHeight(size) / fontSize,
           fontWeight: FontWeight.w500,
           letterSpacing: 0,
           decoration:
@@ -721,15 +687,8 @@ class DButton extends StatelessWidget {
       shadowColor: const WidgetStatePropertyAll(Colors.transparent),
       surfaceTintColor: const WidgetStatePropertyAll(Colors.transparent),
       animationDuration: animationDuration,
-      visualDensity: insetIconSurface
-          ? VisualDensity(
-              // Density changes only the padded target, not the fixed surface.
-              // Legacy compact desktop targets must not shrink touch bounds.
-              horizontal: (iconTargetDimension - kMinInteractiveDimension) / 4,
-              vertical: (iconTargetDimension - kMinInteractiveDimension) / 4,
-            )
-          : VisualDensity.standard,
-      tapTargetSize: insetIconSurface || touch
+      visualDensity: VisualDensity.standard,
+      tapTargetSize: touch
           ? MaterialTapTargetSize.padded
           : MaterialTapTargetSize.shrinkWrap,
       splashFactory: NoSplash.splashFactory,

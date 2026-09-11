@@ -296,9 +296,7 @@ class _DirectoryControls extends StatelessWidget {
       _ => false,
     };
     final search = ConstrainedBox(
-      constraints: BoxConstraints(
-        minHeight: touch ? DButton.minimumDimension : 0,
-      ),
+      constraints: BoxConstraints(minHeight: touch ? DSpacing.touchTarget : 0),
       child: ValueListenableBuilder<TextEditingValue>(
         valueListenable: searchController,
         builder: (context, value, _) => TextField(

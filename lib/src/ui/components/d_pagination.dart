@@ -177,6 +177,7 @@ class DPaginationItem extends StatelessWidget {
 class DPaginationLink extends StatelessWidget {
   const DPaginationLink({
     super.key,
+    this.size = DButtonSize.regular,
     required this.page,
     required this.onPressed,
     this.isCurrent = false,
@@ -187,6 +188,7 @@ class DPaginationLink extends StatelessWidget {
   }) : assert(page >= 1);
 
   final int page;
+  final DButtonSize size;
   final VoidCallback? onPressed;
   final bool isCurrent;
   final Widget? label;
@@ -197,21 +199,17 @@ class DPaginationLink extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Semantics(
     selected: isCurrent,
-    child: SizedBox.square(
-      dimension: 32,
-      child: DButton(
-        label: label ?? Text('$page'),
-        onPressed: onPressed,
-        variant: isCurrent ? DButtonVariant.outline : DButtonVariant.ghost,
-        size: DButtonSize.regular,
-        isLink: true,
-        semanticLabel:
-            semanticLabel ??
-            (isCurrent ? 'Page $page, current page' : 'Go to page $page'),
-        focusNode: focusNode,
-        autofocus: autofocus,
-        padding: EdgeInsets.zero,
-      ),
+    child: DButton(
+      label: label ?? Text('$page'),
+      onPressed: onPressed,
+      variant: isCurrent ? DButtonVariant.outline : DButtonVariant.ghost,
+      size: size,
+      isLink: true,
+      semanticLabel:
+          semanticLabel ??
+          (isCurrent ? 'Page $page, current page' : 'Go to page $page'),
+      focusNode: focusNode,
+      autofocus: autofocus,
     ),
   );
 }
@@ -219,6 +217,7 @@ class DPaginationLink extends StatelessWidget {
 class DPaginationPrevious extends StatelessWidget {
   const DPaginationPrevious({
     super.key,
+    this.size = DButtonSize.regular,
     required this.onPressed,
     this.text = 'Previous',
     this.semanticLabel = 'Go to previous page',
@@ -227,6 +226,7 @@ class DPaginationPrevious extends StatelessWidget {
     this.focusNode,
   });
 
+  final DButtonSize size;
   final VoidCallback? onPressed;
   final String text;
   final String semanticLabel;
@@ -236,6 +236,7 @@ class DPaginationPrevious extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => _PaginationDirectionAction(
+    size: size,
     onPressed: onPressed,
     text: text,
     semanticLabel: semanticLabel,
@@ -249,6 +250,7 @@ class DPaginationPrevious extends StatelessWidget {
 class DPaginationNext extends StatelessWidget {
   const DPaginationNext({
     super.key,
+    this.size = DButtonSize.regular,
     required this.onPressed,
     this.text = 'Next',
     this.semanticLabel = 'Go to next page',
@@ -257,6 +259,7 @@ class DPaginationNext extends StatelessWidget {
     this.focusNode,
   });
 
+  final DButtonSize size;
   final VoidCallback? onPressed;
   final String text;
   final String semanticLabel;
@@ -266,6 +269,7 @@ class DPaginationNext extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => _PaginationDirectionAction(
+    size: size,
     onPressed: onPressed,
     text: text,
     semanticLabel: semanticLabel,
@@ -279,12 +283,14 @@ class DPaginationNext extends StatelessWidget {
 class DPaginationFirst extends StatelessWidget {
   const DPaginationFirst({
     super.key,
+    this.size = DButtonSize.regular,
     required this.onPressed,
     this.semanticLabel = 'Go to first page',
     this.variant = DButtonVariant.ghost,
     this.focusNode,
   });
 
+  final DButtonSize size;
   final VoidCallback? onPressed;
   final String semanticLabel;
   final DButtonVariant variant;
@@ -297,7 +303,7 @@ class DPaginationFirst extends StatelessWidget {
     semanticLabel: semanticLabel,
     onPressed: onPressed,
     variant: variant,
-    size: DButtonSize.regular,
+    size: size,
     focusNode: focusNode,
   );
 }
@@ -305,12 +311,14 @@ class DPaginationFirst extends StatelessWidget {
 class DPaginationLast extends StatelessWidget {
   const DPaginationLast({
     super.key,
+    this.size = DButtonSize.regular,
     required this.onPressed,
     this.semanticLabel = 'Go to last page',
     this.variant = DButtonVariant.ghost,
     this.focusNode,
   });
 
+  final DButtonSize size;
   final VoidCallback? onPressed;
   final String semanticLabel;
   final DButtonVariant variant;
@@ -323,7 +331,7 @@ class DPaginationLast extends StatelessWidget {
     semanticLabel: semanticLabel,
     onPressed: onPressed,
     variant: variant,
-    size: DButtonSize.regular,
+    size: size,
     focusNode: focusNode,
   );
 }
@@ -377,6 +385,7 @@ class DPaginationNavigation extends StatefulWidget {
     this.previousText = 'Previous',
     this.nextText = 'Next',
     this.showDirectionText,
+    this.size = DButtonSize.regular,
     this.directionVariant = DButtonVariant.ghost,
     this.enabled = true,
   }) : assert(initialPage >= 1),
@@ -404,6 +413,7 @@ class DPaginationNavigation extends StatefulWidget {
     this.previousText = 'Previous',
     this.nextText = 'Next',
     this.showDirectionText,
+    this.size = DButtonSize.regular,
     this.directionVariant = DButtonVariant.ghost,
     this.enabled = true,
   }) : assert(page >= 1),
@@ -431,6 +441,7 @@ class DPaginationNavigation extends StatefulWidget {
     this.previousText = 'Previous',
     this.nextText = 'Next',
     this.showDirectionText,
+    this.size = DButtonSize.regular,
     this.directionVariant = DButtonVariant.ghost,
     this.enabled = true,
   }) : assert(siblingCount >= 0),
@@ -458,6 +469,7 @@ class DPaginationNavigation extends StatefulWidget {
   final String previousText;
   final String nextText;
   final bool? showDirectionText;
+  final DButtonSize size;
   final DButtonVariant directionVariant;
   final bool enabled;
   final _PaginationOwnership _ownership;
@@ -551,6 +563,7 @@ class _DPaginationNavigationState extends State<DPaginationNavigation> {
       children.add(
         DPaginationItem(
           child: DPaginationFirst(
+            size: widget.size,
             variant: widget.directionVariant,
             onPressed: canActivate && page > 1 ? () => changePage(1) : null,
           ),
@@ -560,6 +573,7 @@ class _DPaginationNavigationState extends State<DPaginationNavigation> {
     children.add(
       DPaginationItem(
         child: DPaginationPrevious(
+          size: widget.size,
           text: widget.previousText,
           showText: widget.showDirectionText,
           variant: widget.directionVariant,
@@ -581,6 +595,7 @@ class _DPaginationNavigationState extends State<DPaginationNavigation> {
             child: entry == null
                 ? const DPaginationEllipsis()
                 : DPaginationLink(
+                    size: widget.size,
                     page: entry,
                     isCurrent: entry == page,
                     onPressed: canActivate ? () => changePage(entry) : null,
@@ -592,6 +607,7 @@ class _DPaginationNavigationState extends State<DPaginationNavigation> {
     children.add(
       DPaginationItem(
         child: DPaginationNext(
+          size: widget.size,
           text: widget.nextText,
           showText: widget.showDirectionText,
           variant: widget.directionVariant,
@@ -605,6 +621,7 @@ class _DPaginationNavigationState extends State<DPaginationNavigation> {
       children.add(
         DPaginationItem(
           child: DPaginationLast(
+            size: widget.size,
             variant: widget.directionVariant,
             onPressed: canActivate && page < pageCount
                 ? () => changePage(pageCount)
@@ -628,6 +645,7 @@ class _DPaginationNavigationState extends State<DPaginationNavigation> {
 class _PaginationDirectionAction extends StatelessWidget {
   const _PaginationDirectionAction({
     required this.onPressed,
+    this.size = DButtonSize.regular,
     required this.text,
     required this.semanticLabel,
     required this.showText,
@@ -636,6 +654,7 @@ class _PaginationDirectionAction extends StatelessWidget {
     required this.focusNode,
   });
 
+  final DButtonSize size;
   final VoidCallback? onPressed;
   final String text;
   final String semanticLabel;
@@ -654,7 +673,7 @@ class _PaginationDirectionAction extends StatelessWidget {
         semanticLabel: semanticLabel,
         onPressed: onPressed,
         variant: variant,
-        size: DButtonSize.regular,
+        size: size,
         focusNode: focusNode,
       );
     }
@@ -666,16 +685,10 @@ class _PaginationDirectionAction extends StatelessWidget {
           ? DButtonIconPosition.end
           : DButtonIconPosition.start,
       variant: variant,
-      size: DButtonSize.regular,
+      size: size,
       isLink: true,
       semanticLabel: semanticLabel,
       focusNode: focusNode,
-      padding: EdgeInsetsDirectional.only(
-        start: forward ? 11 : 6,
-        end: forward ? 6 : 11,
-        top: 1,
-        bottom: 1,
-      ),
     );
   }
 }

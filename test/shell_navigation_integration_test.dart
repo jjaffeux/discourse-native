@@ -1419,7 +1419,6 @@ void _registerShellNavigationTests() {
 
       final button = tester.widget<DButton>(add);
       expect(button.variant, DButtonVariant.ghost);
-      expect(button.insetSurface, isTrue);
       expect(button.size, DButtonSize.small);
       expect(button.borderRadius, BorderRadius.circular(10));
       expect(tester.getCenter(add).dx, tester.getCenter(lastForum).dx);

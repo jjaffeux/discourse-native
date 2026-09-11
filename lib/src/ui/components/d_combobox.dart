@@ -6,7 +6,9 @@ import 'package:flutter/services.dart';
 import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
 import '../../theme/discourse_typography.dart';
+import '../foundation/control_style.dart';
 import '../foundation/tokens.dart';
+import 'd_button.dart';
 import 'd_input_group.dart';
 import 'd_popover.dart';
 
@@ -892,6 +894,7 @@ class _DComboboxScope<T> extends InheritedWidget {
 class DComboboxInput<T> extends StatelessWidget {
   const DComboboxInput({
     super.key,
+    this.size = DControlSize.regular,
     this.placeholder,
     this.showTrigger = true,
     this.showClear = false,
@@ -902,6 +905,7 @@ class DComboboxInput<T> extends StatelessWidget {
     this.semanticLabel,
   });
 
+  final DControlSize size;
   final String? placeholder;
   final bool showTrigger;
   final bool showClear;
@@ -918,6 +922,7 @@ class DComboboxInput<T> extends StatelessWidget {
     final hasValue = root.selectedValues.isNotEmpty || root.query.isNotEmpty;
     final action = showClear && hasValue
         ? DInputGroupButton.icon(
+            size: size,
             tooltip: 'Clear selection',
             icon: const DIcon(DIcons.xmark, size: 16),
             onPressed: root.mutable
@@ -928,6 +933,7 @@ class DComboboxInput<T> extends StatelessWidget {
         ? Semantics(
             expanded: root.isOpen,
             child: DInputGroupButton.icon(
+              size: size,
               tooltip: root.isOpen ? 'Close suggestions' : 'Open suggestions',
               icon: const DIcon(DIcons.chevronDown, size: 16),
               hasPopup: true,
@@ -944,6 +950,7 @@ class DComboboxInput<T> extends StatelessWidget {
       skipTraversal: true,
       onKeyEvent: root._handleKey,
       child: DInputGroup(
+        size: size,
         enabled: root.enabled,
         invalid: isInvalid,
         children: [
@@ -952,6 +959,7 @@ class DComboboxInput<T> extends StatelessWidget {
             enabled: root.enabled,
             invalid: isInvalid,
             builder: (context, focusNode) => _ComboboxTextEditor<T>(
+              size: size,
               focusNode: focusNode,
               placeholder: placeholder,
               autofocus: autofocus,
@@ -979,12 +987,14 @@ class DComboboxInput<T> extends StatelessWidget {
 class _ComboboxTextEditor<T> extends StatelessWidget {
   const _ComboboxTextEditor({
     required this.focusNode,
+    required this.size,
     this.placeholder,
     required this.autofocus,
     this.semanticLabel,
     required this.invalid,
   });
 
+  final DControlSize size;
   final FocusNode focusNode;
   final String? placeholder;
   final bool autofocus;
@@ -997,8 +1007,8 @@ class _ComboboxTextEditor<T> extends StatelessWidget {
     final tokens = DTokens.of(context);
     final style = Theme.of(context).textTheme.bodyMedium!.copyWith(
       color: tokens.foreground,
-      fontSize: DiscourseTypography.sm,
-      height: 20 / DiscourseTypography.sm,
+      fontSize: DControlStyle.fontSize(size),
+      height: DControlStyle.lineHeight(size) / DControlStyle.fontSize(size),
       fontWeight: FontWeight.w400,
       letterSpacing: 0,
     );
@@ -1645,6 +1655,28 @@ class DComboboxTriggerState<T> {
 
 class DComboboxTrigger<T> extends StatelessWidget {
   const DComboboxTrigger({super.key, required this.builder});
+  factory DComboboxTrigger.button({
+    Key? key,
+    required Widget label,
+    Widget? icon,
+    String? semanticLabel,
+    DControlSize size = DControlSize.regular,
+    DButtonVariant variant = DButtonVariant.outline,
+  }) => DComboboxTrigger<T>(
+    key: key,
+    builder: (context, state) => DButton(
+      label: label,
+      icon: icon,
+      size: size,
+      variant: variant,
+      semanticLabel: semanticLabel,
+      focusNode: state.focusNode,
+      hasPopup: true,
+      expanded: state.open,
+      onPressed: _DComboboxScope.of<T>(context).enabled ? state.toggle : null,
+    ),
+  );
+
   final DComboboxTriggerBuilder<T> builder;
 
   @override

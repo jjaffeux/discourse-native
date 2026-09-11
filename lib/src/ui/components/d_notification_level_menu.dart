@@ -133,7 +133,6 @@ class DNotificationLevelMenu<T> extends StatelessWidget {
                 size: size,
               )
             : DButton.iconOnly(
-                insetSurface: variant == null && !selected.emphasized,
                 key: buttonKey,
                 icon: selected.icon,
                 tooltip: label,

@@ -307,7 +307,7 @@ void main() {
 
     final actions = tester.getRect(find.byType(DAttachmentActions));
     final content = tester.getRect(find.byKey(const ValueKey('content')));
-    expect(actions.width, 44);
+    expect(actions.width, 48);
     expect(actions.left - content.right, greaterThanOrEqualTo(8));
   });
 

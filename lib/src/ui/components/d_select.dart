@@ -15,7 +15,7 @@ import '../foundation/tokens.dart';
 import 'd_popover.dart';
 import 'd_scroll_area.dart';
 
-enum DSelectSize { small, normal }
+typedef DSelectSize = DControlSize;
 
 enum DSelectChangeReason { itemPress, keyboard, controller, formReset }
 
@@ -150,7 +150,7 @@ class DSelect<T> extends FormField<T> {
     this.triggerBuilder,
     this.icon,
     this.indicator,
-    this.size = DSelectSize.normal,
+    this.size = DSelectSize.regular,
     this.width = 180,
     this.isExpanded = false,
     this.invalid = false,
@@ -206,7 +206,7 @@ class DSelect<T> extends FormField<T> {
     this.triggerBuilder,
     this.icon,
     this.indicator,
-    this.size = DSelectSize.normal,
+    this.size = DSelectSize.regular,
     this.width = 180,
     this.isExpanded = false,
     this.invalid = false,
@@ -388,7 +388,7 @@ class DSelectField<T> extends StatelessWidget {
     this.enabled = true,
     this.readOnly = false,
     this.required = false,
-    this.size = DSelectSize.normal,
+    this.size = DSelectSize.regular,
     this.alignItemWithTrigger = true,
     this.validator,
     this.onSaved,
@@ -454,7 +454,7 @@ class DMultiSelect<T> extends FormField<List<T>> {
     this.triggerBuilder,
     this.icon,
     this.indicator,
-    this.size = DSelectSize.normal,
+    this.size = DSelectSize.regular,
     this.width = 180,
     this.isExpanded = false,
     this.invalid = false,
@@ -511,7 +511,7 @@ class DMultiSelect<T> extends FormField<List<T>> {
     this.triggerBuilder,
     this.icon,
     this.indicator,
-    this.size = DSelectSize.normal,
+    this.size = DSelectSize.regular,
     this.width = 180,
     this.isExpanded = false,
     this.invalid = false,
@@ -1362,13 +1362,12 @@ class _DSelectBodyState<T> extends State<_DSelectBody<T>> {
   Widget _trigger(DPopoverTriggerState trigger, double popupWidth) {
     final tokens = DTokens.of(context);
     final invalid = widget.invalid || widget.errorText != null;
-    final small = widget.size == DSelectSize.small;
-    final controlSize = small ? DControlSize.small : DControlSize.regular;
-    final visualHeight = math.max(
-      DControlStyle.height(controlSize),
-      MediaQuery.textScalerOf(context).scale(DiscourseTypography.sm) *
-              DiscourseTypography.lineHeightSmall +
-          (small ? 6 : 10),
+    final controlSize = widget.size;
+    final fontSize = DControlStyle.fontSize(controlSize);
+    final lineHeight = DControlStyle.lineHeight(controlSize);
+    final visualHeight = DControlStyle.scaledHeight(
+      controlSize,
+      MediaQuery.textScalerOf(context),
     );
     final baseRadius = DControlStyle.radius(tokens, controlSize);
     final joined = DJoinedControlScope.maybeOf(context);
@@ -1428,9 +1427,9 @@ class _DSelectBodyState<T> extends State<_DSelectBody<T>> {
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
                 color: foreground,
-                fontSize: DiscourseTypography.sm,
-                height: DiscourseTypography.lineHeightSmall,
-                fontWeight: FontWeight.w400,
+                fontSize: fontSize,
+                height: lineHeight / fontSize,
+                fontWeight: FontWeight.w500,
                 letterSpacing: 0,
               ),
               child: _value(),
@@ -1440,11 +1439,14 @@ class _DSelectBodyState<T> extends State<_DSelectBody<T>> {
           IconTheme(
             data: IconThemeData(
               color: tokens.foreground,
-              size: DControlStyle.iconSize,
+              size: DControlStyle.iconDimension(controlSize),
             ),
             child:
                 widget.icon ??
-                const DIcon(DIcons.chevronDown, size: DControlStyle.iconSize),
+                DIcon(
+                  DIcons.chevronDown,
+                  size: DControlStyle.iconDimension(controlSize),
+                ),
           ),
         ],
       ),

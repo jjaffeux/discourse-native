@@ -1023,7 +1023,6 @@ class _RailFooterButton extends StatelessWidget {
     tooltip: tooltip,
     semanticLabel: tooltip,
     variant: DButtonVariant.ghost,
-    insetSurface: true,
     expanded: expanded,
     onPressed: onTap,
     icon: icon,
@@ -1602,7 +1601,6 @@ class _AddInstanceButton extends StatelessWidget {
       semanticLabel: label,
       variant: DButtonVariant.ghost,
       size: DButtonSize.small,
-      insetSurface: true,
       borderRadius: BorderRadius.circular(10),
       onPressed: () => showAddInstanceSheet(context),
       icon: CustomPaint(

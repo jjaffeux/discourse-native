@@ -44,7 +44,9 @@ void main() {
     }
   });
 
-  testWidgets('flat icon buttons inset their visual surface', (tester) async {
+  testWidgets('flat icon buttons follow the standard size scale', (
+    tester,
+  ) async {
     for (final (radius, size) in [
       (0.0, DButtonSize.small),
       (13.0, DButtonSize.regular),
@@ -85,10 +87,7 @@ void main() {
 
       expect(tester.getSize(rendered), Size.square(targetDimension));
       expect(surface, findsOneWidget);
-      expect(
-        tester.getSize(surface),
-        Size.square(targetDimension - DButton.flatSurfacePadding * 2),
-      );
+      expect(tester.getSize(surface), Size.square(targetDimension));
       expect(shape, isA<RoundedRectangleBorder>());
       expect(
         (shape! as RoundedRectangleBorder).borderRadius,
@@ -107,7 +106,9 @@ void main() {
     }
   });
 
-  testWidgets('flat icon button padding remains interactive', (tester) async {
+  testWidgets('touch target outside the compact surface remains interactive', (
+    tester,
+  ) async {
     var presses = 0;
     await tester.pumpWidget(
       MaterialApp(

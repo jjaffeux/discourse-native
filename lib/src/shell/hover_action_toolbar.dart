@@ -37,8 +37,8 @@ class HoverActionButton extends StatelessWidget {
     this.color,
   });
 
-  static const double width = DButton.minimumDimension;
-  static const double height = DButton.minimumDimension;
+  static const double width = DControlStyle.regularHeight;
+  static const double height = DControlStyle.regularHeight;
   static const Size size = Size(width, height);
 
   final String tooltip;
@@ -52,7 +52,6 @@ class HoverActionButton extends StatelessWidget {
     final theme = Theme.of(context);
 
     return DButton.iconOnly(
-      insetSurface: true,
       focusNode: focusNode,
       onPressed: onPressed,
       tooltip: tooltip,

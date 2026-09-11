@@ -8,8 +8,8 @@ final selectExamples = ComponentExamples(
   status: ComponentStatus.implemented,
   notes:
       'Source mapping: Base Nova SelectTrigger maps to a compact button-like '
-      'DSelect trigger with 32px default height, 28px small height, 14px text, '
-      '16px chevron, input border, transparent/light background, dark input '
+      'DSelect trigger with the shared 24/28/32/36px button scale and matching '
+      'text and icon metrics, input border, transparent/light background, dark input '
       'tint, exterior focus/invalid ring, disabled 50% opacity and selectable '
       'text disabled. SelectContent uses DPopover for live-theme overlay '
       'lifecycle, 4px side offset, collision handling, 144px minimum popup '
@@ -22,6 +22,28 @@ final selectExamples = ComponentExamples(
       'ordinary edge placement. Legacy DropdownMenuItem callers route through '
       'the same rendering owner.',
   examples: [
+    StyleguideExample(
+      title: 'Size',
+      description:
+          'The same extraSmall, small, regular and large scale as Button.',
+      code:
+          'DSelect<String>(size: DControlSize.extraSmall, entries: entries, onChanged: select)',
+      builder: (_) => Wrap(
+        spacing: 16,
+        runSpacing: 16,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          for (final size in DControlSize.values)
+            DSelect<String>(
+              size: size,
+              width: 128,
+              value: 'apple',
+              entries: _fruitEntries,
+              onChanged: (_) {},
+            ),
+        ],
+      ),
+    ),
     StyleguideExample(
       title: 'Default',
       description:

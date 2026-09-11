@@ -631,7 +631,6 @@ class _UsersPageState extends State<UsersPage> {
                                         ];
                                       }),
                                 size: DButtonSize.small,
-                                insetSurface: true,
                                 variant: DButtonVariant.ghost,
                                 icon: const DIcon(DIcons.arrowUp, size: 13),
                               ),
@@ -657,7 +656,6 @@ class _UsersPageState extends State<UsersPage> {
                                         ];
                                       }),
                                 size: DButtonSize.small,
-                                insetSurface: true,
                                 variant: DButtonVariant.ghost,
                                 icon: Transform.rotate(
                                   angle: math.pi,
@@ -1127,7 +1125,7 @@ class _ToolbarButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return ConstrainedBox(
-      constraints: const BoxConstraints(maxWidth: 190, minHeight: 40),
+      constraints: const BoxConstraints(maxWidth: 190),
       child: DButton(
         onPressed: onPressed,
         size: DButtonSize.small,

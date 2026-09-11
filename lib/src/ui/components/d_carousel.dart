@@ -683,10 +683,12 @@ class DCarouselNavigation extends StatefulWidget {
     super.key,
     required this.direction,
     this.semanticLabel,
+    this.size = DButtonSize.small,
   });
 
   final DCarouselNavigationDirection direction;
   final String? semanticLabel;
+  final DButtonSize size;
 
   @override
   State<DCarouselNavigation> createState() => _DCarouselNavigationState();
@@ -747,7 +749,7 @@ class _DCarouselNavigationState extends State<DCarouselNavigation> {
           tooltip: label,
           semanticLabel: label,
           variant: DButtonVariant.outline,
-          size: DButtonSize.small,
+          size: widget.size,
           borderRadius: BorderRadius.circular(DTokens.of(context).radius * 2.6),
           onPressed: enabled
               ? () {
@@ -766,11 +768,11 @@ class _DCarouselNavigationState extends State<DCarouselNavigation> {
 }
 
 class DCarouselPrevious extends DCarouselNavigation {
-  const DCarouselPrevious({super.key, super.semanticLabel})
+  const DCarouselPrevious({super.key, super.semanticLabel, super.size})
     : super(direction: DCarouselNavigationDirection.previous);
 }
 
 class DCarouselNext extends DCarouselNavigation {
-  const DCarouselNext({super.key, super.semanticLabel})
+  const DCarouselNext({super.key, super.semanticLabel, super.size})
     : super(direction: DCarouselNavigationDirection.next);
 }

@@ -2,14 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
 
-import '../../theme/discourse_typography.dart';
+import '../foundation/control_style.dart';
 import '../foundation/tokens.dart';
 
 /// The two base-nova Toggle surface treatments.
 enum DToggleVariant { standard, outline }
 
-/// The three base-nova Toggle sizes.
-enum DToggleSize { small, regular, large }
+/// The shared button height scale.
+typedef DToggleSize = DControlSize;
 
 /// Icon placement follows the ambient reading direction.
 enum DToggleIconPosition { start, end }
@@ -37,19 +37,14 @@ class DToggleBorderEdges {
 
 /// Narrow visual overrides for documented Toggle compositions.
 ///
-/// Interaction, semantics and state remain owned by [DToggle]. Constraints can
-/// reproduce larger custom tiles without changing the compact standard sizes.
+/// Interaction, semantics and size remain owned by [DToggle].
 @immutable
 class DToggleVisualStyle {
   const DToggleVisualStyle({
-    this.constraints,
-    this.padding,
     this.borderRadius,
     this.borderEdges = DToggleBorderEdges.all,
   });
 
-  final BoxConstraints? constraints;
-  final EdgeInsetsGeometry? padding;
   final BorderRadiusGeometry? borderRadius;
   final DToggleBorderEdges borderEdges;
 }
@@ -132,18 +127,11 @@ class DToggle extends StatefulWidget {
   final DToggleVisualStyle? visualStyle;
   final bool _iconOnly;
 
-  static double visualDimensionFor(DToggleSize size) => switch (size) {
-    DToggleSize.small => 28,
-    DToggleSize.regular => 32,
-    DToggleSize.large => 36,
-  };
-
+  static double visualDimensionFor(DToggleSize size) =>
+      DControlStyle.height(size);
   static double iconDimensionFor(DToggleSize size) =>
-      size == DToggleSize.small ? 14 : 16;
-
-  static double fontSizeFor(DToggleSize size) => size == DToggleSize.small
-      ? DiscourseTypography.base * .8
-      : DiscourseTypography.sm;
+      DControlStyle.iconDimension(size);
+  static double fontSizeFor(DToggleSize size) => DControlStyle.fontSize(size);
 
   static EdgeInsetsGeometry _paddingFor(
     DToggleSize size, {
@@ -210,7 +198,10 @@ class _DToggleState extends State<DToggle> {
     final theme = Theme.of(context);
     final tokens = DTokens.of(context);
     final dark = theme.brightness == Brightness.dark;
-    final visualDimension = DToggle.visualDimensionFor(widget.size);
+    final visualDimension = DControlStyle.scaledHeight(
+      widget.size,
+      MediaQuery.textScalerOf(context),
+    );
     final iconDimension = DToggle.iconDimensionFor(widget.size);
     final fontSize = DToggle.fontSizeFor(widget.size);
     final touch = switch (theme.platform) {
@@ -272,7 +263,7 @@ class _DToggleState extends State<DToggle> {
             style: theme.textTheme.labelLarge?.copyWith(
               color: tokens.foreground,
               fontSize: fontSize,
-              height: 20 / fontSize,
+              height: DControlStyle.lineHeight(widget.size) / fontSize,
               fontWeight: FontWeight.w500,
               letterSpacing: 0,
             ),
@@ -312,19 +303,17 @@ class _DToggleState extends State<DToggle> {
     final artwork = AnimatedContainer(
       duration: duration,
       curve: const Cubic(.4, 0, .2, 1),
-      constraints:
-          widget.visualStyle?.constraints ??
-          BoxConstraints(minWidth: visualDimension, minHeight: visualDimension),
-      padding:
-          widget.visualStyle?.padding ??
-          (widget._iconOnly
-              ? EdgeInsets.zero
-              : DToggle._paddingFor(
-                  widget.size,
-                  hasIcon: effectiveIcon != null,
-                  iconPosition: widget.iconPosition,
-                )),
-      alignment: Alignment.center,
+      constraints: BoxConstraints(
+        minWidth: visualDimension,
+        minHeight: visualDimension,
+      ),
+      padding: (widget._iconOnly
+          ? EdgeInsets.zero
+          : DToggle._paddingFor(
+              widget.size,
+              hasIcon: effectiveIcon != null,
+              iconPosition: widget.iconPosition,
+            )),
       decoration: BoxDecoration(
         color: activeSurface ? tokens.muted : Colors.transparent,
         borderRadius: radius,
@@ -338,22 +327,16 @@ class _DToggleState extends State<DToggle> {
           strokeAlign: BorderSide.strokeAlignOutside,
         ),
       ),
-      child: content,
+      child: Center(widthFactor: 1, heightFactor: 1, child: content),
     );
 
-    final styleConstraints = widget.visualStyle?.constraints;
-    final targetConstraints =
-        styleConstraints != null &&
-            styleConstraints.hasTightWidth &&
-            styleConstraints.hasTightHeight
-        ? styleConstraints
-        : BoxConstraints(
-            minWidth: touch ? DSpacing.touchTarget : visualDimension,
-            minHeight: touch ? DSpacing.touchTarget : visualDimension,
-          );
+    final targetConstraints = BoxConstraints(
+      minWidth: touch ? DSpacing.touchTarget : visualDimension,
+      minHeight: touch ? DSpacing.touchTarget : visualDimension,
+    );
     final target = ConstrainedBox(
       constraints: targetConstraints,
-      child: Center(child: artwork),
+      child: Center(widthFactor: 1, heightFactor: 1, child: artwork),
     );
 
     return MergeSemantics(

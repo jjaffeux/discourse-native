@@ -92,7 +92,18 @@ void main() {
         of: find.byType(DPaginationLink).first,
         matching: find.byWidgetPredicate((widget) => widget is FilledButton),
       );
-      expect(tester.getSize(firstPageSurface), const Size.square(32));
+      expect(tester.getSize(firstPageSurface), const Size.square(48));
+      expect(
+        tester
+            .getSize(
+              find.descendant(
+                of: firstPageSurface,
+                matching: find.byType(Material),
+              ),
+            )
+            .height,
+        32,
+      );
 
       await tester.tap(find.bySemanticsLabel('Go to last page'));
       await tester.pump();
@@ -246,7 +257,7 @@ void main() {
       ),
     );
 
-    expect(tester.getSize(find.byType(DPagination)), const Size(240, 32));
+    expect(tester.getSize(find.byType(DPagination)), const Size(240, 42));
     expect(tester.takeException(), isNull);
   });
 

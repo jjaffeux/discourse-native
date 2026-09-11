@@ -14,6 +14,7 @@ void main() {
     expect(componentExamples['select'], same(selectExamples));
     expect(selectExamples.status, ComponentStatus.implemented);
     expect(selectExamples.examples.map((example) => example.title), [
+      'Size',
       'Default',
       'Align Item With Trigger',
       'Groups',
@@ -966,7 +967,7 @@ void main() {
 
     expect(
       tester.getSize(find.byKey(const Key('d-select-trigger-visual'))).height,
-      greaterThanOrEqualTo(50),
+      greaterThanOrEqualTo(42),
     );
     await tester.tap(find.text('Apple'));
     await tester.pumpAndSettle();

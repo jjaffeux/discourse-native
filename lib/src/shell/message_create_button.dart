@@ -1,14 +1,11 @@
 import 'dart:async';
-import 'dart:math' as math;
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
-import '../theme/discourse_typography.dart';
 import 'shell_scope.dart';
-import 'title_bar.dart';
 
 class MessageCreateButton extends StatelessWidget {
   const MessageCreateButton({super.key, required this.showLabel});
@@ -64,19 +61,9 @@ class MessageCreateButton extends StatelessWidget {
               tooltip: 'New message',
               variant: DButtonVariant.primary,
               size: DButtonSize.small,
-              insetSurface: ShellTitleBar.isSupported,
               onPressed: () => unawaited(_compose(context)),
             );
-      if (!showLabel || !ShellTitleBar.isSupported) return button;
-      return SizedBox(
-        height: math.max(
-          36,
-          MediaQuery.textScalerOf(context).scale(DiscourseTypography.sm) *
-                  DiscourseTypography.lineHeightSmall +
-              18,
-        ),
-        child: button,
-      );
+      return button;
     },
   );
 }

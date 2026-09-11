@@ -9,7 +9,6 @@ import '../models/discourse_instance.dart';
 import '../models/user_draft.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
-import '../theme/discourse_typography.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';
 import 'topic_title.dart';
@@ -70,16 +69,6 @@ class _TopicCreateControl extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final labelHeight =
-        MediaQuery.textScalerOf(context).scale(DiscourseTypography.sm) *
-        DiscourseTypography.lineHeightSmall;
-    final insetIcons = compact && !showLabel && draftsInstance == null;
-    final dimension = compact && showLabel
-        ? math.max(28.0, labelHeight + 10)
-        : compact
-        ? DButton.iconOnlyDimensionFor(DButtonSize.small) -
-              DButton.flatSurfacePadding * 2
-        : DButton.iconOnlyDimensionFor(DButtonSize.small);
     final mainButton = showLabel
         ? DButton(
             key: TopicCreateButton.buttonKey,
@@ -96,9 +85,6 @@ class _TopicCreateControl extends StatelessWidget {
             onPressed: onPressed,
             variant: DButtonVariant.primary,
             size: DButtonSize.small,
-            padding: compact
-                ? const EdgeInsets.symmetric(horizontal: 8, vertical: 5)
-                : null,
           )
         : DButton.iconOnly(
             key: TopicCreateButton.buttonKey,
@@ -109,24 +95,15 @@ class _TopicCreateControl extends StatelessWidget {
             onPressed: onPressed,
             variant: DButtonVariant.primary,
             size: DButtonSize.small,
-            insetSurface: insetIcons,
           );
-    final sizedMainButton = insetIcons
-        ? mainButton
-        : SizedBox(
-            height: dimension,
-            width: showLabel ? null : dimension,
-            child: mainButton,
-          );
-
     final instance = draftsInstance;
-    if (instance == null) return sizedMainButton;
+    if (instance == null) return mainButton;
 
     return DButtonGroup(
       semanticLabel: 'Topic creation actions',
       children: [
-        sizedMainButton,
-        if (!insetIcons) const DButtonGroupSeparator(),
+        mainButton,
+        const DButtonGroupSeparator(),
         DDropdownMenu(
           key: ValueKey((instance.url, instance.user?.id)),
           onOpenChange: (open, _) {
@@ -151,15 +128,8 @@ class _TopicCreateControl extends StatelessWidget {
                 expanded: state.open,
                 variant: DButtonVariant.primary,
                 size: DButtonSize.small,
-                insetSurface: insetIcons,
               );
-              return insetIcons
-                  ? button
-                  : SizedBox(
-                      height: dimension,
-                      width: compact && showLabel ? 28 : dimension,
-                      child: button,
-                    );
+              return button;
             },
           ),
         ),

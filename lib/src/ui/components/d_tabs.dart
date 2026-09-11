@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../theme/discourse_typography.dart';
+import '../foundation/control_style.dart';
 import '../foundation/tokens.dart';
 
 /// The visual treatment of a [DTabList].
@@ -420,6 +421,7 @@ class DTabList<T> extends StatelessWidget {
   const DTabList({
     super.key,
     required this.children,
+    this.size = DControlSize.regular,
     this.variant = DTabListVariant.defaultStyle,
     this.activateOnFocus = false,
     this.loopFocus = true,
@@ -428,6 +430,7 @@ class DTabList<T> extends StatelessWidget {
 
   final List<Widget> children;
   final DTabListVariant variant;
+  final DControlSize size;
   final bool activateOnFocus;
   final bool loopFocus;
 
@@ -452,6 +455,7 @@ class DTabList<T> extends StatelessWidget {
     );
     final scope = _DTabListScope<T>(
       variant: variant,
+      size: size,
       activateOnFocus: activateOnFocus,
       loopFocus: loopFocus,
       child: Flex(
@@ -479,7 +483,15 @@ class DTabList<T> extends StatelessWidget {
         alignment: Alignment.center,
         children: [
           Positioned.fill(
-            child: Center(child: Container(height: 32, decoration: decoration)),
+            child: Center(
+              child: Container(
+                height: DControlStyle.scaledHeight(
+                  size,
+                  MediaQuery.textScalerOf(context),
+                ),
+                decoration: decoration,
+              ),
+            ),
           ),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 3),
@@ -490,9 +502,14 @@ class DTabList<T> extends StatelessWidget {
     } else {
       visual = Container(
         constraints: BoxConstraints(
-          minHeight: root.orientation == Axis.horizontal ? 32 : 0,
+          minHeight: root.orientation == Axis.horizontal
+              ? DControlStyle.scaledHeight(
+                  size,
+                  MediaQuery.textScalerOf(context),
+                )
+              : 0,
         ),
-        padding: const EdgeInsets.all(3),
+        padding: const EdgeInsets.symmetric(horizontal: 3),
         decoration: decoration,
         child: scope,
       );
@@ -500,7 +517,12 @@ class DTabList<T> extends StatelessWidget {
     if (root.orientation == Axis.horizontal) {
       visual = Container(
         constraints: BoxConstraints(
-          minHeight: touch ? DSpacing.touchTarget : 32,
+          minHeight: touch
+              ? DSpacing.touchTarget
+              : DControlStyle.scaledHeight(
+                  size,
+                  MediaQuery.textScalerOf(context),
+                ),
         ),
         alignment: Alignment.center,
         child: visual,
@@ -524,12 +546,14 @@ class DTabList<T> extends StatelessWidget {
 class _DTabListScope<T> extends InheritedWidget {
   const _DTabListScope({
     required this.variant,
+    required this.size,
     required this.activateOnFocus,
     required this.loopFocus,
     required super.child,
   });
 
   final DTabListVariant variant;
+  final DControlSize size;
   final bool activateOnFocus;
   final bool loopFocus;
 
@@ -543,6 +567,7 @@ class _DTabListScope<T> extends InheritedWidget {
   @override
   bool updateShouldNotify(_DTabListScope<T> oldWidget) =>
       variant != oldWidget.variant ||
+      size != oldWidget.size ||
       activateOnFocus != oldWidget.activateOnFocus ||
       loopFocus != oldWidget.loopFocus;
 }
@@ -558,12 +583,14 @@ class DTabTrigger<T> extends StatefulWidget {
     super.key,
     required this.value,
     required this.child,
+    this.size,
     this.enabled = true,
     this.focusNode,
     this.autofocus = false,
     this.semanticLabel,
   });
 
+  final DControlSize? size;
   final T value;
   final Widget child;
   final bool enabled;
@@ -648,6 +675,7 @@ class _DTabTriggerState<T> extends State<DTabTrigger<T>> {
   Widget build(BuildContext context) {
     final root = _DTabScope.require<T>(context);
     final list = _DTabListScope.require<T>(context);
+    final size = widget.size ?? list.size;
     final tokens = DTokens.of(context);
     final touch = switch (Theme.of(context).platform) {
       TargetPlatform.iOS || TargetPlatform.android => true,
@@ -675,8 +703,13 @@ class _DTabTriggerState<T> extends State<DTabTrigger<T>> {
     final surface = AnimatedContainer(
       duration: DMotion.duration(context, DMotion.change),
       curve: Curves.easeOut,
-      constraints: const BoxConstraints(minHeight: 25),
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+      constraints: BoxConstraints(
+        minHeight: DControlStyle.scaledHeight(
+          size,
+          MediaQuery.textScalerOf(context),
+        ),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
       decoration: BoxDecoration(
         color: selected && !line ? selectedBackground : Colors.transparent,
         borderRadius: BorderRadius.circular(radius),
@@ -700,8 +733,8 @@ class _DTabTriggerState<T> extends State<DTabTrigger<T>> {
         overflow: TextOverflow.ellipsis,
         style: TextStyle(
           color: foreground,
-          fontSize: DiscourseTypography.sm,
-          height: 20 / 14,
+          fontSize: DControlStyle.fontSize(size),
+          height: DControlStyle.lineHeight(size) / DControlStyle.fontSize(size),
           fontWeight: FontWeight.w500,
           letterSpacing: 0,
         ),

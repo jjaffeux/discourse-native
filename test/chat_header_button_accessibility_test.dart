@@ -29,17 +29,12 @@ void main() {
       expect(button, findsOneWidget);
       expect(find.byTooltip('Chat, unread messages'), findsOneWidget);
       expect(tester.widget<DButton>(button).variant, DButtonVariant.ghost);
-      expect(
-        tester.getSize(button),
-        const Size.square(DButton.minimumDimension),
-      );
+      expect(tester.getSize(button), const Size.square(48));
       expect(
         tester.getSize(
           find.descendant(of: button, matching: find.byType(Material)),
         ),
-        const Size.square(
-          DButton.minimumDimension - DButton.flatSurfacePadding * 2,
-        ),
+        const Size.square(32),
       );
       expect(
         tester.getSemantics(button),

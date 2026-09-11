@@ -150,7 +150,6 @@ class TopicShareButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return DButton.iconOnly(
-      insetSurface: true,
       key: const ValueKey('topic-share-button'),
       onPressed: () => _share(context),
       icon: const DIcon(DIcons.link, size: 18),
@@ -399,7 +398,6 @@ class TopicStatusButton extends StatelessWidget {
         enabled: !busy,
         onSelected: (select) => select(),
         builder: (context, openMenu) => DButton.iconOnly(
-          insetSurface: true,
           key: const ValueKey('topic-status-button'),
           tooltip: 'More topic actions',
           onPressed: openMenu == null

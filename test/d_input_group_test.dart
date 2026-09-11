@@ -469,7 +469,7 @@ void main() {
           .ancestor(of: find.byKey(controlKey), matching: find.byType(Padding))
           .first,
     );
-    expect(padding.padding, const EdgeInsets.fromLTRB(6, 5, 6, 5));
+    expect(padding.padding, const EdgeInsets.fromLTRB(6, 1, 6, 1));
   });
 
   testWidgets('block addons keep base padding at their inner edge', (
@@ -561,11 +561,11 @@ void main() {
             .borderRadius;
     expect(
       addonPadding(const ValueKey('direct')),
-      const EdgeInsetsDirectional.only(end: 5.6, top: 6, bottom: 6),
+      const EdgeInsetsDirectional.only(end: 5.6, top: 0, bottom: 0),
     );
     expect(
       addonPadding(const ValueKey('grouped')),
-      const EdgeInsetsDirectional.only(start: 5.6, top: 6, bottom: 6),
+      const EdgeInsetsDirectional.only(start: 5.6, top: 0, bottom: 0),
     );
     final command = find.widgetWithText(DKbd, '⌘');
     final directK = find.descendant(

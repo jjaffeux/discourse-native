@@ -419,39 +419,11 @@ class _RecoveryLink extends StatelessWidget {
   final VoidCallback onPressed;
 
   @override
-  Widget build(BuildContext context) => LayoutBuilder(
-    builder: (context, constraints) {
-      final style = DefaultTextStyle.of(context).style.copyWith(
-        fontSize: DiscourseTypography.sm,
-        height: 20 / 14,
-        fontWeight: FontWeight.w400,
-        color: DTokens.of(context).foreground,
-      );
-      final painter = TextPainter(
-        text: TextSpan(text: label, style: style),
-        textDirection: Directionality.of(context),
-        textScaler: MediaQuery.textScalerOf(context),
-      )..layout(maxWidth: constraints.maxWidth);
-      final size = painter.size;
-      painter.dispose();
-      return SizedBox.fromSize(
-        size: size,
-        child: DButton(
-          onPressed: onPressed,
-          isLink: true,
-          variant: DButtonVariant.link,
-          padding: EdgeInsets.zero,
-          label: Builder(
-            builder: (context) => DefaultTextStyle(
-              style: style.copyWith(
-                decoration: DefaultTextStyle.of(context).style.decoration,
-              ),
-              child: Text(label),
-            ),
-          ),
-        ),
-      );
-    },
+  Widget build(BuildContext context) => DButton(
+    onPressed: onPressed,
+    isLink: true,
+    variant: DButtonVariant.link,
+    label: Text(label),
   );
 }
 

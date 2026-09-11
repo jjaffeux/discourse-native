@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../../theme/discourse_typography.dart';
+import '../foundation/control_style.dart';
 import '../foundation/tokens.dart';
 import 'd_popover.dart';
 
@@ -728,7 +728,12 @@ class DNavigationMenuItem<T> extends StatelessWidget {
 }
 
 class DNavigationMenuTrigger extends StatelessWidget {
-  const DNavigationMenuTrigger({super.key, required this.child});
+  const DNavigationMenuTrigger({
+    super.key,
+    required this.child,
+    this.size = DControlSize.regular,
+  });
+  final DControlSize size;
   final Widget child;
 
   Widget _build<T>(
@@ -738,6 +743,7 @@ class DNavigationMenuTrigger extends StatelessWidget {
   ) {
     final open = root.value == item.value;
     Widget action = _NavigationAction(
+      size: size,
       focusNode: root._focusFor(item.value),
       disabled: item.disabled,
       active: open,
@@ -864,6 +870,7 @@ class DNavigationMenuLink extends StatefulWidget {
     this.focusNode,
     this.semanticLabel,
     this.triggerStyle = false,
+    this.size = DControlSize.regular,
   });
 
   final Widget child;
@@ -874,6 +881,7 @@ class DNavigationMenuLink extends StatefulWidget {
   final FocusNode? focusNode;
   final String? semanticLabel;
   final bool triggerStyle;
+  final DControlSize size;
 
   DNavigationMenuLink _with({FocusNode? focusNode, bool disabled = false}) =>
       DNavigationMenuLink(
@@ -885,6 +893,7 @@ class DNavigationMenuLink extends StatefulWidget {
         focusNode: focusNode ?? this.focusNode,
         semanticLabel: semanticLabel,
         triggerStyle: triggerStyle,
+        size: size,
         child: child,
       );
 
@@ -919,6 +928,7 @@ class _DNavigationMenuLinkState extends State<DNavigationMenuLink> {
     label: widget.semanticLabel,
     onTap: _enabled ? _activate : null,
     child: _NavigationAction(
+      size: widget.size,
       focusNode: _focus,
       disabled: !_enabled,
       active: widget.active,
@@ -952,6 +962,7 @@ class _NavigationAction extends StatefulWidget {
     this.active = false,
     this.hasPopup = false,
     this.triggerStyle = true,
+    this.size = DControlSize.regular,
     this.forceHovered = false,
     this.forceFocused = false,
   });
@@ -967,6 +978,7 @@ class _NavigationAction extends StatefulWidget {
   final bool active;
   final bool hasPopup;
   final bool triggerStyle;
+  final DControlSize size;
   final bool forceHovered;
   final bool forceFocused;
 
@@ -991,7 +1003,12 @@ class _NavigationActionState extends State<_NavigationAction> {
         widget.forceFocused;
     final radius = tokens.radius * (widget.triggerStyle ? 1 : .8);
     final touch = Theme.of(context).platform == TargetPlatform.iOS;
-    final visualHeight = widget.triggerStyle ? 36.0 : null;
+    final visualHeight = widget.triggerStyle
+        ? DControlStyle.scaledHeight(
+            widget.size,
+            MediaQuery.textScalerOf(context),
+          )
+        : null;
     final action = Focus(
       canRequestFocus: false,
       onKeyEvent: (_, KeyEvent event) {
@@ -1030,61 +1047,71 @@ class _NavigationActionState extends State<_NavigationAction> {
               : null,
           onTapUp: interactive ? (_) => setState(() => _pressed = false) : null,
           onTap: interactive ? widget.onPressed : null,
-          child: CustomPaint(
-            foregroundPainter: _focused
-                ? _NavigationFocusRingPainter(
-                    color: tokens.focusRing.withValues(
-                      alpha: tokens.focusRing.a * .5,
-                    ),
-                    radius: radius,
-                  )
-                : null,
-            child: AnimatedContainer(
-              duration: DMotion.duration(
-                context,
-                const Duration(milliseconds: 150),
-              ),
-              constraints: BoxConstraints(
-                minHeight: touch ? 48 : (visualHeight ?? 0),
-              ),
-              padding: widget.triggerStyle
-                  ? const EdgeInsetsDirectional.symmetric(
-                      horizontal: 10,
-                      vertical: 6,
-                    )
-                  : const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: highlighted
-                    ? tokens.muted.withValues(
-                        alpha: widget.active
-                            ? tokens.muted.a * .5
-                            : tokens.muted.a,
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              minHeight: touch ? DSpacing.touchTarget : 0,
+              minWidth: touch ? DSpacing.touchTarget : 0,
+            ),
+            child: Center(
+              widthFactor: 1,
+              heightFactor: 1,
+              child: CustomPaint(
+                foregroundPainter: _focused
+                    ? _NavigationFocusRingPainter(
+                        color: tokens.focusRing.withValues(
+                          alpha: tokens.focusRing.a * .5,
+                        ),
+                        radius: radius,
                       )
-                    : Colors.transparent,
-                borderRadius: BorderRadius.circular(radius),
-              ),
-              child: DefaultTextStyle.merge(
-                style: TextStyle(
-                  color: tokens.foreground.withValues(
-                    alpha: widget.disabled ? .5 : 1,
+                    : null,
+                child: AnimatedContainer(
+                  duration: DMotion.duration(
+                    context,
+                    const Duration(milliseconds: 150),
                   ),
-                  fontSize: DiscourseTypography.sm,
-                  height: DiscourseTypography.lineHeightSmall,
-                  fontWeight: widget.triggerStyle
-                      ? FontWeight.w500
-                      : FontWeight.w400,
-                  letterSpacing: 0,
-                ),
-                child: IconTheme.merge(
-                  data: IconThemeData(
-                    size: 16,
-                    color: tokens.foreground.withValues(
-                      alpha: widget.disabled ? .5 : 1,
+                  constraints: BoxConstraints(minHeight: visualHeight ?? 0),
+                  padding: widget.triggerStyle
+                      ? const EdgeInsetsDirectional.symmetric(
+                          horizontal: 10,
+                          vertical: 1,
+                        )
+                      : const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: highlighted
+                        ? tokens.muted.withValues(
+                            alpha: widget.active
+                                ? tokens.muted.a * .5
+                                : tokens.muted.a,
+                          )
+                        : Colors.transparent,
+                    borderRadius: BorderRadius.circular(radius),
+                  ),
+                  child: DefaultTextStyle.merge(
+                    style: TextStyle(
+                      color: tokens.foreground.withValues(
+                        alpha: widget.disabled ? .5 : 1,
+                      ),
+                      fontSize: DControlStyle.fontSize(widget.size),
+                      height:
+                          DControlStyle.lineHeight(widget.size) /
+                          DControlStyle.fontSize(widget.size),
+                      fontWeight: widget.triggerStyle
+                          ? FontWeight.w500
+                          : FontWeight.w400,
+                      letterSpacing: 0,
                     ),
-                  ),
-                  child: Opacity(
-                    opacity: _pressed ? .85 : 1,
-                    child: widget.child,
+                    child: IconTheme.merge(
+                      data: IconThemeData(
+                        size: 16,
+                        color: tokens.foreground.withValues(
+                          alpha: widget.disabled ? .5 : 1,
+                        ),
+                      ),
+                      child: Opacity(
+                        opacity: _pressed ? .85 : 1,
+                        child: widget.child,
+                      ),
+                    ),
                   ),
                 ),
               ),

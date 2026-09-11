@@ -971,7 +971,6 @@ class _SidebarDemoState extends State<_SidebarDemo> {
                                     )
                                   : null,
                               child: DSidebarMenuButton(
-                                height: widget.documentation ? 30 : null,
                                 icon: widget.documentation
                                     ? null
                                     : Icon(

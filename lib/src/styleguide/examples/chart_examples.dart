@@ -377,10 +377,6 @@ class _ChartInteractiveExampleState extends State<ChartInteractiveExample> {
                     variant: DButtonVariant.ghost,
                     alignment: AlignmentDirectional.centerStart,
                     borderRadius: BorderRadius.zero,
-                    padding: EdgeInsets.symmetric(
-                      horizontal: wide ? 32 : 24,
-                      vertical: wide ? 24 : 16,
-                    ),
                     onPressed: () => setState(() => _active = key),
                     label: Column(
                       mainAxisSize: MainAxisSize.min,

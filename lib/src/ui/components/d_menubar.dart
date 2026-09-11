@@ -1,8 +1,8 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../theme/discourse_typography.dart';
+import '../foundation/control_style.dart';
 import '../foundation/tokens.dart';
 import 'd_dropdown_menu.dart';
 import 'd_popover.dart';
@@ -389,7 +389,14 @@ class _MenubarMenuScope extends InheritedWidget {
 /// The compact top-level trigger. Its focus node participates in root roving
 /// focus while the Dropdown Menu remains the popup lifecycle owner.
 class DMenubarTrigger extends StatefulWidget {
-  const DMenubarTrigger({super.key, required this.child, this.semanticLabel});
+  const DMenubarTrigger({
+    super.key,
+    required this.child,
+    this.semanticLabel,
+    this.size = DControlSize.regular,
+  });
+
+  final DControlSize size;
 
   final Widget child;
   final String? semanticLabel;
@@ -399,6 +406,10 @@ class DMenubarTrigger extends StatefulWidget {
 }
 
 class _DMenubarTriggerState extends State<DMenubarTrigger> {
+  bool _isTouch(BuildContext context) => switch (Theme.of(context).platform) {
+    TargetPlatform.iOS || TargetPlatform.android => true,
+    _ => false,
+  };
   bool _hovered = false;
   bool _pressed = false;
   bool _focused = false;
@@ -465,11 +476,16 @@ class _DMenubarTriggerState extends State<DMenubarTrigger> {
       builder: (context, trigger) {
         final active =
             enabled && (_hovered || _pressed || _focused || trigger.open);
-        final mobile = defaultTargetPlatform == TargetPlatform.iOS;
+        final height = DControlStyle.scaledHeight(
+          widget.size,
+          MediaQuery.textScalerOf(context),
+        );
         final style = Theme.of(context).textTheme.bodyMedium!.copyWith(
           color: tokens.foreground,
-          fontSize: DiscourseTypography.sm,
-          height: DiscourseTypography.lineHeightSmall,
+          fontSize: DControlStyle.fontSize(widget.size),
+          height:
+              DControlStyle.lineHeight(widget.size) /
+              DControlStyle.fontSize(widget.size),
           fontWeight: FontWeight.w500,
           letterSpacing: 0,
           decoration: TextDecoration.none,
@@ -520,23 +536,38 @@ class _DMenubarTriggerState extends State<DMenubarTrigger> {
                           trigger.toggle();
                         }
                       : null,
-                  child: AnimatedContainer(
-                    duration: DMotion.duration(context, DMotion.exit),
+                  child: ConstrainedBox(
                     constraints: BoxConstraints(
-                      minWidth: mobile ? DSpacing.touchTarget : 0,
-                      minHeight: mobile ? DSpacing.touchTarget : 24,
+                      minWidth: _isTouch(context) ? DSpacing.touchTarget : 0,
+                      minHeight: _isTouch(context) ? DSpacing.touchTarget : 0,
                     ),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 6,
-                      vertical: 2,
+                    child: Center(
+                      widthFactor: 1,
+                      heightFactor: 1,
+                      child: AnimatedContainer(
+                        duration: DMotion.duration(context, DMotion.exit),
+                        constraints: BoxConstraints(
+                          minWidth: 0,
+                          minHeight: height,
+                        ),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 1,
+                        ),
+                        decoration: BoxDecoration(
+                          color: active
+                              ? Theme.of(context).hoverColor
+                              : Colors.transparent,
+                          borderRadius: BorderRadius.circular(
+                            tokens.radius * 0.6,
+                          ),
+                        ),
+                        child: DefaultTextStyle(
+                          style: style,
+                          child: widget.child,
+                        ),
+                      ),
                     ),
-                    decoration: BoxDecoration(
-                      color: active
-                          ? Theme.of(context).hoverColor
-                          : Colors.transparent,
-                      borderRadius: BorderRadius.circular(tokens.radius * 0.6),
-                    ),
-                    child: DefaultTextStyle(style: style, child: widget.child),
                   ),
                 ),
               ),

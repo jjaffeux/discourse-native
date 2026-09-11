@@ -485,7 +485,6 @@ class _GroupActionsState extends State<_GroupActions> {
           semanticLabel: 'Open ${member.$1}',
           tooltip: 'Open ${member.$1}',
           variant: DButtonVariant.ghost,
-          padding: EdgeInsets.zero,
           borderRadius: BorderRadius.circular(999),
           label: DAvatar(
             decorative: true,
@@ -610,7 +609,6 @@ class _AvatarMenuState extends State<_AvatarMenu> {
             variant: DButtonVariant.ghost,
             hasPopup: true,
             expanded: menu.open,
-            padding: EdgeInsets.zero,
             borderRadius: BorderRadius.circular(999),
             label: const DAvatar(
               decorative: true,

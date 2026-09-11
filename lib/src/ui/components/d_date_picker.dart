@@ -49,6 +49,7 @@ class DDatePicker extends StatefulWidget {
     this.required = false,
     this.labels = const DDatePickerLabels(),
     this.enabled = true,
+    this.size = DButtonSize.regular,
     this.width = 212,
     this.showChevron = true,
     this.closeBehavior = DDatePickerCloseBehavior.never,
@@ -81,6 +82,7 @@ class DDatePicker extends StatefulWidget {
     this.required = false,
     this.labels = const DDatePickerLabels(),
     this.enabled = true,
+    this.size = DButtonSize.regular,
     this.width = 212,
     this.showChevron = true,
     this.closeBehavior = DDatePickerCloseBehavior.never,
@@ -112,6 +114,7 @@ class DDatePicker extends StatefulWidget {
   final bool required;
   final DDatePickerLabels labels;
   final bool enabled;
+  final DButtonSize size;
   final double width;
   final bool showChevron;
   final DDatePickerCloseBehavior closeBehavior;
@@ -197,6 +200,7 @@ class _DDatePickerState extends State<DDatePicker> {
         builder: (context, trigger) => SizedBox(
           width: widget.width,
           child: DButton(
+            size: widget.size,
             label: Row(
               children: [
                 Expanded(
@@ -220,7 +224,6 @@ class _DDatePickerState extends State<DDatePicker> {
             variant: DButtonVariant.outline,
             invalid: widget.errorText != null,
             alignment: AlignmentDirectional.centerStart,
-            padding: const EdgeInsetsDirectional.symmetric(horizontal: 10),
             semanticLabel: widget.semanticLabel ?? widget.label,
             expanded: trigger.open,
             hasPopup: true,
@@ -519,6 +522,7 @@ class DDateRangePicker extends StatefulWidget {
     this.label = 'Date Picker Range',
     this.labels = const DDatePickerLabels(),
     this.enabled = true,
+    this.size = DButtonSize.regular,
     this.width = 240,
     this.open,
     this.defaultOpen = false,
@@ -547,6 +551,7 @@ class DDateRangePicker extends StatefulWidget {
     this.label = 'Date Picker Range',
     this.labels = const DDatePickerLabels(),
     this.enabled = true,
+    this.size = DButtonSize.regular,
     this.width = 240,
     this.open,
     this.defaultOpen = false,
@@ -574,6 +579,7 @@ class DDateRangePicker extends StatefulWidget {
   final String? label;
   final DDatePickerLabels labels;
   final bool enabled;
+  final DButtonSize size;
   final double width;
   final bool? open;
   final bool defaultOpen;
@@ -657,6 +663,7 @@ class _DDateRangePickerState extends State<DDateRangePicker> {
         builder: (context, trigger) => SizedBox(
           width: widget.width,
           child: DButton(
+            size: widget.size,
             label: Text(
               _formatRange(range, locale, widget.labels.placeholder),
               style: range == null
@@ -666,7 +673,6 @@ class _DDateRangePickerState extends State<DDateRangePicker> {
             icon: const DIcon(_calendarIcon, size: 16),
             variant: DButtonVariant.outline,
             alignment: AlignmentDirectional.centerStart,
-            padding: const EdgeInsetsDirectional.symmetric(horizontal: 10),
             semanticLabel: widget.semanticLabel ?? widget.label,
             expanded: trigger.open,
             hasPopup: true,

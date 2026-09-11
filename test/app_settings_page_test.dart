@@ -183,7 +183,7 @@ void main() {
         final control = find.byKey(ValueKey(key));
         final button = tester.widget<DButton>(control);
         expect(button.variant, DButtonVariant.ghost);
-        expect(button.insetSurface, isTrue);
+        expect(button.size, DButtonSize.regular);
         expect(button.size, DButtonSize.regular);
         expect(tester.getSize(control), const Size.square(48));
       }

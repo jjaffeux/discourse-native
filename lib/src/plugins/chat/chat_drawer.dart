@@ -628,7 +628,6 @@ class _DrawerHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     Widget fullPageButton() => DButton.iconOnly(
-      insetSurface: true,
       key: ChatDrawerOverlay.fullPageButtonKey,
       tooltip: 'Open full-screen chat',
       onPressed: onFullPage,
@@ -651,7 +650,6 @@ class _DrawerHeader extends StatelessWidget {
               children: [
                 if (expanded && canGoBack)
                   DButton.iconOnly(
-                    insetSurface: true,
                     tooltip: 'Back',
                     onPressed: onBack,
                     variant: DButtonVariant.ghost,
@@ -693,7 +691,6 @@ class _DrawerHeader extends StatelessWidget {
                 ),
                 if (expanded && onSearch != null)
                   DButton.iconOnly(
-                    insetSurface: true,
                     key: ChatDrawerOverlay.searchButtonKey,
                     tooltip: 'Search chat',
                     onPressed: onSearch,
@@ -711,7 +708,6 @@ class _DrawerHeader extends StatelessWidget {
                   ...routeActions,
                 if (expanded)
                   DButton.iconOnly(
-                    insetSurface: true,
                     key: ChatDrawerOverlay.collapseButtonKey,
                     tooltip: 'Collapse Chat Drawer',
                     onPressed: onToggle,
@@ -722,7 +718,6 @@ class _DrawerHeader extends StatelessWidget {
                   _CollapsedDrawerToggleButton(onPressed: onToggle),
                 if (expanded && !overflowActions) fullPageButton(),
                 DButton.iconOnly(
-                  insetSurface: true,
                   key: ChatDrawerOverlay.closeButtonKey,
                   tooltip: 'Close',
                   onPressed: onClose,
@@ -811,16 +806,15 @@ class _CollapsedDrawerToggleButtonState
   @override
   Widget build(BuildContext context) => SizedBox(
     key: ChatDrawerOverlay.collapseButtonKey,
-    width: _focused ? DButton.minimumDimension : 1,
+    width: _focused ? DButton.visualDimensionFor(DButtonSize.regular) : 1,
     height: _focused ? ChatDrawerOverlay.headerHeight : 1,
     child: ClipRect(
       child: OverflowBox(
-        minWidth: DButton.minimumDimension,
-        maxWidth: DButton.minimumDimension,
-        minHeight: DButton.minimumDimension,
-        maxHeight: DButton.minimumDimension,
+        minWidth: DButton.visualDimensionFor(DButtonSize.regular),
+        maxWidth: DButton.visualDimensionFor(DButtonSize.regular),
+        minHeight: DButton.visualDimensionFor(DButtonSize.regular),
+        maxHeight: DButton.visualDimensionFor(DButtonSize.regular),
         child: DButton.iconOnly(
-          insetSurface: true,
           tooltip: 'Expand Chat Drawer',
           onPressed: widget.onPressed,
           focusNode: _focus,
@@ -914,7 +908,6 @@ class _DrawerHeaderOverflowMenuState extends State<_DrawerHeaderOverflowMenu> {
     onOpen: () => widget.onOpenChanged(true),
     onClose: () => widget.onOpenChanged(false),
     builder: (context, _, _) => DButton.iconOnly(
-      insetSurface: true,
       key: ChatDrawerOverlay.overflowButtonKey,
       tooltip: 'More Chat actions',
       semanticLabel: 'More Chat actions',
@@ -1554,7 +1547,6 @@ class ChatDrawerNavigation extends StatelessWidget {
             return Semantics(
               selected: selected,
               child: Container(
-                constraints: const BoxConstraints(minHeight: 44),
                 decoration: BoxDecoration(
                   border: Border(
                     bottom: BorderSide(
@@ -1566,10 +1558,6 @@ class ChatDrawerNavigation extends StatelessWidget {
                 child: DButton(
                   key: ValueKey('chat-drawer-navigation-${item.routeId}'),
                   tooltip: item.label,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 7,
-                    vertical: 10,
-                  ),
                   label: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [

@@ -930,7 +930,6 @@ class _ChatComposerState extends State<ChatComposer> {
               ),
             ),
             DButton.iconOnly(
-              insetSurface: true,
               key: const ValueKey('chat-composer-cancel-reply'),
               onPressed: _clearReply,
               tooltip: 'Cancel reply',
@@ -1076,7 +1075,6 @@ class _ChatComposerState extends State<ChatComposer> {
                       _ChatComposerAddAction.gif => unawaited(_pickGif()),
                     },
                     builder: (context, openMenu) => DButton.iconOnly(
-                      insetSurface: true,
                       key: const ValueKey('chat-composer-add'),
                       onPressed: openMenu,
                       icon: DecoratedBox(
@@ -1167,7 +1165,6 @@ class _ChatComposerState extends State<ChatComposer> {
                           heightFactor: 1,
                           child: Builder(
                             builder: (buttonContext) => DButton.iconOnly(
-                              insetSurface: true,
                               key: const ValueKey('chat-composer-emoji'),
                               onPressed:
                                   _pickingGif ||
@@ -1200,7 +1197,6 @@ class _ChatComposerState extends State<ChatComposer> {
               Center(
                 heightFactor: 1,
                 child: DButton.iconOnly(
-                  insetSurface: true,
                   key: const ValueKey('chat-composer-edit-cancel'),
                   onPressed: _savingEdit ? null : _cancelEdit,
                   icon: const DIcon(DIcons.xmark, size: 18),

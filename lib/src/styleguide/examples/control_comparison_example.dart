@@ -21,8 +21,8 @@ class _ControlComparisonExampleState extends State<ControlComparisonExample> {
     crossAxisAlignment: CrossAxisAlignment.start,
     mainAxisSize: MainAxisSize.min,
     children: [
-      for (final small in [false, true]) ...[
-        Text(small ? 'Small controls' : 'Default controls'),
+      for (final size in DControlSize.values) ...[
+        Text('${size.name} — ${DControlStyle.height(size).toInt()}px'),
         const SizedBox(height: DSpacing.sm),
         Wrap(
           spacing: DSpacing.sm,
@@ -32,13 +32,25 @@ class _ControlComparisonExampleState extends State<ControlComparisonExample> {
             DButton(
               label: const Text('Button'),
               variant: DButtonVariant.outline,
-              size: small ? DButtonSize.small : DButtonSize.regular,
+              size: size,
               onPressed: () => setState(() => _result = 'Button activated'),
+            ),
+            DButton.iconOnly(
+              icon: const Icon(Icons.add),
+              tooltip: '${size.name} icon button',
+              variant: DButtonVariant.outline,
+              size: size,
+              onPressed: () => setState(() => _result = 'Icon activated'),
+            ),
+            DToggle(
+              size: size,
+              variant: DToggleVariant.outline,
+              child: const Text('Toggle'),
             ),
             DSelect<String>(
               width: 128,
-              size: small ? DSelectSize.small : DSelectSize.normal,
-              semanticLabel: small ? 'Small feed' : 'Feed',
+              size: size,
+              semanticLabel: '${size.name} feed',
               value: _feed,
               entries: [
                 for (final label in ['Recent', 'Top', 'Trending'])
@@ -64,14 +76,14 @@ class _ControlComparisonExampleState extends State<ControlComparisonExample> {
                 label: Text(_category),
                 icon: const Icon(Icons.keyboard_arrow_down),
                 iconPosition: DButtonIconPosition.end,
-                semanticLabel: small ? 'Small category' : 'Category',
-                size: small ? DButtonSize.small : DButtonSize.regular,
+                semanticLabel: '${size.name} category',
+                size: size,
               ),
             ),
             DButton(
               label: const Text('Disabled'),
               variant: DButtonVariant.outline,
-              size: small ? DButtonSize.small : DButtonSize.regular,
+              size: size,
               onPressed: null,
             ),
           ],

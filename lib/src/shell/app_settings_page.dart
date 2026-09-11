@@ -135,7 +135,6 @@ class _SettingsHeader extends StatelessWidget {
             child: DText('Settings', variant: DTextVariant.h4, headingLevel: 1),
           ),
           DButton.iconOnly(
-            insetSurface: true,
             key: const ValueKey('app-settings-close'),
             onPressed: () => Navigator.of(context).maybePop(),
             icon: const DIcon(DIcons.xmark, size: 20),

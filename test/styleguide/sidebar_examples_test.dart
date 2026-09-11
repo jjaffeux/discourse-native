@@ -421,8 +421,8 @@ void main() {
             widget.semanticLabel == 'Open Alex Morgan account menu',
       );
       final accountRect = tester.getRect(account);
-      expect(accountRect.size, const Size(32, 32));
-      expect(tester.getRect(find.byType(DAvatar)), accountRect);
+      expect(accountRect.size, const Size(32, 36));
+      expect(tester.getRect(find.byType(DAvatar)).center, accountRect.center);
       final focus = tester.widget<DSidebarMenuButton>(account).focusNode!;
       focus.requestFocus();
       await tester.pump();

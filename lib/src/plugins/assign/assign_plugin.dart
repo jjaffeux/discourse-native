@@ -358,7 +358,6 @@ final class AssignPlugin
         showHeader: false,
         values: values,
         compactHeader: (anchorContext, showDetails) => DButton.iconOnly(
-          insetSurface: true,
           key: const Key('assign-topic-header'),
           icon: direct == null
               ? const DIcon(DIcons.userPlus, size: 16)

@@ -80,7 +80,7 @@ void main() {
       await mount(tester, tabs());
       await tester.pumpAndSettle();
       expect(tester.getSize(find.byType(DTabList<String>)).height, 32);
-      expect(tester.getSize(find.byType(DTabTrigger<String>).first).height, 25);
+      expect(tester.getSize(find.byType(DTabTrigger<String>).first).height, 32);
 
       await mount(
         tester,

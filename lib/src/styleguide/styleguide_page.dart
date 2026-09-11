@@ -347,7 +347,6 @@ class _ComponentStyleguidePageState extends State<ComponentStyleguidePage> {
                 child: IntrinsicWidth(
                   child: DSidebarMenuButton(
                     key: ValueKey('styleguide-component-${entry.id}'),
-                    height: 30,
                     isActive: entry.id == _selected.id,
                     onPressed: () => _select(entry),
                     child: Text(

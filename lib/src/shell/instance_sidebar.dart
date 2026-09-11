@@ -521,7 +521,6 @@ class _SidebarPanelSwitchRow extends StatelessWidget {
         Expanded(
           child: DButton(
             key: const ValueKey('sidebar-panel-switch-main'),
-            padding: const EdgeInsets.symmetric(horizontal: 11),
             label: const Text('Forum'),
             icon: const DIcon(DIcons.shuffle, size: 16),
             onPressed: active!.panel.onClose,
@@ -533,7 +532,6 @@ class _SidebarPanelSwitchRow extends StatelessWidget {
           Expanded(
             child: DButton(
               key: ValueKey('sidebar-panel-switch-${candidate.owner.value}'),
-              padding: const EdgeInsets.symmetric(horizontal: 11),
               label: Text(candidate.panel.label),
               icon: DIcon(candidate.panel.icon, size: 16),
               onPressed: candidate.panel.onOpen,
@@ -1206,7 +1204,6 @@ class _DestinationTile extends StatelessWidget {
       child: DSidebarMenuButton(
         isActive: selected,
         onPressed: destination.enabled ? onTap : null,
-        height: submenu ? 28 : null,
         iconSize: context.isTouch ? 22 : 18,
         icon: _prefix(context, foreground),
         semanticLabel: description == null
