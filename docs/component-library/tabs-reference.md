@@ -161,3 +161,7 @@ Verification:
   focused tab scrolls into view. The app used local review entitlements without
   push/team identity and was closed after inspection. iOS coverage is through
   widget-test platform overrides, not an iOS device run.
+- After integrating main `0642cfed`, static analysis remained clean and the
+  same focused suites plus `test/topic_inbox_test.dart` passed all 157 tests.
+  The Native tab renderer and inspected adoption source were unchanged by
+  that integration.
