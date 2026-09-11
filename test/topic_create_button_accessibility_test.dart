@@ -39,8 +39,13 @@ void main() {
           final create = find.byKey(TopicCreateButton.buttonKey);
           final drafts = find.byKey(TopicCreateButton.draftsButtonKey);
 
-          _expectSmallDButton(tester, create, iconOnly: compact);
-          _expectSmallDButton(tester, drafts, iconOnly: true);
+          _expectSmallDButton(
+            tester,
+            create,
+            iconOnly: compact,
+            compact: compact,
+          );
+          _expectSmallDButton(tester, drafts, iconOnly: true, compact: compact);
           expect(
             tester.widget<DButton>(drafts).tooltip,
             'Open the latest drafts menu',
@@ -318,14 +323,16 @@ void _expectSmallDButton(
   WidgetTester tester,
   Finder target, {
   required bool iconOnly,
+  bool compact = false,
 }) {
   final button = tester.widget<DButton>(target);
   final size = tester.getSize(target);
   expect(button.size, DButtonSize.small);
   expect(button.variant, DButtonVariant.primary);
-  expect(size.height, DButton.iconOnlyDimensionFor(DButtonSize.small));
+  final dimension = compact ? 32.0 : 40.0;
+  expect(size.height, dimension);
   if (iconOnly) {
-    expect(size.width, DButton.iconOnlyDimensionFor(DButtonSize.small));
+    expect(size.width, dimension);
   }
 }
 
@@ -379,9 +386,8 @@ Future<_Fixture> _pump(
       child: MaterialApp(
         theme: AppTheme.light.copyWith(platform: TargetPlatform.macOS),
         builder: (context, child) => MediaQuery(
-          data: MediaQuery.of(
-            context,
-          ).copyWith(textScaler: TextScaler.linear(textScale)),
+          data: MediaQuery.of(context)
+              .copyWith(textScaler: TextScaler.linear(textScale)),
           child: Directionality(textDirection: direction, child: child!),
         ),
         home: Scaffold(
