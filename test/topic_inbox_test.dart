@@ -373,6 +373,53 @@ void main() {
     );
   }
 
+  for (final permission in [null, 1, 2, 3]) {
+    testWidgets(
+      'empty subcategory field requires an available child (permission $permission)',
+      (tester) async {
+        final setup = await _setup(
+          tester,
+          listedCategoryId: _parent.id,
+          detailCategoryId: _parent.id,
+          categoryList: [
+            _parent,
+            if (permission != null)
+              TopicCategory(
+                id: _child.id,
+                name: _child.name,
+                color: _child.color,
+                parentCategoryId: _parent.id,
+                permission: permission,
+              ),
+            const TopicCategory(
+              id: 24,
+              name: 'Other parent child',
+              color: '9464B8',
+              parentCategoryId: 23,
+              permission: 1,
+            ),
+          ],
+        );
+        setup.controller.openTopicFromList(setup.rows.first);
+        await tester.pumpAndSettle();
+        await _scrollReaderToTop(tester);
+
+        expect(find.byTooltip('Edit topic category'), findsOneWidget);
+        expect(
+          find.byTooltip('Edit topic subcategory'),
+          permission == 1 ? findsOneWidget : findsNothing,
+        );
+        expect(setup.api.categorySearchTerms, isEmpty);
+        if (permission == 1) {
+          await tester.tap(find.byTooltip('Edit topic subcategory'));
+          await tester.pumpAndSettle();
+          expect(find.text('Remove subcategory'), findsNothing);
+        }
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
   testWidgets('compact category names open separate category editors', (
     tester,
   ) async {
@@ -2665,6 +2712,7 @@ _setup(
   Map<String, dynamic> topicPluginPayload = const {},
   String? firstTopicTitle,
   int? listedCategoryId = 22,
+  int? detailCategoryId = 22,
   List<TopicCategory> categoryList = const [_parent, _child],
   List<TopicCategory> categoryFindResults = const [],
 }) async {
@@ -2769,7 +2817,7 @@ _setup(
                     ],
                   )
                 : null,
-            categoryId: 22,
+            categoryId: detailCategoryId,
             closed: closed,
             canCloseTopic: canCloseTopic,
             canEdit: canEditTopic,

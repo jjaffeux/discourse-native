@@ -440,6 +440,31 @@ void main() {
     expect(harness.shell.saves, isEmpty);
   });
 
+  testWidgets('unselected subcategory has no selection or removal action', (
+    tester,
+  ) async {
+    final harness = _Harness(tags: false)
+      ..categoryId = 2
+      ..parentCategoryId = 2
+      ..removeCategoryId = 2;
+    await harness.pump(tester);
+    await harness.open(tester);
+
+    expect(find.text('Remove subcategory'), findsNothing);
+    expect(
+      tester
+          .widget<TopicCategorySelector>(find.byType(TopicCategorySelector))
+          .selected,
+      isNull,
+    );
+    expect(find.text('Support / Phones'), findsOneWidget);
+    await tester.tap(
+      find.byKey(const ValueKey(('topic-category-picker-option', 3))),
+    );
+    await tester.pumpAndSettle();
+    expect(harness.shell.saves.single.categoryId, 3);
+  });
+
   testWidgets('category roots, children, removal and path labels still work', (
     tester,
   ) async {

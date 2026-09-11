@@ -119,20 +119,27 @@ class _TopicCategoryMenuAnchorState extends State<TopicCategoryMenuAnchor> {
 
     final saving = _save != null;
     final enabled = target.enabled && !saving;
+    final selected = shell.categoryFor(
+      target.selectedCategoryId ?? target.categoryId,
+      siteUrl: target.siteUrl,
+    );
     return TopicCategorySelector(
       key: ObjectKey(generation),
       keyPrefix: 'topic-category-picker',
       siteUrl: target.siteUrl,
       categories: const [],
-      selected: shell.categoryFor(
-        target.selectedCategoryId ?? target.categoryId,
-        siteUrl: target.siteUrl,
-      ),
+      selected:
+          target.parentCategoryId == null ||
+              selected?.parentCategoryId == target.parentCategoryId
+          ? selected
+          : null,
       parent: shell.categoryFor(
         target.parentCategoryId,
         siteUrl: target.siteUrl,
       ),
-      clearSelectionLabel: target.removeCategoryId == null
+      clearSelectionLabel:
+          target.removeCategoryId == null ||
+              target.removeCategoryId == target.categoryId
           ? null
           : target.removeLabel ?? 'Remove category',
       search: (term) async {
