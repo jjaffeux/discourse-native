@@ -82,28 +82,26 @@ void main() {
         SemanticsAction.tap,
       );
       await tester.pumpAndSettle();
-      expect(find.byType(UserMenuPanel), findsOneWidget);
-      expect(
-        tester.widget<UserMenuPanel>(find.byType(UserMenuPanel)).view,
-        UserMenuView.profile,
-      );
+      expect(find.byType(UserMenuPanel), findsNothing);
+      expect(find.byType(DDropdownMenuContent), findsOneWidget);
       expect(tester.widget<DButton>(button).focusNode!.hasFocus, isFalse);
       expect(find.text('Summary'), findsOneWidget);
-      await tester.scrollUntilVisible(
-        find.text('Preferences'),
-        100,
-        scrollable: find
-            .descendant(
-              of: find.byType(UserMenuPanel),
-              matching: find.byType(Scrollable),
-            )
-            .first,
-      );
       expect(find.text('Preferences'), findsOneWidget);
       expect(find.byKey(const ValueKey('user-menu-tab-all')), findsNothing);
+      await tester.sendKeyEvent(LogicalKeyboardKey.end);
+      expect(
+        tester.binding.focusManager.primaryFocus?.debugLabel,
+        contains('Disconnect'),
+      );
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
+      expect(
+        tester.binding.focusManager.primaryFocus?.debugLabel,
+        contains('Preferences'),
+      );
       await tester.sendKeyEvent(LogicalKeyboardKey.escape);
       await tester.pumpAndSettle();
       expect(find.byType(UserMenuPanel), findsNothing);
+      expect(find.byType(DDropdownMenuContent), findsNothing);
       expect(
         tester
             .widget<DButton>(find.byKey(UserMenuButton.avatarKey))

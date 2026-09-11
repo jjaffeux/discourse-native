@@ -754,8 +754,115 @@ class _SectionBody extends StatelessWidget {
   }
 }
 
+/// Profile actions composed inside the Native dropdown's interaction owner.
+class UserProfileMenuItems extends StatelessWidget {
+  const UserProfileMenuItems({super.key, required this.onDismiss});
+
+  final VoidCallback onDismiss;
+
+  @override
+  Widget build(BuildContext context) => ShellSelector<_SectionListSnapshot>(
+    select: (controller) =>
+        _sectionListSnapshot(controller, controller.currentInstance?.url ?? ''),
+    builder: (context, state, _) {
+      final siteUrl = state.siteUrl;
+      final user = state.user;
+      if (siteUrl == null || user == null) return const SizedBox.shrink();
+      final controller = state.controller;
+      final rows = userMenuSections(
+        null,
+        user: user,
+        userStatusEnabled: state.userStatusEnabled,
+      ).firstWhere((section) => section.isProfile).rows;
+      VoidCallback? action(UserMenuRow row) {
+        if (row.isUserStatus) {
+          return () {
+            final editor = showUserStatusEditor(context, siteUrl: siteUrl);
+            onDismiss();
+            unawaited(editor);
+          };
+        }
+        return () {
+          onDismiss();
+          if (row.isSummary) controller.openUserSummary(siteUrl);
+          if (row.isActivity) controller.openUserActivity(siteUrl);
+          if (row.isDrafts) controller.openDrafts(siteUrl);
+          if (row.isPreferences) controller.openPreferences(siteUrl);
+        };
+      }
+
+      return ListenableBuilder(
+        listenable: controller.draftList,
+        builder: (context, _) => Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const DDropdownMenuLabel(child: Text('Profile')),
+            const DDropdownMenuSeparator(),
+            for (final row in rows)
+              if (row.isHidePresence)
+                _HidePresenceTile(siteUrl: siteUrl, dropdown: true)
+              else if (row.isDoNotDisturb)
+                _DoNotDisturbTile(
+                  siteUrl: siteUrl,
+                  dropdown: true,
+                  onPause: () {
+                    final dialog = showDoNotDisturbDialog(
+                      context,
+                      siteUrl: siteUrl,
+                      controller: controller,
+                    );
+                    onDismiss();
+                    unawaited(dialog);
+                  },
+                )
+              else ...[
+                if (row.isSummary) const DDropdownMenuSeparator(),
+                DDropdownMenuItem(
+                  key: ValueKey('user-menu-row-${row.id}'),
+                  leading: row.isUserStatus && row.status != null
+                      ? UserStatusMessage(
+                          siteUrl: siteUrl,
+                          userId: row.userId,
+                          status: row.status,
+                          size: 16,
+                        )
+                      : DIcon(row.icon, size: 16),
+                  trailing:
+                      row.isDrafts && controller.draftCountFor(siteUrl) > 0
+                      ? DDropdownMenuShortcut(
+                          '${controller.draftCountFor(siteUrl)}',
+                        )
+                      : null,
+                  onPressed: action(row),
+                  child: Text(row.title),
+                ),
+              ],
+            const DDropdownMenuSeparator(),
+            DDropdownMenuItem(
+              variant: DDropdownMenuItemVariant.destructive,
+              leading: const DIcon(DIcons.rightFromBracket, size: 16),
+              onPressed: () {
+                onDismiss();
+                controller.disconnectInstance(siteUrl).ignore();
+              },
+              child: const Text('Disconnect'),
+            ),
+          ],
+        ),
+      );
+    },
+  );
+}
+
 class _DoNotDisturbTile extends StatelessWidget {
-  const _DoNotDisturbTile({required this.siteUrl, required this.onPause});
+  const _DoNotDisturbTile({
+    required this.siteUrl,
+    required this.onPause,
+    this.dropdown = false,
+  });
+
+  final bool dropdown;
 
   final String siteUrl;
   final VoidCallback onPause;
@@ -799,6 +906,19 @@ class _DoNotDisturbTile extends StatelessWidget {
             ? () => unawaited(resume())
             : onPause;
 
+        if (dropdown) {
+          return DDropdownMenuCheckboxItem(
+            key: const ValueKey('pause-notifications-row'),
+            checked: active,
+            onChanged: action == null ? null : (_) => action(),
+            leading: DIcon(
+              active ? DIcons.toggleOn : DIcons.toggleOff,
+              size: 16,
+            ),
+            trailing: detail == null ? null : DDropdownMenuShortcut(detail),
+            child: const Text('Pause notifications'),
+          );
+        }
         return Padding(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 1),
           child: Semantics(
@@ -896,7 +1016,9 @@ class _SectionHeader extends StatelessWidget {
 typedef _HidePresenceSnapshot = ({bool? hidden, bool saving, String? error});
 
 class _HidePresenceTile extends StatelessWidget {
-  const _HidePresenceTile({required this.siteUrl});
+  const _HidePresenceTile({required this.siteUrl, this.dropdown = false});
+
+  final bool dropdown;
 
   static const semanticsKey = ValueKey('user-menu-hide-presence');
 
@@ -935,6 +1057,27 @@ class _HidePresenceTile extends StatelessWidget {
           ? 'Retry loading the presence setting'
           : 'Toggle presence features';
 
+      if (dropdown) {
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            DDropdownMenuCheckboxItem(
+              key: semanticsKey,
+              checked: hidden == false,
+              onChanged: onTap == null ? null : (_) => onTap(),
+              semanticLabel: [semanticsLabel, ?semanticsValue].join(', '),
+              leading: DIcon(
+                hidden == false ? DIcons.toggleOn : DIcons.toggleOff,
+                size: 16,
+              ),
+              child: Text(title),
+            ),
+            if (state.error != null)
+              DDropdownMenuLabel(child: Text(state.error!)),
+          ],
+        );
+      }
       return Padding(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 1),
         child: Column(
