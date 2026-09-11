@@ -111,7 +111,10 @@ corrected route follows the Data Table styleguide composition directly:
   configuration remains a separate “Manage columns” action.
 - Username/profile links, a separate Name column and formatted metric values
   are plain cells with inherited table typography. The old avatar stacks,
-  badges, metric bars, maxima calculations and sidebar-colored toolbar are gone.
+  badges and sidebar-colored toolbar are gone. At the user’s request, metric
+  cells again compose `DChartBar` behind the numbers, proportional to each
+  column’s largest loaded value, while preserving the standard cell typography
+  and height. Cached maxima update when the rows or columns change.
 - The table owns borders, header/cell padding, row heights, hover and its
   no-results row. The route supplies only standard page/control spacing.
 - Saved resizing, virtual scrolling, server queries and incremental loading

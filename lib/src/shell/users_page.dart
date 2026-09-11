@@ -196,6 +196,7 @@ class UsersPage extends StatefulWidget {
 
 class _UsersPageState extends State<UsersPage> {
   late String _searchText;
+  Map<String, double> _columnMaxima = const {};
   final ScrollController _horizontal = ScrollController();
   final ScrollController _vertical = ScrollController();
   Timer? _searchDebounce;
@@ -212,6 +213,7 @@ class _UsersPageState extends State<UsersPage> {
   void initState() {
     super.initState();
     _searchText = widget.data.query.search;
+    _deriveColumnMaxima();
     _vertical.addListener(_scheduleLoadMoreCheck);
     _restoreColumnWidths();
   }
@@ -241,6 +243,10 @@ class _UsersPageState extends State<UsersPage> {
         oldWidget.data.query.search != widget.data.query.search) {
       _searchText = widget.data.query.search;
     }
+    if (!listEquals(oldWidget.data.items, widget.data.items) ||
+        !listEquals(oldWidget.data.columns, widget.data.columns)) {
+      _deriveColumnMaxima();
+    }
     final columnIds = {
       'name',
       for (final column in widget.data.columns) _metricColumnWidthKey(column),
@@ -263,6 +269,51 @@ class _UsersPageState extends State<UsersPage> {
     _horizontal.dispose();
     _vertical.dispose();
     super.dispose();
+  }
+
+  void _deriveColumnMaxima() {
+    _columnMaxima = {
+      for (final column in widget.data.columns)
+        _metricColumnWidthKey(column): widget.data.items.fold<double>(
+          0,
+          (maximum, item) => math.max(
+            maximum,
+            item.numericValueFor(column)?.abs().toDouble() ?? 0,
+          ),
+        ),
+    };
+  }
+
+  Widget _metricCell(
+    BuildContext context,
+    UserDirectoryItem item,
+    UserDirectoryColumn column,
+  ) {
+    final numeric = item.numericValueFor(column);
+    final maximum = _columnMaxima[_metricColumnWidthKey(column)] ?? 0;
+    final fraction = maximum > 0 && numeric != null
+        ? (numeric.abs() / maximum).clamp(0.0, 1.0).toDouble()
+        : 0.0;
+    return Stack(
+      key: ValueKey('user-metric-${item.user.username}-${column.id}'),
+      children: [
+        if (fraction > 0)
+          Positioned.fill(
+            child: ExcludeSemantics(
+              child: DChartBar(
+                fraction: fraction,
+                color: DTokens.of(context).primary.withValues(alpha: 0.2),
+              ),
+            ),
+          ),
+        Align(
+          alignment: column.type == UserDirectoryColumnType.userField
+              ? AlignmentDirectional.centerStart
+              : AlignmentDirectional.centerEnd,
+          child: Text(_formatValue(item.valueFor(column), column, numeric)),
+        ),
+      ],
+    );
   }
 
   void _restoreColumnWidths() {
@@ -539,14 +590,7 @@ class _UsersPageState extends State<UsersPage> {
         alignment: column.type == UserDirectoryColumnType.userField
             ? AlignmentDirectional.centerStart
             : AlignmentDirectional.centerEnd,
-        cellBuilder: (context, cell) => Text(
-          key: ValueKey('user-metric-${cell.row.user.username}-${column.id}'),
-          _formatValue(
-            cell.row.valueFor(column),
-            column,
-            cell.row.numericValueFor(column),
-          ),
-        ),
+        cellBuilder: (context, cell) => _metricCell(context, cell.row, column),
       ),
   ];
 

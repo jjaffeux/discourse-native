@@ -69,6 +69,60 @@ const _hawk = UserDirectoryItem(
 );
 
 void main() {
+  testWidgets('metric bars scale with loaded values and update with new rows', (
+    tester,
+  ) async {
+    var items = <UserDirectoryItem>[_sam, _hawk];
+    late StateSetter update;
+    await _pump(
+      tester,
+      StatefulBuilder(
+        builder: (context, setState) {
+          update = setState;
+          return UsersPage(
+            siteUrl: 'https://example.com',
+            data: UsersPageData(
+              items: items,
+              columns: const [_likes],
+              loaded: true,
+            ),
+          );
+        },
+      ),
+    );
+    DChartBar bar(String username) => tester.widget<DChartBar>(
+      find.descendant(of: _metrics(username), matching: find.byType(DChartBar)),
+    );
+    expect(bar('sam').fraction, 1);
+    expect(bar('hawk').fraction, closeTo(167 / 290, 0.001));
+    expect(find.text('290'), findsOneWidget);
+    final rowHeight = tester.getSize(_metrics('sam')).height;
+    update(
+      () => items = [
+        ...items,
+        const UserDirectoryItem(
+          id: 3,
+          user: UserDirectoryUser(id: 3, username: 'new'),
+          values: {'likes_received': 580},
+        ),
+        const UserDirectoryItem(
+          id: 4,
+          user: UserDirectoryUser(id: 4, username: 'zero'),
+          values: {'likes_received': 0},
+        ),
+      ],
+    );
+    await tester.pump();
+    expect(bar('sam').fraction, 0.5);
+    expect(bar('new').fraction, 1);
+    expect(
+      find.descendant(of: _metrics('zero'), matching: find.byType(DChartBar)),
+      findsNothing,
+    );
+    expect(tester.getSize(_metrics('sam')).height, rowHeight);
+    expect(tester.takeException(), isNull);
+  });
+
   for (final value in <Object>[
     'NaN',
     'Infinity',
@@ -350,7 +404,7 @@ void main() {
         findsOneWidget,
       );
       expect(find.byType(DAvatar), findsNothing);
-      expect(find.byType(FractionallySizedBox), findsNothing);
+      expect(find.byType(DChartBar), findsNWidgets(6));
       expect(find.text('You'), findsNothing);
       expect(find.text('Name'), findsOneWidget);
       expect(find.text('Sam Saffron'), findsOneWidget);
