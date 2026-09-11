@@ -189,6 +189,40 @@ TextStyle styleOf(WidgetTester tester, String text) {
 }
 
 void main() {
+  testWidgets(
+    'link surface styling updates and resets without changing other callers',
+    (tester) async {
+      Future<void> render(TextStyle? linkStyle) async {
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: AppTheme.light,
+            home: Scaffold(
+              body: CookedHtml(
+                html: '<p>Visit <a href="https://example.com">the link</a></p>',
+                linkStyle: linkStyle,
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+      }
+
+      await render(null);
+      final originalColor = styleOf(tester, 'the link').color;
+      expect(isUnderlined(tester, 'the link'), isFalse);
+      for (final color in [Colors.white, Colors.black]) {
+        await render(
+          TextStyle(color: color, decoration: TextDecoration.underline),
+        );
+        expect(styleOf(tester, 'the link').color, color);
+        expect(isUnderlined(tester, 'the link'), isTrue);
+      }
+      await render(null);
+      expect(styleOf(tester, 'the link').color, originalColor);
+      expect(isUnderlined(tester, 'the link'), isFalse);
+    },
+  );
+
   testWidgets('GIFs honor the app default and can be controlled individually', (
     tester,
   ) async {

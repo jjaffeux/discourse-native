@@ -1033,14 +1033,36 @@ class _Tile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final messageTextStyle = theme.textTheme.bodyLarge;
-    final messageBody = switch (message) {
+    final chat = PluginUiScope.require(context, chatControllerService);
+    return ValueListenableBuilder<ChatChannel?>(
+      valueListenable: chat.channelRef(siteUrl, message.channelId),
+      builder: (context, channel, _) {
+        if (channel?.isDirectMessage != true) return _channelMessage(context);
+        return PluginServiceSelector<ChatController, int?>(
+          service: chatControllerService,
+          select: (chat) => chat.currentUserFor(siteUrl)?.id,
+          builder: (context, userId, _) => _directMessage(
+            context,
+            outgoing: userId != null && userId == message.author.id,
+          ),
+        );
+      },
+    );
+  }
+
+  Widget? _body(
+    BuildContext context, {
+    TextStyle? textStyle,
+    TextStyle? linkStyle,
+  }) {
+    final messageTextStyle = textStyle ?? Theme.of(context).textTheme.bodyLarge;
+    return switch (message) {
       ChatMessage(canonicalReceived: true, cooked: final cooked)
           when cooked.isNotEmpty =>
         CookedHtml(
           html: cooked,
           textStyle: messageTextStyle,
+          linkStyle: linkStyle,
           siteUrl: siteUrl,
           compactParagraphs: true,
           mentionedUserStatuses: message.mentionedUserStatuses,
@@ -1066,6 +1088,11 @@ class _Tile extends StatelessWidget {
         Text(raw, style: messageTextStyle),
       _ => null,
     };
+  }
+
+  Widget _channelMessage(BuildContext context) {
+    final theme = Theme.of(context);
+    final messageBody = _body(context);
 
     final tile = Padding(
       key: ValueKey('chat-message-${message.id}'),
@@ -1233,6 +1260,191 @@ class _Tile extends StatelessWidget {
       child: tile,
     );
   }
+
+  Widget _directMessage(BuildContext context, {required bool outgoing}) {
+    final theme = Theme.of(context);
+    final bubbleAlign = outgoing ? DBubbleAlign.end : DBubbleAlign.start;
+    final hasBody = message.canonicalReceived
+        ? message.cooked.isNotEmpty
+        : switch (message.preview) {
+            ProjectedPreview(:final document) => document.nodes.isNotEmpty,
+            _ => message.optimisticRaw?.isNotEmpty == true,
+          };
+    final hasMetadata =
+        message.createdAt != null ||
+        message.edited ||
+        message.pinned ||
+        message.bookmark != null ||
+        message.delivery != ChatMessageDelivery.sent;
+
+    return Padding(
+      key: ValueKey('chat-message-${message.id}'),
+      padding: EdgeInsetsDirectional.fromSTEB(
+        DSpacing.lg,
+        chained ? DSpacing.sm : DSpacing.lg,
+        DSpacing.lg,
+        0,
+      ),
+      child: DMessage(
+        align: outgoing ? DMessageAlign.end : DMessageAlign.start,
+        children: [
+          DMessageAvatar(
+            child: chained
+                ? null
+                : UserCardTarget.avatar(
+                    username: message.author.username,
+                    siteUrl: siteUrl,
+                    semanticLabel: message.author.flair == null
+                        ? null
+                        : 'View profile for @${message.author.username}, ${message.author.flair!.label}',
+                    child: ChatUserAvatar(
+                      siteUrl: siteUrl,
+                      userId: message.author.id,
+                      url: message.author.avatarUrl,
+                      flair: message.author.flair,
+                      size: 32,
+                      fallback: _AvatarFallback(
+                        name: message.author.displayName,
+                        background: theme.shell.floating,
+                      ),
+                    ),
+                  ),
+          ),
+          DMessageContent(
+            children: [
+              if (!outgoing && !chained)
+                DMessageHeader(
+                  spacing: DSpacing.xs,
+                  children: [
+                    UserCardTarget(
+                      username: message.author.username,
+                      siteUrl: siteUrl,
+                      child: Text(message.author.displayName),
+                    ),
+                    UserStatusMessage(
+                      siteUrl: siteUrl,
+                      userId: message.author.id,
+                      status: message.author.status,
+                      size: 15,
+                    ),
+                    if (message.author.isStaff)
+                      _Tag(label: 'staff', color: theme.colorScheme.primary),
+                    if (message.isWebhook)
+                      _Tag(
+                        label: 'bot',
+                        color: theme.discourse.primaryVeryHigh,
+                        isBot: true,
+                      ),
+                  ],
+                ),
+              if (message.replyTo case final reply? when !chained)
+                _ReplyIndicator(
+                  siteUrl: siteUrl,
+                  reply: reply,
+                  onJump: onJumpToMessage == null
+                      ? null
+                      : () => onJumpToMessage!(reply.id),
+                  bubbleAlign: bubbleAlign,
+                ),
+              if (hasBody)
+                DBubble(
+                  align: bubbleAlign,
+                  variant: outgoing
+                      ? DBubbleVariant.primary
+                      : DBubbleVariant.muted,
+                  children: [
+                    DBubbleContent(
+                      child: Builder(
+                        builder: (context) {
+                          final style = DefaultTextStyle.of(context).style;
+                          return _MessageBodySelection(
+                            selectionKey: ChatMessageTile.bodySelectionKey(
+                              message.id,
+                            ),
+                            child: _body(
+                              context,
+                              textStyle: style,
+                              linkStyle: outgoing
+                                  ? TextStyle(
+                                      color: style.color,
+                                      decoration: TextDecoration.underline,
+                                    )
+                                  : null,
+                            )!,
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              if (message.uploads.isNotEmpty)
+                ChatUploads(
+                  siteUrl: siteUrl,
+                  uploads: message.uploads,
+                  alignment: outgoing
+                      ? CrossAxisAlignment.end
+                      : CrossAxisAlignment.start,
+                ),
+              if (message.reactions.isNotEmpty)
+                _Reactions(
+                  siteUrl: siteUrl,
+                  message: message,
+                  messageFooter: true,
+                ),
+              if (message.thread case final thread?
+                  when showThreadSummary && thread.replyCount > 0)
+                _ThreadSummaryCard(
+                  siteUrl: siteUrl,
+                  thread: thread,
+                  onOpen: onOpenThread == null
+                      ? null
+                      : () => onOpenThread!(thread),
+                  bubbleAlign: bubbleAlign,
+                ),
+              if (hasMetadata)
+                DMessageFooter(
+                  spacing: DSpacing.sm,
+                  children: [
+                    if (message.createdAt case final at?)
+                      Text(relativeTime(at)),
+                    if (message.edited)
+                      Text(
+                        '(edited)',
+                        key: ChatMessageTile.editedIndicatorKey(message.id),
+                      ),
+                    if (message.pinned)
+                      Semantics(
+                        label: 'Pinned chat message',
+                        child: const DIcon(DIcons.thumbtack, size: 14),
+                      ),
+                    if (message.bookmark case final bookmark?)
+                      Semantics(
+                        label: bookmark.reminderAt == null
+                            ? 'Bookmarked chat message'
+                            : 'Chat message bookmarked with a reminder',
+                        child: DIcon(_bookmarkIcon(bookmark), size: 14),
+                      ),
+                    if (message.delivery == ChatMessageDelivery.sending)
+                      const DMessageStatus(
+                        state: DMessageDeliveryState.pending,
+                      ),
+                    if (message.delivery == ChatMessageDelivery.failed)
+                      DMessageStatus(
+                        state: DMessageDeliveryState.failed,
+                        label:
+                            message.sendError == null ||
+                                message.sendError!.isEmpty
+                            ? null
+                            : 'Failed to send: ${message.sendError}',
+                      ),
+                  ],
+                ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _DeliveryStatus extends StatelessWidget {
@@ -1361,22 +1573,70 @@ class _ReplyIndicator extends StatelessWidget {
     required this.siteUrl,
     required this.reply,
     required this.onJump,
+    this.bubbleAlign,
   });
 
   final String siteUrl;
   final ChatReplyTo reply;
   final VoidCallback? onJump;
+  final DBubbleAlign? bubbleAlign;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
+    final preview = Row(
+      children: [
+        DIcon(
+          DIcons.share,
+          size: DiscourseTypography.sm,
+          color: theme.discourse.primaryLowMid,
+        ),
+        const SizedBox(width: 8),
+        ChatUserAvatar(
+          siteUrl: siteUrl,
+          userId: reply.userId,
+          url: reply.avatarUrl,
+          flair: reply.flair,
+          size: 20,
+          fallback: ColoredBox(color: theme.shell.floating),
+        ),
+        const SizedBox(width: 8),
+        Flexible(
+          child: SiteEmojiText.plain(
+            reply.excerpt,
+            siteUrl: siteUrl,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: theme.discourse.primaryHigh,
+            ),
+          ),
+        ),
+      ],
+    );
+    final label =
+        'Jump to message from @${reply.username}'
+        '${reply.flair == null ? '' : ', ${reply.flair!.label}'}: ${reply.excerpt}';
+    if (bubbleAlign case final align?) {
+      return DBubble(
+        align: align,
+        variant: DBubbleVariant.outline,
+        children: [
+          DBubbleContent(
+            key: ChatMessageTile.replyIndicatorKey(reply.id),
+            action: DBubbleContentAction.link,
+            onPressed: onJump,
+            semanticLabel: label,
+            child: preview,
+          ),
+        ],
+      );
+    }
     return Semantics(
       link: onJump != null,
       enabled: onJump != null,
-      label:
-          'Jump to message from @${reply.username}'
-          '${reply.flair == null ? '' : ', ${reply.flair!.label}'}: ${reply.excerpt}',
+      label: label,
       onTap: onJump,
       child: ExcludeSemantics(
         child: Padding(
@@ -1390,36 +1650,7 @@ class _ReplyIndicator extends StatelessWidget {
             mouseCursor: onJump == null
                 ? MouseCursor.defer
                 : SystemMouseCursors.click,
-            child: Row(
-              children: [
-                DIcon(
-                  DIcons.share,
-                  size: DiscourseTypography.sm,
-                  color: theme.discourse.primaryLowMid,
-                ),
-                const SizedBox(width: 8),
-                ChatUserAvatar(
-                  siteUrl: siteUrl,
-                  userId: reply.userId,
-                  url: reply.avatarUrl,
-                  flair: reply.flair,
-                  size: 20,
-                  fallback: ColoredBox(color: theme.shell.floating),
-                ),
-                const SizedBox(width: 8),
-                Flexible(
-                  child: SiteEmojiText.plain(
-                    reply.excerpt,
-                    siteUrl: siteUrl,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: theme.discourse.primaryHigh,
-                    ),
-                  ),
-                ),
-              ],
-            ),
+            child: preview,
           ),
         ),
       ),
@@ -1487,10 +1718,15 @@ Future<void> _pickChatMessageReaction({
 }
 
 class _Reactions extends StatelessWidget {
-  const _Reactions({required this.siteUrl, required this.message});
+  const _Reactions({
+    required this.siteUrl,
+    required this.message,
+    this.messageFooter = false,
+  });
 
   final String siteUrl;
   final ChatMessage message;
+  final bool messageFooter;
 
   @override
   Widget build(BuildContext context) {
@@ -1508,49 +1744,56 @@ class _Reactions extends StatelessWidget {
         ? chat.canRemoveReactionFromMessage(siteUrl, message)
         : canAdd;
 
-    return ReactionPills(
-      key: const ValueKey('chat-reactions'),
-      children: [
-        for (final reaction in message.reactions)
-          ReactionPill(
-            key: ValueKey('chat-reaction-pill-${message.id}-${reaction.emoji}'),
+    final children = <Widget>[
+      for (final reaction in message.reactions)
+        ReactionPill(
+          key: ValueKey('chat-reaction-pill-${message.id}-${reaction.emoji}'),
+          siteUrl: siteUrl,
+          reaction: reaction.emoji,
+          count: reaction.count,
+          selected: reaction.reacted,
+          onTapHint: canToggle(reaction)
+              ? reaction.reacted
+                    ? 'remove your reaction'
+                    : 'add this reaction'
+              : null,
+          interactionOwner: chat,
+          onToggle: canToggle(reaction)
+              ? () => chat.toggleMessageReaction(
+                  siteUrl,
+                  message.id,
+                  reaction.emoji,
+                )
+              : null,
+          loadReactors: () => chat.loadMessageReactors(
             siteUrl: siteUrl,
-            reaction: reaction.emoji,
-            count: reaction.count,
-            selected: reaction.reacted,
-            onTapHint: canToggle(reaction)
-                ? reaction.reacted
-                      ? 'remove your reaction'
-                      : 'add this reaction'
-                : null,
-            interactionOwner: chat,
-            onToggle: canToggle(reaction)
-                ? () => chat.toggleMessageReaction(
-                    siteUrl,
-                    message.id,
-                    reaction.emoji,
-                  )
-                : null,
-            loadReactors: () => chat.loadMessageReactors(
-              siteUrl: siteUrl,
-              channelId: message.channelId,
-              messageId: message.id,
-              filter: reaction.emoji,
-            ),
-            reactorsBuilder: (_) => _ChatReactorList(
-              siteUrl: siteUrl,
-              message: message,
-              filter: reaction.emoji,
-            ),
-            visualKey: ValueKey('chat-reaction-${reaction.emoji}'),
+            channelId: message.channelId,
+            messageId: message.id,
+            filter: reaction.emoji,
           ),
-        if (canAdd)
-          ReactionPickerButton(
-            key: ValueKey('chat-reaction-picker-${message.id}'),
-            onOpenPicker: _pickReaction,
+          reactorsBuilder: (_) => _ChatReactorList(
+            siteUrl: siteUrl,
+            message: message,
+            filter: reaction.emoji,
           ),
-      ],
-    );
+          visualKey: ValueKey('chat-reaction-${reaction.emoji}'),
+        ),
+      if (canAdd)
+        ReactionPickerButton(
+          key: ValueKey('chat-reaction-picker-${message.id}'),
+          onOpenPicker: _pickReaction,
+        ),
+    ];
+    return messageFooter
+        ? DMessageFooter(
+            key: const ValueKey('chat-reactions'),
+            spacing: DSpacing.xs,
+            children: children,
+          )
+        : ReactionPills(
+            key: const ValueKey('chat-reactions'),
+            children: children,
+          );
   }
 
   Future<void> _pickReaction(BuildContext context) => _pickChatMessageReaction(
@@ -1616,11 +1859,13 @@ class _ThreadSummaryCard extends StatelessWidget {
     required this.siteUrl,
     required this.thread,
     required this.onOpen,
+    this.bubbleAlign,
   });
 
   final String siteUrl;
   final ChatThreadPreview thread;
   final VoidCallback? onOpen;
+  final DBubbleAlign? bubbleAlign;
 
   static const double _maximumWidth = 600;
   static const double _minimumHeight = 44;
@@ -1632,6 +1877,21 @@ class _ThreadSummaryCard extends StatelessWidget {
     final radius = BorderRadius.circular(10);
     final label = _semanticsLabel;
 
+    if (bubbleAlign case final align?) {
+      return DBubble(
+        align: align,
+        variant: DBubbleVariant.outline,
+        children: [
+          DBubbleContent(
+            key: ChatMessageTile.threadPreviewKey(thread.threadId),
+            action: DBubbleContentAction.link,
+            onPressed: onOpen,
+            semanticLabel: label,
+            child: _ThreadSummaryContents(siteUrl: siteUrl, thread: thread),
+          ),
+        ],
+      );
+    }
     return Padding(
       padding: const EdgeInsets.only(top: 4),
       child: ConstrainedBox(

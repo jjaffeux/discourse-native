@@ -7,6 +7,39 @@ import 'package:flutter_test/flutter_test.dart';
 import '../tool/message_native_review_main.dart' as review;
 
 void main() {
+  testWidgets('review fixture renders outgoing and incoming DM compositions', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1200, 1800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await review.main();
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Show DMs'));
+    await tester.pumpAndSettle();
+    expect(find.byType(ChatMessageTile), findsNWidgets(6));
+    final rows = tester.widgetList<DMessage>(find.byType(DMessage));
+    expect(rows.where((row) => row.align == DMessageAlign.end), hasLength(4));
+    expect(rows.where((row) => row.align == DMessageAlign.start), hasLength(2));
+    expect(find.text('dm-notes.pdf'), findsOneWidget);
+    expect(find.text('Sending'), findsOneWidget);
+    expect(find.text('Failed to send: Offline during review'), findsOneWidget);
+    for (final label in [
+      'Light / dark',
+      'Plum palette',
+      '360px',
+      '200% text',
+      'RTL',
+    ]) {
+      await tester.tap(find.text(label));
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+    }
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pumpAndSettle();
+  });
+
   testWidgets('review fixture navigates and drives actual message callbacks', (
     tester,
   ) async {
