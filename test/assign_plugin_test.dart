@@ -14,7 +14,6 @@ import 'package:discourse_native/src/plugins/assign/assign_notifications.dart';
 import 'package:discourse_native/src/plugins/assign/assign_plugin.dart';
 import 'package:discourse_native/src/plugins/assign/assign_user_menu.dart';
 import 'package:discourse_native/src/plugins/assign/assignment_sheet.dart';
-import 'package:discourse_native/src/shell/pill.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:discourse_native/src/theme/d_icon.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
@@ -441,7 +440,7 @@ void main() {
 
   group('topic assignment presentation', () {
     testWidgets(
-      'renders one neutral avatar-and-name token for every list assignment',
+      'labels direct and post assignments separately from last-poster identity',
       (tester) async {
         final semanticsHandle = tester.ensureSemantics();
         try {
@@ -488,12 +487,13 @@ void main() {
             ),
           );
 
-          expect(find.byType(Pill), findsNWidgets(2));
+          expect(find.text('Assigned to'), findsOneWidget);
+          expect(find.text('Post #2 assigned to'), findsOneWidget);
           expect(find.byType(AssignmentAssigneeAvatar), findsNWidgets(2));
           expect(find.text('Sam'), findsOneWidget);
           expect(find.text('support'), findsOneWidget);
           expect(find.textContaining('Topic'), findsNothing);
-          expect(find.textContaining('Post'), findsNothing);
+          expect(find.text('· group'), findsOneWidget);
           expect(find.textContaining('In progress'), findsNothing);
           expect(find.textContaining('Waiting'), findsNothing);
           expect(find.textContaining('Hidden from'), findsNothing);

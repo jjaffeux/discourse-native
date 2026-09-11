@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:ui' as ui;
 
-import 'package:discourse_native/discourse_ui.dart' show DButton, DSpinner;
+import 'package:discourse_native/discourse_ui.dart' show DButton, DSpinner, DItem;
 import 'package:discourse_native/src/data/discourse_api_contracts.dart';
 import 'package:discourse_native/src/data/store.dart';
 import 'package:discourse_native/src/models/app_settings.dart';
@@ -18,7 +18,6 @@ import 'package:discourse_native/src/shell/topic_list_layout.dart';
 import 'package:discourse_native/src/shell/topic_list_view.dart';
 import 'package:discourse_native/src/shell/topic_title.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
-import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
@@ -28,7 +27,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:super_sliver_list/super_sliver_list.dart';
 
 import 'support/fakes.dart';
-import 'support/finders.dart';
 
 void main() {
   final sites = [instance('one.example'), instance('two.example')];
@@ -164,18 +162,12 @@ void main() {
               .height,
         ),
       );
-      final skeletonRows = find.descendant(
-        of: find.byKey(const ValueKey('topic-list-loading-skeleton')),
-        matching: find.byWidgetPredicate(
-          (widget) =>
-              widget is ConstrainedBox &&
-              widget.constraints.minHeight == TopicListRow.minimumHeight,
-        ),
-      );
-      expect(skeletonRows, findsWidgets);
       expect(
-        tester.getSize(skeletonRows.first).height,
-        greaterThanOrEqualTo(TopicListRow.minimumHeight),
+        find.descendant(
+          of: find.byKey(const ValueKey('topic-list-loading-skeleton')),
+          matching: find.byType(DItem),
+        ),
+        findsWidgets,
       );
       expect(find.bySemanticsLabel('Loading topics'), findsOneWidget);
       expect(find.byType(DSpinner), findsNothing);
@@ -189,43 +181,11 @@ void main() {
         findsNothing,
       );
       expect(find.text('Topic 1'), findsOneWidget);
-      expect(
-        find.byKey(const ValueKey('topic-list-ledger-header')),
-        findsOneWidget,
-      );
-      expect(
-        find.byKey(const ValueKey('topic-ledger-state-1')),
-        findsOneWidget,
-      );
-      expect(
-        find.byKey(const ValueKey('topic-ledger-topic-1')),
-        findsOneWidget,
-      );
-      expect(
-        find.byKey(const ValueKey('topic-ledger-participants-1')),
-        findsOneWidget,
-      );
-      expect(
-        find.byKey(const ValueKey('topic-ledger-activity-1')),
-        findsOneWidget,
-      );
-      final compactTitle = tester.widget<TopicTitle>(
-        find.byType(TopicTitle).first,
-      );
-      expect(compactTitle.maxLines, 2);
-      expect(compactTitle.overflow, TextOverflow.ellipsis);
-      final topicRow = find.descendant(
-        of: find.byType(TopicListView),
-        matching: find.byWidgetPredicate(
-          (widget) =>
-              widget is ConstrainedBox &&
-              widget.constraints.minHeight == TopicListRow.compactMinimumHeight,
-        ),
-      );
-      expect(
-        tester.getSize(topicRow.first).height,
-        TopicListRow.compactMinimumHeight,
-      );
+      expect(find.byKey(const ValueKey('topic-card-1')), findsOneWidget);
+      expect(find.text('People'), findsNothing);
+      expect(find.text('Views'), findsNothing);
+      final title = tester.widget<TopicTitle>(find.byType(TopicTitle).first);
+      expect(title.maxLines, 2);
     } finally {
       semantics.dispose();
     }
@@ -276,46 +236,19 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    final compactRow = find.ancestor(
-      of: find.text('Daily Log'),
-      matching: find.byWidgetPredicate(
-        (widget) =>
-            widget is ConstrainedBox &&
-            widget.constraints.minHeight == TopicListRow.compactMinimumHeight,
-      ),
+    final compactRow = find.byKey(const ValueKey('topic-card-7'));
+    final contextualRow = find.byKey(const ValueKey('topic-card-8'));
+    expect(
+      tester.getSize(compactRow).width,
+      900 - 2 * topicListHorizontalPadding,
     );
-    final contextualRow = find.ancestor(
-      of: find.text('A contextual topic'),
-      matching: find.byWidgetPredicate(
-        (widget) =>
-            widget is ConstrainedBox &&
-            widget.constraints.minHeight == TopicListRow.minimumHeight,
-      ),
+    expect(
+      tester.getSize(contextualRow).width,
+      tester.getSize(compactRow).width,
     );
-    expect(tester.getSize(compactRow), const Size(900, 50));
-    expect(tester.getSize(contextualRow), const Size(900, 68));
     expect(find.text('design'), findsOneWidget);
-
-    final titleLeft = tester.getTopLeft(find.text('Daily Log')).dx;
-    final activityRight = tester
-        .getTopRight(find.byKey(const ValueKey('topic-ledger-activity-7')))
-        .dx;
-    expect(titleLeft, topicListHorizontalPadding);
-    expect(900 - activityRight, topicListHorizontalPadding);
-
-    final titleCenter = tester.getCenter(find.text('Daily Log')).dy;
-    expect(
-      tester
-          .getCenter(find.byKey(const ValueKey('topic-ledger-participants-7')))
-          .dy,
-      closeTo(titleCenter, 0.01),
-    );
-    expect(
-      tester
-          .getCenter(find.byKey(const ValueKey('topic-ledger-activity-7')))
-          .dy,
-      closeTo(titleCenter, 0.01),
-    );
+    expect(find.text('582 replies'), findsOneWidget);
+    expect(find.text('13800'), findsNothing);
     expect(tester.takeException(), isNull);
   });
 
@@ -358,25 +291,10 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    final topicColumn = find.byKey(const ValueKey('topic-ledger-topic-7'));
+    final topicColumn = find.byKey(const ValueKey('topic-card-7'));
     expect(topicColumn, findsOneWidget);
-    expect(
-      find.byKey(const ValueKey('topic-ledger-participants-7')),
-      findsNothing,
-    );
-    expect(find.byKey(const ValueKey('topic-ledger-activity-7')), findsNothing);
-    expect(
-      find.descendant(of: topicColumn, matching: find.dIcon(DIcons.user)),
-      findsOneWidget,
-    );
-    expect(
-      find.descendant(of: topicColumn, matching: find.dIcon(DIcons.reply)),
-      findsOneWidget,
-    );
-    expect(
-      find.descendant(of: topicColumn, matching: find.dIcon(DIcons.farEye)),
-      findsOneWidget,
-    );
+    expect(find.text('2 replies'), findsOneWidget);
+    expect(tester.getSize(topicColumn).width, lessThanOrEqualTo(390));
     expect(tester.takeException(), isNull);
   });
 
@@ -422,12 +340,8 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(
-        tester
-            .getSize(find.byKey(const ValueKey('topic-ledger-activity-8')))
-            .width,
-        225,
-      );
+      expect(find.text('5 replies'), findsOneWidget);
+      expect(find.text('309'), findsNothing);
       expect(tester.takeException(), isNull);
     } finally {
       debugDefaultTargetPlatformOverride = previousPlatform;

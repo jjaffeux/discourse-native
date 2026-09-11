@@ -8,7 +8,6 @@ import '../../models/post.dart';
 import '../../models/topic.dart';
 import '../../plugin_api/plugin_scope.dart';
 import '../../plugin_api/site_plugin_api.dart';
-import '../../shell/pill.dart';
 import '../../shell/post_action.dart';
 import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
@@ -199,13 +198,23 @@ final class AssignPlugin
                 : 'Topic',
           ),
           child: ExcludeSemantics(
-            child: Pill(
-              label: assignment.assignee.displayName,
-              baseStyle: style,
-              leading: AssignmentAssigneeAvatar(
-                assignee: assignment.assignee,
-                size: 16,
-              ),
+            child: Wrap(
+              spacing: 6,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                Text(
+                  assignment.isPostAssignment
+                      ? '${_postLabel(assignment.postNumber)} assigned to'
+                      : 'Assigned to',
+                  style: style,
+                ),
+                AssignmentAssigneeAvatar(
+                  assignee: assignment.assignee,
+                  size: 20,
+                ),
+                Text(assignment.assignee.displayName, style: style),
+                if (assignment.assignee.isGroup) Text('· group', style: style),
+              ],
             ),
           ),
         ),

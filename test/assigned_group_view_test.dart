@@ -454,7 +454,8 @@ void main() {
         findsNothing,
       );
       expect(find.byType(TopicListRow), findsOneWidget);
-      expect(find.text('91'), findsOneWidget);
+      expect(find.text('91'), findsNothing);
+      expect(find.byKey(const ValueKey('topic-card-42')), findsOneWidget);
       await tester.tap(find.text(_topic.title));
       await tester.scrollUntilVisible(
         find.text('Load more assignments'),

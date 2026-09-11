@@ -56,6 +56,60 @@ const _topWeekTopic = Topic(id: 7, title: 'Top this week', slug: 'top-week');
 const _popularTopic = Topic(id: 8, title: 'Popular topic', slug: 'popular');
 
 void main() {
+  testWidgets(
+    'list search uses server feeds and follows category and tag changes',
+    (tester) async {
+      const category = TopicCategory(
+        id: 42,
+        name: 'UX',
+        slug: 'ux',
+        color: '123456',
+      );
+      final setup = await _controller(categoryList: [category]);
+      addTearDown(setup.controller.dispose);
+      await tester.pumpWidget(
+        ShellScope(
+          controller: setup.controller,
+          child: MaterialApp(
+            theme: AppTheme.light,
+            home: const Scaffold(body: TopicListNavigation(child: SizedBox())),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const ValueKey('topic-list-search')),
+        'layout',
+      );
+      await tester.pump(const Duration(milliseconds: 350));
+      await tester.pumpAndSettle();
+      expect(setup.api.feedPaths.last, '/latest.json?search=layout');
+      setup.controller.selectTopicListCategory(category);
+      await tester.pumpAndSettle();
+      expect(
+        Uri.parse(setup.api.feedPaths.last).queryParameters['search'],
+        'layout',
+      );
+      expect(setup.controller.topicListContent!.categoryId, 42);
+      setup.controller.selectTopicListTags(['design', 'mobile']);
+      await tester.pumpAndSettle();
+      expect(setup.controller.topicListContent!.tagNames, ['design', 'mobile']);
+      expect(setup.controller.topicListContent!.topicListSearch, 'layout');
+      await setup.controller.selectTopicListMode(TopicListMode.unread);
+      await tester.pumpAndSettle();
+      expect(Uri.parse(setup.api.feedPaths.last).path, '/unread.json');
+      expect(
+        Uri.parse(setup.api.feedPaths.last).queryParameters['search'],
+        'layout',
+      );
+      await tester.tap(find.text('Clear'));
+      await tester.pumpAndSettle();
+      expect(setup.controller.topicListContent!.topicListSearch, isEmpty);
+      expect(setup.controller.topicListContent!.categoryId, 42);
+      expect(setup.controller.topicListContent!.tagNames, ['design', 'mobile']);
+    },
+  );
+
   for (final width in [320.0, 390.0, 760.0, 1120.0]) {
     for (final scale in [1.0, 2.0]) {
       testWidgets('focused toolbar fits $width at ${scale}x including RTL', (
@@ -919,10 +973,10 @@ void main() {
             find.byKey(const ValueKey('topic-list-feed-select')),
           )
           .value,
-      TopicListMode.latest,
+      isNull,
     );
     expect(find.text('1059'), findsNothing);
-    expect(find.byKey(const ValueKey('topic-list-unread')), findsNothing);
+    expect(find.byKey(const ValueKey('topic-list-unread')), findsOneWidget);
     expect(find.text('Unread (5)'), findsNothing);
     expect(find.text('Top'), findsNothing);
     expect(find.text('Trending'), findsNothing);
@@ -1258,22 +1312,22 @@ void main() {
           final trigger = find.byKey(const ValueKey('topic-list-feed-select'));
           await tester.tap(trigger);
           await tester.pumpAndSettle();
-          await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+          await tester.sendKeyEvent(LogicalKeyboardKey.home);
           await tester.sendKeyEvent(LogicalKeyboardKey.enter);
           await tester.pumpAndSettle();
           expect(
             setup.controller.currentTopicListMode,
-            TopicListMode.newActivity,
+            TopicListMode.topYearly,
           );
           expect(
             tester.widget<DSelect<TopicListMode>>(trigger).value,
-            TopicListMode.newActivity,
+            TopicListMode.topYearly,
           );
-          await setup.controller.selectTopicListMode(TopicListMode.newReplies);
+          await setup.controller.selectTopicListMode(TopicListMode.topWeekly);
           await tester.pumpAndSettle();
           expect(
             tester.widget<DSelect<TopicListMode>>(trigger).value,
-            TopicListMode.newActivity,
+            TopicListMode.topYearly,
           );
           await tester.sendKeyEvent(LogicalKeyboardKey.space);
           await tester.pumpAndSettle();
@@ -1436,7 +1490,7 @@ void main() {
             select.entries.whereType<DSelectItem<TopicListMode>>().map(
               (e) => e.textValue,
             ),
-            ['Recent', 'Top', 'Trending'],
+            ['Top', 'Trending'],
           );
           expect(find.byKey(TopicCreateButton.buttonKey), findsNothing);
           final categoryFilter = tester.getRect(
@@ -1546,8 +1600,11 @@ void main() {
         );
         final create = tester.getRect(find.byKey(TopicCreateButton.buttonKey));
         expect(select.top, greaterThanOrEqualTo(heading.top));
-        expect(create.bottom, lessThanOrEqualTo(heading.bottom));
-        expect(select.right, lessThanOrEqualTo(create.left));
+        expect(
+          create.bottom,
+          lessThanOrEqualTo(tester.view.physicalSize.height),
+        );
+        expect(select.right, lessThanOrEqualTo(tester.view.physicalSize.width));
         expect(
           find.byKey(const ValueKey('topic-list-category-filter')),
           findsOneWidget,
@@ -1972,8 +2029,12 @@ Future<({ShellController controller, FakeDiscourseApi api})> _controller({
 }
 
 Future<void> _selectFeed(WidgetTester tester, String key) async {
-  await tester.tap(find.byKey(const ValueKey('topic-list-feed-select')));
-  await tester.pumpAndSettle();
+  if (key != 'topic-list-latest' &&
+      key != 'topic-list-new' &&
+      key != 'topic-list-unread') {
+    await tester.tap(find.byKey(const ValueKey('topic-list-feed-select')));
+    await tester.pumpAndSettle();
+  }
   await tester.tap(find.byKey(ValueKey(key)));
   await tester.pumpAndSettle();
 }

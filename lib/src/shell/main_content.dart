@@ -372,7 +372,7 @@ class _TopicInboxWorkspaceState extends State<_TopicInboxWorkspace> {
                   ),
                   if (navigation != null) ...[
                     const SizedBox(width: DSpacing.sm),
-                    Flexible(child: navigation),
+                    Flexible(flex: 3, child: navigation),
                   ],
                 ],
               ),

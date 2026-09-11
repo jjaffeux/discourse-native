@@ -395,6 +395,25 @@ class ContentRoute {
     );
   }
 
+  String get topicListSearch =>
+      Uri.tryParse(feedPath ?? '')?.queryParameters['search'] ?? '';
+
+  ContentRoute withTopicListSearch(String value) {
+    final uri = Uri.parse(feedPath ?? '/latest.json');
+    final query = {...uri.queryParametersAll}..remove('page');
+    final term = value.trim();
+    if (term.isEmpty) {
+      query.remove('search');
+    } else {
+      query['search'] = [term];
+    }
+    final path = Uri(
+      path: uri.path,
+      queryParameters: query.isEmpty ? null : query,
+    ).toString();
+    return _withFeedPath(path, id: 'topic-list-filter-$path');
+  }
+
   ContentRoute withTopicListQueryFrom(ContentRoute? source) {
     final query = {...?Uri.tryParse(source?.feedPath ?? '')?.queryParametersAll}
       ..removeWhere(
