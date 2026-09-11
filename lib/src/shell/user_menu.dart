@@ -607,7 +607,6 @@ class _TabButton extends StatelessWidget {
                       onPressed: onTap,
                     )
                   : DButton(
-                      tooltip: section.label,
                       variant: variant,
                       size: DButtonSize.large,
                       alignment: AlignmentDirectional.centerStart,

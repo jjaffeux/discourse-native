@@ -248,6 +248,7 @@ class _AccountMenuPopover extends StatelessWidget {
     }
     return DPopover(
       controller: controller,
+      focusContentOnOpen: false,
       content: DPopoverContent(
         semanticLabel: tooltip,
         align: DPopoverAlign.end,
