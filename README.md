@@ -989,10 +989,9 @@ Beside an open topic, New topic keeps its label and attached drafts dropdown,
 with the same styling as the full-page list. The New topic and close buttons
 share a vertical center and matching insets from the pane divider.
 New retains its All / Topics / Replies
-subnavigation and Top retains its period picker. Feed tabs share one divider
-with an underline for the selection; New uses inset segments with smaller
-counts. Top uses the same inset surface for its time range, without a separate
-label. Its dropdown shares the category and tag picker, marks the current
+subnavigation and Top retains its period picker. Feed tabs use an underline
+for the selection; New uses inset segments with smaller counts. Top uses the
+same inset surface for its time range, without a separate label. Its dropdown shares the category and tag picker, marks the current
 selection, and applies a new range immediately; arrow keys navigate its options.
 Primary tab labels brighten on hover without a filled background; keyboard
 focus has its own outline, while the underline identifies the selected tab.
