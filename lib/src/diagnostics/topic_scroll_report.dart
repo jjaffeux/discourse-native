@@ -18,6 +18,8 @@ String encodeTopicScrollReport(
   final postLengths = <(int, int), int>{};
   final viewportDurations = <int>[];
   final listScrollDurations = <int>[];
+  final chatScrollDurations = <int>[];
+  final chatViewportDurations = <int>[];
   final layoutDurations = <int>[];
   final cpuProfile = _map(report['cpuProfile']);
   final cpuByFrame = {
@@ -31,6 +33,7 @@ String encodeTopicScrollReport(
   };
   final contexts = <Map<String, Object?>>[];
   final listContexts = <Map<String, Object?>>[];
+  final chatContexts = <Map<String, Object?>>[];
   final frames = <Map<String, Object?>>[];
 
   for (final event in events) {
@@ -46,6 +49,13 @@ String encodeTopicScrollReport(
     }
     if (name == 'topic.capture.context') contexts.add(data);
     if (name == 'topicList.capture.context') listContexts.add(data);
+    if (name == 'chat.capture.context') chatContexts.add(data);
+    if (name == 'chat.scroll.notification') {
+      chatScrollDurations.add(_int(data['durationUs']));
+    }
+    if (name == 'chat.viewport.work') {
+      chatViewportDurations.add(_int(data['durationUs']));
+    }
     if (name == 'topicList.scroll.notification') {
       listScrollDurations.add(_int(data['durationUs']));
     }
@@ -80,11 +90,15 @@ String encodeTopicScrollReport(
     'topicFrames': _frameStats(topicFrames, budgetUs),
     'viewportWorkUs': _distribution(viewportDurations),
     'topicListScrollWorkUs': _distribution(listScrollDurations),
+    'chatScrollWorkUs': _distribution(chatScrollDurations),
+    'chatViewportWorkUs': _distribution(chatViewportDurations),
     'postLayoutUs': _distribution(layoutDurations),
     'activityCounts': activity,
     'topicContextCount': contexts.length,
     'topicListContextCount': listContexts.length,
     'topicLists': listContexts.take(8).toList(),
+    'chatContextCount': chatContexts.length,
+    'chats': chatContexts.take(8).toList(),
     'topics': [
       for (final context in contexts.take(8))
         {
@@ -219,9 +233,10 @@ String _formatReport(Map<String, Object?> report) {
     );
   }
   if (_int(analysis['topicContextCount']) == 0 &&
-      _int(analysis['topicListContextCount']) == 0) {
+      _int(analysis['topicListContextCount']) == 0 &&
+      _int(analysis['chatContextCount']) == 0) {
     output.writeln(
-      'No topic context was recorded. Start in the affected topic or topic list '
+      'No topic context was recorded. Start in the affected topic, topic list or chat '
       'and scroll before stopping.',
     );
   }
@@ -234,7 +249,7 @@ String _formatReport(Map<String, Object?> report) {
     output
       ..writeln(
         hasTopicFrames
-            ? 'Frames with topic activity:'
+            ? 'Frames with scroll activity:'
             : 'All sampled app frames (no topic frame matches):',
       )
       ..writeln(
@@ -272,6 +287,24 @@ String _formatReport(Map<String, Object?> report) {
       output.writeln(
         'Topic list: ${list['topicCount']} loaded topics | '
         'inbox ${list['inbox']} | viewport extent ${list['viewportExtent']}',
+      );
+    }
+  }
+
+  if (_int(analysis['chatContextCount']) > 0) {
+    output
+      ..writeln(
+        'Chat scroll bookkeeping: '
+        '${_timingLine(_map(analysis['chatScrollWorkUs']))}',
+      )
+      ..writeln(
+        'Chat viewport bookkeeping: '
+        '${_timingLine(_map(analysis['chatViewportWorkUs']))}',
+      );
+    for (final chat in _maps(analysis['chats'])) {
+      output.writeln(
+        'Chat: ${chat['messageCount']} loaded messages | '
+        'thread ${chat['thread']} | viewport extent ${chat['viewportExtent']}',
       );
     }
   }

@@ -14,6 +14,33 @@ import 'support/topic_scroll_capture.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
+  test('summarizes chat scrolling without requiring an open topic', () async {
+    final capture = topicScrollCaptureWithoutVm();
+    addTearDown(capture.dispose);
+    capture.start();
+    capture.recordTopicEvent('chat.capture.context', {
+      'messageCount': 500,
+      'thread': false,
+      'viewportExtent': 600.0,
+    });
+    capture.recordTopicEvent('chat.scroll.notification', {'durationUs': 15});
+    capture.recordTopicEvent('chat.viewport.work', {'durationUs': 20});
+    capture.recordTopicEvent('chat.row.built', {'index': 10});
+    capture.stop();
+
+    final report =
+        jsonDecode(await capture.buildJsonReport()) as Map<String, Object?>;
+    final analysis = report['analysis']! as Map<String, Object?>;
+    expect(analysis['chatContextCount'], 1);
+    expect((analysis['chatScrollWorkUs']! as Map)['total'], 15);
+    expect((analysis['chatViewportWorkUs']! as Map)['total'], 20);
+    expect((analysis['activityCounts']! as Map)['chat.row.built'], 1);
+    final compact = await capture.buildPerformanceReport();
+    expect(compact, contains('500 loaded messages'));
+    expect(compact, contains('Chat viewport bookkeeping'));
+    expect(compact, isNot(contains('No topic context was recorded')));
+  });
+
   test(
     'summarizes topic-list activity without requiring an open topic',
     () async {
