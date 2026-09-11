@@ -296,17 +296,6 @@ class _InlineTopicTitleEditorState extends State<InlineTopicTitleEditor> {
                         ),
                         borderRadius: BorderRadius.circular(10),
                       ),
-                      child: Padding(
-                        padding: const EdgeInsets.all(5),
-                        child: DecoratedBox(
-                          decoration: BoxDecoration(
-                            border: Border.all(
-                              color: theme.colorScheme.primary,
-                            ),
-                            borderRadius: BorderRadius.circular(5),
-                          ),
-                        ),
-                      ),
                     ),
                   ),
                 ),
