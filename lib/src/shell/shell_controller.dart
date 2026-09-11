@@ -13089,6 +13089,17 @@ class ShellController extends FrameSafeNotifier
     await loadFeed(route.id);
   }
 
+  void searchTopicList(String query, {bool keepTopicOpen = false}) {
+    final source = topicListContent;
+    if (source?.isTopicListFilter != true || currentInstance == null) return;
+    final route = source!.withTopicListSearch(query);
+    if (route.feedPath == source.feedPath) return;
+    _replaceTopicListContent(route, keepTopicOpen: keepTopicOpen);
+    _syncTopicChannels();
+    _notify();
+    unawaited(loadFeed(route.id));
+  }
+
   void selectTopicListCategory(
     TopicCategory? category, {
     bool keepTopicOpen = false,

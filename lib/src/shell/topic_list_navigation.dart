@@ -12,6 +12,7 @@ import 'shell_controller.dart';
 import 'shell_scope.dart';
 import 'topic_list_filter_bar.dart';
 import 'topic_list_layout.dart';
+import 'topic_list_search.dart';
 
 typedef _TopicListNavigationSnapshot = ({
   TopicListMode? mode,
@@ -157,34 +158,53 @@ class _TopicListNavigationControls extends StatelessWidget {
     void selectMode(TopicListMode value) => unawaited(
       controller.selectTopicListMode(value, keepTopicOpen: keepTopicOpen),
     );
-    final navigation = DSelect<TopicListMode>(
+    final feedTabs = DTabs<TopicListMode>.controlled(
+      value: mode.isNew ? TopicListMode.newActivity : mode,
+      onChanged: (value) {
+        if (value != null) selectMode(value);
+      },
+      children: [
+        DTabList<TopicListMode>(
+          children: [
+            const DTabTrigger(
+              key: ValueKey('topic-list-latest'),
+              value: TopicListMode.latest,
+              child: Text('Latest'),
+            ),
+            if (state.signedIn) ...[
+              const DTabTrigger(
+                key: ValueKey('topic-list-unread'),
+                value: TopicListMode.unread,
+                child: Text('Unread'),
+              ),
+              const DTabTrigger(
+                key: ValueKey('topic-list-new'),
+                value: TopicListMode.newActivity,
+                child: Text('New'),
+              ),
+            ],
+          ],
+        ),
+      ],
+    );
+    final moreFeeds = DSelect<TopicListMode>(
       key: const ValueKey('topic-list-feed-select'),
       size: DSelectSize.small,
-      width: 128,
-      semanticLabel: 'Topic feed',
-      value: mode.isNew
-          ? TopicListMode.newActivity
-          : mode.isTop
+      width: 104,
+      placeholder: 'More',
+      semanticLabel: 'More topic feeds',
+      value: mode.isTop
           ? TopicListMode.topYearly
-          : mode,
-      entries: [
-        const DSelectItem(
-          value: TopicListMode.latest,
-          textValue: 'Recent',
-          child: Text('Recent', key: ValueKey('topic-list-latest')),
-        ),
-        if (state.signedIn)
-          const DSelectItem(
-            value: TopicListMode.newActivity,
-            textValue: 'New',
-            child: Text('New', key: ValueKey('topic-list-new')),
-          ),
-        const DSelectItem(
+          : mode == TopicListMode.popular
+          ? mode
+          : null,
+      entries: const [
+        DSelectItem(
           value: TopicListMode.topYearly,
           textValue: 'Top',
           child: Text('Top', key: ValueKey('topic-list-top')),
         ),
-        const DSelectItem(
+        DSelectItem(
           value: TopicListMode.popular,
           textValue: 'Trending',
           child: Text('Trending', key: ValueKey('topic-list-popular')),
@@ -194,6 +214,25 @@ class _TopicListNavigationControls extends StatelessWidget {
         if (value != null) {
           selectMode(value.isTop ? controller.defaultTopTopicListMode : value);
         }
+      },
+    );
+    final navigation = LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.maxWidth / MediaQuery.textScalerOf(context).scale(1) <
+            360) {
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [feedTabs, const SizedBox(height: 8), moreFeeds],
+          );
+        }
+        return Row(
+          children: [
+            Expanded(child: feedTabs),
+            const SizedBox(width: 8),
+            moreFeeds,
+          ],
+        );
       },
     );
     Widget? contextualFor(bool wide) {
@@ -309,12 +348,15 @@ class _TopicListNavigationControls extends StatelessWidget {
             child: child,
           );
           Widget primary() => ConstrainedBox(
-            key: const ValueKey('topic-list-primary-row'),
+            key: ValueKey(
+              heading == null
+                  ? 'topic-list-primary-row'
+                  : 'topic-list-feed-row',
+            ),
             constraints: const BoxConstraints(minHeight: 38),
             child: Row(
               children: [
-                if (showsTabs) Flexible(child: navigation),
-                const Spacer(),
+                if (showsTabs) Expanded(child: navigation) else const Spacer(),
                 if (trailing != null) ...[
                   const SizedBox(width: DSpacing.sm),
                   trailing!,
@@ -328,9 +370,12 @@ class _TopicListNavigationControls extends StatelessWidget {
               if (heading != null)
                 KeyedSubtree(
                   key: const ValueKey('topic-list-primary-row'),
-                  child: heading(context, showsTabs ? navigation : null),
+                  child: heading(
+                    context,
+                    showsTabs && wide ? navigation : null,
+                  ),
                 ),
-              if (heading == null) inset(primary()),
+              if (heading == null || (!wide && showsTabs)) inset(primary()),
               if (contextual != null || showsFilters)
                 inset(
                   Padding(
@@ -421,6 +466,35 @@ class _TopicListNavigationControls extends StatelessWidget {
                                 contextual,
                           ],
                         );
+                      },
+                    ),
+                  ),
+                ),
+              if (showsFilters)
+                inset(
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 16),
+                    child: TopicListSearch(
+                      key: ValueKey((
+                        state.filterOwner.controller,
+                        state.filterOwner.session,
+                        state.filterOwner.tabId,
+                      )),
+                      query: state.route!.topicListSearch,
+                      categoryName: state.categories
+                          .where(
+                            (category) =>
+                                category.id == state.route!.categoryId,
+                          )
+                          .firstOrNull
+                          ?.name,
+                      onChanged: (query) {
+                        if (_filterOwner(controller) == state.filterOwner) {
+                          controller.searchTopicList(
+                            query,
+                            keepTopicOpen: keepTopicOpen,
+                          );
+                        }
                       },
                     ),
                   ),

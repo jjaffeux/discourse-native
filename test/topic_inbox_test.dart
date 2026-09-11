@@ -267,7 +267,7 @@ void main() {
       await tester.tap(assignment);
       await tester.pumpAndSettle();
       expect(find.byKey(const Key('assign-topic-property')), findsOneWidget);
-      expect(find.text('Assigned to'), findsOneWidget);
+      expect(find.text('Assigned to'), findsWidgets);
       await tester.sendKeyEvent(LogicalKeyboardKey.escape);
       await tester.pumpAndSettle();
       await tester.tap(
@@ -2006,20 +2006,12 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('First topic preview'), findsNothing);
       expect(find.text('Sam'), findsOneWidget);
-      expect(
-        tester.getCenter(find.text('Sam')).dy,
-        closeTo(
-          tester
-              .getCenter(find.byKey(const ValueKey('inbox-row-replies-1')))
-              .dy,
-          1,
-        ),
-      );
+      expect(find.text('Assigned to'), findsOneWidget);
       expect(find.text('+2'), findsOneWidget);
       expect(find.byTooltip('# third, # fourth'), findsOneWidget);
       expect(
         tester.getSize(find.byKey(const ValueKey('inbox-row-1'))).height,
-        lessThan(110),
+        lessThan(160),
       );
       expect(tester.takeException(), isNull);
     },

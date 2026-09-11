@@ -148,18 +148,7 @@ void main() {
       findsNothing,
     );
     expect(find.byType(TopicListRow), findsNWidgets(2));
-    expect(
-      find.byKey(const ValueKey('topic-ledger-state-42')),
-      findsNWidgets(2),
-    );
-    expect(
-      find.byKey(const ValueKey('topic-ledger-topic-42')),
-      findsNWidgets(2),
-    );
-    expect(
-      find.byKey(const ValueKey('topic-ledger-activity-42')),
-      findsNWidgets(2),
-    );
+    expect(find.byKey(const ValueKey('topic-card-42')), findsNWidgets(2));
     expect(find.text('Fresh cross-forum topic'), findsNWidgets(2));
     expect(find.text('One'), findsOneWidget);
     expect(find.text('Two'), findsOneWidget);
@@ -178,12 +167,6 @@ void main() {
     final categorySwatch = find.descendant(
       of: firstCardFinder,
       matching: find.byKey(const ValueKey(('topic-row-category-swatch', 1))),
-    );
-    expect(
-      tester
-          .getSize(find.byKey(ValueKey(('topic-row-forum', forumUrls[0]))))
-          .height,
-      greaterThanOrEqualTo(24),
     );
     expect(
       tester.getCenter(forumLabel).dy,
