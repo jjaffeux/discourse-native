@@ -52,6 +52,22 @@ const _child = TopicCategory(
 const _tag = TopicTag(id: 1, name: 'community');
 
 void main() {
+  testWidgets('open topic selection follows the reader', (tester) async {
+    final setup = await _setup(tester);
+    DItem card(int id) =>
+        tester.widget<DItem>(find.byKey(ValueKey('topic-card-$id')));
+    expect(card(setup.rows.first.id).selected, isFalse);
+    setup.controller.openTopicFromList(setup.rows.first);
+    await tester.pumpAndSettle();
+    expect(card(setup.rows.first.id).selected, isTrue);
+    expect(card(setup.rows[1].id).selected, isFalse);
+    setup.controller.openTopicFromList(setup.rows[1]);
+    await tester.pumpAndSettle();
+    expect(card(setup.rows.first.id).selected, isFalse);
+    expect(card(setup.rows[1].id).selected, isTrue);
+    expect(tester.takeException(), isNull);
+  });
+
   for (final (username, initial) in [
     ('sam', 'S'),
     ('𐐨ser', '𐐀'),
