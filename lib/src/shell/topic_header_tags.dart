@@ -46,7 +46,7 @@ class TopicHeaderTags extends StatelessWidget {
                     icon: const DIcon(DIcons.tag),
                     tooltip: 'Add tag',
                     variant: DButtonVariant.secondary,
-                    size: DButtonSize.regular,
+                    size: DButtonSize.extraSmall,
                     focusNode: trigger.focusNode,
                     hasPopup: true,
                     expanded: trigger.open,
@@ -87,7 +87,7 @@ class TopicHeaderTags extends StatelessWidget {
         final editWidth = context.isTouch
             ? 48.0
             : DControlStyle.scaledHeight(
-                DControlSize.regular,
+                DControlSize.extraSmall,
                 MediaQuery.textScalerOf(context),
               );
         // The overflow editor keeps editing available in narrow readers.
@@ -217,7 +217,7 @@ class TopicHeaderTags extends StatelessWidget {
                   loading: saving,
                   loadingSemanticLabel: 'Saving tags',
                   variant: DButtonVariant.ghost,
-                  size: DButtonSize.regular,
+                  size: DButtonSize.extraSmall,
                 ),
               ),
             ],

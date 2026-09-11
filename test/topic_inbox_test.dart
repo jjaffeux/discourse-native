@@ -447,7 +447,7 @@ void main() {
         ),
       ];
       for (final control in headerControls) {
-        expect(tester.widget<DButton>(control).size, DButtonSize.regular);
+        expect(tester.widget<DButton>(control).size, DButtonSize.extraSmall);
         final surface = find.descendant(
           of: control,
           matching: find.byWidgetPredicate(
@@ -456,7 +456,7 @@ void main() {
                 widget.decoration is DButtonDecoration,
           ),
         );
-        expect(tester.getSize(surface).height, 32);
+        expect(tester.getSize(surface).height, 24);
       }
       await tester.tap(add);
       await tester.pumpAndSettle();
