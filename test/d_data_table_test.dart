@@ -40,6 +40,202 @@ List<DDataTableColumn<_Payment>> _columns() => [
 ];
 
 void main() {
+  for (final direction in TextDirection.values) {
+    testWidgets('resize handle reaches column edge in $direction', (
+      tester,
+    ) async {
+      await _pump(
+        tester,
+        Directionality(
+          textDirection: direction,
+          child: DDataTable<int>(
+            data: const [1],
+            rowId: (row) => row,
+            columns: [
+              DDataTableColumn(
+                id: 'name',
+                label: 'Name',
+                resizable: true,
+                width: const FixedColumnWidth(280),
+                cellBuilder: (context, cell) => const Text('Member'),
+              ),
+            ],
+          ),
+        ),
+      );
+      final head = tester.getRect(find.byType(DTableHead));
+      final handle = tester.getRect(find.byType(DResizableHandle));
+      expect(
+        direction == TextDirection.ltr ? handle.right : handle.left,
+        direction == TextDirection.ltr ? head.right : head.left,
+      );
+    });
+  }
+
+  testWidgets('virtual row state follows stable IDs when reordered', (
+    tester,
+  ) async {
+    var rows = [1, 2, 3];
+    late StateSetter update;
+    await _pump(
+      tester,
+      SizedBox(
+        height: 260,
+        child: StatefulBuilder(
+          builder: (context, setState) {
+            update = setState;
+            return DDataTable<int>(
+              data: rows,
+              rowId: (row) => row,
+              virtualized: true,
+              columns: [
+                DDataTableColumn(
+                  id: 'row',
+                  label: 'Row',
+                  width: const FixedColumnWidth(240),
+                  cellBuilder: (context, cell) => _CounterCell(id: cell.row),
+                ),
+              ],
+            );
+          },
+        ),
+      ),
+    );
+    await tester.tap(find.text('1: 0'));
+    await tester.pump();
+    update(() => rows = rows.reversed.toList());
+    await tester.pump();
+    expect(find.text('1: 1'), findsOneWidget);
+    expect(find.text('3: 0'), findsOneWidget);
+    expect(
+      tester.getTopLeft(find.text('3: 0')).dy,
+      lessThan(tester.getTopLeft(find.text('1: 1')).dy),
+    );
+  });
+
+  testWidgets('external width update survives resizing another column', (
+    tester,
+  ) async {
+    Map<String, double> widths = {'first': 180, 'second': 180};
+    late StateSetter update;
+    await _pump(
+      tester,
+      StatefulBuilder(
+        builder: (context, setState) {
+          update = setState;
+          return DDataTable<int>(
+            data: const [1],
+            rowId: (row) => row,
+            columnWidths: widths,
+            onColumnWidthsChanged: (next) => setState(() => widths = next),
+            columns: [
+              for (final id in ['first', 'second'])
+                DDataTableColumn(
+                  id: id,
+                  label: id,
+                  resizable: true,
+                  cellBuilder: (context, cell) => Text(id),
+                ),
+            ],
+          );
+        },
+      ),
+    );
+    await tester.drag(find.byType(DResizableHandle).first, const Offset(25, 0));
+    await tester.pumpAndSettle();
+    update(() => widths = {...widths, 'first': 300});
+    await tester.pump();
+    await tester.drag(find.byType(DResizableHandle).last, const Offset(25, 0));
+    await tester.pumpAndSettle();
+    expect(widths['first'], 300);
+    expect(widths['second'], greaterThan(180));
+  });
+
+  testWidgets('virtual rows build lazily, grow with text, and retain header', (
+    tester,
+  ) async {
+    final scroll = ScrollController();
+    var built = 0;
+    await _pump(
+      tester,
+      SizedBox(
+        height: 260,
+        child: MediaQuery(
+          data: const MediaQueryData(textScaler: TextScaler.linear(2)),
+          child: DDataTable<int>(
+            data: List.generate(1000, (i) => i),
+            rowId: (row) => row,
+            operationMode: DDataTableOperationMode.manual,
+            virtualized: true,
+            verticalScrollController: scroll,
+            columns: [
+              DDataTableColumn(
+                id: 'name',
+                label: 'Name',
+                width: const FixedColumnWidth(240),
+                cellBuilder: (context, cell) {
+                  built++;
+                  return Text('Row ${cell.row}');
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    expect(built, lessThan(30));
+    expect(find.text('Row 999'), findsNothing);
+    final headerTop = tester.getTopLeft(find.text('Name'));
+    final rowHeight = tester.getSize(find.byType(DTableCell).first).height;
+    expect(rowHeight, greaterThan(40));
+    scroll.jumpTo(1500);
+    await tester.pumpAndSettle();
+    expect(tester.getTopLeft(find.text('Name')), headerTop);
+    expect(find.text('Row 0'), findsNothing);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+    scroll.dispose();
+  });
+
+  testWidgets('column resize emits stable IDs and restores saved widths', (
+    tester,
+  ) async {
+    var widths = <String, double>{'name': 200};
+    var commits = 0;
+    Widget table() => StatefulBuilder(
+      builder: (context, update) => DDataTable<int>(
+        data: const [1],
+        rowId: (row) => row,
+        columnWidths: widths,
+        onColumnWidthsChanged: (next) => update(() => widths = next),
+        onColumnResizeEnd: () => commits++,
+        columns: [
+          DDataTableColumn(
+            id: 'name',
+            label: 'Name',
+            resizable: true,
+            minWidth: 100,
+            maxWidth: 300,
+            cellBuilder: (context, cell) => Text('Row ${cell.row}'),
+          ),
+        ],
+      ),
+    );
+    await _pump(tester, table());
+    await tester.drag(find.byType(DResizableHandle), const Offset(45, 0));
+    await tester.pumpAndSettle();
+    expect(widths['name'], greaterThan(200));
+    expect(commits, 1);
+    final saved = widths['name'];
+    await tester.pumpWidget(const SizedBox());
+    await _pump(tester, table());
+    expect(
+      tester.widget<DResizableHandle>(find.byType(DResizableHandle)).value,
+      saved,
+    );
+    expect(tester.takeException(), isNull);
+  });
+
   test('controller updates reset page and retain independent state', () {
     final controller = DDataTableController(
       initialState: DDataTableState(
@@ -501,3 +697,19 @@ Future<void> _pump(WidgetTester tester, Widget child, {double width = 700}) =>
         ),
       ),
     );
+
+class _CounterCell extends StatefulWidget {
+  const _CounterCell({required this.id});
+  final int id;
+  @override
+  State<_CounterCell> createState() => _CounterCellState();
+}
+
+class _CounterCellState extends State<_CounterCell> {
+  int _count = 0;
+  @override
+  Widget build(BuildContext context) => DButton(
+    label: Text('${widget.id}: $_count'),
+    onPressed: () => setState(() => _count++),
+  );
+}

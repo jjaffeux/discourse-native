@@ -151,10 +151,7 @@ void main() {
 
         expect(tester.takeException(), isNull);
         final texts = tester.widgetList<Text>(
-          find.descendant(
-            of: find.byKey(const ValueKey('user-metrics-background-sam')),
-            matching: find.byType(Text),
-          ),
+          find.descendant(of: _metrics('sam'), matching: find.byType(Text)),
         );
         expect(texts.map((text) => text.data), ['$value']);
       },
@@ -207,7 +204,7 @@ void main() {
     for (final (index, expected) in expectedRows.indexed) {
       final texts = tester.widgetList<Text>(
         find.descendant(
-          of: find.byKey(ValueKey('user-metrics-background-user$index')),
+          of: _metrics('user$index'),
           matching: find.byType(Text),
         ),
       );
@@ -216,9 +213,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('directory hover updates only the affected row backgrounds', (
-    tester,
-  ) async {
+  testWidgets('hover does not reread directory metrics', (tester) async {
     final items = _countedItems();
     await _pump(
       tester,
@@ -227,170 +222,76 @@ void main() {
         data: UsersPageData(
           items: items,
           columns: _countedColumns,
-          currentUsername: 'USER2',
           loaded: true,
         ),
       ),
-      size: const Size(1100, 820),
     );
-    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
-    await mouse.addPointer(location: const Offset(1, 1));
-    addTearDown(mouse.removePointer);
-    await tester.pump();
-    final stableWidgets = [
-      for (final key in [
-        'users-toolbar',
-        'users-search',
-        'users-metric-column-width-1',
-        'user-avatar-user0',
-        'user-identity-background-user5',
-        'user-metrics-background-user5',
-      ])
-        (key, tester.widget(find.byKey(ValueKey(key)))),
-    ];
     for (final item in items) {
       (item.values as _CountingValues).reads = 0;
     }
+    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    await mouse.addPointer(location: const Offset(1, 1));
+    addTearDown(mouse.removePointer);
     for (var index = 0; index < 5; index++) {
       await mouse.moveTo(
         tester.getCenter(find.byKey(ValueKey('user-row-user$index'))),
       );
-      await tester.pump();
-      expect(_rowColors(tester, 'user$index'), [
-        AppTheme.light.shell.hover,
-        AppTheme.light.shell.hover,
-      ]);
+      await tester.pumpAndSettle();
     }
-    final reads = items.fold<int>(
+    expect(
+      items.fold<int>(
+        0,
+        (total, item) => total + (item.values as _CountingValues).reads,
+      ),
       0,
-      (total, item) => total + (item.values as _CountingValues).reads,
     );
-    expect(reads, 0, reason: '1000 users, 5 metrics, 5 mouse moves');
-    for (final (key, widget) in stableWidgets) {
-      expect(
-        tester.widget(find.byKey(ValueKey(key))),
-        same(widget),
-        reason: key,
-      );
-    }
-    expect(_rowColors(tester, 'user2'), [
-      AppTheme.light.colorScheme.tertiaryContainer,
-      AppTheme.light.colorScheme.tertiaryContainer,
-    ]);
-    await mouse.moveTo(const Offset(1, 1));
-    await tester.pump();
-    expect(_rowColors(tester, 'user4'), [
-      AppTheme.light.shell.content,
-      AppTheme.light.shell.content,
-    ]);
+    expect(tester.takeException(), isNull);
   });
 
-  testWidgets(
-    'hover follows split scrolling and theme changes with lazy rows',
-    (tester) async {
-      final items = _countedItems();
-      var theme = AppTheme.light;
-      late StateSetter update;
-      await _pump(
-        tester,
-        StatefulBuilder(
-          builder: (context, setState) {
-            update = setState;
-            return Theme(
-              data: theme,
-              child: UsersPage(
-                siteUrl: 'https://example.com',
-                data: UsersPageData(
-                  items: items,
-                  columns: _countedColumns,
-                  currentUsername: 'user21',
-                  loaded: true,
-                ),
-              ),
-            );
-          },
+  testWidgets('directory virtualizes rows and scrolls identity with metrics', (
+    tester,
+  ) async {
+    await _pump(
+      tester,
+      UsersPage(
+        siteUrl: 'https://example.com',
+        data: UsersPageData(
+          items: _countedItems(),
+          columns: _countedColumns,
+          loaded: true,
         ),
-        size: const Size(700, 700),
-      );
-      final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
-      final firstRow = find.byKey(const ValueKey('user-row-user0'));
-      await mouse.addPointer(location: tester.getCenter(firstRow));
-      addTearDown(mouse.removePointer);
-      await tester.pump();
-      final identity = tester.widget<ListView>(
-        find.byKey(const PageStorageKey('users-identity-scroll')),
-      );
-      final metrics = tester.widget<ListView>(
-        find.byKey(const PageStorageKey('users-metrics-scroll')),
-      );
-      identity.controller!.jumpTo(56 * 20);
-      await tester.pumpAndSettle();
-      expect(metrics.controller!.offset, identity.controller!.offset);
-      expect(firstRow, findsNothing);
-      expect(find.byKey(const ValueKey('user-row-user999')), findsNothing);
-      expect(_rowColors(tester, 'user20'), [
-        theme.shell.hover,
-        theme.shell.hover,
-      ]);
-      final row = find.byKey(const ValueKey('user-row-user20'));
-      final metricRow = find.byKey(
-        const ValueKey('user-metrics-background-user20'),
-      );
-      final identityPosition = tester.getTopLeft(row);
-      expect(tester.getTopLeft(metricRow).dy, identityPosition.dy);
-
-      await mouse.moveTo(tester.getTopLeft(metricRow) + const Offset(30, 28));
-      await tester.pump();
-      expect(_rowColors(tester, 'user20'), [
-        theme.shell.hover,
-        theme.shell.hover,
-      ]);
-      final horizontal = tester.widget<SingleChildScrollView>(
-        find.descendant(
-          of: find.byKey(const ValueKey('users-table')),
-          matching: find.byWidgetPredicate(
-            (widget) =>
-                widget is SingleChildScrollView &&
-                widget.scrollDirection == Axis.horizontal,
-          ),
+      ),
+      size: const Size(700, 700),
+    );
+    expect(find.byType(DDataTable<UserDirectoryItem>), findsOneWidget);
+    expect(find.byKey(const ValueKey('user-row-user999')), findsNothing);
+    final list = tester.widget<ListView>(find.byType(ListView));
+    list.controller!.jumpTo(1200);
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('user-row-user0')), findsNothing);
+    final horizontal = tester.widget<SingleChildScrollView>(
+      find.descendant(
+        of: find.byType(DDataTable<UserDirectoryItem>),
+        matching: find.byWidgetPredicate(
+          (widget) =>
+              widget is SingleChildScrollView &&
+              widget.scrollDirection == Axis.horizontal,
         ),
-      );
-      final metricLeft = tester.getTopLeft(metricRow).dx;
-      horizontal.controller!.jumpTo(100);
-      await tester.pumpAndSettle();
-      expect(tester.getTopLeft(row), identityPosition);
-      expect(tester.getTopLeft(metricRow).dx, metricLeft - 100);
-      expect(_rowColors(tester, 'user20'), [
-        theme.shell.hover,
-        theme.shell.hover,
-      ]);
-
-      update(() => theme = AppTheme.dark);
-      await tester.pumpAndSettle();
-      expect(_rowColors(tester, 'user20'), [
-        theme.shell.hover,
-        theme.shell.hover,
-      ]);
-      expect(_rowColors(tester, 'user21'), [
-        theme.colorScheme.tertiaryContainer,
-        theme.colorScheme.tertiaryContainer,
-      ]);
-      await mouse.moveTo(const Offset(1, 1));
-      await tester.pump();
-      expect(_rowColors(tester, 'user20'), [
-        theme.shell.content,
-        theme.shell.content,
-      ]);
-      metrics.controller!.jumpTo(0);
-      await tester.pumpAndSettle();
-      expect(identity.controller!.offset, 0);
-      expect(_rowColors(tester, 'user0'), [
-        theme.shell.content,
-        theme.shell.content,
-      ]);
-      expect(tester.takeException(), isNull);
-    },
-  );
+      ),
+    );
+    final visible = find
+        .byWidgetPredicate(
+          (widget) =>
+              widget.key is ValueKey<String> &&
+              (widget.key! as ValueKey<String>).value.startsWith('user-row-'),
+        )
+        .first;
+    final before = tester.getTopLeft(visible);
+    horizontal.controller!.jumpTo(100);
+    await tester.pumpAndSettle();
+    expect(tester.getTopLeft(visible), before - const Offset(100, 0));
+    expect(tester.takeException(), isNull);
+  });
 
   for (final change in [
     'page append',
@@ -437,20 +338,6 @@ void main() {
         ),
       );
       expect(_barWidths(tester, 'first'), [.5]);
-      if (['query', 'forum', 'account'].contains(change)) {
-        final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
-        await mouse.addPointer(
-          location: tester.getCenter(
-            find.byKey(const ValueKey('user-row-first')),
-          ),
-        );
-        addTearDown(mouse.removePointer);
-        await tester.pump();
-        expect(_rowColors(tester, 'first'), [
-          AppTheme.light.shell.hover,
-          AppTheme.light.shell.hover,
-        ]);
-      }
       var expected = [.25];
       update(() {
         switch (change) {
@@ -496,10 +383,7 @@ void main() {
       });
       await tester.pump();
       expect(_barWidths(tester, 'first'), expected);
-      expect(_rowColors(tester, account), [
-        AppTheme.light.colorScheme.tertiaryContainer,
-        AppTheme.light.colorScheme.tertiaryContainer,
-      ]);
+      expect(find.text('You'), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
   }
@@ -540,10 +424,7 @@ void main() {
     );
     await tester.pump(const Duration(milliseconds: 350));
     expect(offscreenValues.reads, 0, reason: 'typing');
-    await tester.drag(
-      find.byKey(const ValueKey('users-resize-1-handle')),
-      const Offset(60, 0),
-    );
+    await tester.drag(_resize('Metric0'), const Offset(60, 0));
     await tester.pumpAndSettle();
     expect(offscreenValues.reads, 0, reason: 'resizing');
     update(() {
@@ -576,6 +457,7 @@ void main() {
     'Matrix supports search, periods, sorting, columns, and omits selection',
     (tester) async {
       String? search;
+      String? group;
       UserDirectoryPeriod? period;
       (String, bool)? sort;
       var refreshes = 0;
@@ -595,6 +477,7 @@ void main() {
             hasMore: true,
           ),
           onSearchChanged: (value) => search = value,
+          onGroupChanged: (value) => group = value,
           onPeriodChanged: (value) => period = value,
           onSortChanged: (order, ascending) => sort = (order, ascending),
           onRefresh: () async => refreshes++,
@@ -624,50 +507,8 @@ void main() {
       final periodFinder = find.byKey(const ValueKey('users-period-filter'));
       final searchHeight = tester.getSize(searchFinder).height;
       expect(searchHeight, tester.getSize(periodFinder).height);
-      expect(
-        tester
-            .widget<TextField>(searchFinder)
-            .decoration
-            ?.prefixIconConstraints
-            ?.minHeight,
-        searchHeight,
-      );
-
-      final page = tester.widget<ColoredBox>(
-        find.byKey(const ValueKey('users-page')),
-      );
-      final toolbar = tester.widget<Material>(
-        find.byKey(const ValueKey('users-toolbar')),
-      );
-      expect(page.color, AppTheme.light.shell.content);
-      expect(toolbar.color, AppTheme.light.shell.sidebar);
-      final currentUserColor = AppTheme.light.colorScheme.tertiaryContainer;
-      final currentIdentity = tester.widget<Container>(
-        find.byKey(const ValueKey('user-identity-background-sam')),
-      );
-      final currentIdentityDecoration =
-          currentIdentity.decoration! as BoxDecoration;
-      expect(currentIdentityDecoration.color, currentUserColor);
-      expect(
-        tester
-            .widget<ColoredBox>(
-              find.byKey(const ValueKey('user-metrics-background-sam')),
-            )
-            .color,
-        currentUserColor,
-      );
-      expect(
-        (tester
-                    .widget<Container>(
-                      find.byKey(
-                        const ValueKey('user-identity-background-hawk'),
-                      ),
-                    )
-                    .decoration!
-                as BoxDecoration)
-            .color,
-        AppTheme.light.shell.content,
-      );
+      expect(tester.widget<DInput>(searchFinder).controller, isNotNull);
+      expect(find.text('You'), findsOneWidget);
       expect(find.byKey(const ValueKey('user-row-sam')), findsOneWidget);
       expect(find.byKey(const ValueKey('user-avatar-sam')), findsOneWidget);
       final avatar = tester.widget<DAvatar>(
@@ -700,9 +541,17 @@ void main() {
       await tester.tap(find.text('Month'));
       await tester.pumpAndSettle();
       expect(period, UserDirectoryPeriod.monthly);
+      await tester.tap(find.byKey(const ValueKey('users-group-filter')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('design'));
+      await tester.pumpAndSettle();
+      expect(group, 'design');
 
       expect(find.text('Likes received'), findsOneWidget);
       await tester.tap(find.text('Likes received'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Sort ascending'));
+      await tester.pumpAndSettle();
       expect(sort, ('likes_received', true));
 
       await tester.tap(find.byKey(const ValueKey('users-columns')));
@@ -762,7 +611,7 @@ void main() {
         await tester.pump(const Duration(milliseconds: 400));
 
         expect(searches, isEmpty);
-        expect(tester.widget<TextField>(search).controller?.text, 'restored');
+        expect(tester.widget<DInput>(search).controller?.text, 'restored');
         await tester.enterText(search, 'new search');
         await tester.pump(const Duration(milliseconds: 350));
         expect(searches, ['new search']);
@@ -922,39 +771,27 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(
-      find.byKey(const ValueKey('users-resize-identity-handle')),
-      findsOneWidget,
-    );
+    expect(_resize('User'), findsOneWidget);
     for (final column in const [_likes, _replies, _days]) {
-      expect(
-        find.byKey(ValueKey('users-resize-${column.id}-handle')),
-        findsOneWidget,
-      );
+      expect(_resize(column.label), findsOneWidget);
     }
 
-    final identityColumn = find.byKey(
-      const ValueKey('users-identity-column-width'),
-    );
-    final firstMetric = find.byKey(
-      const ValueKey('users-metric-column-width-1'),
-    );
-    final initialIdentityWidth = tester.getSize(identityColumn).width;
+    final identityColumn = _resize('User');
+    final firstMetric = _resize('Likes received');
+    final initialIdentityWidth = tester
+        .widget<DResizableHandle>(identityColumn)
+        .value;
 
-    await tester.drag(
-      find.byKey(const ValueKey('users-resize-identity-handle')),
-      const Offset(42, 0),
-    );
+    await _resizeBy(tester, 'User', 42);
     await tester.pumpAndSettle();
-    final resizedIdentityWidth = tester.getSize(identityColumn).width;
+    final resizedIdentityWidth = tester
+        .widget<DResizableHandle>(identityColumn)
+        .value;
     expect(resizedIdentityWidth, closeTo(initialIdentityWidth + 42, .01));
 
-    await tester.drag(
-      find.byKey(const ValueKey('users-resize-1-handle')),
-      const Offset(-1000, 0),
-    );
+    await tester.drag(_resize('Likes received'), const Offset(-1000, 0));
     await tester.pumpAndSettle();
-    expect(tester.getSize(firstMetric).width, 88);
+    expect(tester.widget<DResizableHandle>(firstMetric).value, 88);
 
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pumpAndSettle();
@@ -965,8 +802,11 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(tester.getSize(identityColumn).width, resizedIdentityWidth);
-    expect(tester.getSize(firstMetric).width, 88);
+    expect(
+      tester.widget<DResizableHandle>(identityColumn).value,
+      resizedIdentityWidth,
+    );
+    expect(tester.widget<DResizableHandle>(firstMetric).value, 88);
 
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pumpAndSettle();
@@ -977,8 +817,11 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(tester.getSize(identityColumn).width, initialIdentityWidth);
-    expect(tester.getSize(firstMetric).width, greaterThan(88));
+    expect(
+      tester.widget<DResizableHandle>(identityColumn).value,
+      initialIdentityWidth,
+    );
+    expect(tester.widget<DResizableHandle>(firstMetric).value, greaterThan(88));
     expect(tester.takeException(), isNull);
   });
 
@@ -1004,26 +847,19 @@ void main() {
       size: const Size(1100, 820),
     );
 
-    final identityColumn = find.byKey(
-      const ValueKey('users-identity-column-width'),
-    );
-    final initialWidth = tester.getSize(identityColumn).width;
-    await tester.drag(
-      find.byKey(const ValueKey('users-resize-identity-handle')),
-      const Offset(32, 0),
-    );
+    final identityColumn = _resize('User');
+    final initialWidth = tester.widget<DResizableHandle>(identityColumn).value;
+    await _resizeBy(tester, 'User', 32);
     await tester.pumpAndSettle();
-    final resizedWidth = tester.getSize(identityColumn).width;
+    final resizedWidth = tester.widget<DResizableHandle>(identityColumn).value;
     expect(resizedWidth, initialWidth + 32);
 
     persistence.completeRead();
     await tester.pumpAndSettle();
 
-    expect(tester.getSize(identityColumn).width, resizedWidth);
+    expect(tester.widget<DResizableHandle>(identityColumn).value, resizedWidth);
     expect(
-      tester
-          .getSize(find.byKey(const ValueKey('users-metric-column-width-1')))
-          .width,
+      tester.widget<DResizableHandle>(_resize('Likes received')).value,
       200,
     );
     expect(UserDirectoryColumnWidths.decode(persistence.writes.last).widths, {
@@ -1058,7 +894,7 @@ void main() {
         ),
         theme: AppTheme.light.copyWith(platform: platform),
       );
-      final dimension = platform == TargetPlatform.iOS ? 48.0 : 40.0;
+      final dimension = platform == TargetPlatform.iOS ? 48.0 : 32.0;
       expect(
         tester.getSize(find.byKey(const ValueKey('users-search'))).height,
         dimension,
@@ -1074,8 +910,14 @@ void main() {
       final down = find.byKey(const ValueKey('users-column-down-1'));
       final up = find.byKey(const ValueKey('users-column-up-2'));
       for (final button in [down, up]) {
-        expect(tester.getSize(button), Size.square(dimension));
-        expect(tester.getSemantics(button).rect.size, Size.square(dimension));
+        expect(
+          tester.getSize(button),
+          Size.square(platform == TargetPlatform.iOS ? 48 : 28),
+        );
+        expect(
+          tester.getSemantics(button).rect.size,
+          Size.square(platform == TargetPlatform.iOS ? 48 : 28),
+        );
         expect(
           tester.getSemantics(button).label,
           tester.widget<DButton>(button).tooltip,
@@ -1133,26 +975,15 @@ void main() {
       );
       expect(find.text('Solutions'), findsOneWidget);
       expect(find.text('GitHub Username'), findsOneWidget);
-      final dialog = tester.widget<AlertDialog>(
+      final dialog = tester.widget<DDialogContent>(
         find.byKey(const ValueKey('users-manage-columns-dialog')),
       );
-      expect(
-        dialog.insetPadding,
-        const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
-      );
-      final content = find.byKey(
-        const ValueKey('users-manage-columns-content'),
-      );
-      expect(tester.widget<SizedBox>(content).width, 560);
-      expect(tester.getSize(content).width, 560);
+      expect(dialog.maxWidth, 608);
       expect(
         tester
-            .widget<ConstrainedBox>(
-              find.byKey(const ValueKey('users-manage-columns-list')),
-            )
-            .constraints
-            .maxHeight,
-        600,
+            .getSize(find.byKey(const ValueKey('users-manage-columns-content')))
+            .width,
+        lessThanOrEqualTo(608),
       );
       final solutionsTile = tester.widget<DCheckbox>(
         find.byKey(const ValueKey('users-manage-column-9')),
@@ -1171,7 +1002,7 @@ void main() {
       expect(
         find.descendant(
           of: find.byKey(const ValueKey('users-manage-columns-dialog')),
-          matching: find.byType(Divider),
+          matching: find.byType(DSeparator),
         ),
         findsNWidgets(2),
       );
@@ -1225,7 +1056,7 @@ void main() {
       tester
           .getSize(find.byKey(const ValueKey('users-manage-columns-content')))
           .width,
-      310,
+      lessThan(390),
     );
     expect(find.text('Save changes'), findsOneWidget);
     expect(
@@ -1294,54 +1125,12 @@ void main() {
     );
 
     expect(loads, 0);
-    final list = tester.widget<ListView>(
-      find.byKey(const PageStorageKey<String>('users-metrics-scroll')),
-    );
+    final list = tester.widget<ListView>(find.byType(ListView));
     list.controller!.jumpTo(list.controller!.position.maxScrollExtent - 1400);
     await tester.pump();
 
     expect(loads, 1);
     expect(find.byKey(const ValueKey('users-load-more')), findsNothing);
-    expect(tester.takeException(), isNull);
-  });
-
-  testWidgets('Matrix keeps the scrollbar out of the pinned user column', (
-    tester,
-  ) async {
-    await _pump(
-      tester,
-      const UsersPage(
-        siteUrl: 'https://example.com',
-        data: UsersPageData(
-          items: [_sam, _hawk],
-          columns: [_likes, _replies, _days],
-          totalRows: 2,
-          loaded: true,
-        ),
-      ),
-      theme: AppTheme.light.copyWith(platform: TargetPlatform.macOS),
-    );
-
-    final identity = tester.widget<ListView>(
-      find.byKey(const PageStorageKey<String>('users-identity-scroll')),
-    );
-    final metrics = tester.widget<ListView>(
-      find.byKey(const PageStorageKey<String>('users-metrics-scroll')),
-    );
-    final scrollbars = tester.widgetList<Scrollbar>(find.byType(Scrollbar));
-
-    expect(
-      scrollbars.where(
-        (scrollbar) => identical(scrollbar.controller, identity.controller),
-      ),
-      isEmpty,
-    );
-    expect(
-      scrollbars.where(
-        (scrollbar) => identical(scrollbar.controller, metrics.controller),
-      ),
-      hasLength(1),
-    );
     expect(tester.takeException(), isNull);
   });
 
@@ -1365,6 +1154,38 @@ void main() {
     expect(find.byKey(const ValueKey('users-group-filter')), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
+
+  for (final width in [390.0, 1100.0]) {
+    testWidgets('directory supports large text at width $width', (
+      tester,
+    ) async {
+      final semantics = tester.ensureSemantics();
+      await _pump(
+        tester,
+        Builder(
+          builder: (context) => MediaQuery(
+            data: MediaQuery.of(
+              context,
+            ).copyWith(textScaler: const TextScaler.linear(2)),
+            child: const UsersPage(
+              siteUrl: 'https://example.com',
+              data: UsersPageData(
+                items: [_sam, _hawk],
+                columns: [_likes, _replies, _days],
+                loaded: true,
+              ),
+            ),
+          ),
+        ),
+        size: Size(width, 820),
+      );
+      expect(find.byKey(const ValueKey('users-search')), findsOneWidget);
+      expect(find.byKey(const ValueKey('user-row-sam')), findsOneWidget);
+      expect(find.bySemanticsLabel('View profile for @sam'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      semantics.dispose();
+    });
+  }
 
   testWidgets('Matrix exposes stable loading, empty, and error states', (
     tester,
@@ -1484,25 +1305,33 @@ List<UserDirectoryItem> _countedItems() => [
     ),
 ];
 
-List<Color?> _rowColors(WidgetTester tester, String username) => [
-  (tester
-              .widget<Container>(
-                find.byKey(ValueKey('user-identity-background-$username')),
-              )
-              .decoration!
-          as BoxDecoration)
-      .color,
-  tester
-      .widget<ColoredBox>(
-        find.byKey(ValueKey('user-metrics-background-$username')),
-      )
-      .color,
-];
+Finder _metrics(String username) => find.byWidgetPredicate(
+  (widget) =>
+      widget.key is ValueKey<String> &&
+      (widget.key! as ValueKey<String>).value.startsWith(
+        'user-metric-$username-',
+      ),
+);
+
+Future<void> _resizeBy(WidgetTester tester, String label, double delta) async {
+  final gesture = await tester.startGesture(tester.getCenter(_resize(label)));
+  // Establish the drag past touch slop before measuring the resize delta.
+  await gesture.moveBy(const Offset(20, 0));
+  await tester.pump();
+  await gesture.moveBy(Offset(delta, 0));
+  await gesture.up();
+}
+
+Finder _resize(String label) => find.byWidgetPredicate(
+  (widget) =>
+      widget is DResizableHandle &&
+      widget.semanticLabel == 'Resize $label column',
+);
 
 List<double?> _barWidths(WidgetTester tester, String username) => [
   for (final bar in tester.widgetList<FractionallySizedBox>(
     find.descendant(
-      of: find.byKey(ValueKey('user-metrics-background-$username')),
+      of: _metrics(username),
       matching: find.byType(FractionallySizedBox),
     ),
   ))

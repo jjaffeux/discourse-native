@@ -61,7 +61,9 @@ on rich authored HTML, while ordinary columns retain natural no-wrap width.
 Explicitly fixed columns should use softWrap for content that can outgrow them.
 No row spans are exposed; no frozen composition requires them.
 
-The eager layout is intended for bounded presentation tables. It does not
+The default eager layout is intended for bounded presentation tables. Optional
+`rowBuilder`/`rowCount` provide lazy body rows with fixed column widths in a
+bounded-height viewport, retaining headers, footers and captions. It does not
 create sorting, pagination, selection logic, data loading or network ownership.
 Selected/expanded values come from callers; menus, buttons and fields keep
 native Actions/Focus/Form/controller behavior. There is no extra passive-row
@@ -88,14 +90,11 @@ No FormField is introduced for a passive presentation container.
   have zero groups. No fabricated generic loading/error props were added.
 - **Migrated downstream example:** Skeleton's five-row ready content uses
   DTable while its authored compact spacing and loading placeholders remain.
-- **Retained core Users grid:** `users_page.dart` uses two lazy vertical lists,
-  pinned identity columns, synchronized vertical positions, a horizontally
-  scrolling metric viewport, persisted column widths, isolated hover notifiers,
-  sorting/filtering/pagination, and snapshot-derived maxima. Replacing those
-  lists with this eager table would remove its virtualization/scroll contract.
-  This is a specific Data Table/application-grid review boundary. No Users code
-  changed; Chart's metric marks and Resizable's width adapters remain owned by
-  their separate unmerged tasks.
+- **Migrated core Users directory (2026-09-11):** `users_page.dart` uses
+  `DDataTable` in manual mode, backed by DTable's lazy body. Identity and metrics
+  share one horizontal viewport. Column resizing, saved widths, server queries,
+  incremental loading and metric marks remain supported. See
+  [Data Table](data-table.md) for the API and migration verification.
 - **Retained cooked HTML:** `CookedHtml` delegates authored table markup to
   HtmlWidget and its CSS/span/selection rendering. Replacing DOM rendering with
   presentation models would change authored content, unlike the migrated

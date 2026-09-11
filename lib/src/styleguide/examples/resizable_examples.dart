@@ -1,7 +1,6 @@
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/plugins/chat/chat_thread_view.dart';
 import 'package:discourse_native/src/shell/resizable_pane.dart';
-import 'package:discourse_native/src/shell/users_page.dart';
 import 'package:discourse_native/src/theme/discourse_typography.dart';
 import 'package:flutter/material.dart';
 
@@ -316,15 +315,20 @@ class _OtherAdaptersState extends State<_OtherAdapters> {
                   child: Stack(
                     children: [
                       const Positioned.fill(child: _Label('User column')),
-                      UsersColumnResizeHandle(
-                        resizeKey: 'local-users',
-                        semanticsLabel: 'Resize local User column',
-                        width: _column.clamp(100, maximum),
-                        minimumWidth: 100,
-                        maximumWidth: maximum,
-                        onResizeStart: () {},
-                        onResize: (v) => setState(() => _column = v),
-                        onResizeEnd: () => setState(() => _commits++),
+                      PositionedDirectional(
+                        top: 0,
+                        bottom: 0,
+                        end: 0,
+                        width: DResizableHandle.resolveHitExtent(context, 24),
+                        child: DResizableHandle.standalone(
+                          semanticLabel: 'Resize local User column',
+                          value: _column.clamp(100, maximum),
+                          min: 100,
+                          max: maximum,
+                          onChangeStart: () {},
+                          onChanged: (v) => setState(() => _column = v),
+                          onChangeEnd: () => setState(() => _commits++),
+                        ),
                       ),
                     ],
                   ),
@@ -679,7 +683,6 @@ class _ResizableProductionFixtureState
 
 const _adapterUsage = r'''import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/plugins/chat/chat_thread_view.dart';
-import 'package:discourse_native/src/shell/users_page.dart';
 import 'package:flutter/material.dart';
 
 void main() => runApp(
@@ -735,16 +738,17 @@ class _OtherAdaptersState extends State<_OtherAdapters> {
                   child: Stack(
                     children: [
                       const Positioned.fill(child: _Label('User column')),
-                      UsersColumnResizeHandle(
-                        resizeKey: 'local-users',
-                        semanticsLabel: 'Resize local User column',
-                        width: _column.clamp(100, maximum),
-                        minimumWidth: 100,
-                        maximumWidth: maximum,
-                        onResizeStart: () {},
-                        onResize: (v) => setState(() => _column = v),
-                        onResizeEnd: () => setState(() => _commits++),
-                      ),
+                      PositionedDirectional(top: 0, bottom: 0, end: 0,
+                        width: DResizableHandle.resolveHitExtent(context, 24),
+                        child: DResizableHandle.standalone(
+                        semanticLabel: 'Resize local User column',
+                        value: _column.clamp(100, maximum),
+                        min: 100,
+                        max: maximum,
+                        onChangeStart: () {},
+                        onChanged: (v) => setState(() => _column = v),
+                        onChangeEnd: () => setState(() => _commits++),
+                      )),
                     ],
                   ),
                 ),

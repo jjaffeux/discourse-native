@@ -13,6 +13,7 @@ import 'd_dropdown_menu.dart';
 import 'd_input.dart';
 import 'd_pagination.dart';
 import 'd_popover.dart';
+import 'd_resizable.dart';
 import 'd_select.dart';
 import 'd_table.dart';
 
@@ -198,11 +199,16 @@ class DDataTableColumn<T> {
     this.hideable = true,
     this.initiallyHidden = false,
     this.width,
+    this.resizable = false,
+    this.minWidth = 64,
+    this.maxWidth = 800,
     this.alignment = AlignmentDirectional.centerStart,
     this.headerAlignment = AlignmentDirectional.centerStart,
     this.padding = const EdgeInsets.all(8),
     this.headerPadding = const EdgeInsets.symmetric(horizontal: 8),
-  }) : assert(id != '');
+  }) : assert(id != ''),
+       assert(minWidth > 0),
+       assert(maxWidth >= minWidth);
 
   final String id;
   final String label;
@@ -214,6 +220,11 @@ class DDataTableColumn<T> {
   final bool hideable;
   final bool initiallyHidden;
   final TableColumnWidth? width;
+
+  /// Adds an accessible pointer/keyboard resize handle to this header.
+  final bool resizable;
+  final double minWidth;
+  final double maxWidth;
   final AlignmentGeometry alignment;
   final AlignmentGeometry headerAlignment;
   final EdgeInsetsGeometry padding;
@@ -315,6 +326,12 @@ class DDataTable<T> extends StatefulWidget {
     this.minimumWidth = 0,
     this.scrollController,
     this.footerBuilder,
+    this.columnWidths = const {},
+    this.onColumnWidthsChanged,
+    this.onColumnResizeEnd,
+    this.onColumnResizeStart,
+    this.virtualized = false,
+    this.verticalScrollController,
   }) : assert(controller == null || state == null),
        assert(state == null || onStateChanged != null),
        assert(rowCount == null || rowCount >= 0),
@@ -344,6 +361,19 @@ class DDataTable<T> extends StatefulWidget {
   final double minimumWidth;
   final ScrollController? scrollController;
   final DDataTableFooterBuilder? footerBuilder;
+
+  /// Pixel widths keyed by stable column ID. Persist these in the app adapter.
+  final Map<String, double> columnWidths;
+  final ValueChanged<Map<String, double>>? onColumnWidthsChanged;
+  final VoidCallback? onColumnResizeEnd;
+  final VoidCallback? onColumnResizeStart;
+
+  /// Lazily builds body rows with natural heights under a stationary header.
+  /// Requires bounded height. Unspecified column widths default to 160 pixels.
+  /// The native scroll viewport exposes lazy rows as accessible groups;
+  /// cells retain their controls and header labels. Eager mode uses table roles.
+  final bool virtualized;
+  final ScrollController? verticalScrollController;
   @override
   State<DDataTable<T>> createState() => _DDataTableState<T>();
 }
@@ -351,6 +381,7 @@ class DDataTable<T> extends StatefulWidget {
 class _DDataTableState<T> extends State<DDataTable<T>> {
   late DDataTableState _ownedState = _defaultState();
   bool _normalizationScheduled = false;
+  final Map<String, double> _resizedWidths = {};
 
   DDataTableState _defaultState() => DDataTableState(
     hiddenColumnIds: {
@@ -371,6 +402,9 @@ class _DDataTableState<T> extends State<DDataTable<T>> {
   @override
   void didUpdateWidget(DDataTable<T> oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (!mapEquals(oldWidget.columnWidths, widget.columnWidths)) {
+      _resizedWidths.clear();
+    }
     if (oldWidget.controller != widget.controller) {
       oldWidget.controller?.removeListener(_controllerChanged);
       widget.controller?.addListener(_controllerChanged);
@@ -550,10 +584,22 @@ class _DDataTableState<T> extends State<DDataTable<T>> {
       offset = 1;
     }
     for (var index = 0; index < visible.length; index++) {
-      final width = visible[index].width;
+      final column = visible[index];
+      final width =
+          widget.virtualized ||
+              column.resizable ||
+              widget.columnWidths.containsKey(column.id)
+          ? FixedColumnWidth(_columnWidth(column))
+          : column.width;
       if (width != null) columnWidths[index + offset] = width;
     }
 
+    final rowIndices = widget.virtualized
+        ? {
+            for (var index = 0; index < view.pageRows.length; index++)
+              ValueKey(widget.rowId(view.pageRows[index])): index,
+          }
+        : const <Key, int>{};
     final table = ClipRRect(
       borderRadius: BorderRadius.circular(tokens.radius * .8),
       child: DecoratedBox(
@@ -563,6 +609,23 @@ class _DDataTableState<T> extends State<DDataTable<T>> {
         ),
         child: DTable(
           semanticLabel: widget.semanticLabel,
+          rowBuilder: widget.virtualized && view.pageRows.isNotEmpty
+              ? (context, index) => _row(
+                  context,
+                  view.pageRows[index],
+                  index,
+                  visible,
+                  state,
+                  change,
+                )
+              : widget.virtualized
+              ? (context, index) => throw StateError('Empty table')
+              : null,
+          rowCount: view.pageRows.length,
+          findChildIndexCallback: widget.virtualized
+              ? (key) => rowIndices[key]
+              : null,
+          verticalScrollController: widget.verticalScrollController,
           minimumWidth: widget.minimumWidth,
           controller: widget.scrollController,
           columnWidths: columnWidths,
@@ -607,47 +670,49 @@ class _DDataTableState<T> extends State<DDataTable<T>> {
                   for (final column in visible)
                     DTableHead(
                       alignment: column.headerAlignment,
-                      padding: column.headerPadding,
-                      child:
-                          column.headerBuilder?.call(
-                            context,
-                            DDataTableHeaderContext(
-                              column: column,
-                              sortDirection: state.sort?.columnId == column.id
-                                  ? state.sort!.direction
-                                  : null,
-                              onSortChanged: column.sortable
-                                  ? (direction) => change(
-                                      state.copyWith(
-                                        sort: direction == null
-                                            ? null
-                                            : DDataTableSort(
-                                                columnId: column.id,
-                                                direction: direction,
-                                              ),
-                                        page: 1,
-                                      ),
-                                    )
-                                  : null,
-                              onVisibilityChanged: column.hideable
-                                  ? (visible) {
-                                      final hidden = Set<String>.of(
-                                        state.hiddenColumnIds,
-                                      );
-                                      visible
-                                          ? hidden.remove(column.id)
-                                          : hidden.add(column.id);
-                                      change(
+                      padding: EdgeInsets.zero,
+                      child: _resizableHeader(
+                        column,
+                        column.headerBuilder?.call(
+                              context,
+                              DDataTableHeaderContext(
+                                column: column,
+                                sortDirection: state.sort?.columnId == column.id
+                                    ? state.sort!.direction
+                                    : null,
+                                onSortChanged: column.sortable
+                                    ? (direction) => change(
                                         state.copyWith(
-                                          hiddenColumnIds: hidden,
+                                          sort: direction == null
+                                              ? null
+                                              : DDataTableSort(
+                                                  columnId: column.id,
+                                                  direction: direction,
+                                                ),
                                           page: 1,
                                         ),
-                                      );
-                                    }
-                                  : null,
-                            ),
-                          ) ??
-                          Text(column.label),
+                                      )
+                                    : null,
+                                onVisibilityChanged: column.hideable
+                                    ? (visible) {
+                                        final hidden = Set<String>.of(
+                                          state.hiddenColumnIds,
+                                        );
+                                        visible
+                                            ? hidden.remove(column.id)
+                                            : hidden.add(column.id);
+                                        change(
+                                          state.copyWith(
+                                            hiddenColumnIds: hidden,
+                                            page: 1,
+                                          ),
+                                        );
+                                      }
+                                    : null,
+                              ),
+                            ) ??
+                            Text(column.label),
+                      ),
                     ),
                 ],
               ),
@@ -672,6 +737,8 @@ class _DDataTableState<T> extends State<DDataTable<T>> {
                       ],
                     ),
                   ]
+                : widget.virtualized
+                ? const []
                 : [
                     for (var index = 0; index < view.pageRows.length; index++)
                       _row(
@@ -691,7 +758,59 @@ class _DDataTableState<T> extends State<DDataTable<T>> {
     if (footerBuilder == null) return table;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [table, footerBuilder(context, view.metrics)],
+      children: [
+        if (widget.virtualized) Expanded(child: table) else table,
+        footerBuilder(context, view.metrics),
+      ],
+    );
+  }
+
+  double _columnWidth(DDataTableColumn<T> column) {
+    final initial = column.width;
+    final value =
+        widget.columnWidths[column.id] ??
+        _resizedWidths[column.id] ??
+        (initial is FixedColumnWidth ? initial.value : 160.0);
+    return (value.isFinite ? value : column.minWidth).clamp(
+      column.minWidth,
+      column.maxWidth,
+    );
+  }
+
+  Widget _resizableHeader(DDataTableColumn<T> column, Widget child) {
+    final padded = Padding(padding: column.headerPadding, child: child);
+    if (!column.resizable) return padded;
+    return SizedBox(
+      width: double.infinity,
+      child: Stack(
+        children: [
+          Padding(
+            padding: const EdgeInsetsDirectional.only(end: 12),
+            child: padded,
+          ),
+          PositionedDirectional(
+            top: 0,
+            bottom: 0,
+            end: 0,
+            width: DResizableHandle.resolveHitExtent(context, 24),
+            child: DResizableHandle.standalone(
+              semanticLabel: 'Resize ${column.label} column',
+              value: _columnWidth(column),
+              min: column.minWidth,
+              max: column.maxWidth,
+              dividerAlignment: AlignmentDirectional.centerEnd,
+              onChanged: (width) {
+                setState(() => _resizedWidths[column.id] = width);
+                widget.onColumnWidthsChanged?.call(
+                  Map.unmodifiable({...widget.columnWidths, ..._resizedWidths}),
+                );
+              },
+              onChangeEnd: widget.onColumnResizeEnd,
+              onChangeStart: widget.onColumnResizeStart,
+            ),
+          ),
+        ],
+      ),
     );
   }
 
