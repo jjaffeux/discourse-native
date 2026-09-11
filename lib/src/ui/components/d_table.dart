@@ -77,7 +77,13 @@ class DTable extends StatefulWidget {
 }
 
 class _DTableState extends State<DTable> {
-  int? _hovered;
+  final _hovered = ValueNotifier<int?>(null);
+
+  @override
+  void dispose() {
+    _hovered.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -161,27 +167,14 @@ class _DTableState extends State<DTable> {
                               : SemanticsRole.cell,
                           header: rows[r].cells[c] is DTableHead,
                           child: MouseRegion(
-                            onEnter: (_) => setState(() => _hovered = r),
+                            onEnter: (_) => _hovered.value = r,
                             onExit: (_) {
-                              if (_hovered == r) {
-                                setState(() => _hovered = null);
+                              if (_hovered.value == r) {
+                                _hovered.value = null;
                               }
                             },
-                            child: AnimatedContainer(
-                              duration: DMotion.duration(
-                                context,
-                                const Duration(milliseconds: 150),
-                              ),
-                              curve: Curves.easeInOut,
-                              color: rows[r].selected
-                                  ? tokens.muted
-                                  : (_hovered == r ||
-                                        rows[r].expanded ||
-                                        r >= footerStart)
-                                  ? tokens.muted.withValues(
-                                      alpha: tokens.muted.a * .5,
-                                    )
-                                  : tokens.muted.withValues(alpha: 0),
+                            child: ValueListenableBuilder<int?>(
+                              valueListenable: _hovered,
                               child: DefaultTextStyle.merge(
                                 style: TextStyle(
                                   fontWeight: r >= footerStart
@@ -190,6 +183,24 @@ class _DTableState extends State<DTable> {
                                 ),
                                 child: rows[r].cells[c],
                               ),
+                              builder: (context, hovered, child) =>
+                                  AnimatedContainer(
+                                    duration: DMotion.duration(
+                                      context,
+                                      const Duration(milliseconds: 150),
+                                    ),
+                                    curve: Curves.easeInOut,
+                                    color: rows[r].selected
+                                        ? tokens.muted
+                                        : (hovered == r ||
+                                              rows[r].expanded ||
+                                              r >= footerStart)
+                                        ? tokens.muted.withValues(
+                                            alpha: tokens.muted.a * .5,
+                                          )
+                                        : tokens.muted.withValues(alpha: 0),
+                                    child: child,
+                                  ),
                             ),
                           ),
                         ),
@@ -575,7 +586,14 @@ class _RenderTable extends RenderBox
       for (var c = 0; c < row.cells.length; c++) {
         final box = cells[start + c];
         final w = cellWidths[c];
-        box.layout(BoxConstraints.tight(Size(w, height)), parentUsesSize: true);
+        // A cell already at the row height needs no second layout. Keeping
+        // its loose height constraints also lets the next pass reuse layout.
+        if (box.size.height != height) {
+          box.layout(
+            BoxConstraints.tight(Size(w, height)),
+            parentUsesSize: true,
+          );
+        }
         (box.parentData! as _CellData).offset = Offset(
           spec.direction == TextDirection.ltr ? x : width - x - w,
           y + top,
