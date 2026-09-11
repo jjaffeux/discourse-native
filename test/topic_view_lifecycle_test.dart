@@ -9,6 +9,7 @@ import 'package:discourse_native/src/diagnostics/diagnostics_persistence.dart';
 import 'package:discourse_native/src/diagnostics/diagnostics_scope.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
+import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/plugin_api/plugin_runtime.dart';
@@ -1225,6 +1226,93 @@ void main() {
     });
 
     group('targeted post navigation', () {
+      for (final navigation in ['progress', 'notification']) {
+        testWidgets(
+          'keeps repeated $navigation jumps to 137 aligned as the viewport resizes',
+          (tester) async {
+            final site = instance(
+              'meta.example',
+            ).copyWith(user: const DiscourseUser(id: 1, username: 'sam'));
+            final posts = [
+              for (var number = 1; number <= 180; number++)
+                Post(
+                  id: number,
+                  postNumber: number,
+                  username: 'sam',
+                  cooked: List.filled(
+                    number % 7 == 0 ? 70 : number % 5 + 1,
+                    '<p>Post $number</p>',
+                  ).join(),
+                ),
+            ];
+            final topic = TopicDetail(
+              id: 1,
+              title: 'One',
+              stream: [for (final post in posts) post.id],
+              postsCount: posts.length,
+            );
+            final controller = _controller(
+              site,
+              FakeDiscourseApi(
+                feeds: const {'/latest.json': []},
+                topics: {1: (detail: topic, posts: posts)},
+              ),
+            );
+            addTearDown(controller.dispose);
+            addTearDown(tester.view.resetPhysicalSize);
+            addTearDown(tester.view.resetDevicePixelRatio);
+            tester.view.devicePixelRatio = 1;
+            tester.view.physicalSize = const Size(800, 600);
+            await controller.load();
+            controller.store
+              ..put(site.url, topic)
+              ..putAll(site.url, posts);
+            controller.pushContent(
+              ContentRoute.topic(topicId: 1, slug: 'one', title: 'One'),
+            );
+            await tester.pumpWidget(_topicView(controller));
+            await tester.pumpAndSettle();
+            for (final height in [600.0, 900.0, 600.0]) {
+              tester.view.physicalSize = Size(800, height);
+              await tester.pumpAndSettle();
+              if (navigation == 'progress') {
+                await tester.tap(
+                  find.byKey(const ValueKey('topic-progress-button')),
+                );
+                await tester.pumpAndSettle();
+                tester
+                    .widget<DSlider>(
+                      find.byKey(const ValueKey('topic-progress-slider')),
+                    )
+                    .onChanged!(137);
+                await tester.pump();
+                await tester.tap(
+                  find.byKey(const ValueKey('topic-progress-jump')),
+                );
+              } else {
+                expect(
+                  await controller.openNotificationUrl(
+                    '${site.url}/t/one/1/137',
+                  ),
+                  isTrue,
+                );
+              }
+              await tester.pumpAndSettle();
+              final viewport = tester.getRect(find.byType(SuperListView));
+              final post = find.byKey(const ValueKey(137));
+              expect(post, findsOneWidget);
+              expect(
+                tester.getTopLeft(post).dy,
+                closeTo(viewport.top, 1),
+                reason: 'viewport height $height',
+              );
+              expect(controller.topicScrollPostNumber(1), 137);
+              expect(find.text('137 / 180'), findsOneWidget);
+            }
+          },
+        );
+      }
+
       testWidgets('reveals a numbered route target on first layout', (
         tester,
       ) async {
@@ -2610,7 +2698,7 @@ void main() {
         await tester.tap(progress);
         await tester.pumpAndSettle();
 
-        expect(find.text('Topic progress'), findsOneWidget);
+        expect(find.byType(DPopoverContent), findsOneWidget);
         expect(
           find.byKey(const ValueKey('topic-progress-slider')),
           findsOneWidget,
@@ -2630,11 +2718,7 @@ void main() {
         }
         expect(
           actions.map((action) => tester.widget<DButton>(action).variant),
-          [
-            DButtonVariant.primary,
-            DButtonVariant.primary,
-            DButtonVariant.primary,
-          ],
+          [DButtonVariant.ghost, DButtonVariant.primary, DButtonVariant.ghost],
         );
 
         await tester.tap(find.text('Latest post'));

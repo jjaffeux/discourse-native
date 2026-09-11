@@ -1112,8 +1112,17 @@ final class TopicViewportCoordinator extends FrameSafeNotifier
             postNumber: visible.postNumber,
             caughtUp: visible.caughtUp,
           );
-    if (visible != null) {
-      final streamIndex = _streamIndex(snapshot.streamIds, visible.postId);
+    // Navigation addresses the post at the top of the viewport. Using the
+    // farthest visible post makes a jump appear to overshoot by however many
+    // replies fit on screen. At the stream's end, still report completion
+    // when the final post cannot be aligned to the top.
+    final position = _geometry.scrollPosition;
+    final atEnd =
+        visible?.caughtUp == true &&
+        position.pixels >= position.maxScrollExtent - 0.5;
+    final progress = atEnd ? visible : leading ?? visible;
+    if (progress != null) {
+      final streamIndex = _streamIndex(snapshot.streamIds, progress.postId);
       if (streamIndex >= 0) _setProgressPosition(streamIndex + 1);
     }
 
