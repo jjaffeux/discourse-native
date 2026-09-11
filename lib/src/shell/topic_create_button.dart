@@ -76,6 +76,9 @@ class _TopicCreateControl extends StatelessWidget {
     final insetIcons = compact && !showLabel && draftsInstance == null;
     final dimension = compact && showLabel
         ? math.max(28.0, labelHeight + 10)
+        : compact
+        ? DButton.iconOnlyDimensionFor(DButtonSize.small) -
+              DButton.flatSurfacePadding * 2
         : DButton.iconOnlyDimensionFor(DButtonSize.small);
     final mainButton = showLabel
         ? DButton(
