@@ -110,8 +110,9 @@ corrected route follows the Data Table styleguide composition directly:
   column visibility. The native dropdown applies visibility immediately; staff
   configuration remains a separate “Manage columns” action.
 - Username/profile links, a separate Name column and formatted metric values
-  are plain cells with inherited table typography. The old avatar stacks,
-  badges and sidebar-colored toolbar are gone. At the user’s request, metric
+  inherit table typography. The User cell pairs a small `DAvatar` with the
+  username inside the same profile target. The old avatar stacks, badges and
+  sidebar-colored toolbar are gone. At the user’s request, metric
   cells again compose `DChartBar` behind the numbers, proportional to each
   column’s largest loaded value, while preserving the standard cell typography
   and height. Cached maxima update when the rows or columns change.
