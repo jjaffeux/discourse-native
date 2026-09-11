@@ -1439,7 +1439,7 @@ class _DSelectBodyState<T> extends State<_DSelectBody<T>> {
           const SizedBox(width: DControlStyle.gap),
           IconTheme(
             data: IconThemeData(
-              color: tokens.mutedForeground,
+              color: tokens.foreground,
               size: DControlStyle.iconSize,
             ),
             child:

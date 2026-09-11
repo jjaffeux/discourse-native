@@ -31,30 +31,32 @@ class TopicTaxonomyButton extends StatelessWidget {
   final bool expanded;
 
   @override
-  Widget build(BuildContext context) => ConstrainedBox(
-    constraints: BoxConstraints(maxWidth: maximumWidth),
-    child: DButton(
-      key: buttonKey,
-      size: size,
-      label: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Flexible(
-            child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
-          ),
-          const SizedBox(width: 8),
-          const DIcon(DIcons.chevronDown, size: 16),
-        ],
+  Widget build(BuildContext context) => IntrinsicWidth(
+    child: ConstrainedBox(
+      constraints: BoxConstraints(maxWidth: maximumWidth),
+      child: DButton(
+        key: buttonKey,
+        size: size,
+        label: Row(
+          mainAxisSize: MainAxisSize.max,
+          children: [
+            Expanded(
+              child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
+            ),
+            const SizedBox(width: 8),
+            const DIcon(DIcons.chevronDown, size: 16),
+          ],
+        ),
+        icon: icon,
+        tooltip: tooltip,
+        semanticLabel: semanticLabel,
+        onPressed: onPressed,
+        focusNode: focusNode,
+        hasPopup: true,
+        expanded: expanded,
+        alignment: AlignmentDirectional.centerStart,
+        variant: DButtonVariant.outline,
       ),
-      icon: icon,
-      tooltip: tooltip,
-      semanticLabel: semanticLabel,
-      onPressed: onPressed,
-      focusNode: focusNode,
-      hasPopup: true,
-      expanded: expanded,
-      alignment: AlignmentDirectional.centerStart,
-      variant: DButtonVariant.outline,
     ),
   );
 }
