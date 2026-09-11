@@ -28,7 +28,7 @@ Disabled, Icons, RTL, and API Reference.
 | List `w-fit`, `rounded-lg`, `p-[3px]`, horizontal `h-8`; default `bg-muted`; line `gap-1 bg-transparent rounded-none` | Intrinsic list, host `radius` (lg), 3px inset, 32px pointer height, muted default surface, transparent square line surface and 4px trigger gaps. A horizontal `SingleChildScrollView` keeps long/dynamic lists usable at narrow widths. |
 | Trigger `h-[calc(100%-1px)]`, `px-1.5 py-0.5`, `rounded-md`, `text-sm/medium`, `gap-1.5` | 25px pointer trigger, 6px horizontal/1.5px vertical inset, `radius × .8`, 14/20 host-font medium text, inherited 16px icon theme and caller-composed 6px icon gap. Touch platforms retain at least 48px list interaction height around compact artwork. |
 | Inactive `foreground/60`; hover/active foreground; disabled 50%; light active background; dark input/30 plus input border; active shadow-sm | Live `DTokens` foreground opacity, hover/selection, disabled opacity, background/input semantic mapping and small 1px-y shadow. No cached palette values. |
-| Focus border plus 1px ring and 3px `ring/50` | Outside-only custom-painted 1px focus outline and 3px half-alpha host focus ring, avoiding interior tint. |
+| Focus border plus 1px ring and 3px `ring/50` | Outside-only custom-painted 1px focus outline and 3px half-alpha host focus ring, avoiding interior tint. Pointer activation suppresses the ring while retaining focus; keyboard entry, navigation and activation restore it by default. |
 | Line active pseudo-element: horizontal bottom -5px, 2px high; vertical right -4px, 2px wide | A 2px foreground rule paints 4px beyond the trigger. Vertical placement uses logical end, including RTL. |
 | Horizontal overflow with the active line outside the trigger | Horizontal line lists reserve 6 logical pixels below the artwork inside the scrolling viewport. This keeps the rule visible when scrolling clips overflowing children, including enlarged text and touch targets. |
 | Root value/defaultValue/onValueChange, List activateOnFocus/loopFocus, disabled fallback and missing fallback | Local `DTabs`, `DTabs.controlled`, borrowed `DTabController`, `DTabChangeReason`, manual/automatic activation, wrapping/non-wrapping roving focus, and dynamic disabled/missing reconciliation. Controlled values are never rewritten. |
@@ -165,3 +165,27 @@ Verification:
   same focused suites plus `test/topic_inbox_test.dart` passed all 157 tests.
   The Native tab renderer and inspected adoption source were unchanged by
   that integration.
+
+## Default keyboard focus rings — 2026-09-11
+
+All `DTabTrigger` variants now retain focus after mouse/touch activation without
+painting the focus ring. Arrow/Home/End movement and Enter/Space activation
+restore it, and leaving a trigger resets the pointer state so keyboard re-entry
+shows focus normally. This is the component default; callers need no override.
+The change stays within tab triggers and does not alter Flutter's application-wide
+focus highlight strategy or the selected tab indicator.
+
+Four rendered regressions cover default/line lists with mouse/touch input,
+including clicking an already-focused tab, switching tabs, keyboard activation,
+arrow movement and Tab/Shift+Tab re-entry. Both mouse cases reproduced the
+unwanted ring before the change and passed afterward. Static analysis is clean;
+all 171 tests in the Tabs, Tabs styleguide, topic navigation, message inbox,
+keyboard navigation, Group, Chat channel info and Diagnostics suites pass.
+
+Native verification used an isolated macOS debug fixture with production
+`MainContent`, the styleguide Line example and a default-style tab list. Mouse
+clicks showed no focus ring, keyboard navigation/activation showed the ring,
+and clicking the focused tab hid it again. Checked dark/wide and light/360px
+layouts at 100% and 200% text, including End/Enter scrolling to Trending. The
+selected underline remained visible. The fixture used local fake data and was
+closed after inspection; touch coverage is from widget tests, not a device run.
