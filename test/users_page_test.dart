@@ -43,15 +43,6 @@ const _solutions = UserDirectoryColumn(
   position: 4,
   enabled: false,
 );
-const _github = UserDirectoryColumn(
-  id: 14,
-  name: 'GitHub Username',
-  type: UserDirectoryColumnType.userField,
-  position: 5,
-  userFieldId: 42,
-  enabled: false,
-);
-
 const _sam = UserDirectoryItem(
   id: 1,
   user: UserDirectoryUser(
@@ -641,62 +632,6 @@ void main() {
     );
   }
 
-  for (final boundary in ['forum', 'account', 'permission']) {
-    testWidgets('column management stops after the $boundary changes', (
-      tester,
-    ) async {
-      var site = 'https://example.com';
-      var username = 'admin';
-      var canManage = true;
-      var writes = 0;
-      late StateSetter update;
-      await _pump(
-        tester,
-        StatefulBuilder(
-          builder: (context, setState) {
-            update = setState;
-            return UsersPage(
-              siteUrl: site,
-              data: UsersPageData(
-                items: const [_sam],
-                columns: const [_likes],
-                availableColumns: const [_likes, _solutions],
-                loaded: true,
-                currentUsername: username,
-                canManageColumns: canManage,
-              ),
-              onManageColumns: canManage
-                  ? (_) async {
-                      writes++;
-                      return true;
-                    }
-                  : null,
-            );
-          },
-        ),
-      );
-      await tester.tap(find.byKey(const ValueKey('users-manage-columns')));
-      await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const ValueKey('users-manage-column-9')));
-      update(() {
-        switch (boundary) {
-          case 'forum':
-            site = 'https://another.example';
-          case 'account':
-            username = 'replacement';
-          case 'permission':
-            canManage = false;
-        }
-      });
-      await tester.pump();
-      await tester.tap(find.byKey(const ValueKey('users-save-columns')));
-      await tester.pumpAndSettle();
-
-      expect(writes, 0);
-      expect(tester.takeException(), isNull);
-    });
-  }
-
   testWidgets('every column resizes and restores its forum-specific width', (
     tester,
   ) async {
@@ -823,7 +758,6 @@ void main() {
       tester,
     ) async {
       final semantics = tester.ensureSemantics();
-      List<UserDirectoryColumn>? saved;
       await _pump(
         tester,
         UsersPage(
@@ -831,15 +765,9 @@ void main() {
           data: const UsersPageData(
             items: [_sam],
             columns: [_likes, _replies],
-            availableColumns: [_likes, _replies],
-            canManageColumns: true,
             loaded: true,
           ),
           onPeriodChanged: (_) {},
-          onManageColumns: (columns) async {
-            saved = columns;
-            return true;
-          },
         ),
         theme: AppTheme.light.copyWith(platform: platform),
       );
@@ -854,168 +782,15 @@ void main() {
             .height,
         dimension,
       );
-      await tester.tap(find.byKey(const ValueKey('users-manage-columns')));
+      expect(find.text('Manage columns'), findsNothing);
+      await tester.tap(find.byKey(const ValueKey('users-columns')));
       await tester.pumpAndSettle();
-      final down = find.byKey(const ValueKey('users-column-down-1'));
-      final up = find.byKey(const ValueKey('users-column-up-2'));
-      for (final button in [down, up]) {
-        expect(
-          tester.getSize(button),
-          Size.square(platform == TargetPlatform.iOS ? 48 : 28),
-        );
-        expect(
-          tester.getSemantics(button).rect.size,
-          Size.square(platform == TargetPlatform.iOS ? 48 : 28),
-        );
-        expect(
-          tester.getSemantics(button).label,
-          tester.widget<DButton>(button).tooltip,
-        );
-      }
-      // The bottom outside the painted icon must still activate the action.
-      final target = tester.getRect(down);
-      await tester.tapAt(Offset(target.center.dx, target.bottom - 1));
-      await tester.pump();
-      await tester.tap(find.byKey(const ValueKey('users-save-columns')));
-      await tester.pumpAndSettle();
-      expect(saved!.map((column) => column.id), [2, 1]);
+      expect(find.text('Toggle columns'), findsNothing);
+      expect(find.text('Columns'), findsWidgets);
       semantics.dispose();
       expect(tester.takeException(), isNull);
     });
   }
-
-  testWidgets(
-    'staff column editor includes disabled plugin and user-field columns',
-    (tester) async {
-      List<UserDirectoryColumn>? saved;
-      await _pump(
-        tester,
-        UsersPage(
-          siteUrl: 'https://example.com',
-          data: const UsersPageData(
-            items: [_sam],
-            columns: [_likes],
-            availableColumns: [_likes, _solutions, _github],
-            canManageColumns: true,
-            loaded: true,
-          ),
-          onManageColumns: (columns) async {
-            saved = columns;
-            return true;
-          },
-        ),
-        size: const Size(1100, 820),
-      );
-
-      await tester.tap(find.byKey(const ValueKey('users-manage-columns')));
-      await tester.pumpAndSettle();
-
-      expect(find.text('Directory columns'), findsOneWidget);
-      expect(find.text('Save changes'), findsOneWidget);
-      expect(
-        find.byKey(const ValueKey('users-enabled-columns-count')),
-        findsNothing,
-      );
-      expect(
-        find.text(
-          'Choose which columns everyone sees and arrange their order.',
-        ),
-        findsNothing,
-      );
-      expect(find.text('Solutions'), findsOneWidget);
-      expect(find.text('GitHub Username'), findsOneWidget);
-      final dialog = tester.widget<DDialogContent>(
-        find.byKey(const ValueKey('users-manage-columns-dialog')),
-      );
-      expect(dialog.maxWidth, 608);
-      expect(
-        tester
-            .getSize(find.byKey(const ValueKey('users-manage-columns-content')))
-            .width,
-        lessThanOrEqualTo(608),
-      );
-      final solutionsTile = tester.widget<DCheckbox>(
-        find.byKey(const ValueKey('users-manage-column-9')),
-      );
-      expect(solutionsTile.value, isFalse);
-      expect(solutionsTile.contentPadding, EdgeInsets.zero);
-
-      final firstUp = find.byKey(const ValueKey('users-column-up-1'));
-      final firstDown = find.byKey(const ValueKey('users-column-down-1'));
-      expect(tester.widget<DButton>(firstUp).variant, DButtonVariant.ghost);
-      expect(tester.widget<DButton>(firstDown).variant, DButtonVariant.ghost);
-      expect(tester.getSize(firstUp), const Size.square(48));
-      expect(tester.getSize(firstDown), const Size.square(48));
-      expect(tester.getTopRight(firstUp).dx, tester.getTopLeft(firstDown).dx);
-
-      expect(
-        find.descendant(
-          of: find.byKey(const ValueKey('users-manage-columns-dialog')),
-          matching: find.byType(DSeparator),
-        ),
-        findsNWidgets(2),
-      );
-
-      await tester.tap(find.byKey(const ValueKey('users-manage-column-9')));
-      await tester.pump();
-      await tester.tap(find.byKey(const ValueKey('users-column-up-14')));
-      await tester.tap(find.byKey(const ValueKey('users-save-columns')));
-      await tester.pumpAndSettle();
-
-      expect(saved, isNotNull);
-      expect(saved!.map((column) => column.name), [
-        'likes_received',
-        'GitHub Username',
-        'solutions',
-      ]);
-      expect(saved!.last.enabled, isTrue);
-      expect(saved!.map((column) => column.position), [1, 2, 3]);
-    },
-  );
-
-  testWidgets('staff column editor stays compact on narrow screens', (
-    tester,
-  ) async {
-    await _pump(
-      tester,
-      UsersPage(
-        siteUrl: 'https://example.com',
-        data: const UsersPageData(
-          items: [_sam],
-          columns: [_likes],
-          availableColumns: [_likes, _solutions, _github],
-          canManageColumns: true,
-          loaded: true,
-        ),
-        onManageColumns: (_) async => true,
-      ),
-      size: const Size(1100, 700),
-    );
-
-    await tester.tap(find.byKey(const ValueKey('users-manage-columns')));
-    await tester.pumpAndSettle();
-    tester.view.physicalSize = const Size(390, 700);
-    await tester.pumpAndSettle();
-
-    expect(
-      find.byKey(const ValueKey('users-manage-columns-dialog')),
-      findsOneWidget,
-    );
-    expect(
-      tester
-          .getSize(find.byKey(const ValueKey('users-manage-columns-content')))
-          .width,
-      lessThan(390),
-    );
-    expect(find.text('Save changes'), findsOneWidget);
-    expect(
-      tester
-          .getSize(find.byKey(const ValueKey('users-manage-column-1')))
-          .height,
-      48,
-    );
-    expect(tester.takeException(), isNull);
-  });
 
   testWidgets('directory loads the next page automatically near the end', (
     tester,
@@ -1155,7 +930,6 @@ void main() {
           items: [_sam],
           columns: [_likes],
           loadingMore: true,
-          updatingColumns: true,
           loaded: true,
         ),
       ),
