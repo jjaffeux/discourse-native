@@ -120,7 +120,9 @@ class DButtonGroupExpanded extends StatelessWidget {
 /// A visual divider between adjacent group controls.
 ///
 /// The default vertical rule matches a horizontal group. Set [orientation] to
-/// horizontal when dividing controls in a vertical group.
+/// horizontal when dividing controls in a vertical group. A transparent leading
+/// pixel beside the rule recreates the reference's recessed seam without
+/// changing the filled outer edges of Native buttons.
 class DButtonGroupSeparator extends StatelessWidget {
   const DButtonGroupSeparator({
     super.key,
@@ -140,11 +142,11 @@ class DButtonGroupSeparator extends StatelessWidget {
     orientation: orientation,
     child: Padding(
       padding: orientation == Axis.vertical
-          ? const EdgeInsets.symmetric(vertical: 1)
-          : const EdgeInsets.symmetric(horizontal: 1),
+          ? const EdgeInsetsDirectional.only(start: 1, top: 1, bottom: 1)
+          : const EdgeInsets.only(top: 1, left: 1, right: 1),
       child: DSeparator(
         orientation: orientation,
-        color: color,
+        color: color ?? DTokens.of(context).colors.outlineVariant,
         decorative: decorative,
         semanticLabel: semanticLabel,
       ),

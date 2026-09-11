@@ -10,6 +10,95 @@ import 'package:flutter_test/flutter_test.dart';
 import 'support/button_surface.dart';
 
 void main() {
+  for (final axis in Axis.values) {
+    for (final direction in TextDirection.values) {
+      testWidgets('recessed separator paints two edges: $axis $direction', (
+        tester,
+      ) async {
+        const background = Color(0xff080808);
+        const fill = Color(0xff262626);
+        const rule = Color(0xff404040);
+        final boundary = GlobalKey();
+        await _pump(
+          tester,
+          Directionality(
+            textDirection: direction,
+            child: RepaintBoundary(
+              key: boundary,
+              child: ColoredBox(
+                color: background,
+                child: DButtonGroup(
+                  orientation: axis == Axis.horizontal
+                      ? DButtonGroupOrientation.horizontal
+                      : DButtonGroupOrientation.vertical,
+                  children: [
+                    const DButton(
+                      label: Text('Copy'),
+                      backgroundColor: fill,
+                      onPressed: _noop,
+                    ),
+                    DButtonGroupSeparator(
+                      orientation: axis == Axis.horizontal
+                          ? Axis.vertical
+                          : Axis.horizontal,
+                      color: rule,
+                    ),
+                    const DButton(
+                      label: Text('Paste'),
+                      backgroundColor: fill,
+                      onPressed: _noop,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+        final origin = tester.getTopLeft(find.byKey(boundary));
+        final seam = tester
+            .getRect(find.byType(DButtonGroupSeparator))
+            .shift(-origin);
+        expect(axis == Axis.horizontal ? seam.width : seam.height, 2);
+        final colors = await tester.runAsync(() async {
+          final box =
+              boundary.currentContext!.findRenderObject()!
+                  as RenderRepaintBoundary;
+          final image = await box.toImage(pixelRatio: 1);
+          final data = (await image.toByteData(
+            format: ImageByteFormat.rawRgba,
+          ))!;
+          final result = <Color>[];
+          for (var index = 0; index < 2; index++) {
+            final x = axis == Axis.horizontal
+                ? seam.left.toInt() + index
+                : seam.center.dx.toInt();
+            final y = axis == Axis.horizontal
+                ? seam.center.dy.toInt()
+                : seam.top.toInt() + index;
+            final offset = (y * image.width + x) * 4;
+            result.add(
+              Color.fromARGB(
+                data.getUint8(offset + 3),
+                data.getUint8(offset),
+                data.getUint8(offset + 1),
+                data.getUint8(offset + 2),
+              ),
+            );
+          }
+          image.dispose();
+          return result;
+        });
+        expect(
+          colors,
+          axis == Axis.horizontal && direction == TextDirection.rtl
+              ? [rule, background]
+              : [background, rule],
+        );
+        expect(tester.takeException(), isNull);
+      });
+    }
+  }
+
   testWidgets(
     'translucent custom colors paint one joined border between fills',
     (tester) async {
@@ -353,6 +442,12 @@ void main() {
     );
 
     expect(find.byType(DSeparator), findsOneWidget);
+    expect(
+      tester.widget<DSeparator>(find.byType(DSeparator)).color,
+      DTokens.of(
+        tester.element(find.byType(DButtonGroupSeparator)),
+      ).colors.outlineVariant,
+    );
     expect(find.byType(FilledButton), findsOneWidget);
     final buttonHeight = tester.getSize(find.byType(FilledButton)).height;
     expect(tester.getSize(find.byType(DButtonGroup)).height, buttonHeight);

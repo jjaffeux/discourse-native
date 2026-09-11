@@ -93,3 +93,29 @@ Retained alternatives:
 - Composer toolbars remain overflow-aware toolbars. Their menu/navigation
   behavior and dynamic plugin ownership require the dedicated Toolbar/Menu
   components, not a passive group wrapper.
+
+## Separator depth correction — 2026-09-12
+
+The live `base-nova` registry combines a one-pixel `bg-input` separator with
+Button's transparent border and `bg-clip-padding`. The adjacent transparent
+pixel exposes the canvas, creating the two-tone recessed seam shown in the
+reference. Native deliberately fills transparent button edges, so
+`DButtonGroupSeparator` reserves that one transparent pixel on its logical
+leading side instead. The rule uses `DTokens.colors.outlineVariant` (input),
+keeps its one-pixel end insets, and mirrors in RTL or rotates for vertical
+groups. An explicit color still overrides only the rule. This preserves the
+existing outer button artwork and shared control painter.
+
+Sources: <https://ui.shadcn.com/r/styles/base-nova/button-group.json> and
+<https://ui.shadcn.com/r/styles/base-nova/button.json>.
+
+Pixel regressions cover the transparent/rule pair in both orientations and
+text directions; focused checks also cover the existing styleguide composition
+and production New topic action accessibility.
+
+Verification: root `flutter analyze --no-pub` is clean; 48 focused tests pass.
+The draft-menu test `focuses loaded drafts and restores the trigger on Escape`
+fails on both unchanged HEAD and the corrected separator. Four seam pixel
+checks pass, and exported Flutter widget-test images were inspected in horizontal
+LTR and vertical RTL (test font, 1× renderer). No native app inspection was run
+for this correction.
