@@ -2380,6 +2380,9 @@ void main() {
       shell.selectTopicListCategory(_child, keepTopicOpen: true);
       await tester.pumpAndSettle();
       expect(tester.widget<Text>(heading).data, _child.name);
+      final pathsBeforeTags = [...setup.api.feedPaths];
+      await tester.tap(find.byKey(const ValueKey('topic-list-filters')));
+      await tester.pumpAndSettle();
       for (final tag in ['community', 'mobile']) {
         await tester.tap(find.byKey(const ValueKey('topic-list-tag-filter')));
         await tester.pumpAndSettle();
@@ -2388,6 +2391,12 @@ void main() {
         );
         await tester.pumpAndSettle();
       }
+      expect(setup.api.feedPaths, pathsBeforeTags);
+      expect(shell.topicListContent?.tagNames, isEmpty);
+      await tester.tap(find.byKey(const ValueKey('topic-list-apply-filters')));
+      await tester.pumpAndSettle();
+      expect(setup.api.feedPaths.length, pathsBeforeTags.length + 1);
+      expect(tester.state(find.byType(TopicView)), same(readerState));
       await shell.selectTopicListMode(
         TopicListMode.topWeekly,
         keepTopicOpen: true,
@@ -2404,8 +2413,11 @@ void main() {
       expect(shell.currentTopicListMode, TopicListMode.topWeekly);
       expect(tester.widget<Text>(heading).data, _child.name);
       expect(tester.state(find.byType(TopicView)), same(readerState));
-      expect(find.text('Clear all'), findsNothing);
-      expect(find.text('Tags · 2'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('topic-list-clear-filters')),
+        findsOneWidget,
+      );
+      expect(find.byKey(const ValueKey('topic-list-filters')), findsOneWidget);
 
       shell.browseTopicCategory(_parent, keepTopicOpen: true);
       await tester.pumpAndSettle();

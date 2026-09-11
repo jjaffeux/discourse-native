@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Topics · responsive header studies</title>
+  <link rel="stylesheet" href="review.css">
+</head>
+<body>
+  <header class="review-header">
+    <div><span class="eyebrow">DISCOURSE NATIVE / LAYOUT STUDIES</span><h1>A little less header. A lot more conversation.</h1></div>
+    <button id="theme">Light theme</button>
+  </header>
+  <main>
+    <nav class="concepts" aria-label="Design concepts">
+      <button data-concept="a" aria-pressed="true"><span>01</span> Compact toolbar <small>Recommended</small></button>
+      <button data-concept="b" aria-pressed="false"><span>02</span> Quiet header</button>
+      <button data-concept="c" aria-pressed="false"><span>03</span> Browse rail</button>
+    </nav>
+    <div class="description"><h2 id="concept-title"></h2><p id="concept-description"></p></div>
+    <div class="preview-tools">
+      <div class="modes" aria-label="Preview mode"><button data-mode="compare" aria-pressed="true">Side by side</button><button data-mode="resize" aria-pressed="false">Resize</button></div>
+      <div id="resizer" hidden><label for="width">Panel width</label><input id="width" type="range" min="320" max="1600" value="1100" step="10"><output id="width-label">1100px</output><button data-width="390">390</button><button data-width="640">640</button><button data-width="1100">1100</button><button data-width="1440">1440</button></div>
+      <a id="open-concept" href="a.html" target="_blank">Open standalone ↗</a>
+    </div>
+    <div id="previews" class="previews">
+      <section class="wide-preview"><div class="frame-label"><span>WIDE PANEL</span><span id="wide-dimension"></span></div><div class="frame-scroll"><iframe id="wide" src="a.html" title="Wide compact toolbar mockup"></iframe></div></section>
+      <section class="small-preview"><div class="frame-label"><span>NARROW PANEL</span><span>390 px</span></div><iframe id="small" src="a.html" title="Narrow compact toolbar mockup"></iframe></section>
+    </div>
+    <div class="notes">
+      <section><h3>Why this arrangement</h3><p id="rationale"></p><p class="tradeoff" id="tradeoff"></p></section>
+      <section><h3>Built from the kit</h3><p id="kit"></p><p class="muted">HTML/CSS approximations of the local Native components. No Flutter components are added or changed.</p></section>
+      <section><h3>Worth adding?</h3><p>A documented <strong>adaptive list-header composition</strong>: title/actions, navigation, contextual controls, and a shared filter state across inline and sheet presentations.</p><p class="muted">Start with a styleguide recipe. A generic component is optional, only if more screens need it. No new visual primitive is required for these concepts.</p></section>
+    </div>
+    <details><summary>Interaction and implementation notes</summary><div class="detail-grid"><p>Try the feed tabs, All / Topics / Replies, category and tag selectors, reset, drafts, and the Filters sheet. Each preview has independent local state. Topic and create actions open clearly marked previews. No account data or network writes.</p><p>Breakpoints use the <strong>available content pane</strong>, not the whole app window: 760px for the compact header, 900px for the browse rail, and 680px for the full topic table. Enlarged text can require switching earlier.</p><p>The 83 / 52 counts reproduce the supplied state. The rows are a small illustrative sample, not all 135 topics. “Replies” means topics with unread replies, preserving the existing route semantics. Top exposes a time-period choice.</p><p>In Flutter, compose through <code>package:discourse_native/discourse_ui.dart</code>, preserve route and selection ownership, and keep the kit’s keyboard, focus, theme, RTL and touch behavior. This HTML prototype is not a substitute for native verification.</p></div></details>
+  </main>
+  <script src="review.js"></script>
+</body>
+</html>

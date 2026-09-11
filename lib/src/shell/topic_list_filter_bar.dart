@@ -25,6 +25,8 @@ class TopicListFilterBar extends StatelessWidget {
     required this.onTagSelected,
     this.inline = false,
     this.wrap = false,
+    this.wrapAlignment = WrapAlignment.start,
+    this.vertical = false,
     this.selectedTagNames,
     this.onTagsSelected,
   });
@@ -40,6 +42,8 @@ class TopicListFilterBar extends StatelessWidget {
   final ValueChanged<String?> onTagSelected;
   final bool inline;
   final bool wrap;
+  final WrapAlignment wrapAlignment;
+  final bool vertical;
   final List<String>? selectedTagNames;
   final ValueChanged<List<String>>? onTagsSelected;
 
@@ -131,8 +135,23 @@ class TopicListFilterBar extends StatelessWidget {
           },
         ),
     ];
-    final controls = wrap
-        ? Wrap(spacing: 8, runSpacing: 8, children: controlChildren)
+    final controls = vertical
+        ? Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              for (var index = 0; index < controlChildren.length; index++) ...[
+                if (index > 0) const SizedBox(height: DSpacing.lg),
+                controlChildren[index],
+              ],
+            ],
+          )
+        : wrap
+        ? Wrap(
+            alignment: wrapAlignment,
+            spacing: 8,
+            runSpacing: 8,
+            children: controlChildren,
+          )
         : Row(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -149,8 +168,15 @@ class TopicListFilterBar extends StatelessWidget {
     return Material(
       key: const ValueKey('topic-list-filter-bar'),
       color: theme.shell.content,
-      child: wrap
-          ? Align(alignment: AlignmentDirectional.centerStart, child: controls)
+      child: vertical
+          ? controls
+          : wrap
+          ? Align(
+              alignment: wrapAlignment == WrapAlignment.end
+                  ? AlignmentDirectional.centerEnd
+                  : AlignmentDirectional.centerStart,
+              child: controls,
+            )
           : inline
           ? controls
           : ContentReadingLaneBox(
