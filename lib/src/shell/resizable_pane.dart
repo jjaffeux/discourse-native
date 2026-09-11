@@ -194,7 +194,8 @@ class _ResizablePaneState extends State<ResizablePane> {
                   widget.handleWidth,
                 ),
                 child: DResizableHandle.standalone(
-                  trackUnrenderedChanges: false,
+                  // Keep every pointer delta when input outruns rendering.
+                  trackUnrenderedChanges: true,
                   focusKey: ValueKey('${widget.resizeKey}-resize-focus'),
                   semanticsKey: ValueKey(
                     '${widget.resizeKey}-resize-semantics',

@@ -81,6 +81,61 @@ void main() {
     });
   }
 
+  testWidgets('pointer bursts retain every delta before the next frame', (
+    tester,
+  ) async {
+    final writes = <double>[];
+    final controller = _controller(writes: writes);
+    addTearDown(controller.dispose);
+    await _pumpPane(tester, controller: controller);
+    final handle = find.byKey(const ValueKey('shared-resize-handle'));
+    final gesture = await tester.startGesture(tester.getCenter(handle));
+    await gesture.moveBy(const Offset(20, 0));
+    await tester.pump();
+    final startWidth = controller.value;
+
+    // A high-frequency pointer can deliver several updates per display frame.
+    for (var i = 0; i < 8; i++) {
+      await gesture.moveBy(const Offset(2, 0));
+    }
+    expect(controller.value - startWidth, 16);
+    await tester.pump();
+    expect(
+      tester.getSize(find.byKey(const ValueKey('pane'))).width,
+      startWidth + 16,
+    );
+    expect(writes, isEmpty);
+    await gesture.up();
+    expect(writes, [startWidth + 16]);
+  });
+
+  testWidgets(
+    'pointer bursts clamp and immediately reverse at a temporary maximum',
+    (tester) async {
+      final writes = <double>[];
+      final controller = _controller(initialWidth: 480, writes: writes);
+      addTearDown(controller.dispose);
+      await _pumpPane(tester, controller: controller, maximumWidth: 376);
+      final handle = find.byKey(const ValueKey('shared-resize-handle'));
+      final gesture = await tester.startGesture(tester.getCenter(handle));
+      await gesture.moveBy(const Offset(20, 0));
+      await tester.pump();
+      for (var i = 0; i < 8; i++) {
+        await gesture.moveBy(const Offset(2, 0));
+      }
+      expect(controller.value, 480);
+      expect(writes, isEmpty);
+      for (var i = 0; i < 8; i++) {
+        await gesture.moveBy(const Offset(-2, 0));
+      }
+      expect(controller.value, 360);
+      await gesture.up();
+      await tester.pump();
+      expect(tester.getSize(find.byKey(const ValueKey('pane'))).width, 360);
+      expect(writes, [360]);
+    },
+  );
+
   testWidgets('narrow constraints clamp without replacing the preference', (
     tester,
   ) async {
