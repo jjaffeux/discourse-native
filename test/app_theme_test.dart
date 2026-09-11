@@ -157,7 +157,7 @@ void main() {
       expect(scheme.surfaceContainerHigh, source.primaryLow);
       expect(scheme.surfaceContainerHighest, source.primaryLow);
       expect(scheme.outline, source.contentBorderColor);
-      expect(scheme.outlineVariant, source.primaryLowMid);
+      expect(scheme.outlineVariant, source.primaryLow);
       expect(scheme.surfaceTint, source.tertiary);
       expect(theme.discourse.primaryLowMid, source.primaryLowMid);
       expect(theme.discourse.primaryHigh, source.primaryHigh);
@@ -432,6 +432,7 @@ void main() {
     expect(light.surface, ShellColors.light.content);
     expect(light.onSurface, ShellColors.light.railForeground);
     expect(light.onSurfaceVariant, DiscourseColors.light.primaryHigh);
+    expect(light.outlineVariant, ShellColors.light.divider);
 
     expect(dark.primary, discourseDarkBlue);
     expect(dark.secondary, const Color(0xFFC14924));
@@ -440,6 +441,7 @@ void main() {
     expect(dark.surface, ShellColors.dark.content);
     expect(dark.onSurface, ShellColors.dark.railForeground);
     expect(dark.onSurfaceVariant, DiscourseColors.dark.primaryHigh);
+    expect(dark.outlineVariant, ShellColors.dark.divider);
   });
 
   test('menus share the floating surface geometry', () {
