@@ -1277,8 +1277,9 @@ class _DSelectBodyState<T> extends State<_DSelectBody<T>> {
           8,
     );
     final naturalHeight = _naturalHeight(itemHeight, labelHeight);
-    final height = math.min(widget.maxPopupHeight, naturalHeight);
-    final overflows = naturalHeight > widget.maxPopupHeight;
+    final viewportHeight = math.max(0.0, widget.maxPopupHeight - 8);
+    final height = math.min(viewportHeight, naturalHeight);
+    final overflows = naturalHeight > viewportHeight;
     final arrows = overflows && !touch;
     final selectedCenter = _selectedCenter(
       itemHeight,
@@ -1328,7 +1329,7 @@ class _DSelectBodyState<T> extends State<_DSelectBody<T>> {
       semanticLabel: widget.semanticLabel ?? 'Select options',
       width: popupWidth,
       constraints: BoxConstraints(maxHeight: widget.maxPopupHeight),
-      padding: EdgeInsets.zero,
+      padding: const EdgeInsets.all(4),
       scrollable: false,
       side: widget.side,
       align: widget.align,
@@ -1345,7 +1346,7 @@ class _DSelectBodyState<T> extends State<_DSelectBody<T>> {
                   placement.boundary.bottom - placement.target.bottom < 20) {
                 return null;
               }
-              final top = placement.target.center.dy - selectedCenter;
+              final top = placement.target.center.dy - selectedCenter - 4;
               if (top < placement.boundary.top ||
                   top + placement.contentSize.height >
                       placement.boundary.bottom) {
@@ -1652,15 +1653,18 @@ class _DSelectOptionRowState<T> extends State<_DSelectOptionRow<T>> {
     // Pointer feedback remains visible even if another control takes focus.
     // Keyboard input restores focus-based highlighting for the whole menu.
     final highlighted = enabled && (widget.pointerHighlighted ?? _focused);
+    final foreground = highlighted
+        ? tokens.selectedForeground
+        : tokens.foreground;
     // Highlight changes are atomic. Animating two independent row backgrounds
     // makes the previous and next options appear highlighted at the same time.
     Widget row = Container(
       key: ValueKey(('d-select-item', widget.item.value)),
       height: widget.height,
-      padding: const EdgeInsetsDirectional.only(start: 6, end: 8),
+      padding: const EdgeInsetsDirectional.fromSTEB(6, 4, 8, 4),
       decoration: BoxDecoration(
         color: highlighted ? Theme.of(context).hoverColor : Colors.transparent,
-        borderRadius: BorderRadius.circular(tokens.radius * 0.6),
+        borderRadius: BorderRadius.circular(tokens.radius * 0.8),
       ),
       child: Row(
         children: [
@@ -1669,7 +1673,7 @@ class _DSelectOptionRowState<T> extends State<_DSelectOptionRow<T>> {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
-                color: tokens.foreground,
+                color: foreground,
                 fontSize: DiscourseTypography.sm,
                 height: DiscourseTypography.lineHeightSmall,
                 fontWeight: FontWeight.w400,
@@ -1682,7 +1686,13 @@ class _DSelectOptionRowState<T> extends State<_DSelectOptionRow<T>> {
             dimension: 16,
             child: Opacity(
               opacity: widget.selected ? 1 : 0,
-              child: widget.indicator ?? const DIcon(DIcons.check, size: 16),
+              child: IconTheme.merge(
+                data: IconThemeData(
+                  color: highlighted ? foreground : tokens.mutedForeground,
+                  size: 16,
+                ),
+                child: widget.indicator ?? const DIcon(DIcons.check, size: 16),
+              ),
             ),
           ),
         ],
