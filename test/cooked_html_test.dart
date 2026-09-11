@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:discourse_native/discourse_ui.dart'
-    show DAvatar, DAvatarFallback;
+    show DAvatar, DAvatarFallback, DBubble, DBubbleContent, DBubbleAlign;
 import 'package:discourse_native/src/data/app_settings_store.dart';
 import 'package:discourse_native/src/data/site_image_repository.dart';
 import 'package:discourse_native/src/data/site_lifecycle.dart';
@@ -189,6 +189,63 @@ TextStyle styleOf(WidgetTester tester, String text) {
 }
 
 void main() {
+  for (final width in [280.0, 800.0]) {
+    for (final align in DBubbleAlign.values) {
+      testWidgets('content-sized chat HTML wraps at $width with $align', (
+        tester,
+      ) async {
+        Future<void> pump(String html, {bool contentSized = true}) async {
+          await tester.pumpWidget(
+            MaterialApp(
+              theme: AppTheme.dark,
+              home: Scaffold(
+                body: Align(
+                  alignment: Alignment.topLeft,
+                  child: SizedBox(
+                    width: width,
+                    child: DBubble(
+                      align: align,
+                      children: [
+                        DBubbleContent(
+                          child: CookedHtml(
+                            html: html,
+                            compactParagraphs: true,
+                            contentSized: contentSized,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          );
+          await tester.pumpAndSettle();
+        }
+
+        await pump('<p>ok</p>');
+        final bubble = find.byType(DBubbleContent);
+        final shortRect = tester.getRect(bubble);
+        expect(shortRect.width, lessThan(100));
+        await pump('<p>${List.filled(12, 'long message').join(' ')}</p>');
+        final longRect = tester.getRect(bubble);
+        expect(longRect.width, lessThanOrEqualTo(width * .8));
+        expect(longRect.height, greaterThan(shortRect.height));
+        expect(
+          align == DBubbleAlign.start ? longRect.left : longRect.right,
+          closeTo(
+            align == DBubbleAlign.start ? shortRect.left : shortRect.right,
+            .01,
+          ),
+        );
+        expect(tester.takeException(), isNull);
+
+        await pump('<p>ok</p>', contentSized: false);
+        expect(tester.getSize(bubble).width, closeTo(width * .8, .01));
+      });
+    }
+  }
+
   testWidgets(
     'link surface styling updates and resets without changing other callers',
     (tester) async {

@@ -1277,6 +1277,7 @@ class _Tile extends StatelessWidget {
     BuildContext context, {
     TextStyle? textStyle,
     TextStyle? linkStyle,
+    bool contentSized = false,
   }) {
     final messageTextStyle = textStyle ?? Theme.of(context).textTheme.bodyLarge;
     return switch (message) {
@@ -1288,6 +1289,7 @@ class _Tile extends StatelessWidget {
           linkStyle: linkStyle,
           siteUrl: siteUrl,
           compactParagraphs: true,
+          contentSized: contentSized,
           mentionedUserStatuses: message.mentionedUserStatuses,
         ),
       ChatMessage(
@@ -1593,6 +1595,7 @@ class _Tile extends StatelessWidget {
                             child: _body(
                               context,
                               textStyle: style,
+                              contentSized: true,
                               linkStyle: outgoing
                                   ? TextStyle(
                                       color: style.color,

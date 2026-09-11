@@ -34,6 +34,7 @@ class CookedHtml extends StatelessWidget {
     this.containingTopic,
     this.registry,
     this.compactParagraphs = false,
+    this.contentSized = false,
     this.revisionDiff = false,
     this.mentionedUserStatuses = const {},
   });
@@ -54,6 +55,9 @@ class CookedHtml extends StatelessWidget {
   final PluginRegistry? registry;
 
   final bool compactParagraphs;
+
+  /// Lets ordinary text blocks fit their content inside conversation bubbles.
+  final bool contentSized;
 
   final bool revisionDiff;
 
@@ -284,16 +288,19 @@ class CookedHtml extends StatelessWidget {
           resolvedRegistry,
           mentionedUserStatuses,
         ),
-        customStylesBuilder: (element) => _customStyles(
-          element,
-          paragraphMargins,
-          horizontalRuleColor,
-          insertedBackground,
-          deletedBackground,
-          linkCountBackground,
-          linkCountForeground,
-          linkStyle,
-        ),
+        customStylesBuilder: (element) => {
+          if (contentSized && element.localName == 'p') 'width': 'auto',
+          ...?_customStyles(
+            element,
+            paragraphMargins,
+            horizontalRuleColor,
+            insertedBackground,
+            deletedBackground,
+            linkCountBackground,
+            linkCountForeground,
+            linkStyle,
+          ),
+        },
         // The builders close over the style and resolved site, and [HtmlWidget]
         // caches what they built — so a change to either has to say so to reach
         // the inline code and the emoji.
@@ -305,6 +312,7 @@ class CookedHtml extends StatelessWidget {
           containingTopic,
           resolvedRegistry,
           compactParagraphs,
+          contentSized,
           revisionDiff,
           horizontalRuleColor,
           insertedBackground,
