@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:math' as math;
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
@@ -13,7 +12,6 @@ import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'anchored_picker.dart';
 import 'content_reading_lane.dart';
-import 'list_navigation_tab.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';
 import 'topic_list_filter_bar.dart';
@@ -346,41 +344,62 @@ class _TopicListNavigationControls extends StatelessWidget {
           if (showsTabs && mode.isNew && state.unifiedNew)
             ContentReadingLaneBox(
               widthLimit: topicListContentWidth,
-              child: _TopicListTabStrip(
-                height: 44,
-                background: theme.shell.sidebar,
-                compactWidth: 480,
-                segmented: stacked,
-                items: [
-                  ListNavigationTab(
-                    segmented: stacked,
-                    controlKey: const ValueKey('topic-list-new-all'),
-                    label: 'All',
-                    textStyle: secondaryTextStyle,
-                    selected: mode == TopicListMode.newActivity,
-                    onTap: () =>
-                        unawaited(selectMode(TopicListMode.newActivity)),
-                  ),
-                  ListNavigationTab(
-                    segmented: stacked,
-                    controlKey: const ValueKey('topic-list-new-topics'),
-                    label: 'Topics',
-                    count: state.topicCount,
-                    textStyle: secondaryTextStyle,
-                    selected: mode == TopicListMode.newTopics,
-                    onTap: () => unawaited(selectMode(TopicListMode.newTopics)),
-                  ),
-                  ListNavigationTab(
-                    segmented: stacked,
-                    controlKey: const ValueKey('topic-list-new-replies'),
-                    label: 'Replies',
-                    count: state.replyCount,
-                    textStyle: secondaryTextStyle,
-                    selected: mode == TopicListMode.newReplies,
-                    onTap: () =>
-                        unawaited(selectMode(TopicListMode.newReplies)),
-                  ),
-                ],
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(
+                  topicListHorizontalPadding,
+                  11,
+                  topicListHorizontalPadding,
+                  0,
+                ),
+                child: DTabs<TopicListMode>.controlled(
+                  value: mode,
+                  onChanged: (value) {
+                    if (value != null) unawaited(selectMode(value));
+                  },
+                  children: [
+                    DTabList<TopicListMode>(
+                      key: const ValueKey('topic-list-new-segments'),
+                      children: [
+                        const DTabTrigger(
+                          key: ValueKey('topic-list-new-all'),
+                          value: TopicListMode.newActivity,
+                          child: Text('All'),
+                        ),
+                        for (final tab in [
+                          (
+                            key: 'topics',
+                            label: 'Topics',
+                            value: TopicListMode.newTopics,
+                            count: state.topicCount,
+                          ),
+                          (
+                            key: 'replies',
+                            label: 'Replies',
+                            value: TopicListMode.newReplies,
+                            count: state.replyCount,
+                          ),
+                        ])
+                          DTabTrigger(
+                            key: ValueKey('topic-list-new-${tab.key}'),
+                            value: tab.value,
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(tab.label),
+                                if (tab.count > 0) ...[
+                                  const SizedBox(width: 6),
+                                  DBadge(
+                                    variant: DBadgeVariant.secondary,
+                                    child: Text('${tab.count}'),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
             ),
           if (showsTabs)
@@ -592,104 +611,6 @@ class _TopicListSubnavigationSurface extends StatelessWidget {
           ),
           child: child,
         ),
-      ),
-    );
-  }
-}
-
-class _TopicListTabStrip extends StatelessWidget {
-  const _TopicListTabStrip({
-    required this.height,
-    required this.background,
-    required this.items,
-    this.compactWidth = 400,
-    this.segmented = false,
-  });
-
-  final double height;
-  final Color background;
-  final List<ListNavigationTab> items;
-  final double compactWidth;
-  final bool segmented;
-
-  @override
-  Widget build(BuildContext context) {
-    if (segmented) {
-      final theme = Theme.of(context);
-      final scaler = MediaQuery.textScalerOf(context);
-      final countStyle = theme.textTheme.labelSmall;
-      // Keep full labels and tracking counts readable when text is enlarged.
-      // The control scrolls only when three equal segments cannot fit.
-      var segmentWidth = 0.0;
-      for (final item in items) {
-        final painter = TextPainter(
-          text: TextSpan(
-            children: [
-              TextSpan(
-                text: item.label,
-                style: item.textStyle?.copyWith(fontWeight: FontWeight.w600),
-              ),
-              if (item.count > 0)
-                TextSpan(text: ' ${item.count}', style: countStyle),
-            ],
-          ),
-          textDirection: DDirection.of(context),
-          textScaler: scaler,
-          maxLines: 1,
-        )..layout();
-        segmentWidth = math.max(
-          segmentWidth,
-          painter.width.ceilToDouble() + 14,
-        );
-        painter.dispose();
-      }
-      return _TopicListSubnavigationSurface(
-        surfaceKey: const ValueKey('topic-list-new-segments'),
-        child: LayoutBuilder(
-          builder: (context, constraints) => SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: SizedBox(
-              width: math.max(
-                constraints.maxWidth,
-                segmentWidth * items.length + 2 * (items.length - 1),
-              ),
-              height: _TopicListSubnavigationSurface.segmentHeight(context),
-              child: Row(
-                children: [
-                  for (var index = 0; index < items.length; index++) ...[
-                    if (index > 0) const SizedBox(width: 2),
-                    Expanded(child: items[index]),
-                  ],
-                ],
-              ),
-            ),
-          ),
-        ),
-      );
-    }
-    return Container(
-      height: height,
-      padding: const EdgeInsets.symmetric(
-        horizontal: topicListHorizontalPadding,
-      ),
-      color: background,
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          if (constraints.maxWidth < compactWidth) {
-            return Row(
-              children: [for (final item in items) Expanded(child: item)],
-            );
-          }
-          return Row(
-            children: [
-              for (final item in items)
-                ConstrainedBox(
-                  constraints: const BoxConstraints(minWidth: 112),
-                  child: item,
-                ),
-            ],
-          );
-        },
       ),
     );
   }
