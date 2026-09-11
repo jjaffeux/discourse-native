@@ -630,6 +630,23 @@ class _TopicCloseButton extends StatelessWidget {
   );
 }
 
+bool _showTopicSubcategory({
+  required TopicDetail topic,
+  required TopicCategory? category,
+  required TopicCategory? parent,
+  required Iterable<TopicCategory> categories,
+}) {
+  final root = parent ?? category;
+  return !topic.privateMessage &&
+      (parent != null ||
+          (root != null &&
+              topic.canEdit &&
+              categories.any(
+                (item) =>
+                    item.parentCategoryId == root.id && item.canCreateTopic,
+              )));
+}
+
 class _CompactTopicCategories extends StatelessWidget {
   const _CompactTopicCategories({
     required this.siteUrl,
@@ -654,19 +671,25 @@ class _CompactTopicCategories extends StatelessWidget {
         category.parentCategoryId,
         siteUrl: siteUrl,
       );
-      Widget chip(TopicCategory value, {bool isParent = false}) =>
+      final hasSubcategory = _showTopicSubcategory(
+        topic: topic,
+        category: category,
+        parent: parent,
+        categories: shell.filterCategoriesFor(siteUrl),
+      );
+      Widget chip(TopicCategory? value, {bool isParent = false}) =>
           LayoutBuilder(
             builder: (context, constraints) => _TopicCategoryControl(
               key: ValueKey(
-                isParent
+                isParent && hasSubcategory
                     ? 'topic-header-compact-parent-category'
                     : 'topic-header-compact-category',
               ),
               siteUrl: siteUrl,
               topic: topic,
               category: value,
-              subcategory: !isParent && parent != null,
-              parentCategoryId: parent?.id,
+              subcategory: !isParent && hasSubcategory,
+              parentCategoryId: (parent ?? category).id,
               keepTopicListOpen: keepTopicListOpen,
               compressed: constraints.maxWidth < 120,
               showBrowseButton:
@@ -677,16 +700,16 @@ class _CompactTopicCategories extends StatelessWidget {
         padding: EdgeInsets.only(right: maxWidth <= 128 ? 4 : 12),
         child: ConstrainedBox(
           constraints: BoxConstraints(
-            maxWidth: parent == null ? maxWidth.clamp(72, 200) : maxWidth,
+            maxWidth: !hasSubcategory ? maxWidth.clamp(72, 200) : maxWidth,
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              if (parent != null) ...[
-                Flexible(child: chip(parent, isParent: true)),
+              Flexible(child: chip(parent ?? category, isParent: true)),
+              if (hasSubcategory) ...[
                 const SizedBox(width: 7),
+                Flexible(child: chip(parent == null ? null : category)),
               ],
-              Flexible(child: chip(category)),
             ],
           ),
         ),
@@ -827,18 +850,12 @@ class _TopicHeaderTaxonomy extends StatelessWidget {
       );
       final root = parent ?? category;
       final hasCategories = !topic.privateMessage;
-      final hasSubcategory =
-          hasCategories &&
-          (parent != null ||
-              (root != null &&
-                  topic.canEdit &&
-                  shell
-                      .filterCategoriesFor(siteUrl)
-                      .any(
-                        (item) =>
-                            item.parentCategoryId == root.id &&
-                            item.canCreateTopic,
-                      )));
+      final hasSubcategory = _showTopicSubcategory(
+        topic: topic,
+        category: category,
+        parent: parent,
+        categories: shell.filterCategoriesFor(siteUrl),
+      );
       final hasTags = topic.tags.isNotEmpty || topic.canEditTags;
       return LayoutBuilder(
         builder: (context, constraints) {
