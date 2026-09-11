@@ -10,6 +10,7 @@ import '../../shell/relative_time.dart';
 import '../../shell/user_status.dart';
 import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
+import '../../utils/pagination.dart';
 import 'chat_controller.dart';
 import 'chat_message.dart';
 import 'chat_services.dart';
@@ -53,7 +54,11 @@ class _ChatMyThreadsViewState extends State<ChatMyThreadsView> {
   }
 
   void _maybeLoadMore() {
-    if (!_scroll.hasClients || _scroll.position.extentAfter > 600) return;
+    if (!_scroll.hasClients ||
+        _scroll.position.extentAfter >
+            paginationPrefetchDistance(_scroll.position)) {
+      return;
+    }
     unawaited(_chat.loadMyThreads(widget.siteUrl, more: true));
   }
 

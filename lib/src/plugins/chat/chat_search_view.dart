@@ -8,6 +8,7 @@ import '../../shell/choice_menu.dart';
 import '../../shell/content_reading_lane.dart';
 import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
+import '../../utils/pagination.dart';
 import 'chat_message_tile.dart';
 import 'chat_plugin.dart';
 import 'chat_search.dart';
@@ -70,7 +71,11 @@ class _ChatSearchViewState extends State<ChatSearchView> {
   }
 
   void _maybeLoadMore() {
-    if (!_scroll.hasClients || _scroll.position.extentAfter > 700) return;
+    if (!_scroll.hasClients ||
+        _scroll.position.extentAfter >
+            paginationPrefetchDistance(_scroll.position)) {
+      return;
+    }
     _search.loadMore(widget.siteUrl);
   }
 

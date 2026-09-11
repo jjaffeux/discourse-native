@@ -9,6 +9,7 @@ import '../../shell/image_decode.dart';
 import '../../shell/shell_sheet.dart';
 import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
+import '../../utils/pagination.dart';
 import 'gif.dart';
 import 'gif_picker_controller.dart';
 import 'gifs_api.dart';
@@ -149,7 +150,8 @@ class _GifPickerState extends State<GifPicker> {
 
   void _maybeLoadMore() {
     if (!_resultsScroll.hasClients ||
-        _resultsScroll.position.extentAfter > 320) {
+        _resultsScroll.position.extentAfter >
+            paginationPrefetchDistance(_resultsScroll.position)) {
       return;
     }
     unawaited(widget.controller.loadMore());

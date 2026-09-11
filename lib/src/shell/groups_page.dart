@@ -7,6 +7,7 @@ import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 import '../models/group.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
+import '../utils/pagination.dart';
 import 'choice_menu.dart';
 import 'content_reading_lane.dart';
 import 'group_flair.dart';
@@ -119,7 +120,8 @@ class _GroupsPageState extends State<GroupsPage> {
 
   bool _onScroll(ScrollNotification notification) {
     if (notification.depth == 0 &&
-        notification.metrics.extentAfter < 480 &&
+        notification.metrics.extentAfter <
+            paginationPrefetchDistance(notification.metrics) &&
         widget.data.hasMore &&
         !widget.data.loading &&
         !widget.data.loadingMore) {

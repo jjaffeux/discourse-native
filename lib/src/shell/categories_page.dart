@@ -7,6 +7,7 @@ import '../models/category_feed.dart';
 import '../models/topic.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
+import '../utils/pagination.dart';
 import 'category_icon.dart';
 import 'content_reading_lane.dart';
 import 'shell_controller.dart';
@@ -64,7 +65,9 @@ class _CategoriesPageState extends State<CategoriesPage> {
   }
 
   bool _onScroll(ScrollNotification notification) {
-    if (notification.depth != 0 || notification.metrics.extentAfter >= 600) {
+    if (notification.depth != 0 ||
+        notification.metrics.extentAfter >=
+            paginationPrefetchDistance(notification.metrics)) {
       return false;
     }
     final feed = widget.feed;

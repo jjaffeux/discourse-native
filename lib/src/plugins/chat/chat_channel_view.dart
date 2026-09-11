@@ -17,6 +17,7 @@ import '../../shell/time_gap.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
+import '../../utils/pagination.dart';
 import 'chat_channel.dart';
 import 'chat_channel_search.dart';
 import 'chat_composer.dart';
@@ -41,12 +42,6 @@ class ChatChannelView extends StatelessWidget {
 
   final int channelId;
   final bool autofocusMessageStream;
-
-  /// About one screen before the reversed list's oldest edge.
-  static const double _loadOlderThreshold = 900;
-
-  /// Future pages wait at the edge so backlogs cannot advance without the reader.
-  static const double _loadNewerThreshold = 50;
 
   @override
   Widget build(BuildContext context) {
@@ -883,7 +878,10 @@ class _StreamState extends State<ChatMessageStream>
   void _fillTowardsPresent() {
     final stream = widget.stream;
     if (!stream.canLoadMoreFuture || !_scroll.hasClients) return;
-    if (_scroll.position.pixels > ChatChannelView._loadNewerThreshold) return;
+    if (_scroll.position.extentBefore >
+        paginationPrefetchDistance(_scroll.position)) {
+      return;
+    }
 
     // Ask once per window state so a failed request cannot retry every frame.
     final asked = (
@@ -1391,11 +1389,11 @@ class _StreamState extends State<ChatMessageStream>
                 // In the reversed list, extentAfter points toward older messages
                 // and extentBefore back toward the present.
                 if (notification.metrics.extentAfter <
-                    ChatChannelView._loadOlderThreshold) {
+                    paginationPrefetchDistance(notification.metrics)) {
                   unawaited(chat.loadOlderFor(siteUrl, widget.target));
                 }
                 if (notification.metrics.extentBefore <
-                    ChatChannelView._loadNewerThreshold) {
+                    paginationPrefetchDistance(notification.metrics)) {
                   unawaited(chat.loadNewerFor(siteUrl, widget.target));
                 }
                 _noteWhatIsOnScreen();

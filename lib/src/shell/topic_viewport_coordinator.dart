@@ -12,6 +12,7 @@ import '../foundation/frame_safe_notifier.dart';
 import '../models/post.dart';
 import '../models/site_config.dart';
 import '../models/topic.dart';
+import '../utils/pagination.dart';
 import 'shell_controller.dart';
 
 typedef TopicViewportIdentity = ({
@@ -887,7 +888,7 @@ final class TopicViewportCoordinator extends FrameSafeNotifier
   }
 
   double thresholdFor(ScrollMetrics metrics) =>
-      math.max(pagingThreshold, metrics.viewportDimension);
+      math.max(pagingThreshold, paginationPrefetchDistance(metrics));
 
   void schedulePagingForViewport(TopicViewportSnapshot snapshot) {
     final scroll = scrollController;

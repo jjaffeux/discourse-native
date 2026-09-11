@@ -57,7 +57,8 @@ class _MembersSectionState extends State<_MembersSection> {
 
   bool _onScroll(ScrollNotification notification) {
     if (notification.depth != 0) return false;
-    if (notification.metrics.extentAfter >= 480) {
+    if (notification.metrics.extentAfter >=
+        paginationPrefetchDistance(notification.metrics)) {
       if (!widget.loadingMore) _loadMorePending = false;
       return false;
     }
