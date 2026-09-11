@@ -318,6 +318,23 @@ class _TopicListNavigationControls extends StatelessWidget {
             ),
             child: child,
           );
+          Widget search() => TopicListSearch(
+            key: ValueKey((
+              state.filterOwner.controller,
+              state.filterOwner.session,
+              state.filterOwner.tabId,
+            )),
+            query: state.route!.topicListSearch,
+            categoryName: state.categories
+                .where((category) => category.id == state.route!.categoryId)
+                .firstOrNull
+                ?.name,
+            onChanged: (query) {
+              if (_filterOwner(controller) == state.filterOwner) {
+                controller.searchTopicList(query, keepTopicOpen: keepTopicOpen);
+              }
+            },
+          );
           Widget primary() => ConstrainedBox(
             key: ValueKey(
               heading == null
@@ -425,6 +442,17 @@ class _TopicListNavigationControls extends StatelessWidget {
                                 width: wide ? 16 : 0,
                                 height: wide ? 0 : 12,
                               ),
+                            if (wide && showsFilters) ...[
+                              const SizedBox(width: 12),
+                              Flexible(
+                                child: ConstrainedBox(
+                                  constraints: const BoxConstraints(
+                                    maxWidth: 360,
+                                  ),
+                                  child: search(),
+                                ),
+                              ),
+                            ],
                             if (contextual != null)
                               if (wide)
                                 Flexible(
@@ -441,33 +469,11 @@ class _TopicListNavigationControls extends StatelessWidget {
                     ),
                   ),
                 ),
-              if (showsFilters)
+              if (showsFilters && !wide)
                 inset(
                   Padding(
                     padding: const EdgeInsets.only(bottom: 16),
-                    child: TopicListSearch(
-                      key: ValueKey((
-                        state.filterOwner.controller,
-                        state.filterOwner.session,
-                        state.filterOwner.tabId,
-                      )),
-                      query: state.route!.topicListSearch,
-                      categoryName: state.categories
-                          .where(
-                            (category) =>
-                                category.id == state.route!.categoryId,
-                          )
-                          .firstOrNull
-                          ?.name,
-                      onChanged: (query) {
-                        if (_filterOwner(controller) == state.filterOwner) {
-                          controller.searchTopicList(
-                            query,
-                            keepTopicOpen: keepTopicOpen,
-                          );
-                        }
-                      },
-                    ),
+                    child: search(),
                   ),
                 ),
             ],
