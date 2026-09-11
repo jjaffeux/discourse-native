@@ -1128,7 +1128,7 @@ void _registerTopicReadingTests() {
       final theme = Theme.of(context);
       expect(
         tester.widget<Text>(find.text('Caught up')).style?.color,
-        Color.lerp(theme.discourse.whisper, theme.colorScheme.onSurface, 0.25),
+        theme.discourse.whisper,
       );
       expect(
         tester.widget<Text>(find.text('Not caught up')).style?.color,

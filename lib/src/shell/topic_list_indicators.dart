@@ -3,9 +3,8 @@ import 'package:flutter/material.dart';
 
 import '../theme/app_theme.dart';
 
-Color topicListTitleColor(ThemeData theme, {required bool visited}) => visited
-    ? Color.lerp(theme.discourse.whisper, theme.colorScheme.onSurface, 0.25)!
-    : theme.colorScheme.onSurface;
+Color topicListTitleColor(ThemeData theme, {required bool visited}) =>
+    visited ? theme.discourse.whisper : theme.colorScheme.onSurface;
 
 class TopicUnreadBadge extends StatelessWidget {
   const TopicUnreadBadge({super.key, required this.count});

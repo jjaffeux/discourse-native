@@ -1244,13 +1244,7 @@ void main() {
         final title = tester.widget<TopicTitle>(find.byType(TopicTitle));
         expect(
           title.style?.color,
-          scenario.read
-              ? Color.lerp(
-                  theme.discourse.whisper,
-                  theme.colorScheme.onSurface,
-                  .25,
-                )
-              : theme.colorScheme.onSurface,
+          scenario.read ? theme.discourse.whisper : theme.colorScheme.onSurface,
           reason: scenario.name,
         );
         expect(
@@ -1315,10 +1309,7 @@ void main() {
       await shell.markTopicRead(siteUrl, 1, 4, caughtUp: true);
       await tester.pumpAndSettle();
       expect(badge, findsNothing);
-      expect(
-        titleColor(),
-        Color.lerp(theme.discourse.whisper, theme.colorScheme.onSurface, .25),
-      );
+      expect(titleColor(), theme.discourse.whisper);
       expect(shell.currentContent?.topicId, 1);
 
       shell.store.put(
