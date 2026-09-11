@@ -15,6 +15,7 @@ final buttonExamples = ComponentExamples(
       'expand invisibly to 48px. The app supplies colors, font and radius. '
       'The fill stops at the 1px border like bg-clip-padding, and hover, '
       'expanded, focus, invalid and pressed changes transition over 150ms. '
+      'Hover exit clears immediately so neighboring highlights never overlap. '
       'Loading and asynchronous ownership remain controlled by the caller. '
       'Navigation uses isLink and an application-owned callback. Pointer cursors '
       'use a hand for enabled buttons and forbidden for disabled or loading buttons. '
