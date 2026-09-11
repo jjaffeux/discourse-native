@@ -1175,6 +1175,35 @@ class _TopicRowBody extends StatelessWidget {
                                           21
                                       ? null
                                       : 2,
+                                  trailing: [
+                                    for (final marker in <Widget>[
+                                      if (topic.showNewTopicDot)
+                                        const TopicStateDot(
+                                          key: ValueKey('new-topic-dot'),
+                                          label: 'New topic',
+                                        )
+                                      else if (topic.showNewRepliesDot)
+                                        const TopicStateDot(
+                                          key: ValueKey('new-replies-dot'),
+                                          label: 'Topic has new replies',
+                                        ),
+                                      if (topic.showUnreadCount)
+                                        TopicUnreadBadge(
+                                          key: ValueKey(
+                                            'inbox-row-unread-${topic.id}',
+                                          ),
+                                          count: topic.unreadCount,
+                                        ),
+                                    ])
+                                      Padding(
+                                        padding:
+                                            const EdgeInsetsDirectional.only(
+                                              start: 6,
+                                            ),
+                                        child: marker,
+                                      ),
+                                  ],
+
                                   style: effectiveTitleStyle?.copyWith(
                                     color: titleColor,
                                     fontWeight: topic.visited
@@ -1183,21 +1212,6 @@ class _TopicRowBody extends StatelessWidget {
                                   ),
                                 ),
                               ),
-                              if (topic.showNewTopicDot)
-                                const TopicStateDot(
-                                  key: ValueKey('new-topic-dot'),
-                                  label: 'New topic',
-                                )
-                              else if (topic.showNewRepliesDot)
-                                const TopicStateDot(
-                                  key: ValueKey('new-replies-dot'),
-                                  label: 'Topic has new replies',
-                                ),
-                              if (topic.showUnreadCount)
-                                TopicUnreadBadge(
-                                  key: ValueKey('inbox-row-unread-${topic.id}'),
-                                  count: topic.unreadCount,
-                                ),
                             ],
                           ),
                         ),
