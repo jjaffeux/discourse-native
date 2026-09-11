@@ -1547,8 +1547,8 @@ void main() {
         );
         expect(add, findsOneWidget);
         final addButton = tester.widget<DButton>(add);
-        expect(addButton.variant, DButtonVariant.flat);
-        expect(addButton.interactiveBackgroundColor, Colors.transparent);
+        expect(addButton.variant, DButtonVariant.ghost);
+        expect(addButton.interactiveBackgroundColor, isNull);
         final addIcon = find.descendant(
           of: composer,
           matching: find.byKey(const ValueKey('chat-composer-add-icon')),

@@ -2023,11 +2023,15 @@ void main() {
           final theme = Theme.of(tester.element(control));
           expect(
             buttonSurface(tester, of: control).color,
-            control == reply ? theme.colorScheme.primary : theme.shell.floating,
+            control == reply
+                ? theme.colorScheme.primary
+                : DTokens.of(tester.element(control)).background,
           );
           expect(
             buttonSurface(tester, of: control).borderColor,
-            buttonSurface(tester, of: bookmark).borderColor,
+            control == reply
+                ? Colors.transparent
+                : DTokens.of(tester.element(control)).border,
           );
           expect(tester.getSize(control).height, tester.getSize(reply).height);
         }

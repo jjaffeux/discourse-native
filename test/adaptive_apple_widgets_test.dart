@@ -96,11 +96,11 @@ void main() {
     expect(find.byType(DButton), findsNWidgets(2));
     expect(
       tester.widget<DButton>(find.widgetWithText(DButton, 'Cancel')).variant,
-      DButtonVariant.standard,
+      DButtonVariant.outline,
     );
     expect(
       tester.widget<DButton>(find.widgetWithText(DButton, 'Remove')).variant,
-      DButtonVariant.danger,
+      DButtonVariant.destructive,
     );
     expect(
       tester.getSize(find.widgetWithText(DButton, 'Cancel')).height,

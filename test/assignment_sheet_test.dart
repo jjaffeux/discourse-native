@@ -100,10 +100,12 @@ void main() {
       expect(note.hintText, 'Note (optional)');
 
       final unassignFinder = find.byKey(const Key('assignment-unassign'));
-      final theme = Theme.of(tester.element(unassignFinder));
+      final destructive = DTokens.of(
+        tester.element(unassignFinder),
+      ).destructive;
       expect(
         buttonSurface(tester, of: unassignFinder).color,
-        theme.colorScheme.error,
+        destructive.withValues(alpha: destructive.a * .1),
       );
       expect(
         find.descendant(of: unassignFinder, matching: find.byType(DIcon)),

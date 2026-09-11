@@ -403,7 +403,15 @@ void _registerTopicReadingTests() {
           ),
           tester.getCenter(newTopic),
           // Keep the click outside the sidebar divider's resize hit region.
-          tester.getRect(newTopicTile).centerRight - const Offset(32, 0),
+          Offset(
+            tester
+                    .getRect(
+                      find.byKey(const ValueKey('sidebar-resize-handle')),
+                    )
+                    .left -
+                12,
+            tester.getCenter(newTopic).dy,
+          ),
         ]) {
           await tester.tapAt(position, kind: PointerDeviceKind.mouse);
           await tester.pumpAndSettle();
