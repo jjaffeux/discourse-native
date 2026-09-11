@@ -212,6 +212,7 @@ class TopicTagPicker extends StatefulWidget {
 
 class _TopicTagPickerState extends State<TopicTagPicker> {
   final TextEditingController _query = TextEditingController();
+  final Map<String, FocusNode> _rowFocusNodes = {};
   Timer? _debounce;
   late final LatestWinsQueuedLookupController<String, TopicTagSearch> _lookup;
   TopicTagSearch _result = const TopicTagSearch();
@@ -245,6 +246,9 @@ class _TopicTagPickerState extends State<TopicTagPicker> {
     _debounce?.cancel();
     _lookup.dispose();
     _query.dispose();
+    for (final node in _rowFocusNodes.values) {
+      node.dispose();
+    }
     super.dispose();
   }
 
@@ -359,9 +363,13 @@ class _TopicTagPickerState extends State<TopicTagPicker> {
                 padding: const EdgeInsets.symmetric(vertical: 2),
                 child: DItem(
                   size: DItemSize.xs,
-                  variant: _selected(tag)
-                      ? DItemVariant.muted
-                      : DItemVariant.standard,
+                  focusNode: _rowFocusNodes.putIfAbsent(
+                    _tagIdentity(tag),
+                    () => FocusNode(skipTraversal: true),
+                  ),
+                  onPressed: tag.disabled || (!_selected(tag) && _atMaximum)
+                      ? null
+                      : () => _choose(tag),
                   padding: EdgeInsets.zero,
                   children: [
                     DItemContent(

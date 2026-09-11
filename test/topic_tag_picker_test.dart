@@ -63,6 +63,47 @@ void main() {
     await tester.pumpAndSettle();
   }
 
+  testWidgets('enabled tag rows highlight only while hovered', (tester) async {
+    final strategy = FocusManager.instance.highlightStrategy;
+    FocusManager.instance.highlightStrategy =
+        FocusHighlightStrategy.alwaysTraditional;
+    addTearDown(() => FocusManager.instance.highlightStrategy = strategy);
+    await openPicker(tester, selectedTags: const [design], onClosed: (_) {});
+    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    await mouse.addPointer(location: Offset.zero);
+    addTearDown(mouse.removePointer);
+
+    Finder row(String name) =>
+        find.ancestor(of: option(name), matching: find.byType(DItem));
+    Color? background(String name) =>
+        (tester
+                    .widget<AnimatedContainer>(
+                      find
+                          .descendant(
+                            of: row(name),
+                            matching: find.byType(AnimatedContainer),
+                          )
+                          .first,
+                    )
+                    .decoration!
+                as BoxDecoration)
+            .color;
+
+    for (final tag in [design, support]) {
+      expect(background(tag.name), Colors.transparent);
+      await mouse.moveTo(tester.getCenter(option(tag.name)));
+      await tester.pumpAndSettle();
+      expect(
+        background(tag.name),
+        DTokens.of(tester.element(row(tag.name))).muted,
+      );
+      expect(tester.widget<DCheckbox>(option(tag.name)).value, tag == design);
+      await mouse.moveTo(Offset.zero);
+      await tester.pumpAndSettle();
+      expect(background(tag.name), Colors.transparent);
+    }
+  });
+
   for (final tag in [design, support]) {
     for (final target in ['option', 'open']) {
       testWidgets(
