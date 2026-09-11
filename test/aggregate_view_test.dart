@@ -498,5 +498,8 @@ _pumpMixedAggregateView(WidgetTester tester) async {
     ),
   );
   await tester.pumpAndSettle();
+  expect(find.byType(TopicFilterInput), findsNothing);
+  await tester.tap(find.byKey(const ValueKey('aggregate-filter-collapse')));
+  await tester.pumpAndSettle();
   return (forumUrls: forums.map((forum) => forum.url).toList(), api: api);
 }

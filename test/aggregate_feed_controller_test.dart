@@ -135,6 +135,19 @@ void main() {
 
   group('preference persistence and migration', () {
     test(
+      'filters default collapsed without overriding saved expansion',
+      () async {
+        final persistence = MemoryAggregatePreferencesPersistence();
+        final store = AggregatePreferencesStore(persistence: persistence);
+        expect((await store.load()).filtersCollapsed, isTrue);
+        persistence.value = '{"version":4,"tabs":[{"id":"legacy"}]}';
+        expect((await store.load()).filtersCollapsed, isTrue);
+        await store.save(filtersCollapsed: false);
+        expect((await store.load()).filtersCollapsed, isFalse);
+      },
+    );
+
+    test(
       'collapsed filters survive controller reload and tab changes',
       () async {
         final persistence = MemoryAggregatePreferencesPersistence();
