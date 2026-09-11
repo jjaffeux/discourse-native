@@ -135,7 +135,7 @@ final class AggregateFeedController extends FrameSafeNotifier {
   final List<_ClosedAggregateTab> _closedTabs = [];
   late String _activeTabId;
   int _tabSequence = 0;
-  bool _filtersCollapsed = false;
+  bool _filtersCollapsed = true;
   bool get filtersCollapsed => _filtersCollapsed;
 
   void setFiltersCollapsed(bool value) {

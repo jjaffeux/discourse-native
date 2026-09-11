@@ -14,7 +14,7 @@ abstract interface class AggregatePreferencesPersistence {
 
 final class AggregatePreferences {
   AggregatePreferences({
-    this.filtersCollapsed = false,
+    this.filtersCollapsed = true,
     List<AggregateTabPreferences>? tabs,
     String? activeTabId,
     Set<String>? excludedForums,
@@ -203,7 +203,7 @@ final class AggregatePreferencesStore {
         if (tabs.isEmpty) return AggregatePreferences();
         final requestedActive = decoded['active_tab_id'];
         return AggregatePreferences(
-          filtersCollapsed: decoded['filters_collapsed'] == true,
+          filtersCollapsed: decoded['filters_collapsed'] != false,
           tabs: tabs,
           activeTabId:
               requestedActive is String && seen.contains(requestedActive)
@@ -237,7 +237,7 @@ final class AggregatePreferencesStore {
     Map<String, String>? queries,
     Iterable<AggregateTabPreferences>? tabs,
     String? activeTabId,
-    bool filtersCollapsed = false,
+    bool filtersCollapsed = true,
   }) {
     if (_unreadable) return Future<void>.value();
     final savedTabs = List<AggregateTabPreferences>.of(

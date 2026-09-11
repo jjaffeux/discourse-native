@@ -4,7 +4,7 @@ The aggregate home retains ForumTabsBar and its existing tab lifecycle. A quiet 
 
 The implementation composes DCard, DCollapsible, DCheckbox, DButton, DBadge, DSeparator and the existing TopicFilterInput(tokenized: true). No UI component implementation is changed. TopicListRow, an application adapter, passes through DItem's existing variant.
 
-Collapsed state is saved in aggregate preferences, with older preferences defaulting to expanded. Per-tab drafts remain in the aggregate session in memory, including across the shell's responsive remounts. They do not affect the feed until Apply. Applying one forum preserves other forums' applied values and their pending drafts. Existing tab creation, rename, close, reopen and pull-to-refresh behavior are retained.
+Collapsed state is saved in aggregate preferences, with older preferences defaulting to collapsed. Per-tab drafts remain in the aggregate session in memory, including across the shell's responsive remounts. They do not affect the feed until Apply. Applying one forum preserves other forums' applied values and their pending drafts. Existing tab creation, rename, close, reopen and pull-to-refresh behavior are retained.
 
 Validation on 2026-09-11:
 
