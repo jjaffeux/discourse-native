@@ -209,46 +209,58 @@ class _AccountMenuPopover extends StatelessWidget {
   final Widget icon;
 
   @override
-  Widget build(BuildContext context) => DPopover(
-    controller: controller,
-    content: DPopoverContent(
-      semanticLabel: tooltip,
-      align: DPopoverAlign.end,
-      sideOffset: 6,
-      collisionPadding: UserMenuPanel.margin,
-      width: view == UserMenuView.profile
-          ? UserMenuPanel.profileWidth
-          : UserMenuPanel.width,
-      padding: EdgeInsets.zero,
-      scrollable: false,
-      child: UserMenuPanel(view: view, onDismiss: controller.close),
-    ),
-    child: DPopoverTrigger(
-      builder: (context, trigger) => DButton.iconOnly(
-        key: view == UserMenuView.profile
-            ? UserMenuButton.avatarKey
-            : UserMenuButton.bellKey,
-        icon: ExcludeSemantics(child: icon),
-        tooltip: connecting ? 'Connecting…' : tooltip,
-        semanticLabel: semanticLabel,
-        variant: DButtonVariant.ghost,
-        size: DButtonSize.large,
-        hasPopup: true,
-        expanded: trigger.open,
-        focusNode: trigger.focusNode,
-        onPressed: connecting
-            ? null
-            : () {
-                onOpen();
-                if (context.isTouch) {
-                  unawaited(showUserMenuSheet(context, view: view));
-                } else {
-                  trigger.toggle();
-                }
-              },
+  Widget build(BuildContext context) {
+    Widget buildTrigger(BuildContext context, DPopoverTriggerState trigger) =>
+        DButton.iconOnly(
+          key: view == UserMenuView.profile
+              ? UserMenuButton.avatarKey
+              : UserMenuButton.bellKey,
+          icon: ExcludeSemantics(child: icon),
+          tooltip: connecting ? 'Connecting…' : tooltip,
+          semanticLabel: semanticLabel,
+          variant: DButtonVariant.ghost,
+          size: DButtonSize.large,
+          hasPopup: true,
+          expanded: trigger.open,
+          focusNode: trigger.focusNode,
+          onPressed: connecting
+              ? null
+              : () {
+                  onOpen();
+                  if (context.isTouch) {
+                    unawaited(showUserMenuSheet(context, view: view));
+                  } else {
+                    trigger.toggle();
+                  }
+                },
+        );
+    if (view == UserMenuView.profile && !context.isTouch) {
+      return DDropdownMenu(
+        controller: controller,
+        content: DDropdownMenuContent(
+          semanticLabel: 'Profile',
+          align: DPopoverAlign.end,
+          width: 260,
+          children: [UserProfileMenuItems(onDismiss: controller.close)],
+        ),
+        child: DDropdownMenuTrigger(builder: buildTrigger),
+      );
+    }
+    return DPopover(
+      controller: controller,
+      content: DPopoverContent(
+        semanticLabel: tooltip,
+        align: DPopoverAlign.end,
+        sideOffset: 6,
+        collisionPadding: UserMenuPanel.margin,
+        width: UserMenuPanel.width,
+        padding: EdgeInsets.zero,
+        scrollable: false,
+        child: UserMenuPanel(onDismiss: controller.close),
       ),
-    ),
-  );
+      child: DPopoverTrigger(builder: buildTrigger),
+    );
+  }
 }
 
 class _SignedOutAccountActions extends StatelessWidget {

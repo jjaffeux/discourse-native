@@ -1,3 +1,4 @@
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/app.dart';
 import 'package:discourse_native/src/models/bookmark.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
@@ -218,29 +219,14 @@ void main() {
           await tester.pumpAndSettle();
 
           var row = find.byKey(const ValueKey('pause-notifications-row'));
-          expect(tester.getSize(row).height, greaterThanOrEqualTo(44));
           expect(
-            tester.getSemantics(row),
-            isSemantics(
-              label: 'Pause notifications',
-              value: 'Off',
-              isButton: true,
-              hasEnabledState: true,
-              isEnabled: true,
-              hasToggledState: true,
-              isToggled: false,
-              hasTapAction: true,
-            ),
+            tester.widget<DDropdownMenuCheckboxItem>(row).checked,
+            isFalse,
           );
           expect(
-            tester
-                .widget<DIcon>(
-                  find.descendant(of: row, matching: find.byType(DIcon)),
-                )
-                .color,
-            Theme.of(tester.element(row)).colorScheme.onSurfaceVariant,
+            tester.widget<DDropdownMenuCheckboxItem>(row).onChanged,
+            isNotNull,
           );
-
           await tester.tap(row);
           await tester.pumpAndSettle();
           expect(find.byType(UserMenuPanel), findsNothing);
@@ -285,18 +271,10 @@ void main() {
             tester.getSemantics(row),
             isSemantics(
               label: 'Pause notifications',
-              isButton: true,
-              hasToggledState: true,
-              isToggled: true,
+              hasTapAction: true,
+              hasCheckedState: true,
+              isChecked: true,
             ),
-          );
-          expect(
-            tester
-                .widget<DIcon>(
-                  find.descendant(of: row, matching: find.byType(DIcon)),
-                )
-                .color,
-            Theme.of(tester.element(row)).colorScheme.primary,
           );
           expect(find.text('30m'), findsOneWidget);
 
@@ -305,15 +283,7 @@ void main() {
           expect(fixture.api.doNotDisturbResumes, [_metaUrl]);
           expect(
             tester.getSemantics(row),
-            isSemantics(hasToggledState: true, isToggled: false),
-          );
-          expect(
-            tester
-                .widget<DIcon>(
-                  find.descendant(of: row, matching: find.byType(DIcon)),
-                )
-                .color,
-            Theme.of(tester.element(row)).colorScheme.onSurfaceVariant,
+            isSemantics(hasCheckedState: true, isChecked: false),
           );
         } finally {
           semantics.dispose();
@@ -490,7 +460,7 @@ void main() {
         await tester.tap(find.byKey(UserMenuButton.avatarKey));
         await tester.pumpAndSettle();
 
-        final panel = find.byType(UserMenuPanel);
+        final panel = find.byType(DDropdownMenuContent);
         final preferences = find.descendant(
           of: panel,
           matching: find.byKey(const ValueKey('user-menu-row-preferences')),
