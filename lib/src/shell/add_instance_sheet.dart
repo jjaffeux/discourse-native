@@ -15,7 +15,7 @@ import 'shell_sheet.dart';
 
 const Duration addInstanceLookupDebounce = Duration(milliseconds: 750);
 
-Future<void> showAddInstanceSheet(BuildContext context) {
+Future<void> showAddInstanceSheet(BuildContext context) async {
   const title = 'Add a site';
   const form = _AddInstanceForm();
   final isTouch = switch (Theme.of(context).platform) {
@@ -31,21 +31,29 @@ Future<void> showAddInstanceSheet(BuildContext context) {
     );
   }
 
-  return showDDialog<void>(
-    context: context,
-    builder: (context, controller) => const DDialogContent(
-      maxWidth: 480,
-      semanticLabel: title,
-      children: [
-        DDialogHeader(children: [DDialogTitle(child: Text(title))]),
-        form,
-      ],
-    ),
-  );
+  final addressFocus = FocusNode(debugLabel: 'Add site address');
+  try {
+    await showDDialog<void>(
+      context: context,
+      initialFocusNode: addressFocus,
+      builder: (context, controller) => DDialogContent(
+        maxWidth: 480,
+        semanticLabel: title,
+        children: [
+          const DDialogHeader(children: [DDialogTitle(child: Text(title))]),
+          _AddInstanceForm(focusNode: addressFocus),
+        ],
+      ),
+    );
+  } finally {
+    addressFocus.dispose();
+  }
 }
 
 class _AddInstanceForm extends StatefulWidget {
-  const _AddInstanceForm();
+  const _AddInstanceForm({this.focusNode});
+
+  final FocusNode? focusNode;
 
   @override
   State<_AddInstanceForm> createState() => _AddInstanceFormState();
@@ -303,6 +311,7 @@ class _AddInstanceFormState extends State<_AddInstanceForm> {
         const SizedBox(height: 16),
         DInput(
           controller: _field,
+          focusNode: widget.focusNode,
           autofocus: true,
           enabled: !_connecting,
           keyboardType: TextInputType.url,

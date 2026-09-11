@@ -32,6 +32,10 @@ void main() {
     expect(find.byType(Dialog), findsNothing);
     expect(find.byType(BottomSheet), findsNothing);
     expect(find.text('Add a site'), findsOneWidget);
+    expect(
+      tester.widget<EditableText>(find.byType(EditableText)).focusNode.hasFocus,
+      isTrue,
+    );
   });
 
   testWidgets('uses a bottom sheet on Android', (tester) async {
@@ -40,5 +44,9 @@ void main() {
     expect(find.byType(Dialog), findsNothing);
     expect(find.byType(BottomSheet), findsOneWidget);
     expect(find.text('Add a site'), findsOneWidget);
+    expect(
+      tester.widget<EditableText>(find.byType(EditableText)).focusNode.hasFocus,
+      isTrue,
+    );
   });
 }
