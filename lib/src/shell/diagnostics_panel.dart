@@ -575,7 +575,7 @@ class _TopicScrollCapturePanel extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            'Record scrolling in a topic or topic list, then copy a performance report '
+            'Record scrolling in a topic, topic list or users directory, then copy a performance report '
             'to share for investigation. The capture stays in '
             'memory and never includes post bodies, titles, site URLs, or '
             'credentials.',
@@ -589,7 +589,7 @@ class _TopicScrollCapturePanel extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             Text(
-              'Close Diagnostics, reproduce the issue in a topic or topic list, then return '
+              'Close Diagnostics, reproduce the issue in a topic, topic list or users directory, then return '
               'here and stop the capture. Scroll for 5–10 seconds, then wait '
               'a second for frame timings before stopping. Recording stops automatically after '
               '${controller.maximumDuration.inMinutes} minutes or '

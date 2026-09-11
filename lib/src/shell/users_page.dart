@@ -6,6 +6,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../data/user_directory_column_width_store.dart';
+import '../diagnostics/diagnostics_scope.dart';
+import '../diagnostics/topic_scroll_capture.dart';
 import '../models/user_directory.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
@@ -184,6 +186,59 @@ class _UsersPageState extends State<UsersPage> {
   final ScrollController _horizontal = ScrollController();
   final ScrollController _vertical = ScrollController();
   Timer? _searchDebounce;
+  TopicScrollCaptureController? _scrollCapture;
+  (TopicScrollCaptureController, int, int, int)? _captureContext;
+  bool get _recording => _scrollCapture?.isRecording == true;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _scrollCapture = DiagnosticsScope.maybeRead(context)?.topicScrollCapture;
+  }
+
+  void _recordScrollEvent(String name, Map<String, Object?> data) {
+    final capture = _scrollCapture;
+    if (capture == null || !capture.isRecording) return;
+    final identity = (
+      capture,
+      capture.captureId,
+      widget.data.items.length,
+      widget.data.columns.length,
+    );
+    if (_captureContext != identity) {
+      _captureContext = identity;
+      capture.recordTopicEvent('users.capture.context', {
+        'rowCount': widget.data.items.length,
+        'columnCount': widget.data.columns.length + 2,
+        'devicePixelRatio': View.of(context).devicePixelRatio,
+        if (_vertical.hasClients)
+          'viewportExtent': _vertical.position.viewportDimension,
+      });
+    }
+    capture.recordTopicEvent(name, data);
+  }
+
+  void _onVerticalScroll() {
+    final stopwatch = _recording ? (Stopwatch()..start()) : null;
+    _scheduleLoadMoreCheck();
+    if (stopwatch != null) {
+      _recordScrollEvent('users.scroll.notification', {
+        'axis': 'vertical',
+        'pixels': _vertical.offset,
+        'durationUs': stopwatch.elapsedMicroseconds,
+      });
+    }
+  }
+
+  void _onHorizontalScroll() {
+    if (_recording) {
+      _recordScrollEvent('users.scroll.notification', {
+        'axis': 'horizontal',
+        'pixels': _horizontal.offset,
+      });
+    }
+  }
+
   Set<String> _hiddenColumnIds = {};
   bool _loadMoreCheckScheduled = false;
   bool _loadMoreRequested = false;
@@ -197,7 +252,8 @@ class _UsersPageState extends State<UsersPage> {
     super.initState();
     _searchText = widget.data.query.search;
     _deriveColumnMaxima();
-    _vertical.addListener(_scheduleLoadMoreCheck);
+    _vertical.addListener(_onVerticalScroll);
+    _horizontal.addListener(_onHorizontalScroll);
     _restoreColumnWidths();
   }
 
@@ -254,6 +310,7 @@ class _UsersPageState extends State<UsersPage> {
   }
 
   void _deriveColumnMaxima() {
+    final stopwatch = _recording ? (Stopwatch()..start()) : null;
     _columnMaxima = {
       for (final column in widget.data.columns)
         _metricColumnWidthKey(column): widget.data.items.fold<double>(
@@ -264,6 +321,11 @@ class _UsersPageState extends State<UsersPage> {
           ),
         ),
     };
+    if (stopwatch != null) {
+      _recordScrollEvent('users.maxima.work', {
+        'durationUs': stopwatch.elapsedMicroseconds,
+      });
+    }
   }
 
   Widget _metricCell(
@@ -411,28 +473,33 @@ class _UsersPageState extends State<UsersPage> {
           ? null
           : (a, b) => a.user.username.compareTo(b.user.username),
       headerBuilder: _header,
-      cellBuilder: (context, cell) => UserCardTarget(
-        key: ValueKey('user-row-${cell.row.user.username}'),
-        username: cell.row.user.username,
-        siteUrl: widget.siteUrl.isEmpty ? null : widget.siteUrl,
-        child: Row(
-          children: [
-            DAvatar(
-              size: DAvatarSize.sm,
-              decorative: true,
-              child: AvatarImage(
-                url: cell.row.user.avatarUrl,
-                size: DAvatarSize.sm.dimension,
-                fallback: const DAvatarFallback(
-                  child: DIcon(DIcons.user, size: 14),
+      cellBuilder: (context, cell) {
+        if (_recording) {
+          _recordScrollEvent('users.row.built', {'index': cell.index});
+        }
+        return UserCardTarget(
+          key: ValueKey('user-row-${cell.row.user.username}'),
+          username: cell.row.user.username,
+          siteUrl: widget.siteUrl.isEmpty ? null : widget.siteUrl,
+          child: Row(
+            children: [
+              DAvatar(
+                size: DAvatarSize.sm,
+                decorative: true,
+                child: AvatarImage(
+                  url: cell.row.user.avatarUrl,
+                  size: DAvatarSize.sm.dimension,
+                  fallback: const DAvatarFallback(
+                    child: DIcon(DIcons.user, size: 14),
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(width: DSpacing.sm),
-            Expanded(child: Text(cell.row.user.username)),
-          ],
-        ),
-      ),
+              const SizedBox(width: DSpacing.sm),
+              Expanded(child: Text(cell.row.user.username)),
+            ],
+          ),
+        );
+      },
     ),
     DDataTableColumn(
       id: 'name',
@@ -480,6 +547,12 @@ class _UsersPageState extends State<UsersPage> {
   @override
   Widget build(BuildContext context) {
     final data = widget.data;
+    if (_recording) {
+      _recordScrollEvent('users.view.built', {
+        'rowCount': data.items.length,
+        'loadingMore': data.loadingMore,
+      });
+    }
     _scheduleLoadMoreCheck();
     final orderById = {
       _identityColumnWidthKey: 'username',

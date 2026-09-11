@@ -38,3 +38,46 @@ zero further layouts when hovering between them. The baseline fails with four
 initial layouts. Existing table tests cover unequal/wrapped cells, RTL, large
 text, footer/caption, hover styling, resizing and scrolling. No fixed row height
 or reduction in visible data was introduced.
+
+## Follow-up: native profiling and real-session capture
+
+The debug timing reduction above did not establish that the user's remaining
+lag was fixed. A macOS **profile-mode** run now uses
+`tool/benchmarks/users_native_scroll.dart`, warms the viewport, then scrolls down
+and up twice while collecting native `FrameTiming` samples. Run it with:
+
+```sh
+flutter run --profile -d macos -t tool/benchmarks/users_native_scroll.dart
+```
+
+It logs `NATIVE_SCROLL` JSON and exits automatically. The fixture uses 1,000
+users, ten metric columns, avatar fallbacks and no server pagination; it does
+not reproduce real avatar I/O or trackpad input. Recorded on the native 1280px
+window at approximately 120 frames/second:
+
+| Native metric | Previous main | Shared row hover |
+| --- | --- | --- |
+| Frames | 1,960 | 1,964 |
+| Build p95 | 1.186 ms | 1.231 ms |
+| Raster p95 | 0.781 ms | 0.742 ms |
+| Build/raster frames over 16.67 ms | 0 / 0 | 0 / 0 |
+
+These results show **no meaningful native frame-time improvement** and do not
+reproduce the reported lag. The further simplification shares one hover
+animation per virtual row, preserving per-cell semantics, row colors, natural
+height and the caption's separate background. It lowers the debug workload's
+widget rebuild count from 111,534 to 35,128; that allocation/work reduction must
+not be presented as an equivalent native speedup.
+
+The existing Diagnostics > Topic scroll capture now records the Users route.
+Start capture, close Diagnostics, scroll the affected Users table for 5–10
+seconds, wait one second, then stop capture and copy the performance report.
+It includes directory row/column counts, row and page builds, horizontal and
+vertical scroll events, metric-maxima derivation cost, frame timings and the
+existing slow-frame CPU/raster collection. No usernames, group names, metric
+values, avatar URLs or site URLs are added. Instrumentation is dormant until
+capture is armed. A fast-pointer-scroll regression verifies that scrolling
+creates row events without rebuilding the Users page or recomputing maxima.
+
+A capture from the affected session is still needed to identify the remaining
+bottleneck rather than inferring it from offline timings.

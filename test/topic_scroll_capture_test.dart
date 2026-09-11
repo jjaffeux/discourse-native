@@ -14,6 +14,30 @@ import 'support/topic_scroll_capture.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
+  test(
+    'users captures include directory context and metric derivation costs',
+    () async {
+      final capture = topicScrollCaptureWithoutVm();
+      addTearDown(capture.dispose);
+      capture.start();
+      capture.recordTopicEvent('users.capture.context', {
+        'rowCount': 1000,
+        'columnCount': 12,
+      });
+      capture.recordTopicEvent('users.maxima.work', {'durationUs': 450});
+      capture.recordTopicEvent('users.row.built', {'index': 22});
+      capture.stop();
+      final report = jsonDecode(await capture.buildJsonReport()) as Map;
+      final analysis = report['analysis'] as Map;
+      expect(analysis['usersContextCount'], 1);
+      expect((analysis['usersMaximaWorkUs'] as Map)['total'], 450);
+      final compact = await capture.buildPerformanceReport();
+      expect(compact, contains('1000 loaded users'));
+      expect(compact, contains('Users metric maxima'));
+      expect(compact, isNot(contains('No topic context was recorded')));
+    },
+  );
+
   test('summarizes chat scrolling without requiring an open topic', () async {
     final capture = topicScrollCaptureWithoutVm();
     addTearDown(capture.dispose);
