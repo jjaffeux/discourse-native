@@ -1,4 +1,4 @@
-import 'dart:ui' show ImageByteFormat, Tristate;
+import 'dart:ui' show ImageByteFormat, PointerDeviceKind, Tristate;
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
@@ -285,6 +285,129 @@ void main() {
     await tester.pump();
     expect(find.text('Panel two'), findsOneWidget);
   });
+
+  for (final variant in DTabListVariant.values) {
+    for (final pointer in [PointerDeviceKind.mouse, PointerDeviceKind.touch]) {
+      testWidgets(
+        '${variant.name} tabs show focus rings for keyboard input after $pointer clicks',
+        (tester) async {
+          final first = FocusNode();
+          final second = FocusNode();
+          final outside = FocusNode();
+          addTearDown(first.dispose);
+          addTearDown(second.dispose);
+          addTearDown(outside.dispose);
+          final boundaryKey = GlobalKey();
+          await mount(
+            tester,
+            Column(
+              children: [
+                RepaintBoundary(
+                  key: boundaryKey,
+                  child: Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: DTabs<String>(
+                      initialValue: 'one',
+                      children: [
+                        DTabList<String>(
+                          variant: variant,
+                          children: [
+                            DTabTrigger(
+                              value: 'one',
+                              focusNode: first,
+                              child: const Text('One'),
+                            ),
+                            DTabTrigger(
+                              value: 'two',
+                              focusNode: second,
+                              child: const Text('Two'),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                DButton(
+                  focusNode: outside,
+                  label: const Text('Outside'),
+                  onPressed: () {},
+                ),
+              ],
+            ),
+            platform: pointer == PointerDeviceKind.mouse
+                ? TargetPlatform.macOS
+                : TargetPlatform.iOS,
+          );
+          await tester.pumpAndSettle();
+          final ringColor = DTokens.of(
+            tester.element(find.text('One')),
+          ).focusRing.toARGB32();
+          Future<bool> hasRing() async {
+            await tester.pumpAndSettle();
+            return (await tester.runAsync(() async {
+              final boundary =
+                  boundaryKey.currentContext!.findRenderObject()!
+                      as RenderRepaintBoundary;
+              final image = await boundary.toImage();
+              try {
+                final bytes = (await image.toByteData(
+                  format: ImageByteFormat.rawRgba,
+                ))!;
+                for (
+                  var offset = 0;
+                  offset < bytes.lengthInBytes;
+                  offset += 4
+                ) {
+                  final pixel = Color.fromARGB(
+                    bytes.getUint8(offset + 3),
+                    bytes.getUint8(offset),
+                    bytes.getUint8(offset + 1),
+                    bytes.getUint8(offset + 2),
+                  );
+                  if (pixel.toARGB32() == ringColor) return true;
+                }
+                return false;
+              } finally {
+                image.dispose();
+              }
+            }))!;
+          }
+
+          await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+          expect(await hasRing(), isTrue);
+          expect(first.hasPrimaryFocus, isTrue);
+
+          await tester.tap(find.text('One'), kind: pointer);
+          expect(await hasRing(), isFalse);
+          expect(first.hasPrimaryFocus, isTrue);
+
+          await tester.sendKeyEvent(LogicalKeyboardKey.space);
+          expect(await hasRing(), isTrue);
+          expect(first.hasPrimaryFocus, isTrue);
+
+          await tester.tap(find.text('Two'), kind: pointer);
+          expect(await hasRing(), isFalse);
+          expect(second.hasPrimaryFocus, isTrue);
+
+          await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+          expect(await hasRing(), isTrue);
+          expect(first.hasPrimaryFocus, isTrue);
+
+          await tester.tap(find.text('One'), kind: pointer);
+          expect(await hasRing(), isFalse);
+          await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+          await tester.pumpAndSettle();
+          expect(outside.hasPrimaryFocus, isTrue);
+          await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+          await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+          await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+          expect(await hasRing(), isTrue);
+          expect(first.hasPrimaryFocus, isTrue);
+        },
+      );
+    }
+  }
 
   testWidgets('manual roving focus skips disabled and activates with Space', (
     tester,

@@ -550,7 +550,9 @@ class _DTabListScope<T> extends InheritedWidget {
 /// An individual tab button.
 ///
 /// [child] can compose text and a 16px icon. Keep independently interactive
-/// controls outside a trigger. Borrowed [focusNode] is never disposed.
+/// controls outside a trigger. Pointer activation retains focus without its
+/// outline; keyboard navigation and activation show the focus outline.
+/// Borrowed [focusNode] is never disposed.
 class DTabTrigger<T> extends StatefulWidget {
   const DTabTrigger({
     super.key,
@@ -579,6 +581,7 @@ class _DTabTriggerState<T> extends State<DTabTrigger<T>> {
   bool? _borrowedSkipTraversal;
   bool _hovered = false;
   bool _focused = false;
+  bool _focusFromPointer = false;
 
   FocusNode get focusNode => widget.focusNode ?? _ownedFocusNode;
   bool get isEnabled => widget.enabled && (_root?.widget.enabled ?? true);
@@ -622,6 +625,11 @@ class _DTabTriggerState<T> extends State<DTabTrigger<T>> {
     }
     _ownedFocusNode.dispose();
     super.dispose();
+  }
+
+  void _setFocusFromPointer(bool value) {
+    if (_focusFromPointer == value) return;
+    setState(() => _focusFromPointer = value);
   }
 
   void ensureVisible() {
@@ -713,7 +721,7 @@ class _DTabTriggerState<T> extends State<DTabTrigger<T>> {
       ),
       child: surface,
     );
-    if (_focused) {
+    if (_focused && !_focusFromPointer) {
       artwork = CustomPaint(
         foregroundPainter: _DTabFocusPainter(
           color: tokens.focusRing,
@@ -741,6 +749,7 @@ class _DTabTriggerState<T> extends State<DTabTrigger<T>> {
         onShowHoverHighlight: (value) => setState(() => _hovered = value),
         onShowFocusHighlight: (value) => setState(() => _focused = value),
         onFocusChange: (focused) {
+          if (!focused) _setFocusFromPointer(false);
           if (focused) root.state.highlight(this);
           if (focused && list.activateOnFocus) root.state.select(widget.value);
         },
@@ -768,12 +777,14 @@ class _DTabTriggerState<T> extends State<DTabTrigger<T>> {
         actions: {
           ActivateIntent: CallbackAction<ActivateIntent>(
             onInvoke: (_) {
+              _setFocusFromPointer(false);
               root.state.select(widget.value);
               return null;
             },
           ),
           _MoveTabFocusIntent: CallbackAction<_MoveTabFocusIntent>(
             onInvoke: (intent) {
+              _setFocusFromPointer(false);
               root.state.moveFocus(
                 this,
                 intent.key,
@@ -789,6 +800,9 @@ class _DTabTriggerState<T> extends State<DTabTrigger<T>> {
           excludeFromSemantics: true,
           onTap: enabled
               ? () {
+                  // Desktop highlight mode includes mouse focus. Keep the
+                  // ring reserved for keyboard use without clearing focus.
+                  _setFocusFromPointer(true);
                   focusNode.requestFocus();
                   root.state.select(widget.value);
                 }
