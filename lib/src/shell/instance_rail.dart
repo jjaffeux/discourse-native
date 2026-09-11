@@ -1299,7 +1299,7 @@ class _RailDragFeedback extends StatelessWidget {
       type: MaterialType.transparency,
       child: SizedBox.square(
         dimension: _railVisualSize,
-        child: _InstanceAvatar(
+        child: _InstanceIcon(
           instance: instance,
           foreground: foreground,
           background: background,
@@ -1412,7 +1412,7 @@ class _RailItemState extends State<_RailItem> {
                     children: [
                       SizedBox.square(
                         dimension: _railVisualSize,
-                        child: _InstanceAvatar(
+                        child: _InstanceIcon(
                           instance: widget.instance,
                           foreground: avatarForeground,
                           background: avatarBackground,
@@ -1482,7 +1482,7 @@ class _RailTooltip extends StatelessWidget {
         key: ValueKey('instance-rail-callout-${instance.url}'),
         mainAxisSize: MainAxisSize.min,
         children: [
-          DAvatar.frame(
+          ClipRRect(
             borderRadius: BorderRadius.circular(DTokens.of(context).radius),
             child: AvatarImage(
               key: ValueKey('instance-rail-callout-icon-${instance.url}'),
@@ -1519,8 +1519,8 @@ class _RailTooltip extends StatelessWidget {
   }
 }
 
-class _InstanceAvatar extends StatelessWidget {
-  const _InstanceAvatar({
+class _InstanceIcon extends StatelessWidget {
+  const _InstanceIcon({
     required this.instance,
     required this.foreground,
     required this.background,
@@ -1562,7 +1562,7 @@ class _InstanceAvatar extends StatelessWidget {
       ),
     );
 
-    return DAvatar.frame(
+    return ClipRRect(
       borderRadius: BorderRadius.circular(8),
       child: AvatarImage(
         url: instance.iconUrl,
