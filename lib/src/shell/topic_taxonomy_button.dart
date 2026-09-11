@@ -11,6 +11,7 @@ class TopicTaxonomyButton extends StatelessWidget {
     required this.semanticLabel,
     required this.onPressed,
     required this.maximumWidth,
+    this.size = DButtonSize.regular,
     this.buttonKey,
     this.icon,
     this.tooltip,
@@ -18,6 +19,7 @@ class TopicTaxonomyButton extends StatelessWidget {
     this.expanded = false,
   });
 
+  final DButtonSize size;
   final String label;
   final String semanticLabel;
   final VoidCallback? onPressed;
@@ -33,6 +35,7 @@ class TopicTaxonomyButton extends StatelessWidget {
     constraints: BoxConstraints(maxWidth: maximumWidth),
     child: DButton(
       key: buttonKey,
+      size: size,
       label: Row(
         mainAxisSize: MainAxisSize.min,
         children: [

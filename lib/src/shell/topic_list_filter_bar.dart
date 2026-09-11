@@ -78,6 +78,7 @@ class TopicListFilterBar extends StatelessWidget {
         key: const ValueKey('topic-list-category-filter'),
         keyPrefix: 'topic-list-category',
         includeAll: true,
+        size: DButtonSize.small,
         siteUrl: siteUrl,
         categories: rootCategories,
         selected: rootCategory,
@@ -90,6 +91,7 @@ class TopicListFilterBar extends StatelessWidget {
             key: const ValueKey('topic-list-subcategory-filter'),
             keyPrefix: 'topic-list-subcategory',
             includeAll: true,
+            size: DButtonSize.small,
             placeholder: 'Subcategories',
             siteUrl: siteUrl,
             parent: rootCategory,
@@ -106,6 +108,7 @@ class TopicListFilterBar extends StatelessWidget {
           key: const ValueKey('topic-list-tag-filter'),
           keyPrefix: 'topic-list-tag-filter',
           includeAll: true,
+          size: DButtonSize.small,
           multiple: onTagsSelected != null,
           knownTags: [
             for (final tag in knownTags)
