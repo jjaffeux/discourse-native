@@ -27,6 +27,7 @@ class TopicTagSelector extends StatefulWidget {
     this.placeholder = 'Tags',
     this.semanticLabel,
     this.keyPrefix = 'tag-selector',
+    this.size = DButtonSize.regular,
     this.valueKey,
   });
 
@@ -40,6 +41,7 @@ class TopicTagSelector extends StatefulWidget {
   final String placeholder;
   final String? semanticLabel;
   final String keyPrefix;
+  final DButtonSize size;
   final Key? valueKey;
 
   @override
@@ -223,6 +225,7 @@ class _TopicTagSelectorState extends State<TopicTagSelector> {
     final anchor = DComboboxTrigger<TopicTag>(
       builder: (context, trigger) => TopicTaxonomyButton(
         buttonKey: widget.valueKey,
+        size: widget.size,
         label: label,
         icon: const DIcon(DIcons.tag, size: 14),
         semanticLabel:

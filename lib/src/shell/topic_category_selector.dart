@@ -31,6 +31,7 @@ class TopicCategorySelector extends StatefulWidget {
     this.clearSelectionLabel,
     this.placeholder = 'Categories',
     this.keyPrefix = 'category-selector',
+    this.size = DButtonSize.regular,
     this.valueKey,
     this.triggerBuilder,
   });
@@ -46,6 +47,7 @@ class TopicCategorySelector extends StatefulWidget {
   final String? clearSelectionLabel;
   final String placeholder;
   final String keyPrefix;
+  final DButtonSize size;
   final Key? valueKey;
 
   /// Reuses the selector popup with a caller's Native trigger composition.
@@ -201,6 +203,7 @@ class _TopicCategorySelectorState extends State<TopicCategorySelector> {
             widget.triggerBuilder ??
             (context, trigger) => TopicTaxonomyButton(
               buttonKey: widget.valueKey,
+              size: widget.size,
               label: label,
               icon: selected == null
                   ? null

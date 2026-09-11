@@ -159,6 +159,7 @@ class _TopicListNavigationControls extends StatelessWidget {
     );
     final navigation = DSelect<TopicListMode>(
       key: const ValueKey('topic-list-feed-select'),
+      size: DSelectSize.small,
       width: 128,
       semanticLabel: 'Topic feed',
       value: mode.isNew
