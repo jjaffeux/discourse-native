@@ -170,7 +170,7 @@ class _DMessageInboxMenuState<T> extends State<DMessageInboxMenu<T>> {
           focusNode: state.focusNode,
           hasPopup: true,
           expanded: state.open,
-          variant: DButtonVariant.flat,
+          variant: DButtonVariant.ghost,
           size: widget.size,
         ),
       ),

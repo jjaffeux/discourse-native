@@ -1026,15 +1026,16 @@ class PostActionsFooter extends StatelessWidget {
                             icon: icon,
                             label: Text(action.label),
                             tooltip: action.tooltip,
-                            variant: DButtonVariant.flat,
+                            variant: DButtonVariant.ghost,
                             size: DButtonSize.small,
                             onPressed: onPressed,
                           )
                         : DButton.iconOnly(
+                            insetSurface: true,
                             key: key,
                             icon: icon,
                             tooltip: action.tooltip,
-                            variant: DButtonVariant.flat,
+                            variant: DButtonVariant.ghost,
                             size: DButtonSize.small,
                             onPressed: onPressed,
                           );
@@ -1093,11 +1094,12 @@ class PostMoreActionsButton extends StatelessWidget {
           ),
       ],
       builder: (context, menu, _) => DButton.iconOnly(
+        insetSurface: true,
         key: ValueKey('post-more-actions-${scope.postNumber}'),
         icon: const DIcon(DIcons.ellipsis, size: 16),
         tooltip: 'More actions for post ${scope.postNumber}',
         semanticLabel: 'More actions for post ${scope.postNumber}',
-        variant: DButtonVariant.flat,
+        variant: DButtonVariant.ghost,
         size: DButtonSize.small,
         onPressed: () => menu.isOpen ? menu.close() : menu.open(),
       ),

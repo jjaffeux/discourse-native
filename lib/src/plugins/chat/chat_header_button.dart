@@ -55,10 +55,11 @@ class ChatHeaderButton extends StatelessWidget {
             shell.separateSidebarMode != ChatSeparateSidebarMode.never;
         if (exitsChat) {
           return DButton.iconOnly(
+            insetSurface: true,
             key: buttonKey,
             tooltip: 'Exit chat',
             onPressed: shell.closeSidebarPanel,
-            variant: DButtonVariant.flat,
+            variant: DButtonVariant.ghost,
             icon: const DIcon(DIcons.shuffle, size: 22),
           );
         }
@@ -76,6 +77,7 @@ class ChatHeaderButton extends StatelessWidget {
             : 'Chat';
 
         return DButton.iconOnly(
+          insetSurface: true,
           key: buttonKey,
           tooltip: tooltip,
           onPressed: () => unawaited(
@@ -85,7 +87,7 @@ class ChatHeaderButton extends StatelessWidget {
                   ShellLayout.compact,
             ),
           ),
-          variant: DButtonVariant.flat,
+          variant: DButtonVariant.ghost,
           icon: ExcludeSemantics(
             child: Stack(
               clipBehavior: Clip.none,

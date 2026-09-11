@@ -9,6 +9,7 @@ import 'package:flutter/services.dart';
 import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
 import '../../theme/discourse_typography.dart';
+import '../foundation/control_style.dart';
 import '../foundation/joined_control.dart';
 import '../foundation/tokens.dart';
 import 'd_popover.dart';
@@ -796,7 +797,6 @@ class _DSelectBodyState<T> extends State<_DSelectBody<T>> {
   int? _hoveredIndex;
   bool _triggerFocused = false;
   bool _triggerHovered = false;
-  bool _triggerPressed = false;
   bool _openedWithTouch = false;
   String _typeahead = '';
   Timer? _typeaheadTimer;
@@ -1363,13 +1363,14 @@ class _DSelectBodyState<T> extends State<_DSelectBody<T>> {
     final tokens = DTokens.of(context);
     final invalid = widget.invalid || widget.errorText != null;
     final small = widget.size == DSelectSize.small;
+    final controlSize = small ? DControlSize.small : DControlSize.regular;
     final visualHeight = math.max(
-      small ? 28.0 : 32.0,
+      DControlStyle.height(controlSize),
       MediaQuery.textScalerOf(context).scale(DiscourseTypography.sm) *
               DiscourseTypography.lineHeightSmall +
           (small ? 6 : 10),
     );
-    final baseRadius = tokens.radius * (small ? 0.8 : 1.0);
+    final baseRadius = DControlStyle.radius(tokens, controlSize);
     final joined = DJoinedControlScope.maybeOf(context);
     final radius =
         joined?.resolveRadius(
@@ -1385,34 +1386,39 @@ class _DSelectBodyState<T> extends State<_DSelectBody<T>> {
         : tokens.mutedForeground;
     final dark = Theme.of(context).brightness == Brightness.dark;
     final input = tokens.colors.outlineVariant;
-    final background = dark
-        ? input.withValues(
-            alpha:
-                input.a *
-                ((_triggerPressed || _triggerHovered) && widget.enabled
-                    ? 0.50
-                    : 0.30),
-          )
-        : _triggerPressed || _triggerHovered
-        ? input.withValues(alpha: input.a * 0.50)
-        : Colors.transparent;
+    final background = DControlStyle.outlineFill(
+      tokens,
+      dark: dark,
+      field: true,
+      hovered: _triggerHovered && widget.enabled,
+    );
     final border = invalid
         ? tokens.destructive.withValues(
             alpha: tokens.destructive.a * (dark ? 0.5 : 1),
           )
         : input;
-    Widget visual = AnimatedContainer(
+    final visual = AnimatedContainer(
       key: const Key('d-select-trigger-visual'),
-      duration: DMotion.duration(context, const Duration(milliseconds: 100)),
+      duration: DMotion.duration(context, DControlStyle.duration),
+      curve: Curves.ease,
       height: visualHeight,
       width: popupWidth,
-      padding: const EdgeInsetsDirectional.only(start: 10, end: 8),
-      decoration: _DSelectSurfaceDecoration(
-        backgroundColor: background,
+      padding: const EdgeInsetsDirectional.only(
+        start: 11,
+        end: 9,
+        top: 1,
+        bottom: 1,
+      ),
+      decoration: DControlDecoration(
+        color: background,
         borderColor: border,
         borderRadius: radius,
-        joinedAxis: joined?.axis,
-        omitLeadingBorder: joined?.omitsLeadingBorder ?? false,
+        joinedAxis: (joined?.omitsLeadingBorder ?? false) ? joined?.axis : null,
+        ringColor: DControlStyle.alpha(
+          invalid ? tokens.destructive : tokens.focusRing,
+          invalid ? (dark ? .4 : .2) : .5,
+        ),
+        ringWidth: _triggerFocused || invalid ? 3 : 0,
       ),
       child: Row(
         children: [
@@ -1430,25 +1436,19 @@ class _DSelectBodyState<T> extends State<_DSelectBody<T>> {
               child: _value(),
             ),
           ),
-          const SizedBox(width: 6),
+          const SizedBox(width: DControlStyle.gap),
           IconTheme(
-            data: IconThemeData(color: tokens.mutedForeground, size: 16),
-            child: widget.icon ?? const DIcon(DIcons.chevronDown, size: 16),
+            data: IconThemeData(
+              color: tokens.mutedForeground,
+              size: DControlStyle.iconSize,
+            ),
+            child:
+                widget.icon ??
+                const DIcon(DIcons.chevronDown, size: DControlStyle.iconSize),
           ),
         ],
       ),
     );
-    if (_triggerFocused || invalid) {
-      visual = _DSelectRing(
-        color: invalid
-            ? tokens.destructive.withValues(
-                alpha: tokens.destructive.a * (dark ? 0.8 : 0.4),
-              )
-            : tokens.focusRing,
-        radius: radius,
-        child: visual,
-      );
-    }
     final semanticsLabel =
         widget.semanticLabel ??
         (widget.label is Text ? (widget.label as Text).data : null) ??
@@ -1479,10 +1479,7 @@ class _DSelectBodyState<T> extends State<_DSelectBody<T>> {
         child: Listener(
           onPointerDown: (event) {
             _openedWithTouch = event.kind == PointerDeviceKind.touch;
-            setState(() => _triggerPressed = true);
           },
-          onPointerUp: (_) => setState(() => _triggerPressed = false),
-          onPointerCancel: (_) => setState(() => _triggerPressed = false),
           child: GestureDetector(
             behavior: HitTestBehavior.opaque,
             onTap: widget.enabled ? trigger.toggle : null,
@@ -1824,129 +1821,4 @@ class _DSelectScrollArrowState extends State<_DSelectScrollArrow> {
     _stop();
     super.dispose();
   }
-}
-
-class _DSelectSurfaceDecoration extends Decoration {
-  const _DSelectSurfaceDecoration({
-    required this.backgroundColor,
-    required this.borderColor,
-    required this.borderRadius,
-    required this.joinedAxis,
-    required this.omitLeadingBorder,
-  });
-
-  final Color backgroundColor;
-  final Color borderColor;
-  final BorderRadius borderRadius;
-  final Axis? joinedAxis;
-  final bool omitLeadingBorder;
-
-  @override
-  EdgeInsetsGeometry get padding => const EdgeInsets.all(1);
-
-  @override
-  BoxPainter createBoxPainter([VoidCallback? onChanged]) =>
-      _DSelectSurfacePainter(this);
-
-  @override
-  Decoration? lerpFrom(Decoration? a, double t) =>
-      a is _DSelectSurfaceDecoration
-      ? _DSelectSurfaceDecoration(
-          backgroundColor: Color.lerp(a.backgroundColor, backgroundColor, t)!,
-          borderColor: Color.lerp(a.borderColor, borderColor, t)!,
-          borderRadius: BorderRadius.lerp(a.borderRadius, borderRadius, t)!,
-          joinedAxis: t < .5 ? a.joinedAxis : joinedAxis,
-          omitLeadingBorder: t < .5 ? a.omitLeadingBorder : omitLeadingBorder,
-        )
-      : super.lerpFrom(a, t);
-
-  @override
-  Decoration? lerpTo(Decoration? b, double t) =>
-      b is _DSelectSurfaceDecoration ? b.lerpFrom(this, t) : super.lerpTo(b, t);
-}
-
-class _DSelectSurfacePainter extends BoxPainter {
-  const _DSelectSurfacePainter(this.decoration);
-
-  final _DSelectSurfaceDecoration decoration;
-
-  @override
-  void paint(Canvas canvas, Offset offset, ImageConfiguration configuration) {
-    final rect = offset & configuration.size!;
-    final rrect = decoration.borderRadius.toRRect(rect);
-    canvas.drawRRect(rrect, Paint()..color = decoration.backgroundColor);
-    final outline = rrect.deflate(.5);
-    final borderPaint = Paint()
-      ..color = decoration.borderColor
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1;
-    if (!decoration.omitLeadingBorder || decoration.joinedAxis == null) {
-      canvas.drawRRect(outline, borderPaint);
-      return;
-    }
-    final direction = configuration.textDirection ?? TextDirection.ltr;
-    final clip = switch (decoration.joinedAxis!) {
-      Axis.vertical => Rect.fromLTRB(
-        rect.left - 1,
-        rect.top + 1.01,
-        rect.right + 1,
-        rect.bottom + 1,
-      ),
-      Axis.horizontal when direction == TextDirection.rtl => Rect.fromLTRB(
-        rect.left - 1,
-        rect.top - 1,
-        rect.right - 1.01,
-        rect.bottom + 1,
-      ),
-      Axis.horizontal => Rect.fromLTRB(
-        rect.left + 1.01,
-        rect.top - 1,
-        rect.right + 1,
-        rect.bottom + 1,
-      ),
-    };
-    canvas
-      ..save()
-      ..clipRect(clip)
-      ..drawRRect(outline, borderPaint)
-      ..restore();
-  }
-}
-
-class _DSelectRing extends StatelessWidget {
-  const _DSelectRing({
-    required this.color,
-    required this.radius,
-    required this.child,
-  });
-
-  final Color color;
-  final BorderRadius radius;
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) => CustomPaint(
-    foregroundPainter: _DSelectRingPainter(
-      color.withValues(alpha: color.a * 0.5),
-      radius,
-    ),
-    child: child,
-  );
-}
-
-class _DSelectRingPainter extends CustomPainter {
-  const _DSelectRingPainter(this.color, this.radius);
-
-  final Color color;
-  final BorderRadius radius;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final inner = radius.toRRect(Offset.zero & size);
-    canvas.drawDRRect(inner.inflate(3), inner, Paint()..color = color);
-  }
-
-  @override
-  bool shouldRepaint(_DSelectRingPainter oldDelegate) =>
-      color != oldDelegate.color || radius != oldDelegate.radius;
 }

@@ -581,11 +581,11 @@ void main() {
   });
 
   testWidgets(
-    'a touch press keeps the reference fill while compatibility variants fill',
+    'a touch press keeps the reference fill including legacy aliases',
     (tester) async {
       for (final (variant, pressedFill) in [
         (DButtonVariant.primary, false),
-        (DButtonVariant.standard, true),
+        (DButtonVariant.standard, false),
       ]) {
         await pump(
           tester,

@@ -341,9 +341,10 @@ class _TopicInboxWorkspaceState extends State<_TopicInboxWorkspace> {
           children: [
             if (layout.isCompact)
               DButton.iconOnly(
+                insetSurface: true,
                 icon: const DIcon(DIcons.arrowLeft, size: 18),
                 tooltip: 'Back',
-                variant: DButtonVariant.flat,
+                variant: DButtonVariant.ghost,
                 onPressed: () =>
                     controller.handleBack(canReturnToSidebar: true),
               ),
@@ -758,6 +759,7 @@ class _ContentHeader extends StatelessWidget {
             children: [
               if (showBack)
                 DButton.iconOnly(
+                  insetSurface: true,
                   onPressed: () {
                     if (groupBackIntent != null) {
                       groupPages.handleBack(
@@ -771,7 +773,7 @@ class _ContentHeader extends StatelessWidget {
                   },
                   icon: const DIcon(DIcons.arrowLeft, size: 20),
                   tooltip: 'Back',
-                  variant: DButtonVariant.flat,
+                  variant: DButtonVariant.ghost,
                 )
               else
                 const SizedBox(width: 8),

@@ -433,7 +433,7 @@ class _GroupHeader extends StatelessWidget {
                           : const DIcon(DIcons.userPlus, size: 16),
                       loading: mutating,
                       variant: membershipAction == GroupMembershipAction.leave
-                          ? DButtonVariant.standard
+                          ? DButtonVariant.outline
                           : DButtonVariant.primary,
                       onPressed: onMembershipAction == null
                           ? null
@@ -631,7 +631,7 @@ class _DeleteGroupDialogState extends State<_DeleteGroupDialog> {
       DButton(
         key: const ValueKey('confirm-delete-group'),
         label: const Text('Delete permanently'),
-        variant: DButtonVariant.danger,
+        variant: DButtonVariant.destructive,
         onPressed: controller.text == widget.group.name
             ? () => Navigator.pop(context, true)
             : null,

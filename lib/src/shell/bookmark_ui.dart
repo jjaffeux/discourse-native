@@ -1160,7 +1160,7 @@ class _TopicBookmarksSheet extends StatelessWidget {
                       ),
                     ),
               icon: const DIcon(DIcons.trashCan),
-              variant: DButtonVariant.danger,
+              variant: DButtonVariant.destructive,
             ),
           ],
         ],

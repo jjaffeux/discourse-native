@@ -487,7 +487,7 @@ class _EventDirectoryState extends State<EventDirectory> {
                 children: [
                   Expanded(child: Text(_error!)),
                   DButton(
-                    variant: DButtonVariant.transparentPrimary,
+                    variant: DButtonVariant.outline,
                     onPressed: _load,
                     label: const Text('Retry'),
                   ),

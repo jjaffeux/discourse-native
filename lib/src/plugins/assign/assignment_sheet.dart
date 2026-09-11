@@ -441,7 +441,7 @@ class _AssignmentEditorState extends State<AssignmentEditor> {
                     key: const Key('assignment-unassign'),
                     label: const Text('Unassign'),
                     onPressed: _remove,
-                    variant: DButtonVariant.danger,
+                    variant: DButtonVariant.destructive,
                     loading: _saving,
                   ),
                 DButton(

@@ -521,7 +521,7 @@ class _UsersPageState extends State<UsersPage> {
                   ..addAll(columns.map((column) => column.id));
               }),
               label: const Text('Show all'),
-              variant: DButtonVariant.transparent,
+              variant: DButtonVariant.ghost,
             ),
             DButton(
               onPressed: () => Navigator.pop(dialogContext, draft),
@@ -632,7 +632,7 @@ class _UsersPageState extends State<UsersPage> {
                                       }),
                                 size: DButtonSize.small,
                                 insetSurface: true,
-                                variant: DButtonVariant.transparent,
+                                variant: DButtonVariant.ghost,
                                 icon: const DIcon(DIcons.arrowUp, size: 13),
                               ),
                               DButton.iconOnly(
@@ -658,7 +658,7 @@ class _UsersPageState extends State<UsersPage> {
                                       }),
                                 size: DButtonSize.small,
                                 insetSurface: true,
-                                variant: DButtonVariant.transparent,
+                                variant: DButtonVariant.ghost,
                                 icon: Transform.rotate(
                                   angle: math.pi,
                                   child: const DIcon(DIcons.arrowUp, size: 13),
@@ -678,7 +678,7 @@ class _UsersPageState extends State<UsersPage> {
               DButton(
                 onPressed: () => Navigator.pop(dialogContext),
                 label: const Text('Cancel'),
-                variant: DButtonVariant.transparent,
+                variant: DButtonVariant.ghost,
               ),
               DButton(
                 key: const ValueKey('users-save-columns'),

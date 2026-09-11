@@ -51,7 +51,7 @@ class TopicTaxonomyButton extends StatelessWidget {
       hasPopup: true,
       expanded: expanded,
       alignment: AlignmentDirectional.centerStart,
-      variant: DButtonVariant.secondary,
+      variant: DButtonVariant.outline,
     ),
   );
 }

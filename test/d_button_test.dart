@@ -99,7 +99,10 @@ void main() {
       await pointer.addPointer(location: Offset.zero);
       await pointer.moveTo(tester.getCenter(surface));
       await tester.pump();
-      expect(buttonSurface(tester).color, theme.shell.hover);
+      expect(
+        buttonSurface(tester).color,
+        DTokens.of(tester.element(rendered)).muted,
+      );
       await pointer.removePointer();
     }
   });
@@ -130,7 +133,6 @@ void main() {
     final targetRect = tester.getRect(rendered);
     final surfaceRect = tester.getRect(surface);
     final paddedPoint = Offset(targetRect.left + 1, targetRect.center.dy);
-    final theme = Theme.of(tester.element(rendered));
 
     expect(surfaceRect.contains(paddedPoint), isFalse);
     expect(buttonSurface(tester).color, Colors.transparent);
@@ -141,7 +143,10 @@ void main() {
     await pointer.moveTo(paddedPoint);
     await tester.pump();
 
-    expect(buttonSurface(tester).color, theme.shell.hover);
+    expect(
+      buttonSurface(tester).color,
+      DTokens.of(tester.element(rendered)).muted,
+    );
 
     await tester.tapAt(paddedPoint);
     await tester.pump();

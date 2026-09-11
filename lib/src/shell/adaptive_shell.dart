@@ -758,7 +758,7 @@ class _UnavailableForum extends StatelessWidget {
                             }
                           },
                           icon: const DIcon(DIcons.trashCan, size: 18),
-                          variant: DButtonVariant.danger,
+                          variant: DButtonVariant.destructive,
                         ),
                       ],
                     ),

@@ -118,7 +118,7 @@ class _ButtonPreviewState extends State<_ButtonPreview> {
         children: [
           for (final variant
               in widget.compact
-                  ? [DButtonVariant.primary, DButtonVariant.standard]
+                  ? [DButtonVariant.primary, DButtonVariant.outline]
                   : DButtonVariant.values)
             DButton(
               label: Text(variant.name),

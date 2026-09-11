@@ -545,7 +545,7 @@ class _LocalDateComposerSheetState extends State<LocalDateComposerSheet> {
           onPressed: () => Navigator.of(
             context,
           ).pop(const LocalDateComposerSheetAction.remove()),
-          variant: DButtonVariant.danger,
+          variant: DButtonVariant.destructive,
         ),
       ],
       DButton(

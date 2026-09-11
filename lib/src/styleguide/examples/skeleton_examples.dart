@@ -390,7 +390,7 @@ class _GeometryPreviewState extends State<_GeometryPreview> {
           onChanged: (value) => setState(() => _radius = value),
         ),
         DButton(
-          variant: DButtonVariant.flat,
+          variant: DButtonVariant.ghost,
           onPressed: () => setState(() => _radius = null),
           label: const Text('Use site radius'),
         ),
@@ -496,7 +496,7 @@ class _LoadingPreviewState extends State<_LoadingPreview> {
             child: const Text('Could not load this sample.'),
           ),
           DButton(
-            variant: DButtonVariant.flat,
+            variant: DButtonVariant.ghost,
             onPressed: () => setState(() => _status = 'Loading'),
             label: const Text('Retry'),
           ),
@@ -681,7 +681,7 @@ class _CardContentState extends State<_CardContent> {
           ),
         ),
         DButton(
-          variant: DButtonVariant.flat,
+          variant: DButtonVariant.ghost,
           onPressed: () => setState(() => _following = !_following),
           label: Text(_following ? 'Following' : 'Follow'),
         ),
@@ -800,7 +800,7 @@ class _FormContentState extends State<_FormContent> {
         _field(context, label: 'Bio', initialValue: 'Community member'),
         const SizedBox(height: 28),
         DButton(
-          variant: DButtonVariant.flat,
+          variant: DButtonVariant.ghost,
           onPressed: () {
             if (_form.currentState!.validate()) {
               _form.currentState!.save();

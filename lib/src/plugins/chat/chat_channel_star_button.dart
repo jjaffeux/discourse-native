@@ -37,6 +37,7 @@ class ChatChannelStarButton extends StatelessWidget {
             final starred = channel.membership.starred;
             final busy = chat.channelStarWriteInFlight(siteUrl, channel.id);
             return DButton.iconOnly(
+              insetSurface: true,
               key: const ValueKey('chat-channel-star-button'),
               tooltip: starred
                   ? 'Remove from starred channels'
@@ -45,7 +46,7 @@ class ChatChannelStarButton extends StatelessWidget {
                   ? null
                   : () => unawaited(_change(context, chat, !starred)),
               loading: busy,
-              variant: DButtonVariant.flat,
+              variant: DButtonVariant.ghost,
               size: size,
               icon: busy
                   ? const SizedBox.square(dimension: 18, child: DSpinner())

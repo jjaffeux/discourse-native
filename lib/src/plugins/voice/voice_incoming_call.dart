@@ -118,7 +118,7 @@ class _VoiceIncomingCallBannerState extends State<VoiceIncomingCallBanner> {
                         onPressed: widget.controller.declineIncomingCall,
                         icon: const DIcon(DIcons.phoneSlash, size: 16),
                         label: const Text('Decline'),
-                        variant: DButtonVariant.danger,
+                        variant: DButtonVariant.destructive,
                       ),
                     ],
                   ),
