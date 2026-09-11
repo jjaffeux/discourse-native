@@ -350,9 +350,13 @@ class ComposerImageGalleryTile extends StatelessWidget {
         child: Container(
           width: ComposerImageGalleryPreview.tileExtent,
           height: ComposerImageGalleryPreview.tileExtent,
+          padding: const EdgeInsets.all(2),
           clipBehavior: Clip.antiAlias,
           decoration: BoxDecoration(
             color: scheme.surfaceContainerHighest,
+            borderRadius: radius,
+          ),
+          foregroundDecoration: BoxDecoration(
             borderRadius: radius,
             border: Border.all(
               color: item.highlighted || dropTarget
@@ -361,45 +365,48 @@ class ComposerImageGalleryTile extends StatelessWidget {
               width: item.highlighted || dropTarget ? 2 : 1,
             ),
           ),
-          child: source == null
-              ? ExcludeSemantics(
-                  child: Center(
-                    child: Icon(
-                      Icons.image_outlined,
-                      size: 22,
-                      color: scheme.onSurfaceVariant,
-                    ),
-                  ),
-                )
-              : SiteImage(
-                  url: source,
-                  siteUrl: siteUrl,
-                  width: ComposerImageGalleryPreview.tileExtent,
-                  height: ComposerImageGalleryPreview.tileExtent,
-                  fit: BoxFit.cover,
-                  cacheWidth: imagePhysicalPixels(
-                    context,
-                    ComposerImageGalleryPreview.tileExtent,
-                  ),
-                  cacheHeight: imagePhysicalPixels(
-                    context,
-                    ComposerImageGalleryPreview.tileExtent,
-                  ),
-                  onNaturalSize: image.hasDimensions
-                      ? null
-                      : item.onNaturalSize,
-                  excludeFromSemantics: true,
-                  loadingBuilder: (_) => const Center(child: DSpinner()),
-                  errorBuilder: (_, _, _) => ExcludeSemantics(
+          child: ClipRRect(
+            borderRadius: radius.subtract(BorderRadius.circular(2)),
+            child: source == null
+                ? ExcludeSemantics(
                     child: Center(
                       child: Icon(
-                        Icons.broken_image_outlined,
+                        Icons.image_outlined,
                         size: 22,
                         color: scheme.onSurfaceVariant,
                       ),
                     ),
+                  )
+                : SiteImage(
+                    url: source,
+                    siteUrl: siteUrl,
+                    width: ComposerImageGalleryPreview.tileExtent,
+                    height: ComposerImageGalleryPreview.tileExtent,
+                    fit: BoxFit.cover,
+                    cacheWidth: imagePhysicalPixels(
+                      context,
+                      ComposerImageGalleryPreview.tileExtent,
+                    ),
+                    cacheHeight: imagePhysicalPixels(
+                      context,
+                      ComposerImageGalleryPreview.tileExtent,
+                    ),
+                    onNaturalSize: image.hasDimensions
+                        ? null
+                        : item.onNaturalSize,
+                    excludeFromSemantics: true,
+                    loadingBuilder: (_) => const Center(child: DSpinner()),
+                    errorBuilder: (_, _, _) => ExcludeSemantics(
+                      child: Center(
+                        child: Icon(
+                          Icons.broken_image_outlined,
+                          size: 22,
+                          color: scheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ),
                   ),
-                ),
+          ),
         ),
       ),
     );
