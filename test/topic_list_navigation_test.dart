@@ -177,7 +177,7 @@ void main() {
             'topic-list-category-filter',
             'topic-list-subcategory-filter',
             'topic-list-tag-filter',
-            'topic-list-feed-select',
+            'topic-list-feed-tabs',
           ]) {
             final rect = tester.getRect(find.byKey(ValueKey(key)));
             expect(rect.left, greaterThanOrEqualTo(0));
@@ -967,19 +967,11 @@ void main() {
       find.byKey(const ValueKey('topic-list-category-filter')),
       findsOneWidget,
     );
-    expect(
-      tester
-          .widget<DSelect<TopicListMode>>(
-            find.byKey(const ValueKey('topic-list-feed-select')),
-          )
-          .value,
-      isNull,
-    );
     expect(find.text('1059'), findsNothing);
     expect(find.byKey(const ValueKey('topic-list-unread')), findsOneWidget);
     expect(find.text('Unread (5)'), findsNothing);
-    expect(find.text('Top'), findsNothing);
-    expect(find.text('Trending'), findsNothing);
+    expect(find.text('Top'), findsOneWidget);
+    expect(find.text('Trending'), findsOneWidget);
     expect(find.text('Latest topic'), findsOneWidget);
     expect(find.byKey(const ValueKey('topic-list-new-all')), findsNothing);
     expect(controller.sidebarBadgeFor('latest').count, 1059);
@@ -1113,7 +1105,7 @@ void main() {
 
         await pump(1);
         final tabs = tester.getRect(
-          find.byKey(const ValueKey('topic-list-feed-select')),
+          find.byKey(const ValueKey('topic-list-feed-tabs')),
         );
         final segments = find.byKey(const ValueKey('topic-list-new-segments'));
         final segmentRect = tester.getRect(segments);
@@ -1309,30 +1301,18 @@ void main() {
           );
           await tester.pumpAndSettle();
 
-          final trigger = find.byKey(const ValueKey('topic-list-feed-select'));
-          await tester.tap(trigger);
-          await tester.pumpAndSettle();
-          await tester.sendKeyEvent(LogicalKeyboardKey.home);
-          await tester.sendKeyEvent(LogicalKeyboardKey.enter);
-          await tester.pumpAndSettle();
+          await _selectFeed(tester, 'topic-list-top');
           expect(
             setup.controller.currentTopicListMode,
             TopicListMode.topYearly,
           );
-          expect(
-            tester.widget<DSelect<TopicListMode>>(trigger).value,
-            TopicListMode.topYearly,
-          );
           await setup.controller.selectTopicListMode(TopicListMode.topWeekly);
           await tester.pumpAndSettle();
-          expect(
-            tester.widget<DSelect<TopicListMode>>(trigger).value,
-            TopicListMode.topYearly,
+          final tabs = tester.widget<DTabs<TopicListMode>>(
+            find.byType(DTabs<TopicListMode>).first,
           );
-          await tester.sendKeyEvent(LogicalKeyboardKey.space);
-          await tester.pumpAndSettle();
-          expect(find.byType(DPopoverContent), findsOneWidget);
-          await tester.sendKeyEvent(LogicalKeyboardKey.end);
+          expect(tabs.value, TopicListMode.topYearly);
+          await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
           await tester.sendKeyEvent(LogicalKeyboardKey.enter);
           await tester.pumpAndSettle();
           expect(setup.controller.currentTopicListMode, TopicListMode.popular);
@@ -1483,15 +1463,12 @@ void main() {
           expect(controller.currentInstance?.user, isNull);
           final primary = find.byKey(const ValueKey('topic-list-primary-row'));
           expect(primary, findsOneWidget);
-          final select = tester.widget<DSelect<TopicListMode>>(
-            find.byKey(const ValueKey('topic-list-feed-select')),
-          );
+          expect(find.byKey(const ValueKey('topic-list-top')), findsOneWidget);
           expect(
-            select.entries.whereType<DSelectItem<TopicListMode>>().map(
-              (e) => e.textValue,
-            ),
-            ['Top', 'Trending'],
+            find.byKey(const ValueKey('topic-list-popular')),
+            findsOneWidget,
           );
+          expect(find.text('More'), findsNothing);
           expect(find.byKey(TopicCreateButton.buttonKey), findsNothing);
           final categoryFilter = tester.getRect(
             find.byKey(const ValueKey('topic-list-category-filter')),
@@ -1596,7 +1573,7 @@ void main() {
           find.byKey(const ValueKey('topic-list-heading')),
         );
         final select = tester.getRect(
-          find.byKey(const ValueKey('topic-list-feed-select')),
+          find.byKey(const ValueKey('topic-list-feed-tabs')),
         );
         final create = tester.getRect(find.byKey(TopicCreateButton.buttonKey));
         expect(select.top, greaterThanOrEqualTo(heading.top));
@@ -1821,7 +1798,7 @@ void main() {
         findsOneWidget,
       );
       expect(
-        find.byKey(const ValueKey('topic-list-feed-select')),
+        find.byKey(const ValueKey('topic-list-feed-tabs')),
         findsOneWidget,
       );
     }
@@ -1848,44 +1825,36 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('feed options highlight under the mouse in the desktop shell', (
-    tester,
-  ) async {
-    final setup = await _controller();
-    addTearDown(setup.controller.dispose);
-    tester.view.physicalSize = const Size(1800, 1000);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
-    setup.controller.openTopic(_latestTopic);
-    final theme = AppTheme.dark.copyWith(platform: TargetPlatform.macOS);
-    await tester.pumpWidget(
-      ShellScope(
-        controller: setup.controller,
-        child: MaterialApp(theme: theme, home: const AdaptiveShell()),
-      ),
-    );
-    await tester.pumpAndSettle();
-    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
-    addTearDown(mouse.removePointer);
-    await mouse.addPointer();
-    final trigger = find.byKey(const ValueKey('topic-list-feed-select'));
-    await mouse.moveTo(tester.getCenter(trigger));
-    await mouse.down(tester.getCenter(trigger));
-    await mouse.up();
-    await tester.pumpAndSettle();
-    final row = find.byKey(
-      const ValueKey<(String, TopicListMode?)>((
-        'd-select-item',
-        TopicListMode.popular,
-      )),
-    );
-    await mouse.moveTo(tester.getCenter(row));
-    await tester.pumpAndSettle();
-    expect(
-      (tester.widget<Container>(row).decoration as BoxDecoration).color,
-      theme.hoverColor,
-    );
-  });
+  testWidgets(
+    'feed tabs can be reached and clicked in the desktop topic pane',
+    (tester) async {
+      final setup = await _controller();
+      addTearDown(setup.controller.dispose);
+      tester.view.physicalSize = const Size(1800, 1000);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      setup.controller.openTopic(_latestTopic);
+      final theme = AppTheme.dark.copyWith(platform: TargetPlatform.macOS);
+      await tester.pumpWidget(
+        ShellScope(
+          controller: setup.controller,
+          child: MaterialApp(theme: theme, home: const AdaptiveShell()),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      addTearDown(mouse.removePointer);
+      await mouse.addPointer();
+      final tab = find.byKey(const ValueKey('topic-list-popular'));
+      await tester.ensureVisible(tab);
+      await tester.pumpAndSettle();
+      await mouse.moveTo(tester.getCenter(tab));
+      await tester.pumpAndSettle();
+      await tester.tap(tab);
+      await tester.pumpAndSettle();
+      expect(setup.controller.currentTopicListMode, TopicListMode.popular);
+    },
+  );
 
   testWidgets('wide shell divides the sidebar from main content', (
     tester,
@@ -2029,12 +1998,8 @@ Future<({ShellController controller, FakeDiscourseApi api})> _controller({
 }
 
 Future<void> _selectFeed(WidgetTester tester, String key) async {
-  if (key != 'topic-list-latest' &&
-      key != 'topic-list-new' &&
-      key != 'topic-list-unread') {
-    await tester.tap(find.byKey(const ValueKey('topic-list-feed-select')));
-    await tester.pumpAndSettle();
-  }
+  await tester.ensureVisible(find.byKey(ValueKey(key)));
+  await tester.pumpAndSettle();
   await tester.tap(find.byKey(ValueKey(key)));
   await tester.pumpAndSettle();
 }

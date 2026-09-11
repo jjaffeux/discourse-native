@@ -158,13 +158,20 @@ class _TopicListNavigationControls extends StatelessWidget {
     void selectMode(TopicListMode value) => unawaited(
       controller.selectTopicListMode(value, keepTopicOpen: keepTopicOpen),
     );
-    final feedTabs = DTabs<TopicListMode>.controlled(
-      value: mode.isNew ? TopicListMode.newActivity : mode,
+    final navigation = DTabs<TopicListMode>.controlled(
+      value: mode.isNew
+          ? TopicListMode.newActivity
+          : mode.isTop
+          ? TopicListMode.topYearly
+          : mode,
       onChanged: (value) {
-        if (value != null) selectMode(value);
+        if (value != null) {
+          selectMode(value.isTop ? controller.defaultTopTopicListMode : value);
+        }
       },
       children: [
         DTabList<TopicListMode>(
+          key: const ValueKey('topic-list-feed-tabs'),
           size: DControlSize.small,
           variant: DTabListVariant.line,
           children: [
@@ -185,57 +192,19 @@ class _TopicListNavigationControls extends StatelessWidget {
                 child: Text('New'),
               ),
             ],
+            const DTabTrigger(
+              key: ValueKey('topic-list-top'),
+              value: TopicListMode.topYearly,
+              child: Text('Top'),
+            ),
+            const DTabTrigger(
+              key: ValueKey('topic-list-popular'),
+              value: TopicListMode.popular,
+              child: Text('Trending'),
+            ),
           ],
         ),
       ],
-    );
-    final moreFeeds = DSelect<TopicListMode>(
-      key: const ValueKey('topic-list-feed-select'),
-      size: DSelectSize.small,
-      width: 104,
-      placeholder: 'More',
-      semanticLabel: 'More topic feeds',
-      value: mode.isTop
-          ? TopicListMode.topYearly
-          : mode == TopicListMode.popular
-          ? mode
-          : null,
-      entries: const [
-        DSelectItem(
-          value: TopicListMode.topYearly,
-          textValue: 'Top',
-          child: Text('Top', key: ValueKey('topic-list-top')),
-        ),
-        DSelectItem(
-          value: TopicListMode.popular,
-          textValue: 'Trending',
-          child: Text('Trending', key: ValueKey('topic-list-popular')),
-        ),
-      ],
-      onChanged: (value) {
-        if (value != null) {
-          selectMode(value.isTop ? controller.defaultTopTopicListMode : value);
-        }
-      },
-    );
-    final navigation = LayoutBuilder(
-      builder: (context, constraints) {
-        if (constraints.maxWidth / MediaQuery.textScalerOf(context).scale(1) <
-            360) {
-          return Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [feedTabs, const SizedBox(height: 8), moreFeeds],
-          );
-        }
-        return Row(
-          children: [
-            Expanded(child: feedTabs),
-            const SizedBox(width: 8),
-            moreFeeds,
-          ],
-        );
-      },
     );
     Widget? contextualFor(bool wide) {
       if (showsTabs && mode.isNew && state.unifiedNew) {
