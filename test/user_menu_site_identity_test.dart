@@ -98,7 +98,7 @@ void main() {
     testWidgets(
       'replaces desktop invites when the selected site changes',
       (tester) => _withMenu(tester, TargetPlatform.macOS, (fixture) async {
-        await tester.tap(find.byKey(UserMenuButton.avatarKey));
+        await tester.tap(find.byKey(UserMenuButton.bellKey));
         await tester.pumpAndSettle();
         await tester.tap(find.byTooltip('Invites'));
         await tester.pumpAndSettle();
@@ -138,11 +138,11 @@ void main() {
 
   group('menu controls', () {
     testWidgets(
-      'expose 44 pixel selected tabs with keyboard actions on pointer platforms',
+      'expose labeled selected tabs with keyboard actions on pointer platforms',
       (tester) => _withMenu(tester, TargetPlatform.macOS, (_) async {
         final semantics = tester.ensureSemantics();
         try {
-          await tester.tap(find.byKey(UserMenuButton.avatarKey));
+          await tester.tap(find.byKey(UserMenuButton.bellKey));
           await tester.pumpAndSettle();
 
           final notifications = find.byKey(const ValueKey('user-menu-tab-all'));
@@ -152,7 +152,8 @@ void main() {
           final replies = find.byKey(const ValueKey('user-menu-tab-replies'));
 
           for (final tab in [notifications, bookmarks, replies]) {
-            expect(tester.getSize(tab), const Size.square(44));
+            expect(tester.getSize(tab).height, greaterThanOrEqualTo(36));
+            expect(tester.getSize(tab).width, greaterThan(100));
           }
           expect(
             tester.getSemantics(notifications),
@@ -214,8 +215,6 @@ void main() {
         final semantics = tester.ensureSemantics();
         try {
           await tester.tap(find.byKey(UserMenuButton.avatarKey));
-          await tester.pumpAndSettle();
-          await tester.tap(find.byTooltip('Profile'));
           await tester.pumpAndSettle();
 
           var row = find.byKey(const ValueKey('pause-notifications-row'));
@@ -281,8 +280,6 @@ void main() {
 
           await tester.tap(find.byKey(UserMenuButton.avatarKey));
           await tester.pumpAndSettle();
-          await tester.tap(find.byTooltip('Profile'));
-          await tester.pumpAndSettle();
           row = find.byKey(const ValueKey('pause-notifications-row'));
           expect(
             tester.getSemantics(row),
@@ -343,8 +340,6 @@ void main() {
         final launched = _watchBrowser(tester);
         await tester.tap(find.byKey(UserMenuButton.avatarKey));
         await tester.pumpAndSettle();
-        await tester.tap(find.byTooltip('Profile'));
-        await tester.pumpAndSettle();
         await tester.tap(find.byKey(const ValueKey('pause-notifications-row')));
         await tester.pumpAndSettle();
         await tester.tap(find.text('Set a notification schedule'));
@@ -358,8 +353,6 @@ void main() {
       'open the custom-status editor from the profile row',
       (tester) => _withMenu(tester, TargetPlatform.macOS, (_) async {
         await tester.tap(find.byKey(UserMenuButton.avatarKey));
-        await tester.pumpAndSettle();
-        await tester.tap(find.byTooltip('Profile'));
         await tester.pumpAndSettle();
 
         final status = find.byKey(const ValueKey('user-menu-row-user-status'));
@@ -381,7 +374,7 @@ void main() {
       (tester) => _withMenu(tester, TargetPlatform.macOS, (fixture) async {
         final api = fixture.api;
 
-        await tester.tap(find.byKey(UserMenuButton.avatarKey));
+        await tester.tap(find.byKey(UserMenuButton.bellKey));
         await tester.pumpAndSettle();
 
         expect(api.notificationSites, [_metaUrl]);
@@ -495,8 +488,6 @@ void main() {
       'closes the pointer menu and restores prior content on Back',
       (tester) => _withMenu(tester, TargetPlatform.macOS, (fixture) async {
         await tester.tap(find.byKey(UserMenuButton.avatarKey));
-        await tester.pumpAndSettle();
-        await tester.tap(find.byTooltip('Profile'));
         await tester.pumpAndSettle();
 
         final panel = find.byType(UserMenuPanel);
@@ -627,10 +618,8 @@ void main() {
 }
 
 Future<void> _focusTab(WidgetTester tester, Finder tab) async {
-  final inkWell = find.descendant(of: tab, matching: find.byType(InkWell));
-  expect(inkWell, findsOneWidget);
   final focusChild = find
-      .descendant(of: inkWell, matching: find.byType(MouseRegion))
+      .descendant(of: tab, matching: find.byType(MouseRegion))
       .first;
   final focus = Focus.of(tester.element(focusChild));
   focus.requestFocus();
@@ -693,13 +682,18 @@ Future<_MenuFixture> _pumpMenu(WidgetTester tester) async {
 }
 
 Future<void> _openNestedSection(WidgetTester tester, String label) async {
-  await tester.tap(find.byKey(UserMenuButton.avatarKey));
+  await tester.tap(
+    find.byKey(
+      label == 'Profile' ? UserMenuButton.avatarKey : UserMenuButton.bellKey,
+    ),
+  );
   await tester.pumpAndSettle();
+  if (label == 'Profile') return;
   final panel = find.byType(UserMenuPanel);
   final menu = panel.evaluate().isNotEmpty
       ? panel
       : find.byKey(const ValueKey('shell-sheet-keyboard-inset'));
-  await tester.tap(find.descendant(of: menu, matching: find.text(label)));
+  await tester.tap(find.descendant(of: menu, matching: find.text(label)).last);
   await tester.pumpAndSettle();
 }
 

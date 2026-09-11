@@ -390,12 +390,6 @@ Future<void> _openSummaryFromMenu(
 }) async {
   await tester.tap(find.byKey(UserMenuButton.avatarKey));
   await tester.pumpAndSettle();
-  final profile = find.byTooltip('Profile');
-  await tester.tap(
-    profile.evaluate().isEmpty ? find.text('Profile').last : profile,
-  );
-  await tester.pumpAndSettle();
-
   final summaryRow = find.byKey(const ValueKey('user-menu-row-summary'));
   expect(summaryRow, findsOneWidget);
   expect(find.bySemanticsLabel('Summary'), findsOneWidget);

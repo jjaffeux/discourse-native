@@ -2043,7 +2043,7 @@ void _registerTopicReadingTests() {
   group('live counters', () {
     const me = DiscourseUser(id: 7, username: 'joffreyj', name: 'Joffrey');
 
-    final avatarBadge = find.byKey(UserMenuButton.unreadDotKey);
+    final bellBadge = find.byKey(UserMenuButton.unreadDotKey);
 
     Future<FakeSiteTracker> pumpConnected(
       WidgetTester tester, {
@@ -2071,63 +2071,51 @@ void _registerTopicReadingTests() {
       expect(tracker.userId, 7);
     });
 
-    testWidgets('the account avatar uses a hand cursor without a hover fill', (
+    testWidgets('the account avatar uses the Native ghost button', (
       tester,
     ) async {
       await pumpConnected(tester);
-
-      final avatar = find.byKey(UserMenuButton.avatarKey);
-      final inkWell = tester.widget<InkWell>(avatar);
-      final material = tester.widget<Material>(
-        find.ancestor(of: avatar, matching: find.byType(Material)).first,
+      final avatar = tester.widget<DButton>(
+        find.byKey(UserMenuButton.avatarKey),
       );
-      final theme = Theme.of(tester.element(avatar));
-      final cursor = inkWell.mouseCursor! as WidgetStateMouseCursor;
-
-      expect(cursor.resolve(const {}), SystemMouseCursors.click);
-      expect(
-        cursor.resolve(const {WidgetState.disabled}),
-        SystemMouseCursors.basic,
-      );
-      expect(inkWell.hoverColor, Colors.transparent);
-      expect(inkWell.focusColor, theme.shell.hover);
-      expect(
-        inkWell.borderRadius,
-        BorderRadius.circular(theme.discourseButtons.borderRadius),
-      );
-      expect(material.type, MaterialType.transparency);
+      expect(avatar.variant, DButtonVariant.ghost);
+      expect(avatar.tooltip, 'Profile');
+      expect(avatar.hasPopup, isTrue);
+      expect(avatar.onPressed, isNotNull);
     });
 
-    testWidgets('the account avatar carries a blue count with white text', (
+    testWidgets('the bell carries the unread count using the Native badge', (
       tester,
     ) async {
       await pumpConnected(
         tester,
         totals: const NotificationTotals(unreadNotifications: 3),
       );
-
-      final badge = tester.widget<Container>(avatarBadge);
-      final decoration = badge.decoration! as BoxDecoration;
-      final theme = Theme.of(tester.element(avatarBadge));
-      final size = tester.getSize(avatarBadge);
-      final label = tester.widget<Text>(
-        find.descendant(of: avatarBadge, matching: find.text('3')),
-      );
-
-      expect(decoration.color, theme.colorScheme.primary);
-      expect(label.style?.color, Colors.white);
-      expect(size.width, greaterThanOrEqualTo(20));
-      expect(size.height, greaterThanOrEqualTo(20));
+      expect(tester.widget<DBadge>(bellBadge).variant, DBadgeVariant.primary);
       expect(
-        find.descendant(of: avatarBadge, matching: find.text('3')),
+        find.descendant(
+          of: find.byKey(UserMenuButton.bellKey),
+          matching: bellBadge,
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: find.byKey(UserMenuButton.avatarKey),
+          matching: bellBadge,
+        ),
+        findsNothing,
+      );
+      expect(
+        find.descendant(of: bellBadge, matching: find.text('3')),
         findsOneWidget,
       );
     });
 
-    testWidgets('a notification arriving marks the avatar', (tester) async {
+    testWidgets('a notification arriving marks the bell', (tester) async {
       final tracker = await pumpConnected(tester);
 
-      expect(avatarBadge, findsNothing);
+      expect(bellBadge, findsNothing);
 
       tracker.deliverNotification(const {
         'all_unread_notifications_count': 1,
@@ -2135,10 +2123,10 @@ void _registerTopicReadingTests() {
       });
       await tester.pumpAndSettle();
 
-      expect(avatarBadge, findsOneWidget);
+      expect(bellBadge, findsOneWidget);
     });
 
-    testWidgets('chat-only activity stays off the account avatar', (
+    testWidgets('chat-only activity stays off the notification bell', (
       tester,
     ) async {
       await pumpConnected(
@@ -2150,7 +2138,7 @@ void _registerTopicReadingTests() {
         const ValueKey('instance-rail-badge-https://meta.discourse.org'),
       );
       expect(railBadge, findsOneWidget);
-      expect(avatarBadge, findsNothing);
+      expect(bellBadge, findsNothing);
     });
 
     testWidgets('reading them somewhere else takes the mark away', (
@@ -2161,7 +2149,7 @@ void _registerTopicReadingTests() {
         totals: const NotificationTotals(unreadNotifications: 3),
       );
 
-      expect(avatarBadge, findsOneWidget);
+      expect(bellBadge, findsOneWidget);
 
       tracker.deliverNotification(const {
         'all_unread_notifications_count': 0,
@@ -2169,7 +2157,7 @@ void _registerTopicReadingTests() {
       });
       await tester.pumpAndSettle();
 
-      expect(avatarBadge, findsNothing);
+      expect(bellBadge, findsNothing);
     });
 
     testWidgets('the counts move with it, not just the mark', (tester) async {
@@ -2186,7 +2174,7 @@ void _registerTopicReadingTests() {
         findsOneWidget,
       );
       expect(
-        find.descendant(of: avatarBadge, matching: find.text('3')),
+        find.descendant(of: bellBadge, matching: find.text('3')),
         findsOneWidget,
       );
 
@@ -2201,7 +2189,7 @@ void _registerTopicReadingTests() {
         findsOneWidget,
       );
       expect(
-        find.descendant(of: avatarBadge, matching: find.text('5')),
+        find.descendant(of: bellBadge, matching: find.text('5')),
         findsOneWidget,
       );
       expect(find.text('2'), findsOneWidget);
@@ -2229,7 +2217,7 @@ void _registerTopicReadingTests() {
         (tracker) => tracker.siteUrl == secondUrl,
       );
       expect(inactive.polling, isTrue);
-      expect(avatarBadge, findsNothing);
+      expect(bellBadge, findsNothing);
 
       inactive.deliverNotification(const {
         'all_unread_notifications_count': 2,
@@ -2244,13 +2232,13 @@ void _registerTopicReadingTests() {
         find.descendant(of: railBadge, matching: find.text('2')),
         findsOneWidget,
       );
-      expect(avatarBadge, findsNothing);
+      expect(bellBadge, findsNothing);
     });
 
     testWidgets('a filling review queue marks it too', (tester) async {
       final tracker = await pumpConnected(tester);
 
-      expect(avatarBadge, findsNothing);
+      expect(bellBadge, findsNothing);
 
       // Published on a channel of its own, and only to staff.
       tracker.deliverReviewableCounts(const {
@@ -2259,7 +2247,7 @@ void _registerTopicReadingTests() {
       });
       await tester.pumpAndSettle();
 
-      expect(avatarBadge, findsOneWidget);
+      expect(bellBadge, findsOneWidget);
     });
 
     testWidgets('a site with nobody signed in has no counters to track', (
@@ -2269,7 +2257,7 @@ void _registerTopicReadingTests() {
       await tester.pumpAndSettle();
 
       expect(FakeSiteTracker.built.first.userId, isNull);
-      expect(avatarBadge, findsNothing);
+      expect(bellBadge, findsNothing);
     });
   });
 

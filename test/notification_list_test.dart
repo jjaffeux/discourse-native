@@ -144,7 +144,7 @@ Future<(ShellController, FakeDiscourseApi)> _pumpMenu(
     ),
   );
   await tester.pumpAndSettle();
-  await tester.tap(find.byKey(UserMenuButton.avatarKey));
+  await tester.tap(find.byKey(UserMenuButton.bellKey));
   await tester.pumpAndSettle();
   return (ShellScope.read(tester.element(find.byType(UserMenuPanel))), api);
 }
