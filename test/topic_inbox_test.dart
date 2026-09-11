@@ -2041,7 +2041,7 @@ void main() {
           final touch =
               Theme.of(tester.element(reply)).platform ==
               TargetPlatform.android;
-          expect(readerBar.height, touch ? 60 : 40);
+          expect(readerBar.height, touch ? 64 : 44);
           expect(controlHeight, touch ? 48 : 28);
           for (final key in [
             'topic-progress-button',
