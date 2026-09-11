@@ -2236,6 +2236,10 @@ class _TopicBottomBar extends StatelessWidget {
     final showBookmark =
         hasTopic && ShellScope.read(context).currentInstance?.user != null;
     final showNotifications = hasTopic && isConnected;
+    final buttonBackground = theme.shell.floating;
+    final foreground = DTokens.of(context).foreground;
+    final buttonBorder = Color.lerp(buttonBackground, foreground, .12)!;
+    final buttonHover = Color.lerp(buttonBackground, foreground, .06)!;
     return Material(
       key: const ValueKey('topic-bottom-bar'),
       color: topic == null ? theme.shell.panel : theme.shell.content,
@@ -2259,15 +2263,11 @@ class _TopicBottomBar extends StatelessWidget {
                           DButton(
                             key: const ValueKey('topic-reply-button'),
                             onPressed: onReplyPressed,
-                            icon: DIcon(
-                              DIcons.reply,
-                              size: 16,
-                              color: DTokens.of(context).primary,
-                            ),
+                            icon: const DIcon(DIcons.reply, size: 16),
                             label: const Text('Reply'),
                             tooltip: 'Reply to this topic',
                             shortcut: const DShortcut(topicReplyShortcut),
-                            variant: DButtonVariant.secondary,
+                            variant: DButtonVariant.primary,
                             size: DButtonSize.small,
                           ),
                         if (showBookmark)
@@ -2275,14 +2275,20 @@ class _TopicBottomBar extends StatelessWidget {
                             siteUrl: siteUrl!,
                             topic: topic!,
                             busy: bookmarkBusy,
-                            variant: DButtonVariant.secondary,
+                            variant: DButtonVariant.outline,
+                            backgroundColor: buttonBackground,
+                            borderColor: buttonBorder,
+                            interactiveBackgroundColor: buttonHover,
                           ),
                         if (showNotifications)
                           TopicNotificationLevelButton(
                             siteUrl: siteUrl!,
                             topic: topic!,
                             showLabel: constraints.maxWidth >= 580,
-                            variant: DButtonVariant.secondary,
+                            variant: DButtonVariant.outline,
+                            backgroundColor: buttonBackground,
+                            borderColor: buttonBorder,
+                            interactiveBackgroundColor: buttonHover,
                           ),
                       ],
                     ),

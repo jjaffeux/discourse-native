@@ -6,9 +6,12 @@ import 'package:discourse_native/src/styleguide/component_examples.dart';
 import 'package:discourse_native/src/styleguide/examples/notification_level_menu_examples.dart';
 import 'package:discourse_native/src/styleguide/styleguide_theme.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+import 'support/button_surface.dart';
 
 const _options = [
   DNotificationLevelOption(
@@ -38,10 +41,13 @@ Finder _option(int value) => find.byWidgetPredicate(
 
 void main() {
   for (final showLabel in [false, true]) {
-    testWidgets('outlined trigger selects a level (label: $showLabel)', (
+    testWidgets('custom outlined trigger selects a level (label: $showLabel)', (
       tester,
     ) async {
       final changes = <int>[];
+      const fill = Color(0xff333333);
+      const border = Color(0xff474747);
+      const hover = Color(0xff3d3d3d);
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
@@ -59,6 +65,9 @@ void main() {
                     semanticLabel: 'Topic notifications',
                     showLabel: showLabel,
                     variant: DButtonVariant.outline,
+                    backgroundColor: fill,
+                    borderColor: border,
+                    interactiveBackgroundColor: hover,
                     onChanged: changes.add,
                   ),
                 ],
@@ -73,6 +82,14 @@ void main() {
       );
       expect(tester.widget<DButton>(trigger).variant, DButtonVariant.outline);
       expect(find.byTooltip('Topic notifications: Watching'), findsOneWidget);
+      expect(buttonSurface(tester, of: trigger).color, fill);
+      expect(buttonSurface(tester, of: trigger).borderColor, border);
+      final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      await mouse.addPointer();
+      addTearDown(mouse.removePointer);
+      await mouse.moveTo(tester.getCenter(trigger));
+      await tester.pumpAndSettle();
+      expect(buttonSurface(tester, of: trigger).color, hover);
       await tester.tap(trigger);
       await tester.pumpAndSettle();
       await tester.tap(_option(0));
@@ -80,6 +97,8 @@ void main() {
       expect(changes, [0]);
       expect(find.byType(DDropdownMenuContent), findsNothing);
       expect(tester.widget<DButton>(trigger).focusNode!.hasFocus, isTrue);
+      expect(buttonSurface(tester, of: trigger).borderColor, border);
+      expect(buttonSurface(tester, of: trigger).ringWidth, greaterThan(0));
       expect(tester.takeException(), isNull);
     });
   }

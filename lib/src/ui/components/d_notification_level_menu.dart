@@ -46,6 +46,9 @@ class DNotificationLevelMenu<T> extends StatelessWidget {
     this.showLabel = false,
     this.size = DButtonSize.small,
     this.variant,
+    this.backgroundColor,
+    this.borderColor,
+    this.interactiveBackgroundColor,
     this.buttonKey,
   }) : assert(options.length > 0);
 
@@ -60,6 +63,16 @@ class DNotificationLevelMenu<T> extends StatelessWidget {
   /// When null, labeled triggers are flat and emphasized icon triggers use
   /// the primary accent.
   final DButtonVariant? variant;
+
+  /// Overrides the trigger fill without changing the dropdown surface.
+  final Color? backgroundColor;
+
+  /// Overrides the trigger outline while preserving its keyboard focus ring.
+  final Color? borderColor;
+
+  /// Overrides the trigger's hover and focus fill.
+  final Color? interactiveBackgroundColor;
+
   final Key? buttonKey;
 
   @override
@@ -114,6 +127,9 @@ class DNotificationLevelMenu<T> extends StatelessWidget {
                 hasPopup: true,
                 expanded: state.open,
                 variant: variant ?? DButtonVariant.flat,
+                backgroundColor: backgroundColor,
+                borderColor: borderColor,
+                interactiveBackgroundColor: interactiveBackgroundColor,
                 size: size,
               )
             : DButton.iconOnly(
@@ -130,6 +146,9 @@ class DNotificationLevelMenu<T> extends StatelessWidget {
                     (selected.emphasized
                         ? DButtonVariant.transparentPrimary
                         : DButtonVariant.flat),
+                backgroundColor: backgroundColor,
+                borderColor: borderColor,
+                interactiveBackgroundColor: interactiveBackgroundColor,
                 size: size,
               ),
       ),
