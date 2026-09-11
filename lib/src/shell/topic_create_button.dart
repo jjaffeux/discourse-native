@@ -172,6 +172,11 @@ class _TopicCreateControl extends StatelessWidget {
       align: DPopoverAlign.end,
       width: math.min(350, MediaQuery.sizeOf(context).width - 24),
       children: [
+        DDropdownMenuItem(
+          onPressed: () => controller.openDrafts(siteUrl),
+          child: const Text('All drafts'),
+        ),
+        const DDropdownMenuSeparator(),
         if (feed.loading && drafts.isEmpty)
           const DDropdownMenuLabel(
             child: Row(
