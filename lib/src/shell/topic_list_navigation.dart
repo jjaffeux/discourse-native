@@ -237,118 +237,105 @@ class _TopicListNavigationControls extends StatelessWidget {
                         padding: const EdgeInsets.symmetric(
                           horizontal: topicListHorizontalPadding,
                         ),
-                        child: DecoratedBox(
+                        child: Row(
                           key: const ValueKey('topic-list-feed-tabs'),
-                          decoration: BoxDecoration(
-                            border: stacked
-                                ? Border(
-                                    bottom: BorderSide(
-                                      color: theme.shell.divider,
-                                    ),
-                                  )
-                                : null,
-                          ),
-                          child: Row(
-                            children: [
-                              if (showsFilters && !stacked)
-                                Flexible(
-                                  child: SingleChildScrollView(
-                                    scrollDirection: Axis.horizontal,
-                                    child: filters(),
-                                  ),
+                          children: [
+                            if (showsFilters && !stacked)
+                              Flexible(
+                                child: SingleChildScrollView(
+                                  scrollDirection: Axis.horizontal,
+                                  child: filters(),
                                 ),
-                              if (showsTabs && showsFilters && !stacked)
-                                const SizedBox(width: 8),
-                              if (showsTabs)
-                                Expanded(
-                                  child: DTabs<TopicListMode>.controlled(
-                                    value: mode.isNew
-                                        ? TopicListMode.newActivity
-                                        : mode.isTop
-                                        ? TopicListMode.topYearly
-                                        : mode,
-                                    onChanged: (value) {
-                                      if (value == null) return;
-                                      unawaited(
-                                        selectMode(
-                                          value.isTop
-                                              ? controller
-                                                    .defaultTopTopicListMode
-                                              : value,
+                              ),
+                            if (showsTabs && showsFilters && !stacked)
+                              const SizedBox(width: 8),
+                            if (showsTabs)
+                              Expanded(
+                                child: DTabs<TopicListMode>.controlled(
+                                  value: mode.isNew
+                                      ? TopicListMode.newActivity
+                                      : mode.isTop
+                                      ? TopicListMode.topYearly
+                                      : mode,
+                                  onChanged: (value) {
+                                    if (value == null) return;
+                                    unawaited(
+                                      selectMode(
+                                        value.isTop
+                                            ? controller.defaultTopTopicListMode
+                                            : value,
+                                      ),
+                                    );
+                                  },
+                                  children: [
+                                    DTabList<TopicListMode>(
+                                      variant: DTabListVariant.line,
+                                      children: [
+                                        const DTabTrigger(
+                                          key: ValueKey('topic-list-latest'),
+                                          value: TopicListMode.latest,
+                                          child: Text('Recent'),
                                         ),
-                                      );
-                                    },
-                                    children: [
-                                      DTabList<TopicListMode>(
-                                        variant: DTabListVariant.line,
-                                        children: [
-                                          const DTabTrigger(
-                                            key: ValueKey('topic-list-latest'),
-                                            value: TopicListMode.latest,
-                                            child: Text('Recent'),
-                                          ),
-                                          if (state.signedIn)
-                                            DTabTrigger(
-                                              key: const ValueKey(
-                                                'topic-list-new',
-                                              ),
-                                              value: TopicListMode.newActivity,
-                                              semanticLabel: state.allCount > 0
-                                                  ? 'New, ${state.allCount}'
-                                                  : 'New',
-                                              child: ExcludeSemantics(
-                                                child: Row(
-                                                  mainAxisSize:
-                                                      MainAxisSize.min,
-                                                  children: [
-                                                    const Text('New'),
-                                                    if (!stacked &&
-                                                        state.allCount > 0) ...[
-                                                      const SizedBox(width: 6),
-                                                      DBadge(
-                                                        variant: DBadgeVariant
-                                                            .secondary,
-                                                        child: Text(
-                                                          '${state.allCount}',
-                                                        ),
+                                        if (state.signedIn)
+                                          DTabTrigger(
+                                            key: const ValueKey(
+                                              'topic-list-new',
+                                            ),
+                                            value: TopicListMode.newActivity,
+                                            semanticLabel: state.allCount > 0
+                                                ? 'New, ${state.allCount}'
+                                                : 'New',
+                                            child: ExcludeSemantics(
+                                              child: Row(
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: [
+                                                  const Text('New'),
+                                                  if (!stacked &&
+                                                      state.allCount > 0) ...[
+                                                    const SizedBox(width: 6),
+                                                    DBadge(
+                                                      variant: DBadgeVariant
+                                                          .secondary,
+                                                      child: Text(
+                                                        '${state.allCount}',
                                                       ),
-                                                    ],
+                                                    ),
                                                   ],
-                                                ),
+                                                ],
                                               ),
                                             ),
-                                          const DTabTrigger(
-                                            key: ValueKey('topic-list-top'),
-                                            value: TopicListMode.topYearly,
-                                            child: Text('Top'),
                                           ),
-                                          const DTabTrigger(
-                                            key: ValueKey('topic-list-popular'),
-                                            value: TopicListMode.popular,
-                                            child: Text('Trending'),
-                                          ),
-                                        ],
-                                      ),
-                                    ],
-                                  ),
-                                )
-                              else
-                                const Spacer(),
-                              if (trailing != null)
-                                Padding(
-                                  padding: const EdgeInsets.only(left: 8),
-                                  child: MediaQuery(
-                                    data: mediaQuery.copyWith(
-                                      size: Size(
-                                        toolbarWidth,
-                                        mediaQuery.size.height,
-                                      ),
+                                        const DTabTrigger(
+                                          key: ValueKey('topic-list-top'),
+                                          value: TopicListMode.topYearly,
+                                          child: Text('Top'),
+                                        ),
+                                        const DTabTrigger(
+                                          key: ValueKey('topic-list-popular'),
+                                          value: TopicListMode.popular,
+                                          child: Text('Trending'),
+                                        ),
+                                      ],
                                     ),
-                                    child: trailing!,
-                                  ),
+                                  ],
                                 ),
-                            ],
-                          ),
+                              )
+                            else
+                              const Spacer(),
+                            if (trailing != null)
+                              Padding(
+                                padding: const EdgeInsets.only(left: 8),
+                                child: MediaQuery(
+                                  data: mediaQuery.copyWith(
+                                    size: Size(
+                                      toolbarWidth,
+                                      mediaQuery.size.height,
+                                    ),
+                                  ),
+                                  child: trailing!,
+                                ),
+                              ),
+                          ],
                         ),
                       ),
                     ),
