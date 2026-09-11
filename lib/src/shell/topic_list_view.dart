@@ -952,6 +952,8 @@ class TopicListRow extends StatelessWidget {
     this.titleStyle,
     this.showCategoryBreadcrumb = true,
     this.itemVariant = DItemVariant.outline,
+    this.contentPadding,
+    this.outerPadding,
   }) : assert(forum == null || siteUrl == null);
 
   static const double minimumHeight = 110;
@@ -966,6 +968,8 @@ class TopicListRow extends StatelessWidget {
   final TextStyle? titleStyle;
   final bool showCategoryBreadcrumb;
   final DItemVariant itemVariant;
+  final EdgeInsetsGeometry? contentPadding;
+  final EdgeInsetsGeometry? outerPadding;
 
   @override
   Widget build(BuildContext context) {
@@ -1003,6 +1007,8 @@ class TopicListRow extends StatelessWidget {
         onTap: onTap ?? () {},
         titleStyle: titleStyle,
         itemVariant: itemVariant,
+        contentPadding: contentPadding,
+        outerPadding: outerPadding,
       );
     }
     return ShellSelector<({TopicCategory? category, TopicCategory? parent})>(
@@ -1018,6 +1024,8 @@ class TopicListRow extends StatelessWidget {
         onTap: onTap ?? () => controller.openTopic(topic),
         titleStyle: titleStyle,
         itemVariant: itemVariant,
+        contentPadding: contentPadding,
+        outerPadding: outerPadding,
       ),
     );
   }
@@ -1073,6 +1081,8 @@ class _TopicRowBody extends StatelessWidget {
     this.selected = false,
     this.inbox = false,
     this.itemVariant = DItemVariant.outline,
+    this.contentPadding,
+    this.outerPadding,
   });
 
   final Topic topic;
@@ -1086,6 +1096,8 @@ class _TopicRowBody extends StatelessWidget {
   final bool selected;
   final bool inbox;
   final DItemVariant itemVariant;
+  final EdgeInsetsGeometry? contentPadding;
+  final EdgeInsetsGeometry? outerPadding;
 
   @override
   Widget build(BuildContext context) {
@@ -1112,9 +1124,9 @@ class _TopicRowBody extends StatelessWidget {
     final visibleTags = topic.tags.take(maximumVisibleTags).toList();
     final age = topic.bumpedAt == null ? null : relativeTime(topic.bumpedAt!);
     return Padding(
-      padding: const EdgeInsets.symmetric(
-        horizontal: topicListHorizontalPadding,
-      ),
+      padding:
+          outerPadding ??
+          const EdgeInsets.symmetric(horizontal: topicListHorizontalPadding),
       child: LinkTarget(
         url: '/t/${topic.slug}/${topic.id}/${topic.lastUnreadPostNumber ?? 1}',
         title: topic.title,
@@ -1124,11 +1136,10 @@ class _TopicRowBody extends StatelessWidget {
           container: true,
           selected: selected || keyboardSelected,
           child: DItem(
+            padding: contentPadding,
             key: ValueKey('topic-card-${topic.id}'),
             selected: selected,
-            variant: keyboardSelected
-                ? DItemVariant.muted
-                : itemVariant,
+            variant: keyboardSelected ? DItemVariant.muted : itemVariant,
             onPressed: onTap,
             link: true,
             footer: pluginMetadata.isEmpty
