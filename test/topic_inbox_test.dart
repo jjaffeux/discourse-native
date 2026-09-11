@@ -402,6 +402,14 @@ void main() {
         );
         setup.controller.openTopicFromList(setup.rows.first);
         await tester.pumpAndSettle();
+        expect(
+          find.byKey(const ValueKey('topic-header-compact')),
+          findsOneWidget,
+        );
+        expect(
+          find.byTooltip('Edit topic subcategory'),
+          permission == 1 ? findsOneWidget : findsNothing,
+        );
         await _scrollReaderToTop(tester);
 
         expect(find.byTooltip('Edit topic category'), findsOneWidget);
