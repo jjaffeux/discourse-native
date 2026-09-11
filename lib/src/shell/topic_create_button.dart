@@ -73,7 +73,7 @@ class _TopicCreateControl extends StatelessWidget {
     final labelHeight =
         MediaQuery.textScalerOf(context).scale(DiscourseTypography.sm) *
         DiscourseTypography.lineHeightSmall;
-    final insetIcons = compact && !showLabel;
+    final insetIcons = compact && !showLabel && draftsInstance == null;
     final dimension = compact && showLabel
         ? math.max(28.0, labelHeight + 10)
         : DButton.iconOnlyDimensionFor(DButtonSize.small);
