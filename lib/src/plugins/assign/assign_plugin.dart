@@ -182,38 +182,53 @@ final class AssignPlugin
     final assignments = topic.plugins.get(assignmentsDataKey);
     if (assignments == null || !assignments.hasAssignments) return const [];
     final style = Theme.of(context).textTheme.labelMedium;
-    return [
-      for (final assignment in assignments.all)
-        Semantics(
-          key: ValueKey((
-            'topic-list-assignment',
-            assignment.postId,
+    final grouped = <(bool, String), List<Assignment>>{};
+    for (final assignment in assignments.all) {
+      grouped
+          .putIfAbsent((
+            assignment.assignee.isGroup,
             assignment.assignee.identifier,
-          )),
+          ), () => [])
+          .add(assignment);
+    }
+    return [
+      Text('Assigned to', style: style),
+      for (final group in grouped.values)
+        Semantics(
           container: true,
-          label: assignmentSummary(
-            assignment,
-            assignment.isPostAssignment
-                ? _postLabel(assignment.postNumber)
-                : 'Topic',
-          ),
+          label: group
+              .map(
+                (assignment) => assignmentSummary(
+                  assignment,
+                  assignment.isPostAssignment
+                      ? _postLabel(assignment.postNumber)
+                      : 'Topic',
+                ),
+              )
+              .join('; '),
           child: ExcludeSemantics(
             child: Wrap(
               spacing: 6,
               crossAxisAlignment: WrapCrossAlignment.center,
               children: [
-                Text(
-                  assignment.isPostAssignment
-                      ? '${_postLabel(assignment.postNumber)} assigned to'
-                      : 'Assigned to',
-                  style: style,
-                ),
                 AssignmentAssigneeAvatar(
-                  assignee: assignment.assignee,
+                  assignee: group.first.assignee,
                   size: 20,
                 ),
-                Text(assignment.assignee.displayName, style: style),
-                if (assignment.assignee.isGroup) Text('· group', style: style),
+                Text(group.first.assignee.displayName, style: style),
+                if (group.first.assignee.isGroup) Text('· group', style: style),
+                Text(
+                  group
+                      .map(
+                        (assignment) => assignment.isPostAssignment
+                            ? (_validPostNumber(assignment) == null
+                                  ? 'post'
+                                  : '#${assignment.postNumber}')
+                            : 'topic',
+                      )
+                      .join(', '),
+                  style: style,
+                ),
               ],
             ),
           ),
