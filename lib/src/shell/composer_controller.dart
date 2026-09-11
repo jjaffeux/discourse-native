@@ -1409,8 +1409,10 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
 
   void moveImageOutOfGallery(
     ComposerImageGalleryBlock gallery,
-    ComposerImageBlock image,
-  ) {
+    ComposerImageBlock image, {
+    int? offset,
+  }) {
+    if (!isEditing) return;
     final current = _currentGallery(gallery);
     if (current == null) return;
     final member = current.images
@@ -1425,6 +1427,53 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
     final remaining = current.images
         .where((candidate) => candidate != member)
         .toList();
+    if (offset != null) {
+      final old = text.value;
+      if (offset < 0 ||
+          offset > old.text.length ||
+          text.galleryBlocks.any(
+            (block) => offset > block.start && offset < block.end,
+          )) {
+        return;
+      }
+      final affectedUploads = _pendingUploadsForGallery(current);
+      final replacement = remaining.isEmpty
+          ? ''
+          : _galleryMarkdown(current.mode, remaining);
+      final withoutImage = old.text.replaceRange(
+        current.start,
+        current.end,
+        replacement,
+      );
+      final destination = offset >= current.end
+          ? offset + replacement.length - (current.end - current.start)
+          : offset;
+      final before = withoutImage.substring(0, destination);
+      final after = withoutImage.substring(destination);
+      final insertion =
+          '${_separatorAfter(before)}${member.source}${_separatorBefore(after)}';
+      final galleryStart = destination <= current.start
+          ? current.start + insertion.length
+          : current.start;
+      text.value = old.copyWith(
+        text: withoutImage.replaceRange(destination, destination, insertion),
+        selection: TextSelection.collapsed(
+          offset: destination + insertion.length,
+        ),
+        composing: TextRange.empty,
+      );
+      final updated = remaining.isEmpty
+          ? null
+          : text.galleryBlocks
+                .where((block) => block.start == galleryStart)
+                .firstOrNull;
+      _retargetPendingGalleryUploads(
+        affectedUploads,
+        updated,
+        fallbackAnchor: destination + insertion.length,
+      );
+      return;
+    }
     final replacement = remaining.isEmpty
         ? member.source
         : '${_galleryMarkdown(current.mode, remaining)}\n${member.source}';

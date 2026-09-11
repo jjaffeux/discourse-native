@@ -1082,6 +1082,33 @@ class _ComposerEditorState extends State<ComposerEditor> {
     widget.composer.focus.requestFocus();
   }
 
+  int? _galleryImageDropOffset(Offset globalPosition) {
+    final text = widget.composer.text;
+    if (text.collapsedGalleryAtGlobalPosition(globalPosition) != null) {
+      return null;
+    }
+    final editable = _renderEditable;
+    if (editable == null) return null;
+    final offset = editable
+        .getPositionForPoint(globalPosition)
+        .offset
+        .clamp(0, text.text.length);
+    if (text.galleryBlocks.any(
+      (gallery) => offset > gallery.start && offset < gallery.end,
+    )) {
+      return null;
+    }
+    final image = text.collapsedImageAtGlobalPosition(globalPosition);
+    return image?.end ?? offset;
+  }
+
+  void _moveGalleryImageDropCaret(Offset position) {
+    final offset = _galleryImageDropOffset(position);
+    if (offset == null) return;
+    widget.composer.text.selection = TextSelection.collapsed(offset: offset);
+    widget.composer.focus.requestFocus();
+  }
+
   void _dropFiles(DropDoneDetails details) {
     _moveDropCaret(details.globalPosition);
     if (dropContainsDirectory(details.files)) {
@@ -1719,7 +1746,6 @@ class _ComposerEditorState extends State<ComposerEditor> {
                 onSaveAlt: _media.saveImageAlt,
                 onScale: _media.scaleImage,
                 onDelete: _media.deleteSelectedImage,
-                onMoveOutsideGallery: _media.moveSelectedImageOutOfGallery,
                 onDismiss: _media.dismissImage,
               ),
             ),
@@ -1820,40 +1846,55 @@ class _ComposerEditorState extends State<ComposerEditor> {
         onDragUpdated: (details) => _moveDropCaret(details.globalPosition),
         onDragExited: (_) => _media.cancelDrag(),
         onDragDone: _dropFiles,
-        child: Stack(
-          key: _stackKey,
-          clipBehavior: Clip.none,
-          children: [
-            Positioned.fill(
-              child: ValueListenableBuilder<TextEditingValue>(
-                valueListenable: widget.composer.text,
-                builder: (context, value, _) => value.text.isEmpty
-                    ? IgnorePointer(
-                        child: Align(
-                          alignment: Alignment.topLeft,
-                          child: Text(widget.hintText, style: widget.hintStyle),
-                        ),
-                      )
-                    : const SizedBox.shrink(),
-              ),
-            ),
-            if (widget.expands)
-              Positioned.fill(child: _field())
-            else
-              ConstrainedBox(
-                constraints: BoxConstraints(
-                  minHeight: _minimumLineHeight(context),
+        child: DragTarget<ComposerImageBlock>(
+          onWillAcceptWithDetails: (details) =>
+              widget.composer.isEditing &&
+              widget.composer.galleryForImage(details.data) != null,
+          onMove: (details) => _moveGalleryImageDropCaret(details.offset),
+          onAcceptWithDetails: (details) {
+            final offset = _galleryImageDropOffset(details.offset);
+            if (offset != null) {
+              _media.moveGalleryImageToOffset(details.data, offset);
+            }
+          },
+          builder: (context, candidates, rejected) => Stack(
+            key: _stackKey,
+            clipBehavior: Clip.none,
+            children: [
+              Positioned.fill(
+                child: ValueListenableBuilder<TextEditingValue>(
+                  valueListenable: widget.composer.text,
+                  builder: (context, value, _) => value.text.isEmpty
+                      ? IgnorePointer(
+                          child: Align(
+                            alignment: Alignment.topLeft,
+                            child: Text(
+                              widget.hintText,
+                              style: widget.hintStyle,
+                            ),
+                          ),
+                        )
+                      : const SizedBox.shrink(),
                 ),
-                child: _field(),
               ),
-            ListenableBuilder(
-              listenable: _media,
-              builder: (context, _) => ValueListenableBuilder<int>(
-                valueListenable: _mediaLayoutRevision,
-                builder: (context, _, _) => _mediaOverlays(constraints),
+              if (widget.expands)
+                Positioned.fill(child: _field())
+              else
+                ConstrainedBox(
+                  constraints: BoxConstraints(
+                    minHeight: _minimumLineHeight(context),
+                  ),
+                  child: _field(),
+                ),
+              ListenableBuilder(
+                listenable: _media,
+                builder: (context, _) => ValueListenableBuilder<int>(
+                  valueListenable: _mediaLayoutRevision,
+                  builder: (context, _, _) => _mediaOverlays(constraints),
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     ),
@@ -2156,7 +2197,6 @@ class _ImageComposerMenu extends StatelessWidget {
     required this.onSaveAlt,
     required this.onScale,
     required this.onDelete,
-    required this.onMoveOutsideGallery,
     required this.onDismiss,
   });
 
@@ -2167,7 +2207,6 @@ class _ImageComposerMenu extends StatelessWidget {
   final VoidCallback onSaveAlt;
   final void Function(int scale) onScale;
   final VoidCallback onDelete;
-  final VoidCallback onMoveOutsideGallery;
   final VoidCallback onDismiss;
 
   @override
@@ -2226,21 +2265,7 @@ class _ImageComposerMenu extends StatelessWidget {
                           ),
                         ),
                       ),
-                    ] else
-                      DTooltip(
-                        message: 'Move image outside gallery',
-                        labelTrigger: true,
-                        child: IconButton(
-                          onPressed: onMoveOutsideGallery,
-                          icon: const Icon(Icons.grid_off_outlined, size: 18),
-                          tooltip: '',
-                          visualDensity: VisualDensity.compact,
-                          constraints: const BoxConstraints.tightFor(
-                            width: 44,
-                            height: 44,
-                          ),
-                        ),
-                      ),
+                    ],
                     const Spacer(),
                     DTooltip(
                       message: 'Delete image',

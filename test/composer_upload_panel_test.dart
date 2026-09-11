@@ -660,7 +660,13 @@ void main() {
 
       expect(find.byType(ComposerImagePreview), findsOneWidget);
       final previewRect = tester.getRect(find.byType(ComposerImagePreview));
-      final editorRect = tester.getRect(find.byType(EditableText));
+      final editorRect = tester.getRect(
+        find.byWidgetPredicate(
+          (widget) =>
+              widget is EditableText &&
+              identical(widget.controller, composer.text),
+        ),
+      );
       expect(previewRect.top, greaterThanOrEqualTo(editorRect.top));
       Future<void> tapPreview({bool redrawBeforeUp = false}) async {
         final position =
@@ -999,12 +1005,23 @@ void main() {
         find.byKey(const ValueKey('composer-gallery-toolbar')),
         findsNothing,
       );
-      expect(find.byTooltip('Move image outside gallery'), findsOneWidget);
+      expect(find.byTooltip('Move image outside gallery'), findsNothing);
       expect(find.byTooltip('Delete image'), findsOneWidget);
       expect(find.byTooltip('Decrease image size'), findsNothing);
 
-      await tester.tap(find.byTooltip('Move image outside gallery'));
-      await tester.pump();
+      final dragStart = composer.text
+          .collapsedImageGlobalRect(currentGallery.images.first)!
+          .center;
+      final editorRect = tester.getRect(
+        find.byWidgetPredicate(
+          (widget) =>
+              widget is EditableText &&
+              identical(widget.controller, composer.text),
+        ),
+      );
+      final dropPosition = Offset(editorRect.left + 8, editorRect.bottom - 4);
+      await tester.dragFrom(dragStart, dropPosition - dragStart);
+      await tester.pumpAndSettle();
       final gallery = parseComposerImageGalleries(composer.text.text).single;
       expect(gallery.images.single.url, 'upload://two');
       expect(composer.standaloneImages.single.url, 'upload://one');
