@@ -62,20 +62,78 @@ headless composition guide, not another registry renderer.
 
 ## Adoption audit
 
-The core Users directory is the only large structured dataset that superficially
-resembles this guide. It deliberately remains its specialized renderer: it has a
-pinned identity pane, synchronized virtualized vertical viewports, persisted
-resizable metric columns, server-side infinite loading, per-metric bars and an
-administrative column-order editor. Replacing it with the eager Data Table would
-remove capabilities and regress large-directory performance.
+The core Users directory adopts `DDataTable` in manual operation mode with
+virtualized body rows. Server requests, incremental loading, metric formatting,
+column ordering and persisted widths remain in the Users adapter. The identity
+column scrolls with the metrics, as requested; the old pinned identity renderer
+is removed. Alert Tables remain on `DTable` for their passive document structure.
 
-Alert Tables remain on `DTable`: their nested alert groups, quotations,
-expand/collapse state and links are passive document structure rather than a
-homogeneous sortable/filterable row model. Topic, Chat, SuperList and badges
-surfaces are card/timeline/infinite feeds and are not converted gratuitously.
-No plugin currently owns a bounded homogeneous grid suitable for migration.
-The searchable styleguide therefore supplies the first real Data Table adoption
-with self-contained immutable payments.
+## Resizing and virtual scrolling
+
+Columns opt into pointer and keyboard resizing with `resizable: true`,
+`minWidth` and `maxWidth`. `width: FixedColumnWidth(...)` supplies an initial
+pixel width. `DDataTable.columnWidths` maps stable column IDs to restored pixel
+widths; `onColumnWidthsChanged` receives the updated map. Persist from
+`onColumnResizeEnd`, and use `onColumnResizeStart` when coordinating asynchronous
+restores. Storage remains an application responsibility. External width updates
+replace the table's pending local widths.
+
+`virtualized: true` requires a bounded height, for example an `Expanded` inside
+a bounded route column or a `SizedBox(height: 320)`. It retains a stationary
+header and lazily builds naturally sized rows, including at large text scales.
+Pass a borrowed `verticalScrollController` for incremental-loading observation;
+`scrollController` still controls horizontal scrolling. Missing pixel widths
+default to 160, constrained by each column's minimum and maximum. Virtualization
+operates on the current local page or the complete supplied manual-mode rows.
+
+The underlying `DTable` lazy mode accepts `rowBuilder` and `rowCount` with fixed
+column widths. `findChildIndexCallback` maps stable row keys back to their
+indices after reordering; `DDataTable` supplies this automatically from row IDs
+so stateful cells move with their rows. Its footer and caption remain visible
+below the body viewport,
+using the same natural-height styling as eager tables. Lazy rows expose
+accessible groups with independent controls and header labels; eager tables
+retain native table/row/cell roles. This avoids invalid native table hierarchies
+across Flutter's scrolling semantics boundaries.
+
+The “Resizable virtual directory” styleguide example provides 1,000 local rows
+and controlled widths. Regression tests cover lazy construction, large text,
+stationary headers, resize persistence, restored widths followed by another
+column resize, and lazy footer/caption rendering.
+
+## Users migration verification — 2026-09-11
+
+The Users route now composes Native Input, Select, Dialog, Badge and Data Table.
+Initial, empty and error states retain Empty; incremental loading remains owned
+by the directory controller. Existing stored width keys remain compatible and
+unsized metric columns fill the available viewport. The current user is marked
+with a “You” badge instead of a special row background. No pinned column remains.
+
+- Root `flutter analyze --no-pub`: clean.
+- 133 focused tests passed across the final runs: Users page, directory
+  controller/navigation/width store, Data Table, Table, data-table and resizable
+  examples, styleguide page, control-style adoption, and Alert Tables. Coverage
+  includes delayed width restoration, forum/account boundaries, server sorting,
+  automatic loading, 1,000-row lazy construction, row-local hover cost, stateful
+  reorder, footer/caption retention, LTR/RTL resize edges and 200% text.
+- `flutter build macos --debug --no-pub -t tool/users_table_review.dart`: passed.
+  This offline fixture mounts production widgets, keeps widths in memory and
+  makes no account requests. Its isolated ad-hoc review copy had a unique bundle
+  ID and only sandbox/JIT/debug/network entitlements, read back after signing;
+  the copied application launched successfully.
+- Actual macOS screenshots/AX inspection covered the ready Users route in
+  wide/light/100% text and 390px/dark/200% text, plus the new virtual-directory
+  styleguide example at 390px/dark/200% and the Native staff column editor.
+  Ascending Likes received sorting changed the first row from member1 to
+  member1000. The initial render exposed a misplaced resize handle; the final
+  render verified column-edge placement and widths filling the viewport.
+- Computer-use window errors interrupted native drag/scroll attempts. Those
+  interactions, persisted-width restoration, loading/empty/error states and
+  RTL are verified by widget tests, not claimed as completed native testing.
+  No iOS or Android device run was performed.
+
+The independent source review's two findings (lazy footer/caption omission and
+state loss on reordered rows) were fixed and covered by regression tests.
 
 ## Independent review
 

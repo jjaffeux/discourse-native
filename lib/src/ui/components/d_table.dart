@@ -6,8 +6,8 @@ import 'package:flutter/rendering.dart';
 import '../../theme/discourse_typography.dart';
 import '../foundation/tokens.dart';
 
-/// A passive, eager presentation table. Sorting, selection controls, forms and
-/// menus belong to callers; use a virtualized grid for unbounded datasets.
+/// A passive presentation table with optional lazy body rows. Sorting,
+/// selection controls, forms and menus belong to callers.
 ///
 /// Sections share intrinsic column widths. [columnWidths] overrides individual
 /// columns using Flutter's fixed, flex or intrinsic sizing policies. Spanning
@@ -25,7 +25,31 @@ class DTable extends StatefulWidget {
     this.minimumWidth = 0,
     this.controller,
     this.semanticLabel,
-  }) : assert(minimumWidth >= 0);
+    this.rowBuilder,
+    this.rowCount = 0,
+    this.findChildIndexCallback,
+    this.verticalScrollController,
+  }) : _fragment = false,
+       _rowIndex = 0,
+       assert(minimumWidth >= 0);
+
+  const DTable._fragment({
+    this.header,
+    required this.body,
+    required this.columnWidths,
+    required this.minimumWidth,
+    this._rowIndex = 0,
+    this.footer,
+    this.caption,
+  }) : _fragment = true,
+       controller = null,
+       semanticLabel = null,
+       rowBuilder = null,
+       rowCount = 0,
+       findChildIndexCallback = null,
+       verticalScrollController = null;
+  final bool _fragment;
+  final int _rowIndex;
 
   final DTableHeader? header;
   final DTableBody body;
@@ -36,6 +60,18 @@ class DTable extends StatefulWidget {
   final ScrollController? controller;
   final String? semanticLabel;
 
+  /// Lazy body rows. Requires bounded height and fixed widths for every column.
+  /// [body] is displayed instead when [rowCount] is zero.
+  /// Lazy rows use grouped row semantics, preserving independent controls.
+  final DTableRow Function(BuildContext context, int index)? rowBuilder;
+  final int rowCount;
+
+  /// Resolves stable row keys after lazy rows are reordered.
+  final int? Function(Key key)? findChildIndexCallback;
+
+  /// Borrowed controller for the lazy body's vertical viewport.
+  final ScrollController? verticalScrollController;
+
   @override
   State<DTable> createState() => _DTableState();
 }
@@ -45,6 +81,7 @@ class _DTableState extends State<DTable> {
 
   @override
   Widget build(BuildContext context) {
+    if (widget.rowBuilder != null) return _virtualized(context);
     final tokens = DTokens.of(context);
     final rows = [
       ...?widget.header?.rows,
@@ -79,94 +116,194 @@ class _DTableState extends State<DTable> {
             widget.minimumWidth,
             constraints.hasBoundedWidth ? constraints.maxWidth : 0.0,
           );
+          final content = Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Semantics(
+                container: true,
+                explicitChildNodes: true,
+                label: widget.semanticLabel,
+                child: _TableLayout(
+                  fragment: widget._fragment,
+                  rowIndex: widget._rowIndex,
+                  rows: rows,
+                  columns: columns,
+                  minimumWidth: width,
+                  columnWidths: widget.columnWidths,
+                  direction: Directionality.of(context),
+                  borders: [
+                    for (var r = 0; r < rows.length; r++)
+                      r < headerCount ||
+                          r < footerStart - 1 ||
+                          (r >= footerStart && r < rows.length - 1),
+                  ],
+                  footerStart: footerStart < rows.length ? footerStart : -1,
+                  border: tokens.border,
+                  hasCaption: widget.caption != null,
+                  children: [
+                    for (var r = 0; r < rows.length; r++)
+                      for (var c = 0; c < rows[r].cells.length; c++)
+                        Semantics(
+                          key:
+                              rows[r].cells[c].key == null &&
+                                  rows[r].key == null
+                              ? null
+                              : ValueKey((
+                                  rows[r].key ?? r,
+                                  rows[r].cells[c].key ?? c,
+                                )),
+                          container: true,
+                          sortKey: OrdinalSortKey((r * columns + c).toDouble()),
+                          role: widget._fragment
+                              ? SemanticsRole.none
+                              : rows[r].cells[c] is DTableHead
+                              ? SemanticsRole.columnHeader
+                              : SemanticsRole.cell,
+                          header: rows[r].cells[c] is DTableHead,
+                          child: MouseRegion(
+                            onEnter: (_) => setState(() => _hovered = r),
+                            onExit: (_) {
+                              if (_hovered == r) {
+                                setState(() => _hovered = null);
+                              }
+                            },
+                            child: AnimatedContainer(
+                              duration: DMotion.duration(
+                                context,
+                                const Duration(milliseconds: 150),
+                              ),
+                              curve: Curves.easeInOut,
+                              color: rows[r].selected
+                                  ? tokens.muted
+                                  : (_hovered == r ||
+                                        rows[r].expanded ||
+                                        r >= footerStart)
+                                  ? tokens.muted.withValues(
+                                      alpha: tokens.muted.a * .5,
+                                    )
+                                  : tokens.muted.withValues(alpha: 0),
+                              child: DefaultTextStyle.merge(
+                                style: TextStyle(
+                                  fontWeight: r >= footerStart
+                                      ? FontWeight.w500
+                                      : FontWeight.w400,
+                                ),
+                                child: rows[r].cells[c],
+                              ),
+                            ),
+                          ),
+                        ),
+                    ?widget.caption,
+                  ],
+                ),
+              ),
+            ],
+          );
+          if (widget._fragment) return content;
           return SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             controller: widget.controller,
             primary: false,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Semantics(
-                  container: true,
-                  explicitChildNodes: true,
-                  label: widget.semanticLabel,
-                  child: _TableLayout(
-                    rows: rows,
-                    columns: columns,
-                    minimumWidth: width,
-                    columnWidths: widget.columnWidths,
-                    direction: Directionality.of(context),
-                    borders: [
-                      for (var r = 0; r < rows.length; r++)
-                        r < headerCount ||
-                            r < footerStart - 1 ||
-                            (r >= footerStart && r < rows.length - 1),
-                    ],
-                    footerStart: footerStart < rows.length ? footerStart : -1,
-                    border: tokens.border,
-                    hasCaption: widget.caption != null,
-                    children: [
-                      for (var r = 0; r < rows.length; r++)
-                        for (var c = 0; c < rows[r].cells.length; c++)
-                          Semantics(
-                            key:
-                                rows[r].cells[c].key == null &&
-                                    rows[r].key == null
-                                ? null
-                                : ValueKey((
-                                    rows[r].key ?? r,
-                                    rows[r].cells[c].key ?? c,
-                                  )),
-                            container: true,
-                            sortKey: OrdinalSortKey(
-                              (r * columns + c).toDouble(),
-                            ),
-                            role: rows[r].cells[c] is DTableHead
-                                ? SemanticsRole.columnHeader
-                                : SemanticsRole.cell,
-                            header: rows[r].cells[c] is DTableHead,
-                            child: MouseRegion(
-                              onEnter: (_) => setState(() => _hovered = r),
-                              onExit: (_) {
-                                if (_hovered == r) {
-                                  setState(() => _hovered = null);
-                                }
-                              },
-                              child: AnimatedContainer(
-                                duration: DMotion.duration(
-                                  context,
-                                  const Duration(milliseconds: 150),
-                                ),
-                                curve: Curves.easeInOut,
-                                color: rows[r].selected
-                                    ? tokens.muted
-                                    : (_hovered == r ||
-                                          rows[r].expanded ||
-                                          r >= footerStart)
-                                    ? tokens.muted.withValues(
-                                        alpha: tokens.muted.a * .5,
-                                      )
-                                    : tokens.muted.withValues(alpha: 0),
-                                child: DefaultTextStyle.merge(
-                                  style: TextStyle(
-                                    fontWeight: r >= footerStart
-                                        ? FontWeight.w500
-                                        : FontWeight.w400,
-                                  ),
-                                  child: rows[r].cells[c],
-                                ),
-                              ),
-                            ),
-                          ),
-                      ?widget.caption,
-                    ],
-                  ),
-                ),
-              ],
-            ),
+            child: content,
           );
         },
       ),
+    );
+  }
+
+  Widget _virtualized(BuildContext context) {
+    assert(
+      widget.columnWidths.values.every((w) => w is FixedColumnWidth),
+      'Lazy tables require fixed column widths.',
+    );
+    final width = math.max(
+      widget.minimumWidth,
+      widget.columnWidths.values.fold<double>(
+        0,
+        (sum, w) => sum + (w as FixedColumnWidth).value,
+      ),
+    );
+    Widget fragment(
+      List<DTableRow> rows, {
+      bool header = false,
+      int rowIndex = 0,
+    }) => DTable._fragment(
+      rowIndex: rowIndex,
+      columnWidths: widget.columnWidths,
+      minimumWidth: width,
+      header: header ? DTableHeader(rows: rows) : null,
+      body: DTableBody(rows: header ? const [] : rows),
+    );
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        assert(
+          constraints.hasBoundedHeight,
+          'Lazy tables require bounded height.',
+        );
+        return SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          controller: widget.controller,
+          primary: false,
+          child: SizedBox(
+            width: math.max(width, constraints.maxWidth),
+            height: constraints.maxHeight,
+            child: Semantics(
+              container: true,
+              explicitChildNodes: true,
+              label: widget.semanticLabel,
+              child: Column(
+                children: [
+                  if (widget.header != null)
+                    fragment(widget.header!.rows, header: true),
+                  Expanded(
+                    child: ListView.builder(
+                      controller: widget.verticalScrollController,
+                      primary: false,
+                      findChildIndexCallback: widget.findChildIndexCallback,
+                      itemCount: widget.rowCount == 0 ? 1 : widget.rowCount,
+                      itemBuilder: (context, index) {
+                        if (widget.rowCount == 0) {
+                          return fragment(widget.body.rows);
+                        }
+                        final row = widget.rowBuilder!(context, index);
+                        return KeyedSubtree(
+                          key: row.key,
+                          child: DecoratedBox(
+                            decoration: BoxDecoration(
+                              border: index < widget.rowCount - 1
+                                  ? Border(
+                                      bottom: BorderSide(
+                                        color: DTokens.of(context).border,
+                                      ),
+                                    )
+                                  : null,
+                            ),
+                            child: fragment(
+                              [row],
+                              rowIndex:
+                                  index + (widget.header?.rows.length ?? 0),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                  if (widget.footer != null || widget.caption != null)
+                    DTable._fragment(
+                      body: const DTableBody(rows: []),
+                      footer: widget.footer,
+                      caption: widget.caption,
+                      columnWidths: widget.columnWidths,
+                      minimumWidth: width,
+                      rowIndex:
+                          (widget.header?.rows.length ?? 0) + widget.rowCount,
+                    ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 }
@@ -286,6 +423,8 @@ class DTableCaption extends StatelessWidget {
 
 class _TableLayout extends MultiChildRenderObjectWidget {
   const _TableLayout({
+    required this.fragment,
+    required this.rowIndex,
     required this.rows,
     required this.columns,
     required this.minimumWidth,
@@ -297,6 +436,8 @@ class _TableLayout extends MultiChildRenderObjectWidget {
     required this.hasCaption,
     required super.children,
   });
+  final bool fragment;
+  final int rowIndex;
   final List<DTableRow> rows;
   final int columns;
   final double minimumWidth;
@@ -495,8 +636,8 @@ class _RenderTable extends RenderBox
       final top = r == 0 ? 0.0 : _rowEnds[r - 1];
       final row = _semanticRows.putIfAbsent(r, () => SemanticsNode());
       final rowConfig = SemanticsConfiguration()
-        ..role = SemanticsRole.row
-        ..indexInParent = r;
+        ..role = spec.fragment ? SemanticsRole.none : SemanticsRole.row
+        ..indexInParent = r + spec.rowIndex;
       if (spec.rows[r].selected) rowConfig.isSelected = true;
       // Identity transforms keep cell coordinates in table space. A row's
       // non-zero local rect bounds precisely its cells without moving them.
@@ -506,6 +647,10 @@ class _RenderTable extends RenderBox
       rows.add(row);
     }
     _semanticRows.removeWhere((r, _) => r >= groups.length);
+    if (spec.fragment) {
+      node.updateWith(config: config, childrenInInversePaintOrder: rows);
+      return;
+    }
     final table = _semanticTable ??= SemanticsNode();
     table
       ..rect = Rect.fromLTWH(0, 0, size.width, _rowEnds.lastOrNull ?? 0)

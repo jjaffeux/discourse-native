@@ -9,6 +9,61 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  testWidgets(
+    'lazy footer and caption retain natural height and footer style',
+    (tester) async {
+      final scroll = ScrollController();
+      await _pump(
+        tester,
+        SizedBox(
+          height: 320,
+          child: MediaQuery(
+            data: const MediaQueryData(textScaler: TextScaler.linear(2)),
+            child: DTable(
+              columnWidths: const {0: FixedColumnWidth(280)},
+              header: const DTableHeader(
+                rows: [
+                  DTableRow(cells: [DTableHead(child: Text('Name'))]),
+                ],
+              ),
+              body: const DTableBody(rows: []),
+              rowCount: 100,
+              verticalScrollController: scroll,
+              rowBuilder: (context, index) =>
+                  DTableRow(cells: [DTableCell(child: Text('Member $index'))]),
+              footer: const DTableFooter(
+                rows: [
+                  DTableRow(cells: [DTableCell(child: Text('Total 100'))]),
+                ],
+              ),
+              caption: const DTableCaption(child: Text('Directory caption')),
+            ),
+          ),
+        ),
+      );
+      final footer = find.text('Total 100');
+      final caption = find.text('Directory caption');
+      expect(footer, findsOneWidget);
+      expect(caption, findsOneWidget);
+      expect(
+        DefaultTextStyle.of(tester.element(footer)).style.fontWeight,
+        FontWeight.w500,
+      );
+      expect(tester.getSize(footer).height, greaterThan(20));
+      final top = tester.getTopLeft(footer);
+      expect(
+        tester.getTopLeft(caption).dy,
+        greaterThan(tester.getBottomLeft(footer).dy),
+      );
+      scroll.jumpTo(1000);
+      await tester.pumpAndSettle();
+      expect(tester.getTopLeft(footer), top);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+      scroll.dispose();
+    },
+  );
+
   testWidgets('invoice columns align with spanning footer and caption gap', (
     tester,
   ) async {

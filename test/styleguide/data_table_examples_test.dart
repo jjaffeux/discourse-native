@@ -12,6 +12,7 @@ void main() {
     expect(componentExamples['data-table'], same(dataTableExamples));
     expect(dataTableExamples.status, ComponentStatus.implemented);
     expect(dataTableExamples.examples.map((example) => example.title), [
+      'Resizable virtual directory',
       'Basic table and cell formatting',
       'Sorting, filtering, visibility, selection, and actions',
       'Dynamic data',
@@ -47,7 +48,12 @@ void main() {
           ),
         );
         await tester.pumpAndSettle();
-        expect(find.byType(DTable), findsOneWidget, reason: example.title);
+        expect(
+          find.byWidgetPredicate((widget) => widget is DDataTable),
+          findsOneWidget,
+          reason: example.title,
+        );
+        expect(find.byType(DTable), findsWidgets, reason: example.title);
         expect(tester.takeException(), isNull, reason: example.title);
       }
     }
