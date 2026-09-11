@@ -380,9 +380,11 @@ class _TopicFilterInputState extends State<TopicFilterInput> {
               : DTooltip(
                   message: 'Clear filter',
                   labelTrigger: true,
-                  child: IconButton(
+                  child: DButton.iconOnly(
                     key: widget.clearKey,
-                    tooltip: '',
+                    tooltip: 'Clear all filters',
+                    variant: DButtonVariant.ghost,
+                    size: DButtonSize.small,
                     onPressed: widget.enabled
                         ? () => unawaited(filter.clear())
                         : null,
@@ -430,8 +432,8 @@ class _TopicFilterInputState extends State<TopicFilterInput> {
         onTap: widget.enabled ? _focus.requestFocus : null,
         child: Container(
           key: const ValueKey('topic-filter-token-field'),
-          constraints: const BoxConstraints(minHeight: 108),
-          padding: const EdgeInsets.fromLTRB(12, 8, 4, 8),
+          constraints: const BoxConstraints(minHeight: 44),
+          padding: const EdgeInsets.fromLTRB(12, 6, 4, 6),
           decoration: BoxDecoration(
             color: theme.shell.content,
             borderRadius: BorderRadius.circular(7),
@@ -447,68 +449,74 @@ class _TopicFilterInputState extends State<TopicFilterInput> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    if (_tokens.isNotEmpty) ...[
-                      ConstrainedBox(
-                        constraints: const BoxConstraints(maxHeight: 132),
-                        child: SingleChildScrollView(
-                          child: Align(
-                            alignment: Alignment.centerLeft,
-                            child: Wrap(
-                              spacing: 5,
-                              runSpacing: 5,
-                              children: [
-                                for (
-                                  var index = 0;
-                                  index < _tokens.length;
-                                  index++
-                                )
-                                  _TopicFilterTokenChip(
-                                    raw: _tokens[index],
-                                    index: index,
-                                    categories: widget.categories,
-                                    enabled: widget.enabled,
-                                    onDeleted: () => _removeToken(index),
-                                  ),
-                              ],
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final hint = _tokens.isEmpty
+                        ? widget.hintText
+                        : 'Add another filter';
+                    final measure = TextPainter(
+                      text: TextSpan(
+                        text: filter.text.text.isEmpty
+                            ? hint
+                            : filter.text.text,
+                        style: theme.textTheme.bodyMedium,
+                      ),
+                      textDirection: Directionality.of(context),
+                      textScaler: MediaQuery.textScalerOf(context),
+                    )..layout();
+                    final desiredWidth = measure.width + 20;
+                    measure.dispose();
+                    final inputWidth = _tokens.isEmpty
+                        ? constraints.maxWidth
+                        : (desiredWidth < 160 ? 160.0 : desiredWidth).clamp(
+                            0.0,
+                            constraints.maxWidth,
+                          );
+                    return Wrap(
+                      spacing: 5,
+                      runSpacing: 5,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        for (var index = 0; index < _tokens.length; index++)
+                          _TopicFilterTokenChip(
+                            raw: _tokens[index],
+                            index: index,
+                            categories: widget.categories,
+                            enabled: widget.enabled,
+                            onDeleted: () => _removeToken(index),
+                          ),
+                        SizedBox(
+                          width: inputWidth,
+                          child: TextField(
+                            style: theme.textTheme.bodyMedium,
+                            key: widget.inputKey,
+                            controller: filter.text,
+                            focusNode: _focus,
+                            enabled: widget.enabled,
+                            autocorrect: false,
+                            enableSuggestions: false,
+                            maxLines: 1,
+                            textInputAction: TextInputAction.done,
+                            decoration: InputDecoration(
+                              hintText: hint,
+                              border: InputBorder.none,
+                              enabledBorder: InputBorder.none,
+                              focusedBorder: InputBorder.none,
+                              disabledBorder: InputBorder.none,
+                              isDense: true,
+                              contentPadding: const EdgeInsets.symmetric(
+                                vertical: 4,
+                              ),
                             ),
+                            onChanged: filter.inputChanged,
+                            onSubmitted: (_) => _commitTokenDraft(),
+                            onTap: _openSuggestions,
+                            onTapOutside: (_) => _dismissInput(),
                           ),
                         ),
-                      ),
-                      const SizedBox(height: 4),
-                    ],
-                    TextField(
-                      style: Theme.of(context).textTheme.bodyMedium,
-                      key: widget.inputKey,
-                      controller: filter.text,
-                      focusNode: _focus,
-                      enabled: widget.enabled,
-                      autocorrect: false,
-                      enableSuggestions: false,
-                      maxLines: 1,
-                      textInputAction: TextInputAction.done,
-                      decoration: InputDecoration(
-                        hintText: _tokens.isEmpty
-                            ? widget.hintText
-                            : 'Add another filter',
-                        border: InputBorder.none,
-                        enabledBorder: InputBorder.none,
-                        focusedBorder: InputBorder.none,
-                        disabledBorder: InputBorder.none,
-                        isDense: true,
-                        contentPadding: const EdgeInsets.symmetric(
-                          vertical: 10,
-                        ),
-                      ),
-                      onChanged: filter.inputChanged,
-                      onSubmitted: (_) => _commitTokenDraft(),
-                      onTap: _openSuggestions,
-                      onTapOutside: (_) => _dismissInput(),
-                    ),
-                  ],
+                      ],
+                    );
+                  },
                 ),
               ),
               if (hasQuery)
