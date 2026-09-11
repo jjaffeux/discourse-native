@@ -107,7 +107,7 @@ class _DInputGroupState extends State<DInputGroup> {
           )
         : focused
         ? tokens.focusRing
-        : tokens.colors.outlineVariant;
+        : tokens.border;
     final ring = invalid
         ? tokens.destructive.withValues(
             alpha: tokens.destructive.a * (dark ? .4 : .2),
@@ -116,10 +116,10 @@ class _DInputGroupState extends State<DInputGroup> {
     final joined = DJoinedControlScope.maybeOf(context);
     final radius =
         joined?.resolveRadius(
-          BorderRadius.circular(tokens.radius),
+          BorderRadius.circular(DControlStyle.radius(tokens, widget.size)),
           Directionality.of(context),
         ) ??
-        BorderRadius.circular(tokens.radius);
+        BorderRadius.circular(DControlStyle.radius(tokens, widget.size));
 
     final inlineStart = <Widget>[];
     final inlineEnd = <Widget>[];
