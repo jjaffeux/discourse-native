@@ -1147,6 +1147,56 @@ void main() {
       }
     });
 
+    testWidgets('standalone image moves to the text drop caret', (
+      tester,
+    ) async {
+      final composer = ComposerController(
+        _target,
+        resolveUploadUrls: (_) async => const {},
+      );
+      final shell = await _shell();
+      addTearDown(composer.dispose);
+      addTearDown(shell.dispose);
+      const image = '![outside|100x60](upload://outside)';
+      composer.text.text =
+          'testc\n[grid]\n![inside|100x60](upload://inside)\n[/grid]\n\ntest\n\n$image';
+      await _pumpPanel(tester, shell, composer);
+      await tester.pumpAndSettle();
+      final editable = tester
+          .state<EditableTextState>(
+            find.byWidgetPredicate(
+              (widget) =>
+                  widget is EditableText &&
+                  identical(widget.controller, composer.text),
+            ),
+          )
+          .renderEditable;
+      final offset = composer.text.text.indexOf('\ntest\n') + 1;
+      final destination = editable.localToGlobal(
+        editable.getLocalRectForCaret(TextPosition(offset: offset)).center,
+      );
+      final start = composer.text
+          .collapsedImageGlobalRect(composer.standaloneImages.single)!
+          .center;
+      final drag = await tester.startGesture(
+        start,
+        kind: PointerDeviceKind.mouse,
+      );
+      await drag.moveTo(destination);
+      await tester.pump();
+      await drag.up();
+      await tester.pumpAndSettle();
+      expect(
+        composer.text.text.indexOf(image),
+        lessThan(composer.text.text.indexOf('\ntest\n')),
+      );
+      expect(composer.standaloneImages, hasLength(1));
+      expect(
+        composer.text.galleryBlocks.single.images.single.url,
+        'upload://inside',
+      );
+    });
+
     testWidgets('gallery tiles can be reordered by drag and drop', (
       tester,
     ) async {

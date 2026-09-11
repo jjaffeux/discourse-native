@@ -1490,6 +1490,54 @@ void main() {
       expect(composer.notice, isNull);
     });
 
+    for (final moveForward in [false, true]) {
+      test(
+        'standalone image moves ${moveForward ? 'forward' : 'backward'}',
+        () {
+          final composer = ComposerController(_target);
+          addTearDown(composer.dispose);
+          const image = '![Moved|640x480,50%](upload://moved)';
+          composer.text.text = moveForward
+              ? '$image\n\nBefore\n\nAfter'
+              : 'Before\n\nAfter\n\n$image';
+          final offset = composer.text.text.indexOf('After');
+          composer.moveImageToOffset(composer.standaloneImages.single, offset);
+          expect(composer.text.text.trim(), 'Before\n\n$image\n\nAfter');
+          expect(composer.standaloneImages, hasLength(1));
+          expect(composer.text.selection.isCollapsed, isTrue);
+          expect(
+            composer.text.text
+                .substring(composer.text.selection.extentOffset)
+                .trim(),
+            'After',
+          );
+        },
+      );
+    }
+
+    test('standalone image ignores drops on itself and inside galleries', () {
+      final composer = ComposerController(_target);
+      addTearDown(composer.dispose);
+      const source =
+          '![Moved](upload://moved)\n\n[grid]\n![Inside](upload://inside)\n[/grid]';
+      composer.text.text = source;
+      final image = composer.standaloneImages.single;
+      for (final offset in [
+        -1,
+        image.start,
+        image.start + 1,
+        image.end,
+        composer.text.galleryBlocks.single.contentStart + 1,
+        source.length + 1,
+      ]) {
+        composer.moveImageToOffset(image, offset);
+        expect(composer.text.text, source);
+      }
+      composer.text.text = 'Changed';
+      composer.moveImageToOffset(image, 0);
+      expect(composer.text.text, 'Changed');
+    });
+
     for (final lastImage in [false, true]) {
       testWidgets(
         'dragging ${lastImage ? 'last' : 'one'} image out preserves pending uploads',

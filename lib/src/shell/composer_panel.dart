@@ -1082,7 +1082,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
     widget.composer.focus.requestFocus();
   }
 
-  int? _galleryImageDropOffset(Offset globalPosition) {
+  int? _imageDropOffset(Offset globalPosition) {
     final text = widget.composer.text;
     if (text.collapsedGalleryAtGlobalPosition(globalPosition) != null) {
       return null;
@@ -1102,8 +1102,8 @@ class _ComposerEditorState extends State<ComposerEditor> {
     return image?.end ?? offset;
   }
 
-  void _moveGalleryImageDropCaret(Offset position) {
-    final offset = _galleryImageDropOffset(position);
+  void _moveImageDropCaret(Offset position) {
+    final offset = _imageDropOffset(position);
     if (offset == null) return;
     widget.composer.text.selection = TextSelection.collapsed(offset: offset);
     widget.composer.focus.requestFocus();
@@ -1847,14 +1847,12 @@ class _ComposerEditorState extends State<ComposerEditor> {
         onDragExited: (_) => _media.cancelDrag(),
         onDragDone: _dropFiles,
         child: DragTarget<ComposerImageBlock>(
-          onWillAcceptWithDetails: (details) =>
-              widget.composer.isEditing &&
-              widget.composer.galleryForImage(details.data) != null,
-          onMove: (details) => _moveGalleryImageDropCaret(details.offset),
+          onWillAcceptWithDetails: (details) => widget.composer.isEditing,
+          onMove: (details) => _moveImageDropCaret(details.offset),
           onAcceptWithDetails: (details) {
-            final offset = _galleryImageDropOffset(details.offset);
+            final offset = _imageDropOffset(details.offset);
             if (offset != null) {
-              _media.moveGalleryImageToOffset(details.data, offset);
+              _media.moveImageToOffset(details.data, offset);
             }
           },
           builder: (context, candidates, rejected) => Stack(
