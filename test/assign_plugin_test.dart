@@ -456,6 +456,10 @@ void main() {
             'assignment_status': 'In progress',
             'assignment_note': 'Hidden from the compact token',
             'indirectly_assigned_to': {
+              '23': {
+                'assigned_to': {'name': 'support'},
+                'post_number': 3,
+              },
               '22': {
                 'assigned_to': {'name': 'support'},
                 'post_number': 2,
@@ -488,7 +492,7 @@ void main() {
           );
 
           expect(find.text('Assigned to'), findsOneWidget);
-          expect(find.text('Post #2 assigned to'), findsOneWidget);
+          expect(find.text('#3, #2'), findsOneWidget);
           expect(find.byType(AssignmentAssigneeAvatar), findsNWidgets(2));
           expect(find.text('Sam'), findsOneWidget);
           expect(find.text('support'), findsOneWidget);
@@ -506,7 +510,7 @@ void main() {
           );
           expect(
             find.bySemanticsLabel(
-              'Post #2 assigned to support, group @support, status Waiting',
+              'Post #3 assigned to support, group @support; Post #2 assigned to support, group @support, status Waiting',
             ),
             findsOneWidget,
           );
