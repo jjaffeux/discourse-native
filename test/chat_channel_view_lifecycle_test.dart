@@ -70,6 +70,12 @@ void main() {
 
         expect(find.byType(ChatMessageTile), findsNWidgets(3));
         expect(find.byType(DMessageHeader), findsOneWidget);
+        for (final bubble in find.byType(DBubbleContent).evaluate()) {
+          expect(
+            tester.getSize(find.byWidget(bubble.widget)).width,
+            lessThan(200),
+          );
+        }
         final tiles = find.byType(ChatMessageTile);
         expect(
           find.descendant(of: tiles, matching: find.byType(ChatUserAvatar)),
