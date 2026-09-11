@@ -100,7 +100,7 @@ void main() {
       (tester) => _withMenu(tester, TargetPlatform.macOS, (fixture) async {
         await tester.tap(find.byKey(UserMenuButton.bellKey));
         await tester.pumpAndSettle();
-        await tester.tap(find.byTooltip('Invites'));
+        await tester.tap(find.byKey(const ValueKey('user-menu-tab-invites')));
         await tester.pumpAndSettle();
         expect(find.text('meta-invite@example.com'), findsOneWidget);
         final shell = ShellScope.read(
@@ -359,7 +359,7 @@ void main() {
         expect(api.notificationSites, [_metaUrl, _teamUrl]);
         expect(find.textContaining('Team Helper'), findsOneWidget);
 
-        await tester.tap(find.byTooltip('Replies'));
+        await tester.tap(find.byKey(const ValueKey('user-menu-tab-replies')));
         await tester.pumpAndSettle();
         expect(api.replySites, [_teamUrl]);
         expect(find.textContaining('Team reply'), findsOneWidget);
@@ -370,7 +370,7 @@ void main() {
         expect(api.replySites, [_teamUrl, _metaUrl]);
         expect(find.textContaining('Meta reply'), findsOneWidget);
 
-        await tester.tap(find.byTooltip('Bookmarks'));
+        await tester.tap(find.byKey(const ValueKey('user-menu-tab-bookmarks')));
         await tester.pumpAndSettle();
         expect(api.bookmarkSites, [_metaUrl]);
         expect(find.textContaining('Meta chat message'), findsOneWidget);

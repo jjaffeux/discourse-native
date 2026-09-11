@@ -74,9 +74,20 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byType(UserMenuPanel), findsOneWidget);
+      expect(focus.hasPrimaryFocus, isTrue);
+      expect(
+        find.descendant(
+          of: find.byType(UserMenuPanel),
+          matching: find.byType(DTooltip),
+        ),
+        findsNothing,
+      );
       expect(find.byKey(const ValueKey('user-menu-tab-profile')), findsNothing);
-      expect(find.byTooltip('Likes'), findsOneWidget);
-      expect(find.byTooltip('Replies'), findsOneWidget);
+      expect(find.byKey(const ValueKey('user-menu-tab-likes')), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('user-menu-tab-replies')),
+        findsOneWidget,
+      );
       tester.binding.renderViews.single.owner!.semanticsOwner!.performAction(
         tester.getSemantics(find.byKey(UserMenuButton.avatarKey)).id,
         SemanticsAction.tap,

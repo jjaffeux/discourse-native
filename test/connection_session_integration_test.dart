@@ -1120,7 +1120,9 @@ void _registerConnectionSessionTests() {
 
         final chatTab = find.descendant(
           of: find.byType(UserMenuPanel),
-          matching: find.byTooltip('Chat'),
+          matching: find.byKey(
+            const ValueKey('user-menu-tab-chat/notifications'),
+          ),
         );
         expect(chatTab, findsOneWidget);
         await tester.tap(chatTab);
@@ -1321,7 +1323,7 @@ void _registerConnectionSessionTests() {
           findsOneWidget,
         );
 
-        await tester.tap(find.byTooltip('Likes'));
+        await tester.tap(find.byKey(const ValueKey('user-menu-tab-likes')));
         await tester.pumpAndSettle();
 
         expect(find.text('Likes'), findsWidgets);
@@ -1356,7 +1358,7 @@ void _registerConnectionSessionTests() {
         );
         await openMenu(tester);
 
-        await tester.tap(find.byTooltip('Messages'));
+        await tester.tap(find.byKey(const ValueKey('user-menu-tab-messages')));
         await tester.pumpAndSettle();
 
         expect(find.byType(UserMenuPanel), findsNothing);
