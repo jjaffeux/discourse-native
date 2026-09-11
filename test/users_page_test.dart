@@ -1265,7 +1265,7 @@ void main() {
     tester,
   ) async {
     final items = List.generate(
-      30,
+      60,
       (index) => UserDirectoryItem(
         id: index + 1,
         user: UserDirectoryUser(
@@ -1294,10 +1294,10 @@ void main() {
     );
 
     expect(loads, 0);
-    await tester.drag(
+    final list = tester.widget<ListView>(
       find.byKey(const PageStorageKey<String>('users-metrics-scroll')),
-      const Offset(0, -1200),
     );
+    list.controller!.jumpTo(list.controller!.position.maxScrollExtent - 1400);
     await tester.pump();
 
     expect(loads, 1);

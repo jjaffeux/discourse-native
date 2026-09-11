@@ -9,6 +9,7 @@ import '../../shell/user_card.dart';
 import '../../shell/user_status.dart';
 import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
+import '../../utils/pagination.dart';
 import 'chat_channel.dart';
 import 'chat_channel_editor.dart';
 import 'chat_channel_status.dart';
@@ -804,7 +805,8 @@ class _ChannelMembersState extends State<_ChannelMembers> {
 
   void _maybeLoadMore() {
     if (_scroll.hasClients &&
-        _scroll.position.extentAfter < 160 &&
+        _scroll.position.extentAfter <
+            paginationPrefetchDistance(_scroll.position) &&
         _canLoadMore &&
         _error == null &&
         !_loading) {

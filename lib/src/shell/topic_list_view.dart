@@ -14,6 +14,7 @@ import '../plugin_api/plugin_registry.dart';
 import '../plugin_api/plugin_scope.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
+import '../utils/pagination.dart';
 import 'avatar_image.dart';
 import 'category_icon.dart';
 import 'content_reading_lane.dart';
@@ -537,7 +538,8 @@ class _TopicListViewState extends State<TopicListView> {
                     controller.saveFeedScrollRow(destination, range.$1);
                   }
                 }
-                if (notification.metrics.extentAfter < _loadMoreThreshold) {
+                if (notification.metrics.extentAfter <
+                    paginationPrefetchDistance(notification.metrics)) {
                   _scheduleLoadMore(
                     controller,
                     destination,
@@ -650,8 +652,6 @@ class _TopicListViewState extends State<TopicListView> {
       ],
     );
   }
-
-  static const double _loadMoreThreshold = 800;
 
   // Separators occupy half of the sliver indices. Estimating them at the
   // library's default 100px forces large corrections as they are measured.

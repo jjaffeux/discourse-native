@@ -9,6 +9,7 @@ import '../models/topic.dart';
 import '../theme/app_theme.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
+import '../utils/pagination.dart';
 import 'aggregate_feed_controller.dart';
 import 'content_reading_lane.dart';
 import 'forum_tabs_bar.dart';
@@ -184,7 +185,8 @@ class AggregateViewState extends State<AggregateView> {
         !scroll.hasClients) {
       return;
     }
-    if (scroll.position.extentAfter < 640) {
+    if (scroll.position.extentAfter <
+        paginationPrefetchDistance(scroll.position)) {
       unawaited(controller.aggregate.loadMore());
     }
   }

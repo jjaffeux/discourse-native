@@ -254,6 +254,31 @@ void main() {
       },
     );
 
+    test('prefetches before the last screen without duplicating requests', () {
+      final frames = _FrameQueue();
+      final subject = _coordinator(frames: frames, geometry: _Geometry());
+      _disposeAfter(subject, frames);
+      final owner = _Owner(
+        _snapshot(topicId: 1, postIds: const [10], hasMore: true),
+      );
+      subject.bind(owner.binding);
+      final notification = ScrollUpdateNotification(
+        metrics: FixedScrollMetrics(
+          minScrollExtent: 0,
+          maxScrollExtent: 5000,
+          pixels: 3600,
+          viewportDimension: 800,
+          axisDirection: AxisDirection.down,
+          devicePixelRatio: 1,
+        ),
+        context: _UnusedBuildContext(),
+      );
+      subject.handleScroll(notification, owner.snapshot);
+      subject.handleScroll(notification, owner.snapshot);
+      frames.flushFrame();
+      expect(owner.loadMoreCount, 1);
+    });
+
     test('queued paging is deduplicated, stale-checked, and retryable', () {
       final frames = _FrameQueue();
       final geometry = _Geometry();
@@ -605,4 +630,9 @@ void _disposeAfter(TopicViewportCoordinator subject, _FrameQueue frames) {
     subject.dispose();
     frames.flushAll();
   });
+}
+
+class _UnusedBuildContext implements BuildContext {
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }

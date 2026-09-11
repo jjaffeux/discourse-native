@@ -579,7 +579,7 @@ void main() {
           final scrollController = scrollView.controller!;
           await tester.drag(
             find.byType(CustomScrollView),
-            const Offset(0, -400),
+            const Offset(0, -100),
           );
           await tester.pumpAndSettle();
           final offsetBeforeAppend = scrollController.offset;

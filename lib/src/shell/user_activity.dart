@@ -10,6 +10,7 @@ import '../models/user_activity_feed.dart';
 import '../theme/app_theme.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
+import '../utils/pagination.dart';
 import 'account_activity_loader.dart';
 import 'avatar_image.dart';
 import 'category_icon.dart';
@@ -127,7 +128,7 @@ class _ActivityList extends StatelessWidget {
   bool _nearEnd(ScrollNotification notification) {
     if (notification.depth != 0 || !feed.hasMore || feed.loading) return false;
     return notification.metrics.extentAfter <
-        notification.metrics.viewportDimension;
+        paginationPrefetchDistance(notification.metrics);
   }
 
   @override

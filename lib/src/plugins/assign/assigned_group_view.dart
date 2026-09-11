@@ -11,6 +11,7 @@ import '../../shell/topic_list_view.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
+import '../../utils/pagination.dart';
 import 'assign_services.dart';
 import 'assign_shell_service.dart';
 import 'assigned_group.dart';
@@ -510,7 +511,8 @@ class _AssignedPeoplePanelState extends State<_AssignedPeoplePanel> {
 
   void _loadMoreAtEnd() {
     if (widget.compact || !_peopleScrollController.hasClients) return;
-    if (_peopleScrollController.position.extentAfter <= 80) {
+    if (_peopleScrollController.position.extentAfter <=
+        paginationPrefetchDistance(_peopleScrollController.position)) {
       _requestMoreMembers();
     }
   }

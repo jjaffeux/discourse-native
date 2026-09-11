@@ -11,6 +11,7 @@ import '../models/user_directory.dart';
 import '../theme/app_theme.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
+import '../utils/pagination.dart';
 import 'avatar_image.dart';
 import 'choice_menu.dart';
 import 'shell_scope.dart';
@@ -431,7 +432,10 @@ class _UsersPageState extends State<UsersPage> {
         : _identityVertical.hasClients
         ? _identityVertical.position
         : null;
-    if (position == null || position.extentAfter > _rowHeight * 5) return;
+    if (position == null ||
+        position.extentAfter > paginationPrefetchDistance(position)) {
+      return;
+    }
     _loadMoreRequested = true;
     widget.onLoadMore!();
   }

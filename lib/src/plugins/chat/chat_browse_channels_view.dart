@@ -7,6 +7,7 @@ import '../../plugin_api/plugin_scope.dart';
 import '../../shell/content_reading_lane.dart';
 import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
+import '../../utils/pagination.dart';
 import 'chat_channel.dart';
 import 'chat_controller.dart';
 import 'chat_plugin.dart';
@@ -81,7 +82,8 @@ class _ChatBrowseChannelsViewState extends State<ChatBrowseChannelsView> {
 
   void _maybeLoadMore() {
     if (!_scrollController.hasClients ||
-        _scrollController.position.extentAfter > 600 ||
+        _scrollController.position.extentAfter >
+            paginationPrefetchDistance(_scrollController.position) ||
         !_hasMore ||
         _loadingMore) {
       return;

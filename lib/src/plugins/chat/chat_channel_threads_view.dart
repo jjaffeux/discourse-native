@@ -6,6 +6,7 @@ import '../../../discourse_ui.dart';
 import '../../plugin_api/plugin_scope.dart';
 import '../../shell/content_reading_lane.dart';
 import '../../theme/d_icons.dart';
+import '../../utils/pagination.dart';
 import 'chat_controller.dart';
 import 'chat_drawer.dart';
 import 'chat_my_threads_view.dart';
@@ -98,7 +99,11 @@ class _ChatChannelThreadsViewState extends State<ChatChannelThreadsView> {
   }
 
   void _maybeLoadMore() {
-    if (!_scroll.hasClients || _scroll.position.extentAfter > 600) return;
+    if (!_scroll.hasClients ||
+        _scroll.position.extentAfter >
+            paginationPrefetchDistance(_scroll.position)) {
+      return;
+    }
     unawaited(
       _chat.loadChannelThreads(widget.siteUrl, widget.channelId, more: true),
     );
