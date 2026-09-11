@@ -159,3 +159,22 @@ clean. The macOS styleguide build passed, and an isolated native app from
 a light 360px preview. Both remained closed when clicked. Cursor assertions
 come from widget mouse-tracker tests; native inspection covered appearance and
 disabled click behavior. Integration preserves the inspected Button source.
+
+## Visible dropdown hover follow-up
+
+The dark theme's shell hover color was almost identical to the floating popup
+surface. Native theme tokens now use the existing menu hover color, blended
+from the foreground over that surface, so Combobox and other Native menu rows
+share the visible treatment already used by Material menus.
+
+The tag selector mouse regression fails before the fix and passes after it.
+181 focused tests passed across selectors, Combobox, Select, Dropdown Menu,
+Context Menu, Menubar, styleguide examples, theme tokens and adoption guards.
+Root analysis and the macOS debug styleguide build passed. The isolated native
+styleguide from `5c6d18d6` showed visible keyboard row highlighting in the actual
+Tag selector in dark fit-width and light 360px previews; mouse hover switching
+is verified by widget tests. No other native platform was inspected.
+
+Integration retained the newer subtle input-color mapping from main. All 38
+integration tests passed, including the control consistency golden tests,
+theme mapping and tag selector hover regression.
