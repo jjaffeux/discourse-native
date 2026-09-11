@@ -1,3 +1,4 @@
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/shell/add_instance_sheet.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
@@ -26,7 +27,9 @@ void main() {
   testWidgets('uses a dialog on macOS', (tester) async {
     await openAddSite(tester, TargetPlatform.macOS);
 
-    expect(find.byType(Dialog), findsOneWidget);
+    expect(find.byType(DDialogContent), findsOneWidget);
+    expect(find.byType(DDialogTitle), findsOneWidget);
+    expect(find.byType(Dialog), findsNothing);
     expect(find.byType(BottomSheet), findsNothing);
     expect(find.text('Add a site'), findsOneWidget);
   });

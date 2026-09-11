@@ -31,47 +31,15 @@ Future<void> showAddInstanceSheet(BuildContext context) {
     );
   }
 
-  return showDialog<void>(
+  return showDDialog<void>(
     context: context,
-    builder: (dialogContext) => Dialog(
-      clipBehavior: Clip.antiAlias,
-      child: SizedBox(
-        width: 480,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(24, 8, 8, 8),
-              child: Row(
-                children: [
-                  const Expanded(
-                    child: DText(
-                      title,
-                      variant: DTextVariant.h4,
-                      headingLevel: 1,
-                    ),
-                  ),
-                  DTooltip(
-                    message: 'Close',
-                    labelTrigger: true,
-                    child: IconButton(
-                      onPressed: () => Navigator.of(dialogContext).pop(),
-                      icon: const DIcon(DIcons.xmark),
-                      tooltip: '',
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            DSeparator(color: Theme.of(dialogContext).shell.divider, space: 1),
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-              child: form,
-            ),
-          ],
-        ),
-      ),
+    builder: (context, controller) => const DDialogContent(
+      maxWidth: 480,
+      semanticLabel: title,
+      children: [
+        DDialogHeader(children: [DDialogTitle(child: Text(title))]),
+        form,
+      ],
     ),
   );
 }
