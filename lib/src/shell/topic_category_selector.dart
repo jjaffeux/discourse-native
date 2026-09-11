@@ -220,7 +220,6 @@ class _TopicCategorySelectorState extends State<TopicCategorySelector> {
                         ? 'Filter by subcategory of ${parent.name}'
                         : 'Choose subcategory of ${parent.name}'
                   : '${parent == null ? 'Category' : 'Subcategory'}: $label',
-              tooltip: label,
               onPressed: widget.onSelected == null ? null : trigger.toggle,
               focusNode: trigger.focusNode,
               expanded: trigger.open,

@@ -230,9 +230,6 @@ class _TopicTagSelectorState extends State<TopicTagSelector> {
             (selected.isEmpty
                 ? widget.placeholder
                 : 'Tags: ${selected.map((tag) => tag.name).join(', ')}'),
-        tooltip: selected.isEmpty
-            ? widget.placeholder
-            : selected.map((tag) => tag.name).join(', '),
         onPressed: widget.onChanged == null ? null : trigger.toggle,
         focusNode: trigger.focusNode,
         expanded: trigger.open,
