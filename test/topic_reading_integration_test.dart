@@ -4148,9 +4148,73 @@ void _registerTopicReadingTests() {
       expect(earth, findsNothing);
       expect(sparkles, findsOneWidget);
 
+      final suggestedTab = find.byKey(
+        const ValueKey('topic-recommendations-tab-core/suggested'),
+      );
+      final relatedTab = find.byKey(
+        const ValueKey('topic-recommendations-tab-discourse-ai/related'),
+      );
+      final nearbyTab = find.byKey(
+        const ValueKey('topic-recommendations-tab-test/nearby'),
+      );
+      expect(
+        tester
+            .widget<DTabList<TopicRecommendationSourceId>>(
+              find.ancestor(
+                of: relatedTab,
+                matching: find.byType(DTabList<TopicRecommendationSourceId>),
+              ),
+            )
+            .variant,
+        DTabListVariant.line,
+      );
+      bool focused(Finder tab) => tester
+          .widget<FocusableActionDetector>(
+            find.descendant(
+              of: tab,
+              matching: find.byType(FocusableActionDetector),
+            ),
+          )
+          .focusNode!
+          .hasPrimaryFocus;
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+      await tester.pumpAndSettle();
+      expect(focused(nearbyTab), isTrue);
+      expect(sparkles, findsOneWidget);
+      await tester.sendKeyEvent(LogicalKeyboardKey.space);
+      await tester.pumpAndSettle();
+      expect(find.text('A nearby topic'), findsOneWidget);
+      expect(sparkles, findsNothing);
+      expect(focused(nearbyTab), isTrue);
+
+      tester.view.physicalSize = phone;
+      tester.platformDispatcher.textScaleFactorTestValue = 2;
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+      await tester.pumpAndSettle();
+      await Scrollable.ensureVisible(
+        tester.element(suggestedTab),
+        alignment: .5,
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(suggestedTab);
+      await tester.pumpAndSettle();
+      expect(earth, findsOneWidget);
+      await tester.sendKeyEvent(LogicalKeyboardKey.end);
+      await tester.pumpAndSettle();
+      expect(focused(nearbyTab), isTrue);
+      expect(nearbyTab.hitTestable(), findsOneWidget);
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pumpAndSettle();
+      expect(focused(relatedTab), isTrue);
+      expect(sparkles, findsOneWidget);
+      expect(tester.takeException(), isNull);
+
       final relatedRow = find.byWidgetPredicate(
         (widget) => widget is TopicInboxRow && widget.topic.id == 9,
       );
+      await tester.ensureVisible(relatedRow);
+      await tester.pumpAndSettle();
       await tester.tap(relatedRow);
       await tester.pumpAndSettle();
 
