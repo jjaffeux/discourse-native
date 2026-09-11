@@ -3155,6 +3155,23 @@ class _Footer extends StatelessWidget {
                   padding: const EdgeInsetsDirectional.only(end: 8),
                   child: control,
                 ),
+              if (composer.canSaveDraft && composer.hasSavedDraft) ...[
+                DButton.iconOnly(
+                  key: const ValueKey('composer-discard'),
+                  tooltip: 'Discard draft',
+                  variant: DButtonVariant.ghost,
+                  icon: const DIcon(DIcons.trashCan, size: 18),
+                  onPressed: busy
+                      ? null
+                      : () => unawaited(
+                          requestComposerDiscard(
+                            context: context,
+                            composer: composer,
+                          ),
+                        ),
+                ),
+                const SizedBox(width: 8),
+              ],
               Theme(
                 data: composer.whisper
                     ? theme.copyWith(

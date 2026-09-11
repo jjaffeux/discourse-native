@@ -1,5 +1,6 @@
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/data/composer_layout_store.dart';
+import 'package:discourse_native/src/models/composer_draft.dart';
 import 'package:discourse_native/src/models/composer_placement.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/shell/composer_panel.dart';
@@ -71,6 +72,52 @@ void main() {
     await prefs.setString(ComposerLayoutStore.storageKey, '{invalid');
     expect((await const ComposerLayoutStore().read()).sideWidth, 420);
   });
+
+  testWidgets('restored draft has a discard action', (tester) async {
+    final harness = await _Harness.create(tester);
+    harness.shell.visibleComposer!.restore(
+      const ComposerDraft(
+        reply: 'Previously saved draft',
+        title: 'A topic',
+        action: ComposerDraft.createTopicAction,
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('composer-discard')), findsOneWidget);
+  });
+
+  for (final mobile in [false, true]) {
+    testWidgets('saved draft can be discarded (mobile: $mobile)', (
+      tester,
+    ) async {
+      final harness = await _Harness.create(tester, mobile: mobile);
+      final composer = harness.shell.visibleComposer!;
+      final discard = find.byKey(const ValueKey('composer-discard'));
+      expect(discard, findsNothing);
+      composer.text.text = 'A saved topic draft';
+      await tester.runAsync(composer.flushDraft);
+      await tester.pumpAndSettle();
+      expect(discard, findsOneWidget);
+      composer.text.text = 'A saved topic draft with edits';
+      await tester.pump();
+      expect(discard, findsOneWidget);
+      await tester.tap(discard);
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const ValueKey('composer-discard-dialog')),
+        findsOneWidget,
+      );
+      await tester.tap(find.byKey(const ValueKey('composer-cancel-discard')));
+      await tester.pumpAndSettle();
+      expect(composer.raw, 'A saved topic draft with edits');
+      await tester.tap(discard);
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('composer-confirm-discard')));
+      await tester.pumpAndSettle();
+      expect(harness.shell.visibleComposer, isNull);
+      expect(tester.takeException(), isNull);
+    });
+  }
 
   testWidgets(
     'placement and minimization retain the same editor state and undo history',
