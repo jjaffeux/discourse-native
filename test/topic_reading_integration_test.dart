@@ -29,7 +29,6 @@ import 'package:discourse_native/src/shell/main_content.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/site_emoji_image.dart';
-import 'package:discourse_native/src/shell/topic_category_path.dart';
 import 'package:discourse_native/src/shell/topic_create_button.dart';
 import 'package:discourse_native/src/shell/topic_inbox_row.dart';
 import 'package:discourse_native/src/shell/topic_list_view.dart';
@@ -222,9 +221,7 @@ void _registerTopicReadingTests() {
         expect(
           find.descendant(
             of: find.byKey(const ValueKey('composer-category')),
-            matching: find.text(
-              topicCategoryPathLabel(category, parent: parent),
-            ),
+            matching: find.text(parent.name),
           ),
           findsOneWidget,
         );
@@ -282,9 +279,7 @@ void _registerTopicReadingTests() {
         expect(
           find.descendant(
             of: find.byKey(const ValueKey('composer-category')),
-            matching: find.text(
-              topicCategoryPathLabel(category, parent: parent),
-            ),
+            matching: find.text(parent.name),
           ),
           findsOneWidget,
         );
@@ -387,7 +382,7 @@ void _registerTopicReadingTests() {
           lessThan(tester.getTopLeft(drafts).dy),
         );
         final newTopicTile = find
-            .ancestor(of: newTopic, matching: find.byType(InkWell))
+            .ancestor(of: newTopic, matching: find.byType(DSidebarMenuButton))
             .first;
         expect(
           find.descendant(of: newTopicTile, matching: find.dIcon(DIcons.plus)),
@@ -407,7 +402,16 @@ void _registerTopicReadingTests() {
             ),
           ),
           tester.getCenter(newTopic),
-          tester.getRect(newTopicTile).centerRight - const Offset(12, 0),
+          // Keep the click outside the sidebar divider's resize hit region.
+          Offset(
+            tester
+                    .getRect(
+                      find.byKey(const ValueKey('sidebar-resize-handle')),
+                    )
+                    .left -
+                12,
+            tester.getCenter(newTopic).dy,
+          ),
         ]) {
           await tester.tapAt(position, kind: PointerDeviceKind.mouse);
           await tester.pumpAndSettle();
@@ -417,7 +421,7 @@ void _registerTopicReadingTests() {
           expect(shell.visibleComposer?.target.isNewTopic, isTrue);
           expect(shell.visibleComposer?.target.originFeedId, 'latest');
 
-          await tester.tap(find.byTooltip('Save and close'));
+          shell.closeComposer();
           await tester.pumpAndSettle();
         }
       },
@@ -2633,15 +2637,10 @@ void _registerTopicReadingTests() {
 
         final scrollbar = find.descendant(
           of: find.byType(TopicView),
-          matching: find.byType(Scrollbar),
+          matching: find.byType(DScrollBar),
         );
         expect(scrollbar, findsOneWidget);
-        expect(
-          ScrollbarTheme.of(
-            tester.element(scrollbar),
-          ).thickness?.resolve(const <WidgetState>{}),
-          4,
-        );
+        expect(tester.widget<DScrollBar>(scrollbar).thumb.thickness, 4);
       } finally {
         debugDefaultTargetPlatformOverride = previous;
       }
@@ -2690,7 +2689,6 @@ void _registerTopicReadingTests() {
         'Share topic',
         'Bookmark this topic',
         'More topic actions',
-        'Topic notifications',
         'Reply to this topic',
       ]) {
         final trigger = find.byTooltip(tooltip);
@@ -2702,6 +2700,10 @@ void _registerTopicReadingTests() {
         expect(button, findsOneWidget, reason: tooltip);
       }
 
+      expect(
+        find.byKey(const ValueKey('topic-notification-level-button')),
+        findsOneWidget,
+      );
       expect(find.byTooltip('Flag this topic'), findsNothing);
       expect(find.byTooltip('Pinned topic options'), findsNothing);
 
@@ -2714,45 +2716,51 @@ void _registerTopicReadingTests() {
       expect(find.text('Close topic'), findsOneWidget);
     });
 
-    testWidgets('only a topic bookmark gives its action the core accent', (
-      tester,
-    ) async {
-      const reader = DiscourseUser(id: 1, username: 'reader');
-      final authenticator = FakeAuthenticator()
-        ..keys['https://meta.discourse.org'] = 'meta-key';
+    testWidgets(
+      'outlined footer opens the matching topic or post bookmark menu',
+      (tester) async {
+        const reader = DiscourseUser(id: 1, username: 'reader');
+        final authenticator = FakeAuthenticator()
+          ..keys['https://meta.discourse.org'] = 'meta-key';
 
-      Future<DButtonVariant> bookmarkVariant(Bookmark bookmark) async {
-        final api = FakeDiscourseApi(
-          feeds: {'/latest.json': listed},
-          topics: {
-            7: detail(bookmarks: [bookmark]),
-          },
-        );
-        await pumpShell(
-          tester,
-          desktop,
-          instances: [instance('meta.discourse.org').copyWith(user: reader)],
-          api: api,
-          authenticator: authenticator,
-        );
-        await tester.tap(contentText('A real topic'));
-        await tester.pumpAndSettle();
-        return tester
-            .widget<DButton>(
-              find.byKey(const ValueKey('topic-bookmark-button')),
-            )
-            .variant;
-      }
+        Future<void> openBookmark(Bookmark bookmark, String title) async {
+          final api = FakeDiscourseApi(
+            feeds: {'/latest.json': listed},
+            topics: {
+              7: detail(bookmarks: [bookmark]),
+            },
+          );
+          await pumpShell(
+            tester,
+            desktop,
+            instances: [instance('meta.discourse.org').copyWith(user: reader)],
+            api: api,
+            authenticator: authenticator,
+          );
+          await tester.tap(contentText('A real topic'));
+          await tester.pumpAndSettle();
+          final action = find.byKey(const ValueKey('topic-bookmark-button'));
+          expect(
+            tester.widget<DButton>(action).variant,
+            DButtonVariant.outline,
+          );
+          await tester.tap(action);
+          await tester.pumpAndSettle();
+          expect(find.text(title), findsOneWidget);
+          await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+          await tester.pumpAndSettle();
+        }
 
-      expect(
-        await bookmarkVariant(const Bookmark(id: 1, bookmarkableType: 'Topic')),
-        DButtonVariant.transparentPrimary,
-      );
-      expect(
-        await bookmarkVariant(const Bookmark(id: 2, bookmarkableType: 'Post')),
-        DButtonVariant.flat,
-      );
-    });
+        await openBookmark(
+          const Bookmark(id: 1, bookmarkableType: 'Topic'),
+          'Topic bookmark',
+        );
+        await openBookmark(
+          const Bookmark(id: 2, bookmarkableType: 'Post'),
+          'Topic bookmarks',
+        );
+      },
+    );
 
     testWidgets('offers copy and system share for core’s canonical link', (
       tester,

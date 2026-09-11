@@ -241,6 +241,7 @@ void main() {
         await tester.enterText(
           find.byWidgetPredicate(
             (widget) =>
+                (widget is DDatePickerInput && widget.label == fieldLabel) ||
                 (widget is DInput && widget.labelText == fieldLabel) ||
                 (widget is TextField &&
                     widget.decoration?.labelText == fieldLabel),

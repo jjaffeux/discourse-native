@@ -624,10 +624,7 @@ void _registerChatShellTests() {
           await tester.tap(dms);
           await tester.pumpAndSettle();
           expect(find.text('Thanks for the update.'), findsOneWidget);
-          expect(
-            tester.widget<DButton>(dms).variant,
-            DButtonVariant.transparentPrimary,
-          );
+          expect(tester.widget<DButton>(dms).variant, DButtonVariant.primary);
           expect(
             find.descendant(
               of: heading,

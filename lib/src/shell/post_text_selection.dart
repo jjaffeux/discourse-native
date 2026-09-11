@@ -160,48 +160,48 @@ class _PostTextSelectionState extends State<PostTextSelection> {
   }
 
   @override
-  Widget build(BuildContext context) =>
-      ShellSelector<({bool canQuote, bool canEdit})>(
-        select: (controller) => (
-          canQuote: controller.canReplyHere,
-          canEdit:
-              widget.post.canEdit &&
-              controller.siteConfigFor(widget.siteUrl).fastEditEnabled,
+  Widget build(
+    BuildContext context,
+  ) => ShellSelector<({bool canQuote, bool canEdit})>(
+    select: (controller) => (
+      canQuote: controller.canReplyHere,
+      canEdit:
+          widget.post.canEdit &&
+          controller.siteConfigFor(widget.siteUrl).fastEditEnabled,
+    ),
+    builder: (context, actions, _) => OverlayPortal(
+      controller: _portal,
+      overlayChildBuilder: (context) {
+        final anchors = _anchors;
+        if (anchors == null || _selection.markdown.isEmpty) {
+          return const SizedBox.shrink();
+        }
+        return _PostTextSelectionToolbar(
+          anchors: anchors,
+          canQuote: actions.canQuote,
+          canEdit: actions.canEdit,
+          onQuote: _insertQuote,
+          onEdit: () => unawaited(_editSelection()),
+          onCopyQuote: _copyQuote,
+        );
+      },
+      child: CallbackShortcuts(
+        bindings: {
+          if (actions.canEdit)
+            const CharacterActivator('e'): () => unawaited(_editSelection()),
+        },
+        child: RouteAwareSelectionArea(
+          selectionAreaKey: _selectionKey,
+          // The app-owned overlay is also shown after a precise mouse drag. Keep
+          // Flutter's platform menu disabled so touch does not draw both.
+          contextMenuBuilder: (context, selectableRegionState) =>
+              const SizedBox.shrink(),
+          onSelectionChanged: _selectionChanged,
+          child: widget.child,
         ),
-        builder: (context, actions, _) => OverlayPortal(
-          controller: _portal,
-          overlayChildBuilder: (context) {
-            final anchors = _anchors;
-            if (anchors == null || _selection.markdown.isEmpty) {
-              return const SizedBox.shrink();
-            }
-            return _PostTextSelectionToolbar(
-              anchors: anchors,
-              canQuote: actions.canQuote,
-              canEdit: actions.canEdit,
-              onQuote: _insertQuote,
-              onEdit: () => unawaited(_editSelection()),
-              onCopyQuote: _copyQuote,
-            );
-          },
-          child: CallbackShortcuts(
-            bindings: {
-              if (actions.canEdit)
-                const CharacterActivator('e'): () =>
-                    unawaited(_editSelection()),
-            },
-            child: RouteAwareSelectionArea(
-              selectionAreaKey: _selectionKey,
-              // The app-owned overlay is also shown after a precise mouse drag. Keep
-              // Flutter's platform menu disabled so touch does not draw both.
-              contextMenuBuilder: (context, selectableRegionState) =>
-                  const SizedBox.shrink(),
-              onSelectionChanged: _selectionChanged,
-              child: widget.child,
-            ),
-          ),
-        ),
-      );
+      ),
+    ),
+  );
 }
 
 class _PostTextSelectionToolbar extends StatelessWidget {

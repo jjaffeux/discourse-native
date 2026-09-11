@@ -601,7 +601,7 @@ void main() {
 
       final input = find.byKey(const ValueKey('fast-edit-input'));
       expect(input, findsOneWidget);
-      expect(tester.widget<TextField>(input).controller!.text, 'selected');
+      expect(tester.widget<DTextarea>(input).controller!.text, 'selected');
 
       // The unchanged value cannot be submitted.
       await tester.tap(find.byKey(const ValueKey('fast-edit-save')));
@@ -652,7 +652,7 @@ void main() {
             addTearDown(shell.dispose);
             await _openFastEditor(tester);
             final input = find.byKey(const ValueKey('fast-edit-input'));
-            final text = tester.widget<TextField>(input).controller!;
+            final text = tester.widget<DTextarea>(input).controller!;
             await tester.enterText(input, 'my replacement');
             if (retry) {
               api.nextWriteFailure = const WriteException(
@@ -681,7 +681,7 @@ void main() {
             expect(shell.currentTopic?.stream, contains(_editablePost.id));
             expect(shell.store.read<Post>(_siteUrl, 22)?.canEdit, isTrue);
             expect(shell.siteConfigFor(_siteUrl).fastEditEnabled, isTrue);
-            expect(tester.widget<TextField>(input).controller, same(text));
+            expect(tester.widget<DTextarea>(input).controller, same(text));
             final keyReads = auth.keyReads;
             final clientReads = auth.clientReads;
             final fetches = api.postFetches.length;
@@ -698,7 +698,7 @@ void main() {
             expect(shell.postWriteInFlight(22), isFalse);
             expect(input, findsOneWidget);
             expect(text.text, 'my replacement');
-            expect(tester.widget<TextField>(input).enabled, isTrue);
+            expect(tester.widget<DTextarea>(input).enabled, isTrue);
             expect(
               find.text('The topic changed before the edit could be saved.'),
               findsOneWidget,
@@ -739,7 +739,7 @@ void main() {
 
       expect(input, findsOneWidget);
       expect(
-        tester.widget<TextField>(input).controller!.text,
+        tester.widget<DTextarea>(input).controller!.text,
         'my replacement',
       );
       expect(find.byKey(const ValueKey('fast-edit-error')), findsOneWidget);
@@ -780,7 +780,7 @@ void main() {
         expect(auth.keyReads, keyReads);
         expect(api.editKeys, isEmpty);
         expect(
-          tester.widget<TextField>(input).controller!.text,
+          tester.widget<DTextarea>(input).controller!.text,
           'my replacement',
         );
 
@@ -831,9 +831,9 @@ void main() {
           await tester.pumpAndSettle();
 
           expect(input, findsOneWidget);
-          expect(tester.widget<TextField>(input).enabled, isTrue);
+          expect(tester.widget<DTextarea>(input).enabled, isTrue);
           expect(
-            tester.widget<TextField>(input).controller!.text,
+            tester.widget<DTextarea>(input).controller!.text,
             'my replacement',
           );
           expect(
@@ -865,7 +865,7 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('fast-edit-save')));
       await tester.pump();
 
-      expect(tester.widget<TextField>(input).enabled, isFalse);
+      expect(tester.widget<DTextarea>(input).enabled, isFalse);
       expect(find.text('Saving…'), findsOneWidget);
 
       gate.complete();

@@ -661,7 +661,10 @@ class _ForumIdentityHeader extends StatelessWidget {
                       key: const ValueKey('forum-identity-url'),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontSize: 12, height: 16 / 12),
+                      style: const TextStyle(
+                        fontSize: DiscourseTypography.xs,
+                        height: 16 / 12,
+                      ),
                     ),
                   ],
                 ),

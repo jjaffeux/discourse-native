@@ -170,8 +170,8 @@ void main() {
       expect(tokens.background, isNot(tokens.muted));
       expect(
         tester.widgetList<DSkeleton>(skeletons).map((shape) => shape.color),
-        everyElement(tokens.background),
-        reason: 'Only the muted sidebar backdrop needs a local fill override.',
+        everyElement(isNull),
+        reason: 'Sidebar placeholders inherit the UI kit skeleton fill.',
       );
       final decoration =
           tester
@@ -183,7 +183,7 @@ void main() {
                   )
                   .decoration
               as BoxDecoration;
-      expect(decoration.color, tokens.background);
+      expect(decoration.color, tokens.muted);
 
       api.navigation.complete(
         CategoryLoadResult(

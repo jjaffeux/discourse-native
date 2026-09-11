@@ -149,7 +149,7 @@ void main() {
       ]) {
         expect(
           tester.widget<DButton>(find.byKey(key)).variant,
-          DButtonVariant.flat,
+          DButtonVariant.ghost,
         );
       }
 

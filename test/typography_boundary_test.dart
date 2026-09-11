@@ -77,6 +77,7 @@ void main() {
                         onTap: () {},
                       ),
                       DSelect<String>(
+                        isExpanded: true,
                         value: 'latest',
                         items: const [
                           DropdownMenuItem(
@@ -91,6 +92,7 @@ void main() {
                         onChanged: (_) {},
                       ),
                       DSelectField<String>(
+                        isExpanded: true,
                         initialValue: 'all',
                         items: const [
                           DropdownMenuItem(

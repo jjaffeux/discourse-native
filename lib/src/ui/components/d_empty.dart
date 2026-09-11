@@ -171,8 +171,9 @@ class DEmptyDescription extends StatelessWidget {
   @override
   Widget build(BuildContext context) => DefaultTextStyle.merge(
     textAlign: TextAlign.center,
-    style: _textStyle(context)
-        .copyWith(height: 1.625, color: DTokens.of(context).mutedForeground),
+    style: _textStyle(
+      context,
+    ).copyWith(height: 1.625, color: DTokens.of(context).mutedForeground),
     child: child ?? Text(text!, textAlign: TextAlign.center),
   );
 }

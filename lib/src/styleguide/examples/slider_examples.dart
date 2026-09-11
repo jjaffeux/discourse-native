@@ -1,4 +1,5 @@
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/src/theme/discourse_typography.dart';
 import 'package:flutter/material.dart';
 
 import '../styleguide_example.dart';
@@ -147,7 +148,7 @@ class _SliderDemoState extends State<_SliderDemo> {
                   child: Text(
                     _values.map((v) => v.toStringAsFixed(1)).join(', '),
                     style: TextStyle(
-                      fontSize: 14,
+                      fontSize: DiscourseTypography.sm,
                       color: DTokens.of(context).mutedForeground,
                     ),
                   ),

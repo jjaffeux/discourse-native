@@ -1,4 +1,5 @@
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/src/theme/discourse_typography.dart';
 import 'package:flutter/material.dart';
 
 import '../styleguide_example.dart';
@@ -378,21 +379,21 @@ class _OTPFormExampleState extends State<_OTPFormExample> {
                               index: 0,
                               width: 44,
                               height: 48,
-                              fontSize: 20,
+                              fontSize: DiscourseTypography.xl,
                               lineHeight: 28,
                             ),
                             DInputOTPSlot(
                               index: 1,
                               width: 44,
                               height: 48,
-                              fontSize: 20,
+                              fontSize: DiscourseTypography.xl,
                               lineHeight: 28,
                             ),
                             DInputOTPSlot(
                               index: 2,
                               width: 44,
                               height: 48,
-                              fontSize: 20,
+                              fontSize: DiscourseTypography.xl,
                               lineHeight: 28,
                             ),
                           ],
@@ -406,21 +407,21 @@ class _OTPFormExampleState extends State<_OTPFormExample> {
                               index: 3,
                               width: 44,
                               height: 48,
-                              fontSize: 20,
+                              fontSize: DiscourseTypography.xl,
                               lineHeight: 28,
                             ),
                             DInputOTPSlot(
                               index: 4,
                               width: 44,
                               height: 48,
-                              fontSize: 20,
+                              fontSize: DiscourseTypography.xl,
                               lineHeight: 28,
                             ),
                             DInputOTPSlot(
                               index: 5,
                               width: 44,
                               height: 48,
-                              fontSize: 20,
+                              fontSize: DiscourseTypography.xl,
                               lineHeight: 28,
                             ),
                           ],

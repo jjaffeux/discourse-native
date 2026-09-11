@@ -2103,7 +2103,11 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
         scrollController: _scroll!,
         onStart: () => _jumpToBoundary(end: false),
         onEnd: () => _jumpToBoundary(end: true),
-        child: postStreamContent,
+        child: DScrollBar(
+          controller: _scroll,
+          thumbVisibility: false,
+          child: postStreamContent,
+        ),
       ),
     );
 

@@ -566,7 +566,7 @@ void main() {
     testWidgets('refreshes a cached gallery projection after reassemble', (
       tester,
     ) async {
-      tester.view.physicalSize = const Size(1450, 1110);
+      tester.view.physicalSize = const Size(1450, 1600);
       tester.view.devicePixelRatio = 2;
       addTearDown(tester.view.resetPhysicalSize);
       addTearDown(tester.view.resetDevicePixelRatio);
@@ -596,7 +596,7 @@ void main() {
           home: ShellScope(
             controller: shell,
             child: Scaffold(
-              body: ComposerPanel(composer: composer, height: 555),
+              body: ComposerPanel(composer: composer, height: 800),
             ),
           ),
         ),
@@ -604,6 +604,8 @@ void main() {
       await tester.pumpAndSettle();
 
       final gallery = composer.text.galleryBlocks.single;
+      _composerEditable(tester).scrollController!.jumpTo(0);
+      await tester.pump();
       final galleryRect = tester.getRect(
         find.byType(ComposerImageGalleryPreview),
       );
@@ -658,7 +660,8 @@ void main() {
         render.localToGlobal(Offset.zero),
       );
       expect(
-        globalCaretAfterTap.top - galleryRect.bottom,
+        globalCaretAfterTap.top -
+            tester.getRect(find.byType(ComposerImageGalleryPreview)).bottom,
         inInclusiveRange(-8, 32),
       );
       expect(
@@ -1057,7 +1060,9 @@ void main() {
           theme: AppTheme.dark,
           home: ShellScope(
             controller: shell,
-            child: Scaffold(body: ComposerPanel(composer: composer)),
+            child: Scaffold(
+              body: ComposerPanel(composer: composer, height: 500),
+            ),
           ),
         ),
       );

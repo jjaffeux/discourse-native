@@ -1,4 +1,5 @@
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/src/theme/discourse_typography.dart';
 import 'package:flutter/material.dart';
 
 import '../styleguide_example.dart';
@@ -131,7 +132,7 @@ class _Tags extends StatelessWidget {
                 fontFamilyFallback: Theme.of(
                   context,
                 ).textTheme.bodyMedium?.fontFamilyFallback,
-                fontSize: 14,
+                fontSize: DiscourseTypography.sm,
                 height: 20 / 14,
                 color: tokens.foreground,
               ),
@@ -219,7 +220,7 @@ class _Artworks extends StatelessWidget {
                           ],
                         ),
                         style: TextStyle(
-                          fontSize: 12,
+                          fontSize: DiscourseTypography.xs,
                           height: 16 / 12,
                           color: tokens.mutedForeground,
                         ),
@@ -317,7 +318,7 @@ class ScrollAreaTags extends StatelessWidget {
                 fontFamilyFallback: Theme.of(
                   context,
                 ).textTheme.bodyMedium?.fontFamilyFallback,
-                fontSize: 14,
+                fontSize: DiscourseTypography.sm,
                 height: 20 / 14,
                 color: tokens.foreground,
               ),
@@ -379,7 +380,7 @@ class ScrollAreaTags extends StatelessWidget {
                 fontFamilyFallback: Theme.of(
                   context,
                 ).textTheme.bodyMedium?.fontFamilyFallback,
-                fontSize: 14,
+                fontSize: DiscourseTypography.sm,
                 height: 20 / 14,
                 color: tokens.foreground,
               ),
@@ -470,7 +471,7 @@ class ScrollAreaArtworks extends StatelessWidget {
                           ],
                         ),
                         style: TextStyle(
-                          fontSize: 12,
+                          fontSize: DiscourseTypography.xs,
                           height: 16 / 12,
                           color: tokens.mutedForeground,
                         ),

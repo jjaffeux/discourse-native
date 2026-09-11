@@ -262,6 +262,7 @@ void main() {
       final second = openReply(8);
 
       gate.complete();
+      await tester.pump();
       await closing;
       expect(first.isDisposed, isTrue);
       expect(shell.visibleComposer, same(second));

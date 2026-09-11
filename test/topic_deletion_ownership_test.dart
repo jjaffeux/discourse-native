@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/data/discourse_api.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/post.dart';
@@ -323,6 +324,7 @@ Future<ShellController> _fixture(
     ShellScope(
       controller: shell,
       child: MaterialApp(
+        builder: (context, child) => DToaster(child: child!),
         theme: AppTheme.light,
         home: Scaffold(
           body: AnimatedBuilder(
