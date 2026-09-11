@@ -2307,7 +2307,16 @@ void _registerTopicReadingTests() {
       expect(find.text('Topic 1'), findsOneWidget);
       expect(api.feedPaths, ['/latest.json']);
 
-      await tester.drag(topicList, const Offset(0, -6000));
+      // Advance by viewport-sized steps so header height changes cannot skip
+      // the first appended row in the virtualized list.
+      await tester.scrollUntilVisible(
+        find.text('Topic 31'),
+        400,
+        scrollable: find.descendant(
+          of: find.byType(TopicListView),
+          matching: find.byType(Scrollable),
+        ),
+      );
       await tester.pumpAndSettle();
 
       expect(api.feedPaths, contains('/latest.json?page=1'));

@@ -336,7 +336,7 @@ class _TopicInboxWorkspaceState extends State<_TopicInboxWorkspace> {
             ? _listWidth.effectiveWidth(maximum: maximumListWidth)
             : constraints.maxWidth;
         final showsUserMenu = !topicOpen && ShellTitleBar.columnsCarryUserMenu;
-        final heading = Row(
+        Widget heading(Widget? navigation) => Row(
           key: const ValueKey('topic-list-heading'),
           children: [
             if (layout.isCompact)
@@ -348,9 +348,26 @@ class _TopicInboxWorkspaceState extends State<_TopicInboxWorkspace> {
                     controller.handleBack(canReturnToSidebar: true),
               ),
             Expanded(
-              child: _TopicListHeadingTitle(
-                siteUrl: state.siteUrl,
-                categoryId: sourceRoute.categoryId,
+              child: Row(
+                children: [
+                  Flexible(
+                    flex: navigation == null ? 1 : 0,
+                    fit: navigation == null ? FlexFit.tight : FlexFit.loose,
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(
+                        maxWidth: navigation == null ? double.infinity : 220,
+                      ),
+                      child: _TopicListHeadingTitle(
+                        siteUrl: state.siteUrl,
+                        categoryId: sourceRoute.categoryId,
+                      ),
+                    ),
+                  ),
+                  if (navigation != null) ...[
+                    const SizedBox(width: DSpacing.xl),
+                    Expanded(child: navigation),
+                  ],
+                ],
               ),
             ),
             ...registry.contentHeaderActions(context, sourceRoute),
@@ -365,11 +382,71 @@ class _TopicInboxWorkspaceState extends State<_TopicInboxWorkspace> {
               controller: controller,
               compact: true,
               fromList: true,
-              showLabel: constraints.maxWidth >= 760,
+              showLabel:
+                  ContentReadingLane.breakpointWidthOf(context, listWidth) /
+                      MediaQuery.textScalerOf(context).scale(1) >=
+                  360,
               leadingPadding: false,
             ),
           ],
         );
+        // Account controls stay at the pane edge; title, tabs and actions
+        // share the same reading lane as the topics below them.
+        Widget buildHeading(BuildContext context, Widget? navigation) =>
+            ContentReadingLane(
+              widthLimit: topicListContentWidth,
+              builder: (context, lane) => ConstrainedBox(
+                constraints: const BoxConstraints(minHeight: shellHeaderHeight),
+                child: Padding(
+                  // Match the sidebar account header's baseline.
+                  padding: EdgeInsets.only(bottom: showsUserMenu ? 1 : 0),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Padding(
+                          padding: EdgeInsetsDirectional.only(
+                            start: DDirection.of(context) == TextDirection.ltr
+                                ? lane.leftInset
+                                : lane.rightInset,
+                          ),
+                          child: Align(
+                            alignment: AlignmentDirectional.centerStart,
+                            child: SizedBox(
+                              width: lane.width,
+                              child: Padding(
+                                padding: EdgeInsetsDirectional.only(
+                                  start: topicListHorizontalPadding,
+                                  end: split
+                                      ? topicInboxDividerInset
+                                      : topicListHorizontalPadding,
+                                ),
+                                child: heading(navigation),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                      if (showsUserMenu)
+                        Padding(
+                          padding: const EdgeInsetsDirectional.only(end: 8),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              ...registry.shellHeaderActions(
+                                context,
+                                surface: PluginHeaderSurface.content,
+                                compact: layout.isCompact,
+                                ringColor: theme.shell.content,
+                              ),
+                              UserMenuButton(ringColor: theme.shell.content),
+                            ],
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+            );
         return Stack(
           children: [
             PositionedDirectional(
@@ -395,72 +472,6 @@ class _TopicInboxWorkspaceState extends State<_TopicInboxWorkspace> {
                     enabled: !topicOpen || split,
                     child: Column(
                       children: [
-                        // Topic actions follow the reading lane; account
-                        // controls keep their place at the pane's edge.
-                        ContentReadingLane(
-                          widthLimit: topicListContentWidth,
-                          builder: (context, lane) => SizedBox(
-                            height: shellHeaderHeight,
-                            child: Padding(
-                              // Match the sidebar account header's baseline.
-                              padding: EdgeInsets.only(
-                                bottom: showsUserMenu ? 1 : 0,
-                              ),
-                              child: Row(
-                                children: [
-                                  Expanded(
-                                    child: Padding(
-                                      padding: EdgeInsetsDirectional.only(
-                                        start:
-                                            DDirection.of(context) ==
-                                                TextDirection.ltr
-                                            ? lane.leftInset
-                                            : lane.rightInset,
-                                      ),
-                                      child: Align(
-                                        alignment:
-                                            AlignmentDirectional.centerStart,
-                                        child: SizedBox(
-                                          width: lane.width,
-                                          child: Padding(
-                                            padding: EdgeInsetsDirectional.only(
-                                              start: topicListHorizontalPadding,
-                                              end: split
-                                                  ? topicInboxDividerInset
-                                                  : topicListHorizontalPadding,
-                                            ),
-                                            child: heading,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                  if (showsUserMenu)
-                                    Padding(
-                                      padding: const EdgeInsetsDirectional.only(
-                                        end: 8,
-                                      ),
-                                      child: Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          ...registry.shellHeaderActions(
-                                            context,
-                                            surface:
-                                                PluginHeaderSurface.content,
-                                            compact: layout.isCompact,
-                                            ringColor: theme.shell.content,
-                                          ),
-                                          UserMenuButton(
-                                            ringColor: theme.shell.content,
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
                         if (!ShellTitleBar.isSupported)
                           const ContentReadingLaneBox(
                             widthLimit: topicListContentWidth,
@@ -480,6 +491,7 @@ class _TopicInboxWorkspaceState extends State<_TopicInboxWorkspace> {
                             siteUrl: state.siteUrl,
                             inbox: true,
                             keepTopicOpen: split,
+                            topicListHeadingBuilder: buildHeading,
                           ),
                         ),
                         const TopicListBottomBar(),
@@ -624,6 +636,7 @@ class _FeedBackedContent extends StatelessWidget {
     this.filterCategories = const [],
     this.fallback,
     this.topicListActions,
+    this.topicListHeadingBuilder,
     this.inbox = false,
     this.keepTopicOpen = false,
   });
@@ -633,6 +646,7 @@ class _FeedBackedContent extends StatelessWidget {
   final List<TopicCategory> filterCategories;
   final Widget? fallback;
   final Widget? topicListActions;
+  final TopicListHeadingBuilder? topicListHeadingBuilder;
   final bool inbox;
   final bool keepTopicOpen;
 
@@ -667,6 +681,7 @@ class _FeedBackedContent extends StatelessWidget {
             stacked: inbox,
             keepTopicOpen: keepTopicOpen,
             trailing: topicListActions,
+            headingBuilder: topicListHeadingBuilder,
             child: content,
           );
         }
