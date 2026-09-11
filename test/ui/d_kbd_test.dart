@@ -114,6 +114,7 @@ void main() {
       );
       expect(style.fontSize, 12);
       expect(style.height, 16 / 12);
+      expect(style.leadingDistribution, TextLeadingDistribution.even);
       expect(style.fontWeight, FontWeight.w500);
       expect(tester.getSize(find.byType(Icon)), const Size(12, 12));
     }
@@ -332,6 +333,7 @@ void main() {
         expect(style.fontFamily, palette.name);
         expect(style.fontSize, 12);
         expect(style.height, 16 / 12);
+        expect(style.leadingDistribution, TextLeadingDistribution.even);
         expect(style.letterSpacing, 0);
         expect(style.fontWeight, FontWeight.w600);
         expect(style.color, tokens.primaryForeground);
