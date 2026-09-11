@@ -1,6 +1,7 @@
 import 'dart:async';
 
-import 'package:discourse_native/discourse_ui.dart' show DPopoverContent;
+import 'package:discourse_native/discourse_ui.dart'
+    show DButton, DButtonVariant, DPopoverContent;
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/post.dart';
@@ -14,6 +15,53 @@ import 'package:flutter_test/flutter_test.dart';
 import 'support/fakes.dart';
 
 void main() {
+  testWidgets('compact navigation fits narrow and enlarged layouts', (
+    tester,
+  ) async {
+    addTearDown(() => tester.view.resetPhysicalSize());
+    addTearDown(() => tester.view.resetDevicePixelRatio());
+    tester.view.devicePixelRatio = 1;
+    for (final dark in [false, true]) {
+      for (final scale in [1.0, 2.0]) {
+        for (final direction in [TextDirection.ltr, TextDirection.rtl]) {
+          tester.view.physicalSize = const Size(320, 640);
+          final shell = await _loadShell(FakeDiscourseApi(user: _user));
+          await _openProgress(
+            tester,
+            shell,
+            TargetPlatform.macOS,
+            dark: dark,
+            scale: scale,
+            direction: direction,
+          );
+          expect(find.text('Topic progress'), findsNothing);
+          final panel = tester.getRect(find.byType(DPopoverContent));
+          for (final label in ['First post', 'Latest post', 'Jump']) {
+            final button = find.widgetWithText(DButton, label);
+            final bounds = tester.getRect(button);
+            expect(panel.contains(bounds.topLeft), isTrue);
+            expect(panel.contains(bounds.bottomRight), isTrue);
+          }
+          final jump = tester.widget<DButton>(find.byKey(_jumpKey));
+          expect(jump.variant, DButtonVariant.primary);
+          for (final label in ['First post', 'Latest post']) {
+            expect(
+              tester
+                  .widget<DButton>(find.widgetWithText(DButton, label))
+                  .variant,
+              DButtonVariant.ghost,
+            );
+          }
+          await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+          await tester.pumpAndSettle();
+          expect(find.byType(DPopoverContent), findsNothing);
+          expect(tester.takeException(), isNull);
+          await tester.pumpWidget(const SizedBox.shrink());
+        }
+      }
+    }
+  });
+
   for (final platform in [TargetPlatform.macOS, TargetPlatform.iOS]) {
     group(platform.name, () {
       for (final change in [
@@ -56,7 +104,10 @@ void main() {
               shell.selectAggregate();
           }
           await tester.pumpAndSettle();
-          expect(find.text('Topic progress'), findsOneWidget);
+          expect(
+            find.byKey(const ValueKey('topic-progress-selection')),
+            findsOneWidget,
+          );
           final source = shell.currentContent;
           final revision = shell.topicNavigationRevision;
 
@@ -65,7 +116,10 @@ void main() {
 
           expect(shell.currentContent, same(source));
           expect(shell.topicNavigationRevision, revision);
-          expect(find.text('Topic progress'), findsOneWidget);
+          expect(
+            find.byKey(const ValueKey('topic-progress-selection')),
+            findsOneWidget,
+          );
           expect(
             find.text(
               'Close and reopen topic progress to jump in the current topic.',
@@ -129,7 +183,10 @@ void main() {
           // only the dismissed editor's completion must be inert.
           expect(shell.currentContent?.postNumber, _target.postNumber);
           expect(find.text('Replacement route'), findsOneWidget);
-          expect(find.text('Topic progress'), findsNothing);
+          expect(
+            find.byKey(const ValueKey('topic-progress-selection')),
+            findsNothing,
+          );
           expect(tester.takeException(), isNull);
         });
       }
@@ -153,7 +210,10 @@ void main() {
         await tester.pumpAndSettle();
         gate.complete();
         await tester.pumpAndSettle();
-        expect(find.text('Topic progress'), findsOneWidget);
+        expect(
+          find.byKey(const ValueKey('topic-progress-selection')),
+          findsOneWidget,
+        );
         expect(find.text('Post 2 of 3'), findsOneWidget);
         expect(tester.takeException(), isNull);
       });
@@ -179,7 +239,10 @@ void main() {
             shell.currentContent?.postNumber,
             action == 'First post' ? 1 : 12,
           );
-          expect(find.text('Topic progress'), findsNothing);
+          expect(
+            find.byKey(const ValueKey('topic-progress-selection')),
+            findsNothing,
+          );
           expect(tester.takeException(), isNull);
         });
       }
@@ -199,7 +262,10 @@ void main() {
           find.text('Could not open that post. Try again.'),
           findsOneWidget,
         );
-        expect(find.text('Topic progress'), findsOneWidget);
+        expect(
+          find.byKey(const ValueKey('topic-progress-selection')),
+          findsOneWidget,
+        );
         expect(shell.currentContent?.postNumber, 1);
 
         responses[200] = _target;
@@ -211,7 +277,10 @@ void main() {
           [200],
         ]);
         expect(shell.currentContent?.postNumber, _target.postNumber);
-        expect(find.text('Topic progress'), findsNothing);
+        expect(
+          find.byKey(const ValueKey('topic-progress-selection')),
+          findsNothing,
+        );
         expect(
           find.byKey(const ValueKey('topic-progress-button')),
           findsOneWidget,
@@ -311,13 +380,23 @@ void _openTopic(ShellController shell, {int topicId = 1}) => shell.pushContent(
 Future<NavigatorState> _openProgress(
   WidgetTester tester,
   ShellController shell,
-  TargetPlatform platform,
-) async {
+  TargetPlatform platform, {
+  bool dark = false,
+  double scale = 1,
+  TextDirection direction = TextDirection.ltr,
+}) async {
   final navigatorKey = GlobalKey<NavigatorState>();
   await tester.pumpWidget(
     MaterialApp(
       navigatorKey: navigatorKey,
-      theme: AppTheme.light.copyWith(platform: platform),
+      theme: (dark ? AppTheme.dark : AppTheme.light).copyWith(
+        platform: platform,
+      ),
+      builder: (context, child) => MediaQuery(
+        data: MediaQuery.of(context)
+            .copyWith(textScaler: TextScaler.linear(scale)),
+        child: Directionality(textDirection: direction, child: child!),
+      ),
       home: Scaffold(
         body: Align(
           alignment: Alignment.bottomRight,

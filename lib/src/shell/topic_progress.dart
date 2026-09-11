@@ -125,6 +125,8 @@ class _TopicProgressPopoverState extends State<TopicProgressPopover> {
       side: DPopoverSide.top,
       align: DPopoverAlign.end,
       width: 360,
+      padding: const EdgeInsets.all(16),
+      semanticLabel: 'Post navigation',
       child: _TopicProgressEditor(
         key: ValueKey(_session),
         controller: widget.controller,
@@ -257,16 +259,24 @@ class _TopicProgressEditorState extends State<_TopicProgressEditor> {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const DPopoverHeader(
-          children: [DPopoverTitle(child: Text('Topic progress'))],
-        ),
-        const SizedBox(height: 12),
-        Text(
-          'Post $_selected of ${widget.total}',
+        Text.rich(
+          TextSpan(
+            text: 'Post $_selected ',
+            children: [
+              TextSpan(
+                text: 'of ${widget.total}',
+                style: TextStyle(
+                  color: DTokens.of(context).mutedForeground,
+                  fontWeight: FontWeight.w400,
+                ),
+              ),
+            ],
+          ),
           key: const ValueKey('topic-progress-selection'),
-          textAlign: TextAlign.center,
+          textAlign: TextAlign.start,
           style: theme.textTheme.titleSmall?.copyWith(
-            fontWeight: FontWeight.w600,
+            fontWeight: FontWeight.w500,
+            fontFeatures: const [FontFeature.tabularFigures()],
           ),
         ),
         TopicPositionSlider(
@@ -288,13 +298,19 @@ class _TopicProgressEditorState extends State<_TopicProgressEditor> {
           const SizedBox(height: 12),
         ],
         Wrap(
-          alignment: WrapAlignment.center,
+          alignment: WrapAlignment.spaceBetween,
           spacing: 8,
           runSpacing: 8,
           children: [
             DButton(
               label: const Text('First post'),
+              variant: DButtonVariant.ghost,
               onPressed: _jumping ? null : () => unawaited(_jump(1)),
+            ),
+            DButton(
+              label: const Text('Latest post'),
+              variant: DButtonVariant.ghost,
+              onPressed: _jumping ? null : () => unawaited(_jump(widget.total)),
             ),
             DButton(
               key: const ValueKey('topic-progress-jump'),
@@ -302,10 +318,6 @@ class _TopicProgressEditorState extends State<_TopicProgressEditor> {
               onPressed: () => unawaited(_jump()),
               variant: DButtonVariant.primary,
               loading: _jumping,
-            ),
-            DButton(
-              label: const Text('Latest post'),
-              onPressed: _jumping ? null : () => unawaited(_jump(widget.total)),
             ),
           ],
         ),
