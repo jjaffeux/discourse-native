@@ -314,10 +314,12 @@ class _TopicListNavigationControls extends StatelessWidget {
           final heading = headingBuilder;
           Widget inset(Widget child) => ContentReadingLaneBox(
             widthLimit: topicListContentWidth,
-            padding: const EdgeInsets.symmetric(
-              horizontal: topicListHorizontalPadding,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: topicListHorizontalPadding,
+              ),
+              child: child,
             ),
-            child: child,
           );
           Widget search() => TopicListSearch(
             key: ValueKey((
@@ -368,7 +370,7 @@ class _TopicListNavigationControls extends StatelessWidget {
               if (contextual != null || showsFilters)
                 inset(
                   Padding(
-                    padding: const EdgeInsets.only(top: 12, bottom: 12),
+                    padding: const EdgeInsets.only(top: 8, bottom: 8),
                     child: Builder(
                       builder: (filterContext) {
                         final lease = state.siteUrl == null
@@ -445,12 +447,15 @@ class _TopicListNavigationControls extends StatelessWidget {
                               ),
                             if (wide && showsFilters) ...[
                               const SizedBox(width: 12),
-                              Flexible(
-                                child: ConstrainedBox(
-                                  constraints: const BoxConstraints(
-                                    maxWidth: 360,
+                              Expanded(
+                                child: Align(
+                                  alignment: AlignmentDirectional.centerEnd,
+                                  child: ConstrainedBox(
+                                    constraints: const BoxConstraints(
+                                      maxWidth: 360,
+                                    ),
+                                    child: search(),
                                   ),
-                                  child: search(),
                                 ),
                               ),
                             ],
