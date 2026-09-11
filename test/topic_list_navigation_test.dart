@@ -141,99 +141,168 @@ void main() {
     }
   }
 
-  testWidgets(
-    'narrow selectors apply parent, subcategory and tag immediately',
-    (tester) async {
-      tester.view.physicalSize = const Size(390, 800);
-      tester.view.devicePixelRatio = 1;
-      addTearDown(tester.view.reset);
-      const parent = TopicCategory(
-        id: 42,
-        name: 'Support',
-        slug: 'support',
-        color: '3188CC',
-      );
-      const child = TopicCategory(
-        id: 43,
-        parentCategoryId: 42,
-        name: 'Installation',
-        slug: 'installation',
-        color: '3188CC',
-      );
-      final setup = await _controller(
-        categoryList: [parent, child],
-        categorySiteTopTags: const [
-          SidebarTag(id: 5, name: 'release', slug: 'release'),
-        ],
-      );
-      final shell = setup.controller;
-      addTearDown(shell.dispose);
-      await tester.pumpWidget(
-        ShellScope(
-          controller: shell,
-          child: MaterialApp(
-            theme: AppTheme.dark,
-            home: const Scaffold(
-              body: TopicListNavigation(stacked: true, child: SizedBox()),
+  for (final stacked in [false, true]) {
+    testWidgets(
+      'narrow selectors combine tags with AND and preserve filters (stacked: $stacked)',
+      (tester) async {
+        tester.view.physicalSize = const Size(390, 800);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+        const parent = TopicCategory(
+          id: 42,
+          name: 'Support',
+          slug: 'support',
+          color: '3188CC',
+        );
+        const child = TopicCategory(
+          id: 43,
+          parentCategoryId: 42,
+          name: 'Installation',
+          slug: 'installation',
+          color: '3188CC',
+        );
+        final setup = await _controller(
+          categoryList: [parent, child],
+          categorySiteTopTags: const [
+            SidebarTag(id: 5, name: 'release', slug: 'release'),
+            SidebarTag(id: 6, name: 'approved', slug: 'approved'),
+          ],
+        );
+        final shell = setup.controller;
+        addTearDown(shell.dispose);
+        await tester.pumpWidget(
+          ShellScope(
+            controller: shell,
+            child: MaterialApp(
+              theme: AppTheme.dark,
+              home: Scaffold(
+                body: TopicListNavigation(
+                  stacked: stacked,
+                  child: const SizedBox(),
+                ),
+              ),
             ),
           ),
-        ),
-      );
-      await tester.pumpAndSettle();
-      await tester.tap(
-        find.byKey(const ValueKey('topic-list-category-filter')),
-      );
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Support').last);
-      await tester.pumpAndSettle();
-      expect(shell.topicListContent?.categoryId, 42);
-      final parentRect = tester.getRect(
-        find.byKey(const ValueKey('topic-list-category-filter')),
-      );
-      final childRect = tester.getRect(
-        find.byKey(const ValueKey('topic-list-subcategory-filter')),
-      );
-      final tagRect = tester.getRect(
-        find.byKey(const ValueKey('topic-list-tag-filter')),
-      );
-      expect(parentRect.top, childRect.top);
-      expect(tagRect.top, greaterThanOrEqualTo(childRect.bottom));
-      await tester.tap(
-        find.byKey(const ValueKey('topic-list-subcategory-filter')),
-      );
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Installation').last);
-      await tester.pumpAndSettle();
-      expect(shell.topicListContent?.categoryId, 43);
-      await tester.tap(find.byKey(const ValueKey('topic-list-tag-filter')));
-      await tester.pumpAndSettle();
-      await tester.tap(
-        find.byKey(const ValueKey(('topic-list-tag-filter-option', 'release'))),
-      );
-      await tester.pumpAndSettle();
-      expect(shell.topicListContent?.categoryId, 43);
-      expect(shell.topicListContent?.tagNames, ['release']);
-      expect(
-        setup.api.feedPaths.last,
-        '/tags/c/support/installation/43/release.json',
-      );
-      expect(find.byKey(const ValueKey('topic-list-filters')), findsNothing);
-      expect(
-        find.byKey(const ValueKey('topic-list-clear-filters')),
-        findsNothing,
-      );
-      // Returning to the parent retains tags and clears only the subcategory.
-      await tester.tap(
-        find.byKey(const ValueKey('topic-list-subcategory-filter')),
-      );
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('All subcategories').last);
-      await tester.pumpAndSettle();
-      expect(shell.topicListContent?.categoryId, 42);
-      expect(shell.topicListContent?.tagNames, ['release']);
-      expect(tester.takeException(), isNull);
-    },
-  );
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(
+          find.byKey(const ValueKey('topic-list-category-filter')),
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Support').last);
+        await tester.pumpAndSettle();
+        expect(shell.topicListContent?.categoryId, 42);
+        final parentRect = tester.getRect(
+          find.byKey(const ValueKey('topic-list-category-filter')),
+        );
+        final childRect = tester.getRect(
+          find.byKey(const ValueKey('topic-list-subcategory-filter')),
+        );
+        final tagRect = tester.getRect(
+          find.byKey(const ValueKey('topic-list-tag-filter')),
+        );
+        expect(parentRect.top, childRect.top);
+        expect(tagRect.top, greaterThanOrEqualTo(childRect.bottom));
+        await tester.tap(
+          find.byKey(const ValueKey('topic-list-subcategory-filter')),
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Installation').last);
+        await tester.pumpAndSettle();
+        expect(shell.topicListContent?.categoryId, 43);
+        await tester.tap(
+          find.byKey(const ValueKey('topic-list-tag-filter')),
+          kind: PointerDeviceKind.mouse,
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(
+          find.byKey(
+            const ValueKey(('topic-list-tag-filter-option', 'release')),
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(shell.topicListContent?.categoryId, 43);
+        expect(shell.topicListContent?.tagNames, ['release']);
+        expect(
+          setup.api.feedPaths.last,
+          '/tags/c/support/installation/43/release.json',
+        );
+        expect(find.byKey(const ValueKey('topic-list-filters')), findsNothing);
+        expect(
+          find.byKey(const ValueKey('topic-list-clear-filters')),
+          findsNothing,
+        );
+        await tester.tap(
+          find.byKey(const ValueKey('topic-list-tag-filter')),
+          kind: PointerDeviceKind.mouse,
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(
+          find.byKey(
+            const ValueKey(('topic-list-tag-filter-option', 'approved')),
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(shell.topicListContent?.tagNames, ['approved', 'release']);
+        expect(find.text('Tags · 2'), findsOneWidget);
+        final taggedFeed = Uri.parse(setup.api.feedPaths.last);
+        expect(taggedFeed.path, '/latest.json');
+        expect(taggedFeed.queryParameters['category'], '43');
+        expect(taggedFeed.queryParametersAll['tags[]'], [
+          'approved',
+          'release',
+        ]);
+        expect(taggedFeed.queryParameters['match_all_tags'], 'true');
+
+        // Returning to the parent retains tags and clears only the subcategory.
+        await tester.tap(
+          find.byKey(const ValueKey('topic-list-subcategory-filter')),
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('All subcategories').last);
+        await tester.pumpAndSettle();
+        expect(shell.topicListContent?.categoryId, 42);
+        expect(shell.topicListContent?.tagNames, ['approved', 'release']);
+        await shell.selectTopicListMode(TopicListMode.topWeekly);
+        await tester.pumpAndSettle();
+        final topFeed = Uri.parse(setup.api.feedPaths.last);
+        expect(topFeed.path, '/top.json');
+        expect(topFeed.queryParameters['period'], 'weekly');
+        expect(topFeed.queryParameters['category'], '42');
+        expect(topFeed.queryParametersAll['tags[]'], ['approved', 'release']);
+        expect(topFeed.queryParameters['match_all_tags'], 'true');
+
+        await tester.tap(
+          find.byKey(const ValueKey('topic-list-tag-filter')),
+          kind: PointerDeviceKind.mouse,
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(
+          find.byKey(
+            const ValueKey(('topic-list-tag-filter-option', 'approved')),
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(shell.topicListContent?.tagNames, ['release']);
+        expect(shell.topicListContent?.categoryId, 42);
+        expect(shell.currentTopicListMode, TopicListMode.topWeekly);
+
+        await tester.tap(
+          find.byKey(const ValueKey('topic-list-tag-filter')),
+          kind: PointerDeviceKind.mouse,
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(
+          find.byKey(const ValueKey('topic-list-tag-filter-all')),
+        );
+        await tester.pumpAndSettle();
+        expect(shell.topicListContent?.tagNames, isEmpty);
+        expect(shell.topicListContent?.categoryId, 42);
+        expect(setup.api.feedPaths.last, '/top.json?period=weekly&category=42');
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
 
   testWidgets(
     'retired direct selector cannot change a replaced feed before rebuild',
@@ -521,10 +590,12 @@ void main() {
         'experience',
       );
       await tester.tap(
-        find.byKey(const ValueKey(('topic-list-tag-filter-option', 'ux'))),
+        find.byKey(
+          const ValueKey(('topic-list-tag-filter-option', 'User experience')),
+        ),
       );
       await tester.pumpAndSettle();
-      expect(controller.topicListContent?.tagName, 'ux');
+      expect(controller.topicListContent?.tagNames, ['User experience']);
       expect(find.text('User experience'), findsOneWidget);
     },
   );

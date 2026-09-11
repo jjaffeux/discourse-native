@@ -367,9 +367,7 @@ class _TopicListNavigationControls extends StatelessWidget {
                                 knownTags: state.tags,
                                 selectedCategoryId: state.route!.categoryId,
                                 selectedTagName: state.route!.tagName,
-                                selectedTagNames: stacked
-                                    ? state.route!.tagNames
-                                    : null,
+                                selectedTagNames: state.route!.tagNames,
                                 taggingEnabled: state.taggingEnabled,
                                 searchTags: searchTags,
                                 onCategorySelected: (category) {
@@ -388,16 +386,14 @@ class _TopicListNavigationControls extends StatelessWidget {
                                     );
                                   }
                                 },
-                                onTagsSelected: stacked
-                                    ? (tags) {
-                                        if (ownsFeed()) {
-                                          controller.selectTopicListTags(
-                                            tags,
-                                            keepTopicOpen: keepTopicOpen,
-                                          );
-                                        }
-                                      }
-                                    : null,
+                                onTagsSelected: (tags) {
+                                  if (ownsFeed()) {
+                                    controller.selectTopicListTags(
+                                      tags,
+                                      keepTopicOpen: keepTopicOpen,
+                                    );
+                                  }
+                                },
                               );
                         return Flex(
                           key: const ValueKey('topic-list-refinement-row'),
