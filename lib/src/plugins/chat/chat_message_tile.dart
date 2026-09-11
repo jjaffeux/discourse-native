@@ -64,7 +64,7 @@ class ChatMessageTile extends StatelessWidget {
   final bool chained;
 
   /// Whether this is the last visible message in a consecutive-sender run.
-  /// DMs share their timestamp and optional avatar here; channel rows ignore it.
+  /// DMs show their optional avatar here; channel rows ignore it.
   final bool endsGroup;
 
   final ValueChanged<ChatThreadPreview>? onOpenThread;
@@ -513,6 +513,17 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
       builder: (sheetContext) => Column(
         mainAxisSize: MainAxisSize.min,
         children: [
+          if (chat
+                  .channel(widget.siteUrl, widget.message.channelId)
+                  ?.isDirectMessage ==
+              true)
+            if (widget.message.createdAt case final at?)
+              DDropdownMenuLabel(
+                child: Text(
+                  _messageDate(context, at),
+                  key: ChatMessageTile.timestampKey(widget.message.id),
+                ),
+              ),
           if (canAddReaction)
             ListTile(
               minTileHeight: 52,
@@ -731,6 +742,15 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
             align: DPopoverAlign.end,
             width: 220,
             children: [
+              if (widget.message.createdAt case final at?) ...[
+                DDropdownMenuLabel(
+                  child: Text(
+                    _messageDate(context, at),
+                    key: ChatMessageTile.timestampKey(widget.message.id),
+                  ),
+                ),
+                const DDropdownMenuSeparator(),
+              ],
               if (canReply) item('reply', 'Reply', DIcons.reply, _reply),
               if (canAddReaction)
                 item(
@@ -1499,9 +1519,7 @@ class _Tile extends StatelessWidget {
             ProjectedPreview(:final document) => document.nodes.isNotEmpty,
             _ => message.optimisticRaw?.isNotEmpty == true,
           };
-    final showTimestamp = endsGroup && message.createdAt != null;
     final hasMetadata =
-        showTimestamp ||
         message.edited ||
         message.pinned ||
         message.bookmark != null ||
@@ -1661,11 +1679,6 @@ class _Tile extends StatelessWidget {
                 DMessageFooter(
                   spacing: DSpacing.sm,
                   children: [
-                    if (message.createdAt case final at? when showTimestamp)
-                      Text(
-                        relativeTime(at),
-                        key: ChatMessageTile.timestampKey(message.id),
-                      ),
                     if (message.edited)
                       Text(
                         '(edited)',
@@ -2480,4 +2493,10 @@ class _Tag extends StatelessWidget {
       ),
     );
   }
+}
+
+String _messageDate(BuildContext context, DateTime value) {
+  final local = value.toLocal();
+  final material = MaterialLocalizations.of(context);
+  return "${material.formatFullDate(local)} · ${material.formatTimeOfDay(TimeOfDay.fromDateTime(local))}";
 }

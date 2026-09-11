@@ -326,6 +326,7 @@ void main() {
         await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
         await tester.pumpAndSettle();
         expect(find.byType(DDropdownMenuContent), findsOneWidget);
+        expect(find.byKey(ChatMessageTile.timestampKey(7)), findsOneWidget);
         await tester.sendKeyEvent(LogicalKeyboardKey.escape);
         await tester.pumpAndSettle();
         expect(tester.widget<DButton>(trigger).focusNode!.hasFocus, isTrue);
@@ -396,7 +397,7 @@ void main() {
         await tester.pumpAndSettle();
         expect(find.text('Pin'), findsOneWidget);
         expect(find.text('Select'), findsOneWidget);
-        expect(find.byType(DDropdownMenuSeparator), findsNothing);
+        expect(find.byType(DDropdownMenuSeparator), findsOneWidget);
         final edit = tester.getRect(
           find.widgetWithText(DDropdownMenuItem, 'Edit'),
         );
@@ -561,7 +562,7 @@ void main() {
       );
       await tester.pumpWidget(_tile(controller, chained: true));
       await tester.pumpAndSettle();
-      expect(find.byKey(ChatMessageTile.timestampKey(7)), findsOneWidget);
+      expect(find.byKey(ChatMessageTile.timestampKey(7)), findsNothing);
       expect(find.byType(ChatUserAvatar), findsOneWidget);
     },
   );
