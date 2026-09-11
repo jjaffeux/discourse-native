@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 
 import '../styleguide_example.dart';
 import 'button_reference_icons.dart';
+import 'control_comparison_example.dart';
 
 final buttonExamples = ComponentExamples(
   topLevelExampleIndex: 9,
@@ -130,13 +131,20 @@ final buttonExamples = ComponentExamples(
       builder: (_) => const _ButtonRtl(),
     ),
     StyleguideExample(
-      title: 'Application variants',
+      title: 'Control consistency',
       description:
-          'Compatibility variants retain existing app-specific emphasis.',
-      states: const ['Success', 'Danger', 'Flat', 'Transparent'],
-      code:
-          "DButton(label: const Text('Approve'), variant: DButtonVariant.success, onPressed: approve)",
-      builder: (_) => const _ButtonVariants(compatibility: true),
+          'Compare buttons, selects, menu triggers and joined actions together. '
+          'Open each menu and check hover, focus and disabled states.',
+      states: const [
+        'Default',
+        'Small',
+        'Disabled',
+        'Dropdown',
+        'Select',
+        'Joined',
+      ],
+      code: "DDropdownMenuTrigger.button(label: const Text('Open'))",
+      builder: (_) => const ControlComparisonExample(),
     ),
     StyleguideExample(
       title: 'Reference demo',
@@ -353,8 +361,7 @@ class _ButtonDemo extends StatelessWidget {
 }
 
 class _ButtonVariants extends StatefulWidget {
-  const _ButtonVariants({this.compatibility = false});
-  final bool compatibility;
+  const _ButtonVariants();
   @override
   State<_ButtonVariants> createState() => _ButtonVariantsState();
 }
@@ -369,27 +376,14 @@ class _ButtonVariantsState extends State<_ButtonVariants> {
         spacing: 8,
         runSpacing: 8,
         children: [
-          for (final variant
-              in widget.compatibility
-                  ? [
-                      DButtonVariant.standard,
-                      DButtonVariant.danger,
-                      DButtonVariant.success,
-                      DButtonVariant.flat,
-                      DButtonVariant.flatClose,
-                      DButtonVariant.transparent,
-                      DButtonVariant.transparentPrimary,
-                      DButtonVariant.transparentDanger,
-                      DButtonVariant.transparentSuccess,
-                    ]
-                  : [
-                      DButtonVariant.primary,
-                      DButtonVariant.outline,
-                      DButtonVariant.secondary,
-                      DButtonVariant.ghost,
-                      DButtonVariant.destructive,
-                      DButtonVariant.link,
-                    ])
+          for (final variant in [
+            DButtonVariant.primary,
+            DButtonVariant.outline,
+            DButtonVariant.secondary,
+            DButtonVariant.ghost,
+            DButtonVariant.destructive,
+            DButtonVariant.link,
+          ])
             DButton(
               label: Text(
                 variant == DButtonVariant.primary ? 'Button' : variant.name,

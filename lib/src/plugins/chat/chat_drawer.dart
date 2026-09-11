@@ -628,10 +628,11 @@ class _DrawerHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     Widget fullPageButton() => DButton.iconOnly(
+      insetSurface: true,
       key: ChatDrawerOverlay.fullPageButtonKey,
       tooltip: 'Open full-screen chat',
       onPressed: onFullPage,
-      variant: DButtonVariant.flat,
+      variant: DButtonVariant.ghost,
       icon: const DIcon(DIcons.discourseExpand, size: 18),
     );
 
@@ -650,9 +651,10 @@ class _DrawerHeader extends StatelessWidget {
               children: [
                 if (expanded && canGoBack)
                   DButton.iconOnly(
+                    insetSurface: true,
                     tooltip: 'Back',
                     onPressed: onBack,
-                    variant: DButtonVariant.flat,
+                    variant: DButtonVariant.ghost,
                     icon: const DIcon(DIcons.chevronLeft, size: 18),
                   )
                 else
@@ -691,12 +693,13 @@ class _DrawerHeader extends StatelessWidget {
                 ),
                 if (expanded && onSearch != null)
                   DButton.iconOnly(
+                    insetSurface: true,
                     key: ChatDrawerOverlay.searchButtonKey,
                     tooltip: 'Search chat',
                     onPressed: onSearch,
                     variant: route.id == 'chat-search'
-                        ? DButtonVariant.transparentPrimary
-                        : DButtonVariant.flat,
+                        ? DButtonVariant.primary
+                        : DButtonVariant.ghost,
                     icon: const DIcon(DIcons.magnifyingGlass, size: 16),
                   ),
                 if (overflowActions)
@@ -708,20 +711,22 @@ class _DrawerHeader extends StatelessWidget {
                   ...routeActions,
                 if (expanded)
                   DButton.iconOnly(
+                    insetSurface: true,
                     key: ChatDrawerOverlay.collapseButtonKey,
                     tooltip: 'Collapse Chat Drawer',
                     onPressed: onToggle,
-                    variant: DButtonVariant.flat,
+                    variant: DButtonVariant.ghost,
                     icon: const DIcon(DIcons.minus, size: 18),
                   )
                 else
                   _CollapsedDrawerToggleButton(onPressed: onToggle),
                 if (expanded && !overflowActions) fullPageButton(),
                 DButton.iconOnly(
+                  insetSurface: true,
                   key: ChatDrawerOverlay.closeButtonKey,
                   tooltip: 'Close',
                   onPressed: onClose,
-                  variant: DButtonVariant.flatClose,
+                  variant: DButtonVariant.ghost,
                   icon: const DIcon(DIcons.xmark, size: 18),
                 ),
                 const SizedBox(width: 2),
@@ -815,10 +820,11 @@ class _CollapsedDrawerToggleButtonState
         minHeight: DButton.minimumDimension,
         maxHeight: DButton.minimumDimension,
         child: DButton.iconOnly(
+          insetSurface: true,
           tooltip: 'Expand Chat Drawer',
           onPressed: widget.onPressed,
           focusNode: _focus,
-          variant: DButtonVariant.flat,
+          variant: DButtonVariant.ghost,
           icon: const DIcon(DIcons.arrowUp, size: 18),
         ),
       ),
@@ -908,11 +914,12 @@ class _DrawerHeaderOverflowMenuState extends State<_DrawerHeaderOverflowMenu> {
     onOpen: () => widget.onOpenChanged(true),
     onClose: () => widget.onOpenChanged(false),
     builder: (context, _, _) => DButton.iconOnly(
+      insetSurface: true,
       key: ChatDrawerOverlay.overflowButtonKey,
       tooltip: 'More Chat actions',
       semanticLabel: 'More Chat actions',
       onPressed: _controller.isOpen ? _controller.close : _controller.open,
-      variant: DButtonVariant.flat,
+      variant: DButtonVariant.ghost,
       icon: const DIcon(DIcons.ellipsis, size: 18),
     ),
   );
@@ -1111,7 +1118,7 @@ class _DrawerListAction extends StatelessWidget {
     tooltip: tooltip,
     icon: DIcon(icon, size: 16),
     onPressed: onPressed,
-    variant: DButtonVariant.transparentPrimary,
+    variant: DButtonVariant.outline,
     size: DButtonSize.small,
   );
 }
@@ -1587,8 +1594,8 @@ class ChatDrawerNavigation extends StatelessWidget {
                   icon: showIcons ? DIcon(item.icon, size: 16) : null,
                   onPressed: item.onPressed,
                   variant: selected
-                      ? DButtonVariant.transparentPrimary
-                      : DButtonVariant.flat,
+                      ? DButtonVariant.primary
+                      : DButtonVariant.ghost,
                   size: DButtonSize.small,
                 ),
               ),

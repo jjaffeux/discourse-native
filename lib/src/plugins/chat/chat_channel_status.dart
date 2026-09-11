@@ -93,7 +93,7 @@ class _ChannelStatusDialogState extends State<_ChannelStatusDialog> {
         key: const ValueKey('chat-channel-status-confirm'),
         label: Text(_closing ? 'Close channel' : 'Open channel'),
         onPressed: () => unawaited(_save()),
-        variant: _closing ? DButtonVariant.danger : DButtonVariant.primary,
+        variant: _closing ? DButtonVariant.destructive : DButtonVariant.primary,
         loading: _saving,
       ),
     ],

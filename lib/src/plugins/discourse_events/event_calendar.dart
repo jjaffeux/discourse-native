@@ -243,7 +243,7 @@ final class _EventCalendarState extends State<EventCalendar> {
           ),
         ),
         DButton(
-          variant: DButtonVariant.transparentPrimary,
+          variant: DButtonVariant.outline,
           label: const Text('Today'),
           onPressed: () {
             final now = _now();
@@ -528,7 +528,7 @@ final class _EventCalendarState extends State<EventCalendar> {
           ),
           actions: [
             DButton(
-              variant: DButtonVariant.transparentPrimary,
+              variant: DButtonVariant.outline,
               onPressed: () {
                 Navigator.pop(context);
                 if (isCurrent()) {
@@ -540,7 +540,7 @@ final class _EventCalendarState extends State<EventCalendar> {
               label: const Text('Day view'),
             ),
             DButton(
-              variant: DButtonVariant.transparentPrimary,
+              variant: DButtonVariant.ghost,
               onPressed: () => Navigator.pop(context),
               label: const Text('Close'),
             ),

@@ -141,7 +141,7 @@ class _PermanentDeleteDialogState extends State<_PermanentDeleteDialog> {
           key: const ValueKey('post-permanent-delete-submit'),
           label: const Text('Permanently delete'),
           onPressed: !_saving && _matches ? () => unawaited(_delete()) : null,
-          variant: DButtonVariant.danger,
+          variant: DButtonVariant.destructive,
           loading: _saving,
         ),
       ],

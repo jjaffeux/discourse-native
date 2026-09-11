@@ -361,7 +361,7 @@ class _DirectoryControls extends StatelessWidget {
             key: const ValueKey('create-group'),
             label: const Text('New Group'),
             icon: const DIcon(DIcons.plus, size: 16),
-            variant: DButtonVariant.standard,
+            variant: DButtonVariant.outline,
             onPressed: onCreateGroup,
           )
         : null;

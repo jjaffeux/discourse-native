@@ -16,7 +16,7 @@ void main() {
       'As link and shortcuts',
       'Rich labels and trigger states',
       'RTL',
-      'Application variants',
+      'Control consistency',
       'Reference demo',
       'Custom colors',
     ]);

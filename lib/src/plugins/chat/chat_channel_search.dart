@@ -38,9 +38,10 @@ class ChatChannelSearchButton extends StatelessWidget {
         return ValueListenableBuilder<ScopedChatSearchState>(
           valueListenable: search.scopedRef(siteUrl, channelId),
           builder: (context, state, _) => DButton.iconOnly(
+            insetSurface: true,
             key: const ValueKey('chat-channel-search-button'),
             onPressed: () => search.toggleScoped(siteUrl, channelId),
-            variant: DButtonVariant.flat,
+            variant: DButtonVariant.ghost,
             icon: DIcon(
               DIcons.magnifyingGlass,
               size: 18,

@@ -831,10 +831,9 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     }
   }
 
-  double _sidebarOverlayWidth(BuildContext context) =>
-      MediaQuery.sizeOf(context).width
-          .clamp(0.0, _TopicSidebarPanel.dockedWidth)
-          .toDouble();
+  double _sidebarOverlayWidth(BuildContext context) => MediaQuery.sizeOf(
+    context,
+  ).width.clamp(0.0, _TopicSidebarPanel.dockedWidth).toDouble();
 
   void _setRecommendationsSource(TopicRecommendationSourceId sourceId) {
     final siteUrl = _recommendationsSiteUrl;
@@ -2235,10 +2234,6 @@ class _TopicBottomBar extends StatelessWidget {
     final showBookmark =
         hasTopic && ShellScope.read(context).currentInstance?.user != null;
     final showNotifications = hasTopic && isConnected;
-    final buttonBackground = theme.shell.floating;
-    final foreground = DTokens.of(context).foreground;
-    final buttonBorder = Color.lerp(buttonBackground, foreground, .12)!;
-    final buttonHover = Color.lerp(buttonBackground, foreground, .06)!;
     return Material(
       key: const ValueKey('topic-bottom-bar'),
       color: topic == null ? theme.shell.panel : theme.shell.content,
@@ -2267,7 +2262,6 @@ class _TopicBottomBar extends StatelessWidget {
                             tooltip: 'Reply to this topic',
                             shortcut: const DShortcut(topicReplyShortcut),
                             variant: DButtonVariant.primary,
-                            borderColor: buttonBorder,
                             size: DButtonSize.small,
                           ),
                         if (showBookmark)
@@ -2276,9 +2270,6 @@ class _TopicBottomBar extends StatelessWidget {
                             topic: topic!,
                             busy: bookmarkBusy,
                             variant: DButtonVariant.outline,
-                            backgroundColor: buttonBackground,
-                            borderColor: buttonBorder,
-                            interactiveBackgroundColor: buttonHover,
                           ),
                         if (showNotifications)
                           TopicNotificationLevelButton(
@@ -2286,9 +2277,6 @@ class _TopicBottomBar extends StatelessWidget {
                             topic: topic!,
                             showLabel: constraints.maxWidth >= 580,
                             variant: DButtonVariant.outline,
-                            backgroundColor: buttonBackground,
-                            borderColor: buttonBorder,
-                            interactiveBackgroundColor: buttonHover,
                           ),
                       ],
                     ),
@@ -2749,11 +2737,12 @@ class _TopicViewHeader extends StatelessWidget {
         child: Row(
           children: [
             DButton.iconOnly(
+              insetSurface: true,
               onPressed: () =>
                   controller.handleBack(canReturnToSidebar: canReturnToSidebar),
               icon: const DIcon(DIcons.arrowLeft, size: 16),
               tooltip: 'Back',
-              variant: DButtonVariant.flat,
+              variant: DButtonVariant.ghost,
               size: DButtonSize.small,
             ),
             const SizedBox(width: 4),
@@ -3023,11 +3012,12 @@ class _TopicSidebarToggle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => DButton.iconOnly(
+    insetSurface: true,
     key: const ValueKey('topic-sidebar-toggle'),
     onPressed: onPressed,
     icon: _TopicSidebarIcon(sidebarVisible: sidebarVisible),
     tooltip: sidebarVisible ? 'Hide topic sidebar' : 'Show topic sidebar',
-    variant: DButtonVariant.flat,
+    variant: DButtonVariant.ghost,
     size: DButtonSize.small,
   );
 }
@@ -3350,8 +3340,9 @@ class _EmptyTopicProperty extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Text(
     label,
-    style: Theme.of(context).textTheme.labelMedium
-        ?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
+    style: Theme.of(context).textTheme.labelMedium?.copyWith(
+      color: Theme.of(context).colorScheme.onSurfaceVariant,
+    ),
   );
 }
 

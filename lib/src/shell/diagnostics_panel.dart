@@ -600,7 +600,7 @@ class _TopicScrollCapturePanel extends StatelessWidget {
               key: const ValueKey('topic-scroll-capture-stop'),
               label: const Text('Stop capture'),
               onPressed: controller.stop,
-              variant: DButtonVariant.danger,
+              variant: DButtonVariant.destructive,
             ),
           ] else if (state.hasCapture) ...[
             _CaptureStatus(
@@ -634,7 +634,7 @@ class _TopicScrollCapturePanel extends StatelessWidget {
               key: const ValueKey('topic-scroll-capture-clear'),
               label: const Text('Discard capture'),
               onPressed: controller.clear,
-              variant: DButtonVariant.transparentDanger,
+              variant: DButtonVariant.destructive,
             ),
           ] else ...[
             Text(

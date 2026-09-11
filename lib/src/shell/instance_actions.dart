@@ -153,7 +153,7 @@ class _InstanceActionsState extends State<InstanceActions> {
               onPressed: () =>
                   Navigator.of(sheetContext).pop(_InstanceSheetAction.remove),
               icon: const DIcon(DIcons.trashCan, size: 18),
-              variant: DButtonVariant.danger,
+              variant: DButtonVariant.destructive,
             ),
           ],
         );

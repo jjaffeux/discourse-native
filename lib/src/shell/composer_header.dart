@@ -137,7 +137,7 @@ class ComposerHeader extends StatelessWidget {
                 semanticLabel: composer.whisper
                     ? 'Whisper options'
                     : 'Reply options',
-                variant: DButtonVariant.transparent,
+                variant: DButtonVariant.ghost,
                 size: DButtonSize.small,
                 icon: DIcon(
                   composer.whisper ? DIcons.farEyeSlash : DIcons.reply,
@@ -242,7 +242,7 @@ class ComposerHeader extends StatelessWidget {
               expanded: trigger.open,
               focusNode: trigger.focusNode,
               onPressed: trigger.toggle,
-              variant: DButtonVariant.transparent,
+              variant: DButtonVariant.ghost,
               size: DButtonSize.small,
             ),
           ),
@@ -253,7 +253,7 @@ class ComposerHeader extends StatelessWidget {
           onPressed: restore,
           icon: const DIcon(DIcons.expand, size: 16),
           tooltip: 'Restore composer',
-          variant: DButtonVariant.transparent,
+          variant: DButtonVariant.ghost,
           size: DButtonSize.small,
         )
       else if (onMinimize case final minimize?)
@@ -262,7 +262,7 @@ class ComposerHeader extends StatelessWidget {
           onPressed: minimize,
           icon: const Icon(Icons.remove, size: 18),
           tooltip: 'Minimize composer',
-          variant: DButtonVariant.transparent,
+          variant: DButtonVariant.ghost,
           size: DButtonSize.small,
         ),
       DButton.iconOnly(
@@ -270,7 +270,7 @@ class ComposerHeader extends StatelessWidget {
         onPressed: onClose,
         icon: const DIcon(DIcons.xmark, size: 16),
         tooltip: closeTooltip,
-        variant: DButtonVariant.transparent,
+        variant: DButtonVariant.ghost,
         size: DButtonSize.small,
       ),
     ];

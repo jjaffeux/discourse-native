@@ -460,7 +460,7 @@ class _PollComposerSheetState extends State<PollComposerSheet> {
         DButton(
           label: const Text('Remove'),
           onPressed: () => unawaited(_remove()),
-          variant: DButtonVariant.danger,
+          variant: DButtonVariant.destructive,
         ),
       ],
       DButton(

@@ -268,7 +268,7 @@ class _PluginNotificationsSectionState
                 loadingLabel: Text(dismissAction.buttonLabel),
                 tooltip: dismissAction.buttonTooltip,
                 size: DButtonSize.small,
-                variant: DButtonVariant.flat,
+                variant: DButtonVariant.ghost,
                 loading: _dismissing,
                 onPressed: widget.unreadCount > 0 ? _confirmDismiss : null,
               ),

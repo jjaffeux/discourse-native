@@ -461,7 +461,7 @@ class _ResponseButton extends StatelessWidget {
         'interested' => Icons.star,
         _ => Icons.close,
       }, size: 18),
-      variant: selected ? DButtonVariant.primary : DButtonVariant.standard,
+      variant: selected ? DButtonVariant.primary : DButtonVariant.outline,
       onPressed: enabled ? onTap : null,
     ),
   );

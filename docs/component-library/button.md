@@ -1,5 +1,7 @@
 # Button implementation and reference mapping
 
+Current shared control styling and application adoption: [2026-09-11 follow-up](control-consistency.md).
+
 Task: `01a083ac-5fd5-78b1-9263-7e3218a878b6`, branch `codex/ui-button`,
 base `2e894b5e`. Button owner implementation and native review are complete;
 coordinator integration review remains. See [native evidence](button-native-review.md).

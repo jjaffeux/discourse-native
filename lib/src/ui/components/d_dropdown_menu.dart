@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 
 import '../../theme/discourse_typography.dart';
 import '../foundation/tokens.dart';
+import 'd_button.dart';
 import 'd_popover.dart';
 import 'd_scroll_area.dart';
 
@@ -96,6 +97,35 @@ class DDropdownMenuTrigger extends StatelessWidget {
     required this.builder,
     this.focusNode,
   });
+
+  /// Standard action-menu trigger. The menu owns behavior and DButton owns
+  /// appearance; use the builder constructor only for richer compositions.
+  factory DDropdownMenuTrigger.button({
+    Key? key,
+    required Widget label,
+    Widget? icon,
+    DButtonIconPosition iconPosition = DButtonIconPosition.start,
+    DButtonVariant variant = DButtonVariant.outline,
+    DButtonSize size = DButtonSize.regular,
+    bool enabled = true,
+    String? semanticLabel,
+    FocusNode? focusNode,
+  }) => DDropdownMenuTrigger(
+    key: key,
+    focusNode: focusNode,
+    builder: (context, state) => DButton(
+      label: label,
+      icon: icon,
+      iconPosition: iconPosition,
+      variant: variant,
+      size: size,
+      semanticLabel: semanticLabel,
+      focusNode: state.focusNode,
+      hasPopup: true,
+      expanded: state.open,
+      onPressed: enabled ? state.toggle : null,
+    ),
+  );
 
   final DDropdownMenuTriggerBuilder builder;
   final FocusNode? focusNode;

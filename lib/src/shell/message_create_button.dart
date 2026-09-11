@@ -132,7 +132,7 @@ class _MessageRecipientsDialogState extends State<_MessageRecipientsDialog> {
     actions: [
       DButton(
         label: const Text('Cancel'),
-        variant: DButtonVariant.flat,
+        variant: DButtonVariant.ghost,
         onPressed: () => Navigator.of(context).pop(),
       ),
       DButton(

@@ -930,11 +930,12 @@ class _ChatComposerState extends State<ChatComposer> {
               ),
             ),
             DButton.iconOnly(
+              insetSurface: true,
               key: const ValueKey('chat-composer-cancel-reply'),
               onPressed: _clearReply,
               tooltip: 'Cancel reply',
               icon: const DIcon(DIcons.xmark, size: 16),
-              variant: DButtonVariant.flat,
+              variant: DButtonVariant.ghost,
             ),
           ],
         ),
@@ -1075,6 +1076,7 @@ class _ChatComposerState extends State<ChatComposer> {
                       _ChatComposerAddAction.gif => unawaited(_pickGif()),
                     },
                     builder: (context, openMenu) => DButton.iconOnly(
+                      insetSurface: true,
                       key: const ValueKey('chat-composer-add'),
                       onPressed: openMenu,
                       icon: DecoratedBox(
@@ -1091,8 +1093,7 @@ class _ChatComposerState extends State<ChatComposer> {
                         ),
                       ),
                       tooltip: 'Add to message',
-                      variant: DButtonVariant.flat,
-                      interactiveBackgroundColor: Colors.transparent,
+                      variant: DButtonVariant.ghost,
                     ),
                   ),
                 );
@@ -1166,6 +1167,7 @@ class _ChatComposerState extends State<ChatComposer> {
                           heightFactor: 1,
                           child: Builder(
                             builder: (buttonContext) => DButton.iconOnly(
+                              insetSurface: true,
                               key: const ValueKey('chat-composer-emoji'),
                               onPressed:
                                   _pickingGif ||
@@ -1186,7 +1188,7 @@ class _ChatComposerState extends State<ChatComposer> {
                                 size: 18,
                               ),
                               tooltip: 'Add emoji',
-                              variant: DButtonVariant.flat,
+                              variant: DButtonVariant.ghost,
                             ),
                           ),
                         ),
@@ -1198,11 +1200,12 @@ class _ChatComposerState extends State<ChatComposer> {
               Center(
                 heightFactor: 1,
                 child: DButton.iconOnly(
+                  insetSurface: true,
                   key: const ValueKey('chat-composer-edit-cancel'),
                   onPressed: _savingEdit ? null : _cancelEdit,
                   icon: const DIcon(DIcons.xmark, size: 18),
                   tooltip: 'Cancel edit',
-                  variant: DButtonVariant.flat,
+                  variant: DButtonVariant.ghost,
                 ),
               ),
             ValueListenableBuilder<TextEditingValue>(
@@ -1228,7 +1231,7 @@ class _ChatComposerState extends State<ChatComposer> {
                   tooltip: widget.editingMessage == null
                       ? 'Send message'
                       : 'Save edit',
-                  variant: DButtonVariant.transparentPrimary,
+                  variant: DButtonVariant.primary,
                 ),
               ),
             ),
