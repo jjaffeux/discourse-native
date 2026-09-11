@@ -834,7 +834,11 @@ class _TopicHeaderTaxonomy extends StatelessWidget {
                   topic.canEdit &&
                   shell
                       .filterCategoriesFor(siteUrl)
-                      .any((item) => item.parentCategoryId == root.id)));
+                      .any(
+                        (item) =>
+                            item.parentCategoryId == root.id &&
+                            item.canCreateTopic,
+                      )));
       final hasTags = topic.tags.isNotEmpty || topic.canEditTags;
       return LayoutBuilder(
         builder: (context, constraints) {

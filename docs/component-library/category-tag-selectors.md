@@ -22,9 +22,12 @@ upstream component catalogue is unchanged.
 - Header categories supply `triggerBuilder` to retain their tinted Native
   Button Group and independent browse link. `clearSelectionLabel` adds a null selection
   for removing a subcategory or moving to Uncategorized; callers resolve the
-  destination. It remains reachable while searching, including loading/error
-  states. An empty search does not implicitly select removal in place of the
-  current category.
+  destination. The header omits removal when that destination is already the
+  topic's category. An empty subcategory control appears only when the cached
+  hierarchy contains a child with posting permission; an already selected child
+  remains visible. Removal remains reachable while searching, including
+  loading/error states. An empty search does not implicitly select removal in
+  place of the current category.
 - Tag filters support single or multiple selection, All tags and known-tag
   fallback. The composer supplies category-scoped search, selected tags and
   creation/limit capabilities. Selected tags remain available for removal.
