@@ -18,9 +18,9 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Show DMs'));
     await tester.pumpAndSettle();
-    expect(find.byType(ChatMessageTile), findsNWidgets(6));
+    expect(find.byType(ChatMessageTile), findsNWidgets(9));
     final rows = tester.widgetList<DMessage>(find.byType(DMessage));
-    expect(rows.where((row) => row.align == DMessageAlign.end), hasLength(4));
+    expect(rows.where((row) => row.align == DMessageAlign.end), hasLength(7));
     expect(rows.where((row) => row.align == DMessageAlign.start), hasLength(2));
     expect(find.text('dm-notes.pdf'), findsOneWidget);
     expect(find.text('Sending'), findsOneWidget);

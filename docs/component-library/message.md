@@ -160,8 +160,11 @@ consumers, without new routing or network responsibilities.
 Outgoing messages use end-aligned primary bubbles and incoming messages use
 start-aligned muted bubbles. Incoming sender metadata uses Message Header;
 timestamps, edited/pin/bookmark indicators and pending/failed status use Message
-Footer. Chained rows keep independent selection/virtualization identity and an
-empty avatar slot. No successful-delivery or read receipt is inferred.
+Footer. Consecutive DM bubbles share an avatar and timestamp on the last row,
+with the kit's 8px group spacing and empty avatar slots on preceding rows.
+Incoming sender metadata appears on the first row. Edited state, reactions,
+pin/bookmark indicators and send errors remain attached to their own messages.
+No successful-delivery or read receipt is inferred.
 
 Canonical HTML and provisional text inherit Bubble typography and foreground.
 `CookedHtml.linkStyle` optionally overrides link color and underline decoration;
@@ -199,3 +202,30 @@ Checks completed for this adoption:
   passed on the final source. The native inspection above preceded only the
   pending-attachment empty-body guard; the inspected fixture compositions are
   unchanged by that guard.
+
+
+### Consecutive DM groups (2026-09-11)
+
+The conversation stream supplies `ChatMessageTile.endsGroup` from its existing
+sender-chain projection. This gives consecutive bubbles the kit's grouped
+presentation while keeping one virtualized row per message for jumps, read
+tracking, actions and selection. Sender changes, chain time limits, day/unread
+dividers and deleted rows retain the existing group boundaries. Standalone
+tiles default to showing their own avatar and timestamp; channels retain their
+compact presentation.
+
+The production fixture includes a five-bubble outgoing run, reactions, rich
+links, an incoming attachment and pending/failed messages. Regression coverage
+checks 8px spacing, shared metadata moving on live arrivals, separate message
+selection, prepended history, deletion, group boundaries and per-message status.
+
+Verification for the grouping follow-up: 183 focused DM, lifecycle, stream,
+thread, search, message-action and fixture tests passed. Static analysis,
+touched-file formatting, `git diff --check` and the macOS fixture build passed.
+The isolated macOS app launched (confirmed by its process and sampled Flutter
+threads), but the desktop inspection tool repeatedly returned
+`timeoutReached` when attaching by path or bundle ID, including after resetting
+the tool session. This follow-up has no completed native visual inspection;
+the earlier DM adoption observations above describe the earlier presentation.
+The isolated process was stopped and the desktop lease released. Narrow,
+200% text, RTL and palette regression coverage ran as widget tests.

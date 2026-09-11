@@ -121,6 +121,7 @@ Widget _tile(
   double width = 720,
   double scale = 1,
   bool chained = false,
+  bool endsGroup = true,
   bool selecting = false,
   bool selected = false,
   ValueChanged<bool>? onSelectedChanged,
@@ -149,6 +150,7 @@ Widget _tile(
                       siteUrl: site,
                       messageId: 7,
                       chained: chained,
+                      endsGroup: endsGroup,
                       selecting: selecting,
                       selected: selected,
                       onSelectedChanged: onSelectedChanged,
@@ -250,6 +252,32 @@ void main() {
     );
   });
 
+  testWidgets(
+    'intermediate messages retain edited, reaction and failed-send metadata',
+    (tester) async {
+      final controller = await _controller(
+        _message(
+          edited: true,
+          reactions: const [ChatReaction(emoji: 'heart', count: 2)],
+        ).withSendState(delivery: ChatMessageDelivery.failed, error: 'Offline'),
+      );
+      await tester.pumpWidget(_tile(controller, endsGroup: false));
+      await tester.pumpAndSettle();
+      expect(find.byKey(ChatMessageTile.timestampKey(7)), findsNothing);
+      expect(find.byType(ChatUserAvatar), findsNothing);
+      expect(find.text('(edited)'), findsOneWidget);
+      expect(find.text('Failed to send: Offline'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('chat-reaction-pill-7-heart')),
+        findsOneWidget,
+      );
+      await tester.pumpWidget(_tile(controller, chained: true));
+      await tester.pumpAndSettle();
+      expect(find.byKey(ChatMessageTile.timestampKey(7)), findsOneWidget);
+      expect(find.byType(ChatUserAvatar), findsOneWidget);
+    },
+  );
+
   testWidgets('chaining keeps the bubble edge and body selection identity', (
     tester,
   ) async {
@@ -260,7 +288,7 @@ void main() {
     final selection = tester.element(
       find.byKey(ChatMessageTile.bodySelectionKey(7)),
     );
-    await tester.pumpWidget(_tile(controller, chained: true));
+    await tester.pumpWidget(_tile(controller, chained: true, endsGroup: false));
     await tester.pumpAndSettle();
     expect(find.byType(ChatUserAvatar), findsNothing);
     expect(find.byType(DMessageHeader), findsNothing);

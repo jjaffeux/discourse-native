@@ -42,6 +42,7 @@ class ChatMessageTile extends StatelessWidget {
     required this.siteUrl,
     required this.messageId,
     required this.chained,
+    this.endsGroup = true,
     this.contextThreadId,
     this.onOpenThread,
     this.onJumpToMessage,
@@ -61,6 +62,10 @@ class ChatMessageTile extends StatelessWidget {
   final int? contextThreadId;
 
   final bool chained;
+
+  /// Whether this is the last visible message in a consecutive-sender run.
+  /// DMs share their avatar and timestamp here; channel rows ignore this value.
+  final bool endsGroup;
 
   final ValueChanged<ChatThreadPreview>? onOpenThread;
 
@@ -99,6 +104,9 @@ class ChatMessageTile extends StatelessWidget {
   static Key editedIndicatorKey(int messageId) =>
       ValueKey<String>('chat-message-edited-$messageId');
 
+  static Key timestampKey(int messageId) =>
+      ValueKey<String>('chat-message-timestamp-$messageId');
+
   static Key bodySelectionKey(int messageId) =>
       ValueKey<String>('chat-message-body-selection-$messageId');
 
@@ -116,6 +124,7 @@ class ChatMessageTile extends StatelessWidget {
           siteUrl: siteUrl,
           message: message,
           chained: chained,
+          endsGroup: endsGroup,
           onOpenThread: onOpenThread,
           onJumpToMessage: onJumpToMessage,
           showThreadSummary: showThreadSummary,
@@ -1019,6 +1028,7 @@ class _Tile extends StatelessWidget {
     required this.siteUrl,
     required this.message,
     required this.chained,
+    required this.endsGroup,
     required this.onOpenThread,
     required this.onJumpToMessage,
     required this.showThreadSummary,
@@ -1027,6 +1037,7 @@ class _Tile extends StatelessWidget {
   final String siteUrl;
   final ChatMessage message;
   final bool chained;
+  final bool endsGroup;
   final ValueChanged<ChatThreadPreview>? onOpenThread;
   final ValueChanged<int>? onJumpToMessage;
   final bool showThreadSummary;
@@ -1270,8 +1281,9 @@ class _Tile extends StatelessWidget {
             ProjectedPreview(:final document) => document.nodes.isNotEmpty,
             _ => message.optimisticRaw?.isNotEmpty == true,
           };
+    final showTimestamp = endsGroup && message.createdAt != null;
     final hasMetadata =
-        message.createdAt != null ||
+        showTimestamp ||
         message.edited ||
         message.pinned ||
         message.bookmark != null ||
@@ -1289,7 +1301,7 @@ class _Tile extends StatelessWidget {
         align: outgoing ? DMessageAlign.end : DMessageAlign.start,
         children: [
           DMessageAvatar(
-            child: chained
+            child: !endsGroup
                 ? null
                 : UserCardTarget.avatar(
                     username: message.author.username,
@@ -1405,8 +1417,11 @@ class _Tile extends StatelessWidget {
                 DMessageFooter(
                   spacing: DSpacing.sm,
                   children: [
-                    if (message.createdAt case final at?)
-                      Text(relativeTime(at)),
+                    if (message.createdAt case final at? when showTimestamp)
+                      Text(
+                        relativeTime(at),
+                        key: ChatMessageTile.timestampKey(message.id),
+                      ),
                     if (message.edited)
                       Text(
                         '(edited)',
