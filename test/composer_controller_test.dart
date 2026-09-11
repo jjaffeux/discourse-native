@@ -1490,6 +1490,47 @@ void main() {
       expect(composer.notice, isNull);
     });
 
+    for (final lastImage in [false, true]) {
+      testWidgets(
+        'dragging ${lastImage ? 'last' : 'one'} image out preserves pending uploads',
+        (tester) async {
+          final calls = <_UploadCall>[];
+          final composer = ComposerController(
+            _target,
+            imageUploader: _recordingUploader(calls),
+          );
+          addTearDown(composer.dispose);
+          composer.text.text =
+              'Before\n\n[grid]\n![Moved](upload://moved)\n'
+              '${lastImage ? '' : '![Other](upload://other)\n'}[/grid]\n\nAfter';
+          final gallery = composer.text.galleryBlocks.single;
+          composer.addImagesToGallery([_file('late.png')], gallery);
+          composer.moveImageOutOfGallery(
+            gallery,
+            gallery.images.first,
+            offset: 0,
+          );
+          calls.single.complete(_result('late'));
+          await tester.pump();
+          expect(composer.standaloneImages.first.url, 'upload://moved');
+          if (lastImage) {
+            expect(composer.text.galleryBlocks, isEmpty);
+            expect(composer.standaloneImages.map((image) => image.url), [
+              'upload://moved',
+              'upload://late',
+            ]);
+          } else {
+            expect(
+              composer.text.galleryBlocks.single.images.map(
+                (image) => image.url,
+              ),
+              ['upload://other', 'upload://late'],
+            );
+          }
+        },
+      );
+    }
+
     testWidgets('gallery uploads follow membership edits while pending', (
       tester,
     ) async {

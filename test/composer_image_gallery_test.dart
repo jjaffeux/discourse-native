@@ -1423,6 +1423,138 @@ void main() {
     }
   });
 
+  group('dragging images out of galleries', () {
+    for (final before in [false, true]) {
+      for (final lastImage in [false, true]) {
+        testWidgets(
+          'drops ${lastImage ? 'last' : 'one'} image ${before ? 'before' : 'after'} gallery',
+          (tester) async {
+            final composer = ComposerController(
+              _target,
+              resolveUploadUrls: (_) async => const {},
+            );
+            addTearDown(composer.dispose);
+            const image = '![Moved|200x100,50%](upload://moved)';
+            composer.text.text =
+                'Before\n\n[grid mode=carousel]\n$image\n'
+                '${lastImage ? '' : '![Other](upload://other)\n'}[/grid]\n\nAfter';
+            await tester.pumpWidget(
+              MaterialApp(
+                theme: before ? AppTheme.dark : AppTheme.light,
+                home: Scaffold(
+                  body: ComposerEditor(
+                    composer: composer,
+                    hintText: '',
+                    textStyle: const TextStyle(fontSize: 14),
+                    hintStyle: const TextStyle(fontSize: 14),
+                    autofocus: false,
+                    enableDropTarget: false,
+                  ),
+                ),
+              ),
+            );
+            await tester.pumpAndSettle();
+            final editable = tester
+                .state<EditableTextState>(find.byType(EditableText))
+                .renderEditable;
+            final dropOffset = before ? 0 : composer.text.text.length;
+            final caret = editable.getLocalRectForCaret(
+              TextPosition(offset: dropOffset),
+            );
+            final target = editable.localToGlobal(caret.center);
+            final start = tester.getCenter(
+              find.byType(ComposerImageGalleryTile).first,
+            );
+            final gesture = await tester.startGesture(
+              start,
+              kind: before
+                  ? ui.PointerDeviceKind.mouse
+                  : ui.PointerDeviceKind.touch,
+            );
+            await gesture.moveBy(const Offset(20, 0));
+            await tester.pump();
+            await gesture.moveTo(target);
+            await tester.pump();
+            await gesture.up();
+            await tester.pumpAndSettle();
+            expect(composer.standaloneImages.single.source, image);
+            expect(
+              composer.text.text,
+              before
+                  ? startsWith('$image\n\nBefore')
+                  : endsWith('After\n\n$image\n\n'),
+            );
+            if (lastImage) {
+              expect(composer.text.galleryBlocks, isEmpty);
+              expect(find.byType(ComposerImageGalleryPreview), findsNothing);
+            } else {
+              final gallery = composer.text.galleryBlocks.single;
+              expect(gallery.mode, ComposerGalleryMode.carousel);
+              expect(gallery.images.single.url, 'upload://other');
+              final standalone = tester.getCenter(
+                find.byType(ComposerImagePreview),
+              );
+              final tile = tester.getCenter(
+                find.byType(ComposerImageGalleryTile),
+              );
+              await tester.dragFrom(standalone, tile - standalone);
+              await tester.pumpAndSettle();
+              expect(composer.standaloneImages, isEmpty);
+              expect(
+                composer.text.galleryBlocks.single.images.map(
+                  (image) => image.url,
+                ),
+                ['upload://moved', 'upload://other'],
+              );
+            }
+            expect(tester.takeException(), isNull);
+          },
+        );
+      }
+    }
+
+    testWidgets('dropping outside the editor preserves the gallery', (
+      tester,
+    ) async {
+      final composer = ComposerController(
+        _target,
+        resolveUploadUrls: (_) async => const {},
+      );
+      addTearDown(composer.dispose);
+      composer.text.text = _source;
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light,
+          home: Scaffold(
+            body: Align(
+              alignment: Alignment.topLeft,
+              child: SizedBox(
+                width: 400,
+                child: ComposerEditor(
+                  composer: composer,
+                  hintText: '',
+                  textStyle: const TextStyle(fontSize: 14),
+                  hintStyle: const TextStyle(fontSize: 14),
+                  autofocus: false,
+                  enableDropTarget: false,
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final start = tester.getCenter(
+        find.byType(ComposerImageGalleryTile).first,
+      );
+      await tester.dragFrom(start, const Offset(600, 400));
+      await tester.pumpAndSettle();
+      expect(composer.text.text, _source);
+      expect(composer.standaloneImages, isEmpty);
+      expect(tester.takeException(), isNull);
+    });
+  });
+
   group('dragging standalone images into galleries', () {
     for (final before in [false, true]) {
       for (final background in [false, true]) {

@@ -247,14 +247,14 @@ final class ComposerMediaEditingCoordinator extends FrameSafeNotifier
     _composer.focus.requestFocus();
   }
 
-  void moveSelectedImageOutOfGallery() {
-    final image = _state.selectedImage;
-    if (image == null || isDisposed) return;
+  void moveGalleryImageToOffset(ComposerImageBlock image, int offset) {
+    if (isDisposed) return;
     final gallery = _composer.galleryForImage(image);
     if (gallery == null) return;
     _composer.text.releaseImagePointerEdit(image);
     _clearSelectedImageState(clearKeyboardSelection: true);
-    _composer.moveImageOutOfGallery(gallery, image);
+    dismissGallery(requestFocus: false);
+    _composer.moveImageOutOfGallery(gallery, image, offset: offset);
     _composer.focus.requestFocus();
   }
 
