@@ -1548,6 +1548,45 @@ void main() {
     expect(setup.api.feedPaths, initialPaths);
   });
 
+  testWidgets('desktop toolbar aligns filters and search with topic cards', (
+    tester,
+  ) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final setup = await _controller(canCreateTopics: true);
+    addTearDown(setup.controller.dispose);
+    for (final width in [1800.0, 1120.0, 390.0]) {
+      tester.view.physicalSize = Size(width, 700);
+      await tester.pumpWidget(
+        ShellScope(
+          controller: setup.controller,
+          child: MaterialApp(
+            theme: AppTheme.dark,
+            home: const Scaffold(
+              body: MainContent(layout: ShellLayout.expanded),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final card = tester.getRect(find.byKey(const ValueKey('topic-card-1')));
+      final filters = tester.getRect(
+        find.byKey(const ValueKey('topic-list-filter-bar')),
+      );
+      final search = tester.getRect(
+        find.ancestor(
+          of: find.byKey(const ValueKey('topic-list-search')),
+          matching: find.byType(DInputGroup),
+        ),
+      );
+      expect(filters.left, closeTo(card.left, 1));
+      expect(search.right, closeTo(card.right, 1));
+      expect(tester.takeException(), isNull);
+    }
+    debugDefaultTargetPlatformOverride = null;
+  });
+
   testWidgets(
     'heading, feed selector and creation stay on one row when resizing',
     (tester) async {
