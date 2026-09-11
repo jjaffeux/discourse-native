@@ -1,3 +1,4 @@
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/notification_totals.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
@@ -71,8 +72,11 @@ void main() {
         for (final key in [UserMenuButton.bellKey, UserMenuButton.avatarKey]) {
           await tester.tap(find.byKey(key));
           await tester.pumpAndSettle();
-          expect(find.byType(UserMenuPanel), findsOneWidget);
-          final rect = tester.getRect(find.byType(UserMenuPanel));
+          final surface = key == UserMenuButton.bellKey
+              ? find.byType(UserMenuPanel)
+              : find.byType(DDropdownMenuContent);
+          expect(surface, findsOneWidget);
+          final rect = tester.getRect(surface);
           expect(rect.left, greaterThanOrEqualTo(0));
           expect(rect.right, lessThanOrEqualTo(width));
           expect(rect.bottom, lessThanOrEqualTo(800));
@@ -80,6 +84,7 @@ void main() {
         await tester.tapAt(const Offset(15, 760));
         await tester.pumpAndSettle();
         expect(find.byType(UserMenuPanel), findsNothing);
+        expect(find.byType(DDropdownMenuContent), findsNothing);
       });
     }
   }
