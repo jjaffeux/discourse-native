@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:discourse_native/src/app.dart';
 import 'package:discourse_native/src/data/instance_store.dart';
 import 'package:discourse_native/src/data/notification_opens.dart';
+import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/post.dart';
@@ -58,6 +59,7 @@ void main() {
       expect(controller.currentContent?.topicId, 42);
       expect(controller.currentContent?.postNumber, 3);
       expect(api.topicPostNumbersOpened, [3]);
+      expect(controller.topicListContent?.id, 'latest');
     },
   );
 
@@ -99,6 +101,62 @@ void main() {
       const [Reaction(id: 'clap', count: 1)],
     );
   });
+
+  for (final cached in [false, true]) {
+    for (final existingInbox in [false, true]) {
+      test('PM notification selects its list (cached: $cached, '
+          'existing inbox: $existingInbox)', () async {
+        final payload = topicPayload(id: 42, title: 'Private conversation');
+        final message = (
+          detail: payload.detail.copyWith(privateMessage: true),
+          posts: payload.posts,
+        );
+        final api = FakeDiscourseApi(
+          feeds: const {'/latest.json': []},
+          topics: {42: message},
+        );
+        final controller = ShellController(
+          instanceStore: FakeInstanceStore([_connected('one.example')]),
+          api: api,
+          authenticator: FakeAuthenticator(),
+          drafts: FakeDraftStore(),
+          forumTabs: FakeForumTabStore(),
+          trackers: FakeSiteTracker.reset(),
+        );
+        addTearDown(controller.dispose);
+        await controller.load();
+        final inbox = ContentRoute.messages(
+          groupName: 'team',
+          mode: MessageListMode.archive,
+        );
+        if (existingInbox) controller.pushContent(inbox);
+        if (cached) controller.store.put('https://one.example', message.detail);
+
+        expect(
+          await controller.openNotificationUrl(
+            'https://one.example/t/private-conversation/42/3',
+          ),
+          isTrue,
+        );
+        await _waitForTopic(controller);
+
+        expect(controller.currentContent?.topicId, 42);
+        expect(controller.currentContent?.postNumber, 3);
+        expect(
+          controller.contentStack[controller.contentStack.length - 2].id,
+          existingInbox ? inbox.id : 'messages',
+        );
+        if (!existingInbox) {
+          expect(
+            api.feedPaths,
+            contains('/topics/private-messages/reader.json'),
+          );
+        }
+        controller.handleBack();
+        expect(controller.currentContent?.isMessages, isTrue);
+      });
+    }
+  }
 
   test('notification navigation rejects unsafe and unowned URLs', () async {
     final controller = ShellController(
