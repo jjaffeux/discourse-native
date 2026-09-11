@@ -44,6 +44,43 @@ void main() {
   Finder tagOption(String name) =>
       find.byKey(ValueKey(('tag-selector-option', name)));
 
+  testWidgets('tag menu hover is visible against its dark popup', (
+    tester,
+  ) async {
+    await pump(
+      tester,
+      TopicTagSelector(
+        selectedTags: const [],
+        includeAll: true,
+        search: (_) async => const TopicTagSearch(tags: [design, mobile]),
+        onChanged: (_) {},
+      ),
+    );
+    await open(tester, TopicTagSelector);
+    await tester.pumpAndSettle();
+    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    addTearDown(mouse.removePointer);
+    await mouse.addPointer();
+    for (final name in ['design', 'mobile']) {
+      await mouse.moveTo(tester.getCenter(tagOption(name)));
+      await tester.pumpAndSettle();
+      final row = tagOption(name);
+      final background = tester
+          .widgetList<Container>(
+            find.descendant(of: row, matching: find.byType(Container)),
+          )
+          .map((container) => container.decoration)
+          .whereType<BoxDecoration>()
+          .first
+          .color!;
+      final tokens = DTokens.of(tester.element(row));
+      final contrast =
+          (background.computeLuminance() + .05) /
+          (tokens.surface.computeLuminance() + .05);
+      expect(contrast, greaterThan(1.15));
+    }
+  });
+
   for (final category in [true, false]) {
     testWidgets(
       '${category ? 'category' : 'tag'} selector shows a forbidden cursor while disabled',

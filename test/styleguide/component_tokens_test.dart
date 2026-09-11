@@ -14,7 +14,7 @@ void main() {
         expect(tokens.background, theme.shell.content);
         expect(tokens.surface, theme.shell.floating);
         expect(tokens.border, theme.shell.divider);
-        expect(tokens.hover, theme.shell.hover);
+        expect(tokens.hover, theme.hoverColor);
         expect(tokens.selected, theme.shell.selected);
         expect(tokens.selectedForeground, theme.shell.selectedForeground);
         expect(tokens.primary, theme.colorScheme.primary);
