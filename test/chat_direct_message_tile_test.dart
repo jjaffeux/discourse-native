@@ -707,6 +707,8 @@ void main() {
         expect(html.textStyle!.fontSize, 14);
         expect(html.linkStyle!.color, tokens.primaryForeground);
         expect(html.linkStyle!.decoration, TextDecoration.underline);
+        expect(html.linkStyle!.fontWeight, FontWeight.w500);
+        expect(html.linkStyle!.decorationColor, tokens.primaryForeground);
         expect(html.textStyle!.color, isNot(tokens.primary));
       },
     );

@@ -155,6 +155,12 @@ class CookedHtml extends StatelessWidget {
       if (linkStyle?.color case final color?) {
         styles['color'] = _cssColor(color);
       }
+      if (linkStyle?.fontWeight case final weight?) {
+        styles['font-weight'] = '${weight.value}';
+      }
+      if (linkStyle?.decorationColor case final color?) {
+        styles['text-decoration-color'] = _cssColor(color);
+      }
     }
 
     final headingLevel = switch (element.localName) {
