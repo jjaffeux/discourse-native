@@ -513,8 +513,8 @@ void main() {
         .widgetList<AnimatedContainer>(find.byType(AnimatedContainer))
         .map((container) => container.padding!.resolve(TextDirection.rtl))
         .toList();
-    expect(padding[0], const EdgeInsets.only(left: 8, right: 6));
-    expect(padding[1], const EdgeInsets.only(left: 6, right: 8));
+    expect(padding[0], const EdgeInsets.only(left: 10, right: 8));
+    expect(padding[1], const EdgeInsets.only(left: 8, right: 10));
   });
 
   testWidgets(

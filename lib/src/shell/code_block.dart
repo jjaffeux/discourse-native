@@ -382,7 +382,6 @@ class _CodeBlockState extends State<CodeBlock> {
               _CodeCopyButton(text: data.clipboardText),
               if (widget.showFullscreen)
                 DButton.iconOnly(
-                  insetSurface: true,
                   key: const ValueKey('code-block-fullscreen'),
                   onPressed: _openFullscreen,
                   tooltip: 'View code full screen',
@@ -501,7 +500,6 @@ class _CodeBlockFullscreenState extends State<CodeBlockFullscreen> {
                   actions: [
                     _CodeCopyButton(text: widget.data.clipboardText),
                     DButton.iconOnly(
-                      insetSurface: true,
                       key: const ValueKey('code-block-fullscreen-close'),
                       onPressed: Navigator.of(context).pop,
                       tooltip: 'Close',
@@ -667,7 +665,6 @@ class _CodeCopyButtonState extends State<_CodeCopyButton> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return DButton.iconOnly(
-      insetSurface: true,
       key: const ValueKey('code-block-copy'),
       onPressed: _copied ? null : () => unawaited(_copy()),
       tooltip: _copied ? 'Copied!' : 'Copy code',

@@ -582,7 +582,6 @@ class ChatPlugin
     final siteUrl = shell.currentSiteUrl;
     final fullPageAction = shell.fullPageChatActive && shell.drawerAvailable
         ? DButton.iconOnly(
-            insetSurface: true,
             key: const ValueKey('chat-close-full-page'),
             tooltip: 'Close full-screen chat',
             onPressed: () => unawaited(shell.openDrawerFromFullPage()),

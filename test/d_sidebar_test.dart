@@ -836,7 +836,6 @@ void main() {
                   DSidebarMenuButton(
                     focusNode: focus,
                     isActive: true,
-                    height: 30,
                     onPressed: () => calls++,
                     child: const Text('Selected'),
                   ),
@@ -847,7 +846,7 @@ void main() {
           ),
         ),
       );
-      expect(tester.getSize(find.byType(DSidebarMenuButton).first).height, 30);
+      expect(tester.getSize(find.byType(DSidebarMenuButton).first).height, 32);
       focus.requestFocus();
       await tester.pump();
       await tester.sendKeyEvent(LogicalKeyboardKey.space);

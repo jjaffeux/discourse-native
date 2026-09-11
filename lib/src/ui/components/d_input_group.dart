@@ -4,6 +4,7 @@ import 'dart:ui' show SemanticsValidationResult;
 import 'package:flutter/material.dart';
 
 import '../../theme/discourse_typography.dart';
+import '../foundation/control_style.dart';
 import '../foundation/input_group_scope.dart';
 import '../foundation/joined_control.dart';
 import '../foundation/tokens.dart';
@@ -14,7 +15,7 @@ import 'd_textarea.dart';
 
 enum DInputGroupAddonAlignment { inlineStart, inlineEnd, blockStart, blockEnd }
 
-enum DInputGroupButtonSize { extraSmall, small, iconExtraSmall, iconSmall }
+typedef DInputGroupButtonSize = DButtonSize;
 
 /// A single shadcn input surface composed from one editor and optional addons.
 ///
@@ -26,12 +27,14 @@ class DInputGroup extends StatefulWidget {
   const DInputGroup({
     super.key,
     required this.children,
+    this.size = DControlSize.regular,
     this.enabled = true,
     this.invalid = false,
     this.semanticLabel,
   }) : assert(children.length > 0);
 
   final List<Widget> children;
+  final DControlSize size;
   final bool enabled;
   final bool invalid;
   final String? semanticLabel;
@@ -210,7 +213,9 @@ class _DInputGroupState extends State<DInputGroup> {
                   context,
                   const Duration(milliseconds: 150),
                 ),
-                constraints: BoxConstraints(minHeight: multiline ? 64 : 32),
+                constraints: BoxConstraints(
+                  minHeight: multiline ? 64 : DControlStyle.height(widget.size),
+                ),
                 decoration: _InputGroupSurfaceDecoration(
                   backgroundColor: dark
                       ? tokens.colors.outlineVariant.withValues(
@@ -245,9 +250,9 @@ class _DInputGroupState extends State<DInputGroup> {
     };
     final inputPadding = EdgeInsetsDirectional.only(
       start: inlineStart.isEmpty ? 10 : 6,
-      top: blockEnd.isEmpty ? 5 : 12,
+      top: blockEnd.isEmpty ? 1 : 12,
       end: inlineEnd.isEmpty ? 10 : 6,
-      bottom: blockStart.isEmpty ? 5 : 12,
+      bottom: blockStart.isEmpty ? 1 : 12,
     ).resolve(Directionality.of(context));
     return DInputGroupControlScope(
       report: _report,
@@ -312,13 +317,13 @@ class DInputGroupAddon extends StatelessWidget {
     final padding = switch (alignment) {
       DInputGroupAddonAlignment.inlineStart => EdgeInsetsDirectional.only(
         start: inlineInset,
-        top: 6,
-        bottom: 6,
+        top: 0,
+        bottom: 0,
       ),
       DInputGroupAddonAlignment.inlineEnd => EdgeInsetsDirectional.only(
         end: inlineInset,
-        top: 6,
-        bottom: 6,
+        top: 0,
+        bottom: 0,
       ),
       DInputGroupAddonAlignment.blockStart =>
         const EdgeInsetsDirectional.fromSTEB(10, 8, 10, 6),
@@ -401,7 +406,7 @@ class DInputGroupButton extends StatelessWidget {
     this.focusNode,
     this.loading = false,
     this.hasPopup = false,
-  });
+  }) : _iconOnly = false;
 
   const DInputGroupButton.icon({
     super.key,
@@ -409,14 +414,16 @@ class DInputGroupButton extends StatelessWidget {
     required String this.tooltip,
     required this.onPressed,
     this.variant = DButtonVariant.ghost,
-    this.size = DInputGroupButtonSize.iconExtraSmall,
+    this.size = DInputGroupButtonSize.extraSmall,
     this.semanticLabel,
     this.focusNode,
     this.loading = false,
     this.hasPopup = false,
   }) : label = const SizedBox.shrink(),
-       iconPosition = DButtonIconPosition.start;
+       iconPosition = DButtonIconPosition.start,
+       _iconOnly = true;
 
+  final bool _iconOnly;
   final Widget label;
   final VoidCallback? onPressed;
   final Widget? icon;
@@ -431,25 +438,16 @@ class DInputGroupButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final buttonSize = switch (size) {
-      DInputGroupButtonSize.extraSmall ||
-      DInputGroupButtonSize.iconExtraSmall => DButtonSize.extraSmall,
-      DInputGroupButtonSize.small ||
-      DInputGroupButtonSize.iconSmall => DButtonSize.regular,
-    };
     final radius = (DTokens.of(context).radius - 3)
         .clamp(0, double.infinity)
         .toDouble();
-    final iconOnly =
-        size == DInputGroupButtonSize.iconExtraSmall ||
-        size == DInputGroupButtonSize.iconSmall;
-    if (iconOnly) {
+    if (_iconOnly) {
       return DButton.iconOnly(
         icon: icon!,
         tooltip: tooltip!,
         onPressed: onPressed,
         variant: variant,
-        size: buttonSize,
+        size: size,
         semanticLabel: semanticLabel,
         focusNode: focusNode,
         borderRadius: BorderRadius.circular(radius),
@@ -463,14 +461,13 @@ class DInputGroupButton extends StatelessWidget {
       icon: icon,
       iconPosition: iconPosition,
       variant: variant,
-      size: buttonSize,
+      size: size,
       semanticLabel: semanticLabel,
       tooltip: tooltip,
       focusNode: focusNode,
       borderRadius: BorderRadius.circular(radius),
       loading: loading,
       hasPopup: hasPopup,
-      padding: const EdgeInsets.symmetric(horizontal: 6),
     );
   }
 }

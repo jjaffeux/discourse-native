@@ -471,12 +471,19 @@ class DAttachmentActions extends StatelessWidget {
   final List<DAttachmentAction> children;
 
   double get horizontalVisualWidth => math.max(
-    22,
-    children.fold(0, (width, action) => width + action._desktopDimension),
+    DButton.visualDimensionFor(DButtonSize.extraSmall),
+    children.fold(
+      0,
+      (width, action) => width + DButton.visualDimensionFor(action.size),
+    ),
   );
 
-  double get touchVisualWidth =>
-      children.fold(0, (width, action) => width + action._touchDimension);
+  double get touchVisualWidth => children.fold(
+    0,
+    (width, action) =>
+        width +
+        math.max(DSpacing.touchTarget, DButton.visualDimensionFor(action.size)),
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -521,32 +528,18 @@ class DAttachmentAction extends StatelessWidget {
   final DButtonVariant variant;
   final DButtonSize size;
 
-  double get _desktopDimension => switch (size) {
-    DButtonSize.extraSmall => 22,
-    _ => DButton.visualDimensionFor(size),
-  };
-
-  double get _touchDimension =>
-      math.max(DSpacing.touchTarget, DButton.iconOnlyDimensionFor(size));
-
   @override
   Widget build(BuildContext context) {
-    final platform = Theme.of(context).platform;
-    final touch =
-        platform == TargetPlatform.android || platform == TargetPlatform.iOS;
-    return SizedBox.square(
-      dimension: touch ? _touchDimension : _desktopDimension,
-      child: DButton.iconOnly(
-        icon: icon,
-        tooltip: tooltip,
-        semanticLabel: semanticLabel ?? tooltip,
-        onPressed: onPressed,
-        focusNode: focusNode,
-        autofocus: autofocus,
-        loading: loading,
-        variant: variant,
-        size: size,
-      ),
+    return DButton.iconOnly(
+      icon: icon,
+      tooltip: tooltip,
+      semanticLabel: semanticLabel ?? tooltip,
+      onPressed: onPressed,
+      focusNode: focusNode,
+      autofocus: autofocus,
+      loading: loading,
+      variant: variant,
+      size: size,
     );
   }
 }

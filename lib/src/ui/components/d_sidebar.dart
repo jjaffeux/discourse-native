@@ -6,6 +6,7 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
+import '../foundation/control_style.dart';
 import '../foundation/tokens.dart';
 import 'd_input.dart';
 import 'd_scroll_area.dart';
@@ -76,7 +77,7 @@ enum DSidebarVariant { sidebar, floating, inset }
 
 enum DSidebarCollapsible { offcanvas, icon, none }
 
-enum DSidebarMenuButtonSize { small, normal, large }
+typedef DSidebarMenuButtonSize = DControlSize;
 
 enum DSidebarMenuButtonVariant { normal, outline }
 
@@ -276,7 +277,6 @@ class _DSidebarState extends State<DSidebar> {
             decoration: BoxDecoration(
               color: background,
               borderRadius: floating ? t.borderRadius : null,
-
               boxShadow: floating
                   ? [
                       BoxShadow(
@@ -945,13 +945,12 @@ class DSidebarMenuButton extends StatefulWidget {
     this.icon,
     this.iconSize = 16,
     this.isActive = false,
-    this.size = DSidebarMenuButtonSize.normal,
+    this.size = DSidebarMenuButtonSize.regular,
     this.variant = DSidebarMenuButtonVariant.normal,
     this.tooltip,
     this.semanticLabel,
     this.focusNode,
     this.autofocus = false,
-    this.height,
     this.expanded,
   }) : assert(iconSize > 0);
   final Widget child;
@@ -966,7 +965,6 @@ class DSidebarMenuButton extends StatefulWidget {
 
   /// Borrowed; never disposed by this widget.
   final FocusNode? focusNode;
-  final double? height;
   @override
   State<DSidebarMenuButton> createState() => _DSidebarMenuButtonState();
 }
@@ -1034,14 +1032,11 @@ class _DSidebarMenuButtonState extends State<DSidebarMenuButton> {
     final t = DTokens.of(context);
     final iconOnly = _PanelScope.iconOf(context);
     final enabled = widget.onPressed != null;
-    final fontSize = widget.size == DSidebarMenuButtonSize.small ? 12.0 : 14.0;
-    final minHeight =
-        widget.height ??
-        switch (widget.size) {
-          DSidebarMenuButtonSize.small => 28.0,
-          DSidebarMenuButtonSize.normal => 32.0,
-          DSidebarMenuButtonSize.large => 48.0,
-        };
+    final fontSize = DControlStyle.fontSize(widget.size);
+    final minHeight = DControlStyle.scaledHeight(
+      widget.size,
+      MediaQuery.textScalerOf(context),
+    );
     final active = widget.isActive || (enabled && (hover || pressed));
     final collapsedLarge =
         iconOnly && widget.size == DSidebarMenuButtonSize.large;
@@ -1083,14 +1078,12 @@ class _DSidebarMenuButtonState extends State<DSidebarMenuButton> {
               child: Opacity(
                 opacity: enabled ? 1 : .5,
                 child: Container(
-                  constraints: BoxConstraints(
-                    minHeight: iconOnly ? 32 : minHeight,
-                  ),
+                  constraints: BoxConstraints(minHeight: minHeight),
                   padding: EdgeInsetsDirectional.only(
                     start: collapsedLarge ? 0 : 8,
                     end: collapsedLarge ? 0 : 8,
-                    top: collapsedLarge ? 0 : (iconOnly ? 8 : 4),
-                    bottom: collapsedLarge ? 0 : (iconOnly ? 8 : 4),
+                    top: 1,
+                    bottom: 1,
                   ),
                   decoration: BoxDecoration(
                     color: active
@@ -1122,7 +1115,8 @@ class _DSidebarMenuButtonState extends State<DSidebarMenuButton> {
                         overflow: TextOverflow.ellipsis,
                         style: Theme.of(context).textTheme.bodyMedium!.copyWith(
                           fontSize: fontSize,
-                          height: (fontSize == 12 ? 16 : 20) / fontSize,
+                          height:
+                              DControlStyle.lineHeight(widget.size) / fontSize,
                           color: t.foreground,
                           fontWeight: widget.isActive
                               ? FontWeight.w500
@@ -1498,8 +1492,8 @@ class DSidebarMenuSubButton extends DSidebarMenuButton {
     super.isActive,
     super.semanticLabel,
     super.focusNode,
-    super.size,
-  }) : super(height: 28);
+    super.size = DControlSize.small,
+  });
 }
 
 class DSidebarMenuSkeleton extends StatelessWidget {

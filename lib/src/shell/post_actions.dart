@@ -1031,7 +1031,6 @@ class PostActionsFooter extends StatelessWidget {
                             onPressed: onPressed,
                           )
                         : DButton.iconOnly(
-                            insetSurface: true,
                             key: key,
                             icon: icon,
                             tooltip: action.tooltip,
@@ -1094,7 +1093,6 @@ class PostMoreActionsButton extends StatelessWidget {
           ),
       ],
       builder: (context, menu, _) => DButton.iconOnly(
-        insetSurface: true,
         key: ValueKey('post-more-actions-${scope.postNumber}'),
         icon: const DIcon(DIcons.ellipsis, size: 16),
         tooltip: 'More actions for post ${scope.postNumber}',

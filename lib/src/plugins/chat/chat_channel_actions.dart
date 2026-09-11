@@ -228,20 +228,16 @@ class _DesktopChannelMenu extends StatelessWidget {
                 onPressed: menu.toggle,
                 child: const DIcon(DIcons.ellipsisVertical, size: 16),
               )
-            : SizedBox(
-                width: 24,
-                height: 32,
-                child: DButton.iconOnly(
-                  key: ValueKey('chat-channel-menu-button-${channel.id}'),
-                  tooltip: 'Open ${channel.title} menu',
-                  variant: DButtonVariant.ghost,
-                  size: DButtonSize.extraSmall,
-                  focusNode: menu.focusNode,
-                  expanded: menu.open,
-                  hasPopup: true,
-                  onPressed: menu.toggle,
-                  icon: const DIcon(DIcons.ellipsisVertical, size: 16),
-                ),
+            : DButton.iconOnly(
+                key: ValueKey('chat-channel-menu-button-${channel.id}'),
+                tooltip: 'Open ${channel.title} menu',
+                variant: DButtonVariant.ghost,
+                size: DButtonSize.extraSmall,
+                focusNode: menu.focusNode,
+                expanded: menu.open,
+                hasPopup: true,
+                onPressed: menu.toggle,
+                icon: const DIcon(DIcons.ellipsisVertical, size: 16),
               ),
       ),
     );

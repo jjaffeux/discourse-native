@@ -1,5 +1,4 @@
 import 'package:discourse_native/discourse_ui.dart';
-import 'package:discourse_native/src/theme/discourse_typography.dart';
 import 'package:flutter/material.dart';
 
 import '../styleguide_example.dart';
@@ -136,8 +135,6 @@ final toggleGroupExamples = ComponentExamples(
         value: weight,
         semanticLabel: weight,
         visualStyle: const DToggleVisualStyle(
-          constraints: BoxConstraints(minWidth: 64, minHeight: 64),
-          padding: EdgeInsets.zero,
         ),
         child: WeightTile(weight),
       )).toList(),
@@ -282,11 +279,6 @@ class _FontWeightGroupState extends State<_FontWeightGroup> {
                 value: weight,
                 semanticLabel: weight,
                 visualStyle: DToggleVisualStyle(
-                  constraints: const BoxConstraints(
-                    minWidth: 64,
-                    minHeight: 64,
-                  ),
-                  padding: EdgeInsets.zero,
                   borderRadius: BorderRadius.circular(tokens.radius * 1.4),
                 ),
                 child: _WeightTile(weight),
@@ -330,26 +322,9 @@ class _WeightTile extends StatelessWidget {
   };
 
   @override
-  Widget build(BuildContext context) => Column(
-    mainAxisSize: MainAxisSize.min,
-    children: [
-      Text(
-        'Aa',
-        style: TextStyle(
-          fontSize: DiscourseTypography.xxl,
-          height: 1,
-          fontWeight: _fontWeight,
-        ),
-      ),
-      Text(
-        '${weight[0].toUpperCase()}${weight.substring(1)}',
-        style: TextStyle(
-          color: DTokens.of(context).mutedForeground,
-          fontSize: DiscourseTypography.xs,
-          height: 16 / 12,
-        ),
-      ),
-    ],
+  Widget build(BuildContext context) => Text(
+    '${weight[0].toUpperCase()}${weight.substring(1)}',
+    style: TextStyle(fontWeight: _fontWeight),
   );
 }
 

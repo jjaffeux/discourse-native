@@ -1015,10 +1015,6 @@ class DDataTablePagination extends StatelessWidget {
       TargetPlatform.iOS || TargetPlatform.android => 48.0,
       _ => 32.0,
     };
-    final pageSizeHeight = math.max(
-      directionHeight,
-      MediaQuery.textScalerOf(context).scale(14) * (20 / 14) + 6,
-    );
 
     Widget rowsPerPage() => Wrap(
       spacing: 8,
@@ -1035,7 +1031,6 @@ class DDataTablePagination extends StatelessWidget {
         ),
         SizedBox(
           width: pageSizeWidth,
-          height: pageSizeHeight,
           child: DSelect<int>.controlled(
             value: state.pageSize,
             onChanged: enabled && onPageSizeChanged != null

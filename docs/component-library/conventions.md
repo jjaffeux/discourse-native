@@ -44,6 +44,11 @@ render DButton or the appropriate existing kit control and pass through focus,
 expanded state and activation.
 
 Use shared control geometry and paint from `foundation/control_style.dart`.
+Button-like controls must use the Button styleguide's shared `DControlSize`
+scale: `extraSmall` (24px), `small` (28px), `regular` (32px), and `large` (36px).
+Component size names are aliases of this enum. Do not introduce alternate
+height enums, control-height wrappers, or padding/constraint size overrides.
+The kit owns text-scaling growth and invisible accessible touch targets.
 Prefer variant and size over local colors, radius or padding. Category identity
 and explicitly inventoried container geometry are the current exceptions in
 `test/control_style_adoption_test.dart`. Review any new exception against a

@@ -153,7 +153,7 @@ Future<void> _showShareSheet({
       : (context) => Align(
           alignment: AlignmentDirectional.centerStart,
           child: ConstrainedBox(
-            constraints: BoxConstraints(minHeight: context.isTouch ? 44 : 36),
+            constraints: const BoxConstraints(),
             child: DButton(
               key: const ValueKey('topic-share-reply-as-new-topic'),
               label: const Text(
@@ -315,7 +315,7 @@ class _TopicShareBodyState extends State<_TopicShareBody> {
         Align(
           alignment: AlignmentDirectional.centerStart,
           child: ConstrainedBox(
-            constraints: BoxConstraints(minHeight: context.isTouch ? 44 : 36),
+            constraints: const BoxConstraints(),
             child: Builder(
               builder: (buttonContext) => DButton(
                 key: const ValueKey('topic-share-system'),

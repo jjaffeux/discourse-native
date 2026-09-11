@@ -226,7 +226,7 @@ class ComposerImageGalleryControl extends StatelessWidget {
   final int imageCount;
   final VoidCallback? onEdit;
 
-  static const double extent = DButton.minimumDimension;
+  static const double extent = DControlStyle.regularHeight;
 
   @override
   Widget build(BuildContext context) {
@@ -236,7 +236,6 @@ class ComposerImageGalleryControl extends StatelessWidget {
       child: Semantics(
         hint: '$count. Add or remove images.',
         child: DButton.iconOnly(
-          insetSurface: true,
           onPressed: onEdit,
           tooltip: 'Gallery options',
           semanticLabel: 'Gallery options',

@@ -46,19 +46,14 @@ void main() {
       actual,
       {
         // Category identity is the sole app-owned color treatment. Both halves
-        // of the split control use the same tint; compact layout owns padding.
+        // of the split control use the same tint.
         'lib/src/shell/topic_inbox_header.dart': {
           'backgroundColor': 2,
           'borderColor': 2,
           'interactiveBackgroundColor': 2,
-          'padding': 1,
         },
         // These are container/rail/navigation geometry, not alternative palettes.
-        'lib/src/plugins/chat/chat_drawer.dart': {'padding': 1},
-        'lib/src/shell/topic_create_button.dart': {'padding': 1},
-        'lib/src/shell/instance_sidebar.dart': {'padding': 2},
         'lib/src/shell/instance_rail.dart': {'borderRadius': 1},
-        'lib/src/shell/badges_page.dart': {'padding': 2},
       },
       reason:
           'Use the kit variant and size first. Document a concrete semantic or layout reason before adding an exception.',

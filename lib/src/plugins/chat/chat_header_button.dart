@@ -55,7 +55,6 @@ class ChatHeaderButton extends StatelessWidget {
             shell.separateSidebarMode != ChatSeparateSidebarMode.never;
         if (exitsChat) {
           return DButton.iconOnly(
-            insetSurface: true,
             key: buttonKey,
             tooltip: 'Exit chat',
             onPressed: shell.closeSidebarPanel,
@@ -77,7 +76,6 @@ class ChatHeaderButton extends StatelessWidget {
             : 'Chat';
 
         return DButton.iconOnly(
-          insetSurface: true,
           key: buttonKey,
           tooltip: tooltip,
           onPressed: () => unawaited(

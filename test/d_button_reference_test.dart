@@ -740,7 +740,7 @@ void main() {
   });
 
   testWidgets(
-    'small inset app icons keep touch targets outside their painted surface',
+    'small app icons use the shared surface size and native touch targets',
     (tester) async {
       final semantics = tester.ensureSemantics();
       for (final platform in [
@@ -762,7 +762,6 @@ void main() {
               semanticLabel: 'Close',
               size: DButtonSize.small,
               variant: variant,
-              insetSurface: variant == DButtonVariant.outline,
               onPressed: () => presses++,
             ),
             theme: AppTheme.light.copyWith(platform: platform),
@@ -775,17 +774,17 @@ void main() {
               matching: find.byType(Material),
             ),
           );
-          expect(surface.size, const Size.square(32));
+          expect(surface.size, const Size.square(28));
           expect(
             target.size,
-            Size.square(platform == TargetPlatform.macOS ? 40 : 48),
+            Size.square(platform == TargetPlatform.macOS ? 28 : 48),
           );
           expect(
             tester.getSemantics(find.byType(DButton)).rect.size,
             target.size,
           );
           final edge = target.topLeft + const Offset(2, 2);
-          expect(surface.contains(edge), isFalse);
+          expect(surface.contains(edge), platform == TargetPlatform.macOS);
           await tester.tapAt(edge);
           expect(
             presses,

@@ -564,7 +564,6 @@ class _BadgeRecipient extends StatelessWidget {
                   DButton(
                     label: Text(grant.username),
                     variant: DButtonVariant.link,
-                    padding: EdgeInsets.zero,
                     onPressed: () => onOpenUrl(
                       '$siteUrl/u/${Uri.encodeComponent(grant.username)}',
                     ),
@@ -588,7 +587,6 @@ class _BadgeRecipient extends StatelessWidget {
                     child: DButton(
                       label: Text(grant.topicTitle ?? 'View awarded post'),
                       variant: DButtonVariant.link,
-                      padding: EdgeInsets.zero,
                       onPressed: () => onOpenUrl('$siteUrl${grant.postPath}'),
                     ),
                   ),

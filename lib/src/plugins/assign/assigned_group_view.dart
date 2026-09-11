@@ -397,7 +397,6 @@ class _AssignedPeoplePanelState extends State<_AssignedPeoplePanel> {
             ),
           ),
           DButton.iconOnly(
-            insetSurface: true,
             key: const ValueKey('assigned-member-search-toggle'),
             icon: DIcon(
               _showSearch ? DIcons.xmark : DIcons.magnifyingGlass,

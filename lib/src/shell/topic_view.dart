@@ -2741,7 +2741,6 @@ class _TopicViewHeader extends StatelessWidget {
         child: Row(
           children: [
             DButton.iconOnly(
-              insetSurface: true,
               onPressed: () =>
                   controller.handleBack(canReturnToSidebar: canReturnToSidebar),
               icon: const DIcon(DIcons.arrowLeft, size: 16),
@@ -3016,7 +3015,6 @@ class _TopicSidebarToggle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => DButton.iconOnly(
-    insetSurface: true,
     key: const ValueKey('topic-sidebar-toggle'),
     onPressed: onPressed,
     icon: _TopicSidebarIcon(sidebarVisible: sidebarVisible),

@@ -462,16 +462,6 @@ class _DToggleGroupState<T extends Object> extends State<DToggleGroup<T>> {
             )
           : baseStyle?.borderEdges ?? DToggleBorderEdges.all;
       final style = DToggleVisualStyle(
-        constraints: baseStyle?.constraints,
-        padding:
-            baseStyle?.padding ??
-            (connected && !item._iconOnly
-                ? item.icon == null
-                      ? const EdgeInsets.symmetric(horizontal: 8)
-                      : item.iconPosition == DToggleIconPosition.start
-                      ? const EdgeInsetsDirectional.only(start: 6, end: 8)
-                      : const EdgeInsetsDirectional.only(start: 8, end: 6)
-                : null),
         borderRadius: joinedRadius ?? baseStyle?.borderRadius,
         borderEdges: edges,
       );

@@ -2365,14 +2365,7 @@ class _GalleryComposerMenu extends StatelessWidget {
                           tooltip: 'Grid gallery mode',
                           icon: Icon(Icons.grid_view_outlined, size: 18),
                           selectedIcon: Icon(Icons.grid_view, size: 18),
-                          visualStyle: DToggleVisualStyle(
-                            constraints: BoxConstraints.tightFor(
-                              width:
-                                  _ComposerEditorState._galleryMenuButtonExtent,
-                              height:
-                                  _ComposerEditorState._galleryMenuButtonExtent,
-                            ),
-                          ),
+                          visualStyle: DToggleVisualStyle(),
                         ),
                         DToggleGroupItem.iconOnly(
                           value: ComposerGalleryMode.carousel,
@@ -2380,14 +2373,7 @@ class _GalleryComposerMenu extends StatelessWidget {
                           tooltip: 'Carousel gallery mode',
                           icon: Icon(Icons.view_carousel_outlined, size: 18),
                           selectedIcon: Icon(Icons.view_carousel, size: 18),
-                          visualStyle: DToggleVisualStyle(
-                            constraints: BoxConstraints.tightFor(
-                              width:
-                                  _ComposerEditorState._galleryMenuButtonExtent,
-                              height:
-                                  _ComposerEditorState._galleryMenuButtonExtent,
-                            ),
-                          ),
+                          visualStyle: DToggleVisualStyle(),
                         ),
                       ],
                     ),
@@ -2504,7 +2490,6 @@ class _ExistingGalleryImagesDialogState
             return DCheckbox(
               key: ValueKey('gallery-existing-image-${image.start}'),
               value: selected,
-
               secondary: const Icon(Icons.image_outlined),
               title: Text(
                 image.alt.isEmpty ? 'Image ${index + 1}' : image.alt,

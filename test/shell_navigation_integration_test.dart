@@ -1419,7 +1419,6 @@ void _registerShellNavigationTests() {
 
       final button = tester.widget<DButton>(add);
       expect(button.variant, DButtonVariant.ghost);
-      expect(button.insetSurface, isTrue);
       expect(button.size, DButtonSize.small);
       expect(button.borderRadius, BorderRadius.circular(10));
       expect(tester.getCenter(add).dx, tester.getCenter(lastForum).dx);
@@ -1428,7 +1427,7 @@ void _registerShellNavigationTests() {
         44,
       );
       expect(tester.getCenter(add).dy - tester.getCenter(lastForum).dy, 44);
-      expect(tester.getSize(outline), const Size.square(32));
+      expect(tester.getSize(outline), const Size.square(28));
       expect(
         outline,
         paints

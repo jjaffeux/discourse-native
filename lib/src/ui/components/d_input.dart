@@ -727,7 +727,6 @@ class _DFileInputState extends FormFieldState<List<String>> {
                               onPressed: input.enabled && !_busy ? _pick : null,
                               variant: DButtonVariant.ghost,
                               size: DButtonSize.extraSmall,
-                              padding: EdgeInsets.zero,
                               label: Text(
                                 _busy ? 'Choosing…' : input.label,
                                 maxLines: 1,

@@ -28,8 +28,13 @@ Migration choices:
   primary. Labels and icons continue to express meaning independently of color.
 - Selected/accented controls use primary. Calendar navigation and secondary
   actions use outline, dismiss actions use ghost, and web actions use link.
-- Existing inset icon hit areas remain explicit through `insetSurface`; invisible
-  touch targets remain at least 48px. Visual size and hit-target size are separate.
+- All button-like controls use `DControlSize.extraSmall`, `small`, `regular`,
+  and `large`: 24, 28, 32, and 36 logical pixels. Component size typedefs alias
+  this same enum. The Button styleguide is the sizing authority.
+- `insetSurface`, button padding overrides, Toggle constraint/padding overrides,
+  Sidebar custom heights, and application height wrappers have been removed.
+  Icon and labeled buttons share the same scale. Text scaling expands their
+  surfaces consistently; invisible touch targets remain at least 48px.
 - Taxonomy filter buttons now use outline. Topic footer actions use kit variants
   without local background/border/hover mixtures. The incoming-topics action and
   chat add-menu button also drop their local paint overrides.
@@ -53,7 +58,7 @@ alpha calculation. Site colors, fonts and configured radius remain authoritative
 ## Drift checks and review surface
 
 The Button styleguide replaces the old Application variants showcase with
-**Control consistency**: normal/small action buttons, selects, dropdown triggers,
+**Control consistency**: all four sizes of action buttons, selects, dropdown triggers,
 disabled states, and a joined reply/bookmark/notification group. All controls
 are interactive and retain local state across palette changes.
 
@@ -108,3 +113,30 @@ Flutter 3.47.2; locked dependency resolution, no lockfile or SDK changes.
 No iOS/Linux device session, authenticated live-app review, or spoken screen
 reader session was performed. The existing focused tests cover those platform
 layout/semantics paths without claiming device verification.
+
+
+## Unified sizing follow-up
+
+Select, Toggle, Toggle Group, Input Group buttons, Combobox inputs and button
+triggers, date-picker triggers and form fields, pagination, carousel actions,
+navigation-menu triggers, tabs, menubar triggers, and sidebar
+menu buttons use the shared size API. Dropdown and notification menu triggers
+forward their size to Button. Layout widths and popup/content sizing remain
+independent of trigger height. Multi-line labels and accessibility text scaling
+can grow controls; applications must not force a different height with wrappers.
+
+The cross-component `control_size_scale_test.dart` checks rendered heights and
+activation for every size. The Button Control consistency example presents
+Button, icon Button, Toggle, Select, and Dropdown together.
+
+
+Verification on 2026-09-11: macOS debug build; native wide/dark and 390px/light
+production toolbar, category popup, 200% RTL, and the Button Control consistency
+example with extra-small Select activation. Flutter goldens use the bundled
+ControlGolden font at 720×480 on the Flutter test renderer and cover light,
+dark, forest, and plum in rest, hover, and open-menu states. These are distinct
+from the native macOS inspection. No iOS or Android device run was performed.
+
+Final verification: static analysis reported no issues; 526 focused widget,
+interaction, shell integration, and golden checks passed after integrating
+the latest local main.

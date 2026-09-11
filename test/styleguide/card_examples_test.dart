@@ -135,11 +135,19 @@ void main() {
         of: find.text('Forgot your password?'),
         matching: find.byType(DButton),
       );
-      expect(tester.getSize(recovery).height, 20);
+      expect(tester.getSize(recovery).height, 48);
+      expect(
+        tester
+            .getSize(
+              find.descendant(of: recovery, matching: find.byType(Material)),
+            )
+            .height,
+        32,
+      );
       final recoveryStyle = DefaultTextStyle.of(
         tester.element(find.text('Forgot your password?')),
       ).style;
-      expect(recoveryStyle.fontWeight, FontWeight.w400);
+      expect(recoveryStyle.fontWeight, FontWeight.w500);
       expect(recoveryStyle.height, 20 / 14);
 
       await tester.tap(find.text('Email'));

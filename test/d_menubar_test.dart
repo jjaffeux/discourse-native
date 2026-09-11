@@ -10,9 +10,11 @@ void main() {
   testWidgets('matches compact root geometry and opens a command menu', (
     tester,
   ) async {
-    await tester.pumpWidget(const _TestApp(child: _BasicMenubar()));
+    await tester.pumpWidget(
+      const _TestApp(platform: TargetPlatform.macOS, child: _BasicMenubar()),
+    );
 
-    expect(tester.getSize(find.byType(DMenubar)).height, 32);
+    expect(tester.getSize(find.byType(DMenubar)).height, 38);
     expect(find.text('New Tab'), findsNothing);
 
     await tester.tap(find.text('File'));
@@ -530,6 +532,7 @@ class _TestApp extends StatelessWidget {
   const _TestApp({
     required this.child,
     this.tokens,
+    this.platform,
     this.hoverColor,
     this.textDirection = TextDirection.ltr,
     this.textScaler = TextScaler.noScaling,
@@ -538,6 +541,7 @@ class _TestApp extends StatelessWidget {
 
   final Widget child;
   final DTokens? tokens;
+  final TargetPlatform? platform;
   final Color? hoverColor;
   final TextDirection textDirection;
   final TextScaler textScaler;
@@ -546,6 +550,7 @@ class _TestApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) => MaterialApp(
     theme: ThemeData.light().copyWith(
+      platform: platform,
       hoverColor: hoverColor,
       extensions: [tokens ?? _tokens(Colors.white)],
     ),

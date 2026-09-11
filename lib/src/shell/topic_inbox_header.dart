@@ -612,7 +612,6 @@ class _TopicCloseButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => DButton.iconOnly(
-    insetSurface: true,
     key: const ValueKey('topic-close-reader'),
     icon: const DIcon(DNativeIcons.closeTopicPane, size: 20),
     tooltip: 'Collapse topic',
@@ -1032,9 +1031,6 @@ class _CategoryChip extends StatelessWidget {
               interactiveBackgroundColor: hover,
               loading: saving,
               loadingSemanticLabel: 'Saving category',
-              padding: compact
-                  ? const EdgeInsets.symmetric(horizontal: 2, vertical: 1)
-                  : null,
               label: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -1176,7 +1172,6 @@ class _TopicPropertyPopoverState extends State<_TopicPropertyPopover> {
     if (widget.compact) {
       return section.compactHeader?.call(context, showDetails) ??
           DButton.iconOnly(
-            insetSurface: true,
             icon: const DIcon(DIcons.ellipsis, size: 16),
             tooltip: section.label,
             size: DButtonSize.small,
