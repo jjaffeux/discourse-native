@@ -340,10 +340,7 @@ class _TopicInboxWorkspaceState extends State<_TopicInboxWorkspace> {
           controller: controller,
           compact: true,
           fromList: true,
-          showLabel:
-              ContentReadingLane.breakpointWidthOf(context, listWidth) /
-                  MediaQuery.textScalerOf(context).scale(1) >=
-              760,
+          showLabel: true,
           leadingPadding: false,
         );
         Widget heading(Widget? navigation) => Row(
