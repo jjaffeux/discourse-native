@@ -1,3 +1,4 @@
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/list_link.dart';
 import 'package:discourse_native/src/shell/topic_list_search.dart';
@@ -49,6 +50,51 @@ void main() {
       latest.withTopicListSearch('one').id,
       isNot(latest.withTopicListSearch('two').id),
     );
+  });
+
+  testWidgets('slash focuses search without stealing keys from editors', (
+    tester,
+  ) async {
+    final otherFocus = FocusNode();
+    addTearDown(otherFocus.dispose);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light,
+        home: Scaffold(
+          body: Column(
+            children: [
+              TopicListSearch(query: '', onChanged: (_) {}),
+              DInputGroup(children: [DInputGroupInput(focusNode: otherFocus)]),
+            ],
+          ),
+        ),
+      ),
+    );
+    final search = tester.widget<EditableText>(
+      find.descendant(
+        of: find.byType(TopicListSearch),
+        matching: find.byType(EditableText),
+      ),
+    );
+    await tester.sendKeyEvent(LogicalKeyboardKey.slash, character: '/');
+    await tester.pump();
+    expect(search.focusNode.hasFocus, isTrue);
+    expect(search.controller.text, isEmpty);
+    otherFocus.requestFocus();
+    await tester.pump();
+    await tester.sendKeyEvent(LogicalKeyboardKey.slash, character: '/');
+    await tester.pump();
+    expect(otherFocus.hasFocus, isTrue);
+    otherFocus.unfocus();
+    await tester.pump();
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.slash, character: '/');
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+    await tester.pump();
+    expect(search.focusNode.hasFocus, isFalse);
+    await tester.pumpWidget(const SizedBox());
+    await tester.sendKeyEvent(LogicalKeyboardKey.slash, character: '/');
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets(

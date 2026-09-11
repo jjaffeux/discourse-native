@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
+import 'keyboard_navigation.dart';
 
 /// The owning navigation supplies the scope; the editor contains only text.
 class TopicListSearch extends StatefulWidget {
@@ -27,6 +28,26 @@ class TopicListSearch extends StatefulWidget {
 class _TopicListSearchState extends State<TopicListSearch> {
   late final _text = TextEditingController(text: widget.query);
   Timer? _debounce;
+  final _focus = FocusNode(debugLabel: 'Topic search');
+
+  @override
+  void initState() {
+    super.initState();
+    FocusManager.instance.addEarlyKeyEventHandler(_handleSearchShortcut);
+  }
+
+  KeyEventResult _handleSearchShortcut(KeyEvent event) {
+    if (!mounted ||
+        !const CharacterActivator(
+          '/',
+        ).accepts(event, HardwareKeyboard.instance) ||
+        event is! KeyDownEvent ||
+        !navigationShortcutsAllowed(context)) {
+      return KeyEventResult.ignored;
+    }
+    _focus.requestFocus();
+    return KeyEventResult.handled;
+  }
 
   @override
   void didUpdateWidget(TopicListSearch oldWidget) {
@@ -54,6 +75,8 @@ class _TopicListSearchState extends State<TopicListSearch> {
   @override
   void dispose() {
     _debounce?.cancel();
+    FocusManager.instance.removeEarlyKeyEventHandler(_handleSearchShortcut);
+    _focus.dispose();
     _text.dispose();
     super.dispose();
   }
@@ -69,6 +92,7 @@ class _TopicListSearchState extends State<TopicListSearch> {
           DInputGroupInput(
             key: const ValueKey('topic-list-search'),
             controller: _text,
+            focusNode: _focus,
             semanticLabel: 'Search topics in the current category and tags',
             hintText: widget.categoryName == null
                 ? 'Search topics…'
@@ -85,6 +109,10 @@ class _TopicListSearchState extends State<TopicListSearch> {
             child: ExcludeSemantics(
               child: DIcon(DIcons.magnifyingGlass, size: 16),
             ),
+          ),
+          const DInputGroupAddon(
+            alignment: DInputGroupAddonAlignment.inlineEnd,
+            child: DKbd('/'),
           ),
           if (_text.text.isNotEmpty)
             DInputGroupAddon(
