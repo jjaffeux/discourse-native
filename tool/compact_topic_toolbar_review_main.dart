@@ -65,6 +65,10 @@ Future<void> main() async {
         '/new.json?subset=replies': [rows[1], rows[3]],
         '/top.json?period=yearly': rows,
         '/hot.json': rows,
+        '/new.json?category=3': [rows[3]],
+        '/new.json?category=4': [rows[3]],
+        '/c/support/3.json': [rows[3]],
+        '/c/support/installation/4.json': [rows[3]],
       },
       categoryList: const [
         TopicCategory(

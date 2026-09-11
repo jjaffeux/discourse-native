@@ -1,0 +1,6 @@
+@import url('../review.css');
+.preview-tools>button{padding:5px 8px}.preview-tools>button[aria-pressed=true]{background:var(--surface);border-color:var(--accent)}.description{max-width:980px}.previews:not(.resize) .wide-preview iframe{min-width:860px}.small-preview{width:390px;max-width:100%}.previews:not(.resize) .frame-scroll{overflow:auto}
+
+@media(max-width:1450px){.previews:not(.resize){grid-template-columns:minmax(0,1fr)}}
+
+#scenario{font:inherit;color:var(--fg);background:var(--surface);border:1px solid var(--border);border-radius:5px;padding:6px 8px}#scenario:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
