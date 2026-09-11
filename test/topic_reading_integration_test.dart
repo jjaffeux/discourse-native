@@ -2716,48 +2716,51 @@ void _registerTopicReadingTests() {
       expect(find.text('Close topic'), findsOneWidget);
     });
 
-    testWidgets('only a topic bookmark gives its action the core accent', (
-      tester,
-    ) async {
-      const reader = DiscourseUser(id: 1, username: 'reader');
-      final authenticator = FakeAuthenticator()
-        ..keys['https://meta.discourse.org'] = 'meta-key';
+    testWidgets(
+      'outlined footer opens the matching topic or post bookmark menu',
+      (tester) async {
+        const reader = DiscourseUser(id: 1, username: 'reader');
+        final authenticator = FakeAuthenticator()
+          ..keys['https://meta.discourse.org'] = 'meta-key';
 
-      Future<Color?> bookmarkColor(Bookmark bookmark) async {
-        final api = FakeDiscourseApi(
-          feeds: {'/latest.json': listed},
-          topics: {
-            7: detail(bookmarks: [bookmark]),
-          },
-        );
-        await pumpShell(
-          tester,
-          desktop,
-          instances: [instance('meta.discourse.org').copyWith(user: reader)],
-          api: api,
-          authenticator: authenticator,
-        );
-        await tester.tap(contentText('A real topic'));
-        await tester.pumpAndSettle();
-        return tester
-            .widget<DIcon>(
-              find.descendant(
-                of: find.byKey(const ValueKey('topic-bookmark-button')),
-                matching: find.byType(DIcon),
-              ),
-            )
-            .color;
-      }
+        Future<void> openBookmark(Bookmark bookmark, String title) async {
+          final api = FakeDiscourseApi(
+            feeds: {'/latest.json': listed},
+            topics: {
+              7: detail(bookmarks: [bookmark]),
+            },
+          );
+          await pumpShell(
+            tester,
+            desktop,
+            instances: [instance('meta.discourse.org').copyWith(user: reader)],
+            api: api,
+            authenticator: authenticator,
+          );
+          await tester.tap(contentText('A real topic'));
+          await tester.pumpAndSettle();
+          final action = find.byKey(const ValueKey('topic-bookmark-button'));
+          expect(
+            tester.widget<DButton>(action).variant,
+            DButtonVariant.outline,
+          );
+          await tester.tap(action);
+          await tester.pumpAndSettle();
+          expect(find.text(title), findsOneWidget);
+          await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+          await tester.pumpAndSettle();
+        }
 
-      expect(
-        await bookmarkColor(const Bookmark(id: 1, bookmarkableType: 'Topic')),
-        DTokens.of(tester.element(find.byType(TopicView))).primary,
-      );
-      expect(
-        await bookmarkColor(const Bookmark(id: 2, bookmarkableType: 'Post')),
-        isNull,
-      );
-    });
+        await openBookmark(
+          const Bookmark(id: 1, bookmarkableType: 'Topic'),
+          'Topic bookmark',
+        );
+        await openBookmark(
+          const Bookmark(id: 2, bookmarkableType: 'Post'),
+          'Topic bookmarks',
+        );
+      },
+    );
 
     testWidgets('offers copy and system share for core’s canonical link', (
       tester,
