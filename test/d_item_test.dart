@@ -1,6 +1,7 @@
 import 'dart:ui' as ui;
 
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/src/theme/d_icon.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
@@ -52,6 +53,47 @@ Widget sample(DItemSize size) => DItem(
 );
 
 void main() {
+  testWidgets(
+    'controlled selection adds and removes its indicator and semantics',
+    (tester) async {
+      final semantics = tester.ensureSemantics();
+
+      for (final brightness in Brightness.values) {
+        for (final selected in [false, true, false]) {
+          await tester.pumpWidget(
+            host(
+              DItem(
+                selected: selected,
+                onPressed: () {},
+                children: const [
+                  DItemContent(
+                    children: [DItemTitle(child: Text('Current topic'))],
+                  ),
+                ],
+              ),
+              theme: ThemeData(brightness: brightness),
+              width: 280,
+              direction: TextDirection.rtl,
+              scale: 2,
+            ),
+          );
+          await tester.pumpAndSettle();
+          expect(find.byType(DIcon), selected ? findsOneWidget : findsNothing);
+          expect(
+            tester
+                    .getSemantics(find.byType(DItem))
+                    .flagsCollection
+                    .isSelected ==
+                ui.Tristate.isTrue,
+            selected,
+          );
+          expect(tester.takeException(), isNull);
+        }
+      }
+      semantics.dispose();
+    },
+  );
+
   testWidgets(
     'base-nova sizes preserve border-box insets, type and media alignment',
     (tester) async {
