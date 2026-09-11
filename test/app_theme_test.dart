@@ -469,6 +469,7 @@ void main() {
         hoverColor,
       );
       expect(theme.hoverColor, hoverColor);
+      expect(theme.extension<DTokens>()!.hover, hoverColor);
       expect(menuButton.backgroundColor!.resolve({}), Colors.transparent);
       expect(menuButton.overlayColor!.resolve({}), Colors.transparent);
       expect(menuButton.mouseCursor!.resolve({}), SystemMouseCursors.click);

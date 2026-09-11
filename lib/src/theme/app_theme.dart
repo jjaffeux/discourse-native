@@ -677,7 +677,8 @@ abstract final class AppTheme {
           surface: shell.floating,
           muted: shell.panel,
           border: shell.divider,
-          hover: shell.hover,
+          // Native popup rows need contrast against the floating surface.
+          hover: menuItemHoverColor,
           selected: shell.selected,
           selectedForeground: shell.selectedForeground,
           successColor: discourse.success,
