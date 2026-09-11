@@ -19,6 +19,19 @@ final itemExamples = ComponentExamples(
       'and accessible round icon buttons. The Dropdown example composes accepted '
       'Dropdown Menu primitives with actual passive xs Items.',
   examples: [
+    StyleguideExample(
+      title: 'Selected',
+      description:
+          'Caller-controlled selection uses an accent border, tint and checkmark.',
+      code:
+          "DItem(selected: true, children: [DItemContent(children: [DItemTitle(child: Text('Current topic'))])])",
+      builder: (_) => const DItem(
+        selected: true,
+        children: [
+          DItemContent(children: [DItemTitle(child: Text('Current topic'))]),
+        ],
+      ),
+    ),
     for (final kind in [
       'Basic',
       'Variant',

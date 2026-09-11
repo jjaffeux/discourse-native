@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 
+import '../../theme/d_icon.dart';
+import '../../theme/d_icons.dart';
 import '../../theme/discourse_typography.dart';
 import '../foundation/tokens.dart';
 import 'd_separator.dart';
@@ -13,7 +15,7 @@ enum DItemSize { standard, sm, xs }
 enum DItemMediaVariant { standard, icon, avatar, image }
 
 /// A content row, optionally an action or link. Editable fields keep their own
-/// FormField owner; Item itself has no form value or selection state.
+/// FormField owner; selection is controlled by the caller.
 ///
 /// Place [DItemContent] in [children] for flexible content (only the first grows).
 /// Header/footer occupy the full width. Secondary controls remain independent
@@ -29,6 +31,7 @@ class DItem extends StatefulWidget {
     this.onPressed,
     this.link = false,
     this.enabled = true,
+    this.selected = false,
     this.focusNode,
     this.autofocus = false,
     this.semanticLabel,
@@ -45,6 +48,10 @@ class DItem extends StatefulWidget {
   /// Uses link semantics. Navigation and external URL policy remain caller-owned.
   final bool link;
   final bool enabled;
+
+  /// Highlights the current item with an accent border, tint and checkmark.
+  /// The caller owns selection changes; activation only calls [onPressed].
+  final bool selected;
 
   /// Borrowed when supplied; never disposed by Item.
   final FocusNode? focusNode;
@@ -94,7 +101,9 @@ class _DItemState extends State<DItem> {
           child.children.any((c) => c is DItemDescription),
     );
     final focus = _active && _focusVisible;
-    final background = _active && _hover
+    final background = widget.selected
+        ? tokens.primary.withValues(alpha: .12)
+        : _active && _hover
         ? tokens.muted
         : widget.variant == DItemVariant.muted
         ? tokens.muted.withValues(alpha: tokens.muted.a * .5)
@@ -134,6 +143,8 @@ class _DItemState extends State<DItem> {
               border: Border.all(
                 color: focus
                     ? tokens.focusRing
+                    : widget.selected
+                    ? tokens.primary
                     : widget.variant == DItemVariant.outline
                     ? tokens.border
                     : Colors.transparent,
@@ -158,7 +169,19 @@ class _DItemState extends State<DItem> {
                   _ItemBody(
                     gap: gap,
                     described: described,
-                    children: widget.children,
+                    children: [
+                      ...widget.children,
+                      if (widget.selected)
+                        DItemMedia(
+                          child: ExcludeSemantics(
+                            child: DIcon(
+                              DIcons.check,
+                              size: 16,
+                              color: tokens.primary,
+                            ),
+                          ),
+                        ),
+                    ],
                   ),
                 if (widget.footer != null) ...[
                   if (widget.children.isNotEmpty) SizedBox(height: gap),
@@ -217,6 +240,7 @@ class _DItemState extends State<DItem> {
       link: widget.link ? true : null,
       enabled: widget.onPressed != null || widget.link ? _active : null,
       label: widget.semanticLabel,
+      selected: widget.selected ? true : null,
       onTap: _active ? widget.onPressed : null,
       child: result,
     );
