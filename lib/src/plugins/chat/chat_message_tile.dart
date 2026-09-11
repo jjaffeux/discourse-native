@@ -1596,12 +1596,10 @@ class _Tile extends StatelessWidget {
                               context,
                               textStyle: style,
                               contentSized: true,
-                              linkStyle: outgoing
-                                  ? TextStyle(
-                                      color: style.color,
-                                      decoration: TextDecoration.underline,
-                                    )
-                                  : null,
+                              linkStyle: DText.linkStyleOf(context).copyWith(
+                                color: outgoing ? style.color : null,
+                                decorationColor: outgoing ? style.color : null,
+                              ),
                             )!,
                           );
                           return directMessageActions == null

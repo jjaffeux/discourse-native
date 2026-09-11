@@ -269,9 +269,15 @@ void main() {
       expect(isUnderlined(tester, 'the link'), isFalse);
       for (final color in [Colors.white, Colors.black]) {
         await render(
-          TextStyle(color: color, decoration: TextDecoration.underline),
+          TextStyle(
+            color: color,
+            fontWeight: FontWeight.w500,
+            decoration: TextDecoration.underline,
+            decorationColor: color,
+          ),
         );
         expect(styleOf(tester, 'the link').color, color);
+        expect(styleOf(tester, 'the link').fontWeight, FontWeight.w500);
         expect(isUnderlined(tester, 'the link'), isTrue);
       }
       await render(null);
