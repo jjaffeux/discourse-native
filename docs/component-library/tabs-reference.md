@@ -189,3 +189,31 @@ and clicking the focused tab hid it again. Checked dark/wide and light/360px
 layouts at 100% and 200% text, including End/Enter scrolling to Trending. The
 selected underline remained visible. The fixture used local fake data and was
 closed after inspection; touch coverage is from widget tests, not a device run.
+
+## Recommendation tabs adoption — 2026-09-11
+
+The final application consumer of `ListNavigationTab` now uses controlled
+`DTabs`, a line-style `DTabList`, and `DTabPanel` for recommendation content.
+The retired widget and its import are removed. Source ordering, saved forum
+selection, empty-source fallback, and topic-row navigation are preserved.
+
+Verification:
+
+- All 31 tab and recommendation-store tests passed, along with eight focused
+  recommendation tests in the reading, inbox, and view-lifecycle suites.
+- The reading integration test covers pointer selection, arrow/End focus,
+  Enter/Space activation, content updates, and a 390px viewport at 200% text.
+- `flutter analyze --no-pub` reported no issues.
+- An isolated macOS app mounted the production reader with local data and the
+  styleguide Line example. Both inbox and standard reader modes were inspected;
+  light/dark themes, 340px/700px widths, and 100%/200% text were exercised.
+  Native accessibility exposed individual tabs and recommendation content.
+  Pointer selection, keyboard activation, and overflow reveal passed.
+
+The initial review fixture called `ensureSemantics()` before macOS requested
+accessibility. This left the native bridge with partial updates and caused
+crashes during theme changes. The corrected fixture follows ordinary application
+startup and lets the native accessibility request enable semantics. It exposed
+the complete accessibility tree and passed the same theme/resize sequence.
+No UI-kit or engine change was needed. Do not treat the earlier forced-startup
+fixture crashes as a component regression.

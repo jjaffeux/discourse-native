@@ -30,7 +30,6 @@ import 'cooked_html.dart';
 import 'inline_action.dart';
 import 'keyboard_navigation.dart';
 import 'list_boundary_shortcuts.dart';
-import 'list_navigation_tab.dart';
 import 'open_link.dart';
 import 'post_actions.dart';
 import 'post_footer.dart';
@@ -3467,84 +3466,68 @@ class _MoreTopics extends StatelessWidget {
     if (available.isEmpty) return const SizedBox.shrink();
     final selection = _effectiveSelection(available);
     final theme = Theme.of(context);
-    final tabTextStyle = theme.textTheme.labelLarge;
-    final tabHeight =
-        (MediaQuery.textScalerOf(context).scale(DiscourseTypography.sm) *
-                    DiscourseTypography.lineHeightSmall +
-                16)
-            .ceilToDouble();
 
     return Padding(
       padding: EdgeInsets.only(top: topPadding, bottom: 16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+      child: DTabs<TopicRecommendationSourceId>.controlled(
+        value: selection.id,
+        onChanged: (value) {
+          if (value != null) onSelected(value);
+        },
         children: [
           if (available.length > 1 || inbox)
             Padding(
-              padding: EdgeInsets.symmetric(horizontal: inbox ? 16 : 0),
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  border: Border(
-                    bottom: BorderSide(color: theme.shell.divider),
-                  ),
-                ),
-                child: SizedBox(
-                  height: tabHeight,
-                  child: SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    padding: EdgeInsets.symmetric(horizontal: inbox ? 0 : 16),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        for (
-                          var index = 0;
-                          index < available.length;
-                          index++
-                        ) ...[
-                          if (index > 0) const SizedBox(width: 17),
-                          IntrinsicWidth(
-                            child: ListNavigationTab(
-                              controlKey: ValueKey(
-                                'topic-recommendations-tab-${available[index].id.value}',
-                              ),
-                              label: available[index].label,
-                              textStyle: tabTextStyle,
-                              underline: true,
-                              selected: selection.id == available[index].id,
-                              onTap: () => onSelected(available[index].id),
-                            ),
-                          ),
-                        ],
-                      ],
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: DTabList<TopicRecommendationSourceId>(
+                variant: DTabListVariant.line,
+                children: [
+                  for (final source in available)
+                    DTabTrigger(
+                      key: ValueKey(
+                        'topic-recommendations-tab-${source.id.value}',
+                      ),
+                      value: source.id,
+                      child: Text(source.label),
                     ),
-                  ),
-                ),
+                ],
               ),
             ),
-          for (var index = 0; index < selection.topics.length; index++) ...[
-            if (inbox)
-              TopicInboxRow(
-                topic: selection.topics[index],
-                siteUrl: siteUrl,
-                recommendation: true,
-                onTap: () =>
-                    ShellScope.read(context)
-                        .openTopicFromList(selection.topics[index]),
-              )
-            else
-              TopicListRow(
-                topic: selection.topics[index],
-                siteUrl: siteUrl,
-                titleStyle: theme.textTheme.titleSmall,
-              ),
-            if (index < selection.topics.length - 1)
-              DSeparator(
-                space: 1,
-                indent: inbox ? 16 : 0,
-                endIndent: inbox ? 16 : 0,
-                color: theme.shell.divider,
-              ),
-          ],
+          DTabPanel(
+            value: selection.id,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                for (
+                  var index = 0;
+                  index < selection.topics.length;
+                  index++
+                ) ...[
+                  if (inbox)
+                    TopicInboxRow(
+                      topic: selection.topics[index],
+                      siteUrl: siteUrl,
+                      recommendation: true,
+                      onTap: () => ShellScope.read(
+                        context,
+                      ).openTopicFromList(selection.topics[index]),
+                    )
+                  else
+                    TopicListRow(
+                      topic: selection.topics[index],
+                      siteUrl: siteUrl,
+                      titleStyle: theme.textTheme.titleSmall,
+                    ),
+                  if (index < selection.topics.length - 1)
+                    DSeparator(
+                      space: 1,
+                      indent: inbox ? 16 : 0,
+                      endIndent: inbox ? 16 : 0,
+                      color: theme.shell.divider,
+                    ),
+                ],
+              ],
+            ),
+          ),
         ],
       ),
     );
