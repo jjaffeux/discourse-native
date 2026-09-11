@@ -152,7 +152,7 @@ final class TopicCalendarFallback extends StatelessWidget {
         if (text.isNotEmpty) Text(text),
         if (onOpenWeb != null)
           DButton(
-            variant: DButtonVariant.transparentPrimary,
+            variant: DButtonVariant.link,
             onPressed: onOpenWeb,
             label: const Text('Open web calendar'),
           )

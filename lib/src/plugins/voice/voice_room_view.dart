@@ -302,7 +302,7 @@ class _VoiceRoomContentState extends State<VoiceRoomContent> {
               DButton(
                 onPressed: () => controller.dismissCallError(siteUrl),
                 label: const Text('Dismiss'),
-                variant: DButtonVariant.flat,
+                variant: DButtonVariant.ghost,
               ),
             ],
           ),
@@ -949,7 +949,7 @@ class _CallControls extends StatelessWidget {
           onPressed: controller.leave,
           icon: const DIcon(DIcons.phoneSlash, size: 18),
           label: const Text('Leave room'),
-          variant: DButtonVariant.danger,
+          variant: DButtonVariant.destructive,
         ),
       ],
     );

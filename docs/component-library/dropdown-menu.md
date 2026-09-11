@@ -1,5 +1,7 @@
 # Dropdown Menu source evidence
 
+Current shared control styling and application adoption: [2026-09-11 follow-up](control-consistency.md).
+
 Prepared on 2026-09-09 from the frozen 2026-09-08 Base UI/base-nova
 reference.
 

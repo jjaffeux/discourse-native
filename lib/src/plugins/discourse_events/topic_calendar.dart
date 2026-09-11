@@ -301,7 +301,7 @@ final class _TopicCalendarState extends State<TopicCalendar> {
                                   Text(event.description),
                                 if (event.postNumber case final number?)
                                   DButton(
-                                    variant: DButtonVariant.transparentPrimary,
+                                    variant: DButtonVariant.link,
                                     onPressed: () {
                                       Navigator.pop(context);
                                       widget.onOpenReply(number);
@@ -317,7 +317,7 @@ final class _TopicCalendarState extends State<TopicCalendar> {
           ),
           actions: [
             DButton(
-              variant: DButtonVariant.transparentPrimary,
+              variant: DButtonVariant.ghost,
               onPressed: () => Navigator.pop(context),
               label: const Text('Close'),
             ),
@@ -406,7 +406,7 @@ final class _TopicCalendarState extends State<TopicCalendar> {
                 crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
                   DButton(
-                    variant: DButtonVariant.transparentPrimary,
+                    variant: DButtonVariant.outline,
                     onPressed: _goToday,
                     label: const Text('Today'),
                   ),
@@ -437,7 +437,7 @@ final class _TopicCalendarState extends State<TopicCalendar> {
                     ),
                   ),
                   DButton(
-                    variant: DButtonVariant.transparentPrimary,
+                    variant: DButtonVariant.outline,
                     onPressed: _pickTimezone,
                     icon: const Icon(Icons.public, size: 16),
                     label: Text(_timezone.replaceAll('_', ' ')),
@@ -470,7 +470,7 @@ final class _TopicCalendarState extends State<TopicCalendar> {
             child: Align(
               alignment: AlignmentDirectional.centerStart,
               child: DButton(
-                variant: DButtonVariant.transparentPrimary,
+                variant: DButtonVariant.link,
                 onPressed: widget.onOpenWeb,
                 icon: const Icon(Icons.open_in_browser, size: 16),
                 label: const Text('Open web calendar'),
@@ -736,7 +736,7 @@ final class _TimezonePickerState extends State<_TimezonePicker> {
       ),
       actions: [
         DButton(
-          variant: DButtonVariant.transparentPrimary,
+          variant: DButtonVariant.ghost,
           onPressed: () => Navigator.pop(context),
           label: const Text('Cancel'),
         ),

@@ -293,7 +293,7 @@ class _SearchControls extends StatelessWidget {
                   ),
                   tooltip: 'Sort search results',
                   semanticLabel: 'Sort search results by $label',
-                  variant: DButtonVariant.flat,
+                  variant: DButtonVariant.ghost,
                   onPressed: openMenu,
                 );
               },

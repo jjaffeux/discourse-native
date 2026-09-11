@@ -374,7 +374,7 @@ class _ChartInteractiveExampleState extends State<ChartInteractiveExample> {
                     ),
                   ),
                   child: DButton(
-                    variant: DButtonVariant.transparent,
+                    variant: DButtonVariant.ghost,
                     alignment: AlignmentDirectional.centerStart,
                     borderRadius: BorderRadius.zero,
                     padding: EdgeInsets.symmetric(
@@ -840,7 +840,7 @@ class _ChartInteractiveExampleState extends State<ChartInteractiveExample> {
                     ),
                   ),
                   child: DButton(
-                    variant: DButtonVariant.transparent,
+                    variant: DButtonVariant.ghost,
                     alignment: AlignmentDirectional.centerStart,
                     borderRadius: BorderRadius.zero,
                     padding: EdgeInsets.symmetric(

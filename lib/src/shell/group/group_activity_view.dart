@@ -314,7 +314,7 @@ class _RequestsSection extends StatelessWidget {
                           DButton(
                             key: ValueKey('accept-${requester.username}'),
                             label: const Text('Accept'),
-                            variant: DButtonVariant.success,
+                            variant: DButtonVariant.primary,
                             size: DButtonSize.small,
                             onPressed: mutating || onAction == null
                                 ? null
@@ -328,7 +328,7 @@ class _RequestsSection extends StatelessWidget {
                           DButton(
                             key: ValueKey('deny-${requester.username}'),
                             label: const Text('Deny'),
-                            variant: DButtonVariant.danger,
+                            variant: DButtonVariant.destructive,
                             size: DButtonSize.small,
                             onPressed: mutating || onAction == null
                                 ? null

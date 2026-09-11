@@ -60,7 +60,7 @@ class DNotificationLevelMenu<T> extends StatelessWidget {
   final DButtonSize size;
 
   /// Overrides the trigger style for compositions such as an outlined group.
-  /// When null, labeled triggers are flat and emphasized icon triggers use
+  /// When null, labeled triggers are outlined and emphasized icon triggers use
   /// the primary accent.
   final DButtonVariant? variant;
 
@@ -126,13 +126,14 @@ class DNotificationLevelMenu<T> extends StatelessWidget {
                 focusNode: state.focusNode,
                 hasPopup: true,
                 expanded: state.open,
-                variant: variant ?? DButtonVariant.flat,
+                variant: variant ?? DButtonVariant.outline,
                 backgroundColor: backgroundColor,
                 borderColor: borderColor,
                 interactiveBackgroundColor: interactiveBackgroundColor,
                 size: size,
               )
             : DButton.iconOnly(
+                insetSurface: variant == null && !selected.emphasized,
                 key: buttonKey,
                 icon: selected.icon,
                 tooltip: label,
@@ -144,8 +145,8 @@ class DNotificationLevelMenu<T> extends StatelessWidget {
                 variant:
                     variant ??
                     (selected.emphasized
-                        ? DButtonVariant.transparentPrimary
-                        : DButtonVariant.flat),
+                        ? DButtonVariant.primary
+                        : DButtonVariant.ghost),
                 backgroundColor: backgroundColor,
                 borderColor: borderColor,
                 interactiveBackgroundColor: interactiveBackgroundColor,

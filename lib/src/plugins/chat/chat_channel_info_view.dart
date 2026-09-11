@@ -469,7 +469,7 @@ class _ChannelSettings extends StatelessWidget {
                                         channel: channel,
                                       ),
                                     ),
-                                    variant: DButtonVariant.standard,
+                                    variant: DButtonVariant.outline,
                                     size: DButtonSize.small,
                                   ),
                                 ),
@@ -500,7 +500,7 @@ class _ChannelSettings extends StatelessWidget {
                                       DIcons.rightFromBracket,
                                       size: 16,
                                     ),
-                                    variant: DButtonVariant.danger,
+                                    variant: DButtonVariant.destructive,
                                     size: DButtonSize.small,
                                     loading: followingBusy,
                                     loadingLabel: const Text('Leaving…'),
@@ -599,7 +599,7 @@ class _ChannelSummary extends StatelessWidget {
       label: const Text('Edit details'),
       onPressed: onEdit,
       icon: const DIcon(DIcons.pencil, size: 14),
-      variant: DButtonVariant.standard,
+      variant: DButtonVariant.outline,
       size: DButtonSize.small,
     );
 

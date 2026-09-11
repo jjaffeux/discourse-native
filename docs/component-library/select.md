@@ -1,5 +1,7 @@
 # Select reference mapping
 
+Current shared control styling and application adoption: [2026-09-11 follow-up](control-consistency.md).
+
 Native Select was removed at the user's request on 2026-09-10. `DSelect` now
 owns all plain and rich selection fields. Callers use explicit `enabled`
 guards for busy or unavailable controls and null-valued options for clearable

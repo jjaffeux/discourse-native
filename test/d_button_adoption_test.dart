@@ -20,7 +20,6 @@ const _intentionalMaterialButtons = <String, int>{
   'lib/src/plugins/discourse_events/event_calendar.dart': 1,
   'lib/src/shell/do_not_disturb_dialog.dart': 1, // Fixed 44px option grid.
   'lib/src/shell/reaction_presentation.dart': 1, // Fixed 44px picker action.
-  'lib/src/shell/topic_list_navigation.dart': 1, // Inset period selector.
   'lib/src/shell/topic_view.dart': 8, // Dense selection and inline link tools.
   'lib/src/shell/user_menu_button.dart': 2, // Fixed shell account control.
 };

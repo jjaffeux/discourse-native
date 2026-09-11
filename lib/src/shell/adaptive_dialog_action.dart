@@ -144,7 +144,7 @@ class _MaterialDialogAction extends StatelessWidget {
     return switch (kind) {
       AdaptiveDialogActionKind.regular => DButton(
         onPressed: onPressed,
-        variant: DButtonVariant.standard,
+        variant: DButtonVariant.outline,
         label: child,
       ),
       AdaptiveDialogActionKind.primary => DButton(
@@ -154,7 +154,7 @@ class _MaterialDialogAction extends StatelessWidget {
       ),
       AdaptiveDialogActionKind.destructive => DButton(
         onPressed: onPressed,
-        variant: DButtonVariant.danger,
+        variant: DButtonVariant.destructive,
         label: child,
       ),
     };

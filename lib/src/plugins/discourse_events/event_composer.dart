@@ -565,7 +565,7 @@ class _EventComposerSheetState extends State<EventComposerSheet> {
       if (widget.block != null)
         DButton(
           label: const Text('Remove event'),
-          variant: DButtonVariant.transparentDanger,
+          variant: DButtonVariant.destructive,
           onPressed: () {
             if (widget.isCurrent()) Navigator.pop(context, '');
           },

@@ -206,7 +206,7 @@ class _InviteListState extends State<InviteList> {
                 ),
                 DButton(
                   label: const Text('Refresh'),
-                  variant: DButtonVariant.transparent,
+                  variant: DButtonVariant.ghost,
                   onPressed: controller.loading || controller.writing
                       ? null
                       : () => unawaited(controller.load(search: _search.text)),
@@ -303,7 +303,7 @@ class _InviteListState extends State<InviteList> {
               if (controller.hasMore && controller.error == null)
                 DButton(
                   label: Text(controller.loading ? 'Loading…' : 'Load more'),
-                  variant: DButtonVariant.transparent,
+                  variant: DButtonVariant.ghost,
                   onPressed: controller.loading || controller.writing
                       ? null
                       : () => unawaited(controller.load(more: true)),
@@ -419,7 +419,7 @@ class _InviteRow extends StatelessWidget {
               children: [
                 DButton(
                   label: const Text('Confirm removal'),
-                  variant: DButtonVariant.danger,
+                  variant: DButtonVariant.destructive,
                   onPressed: busy ? null : onConfirmRemoval,
                 ),
                 DButton(
@@ -435,19 +435,19 @@ class _InviteRow extends StatelessWidget {
                 if (invite.link != null)
                   DButton(
                     label: Text(copied ? 'Copied!' : 'Copy link'),
-                    variant: DButtonVariant.transparent,
+                    variant: DButtonVariant.ghost,
                     onPressed: busy ? null : onCopy,
                   ),
                 if (invite.canDelete && invite.email != null && allowEmail)
                   DButton(
                     label: const Text('Resend'),
-                    variant: DButtonVariant.transparent,
+                    variant: DButtonVariant.ghost,
                     onPressed: busy ? null : onResend,
                   ),
                 if (invite.canDelete)
                   DButton(
                     label: const Text('Remove'),
-                    variant: DButtonVariant.transparentDanger,
+                    variant: DButtonVariant.destructive,
                     onPressed: busy ? null : onRemove,
                   ),
               ],

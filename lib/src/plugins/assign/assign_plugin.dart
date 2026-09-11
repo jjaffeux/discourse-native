@@ -358,6 +358,7 @@ final class AssignPlugin
         showHeader: false,
         values: values,
         compactHeader: (anchorContext, showDetails) => DButton.iconOnly(
+          insetSurface: true,
           key: const Key('assign-topic-header'),
           icon: direct == null
               ? const DIcon(DIcons.userPlus, size: 16)
@@ -368,7 +369,7 @@ final class AssignPlugin
               ? 'Assign topic'
               : 'Manage assignments',
           size: DButtonSize.small,
-          variant: DButtonVariant.flat,
+          variant: DButtonVariant.ghost,
           onPressed: direct != null || !canAssign
               ? showDetails
               : () => unawaited(
@@ -418,7 +419,7 @@ final class AssignPlugin
                       ? 'Assign topic'
                       : 'Manage assignment to ${direct.assignee.displayName}',
                   size: DButtonSize.small,
-                  variant: DButtonVariant.standard,
+                  variant: DButtonVariant.outline,
                   onPressed: direct != null
                       ? showDetails
                       : canAssign
@@ -443,7 +444,7 @@ final class AssignPlugin
                 ),
                 tooltip: 'Manage assignments',
                 size: DButtonSize.small,
-                variant: DButtonVariant.flat,
+                variant: DButtonVariant.ghost,
                 onPressed: showDetails,
               ),
           ],
@@ -844,7 +845,7 @@ class _TopicAssignmentPropertyRow extends StatelessWidget {
                       icon: const DIcon(DIcons.pencil, size: 13),
                       tooltip: 'Change assignee',
                       semanticLabel: 'Change $actionTarget assignment',
-                      variant: DButtonVariant.transparent,
+                      variant: DButtonVariant.ghost,
                       size: DButtonSize.small,
                       onPressed: writing
                           ? null
@@ -858,7 +859,7 @@ class _TopicAssignmentPropertyRow extends StatelessWidget {
                       icon: const DIcon(DIcons.xmark, size: 13),
                       tooltip: 'Remove assignment',
                       semanticLabel: 'Remove $actionTarget assignment',
-                      variant: DButtonVariant.transparentDanger,
+                      variant: DButtonVariant.destructive,
                       size: DButtonSize.small,
                       loading: writing,
                       onPressed: () => onRemove!(anchorContext),

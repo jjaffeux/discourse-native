@@ -118,7 +118,7 @@ class _PostNoticeDialogState extends State<_PostNoticeDialog> {
           key: const ValueKey('post-notice-delete'),
           label: const Text('Delete notice'),
           onPressed: _saving ? null : () => unawaited(_set(null)),
-          variant: DButtonVariant.danger,
+          variant: DButtonVariant.destructive,
         ),
       DButton(
         label: const Text('Cancel'),

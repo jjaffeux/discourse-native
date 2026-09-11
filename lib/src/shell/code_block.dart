@@ -382,11 +382,12 @@ class _CodeBlockState extends State<CodeBlock> {
               _CodeCopyButton(text: data.clipboardText),
               if (widget.showFullscreen)
                 DButton.iconOnly(
+                  insetSurface: true,
                   key: const ValueKey('code-block-fullscreen'),
                   onPressed: _openFullscreen,
                   tooltip: 'View code full screen',
                   semanticLabel: 'View code full screen',
-                  variant: DButtonVariant.flat,
+                  variant: DButtonVariant.ghost,
                   size: DButtonSize.small,
                   icon: const DIcon(DIcons.expand, size: 16),
                 ),
@@ -500,11 +501,12 @@ class _CodeBlockFullscreenState extends State<CodeBlockFullscreen> {
                   actions: [
                     _CodeCopyButton(text: widget.data.clipboardText),
                     DButton.iconOnly(
+                      insetSurface: true,
                       key: const ValueKey('code-block-fullscreen-close'),
                       onPressed: Navigator.of(context).pop,
                       tooltip: 'Close',
                       semanticLabel: 'Close code viewer',
-                      variant: DButtonVariant.flat,
+                      variant: DButtonVariant.ghost,
                       size: DButtonSize.small,
                       icon: const DIcon(DIcons.xmark, size: 18),
                     ),
@@ -665,11 +667,12 @@ class _CodeCopyButtonState extends State<_CodeCopyButton> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return DButton.iconOnly(
+      insetSurface: true,
       key: const ValueKey('code-block-copy'),
       onPressed: _copied ? null : () => unawaited(_copy()),
       tooltip: _copied ? 'Copied!' : 'Copy code',
       semanticLabel: _copied ? 'Code copied' : 'Copy code',
-      variant: DButtonVariant.flat,
+      variant: DButtonVariant.ghost,
       size: DButtonSize.small,
       icon: DIcon(
         _copied ? DIcons.check : DIcons.copy,

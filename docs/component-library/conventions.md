@@ -34,6 +34,24 @@ and framework-specific form integration pages do not add catalogue rows.
 - Every public feature must work; no inert properties or illustrative-only
   control affordances. No TODOs. Document public behavior and constraints.
 
+## Control consistency
+
+Application buttons use the six reference variants: primary, outline,
+secondary, ghost, destructive and link. Legacy enum names are compatibility
+aliases for external callers, not application choices. Ordinary dropdown
+triggers should use `DDropdownMenuTrigger.button`; richer compositions must
+render DButton or the appropriate existing kit control and pass through focus,
+expanded state and activation.
+
+Use shared control geometry and paint from `foundation/control_style.dart`.
+Prefer variant and size over local colors, radius or padding. Category identity
+and explicitly inventoried container geometry are the current exceptions in
+`test/control_style_adoption_test.dart`. Review any new exception against a
+concrete application requirement. Compare the Button **Control consistency**
+example across palettes and states whenever changing a control foundation;
+update its golden baselines only after visual review. See
+[the migration and verification record](control-consistency.md).
+
 ## Theme, layout and interaction
 
 `DTokens.of(context)` supplies semantic colors and radius, with a fallback for

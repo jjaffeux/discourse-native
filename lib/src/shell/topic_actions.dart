@@ -26,9 +26,6 @@ class TopicBookmarkButton extends StatelessWidget {
     required this.busy,
     this.showLabel = false,
     this.variant,
-    this.backgroundColor,
-    this.borderColor,
-    this.interactiveBackgroundColor,
   });
 
   final String siteUrl;
@@ -36,9 +33,6 @@ class TopicBookmarkButton extends StatelessWidget {
   final bool busy;
   final bool showLabel;
   final DButtonVariant? variant;
-  final Color? backgroundColor;
-  final Color? borderColor;
-  final Color? interactiveBackgroundColor;
 
   @override
   Widget build(BuildContext context) {
@@ -52,9 +46,6 @@ class TopicBookmarkButton extends StatelessWidget {
                 ? DIcons.bookmark
                 : DIcons.farBookmark,
             size: 18,
-            color: topic.topicBookmark != null
-                ? DTokens.of(context).primary
-                : null,
           );
     final tooltip = topic.hasBookmarks
         ? 'Manage ${topic.bookmarks.length} topic bookmark${topic.bookmarks.length == 1 ? '' : 's'}'
@@ -62,8 +53,8 @@ class TopicBookmarkButton extends StatelessWidget {
     final buttonVariant =
         variant ??
         (topic.topicBookmark != null
-            ? DButtonVariant.transparentPrimary
-            : DButtonVariant.flat);
+            ? DButtonVariant.primary
+            : DButtonVariant.ghost);
     void open() => unawaited(
       showTopicBookmarkMenu(
         context: context,
@@ -82,9 +73,6 @@ class TopicBookmarkButton extends StatelessWidget {
         tooltip: tooltip,
         loading: busy,
         variant: buttonVariant,
-        backgroundColor: backgroundColor,
-        borderColor: borderColor,
-        interactiveBackgroundColor: interactiveBackgroundColor,
         size: DButtonSize.small,
       );
     }
@@ -95,9 +83,6 @@ class TopicBookmarkButton extends StatelessWidget {
       tooltip: tooltip,
       loading: busy,
       variant: buttonVariant,
-      backgroundColor: backgroundColor,
-      borderColor: borderColor,
-      interactiveBackgroundColor: interactiveBackgroundColor,
       size: DButtonSize.small,
     );
   }
@@ -165,11 +150,12 @@ class TopicShareButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return DButton.iconOnly(
+      insetSurface: true,
       key: const ValueKey('topic-share-button'),
       onPressed: () => _share(context),
       icon: const DIcon(DIcons.link, size: 18),
       tooltip: 'Share topic',
-      variant: DButtonVariant.flat,
+      variant: DButtonVariant.ghost,
       size: DButtonSize.small,
     );
   }
@@ -413,6 +399,7 @@ class TopicStatusButton extends StatelessWidget {
         enabled: !busy,
         onSelected: (select) => select(),
         builder: (context, openMenu) => DButton.iconOnly(
+          insetSurface: true,
           key: const ValueKey('topic-status-button'),
           tooltip: 'More topic actions',
           onPressed: openMenu == null
@@ -423,7 +410,7 @@ class TopicStatusButton extends StatelessWidget {
                   openMenu();
                 },
           loading: busy,
-          variant: DButtonVariant.flat,
+          variant: DButtonVariant.ghost,
           size: DButtonSize.small,
           icon: busy
               ? const SizedBox.square(dimension: 16, child: DSpinner())

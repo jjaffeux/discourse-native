@@ -236,10 +236,11 @@ class ComposerImageGalleryControl extends StatelessWidget {
       child: Semantics(
         hint: '$count. Add or remove images.',
         child: DButton.iconOnly(
+          insetSurface: true,
           onPressed: onEdit,
           tooltip: 'Gallery options',
           semanticLabel: 'Gallery options',
-          variant: DButtonVariant.flat,
+          variant: DButtonVariant.ghost,
           icon: const Icon(Icons.tune),
         ),
       ),

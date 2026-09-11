@@ -989,8 +989,6 @@ class _IncomingBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final accent = theme.colorScheme.primary;
     final label = Text(
       _label,
       softWrap: true,
@@ -1010,18 +1008,7 @@ class _IncomingBanner extends StatelessWidget {
               key: const ValueKey('incoming-topics-button'),
               variant: DButtonVariant.outline,
               size: DButtonSize.large,
-              borderRadius: BorderRadius.circular(999),
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
-              backgroundColor: Color.alphaBlend(
-                accent.withValues(alpha: 0.07),
-                theme.shell.content,
-              ),
-              interactiveBackgroundColor: Color.alphaBlend(
-                accent.withValues(alpha: 0.16),
-                theme.shell.content,
-              ),
-              borderColor: accent.withValues(alpha: 0.25),
-              icon: DIcon(DIcons.arrowUp, size: 16, color: accent),
+              icon: const DIcon(DIcons.arrowUp, size: 16),
               label: label,
               loading: loading,
               loadingLabel: label,

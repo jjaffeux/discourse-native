@@ -52,12 +52,13 @@ class HoverActionButton extends StatelessWidget {
     final theme = Theme.of(context);
 
     return DButton.iconOnly(
+      insetSurface: true,
       focusNode: focusNode,
       onPressed: onPressed,
       tooltip: tooltip,
       variant: color == theme.colorScheme.error
-          ? DButtonVariant.transparentDanger
-          : DButtonVariant.flat,
+          ? DButtonVariant.destructive
+          : DButtonVariant.ghost,
       icon: IconTheme.merge(
         data: IconThemeData(color: color ?? theme.colorScheme.onSurfaceVariant),
         child: icon,

@@ -1,15 +1,17 @@
-import 'dart:math' as math;
 import 'dart:ui' show SemanticsValidationResult, lerpDouble;
 
 import 'package:flutter/material.dart';
 
 import '../../theme/discourse_typography.dart';
+import '../foundation/control_style.dart';
 import '../foundation/joined_control.dart';
 import '../foundation/tokens.dart';
 import 'd_kbd.dart';
 import 'd_spinner.dart';
 import 'd_tooltip.dart';
 
+/// The six reference variants are the application styling contract.
+/// Legacy names remain source-compatible aliases for external plugin callers.
 enum DButtonVariant {
   outline,
   secondary,
@@ -28,7 +30,7 @@ enum DButtonVariant {
   link,
 }
 
-enum DButtonSize { extraSmall, small, regular, large }
+typedef DButtonSize = DControlSize;
 
 /// Icon placement follows the ambient reading direction.
 enum DButtonIconPosition { start, end }
@@ -113,6 +115,8 @@ class DButtonVariantStyle {
   );
 }
 
+/// Compatibility data for existing theme and plugin APIs. Button appearance
+/// resolves through DTokens; only disabledOpacity affects the renderer.
 @immutable
 class DiscourseButtonTheme extends ThemeExtension<DiscourseButtonTheme> {
   const DiscourseButtonTheme({
@@ -427,15 +431,15 @@ class DButton extends StatelessWidget {
   final BorderRadiusGeometry? borderRadius;
 
   /// Overrides the variant's fill in every state, including expanded and
-  /// disabled. [interactiveBackgroundColor] takes precedence on hover/focus
-  /// and compatibility-variant presses. Foreground colors remain variant-owned.
+  /// disabled. [interactiveBackgroundColor] takes precedence while hovered
+  /// or focused. Foreground colors remain variant-owned.
   final Color? backgroundColor;
 
   /// Overrides the 1px border in every state except [invalid]. The themed focus
   /// ring remains visible, and joined groups still omit the shared border.
   final Color? borderColor;
 
-  /// Overrides the hover/focus fill and compatibility-variant pressed fill.
+  /// Overrides the hover/focus fill.
   /// An expanded secondary button keeps its expanded fill instead.
   final Color? interactiveBackgroundColor;
   final bool _iconOnly;
@@ -449,12 +453,8 @@ class DButton extends StatelessWidget {
     _ => DiscourseTypography.sm,
   };
 
-  static double visualDimensionFor(DButtonSize size) => switch (size) {
-    DButtonSize.extraSmall => 24,
-    DButtonSize.small => 28,
-    DButtonSize.regular => 32,
-    DButtonSize.large => 36,
-  };
+  static double visualDimensionFor(DButtonSize size) =>
+      DControlStyle.height(size);
 
   /// Legacy shell hit targets remain available for inset icon actions.
   static double iconOnlyDimensionFor(DButtonSize size) => switch (size) {
@@ -464,21 +464,20 @@ class DButton extends StatelessWidget {
     DButtonSize.large => 56,
   };
 
-  bool get _isReferenceVariant => switch (variant) {
-    DButtonVariant.primary ||
-    DButtonVariant.outline ||
-    DButtonVariant.secondary ||
-    DButtonVariant.ghost ||
-    DButtonVariant.destructive ||
-    DButtonVariant.link => true,
-    _ => false,
+  DButtonVariant get _visualVariant => switch (variant) {
+    DButtonVariant.standard => DButtonVariant.outline,
+    DButtonVariant.danger ||
+    DButtonVariant.transparentDanger => DButtonVariant.destructive,
+    DButtonVariant.success ||
+    DButtonVariant.transparentSuccess ||
+    DButtonVariant.transparentPrimary => DButtonVariant.primary,
+    DButtonVariant.flat ||
+    DButtonVariant.flatClose ||
+    DButtonVariant.transparent => DButtonVariant.ghost,
+    _ => variant,
   };
 
-  DButtonVariantStyle _referenceStyle(
-    DTokens tokens,
-    bool dark,
-    DiscourseButtonTheme compatibility,
-  ) {
+  DButtonVariantStyle _referenceStyle(DTokens tokens, bool dark) {
     DButtonStateStyle state(
       Color background,
       Color foreground, [
@@ -502,7 +501,7 @@ class DButton extends StatelessWidget {
       expanded: state(expanded ?? background, foreground, border),
     );
     final input = tokens.colors.outlineVariant;
-    return switch (variant) {
+    return switch (_visualVariant) {
       DButtonVariant.primary => pair(
         tokens.primary,
         _alpha(tokens.primary, .8),
@@ -511,14 +510,14 @@ class DButton extends StatelessWidget {
       // Dark rest and hover surfaces are declared after aria-expanded in the
       // reference stylesheet, so an open dark outline trigger does not change.
       DButtonVariant.outline when dark => pair(
-        _alpha(input, .3),
-        _alpha(input, .5),
+        DControlStyle.outlineFill(tokens, dark: true),
+        DControlStyle.outlineFill(tokens, dark: true, hovered: true),
         tokens.foreground,
         border: input,
       ),
       DButtonVariant.outline => pair(
-        tokens.background,
-        tokens.muted,
+        DControlStyle.outlineFill(tokens, dark: false),
+        DControlStyle.outlineFill(tokens, dark: false, hovered: true),
         tokens.foreground,
         border: tokens.border,
         expanded: tokens.muted,
@@ -545,7 +544,7 @@ class DButton extends StatelessWidget {
         Colors.transparent,
         tokens.primary,
       ),
-      _ => compatibility.styleFor(variant),
+      _ => throw StateError('Unresolved legacy button variant: $variant'),
     };
   }
 
@@ -561,17 +560,16 @@ class DButton extends StatelessWidget {
     final buttons = theme.discourseButtons;
     final tokens = DTokens.of(context);
     final dark = theme.brightness == Brightness.dark;
-    final reference = _isReferenceVariant;
-    final variantStyle = _referenceStyle(tokens, dark, buttons);
+    final variantStyle = _referenceStyle(tokens, dark);
     final fontSize = fontSizeFor(size);
     final spacingUnit = switch (size) {
       DButtonSize.extraSmall => 12.0,
       DButtonSize.small => _iconOnly ? 16.0 : 14.0,
-      _ => 16.0,
+      _ => DControlStyle.iconSize,
     };
     final gap = size == DButtonSize.extraSmall || size == DButtonSize.small
         ? 4.0
-        : 6.0;
+        : DControlStyle.gap;
     final visualDimension = visualDimensionFor(size);
     final touch =
         theme.platform == TargetPlatform.iOS ||
@@ -591,31 +589,22 @@ class DButton extends StatelessWidget {
     final enabled = onPressed != null && !loading;
     final baseRadius =
         borderRadius ??
-        BorderRadius.circular(
-          size == DButtonSize.extraSmall || size == DButtonSize.small
-              ? (tokens.radius * .8).clamp(
-                  0,
-                  size == DButtonSize.extraSmall ? 10 : 12,
-                )
-              : tokens.radius,
-        );
+        BorderRadius.circular(DControlStyle.radius(tokens, size));
     final direction = Directionality.of(context);
     final joined = DJoinedControlScope.maybeOf(context);
     final radius =
         joined?.resolveRadius(baseRadius, direction) ??
         baseRadius.resolve(direction);
-    final animationDuration = DMotion.duration(
-      context,
-      const Duration(milliseconds: 150),
-    );
+    final animationDuration = DMotion.duration(context, DControlStyle.duration);
     // dark:border-input is declared after focus-visible:border-ring in the
     // reference stylesheet, so a focused dark outline keeps its input border.
-    final focusBorderColor = switch (variant) {
+    final focusBorderColor = switch (_visualVariant) {
       DButtonVariant.destructive => _alpha(tokens.destructive, .4),
       DButtonVariant.outline when dark => null,
       _ => tokens.focusRing,
     };
-    final destructiveRing = invalid || variant == DButtonVariant.destructive;
+    final destructiveRing =
+        invalid || _visualVariant == DButtonVariant.destructive;
     final ringColor = destructiveRing
         ? _alpha(tokens.destructive, dark ? .4 : .2)
         : _alpha(tokens.focusRing, .5);
@@ -641,14 +630,13 @@ class DButton extends StatelessWidget {
         return withBackground(variantStyle.enabled);
       }
       // Reference hover surfaces sit behind a (hover: hover) media query, so
-      // a touch press only translates. Compatibility variants keep their
-      // pressed fill as touch feedback.
-      final interactive =
-          states.contains(WidgetState.hovered) ||
-          (!reference && states.contains(WidgetState.pressed));
+      // a touch press only translates. Legacy names resolve to the same
+      // reference surfaces and interaction states.
+      final interactive = states.contains(WidgetState.hovered);
       // aria-expanded:bg-secondary is declared after the secondary hover mix,
       // so an open secondary trigger keeps its expanded surface while hovered.
-      if (expanded && (!interactive || variant == DButtonVariant.secondary)) {
+      if (expanded &&
+          (!interactive || _visualVariant == DButtonVariant.secondary)) {
         return withBackground(variantStyle.expanded);
       }
       if (interactive) {
@@ -926,119 +914,7 @@ class DButton extends StatelessWidget {
 /// rather than showing the fill through it. [joinedAxis] names the axis along
 /// which the leading edge is shared with a preceding control: that edge has no
 /// border and the fill reaches it. The ring is painted outside the bounds.
-@immutable
-class DButtonDecoration extends Decoration {
-  const DButtonDecoration({
-    required this.color,
-    required this.borderColor,
-    required this.borderRadius,
-    this.ringColor = const Color(0x00000000),
-    this.ringWidth = 0,
-    this.joinedAxis,
-  }) : assert(ringWidth >= 0);
-
-  static const double borderWidth = 1;
-
-  final Color color;
-  final Color borderColor;
-  final BorderRadius borderRadius;
-  final Color ringColor;
-  final double ringWidth;
-  final Axis? joinedAxis;
-
-  @override
-  BoxPainter createBoxPainter([VoidCallback? onChanged]) =>
-      _DButtonPainter(this);
-
-  @override
-  Decoration? lerpFrom(Decoration? a, double t) => a is DButtonDecoration
-      ? DButtonDecoration(
-          color: Color.lerp(a.color, color, t)!,
-          borderColor: Color.lerp(a.borderColor, borderColor, t)!,
-          borderRadius: BorderRadius.lerp(a.borderRadius, borderRadius, t)!,
-          ringColor: Color.lerp(a.ringColor, ringColor, t)!,
-          ringWidth: lerpDouble(a.ringWidth, ringWidth, t)!,
-          joinedAxis: t < .5 ? a.joinedAxis : joinedAxis,
-        )
-      : super.lerpFrom(a, t);
-
-  @override
-  Decoration? lerpTo(Decoration? b, double t) =>
-      b is DButtonDecoration ? b.lerpFrom(this, t) : super.lerpTo(b, t);
-
-  @override
-  bool operator ==(Object other) =>
-      other is DButtonDecoration &&
-      other.color == color &&
-      other.borderColor == borderColor &&
-      other.borderRadius == borderRadius &&
-      other.ringColor == ringColor &&
-      other.ringWidth == ringWidth &&
-      other.joinedAxis == joinedAxis;
-
-  @override
-  int get hashCode => Object.hash(
-    color,
-    borderColor,
-    borderRadius,
-    ringColor,
-    ringWidth,
-    joinedAxis,
-  );
-}
-
-class _DButtonPainter extends BoxPainter {
-  const _DButtonPainter(this.decoration);
-
-  final DButtonDecoration decoration;
-
-  @override
-  void paint(Canvas canvas, Offset offset, ImageConfiguration configuration) {
-    final rect = offset & configuration.size!;
-    final outer = decoration.borderRadius.toRRect(rect);
-    final direction = configuration.textDirection ?? TextDirection.ltr;
-    final axis = decoration.joinedAxis;
-    const width = DButtonDecoration.borderWidth;
-    final sharesStart = axis == Axis.horizontal;
-    final inner = RRect.fromRectAndCorners(
-      Rect.fromLTRB(
-        rect.left + (sharesStart && direction == TextDirection.ltr ? 0 : width),
-        rect.top + (axis == Axis.vertical ? 0 : width),
-        rect.right -
-            (sharesStart && direction == TextDirection.rtl ? 0 : width),
-        rect.bottom - width,
-      ),
-      topLeft: _shrink(outer.tlRadius, width),
-      topRight: _shrink(outer.trRadius, width),
-      bottomLeft: _shrink(outer.blRadius, width),
-      bottomRight: _shrink(outer.brRadius, width),
-    );
-    if (decoration.ringWidth > 0 && decoration.ringColor.a > 0) {
-      canvas.drawDRRect(
-        outer.inflate(decoration.ringWidth),
-        outer,
-        Paint()..color = decoration.ringColor,
-      );
-    }
-    if (decoration.borderColor.a > 0) {
-      // The shared edge leaves the inner and outer paths touching, which an
-      // even-odd path difference handles where drawDRRect is undefined.
-      canvas.drawPath(
-        Path()
-          ..fillType = PathFillType.evenOdd
-          ..addRRect(outer)
-          ..addRRect(inner),
-        Paint()..color = decoration.borderColor,
-      );
-    }
-    if (decoration.color.a > 0) {
-      canvas.drawRRect(inner, Paint()..color = decoration.color);
-    }
-  }
-
-  static Radius _shrink(Radius radius, double by) =>
-      Radius.elliptical(math.max(0, radius.x - by), math.max(0, radius.y - by));
-}
+typedef DButtonDecoration = DControlDecoration;
 
 // ButtonStyleButton retains native Actions/Focus and activation semantics.
 // Navigation must not expose the button role inherited by FilledButton.
