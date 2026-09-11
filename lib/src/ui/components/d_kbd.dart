@@ -49,6 +49,7 @@ class DKbd extends StatelessWidget {
         .copyWith(
           fontSize: DiscourseTypography.xs,
           height: DiscourseTypography.lineHeightCaption,
+          leadingDistribution: TextLeadingDistribution.even,
           letterSpacing: 0,
           wordSpacing: 0,
           fontStyle: FontStyle.normal,
