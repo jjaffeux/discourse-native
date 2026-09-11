@@ -5506,6 +5506,7 @@ class ShellController extends FrameSafeNotifier
     if (instance == null) return;
     if (instance.loginRequired && !instance.isConnected) return;
     final requestedPostNumber = postNumber ?? topicScrollPostNumber(topicId);
+    final tabId = activeTabId;
 
     // Start presentation fetches before cache/in-flight guards so failures stay
     // retryable even for topics already in the store.
@@ -5531,6 +5532,7 @@ class ShellController extends FrameSafeNotifier
       return;
     }
     final held = store.read<TopicDetail>(instance.url, topicId);
+    if (held != null) _ensureMessageListParent(instance.url, tabId, held);
     final heldResumePostNumber = held?.resumePostNumber;
     if (requestedPostNumber == null &&
         !force &&
@@ -5614,6 +5616,7 @@ class ShellController extends FrameSafeNotifier
           fetched,
           bookmarkVersionAtDispatch: bookmarkVersion,
         );
+        _ensureMessageListParent(instance.url, tabId, detail);
         if (currentInstance?.url == instance.url) {
           _retitle(instance.url, topicId, fetched.detail.title);
         }
@@ -5668,6 +5671,45 @@ class ShellController extends FrameSafeNotifier
           postNumber: targetPostNumber,
         );
       }
+    }
+  }
+
+  void _ensureMessageListParent(
+    String siteUrl,
+    String? tabId,
+    TopicDetail detail,
+  ) {
+    if (!detail.privateMessage) return;
+    final workspace = _forumWorkspaces[siteUrl];
+    final tab = workspace?.tabs.where((tab) => tab.id == tabId).firstOrNull;
+    if (workspace == null ||
+        tab == null ||
+        tab.currentContent.topicId != detail.id) {
+      return;
+    }
+    final parent = tab.contentStack.reversed
+        .where((route) => !route.isTopic)
+        .firstOrNull;
+    if (parent?.isMessages == true) return;
+
+    final messages = ContentRoute.messages();
+    _putWorkspace(
+      workspace.copyWith(
+        tabs: [
+          for (final candidate in workspace.tabs)
+            if (candidate.id == tab.id)
+              tab.copyWith(
+                rootDestinationId: messages.id,
+                contentStack: [messages, tab.currentContent],
+                forwardStack: const [],
+              )
+            else
+              candidate,
+        ],
+      ),
+    );
+    if (currentInstance?.url == siteUrl && activeTabId == tabId) {
+      unawaited(loadFeed(messages.id));
     }
   }
 
