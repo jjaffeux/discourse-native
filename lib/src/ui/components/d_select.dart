@@ -1635,7 +1635,7 @@ class _DSelectOptionRowState<T> extends State<_DSelectOptionRow<T>> {
       height: widget.height,
       padding: const EdgeInsetsDirectional.only(start: 6, end: 8),
       decoration: BoxDecoration(
-        color: highlighted ? tokens.hover : Colors.transparent,
+        color: highlighted ? Theme.of(context).hoverColor : Colors.transparent,
         borderRadius: BorderRadius.circular(tokens.radius * 0.6),
       ),
       child: Row(
