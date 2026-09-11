@@ -310,7 +310,7 @@ class _AddInstanceFormState extends State<_AddInstanceForm> {
           textInputAction: TextInputAction.go,
           onChanged: _addressChanged,
           onSubmitted: (_) => _connect(),
-          labelText: 'Forum address',
+          semanticLabel: 'Forum address',
           hintText: 'meta.discourse.org',
           prefix: const DIcon(DIcons.globe, size: 16),
           suffix: _siteCheckIcon(theme),
