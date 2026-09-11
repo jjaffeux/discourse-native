@@ -217,3 +217,34 @@ startup and lets the native accessibility request enable semantics. It exposed
 the complete accessibility tree and passed the same theme/resize sequence.
 No UI-kit or engine change was needed. Do not treat the earlier forced-startup
 fixture crashes as a component regression.
+
+## Inset and label alignment correction — 2026-09-11
+
+The shared-size migration had given both the list and its triggers the full
+control height and removed the list's vertical inset. Restore 3px list padding
+and derive trigger minimum height as the shared height minus 7px (32/25 at the
+regular size). Center composed trigger content so a plain label aligns with a
+label-and-badge row. Vertical labels retain logical-start alignment. Selected
+shadows use translucent black rather than foreground, which produced a glow
+in dark themes.
+
+Sizes remain minimums: compact sizes and enlarged/composed labels grow
+intrinsically to preserve typography and the inset. Touch backgrounds account
+for scaled label height, trigger padding/border and inset; interaction targets
+remain at least 48px. No application-specific styling or new public API.
+
+Verification: 72 focused Tabs, styleguide and topic-toolbar tests pass (the
+final extra touch regression also passed in the 28-test Tabs suite), and static
+analysis is clean. The downstream suites passed 114 tests with five failures;
+all five reproduced with the unchanged renderer: three Group action-button
+height expectations and two keyboard-navigation row-border expectations.
+
+Read the current official base-nova registry and inspected the official dark
+Tabs preview. An isolated ad-hoc-signed macOS fixture mounted production
+MainContent with local feeds: inspected the dark wide New toolbar and clicked
+Topics, confirming selection and centered labels. Narrow 200% light/dark
+captures were partially obscured, so they are not claimed as full visual
+verification; narrow/RTL/scaled geometry is covered by widget tests. The
+fixture's permitted debug entitlements were read back; it and the reference
+browser tab were closed. Final touch-only changes were verified with iOS
+widget-test overrides, not a device run.

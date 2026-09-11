@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -477,6 +479,11 @@ class DTabList<T> extends StatelessWidget {
       ),
     );
 
+    final textScaler = MediaQuery.textScalerOf(context);
+    final textHeight =
+        textScaler.scale(DControlStyle.fontSize(size)) *
+        DControlStyle.lineHeight(size) /
+        DControlStyle.fontSize(size);
     Widget visual;
     if (root.orientation == Axis.horizontal && touch) {
       visual = Stack(
@@ -485,16 +492,18 @@ class DTabList<T> extends StatelessWidget {
           Positioned.fill(
             child: Center(
               child: Container(
-                height: DControlStyle.scaledHeight(
-                  size,
-                  MediaQuery.textScalerOf(context),
+                // Preserve the inset when scaled text grows past the minimum
+                // control height (including the trigger's padding and border).
+                height: math.max(
+                  DControlStyle.scaledHeight(size, textScaler),
+                  textHeight + 12,
                 ),
                 decoration: decoration,
               ),
             ),
           ),
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 3),
+            padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 3.5),
             child: scope,
           ),
         ],
@@ -509,7 +518,7 @@ class DTabList<T> extends StatelessWidget {
                 )
               : 0,
         ),
-        padding: const EdgeInsets.symmetric(horizontal: 3),
+        padding: const EdgeInsets.all(3),
         decoration: decoration,
         child: scope,
       );
@@ -704,12 +713,11 @@ class _DTabTriggerState<T> extends State<DTabTrigger<T>> {
       duration: DMotion.duration(context, DMotion.change),
       curve: Curves.easeOut,
       constraints: BoxConstraints(
-        minHeight: DControlStyle.scaledHeight(
-          size,
-          MediaQuery.textScalerOf(context),
-        ),
+        minHeight:
+            DControlStyle.scaledHeight(size, MediaQuery.textScalerOf(context)) -
+            7,
       ),
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
       decoration: BoxDecoration(
         color: selected && !line ? selectedBackground : Colors.transparent,
         borderRadius: BorderRadius.circular(radius),
@@ -719,11 +727,11 @@ class _DTabTriggerState<T> extends State<DTabTrigger<T>> {
               : Colors.transparent,
         ),
         boxShadow: selected && !line
-            ? [
+            ? const [
                 BoxShadow(
-                  color: tokens.foreground.withValues(alpha: .08),
+                  color: Color(0x1A000000),
                   blurRadius: 2,
-                  offset: const Offset(0, 1),
+                  offset: Offset(0, 1),
                 ),
               ]
             : null,
@@ -740,7 +748,14 @@ class _DTabTriggerState<T> extends State<DTabTrigger<T>> {
         ),
         child: IconTheme.merge(
           data: IconThemeData(color: foreground, size: 16),
-          child: widget.child,
+          child: Align(
+            alignment: root.orientation == Axis.horizontal
+                ? Alignment.center
+                : AlignmentDirectional.centerStart,
+            widthFactor: 1,
+            heightFactor: 1,
+            child: widget.child,
+          ),
         ),
       ),
     );
