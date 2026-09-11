@@ -493,9 +493,10 @@ class _TopicInboxWorkspaceState extends State<_TopicInboxWorkspace> {
                         ),
                         TopicListBottomBar(
                           leading: createAction,
-                          // Keep actions outside the resize handle's touch area.
+                          // The footer padding already clears the desktop handle.
                           trailingInset: split
-                              ? DResizableHandle.resolveHitExtent(context, 8)
+                              ? DResizableHandle.resolveHitExtent(context, 8) -
+                                    topicBottomBarPadding.horizontal / 2
                               : 0,
                         ),
                       ],

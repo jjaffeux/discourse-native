@@ -137,6 +137,7 @@ class TopicListBottomBar extends StatelessWidget {
                     variant: DButtonVariant.ghost,
                     size: DButtonSize.small,
                   ),
+                  const SizedBox(width: DSpacing.xs),
                   DButton.iconOnly(
                     key: const ValueKey('inbox-next-topic'),
                     tooltip: 'Next topic',
