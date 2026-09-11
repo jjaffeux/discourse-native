@@ -274,6 +274,23 @@ void main() {
       ),
       findsOneWidget,
     );
+
+    await tester.tap(find.byKey(ValueKey('aggregate-query-clear-$siteUrl')));
+    await tester.pumpAndSettle();
+    await tester.enterText(field, 'tag:x');
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await tester.pumpAndSettle();
+    final token = find.byKey(const ValueKey('topic-filter-token-0'));
+    expect(tester.getCenter(field).dy, closeTo(tester.getCenter(token).dy, 2));
+    expect(
+      tester.getTopLeft(field).dx,
+      greaterThan(tester.getTopRight(token).dx),
+    );
+    final tokenField = find.ancestor(
+      of: field,
+      matching: find.byKey(const ValueKey('topic-filter-token-field')),
+    );
+    expect(tester.getSize(tokenField).height, lessThan(64));
   });
 
   testWidgets('desktop exposes aggregate tab lifecycle', (tester) async {
