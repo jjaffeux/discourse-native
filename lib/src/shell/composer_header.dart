@@ -235,7 +235,14 @@ class ComposerHeader extends StatelessWidget {
           child: DPopoverTrigger(
             builder: (context, trigger) => DButton.iconOnly(
               key: const ValueKey('composer-options'),
-              icon: const DIcon(DIcons.ellipsis, size: 16),
+              icon: RotatedBox(
+                quarterTurns: switch (placement) {
+                  ComposerPlacement.left => 2,
+                  ComposerPlacement.bottom => 1,
+                  ComposerPlacement.right => 0,
+                },
+                child: const Icon(Icons.view_sidebar_outlined, size: 18),
+              ),
               tooltip: 'Composer options',
               semanticLabel: 'Composer options',
               hasPopup: true,
