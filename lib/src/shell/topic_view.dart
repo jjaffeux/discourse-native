@@ -1116,8 +1116,8 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
       break;
     }
 
-    // Progress follows the farthest intersecting post so the control remains
-    // responsive while reading inside a post taller than the viewport.
+    // Track the farthest intersecting post separately from the leading
+    // navigation position for read accounting and end-of-topic detection.
     TopicViewportSeenPost? visiblePost;
     for (var childIndex = range.$2; childIndex >= range.$1; childIndex--) {
       if (childIndex.isOdd) continue;
