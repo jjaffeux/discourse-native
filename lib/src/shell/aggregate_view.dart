@@ -1,9 +1,8 @@
 import 'dart:async';
-import 'dart:ui' as ui;
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
-import '../../discourse_ui.dart';
 import '../models/discourse_instance.dart';
 import '../models/topic.dart';
 import '../theme/app_theme.dart';
@@ -11,11 +10,9 @@ import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'aggregate_feed_controller.dart';
 import 'content_reading_lane.dart';
-import 'forum_icon.dart';
 import 'forum_tabs_bar.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';
-import 'shell_sheet.dart';
 import 'topic_filter_input.dart';
 import 'topic_list_view.dart';
 
@@ -23,8 +20,6 @@ abstract final class _AggregateTheme {
   static const purple = Color(0xFF7B5FE2);
   static const yellow = Color(0xFFF8DE6A);
   static const orange = Color(0xFFF15D3A);
-  static const heroStart = Color(0xFF503281);
-  static const heroEnd = Color(0xFF39245C);
 
   static ThemeData from(ThemeData base) {
     final isDark = base.brightness == Brightness.dark;
@@ -95,10 +90,21 @@ abstract final class _AggregateTheme {
         for (final extension in base.extensions.values)
           if (extension is! ShellColors &&
               extension is! DiscourseColors &&
-              extension is! DiscourseButtonTheme)
+              extension is! DiscourseButtonTheme &&
+              extension is! DTokens)
             extension,
         shell,
         discourse,
+        DTokens(
+          colors: scheme,
+          background: canvas,
+          surface: card,
+          muted: tabs,
+          border: divider,
+          hover: hover,
+          selected: accentSoft,
+          selectedForeground: ink,
+        ),
         DiscourseButtonTheme.fromColors(
           scheme,
           borderRadius: 999,
@@ -187,7 +193,6 @@ class AggregateViewState extends State<AggregateView> {
     final controller = ShellScope.read(context);
     _controller = controller;
     final theme = _AggregateTheme.from(Theme.of(context));
-
     return Theme(
       data: theme,
       child: ColoredBox(
@@ -197,20 +202,119 @@ class AggregateViewState extends State<AggregateView> {
           builder: (context, _) {
             _releaseClosedTabScrolls(controller);
             final state = controller.aggregate.state;
-            final activeTabId = controller.activeAggregateTabId;
+            final tabId = controller.activeAggregateTabId;
             return Column(
               children: [
                 if (controller.forumTabsEnabled)
                   _AggregateTabsBar(controller: controller),
                 const _AggregateHeader(),
-                _AggregateTabToolbar(
-                  state: state,
-                  onFilter: () => _showForumFilter(context, controller),
-                  onRefresh: state.loading || state.refreshing
-                      ? null
-                      : () => unawaited(controller.refreshAggregate()),
+                Expanded(
+                  child: ContentReadingLane(
+                    basePadding: const EdgeInsets.fromLTRB(16, 24, 16, 24),
+                    builder: (context, lane) => RefreshIndicator.adaptive(
+                      onRefresh: controller.refreshAggregate,
+                      child: CustomScrollView(
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        key: PageStorageKey(('aggregate-topic-list', tabId)),
+                        controller: _scrollFor(tabId),
+                        slivers: [
+                          SliverPadding(
+                            padding: lane.padding,
+                            sliver: SliverToBoxAdapter(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  Align(
+                                    alignment: AlignmentDirectional.centerEnd,
+                                    child: DButton(
+                                      key: const ValueKey(
+                                        'aggregate-refresh-button',
+                                      ),
+                                      label: const Text('Refresh'),
+                                      loadingLabel: const Text('Refreshing…'),
+                                      icon: const DIcon(
+                                        DIcons.arrowsRotate,
+                                        size: 16,
+                                      ),
+                                      variant: DButtonVariant.outline,
+                                      loading:
+                                          state.loading || state.refreshing,
+                                      onPressed:
+                                          state.loading || state.refreshing
+                                          ? null
+                                          : () => unawaited(
+                                              controller.refreshAggregate(),
+                                            ),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 24),
+                                  _AggregateInlineFilters(
+                                    key: ValueKey(('aggregate-filters', tabId)),
+                                    controller: controller,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          if (state.loading && state.topics.isEmpty)
+                            const SliverToBoxAdapter(
+                              child: Center(child: DSpinner()),
+                            )
+                          else if (state.isEmpty)
+                            SliverToBoxAdapter(
+                              child: _AggregateEmptyState(
+                                icon: DIcons.inbox,
+                                title: state.includedForums == 0
+                                    ? 'No forums selected'
+                                    : 'No matching topics',
+                                message: '',
+                                actionLabel: state.includedForums == 0
+                                    ? 'Choose forums'
+                                    : 'Refresh',
+                                onAction: state.includedForums == 0
+                                    ? () => controller.aggregate
+                                          .setFiltersCollapsed(false)
+                                    : () => unawaited(
+                                        controller.refreshAggregate(),
+                                      ),
+                              ),
+                            )
+                          else ...[
+                            if (state.failures.isNotEmpty)
+                              SliverToBoxAdapter(
+                                child: _PartialFailureBanner(
+                                  failed: state.failures.length,
+                                  onRetry: () =>
+                                      unawaited(controller.refreshAggregate()),
+                                ),
+                              ),
+                            SliverPadding(
+                              padding: lane.padding.copyWith(top: 0),
+                              sliver: SliverList.separated(
+                                itemCount: state.topics.length,
+                                separatorBuilder: (_, _) =>
+                                    const DSeparator(space: 1),
+                                itemBuilder: (_, index) {
+                                  final reference = state.topics[index];
+                                  return _AggregateTopicRow(
+                                    key: ValueKey(
+                                      'aggregate-topic-card-${reference.siteUrl}-${reference.topicId}',
+                                    ),
+                                    reference: reference,
+                                  );
+                                },
+                              ),
+                            ),
+                            if (state.loadingMore)
+                              const SliverToBoxAdapter(
+                                child: Center(child: DSpinner()),
+                              ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ),
                 ),
-                Expanded(child: _body(context, controller, state, activeTabId)),
               ],
             );
           },
@@ -218,561 +322,203 @@ class AggregateViewState extends State<AggregateView> {
       ),
     );
   }
-
-  Widget _body(
-    BuildContext context,
-    ShellController controller,
-    AggregateFeedState state,
-    String tabId,
-  ) {
-    if (state.loading && state.topics.isEmpty) {
-      return Center(
-        child: DSpinner(
-          size: DSpacing.xl,
-          color: Theme.of(context).colorScheme.primary,
-        ),
-      );
-    }
-
-    if (state.isEmpty) {
-      final noForums = state.includedForums == 0;
-      return _AggregateEmptyState(
-        icon: noForums ? DIcons.filter : DIcons.inbox,
-        title: noForums ? 'No forums selected' : 'No matching topics',
-        message: noForums
-            ? 'Choose which connected forums should contribute topics.'
-            : 'There are no topics matching your saved forum filters.',
-        actionLabel: noForums ? 'Choose forums' : 'Refresh',
-        onAction: noForums
-            ? () => _showForumFilter(context, controller)
-            : () => unawaited(controller.refreshAggregate()),
-      );
-    }
-
-    return ContentReadingLane(
-      basePadding: const EdgeInsets.fromLTRB(16, 14, 16, 24),
-      builder: (context, lane) => RefreshIndicator.adaptive(
-        onRefresh: controller.refreshAggregate,
-        child: ListView.separated(
-          key: PageStorageKey(('aggregate-topic-list', tabId)),
-          controller: _scrollFor(tabId),
-          physics: const AlwaysScrollableScrollPhysics(),
-          padding: lane.padding,
-          itemCount:
-              state.topics.length +
-              (state.failures.isNotEmpty ? 1 : 0) +
-              (state.loadingMore ? 1 : 0),
-          separatorBuilder: (context, index) {
-            final firstTopicIndex = state.failures.isNotEmpty ? 1 : 0;
-            final lastTopicIndex = firstTopicIndex + state.topics.length - 1;
-            if (index >= firstTopicIndex && index < lastTopicIndex) {
-              return DSeparator(
-                space: 1,
-                color: Theme.of(context).shell.divider,
-              );
-            }
-            return const SizedBox(height: 9);
-          },
-          itemBuilder: (context, index) {
-            if (state.failures.isNotEmpty) {
-              if (index == 0) {
-                return DCard(
-                  spacing: 0,
-                  child: _PartialFailureBanner(
-                    failed: state.failures.length,
-                    onRetry: () => unawaited(controller.refreshAggregate()),
-                  ),
-                );
-              }
-              index--;
-            }
-            if (index >= state.topics.length) {
-              return DCard(
-                spacing: 0,
-                child: Padding(
-                  padding: const EdgeInsets.all(18),
-                  child: Center(
-                    child: DSpinner(
-                      size: DSpacing.xl,
-                      color: Theme.of(context).colorScheme.primary,
-                    ),
-                  ),
-                ),
-              );
-            }
-            final reference = state.topics[index];
-            return _AggregateTopicRow(
-              key: ValueKey(
-                'aggregate-topic-card-${reference.siteUrl}-${reference.topicId}',
-              ),
-              reference: reference,
-            );
-          },
-        ),
-      ),
-    );
-  }
-
-  Future<void> _showForumFilter(
-    BuildContext context,
-    ShellController controller,
-  ) async {
-    final forums = controller.instances;
-    var selected = {
-      for (final forum in forums)
-        if (forum.isConnected && controller.aggregate.includes(forum))
-          forum.url,
-    };
-    final queries = {
-      for (final forum in forums)
-        forum.url: controller.aggregate.queryFor(forum.url),
-    };
-    final applied =
-        await showShellSheet<
-          ({Set<String> includedForums, Map<String, String> queries})
-        >(
-          context: context,
-          title: 'Aggregate filters',
-          dialogOnDesktop: true,
-          desktopDialogConstraints: const BoxConstraints(
-            maxWidth: 760,
-            maxHeight: 640,
-          ),
-          padding: EdgeInsets.zero,
-          footerBuilder: (footerContext) => Row(
-            mainAxisAlignment: MainAxisAlignment.end,
-            children: [
-              DButton(
-                label: const Text('Cancel'),
-                onPressed: () => Navigator.of(footerContext).pop(),
-              ),
-              const SizedBox(width: 8),
-              DButton(
-                label: const Text('Save filters'),
-                onPressed: () => Navigator.of(
-                  footerContext,
-                ).pop((includedForums: {...selected}, queries: {...queries})),
-                variant: DButtonVariant.primary,
-              ),
-            ],
-          ),
-          builder: (_) => _AggregateFilterEditor(
-            forums: forums,
-            controller: controller,
-            initialIncludedForums: selected,
-            initialQueries: queries,
-            onChanged: (includedForums, updatedQueries) {
-              selected = includedForums;
-              queries
-                ..clear()
-                ..addAll(updatedQueries);
-            },
-          ),
-        );
-    if (applied == null || !context.mounted) return;
-    if (!identical(ShellScope.read(context), controller)) return;
-    await controller.setAggregateForumFilters(
-      includedForums: applied.includedForums,
-      queries: applied.queries,
-    );
-  }
 }
 
-class _AggregateFilterEditor extends StatefulWidget {
-  const _AggregateFilterEditor({
-    required this.forums,
-    required this.controller,
-    required this.initialIncludedForums,
-    required this.initialQueries,
-    required this.onChanged,
-  });
-
-  final List<DiscourseInstance> forums;
+class _AggregateInlineFilters extends StatelessWidget {
+  const _AggregateInlineFilters({super.key, required this.controller});
   final ShellController controller;
-  final Set<String> initialIncludedForums;
-  final Map<String, String> initialQueries;
-  final void Function(Set<String> includedForums, Map<String, String> queries)
-  onChanged;
 
   @override
-  State<_AggregateFilterEditor> createState() => _AggregateFilterEditorState();
+  Widget build(BuildContext context) => DCard(
+    spacing: 0,
+    child: DCollapsible(
+      open: !controller.aggregate.filtersCollapsed,
+      onOpenChange: (open) => controller.aggregate.setFiltersCollapsed(!open),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(12),
+            child: DCollapsibleTrigger(
+              key: const ValueKey('aggregate-filter-collapse'),
+              child: Row(
+                children: [
+                  DIcon(
+                    controller.aggregate.filtersCollapsed
+                        ? DIcons.chevronRight
+                        : DIcons.chevronDown,
+                    size: 16,
+                  ),
+                  const SizedBox(width: 8),
+                  const Text('Forum filters'),
+                ],
+              ),
+            ),
+          ),
+          DCollapsibleContent(
+            keepMounted: true,
+            child: Column(
+              children: [
+                for (final forum in controller.instances) ...[
+                  const DSeparator(space: 1),
+                  _AggregateForumFilterRow(
+                    key: ValueKey(forum.url),
+                    forum: forum,
+                    controller: controller,
+                    tabId: controller.activeAggregateTabId,
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
 }
 
-class _AggregateFilterEditorState extends State<_AggregateFilterEditor> {
-  static const _wideBreakpoint = 620.0;
+class _AggregateForumFilterRow extends StatefulWidget {
+  const _AggregateForumFilterRow({
+    super.key,
+    required this.forum,
+    required this.controller,
+    required this.tabId,
+  });
+  final DiscourseInstance forum;
+  final ShellController controller;
+  final String tabId;
+  @override
+  State<_AggregateForumFilterRow> createState() =>
+      _AggregateForumFilterRowState();
+}
 
-  late Set<String> _includedForums;
-  late Map<String, String> _queries;
-  String? _focusedForumUrl;
-
-  List<DiscourseInstance> get _connectedForums =>
-      widget.forums.where((forum) => forum.isConnected).toList(growable: false);
-
-  DiscourseInstance? get _focusedForum {
-    for (final forum in widget.forums) {
-      if (forum.url == _focusedForumUrl) return forum;
-    }
-    return null;
-  }
-
+class _AggregateForumFilterRowState extends State<_AggregateForumFilterRow> {
+  late bool _included;
+  late String _query;
+  bool _saving = false;
+  final _inputKey = GlobalKey();
   @override
   void initState() {
     super.initState();
-    _includedForums = {...widget.initialIncludedForums};
-    _queries = {...widget.initialQueries};
-    _focusedForumUrl = _initialFocusedForumUrl();
+    final aggregate = widget.controller.aggregate;
+    final draft = aggregate.filterDraftFor(widget.forum.url);
+    _included = draft?.included ?? aggregate.includes(widget.forum);
+    _query = draft?.query ?? aggregate.queryFor(widget.forum.url);
   }
 
-  String? _initialFocusedForumUrl() {
-    for (final forum in widget.forums) {
-      if (forum.isConnected && _includedForums.contains(forum.url)) {
-        return forum.url;
-      }
+  void _rememberDraft() {
+    if (widget.controller.activeAggregateTabId != widget.tabId) return;
+    widget.controller.aggregate.setFilterDraft(
+      widget.forum.url,
+      included: _included,
+      query: _query,
+    );
+  }
+
+  Future<void> _apply() async {
+    final controller = widget.controller;
+    if (_saving || controller.activeAggregateTabId != widget.tabId) return;
+    setState(() => _saving = true);
+    try {
+      await controller.setAggregateForumFilters(
+        includedForums: {
+          for (final forum in controller.instances)
+            if (forum.isConnected &&
+                (forum.url == widget.forum.url
+                    ? _included
+                    : controller.aggregate.includes(forum)))
+              forum.url,
+        },
+        queries: {
+          for (final forum in controller.instances)
+            forum.url: forum.url == widget.forum.url
+                ? _query
+                : controller.aggregate.queryFor(forum.url),
+        },
+      );
+    } finally {
+      if (mounted) setState(() => _saving = false);
     }
-    for (final forum in widget.forums) {
-      if (forum.isConnected) return forum.url;
-    }
-    return null;
-  }
-
-  void _notifyChanged() {
-    widget.onChanged({..._includedForums}, {..._queries});
-  }
-
-  void _setForumIncluded(DiscourseInstance forum, bool included) {
-    if (!forum.isConnected) return;
-    setState(() {
-      _focusedForumUrl = forum.url;
-      _includedForums = {..._includedForums};
-      if (included) {
-        _includedForums.add(forum.url);
-      } else {
-        _includedForums.remove(forum.url);
-      }
-    });
-    _notifyChanged();
-  }
-
-  void _selectAll() {
-    setState(() {
-      _includedForums = {for (final forum in _connectedForums) forum.url};
-    });
-    _notifyChanged();
-  }
-
-  void _clearSelection() {
-    setState(() => _includedForums = {});
-    _notifyChanged();
-  }
-
-  void _focusForum(DiscourseInstance forum) {
-    if (!forum.isConnected) return;
-    if (_focusedForumUrl == forum.url) return;
-    setState(() => _focusedForumUrl = forum.url);
-  }
-
-  void _updateQuery(String siteUrl, String query) {
-    if (_queries[siteUrl] == query) return;
-    _queries[siteUrl] = query;
-    _notifyChanged();
   }
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        LayoutBuilder(
-          builder: (context, constraints) {
-            if (constraints.maxWidth >= _wideBreakpoint) {
-              final height = (widget.forums.length * 58.0 + 64).clamp(
-                300.0,
-                420.0,
-              );
-              return SizedBox(
-                key: const ValueKey('aggregate-filter-wide-layout'),
-                height: height,
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    SizedBox(width: 270, child: _buildForumPane(context)),
-                    DSeparator(
-                      orientation: Axis.vertical,
-                      space: 1,
-                      color: theme.shell.divider,
-                    ),
-                    Expanded(child: _buildFocusedEditor(context)),
-                  ],
-                ),
-              );
+    final forum = widget.forum;
+    final aggregate = widget.controller.aggregate;
+    final dirty =
+        _included != aggregate.includes(forum) ||
+        _query != aggregate.queryFor(forum.url);
+    final enabled = forum.isConnected && !_saving;
+    final checkbox = DCheckbox(
+      key: ValueKey('aggregate-filter-${forum.url}'),
+      value: forum.isConnected && _included,
+      title: Text(forum.title),
+      onChanged: enabled
+          ? (value) {
+              setState(() => _included = value ?? false);
+              _rememberDraft();
             }
-
-            final listHeight = (widget.forums.length * 58.0 + 64).clamp(
-              156.0,
-              324.0,
-            );
-            return Column(
-              key: const ValueKey('aggregate-filter-narrow-layout'),
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                SizedBox(height: listHeight, child: _buildForumPane(context)),
-                DSeparator(space: 1, color: theme.shell.divider),
-                _buildFocusedEditor(context),
-              ],
-            );
-          },
-        ),
-      ],
+          : null,
     );
-  }
-
-  Widget _buildForumList(BuildContext context) {
-    final theme = Theme.of(context);
-    if (widget.forums.isEmpty) {
-      return ColoredBox(
-        color: theme.shell.content,
-        child: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Text(
-              'No forums available',
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-            ),
-          ),
-        ),
-      );
-    }
-
-    return ColoredBox(
-      color: theme.shell.content,
-      child: ListView.separated(
-        key: const ValueKey('aggregate-filter-forum-list'),
-        padding: const EdgeInsets.all(10),
-        itemCount: widget.forums.length,
-        separatorBuilder: (context, index) => const SizedBox(height: 3),
-        itemBuilder: (context, index) {
-          final forum = widget.forums[index];
-          final focused = forum.url == _focusedForumUrl;
-          return Semantics(
-            enabled: forum.isConnected,
-            selected: focused,
-            container: true,
-            child: Material(
-              key: ValueKey('aggregate-filter-row-${forum.url}'),
-              color: focused ? theme.shell.selected : Colors.transparent,
-              borderRadius: BorderRadius.circular(9),
-              child: Row(
+    final input = TopicFilterInput(
+      key: _inputKey,
+      siteUrl: forum.url,
+      initialQuery: _query,
+      options: aggregate.filterOptionsFor(forum.url),
+      categories: widget.controller.filterCategoriesFor(forum.url),
+      onSubmitted: (query) async {
+        if (mounted) {
+          setState(() => _query = query);
+          _rememberDraft();
+        }
+      },
+      onChanged: (query) {
+        if (mounted) {
+          setState(() => _query = query);
+          _rememberDraft();
+        }
+      },
+      inputKey: ValueKey('aggregate-query-${forum.url}'),
+      clearKey: ValueKey('aggregate-query-clear-${forum.url}'),
+      hintText: 'Use forum default',
+      padding: EdgeInsets.zero,
+      enabled: enabled && _included,
+      tokenized: true,
+    );
+    final apply = DButton(
+      key: ValueKey('aggregate-apply-${forum.url}'),
+      label: const Text('Apply'),
+      variant: DButtonVariant.outline,
+      loading: _saving,
+      onPressed: enabled && dirty ? _apply : null,
+    );
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: LayoutBuilder(
+        builder: (context, constraints) => constraints.maxWidth < 620
+            ? Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  DCheckbox(
-                    key: ValueKey('aggregate-filter-${forum.url}'),
-                    semanticLabel: 'Include ${forum.url} in feed',
-                    value:
-                        forum.isConnected &&
-                        _includedForums.contains(forum.url),
-                    onChanged: forum.isConnected
-                        ? (included) =>
-                              _setForumIncluded(forum, included ?? false)
-                        : null,
-                  ),
-                  Expanded(
-                    child: InkWell(
-                      key: ValueKey('aggregate-filter-focus-${forum.url}'),
-                      borderRadius: BorderRadius.circular(9),
-                      canRequestFocus: forum.isConnected,
-                      onTap: forum.isConnected
-                          ? () => _focusForum(forum)
-                          : null,
-                      child: ConstrainedBox(
-                        constraints: const BoxConstraints(minHeight: 54),
-                        child: Padding(
-                          padding: const EdgeInsets.fromLTRB(0, 8, 12, 8),
-                          child: Row(
-                            children: [
-                              ExcludeSemantics(
-                                child: Opacity(
-                                  opacity: forum.isConnected ? 1 : 0.38,
-                                  child: ForumIcon(
-                                    key: ValueKey(
-                                      'aggregate-filter-icon-${forum.url}',
-                                    ),
-                                    forum: forum,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: Column(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      forum.title,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: theme.textTheme.bodyMedium
-                                          ?.copyWith(
-                                            color: forum.isConnected
-                                                ? null
-                                                : theme.disabledColor,
-                                            fontWeight: FontWeight.w600,
-                                          ),
-                                    ),
-                                    if (!forum.isConnected) ...[
-                                      const SizedBox(height: 2),
-                                      Text(
-                                        'Sign in to include',
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: theme.textTheme.bodyMedium
-                                            ?.copyWith(
-                                              color: theme.disabledColor,
-                                            ),
-                                      ),
-                                    ],
-                                  ],
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              DIcon(
-                                DIcons.chevronRight,
-                                size: 13,
-                                color: !forum.isConnected
-                                    ? theme.disabledColor
-                                    : focused
-                                    ? theme.colorScheme.primary
-                                    : theme.colorScheme.onSurfaceVariant,
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
+                  checkbox,
+                  const SizedBox(height: 12),
+                  input,
+                  const SizedBox(height: 12),
+                  Align(
+                    alignment: AlignmentDirectional.centerEnd,
+                    child: apply,
                   ),
                 ],
+              )
+            : Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SizedBox(width: 200, child: checkbox),
+                  const SizedBox(width: 16),
+                  Expanded(child: input),
+                  const SizedBox(width: 16),
+                  apply,
+                ],
               ),
-            ),
-          );
-        },
-      ),
-    );
-  }
-
-  Widget _buildForumPane(BuildContext context) {
-    if (widget.forums.isEmpty) return _buildForumList(context);
-    final theme = Theme.of(context);
-    return ColoredBox(
-      color: theme.shell.content,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          _buildForumControls(),
-          DSeparator(space: 1, color: theme.shell.divider),
-          Expanded(child: _buildForumList(context)),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildForumControls() {
-    final connectedForums = _connectedForums;
-    final includedCount = connectedForums
-        .where((forum) => _includedForums.contains(forum.url))
-        .length;
-    final allIncluded =
-        connectedForums.isNotEmpty && includedCount == connectedForums.length;
-
-    return Padding(
-      key: const ValueKey('aggregate-filter-forum-controls'),
-      padding: const EdgeInsets.fromLTRB(10, 5, 10, 4),
-      child: Wrap(
-        children: [
-          DButton(
-            key: const ValueKey('aggregate-filter-select-all'),
-            label: const Text('Select all'),
-            onPressed: allIncluded ? null : _selectAll,
-            variant: DButtonVariant.link,
-            size: DButtonSize.small,
-          ),
-          DButton(
-            key: const ValueKey('aggregate-filter-clear'),
-            label: const Text('Clear'),
-            onPressed: includedCount == 0 ? null : _clearSelection,
-            variant: DButtonVariant.link,
-            size: DButtonSize.small,
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildFocusedEditor(BuildContext context) {
-    final theme = Theme.of(context);
-    final forum = _focusedForum;
-    if (forum == null) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Text(
-            'Connect a forum to configure its filter.',
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
-          ),
-        ),
-      );
-    }
-
-    final included = forum.isConnected && _includedForums.contains(forum.url);
-    final helper = !forum.isConnected
-        ? 'Sign in to this forum before including it.'
-        : !included
-        ? 'Include this forum to edit its filter.'
-        : 'Leave empty to use this forum’s default topic list.';
-
-    return Padding(
-      key: const ValueKey('aggregate-filter-editor-panel'),
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Text(
-            'Topic filter query',
-            style: theme.textTheme.labelMedium?.copyWith(
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: 7),
-          TopicFilterInput(
-            key: ValueKey('aggregate-filter-editor-${forum.url}'),
-            siteUrl: forum.url,
-            initialQuery: _queries[forum.url] ?? '',
-            options: widget.controller.aggregate.filterOptionsFor(forum.url),
-            categories: widget.controller.filterCategoriesFor(forum.url),
-            onSubmitted: (query) async => _updateQuery(forum.url, query),
-            onChanged: (query) => _updateQuery(forum.url, query),
-            inputKey: ValueKey('aggregate-query-${forum.url}'),
-            clearKey: ValueKey('aggregate-query-clear-${forum.url}'),
-            hintText: 'Use forum default',
-            padding: EdgeInsets.zero,
-            enabled: included,
-            preferSuggestionsAbove: true,
-            tokenized: true,
-          ),
-          const SizedBox(height: 7),
-          Text(
-            helper,
-            key: const ValueKey('aggregate-filter-editor-helper'),
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
-          ),
-        ],
       ),
     );
   }
@@ -818,209 +564,18 @@ class _AggregateTabsBar extends StatelessWidget {
 
 class _AggregateHeader extends StatelessWidget {
   const _AggregateHeader();
-
   @override
-  Widget build(BuildContext context) {
-    return Container(
-      key: const ValueKey('aggregate-hero'),
-      height: 64,
-      clipBehavior: Clip.antiAlias,
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [_AggregateTheme.heroStart, _AggregateTheme.heroEnd],
-        ),
-      ),
-      child: Stack(
-        children: [
-          const Positioned.fill(child: ColoredBox(color: Color(0x33000000))),
-          const Positioned(
-            right: 72,
-            top: -28,
-            child: _AggregateHeroBadge(
-              key: ValueKey('aggregate-hero-badge-bell'),
-              size: 62,
-              color: Color(0xFFFFF470),
-              icon: DIcons.bell,
-              angle: 0.7,
-              blurSigma: 5,
-            ),
-          ),
-          const Positioned(
-            right: -82,
-            top: -46,
-            child: _AggregateHeroBadge(
-              key: ValueKey('aggregate-hero-badge-quote'),
-              size: 155,
-              color: Color(0xFFD5342A),
-              icon: DIcons.quoteLeft,
-              angle: -0.35,
-              blurSigma: 3,
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 22),
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                'Discourse (alpha)',
-                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: -0.45,
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _AggregateHeroBadge extends StatelessWidget {
-  const _AggregateHeroBadge({
-    super.key,
-    required this.size,
-    required this.color,
-    required this.icon,
-    required this.angle,
-    required this.blurSigma,
-  });
-
-  final double size;
-  final Color color;
-  final DIconData icon;
-  final double angle;
-  final double blurSigma;
-
-  @override
-  Widget build(BuildContext context) {
-    return ImageFiltered(
-      imageFilter: ui.ImageFilter.blur(
-        sigmaX: blurSigma,
-        sigmaY: blurSigma,
-        tileMode: TileMode.decal,
-      ),
-      child: Opacity(
-        opacity: 0.4,
-        child: Transform.rotate(
-          angle: angle,
-          child: Container(
-            width: size,
-            height: size,
-            decoration: BoxDecoration(
-              color: color,
-              borderRadius: BorderRadius.circular(size * 8 / 31),
-            ),
-            alignment: Alignment.center,
-            child: DIcon(
-              icon,
-              size: size * 0.52,
-              color: const Color(0xFFFFFEF5),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _AggregateTabToolbar extends StatelessWidget {
-  const _AggregateTabToolbar({
-    required this.state,
-    required this.onFilter,
-    required this.onRefresh,
-  });
-
-  final AggregateFeedState state;
-  final VoidCallback onFilter;
-  final VoidCallback? onRefresh;
-
-  String get _summary {
-    if (!state.loaded) {
-      return state.loading ? 'Loading topics…' : 'Topics from saved filters';
-    }
-    return '${state.topics.length} '
-        '${state.topics.length == 1 ? 'topic' : 'topics'} from '
-        '${state.includedForums} '
-        '${state.includedForums == 1 ? 'forum' : 'forums'}';
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Container(
-      key: const ValueKey('aggregate-tab-toolbar'),
-      padding: const EdgeInsets.fromLTRB(16, 8, 12, 8),
-      decoration: BoxDecoration(
-        color: theme.shell.content,
-        border: Border(bottom: BorderSide(color: theme.shell.divider)),
-      ),
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final compact = constraints.maxWidth < 520;
-          return Row(
-            children: [
-              Expanded(
-                child: Text(
-                  _summary,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.labelMedium?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              if (compact)
-                DButton.iconOnly(
-                  key: const ValueKey('aggregate-filter-button'),
-                  icon: const DIcon(DIcons.filter, size: 15),
-                  tooltip: 'Configure forum filters',
-                  onPressed: onFilter,
-                  variant: DButtonVariant.primary,
-                  size: DButtonSize.small,
-                )
-              else
-                DButton(
-                  key: const ValueKey('aggregate-filter-button'),
-                  label: const Text('Filters'),
-                  icon: const DIcon(DIcons.filter, size: 15),
-                  tooltip: 'Configure forum filters',
-                  onPressed: onFilter,
-                  variant: DButtonVariant.primary,
-                  size: DButtonSize.small,
-                ),
-              const SizedBox(width: 8),
-              if (compact)
-                DButton.iconOnly(
-                  key: const ValueKey('aggregate-refresh-button'),
-                  icon: const DIcon(DIcons.arrowsRotate, size: 15),
-                  tooltip: 'Refresh',
-                  onPressed: onRefresh,
-                  loading: state.loading || state.refreshing,
-                  size: DButtonSize.small,
-                )
-              else
-                DButton(
-                  key: const ValueKey('aggregate-refresh-button'),
-                  label: const Text('Refresh'),
-                  icon: const DIcon(DIcons.arrowsRotate, size: 15),
-                  tooltip: 'Refresh',
-                  onPressed: onRefresh,
-                  loading: state.loading || state.refreshing,
-                  loadingLabel: const Text('Refreshing…'),
-                  size: DButtonSize.small,
-                ),
-            ],
-          );
-        },
-      ),
-    );
-  }
+  Widget build(BuildContext context) => Padding(
+    key: const ValueKey('aggregate-hero'),
+    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+    child: Row(
+      children: [
+        Text('Discourse', style: Theme.of(context).textTheme.titleLarge),
+        const SizedBox(width: 8),
+        const DBadge(variant: DBadgeVariant.outline, child: Text('alpha')),
+      ],
+    ),
+  );
 }
 
 class _AggregateTopicRow extends StatelessWidget {
@@ -1043,6 +598,7 @@ class _AggregateTopicRow extends StatelessWidget {
         return TopicListRow(
           topic: topic,
           forum: forum,
+          itemVariant: DItemVariant.standard,
           onTap: () {
             final result = controller.openAggregateTopic(
               reference.siteUrl,

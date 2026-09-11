@@ -951,6 +951,7 @@ class TopicListRow extends StatelessWidget {
     this.onTap,
     this.titleStyle,
     this.showCategoryBreadcrumb = true,
+    this.itemVariant = DItemVariant.outline,
   }) : assert(forum == null || siteUrl == null);
 
   static const double minimumHeight = 110;
@@ -964,6 +965,7 @@ class TopicListRow extends StatelessWidget {
 
   final TextStyle? titleStyle;
   final bool showCategoryBreadcrumb;
+  final DItemVariant itemVariant;
 
   @override
   Widget build(BuildContext context) {
@@ -1000,6 +1002,7 @@ class TopicListRow extends StatelessWidget {
         forum: owningForum,
         onTap: onTap ?? () {},
         titleStyle: titleStyle,
+        itemVariant: itemVariant,
       );
     }
     return ShellSelector<({TopicCategory? category, TopicCategory? parent})>(
@@ -1014,6 +1017,7 @@ class TopicListRow extends StatelessWidget {
         forum: owningForum,
         onTap: onTap ?? () => controller.openTopic(topic),
         titleStyle: titleStyle,
+        itemVariant: itemVariant,
       ),
     );
   }
@@ -1068,6 +1072,7 @@ class _TopicRowBody extends StatelessWidget {
     this.titleStyle,
     this.selected = false,
     this.inbox = false,
+    this.itemVariant = DItemVariant.outline,
   });
 
   final Topic topic;
@@ -1080,6 +1085,7 @@ class _TopicRowBody extends StatelessWidget {
   final TextStyle? titleStyle;
   final bool selected;
   final bool inbox;
+  final DItemVariant itemVariant;
 
   @override
   Widget build(BuildContext context) {
@@ -1112,7 +1118,7 @@ class _TopicRowBody extends StatelessWidget {
             key: ValueKey('topic-card-${topic.id}'),
             variant: selected || keyboardSelected
                 ? DItemVariant.muted
-                : DItemVariant.outline,
+                : itemVariant,
             onPressed: onTap,
             link: true,
             footer: pluginMetadata.isEmpty

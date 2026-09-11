@@ -7,13 +7,9 @@ import 'package:discourse_native/src/models/site_emoji.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/models/topic_filter.dart';
 import 'package:discourse_native/src/shell/aggregate_view.dart';
-import 'package:discourse_native/src/shell/forum_icon.dart';
 import 'package:discourse_native/src/shell/forum_tabs_bar.dart';
-import 'package:discourse_native/src/shell/instance_sidebar.dart';
-import 'package:discourse_native/src/shell/main_content.dart';
 import 'package:discourse_native/src/shell/site_emoji_image.dart';
 import 'package:discourse_native/src/shell/topic_filter_input.dart';
-import 'package:discourse_native/src/shell/topic_list_view.dart';
 import 'package:discourse_native/src/theme/d_icon.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/foundation.dart';
@@ -90,435 +86,99 @@ void main() {
     expect(emoji.siteUrl, forum.url);
   });
 
-  testWidgets('renders a mixed full-width feed above its controls', (
+  testWidgets('shows inline token filters without a modal or summary', (
     tester,
   ) async {
     final fixture = await _pumpMixedAggregateView(tester);
-    final forumUrls = fixture.forumUrls;
-
-    expect(find.byType(AggregateView), findsOneWidget);
-    expect(find.byType(InstanceSidebar), findsNothing);
-    expect(find.byType(MainContent), findsNothing);
-    expect(find.byKey(const ValueKey('forum-identity-header')), findsNothing);
-    expect(find.text('Discourse (alpha)'), findsOneWidget);
-    expect(find.text('Every forum. One shared feed.'), findsNothing);
-    final heroFinder = find.byKey(const ValueKey('aggregate-hero'));
-    final hero = tester.widget<Container>(heroFinder);
-    expect(tester.getSize(heroFinder).height, 64);
-    final heroGradient = (hero.decoration! as BoxDecoration).gradient!;
-    expect((heroGradient as LinearGradient).colors, const [
-      Color(0xFF503281),
-      Color(0xFF39245C),
-    ]);
+    expect(find.text('Discourse'), findsOneWidget);
+    expect(find.text('alpha'), findsOneWidget);
+    expect(find.byKey(const ValueKey('aggregate-filter-button')), findsNothing);
     expect(
-      find.descendant(of: heroFinder, matching: find.byType(ImageFiltered)),
-      findsNWidgets(2),
+      find.byType(TopicFilterInput),
+      findsNWidgets(fixture.forumUrls.length),
     );
-    expect(
-      find.descendant(
-        of: heroFinder,
-        matching: find.byKey(const ValueKey('aggregate-hero-badge-bell')),
-      ),
-      findsOneWidget,
-    );
-    expect(
-      find.descendant(
-        of: heroFinder,
-        matching: find.byKey(const ValueKey('aggregate-hero-badge-quote')),
-      ),
-      findsOneWidget,
-    );
-    expect(
-      Theme.of(
-        tester.element(find.byKey(const ValueKey('aggregate-hero'))),
-      ).colorScheme.primary,
-      const Color(0xFF7B5FE2),
-    );
-    expect(
-      find.descendant(
-        of: heroFinder,
-        matching: find.byWidgetPredicate(
-          (widget) => widget is DIcon && widget.icon == DIcons.comments,
-        ),
-      ),
-      findsNothing,
-    );
-    expect(
-      find.byKey(const ValueKey('topic-list-ledger-header')),
-      findsNothing,
-    );
-    expect(find.byType(TopicListRow), findsNWidgets(2));
-    expect(find.byKey(const ValueKey('topic-card-42')), findsNWidgets(2));
-    expect(find.text('Fresh cross-forum topic'), findsNWidgets(2));
-    expect(find.text('One'), findsOneWidget);
-    expect(find.text('Two'), findsOneWidget);
-    final toolbarFinder = find.byKey(const ValueKey('aggregate-tab-toolbar'));
-    final firstCardFinder = find.byKey(
-      ValueKey('aggregate-topic-card-${forumUrls[0]}-42'),
-    );
-    final forumLabel = find.descendant(
-      of: firstCardFinder,
-      matching: find.text('One'),
-    );
-    final categoryLabel = find.descendant(
-      of: firstCardFinder,
-      matching: find.text('Design'),
-    );
-    final categorySwatch = find.descendant(
-      of: firstCardFinder,
-      matching: find.byKey(const ValueKey(('topic-row-category-swatch', 1))),
-    );
-    expect(
-      tester.getCenter(forumLabel).dy,
-      closeTo(tester.getCenter(categoryLabel).dy, 0.01),
-    );
-    expect(
-      tester.getCenter(categorySwatch).dy,
-      closeTo(tester.getCenter(categoryLabel).dy, 0.01),
-    );
-    expect(find.text('2 topics from 2 forums'), findsOneWidget);
-    expect(
-      tester.getBottomLeft(heroFinder).dy,
-      lessThanOrEqualTo(tester.getTopLeft(toolbarFinder).dy),
-    );
-    expect(
-      tester.getBottomLeft(toolbarFinder).dy,
-      lessThanOrEqualTo(tester.getTopLeft(firstCardFinder).dy),
-    );
-    expect(
-      find.descendant(
-        of: toolbarFinder,
-        matching: find.byKey(const ValueKey('aggregate-filter-button')),
-      ),
-      findsOneWidget,
-    );
-    expect(
-      find.descendant(
-        of: toolbarFinder,
-        matching: find.byKey(const ValueKey('aggregate-refresh-button')),
-      ),
-      findsOneWidget,
-    );
-    expect(
-      find.byKey(ValueKey('aggregate-topic-card-${forumUrls[0]}-42')),
-      findsOneWidget,
-    );
-    expect(
-      find.byKey(ValueKey('aggregate-topic-card-${forumUrls[1]}-42')),
-      findsOneWidget,
-    );
-  });
-
-  testWidgets('desktop caps feed cards while toolbar stays full width', (
-    tester,
-  ) async {
-    final previousPlatform = debugDefaultTargetPlatformOverride;
-    debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
-    try {
-      final fixture = await _pumpMixedAggregateView(tester);
-      final firstCard = find.byKey(
-        ValueKey('aggregate-topic-card-${fixture.forumUrls[0]}-42'),
-      );
-      final viewport = find.descendant(
-        of: find.byType(AggregateView),
-        matching: find.byType(ListView),
-      );
-      final toolbar = find.byKey(const ValueKey('aggregate-tab-toolbar'));
-
-      expect(tester.getSize(firstCard).width, 825);
-      expect(tester.getSize(viewport).width, greaterThan(825));
-      expect(tester.getSize(toolbar).width, tester.getSize(viewport).width);
-      expect(
-        tester.getCenter(firstCard).dx,
-        closeTo(tester.getCenter(viewport).dx, 0.001),
-      );
-    } finally {
-      debugDefaultTargetPlatformOverride = previousPlatform;
+    for (final input in tester.widgetList<TopicFilterInput>(
+      find.byType(TopicFilterInput),
+    )) {
+      expect(input.tokenized, isTrue);
     }
+    expect(find.byType(ImageFiltered), findsNothing);
+    expect(find.text('2 topics from 2 forums'), findsNothing);
+    await tester.tap(find.byKey(const ValueKey('aggregate-filter-collapse')));
+    await tester.pumpAndSettle();
+    expect(
+      tester
+          .widget<DItem>(find.byKey(const ValueKey('topic-card-42')).first)
+          .variant,
+      DItemVariant.standard,
+    );
   });
 
-  testWidgets('refresh uses the toolbar button without shifting the feed', (
+  testWidgets('per-forum Apply preserves other drafts and collapsed state', (
     tester,
   ) async {
     final fixture = await _pumpMixedAggregateView(tester);
-    final refreshGate = Completer<void>();
-    fixture.api.feedGates[_defaultAggregatePath] = refreshGate;
-    final refreshButton = find.byKey(
-      const ValueKey('aggregate-refresh-button'),
-    );
-    final firstCard = find.byKey(
-      ValueKey('aggregate-topic-card-${fixture.forumUrls[0]}-42'),
-    );
-    final cardTopBeforeRefresh = tester.getTopLeft(firstCard).dy;
-
-    await tester.tap(refreshButton);
-    await tester.pump();
-
-    expect(tester.widget<DButton>(refreshButton).loading, isTrue);
-    expect(find.text('Refreshing…'), findsOneWidget);
-    expect(
-      find.descendant(
-        of: find.byType(AggregateView),
-        matching: find.byType(LinearProgressIndicator),
-      ),
-      findsNothing,
-    );
-    expect(tester.getTopLeft(firstCard).dy, cardTopBeforeRefresh);
-
-    refreshGate.complete();
+    final one = fixture.forumUrls[0], two = fixture.forumUrls[1];
+    final first = find.byKey(ValueKey('aggregate-query-$one'));
+    final second = find.byKey(ValueKey('aggregate-query-$two'));
+    await tester.enterText(first, 'status:open');
+    await tester.testTextInput.receiveAction(TextInputAction.done);
     await tester.pumpAndSettle();
-
-    expect(tester.widget<DButton>(refreshButton).loading, isFalse);
-    expect(find.text('Refresh'), findsOneWidget);
+    await tester.enterText(second, 'tag:ux');
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('aggregate-filter-collapse')));
+    await tester.pumpAndSettle();
+    expect(find.byType(TopicFilterInput), findsNothing);
+    final preferences = await SharedPreferences.getInstance();
+    expect(
+      preferences.getString('discourse_native.aggregate_preferences'),
+      contains('"filters_collapsed":true'),
+    );
+    await tester.tap(find.byKey(const ValueKey('aggregate-filter-collapse')));
+    await tester.pumpAndSettle();
+    expect(find.text('status: open'), findsOneWidget);
+    expect(find.text('tag: ux'), findsOneWidget);
+    tester.view.physicalSize = const Size(390, 844);
+    await tester.pumpAndSettle();
+    expect(find.text('status: open'), findsOneWidget);
+    expect(find.text('tag: ux'), findsOneWidget);
+    tester.view.physicalSize = const Size(1000, 800);
+    await tester.pumpAndSettle();
+    expect(find.text('status: open'), findsOneWidget);
+    await tester.tap(find.byKey(ValueKey('aggregate-apply-$one')));
+    await tester.pumpAndSettle();
+    expect(find.text('tag: ux'), findsOneWidget);
+    expect(
+      tester
+          .widget<DButton>(find.byKey(ValueKey('aggregate-apply-$two')))
+          .onPressed,
+      isNotNull,
+    );
+    await tester.tap(find.byKey(ValueKey('aggregate-apply-$two')));
+    await tester.pumpAndSettle();
+    expect(
+      preferences.getString('discourse_native.aggregate_preferences'),
+      contains('status:open'),
+    );
+    expect(
+      preferences.getString('discourse_native.aggregate_preferences'),
+      contains('tag:ux'),
+    );
   });
 
-  testWidgets(
-    'focused editor preserves per-forum drafts and can exclude every forum',
-    (tester) async {
-      final fixture = await _pumpMixedAggregateView(tester);
-      final api = fixture.api;
-      final forumUrls = fixture.forumUrls;
-
-      await tester.tap(find.byKey(const ValueKey('aggregate-filter-button')));
-      await tester.pumpAndSettle();
-      expect(find.text('Aggregate filters'), findsOneWidget);
-      expect(
-        find.byKey(ValueKey('aggregate-filter-${forumUrls[0]}')),
-        findsOneWidget,
-      );
-      expect(
-        find.byKey(ValueKey('aggregate-filter-${forumUrls[1]}')),
-        findsOneWidget,
-      );
-      expect(
-        find.byKey(const ValueKey('aggregate-filter-wide-layout')),
-        findsOneWidget,
-      );
-      final firstForumRow = find.byKey(
-        ValueKey('aggregate-filter-row-${forumUrls[0]}'),
-      );
-      expect(
-        find.descendant(of: firstForumRow, matching: find.byType(ForumIcon)),
-        findsOneWidget,
-      );
-      expect(
-        find.descendant(of: firstForumRow, matching: find.text('one.example')),
-        findsNothing,
-      );
-      final firstForumTitle = find.descendant(
-        of: firstForumRow,
-        matching: find.text('One'),
-      );
-      final titleTheme = Theme.of(tester.element(firstForumTitle));
-      expect(
-        tester.widget<Text>(firstForumTitle).style?.fontSize,
-        titleTheme.textTheme.bodyMedium?.fontSize,
-      );
-      expect(
-        tester.widget<Text>(firstForumTitle).style?.fontSize,
-        lessThan(titleTheme.textTheme.bodyLarge!.fontSize!),
-      );
-      expect(
-        find.textContaining('Select forums, then edit one topic filter'),
-        findsNothing,
-      );
-      final forumControls = find.byKey(
-        const ValueKey('aggregate-filter-forum-controls'),
-      );
-      final forumList = find.byKey(
-        const ValueKey('aggregate-filter-forum-list'),
-      );
-      expect(
-        tester.getBottomLeft(forumControls).dy,
-        lessThan(tester.getTopLeft(forumList).dy),
-      );
-      expect(
-        tester.getTopRight(forumControls).dx,
-        lessThanOrEqualTo(
-          tester
-              .getTopLeft(
-                find.byKey(const ValueKey('aggregate-filter-editor-panel')),
-              )
-              .dx,
-        ),
-      );
-      expect(find.byType(TopicFilterInput), findsOneWidget);
-      expect(
-        find.byKey(ValueKey('aggregate-query-${forumUrls[0]}')),
-        findsOneWidget,
-      );
-      final signedOutUrl = forumUrls[2];
-      final signedOutTarget = find.byKey(
-        ValueKey('aggregate-filter-focus-$signedOutUrl'),
-      );
-      final signedOutRow = find.byKey(
-        ValueKey('aggregate-filter-row-$signedOutUrl'),
-      );
-      expect(tester.widget<InkWell>(signedOutTarget).onTap, isNull);
-      expect(
-        tester
-            .widget<DCheckbox>(
-              find.byKey(ValueKey('aggregate-filter-$signedOutUrl')),
-            )
-            .onChanged,
-        isNull,
-      );
-      final signedOutTitle = find.descendant(
-        of: signedOutRow,
-        matching: find.text('Signed out one'),
-      );
-      final disabledColor = Theme.of(
-        tester.element(signedOutTitle),
-      ).disabledColor;
-      expect(tester.widget<Text>(signedOutTitle).style?.color, disabledColor);
-      expect(
-        find.descendant(of: signedOutRow, matching: find.byType(ForumIcon)),
-        findsOneWidget,
-      );
-      expect(
-        find.descendant(
-          of: signedOutRow,
-          matching: find.text('Sign in to include'),
-        ),
-        findsOneWidget,
-      );
-      expect(
-        tester
-            .widget<DIcon>(
-              find.descendant(of: signedOutRow, matching: find.byType(DIcon)),
-            )
-            .color,
-        disabledColor,
-      );
-      await tester.tap(signedOutTarget);
-      await tester.pump();
-      expect(
-        find.byKey(ValueKey('aggregate-query-${forumUrls[0]}')),
-        findsOneWidget,
-      );
-      expect(
-        find.byKey(const ValueKey('aggregate-filter-included-count')),
-        findsNothing,
-      );
-      expect(
-        find.byKey(const ValueKey('aggregate-filter-editor-title')),
-        findsNothing,
-      );
-      expect(
-        find.byKey(const ValueKey('aggregate-filter-editor-host')),
-        findsNothing,
-      );
-      expect(
-        tester
-            .widget<TopicFilterInput>(find.byType(TopicFilterInput))
-            .tokenized,
-        isTrue,
-      );
-      expect(
-        find.byKey(const ValueKey('topic-filter-token-field')),
-        findsOneWidget,
-      );
-      expect(
-        find.descendant(
-          of: find.byKey(const ValueKey('topic-filter-token-field')),
-          matching: find.byWidgetPredicate(
-            (widget) => widget is DIcon && widget.icon == DIcons.filter,
-          ),
-        ),
-        findsNothing,
-      );
-      final queryField = tester.widget<TextField>(
-        find.byKey(ValueKey('aggregate-query-${forumUrls[0]}')),
-      );
-      expect(queryField.maxLines, 1);
-      expect(queryField.textInputAction, TextInputAction.done);
-      expect(find.text('Save filters').hitTestable(), findsOneWidget);
-
-      await tester.enterText(
-        find.byKey(ValueKey('aggregate-query-${forumUrls[0]}')),
-        'status:open',
-      );
-      await tester.tap(
-        find.byKey(ValueKey('aggregate-filter-focus-${forumUrls[1]}')),
-      );
-      await tester.pumpAndSettle();
-      expect(
-        find.byKey(ValueKey('aggregate-query-${forumUrls[1]}')),
-        findsOneWidget,
-      );
-      expect(
-        find.byKey(ValueKey('aggregate-query-${forumUrls[0]}')),
-        findsNothing,
-      );
-      await tester.enterText(
-        find.byKey(ValueKey('aggregate-query-${forumUrls[1]}')),
-        'tag:ux',
-      );
-      await tester.tap(
-        find.byKey(ValueKey('aggregate-filter-focus-${forumUrls[0]}')),
-      );
-      await tester.pumpAndSettle();
-      final statusTokenLabel = find.descendant(
-        of: find.byKey(const ValueKey('topic-filter-token-0')),
-        matching: find.text('status: open'),
-      );
-      expect(statusTokenLabel, findsOneWidget);
-      expect(
-        tester.widget<Text>(statusTokenLabel).style?.fontWeight,
-        FontWeight.normal,
-      );
-      expect(
-        tester
-            .widget<TextField>(
-              find.byKey(ValueKey('aggregate-query-${forumUrls[0]}')),
-            )
-            .controller!
-            .text,
-        isEmpty,
-      );
-      final requestsBeforeSave = api.feedPaths.length;
-      await tester.tap(find.text('Save filters'));
-      await tester.pumpAndSettle();
-
-      expect(
-        api.feedPaths.skip(requestsBeforeSave),
-        unorderedEquals([_firstFilterPath, _secondFilterPath]),
-      );
-
-      await tester.tap(find.byKey(const ValueKey('aggregate-filter-button')));
-      await tester.pumpAndSettle();
-      expect(
-        find.descendant(
-          of: find.byKey(const ValueKey('topic-filter-token-0')),
-          matching: find.text('status: open'),
-        ),
-        findsOneWidget,
-      );
-
-      await tester.tap(
-        find.byKey(const ValueKey('topic-filter-token-remove-0')),
-      );
-      await tester.pumpAndSettle();
-      expect(find.byKey(const ValueKey('topic-filter-token-0')), findsNothing);
-      await tester.tap(
-        find.byKey(ValueKey('aggregate-filter-focus-${forumUrls[1]}')),
-      );
-      await tester.pumpAndSettle();
-      await tester.tap(
-        find.byKey(ValueKey('aggregate-filter-focus-${forumUrls[0]}')),
-      );
-      await tester.pumpAndSettle();
-      expect(find.byKey(const ValueKey('topic-filter-token-0')), findsNothing);
-
-      await tester.tap(find.byKey(const ValueKey('aggregate-filter-clear')));
-      expect(find.text('Save filters').hitTestable(), findsOneWidget);
-      await tester.tap(find.text('Save filters'));
-      await tester.pumpAndSettle();
-
-      expect(find.text('No forums selected'), findsOneWidget);
-      expect(find.byType(TopicListRow), findsNothing);
-    },
-  );
+  testWidgets('narrow inline filters scroll without overflow', (tester) async {
+    await _pumpMixedAggregateView(tester);
+    tester.view.physicalSize = const Size(390, 844);
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    await tester.drag(
+      find.byType(CustomScrollView).first,
+      const Offset(0, -400),
+    );
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+  });
 
   testWidgets(
     'finds uncached subcategories and inserts their qualified paths',
@@ -527,10 +187,7 @@ void main() {
       final api = fixture.api;
       final siteUrl = fixture.forumUrls.first;
 
-      await tester.tap(find.byKey(const ValueKey('aggregate-filter-button')));
-      await tester.pumpAndSettle();
       final field = find.byKey(ValueKey('aggregate-query-$siteUrl'));
-      final tokenField = find.byKey(const ValueKey('topic-filter-token-field'));
       final suggestions = find.byKey(
         const ValueKey('topic-filter-suggestions'),
       );
@@ -538,19 +195,13 @@ void main() {
       await tester.tap(field);
       await tester.pumpAndSettle();
       expect(suggestions, findsOneWidget);
-      expect(
-        tester.getBottomLeft(suggestions).dy,
-        lessThan(tester.getTopLeft(tokenField).dy),
-      );
+      expect(suggestions, findsOneWidget);
 
       await tester.enterText(field, 'categ');
       await tester.pump(const Duration(milliseconds: 100));
       await tester.pump();
       expect(find.text('category:'), findsOneWidget);
-      expect(
-        tester.getBottomLeft(suggestions).dy,
-        lessThan(tester.getTopLeft(tokenField).dy),
-      );
+      expect(suggestions, findsOneWidget);
 
       await tester.enterText(field, 'category:bugs');
       await tester.pump(const Duration(milliseconds: 100));
@@ -560,10 +211,7 @@ void main() {
       expect(find.text('Discourse Native App › Bugs'), findsOneWidget);
       expect(api.categorySearchTerms, contains('bugs'));
       expect(api.categorySearchIncludeAncestors, contains(true));
-      expect(
-        tester.getBottomLeft(suggestions).dy,
-        lessThan(tester.getTopLeft(tokenField).dy),
-      );
+      expect(suggestions, findsOneWidget);
 
       await tester.tap(find.text('Discourse Native App › Bugs'));
       await tester.pumpAndSettle();
@@ -597,8 +245,6 @@ void main() {
     final fixture = await _pumpMixedAggregateView(tester);
     final siteUrl = fixture.forumUrls.first;
 
-    await tester.tap(find.byKey(const ValueKey('aggregate-filter-button')));
-    await tester.pumpAndSettle();
     final field = find.byKey(ValueKey('aggregate-query-$siteUrl'));
 
     await tester.tap(field);
@@ -618,65 +264,6 @@ void main() {
       ),
       findsOneWidget,
     );
-  });
-
-  testWidgets('stacks the focused filter editor at narrow widths', (
-    tester,
-  ) async {
-    final fixture = await _pumpMixedAggregateView(tester);
-    tester.view.physicalSize = const Size(390, 800);
-    await tester.pump();
-
-    await tester.tap(find.byKey(const ValueKey('aggregate-filter-button')));
-    await tester.pumpAndSettle();
-
-    expect(
-      find.byKey(const ValueKey('aggregate-filter-narrow-layout')),
-      findsOneWidget,
-    );
-    expect(
-      find.byKey(const ValueKey('aggregate-filter-wide-layout')),
-      findsNothing,
-    );
-    expect(find.byType(TopicFilterInput), findsOneWidget);
-    expect(
-      tester
-          .getBottomLeft(
-            find.byKey(const ValueKey('aggregate-filter-forum-controls')),
-          )
-          .dy,
-      lessThan(
-        tester
-            .getTopLeft(
-              find.byKey(const ValueKey('aggregate-filter-forum-list')),
-            )
-            .dy,
-      ),
-    );
-    final field = find.byKey(
-      ValueKey('aggregate-query-${fixture.forumUrls.first}'),
-    );
-    await tester.enterText(
-      field,
-      'category:discourse-native-app:bugs status:open '
-      'category:discourse-native-app:features ',
-    );
-    await tester.pumpAndSettle();
-
-    for (var index = 0; index < 3; index++) {
-      expect(
-        tester
-            .getSize(find.byKey(ValueKey('topic-filter-token-$index')))
-            .height,
-        28,
-      );
-    }
-    final tokenField = find.byKey(const ValueKey('topic-filter-token-field'));
-    final focusedSize = tester.getSize(tokenField);
-    await tester.tap(find.text('Topic filter query'));
-    await tester.pumpAndSettle();
-    expect(tester.getSize(tokenField), focusedSize);
-    expect(tester.takeException(), isNull);
   });
 
   testWidgets('desktop exposes aggregate tab lifecycle', (tester) async {
@@ -714,7 +301,9 @@ void main() {
       );
       final heroFinder = find.byKey(const ValueKey('aggregate-hero'));
       final tabsFinder = find.byKey(const ValueKey('aggregate-tabs'));
-      final toolbarFinder = find.byKey(const ValueKey('aggregate-tab-toolbar'));
+      final toolbarFinder = find.byKey(
+        const ValueKey('aggregate-filter-collapse'),
+      );
       expect(
         tester.getBottomLeft(tabsFinder).dy,
         lessThanOrEqualTo(tester.getTopLeft(heroFinder).dy),

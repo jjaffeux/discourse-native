@@ -134,6 +134,33 @@ void main() {
   });
 
   group('preference persistence and migration', () {
+    test(
+      'collapsed filters survive controller reload and tab changes',
+      () async {
+        final persistence = MemoryAggregatePreferencesPersistence();
+        final store = AggregatePreferencesStore(persistence: persistence);
+        final original = _controller(
+          _AggregateApi(pages: const {}),
+          FakeApiCredentialReader(),
+          preferences: store,
+        );
+        addTearDown(original.dispose);
+        original.setFiltersCollapsed(true);
+        original.createTab();
+        final restored = _controller(
+          _AggregateApi(pages: const {}),
+          FakeApiCredentialReader(),
+          preferences: store,
+        );
+        addTearDown(restored.dispose);
+        await restored.loadPreferences(const []);
+        expect(restored.filtersCollapsed, isTrue);
+        expect(restored.tabs, hasLength(2));
+        restored.setFiltersCollapsed(false);
+        expect((await store.load()).filtersCollapsed, isFalse);
+      },
+    );
+
     test('round-trips distinct same-origin subfolder filters', () async {
       const first = 'https://example.com/forum-a';
       const second = 'https://example.com/forum-b';

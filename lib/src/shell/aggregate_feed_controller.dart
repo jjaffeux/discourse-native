@@ -135,6 +135,15 @@ final class AggregateFeedController extends FrameSafeNotifier {
   final List<_ClosedAggregateTab> _closedTabs = [];
   late String _activeTabId;
   int _tabSequence = 0;
+  bool _filtersCollapsed = false;
+  bool get filtersCollapsed => _filtersCollapsed;
+
+  void setFiltersCollapsed(bool value) {
+    if (isDisposed || value == _filtersCollapsed) return;
+    _filtersCollapsed = value;
+    notifySafely();
+    unawaited(_persistTabs());
+  }
 
   _AggregateTabSession get _activeTab => _tabs[_activeTabId]!;
 
@@ -163,6 +172,18 @@ final class AggregateFeedController extends FrameSafeNotifier {
 
   String queryFor(String siteUrl) => _activeTab.queries[siteUrl] ?? '';
 
+  ({bool included, String query})? filterDraftFor(String siteUrl) =>
+      _activeTab.filterDrafts[siteUrl];
+
+  void setFilterDraft(
+    String siteUrl, {
+    required bool included,
+    required String query,
+  }) {
+    if (isDisposed) return;
+    _activeTab.filterDrafts[siteUrl] = (included: included, query: query);
+  }
+
   List<TopicFilterOption> filterOptionsFor(String siteUrl) =>
       _activeTab.sources[siteUrl]?.filterOptions ?? const [];
 
@@ -170,6 +191,7 @@ final class AggregateFeedController extends FrameSafeNotifier {
     if (isDisposed) return;
     final loaded = await preferences.load();
     if (isDisposed) return;
+    _filtersCollapsed = loaded.filtersCollapsed;
     final valid = {for (final instance in instances) instance.url};
     _closedTabs.clear();
     _tabs.clear();
@@ -402,6 +424,7 @@ final class AggregateFeedController extends FrameSafeNotifier {
   }
 
   Future<void> _persistTabs() => preferences.save(
+    filtersCollapsed: _filtersCollapsed,
     tabs: [for (final tab in _tabs.values) tab.preferences],
     activeTabId: _activeTabId,
   );
@@ -842,6 +865,7 @@ final class _AggregateTabSession {
        queries = Map.unmodifiable(queries);
 
   final String id;
+  final Map<String, ({bool included, String query})> filterDrafts = {};
   String? name;
   Set<String> excludedForums;
   Map<String, String> queries;
