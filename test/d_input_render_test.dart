@@ -2,6 +2,8 @@ import 'dart:io';
 import 'dart:ui' as ui;
 
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/src/models/site_appearance.dart';
+import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
@@ -128,6 +130,37 @@ void main() {
       ..addFont(rootBundle.load('assets/fonts/JetBrainsMono-Regular.ttf'));
     await loader.load();
   });
+
+  testWidgets(
+    'unfocused site input remains outlined on a matching dialog surface',
+    (tester) async {
+      final theme = AppTheme.fromPalette(
+        ResolvedSitePalette.fromJson(const {
+          'brightness': 'dark',
+          'primary': 0xFFDDDDDD,
+          'secondary': 0xFF222222,
+          'tertiary': 0xFF0088CC,
+          'primaryLow': 0xFF333333,
+          'primaryLowMid': 0xFF777777,
+          'secondaryVeryHigh': 0xFF333333,
+        }),
+      );
+      final pixels = await _capture(
+        tester,
+        DInput(hintText: 'meta.discourse.org'),
+        'site-dialog-unfocused',
+        theme: theme.copyWith(
+          platform: TargetPlatform.macOS,
+          textTheme: theme.textTheme.apply(fontFamily: 'InputPixelFont'),
+          colorScheme: theme.colorScheme.copyWith(
+            surface: theme.shell.floating,
+          ),
+        ),
+      );
+      _near(_pixel(pixels, 20, 36), const Color(0xFF777777));
+      expect(_pixel(pixels, 20, 36), isNot(_pixel(pixels, 10, 36)));
+    },
+  );
 
   testWidgets(
     'translucent input fill uses input role and remains unchanged under exterior focus and invalid rings',
