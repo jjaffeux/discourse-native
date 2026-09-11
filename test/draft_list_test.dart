@@ -391,11 +391,6 @@ void main() {
 
       await tester.tap(find.byKey(UserMenuButton.avatarKey));
       await tester.pumpAndSettle();
-      final profileTab = find.byTooltip('Profile');
-      await tester.tap(
-        profileTab.evaluate().isEmpty ? find.text('Profile').last : profileTab,
-      );
-      await tester.pumpAndSettle();
       final panelDrafts = find.descendant(
         of: find.byType(UserMenuPanel),
         matching: find.text('Drafts'),
