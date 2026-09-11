@@ -2153,6 +2153,43 @@ void main() {
     variant: TargetPlatformVariant.only(TargetPlatform.macOS),
   );
 
+  testWidgets('topic arrows hover independently and footer margins match', (
+    tester,
+  ) async {
+    final setup = await _setup(tester, canCreateTopic: true);
+    setup.controller.openTopicFromList(setup.rows[1]);
+    await tester.pumpAndSettle();
+    final previous = find.byKey(const ValueKey('inbox-previous-topic'));
+    final next = find.byKey(const ValueKey('inbox-next-topic'));
+    expect(
+      tester.getRect(next).left - tester.getRect(previous).right,
+      DSpacing.xs,
+    );
+    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    await mouse.addPointer(location: Offset.zero);
+    addTearDown(mouse.removePointer);
+    for (final hovered in [previous, next]) {
+      await mouse.moveTo(tester.getCenter(hovered));
+      await tester.pumpAndSettle();
+      final other = hovered == previous ? next : previous;
+      expect(
+        buttonSurface(tester, of: hovered).color,
+        isNot(Colors.transparent),
+      );
+      expect(buttonSurface(tester, of: other).color, Colors.transparent);
+    }
+    final footer = tester.getRect(
+      find.byKey(const ValueKey('topic-list-bottom-bar')),
+    );
+    final create = tester.getRect(
+      find.byKey(const ValueKey('new-topic-button')),
+    );
+    expect(
+      footer.right - tester.getRect(next).right,
+      create.left - footer.left,
+    );
+  }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
+
   testWidgets(
     'resizing and topic arrows retain the source list and reader state',
     (tester) async {
@@ -2706,6 +2743,7 @@ _setup(
   WidgetTester tester, {
   PluginRegistry registry = PluginRegistry.empty,
   bool recommendations = false,
+  bool canCreateTopic = false,
   List<TopicParticipant> participants = const [
     TopicParticipant(username: 'sam', name: 'Sam'),
   ],
@@ -2766,6 +2804,7 @@ _setup(
       ],
   };
   final api = FakeDiscourseApi(
+    creatableFeedPaths: canCreateTopic ? {'/latest.json'} : {},
     user: user,
     feeds: {
       '/latest.json': rows,
