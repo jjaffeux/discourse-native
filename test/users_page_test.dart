@@ -403,7 +403,19 @@ void main() {
         find.byType(DDataTableColumnToggle<UserDirectoryItem>),
         findsOneWidget,
       );
-      expect(find.byType(DAvatar), findsNothing);
+      expect(find.byType(DAvatar), findsNWidgets(2));
+      final identity = find.byKey(const ValueKey('user-row-sam'));
+      final avatar = find.descendant(
+        of: identity,
+        matching: find.byType(DAvatar),
+      );
+      expect(avatar, findsOneWidget);
+      expect(tester.widget<DAvatar>(avatar).decorative, isTrue);
+      expect(tester.getSize(avatar), const Size.square(24));
+      expect(
+        find.descendant(of: identity, matching: find.text('sam')),
+        findsOneWidget,
+      );
       expect(find.byType(DChartBar), findsNWidgets(6));
       expect(find.text('You'), findsNothing);
       expect(find.text('Name'), findsOneWidget);

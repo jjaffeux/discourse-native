@@ -10,6 +10,7 @@ import '../models/user_directory.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import '../utils/pagination.dart';
+import 'avatar_image.dart';
 import 'shell_scope.dart';
 import 'user_card.dart';
 import 'user_directory_controller.dart';
@@ -560,7 +561,23 @@ class _UsersPageState extends State<UsersPage> {
         key: ValueKey('user-row-${cell.row.user.username}'),
         username: cell.row.user.username,
         siteUrl: widget.siteUrl.isEmpty ? null : widget.siteUrl,
-        child: Text(cell.row.user.username),
+        child: Row(
+          children: [
+            DAvatar(
+              size: DAvatarSize.sm,
+              decorative: true,
+              child: AvatarImage(
+                url: cell.row.user.avatarUrl,
+                size: DAvatarSize.sm.dimension,
+                fallback: const DAvatarFallback(
+                  child: DIcon(DIcons.user, size: 14),
+                ),
+              ),
+            ),
+            const SizedBox(width: DSpacing.sm),
+            Expanded(child: Text(cell.row.user.username)),
+          ],
+        ),
       ),
     ),
     DDataTableColumn(
