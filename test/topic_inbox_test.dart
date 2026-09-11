@@ -2018,7 +2018,7 @@ void main() {
           expect(control.hitTestable(), findsOneWidget);
           expect(
             tester.widget<DButton>(control).variant,
-            DButtonVariant.standard,
+            DButtonVariant.secondary,
           );
           expect(tester.getSize(control).height, tester.getSize(reply).height);
         }
