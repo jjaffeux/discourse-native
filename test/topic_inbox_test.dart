@@ -2018,7 +2018,12 @@ void main() {
           expect(control.hitTestable(), findsOneWidget);
           expect(
             tester.widget<DButton>(control).variant,
-            DButtonVariant.secondary,
+            control == reply ? DButtonVariant.primary : DButtonVariant.outline,
+          );
+          final theme = Theme.of(tester.element(control));
+          expect(
+            buttonSurface(tester, of: control).color,
+            control == reply ? theme.colorScheme.primary : theme.shell.floating,
           );
           expect(tester.getSize(control).height, tester.getSize(reply).height);
         }

@@ -26,6 +26,9 @@ class TopicBookmarkButton extends StatelessWidget {
     required this.busy,
     this.showLabel = false,
     this.variant,
+    this.backgroundColor,
+    this.borderColor,
+    this.interactiveBackgroundColor,
   });
 
   final String siteUrl;
@@ -33,6 +36,9 @@ class TopicBookmarkButton extends StatelessWidget {
   final bool busy;
   final bool showLabel;
   final DButtonVariant? variant;
+  final Color? backgroundColor;
+  final Color? borderColor;
+  final Color? interactiveBackgroundColor;
 
   @override
   Widget build(BuildContext context) {
@@ -76,6 +82,9 @@ class TopicBookmarkButton extends StatelessWidget {
         tooltip: tooltip,
         loading: busy,
         variant: buttonVariant,
+        backgroundColor: backgroundColor,
+        borderColor: borderColor,
+        interactiveBackgroundColor: interactiveBackgroundColor,
         size: DButtonSize.small,
       );
     }
@@ -86,6 +95,9 @@ class TopicBookmarkButton extends StatelessWidget {
       tooltip: tooltip,
       loading: busy,
       variant: buttonVariant,
+      backgroundColor: backgroundColor,
+      borderColor: borderColor,
+      interactiveBackgroundColor: interactiveBackgroundColor,
       size: DButtonSize.small,
     );
   }
@@ -429,12 +441,18 @@ class TopicNotificationLevelButton extends StatelessWidget {
     required this.topic,
     this.showLabel = false,
     this.variant,
+    this.backgroundColor,
+    this.borderColor,
+    this.interactiveBackgroundColor,
   });
 
   final String siteUrl;
   final TopicDetail topic;
   final bool showLabel;
   final DButtonVariant? variant;
+  final Color? backgroundColor;
+  final Color? borderColor;
+  final Color? interactiveBackgroundColor;
 
   static const _options = [
     DNotificationLevelOption(
@@ -478,6 +496,9 @@ class TopicNotificationLevelButton extends StatelessWidget {
           buttonKey: const ValueKey('topic-notification-level-button'),
           showLabel: showLabel,
           variant: variant,
+          backgroundColor: backgroundColor,
+          borderColor: borderColor,
+          interactiveBackgroundColor: interactiveBackgroundColor,
           value: topic.notificationLevel,
           options: _options,
           onChanged: (level) {

@@ -17,7 +17,8 @@ final notificationLevelMenuExamples = ComponentExamples(
       'navigate; Escape dismisses and returns focus. Touch uses the same '
       'dropdown with scrolling and collision handling. Change the widget key '
       'when its target or account changes. Use variant to match an outlined '
-      'button group or another action surface. These examples save only local state.',
+      'button group or another action surface. Background, border and interactive '
+      'background colors customize only the trigger. These examples save only local state.',
   examples: [
     StyleguideExample(
       title: 'Topic notifications',
@@ -79,6 +80,27 @@ const DNotificationLevelOption(
       builder: (_) => const _NotificationExample(thread: true),
     ),
     StyleguideExample(
+      title: 'Matching an action surface',
+      description:
+          'The trigger uses a custom surface with a subtle border. '
+          'The dropdown retains its own colors.',
+      states: const ['Custom fill', 'Custom border', 'Hover', 'Focus'],
+      code: '''final tokens = DTokens.of(context);
+DNotificationLevelMenu<int>(
+  value: level, options: topicOptions,
+  semanticLabel: 'Topic notifications', showLabel: true,
+  variant: DButtonVariant.outline,
+  backgroundColor: tokens.surface,
+  borderColor: Color.lerp(tokens.surface, tokens.foreground, .12),
+  interactiveBackgroundColor: Color.lerp(tokens.surface, tokens.foreground, .06),
+  onChanged: (value) => setState(() => level = value),
+)''',
+      builder: (_) => const _NotificationExample(
+        showLabel: true,
+        customColors: true,
+      ),
+    ),
+    StyleguideExample(
       title: 'Disabled',
       description:
           'Both triggers remain readable while editing is unavailable.',
@@ -108,6 +130,7 @@ class _NotificationExample extends StatefulWidget {
     this.disabled = false,
     this.initialValue = 1,
     this.variant,
+    this.customColors = false,
   });
 
   final bool showLabel;
@@ -116,6 +139,7 @@ class _NotificationExample extends StatefulWidget {
   final bool disabled;
   final int initialValue;
   final DButtonVariant? variant;
+  final bool customColors;
 
   @override
   State<_NotificationExample> createState() => _NotificationExampleState();
@@ -126,6 +150,7 @@ class _NotificationExampleState extends State<_NotificationExample> {
 
   @override
   Widget build(BuildContext context) {
+    final tokens = DTokens.of(context);
     final watching = DNotificationLevelOption(
       value: 3,
       label: 'Watching',
@@ -181,7 +206,14 @@ class _NotificationExampleState extends State<_NotificationExample> {
           ? 'Thread notifications'
           : 'Topic notifications',
       showLabel: widget.showLabel,
-      variant: widget.variant,
+      variant: widget.customColors ? DButtonVariant.outline : widget.variant,
+      backgroundColor: widget.customColors ? tokens.surface : null,
+      borderColor: widget.customColors
+          ? Color.lerp(tokens.surface, tokens.foreground, .12)
+          : null,
+      interactiveBackgroundColor: widget.customColors
+          ? Color.lerp(tokens.surface, tokens.foreground, .06)
+          : null,
       size: widget.thread ? DButtonSize.regular : DButtonSize.small,
       onChanged: widget.disabled
           ? null
