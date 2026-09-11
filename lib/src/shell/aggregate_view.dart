@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 import '../models/discourse_instance.dart';
 import '../models/topic.dart';
@@ -560,6 +561,19 @@ class _AggregateTabsBar extends StatelessWidget {
   }
 }
 
+class _DiscourseMarkColorMapper extends ColorMapper {
+  const _DiscourseMarkColorMapper(this.foreground);
+  final Color foreground;
+
+  @override
+  Color substitute(
+    String? id,
+    String elementName,
+    String attributeName,
+    Color color,
+  ) => color == const Color(0xFFFFFFFF) ? foreground : color;
+}
+
 class _AggregateHeader extends StatelessWidget {
   const _AggregateHeader();
   @override
@@ -568,7 +582,25 @@ class _AggregateHeader extends StatelessWidget {
     padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
     child: Row(
       children: [
-        Text('Discourse', style: Theme.of(context).textTheme.titleLarge),
+        SvgPicture.asset(
+          'assets/logo_mark.svg',
+          key: const ValueKey('aggregate-discourse-logo'),
+          width: 28,
+          height: 28,
+          excludeFromSemantics: true,
+          colorMapper: _DiscourseMarkColorMapper(
+            Theme.of(context).colorScheme.onSurface,
+          ),
+        ),
+        const SizedBox(width: 10),
+        Flexible(
+          child: Text(
+            'Discourse',
+            style: Theme.of(context).textTheme.titleLarge,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
         const SizedBox(width: 8),
         const DBadge(variant: DBadgeVariant.outline, child: Text('alpha')),
       ],
