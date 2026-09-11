@@ -45,6 +45,16 @@ class UserMenuButton extends StatefulWidget {
 }
 
 class _UserMenuButtonState extends State<UserMenuButton> {
+  final _notifications = DPopoverController();
+  final _profile = DPopoverController();
+
+  @override
+  void dispose() {
+    _notifications.dispose();
+    _profile.dispose();
+    super.dispose();
+  }
+
   Future<void> _connect() async {
     final controller = ShellScope.read(context);
     await controller.connectCurrentInstance();
@@ -107,6 +117,8 @@ class _UserMenuButtonState extends State<UserMenuButton> {
             children: [
               _AccountMenuPopover(
                 view: UserMenuView.notifications,
+                controller: _notifications,
+                onOpen: _profile.close,
                 connecting: connecting,
                 tooltip: 'Notifications',
                 semanticLabel: unreadCount > 0
@@ -137,6 +149,8 @@ class _UserMenuButtonState extends State<UserMenuButton> {
               const SizedBox(width: 8),
               _AccountMenuPopover(
                 view: UserMenuView.profile,
+                controller: _profile,
+                onOpen: _notifications.close,
                 connecting: connecting,
                 tooltip: 'Profile',
                 semanticLabel:
@@ -175,9 +189,11 @@ class _UserMenuButtonState extends State<UserMenuButton> {
   );
 }
 
-class _AccountMenuPopover extends StatefulWidget {
+class _AccountMenuPopover extends StatelessWidget {
   const _AccountMenuPopover({
     required this.view,
+    required this.controller,
+    required this.onOpen,
     required this.connecting,
     required this.tooltip,
     required this.semanticLabel,
@@ -185,57 +201,47 @@ class _AccountMenuPopover extends StatefulWidget {
   });
 
   final UserMenuView view;
+  final DPopoverController controller;
+  final VoidCallback onOpen;
   final bool connecting;
   final String tooltip;
   final String semanticLabel;
   final Widget icon;
 
   @override
-  State<_AccountMenuPopover> createState() => _AccountMenuPopoverState();
-}
-
-class _AccountMenuPopoverState extends State<_AccountMenuPopover> {
-  final _popover = DPopoverController();
-
-  @override
-  void dispose() {
-    _popover.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) => DPopover(
-    controller: _popover,
+    controller: controller,
     content: DPopoverContent(
-      semanticLabel: widget.tooltip,
+      semanticLabel: tooltip,
       align: DPopoverAlign.end,
       sideOffset: 6,
       collisionPadding: UserMenuPanel.margin,
-      width: widget.view == UserMenuView.profile
+      width: view == UserMenuView.profile
           ? UserMenuPanel.profileWidth
           : UserMenuPanel.width,
       padding: EdgeInsets.zero,
       scrollable: false,
-      child: UserMenuPanel(view: widget.view, onDismiss: _popover.close),
+      child: UserMenuPanel(view: view, onDismiss: controller.close),
     ),
     child: DPopoverTrigger(
       builder: (context, trigger) => DButton.iconOnly(
-        key: widget.view == UserMenuView.profile
+        key: view == UserMenuView.profile
             ? UserMenuButton.avatarKey
             : UserMenuButton.bellKey,
-        icon: ExcludeSemantics(child: widget.icon),
-        tooltip: widget.connecting ? 'Connecting…' : widget.tooltip,
-        semanticLabel: widget.semanticLabel,
+        icon: ExcludeSemantics(child: icon),
+        tooltip: connecting ? 'Connecting…' : tooltip,
+        semanticLabel: semanticLabel,
         variant: DButtonVariant.ghost,
         size: DButtonSize.large,
         hasPopup: true,
         expanded: trigger.open,
         focusNode: trigger.focusNode,
-        onPressed: widget.connecting
+        onPressed: connecting
             ? null
             : () {
+                onOpen();
                 if (context.isTouch) {
-                  unawaited(showUserMenuSheet(context, view: widget.view));
+                  unawaited(showUserMenuSheet(context, view: view));
                 } else {
                   trigger.toggle();
                 }

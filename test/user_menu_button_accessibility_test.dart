@@ -1,5 +1,6 @@
 import 'dart:ui' show SemanticsAction;
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/notification_totals.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
@@ -76,13 +77,17 @@ void main() {
       expect(find.byKey(const ValueKey('user-menu-tab-profile')), findsNothing);
       expect(find.byTooltip('Likes'), findsOneWidget);
       expect(find.byTooltip('Replies'), findsOneWidget);
-      await tester.tap(find.byKey(UserMenuButton.avatarKey));
+      tester.binding.renderViews.single.owner!.semanticsOwner!.performAction(
+        tester.getSemantics(find.byKey(UserMenuButton.avatarKey)).id,
+        SemanticsAction.tap,
+      );
       await tester.pumpAndSettle();
       expect(find.byType(UserMenuPanel), findsOneWidget);
       expect(
         tester.widget<UserMenuPanel>(find.byType(UserMenuPanel)).view,
         UserMenuView.profile,
       );
+      expect(tester.widget<DButton>(button).focusNode!.hasFocus, isFalse);
       expect(find.text('Summary'), findsOneWidget);
       await tester.scrollUntilVisible(
         find.text('Preferences'),
@@ -99,6 +104,13 @@ void main() {
       await tester.sendKeyEvent(LogicalKeyboardKey.escape);
       await tester.pumpAndSettle();
       expect(find.byType(UserMenuPanel), findsNothing);
+      expect(
+        tester
+            .widget<DButton>(find.byKey(UserMenuButton.avatarKey))
+            .focusNode!
+            .hasPrimaryFocus,
+        isTrue,
+      );
     } finally {
       semantics.dispose();
     }
