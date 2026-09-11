@@ -512,10 +512,10 @@ void main() {
     );
   });
 
-  testWidgets('keycap addons use the reduced inset and offset radius', (
+  testWidgets('keycap addons use the reduced inset and rounded keycaps', (
     tester,
   ) async {
-    final tokens = AppTheme.light.extension<DTokens>()!.copyWith(radius: 10);
+    final tokens = AppTheme.light.extension<DTokens>()!.copyWith(radius: 4);
     await tester.pumpWidget(
       host(
         theme: AppTheme.light.copyWith(extensions: [tokens]),
@@ -572,11 +572,11 @@ void main() {
       of: find.byKey(const ValueKey('direct')),
       matching: find.widgetWithText(DKbd, 'K'),
     );
-    expect(keycapRadius(command), BorderRadius.circular(5));
-    expect(keycapRadius(directK), BorderRadius.circular(5));
+    expect(keycapRadius(command), BorderRadius.circular(2.4));
+    expect(keycapRadius(directK), BorderRadius.circular(2.4));
     expect(
       keycapRadius(find.widgetWithText(DKbd, 'Ctrl')),
-      BorderRadius.circular(6),
+      BorderRadius.circular(2.4),
     );
     expect(tester.getTopLeft(directK).dx - tester.getTopRight(command).dx, 8);
   });

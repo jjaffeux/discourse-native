@@ -412,7 +412,7 @@ void main() {
   });
 
   testWidgets(
-    'the ring paints outside the bounds and the fill stops at the border',
+    'the ring paints outside and transparent-border fills reach the bounds',
     (tester) async {
       final highlightStrategy = FocusManager.instance.highlightStrategy;
       FocusManager.instance.highlightStrategy =
@@ -470,11 +470,10 @@ void main() {
 
       final middle = bounds.center.dy;
       final primary = tokensOf(tester).primary;
-      // The transparent 1px border leaves the backdrop visible inside the
-      // bounds, like bg-clip-padding; the fill starts one pixel in.
-      expect(await pixel(bounds.right - 1, middle), Colors.white);
+      // Filled and outlined controls share the same visible outer bounds.
+      expect(await pixel(bounds.right - 1, middle), primary);
       expect(await pixel(bounds.right - 2, middle), primary);
-      expect(await pixel(bounds.center.dx, bounds.top), Colors.white);
+      expect(await pixel(bounds.center.dx, bounds.top), primary);
       expect(await pixel(bounds.center.dx, bounds.top + 1), primary);
       expect(await pixel(bounds.right + 1, middle), Colors.white);
 

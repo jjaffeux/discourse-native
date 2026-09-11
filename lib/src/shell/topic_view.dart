@@ -2258,29 +2258,39 @@ class _TopicBottomBar extends StatelessWidget {
                       semanticLabel: 'Topic actions',
                       children: [
                         if (canReply)
-                          DButton(
-                            key: const ValueKey('topic-reply-button'),
-                            onPressed: onReplyPressed,
-                            icon: const DIcon(DIcons.reply, size: 16),
-                            label: const Text('Reply'),
-                            tooltip: 'Reply to this topic',
-                            shortcut: const DShortcut(topicReplyShortcut),
-                            variant: DButtonVariant.primary,
-                            size: DButtonSize.small,
+                          DButtonGroup(
+                            children: [
+                              DButton(
+                                key: const ValueKey('topic-reply-button'),
+                                onPressed: onReplyPressed,
+                                icon: const DIcon(DIcons.reply, size: 16),
+                                label: const Text('Reply'),
+                                tooltip: 'Reply to this topic',
+                                shortcut: const DShortcut(topicReplyShortcut),
+                                variant: DButtonVariant.primary,
+                                size: DButtonSize.small,
+                              ),
+                            ],
                           ),
-                        if (showBookmark)
-                          TopicBookmarkButton(
-                            siteUrl: siteUrl!,
-                            topic: topic!,
-                            busy: bookmarkBusy,
-                            variant: DButtonVariant.outline,
-                          ),
-                        if (showNotifications)
-                          TopicNotificationLevelButton(
-                            siteUrl: siteUrl!,
-                            topic: topic!,
-                            showLabel: constraints.maxWidth >= 580,
-                            variant: DButtonVariant.outline,
+                        if (showBookmark || showNotifications)
+                          DButtonGroup(
+                            semanticLabel: 'Topic management',
+                            children: [
+                              if (showBookmark)
+                                TopicBookmarkButton(
+                                  siteUrl: siteUrl!,
+                                  topic: topic!,
+                                  busy: bookmarkBusy,
+                                  variant: DButtonVariant.outline,
+                                ),
+                              if (showNotifications)
+                                TopicNotificationLevelButton(
+                                  siteUrl: siteUrl!,
+                                  topic: topic!,
+                                  showLabel: constraints.maxWidth >= 580,
+                                  variant: DButtonVariant.outline,
+                                ),
+                            ],
                           ),
                       ],
                     ),

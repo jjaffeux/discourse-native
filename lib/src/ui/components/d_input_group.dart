@@ -1,4 +1,3 @@
-import 'dart:math' as math;
 import 'dart:ui' show SemanticsValidationResult;
 
 import 'package:flutter/material.dart';
@@ -306,9 +305,9 @@ class DInputGroupAddon extends StatelessWidget {
     final hasKbd = content.any(
       (item) => item is DKbd || item is DKbdGroup || item is DShortcutKeycaps,
     );
-    // The reference offsets only direct keycap children by 5px from the base
-    // radius; keycaps inside a group keep the small relative radius.
-    final keycapRadius = BorderRadius.circular(math.max(0, tokens.radius - 5));
+    // Keep the compact keycap rounded even with small site radii.
+    final keycapRadius = BorderRadius.circular(tokens.radius * 0.6);
+    final keycapBackground = tokens.mutedForeground.withValues(alpha: 0.12);
     final inlineInset = hasButton
         ? 3.2
         : hasKbd
@@ -340,7 +339,7 @@ class DInputGroupAddon extends StatelessWidget {
             child: content[index] is DKbd
                 ? DKbdTheme(
                     foregroundColor: tokens.mutedForeground,
-                    backgroundColor: tokens.muted,
+                    backgroundColor: keycapBackground,
                     borderRadius: keycapRadius,
                     child: content[index],
                   )
@@ -369,7 +368,7 @@ class DInputGroupAddon extends StatelessWidget {
               ),
               child: DKbdTheme(
                 foregroundColor: tokens.mutedForeground,
-                backgroundColor: tokens.muted,
+                backgroundColor: keycapBackground,
                 child: row,
               ),
             ),

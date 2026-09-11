@@ -174,7 +174,10 @@ class _DControlPainter extends BoxPainter {
       );
     }
     if (decoration.color.a > 0) {
-      canvas.drawRRect(inner, Paint()..color = decoration.color);
+      canvas.drawRRect(
+        decoration.borderColor.a == 0 ? outer : inner,
+        Paint()..color = decoration.color,
+      );
     }
   }
 
