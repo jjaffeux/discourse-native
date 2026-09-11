@@ -13087,6 +13087,21 @@ class ShellController extends FrameSafeNotifier
     _selectTopicListFilter(category: null, tagName: null);
   }
 
+  /// Applies a staged filter edit as one route change and feed request.
+  void selectTopicListFilters({
+    required TopicCategory? category,
+    required List<String> tags,
+    bool keepTopicOpen = false,
+  }) {
+    if (topicListContent?.isTopicListFilter != true) return;
+    _selectTopicListFilter(
+      category: category,
+      tagName: tags.firstOrNull,
+      tags: tags,
+      keepTopicOpen: keepTopicOpen,
+    );
+  }
+
   void _selectTopicListFilter({
     required TopicCategory? category,
     required String? tagName,
