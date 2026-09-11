@@ -1,4 +1,5 @@
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/src/theme/discourse_typography.dart';
 import 'package:flutter/material.dart';
 
 import '../styleguide_example.dart';
@@ -334,13 +335,17 @@ class _WeightTile extends StatelessWidget {
     children: [
       Text(
         'Aa',
-        style: TextStyle(fontSize: 24, height: 1, fontWeight: _fontWeight),
+        style: TextStyle(
+          fontSize: DiscourseTypography.xxl,
+          height: 1,
+          fontWeight: _fontWeight,
+        ),
       ),
       Text(
         '${weight[0].toUpperCase()}${weight.substring(1)}',
         style: TextStyle(
           color: DTokens.of(context).mutedForeground,
-          fontSize: 12,
+          fontSize: DiscourseTypography.xs,
           height: 16 / 12,
         ),
       ),

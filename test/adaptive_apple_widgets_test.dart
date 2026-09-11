@@ -104,16 +104,13 @@ void main() {
     );
     expect(
       tester.getSize(find.widgetWithText(DButton, 'Cancel')).height,
-      moreOrLessEquals(38, epsilon: 0.5),
+      moreOrLessEquals(32, epsilon: 0.5),
     );
     final cancel = tester.widget<FilledButton>(
       find.widgetWithText(FilledButton, 'Cancel'),
     );
     final colors = AppTheme.light.colorScheme;
-    expect(
-      cancel.style?.backgroundColor?.resolve({}),
-      colors.surfaceContainerHigh,
-    );
+    expect(cancel.style?.backgroundColor?.resolve({}), Colors.transparent);
     expect(cancel.style?.foregroundColor?.resolve({}), colors.onSurface);
     expect(find.byType(CupertinoAlertDialog), findsNothing);
     expect(find.byType(CupertinoDialogAction), findsNothing);

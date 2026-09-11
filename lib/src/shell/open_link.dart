@@ -78,8 +78,9 @@ class LinkTarget extends StatelessWidget {
     onTertiaryTapUp: content != null
         ? (_) => _handleTabResult(
             context,
-            ShellScope.read(context)
-                .openContentInNewTab(content!, siteUrl: siteUrl),
+            ShellScope.read(
+              context,
+            ).openContentInNewTab(content!, siteUrl: siteUrl),
           )
         : url != null
         ? (_) => openLink(

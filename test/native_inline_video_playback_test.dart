@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:discourse_native/discourse_ui.dart' show DSpinner;
+import 'package:discourse_native/discourse_ui.dart' show DSlider, DSpinner;
 import 'package:discourse_native/src/shell/inline_video.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -58,7 +58,7 @@ void main() {
             findsOneWidget,
           );
           expect(
-            tester.widget<Slider>(find.byType(Slider)).value,
+            tester.widget<DSlider>(find.byType(DSlider)).value,
             second * 1000,
           );
         }
@@ -87,7 +87,7 @@ void main() {
         );
         await tester.pump();
         expect(
-          tester.widget<Slider>(find.byType(Slider)).secondaryTrackValue,
+          tester.widget<DSlider>(find.byType(DSlider)).secondaryTrackValue,
           60000,
         );
         expect(find.byType(DSpinner), findsNothing);
@@ -116,11 +116,11 @@ void main() {
         await tester.pump();
         expect(player.controller.value.isPlaying, isTrue);
         expect(find.byTooltip('Pause'), findsOneWidget);
-        await tester.tapAt(tester.getCenter(find.byType(Slider)));
+        await tester.tapAt(tester.getCenter(find.byType(DSlider)));
         await tester.pump();
         expect(platform.seeks, hasLength(1));
         expect(
-          tester.widget<Slider>(find.byType(Slider)).value,
+          tester.widget<DSlider>(find.byType(DSlider)).value,
           platform.seeks.single.inMilliseconds,
         );
         expect(platform.viewBuilds, initialViewBuilds);
@@ -174,7 +174,7 @@ void main() {
       );
       await tester.pump();
       expect(find.text('0:00 / 3:00'), findsOneWidget);
-      expect(tester.widget<Slider>(find.byType(Slider)).max, 180000);
+      expect(tester.widget<DSlider>(find.byType(DSlider)).max, 180000);
       expect(platform.viewBuilds, initialViewBuilds + 2);
       await tester.pumpWidget(const SizedBox.shrink());
       await platform.disposed(0);

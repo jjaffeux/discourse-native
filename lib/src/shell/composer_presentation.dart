@@ -25,8 +25,12 @@ class ComposerPresentationHost extends StatefulWidget {
   final Widget child;
   final ComposerPresentationController? controller;
 
-  static Key contentKeyOf(BuildContext context) =>
-      _ComposerPresentationScope.of(context)._contentKey;
+  // The key is stable for the host's lifetime; reading it must not subscribe
+  // the shell layout to composer presentation updates.
+  static Key contentKeyOf(BuildContext context) => context
+      .getInheritedWidgetOfExactType<_ComposerPresentationScope>()!
+      .owner
+      ._contentKey;
 
   @override
   State<ComposerPresentationHost> createState() =>
@@ -201,7 +205,7 @@ class _ComposerDockState extends State<ComposerDock> {
             height: bottomDocked
                 ? math.max(
                     bounds.maxHeight,
-                    MediaQuery.textScalerOf(context).scale(240),
+                    MediaQuery.textScalerOf(context).scale(320),
                   )
                 : bounds.maxHeight,
             child: reader,

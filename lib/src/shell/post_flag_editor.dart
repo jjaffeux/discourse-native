@@ -1,4 +1,5 @@
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/src/theme/discourse_typography.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -391,7 +392,7 @@ class _FlagReasonRow extends StatelessWidget {
                 html: description,
                 siteUrl: siteUrl,
                 textStyle: TextStyle(
-                  fontSize: 14,
+                  fontSize: DiscourseTypography.sm,
                   height: 20 / 14,
                   color: DTokens.of(context).mutedForeground,
                 ),

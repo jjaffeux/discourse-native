@@ -339,6 +339,7 @@ final class _DeleteHost {
     await tester.pumpWidget(
       MaterialApp(
         theme: AppTheme.light,
+        builder: (context, child) => DToaster(child: child!),
         home: Scaffold(
           body: coordinator.page.isOwned
               ? GroupPagesHost(

@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/src/theme/discourse_typography.dart';
 import 'package:flutter/material.dart';
 
 import '../styleguide_example.dart';
@@ -328,7 +329,7 @@ class _MessageScrollerReferenceDemoState
                   : '$_selectedTool selected · Demo is read only.',
               textAlign: TextAlign.center,
               style: TextStyle(
-                fontSize: 12,
+                fontSize: DiscourseTypography.xs,
                 color: DTokens.of(context).mutedForeground,
               ),
             ),

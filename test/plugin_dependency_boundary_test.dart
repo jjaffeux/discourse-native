@@ -115,7 +115,16 @@ void main() {
         if (path.startsWith('lib/src/plugins/') ||
             path == 'lib/main.dart' ||
             path == 'lib/main_core.dart' ||
-            path == 'lib/discourse_bundled.dart') {
+            path == 'lib/discourse_bundled.dart' ||
+            // Local review entrypoints assemble real feature surfaces.
+            const {
+              'lib/message_scroller_review_main.dart',
+              'lib/chart_review_main.dart',
+              'lib/scroll_area_review_main.dart',
+              'lib/item_review_main.dart',
+              'lib/attachment_review_main.dart',
+              'lib/src/styleguide/examples/resizable_examples.dart',
+            }.contains(path)) {
           continue;
         }
 

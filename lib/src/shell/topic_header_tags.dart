@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/src/theme/discourse_typography.dart';
 import 'package:flutter/material.dart';
 
 import '../models/post.dart';
@@ -62,7 +63,7 @@ class TopicHeaderTags extends StatelessWidget {
         }
         final theme = Theme.of(context);
         final style = theme.textTheme.labelSmall?.copyWith(
-          fontSize: 12,
+          fontSize: DiscourseTypography.xs,
           height: 16 / 12,
           fontWeight: FontWeight.w500,
           letterSpacing: 0,

@@ -1,4 +1,5 @@
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/src/theme/discourse_typography.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
@@ -421,7 +422,7 @@ class _RecoveryLink extends StatelessWidget {
   Widget build(BuildContext context) => LayoutBuilder(
     builder: (context, constraints) {
       final style = DefaultTextStyle.of(context).style.copyWith(
-        fontSize: 14,
+        fontSize: DiscourseTypography.sm,
         height: 20 / 14,
         fontWeight: FontWeight.w400,
         color: DTokens.of(context).foreground,

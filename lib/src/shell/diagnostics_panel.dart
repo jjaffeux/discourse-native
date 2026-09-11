@@ -817,7 +817,8 @@ class _EventRow extends StatelessWidget {
     final color = error
         ? theme.colorScheme.error
         : theme.colorScheme.onSurfaceVariant;
-    final methodFontSize = theme.textTheme.labelSmall?.fontSize ?? 12;
+    final methodFontSize =
+        theme.textTheme.labelSmall?.fontSize ?? DiscourseTypography.xs;
     final methodTextScale =
         MediaQuery.textScalerOf(context).scale(methodFontSize) / methodFontSize;
 

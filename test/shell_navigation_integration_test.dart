@@ -1071,7 +1071,13 @@ void _registerShellNavigationTests() {
       await tester.pumpAndSettle();
 
       expect(userMenu, findsOneWidget);
-      expect(tester.getRect(userMenu), onSidebar);
+      final inContent = tester.getRect(userMenu);
+      expect(inContent.size, onSidebar.size);
+      expect(inContent.right, onSidebar.right);
+      expect(
+        tester.getRect(find.byType(MainContent)).contains(inContent.center),
+        isTrue,
+      );
     });
   });
 

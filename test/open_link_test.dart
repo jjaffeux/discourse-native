@@ -1,3 +1,4 @@
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/forum_workspace.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/shell/open_link.dart';
@@ -176,6 +177,7 @@ Future<ShellController> _pumpLink(
     ShellScope(
       controller: controller,
       child: MaterialApp(
+        builder: (context, child) => DToaster(child: child!),
         home: Scaffold(
           body: Builder(
             builder: (context) => Center(

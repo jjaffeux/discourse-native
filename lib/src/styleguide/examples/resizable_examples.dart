@@ -2,6 +2,7 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/plugins/chat/chat_thread_view.dart';
 import 'package:discourse_native/src/shell/resizable_pane.dart';
 import 'package:discourse_native/src/shell/users_page.dart';
+import 'package:discourse_native/src/theme/discourse_typography.dart';
 import 'package:flutter/material.dart';
 
 import '../styleguide_example.dart';
@@ -76,7 +77,7 @@ class _Label extends StatelessWidget {
         text,
         style: TextStyle(
           fontFamily: Theme.of(context).textTheme.bodyMedium?.fontFamily,
-          fontSize: 14,
+          fontSize: DiscourseTypography.sm,
           height: 20 / 14,
           fontWeight: FontWeight.w600,
         ),
@@ -394,7 +395,7 @@ class _Label extends StatelessWidget {
         text,
         style: TextStyle(
           fontFamily: Theme.of(context).textTheme.bodyMedium?.fontFamily,
-          fontSize: 14,
+          fontSize: DiscourseTypography.sm,
           height: 20 / 14,
           fontWeight: FontWeight.w600,
         ),
@@ -491,7 +492,7 @@ class _Label extends StatelessWidget {
         text,
         style: TextStyle(
           fontFamily: Theme.of(context).textTheme.bodyMedium?.fontFamily,
-          fontSize: 14,
+          fontSize: DiscourseTypography.sm,
           height: 20 / 14,
           fontWeight: FontWeight.w600,
         ),
@@ -621,7 +622,7 @@ class _Label extends StatelessWidget {
         text,
         style: TextStyle(
           fontFamily: Theme.of(context).textTheme.bodyMedium?.fontFamily,
-          fontSize: 14,
+          fontSize: DiscourseTypography.sm,
           height: 20 / 14,
           fontWeight: FontWeight.w600,
         ),
@@ -700,7 +701,7 @@ class _Label extends StatelessWidget {
         text,
         style: TextStyle(
           fontFamily: Theme.of(context).textTheme.bodyMedium?.fontFamily,
-          fontSize: 14,
+          fontSize: DiscourseTypography.sm,
           height: 20 / 14,
           fontWeight: FontWeight.w600,
         ),

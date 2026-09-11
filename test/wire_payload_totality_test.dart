@@ -714,6 +714,9 @@ void main() {
       'ForumTabAnchor',
       'ResolvedSitePalette',
       'ComposerLayoutPreference',
+      // UI questionnaire drafts serialize local answers, not site payloads.
+      'DQuestionnaireAnswer',
+      'DQuestionnaireSavedState',
       // The diagnostics store reading back what it wrote.
       'DiagnosticEvent',
       'DiagnosticLogEvent',

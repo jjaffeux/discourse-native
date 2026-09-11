@@ -258,10 +258,7 @@ class _GroupFixtureState extends State<_GroupFixture> {
         smtpEnabled: true,
       ),
       onSelectRoute: (route) => setState(() => _route = route),
-      onOpenMember: (context, member) => DToast.show(
-        context,
-        member.username,
-      ),
+      onOpenMember: (context, member) => DToast.show(context, member.username),
       onSaveManage: (update) async {
         setState(
           () => _saved =

@@ -136,10 +136,8 @@ Widget? inlineVideoWidgetBuilder(dom.Element element, {String? siteUrl}) {
   return data == null ? null : InlineVideo(data: data, siteUrl: siteUrl);
 }
 
-typedef InlineVideoPlayerBuilder = Widget Function(
-  BuildContext context,
-  InlineVideoData data,
-);
+typedef InlineVideoPlayerBuilder =
+    Widget Function(BuildContext context, InlineVideoData data);
 
 /// A lazy, app-owned shell around the platform video implementation.
 class InlineVideo extends StatefulWidget {
@@ -1024,8 +1022,9 @@ class _PlaybackTimeline extends StatelessWidget {
           ),
           Text(
             '${_duration(timeline.position)} / ${_duration(timeline.duration)}',
-            style: Theme.of(context).textTheme.labelSmall
-                ?.copyWith(color: Colors.white),
+            style: Theme.of(
+              context,
+            ).textTheme.labelSmall?.copyWith(color: Colors.white),
           ),
         ],
       );
