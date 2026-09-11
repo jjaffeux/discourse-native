@@ -158,10 +158,15 @@ rule applies to conversation, search, deleted-message expansions and thread
 consumers, without new routing or network responsibilities.
 
 Outgoing messages use end-aligned primary bubbles and incoming messages use
-start-aligned muted bubbles. Incoming sender metadata uses Message Header;
-timestamps, edited/pin/bookmark indicators and pending/failed status use Message
-Footer. Chained rows keep independent selection/virtualization identity and an
-empty avatar slot. No successful-delivery or read receipt is inferred.
+start-aligned muted bubbles. One-to-one DMs omit sender headers and avatar slots,
+so message content uses the space previously reserved for identity. Group DMs
+keep incoming sender metadata in Message Header and avatars at the end of each
+sender run. Timestamps, edited/pin/bookmark indicators and pending/failed status
+use Message Footer. Consecutive DM bubbles share a timestamp on the last row,
+with the kit's 8px group spacing. Group DMs retain empty avatar slots on preceding rows.
+Group DM sender metadata appears on the first row. Edited state, reactions,
+pin/bookmark indicators and send errors remain attached to their own messages.
+No successful-delivery or read receipt is inferred.
 
 Canonical HTML and provisional text inherit Bubble typography and foreground.
 `CookedHtml.linkStyle` optionally overrides link color and underline decoration;
@@ -199,3 +204,88 @@ Checks completed for this adoption:
   passed on the final source. The native inspection above preceded only the
   pending-attachment empty-body guard; the inspected fixture compositions are
   unchanged by that guard.
+
+
+### Consecutive DM groups (2026-09-11)
+
+The conversation stream supplies `ChatMessageTile.endsGroup` from its existing
+sender-chain projection. This gives consecutive bubbles the kit's grouped
+presentation while keeping one virtualized row per message for jumps, read
+tracking, actions and selection. Sender changes, chain time limits, day/unread
+dividers and deleted rows retain the existing group boundaries. Standalone
+tiles show their own timestamp and, in group DMs, avatar; channels retain their
+compact presentation.
+
+The production fixture includes a five-bubble outgoing run, reactions, rich
+links, an incoming attachment and pending/failed messages. Regression coverage
+checks 8px spacing, shared metadata moving on live arrivals, separate message
+selection, prepended history, deletion, group boundaries and per-message status.
+
+Verification for the grouping follow-up: 183 focused DM, lifecycle, stream,
+thread, search, message-action and fixture tests passed. Static analysis,
+touched-file formatting, `git diff --check` and the macOS fixture build passed.
+The isolated macOS app launched (confirmed by its process and sampled Flutter
+threads), but the desktop inspection tool repeatedly returned
+`timeoutReached` when attaching by path or bundle ID, including after resetting
+the tool session. That attempt did not complete a native visual inspection.
+The subsequent one-to-one identity review below also inspected the grouped
+layout successfully. The isolated process was stopped and the desktop lease released. Narrow,
+200% text, RTL and palette regression coverage ran as widget tests.
+
+
+### One-to-one DM identity (2026-09-11)
+
+Only group DMs render `DMessageAvatar` and the incoming sender header. One-to-one
+DMs omit both children, removing the avatar gutter without changing the kit.
+The existing observable channel's `isGroup` flag controls this presentation;
+late channel metadata and changes to group membership refresh the tile.
+Reply quotes and message controls retain their existing content and behavior.
+The local production fixture now switches between group and one-to-one DMs.
+
+132 focused DM, lifecycle, message-action, search and fixture checks passed.
+Coverage includes both senders in LTR/RTL, the removed gutter, late metadata,
+group identity retention and one-to-one narrow/200% text/palette compositions.
+
+Static analysis, formatting, `git diff --check` and the macOS fixture build
+passed. Native inspection succeeded in a new isolated bundle: the Message
+styleguide, grouped bubbles with shared identity, and one-to-one bubbles without
+headers or avatar gutters were inspected. The one-to-one layout was also checked
+in dark Plum at 360px, 200% text and RTL, including reactions, attachments and
+pending/failed footers. A reaction changed from 3 to 4, and Reply on a middle
+bubble reported DM 204. Independent link, reaction, attachment and status AX
+nodes remained available. The isolated app was quit, its process absence verified,
+and the desktop lease released. No physical touch device or spoken VoiceOver
+review was performed.
+
+
+### DM hover dropdown (2026-09-11)
+
+Desktop DM tiles replace the floating hover toolbar with one trailing chevron
+inside the message bubble, using `DDropdownMenu`, `DDropdownMenuTrigger`,
+`DButton.iconOnly` and `DDropdownMenuItem` from the public kit. The trigger's
+space is reserved, so pointer hover changes neither text wrapping nor message
+height. Attachment-only messages place the trigger beside their attachments.
+The trigger also appears for keyboard focus and while its menu is open.
+Channels retain their compact toolbar, and touch long press retains its sheet.
+
+The dropdown preserves available reply, reaction, bookmark, pin, copy-link,
+editing, flagging, deletion, restoration, rebuild and selection actions with
+their existing callbacks and busy/permission checks. Actions close the dropdown
+before handing focus to another surface. Keyboard opening, Escape restoration,
+outside dismissal, pointer exit, scrolling and disposal are covered. No kit API,
+network/model or setting changes were needed.
+
+165 focused DM, message-action, lifecycle, fixture, search and upload tests
+passed. The complete 49-test lifecycle suite passed again with the live-append
+selection test running the new desktop dropdown. Analysis, touched-file
+formatting, `git diff --check` and the macOS fixture build passed.
+
+Native review inspected group and one-to-one DM triggers and menus, including
+light and dark Plum at 360px, 200% text and RTL. Only one action trigger appeared
+on the pointed-to bubble. Reply from its dropdown reported DM 204, and Add
+reaction opened the existing picker (the offline fixture has no selectable emoji;
+reaction submission is covered by the widget regression). Independent trigger,
+menu-item and rich-link AX nodes remained present. The initial new bundle timed
+out in the inspection tool; rebuilding the closed, previously inspected fixture
+bundle allowed the native check to complete. Both isolated processes were
+stopped/quit, their absence verified, and the desktop lease released.

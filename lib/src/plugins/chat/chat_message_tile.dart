@@ -42,6 +42,7 @@ class ChatMessageTile extends StatelessWidget {
     required this.siteUrl,
     required this.messageId,
     required this.chained,
+    this.endsGroup = true,
     this.contextThreadId,
     this.onOpenThread,
     this.onJumpToMessage,
@@ -61,6 +62,10 @@ class ChatMessageTile extends StatelessWidget {
   final int? contextThreadId;
 
   final bool chained;
+
+  /// Whether this is the last visible message in a consecutive-sender run.
+  /// DMs share their timestamp and optional avatar here; channel rows ignore it.
+  final bool endsGroup;
 
   final ValueChanged<ChatThreadPreview>? onOpenThread;
 
@@ -99,6 +104,9 @@ class ChatMessageTile extends StatelessWidget {
   static Key editedIndicatorKey(int messageId) =>
       ValueKey<String>('chat-message-edited-$messageId');
 
+  static Key timestampKey(int messageId) =>
+      ValueKey<String>('chat-message-timestamp-$messageId');
+
   static Key bodySelectionKey(int messageId) =>
       ValueKey<String>('chat-message-body-selection-$messageId');
 
@@ -112,13 +120,15 @@ class ChatMessageTile extends StatelessWidget {
       builder: (context, message, _) {
         // The stream may lag one frame behind permanent deletion.
         if (message == null) return const SizedBox.shrink();
-        final tile = _Tile(
+        Widget tile([Widget? directMessageActions]) => _Tile(
           siteUrl: siteUrl,
           message: message,
           chained: chained,
+          endsGroup: endsGroup,
           onOpenThread: onOpenThread,
           onJumpToMessage: onJumpToMessage,
           showThreadSummary: showThreadSummary,
+          directMessageActions: directMessageActions,
         );
         if (selecting) {
           return Semantics(
@@ -137,7 +147,7 @@ class ChatMessageTile extends StatelessWidget {
                         : (value) => onSelectedChanged!(value ?? false),
                   ),
                 ),
-                Expanded(child: tile),
+                Expanded(child: tile()),
               ],
             ),
           );
@@ -192,9 +202,9 @@ class ChatMessageTile extends StatelessWidget {
                 canCopyText: canCopyText,
                 flagTypes: flagTypes,
                 onSelect: onSelect,
-                child: tile,
+                childBuilder: tile,
               )
-            : tile;
+            : tile();
       },
     );
   }
@@ -217,7 +227,7 @@ class _ChatMessageActions extends StatefulWidget {
     required this.canCopyText,
     required this.flagTypes,
     required this.onSelect,
-    required this.child,
+    required this.childBuilder,
   });
 
   final Key focusKey;
@@ -231,13 +241,15 @@ class _ChatMessageActions extends StatefulWidget {
   final bool canCopyText;
   final List<PostFlagType> flagTypes;
   final VoidCallback? onSelect;
-  final Widget child;
+  final Widget Function(Widget? directMessageActions) childBuilder;
 
   @override
   State<_ChatMessageActions> createState() => _ChatMessageActionsState();
 }
 
 class _ChatMessageActionsState extends State<_ChatMessageActions> {
+  final _dropdown = DDropdownMenuController();
+  bool _focused = false;
   bool _hovered = false;
   bool _hoverSuppressed = false;
   bool _pointerInside = false;
@@ -275,18 +287,24 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
   void _hideHoverForScroll() {
     _hoverSuppressed = true;
     _moreActionsOpen = false;
-    if (!_hovered) return;
+    if (!_hovered && !_dropdown.isOpen) return;
     _hovered = false;
+
+    void refresh() {
+      if (!mounted) return;
+      _dropdown.close();
+      setState(() {});
+    }
 
     // New viewport dimensions can start a scroll activity during layout.
     if (SchedulerBinding.instance.schedulerPhase ==
         SchedulerPhase.persistentCallbacks) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) setState(() {});
+        refresh();
       });
       return;
     }
-    setState(() {});
+    refresh();
   }
 
   void _pointerEntered() {
@@ -320,6 +338,7 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
   @override
   void dispose() {
     _detachScroll();
+    _dropdown.dispose();
     super.dispose();
   }
 
@@ -655,6 +674,181 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
     );
   }
 
+  void _runDropdownAction(VoidCallback action) {
+    _dropdown.close();
+    // Let the menu restore focus before an action opens another overlay or
+    // moves focus to the composer. The message remains the callback owner.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) action();
+    });
+  }
+
+  Widget _directMessageDropdown({
+    required bool bookmarkBusy,
+    required bool canAddReaction,
+    required bool canEdit,
+    required bool canDelete,
+    required bool canRestore,
+    required bool canPin,
+    required bool canRebake,
+    required List<PostFlagType> flagTypes,
+  }) {
+    final chat = PluginUiScope.require(context, chatControllerService);
+    final canReply =
+        widget.onReply != null &&
+        chat.canReplyToMessage(widget.siteUrl, widget.message);
+    final canBookmark = chat.canBookmarkMessage(widget.siteUrl, widget.message);
+    Widget item(
+      String name,
+      String label,
+      DIconData icon,
+      VoidCallback action, {
+      bool busy = false,
+      bool destructive = false,
+    }) => DDropdownMenuItem(
+      key: ValueKey('chat-message-$name-${widget.message.id}'),
+      leading: busy ? const DSpinner() : DIcon(icon, size: 16),
+      onPressed: busy ? null : () => _runDropdownAction(action),
+      closeOnSelect: false,
+      variant: destructive
+          ? DDropdownMenuItemVariant.destructive
+          : DDropdownMenuItemVariant.standard,
+      child: Text(label),
+    );
+
+    return EmojiPickerAnchor(
+      child: Builder(
+        builder: (anchorContext) => DDropdownMenu(
+          controller: _dropdown,
+          onOpenChange: (open, _) {
+            setState(() {
+              _moreActionsOpen = open;
+              if (!open && !_pointerInside) _hovered = false;
+            });
+          },
+          content: DDropdownMenuContent(
+            semanticLabel: 'Message actions',
+            align: DPopoverAlign.end,
+            width: 220,
+            children: [
+              if (canReply) item('reply', 'Reply', DIcons.reply, _reply),
+              if (canAddReaction)
+                item(
+                  'react',
+                  'Add reaction',
+                  DIcons.farFaceSmile,
+                  () => unawaited(_pickReaction(anchorContext)),
+                  busy: _reactionPickerOpening,
+                ),
+              if (canBookmark)
+                item(
+                  'bookmark',
+                  widget.message.bookmark == null
+                      ? 'Bookmark'
+                      : 'Edit bookmark',
+                  _bookmarkIcon(widget.message.bookmark),
+                  () => unawaited(_bookmark()),
+                  busy: bookmarkBusy,
+                ),
+              if (canPin)
+                item(
+                  'pin',
+                  widget.message.pinned ? 'Unpin' : 'Pin',
+                  DIcons.thumbtack,
+                  () => unawaited(_togglePin()),
+                  busy: _pinning,
+                ),
+              if (widget.canCopyLink)
+                item(
+                  'copy-link',
+                  'Copy link',
+                  DIcons.link,
+                  () => unawaited(_copyLink()),
+                ),
+              if (widget.canCopyText)
+                item(
+                  'copy-text',
+                  'Copy text',
+                  DIcons.copy,
+                  () => unawaited(_copyText()),
+                ),
+              if (canEdit && widget.onEdit != null)
+                item('edit', 'Edit', DIcons.pencil, _edit),
+              if (flagTypes.isNotEmpty)
+                item(
+                  'flag',
+                  'Flag',
+                  DIcons.flag,
+                  () => unawaited(_flag(flagTypes)),
+                ),
+              if (canRestore)
+                item(
+                  'restore',
+                  'Restore deleted message',
+                  DIcons.arrowRotateLeft,
+                  () => unawaited(_restore()),
+                  busy: _restoring,
+                ),
+              if (canRebake)
+                item(
+                  'rebake',
+                  'Rebuild HTML',
+                  DIcons.arrowsRotate,
+                  () => unawaited(_rebake()),
+                  busy: _rebaking,
+                ),
+              if (canDelete) ...[
+                const DDropdownMenuSeparator(),
+                item(
+                  'delete',
+                  'Delete',
+                  DIcons.trashCan,
+                  () => unawaited(_delete()),
+                  destructive: true,
+                ),
+              ],
+              if (widget.onSelect case final select?) ...[
+                const DDropdownMenuSeparator(),
+                item('select', 'Select', DIcons.list, select),
+              ],
+            ],
+          ),
+          child: DDropdownMenuTrigger(
+            builder: (context, state) {
+              final visible =
+                  _moreActionsOpen ||
+                  (!_hoverSuppressed && (_hovered || _focused));
+              // Preserve the trailing slot and keyboard access while hidden;
+              // the trigger becomes visible when the message receives focus.
+              return Opacity(
+                opacity: visible ? 1 : 0,
+                child: IgnorePointer(
+                  ignoring: !visible,
+                  child: ExcludeSemantics(
+                    excluding: !visible,
+                    child: DButton.iconOnly(
+                      key: ValueKey(
+                        'chat-message-more-actions-${widget.message.id}',
+                      ),
+                      tooltip: 'More message actions',
+                      icon: const DIcon(DIcons.chevronDown, size: 16),
+                      size: DButtonSize.extraSmall,
+                      variant: DButtonVariant.secondary,
+                      focusNode: state.focusNode,
+                      hasPopup: true,
+                      expanded: state.open,
+                      onPressed: state.toggle,
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final chat = PluginUiScope.require(context, chatControllerService);
@@ -667,7 +861,7 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
         widget.siteUrl,
         widget.message.channelId,
       ),
-      builder: (context, _, _) => ValueListenableBuilder<bool>(
+      builder: (context, channel, _) => ValueListenableBuilder<bool>(
         valueListenable: bookmarkHost.bookmarkWriteInFlightListenable(
           siteUrl: widget.siteUrl,
           targetId: widget.message.id,
@@ -675,6 +869,7 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
         builder: (context, bookmarkBusy, _) {
           return _build(
             context,
+            useDropdown: channel?.isDirectMessage == true && !context.isTouch,
             bookmarkBusy: bookmarkBusy,
             canEdit: chat.canEditMessage(widget.siteUrl, widget.message),
             canDelete: chat.canDeleteMessage(widget.siteUrl, widget.message),
@@ -694,6 +889,7 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
 
   Widget _build(
     BuildContext context, {
+    required bool useDropdown,
     required bool bookmarkBusy,
     required bool canEdit,
     required bool canDelete,
@@ -764,13 +960,24 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
           _OpenChatMessageActionsIntent:
               CallbackAction<_OpenChatMessageActionsIntent>(
                 onInvoke: (_) {
-                  unawaited(_showActions());
+                  if (useDropdown) {
+                    _dropdown.open(DPopoverInteraction.keyboard);
+                  } else {
+                    unawaited(_showActions());
+                  }
                   return null;
                 },
               ),
         },
         child: Focus(
           key: widget.focusKey,
+          onFocusChange: useDropdown
+              ? (focused) {
+                  if (mounted && _focused != focused) {
+                    setState(() => _focused = focused);
+                  }
+                }
+              : null,
           child: Semantics(
             customSemanticsActions: semanticsActions,
             child: MouseRegion(
@@ -782,13 +989,28 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
                 onLongPress: context.isTouch
                     ? () => unawaited(_showActions())
                     : null,
-                onSecondaryTap: () => unawaited(_showActions()),
+                onSecondaryTap: useDropdown
+                    ? () => _dropdown.open(DPopoverInteraction.mouse)
+                    : () => unawaited(_showActions()),
                 child: Stack(
                   // Desktop action targets may be taller than chained rows.
                   clipBehavior: Clip.none,
                   children: [
-                    widget.child,
-                    if (_hovered)
+                    widget.childBuilder(
+                      useDropdown
+                          ? _directMessageDropdown(
+                              bookmarkBusy: bookmarkBusy,
+                              canAddReaction: canAddReaction,
+                              canEdit: canEdit,
+                              canDelete: canDelete,
+                              canRestore: canRestore,
+                              canPin: canPin,
+                              canRebake: canRebake,
+                              flagTypes: flagTypes,
+                            )
+                          : null,
+                    ),
+                    if (_hovered && !useDropdown)
                       Positioned(
                         top: ChatMessageTile.hoverActionsTop,
                         right: 12,
@@ -1019,17 +1241,21 @@ class _Tile extends StatelessWidget {
     required this.siteUrl,
     required this.message,
     required this.chained,
+    required this.endsGroup,
     required this.onOpenThread,
     required this.onJumpToMessage,
     required this.showThreadSummary,
+    this.directMessageActions,
   });
 
   final String siteUrl;
   final ChatMessage message;
   final bool chained;
+  final bool endsGroup;
   final ValueChanged<ChatThreadPreview>? onOpenThread;
   final ValueChanged<int>? onJumpToMessage;
   final bool showThreadSummary;
+  final Widget? directMessageActions;
 
   @override
   Widget build(BuildContext context) {
@@ -1044,6 +1270,7 @@ class _Tile extends StatelessWidget {
           builder: (context, userId, _) => _directMessage(
             context,
             outgoing: userId != null && userId == message.author.id,
+            showIdentity: channel!.isGroup,
           ),
         );
       },
@@ -1261,7 +1488,11 @@ class _Tile extends StatelessWidget {
     );
   }
 
-  Widget _directMessage(BuildContext context, {required bool outgoing}) {
+  Widget _directMessage(
+    BuildContext context, {
+    required bool outgoing,
+    required bool showIdentity,
+  }) {
     final theme = Theme.of(context);
     final bubbleAlign = outgoing ? DBubbleAlign.end : DBubbleAlign.start;
     final hasBody = message.canonicalReceived
@@ -1270,8 +1501,9 @@ class _Tile extends StatelessWidget {
             ProjectedPreview(:final document) => document.nodes.isNotEmpty,
             _ => message.optimisticRaw?.isNotEmpty == true,
           };
+    final showTimestamp = endsGroup && message.createdAt != null;
     final hasMetadata =
-        message.createdAt != null ||
+        showTimestamp ||
         message.edited ||
         message.pinned ||
         message.bookmark != null ||
@@ -1288,31 +1520,32 @@ class _Tile extends StatelessWidget {
       child: DMessage(
         align: outgoing ? DMessageAlign.end : DMessageAlign.start,
         children: [
-          DMessageAvatar(
-            child: chained
-                ? null
-                : UserCardTarget.avatar(
-                    username: message.author.username,
-                    siteUrl: siteUrl,
-                    semanticLabel: message.author.flair == null
-                        ? null
-                        : 'View profile for @${message.author.username}, ${message.author.flair!.label}',
-                    child: ChatUserAvatar(
+          if (showIdentity)
+            DMessageAvatar(
+              child: !endsGroup
+                  ? null
+                  : UserCardTarget.avatar(
+                      username: message.author.username,
                       siteUrl: siteUrl,
-                      userId: message.author.id,
-                      url: message.author.avatarUrl,
-                      flair: message.author.flair,
-                      size: 32,
-                      fallback: _AvatarFallback(
-                        name: message.author.displayName,
-                        background: theme.shell.floating,
+                      semanticLabel: message.author.flair == null
+                          ? null
+                          : 'View profile for @${message.author.username}, ${message.author.flair!.label}',
+                      child: ChatUserAvatar(
+                        siteUrl: siteUrl,
+                        userId: message.author.id,
+                        url: message.author.avatarUrl,
+                        flair: message.author.flair,
+                        size: 32,
+                        fallback: _AvatarFallback(
+                          name: message.author.displayName,
+                          background: theme.shell.floating,
+                        ),
                       ),
                     ),
-                  ),
-          ),
+            ),
           DMessageContent(
             children: [
-              if (!outgoing && !chained)
+              if (showIdentity && !outgoing && !chained)
                 DMessageHeader(
                   spacing: DSpacing.xs,
                   children: [
@@ -1357,7 +1590,7 @@ class _Tile extends StatelessWidget {
                       child: Builder(
                         builder: (context) {
                           final style = DefaultTextStyle.of(context).style;
-                          return _MessageBodySelection(
+                          final body = _MessageBodySelection(
                             selectionKey: ChatMessageTile.bodySelectionKey(
                               message.id,
                             ),
@@ -1372,19 +1605,45 @@ class _Tile extends StatelessWidget {
                                   : null,
                             )!,
                           );
+                          return directMessageActions == null
+                              ? body
+                              : Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  spacing: DSpacing.xs,
+                                  children: [
+                                    Flexible(child: body),
+                                    directMessageActions!,
+                                  ],
+                                );
                         },
                       ),
                     ),
                   ],
                 ),
               if (message.uploads.isNotEmpty)
-                ChatUploads(
-                  siteUrl: siteUrl,
-                  uploads: message.uploads,
-                  alignment: outgoing
-                      ? CrossAxisAlignment.end
-                      : CrossAxisAlignment.start,
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  spacing: DSpacing.xs,
+                  children: [
+                    Flexible(
+                      child: ChatUploads(
+                        siteUrl: siteUrl,
+                        uploads: message.uploads,
+                        alignment: outgoing
+                            ? CrossAxisAlignment.end
+                            : CrossAxisAlignment.start,
+                      ),
+                    ),
+                    if (!hasBody && directMessageActions != null)
+                      directMessageActions!,
+                  ],
                 ),
+              if (!hasBody &&
+                  message.uploads.isEmpty &&
+                  directMessageActions != null)
+                directMessageActions!,
               if (message.reactions.isNotEmpty)
                 _Reactions(
                   siteUrl: siteUrl,
@@ -1405,8 +1664,11 @@ class _Tile extends StatelessWidget {
                 DMessageFooter(
                   spacing: DSpacing.sm,
                   children: [
-                    if (message.createdAt case final at?)
-                      Text(relativeTime(at)),
+                    if (message.createdAt case final at? when showTimestamp)
+                      Text(
+                        relativeTime(at),
+                        key: ChatMessageTile.timestampKey(message.id),
+                      ),
                     if (message.edited)
                       Text(
                         '(edited)',

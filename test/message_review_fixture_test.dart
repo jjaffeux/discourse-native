@@ -18,10 +18,16 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Show DMs'));
     await tester.pumpAndSettle();
-    expect(find.byType(ChatMessageTile), findsNWidgets(6));
+    expect(find.byType(ChatMessageTile), findsNWidgets(9));
     final rows = tester.widgetList<DMessage>(find.byType(DMessage));
-    expect(rows.where((row) => row.align == DMessageAlign.end), hasLength(4));
+    expect(rows.where((row) => row.align == DMessageAlign.end), hasLength(7));
     expect(rows.where((row) => row.align == DMessageAlign.start), hasLength(2));
+    expect(find.byType(DMessageAvatar), findsNWidgets(9));
+    expect(find.byType(DMessageHeader), findsNWidgets(2));
+    await tester.tap(find.text('Use 1:1 DM'));
+    await tester.pumpAndSettle();
+    expect(find.byType(DMessageAvatar), findsNothing);
+    expect(find.byType(DMessageHeader), findsNothing);
     expect(find.text('dm-notes.pdf'), findsOneWidget);
     expect(find.text('Sending'), findsOneWidget);
     expect(find.text('Failed to send: Offline during review'), findsOneWidget);

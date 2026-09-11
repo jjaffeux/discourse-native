@@ -7,6 +7,7 @@ import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message_tile.dart';
 import 'package:discourse_native/src/plugins/chat/chat_services.dart';
+import 'package:discourse_native/src/plugins/chat/chat_stream.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/styleguide/examples/message_examples.dart';
@@ -57,21 +58,20 @@ Future<ShellController> _reviewController() async {
       membership: ChatMembership(following: true),
     ),
   );
-  controller.chatRecords.put(
-    _siteUrl,
-    const ChatChannel(
-      id: 10,
-      title: 'Direct messages',
-      kind: ChatChannelKind.directMessage,
-      isGroup: true,
-      membership: ChatMembership(following: true),
-    ),
-  );
+  controller.chatRecords.put(_siteUrl, _directChannel(group: true));
   for (final message in [..._messages, ..._directMessages]) {
     controller.chatRecords.put(_siteUrl, message);
   }
   return controller;
 }
+
+ChatChannel _directChannel({required bool group}) => ChatChannel(
+  id: 10,
+  title: 'Direct messages',
+  kind: ChatChannelKind.directMessage,
+  isGroup: group,
+  membership: const ChatMembership(following: true),
+);
 
 final _messages = [
   const ChatMessage(
@@ -152,32 +152,32 @@ final _directMessages = [
     author: const ChatMessageAuthor(id: 2, username: 'olivia', name: 'Olivia'),
     createdAt: DateTime.utc(2026, 9, 11, 12),
   ),
+  for (final (index, text) in [
+    'Yes! The <a href="/t/7">review notes</a> are ready.',
+    'Consecutive messages now sit close together.',
+    'Each bubble still has its own actions.',
+    'Short replies work too.',
+    'One avatar and timestamp finish the group.',
+  ].indexed)
+    ChatMessage(
+      id: 202 + index,
+      channelId: 10,
+      cooked: '<p>$text</p>',
+      raw: text,
+      author: const ChatMessageAuthor(id: 1, username: 'reviewer', name: 'You'),
+      createdAt: DateTime.utc(2026, 9, 11, 12, 1, index * 10),
+      reactions: index == 4
+          ? const [
+              ChatReaction(emoji: 'thumbsup', count: 3),
+              ChatReaction(emoji: 'heart', count: 2),
+            ]
+          : const [],
+    ),
   ChatMessage(
-    id: 202,
-    channelId: 10,
-    cooked: '<p>Yes! The <a href="/t/7">review notes</a> are ready.</p>',
-    raw: 'Yes! The review notes are ready.',
-    author: const ChatMessageAuthor(id: 1, username: 'reviewer', name: 'You'),
-    createdAt: DateTime.utc(2026, 9, 11, 12, 1),
-    edited: true,
-  ),
-  const ChatMessage(
-    id: 203,
-    channelId: 10,
-    cooked:
-        '<p>One more detail: consecutive messages keep their alignment.</p>',
-    raw: 'One more detail: consecutive messages keep their alignment.',
-    author: ChatMessageAuthor(id: 1, username: 'reviewer', name: 'You'),
-    reactions: [
-      ChatReaction(emoji: 'thumbsup', count: 3),
-      ChatReaction(emoji: 'heart', count: 2),
-    ],
-  ),
-  ChatMessage(
-    id: 204,
+    id: 207,
     channelId: 10,
     cooked: '',
-    author: const ChatMessageAuthor(id: 3, username: 'sam', name: 'Sam'),
+    author: const ChatMessageAuthor(id: 2, username: 'olivia', name: 'Olivia'),
     uploads: const [
       ChatUpload(
         id: 7,
@@ -190,7 +190,7 @@ final _directMessages = [
     createdAt: DateTime.utc(2026, 9, 11, 12, 2),
   ),
   const ChatMessage(
-    id: 205,
+    id: 208,
     channelId: 10,
     cooked: '',
     optimisticRaw: 'Sending this now…',
@@ -199,7 +199,7 @@ final _directMessages = [
     author: ChatMessageAuthor(id: 1, username: 'reviewer', name: 'You'),
   ),
   const ChatMessage(
-    id: 206,
+    id: 209,
     channelId: 10,
     cooked: '<p>This message could not be sent.</p>',
     author: ChatMessageAuthor(id: 1, username: 'reviewer', name: 'You'),
@@ -234,6 +234,7 @@ class _MessageNativeReviewAppState extends State<_MessageNativeReviewApp> {
   var reducedMotion = false;
   var showProduction = false;
   var showDirectMessages = false;
+  var groupDirectMessages = true;
 
   @override
   void dispose() {
@@ -294,6 +295,17 @@ class _MessageNativeReviewAppState extends State<_MessageNativeReviewApp> {
                       showDirectMessages ? 'Hide DMs' : 'Show DMs',
                       () => showDirectMessages = !showDirectMessages,
                     ),
+                    if (showDirectMessages)
+                      _toggle(
+                        groupDirectMessages ? 'Use 1:1 DM' : 'Use group DM',
+                        () {
+                          groupDirectMessages = !groupDirectMessages;
+                          widget.controller.chatRecords.put(
+                            _siteUrl,
+                            _directChannel(group: groupDirectMessages),
+                          );
+                        },
+                      ),
                     _toggle('Light / dark', () => dark = !dark),
                     _toggle('Plum palette', () => plum = !plum),
                     _toggle('360px', () => narrow = !narrow),
@@ -425,19 +437,26 @@ class _DirectMessageTilesState extends State<_DirectMessageTiles> {
   String result = 'Local one-to-one and group DM presentation';
 
   @override
-  Widget build(BuildContext context) => Column(
-    crossAxisAlignment: CrossAxisAlignment.stretch,
-    children: [
-      Text(result),
-      for (final message in _directMessages)
-        ChatMessageTile(
-          siteUrl: _siteUrl,
-          messageId: message.id,
-          chained: message.id == 203,
-          onReply: (message) =>
-              setState(() => result = 'Reply to DM ${message.id}'),
-          onJumpToMessage: (id) => setState(() => result = 'Jumped to DM $id'),
-        ),
-    ],
-  );
+  Widget build(BuildContext context) {
+    final rows = buildChatStream(
+      _directMessages,
+    ).whereType<ChatStreamMessage>().toList();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(result),
+        for (final (index, row) in rows.indexed)
+          ChatMessageTile(
+            siteUrl: _siteUrl,
+            messageId: row.id,
+            chained: row.chained,
+            endsGroup: index == rows.length - 1 || !rows[index + 1].chained,
+            onReply: (message) =>
+                setState(() => result = 'Reply to DM ${message.id}'),
+            onJumpToMessage: (id) =>
+                setState(() => result = 'Jumped to DM $id'),
+          ),
+      ],
+    );
+  }
 }

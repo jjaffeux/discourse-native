@@ -1435,6 +1435,12 @@ class _StreamState extends State<ChatMessageStream>
                         siteUrl: siteUrl,
                         messageId: id,
                         chained: chained,
+                        // Rows run newest-first; the preceding row describes
+                        // whether the next chronological message continues us.
+                        endsGroup: switch (_itemAt(row - 1)) {
+                          ChatStreamMessage(chained: true) => false,
+                          _ => true,
+                        },
                         contextThreadId: widget.target.threadId,
                         onOpenThread: widget.onOpenThread,
                         onJumpToMessage: widget.onJumpToMessage,

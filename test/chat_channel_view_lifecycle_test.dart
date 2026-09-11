@@ -19,6 +19,7 @@ import 'package:discourse_native/src/plugins/chat/chat_services.dart';
 import 'package:discourse_native/src/plugins/chat/chat_stream.dart';
 import 'package:discourse_native/src/plugins/chat/chat_stream_target.dart';
 import 'package:discourse_native/src/plugins/chat/chat_thread.dart';
+import 'package:discourse_native/src/plugins/chat/chat_user_avatar.dart';
 import 'package:discourse_native/src/shell/group_flair.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
@@ -44,6 +45,222 @@ import 'support/media_pipeline.dart';
 void main() {
   const firstSite = 'https://one.example';
   const secondSite = 'https://two.example';
+
+  group('DM sender groups', () {
+    testWidgets(
+      'compact rows share one avatar and timestamp after the last bubble',
+      (tester) async {
+        final api = _ChatApi(
+          openPages: {
+            firstSite: [_messagesPage(1, 3)],
+          },
+        );
+        final controller = await _controller(api, sites: const [firstSite]);
+        addTearDown(controller.dispose);
+        controller.chatRecords.put(
+          firstSite,
+          _channel(
+            lastRead: 3,
+            kind: ChatChannelKind.directMessage,
+            isGroup: true,
+          ),
+        );
+        await tester.pumpWidget(_TestView(controller: controller));
+        await tester.pumpAndSettle();
+
+        expect(find.byType(ChatMessageTile), findsNWidgets(3));
+        expect(find.byType(DMessageHeader), findsOneWidget);
+        final tiles = find.byType(ChatMessageTile);
+        expect(
+          find.descendant(of: tiles, matching: find.byType(ChatUserAvatar)),
+          findsOneWidget,
+        );
+        expect(find.byKey(ChatMessageTile.timestampKey(1)), findsNothing);
+        expect(find.byKey(ChatMessageTile.timestampKey(2)), findsNothing);
+        expect(find.byKey(ChatMessageTile.timestampKey(3)), findsOneWidget);
+        for (var id = 1; id <= 2; id++) {
+          final current = find.descendant(
+            of: find.byKey(ValueKey('chat-message-$id')),
+            matching: find.byType(DBubbleContent),
+          );
+          final next = find.descendant(
+            of: find.byKey(ValueKey('chat-message-${id + 1}')),
+            matching: find.byType(DBubbleContent),
+          );
+          expect(
+            tester.getTopLeft(next).dy - tester.getBottomLeft(current).dy,
+            closeTo(8, .01),
+          );
+        }
+      },
+    );
+
+    testWidgets(
+      'a live append moves shared metadata and keeps messages individually selectable',
+      (tester) async {
+        const reader = DiscourseUser(id: 7, username: 'reader');
+        final api = _ChatApi(
+          user: reader,
+          chatChannelsBySite: {
+            firstSite: ChatChannels(
+              direct: [
+                _channel(
+                  lastRead: 1,
+                  kind: ChatChannelKind.directMessage,
+                  isGroup: true,
+                ),
+              ],
+            ),
+          },
+          openPages: {
+            firstSite: [_messagesPage(1, 1)],
+          },
+        );
+        final controller = await _controller(
+          api,
+          sites: const [firstSite],
+          user: reader,
+        );
+        addTearDown(controller.dispose);
+        await controller.chat.loadChannels(firstSite);
+        await controller.chat.openChannel(firstSite, 9);
+        await tester.pumpWidget(
+          _TestView(
+            controller: controller,
+            theme: AppTheme.light.copyWith(platform: TargetPlatform.macOS),
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(find.byKey(ChatMessageTile.timestampKey(1)), findsOneWidget);
+        FakeSiteTracker.built
+            .singleWhere((tracker) => tracker.siteUrl == firstSite)
+            .deliverPluginMessage('/chat/9/new-messages', {
+              'type': 'channel',
+              'channel_id': 9,
+              'message': {
+                'id': 2,
+                'chat_channel_id': 9,
+                'message': 'Another message',
+                'cooked': '<p>Another message</p>',
+                'created_at': '2026-01-01T00:02:00.000Z',
+                'user': {'id': 2, 'username': 'sam'},
+              },
+            });
+        await tester.pumpAndSettle();
+        expect(controller.chat.stream(firstSite, 9).messageIds, [1, 2]);
+        expect(find.byKey(ChatMessageTile.timestampKey(1)), findsNothing);
+        expect(find.byKey(ChatMessageTile.timestampKey(2)), findsOneWidget);
+        expect(find.byKey(ChatMessageTile.bodySelectionKey(1)), findsOneWidget);
+        expect(find.byKey(ChatMessageTile.bodySelectionKey(2)), findsOneWidget);
+        expect(
+          find.descendant(
+            of: find.byType(ChatMessageTile),
+            matching: find.byType(ChatUserAvatar),
+          ),
+          findsOneWidget,
+        );
+        await _startSelectingNewestMessage(tester);
+        expect(find.text('1 message selected'), findsOneWidget);
+        await tester.tap(find.byKey(const ValueKey('chat-message-selector-1')));
+        await tester.pump();
+        expect(find.text('2 messages selected'), findsOneWidget);
+      },
+    );
+
+    for (final boundary in ['author', 'time', 'day', 'deleted', 'unread']) {
+      testWidgets(
+        'group metadata stays on each side of the $boundary boundary',
+        (tester) async {
+          final api = _ChatApi(openPages: const {});
+          final controller = await _controller(api, sites: const [firstSite]);
+          addTearDown(controller.dispose);
+          final messages = [
+            _message(1),
+            if (boundary == 'deleted')
+              _message(2, deletedAt: DateTime.utc(2026)),
+            _message(
+              3,
+              authorId: boundary == 'author' ? 3 : 2,
+              createdAt: boundary == 'time'
+                  ? DateTime.utc(2026, 1, 1, 0, 8)
+                  : boundary == 'day'
+                  ? DateTime.utc(2026, 1, 2)
+                  : null,
+            ),
+            if (boundary == 'unread') _message(4),
+          ];
+          controller.chatRecords
+            ..put(
+              firstSite,
+              _channel(lastRead: 1, kind: ChatChannelKind.directMessage),
+            )
+            ..putAll(firstSite, messages);
+          await tester.pumpWidget(
+            _TestStreamView(
+              controller: controller,
+              messages: messages,
+              lastReadMessageId: boundary == 'unread' ? 1 : null,
+              stream: ChatStreamState(
+                messageIds: [for (final message in messages) message.id],
+                fetchedOnce: true,
+                fetches: 1,
+              ),
+            ),
+          );
+          await tester.pumpAndSettle();
+          expect(find.byKey(ChatMessageTile.timestampKey(1)), findsOneWidget);
+          expect(
+            find.byKey(
+              ChatMessageTile.timestampKey(boundary == 'unread' ? 4 : 3),
+            ),
+            findsOneWidget,
+          );
+          expect(tester.takeException(), isNull);
+        },
+      );
+    }
+
+    testWidgets(
+      'prepending history and deleting the last message recompute group boundaries',
+      (tester) async {
+        final api = _ChatApi(openPages: const {});
+        final controller = await _controller(api, sites: const [firstSite]);
+        addTearDown(controller.dispose);
+        controller.chatRecords.put(
+          firstSite,
+          _channel(lastRead: 3, kind: ChatChannelKind.directMessage),
+        );
+        Future<void> render(List<ChatMessage> messages) async {
+          controller.chatRecords.putAll(firstSite, messages);
+          await tester.pumpWidget(
+            _TestStreamView(
+              controller: controller,
+              messages: messages,
+              stream: ChatStreamState(
+                messageIds: [for (final message in messages) message.id],
+                fetchedOnce: true,
+                fetches: 1,
+              ),
+            ),
+          );
+          await tester.pumpAndSettle();
+        }
+
+        await render([_message(2), _message(3)]);
+        await render([_message(1), _message(2), _message(3)]);
+        expect(find.byKey(ChatMessageTile.timestampKey(1)), findsNothing);
+        expect(find.byKey(ChatMessageTile.timestampKey(2)), findsNothing);
+        expect(find.byKey(ChatMessageTile.timestampKey(3)), findsOneWidget);
+        await render([
+          _message(1),
+          _message(2),
+          _message(3, deletedAt: DateTime.utc(2026)),
+        ]);
+        expect(find.byKey(ChatMessageTile.timestampKey(2)), findsOneWidget);
+        expect(find.byKey(ChatMessageTile.timestampKey(3)), findsNothing);
+      },
+    );
+  });
 
   group('window identity, selection, and paging', () {
     testWidgets('the same channel ID anchors independently on each site', (
@@ -1984,9 +2201,9 @@ Future<void> _startSelectingNewestMessage(WidgetTester tester) async {
     tester.getCenter(find.byKey(const ValueKey('chat-message-2'))),
   );
   await tester.pump();
-  await tester.tap(find.byTooltip('More message actions'));
+  await tester.tap(find.byKey(const ValueKey('chat-message-more-actions-2')));
   await tester.pumpAndSettle();
-  await tester.tap(find.widgetWithText(MenuItemButton, 'Select'));
+  await tester.tap(find.text('Select'));
   await tester.pumpAndSettle();
   await mouse.removePointer();
 }
@@ -2026,10 +2243,12 @@ final class _TestView extends StatelessWidget {
   const _TestView({
     required this.controller,
     this.onScroll,
+    this.theme,
     this.tickerEnabled = true,
   });
 
   final ShellController controller;
+  final ThemeData? theme;
   final NotificationListenerCallback<ScrollNotification>? onScroll;
   final bool tickerEnabled;
 
@@ -2039,7 +2258,7 @@ final class _TestView extends StatelessWidget {
     child: PluginUiScope.own(
       chatPluginId,
       MaterialApp(
-        theme: AppTheme.light,
+        theme: theme ?? AppTheme.light,
         builder: (context, child) =>
             DToaster(position: DToastPosition.topEnd, child: child!),
         home: Scaffold(
@@ -2063,6 +2282,7 @@ final class _TestStreamView extends StatelessWidget {
     required this.stream,
     this.target = const ChatChannelTarget(9),
     this.theme,
+    this.lastReadMessageId,
   });
 
   final ShellController controller;
@@ -2070,6 +2290,7 @@ final class _TestStreamView extends StatelessWidget {
   final ChatStreamState stream;
   final ChatStreamTarget target;
   final ThemeData? theme;
+  final int? lastReadMessageId;
 
   @override
   Widget build(BuildContext context) => ShellScope(
@@ -2084,7 +2305,10 @@ final class _TestStreamView extends StatelessWidget {
           body: ChatMessageStream(
             siteUrl: 'https://one.example',
             target: target,
-            items: buildChatStream(messages),
+            items: buildChatStream(
+              messages,
+              lastReadMessageId: lastReadMessageId,
+            ),
             stream: stream,
           ),
         ),
@@ -2187,13 +2411,16 @@ final class _CountingStore extends Store {
 
 ChatChannel _channel({
   required int lastRead,
+  ChatChannelKind kind = ChatChannelKind.category,
+  bool isGroup = false,
   bool canDeleteSelf = false,
   int pinnedMessagesCount = 0,
   bool hasUnseenPins = false,
 }) => ChatChannel(
   id: 9,
   title: 'Chat',
-  kind: ChatChannelKind.category,
+  kind: kind,
+  isGroup: isGroup,
   canDeleteSelf: canDeleteSelf,
   pinnedMessagesCount: pinnedMessagesCount,
   membership: ChatMembership(
