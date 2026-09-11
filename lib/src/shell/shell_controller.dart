@@ -4585,6 +4585,8 @@ class ShellController extends FrameSafeNotifier
   final Set<String> _topicDeletionWrites = {};
   final Map<String, Object> _topicJumpRuns = {};
   int _topicNavigationRevision = 0;
+  final _topicListRevealRequests = StreamController<int>.broadcast(sync: true);
+
   _TopicPostHighlight? _topicPostHighlight;
   Timer? _topicPostHighlightTimer;
   bool _topicPostHighlightVisible = false;
@@ -4829,13 +4831,19 @@ class ShellController extends FrameSafeNotifier
     postNumber: topic.lastUnreadPostNumber,
   );
 
-  void openTopicFromList(Topic topic) => _openTopic(
-    topic.id,
-    topic.slug,
-    topic.title,
-    postNumber: topic.lastUnreadPostNumber,
-    replace: currentContent?.isTopic == true && topicListContent != null,
-  );
+  /// Requests to reveal a topic after keyboard navigation; never replayed.
+  Stream<int> get topicListRevealRequests => _topicListRevealRequests.stream;
+
+  void openTopicFromList(Topic topic, {bool fromKeyboard = false}) {
+    _openTopic(
+      topic.id,
+      topic.slug,
+      topic.title,
+      postNumber: topic.lastUnreadPostNumber,
+      replace: currentContent?.isTopic == true && topicListContent != null,
+    );
+    if (fromKeyboard) _topicListRevealRequests.add(topic.id);
+  }
 
   void openSummaryTopic(UserSummaryTopic topic, {int? postNumber}) =>
       _openTopic(
@@ -13807,6 +13815,7 @@ class ShellController extends FrameSafeNotifier
     if (_tabSelectionPersistencePending || _anchorPersistencePending) {
       _persistWorkspaces();
     }
+    unawaited(_topicListRevealRequests.close());
     _topicNotificationWrites.clear();
     _closedForumTabs.clear();
     _topicNotificationTails.clear();

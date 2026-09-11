@@ -65,6 +65,7 @@ class _TopicListViewState extends State<TopicListView> {
   int _boundaryJumpRevision = 0;
 
   ShellController? _controller;
+  StreamSubscription<int>? _topicListRevealSubscription;
   TopicScrollCaptureController? _scrollCapture;
   (TopicScrollCaptureController, int, _TopicListIdentity?)? _captureContext;
 
@@ -98,8 +99,10 @@ class _TopicListViewState extends State<TopicListView> {
     final controller = _controller!;
     final identity = _feedIdentity!;
     final cursor = _cursor!.value!;
+    final topicId = controller.currentContent?.topicId;
     void reveal({bool correct = true}) {
       if (!_isCurrent(controller, identity) ||
+          controller.currentContent?.topicId != topicId ||
           _cursor?.value != cursor ||
           !TickerMode.valuesOf(context).enabled) {
         return;
@@ -117,6 +120,21 @@ class _TopicListViewState extends State<TopicListView> {
     }
 
     WidgetsBinding.instance.addPostFrameCallback((_) => reveal());
+    WidgetsBinding.instance.scheduleFrame();
+  }
+
+  void _revealKeyboardTopic(int topicId) {
+    final controller = _controller;
+    final identity = _feedIdentity;
+    if (!widget.inbox ||
+        controller == null ||
+        identity == null ||
+        controller.currentContent?.topicId != topicId ||
+        !_isCurrent(controller, identity)) {
+      return;
+    }
+    _rememberTopic(topicId);
+    _revealCursor();
   }
 
   void _syncControllers(_TopicListIdentity feedIdentity) {
@@ -242,6 +260,7 @@ class _TopicListViewState extends State<TopicListView> {
 
   @override
   void dispose() {
+    unawaited(_topicListRevealSubscription?.cancel());
     // Rows are handed to the shell as they change, but the latest may still
     // be waiting out its debounce window. The torn-down list cannot move it
     // any more, so it is written now.
@@ -383,7 +402,7 @@ class _TopicListViewState extends State<TopicListView> {
     final controller = _controller!;
     if (keyboard && controller.currentContent?.topicId == topic.id) return;
     if (widget.inbox) {
-      controller.openTopicFromList(topic);
+      controller.openTopicFromList(topic, fromKeyboard: keyboard);
     } else {
       controller.openTopic(topic);
     }
@@ -416,6 +435,10 @@ class _TopicListViewState extends State<TopicListView> {
       // A replaced shell keeps its own pending anchor window; this list no
       // longer feeds it, so the window is written rather than left behind.
       _controller?.flushAnchorPersist();
+      unawaited(_topicListRevealSubscription?.cancel());
+      _topicListRevealSubscription = controller.topicListRevealRequests.listen(
+        _revealKeyboardTopic,
+      );
     }
     _controller = controller;
     final destination = state.destination;
@@ -480,7 +503,6 @@ class _TopicListViewState extends State<TopicListView> {
         _revealCursor();
       } else if (feed.topicIds.contains(readingTopicId)) {
         _rememberTopic(readingTopicId);
-        _revealCursor();
       }
     }
 

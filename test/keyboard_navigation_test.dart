@@ -110,8 +110,10 @@ void main() {
         expect(setup.shell.currentContent?.postNumber, 2);
         expect(setup.shell.topicListContent, source);
         expect(setup.shell.contentStack, hasLength(2));
-        _expectTopicVisible(tester, 1);
-        expect(_selectedTopics(tester), [1]);
+        expect(
+          _scrollable(tester, find.byType(TopicListView)).controller!.offset,
+          500,
+        );
         expect(tester.widget<DButton>(previousButton).onPressed, isNull);
         expect(tester.widget<DButton>(nextButton).onPressed, isNotNull);
         expect(tester.takeException(), isNull);
@@ -122,7 +124,7 @@ void main() {
   for (final keyboard in [false, true]) {
     for (final next in [false, true]) {
       testWidgets(
-        '${keyboard ? 'Shortcut' : 'Button'} reveals the ${next ? 'next' : 'previous'} topic outside the viewport',
+        '${keyboard ? 'Shortcut scrolls to' : 'Button keeps the scroll position when opening'} the ${next ? 'next' : 'previous'} topic outside the viewport',
         (tester) async {
           final setup = await _setup(tester);
           setup.shell.openTopicFromList(setup.api.feeds['/latest.json']![19]);
@@ -142,9 +144,13 @@ void main() {
 
           final target = next ? 21 : 19;
           expect(setup.shell.currentContent?.topicId, target);
-          _expectTopicVisible(tester, target);
-          expect(_selectedTopics(tester), [target]);
-          expect(list.controller!.offset, greaterThan(0));
+          if (keyboard) {
+            _expectTopicVisible(tester, target);
+            expect(_selectedTopics(tester), [target]);
+            expect(list.controller!.offset, greaterThan(0));
+          } else {
+            expect(list.controller!.offset, 0);
+          }
           await _moveTopic(tester, next: true);
           expect(_selectedTopics(tester), [target + 1]);
           expect(setup.shell.currentContent?.topicId, target);
@@ -153,6 +159,34 @@ void main() {
       );
     }
   }
+
+  testWidgets('clicking topic rows preserves the list scroll position', (
+    tester,
+  ) async {
+    final setup = await _setup(tester);
+    await tester.tap(find.text('Keyboard topic 1'));
+    await tester.pumpAndSettle();
+    final list = _scrollable(tester, find.byType(TopicListView));
+    list.controller!.jumpTo(200);
+    await tester.pumpAndSettle();
+    final offset = list.controller!.offset;
+
+    await tester.tap(find.text('Keyboard topic 5'));
+    await tester.pumpAndSettle();
+
+    expect(setup.shell.currentContent?.topicId, 5);
+    expect(list.controller!.offset, offset);
+    expect(_selectedTopics(tester), [5]);
+    await _openAdjacent(tester, next: true);
+    _expectTopicVisible(tester, 6);
+    final keyboardOffset = list.controller!.offset;
+    await tester.tap(find.text('Keyboard topic 7'));
+    await tester.pumpAndSettle();
+    expect(list.controller!.offset, keyboardOffset);
+    await _openAdjacent(tester, next: false);
+    _expectTopicVisible(tester, 6);
+    expect(tester.takeException(), isNull);
+  });
 
   testWidgets(
     'topic arrows and shortcuts follow empty and refreshed source lists',
