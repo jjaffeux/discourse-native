@@ -525,7 +525,7 @@ class _SidebarPanelSwitchRow extends StatelessWidget {
             label: const Text('Forum'),
             icon: const DIcon(DIcons.shuffle, size: 16),
             onPressed: active!.panel.onClose,
-            size: DButtonSize.regular,
+            size: DButtonSize.small,
           ),
         ),
       for (final candidate in panels)
@@ -537,7 +537,7 @@ class _SidebarPanelSwitchRow extends StatelessWidget {
               label: Text(candidate.panel.label),
               icon: DIcon(candidate.panel.icon, size: 16),
               onPressed: candidate.panel.onOpen,
-              size: DButtonSize.regular,
+              size: DButtonSize.small,
             ),
           ),
     ];
