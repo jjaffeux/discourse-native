@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
 import '../../theme/discourse_typography.dart';
+import '../foundation/interactive_row.dart';
 import '../foundation/tokens.dart';
 import 'd_dialog.dart';
 import 'd_input.dart';
@@ -978,9 +979,7 @@ class _DCommandItemSurface<T> extends StatefulWidget {
 }
 
 class _DCommandItemSurfaceState<T> extends State<_DCommandItemSurface<T>> {
-  bool _hovered = false;
   bool _focused = false;
-  bool _pressed = false;
 
   void _activate() {
     if (widget.item.enabled) {
@@ -1000,16 +999,15 @@ class _DCommandItemSurfaceState<T> extends State<_DCommandItemSurface<T>> {
       animation: widget.scope.controller,
       builder: (context, _) {
         final selected = widget.scope.controller.value == item.value;
-        final interactive = selected || _hovered || _focused || _pressed;
+        final interactive = item.enabled && selected;
         final radius = BorderRadius.circular(tokens.radius);
-        Widget row = AnimatedContainer(
-          duration: DMotion.duration(context, DMotion.change),
+        Widget row = interactiveRowSurface(
           constraints: const BoxConstraints(minHeight: 32),
           padding: const EdgeInsetsDirectional.symmetric(horizontal: 8),
           decoration: BoxDecoration(
             color: interactive ? tokens.muted : Colors.transparent,
             borderRadius: radius,
-            border: _focused
+            border: _focused && interactive
                 ? Border.all(color: tokens.focusRing, width: 2)
                 : null,
           ),
@@ -1066,12 +1064,14 @@ class _DCommandItemSurfaceState<T> extends State<_DCommandItemSurface<T>> {
                 ? SystemMouseCursors.click
                 : SystemMouseCursors.basic,
             onShowHoverHighlight: (value) {
-              setState(() => _hovered = value);
               if (value && !widget.scope.disablePointerSelection) {
                 widget.scope.controller.highlight(item.value);
               }
             },
-            onShowFocusHighlight: (value) => setState(() => _focused = value),
+            onShowFocusHighlight: (value) {
+              setState(() => _focused = value);
+              if (value) widget.scope.controller.highlight(item.value);
+            },
             shortcuts: const {
               SingleActivator(LogicalKeyboardKey.space): ActivateIntent(),
               SingleActivator(LogicalKeyboardKey.enter): ActivateIntent(),
@@ -1080,25 +1080,14 @@ class _DCommandItemSurfaceState<T> extends State<_DCommandItemSurface<T>> {
             actions: {
               ActivateIntent: CallbackAction<ActivateIntent>(
                 onInvoke: (_) {
-                  _activate();
+                  widget.scope.controller.activate();
                   return null;
                 },
               ),
             },
             child: GestureDetector(
               behavior: HitTestBehavior.opaque,
-              onTapDown: item.enabled
-                  ? (_) => setState(() => _pressed = true)
-                  : null,
-              onTapCancel: item.enabled
-                  ? () => setState(() => _pressed = false)
-                  : null,
-              onTapUp: item.enabled
-                  ? (_) {
-                      setState(() => _pressed = false);
-                      _activate();
-                    }
-                  : null,
+              onTap: item.enabled ? _activate : null,
               child: Opacity(
                 opacity: item.enabled ? 1 : .5,
                 child: _DCommandItemVisualScope(selected: selected, child: row),

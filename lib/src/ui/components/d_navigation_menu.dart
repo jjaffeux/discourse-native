@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../foundation/control_style.dart';
+import '../foundation/interactive_row.dart';
 import '../foundation/tokens.dart';
 import 'd_popover.dart';
 
@@ -906,7 +907,6 @@ class _DNavigationMenuLinkState extends State<DNavigationMenuLink> {
     debugLabel: 'Navigation menu link',
   );
   bool _hovered = false;
-  bool _focused = false;
   FocusNode get _focus => widget.focusNode ?? _ownedFocus;
   bool get _enabled => !widget.disabled && widget.onPressed != null;
 
@@ -935,9 +935,7 @@ class _DNavigationMenuLinkState extends State<DNavigationMenuLink> {
       triggerStyle: widget.triggerStyle,
       onPressed: _activate,
       onHoverChanged: (value) => setState(() => _hovered = value),
-      onFocusChanged: (value) => setState(() => _focused = value),
       forceHovered: _hovered,
-      forceFocused: _focused,
       child: widget.child,
     ),
   );
@@ -957,14 +955,12 @@ class _NavigationAction extends StatefulWidget {
     this.onHover,
     this.onKeyEvent,
     this.onHoverChanged,
-    this.onFocusChanged,
     this.disabled = false,
     this.active = false,
     this.hasPopup = false,
     this.triggerStyle = true,
     this.size = DControlSize.regular,
     this.forceHovered = false,
-    this.forceFocused = false,
   });
 
   final Widget child;
@@ -973,14 +969,12 @@ class _NavigationAction extends StatefulWidget {
   final VoidCallback? onHover;
   final KeyEventResult Function(KeyEvent event)? onKeyEvent;
   final ValueChanged<bool>? onHoverChanged;
-  final ValueChanged<bool>? onFocusChanged;
   final bool disabled;
   final bool active;
   final bool hasPopup;
   final bool triggerStyle;
   final DControlSize size;
   final bool forceHovered;
-  final bool forceFocused;
 
   @override
   State<_NavigationAction> createState() => _NavigationActionState();
@@ -995,12 +989,7 @@ class _NavigationActionState extends State<_NavigationAction> {
   Widget build(BuildContext context) {
     final tokens = DTokens.of(context);
     final interactive = !widget.disabled;
-    final highlighted =
-        widget.active ||
-        _hovered ||
-        _focused ||
-        widget.forceHovered ||
-        widget.forceFocused;
+    final highlighted = widget.active || _hovered || widget.forceHovered;
     final radius = tokens.radius * (widget.triggerStyle ? 1 : .8);
     final touch = Theme.of(context).platform == TargetPlatform.iOS;
     final visualHeight = widget.triggerStyle
@@ -1035,7 +1024,6 @@ class _NavigationActionState extends State<_NavigationAction> {
         },
         onShowFocusHighlight: (value) {
           setState(() => _focused = value);
-          widget.onFocusChanged?.call(value);
         },
         child: GestureDetector(
           behavior: HitTestBehavior.opaque,
@@ -1064,11 +1052,7 @@ class _NavigationActionState extends State<_NavigationAction> {
                         radius: radius,
                       )
                     : null,
-                child: AnimatedContainer(
-                  duration: DMotion.duration(
-                    context,
-                    const Duration(milliseconds: 150),
-                  ),
+                child: interactiveRowSurface(
                   constraints: BoxConstraints(minHeight: visualHeight ?? 0),
                   padding: widget.triggerStyle
                       ? const EdgeInsetsDirectional.symmetric(

@@ -79,6 +79,16 @@ hit areas. Support touch, hover, keyboard, visible focus, semantics, text
 scaling, narrow layouts, RTL and reduced motion where applicable. Never expose
 selected, error or loading states using color alone.
 
+Interactive list rows (Item, Command, Combobox, Select, Navigation Menu and Dropdown Menu,
+including context-menu and menubar consumers) use
+`foundation/interactive_row.dart` to paint state changes immediately. Never
+cross-fade row backgrounds: the outgoing and incoming highlights otherwise
+overlap. Choice lists have one accepted active row shared by pointer and keyboard
+navigation; local hover or focus must not paint a second active background.
+Keep persistent selection in its checkmark/checkbox. Regression tests must inspect
+painted decorations immediately and during the next animation frames, without
+settling first.
+
 Keep editable native semantics bounded to their actual field or editor. A
 text-field role merged into a page or card can hide unrelated descendants from
 native accessibility clients even when Flutter finds their labels in tests.

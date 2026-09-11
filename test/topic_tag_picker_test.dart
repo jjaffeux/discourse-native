@@ -77,11 +77,15 @@ void main() {
         find.ancestor(of: option(name), matching: find.byType(DItem));
     Color? background(String name) =>
         (tester
-                    .widget<AnimatedContainer>(
+                    .widget<Container>(
                       find
                           .descendant(
                             of: row(name),
-                            matching: find.byType(AnimatedContainer),
+                            matching: find.byWidgetPredicate(
+                              (widget) =>
+                                  widget is Container &&
+                                  widget.decoration is BoxDecoration,
+                            ),
                           )
                           .first,
                     )

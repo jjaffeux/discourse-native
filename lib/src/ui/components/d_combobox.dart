@@ -7,6 +7,7 @@ import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
 import '../../theme/discourse_typography.dart';
 import '../foundation/control_style.dart';
+import '../foundation/interactive_row.dart';
 import '../foundation/tokens.dart';
 import 'd_button.dart';
 import 'd_input_group.dart';
@@ -1206,7 +1207,7 @@ class DComboboxItem<T> extends StatelessWidget {
               ? () => root._select(option, DComboboxChangeReason.itemPress)
               : null,
           // Switch backgrounds immediately so two rows never cross-fade.
-          child: Container(
+          child: interactiveRowSurface(
             constraints: const BoxConstraints(minHeight: 28),
             padding: const EdgeInsetsDirectional.fromSTEB(6, 4, 8, 4),
             decoration: BoxDecoration(

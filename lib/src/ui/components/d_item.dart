@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
 import '../../theme/discourse_typography.dart';
+import '../foundation/interactive_row.dart';
 import '../foundation/tokens.dart';
 import 'd_separator.dart';
 
@@ -135,12 +136,7 @@ class _DItemState extends State<DItem> {
                 : Colors.transparent,
             tokens.radius,
           ),
-          child: AnimatedContainer(
-            duration: DMotion.duration(
-              context,
-              const Duration(milliseconds: 100),
-            ),
-            curve: Curves.easeInOut,
+          child: interactiveRowSurface(
             constraints: BoxConstraints(minHeight: touch && _active ? 48 : 0),
             decoration: BoxDecoration(
               color: background,
