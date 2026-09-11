@@ -43,10 +43,10 @@ class TopicHeaderTags extends StatelessWidget {
                   builder: (context, trigger) => DButton(
                     key: const ValueKey('topic-header-edit-tags'),
                     label: const Text('Add tag'),
-                    icon: const DIcon(DIcons.tag, size: 12),
+                    icon: const DIcon(DIcons.tag),
                     tooltip: 'Add tag',
                     variant: DButtonVariant.secondary,
-                    size: DButtonSize.extraSmall,
+                    size: DButtonSize.regular,
                     focusNode: trigger.focusNode,
                     hasPopup: true,
                     expanded: trigger.open,
@@ -84,7 +84,12 @@ class TopicHeaderTags extends StatelessWidget {
         String overflowLabel(int visible) => visible == 0
             ? 'Tags · ${tags.length}'
             : '+${tags.length - visible}';
-        final editWidth = context.isTouch ? 48.0 : 28.0;
+        final editWidth = context.isTouch
+            ? 48.0
+            : DControlStyle.scaledHeight(
+                DControlSize.regular,
+                MediaQuery.textScalerOf(context),
+              );
         // The overflow editor keeps editing available in narrow readers.
         final showEdit =
             topic.canEditTags &&
@@ -199,7 +204,7 @@ class TopicHeaderTags extends StatelessWidget {
               DPopoverTrigger(
                 builder: (context, trigger) => DButton.iconOnly(
                   key: const ValueKey('topic-header-edit-tags'),
-                  icon: const DIcon(DIcons.pencil, size: 14),
+                  icon: const DIcon(DIcons.pencil),
                   tooltip: 'Add or remove topic tags',
                   onPressed: edit == null
                       ? null
@@ -212,7 +217,7 @@ class TopicHeaderTags extends StatelessWidget {
                   loading: saving,
                   loadingSemanticLabel: 'Saving tags',
                   variant: DButtonVariant.ghost,
-                  size: DButtonSize.small,
+                  size: DButtonSize.regular,
                 ),
               ),
             ],

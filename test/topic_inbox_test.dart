@@ -437,6 +437,27 @@ void main() {
         find.descendant(of: add, matching: find.text('Add tag')),
         findsOneWidget,
       );
+      final headerControls = [
+        add,
+        find.byKey(const ValueKey('topic-close-reader')),
+        find.byKey(const ValueKey('topic-header-browse-category-22')),
+        find.byWidgetPredicate(
+          (widget) =>
+              widget is DButton && widget.tooltip == 'Edit topic category',
+        ),
+      ];
+      for (final control in headerControls) {
+        expect(tester.widget<DButton>(control).size, DButtonSize.regular);
+        final surface = find.descendant(
+          of: control,
+          matching: find.byWidgetPredicate(
+            (widget) =>
+                widget is AnimatedContainer &&
+                widget.decoration is DButtonDecoration,
+          ),
+        );
+        expect(tester.getSize(surface).height, 32);
+      }
       await tester.tap(add);
       await tester.pumpAndSettle();
       await tester.tap(
