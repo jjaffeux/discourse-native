@@ -447,8 +447,13 @@ void main() {
       await tester.tap(find.text('Month'));
       await tester.pumpAndSettle();
       expect(period, UserDirectoryPeriod.monthly);
-      await tester.tap(find.byKey(const ValueKey('users-group-filter')));
+      final groupInput = find.descendant(
+        of: find.byKey(const ValueKey('users-group-filter')),
+        matching: find.byType(EditableText),
+      );
+      await tester.enterText(groupInput, 'des');
       await tester.pumpAndSettle();
+      expect(find.text('staff'), findsNothing);
       await tester.tap(find.text('design'));
       await tester.pumpAndSettle();
       expect(group, 'design');
