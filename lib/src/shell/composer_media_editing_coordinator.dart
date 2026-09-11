@@ -265,7 +265,13 @@ final class ComposerMediaEditingCoordinator extends FrameSafeNotifier
   ) {
     if (isDisposed) return;
     _clearSelectedImageState(clearKeyboardSelection: true);
-    _composer.reorderGalleryImage(gallery, image, newIndex);
+    if (_composer.galleryForImage(image) == null) {
+      _composer.addExistingImagesToGallery(gallery, [
+        image,
+      ], insertionIndex: newIndex);
+    } else {
+      _composer.reorderGalleryImage(gallery, image, newIndex);
+    }
     _composer.focus.requestFocus();
   }
 

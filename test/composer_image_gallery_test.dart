@@ -70,7 +70,11 @@ void main() {
       final controlRect = tester.getRect(
         find.byType(ComposerImageGalleryControl),
       );
-      expect(controlRect.height, ComposerImageGalleryControl.extent);
+      // The UI kit may enlarge the visible control for its accessible hit area.
+      expect(
+        controlRect.height,
+        greaterThanOrEqualTo(ComposerImageGalleryControl.extent),
+      );
       expect(galleryRect.contains(controlRect.center), isTrue);
       for (final key in keys) {
         final tileRect = tester.getRect(find.byKey(key));
@@ -274,7 +278,7 @@ void main() {
       expect(find.byType(DButton), findsOneWidget);
       expect(
         tester.getSize(find.byType(ComposerImageGalleryControl)).height,
-        ComposerImageGalleryControl.extent,
+        greaterThanOrEqualTo(ComposerImageGalleryControl.extent),
       );
       final tiles = find.byType(ComposerImageGalleryTile);
       expect(
@@ -1024,7 +1028,7 @@ void main() {
       expect(find.byType(DButton), findsOneWidget);
       expect(
         tester.getSize(find.byType(ComposerImageGalleryControl)).height,
-        ComposerImageGalleryControl.extent,
+        greaterThanOrEqualTo(ComposerImageGalleryControl.extent),
       );
       final editable = tester.state<EditableTextState>(
         find.byType(EditableText),
@@ -1417,6 +1421,122 @@ void main() {
         });
       }
     }
+  });
+
+  group('dragging standalone images into galleries', () {
+    for (final before in [false, true]) {
+      for (final background in [false, true]) {
+        testWidgets('moves image ${before ? 'before' : 'after'} gallery onto '
+            '${background ? 'background' : 'tile'}', (tester) async {
+          final composer = ComposerController(
+            _target,
+            resolveUploadUrls: (_) async => const {},
+          );
+          addTearDown(composer.dispose);
+          const standalone = '![Moved|200x100,50%](upload://moved)';
+          final gallery =
+              '${before ? '[grid]' : '[grid mode=carousel]'}\n'
+              '![First](upload://first)\n![Second](upload://second)\n[/grid]';
+          composer.text.text = before
+              ? '$standalone\n\n$gallery\nAfter'
+              : '${gallery.replaceFirst('[/grid]', '$standalone\n[/grid]')}\nAfter';
+          if (!before) {
+            final initial = composer.text.galleryBlocks.single;
+            composer.moveImageOutOfGallery(initial, initial.images.last);
+          }
+          await tester.pumpWidget(
+            MaterialApp(
+              theme: before ? AppTheme.dark : AppTheme.light,
+              home: Scaffold(
+                body: ComposerEditor(
+                  composer: composer,
+                  hintText: '',
+                  textStyle: const TextStyle(fontSize: 14),
+                  hintStyle: const TextStyle(fontSize: 14),
+                  autofocus: false,
+                  enableDropTarget: false,
+                ),
+              ),
+            ),
+          );
+          await tester.pumpAndSettle();
+          final start = tester.getCenter(find.byType(ComposerImagePreview));
+          final target = background
+              ? tester
+                        .getRect(find.byType(ComposerImageGalleryPreview))
+                        .centerRight -
+                    const Offset(60, 0)
+              : tester.getCenter(find.byType(ComposerImageGalleryTile).first);
+          final gesture = await tester.startGesture(
+            start,
+            kind: before
+                ? ui.PointerDeviceKind.mouse
+                : ui.PointerDeviceKind.touch,
+          );
+          await gesture.moveBy(const Offset(20, 0));
+          await tester.pump();
+          await gesture.moveTo(target);
+          await tester.pump();
+          await gesture.up();
+          await tester.pumpAndSettle();
+          final updated = composer.text.galleryBlocks.single;
+          expect(
+            updated.mode,
+            before ? ComposerGalleryMode.grid : ComposerGalleryMode.carousel,
+          );
+          expect(
+            updated.images.map((image) => image.url),
+            background
+                ? ['upload://first', 'upload://second', 'upload://moved']
+                : ['upload://moved', 'upload://first', 'upload://second'],
+          );
+          expect(
+            updated.images
+                .singleWhere((image) => image.url == 'upload://moved')
+                .source,
+            standalone,
+          );
+          expect(composer.standaloneImages, isEmpty);
+          expect(composer.text.text, endsWith('After'));
+          expect(find.byType(ComposerImagePreview), findsNothing);
+          expect(tester.takeException(), isNull);
+        });
+      }
+    }
+
+    testWidgets('cancelled drag preserves the image and gallery', (
+      tester,
+    ) async {
+      final composer = ComposerController(
+        _target,
+        resolveUploadUrls: (_) async => const {},
+      );
+      addTearDown(composer.dispose);
+      composer.text.text = '$_source\n![Moved|200x100](upload://moved)\n';
+      final source = composer.text.text;
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light,
+          home: Scaffold(
+            body: ComposerEditor(
+              composer: composer,
+              hintText: '',
+              textStyle: const TextStyle(fontSize: 14),
+              hintStyle: const TextStyle(fontSize: 14),
+              autofocus: false,
+              enableDropTarget: false,
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final start = tester.getCenter(find.byType(ComposerImagePreview));
+      await tester.dragFrom(start, const Offset(250, 0));
+      await tester.pumpAndSettle();
+      expect(composer.text.text, source);
+      expect(find.byType(ComposerImagePreview), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
   });
 
   group('gallery reordering', () {

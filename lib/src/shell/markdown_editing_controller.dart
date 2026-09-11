@@ -1154,18 +1154,29 @@ class MarkdownEditingController extends TextEditingController {
             image.start,
             () => GlobalKey(debugLabel: 'composer-image-${image.start}'),
           ),
-          child: IgnorePointer(
-            child: ComposerImagePreview(
-              image: image,
-              url: url,
-              siteUrl: imageSiteUrl,
-              highlighted: highlighted,
-              onNaturalSize: (size) {
-                if (_naturalImageSizes[image.url] == size) return;
-                _naturalImageSizes[image.url] = size;
-                artworkArrived();
-              },
-            ),
+          child: ComposerImagePreview(
+            image: image,
+            url: url,
+            siteUrl: imageSiteUrl,
+            highlighted: highlighted,
+            onDragStarted: onReorderImageGallery == null
+                ? null
+                : () => keepImageCollapsedForPointerEdit(image),
+            onDragEnded: () {
+              if (image.end <= text.length &&
+                  text.substring(image.start, image.end) == image.source &&
+                  selection.isCollapsed &&
+                  selection.extentOffset > image.start &&
+                  selection.extentOffset < image.end) {
+                selection = TextSelection.collapsed(offset: image.end);
+              }
+              releaseImagePointerEdit(image);
+            },
+            onNaturalSize: (size) {
+              if (_naturalImageSizes[image.url] == size) return;
+              _naturalImageSizes[image.url] = size;
+              artworkArrived();
+            },
           ),
         ),
       ),
