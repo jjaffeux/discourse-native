@@ -667,7 +667,10 @@ void main() {
                 .flagsCollection
                 .isFocused ==
             Tristate.isTrue;
-        for (var step = 0; step < 10 && !targetIsFocused(); step++) {
+        // Virtualization changes how many message actions precede this target.
+        final tabLimit =
+            FocusManager.instance.rootScope.traversalDescendants.length;
+        for (var step = 0; step < tabLimit && !targetIsFocused(); step++) {
           await tester.sendKeyEvent(LogicalKeyboardKey.tab);
           await tester.pump();
         }

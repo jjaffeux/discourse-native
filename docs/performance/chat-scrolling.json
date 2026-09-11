@@ -1,0 +1,601 @@
+{
+  "baselineCommit": "df0e0b67",
+  "platform": "macOS",
+  "flutterVersion": "3.47.2",
+  "renderer": "Skia (Metal)",
+  "refreshRateHz": 120,
+  "fixtureMessages": 500,
+  "fixtureWidth": 800,
+  "profile": {
+    "baseline": {
+      "steady": {
+        "frames": {
+          "count": 360,
+          "overBudget": 1,
+          "slowBuilds": 0,
+          "slowRasters": 1,
+          "buildUs": {
+            "count": 360,
+            "total": 242929,
+            "p50": 396,
+            "p95": 1994,
+            "p99": 3399,
+            "max": 6092
+          },
+          "rasterUs": {
+            "count": 360,
+            "total": 403675,
+            "p50": 1157,
+            "p95": 1672,
+            "p99": 1990,
+            "max": 9415
+          },
+          "vsyncOverheadUs": {
+            "count": 360,
+            "total": 44188,
+            "p50": 109,
+            "p95": 175,
+            "p99": 372,
+            "max": 546
+          },
+          "totalSpanUs": {
+            "count": 360,
+            "total": 712986,
+            "p50": 1895,
+            "p95": 3480,
+            "p99": 6397,
+            "max": 9768
+          }
+        },
+        "activity": {
+          "chat.capture.context": 1,
+          "chat.scroll.notification": 1800,
+          "chat.viewport.work": 360,
+          "chat.row.built": 541,
+          "chat.floatingDay.changed": 27,
+          "chat.stream.built": 28
+        },
+        "cpuStatus": "available"
+      },
+      "fast": {
+        "frames": {
+          "count": 13,
+          "overBudget": 4,
+          "slowBuilds": 4,
+          "slowRasters": 0,
+          "buildUs": {
+            "count": 13,
+            "total": 90365,
+            "p50": 7074,
+            "p95": 10088,
+            "p99": 10088,
+            "max": 10088
+          },
+          "rasterUs": {
+            "count": 13,
+            "total": 16382,
+            "p50": 893,
+            "p95": 4864,
+            "p99": 4864,
+            "max": 4864
+          },
+          "vsyncOverheadUs": {
+            "count": 13,
+            "total": 33769,
+            "p50": 3280,
+            "p95": 5569,
+            "p99": 5569,
+            "max": 5569
+          },
+          "totalSpanUs": {
+            "count": 13,
+            "total": 141027,
+            "p50": 11167,
+            "p95": 13211,
+            "p99": 13211,
+            "max": 13211
+          }
+        },
+        "activity": {
+          "chat.capture.context": 1,
+          "chat.scroll.notification": 60,
+          "chat.row.built": 452,
+          "chat.floatingDay.changed": 12,
+          "chat.viewport.work": 12,
+          "chat.stream.built": 12
+        },
+        "cpuStatus": "available"
+      },
+      "return": {
+        "frames": {
+          "count": 13,
+          "overBudget": 2,
+          "slowBuilds": 2,
+          "slowRasters": 0,
+          "buildUs": {
+            "count": 13,
+            "total": 78988,
+            "p50": 5811,
+            "p95": 9564,
+            "p99": 9564,
+            "max": 9564
+          },
+          "rasterUs": {
+            "count": 13,
+            "total": 14150,
+            "p50": 736,
+            "p95": 4361,
+            "p99": 4361,
+            "max": 4361
+          },
+          "vsyncOverheadUs": {
+            "count": 13,
+            "total": 9815,
+            "p50": 258,
+            "p95": 2871,
+            "p99": 2871,
+            "max": 2871
+          },
+          "totalSpanUs": {
+            "count": 13,
+            "total": 103635,
+            "p50": 8103,
+            "p95": 10397,
+            "p99": 10397,
+            "max": 10397
+          }
+        },
+        "activity": {
+          "chat.capture.context": 1,
+          "chat.scroll.notification": 60,
+          "chat.row.built": 430,
+          "chat.floatingDay.changed": 12,
+          "chat.viewport.work": 12,
+          "chat.stream.built": 12
+        },
+        "cpuStatus": "available"
+      }
+    },
+    "fixed": {
+      "steady": {
+        "frames": {
+          "count": 360,
+          "overBudget": 3,
+          "slowBuilds": 0,
+          "slowRasters": 3,
+          "buildUs": {
+            "count": 360,
+            "total": 208234,
+            "p50": 373,
+            "p95": 1868,
+            "p99": 2458,
+            "max": 2749
+          },
+          "rasterUs": {
+            "count": 360,
+            "total": 448837,
+            "p50": 1201,
+            "p95": 1783,
+            "p99": 2235,
+            "max": 18983
+          },
+          "vsyncOverheadUs": {
+            "count": 360,
+            "total": 38757,
+            "p50": 92,
+            "p95": 187,
+            "p99": 361,
+            "max": 422
+          },
+          "totalSpanUs": {
+            "count": 360,
+            "total": 734201,
+            "p50": 1827,
+            "p95": 3590,
+            "p99": 9814,
+            "max": 23288
+          }
+        },
+        "activity": {
+          "chat.capture.context": 1,
+          "chat.scroll.notification": 1800,
+          "chat.viewport.work": 360,
+          "chat.row.built": 60,
+          "chat.floatingDay.changed": 27
+        },
+        "cpuStatus": "available"
+      },
+      "fast": {
+        "frames": {
+          "count": 12,
+          "overBudget": 3,
+          "slowBuilds": 3,
+          "slowRasters": 0,
+          "buildUs": {
+            "count": 12,
+            "total": 79329,
+            "p50": 5688,
+            "p95": 9714,
+            "p99": 9714,
+            "max": 9714
+          },
+          "rasterUs": {
+            "count": 12,
+            "total": 13624,
+            "p50": 788,
+            "p95": 4110,
+            "p99": 4110,
+            "max": 4110
+          },
+          "vsyncOverheadUs": {
+            "count": 12,
+            "total": 24157,
+            "p50": 716,
+            "p95": 5806,
+            "p99": 5806,
+            "max": 5806
+          },
+          "totalSpanUs": {
+            "count": 12,
+            "total": 117607,
+            "p50": 9680,
+            "p95": 13575,
+            "p99": 13575,
+            "max": 13575
+          }
+        },
+        "activity": {
+          "chat.capture.context": 1,
+          "chat.scroll.notification": 60,
+          "chat.row.built": 236,
+          "chat.floatingDay.changed": 12,
+          "chat.viewport.work": 12
+        },
+        "cpuStatus": "available"
+      },
+      "return": {
+        "frames": {
+          "count": 12,
+          "overBudget": 3,
+          "slowBuilds": 3,
+          "slowRasters": 0,
+          "buildUs": {
+            "count": 12,
+            "total": 73440,
+            "p50": 4741,
+            "p95": 9710,
+            "p99": 9710,
+            "max": 9710
+          },
+          "rasterUs": {
+            "count": 12,
+            "total": 13239,
+            "p50": 740,
+            "p95": 4492,
+            "p99": 4492,
+            "max": 4492
+          },
+          "vsyncOverheadUs": {
+            "count": 12,
+            "total": 12686,
+            "p50": 688,
+            "p95": 3620,
+            "p99": 3620,
+            "max": 3620
+          },
+          "totalSpanUs": {
+            "count": 12,
+            "total": 100010,
+            "p50": 9061,
+            "p95": 11226,
+            "p99": 11226,
+            "max": 11226
+          }
+        },
+        "activity": {
+          "chat.capture.context": 1,
+          "chat.scroll.notification": 60,
+          "chat.row.built": 215,
+          "chat.floatingDay.changed": 12,
+          "chat.viewport.work": 12
+        },
+        "cpuStatus": "available"
+      }
+    },
+    "final": {
+      "steady": {
+        "frames": {
+          "count": 360,
+          "overBudget": 0,
+          "slowBuilds": 0,
+          "slowRasters": 0,
+          "buildUs": {
+            "count": 360,
+            "total": 205438,
+            "p50": 371,
+            "p95": 1977,
+            "p99": 2484,
+            "max": 2831
+          },
+          "rasterUs": {
+            "count": 360,
+            "total": 383603,
+            "p50": 1116,
+            "p95": 1651,
+            "p99": 2140,
+            "max": 7171
+          },
+          "vsyncOverheadUs": {
+            "count": 360,
+            "total": 42484,
+            "p50": 114,
+            "p95": 241,
+            "p99": 333,
+            "max": 440
+          },
+          "totalSpanUs": {
+            "count": 360,
+            "total": 651595,
+            "p50": 1796,
+            "p95": 3673,
+            "p99": 4381,
+            "max": 7761
+          }
+        },
+        "activity": {
+          "chat.capture.context": 1,
+          "chat.scroll.notification": 1800,
+          "chat.viewport.work": 360,
+          "chat.row.built": 60,
+          "chat.floatingDay.changed": 27
+        },
+        "cpuStatus": "available"
+      },
+      "fast": {
+        "frames": {
+          "count": 12,
+          "overBudget": 0,
+          "slowBuilds": 0,
+          "slowRasters": 0,
+          "buildUs": {
+            "count": 12,
+            "total": 45531,
+            "p50": 3396,
+            "p95": 6624,
+            "p99": 6624,
+            "max": 6624
+          },
+          "rasterUs": {
+            "count": 12,
+            "total": 14855,
+            "p50": 797,
+            "p95": 4390,
+            "p99": 4390,
+            "max": 4390
+          },
+          "vsyncOverheadUs": {
+            "count": 12,
+            "total": 832,
+            "p50": 70,
+            "p95": 104,
+            "p99": 104,
+            "max": 104
+          },
+          "totalSpanUs": {
+            "count": 12,
+            "total": 61767,
+            "p50": 4369,
+            "p95": 7990,
+            "p99": 7990,
+            "max": 7990
+          }
+        },
+        "activity": {
+          "chat.capture.context": 1,
+          "chat.scroll.notification": 60,
+          "chat.row.built": 119,
+          "chat.floatingDay.changed": 12,
+          "chat.viewport.work": 12
+        },
+        "cpuStatus": "available"
+      },
+      "return": {
+        "frames": {
+          "count": 12,
+          "overBudget": 0,
+          "slowBuilds": 0,
+          "slowRasters": 0,
+          "buildUs": {
+            "count": 12,
+            "total": 32519,
+            "p50": 2465,
+            "p95": 4177,
+            "p99": 4177,
+            "max": 4177
+          },
+          "rasterUs": {
+            "count": 12,
+            "total": 12585,
+            "p50": 598,
+            "p95": 4604,
+            "p99": 4604,
+            "max": 4604
+          },
+          "vsyncOverheadUs": {
+            "count": 12,
+            "total": 1302,
+            "p50": 74,
+            "p95": 487,
+            "p99": 487,
+            "max": 487
+          },
+          "totalSpanUs": {
+            "count": 12,
+            "total": 46767,
+            "p50": 3176,
+            "p95": 7247,
+            "p99": 7247,
+            "max": 7247
+          }
+        },
+        "activity": {
+          "chat.capture.context": 1,
+          "chat.scroll.notification": 60,
+          "chat.row.built": 116,
+          "chat.floatingDay.changed": 12,
+          "chat.viewport.work": 12
+        },
+        "cpuStatus": "available"
+      }
+    }
+  },
+  "narrowDark": {
+    "width": 360,
+    "profile": {
+      "steady": {
+        "frames": {
+          "count": 360,
+          "overBudget": 1,
+          "slowBuilds": 0,
+          "slowRasters": 1,
+          "buildUs": {
+            "count": 360,
+            "total": 174440,
+            "p50": 325,
+            "p95": 1659,
+            "p99": 2249,
+            "max": 2949
+          },
+          "rasterUs": {
+            "count": 360,
+            "total": 328896,
+            "p50": 840,
+            "p95": 1478,
+            "p99": 2172,
+            "max": 9296
+          },
+          "vsyncOverheadUs": {
+            "count": 360,
+            "total": 37361,
+            "p50": 84,
+            "p95": 226,
+            "p99": 306,
+            "max": 409
+          },
+          "totalSpanUs": {
+            "count": 360,
+            "total": 562656,
+            "p50": 1514,
+            "p95": 2846,
+            "p99": 3671,
+            "max": 12494
+          }
+        },
+        "activity": {
+          "chat.capture.context": 1,
+          "chat.scroll.notification": 1800,
+          "chat.row.built": 48,
+          "chat.viewport.work": 360,
+          "chat.floatingDay.changed": 24
+        },
+        "cpuStatus": "available"
+      },
+      "fast": {
+        "frames": {
+          "count": 12,
+          "overBudget": 0,
+          "slowBuilds": 0,
+          "slowRasters": 0,
+          "buildUs": {
+            "count": 12,
+            "total": 31650,
+            "p50": 2313,
+            "p95": 4233,
+            "p99": 4233,
+            "max": 4233
+          },
+          "rasterUs": {
+            "count": 12,
+            "total": 12963,
+            "p50": 613,
+            "p95": 4110,
+            "p99": 4110,
+            "max": 4110
+          },
+          "vsyncOverheadUs": {
+            "count": 12,
+            "total": 1282,
+            "p50": 102,
+            "p95": 152,
+            "p99": 152,
+            "max": 152
+          },
+          "totalSpanUs": {
+            "count": 12,
+            "total": 46496,
+            "p50": 3124,
+            "p95": 7286,
+            "p99": 7286,
+            "max": 7286
+          }
+        },
+        "activity": {
+          "chat.capture.context": 1,
+          "chat.scroll.notification": 60,
+          "chat.row.built": 86,
+          "chat.floatingDay.changed": 12,
+          "chat.viewport.work": 12
+        },
+        "cpuStatus": "available"
+      },
+      "return": {
+        "frames": {
+          "count": 12,
+          "overBudget": 0,
+          "slowBuilds": 0,
+          "slowRasters": 0,
+          "buildUs": {
+            "count": 12,
+            "total": 26944,
+            "p50": 1985,
+            "p95": 3409,
+            "p99": 3409,
+            "max": 3409
+          },
+          "rasterUs": {
+            "count": 12,
+            "total": 11905,
+            "p50": 551,
+            "p95": 4576,
+            "p99": 4576,
+            "max": 4576
+          },
+          "vsyncOverheadUs": {
+            "count": 12,
+            "total": 1328,
+            "p50": 100,
+            "p95": 188,
+            "p99": 188,
+            "max": 188
+          },
+          "totalSpanUs": {
+            "count": 12,
+            "total": 40582,
+            "p50": 2725,
+            "p95": 6664,
+            "p99": 6664,
+            "max": 6664
+          }
+        },
+        "activity": {
+          "chat.capture.context": 1,
+          "chat.scroll.notification": 60,
+          "chat.row.built": 81,
+          "chat.floatingDay.changed": 12,
+          "chat.viewport.work": 12
+        },
+        "cpuStatus": "available"
+      }
+    }
+  }
+}
