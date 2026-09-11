@@ -104,104 +104,117 @@ class ComposerImageGalleryPreview extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final availableTileWidth = math.max(
-          0.0,
-          constraints.maxWidth -
-              inset * 2 -
-              ComposerImageGalleryControl.extent -
-              (items.isEmpty ? 0 : gap),
-        );
-        final gridColumns = _fittingGridColumnCount(
-          items.length,
-          availableTileWidth,
-        );
-        final height = displayHeight(
-          items.length,
-          mode: gallery.mode,
-          gridColumns: gridColumns,
-        );
+    return DragTarget<ComposerImageBlock>(
+      onWillAcceptWithDetails: (details) =>
+          onReorder != null &&
+          !gallery.images.any(
+            (image) =>
+                image.start == details.data.start &&
+                image.end == details.data.end,
+          ),
+      onAcceptWithDetails: (details) =>
+          onReorder?.call(details.data, items.length),
+      builder: (context, candidates, rejected) => LayoutBuilder(
+        builder: (context, constraints) {
+          final availableTileWidth = math.max(
+            0.0,
+            constraints.maxWidth -
+                inset * 2 -
+                ComposerImageGalleryControl.extent -
+                (items.isEmpty ? 0 : gap),
+          );
+          final gridColumns = _fittingGridColumnCount(
+            items.length,
+            availableTileWidth,
+          );
+          final height = displayHeight(
+            items.length,
+            mode: gallery.mode,
+            gridColumns: gridColumns,
+          );
 
-        return SizedBox(
-          width: double.infinity,
-          height: height,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: verticalMargin),
-            child: Semantics(
-              container: true,
-              explicitChildNodes: true,
-              label:
-                  'Image gallery, ${items.length} ${items.length == 1 ? 'image' : 'images'}',
-              selected: highlighted,
-              child: CustomPaint(
-                foregroundPainter: _GalleryBorder(
-                  color: highlighted ? scheme.primary : scheme.outlineVariant,
-                  highlighted: highlighted,
-                ),
-                child: Container(
-                  width: double.infinity,
-                  height: height - verticalMargin * 2,
-                  padding: const EdgeInsets.all(inset),
-                  decoration: BoxDecoration(
-                    color: scheme.surfaceContainerLow,
-                    borderRadius: BorderRadius.circular(8),
+          return SizedBox(
+            width: double.infinity,
+            height: height,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: verticalMargin),
+              child: Semantics(
+                container: true,
+                explicitChildNodes: true,
+                label:
+                    'Image gallery, ${items.length} ${items.length == 1 ? 'image' : 'images'}',
+                selected: highlighted,
+                child: CustomPaint(
+                  foregroundPainter: _GalleryBorder(
+                    color: highlighted || candidates.isNotEmpty
+                        ? scheme.primary
+                        : scheme.outlineVariant,
+                    highlighted: highlighted || candidates.isNotEmpty,
                   ),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      if (items.isNotEmpty) ...[
-                        Expanded(
-                          child: switch (gallery.mode) {
-                            ComposerGalleryMode.grid => Align(
-                              alignment: Alignment.centerLeft,
-                              child: SizedBox(
-                                width: _tileStripWidth(gridColumns),
-                                child: Wrap(
-                                  spacing: gap,
-                                  runSpacing: gap,
-                                  children: [
-                                    for (final (index, item) in items.indexed)
-                                      _galleryTile(item, index),
-                                  ],
-                                ),
-                              ),
-                            ),
-                            ComposerGalleryMode.carousel =>
-                              SingleChildScrollView(
-                                scrollDirection: Axis.horizontal,
+                  child: Container(
+                    width: double.infinity,
+                    height: height - verticalMargin * 2,
+                    padding: const EdgeInsets.all(inset),
+                    decoration: BoxDecoration(
+                      color: scheme.surfaceContainerLow,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        if (items.isNotEmpty) ...[
+                          Expanded(
+                            child: switch (gallery.mode) {
+                              ComposerGalleryMode.grid => Align(
+                                alignment: Alignment.centerLeft,
                                 child: SizedBox(
-                                  width: _tileStripWidth(items.length),
-                                  height: tileExtent,
-                                  child: Row(
+                                  width: _tileStripWidth(gridColumns),
+                                  child: Wrap(
+                                    spacing: gap,
+                                    runSpacing: gap,
                                     children: [
-                                      for (final (index, item)
-                                          in items.indexed) ...[
-                                        if (index > 0)
-                                          const SizedBox(width: gap),
+                                      for (final (index, item) in items.indexed)
                                         _galleryTile(item, index),
-                                      ],
                                     ],
                                   ),
                                 ),
                               ),
-                          },
+                              ComposerGalleryMode.carousel =>
+                                SingleChildScrollView(
+                                  scrollDirection: Axis.horizontal,
+                                  child: SizedBox(
+                                    width: _tileStripWidth(items.length),
+                                    height: tileExtent,
+                                    child: Row(
+                                      children: [
+                                        for (final (index, item)
+                                            in items.indexed) ...[
+                                          if (index > 0)
+                                            const SizedBox(width: gap),
+                                          _galleryTile(item, index),
+                                        ],
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                            },
+                          ),
+                          const SizedBox(width: gap),
+                        ],
+                        ComposerImageGalleryControl(
+                          key: const ValueKey('composer-gallery-control'),
+                          imageCount: items.length,
+                          onEdit: onEdit,
                         ),
-                        const SizedBox(width: gap),
                       ],
-                      ComposerImageGalleryControl(
-                        key: const ValueKey('composer-gallery-control'),
-                        imageCount: items.length,
-                        onEdit: onEdit,
-                      ),
-                    ],
+                    ),
                   ),
                 ),
               ),
             ),
-          ),
-        );
-      },
+          );
+        },
+      ),
     );
   }
 

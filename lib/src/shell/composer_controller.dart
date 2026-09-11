@@ -1461,8 +1461,9 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
 
   void addExistingImagesToGallery(
     ComposerImageGalleryBlock gallery,
-    Iterable<ComposerImageBlock> images,
-  ) {
+    Iterable<ComposerImageBlock> images, {
+    int? insertionIndex,
+  }) {
     if (!isEditing) return;
     final current = _resolveGalleryIdentity(gallery);
     if (current == null) return;
@@ -1486,10 +1487,12 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
     selected.sort((a, b) => a.start.compareTo(b.start));
 
     final affectedUploads = _pendingUploadsForGallery(current);
-    final replacement = _galleryMarkdown(current.mode, [
-      ...current.images,
-      ...selected,
-    ]);
+    final members = current.images.toList();
+    members.insertAll(
+      (insertionIndex ?? members.length).clamp(0, members.length),
+      selected,
+    );
+    final replacement = _galleryMarkdown(current.mode, members);
     final edits = <_ComposerTextReplacement>[
       _ComposerTextReplacement(current.start, current.end, replacement),
       for (final image in selected)

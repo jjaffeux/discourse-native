@@ -14,6 +14,8 @@ class ComposerImagePreview extends StatelessWidget {
     required this.onNaturalSize,
     this.siteUrl,
     this.highlighted = false,
+    this.onDragStarted,
+    this.onDragEnded,
   });
 
   final ComposerImageBlock image;
@@ -21,6 +23,8 @@ class ComposerImagePreview extends StatelessWidget {
   final String? siteUrl;
   final void Function(Size size) onNaturalSize;
   final bool highlighted;
+  final VoidCallback? onDragStarted;
+  final VoidCallback? onDragEnded;
 
   static Size displaySize(ComposerImageBlock image) {
     final sourceSize =
@@ -64,7 +68,7 @@ class ComposerImagePreview extends StatelessWidget {
       width: highlighted ? 2 : 1,
     );
 
-    return Semantics(
+    final preview = Semantics(
       image: true,
       label: image.alt.isEmpty ? 'Image' : image.alt,
       selected: highlighted,
@@ -103,6 +107,21 @@ class ComposerImagePreview extends StatelessWidget {
                 errorBuilder: (_, _, _) => _ImageFallback(label: image.alt),
               ),
       ),
+    );
+    if (onDragStarted == null) return preview;
+    return Draggable<ComposerImageBlock>(
+      data: image,
+      dragAnchorStrategy: pointerDragAnchorStrategy,
+      onDragStarted: onDragStarted,
+      onDragEnd: (_) => onDragEnded?.call(),
+      feedback: ExcludeSemantics(
+        child: Material(
+          color: Colors.transparent,
+          child: Opacity(opacity: 0.9, child: preview),
+        ),
+      ),
+      childWhenDragging: Opacity(opacity: 0.35, child: preview),
+      child: MouseRegion(cursor: SystemMouseCursors.grab, child: preview),
     );
   }
 }
