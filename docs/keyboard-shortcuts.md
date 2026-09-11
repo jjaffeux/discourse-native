@@ -45,8 +45,9 @@ remain an invisible reply target. `Shift+R` remains available for a topic reply.
 
 The adjacent-topic arrows sit in a fixed bar below the source list. They and
 `G` then `J/K` open topics at the unread position without adding reader history
-entries. The list scrolls to reveal the opened topic and moves its cursor to that
-row. When the open topic is absent from the source list, either direction
+entries. Shortcut navigation scrolls the list to reveal the opened topic. Clicking
+a topic or an arrow keeps the scroll position. Both update the list cursor.
+When the open topic is absent from the source list, either direction
 opens the first listed topic. Both directions stay disabled if the list is empty.
 Next loads another page when needed. Sequences expire after one second
 and reset on an unrelated key, focus change, pointer press, or route change.

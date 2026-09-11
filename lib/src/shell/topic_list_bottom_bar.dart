@@ -83,7 +83,9 @@ bool openAdjacentTopic(
     final topic = target == null
         ? null
         : shell.store.read<Topic>(siteUrl, target);
-    if (topic != null) shell.openTopicFromList(topic);
+    if (topic != null) {
+      shell.openTopicFromList(topic, fromKeyboard: fromKeyboard);
+    }
   }
 
   unawaited(open());
