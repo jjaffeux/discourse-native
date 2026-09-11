@@ -233,26 +233,26 @@ void main() {
     expect(_sidebarWidth(tester), AdaptiveShell.sidebarWidth);
     await tester.drag(
       find.byKey(const ValueKey('sidebar-resize-handle')),
-      // Flutter reserves the first 20 logical pixels for drag recognition.
+      // Every delivered delta counts, including updates before a frame.
       const Offset(140, 0),
     );
     await tester.pumpAndSettle();
 
-    expect(_sidebarWidth(tester), AdaptiveShell.sidebarWidth + 120);
+    expect(_sidebarWidth(tester), AdaptiveShell.sidebarWidth + 140);
     expect(
       (await SharedPreferences.getInstance()).getDouble(
         SidebarWidthStore.storageKey,
       ),
-      AdaptiveShell.sidebarWidth + 120,
+      AdaptiveShell.sidebarWidth + 140,
     );
 
     controller.selectInstance(1);
     await tester.pumpAndSettle();
-    expect(_sidebarWidth(tester), AdaptiveShell.sidebarWidth + 120);
+    expect(_sidebarWidth(tester), AdaptiveShell.sidebarWidth + 140);
 
     await tester.pumpWidget(const SizedBox.shrink());
     await _pumpShell(tester, controller, const Size(1200, 800));
-    expect(_sidebarWidth(tester), AdaptiveShell.sidebarWidth + 120);
+    expect(_sidebarWidth(tester), AdaptiveShell.sidebarWidth + 140);
   }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 
   testWidgets('resize handle supports keyboard and semantics adjustment', (
@@ -351,7 +351,7 @@ void main() {
       await drag.moveBy(const Offset(40, 0));
       await tester.pump();
 
-      expect(_sidebarWidth(tester), AdaptiveShell.sidebarWidth + 40);
+      expect(_sidebarWidth(tester), AdaptiveShell.sidebarWidth + 60);
       for (final isolated in [shell, rail, sidebar, content]) {
         expect(rebuilt, isNot(contains(isolated)));
       }
