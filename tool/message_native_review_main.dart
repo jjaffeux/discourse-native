@@ -10,6 +10,7 @@ import 'package:discourse_native/src/plugins/chat/chat_services.dart';
 import 'package:discourse_native/src/plugins/chat/chat_stream.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
+import 'package:discourse_native/src/styleguide/examples/dropdown_menu_examples.dart';
 import 'package:discourse_native/src/styleguide/examples/message_examples.dart';
 import 'package:discourse_native/src/styleguide/styleguide_theme.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
@@ -70,6 +71,8 @@ ChatChannel _directChannel({required bool group}) => ChatChannel(
   title: 'Direct messages',
   kind: ChatChannelKind.directMessage,
   isGroup: group,
+  canDeleteSelf: true,
+  canManagePins: true,
   membership: const ChatMembership(following: true),
 );
 
@@ -234,6 +237,7 @@ class _MessageNativeReviewAppState extends State<_MessageNativeReviewApp> {
   var reducedMotion = false;
   var showProduction = false;
   var showDirectMessages = false;
+  var showDropdownExample = false;
   var groupDirectMessages = true;
 
   @override
@@ -295,6 +299,12 @@ class _MessageNativeReviewAppState extends State<_MessageNativeReviewApp> {
                       showDirectMessages ? 'Hide DMs' : 'Show DMs',
                       () => showDirectMessages = !showDirectMessages,
                     ),
+                    _toggle(
+                      showDropdownExample
+                          ? 'Hide dropdown example'
+                          : 'Show dropdown example',
+                      () => showDropdownExample = !showDropdownExample,
+                    ),
                     if (showDirectMessages)
                       _toggle(
                         groupDirectMessages ? 'Use 1:1 DM' : 'Use group DM',
@@ -334,7 +344,12 @@ class _MessageNativeReviewAppState extends State<_MessageNativeReviewApp> {
                         textDirection: rtl
                             ? TextDirection.rtl
                             : TextDirection.ltr,
-                        child: showDirectMessages
+                        child: showDropdownExample
+                            ? Builder(
+                                builder:
+                                    dropdownMenuExamples.examples.first.builder,
+                              )
+                            : showDirectMessages
                             ? const _DirectMessageTiles()
                             : showProduction
                             ? const _ProductionTiles()
@@ -453,6 +468,9 @@ class _DirectMessageTilesState extends State<_DirectMessageTiles> {
             endsGroup: index == rows.length - 1 || !rows[index + 1].chained,
             onReply: (message) =>
                 setState(() => result = 'Reply to DM ${message.id}'),
+            onEdit: (message) =>
+                setState(() => result = 'Edit DM ${message.id}'),
+            onSelect: () => setState(() => result = 'Select DM ${row.id}'),
             onJumpToMessage: (id) =>
                 setState(() => result = 'Jumped to DM $id'),
           ),

@@ -733,23 +733,45 @@ class DDropdownMenuSeparator extends StatelessWidget {
   const DDropdownMenuSeparator({super.key});
 
   @override
-  Widget build(BuildContext context) => ExcludeSemantics(
-    child: SizedBox(
-      height: 9,
-      child: Stack(
-        clipBehavior: Clip.none,
-        children: [
-          PositionedDirectional(
-            start: -4,
-            end: -4,
-            top: 4,
-            height: 1,
-            child: ColoredBox(color: DTokens.of(context).border),
-          ),
-        ],
+  Widget build(BuildContext context) {
+    final tokens = DTokens.of(context);
+    // A site's content border can disappear against its floating surface.
+    // Preserve stronger palette borders; otherwise use the same subtle
+    // foreground tint as the popup's exterior ring.
+    final fallback = Color.alphaBlend(
+      tokens.foreground.withValues(alpha: tokens.foreground.a * 0.10),
+      tokens.surface,
+    );
+    final surfaceLuminance = tokens.surface.computeLuminance() + 0.05;
+    double contrast(Color color) {
+      final luminance =
+          Color.alphaBlend(color, tokens.surface).computeLuminance() + 0.05;
+      return luminance > surfaceLuminance
+          ? luminance / surfaceLuminance
+          : surfaceLuminance / luminance;
+    }
+
+    final color = contrast(tokens.border) >= contrast(fallback)
+        ? tokens.border
+        : fallback;
+    return ExcludeSemantics(
+      child: SizedBox(
+        height: 9,
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            PositionedDirectional(
+              start: -4,
+              end: -4,
+              top: 4,
+              height: 1,
+              child: ColoredBox(color: color),
+            ),
+          ],
+        ),
       ),
-    ),
-  );
+    );
+  }
 }
 
 class DDropdownMenuShortcut extends StatelessWidget {
