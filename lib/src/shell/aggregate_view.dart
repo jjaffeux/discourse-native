@@ -224,30 +224,6 @@ class AggregateViewState extends State<AggregateView> {
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.stretch,
                                 children: [
-                                  Align(
-                                    alignment: AlignmentDirectional.centerEnd,
-                                    child: DButton(
-                                      key: const ValueKey(
-                                        'aggregate-refresh-button',
-                                      ),
-                                      label: const Text('Refresh'),
-                                      loadingLabel: const Text('Refreshing…'),
-                                      icon: const DIcon(
-                                        DIcons.arrowsRotate,
-                                        size: 16,
-                                      ),
-                                      variant: DButtonVariant.outline,
-                                      loading:
-                                          state.loading || state.refreshing,
-                                      onPressed:
-                                          state.loading || state.refreshing
-                                          ? null
-                                          : () => unawaited(
-                                              controller.refreshAggregate(),
-                                            ),
-                                    ),
-                                  ),
-                                  const SizedBox(height: 24),
                                   _AggregateInlineFilters(
                                     key: ValueKey(('aggregate-filters', tabId)),
                                     controller: controller,
@@ -339,20 +315,42 @@ class _AggregateInlineFilters extends StatelessWidget {
         children: [
           Padding(
             padding: const EdgeInsets.all(12),
-            child: DCollapsibleTrigger(
-              key: const ValueKey('aggregate-filter-collapse'),
-              child: Row(
-                children: [
-                  DIcon(
-                    controller.aggregate.filtersCollapsed
-                        ? DIcons.chevronRight
-                        : DIcons.chevronDown,
-                    size: 16,
+            child: Row(
+              children: [
+                Expanded(
+                  child: DCollapsibleTrigger(
+                    key: const ValueKey('aggregate-filter-collapse'),
+                    child: Row(
+                      children: [
+                        DIcon(
+                          controller.aggregate.filtersCollapsed
+                              ? DIcons.chevronRight
+                              : DIcons.chevronDown,
+                          size: 16,
+                        ),
+                        const SizedBox(width: 8),
+                        const Flexible(child: Text('Forum filters')),
+                      ],
+                    ),
                   ),
-                  const SizedBox(width: 8),
-                  const Text('Forum filters'),
-                ],
-              ),
+                ),
+                const SizedBox(width: 12),
+                DButton(
+                  key: const ValueKey('aggregate-refresh-button'),
+                  label: const Text('Refresh'),
+                  loadingLabel: const Text('Refreshing…'),
+                  icon: const DIcon(DIcons.arrowsRotate, size: 16),
+                  variant: DButtonVariant.outline,
+                  loading:
+                      controller.aggregate.state.loading ||
+                      controller.aggregate.state.refreshing,
+                  onPressed:
+                      controller.aggregate.state.loading ||
+                          controller.aggregate.state.refreshing
+                      ? null
+                      : () => unawaited(controller.refreshAggregate()),
+                ),
+              ],
             ),
           ),
           DCollapsibleContent(

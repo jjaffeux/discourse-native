@@ -130,6 +130,16 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('aggregate-filter-collapse')));
     await tester.pumpAndSettle();
     expect(find.byType(TopicFilterInput), findsNothing);
+    final refresh = find.byKey(const ValueKey('aggregate-refresh-button'));
+    final collapse = find.byKey(const ValueKey('aggregate-filter-collapse'));
+    expect(
+      tester.getCenter(refresh).dy,
+      closeTo(tester.getCenter(collapse).dy, 1),
+    );
+    await tester.tap(refresh);
+    await tester.pumpAndSettle();
+    expect(find.byType(TopicFilterInput), findsNothing);
+
     final preferences = await SharedPreferences.getInstance();
     expect(
       preferences.getString('discourse_native.aggregate_preferences'),
