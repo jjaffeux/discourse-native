@@ -799,11 +799,16 @@ class _CategoryChip extends StatelessWidget {
     final color = category == null
         ? theme.colorScheme.onSurfaceVariant
         : Color(category!.colorValue);
+    final tokens = DTokens.of(context);
     final fill = category == null
-        ? Colors.transparent
-        : color.withValues(alpha: .10);
-    final border = color.withValues(alpha: .25);
-    final hover = Color.alphaBlend(color.withValues(alpha: .08), fill);
+        ? tokens.controls?.outline.background
+        : Color.lerp(tokens.background, color, .18);
+    final border = category == null
+        ? tokens.controls?.outline.border
+        : Color.lerp(tokens.background, color, .38);
+    final hover = category == null
+        ? tokens.controls?.outline.hover
+        : Color.lerp(tokens.background, color, .30);
     return IntrinsicWidth(
       child: DButtonGroup(
         semanticLabel: label,
@@ -819,7 +824,7 @@ class _CategoryChip extends StatelessWidget {
               tooltip: edit == null ? label : editLabel,
               semanticLabel: edit == null ? label : '$editLabel: $label',
               variant: DButtonVariant.outline,
-              size: DButtonSize.extraSmall,
+              size: DButtonSize.regular,
               backgroundColor: fill,
               borderColor: border,
               interactiveBackgroundColor: hover,
@@ -832,9 +837,7 @@ class _CategoryChip extends StatelessWidget {
                     CategoryIcon(
                       category: category!,
                       siteUrl: siteUrl,
-                      size: DControlStyle.iconDimension(
-                        DControlSize.extraSmall,
-                      ),
+                      size: DControlStyle.iconDimension(DControlSize.regular),
                     ),
                     SizedBox(width: compact ? 2 : 6),
                   ],
@@ -865,7 +868,7 @@ class _CategoryChip extends StatelessWidget {
                 isLink: true,
                 onPressed: navigate,
                 variant: DButtonVariant.outline,
-                size: DButtonSize.extraSmall,
+                size: DButtonSize.regular,
                 backgroundColor: fill,
                 borderColor: border,
                 interactiveBackgroundColor: hover,

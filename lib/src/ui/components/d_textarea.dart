@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../theme/discourse_typography.dart';
+import '../foundation/control_style.dart';
 import '../foundation/input_group_scope.dart';
 import '../foundation/tokens.dart';
 import 'd_label.dart';
@@ -389,7 +390,7 @@ class _TextareaSurface extends StatelessWidget {
         ? t.destructive.withValues(alpha: t.destructive.a * (dark ? .5 : 1))
         : focused
         ? t.focusRing
-        : t.colors.outlineVariant;
+        : DControlStyle.outlineBorder(t, dark: dark, field: true);
     final ring = invalid
         ? t.destructive.withValues(alpha: t.destructive.a * (dark ? .4 : .2))
         : focused
@@ -414,7 +415,7 @@ class _TextareaSurface extends StatelessWidget {
             child: CustomPaint(
               foregroundPainter: ring == null
                   ? null
-                  : _TextareaRing(color: ring, radius: t.radius),
+                  : _TextareaRing(color: ring, radius: t.controlRadius),
               child: AnimatedContainer(
                 duration: DMotion.duration(
                   context,
@@ -427,17 +428,12 @@ class _TextareaSurface extends StatelessWidget {
                   vertical: 8,
                 ),
                 decoration: BoxDecoration(
-                  color: dark
-                      ? t.colors.outlineVariant.withValues(
-                          alpha:
-                              t.colors.outlineVariant.a * (enabled ? .3 : .8),
-                        )
-                      : enabled
-                      ? Colors.transparent
-                      : t.colors.outlineVariant.withValues(
-                          alpha: t.colors.outlineVariant.a * .5,
-                        ),
-                  borderRadius: BorderRadius.circular(t.radius),
+                  color: DControlStyle.fieldFill(
+                    t,
+                    dark: dark,
+                    enabled: enabled,
+                  ),
+                  borderRadius: BorderRadius.circular(t.controlRadius),
                   border: Border.all(color: border),
                 ),
                 child: child,

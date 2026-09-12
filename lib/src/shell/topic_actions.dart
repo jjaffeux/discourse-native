@@ -26,6 +26,7 @@ class TopicBookmarkButton extends StatelessWidget {
     required this.busy,
     this.showLabel = false,
     this.variant,
+    this.size = DButtonSize.small,
   });
 
   final String siteUrl;
@@ -33,28 +34,28 @@ class TopicBookmarkButton extends StatelessWidget {
   final bool busy;
   final bool showLabel;
   final DButtonVariant? variant;
+  final DButtonSize size;
 
   @override
   Widget build(BuildContext context) {
     final controller = ShellScope.read(context);
     final icon = busy
-        ? const SizedBox.square(dimension: 18, child: DSpinner())
+        ? const DSpinner()
         : DIcon(
             topic.topicBookmark?.reminderAt != null
                 ? DIcons.discourseBookmarkClock
                 : topic.hasBookmarks
                 ? DIcons.bookmark
                 : DIcons.farBookmark,
-            size: 18,
           );
     final tooltip = topic.hasBookmarks
         ? 'Manage ${topic.bookmarks.length} topic bookmark${topic.bookmarks.length == 1 ? '' : 's'}'
         : 'Bookmark this topic';
     final buttonVariant =
-        variant ??
-        (topic.topicBookmark != null
-            ? DButtonVariant.primary
-            : DButtonVariant.ghost);
+        topic.topicBookmark != null &&
+            (variant == null || variant == DButtonVariant.outline)
+        ? DButtonVariant.primary
+        : variant ?? DButtonVariant.ghost;
     void open() => unawaited(
       showTopicBookmarkMenu(
         context: context,
@@ -73,7 +74,7 @@ class TopicBookmarkButton extends StatelessWidget {
         tooltip: tooltip,
         loading: busy,
         variant: buttonVariant,
-        size: DButtonSize.small,
+        size: size,
       );
     }
     return DButton.iconOnly(
@@ -83,7 +84,7 @@ class TopicBookmarkButton extends StatelessWidget {
       tooltip: tooltip,
       loading: busy,
       variant: buttonVariant,
-      size: DButtonSize.small,
+      size: size,
     );
   }
 }
@@ -426,6 +427,7 @@ class TopicNotificationLevelButton extends StatelessWidget {
     required this.topic,
     this.showLabel = false,
     this.variant,
+    this.size = DButtonSize.small,
     this.backgroundColor,
     this.borderColor,
     this.interactiveBackgroundColor,
@@ -435,6 +437,7 @@ class TopicNotificationLevelButton extends StatelessWidget {
   final TopicDetail topic;
   final bool showLabel;
   final DButtonVariant? variant;
+  final DButtonSize size;
   final Color? backgroundColor;
   final Color? borderColor;
   final Color? interactiveBackgroundColor;
@@ -481,6 +484,7 @@ class TopicNotificationLevelButton extends StatelessWidget {
           buttonKey: const ValueKey('topic-notification-level-button'),
           showLabel: showLabel,
           variant: variant,
+          size: size,
           backgroundColor: backgroundColor,
           borderColor: borderColor,
           interactiveBackgroundColor: interactiveBackgroundColor,

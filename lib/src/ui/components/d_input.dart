@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../theme/discourse_typography.dart';
+import '../foundation/control_style.dart';
 import '../foundation/input_group_scope.dart';
 import '../foundation/joined_control.dart';
 import '../foundation/tokens.dart';
@@ -231,10 +232,10 @@ class _DInputState extends FormFieldState<String> {
     final joined = DJoinedControlScope.maybeOf(context);
     final radius =
         joined?.resolveRadius(
-          BorderRadius.circular(t.radius),
+          BorderRadius.circular(t.controlRadius),
           Directionality.of(context),
         ) ??
-        BorderRadius.circular(t.radius);
+        BorderRadius.circular(t.controlRadius);
     final error = input.errorText ?? errorText;
     final isInvalid = input.invalid || error != null;
     final touch = switch (Theme.of(context).platform) {
@@ -432,7 +433,7 @@ class _InputSurface extends StatelessWidget {
         ? t.destructive.withValues(alpha: t.destructive.a * (dark ? .5 : 1))
         : focused
         ? t.focusRing
-        : t.colors.outlineVariant;
+        : DControlStyle.outlineBorder(t, dark: dark, field: true);
     final ring = invalid
         ? t.destructive.withValues(alpha: t.destructive.a * (dark ? .4 : .2))
         : focused
@@ -449,7 +450,8 @@ class _InputSurface extends StatelessWidget {
               ? null
               : _InputRing(
                   color: ring,
-                  radius: borderRadius ?? BorderRadius.circular(t.radius),
+                  radius:
+                      borderRadius ?? BorderRadius.circular(t.controlRadius),
                 ),
           child: AnimatedContainer(
             duration: DMotion.duration(
@@ -463,16 +465,13 @@ class _InputSurface extends StatelessWidget {
               vertical: verticalPadding,
             ),
             decoration: _InputSurfaceDecoration(
-              backgroundColor: dark
-                  ? t.colors.outlineVariant.withValues(
-                      alpha: t.colors.outlineVariant.a * (enabled ? .3 : .8),
-                    )
-                  : enabled
-                  ? Colors.transparent
-                  : t.colors.outlineVariant.withValues(
-                      alpha: t.colors.outlineVariant.a * .5,
-                    ),
-              borderRadius: borderRadius ?? BorderRadius.circular(t.radius),
+              backgroundColor: DControlStyle.fieldFill(
+                t,
+                dark: dark,
+                enabled: enabled,
+              ),
+              borderRadius:
+                  borderRadius ?? BorderRadius.circular(t.controlRadius),
               borderColor: border,
               joinedAxis: joinedAxis,
               omitLeadingBorder: omitLeadingBorder,

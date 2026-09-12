@@ -19,7 +19,7 @@ void main() {
             body: Column(
               children: [
                 DButton(
-                  size: DControlSize.small,
+                  size: DControlSize.regular,
                   variant: DButtonVariant.outline,
                   onPressed: () {},
                   label: const Text('Categories'),

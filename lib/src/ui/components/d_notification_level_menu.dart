@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../theme/d_icon.dart';
+import '../../theme/d_icons.dart';
 import '../../theme/discourse_typography.dart';
 import '../foundation/tokens.dart';
 import 'd_button.dart';
@@ -23,7 +25,7 @@ class DNotificationLevelOption<T> {
   /// Inherits the trigger or menu row's icon size and color.
   final Widget icon;
 
-  /// Highlights an icon-only trigger for an active subscription.
+  /// Tints the trigger for an active subscription, with or without its label.
   final bool emphasized;
 }
 
@@ -60,8 +62,8 @@ class DNotificationLevelMenu<T> extends StatelessWidget {
   final DButtonSize size;
 
   /// Overrides the trigger style for compositions such as an outlined group.
-  /// When null, labeled triggers are outlined and emphasized icon triggers use
-  /// the primary accent.
+  /// When null, labeled triggers are outlined and emphasized triggers use the
+  /// host's contextual accent surface when available.
   final DButtonVariant? variant;
 
   /// Overrides the trigger fill without changing the dropdown surface.
@@ -79,6 +81,13 @@ class DNotificationLevelMenu<T> extends StatelessWidget {
   Widget build(BuildContext context) {
     final selected = options.singleWhere((option) => option.value == value);
     final label = '$semanticLabel: ${selected.label}';
+    final accent =
+        selected.emphasized &&
+            (variant == null ||
+                variant == DButtonVariant.outline ||
+                variant == DButtonVariant.primary)
+        ? DTokens.of(context).controls?.accent
+        : null;
     return DDropdownMenu(
       content: DDropdownMenuContent(
         semanticLabel: semanticLabel,
@@ -118,7 +127,14 @@ class DNotificationLevelMenu<T> extends StatelessWidget {
         builder: (context, state) => showLabel
             ? DButton(
                 key: buttonKey,
-                label: Text(selected.label),
+                label: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(selected.label),
+                    const SizedBox(width: 6),
+                    const DIcon(DIcons.chevronDown),
+                  ],
+                ),
                 icon: selected.icon,
                 tooltip: label,
                 semanticLabel: label,
@@ -127,9 +143,11 @@ class DNotificationLevelMenu<T> extends StatelessWidget {
                 hasPopup: true,
                 expanded: state.open,
                 variant: variant ?? DButtonVariant.outline,
-                backgroundColor: backgroundColor,
-                borderColor: borderColor,
-                interactiveBackgroundColor: interactiveBackgroundColor,
+                backgroundColor: backgroundColor ?? accent?.background,
+                foregroundColor: accent?.foreground,
+                borderColor: borderColor ?? accent?.border,
+                interactiveBackgroundColor:
+                    interactiveBackgroundColor ?? accent?.hover,
                 size: size,
               )
             : DButton.iconOnly(
@@ -146,9 +164,11 @@ class DNotificationLevelMenu<T> extends StatelessWidget {
                     (selected.emphasized
                         ? DButtonVariant.primary
                         : DButtonVariant.ghost),
-                backgroundColor: backgroundColor,
-                borderColor: borderColor,
-                interactiveBackgroundColor: interactiveBackgroundColor,
+                backgroundColor: backgroundColor ?? accent?.background,
+                foregroundColor: accent?.foreground,
+                borderColor: borderColor ?? accent?.border,
+                interactiveBackgroundColor:
+                    interactiveBackgroundColor ?? accent?.hover,
                 size: size,
               ),
       ),

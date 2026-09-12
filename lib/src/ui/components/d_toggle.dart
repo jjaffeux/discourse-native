@@ -217,7 +217,7 @@ class _DToggleState extends State<DToggle> {
         : _focusVisible
         ? tokens.focusRing
         : widget.variant == DToggleVariant.outline
-        ? tokens.border
+        ? DControlStyle.outlineBorder(tokens, dark: dark)
         : Colors.transparent;
     final ringColor = widget.invalid
         ? tokens.destructive.withValues(
@@ -230,9 +230,7 @@ class _DToggleState extends State<DToggle> {
     final radius =
         (widget.visualStyle?.borderRadius ??
                 BorderRadius.circular(
-                  widget.size == DToggleSize.small
-                      ? (tokens.radius * .8).clamp(0, 12)
-                      : tokens.radius,
+                  DControlStyle.radius(tokens, widget.size),
                 ))
             .resolve(direction);
     final edges = widget.visualStyle?.borderEdges ?? DToggleBorderEdges.all;
@@ -314,7 +312,16 @@ class _DToggleState extends State<DToggle> {
               iconPosition: widget.iconPosition,
             )),
       decoration: BoxDecoration(
-        color: activeSurface ? tokens.muted : Colors.transparent,
+        color:
+            widget.variant == DToggleVariant.outline && tokens.controls != null
+            ? DControlStyle.outlineFill(
+                tokens,
+                dark: dark,
+                hovered: activeSurface,
+              )
+            : activeSurface
+            ? tokens.muted
+            : Colors.transparent,
         borderRadius: radius,
         border: border,
       ),
