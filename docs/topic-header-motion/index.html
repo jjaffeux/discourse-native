@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="light dark">
+    <title>Topic headers · Motion studies</title>
+    <link rel="stylesheet" href="mockups.css">
+    <script src="mockups.js" defer></script>
+  </head>
+  <body>
+    <main class="lab" id="header-lab">
+      <header class="intro">
+        <div>
+          <p class="eyebrow"><span class="brand-dot"></span> DISCOURSE NATIVE <span class="eyebrow-divider">/</span> MOTION STUDIES</p>
+          <h1>A quieter topic header.</h1>
+          <p class="intro-copy">Four ways to keep your place while the conversation moves.</p>
+        </div>
+        <button class="lab-button theme-button" id="theme" aria-label="Switch color theme">Dark theme</button>
+      </header>
+
+      <nav class="concepts" aria-label="Header designs">
+        <button class="concept" data-concept="a" aria-pressed="true" aria-controls="study-a">
+          <span class="concept-index">01 <span class="recommendation">Start here</span></span>
+          <strong>Pinned title</strong><span>Let the details scroll away.</span>
+        </button>
+        <button class="concept" data-concept="b" aria-pressed="false" aria-controls="study-b">
+          <span class="concept-index">02</span><strong>Natural handoff</strong><span>A big opening. A quiet toolbar.</span>
+        </button>
+        <button class="concept" data-concept="c" aria-pressed="false" aria-controls="study-c">
+          <span class="concept-index">03</span><strong>Continuous collapse</strong><span>The header follows your scroll.</span>
+        </button>
+        <button class="concept" data-concept="d" aria-pressed="false" aria-controls="study-d">
+          <span class="concept-index">04</span><strong>Always compact</strong><span>Settle in. Nothing needs to move.</span>
+        </button>
+      </nav>
+
+      <section class="workbench" aria-label="Interactive header previews">
+        <div class="preview-toolbar">
+          <div class="view-toggle" role="group" aria-label="Comparison view">
+            <button class="lab-button" id="single" aria-pressed="true">Explore</button>
+            <button class="lab-button" id="compare" aria-pressed="false">Compare all</button>
+          </div>
+          <span class="linked-label" hidden>Scrolling is linked</span>
+          <div class="preview-options">
+            <label class="select-label" for="viewport">Width
+              <select id="viewport"><option value="desktop">Desktop</option><option value="narrow">390 px</option></select>
+            </label>
+            <label class="check-label"><input id="long-title" type="checkbox"> Long title</label>
+            <label class="check-label"><input id="reduce-motion" type="checkbox"> Reduced motion</label>
+          </div>
+        </div>
+
+        <div class="playback">
+          <button class="lab-button play-button" id="play"><span class="play-glyph" aria-hidden="true">▶</span><span id="play-label">Play scroll</span></button>
+          <div class="scrub-control">
+            <label for="scroll-position">Scroll position <output id="scroll-value" for="scroll-position">0 px</output></label>
+            <div class="scrub-row"><span>Top</span><input id="scroll-position" type="range" min="0" max="520" value="0" aria-valuetext="0 pixels from the top"><span>Reading</span></div>
+          </div>
+          <button class="lab-button top-button" id="top">Back to top ↑</button>
+        </div>
+        <div class="studies" id="studies">
+          <section class="study" id="study-a" data-design="a" aria-label="Pinned title preview"></section>
+          <section class="study" id="study-b" data-design="b" aria-label="Natural handoff preview" hidden></section>
+          <section class="study" id="study-c" data-design="c" aria-label="Continuous collapse preview" hidden></section>
+          <section class="study" id="study-d" data-design="d" aria-label="Always compact preview" hidden></section>
+        </div>
+        <p class="interaction-hint" id="interaction-hint">Scroll inside the conversation, or drag the slider slowly through the transition.</p>
+      </section>
+
+      <section class="design-note" aria-live="polite" aria-atomic="true">
+        <div class="note-lead"><p class="eyebrow" id="note-number">DIRECTION 01</p><h2 id="note-title">Keep the title still.</h2></div>
+        <div><p id="note-behavior"></p><p class="tradeoff" id="note-tradeoff"></p></div>
+      </section>
+      <p class="interaction-hint"><a href="natural-handoff.html" style="color:var(--lab-accent)">Explore direction 02 with the full current header →</a></p>
+      <footer class="lab-footer"><span>Same conversation. Four different scroll behaviors.</span><details><summary>About these studies</summary><p>HTML/CSS approximations of the existing Native buttons, badges, avatars, sidebar and popovers. All interactions use local sample data. These are design proposals; browser motion is not a Flutter performance measurement.</p><p>The current header switches between expanded and compact layouts over 380 ms and expands on any upward scroll. These studies explore alternatives to that behavior.</p></details></footer>
+      <noscript><p class="no-script">Enable JavaScript to load the interactive scroll studies.</p></noscript>
+    </main>
+  </body>
+</html>

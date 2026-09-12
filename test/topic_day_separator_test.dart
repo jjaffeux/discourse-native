@@ -408,13 +408,25 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      final list = tester.widget<SuperListView>(find.byType(SuperListView));
-      final scroll = list.controller!;
+      final viewport = inbox
+          ? find.byType(CustomScrollView)
+          : find.byType(SuperListView);
+      final scroll = tester.widget<ScrollView>(viewport).controller!;
       final boundaryOffset = scroll.offset;
       final openingHeader = await _headerPixels(tester, captureKey);
       expect(
         tester.getTopLeft(find.byKey(const ValueKey(7))).dy,
-        closeTo(tester.getTopLeft(find.byType(SuperListView)).dy, 0.1),
+        closeTo(
+          inbox
+              ? tester
+                        .getBottomLeft(
+                          find.byKey(const ValueKey('topic-header-taxonomy')),
+                        )
+                        .dy +
+                    8
+              : tester.getTopLeft(viewport).dy,
+          0.1,
+        ),
       );
 
       scroll.jumpTo(boundaryOffset + StreamDaySeparator.height);
@@ -512,10 +524,14 @@ Future<List<int>> _headerPixels(WidgetTester tester, Key captureKey) async {
   final boundary = tester.renderObject<RenderRepaintBoundary>(
     find.byKey(captureKey),
   );
-  final headerHeight = tester
-      .getSize(find.byKey(const ValueKey('topic-content-header')))
-      .height
-      .floor();
+  final taxonomy = find.byKey(const ValueKey('topic-header-taxonomy'));
+  final headerBottom = taxonomy.evaluate().isEmpty
+      ? tester
+            .getBottomLeft(find.byKey(const ValueKey('topic-content-header')))
+            .dy
+      : tester.getBottomLeft(taxonomy).dy + 8;
+  final headerHeight =
+      (headerBottom - tester.getTopLeft(find.byKey(captureKey)).dy).floor();
   return (await tester.runAsync(() async {
     final image = await boundary.toImage();
     try {

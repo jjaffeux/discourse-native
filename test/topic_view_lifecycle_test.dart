@@ -1445,9 +1445,12 @@ void main() {
     });
 
     group('prepend viewport correction', () {
-      for (final firstLoaded in [21, 61]) {
+      for (final (firstLoaded, inbox) in [
+        for (final first in [21, 61])
+          for (final inbox in [false, true]) (first, inbox),
+      ]) {
         testWidgets(
-          'loads posts before $firstLoaded without losing the viewport or measured heights',
+          'loads posts before $firstLoaded without losing the viewport or measured heights (inbox $inbox)',
           (tester) async {
             final site = instance('meta.example');
             final posts = {
@@ -1497,14 +1500,19 @@ void main() {
               ),
             );
 
-            await tester.pumpWidget(_topicView(controller));
+            await tester.pumpWidget(_topicView(controller, inbox: inbox));
             await tester.pumpAndSettle();
 
-            final list = tester.widget<SuperListView>(
-              find.byType(SuperListView),
-            );
-            final scroll = list.controller!;
-            final measuredPost = list.listController!.extentForIndex(
+            final viewportFinder = inbox
+                ? find.byType(CustomScrollView)
+                : find.byType(SuperListView);
+            final scroll = tester
+                .widget<ScrollView>(viewportFinder)
+                .controller!;
+            final list = tester
+                .widget<SuperSliverList>(find.byType(SuperSliverList))
+                .listController!;
+            final measuredPost = list.extentForIndex(
               (80 - firstLoaded + 1) * 2,
             );
             expect(measuredPost.$2, isFalse);
@@ -1524,7 +1532,7 @@ void main() {
             await tester.pump();
             expect(api.postFetches, hasLength(1));
 
-            final viewport = tester.getRect(find.byType(SuperListView));
+            final viewport = tester.getRect(viewportFinder);
             Finder? anchor;
             for (var id = firstLoaded; id <= 100; id++) {
               final candidate = find.byKey(ValueKey(id));
@@ -1554,9 +1562,7 @@ void main() {
             // ID, including when the last earlier page removes the loading row.
             final leading = firstLoaded > 21 ? 1 : 0;
             expect(
-              list.listController!.extentForIndex(
-                (80 - (firstLoaded - 20) + leading) * 2,
-              ),
+              list.extentForIndex((80 - (firstLoaded - 20) + leading) * 2),
               measuredPost,
             );
           },
@@ -2824,13 +2830,17 @@ Widget _topicView(
   ShellController controller, {
   DiagnosticsController? diagnostics,
   bool tickerEnabled = true,
+  bool inbox = false,
 }) {
   final view = ShellScope(
     controller: controller,
     child: MaterialApp(
       theme: AppTheme.light,
       home: Scaffold(
-        body: TickerMode(enabled: tickerEnabled, child: const TopicView()),
+        body: TickerMode(
+          enabled: tickerEnabled,
+          child: TopicView(inbox: inbox),
+        ),
       ),
     ),
   );

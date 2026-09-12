@@ -169,7 +169,7 @@ void main() {
     (tester) async {
       final controller = _controller();
       addTearDown(controller.dispose);
-      Future<void> pumpEditor({required bool autofocus}) async {
+      Future<void> pumpEditor(bool autofocus) async {
         await tester.pumpWidget(
           _TestEditor(
             controller: controller,
@@ -182,90 +182,119 @@ void main() {
         await tester.pumpAndSettle();
       }
 
-      await pumpEditor(autofocus: false);
-      final field = find.byKey(const ValueKey('topic-header-title-field'));
-      final fieldElement = tester.element(field);
+      await pumpEditor(false);
+      await pumpEditor(true);
+      final editor = find.byType(DTextarea);
+      expect(
+        tester.widget<DTextarea>(editor).focusNode!.hasPrimaryFocus,
+        isTrue,
+      );
+      final element = tester.element(editor);
       final outsideFocus = Focus.of(tester.element(find.text('Outside')));
       outsideFocus.requestFocus();
       await tester.pumpAndSettle();
+      await pumpEditor(true);
+      expect(tester.element(editor), same(element));
       expect(outsideFocus.hasPrimaryFocus, isTrue);
-
-      await pumpEditor(autofocus: true);
-      expect(tester.element(field), same(fieldElement));
-      expect(
-        tester.widget<TextField>(field).focusNode!.hasPrimaryFocus,
-        isTrue,
-      );
-      expect(find.text('Enter to save · Esc to cancel'), findsOneWidget);
-
-      outsideFocus.requestFocus();
-      await tester.pumpAndSettle();
-      await pumpEditor(autofocus: true);
-      expect(outsideFocus.hasPrimaryFocus, isTrue);
+      expect(find.text('Save'), findsOneWidget);
       expect(find.text('Enter to save · Esc to cancel'), findsNothing);
-      expect(tester.takeException(), isNull);
     },
   );
 
-  testWidgets('failed inline save keeps the edit focused and Escape cancels', (
-    tester,
-  ) async {
-    final controller = _controller();
-    addTearDown(controller.dispose);
-    final attempted = <String>[];
+  testWidgets(
+    'framed title saves explicitly and preserves a failed edit for retry or cancellation',
+    (tester) async {
+      final controller = _controller();
+      addTearDown(controller.dispose);
+      final attempted = <String>[];
+      var fail = true;
+      await tester.pumpWidget(
+        _TestEditor(
+          controller: controller,
+          title: 'Original title',
+          showEditingFrame: true,
+          onSave: (value) async {
+            attempted.add(value);
+            return fail ? 'The title could not be saved.' : null;
+          },
+        ),
+      );
+      await tester.tap(find.byKey(const ValueKey('topic-header-title-field')));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(DTextarea), 'Retained edit');
+      await tester.tap(find.byKey(const ValueKey('outside-title-editor')));
+      await tester.pumpAndSettle();
+      expect(attempted, isEmpty);
+      expect(find.text('Save'), findsOneWidget);
+      await tester.tap(find.widgetWithText(DButton, 'Save'));
+      await tester.pumpAndSettle();
+      expect(attempted, ['Retained edit']);
+      final field = tester.widget<DTextarea>(find.byType(DTextarea));
+      expect(field.controller!.text, 'Retained edit');
+      expect(field.focusNode!.hasFocus, isTrue);
+      expect(find.text('The title could not be saved.'), findsOneWidget);
+      fail = false;
+      await tester.tap(find.widgetWithText(DButton, 'Save'));
+      await tester.pumpAndSettle();
+      expect(attempted, ['Retained edit', 'Retained edit']);
+      expect(find.byType(DTextarea), findsNothing);
+      expect(find.text('Retained edit'), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('topic-header-title-field')));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(DTextarea), 'Discard this');
+      await tester.tap(find.widgetWithText(DButton, 'Cancel'));
+      await tester.pumpAndSettle();
+      expect(attempted.length, 2);
+      expect(find.text('Retained edit'), findsOneWidget);
+      expect(find.byType(DTextarea), findsNothing);
+    },
+  );
 
-    await tester.pumpWidget(
-      _TestEditor(
-        controller: controller,
-        title: 'Original title',
-        showEditingFrame: true,
-        onSave: (title) async {
-          attempted.add(title);
-          return 'The title could not be saved.';
-        },
-      ),
-    );
-
-    final field = find.byKey(const ValueKey('topic-header-title-field'));
-    await tester.tap(field);
-    await tester.enterText(field, 'Retained edit');
-    await tester.tap(find.byKey(const ValueKey('outside-title-editor')));
-    await tester.pumpAndSettle();
-
-    var textField = tester.widget<TextField>(field);
-    expect(attempted, ['Retained edit']);
-    expect(textField.controller?.text, 'Retained edit');
-    expect(textField.focusNode?.hasFocus, isTrue);
-    expect(find.text('The title could not be saved.'), findsOneWidget);
-    expect(
-      find.byKey(const ValueKey('topic-header-title-edit-frame')),
-      findsOneWidget,
-    );
-    expect(find.text('Enter to save · Esc to cancel'), findsOneWidget);
-
-    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
-    await tester.pump();
-
-    textField = tester.widget<TextField>(field);
-    expect(textField.controller?.text, 'Original title');
-    expect(textField.focusNode?.hasFocus, isFalse);
-    expect(attempted, ['Retained edit']);
-    expect(
-      find.byKey(const ValueKey('topic-header-title-edit-frame')),
-      findsNothing,
-    );
-    expect(find.text('Enter to save · Esc to cancel'), findsNothing);
-  });
+  testWidgets(
+    'framed title retains an unfocused draft during a server update',
+    (tester) async {
+      final controller = _controller();
+      addTearDown(controller.dispose);
+      final saved = <String>[];
+      Future<void> pumpTitle(String title) => tester.pumpWidget(
+        _TestEditor(
+          controller: controller,
+          title: title,
+          showEditingFrame: true,
+          onSave: (value) async {
+            saved.add(value);
+            return null;
+          },
+        ),
+      );
+      await pumpTitle('Original title');
+      await tester.tap(find.byKey(const ValueKey('topic-header-title-field')));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(DTextarea), 'My draft');
+      Focus.of(tester.element(find.text('Outside'))).requestFocus();
+      await tester.pumpAndSettle();
+      expect(
+        tester.widget<DTextarea>(find.byType(DTextarea)).focusNode!.hasFocus,
+        isFalse,
+      );
+      await pumpTitle('Updated on the server');
+      expect(
+        tester.widget<DTextarea>(find.byType(DTextarea)).controller!.text,
+        'My draft',
+      );
+      await tester.tap(find.widgetWithText(DButton, 'Cancel'));
+      await tester.pumpAndSettle();
+      expect(find.text('Updated on the server'), findsOneWidget);
+      expect(saved, isEmpty);
+    },
+  );
 
   for (final brightness in Brightness.values) {
     testWidgets(
-      'framed ${brightness.name} title keeps its position and shows editing shortcuts',
+      'framed ${brightness.name} title supports buttons and keyboard at large text',
       (tester) async {
         final controller = _controller();
         addTearDown(controller.dispose);
-        final theme = brightness == Brightness.dark
-            ? AppTheme.dark
-            : AppTheme.light;
         final saved = <String>[];
         await tester.pumpWidget(
           _TestEditor(
@@ -274,54 +303,46 @@ void main() {
             width: 360,
             maxLines: 3,
             showEditingFrame: true,
-            theme: theme,
+            theme: brightness == Brightness.dark
+                ? AppTheme.dark
+                : AppTheme.light,
             textScaler: const TextScaler.linear(2),
-            style: const TextStyle(
-              fontSize: DiscourseTypography.xxl,
-              fontWeight: FontWeight.w600,
-              height: 1.28,
-            ),
-            onSave: (title) async {
-              saved.add(title);
+            onSave: (value) async {
+              saved.add(value);
               return null;
             },
           ),
         );
-
-        final field = find.byKey(const ValueKey('topic-header-title-field'));
-        final frame = find.byKey(
-          const ValueKey('topic-header-title-edit-frame'),
+        await tester.tap(
+          find.byKey(const ValueKey('topic-header-title-field')),
         );
-        final hint = find.text('Enter to save · Esc to cancel');
-        final idleRect = tester.getRect(field);
-        expect(frame, findsNothing);
-        expect(hint, findsNothing);
-
-        await tester.tapAt(idleRect.topLeft + const Offset(1, 20));
-        await tester.pump();
-
-        final textField = tester.widget<TextField>(field);
-        expect(textField.focusNode?.hasFocus, isTrue);
-        expect(textField.controller?.selection.baseOffset, 0);
-        expect(tester.getRect(field), idleRect);
-        expect(frame, findsOneWidget);
-        expect(hint, findsOneWidget);
-        final frameRect = tester.getRect(frame);
-        final hintRect = tester.getRect(hint);
-        expect(frameRect.contains(idleRect.topLeft), isTrue);
-        expect(frameRect.contains(idleRect.bottomRight), isTrue);
-        expect(hintRect.left, idleRect.left);
-        expect(hintRect.top, greaterThan(frameRect.bottom));
-        expect(hintRect.right, lessThanOrEqualTo(idleRect.right));
-        expect(tester.takeException(), isNull);
-
-        await tester.enterText(field, 'A more welcoming first week');
+        await tester.pumpAndSettle();
+        expect(
+          find.widgetWithText(DButton, 'Save').hitTestable(),
+          findsOneWidget,
+        );
+        expect(
+          find.widgetWithText(DButton, 'Cancel').hitTestable(),
+          findsOneWidget,
+        );
+        expect(find.text('Enter to save · Esc to cancel'), findsNothing);
+        await tester.enterText(
+          find.byType(DTextarea),
+          'A more welcoming first week',
+        );
         await tester.sendKeyEvent(LogicalKeyboardKey.enter);
         await tester.pumpAndSettle();
         expect(saved, ['A more welcoming first week']);
-        expect(textField.focusNode?.hasFocus, isFalse);
-        expect(frame, findsNothing);
-        expect(hint, findsNothing);
+        expect(find.byType(DTextarea), findsNothing);
+        await tester.tap(
+          find.byKey(const ValueKey('topic-header-title-field')),
+        );
+        await tester.pumpAndSettle();
+        await tester.enterText(find.byType(DTextarea), 'Do not save');
+        await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+        await tester.pumpAndSettle();
+        expect(saved.length, 1);
+        expect(find.byType(DTextarea), findsNothing);
         expect(tester.takeException(), isNull);
       },
     );

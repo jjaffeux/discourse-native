@@ -117,18 +117,22 @@ void main() {
         final header = tester.state(find.byType(TopicInboxHeader));
         final field = find.byKey(const ValueKey('topic-header-title-field'));
         await tester.tap(field);
+        await tester.pumpAndSettle();
         await tester.enterText(field, _renamed);
         await tester.sendKeyEvent(LogicalKeyboardKey.enter);
         await tester.pump();
+        // Keep the HTTP request pending while its loading indicator animates.
         expect(server.requests, hasLength(1));
         expect(server.topic['title'], _row.title);
 
         await tester.tap(find.byTooltip('Edit topic category'));
-        await tester.pumpAndSettle();
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 400));
         await tester.tap(
           find.byKey(const ValueKey(('topic-category-picker-option', 22))),
         );
-        await tester.pumpAndSettle();
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 400));
         expect(server.requests, hasLength(2));
         expect(server.topic['category_id'], _categoryB.id);
         expect(shell.currentTopic?.categoryId, _categoryB.id);
@@ -138,15 +142,18 @@ void main() {
           await tester.tap(
             find.byKey(const ValueKey('topic-header-edit-tags')),
           );
-          await tester.pumpAndSettle();
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 400));
           await tester.tap(
             find.byKey(
               const ValueKey(('topic-tag-picker-option', 'community')),
             ),
           );
-          await tester.pumpAndSettle();
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 400));
           await tester.sendKeyEvent(LogicalKeyboardKey.escape);
-          await tester.pumpAndSettle();
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 400));
         }
         final tags = removeTag ? <TopicTag>[] : [_tag];
         expect(server.topic['tags'], tags.map((tag) => tag.toJson()).toList());

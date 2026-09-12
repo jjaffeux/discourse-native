@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>Natural handoff · Full topic header</title>
+  <link rel="stylesheet" href="mockups.css">
+  <link rel="stylesheet" href="natural-handoff.css">
+  <script src="natural-handoff.js" defer></script>
+</head>
+<body>
+<main class="lab full-content-lab" id="full-header-lab">
+  <header class="intro">
+    <div>
+      <p class="eyebrow"><span class="brand-dot"></span> DISCOURSE NATIVE <span class="eyebrow-divider">/</span> DIRECTION 02</p>
+      <h1>Natural handoff. The full header.</h1>
+      <p class="intro-copy">A quieter opening title, with all the current header’s context and controls.</p>
+    </div>
+    <div class="intro-actions"><a href="index.html?design=b">← Four directions</a><button class="lab-button" id="theme">Light theme</button></div>
+  </header>
+
+  <section class="workbench" aria-label="Full header mockup">
+    <div class="preview-toolbar">
+      <span class="current-study">02 <strong>Natural handoff</strong></span>
+      <div class="preview-options">
+        <label class="select-label" for="viewport">Width <select id="viewport"><option value="desktop">Desktop</option><option value="narrow">390 px</option></select></label>
+        <label class="select-label" for="scenario">State <select id="scenario"><option value="default">Current example</option><option value="assigned">Assigned + closed</option><option value="event">With event</option><option value="tags">Many tags</option><option value="message">Private message</option></select></label>
+        <label class="check-label"><input id="long-title" type="checkbox">Long title</label>
+        <label class="check-label"><input id="reduce-motion" type="checkbox">Reduced motion</label>
+      </div>
+    </div>
+    <div class="playback">
+      <button class="lab-button play-button" id="play"><span class="play-glyph" aria-hidden="true">▶</span><span id="play-label">Play scroll</span></button>
+      <div class="scrub-control"><label for="scroll-position">Scroll position <output id="scroll-value">0 px</output></label><div class="scrub-row"><span>Top</span><input id="scroll-position" type="range" min="0" max="560" value="0"><span>Reading</span></div></div>
+      <button class="lab-button top-button" id="top">Back to top ↑</button>
+    </div>
+
+    <div class="app-window full-handoff" id="preview">
+      <div class="window-bar">
+        <span class="window-dots" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span class="window-label">Discourse · Team</span>
+        <div class="account-actions" id="account-actions">
+          <button class="native-button ghost icon-only account-bell" data-action="notifications" aria-label="Notifications, 3 unread items" title="Notifications"><span data-icon="bell"></span><span class="unread-badge">3</span></button>
+          <button class="native-button ghost icon-only" data-action="profile" aria-label="Profile" title="Profile"><span class="avatar account-avatar">J</span></button>
+        </div>
+      </div>
+      <div class="app-body">
+        <div class="app-rail" aria-hidden="true"><span class="rail-logo">d</span><span class="rail-icon selected" data-icon="inbox"></span><span class="rail-icon" data-icon="chat"></span><span class="rail-icon" data-icon="search"></span><span class="rail-spacer"></span><span class="rail-icon" data-icon="settings"></span></div>
+        <aside class="topic-list" aria-label="Example topic list">
+          <div class="list-title">Topics <small>Recent⌄</small></div>
+          <div class="list-filter"><span class="category-square"></span><span id="list-filter-label">world meetups</span></div>
+          <button class="inbox-row selected inbox-topic" id="reopen-topic"><h3><span class="unread-dot"></span><span data-topic-title></span></h3><p><span>world meetups</span><span>8 · 1h</span></p></button>
+          <div class="inbox-row"><h3>Where to eat in Seville</h3><p><span>world meetups</span><span>24 · 2h</span></p></div>
+          <div class="inbox-row"><h3>Arrival times & airport transfers</h3><p><span>world meetups</span><span>16 · 3h</span></p></div>
+          <div class="inbox-row"><h3>Meetup session ideas</h3><p><span>staff</span><span>31 · 4h</span></p></div>
+        </aside>
+        <div class="reader" id="reader">
+          <div class="topic-scroll" id="conversation" role="region" tabindex="0" aria-label="Scroll the example conversation">
+            <div class="header-spacer" aria-hidden="true"></div>
+            <div class="opening-title" id="opening-title">
+              <h2 class="hero-title" id="hero-title"><button class="title-edit" id="edit-large-title" data-action="edit-title" title="Edit topic title" aria-label="Edit topic title"><span data-topic-title></span><span class="title-pencil" data-icon="pencil"></span></button></h2>
+              <form class="inline-editor" id="title-editor" hidden>
+                <label class="sr-only" for="title-input">Topic title</label><textarea id="title-input" rows="3" required></textarea>
+                <div class="editor-actions"><button class="native-button" type="button" data-action="cancel-title">Cancel</button><button class="native-button" type="submit">Save</button></div>
+              </form>
+            </div>
+
+            <div class="taxonomy-dock" id="taxonomy-dock" aria-label="Topic categories and tags">
+              <div class="category-controls" id="category-controls">
+                <div class="category-control parent-control" role="group" aria-label="Topic category">
+                  <button class="native-button category-trigger" data-action="category" aria-label="Edit topic category: staff" title="Edit topic category" aria-haspopup="dialog"><span class="privacy-icon" data-icon="lock"></span><span class="category-name" id="parent-name">staff</span><span class="category-chevron" data-icon="chevron-down"></span></button>
+                  <button class="native-button category-browse" data-action="browse-parent" aria-label="Browse staff" title="Browse staff"><span data-icon="external"></span></button>
+                </div>
+                <div class="category-control child-control" role="group" aria-label="Topic subcategory">
+                  <button class="native-button category-trigger" data-action="subcategory" aria-label="Edit topic subcategory: world meetups" title="Edit topic subcategory" aria-haspopup="dialog"><span class="category-square"></span><span class="category-name" id="child-name">world meetups</span><span class="category-chevron" data-icon="chevron-down"></span></button>
+                  <button class="native-button category-browse" data-action="browse-child" aria-label="Browse world meetups" title="Browse world meetups"><span data-icon="external"></span></button>
+                </div>
+              </div>
+              <div class="tag-controls" id="tag-controls">
+                <div class="tag-list" id="tag-list"></div>
+                <button class="native-badge tag-overflow" id="tag-overflow" data-action="tags" title="View and edit all topic tags" aria-haspopup="dialog" hidden></button>
+                <button class="native-button ghost icon-only tag-edit" data-action="tags" id="edit-tags" aria-label="Add or remove topic tags" title="Add or remove topic tags" aria-haspopup="dialog"><span data-icon="pencil"></span></button>
+                <button class="native-button add-tag" data-action="tags" id="add-tag" hidden><span data-icon="tag"></span>Add tag</button>
+              </div>
+            </div>
+
+            <div class="full-activity" id="activity-summary" aria-label="Topic activity">
+              <span class="closed-badge" id="closed-badge" hidden><span data-icon="lock"></span>Closed</span>
+              <span class="avatar-stack" aria-label="Participants: Alex, Maya and Sam"><span class="avatar" title="Alex">A</span><span class="avatar maya" title="Maya">M</span><span class="avatar sam" title="Sam">S</span></span>
+              <span>8 replies</span><span class="activity-separator">·</span><span>Last activity 1h ago</span>
+            </div>
+            <div class="posts" id="posts"></div>
+          </div>
+
+          <header class="topic-header" id="topic-header" aria-label="Topic header">
+            <div class="toolbar-leading"><button class="native-button ghost icon-only" data-action="collapse" aria-label="Collapse topic" title="Collapse topic"><span data-icon="collapse"></span></button></div>
+            <div class="toolbar-category" id="toolbar-category"><span class="category-square"></span><span id="toolbar-category-name">world meetups</span></div>
+            <div class="toolbar-title" id="compact-title" aria-hidden="true" inert><h3><button class="title-edit" id="edit-compact-title" data-action="edit-title" aria-label="Edit topic title"><span data-topic-title></span></button></h3></div>
+            <div class="toolbar-actions" id="toolbar-actions">
+              <div class="plugin-properties" id="plugin-properties">
+                <button class="native-button event-trigger" id="event-trigger" data-action="event" aria-label="Event details" title="Event details" hidden><span data-icon="calendar"></span><span class="property-label">Sep 21</span></button>
+                <button class="native-button assignment-trigger" id="assignment-trigger" data-action="assign" aria-label="Assign topic" title="Assign topic" aria-haspopup="dialog"><span id="assignee-icon" data-icon="user"></span><span class="property-label" id="assignee-label">Assign topic</span></button>
+              </div>
+              <button class="native-button ghost icon-only" data-action="actions" aria-label="More topic actions" title="More topic actions" aria-haspopup="dialog"><span data-icon="wrench"></span></button>
+              <button class="native-button ghost icon-only share-trigger" data-action="share" aria-label="Share topic" title="Share topic" aria-haspopup="dialog"><span data-icon="link"></span></button>
+              <span id="toolbar-account-slot"></span>
+            </div>
+          </header>
+          <section class="detail-popover full-popover" id="popover" role="dialog" aria-labelledby="popover-heading" hidden>
+            <div class="popover-top"><strong id="popover-heading"></strong><button class="native-button ghost icon-only" data-action="close-popover" aria-label="Close popover"><span data-icon="close"></span></button></div><div id="popover-content"></div>
+          </section>
+          <div class="reader-closed" id="reader-closed" hidden><span data-icon="inbox"></span><p>Topic pane collapsed</p><button class="native-button" data-action="reopen">Open topic</button></div>
+          <div class="preview-notice" id="notice" role="status" aria-live="polite"></div>
+          <footer class="reader-footer"><span>8 replies · 3 participants</span><span class="footer-count" id="post-counter">1 / 9</span><button class="native-button ghost" data-action="latest">Latest <span data-icon="down"></span></button></footer>
+        </div>
+      </div>
+    </div>
+    <p class="interaction-hint">Scroll the conversation. The title hands off; the original category and tag controls settle beneath it.</p>
+  </section>
+
+  <section class="design-note full-note">
+    <div class="note-lead"><p class="eyebrow">ALL THE CURRENT CONTEXT</p><h2>The same content.<br>A steadier home.</h2></div>
+    <div><p>The title scrolls naturally into a fixed toolbar. Category editing, category browsing, tag links and the tag editor stay together in one row that pins underneath it. Assignment and topic actions keep their position.</p><p class="tradeoff">Participants, reply count and last activity scroll with the opening. Closed and event states are available in the State selector. Click the title, category controls, tags, assignment, wrench or share button to try them.</p></div>
+  </section>
+  <footer class="lab-footer"><span>Local mockup · Sample values in the current header’s fields</span><details><summary>Content & platform notes</summary><p>Based on TopicInboxHeader, TopicHeaderTags, AssignPlugin, DiscourseEventsPlugin and the existing topic actions. Assignment is intentionally anchored in the toolbar at both scroll positions. The same category and tag controls remain mounted while scrolling.</p><label class="check-label"><input id="inline-account" type="checkbox">Put account controls in the topic toolbar (non-macOS)</label><p>On macOS, notifications and profile belong to the window title bar. On narrower panes, tag overflow keeps every tag accessible. All edits and actions affect this mockup only.</p></details></footer>
+</main>
+</body>
+</html>

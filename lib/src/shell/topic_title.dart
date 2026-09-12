@@ -65,7 +65,7 @@ class InlineTopicTitleEditor extends StatefulWidget {
   /// Requests editing focus on insertion or when changed to true.
   final bool autofocus;
 
-  /// Keeps the surrounding header expanded while editing or saving a title.
+  /// Keeps the title editor available while editing or saving.
   final ValueChanged<bool>? onEditingChanged;
 
   @override
@@ -77,6 +77,8 @@ class _InlineTopicTitleEditorState extends State<InlineTopicTitleEditor> {
   late String _savedTitle;
   final FocusNode _focus = FocusNode(debugLabel: 'topic title editor');
   bool _saving = false;
+  bool _editing = false;
+  final _triggerFocus = FocusNode(debugLabel: 'edit topic title');
   bool _skipBlurSave = false;
   String? _catalogRequestSite;
 
@@ -86,7 +88,10 @@ class _InlineTopicTitleEditorState extends State<InlineTopicTitleEditor> {
     _savedTitle = widget.title;
     _controller = _newController();
     _focus.addListener(_focusChanged);
-    if (widget.autofocus) _requestEditingFocus();
+    if (widget.autofocus) {
+      _editing = widget.showEditingFrame;
+      _requestEditingFocus();
+    }
   }
 
   @override
@@ -98,7 +103,10 @@ class _InlineTopicTitleEditorState extends State<InlineTopicTitleEditor> {
   @override
   void didUpdateWidget(InlineTopicTitleEditor oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.autofocus && !oldWidget.autofocus) _requestEditingFocus();
+    if (widget.autofocus && !oldWidget.autofocus) {
+      _editing = widget.showEditingFrame;
+      _requestEditingFocus();
+    }
     if (oldWidget.siteUrl != widget.siteUrl) {
       _catalogRequestSite = null;
       final oldController = _controller;
@@ -110,7 +118,7 @@ class _InlineTopicTitleEditorState extends State<InlineTopicTitleEditor> {
     }
     if (oldWidget.title == widget.title) return;
     _savedTitle = widget.title;
-    if (!_focus.hasFocus && !_saving) {
+    if (!_editing && !_focus.hasFocus && !_saving) {
       _replaceText(widget.title);
     }
   }
@@ -150,6 +158,10 @@ class _InlineTopicTitleEditorState extends State<InlineTopicTitleEditor> {
   void _focusChanged() {
     if (!mounted) return;
     setState(() {});
+    if (widget.showEditingFrame) {
+      if (_focus.hasFocus) _ensureEmojiCatalog();
+      return;
+    }
     widget.onEditingChanged?.call(_focus.hasFocus || _saving);
     if (_focus.hasFocus) {
       _ensureEmojiCatalog();
@@ -162,24 +174,26 @@ class _InlineTopicTitleEditorState extends State<InlineTopicTitleEditor> {
     unawaited(_save());
   }
 
-  Future<void> _save() async {
-    if (_saving) return;
+  Future<bool> _save() async {
+    if (_saving) return false;
     final title = _controller.text.trim();
     if (title == _savedTitle.trim()) {
       if (_controller.text != _savedTitle) _replaceText(_savedTitle);
-      return;
+      return true;
     }
 
     setState(() => _saving = true);
     widget.onEditingChanged?.call(true);
     final error = await widget.onSave(title);
-    if (!mounted) return;
+    if (!mounted) return false;
     if (error == null) {
       _savedTitle = title;
       if (_controller.text != title) _replaceText(title);
       setState(() => _saving = false);
-      widget.onEditingChanged?.call(_focus.hasFocus);
-      return;
+      if (!widget.showEditingFrame) {
+        widget.onEditingChanged?.call(_focus.hasFocus);
+      }
+      return true;
     }
 
     setState(() => _saving = false);
@@ -187,6 +201,7 @@ class _InlineTopicTitleEditorState extends State<InlineTopicTitleEditor> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _focus.requestFocus();
     });
+    return false;
   }
 
   void _cancel() {
@@ -194,12 +209,43 @@ class _InlineTopicTitleEditorState extends State<InlineTopicTitleEditor> {
     _skipBlurSave = true;
     _replaceText(_savedTitle);
     _focus.unfocus();
+    if (widget.showEditingFrame) _finishFramedEditing();
+  }
+
+  void _beginFramedEditing() {
+    setState(() => _editing = true);
+    widget.onEditingChanged?.call(true);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && _editing) _focus.requestFocus();
+    });
+  }
+
+  void _finishFramedEditing() {
+    setState(() => _editing = false);
+    _focus.unfocus();
+    widget.onEditingChanged?.call(false);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && _triggerFocus.canRequestFocus) {
+        _triggerFocus.requestFocus();
+      }
+    });
+  }
+
+  Future<void> _submitFramed() async {
+    if (await _save() && mounted) _finishFramedEditing();
   }
 
   KeyEventResult _handleKey(FocusNode _, KeyEvent event) {
     if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.enter) {
-      _focus.unfocus();
-      return KeyEventResult.handled;
+      if (!HardwareKeyboard.instance.isShiftPressed &&
+          _controller.value.composing.isCollapsed) {
+        if (widget.showEditingFrame) {
+          unawaited(_submitFramed());
+        } else {
+          _focus.unfocus();
+        }
+        return KeyEventResult.handled;
+      }
     }
     if (event is KeyDownEvent &&
         event.logicalKey == LogicalKeyboardKey.escape) {
@@ -215,6 +261,7 @@ class _InlineTopicTitleEditorState extends State<InlineTopicTitleEditor> {
       ..removeListener(_focusChanged)
       ..dispose();
     _controller.dispose();
+    _triggerFocus.dispose();
     super.dispose();
   }
 
@@ -224,9 +271,9 @@ class _InlineTopicTitleEditorState extends State<InlineTopicTitleEditor> {
   ) => ValueListenableBuilder<TextEditingValue>(
     valueListenable: _controller,
     builder: (context, value, _) {
+      if (widget.showEditingFrame) return _buildFramedEditor();
       final focused = _focus.hasFocus;
       final displayedTitle = value.text.isEmpty ? ' ' : value.text;
-      final theme = Theme.of(context);
       final editor = MouseRegion(
         key: const ValueKey('topic-header-title-pointer'),
         cursor: SystemMouseCursors.text,
@@ -236,7 +283,7 @@ class _InlineTopicTitleEditorState extends State<InlineTopicTitleEditor> {
           disabled: focused || _saving,
           child: Stack(
             alignment: Alignment.centerLeft,
-            clipBehavior: widget.showEditingFrame ? Clip.none : Clip.hardEdge,
+            clipBehavior: Clip.hardEdge,
             children: [
               ConstrainedBox(
                 constraints: const BoxConstraints(minWidth: 12),
@@ -280,50 +327,80 @@ class _InlineTopicTitleEditorState extends State<InlineTopicTitleEditor> {
                   ),
                 ),
               ),
-              if (widget.showEditingFrame && focused)
-                Positioned(
-                  left: -12,
-                  right: -12,
-                  top: -10,
-                  bottom: -10,
-                  child: IgnorePointer(
-                    child: DecoratedBox(
-                      key: const ValueKey('topic-header-title-edit-frame'),
-                      decoration: BoxDecoration(
-                        border: Border.all(
-                          color: theme.colorScheme.primary,
-                          width: 2,
-                        ),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                    ),
-                  ),
-                ),
             ],
           ),
         ),
       );
-      if (!widget.showEditingFrame) return editor;
-      return Column(
+      return editor;
+    },
+  );
+
+  Widget _buildFramedEditor() {
+    if (!_editing) {
+      return DButton(
+        key: const ValueKey('topic-header-title-field'),
+        variant: DButtonVariant.ghost,
+        size: DButtonSize.extraSmall,
+        alignment: AlignmentDirectional.centerStart,
+        focusNode: _triggerFocus,
+        semanticLabel: 'Edit topic title',
+        tooltip: _savedTitle,
+        onPressed: _beginFramedEditing,
+        label: TopicTitle(
+          _savedTitle,
+          siteUrl: widget.siteUrl,
+          maxLines: widget.maxLines,
+          overflow: TextOverflow.ellipsis,
+          style: widget.style,
+        ),
+      );
+    }
+    return Focus(
+      onKeyEvent: _handleKey,
+      child: Column(
+        key: const ValueKey('topic-header-title-edit-frame'),
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          editor,
-          if (focused)
-            Padding(
-              padding: const EdgeInsets.only(top: 12),
-              child: Text(
-                'Enter to save · Esc to cancel',
-                key: const ValueKey('topic-header-title-edit-hint'),
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
+          DTextarea(
+            key: const ValueKey('topic-header-title-field'),
+            controller: _controller,
+            focusNode: _focus,
+            semanticLabel: 'Topic title',
+            minLines: 2,
+            maxLines: widget.maxLines < 2 ? 2 : widget.maxLines,
+            readOnly: _saving,
+            textCapitalization: TextCapitalization.sentences,
+            textInputAction: TextInputAction.done,
+            onChanged: (_) => _ensureEmojiCatalog(),
+            onEditingComplete: () => unawaited(_submitFramed()),
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            alignment: WrapAlignment.end,
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              DButton(
+                label: const Text('Cancel'),
+                variant: DButtonVariant.outline,
+                size: DButtonSize.small,
+                onPressed: _saving ? null : _cancel,
               ),
-            ),
+              DButton(
+                label: const Text('Save'),
+                variant: DButtonVariant.outline,
+                size: DButtonSize.small,
+                loading: _saving,
+                loadingSemanticLabel: 'Saving topic title',
+                onPressed: _saving ? null : () => unawaited(_submitFramed()),
+              ),
+            ],
+          ),
         ],
-      );
-    },
-  );
+      ),
+    );
+  }
 }
 
 class _TopicTitleEditingController extends TextEditingController {

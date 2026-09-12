@@ -258,6 +258,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
   TopicViewportListenable get _viewportState => _viewport;
   DateTime? get _floatingDay => _viewportState.floatingDay;
   double get _floatingDayOffset => _viewportState.floatingDayOffset;
+  double _headerObstruction = 0;
 
   int? get _progressPosition => _viewportState.progressPosition;
   TopicViewportSnapshot? get _laidOutSnapshot => _viewport.laidOutSnapshot;
@@ -599,7 +600,14 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     }
     // `separated` interleaves a separator after every logical item, and the
     // ListController addresses that expanded child list.
-    list.jumpToItem(index: index * 2, scrollController: scroll, alignment: 0);
+    if (widget.inbox &&
+        index == 0 &&
+        viewportOffset == 0 &&
+        _viewport.laidOutSnapshot?.hasEarlier == false) {
+      scroll.jumpTo(scroll.position.minScrollExtent);
+    } else {
+      list.jumpToItem(index: index * 2, scrollController: scroll, alignment: 0);
+    }
     if (viewportOffset == 0 || !scroll.hasClients) {
       if (_isScrollCaptureRecording) {
         _recordTopicScrollEvent('scroll.jump.completed', {
@@ -831,10 +839,9 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     }
   }
 
-  double _sidebarOverlayWidth(BuildContext context) =>
-      MediaQuery.sizeOf(context).width
-          .clamp(0.0, _TopicSidebarPanel.dockedWidth)
-          .toDouble();
+  double _sidebarOverlayWidth(BuildContext context) => MediaQuery.sizeOf(
+    context,
+  ).width.clamp(0.0, _TopicSidebarPanel.dockedWidth).toDouble();
 
   void _setRecommendationsSource(TopicRecommendationSourceId sourceId) {
     final siteUrl = _recommendationsSiteUrl;
@@ -879,7 +886,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     final scroll = _scroll;
     if (list == null || scroll == null) return;
     if (!list.isAttached || !scroll.hasClients) return;
-    final range = list.visibleRange;
+    final range = list.unobstructedVisibleRange;
     if (range == null || _laidOutDayStarts.isEmpty) {
       _setFloatingDay(null, 0);
       return;
@@ -915,8 +922,10 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
       return;
     }
 
-    double? topOf(_TopicDayStart start) =>
-        _postViewportOffset(snapshot.postIds[start.postIndex]);
+    double? topOf(_TopicDayStart start) {
+      final top = _postViewportOffset(snapshot.postIds[start.postIndex]);
+      return top == null ? null : top - _headerObstruction;
+    }
 
     // The first visible post can itself begin a day while its marker is still
     // below the viewport edge. Until it crosses, the preceding day remains the
@@ -1092,7 +1101,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     bool saveAnchor = false,
   }) {
     if (!_restored || _restoring || _list?.isAttached != true) return;
-    final range = _list!.visibleRange;
+    final range = _list!.unobstructedVisibleRange;
     if (range == null) return;
 
     final leading = snapshot.hasEarlier || snapshot.loadingEarlier ? 1 : 0;
@@ -1138,14 +1147,17 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     }
 
     final scrollPosition = _scroll!.position;
-    final contextEyeline = topicContextEyeline(
-      viewportExtent: scrollPosition.viewportDimension,
-      scrollOffset: scrollPosition.pixels,
-      maxScrollExtent: scrollPosition.maxScrollExtent,
-      postStreamBottom: snapshot.hasMore || snapshot.postIds.isEmpty
-          ? null
-          : _postViewportBounds(snapshot.postIds.last)?.bottom,
-      hasMore: snapshot.hasMore,
+    final contextEyeline = math.max(
+      _headerObstruction,
+      topicContextEyeline(
+        viewportExtent: scrollPosition.viewportDimension,
+        scrollOffset: scrollPosition.pixels,
+        maxScrollExtent: scrollPosition.maxScrollExtent,
+        postStreamBottom: snapshot.hasMore || snapshot.postIds.isEmpty
+            ? null
+            : _postViewportBounds(snapshot.postIds.last)?.bottom,
+        hasMore: snapshot.hasMore,
+      ),
     );
     TopicViewportSeenPost? contextPost;
     for (var childIndex = range.$1; childIndex <= range.$2; childIndex++) {
@@ -1629,7 +1641,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
   Widget _buildFloatingDayOverlay(EdgeInsets readingLanePadding) => Positioned(
     left: readingLanePadding.left,
     right: readingLanePadding.right,
-    top: 0,
+    top: _headerObstruction,
     child: ListenableBuilder(
       listenable: _viewportState.floatingDayOverlayListenable,
       builder: (context, child) {
@@ -1895,289 +1907,332 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     }
     _scheduleLook();
 
-    final postStreamContent = NotificationListener<ScrollMetricsNotification>(
-      onNotification: (notification) {
-        if (notification.depth == 0) {
+    final postList = SuperListView.separated(
+      key: ValueKey((
+        siteUrl,
+        snapshot.topicId,
+        snapshot.navigationRevision,
+        _extentGeneration,
+      )),
+      controller: _scroll,
+      listController: _list,
+      // The viewport owns the topic column only. A pinned sidebar is a
+      // separate structural column, so no compensating inset is needed.
+      padding: readingLane.padding,
+      // A short around-post window still needs to accept a pull toward the
+      // top, both to fetch and to retry an earlier page. Once post one is in
+      // hand, stop forcing top-edge overscroll: there is no earlier request
+      // left for that gesture to make.
+      physics: SuperRangeMaintainingScrollPhysics(
+        parent: snapshot.hasEarlier || snapshot.hasMore
+            ? const AlwaysScrollableScrollPhysics()
+            : null,
+      ),
+      extentEstimation: TopicView._estimateChildExtent,
+      // Keep existing post elements attached to their ids when a page is
+      // inserted before them; separated lists address the expanded index.
+      findChildIndexCallback: (key) {
+        if (key is! ValueKey<int>) return null;
+        final postIndex = postIndexes[key.value];
+        if (postIndex == null) return null;
+        final childIndex = (postIndex + (showHeader ? 1 : 0)) * 2;
+        if (_isScrollCaptureRecording) {
+          _recordTopicScrollEvent('sliver.childIndex.resolved', {
+            'postId': key.value,
+            'postIndex': postIndex,
+            'childIndex': childIndex,
+            'showHeader': showHeader,
+          });
+        }
+        return childIndex;
+      },
+      itemCount:
+          postIds.length +
+          (showHeader ? 1 : 0) +
+          (showFooter ? 1 : 0) +
+          (showRecommendations && (!widget.showSidebar || !canPinSidebar)
+              ? 1
+              : 0),
+      separatorBuilder: (context, index) {
+        final nextPostIndex = index + 1 - (showHeader ? 1 : 0);
+        if (_isScrollCaptureRecording) {
+          _recordTopicScrollEvent('sliver.separator.built', {
+            'separatorIndex': index,
+            'nextPostIndex': nextPostIndex,
+            'isDayBoundary': dayByPostIndex.containsKey(nextPostIndex),
+          });
+        }
+        if (dayByPostIndex.containsKey(nextPostIndex)) {
+          return const SizedBox.shrink();
+        }
+        return DSeparator(space: 1, color: theme.shell.divider);
+      },
+      itemBuilder: (context, index) {
+        if (showHeader && index == 0) {
           if (_isScrollCaptureRecording) {
-            _recordTopicScrollEvent('scroll.metricsChanged', {
-              'depth': notification.depth,
-              'metrics': _scrollMetricsData(notification.metrics),
+            _recordTopicScrollEvent('sliver.child.built', {
+              'itemIndex': index,
+              'kind': 'earlier-posts',
+              'loading': snapshot.loadingEarlier,
             });
           }
-          _scheduleLook();
+          return _EarlierPostsRow(loading: snapshot.loadingEarlier);
         }
-        return false;
-      },
-      child: NotificationListener<ScrollNotification>(
-        onNotification: (notification) {
-          if (notification.depth == 0) {
-            if (notification is UserScrollNotification &&
-                notification.direction != ScrollDirection.idle) {
-              _keyboardPost.value = null;
-            }
-            if (_isScrollCaptureRecording) {
-              _recordScrollNotification(notification);
-            }
-            _viewport.handleScroll(notification, snapshot);
-          }
-          return false;
-        },
-        // SuperListView retains measured post heights without eagerly building
-        // media-heavy offscreen posts, keeping scrollbar estimates stable.
-        child: SuperListView.separated(
-          key: ValueKey((
-            siteUrl,
-            snapshot.topicId,
-            snapshot.navigationRevision,
-            _extentGeneration,
-          )),
-          controller: _scroll,
-          listController: _list,
-          // The viewport owns the topic column only. A pinned sidebar is a
-          // separate structural column, so no compensating inset is needed.
-          padding: readingLane.padding,
-          // A short around-post window still needs to accept a pull toward the
-          // top, both to fetch and to retry an earlier page. Once post one is in
-          // hand, stop forcing top-edge overscroll: there is no earlier request
-          // left for that gesture to make.
-          physics: SuperRangeMaintainingScrollPhysics(
-            parent: snapshot.hasEarlier || snapshot.hasMore
-                ? const AlwaysScrollableScrollPhysics()
-                : null,
-          ),
-          extentEstimation: TopicView._estimateChildExtent,
-          // Keep existing post elements attached to their ids when a page is
-          // inserted before them; separated lists address the expanded index.
-          findChildIndexCallback: (key) {
-            if (key is! ValueKey<int>) return null;
-            final postIndex = postIndexes[key.value];
-            if (postIndex == null) return null;
-            final childIndex = (postIndex + (showHeader ? 1 : 0)) * 2;
-            if (_isScrollCaptureRecording) {
-              _recordTopicScrollEvent('sliver.childIndex.resolved', {
-                'postId': key.value,
-                'postIndex': postIndex,
-                'childIndex': childIndex,
-                'showHeader': showHeader,
-              });
-            }
-            return childIndex;
-          },
-          itemCount:
-              postIds.length +
-              (showHeader ? 1 : 0) +
-              (showFooter ? 1 : 0) +
-              (showRecommendations && (!widget.showSidebar || !canPinSidebar)
-                  ? 1
-                  : 0),
-          separatorBuilder: (context, index) {
-            final nextPostIndex = index + 1 - (showHeader ? 1 : 0);
-            if (_isScrollCaptureRecording) {
-              _recordTopicScrollEvent('sliver.separator.built', {
-                'separatorIndex': index,
-                'nextPostIndex': nextPostIndex,
-                'isDayBoundary': dayByPostIndex.containsKey(nextPostIndex),
-              });
-            }
-            if (dayByPostIndex.containsKey(nextPostIndex)) {
-              return const SizedBox.shrink();
-            }
-            return DSeparator(space: 1, color: theme.shell.divider);
-          },
-          itemBuilder: (context, index) {
-            if (showHeader && index == 0) {
-              if (_isScrollCaptureRecording) {
-                _recordTopicScrollEvent('sliver.child.built', {
-                  'itemIndex': index,
-                  'kind': 'earlier-posts',
-                  'loading': snapshot.loadingEarlier,
-                });
-              }
-              return _EarlierPostsRow(loading: snapshot.loadingEarlier);
-            }
 
-            final postIndex = index - (showHeader ? 1 : 0);
-            if (postIndex >= postIds.length) {
-              final trailingIndex = postIndex - postIds.length;
-              if (showFooter && trailingIndex == 0) {
-                if (_isScrollCaptureRecording) {
-                  _recordTopicScrollEvent('sliver.child.built', {
-                    'itemIndex': index,
-                    'kind': 'loading-more',
-                  });
-                }
-                return const _LoadingPostsRow();
-              }
-              if (_isScrollCaptureRecording) {
-                _recordTopicScrollEvent('sliver.child.built', {
-                  'itemIndex': index,
-                  'kind': 'recommendations',
-                });
-              }
-              return _MoreTopics(
-                key: ValueKey((siteUrl, snapshot.topicId, 'more-topics')),
-                inbox: widget.inbox,
-                siteUrl: siteUrl,
-                recommendations: snapshot.recommendations!,
-                selected: _recommendationsSourceId,
-                onSelected: _setRecommendationsSource,
-              );
-            }
-
-            final postId = postIds[postIndex];
-            final day = dayByPostIndex[postIndex];
-            final post = controller.store.read<Post>(siteUrl, postId);
+        final postIndex = index - (showHeader ? 1 : 0);
+        if (postIndex >= postIds.length) {
+          final trailingIndex = postIndex - postIds.length;
+          if (showFooter && trailingIndex == 0) {
             if (_isScrollCaptureRecording) {
               _recordTopicScrollEvent('sliver.child.built', {
                 'itemIndex': index,
-                'postIndex': postIndex,
-                'postId': postId,
-                'postNumber': post?.postNumber,
-                'wasAttached': _postContexts.containsKey(postId),
-                'hasDayBoundary': day != null,
-                'hasTimeGap': timeGapByPostIndex.containsKey(postIndex),
+                'kind': 'loading-more',
               });
             }
-            return _TopicPostItem(
-              key: ValueKey(postId),
-              postId: postId,
-              topicId: snapshot.topicId!,
-              htmlCharacters: post?.cooked.length ?? 0,
-              scrollCapture: _scrollCapture,
-              viewportState: _viewportState,
-              retainedMinimumHeight: _retainedPostMinimumHeight(
-                postId: postId,
-                post: post,
-                topic: snapshot.topic!,
-                width: readingLane.width,
-                summary: snapshot.summary,
-                summaryLoading: snapshot.summaryLoading,
-                readTimeWordCount: snapshot.readTimeWordCount,
-              ),
-              day: day,
-              showDayDivider: post?.postNumber != 1,
-              timeGapDays: timeGapByPostIndex[postIndex],
-              onDayTap: day == null ? null : () => _jumpToDayStart(day),
-              gapBefore: snapshot.topic!.gapsBefore[postId] ?? const [],
-              gapAfter: snapshot.topic!.gapsAfter[postId] ?? const [],
-              expandGapBefore: () =>
-                  controller.expandPostGap(anchorPostId: postId, before: true),
-              expandGapAfter: () =>
-                  controller.expandPostGap(anchorPostId: postId, before: false),
-              onAttach: _registerPostContext,
-              onDetach: _unregisterPostContext,
-              child: _StoredPost(
-                keyboardSelection: _keyboardPost,
+            return const _LoadingPostsRow();
+          }
+          if (_isScrollCaptureRecording) {
+            _recordTopicScrollEvent('sliver.child.built', {
+              'itemIndex': index,
+              'kind': 'recommendations',
+            });
+          }
+          return _MoreTopics(
+            key: ValueKey((siteUrl, snapshot.topicId, 'more-topics')),
+            inbox: widget.inbox,
+            siteUrl: siteUrl,
+            recommendations: snapshot.recommendations!,
+            selected: _recommendationsSourceId,
+            onSelected: _setRecommendationsSource,
+          );
+        }
+
+        final postId = postIds[postIndex];
+        final day = dayByPostIndex[postIndex];
+        final post = controller.store.read<Post>(siteUrl, postId);
+        if (_isScrollCaptureRecording) {
+          _recordTopicScrollEvent('sliver.child.built', {
+            'itemIndex': index,
+            'postIndex': postIndex,
+            'postId': postId,
+            'postNumber': post?.postNumber,
+            'wasAttached': _postContexts.containsKey(postId),
+            'hasDayBoundary': day != null,
+            'hasTimeGap': timeGapByPostIndex.containsKey(postIndex),
+          });
+        }
+        return _TopicPostItem(
+          key: ValueKey(postId),
+          postId: postId,
+          topicId: snapshot.topicId!,
+          htmlCharacters: post?.cooked.length ?? 0,
+          scrollCapture: _scrollCapture,
+          viewportState: _viewportState,
+          retainedMinimumHeight: _retainedPostMinimumHeight(
+            postId: postId,
+            post: post,
+            topic: snapshot.topic!,
+            width: readingLane.width,
+            summary: snapshot.summary,
+            summaryLoading: snapshot.summaryLoading,
+            readTimeWordCount: snapshot.readTimeWordCount,
+          ),
+          day: day,
+          showDayDivider: post?.postNumber != 1,
+          timeGapDays: timeGapByPostIndex[postIndex],
+          onDayTap: day == null ? null : () => _jumpToDayStart(day),
+          gapBefore: snapshot.topic!.gapsBefore[postId] ?? const [],
+          gapAfter: snapshot.topic!.gapsAfter[postId] ?? const [],
+          expandGapBefore: () =>
+              controller.expandPostGap(anchorPostId: postId, before: true),
+          expandGapAfter: () =>
+              controller.expandPostGap(anchorPostId: postId, before: false),
+          onAttach: _registerPostContext,
+          onDetach: _unregisterPostContext,
+          child: _StoredPost(
+            keyboardSelection: _keyboardPost,
+            siteUrl: siteUrl,
+            topic: snapshot.topic!,
+            postId: postId,
+            summary: snapshot.summary,
+            summaryLoading: snapshot.summaryLoading,
+            readTimeWordCount: snapshot.readTimeWordCount,
+          ),
+        );
+      },
+    );
+
+    Widget buildPostStream(List<Widget> openingSlivers) {
+      final postStreamContent = NotificationListener<ScrollMetricsNotification>(
+        onNotification: (notification) {
+          if (notification.depth == 0) {
+            if (_isScrollCaptureRecording) {
+              _recordTopicScrollEvent('scroll.metricsChanged', {
+                'depth': notification.depth,
+                'metrics': _scrollMetricsData(notification.metrics),
+              });
+            }
+            _scheduleLook();
+          }
+          return false;
+        },
+        child: NotificationListener<ScrollNotification>(
+          onNotification: (notification) {
+            if (notification.depth == 0) {
+              if (notification is UserScrollNotification &&
+                  notification.direction != ScrollDirection.idle) {
+                _keyboardPost.value = null;
+              }
+              if (_isScrollCaptureRecording) {
+                _recordScrollNotification(notification);
+              }
+              _viewport.handleScroll(notification, snapshot);
+            }
+            return false;
+          },
+          // SuperListView retains measured post heights without eagerly building
+          // media-heavy offscreen posts, keeping scrollbar estimates stable.
+          child: openingSlivers.isEmpty
+              ? postList
+              : CustomScrollView(
+                  key: postList.key,
+                  controller: _scroll,
+                  physics: postList.physics,
+                  semanticChildCount: postList.semanticChildCount,
+                  slivers: [
+                    ...openingSlivers,
+                    SliverPadding(
+                      padding: readingLane.padding,
+                      sliver: SuperSliverList(
+                        delegate: postList.childrenDelegate,
+                        listController: _list,
+                        extentEstimation: TopicView._estimateChildExtent,
+                      ),
+                    ),
+                  ],
+                ),
+        ),
+      );
+      return ReadingShortcuts(
+        commands: {
+          ReadingCommand.nextPost: () => _navigatePost(controller, snapshot, 1),
+          ReadingCommand.previousPost: () =>
+              _navigatePost(controller, snapshot, -1),
+          ReadingCommand.replyToPost: () => _replyToSelectedPost(controller),
+        },
+        child: ListBoundaryShortcuts(
+          key: ValueKey(('topic-post-boundary', siteUrl, snapshot.topicId)),
+          debugLabel: 'topic post stream',
+          initiallyActive: true,
+          focusNode: _keyboardFocus,
+          scrollController: _scroll!,
+          onStart: () => _jumpToBoundary(end: false),
+          onEnd: () => _jumpToBoundary(end: true),
+          child: DScrollBar(
+            controller: _scroll,
+            thumbVisibility: false,
+            child: postStreamContent,
+          ),
+        ),
+      );
+    }
+
+    Widget buildBody(List<Widget> openingSlivers, double pinnedExtent) {
+      _headerObstruction = pinnedExtent;
+      return Stack(
+        children: [
+          Positioned.fill(
+            child: Column(
+              children: [
+                _TopicPostSelectionToolbar(
+                  siteUrl: siteUrl,
+                  topic: snapshot.topic!,
+                ),
+                Expanded(
+                  child: Stack(
+                    clipBehavior: Clip.hardEdge,
+                    children: [
+                      Positioned.fill(child: buildPostStream(openingSlivers)),
+                      _buildFloatingDayOverlay(readingLane.padding),
+                    ],
+                  ),
+                ),
+                _buildTopicBottomBar(
+                  controller,
+                  snapshot.streamIds.length,
+                  snapshot,
+                ),
+              ],
+            ),
+          ),
+          if (showOverlaySidebar)
+            Positioned(
+              top: 0,
+              right: 0,
+              bottom: 0,
+              child: _TopicSidebarPanel(
+                width: _sidebarOverlayWidth(context),
                 siteUrl: siteUrl,
                 topic: snapshot.topic!,
-                postId: postId,
-                summary: snapshot.summary,
-                summaryLoading: snapshot.summaryLoading,
-                readTimeWordCount: snapshot.readTimeWordCount,
+                recommendations: snapshot.recommendations,
+                loading: recommendationsPending || snapshot.loadingMore,
+                selected: _recommendationsSourceId,
+                onSelected: _setRecommendationsSource,
+                onCollapsed: () => _setSidebarOverlayOpen(false),
+                route: widget.route,
+                registry: widget.registry,
               ),
-            );
-          },
-        ),
-      ),
-    );
-    final postStream = ReadingShortcuts(
-      commands: {
-        ReadingCommand.nextPost: () => _navigatePost(controller, snapshot, 1),
-        ReadingCommand.previousPost: () =>
-            _navigatePost(controller, snapshot, -1),
-        ReadingCommand.replyToPost: () => _replyToSelectedPost(controller),
-      },
-      child: ListBoundaryShortcuts(
-        key: ValueKey(('topic-post-boundary', siteUrl, snapshot.topicId)),
-        debugLabel: 'topic post stream',
-        initiallyActive: true,
-        focusNode: _keyboardFocus,
-        scrollController: _scroll!,
-        onStart: () => _jumpToBoundary(end: false),
-        onEnd: () => _jumpToBoundary(end: true),
-        child: DScrollBar(
-          controller: _scroll,
-          thumbVisibility: false,
-          child: postStreamContent,
-        ),
-      ),
-    );
+            ),
+        ],
+      );
+    }
 
     return Stack(
       children: [
         Positioned.fill(
           right: pinnedSidebarInset,
-          child: Column(
-            children: [
-              _TopicViewHeader(
-                inbox: widget.inbox,
-                keepTopicListOpen: widget.keepTopicListOpen,
-                registry: widget.registry,
-                title: snapshot.topic!.title,
-                siteUrl: siteUrl,
-                route: widget.route,
-                topic: snapshot.topic!,
-                scrollController: _scroll,
-                hasEarlierPosts: snapshot.hasEarlier,
-                isConnected: widget.isConnected,
-                bookmarkBusy: widget.bookmarkBusy,
-                canReturnToSidebar: widget.canReturnToSidebar,
-                sidebarVisible: showPinnedSidebar || showOverlaySidebar,
-                onToggleSidebar: showOverlaySidebar
-                    ? null
-                    : () => _toggleSidebar(canPinSidebar: canPinSidebar),
-              ),
-              Expanded(
-                child: Stack(
+          child: widget.inbox
+              ? TopicInboxHeader(
+                  key: ValueKey((
+                    'topic-inbox-header',
+                    siteUrl,
+                    snapshot.topicId,
+                    snapshot.navigationRevision,
+                  )),
+                  title: snapshot.topic!.title,
+                  siteUrl: siteUrl,
+                  route: widget.route,
+                  topic: snapshot.topic!,
+                  scrollController: _scroll,
+                  hasEarlierPosts: snapshot.hasEarlier,
+                  canReturnToSidebar: widget.canReturnToSidebar,
+                  keepTopicListOpen: widget.keepTopicListOpen,
+                  registry: widget.registry,
+                  bodyBuilder: buildBody,
+                )
+              : Column(
                   children: [
-                    Positioned.fill(
-                      child: Column(
-                        children: [
-                          _TopicPostSelectionToolbar(
-                            siteUrl: siteUrl,
-                            topic: snapshot.topic!,
-                          ),
-                          Expanded(
-                            child: Stack(
-                              clipBehavior: Clip.hardEdge,
-                              children: [
-                                Positioned.fill(child: postStream),
-                                _buildFloatingDayOverlay(readingLane.padding),
-                              ],
-                            ),
-                          ),
-                          _buildTopicBottomBar(
-                            controller,
-                            snapshot.streamIds.length,
-                            snapshot,
-                          ),
-                        ],
-                      ),
+                    _TopicViewHeader(
+                      inbox: widget.inbox,
+                      keepTopicListOpen: widget.keepTopicListOpen,
+                      registry: widget.registry,
+                      title: snapshot.topic!.title,
+                      siteUrl: siteUrl,
+                      route: widget.route,
+                      topic: snapshot.topic!,
+                      scrollController: _scroll,
+                      hasEarlierPosts: snapshot.hasEarlier,
+                      isConnected: widget.isConnected,
+                      bookmarkBusy: widget.bookmarkBusy,
+                      canReturnToSidebar: widget.canReturnToSidebar,
+                      sidebarVisible: showPinnedSidebar || showOverlaySidebar,
+                      onToggleSidebar: showOverlaySidebar
+                          ? null
+                          : () => _toggleSidebar(canPinSidebar: canPinSidebar),
                     ),
-                    if (showOverlaySidebar)
-                      Positioned(
-                        top: 0,
-                        right: 0,
-                        bottom: 0,
-                        child: _TopicSidebarPanel(
-                          width: _sidebarOverlayWidth(context),
-                          siteUrl: siteUrl,
-                          topic: snapshot.topic!,
-                          recommendations: snapshot.recommendations,
-                          loading:
-                              recommendationsPending || snapshot.loadingMore,
-                          selected: _recommendationsSourceId,
-                          onSelected: _setRecommendationsSource,
-                          onCollapsed: () => _setSidebarOverlayOpen(false),
-                          route: widget.route,
-                          registry: widget.registry,
-                        ),
-                      ),
+                    Expanded(child: buildBody(const [], 0)),
                   ],
                 ),
-              ),
-            ],
-          ),
         ),
         if (showPinnedSidebar)
           Positioned(
@@ -3344,8 +3399,9 @@ class _EmptyTopicProperty extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Text(
     label,
-    style: Theme.of(context).textTheme.labelMedium
-        ?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
+    style: Theme.of(context).textTheme.labelMedium?.copyWith(
+      color: Theme.of(context).colorScheme.onSurfaceVariant,
+    ),
   );
 }
 
@@ -3501,9 +3557,9 @@ class _MoreTopics extends StatelessWidget {
                       topic: selection.topics[index],
                       siteUrl: siteUrl,
                       recommendation: true,
-                      onTap: () =>
-                          ShellScope.read(context)
-                              .openTopicFromList(selection.topics[index]),
+                      onTap: () => ShellScope.read(
+                        context,
+                      ).openTopicFromList(selection.topics[index]),
                     )
                   else
                     TopicListRow(
