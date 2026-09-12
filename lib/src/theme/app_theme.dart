@@ -5,6 +5,7 @@ import '../models/site_appearance.dart';
 import '../ui/components/d_button.dart';
 import '../ui/components/d_scroll_area.dart';
 import '../ui/components/d_tooltip.dart';
+import '../ui/foundation/control_theme.dart';
 import '../ui/foundation/tokens.dart';
 import 'color_contrast.dart';
 import 'discourse_typography.dart';
@@ -567,6 +568,57 @@ abstract final class AppTheme {
   static ThemeData forPalette(ResolvedSitePalette palette) =>
       fromPalette(palette);
 
+  static DControlTheme _controlTheme(ColorScheme colors, Color background) {
+    Color mix(Color color, double amount) =>
+        Color.lerp(background, color, amount)!;
+    final backdrop = opaqueColorOnCanvas(background, colors.brightness);
+    final hover = mix(colors.primary, .22);
+    final foreground = _readableOn(
+      hover,
+      Color.lerp(colors.onSurface, colors.primary, .48)!,
+      backdrop: backdrop,
+      alternative: colors.onSurface,
+    );
+    // Some sites omit tertiary-low and inherit a container from another mode.
+    // Keep the same readable ink through hover by deriving a soft fill then.
+    final primaryFill =
+        _readableOn(colors.primaryContainer, foreground, backdrop: backdrop) ==
+            foreground
+        ? colors.primaryContainer
+        : mix(colors.primary, .18);
+    final accentFill = mix(colors.primary, .10);
+    return DControlTheme(
+      radius: 8,
+      outline: DControlSurface(
+        background: mix(colors.surfaceContainerHigh, .28),
+        hover: mix(colors.surfaceContainerHigh, .88),
+        foreground: colors.onSurface,
+        border: mix(colors.outlineVariant, .30),
+      ),
+      primary: DControlSurface(
+        background: primaryFill,
+        hover: hover,
+        foreground: _readableOn(
+          primaryFill,
+          foreground,
+          backdrop: backdrop,
+          alternative: colors.onSurface,
+        ),
+      ),
+      accent: DControlSurface(
+        background: accentFill,
+        hover: hover,
+        border: mix(colors.primary, .30),
+        foreground: _readableOn(
+          accentFill,
+          foreground,
+          backdrop: backdrop,
+          alternative: colors.onSurface,
+        ),
+      ),
+    );
+  }
+
   static ThemeData _build(
     Brightness brightness,
     ShellColors shell,
@@ -683,6 +735,7 @@ abstract final class AppTheme {
           selectedForeground: shell.selectedForeground,
           successColor: discourse.success,
           radius: borderRadius,
+          controls: _controlTheme(resolvedColorScheme, shell.content),
         ),
         shell,
         code,

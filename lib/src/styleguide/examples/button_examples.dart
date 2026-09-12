@@ -12,7 +12,9 @@ final buttonExamples = ComponentExamples(
   status: ComponentStatus.implemented,
   notes:
       'The base-nova surfaces use 24, 28, 32 and 36px sizes. Touch targets '
-      'expand invisibly to 48px. The app supplies colors, font and radius. '
+      'expand invisibly to 48px. The app supplies colors and font. '
+      'Its contextual control theme uses an 8px radius, neutral outlines, '
+      'soft primary actions and active notification tints from the forum palette. '
       'The fill stops at the 1px border like bg-clip-padding, and hover, '
       'expanded, focus, invalid and pressed changes transition over 150ms. '
       'Hover exit clears immediately so neighboring highlights never overlap. '
@@ -21,7 +23,7 @@ final buttonExamples = ComponentExamples(
       'use a hand for enabled buttons and forbidden for disabled or loading buttons. '
       'Rich labels may explicitly wrap. The Button '
       'Group composition uses the public DButtonGroup and DDropdownMenu owners. '
-      'Optional backgroundColor and borderColor preserve caller-supplied tints '
+      'Optional backgroundColor, foregroundColor and borderColor preserve caller-supplied tints '
       'across states; interactiveBackgroundColor controls hover/focus fills. '
       'Custom borders retain the themed focus ring and yield to invalid styling. '
       'Reference and native visual verification are recorded in the library documentation.',

@@ -107,9 +107,7 @@ class _DInputGroupState extends State<DInputGroup> {
           )
         : focused
         ? tokens.focusRing
-        : dark
-        ? tokens.colors.outlineVariant
-        : tokens.border;
+        : DControlStyle.outlineBorder(tokens, dark: dark);
     final ring = invalid
         ? tokens.destructive.withValues(
             alpha: tokens.destructive.a * (dark ? .4 : .2),
@@ -218,17 +216,11 @@ class _DInputGroupState extends State<DInputGroup> {
                   minHeight: multiline ? 64 : DControlStyle.height(widget.size),
                 ),
                 decoration: _InputGroupSurfaceDecoration(
-                  backgroundColor: dark
-                      ? tokens.colors.outlineVariant.withValues(
-                          alpha:
-                              tokens.colors.outlineVariant.a *
-                              (controlEnabled ? .3 : .8),
-                        )
-                      : controlEnabled
-                      ? Colors.transparent
-                      : tokens.colors.outlineVariant.withValues(
-                          alpha: tokens.colors.outlineVariant.a * .5,
-                        ),
+                  backgroundColor: DControlStyle.fieldFill(
+                    tokens,
+                    dark: dark,
+                    enabled: controlEnabled,
+                  ),
                   borderRadius: radius,
                   borderColor: border,
                   joinedAxis: joined?.axis,

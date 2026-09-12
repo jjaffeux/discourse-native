@@ -71,4 +71,5 @@ export 'src/ui/components/d_toggle_group.dart';
 export 'src/ui/components/d_tooltip.dart';
 export 'src/ui/components/d_typography.dart';
 export 'src/ui/foundation/control_style.dart' show DControlSize, DControlStyle;
+export 'src/ui/foundation/control_theme.dart';
 export 'src/ui/foundation/tokens.dart';

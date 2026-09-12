@@ -1,7 +1,11 @@
+import 'dart:ui' show Tristate;
+
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/shell/topic_progress.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -43,7 +47,10 @@ void main() {
           final bounds = tester.getRect(button);
           final label = '${scenario.position} / ${scenario.total}';
           final paragraph = tester.renderObject<RenderParagraph>(
-            find.descendant(of: button, matching: find.byType(RichText)),
+            find.descendant(
+              of: find.text(label),
+              matching: find.byType(RichText),
+            ),
           );
           final boxes = paragraph.getBoxesForSelection(
             TextSelection(baseOffset: 0, extentOffset: label.length),
@@ -71,13 +78,18 @@ void main() {
           final touch =
               Theme.of(tester.element(button)).platform ==
               TargetPlatform.android;
-          expect(bounds.height, touch ? 48 : 28 * scenario.scale);
-          final fill = tester.getRect(
-            find.byKey(const ValueKey('topic-progress-fill')),
+          expect(
+            bounds.height,
+            touch
+                ? 48
+                : DControlStyle.scaledHeight(
+                    DControlSize.regular,
+                    TextScaler.linear(scenario.scale),
+                  ),
           );
           expect(
-            fill.width / bounds.width,
-            closeTo(scenario.position / scenario.total, .001),
+            tester.widget<DButton>(button).variant,
+            DButtonVariant.outline,
           );
           expect(
             find.bySemanticsLabel(
@@ -101,5 +113,45 @@ void main() {
       TargetPlatform.macOS,
       TargetPlatform.android,
     }),
+  );
+
+  testWidgets(
+    'progress trigger supports keyboard activation and popup semantics',
+    (tester) async {
+      final semantics = tester.ensureSemantics();
+      var presses = 0;
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.dark,
+          home: Scaffold(
+            body: Center(
+              child: TopicProgressButton(
+                position: 0,
+                total: 0,
+                expanded: true,
+                onPressed: () => presses++,
+              ),
+            ),
+          ),
+        ),
+      );
+      final trigger = find.byKey(const ValueKey('topic-progress-button'));
+      expect(find.text('1 / 1'), findsOneWidget);
+      expect(
+        tester
+            .getSemantics(trigger)
+            .getSemanticsData()
+            .flagsCollection
+            .isExpanded,
+        Tristate.isTrue,
+      );
+      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pump();
+      expect(presses, 1);
+      expect(tester.takeException(), isNull);
+      semantics.dispose();
+    },
+    variant: TargetPlatformVariant.only(TargetPlatform.macOS),
   );
 }

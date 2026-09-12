@@ -157,7 +157,10 @@ void main() {
           ),
         ),
       );
-      _near(_pixel(pixels, 20, 36), const Color(0xFF777777));
+      _near(
+        _pixel(pixels, 20, 36),
+        theme.extension<DTokens>()!.controls!.outline.border,
+      );
       expect(_pixel(pixels, 20, 36), isNot(_pixel(pixels, 10, 36)));
     },
   );

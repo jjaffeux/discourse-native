@@ -57,6 +57,15 @@ example across palettes and states whenever changing a control foundation;
 update its golden baselines only after visual review. See
 [the migration and verification record](control-consistency.md).
 
+The app adopts **D — Contextual tints** through `DTokens.controls`: neutral
+outline surfaces, soft primary actions and accent notification states are
+derived at the `AppTheme` boundary from the current forum palette. Standard
+topic filters, header triggers and bottom actions use the regular 32px size
+and 8px control radius. The other size presets remain available for compact
+toolbars. Keep focus and link colors independent of the soft action fill.
+Category identity uses the category's own color with the same control geometry.
+See [the adoption and verification record](contextual-tints.md).
+
 ## Theme, layout and interaction
 
 `DTokens.of(context)` supplies semantic colors and radius, with a fallback for

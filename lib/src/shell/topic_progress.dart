@@ -3,9 +3,9 @@ import 'dart:async';
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
-import '../theme/app_theme.dart';
+import '../theme/d_icon.dart';
+import '../theme/d_icons.dart';
 import 'shell_controller.dart';
-import 'shell_metrics.dart';
 
 class TopicProgressButton extends StatelessWidget {
   const TopicProgressButton({
@@ -25,64 +25,28 @@ class TopicProgressButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final boundedPosition = position.clamp(1, total);
-    return DTooltip(
-      message: 'Topic progress',
-      child: Semantics(
-        button: true,
-        expanded: expanded,
-        label: 'Topic progress, post $boundedPosition of $total',
-        child: Material(
-          color: theme.shell.floating,
-          borderRadius: BorderRadius.circular(4),
-          clipBehavior: Clip.antiAlias,
-          child: InkWell(
-            key: const ValueKey('topic-progress-button'),
-            onTap: onPressed,
-            focusNode: focusNode,
-            child: SizedBox(
-              height: topicBottomBarControlHeight(context),
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(minWidth: 72),
-                child: Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    Positioned.fill(
-                      child: Align(
-                        alignment: Alignment.centerLeft,
-                        child: FractionallySizedBox(
-                          widthFactor: boundedPosition / total,
-                          child: ColoredBox(
-                            key: const ValueKey('topic-progress-fill'),
-                            color: theme.colorScheme.primary.withValues(
-                              alpha: 0.18,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                      child: FittedBox(
-                        fit: BoxFit.scaleDown,
-                        child: Text(
-                          '$boundedPosition / $total',
-                          maxLines: 1,
-                          softWrap: false,
-                          style: theme.textTheme.labelMedium?.copyWith(
-                            fontSize: DButton.fontSizeFor(DButtonSize.small),
-                            fontWeight: FontWeight.w600,
-                            fontFeatures: const [FontFeature.tabularFigures()],
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
+    final boundedTotal = total < 1 ? 1 : total;
+    final boundedPosition = position.clamp(1, boundedTotal);
+    return DButton(
+      key: const ValueKey('topic-progress-button'),
+      onPressed: onPressed,
+      focusNode: focusNode,
+      expanded: expanded ?? false,
+      hasPopup: true,
+      tooltip: 'Topic progress',
+      semanticLabel: 'Topic progress, post $boundedPosition of $boundedTotal',
+      variant: DButtonVariant.outline,
+      size: DButtonSize.regular,
+      icon: const DIcon(DIcons.chevronDown),
+      iconPosition: DButtonIconPosition.end,
+      label: FittedBox(
+        fit: BoxFit.scaleDown,
+        child: Text(
+          '$boundedPosition / $boundedTotal',
+          textDirection: TextDirection.ltr,
+          maxLines: 1,
+          softWrap: false,
+          style: const TextStyle(fontFeatures: [FontFeature.tabularFigures()]),
         ),
       ),
     );
