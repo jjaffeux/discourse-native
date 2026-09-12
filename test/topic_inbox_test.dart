@@ -1,5 +1,6 @@
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/app_settings.dart';
+import 'package:discourse_native/src/models/bookmark.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/post.dart';
@@ -26,6 +27,7 @@ import 'package:discourse_native/src/shell/topic_view.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:discourse_native/src/theme/d_icon.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
+import 'package:discourse_native/src/theme/d_native_icons.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -2172,6 +2174,95 @@ void main() {
     variant: TargetPlatformVariant.only(TargetPlatform.macOS),
   );
 
+  for (final theme in [AppTheme.light, AppTheme.dark]) {
+    testWidgets(
+      'saved bookmark retains its joined outline (${theme.brightness.name})',
+      (tester) async {
+        final setup = await _setup(tester, theme: theme);
+        setup.controller.openTopicFromList(setup.rows.first);
+        await tester.pumpAndSettle();
+        final bookmark = find.byKey(const ValueKey('topic-bookmark-button'));
+        final notifications = find.byKey(
+          const ValueKey('topic-notification-level-button'),
+        );
+        final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+        await mouse.addPointer(location: Offset.zero);
+        addTearDown(mouse.removePointer);
+        for (final width in [2000.0, 500.0]) {
+          tester.view.physicalSize = Size(width, 800);
+          await tester.pumpAndSettle();
+          final unselectedSize = tester.getSize(bookmark);
+          for (final saved in [true, false]) {
+            final payload = setup.api.topics[1]!;
+            setup.api.topics[1] = (
+              detail: payload.detail.copyWith(
+                notificationLevel: TopicNotificationLevel.tracking,
+                bookmarks: saved
+                    ? const [
+                        Bookmark(
+                          id: 81,
+                          bookmarkableId: 1,
+                          bookmarkableType: 'Topic',
+                        ),
+                      ]
+                    : const [],
+              ),
+              posts: payload.posts,
+            );
+            await setup.controller.loadTopic(1, 'topic-1', force: true);
+            await tester.pumpAndSettle();
+            final tokens = DTokens.of(tester.element(bookmark));
+            final controls = tokens.controls!;
+            final surface = buttonSurface(tester, of: bookmark);
+            expect(surface.borderColor, controls.outline.border);
+            expect(
+              surface.color,
+              saved ? controls.primary.background : controls.outline.background,
+            );
+            expect(
+              surface.borderRadius,
+              const BorderRadius.horizontal(left: Radius.circular(8)),
+            );
+            expect(tester.getSize(bookmark), unselectedSize);
+            expect(
+              tester.getRect(bookmark).right,
+              tester.getRect(notifications).left,
+            );
+            expect(
+              buttonSurface(tester, of: notifications).joinedAxis,
+              Axis.horizontal,
+            );
+            expect(
+              tester
+                  .widget<DIcon>(
+                    find.descendant(of: bookmark, matching: find.byType(DIcon)),
+                  )
+                  .icon,
+              saved ? DNativeIcons.bookmarkCheck : DNativeIcons.bookmark,
+            );
+            expect(tester.widget<DButton>(bookmark).hasPopup, isTrue);
+            if (saved) {
+              await mouse.moveTo(tester.getCenter(bookmark));
+              await tester.pumpAndSettle();
+              expect(
+                buttonSurface(tester, of: bookmark).color,
+                controls.primary.hover,
+              );
+              expect(
+                buttonSurface(tester, of: notifications).color,
+                controls.accent.background,
+              );
+              await mouse.moveTo(Offset.zero);
+              await tester.pumpAndSettle();
+            }
+          }
+        }
+        expect(tester.takeException(), isNull);
+      },
+      variant: TargetPlatformVariant.only(TargetPlatform.macOS),
+    );
+  }
+
   testWidgets('topic arrows hover independently and footer margins match', (
     tester,
   ) async {
@@ -2766,6 +2857,7 @@ Future<void> _scrollReaderToTop(WidgetTester tester) async {
 Future<({ShellController controller, FakeDiscourseApi api, List<Topic> rows})>
 _setup(
   WidgetTester tester, {
+  ThemeData? theme,
   PluginRegistry registry = PluginRegistry.empty,
   bool recommendations = false,
   bool canCreateTopic = false,
@@ -2929,7 +3021,7 @@ _setup(
     ShellScope(
       controller: shell,
       child: MaterialApp(
-        theme: AppTheme.light,
+        theme: theme ?? AppTheme.light,
         home: Scaffold(
           body: MainContent(layout: ShellLayout.expanded, registry: registry),
         ),

@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/macos_launch_screen.dart';
+import 'package:discourse_native/src/models/bookmark.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/site_appearance.dart';
@@ -195,6 +196,27 @@ class _ReviewState extends State<_Review> {
                         ),
                         onPressed: () =>
                             setState(() => widget.api.fail = !widget.api.fail),
+                      ),
+                      DButton(
+                        label: const Text('Toggle saved bookmark'),
+                        onPressed: () {
+                          final topic = widget.shell.currentTopic ?? _topic;
+                          widget.shell.store.put<TopicDetail>(
+                            _siteUrl,
+                            topic.copyWith(
+                              bookmarks: topic.topicBookmark == null
+                                  ? const [
+                                      Bookmark(
+                                        id: 701,
+                                        bookmarkableId: 101,
+                                        bookmarkableType: 'Topic',
+                                      ),
+                                    ]
+                                  : const [],
+                            ),
+                          );
+                          setState(() {});
+                        },
                       ),
                       DButton(
                         label: const Text('Reset topic'),

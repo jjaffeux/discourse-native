@@ -10,6 +10,7 @@ import '../models/post_flag.dart';
 import '../models/topic.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
+import '../theme/d_native_icons.dart';
 import 'adaptive_dialog_action.dart';
 import 'bookmark_ui.dart';
 import 'command_menu.dart';
@@ -45,17 +46,20 @@ class TopicBookmarkButton extends StatelessWidget {
             topic.topicBookmark?.reminderAt != null
                 ? DIcons.discourseBookmarkClock
                 : topic.hasBookmarks
-                ? DIcons.bookmark
-                : DIcons.farBookmark,
+                ? DNativeIcons.bookmarkCheck
+                : DNativeIcons.bookmark,
           );
     final tooltip = topic.hasBookmarks
         ? 'Manage ${topic.bookmarks.length} topic bookmark${topic.bookmarks.length == 1 ? '' : 's'}'
         : 'Bookmark this topic';
-    final buttonVariant =
-        topic.topicBookmark != null &&
-            (variant == null || variant == DButtonVariant.outline)
+    final buttonVariant = topic.topicBookmark != null && variant == null
         ? DButtonVariant.primary
         : variant ?? DButtonVariant.ghost;
+    // A saved bookmark keeps the joined outline while taking the selected fill.
+    final selectedSurface =
+        topic.topicBookmark != null && buttonVariant == DButtonVariant.outline
+        ? DTokens.of(context).controls?.primary
+        : null;
     void open() => unawaited(
       showTopicBookmarkMenu(
         context: context,
@@ -74,6 +78,10 @@ class TopicBookmarkButton extends StatelessWidget {
         tooltip: tooltip,
         loading: busy,
         variant: buttonVariant,
+        backgroundColor: selectedSurface?.background,
+        foregroundColor: selectedSurface?.foreground,
+        interactiveBackgroundColor: selectedSurface?.hover,
+        hasPopup: true,
         size: size,
       );
     }
@@ -84,6 +92,10 @@ class TopicBookmarkButton extends StatelessWidget {
       tooltip: tooltip,
       loading: busy,
       variant: buttonVariant,
+      backgroundColor: selectedSurface?.background,
+      foregroundColor: selectedSurface?.foreground,
+      interactiveBackgroundColor: selectedSurface?.hover,
+      hasPopup: true,
       size: size,
     );
   }
@@ -455,13 +467,13 @@ class TopicNotificationLevelButton extends StatelessWidget {
       emphasized: true,
       label: 'Tracking',
       description: 'Mentions, replies, and unread count',
-      icon: DIcon(DIcons.bell),
+      icon: DIcon(DNativeIcons.bell),
     ),
     DNotificationLevelOption(
       value: TopicNotificationLevel.normal,
       label: 'Normal',
       description: 'Mentions and replies only',
-      icon: DIcon(DIcons.farBell),
+      icon: DIcon(DNativeIcons.bell),
     ),
     DNotificationLevelOption(
       value: TopicNotificationLevel.muted,

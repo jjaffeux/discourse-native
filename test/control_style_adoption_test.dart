@@ -45,11 +45,17 @@ void main() {
     expect(
       actual,
       {
-        // Category identity is the sole app-owned color treatment. Both halves
-        // of the split control use the same tint.
+        // Category identity uses the same tint on both halves of the control.
         'lib/src/shell/topic_inbox_header.dart': {
           'backgroundColor': 2,
           'borderColor': 2,
+          'interactiveBackgroundColor': 2,
+        },
+        // A saved bookmark combines the kit's selected fill with its outline
+        // variant so the joined group keeps a continuous perimeter and divider.
+        'lib/src/shell/topic_actions.dart': {
+          'backgroundColor': 2,
+          'foregroundColor': 2,
           'interactiveBackgroundColor': 2,
         },
         // These are container/rail/navigation geometry, not alternative palettes.
@@ -66,10 +72,10 @@ void main() {
       // DButton(backgroundColor: ignored)
       final example = "DButton(padding: ignored)";
       DButton(label: Padding(padding: nested, child: label), onPressed: save,
-        borderColor: colors.border);
+        borderColor: colors.border, foregroundColor: colors.foreground);
       DButton.iconOnly(icon: Icon(icon), padding: edge);
     '''),
-      {'borderColor': 1, 'padding': 1},
+      {'borderColor': 1, 'foregroundColor': 1, 'padding': 1},
     );
   });
 }

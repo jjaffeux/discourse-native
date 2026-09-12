@@ -42,6 +42,39 @@ Production adoption covers:
 The Button styleguide's Control consistency example shows all four sizes and
 the contextual action group. Theme switching updates open overlays normally.
 
+## Saved bookmark follow-up — 13 September 2026
+
+The selected bookmark now retains its outline variant and shared divider.
+Its fill, ink and hover come from the existing primary control tokens, matching
+the mockup's selected tint without dropping the perimeter. This uses DButton's
+existing color options; the app styling guard records this composition explicitly.
+The bookmark trigger also declares its popup behavior, keeping it stationary
+when pressed. No generic control API or geometry changed.
+
+The topic bookmark and Tracking/Normal bell use the outline artwork from the
+mockup's Lucide 1.17.0 source, including `bookmark-check` for the saved state and
+the mockup's 1.8-unit stroke. Artwork lives in the existing DNativeIcons registry;
+the generated Discourse icon catalogue remains intact. Reminder bookmarks retain
+their clock indicator. Sources: [bookmark](https://raw.githubusercontent.com/lucide-icons/lucide/1.17.0/icons/bookmark.svg),
+[bookmark-check](https://raw.githubusercontent.com/lucide-icons/lucide/1.17.0/icons/bookmark-check.svg),
+[bell](https://raw.githubusercontent.com/lucide-icons/lucide/1.17.0/icons/bell.svg).
+The retained [Lucide license](evidence/avatar/lucide-LICENSE.txt) applies.
+
+Native verification used the actual topic action widgets in
+`tool/contextual_controls_review_main.dart` with in-memory data and the saved
+dev.discourse.org palettes. Checked selected/unselected states, Tracking/Normal,
+dark/light palettes, 740px and 320px layouts, 100%/200% text, LTR/RTL, independent
+hover, keyboard focus and Return activation, bookmark management and Escape
+dismissal. Inspected the existing Control consistency example as well.
+Only macOS was run; the compact checks were desktop fixture layouts.
+
+The isolated `/tmp/bookmarked-controls-629a.app` launched successfully with the
+permitted debug entitlements read back. Its kernel matched the build at SHA-256
+`3c571b10efaf506328ee352c6b3e97b1ea1d7347b3e6aa075a097572858652b2`.
+Static analysis passed. Focused checks cover saved-state transitions and hover
+in both themes and footer widths, existing topic inbox interactions, bookmark
+menus, icon rendering, contextual palettes and the explicit styling guard.
+
 ## Verification — 13 September 2026
 
 Static analysis and formatting use the pinned Flutter 3.47.2 / Dart 3.13.2.
