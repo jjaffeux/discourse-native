@@ -84,7 +84,7 @@ class _TopicCreateControl extends StatelessWidget {
             semanticLabel: 'New topic',
             onPressed: onPressed,
             variant: DButtonVariant.primary,
-            size: DButtonSize.small,
+            size: DButtonSize.regular,
           )
         : DButton.iconOnly(
             key: TopicCreateButton.buttonKey,
@@ -94,7 +94,7 @@ class _TopicCreateControl extends StatelessWidget {
             semanticLabel: 'New topic',
             onPressed: onPressed,
             variant: DButtonVariant.primary,
-            size: DButtonSize.small,
+            size: DButtonSize.regular,
           );
     final instance = draftsInstance;
     if (instance == null) return mainButton;
@@ -127,7 +127,7 @@ class _TopicCreateControl extends StatelessWidget {
                 hasPopup: true,
                 expanded: state.open,
                 variant: DButtonVariant.primary,
-                size: DButtonSize.small,
+                size: DButtonSize.regular,
               );
               return button;
             },
