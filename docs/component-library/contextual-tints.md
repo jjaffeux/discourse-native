@@ -52,11 +52,22 @@ focus rings, and live notification selection/theme changes.
 files reports **308 passes**, including all 12 updated golden images, and the
 five pre-existing assertions described below. `git diff --check` is clean.
 
-The final candidate starts from the newer main `c36adeb7` and merges the
+The first integration starts from main `c36adeb7` and merges the
 implementation commit `3f39e730` without replacing the updated toolbar title.
 The additional inbox/navigation run passes all **87 tests**, covering title
 editing and scrolling, header/tag sizing, aligned footer heights at 100–200%
 text, joined actions at 500px/2000px, bookmark/notification menus and Reply.
+
+The final candidate starts from `36cd2d46`, preserving the subsequent inline
+title editor. All **95 tests** in the combined inbox, title editor, field
+ownership and contextual-theme run pass. Analysis is clean after integration.
+The final macOS bundle was rebuilt and launched with the same Flutter kernel
+as the candidate: SHA-256
+`609a4680c32c7a1bb58f8917e96ee1cb2e00b987322efab3f657a1af45f60e63`.
+Native checks repeated the combined dark header, editing and saving a title by
+opening the category picker, typing into that picker, and the light 320px/200%
+RTL action group. Counts retain `1 / 4` order. Both isolated review apps were
+quit and the desktop lease was released.
 
 The 12 control-family golden images were visually reviewed before updating:
 light, dark, forest and plum at rest, hover and open; Flutter test renderer,
