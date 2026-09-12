@@ -17,7 +17,7 @@ void main() {
       ) async {
         const background = Color(0xff080808);
         const fill = Color(0xff262626);
-        const rule = Color(0xff404040);
+        const rule = Color(0xff0785aa);
         final boundary = GlobalKey();
         await _pump(
           tester,
@@ -54,6 +54,12 @@ void main() {
             ),
           ),
         );
+        expect(
+          tester.getSize(find.byType(DSeparator)),
+          axis == Axis.horizontal
+              ? Size(1, tester.getSize(find.byType(DButtonGroup)).height)
+              : Size(tester.getSize(find.byType(DButtonGroup)).width, 1),
+        );
         final origin = tester.getTopLeft(find.byKey(boundary));
         final seam = tester
             .getRect(find.byType(DButtonGroupSeparator))
@@ -88,11 +94,19 @@ void main() {
           image.dispose();
           return result;
         });
+        final expected =
+            axis == Axis.horizontal && direction == TextDirection.rtl
+            ? [
+                Color.lerp(rule, Colors.white, .15)!,
+                Color.lerp(rule, Colors.black, .25)!,
+              ]
+            : [
+                Color.lerp(rule, Colors.black, .25)!,
+                Color.lerp(rule, Colors.white, .15)!,
+              ];
         expect(
-          colors,
-          axis == Axis.horizontal && direction == TextDirection.rtl
-              ? [rule, background]
-              : [background, rule],
+          colors!.map((color) => color.toARGB32()),
+          expected.map((color) => color.toARGB32()),
         );
         expect(tester.takeException(), isNull);
       });
@@ -444,14 +458,16 @@ void main() {
     expect(find.byType(DSeparator), findsOneWidget);
     expect(
       tester.widget<DSeparator>(find.byType(DSeparator)).color,
-      DTokens.of(
-        tester.element(find.byType(DButtonGroupSeparator)),
-      ).colors.outlineVariant,
+      Color.lerp(
+        DTokens.of(tester.element(find.byType(DButtonGroupSeparator))).muted,
+        Colors.white,
+        .15,
+      ),
     );
     expect(find.byType(FilledButton), findsOneWidget);
     final buttonHeight = tester.getSize(find.byType(FilledButton)).height;
     expect(tester.getSize(find.byType(DButtonGroup)).height, buttonHeight);
-    expect(tester.getSize(find.byType(DSeparator)).height, buttonHeight - 2);
+    expect(tester.getSize(find.byType(DSeparator)).height, buttonHeight);
     expect(
       tester.getSemantics(find.byType(DButtonGroupText)),
       matchesSemantics(label: 'Current branch main'),
@@ -502,7 +518,7 @@ void main() {
 
     final width = tester.getSize(find.byType(FilledButton).last).width;
     expect(tester.getSize(find.byType(DButtonGroup)).width, width);
-    expect(tester.getSize(find.byType(DSeparator)).width, width - 2);
+    expect(tester.getSize(find.byType(DSeparator)).width, width);
     expect(tester.takeException(), isNull);
   });
 
