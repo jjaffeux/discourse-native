@@ -4,6 +4,9 @@ The user selected **D** from the [button proposals](../mockups/button-directions
 and approved extending the Native kit's shared control theme. This adopts the
 selected direction across the app using each forum's resolved palette.
 Implementation branch: `codex/contextual-tint-controls`, based on main `6c63feaf`.
+Final integration branch: `codex/contextual-tint-controls-final`.
+Merged into local main from the main checkout as
+`15894fce62822fe227912a8af667037515bdf750`.
 
 ## Appearance and ownership
 
