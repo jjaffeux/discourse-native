@@ -554,10 +554,10 @@ void main() {
     await tester.pumpAndSettle();
     expect(field, findsOneWidget);
     expect(
-      tester.widget<DTextarea>(field).controller!.text,
+      tester.widget<DInput>(field).controller!.text,
       'Updated coverage plan',
     );
-    expect(_compactHeader, findsOneWidget);
+    expect(_compactHeader, findsNothing);
     await tester.sendKeyEvent(LogicalKeyboardKey.enter);
     await tester.pumpAndSettle();
     expect(shell.currentTopic!.title, 'Updated coverage plan');
@@ -575,9 +575,14 @@ void main() {
         shell.openTopicFromList(setup.rows.first);
         await tester.pumpAndSettle();
         final originalTitle = shell.currentTopic!.title;
+        final scroll = _readerScroll(tester);
+        scroll.jumpTo(200);
+        await tester.pumpAndSettle();
+        final scrollOffset = scroll.offset;
         final compact = _compactHeader;
         final title = find.byKey(const ValueKey('topic-header-compact-title'));
         final field = find.byKey(const ValueKey('topic-header-title-field'));
+        final titleLeft = tester.getRect(field).left;
         await tester.sendKeyEvent(LogicalKeyboardKey.tab);
         await tester.pumpAndSettle();
         expect(FocusScope.of(tester.element(title)).focusedChild, isNotNull);
@@ -589,11 +594,15 @@ void main() {
         await tester.pump(const Duration(milliseconds: 16));
         await mouse.up();
         await tester.pumpAndSettle();
-        expect(tester.widget<DTextarea>(field).focusNode!.hasFocus, isTrue);
-        expect(compact, findsOneWidget);
+        expect(tester.widget<DInput>(field).focusNode!.hasFocus, isTrue);
+        expect(compact, findsNothing);
+        final toolbar = find.byKey(const ValueKey('topic-content-header'));
+        expect(find.descendant(of: toolbar, matching: field), findsOneWidget);
+        expect(tester.getRect(field).left, titleLeft);
+        expect(scroll.offset, scrollOffset);
         expect(find.text('Enter to save · Esc to cancel'), findsNothing);
-        expect(find.widgetWithText(DButton, 'Cancel'), findsOneWidget);
-        expect(find.widgetWithText(DButton, 'Save'), findsOneWidget);
+        expect(find.widgetWithText(DButton, 'Cancel'), findsNothing);
+        expect(find.widgetWithText(DButton, 'Save'), findsNothing);
 
         await tester.tap(field);
         await tester.pumpAndSettle();
@@ -608,6 +617,7 @@ void main() {
         expect(field.hitTestable(), findsOneWidget);
         expect(tester.widget<DButton>(field).focusNode!.hasFocus, isTrue);
         expect(tester.widget<TopicTitle>(title).title, expectedTitle);
+        expect(scroll.offset, scrollOffset);
         if (save) {
           expect(setup.api.topicsUpdated.single['title'], expectedTitle);
         } else {
@@ -618,6 +628,36 @@ void main() {
       variant: TargetPlatformVariant.only(TargetPlatform.macOS),
     );
   }
+
+  testWidgets('saving a wrapped title on blur still opens the clicked category', (
+    tester,
+  ) async {
+    final setup = await _setup(tester);
+    setup.controller.openTopicFromList(setup.rows.first);
+    await tester.pumpAndSettle();
+    final field = find.byKey(const ValueKey('topic-header-title-field'));
+    await tester.tap(field);
+    await tester.pumpAndSettle();
+    const title =
+        'Customer Support Coverage Week - Seville 2026: coordinating schedules, '
+        'travel, and team availability across every time zone';
+    await tester.enterText(field, title);
+    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    addTearDown(mouse.removePointer);
+    final category = tester.getCenter(find.byTooltip('Edit topic category'));
+    await mouse.addPointer(location: category);
+    await mouse.down(category);
+    await tester.pump(const Duration(milliseconds: 100));
+    await mouse.up();
+    await tester.pumpAndSettle();
+    expect(setup.controller.currentTopic!.title, title);
+    expect(
+      find.byKey(const ValueKey(('topic-category-picker-option', 21))),
+      findsOneWidget,
+    );
+    expect(_compactHeader, findsOneWidget);
+    expect(tester.takeException(), isNull);
+  }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 
   testWidgets('compact titles remain read-only without edit permission', (
     tester,
@@ -2530,7 +2570,7 @@ void main() {
       await tester.pump();
       expect(frame, findsOneWidget);
       expect(hint, findsNothing);
-      expect(find.widgetWithText(DButton, 'Save'), findsOneWidget);
+      expect(find.widgetWithText(DButton, 'Save'), findsNothing);
       await tester.enterText(title, 'A clearer topic title');
       await tester.sendKeyEvent(LogicalKeyboardKey.enter);
       await tester.pumpAndSettle();

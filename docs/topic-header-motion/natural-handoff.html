@@ -6,8 +6,8 @@
   <meta name="color-scheme" content="light dark">
   <title>Natural handoff · Full topic header</title>
   <link rel="stylesheet" href="mockups.css">
-  <link rel="stylesheet" href="natural-handoff.css?v=single-title">
-  <script src="natural-handoff.js?v=single-title" defer></script>
+  <link rel="stylesheet" href="natural-handoff.css?v=inline-edit">
+  <script src="natural-handoff.js?v=inline-edit-2" defer></script>
 </head>
 <body>
 <main class="lab full-content-lab" id="full-header-lab">
@@ -58,12 +58,6 @@
         <div class="reader" id="reader">
           <div class="topic-scroll" id="conversation" role="region" tabindex="0" aria-label="Scroll the example conversation">
             <div class="header-spacer" aria-hidden="true"></div>
-            <div class="opening-title" id="opening-title" hidden>
-              <form class="inline-editor" id="title-editor" hidden>
-                <label class="sr-only" for="title-input">Topic title</label><textarea id="title-input" rows="3" required></textarea>
-                <div class="editor-actions"><button class="native-button" type="button" data-action="cancel-title">Cancel</button><button class="native-button" type="submit">Save</button></div>
-              </form>
-            </div>
 
             <div class="taxonomy-dock" id="taxonomy-dock" aria-label="Topic categories and tags">
               <div class="category-controls" id="category-controls">
@@ -94,7 +88,12 @@
 
           <header class="topic-header" id="topic-header" aria-label="Topic header">
             <div class="toolbar-leading"><button class="native-button ghost icon-only" data-action="collapse" aria-label="Collapse topic" title="Collapse topic"><span data-icon="collapse"></span></button></div>
-            <div class="toolbar-title" id="compact-title"><h3><button class="title-edit" id="edit-compact-title" data-action="edit-title" aria-label="Edit topic title"><span data-topic-title></span></button></h3></div>
+            <div class="toolbar-title" id="compact-title">
+              <h3 id="toolbar-title-label"><button class="title-edit" id="edit-compact-title" data-action="edit-title" aria-label="Edit topic title"><span data-topic-title></span></button></h3>
+              <form class="inline-editor" id="title-editor" hidden>
+                <label class="sr-only" for="title-input">Topic title</label><input id="title-input" type="text" required>
+              </form>
+            </div>
             <div class="toolbar-actions" id="toolbar-actions">
               <div class="plugin-properties" id="plugin-properties">
                 <button class="native-button event-trigger" id="event-trigger" data-action="event" aria-label="Event details" title="Event details" hidden><span data-icon="calendar"></span><span class="property-label">Sep 21</span></button>

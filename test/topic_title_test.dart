@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 
@@ -184,25 +185,21 @@ void main() {
 
       await pumpEditor(false);
       await pumpEditor(true);
-      final editor = find.byType(DTextarea);
-      expect(
-        tester.widget<DTextarea>(editor).focusNode!.hasPrimaryFocus,
-        isTrue,
-      );
-      final element = tester.element(editor);
+      final editor = find.byType(DInput);
+      expect(tester.widget<DInput>(editor).focusNode!.hasPrimaryFocus, isTrue);
       final outsideFocus = Focus.of(tester.element(find.text('Outside')));
       outsideFocus.requestFocus();
       await tester.pumpAndSettle();
       await pumpEditor(true);
-      expect(tester.element(editor), same(element));
+      expect(editor, findsNothing);
       expect(outsideFocus.hasPrimaryFocus, isTrue);
-      expect(find.text('Save'), findsOneWidget);
+      expect(find.text('Save'), findsNothing);
       expect(find.text('Enter to save · Esc to cancel'), findsNothing);
     },
   );
 
   testWidgets(
-    'framed title saves explicitly and preserves a failed edit for retry or cancellation',
+    'inline title saves on blur and preserves a failed edit for retry or Escape',
     (tester) async {
       final controller = _controller();
       addTearDown(controller.dispose);
@@ -221,41 +218,52 @@ void main() {
       );
       await tester.tap(find.byKey(const ValueKey('topic-header-title-field')));
       await tester.pumpAndSettle();
-      await tester.enterText(find.byType(DTextarea), 'Retained edit');
+      await tester.enterText(find.byType(DInput), 'Retained edit');
       await tester.tap(find.byKey(const ValueKey('outside-title-editor')));
       await tester.pumpAndSettle();
-      expect(attempted, isEmpty);
-      expect(find.text('Save'), findsOneWidget);
-      await tester.tap(find.widgetWithText(DButton, 'Save'));
-      await tester.pumpAndSettle();
+      expect(find.text('Save'), findsNothing);
       expect(attempted, ['Retained edit']);
-      final field = tester.widget<DTextarea>(find.byType(DTextarea));
+      final field = tester.widget<DInput>(find.byType(DInput));
       expect(field.controller!.text, 'Retained edit');
       expect(field.focusNode!.hasFocus, isTrue);
       expect(find.text('The title could not be saved.'), findsOneWidget);
       fail = false;
-      await tester.tap(find.widgetWithText(DButton, 'Save'));
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
       await tester.pumpAndSettle();
       expect(attempted, ['Retained edit', 'Retained edit']);
-      expect(find.byType(DTextarea), findsNothing);
-      expect(find.text('Retained edit'), findsOneWidget);
+      expect(find.byType(DInput), findsNothing);
+      expect(
+        tester.widget<TopicTitle>(find.byType(TopicTitle)).title,
+        'Retained edit',
+      );
       await tester.tap(find.byKey(const ValueKey('topic-header-title-field')));
       await tester.pumpAndSettle();
-      await tester.enterText(find.byType(DTextarea), 'Discard this');
-      await tester.tap(find.widgetWithText(DButton, 'Cancel'));
+      await tester.enterText(find.byType(DInput), 'Discard this');
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
       await tester.pumpAndSettle();
       expect(attempted.length, 2);
-      expect(find.text('Retained edit'), findsOneWidget);
-      expect(find.byType(DTextarea), findsNothing);
+      expect(
+        tester.widget<TopicTitle>(find.byType(TopicTitle)).title,
+        'Retained edit',
+      );
+      expect(find.byType(DInput), findsNothing);
+      await tester.tap(find.byKey(const ValueKey('topic-header-title-field')));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(DInput), 'Saved after cancellation');
+      await tester.tap(find.byKey(const ValueKey('outside-title-editor')));
+      await tester.pumpAndSettle();
+      expect(attempted.last, 'Saved after cancellation');
+      expect(find.byType(DInput), findsNothing);
     },
   );
 
   testWidgets(
-    'framed title retains an unfocused draft during a server update',
+    'saving on blur preserves focus on the next control while the request completes',
     (tester) async {
       final controller = _controller();
       addTearDown(controller.dispose);
       final saved = <String>[];
+      final pending = Completer<String?>();
       Future<void> pumpTitle(String title) => tester.pumpWidget(
         _TestEditor(
           controller: controller,
@@ -263,35 +271,38 @@ void main() {
           showEditingFrame: true,
           onSave: (value) async {
             saved.add(value);
-            return null;
+            return pending.future;
           },
         ),
       );
       await pumpTitle('Original title');
       await tester.tap(find.byKey(const ValueKey('topic-header-title-field')));
       await tester.pumpAndSettle();
-      await tester.enterText(find.byType(DTextarea), 'My draft');
-      Focus.of(tester.element(find.text('Outside'))).requestFocus();
+      await tester.enterText(find.byType(DInput), 'My draft');
+      final outsideFocus = Focus.of(tester.element(find.text('Outside')));
+      outsideFocus.requestFocus();
       await tester.pumpAndSettle();
       expect(
-        tester.widget<DTextarea>(find.byType(DTextarea)).focusNode!.hasFocus,
+        tester.widget<DInput>(find.byType(DInput)).focusNode!.hasFocus,
         isFalse,
       );
       await pumpTitle('Updated on the server');
       expect(
-        tester.widget<DTextarea>(find.byType(DTextarea)).controller!.text,
+        tester.widget<DInput>(find.byType(DInput)).controller!.text,
         'My draft',
       );
-      await tester.tap(find.widgetWithText(DButton, 'Cancel'));
+      expect(saved, ['My draft']);
+      expect(outsideFocus.hasPrimaryFocus, isTrue);
+      pending.complete();
       await tester.pumpAndSettle();
-      expect(find.text('Updated on the server'), findsOneWidget);
-      expect(saved, isEmpty);
+      expect(find.text('My draft'), findsOneWidget);
+      expect(outsideFocus.hasPrimaryFocus, isTrue);
     },
   );
 
   for (final brightness in Brightness.values) {
     testWidgets(
-      'framed ${brightness.name} title supports buttons and keyboard at large text',
+      'inline ${brightness.name} title supports Enter and Escape at large text without buttons',
       (tester) async {
         final controller = _controller();
         addTearDown(controller.dispose);
@@ -319,30 +330,30 @@ void main() {
         await tester.pumpAndSettle();
         expect(
           find.widgetWithText(DButton, 'Save').hitTestable(),
-          findsOneWidget,
+          findsNothing,
         );
         expect(
           find.widgetWithText(DButton, 'Cancel').hitTestable(),
-          findsOneWidget,
+          findsNothing,
         );
         expect(find.text('Enter to save · Esc to cancel'), findsNothing);
         await tester.enterText(
-          find.byType(DTextarea),
+          find.byType(DInput),
           'A more welcoming first week',
         );
         await tester.sendKeyEvent(LogicalKeyboardKey.enter);
         await tester.pumpAndSettle();
         expect(saved, ['A more welcoming first week']);
-        expect(find.byType(DTextarea), findsNothing);
+        expect(find.byType(DInput), findsNothing);
         await tester.tap(
           find.byKey(const ValueKey('topic-header-title-field')),
         );
         await tester.pumpAndSettle();
-        await tester.enterText(find.byType(DTextarea), 'Do not save');
+        await tester.enterText(find.byType(DInput), 'Do not save');
         await tester.sendKeyEvent(LogicalKeyboardKey.escape);
         await tester.pumpAndSettle();
         expect(saved.length, 1);
-        expect(find.byType(DTextarea), findsNothing);
+        expect(find.byType(DInput), findsNothing);
         expect(tester.takeException(), isNull);
       },
     );

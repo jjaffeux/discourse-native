@@ -14,10 +14,11 @@ Assignment and topic
 actions remain available throughout. The post viewport does not resize on
 scroll or reopen after a small upward gesture.
 
-The title editor composes Native `DTextarea` and `DButton` controls. Clicking
-the compact title returns to the opening editor. Save and Cancel are explicit;
-there is no keyboard-hint text. Enter and Escape remain supported, and failed
-saves retain the draft. No Native component API was added or changed.
+Clicking the title replaces it with a Native `DInput` in the same toolbar slot,
+without changing the reading position. Enter or leaving the field saves;
+Escape cancels. There are no Save/Cancel buttons or keyboard-hint text. Failed
+saves retain the draft. A save triggered by leaving the field preserves focus
+on the next control. No Native component API was added or changed.
 
 The post stream retains its virtualized list controller, measured heights and
 post identities. Pinned controls are accounted for in reading progress,
@@ -41,6 +42,17 @@ cancelling the editor, desktop and 390px widths, both palettes and 200% text.
 The updated browser mockup retained an 80px wrapped toolbar at both 0px and
 560px scroll, restored title focus after Cancel, and fit the 390px preset.
 
+The inline-edit follow-up passed those 165 focused tests plus a mouse regression
+for opening the category picker while a wrapped title saves on blur. Static
+analysis and the debug macOS build passed. The isolated native fixture and
+Native Input styleguide were inspected; the title was exercised with Enter,
+Escape and click-away saving, at desktop and 390px widths, in both palettes
+and with 200% text. Editing and cancellation retained the native reading
+position at post 5. The browser mockup passed Enter/Escape, click-away saving
+with category focus, and both palettes at desktop and 390px widths. Its title
+editor has no buttons and fits inside the toolbar. Browser diagnostics,
+JavaScript syntax and whitespace checks passed.
+
 ## Direction 02: full-content follow-up
 
 Open `natural-handoff.html` for the focused continuation requested by the user.
@@ -62,7 +74,7 @@ scroll viewport or recreate the taxonomy controls.
 
 The title was reduced from 24px to 18px after the user's review. A subsequent
 review moved it into the top bar at all scroll positions. Clicking the title
-opens the full-width editor below the toolbar, with Save and Cancel.
+now edits it directly in place, without Save or Cancel buttons.
 
 The values are illustrative; the inventory comes from
 `topic_inbox_header.dart`, `topic_header_tags.dart`, `topic_actions.dart`,

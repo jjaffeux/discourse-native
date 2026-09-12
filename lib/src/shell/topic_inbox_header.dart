@@ -67,8 +67,6 @@ class TopicInboxHeader extends StatefulWidget {
 class _TopicInboxHeaderState extends State<TopicInboxHeader> {
   final _taxonomyKey = GlobalKey();
   final _pinnedExtent = FrameSafeValueNotifier(0.0);
-  final _titleTriggerFocus = FocusNode(debugLabel: 'edit toolbar topic title');
-  bool _editingTitle = false;
   bool _updateScheduled = false;
 
   @override
@@ -80,12 +78,6 @@ class _TopicInboxHeaderState extends State<TopicInboxHeader> {
   @override
   void didUpdateWidget(TopicInboxHeader oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.siteUrl != widget.siteUrl ||
-        oldWidget.topic?.id != widget.topic?.id ||
-        oldWidget.scrollController != widget.scrollController) {
-      _editingTitle = false;
-    }
-    if (widget.topic?.canEdit != true) _editingTitle = false;
     _updateAfterLayout();
   }
 
@@ -105,31 +97,9 @@ class _TopicInboxHeaderState extends State<TopicInboxHeader> {
     }
   }
 
-  void _titleEditingChanged(bool editing) {
-    if (_editingTitle == editing) return;
-    setState(() => _editingTitle = editing);
-    _updateAfterLayout();
-    if (!editing) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted && _titleTriggerFocus.canRequestFocus) {
-          _titleTriggerFocus.requestFocus();
-        }
-      });
-    }
-  }
-
-  void _editTitle() {
-    _titleEditingChanged(true);
-    final scroll = widget.scrollController;
-    if (scroll != null && scroll.hasClients) {
-      scroll.jumpTo(scroll.position.minScrollExtent);
-    }
-  }
-
   @override
   void dispose() {
     _pinnedExtent.dispose();
-    _titleTriggerFocus.dispose();
     super.dispose();
   }
 
@@ -138,18 +108,7 @@ class _TopicInboxHeaderState extends State<TopicInboxHeader> {
     final topic = widget.topic;
     final siteUrl = widget.siteUrl;
     final hasTopic = topic != null && siteUrl != null;
-    final showOpening = hasTopic && _editingTitle;
-    final showActivity = hasTopic && (!widget.hasEarlierPosts || _editingTitle);
-    final opening = _TopicHeaderReadingLane(
-      child: Padding(
-        padding: const EdgeInsets.only(top: 12, bottom: 5),
-        child: _ExpandedTopicHeaderTitle(
-          header: widget,
-          autofocus: _editingTitle,
-          onEditingChanged: _titleEditingChanged,
-        ),
-      ),
-    );
+    final showActivity = hasTopic && !widget.hasEarlierPosts;
     final taxonomy = hasTopic
         ? ColoredBox(
             color: Theme.of(context).shell.content,
@@ -173,23 +132,13 @@ class _TopicInboxHeaderState extends State<TopicInboxHeader> {
             ),
           )
         : const SizedBox.shrink();
-    final toolbar = _TopicHeaderToolbar(
-      header: widget,
-      editingTitle: _editingTitle,
-      titleFocusNode: _titleTriggerFocus,
-      onEditTitle: topic?.canEdit == true ? _editTitle : null,
-    );
+    final toolbar = _TopicHeaderToolbar(header: widget);
     final bodyBuilder = widget.bodyBuilder;
     if (bodyBuilder == null) {
       return Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          toolbar,
-          if (showOpening) opening,
-          taxonomy,
-          if (showActivity) activity,
-        ],
+        children: [toolbar, taxonomy, if (showActivity) activity],
       );
     }
     return Column(
@@ -207,12 +156,12 @@ class _TopicInboxHeaderState extends State<TopicInboxHeader> {
                 SliverLayoutBuilder(
                   builder: (context, constraints) {
                     _updateAfterLayout();
-                    return SliverToBoxAdapter(
-                      child: showOpening ? opening : const SizedBox.shrink(),
+                    return PinnedHeaderSliver(
+                      key: _taxonomyKey,
+                      child: taxonomy,
                     );
                   },
                 ),
-                PinnedHeaderSliver(key: _taxonomyKey, child: taxonomy),
                 SliverToBoxAdapter(
                   child: showActivity ? activity : const SizedBox.shrink(),
                 ),
@@ -240,17 +189,9 @@ class _TopicHeaderReadingLane extends StatelessWidget {
 }
 
 class _TopicHeaderToolbar extends StatelessWidget {
-  const _TopicHeaderToolbar({
-    required this.header,
-    required this.editingTitle,
-    required this.titleFocusNode,
-    required this.onEditTitle,
-  });
+  const _TopicHeaderToolbar({required this.header});
 
   final TopicInboxHeader header;
-  final bool editingTitle;
-  final FocusNode titleFocusNode;
-  final VoidCallback? onEditTitle;
 
   @override
   Widget build(BuildContext context) => LayoutBuilder(
@@ -291,12 +232,7 @@ class _TopicHeaderToolbar extends StatelessWidget {
                       ),
                       end: 8,
                     ),
-                    child: _CompactTopicHeaderTitle(
-                      header: header,
-                      editing: editingTitle,
-                      focusNode: titleFocusNode,
-                      onEdit: onEditTitle,
-                    ),
+                    child: _TopicHeaderTitle(header: header),
                   ),
                 ),
                 _TopicHeaderActions(
@@ -312,15 +248,9 @@ class _TopicHeaderToolbar extends StatelessWidget {
   );
 }
 
-class _ExpandedTopicHeaderTitle extends StatelessWidget {
-  const _ExpandedTopicHeaderTitle({
-    required this.header,
-    required this.autofocus,
-    required this.onEditingChanged,
-  });
+class _TopicHeaderTitle extends StatelessWidget {
+  const _TopicHeaderTitle({required this.header});
   final TopicInboxHeader header;
-  final bool autofocus;
-  final ValueChanged<bool> onEditingChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -329,70 +259,35 @@ class _ExpandedTopicHeaderTitle extends StatelessWidget {
     final style = Theme.of(
       context,
     ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600);
-    return topic?.canEdit == true && siteUrl != null
-        ? InlineTopicTitleEditor(
-            key: ValueKey(('topic-header-title', siteUrl, topic!.id)),
-            title: header.title,
-            siteUrl: siteUrl,
-            style: style,
+    if (topic?.canEdit == true && siteUrl != null) {
+      return InlineTopicTitleEditor(
+        key: ValueKey(('topic-header-title', siteUrl, topic!.id)),
+        title: header.title,
+        siteUrl: siteUrl,
+        style: style,
+        maxLines: 3,
+        showEditingFrame: true,
+        onSave: (value) => ShellScope.read(
+          context,
+        ).saveTopicTitle(siteUrl: siteUrl, topicId: topic.id, title: value),
+      );
+    }
+    final title = siteUrl == null
+        ? Text(
+            header.title,
             maxLines: 3,
-            showEditingFrame: true,
-            autofocus: autofocus,
-            onEditingChanged: onEditingChanged,
-            onSave: (value) => ShellScope.read(
-              context,
-            ).saveTopicTitle(siteUrl: siteUrl, topicId: topic.id, title: value),
+            overflow: TextOverflow.ellipsis,
+            style: style,
           )
         : TopicTitle(
             header.title,
-            siteUrl: siteUrl!,
+            key: const ValueKey('topic-header-compact-title'),
+            siteUrl: siteUrl,
             maxLines: 3,
             overflow: TextOverflow.ellipsis,
             style: style,
-            key: const ValueKey('topic-header-title'),
           );
-  }
-}
-
-class _CompactTopicHeaderTitle extends StatelessWidget {
-  const _CompactTopicHeaderTitle({
-    required this.header,
-    required this.editing,
-    required this.focusNode,
-    required this.onEdit,
-  });
-  final TopicInboxHeader header;
-  final bool editing;
-  final FocusNode focusNode;
-  final VoidCallback? onEdit;
-
-  @override
-  Widget build(BuildContext context) {
-    final title = header.siteUrl == null
-        ? Text(header.title, maxLines: 1, overflow: TextOverflow.ellipsis)
-        : TopicTitle(
-            header.title,
-            key: const ValueKey('topic-header-compact-title'),
-            siteUrl: header.siteUrl!,
-            maxLines: 3,
-            overflow: TextOverflow.ellipsis,
-            style: Theme.of(
-              context,
-            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
-          );
-    return onEdit == null
-        ? DTooltip(message: header.title, child: title)
-        : DButton(
-            key: editing ? null : const ValueKey('topic-header-title-field'),
-            variant: DButtonVariant.ghost,
-            size: DButtonSize.extraSmall,
-            alignment: AlignmentDirectional.centerStart,
-            focusNode: focusNode,
-            semanticLabel: 'Edit topic title',
-            tooltip: header.title,
-            label: title,
-            onPressed: editing ? null : onEdit,
-          );
+    return DTooltip(message: header.title, child: title);
   }
 }
 

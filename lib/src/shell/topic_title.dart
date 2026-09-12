@@ -159,7 +159,13 @@ class _InlineTopicTitleEditorState extends State<InlineTopicTitleEditor> {
     if (!mounted) return;
     setState(() {});
     if (widget.showEditingFrame) {
-      if (_focus.hasFocus) _ensureEmojiCatalog();
+      if (_focus.hasFocus) {
+        _ensureEmojiCatalog();
+      } else if (_skipBlurSave) {
+        _skipBlurSave = false;
+      } else if (_editing) {
+        unawaited(_submitFramed(restoreFocus: false));
+      }
       return;
     }
     widget.onEditingChanged?.call(_focus.hasFocus || _saving);
@@ -213,6 +219,7 @@ class _InlineTopicTitleEditorState extends State<InlineTopicTitleEditor> {
   }
 
   void _beginFramedEditing() {
+    _skipBlurSave = false;
     setState(() => _editing = true);
     widget.onEditingChanged?.call(true);
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -220,19 +227,23 @@ class _InlineTopicTitleEditorState extends State<InlineTopicTitleEditor> {
     });
   }
 
-  void _finishFramedEditing() {
+  void _finishFramedEditing({bool restoreFocus = true}) {
     setState(() => _editing = false);
     _focus.unfocus();
     widget.onEditingChanged?.call(false);
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted && _triggerFocus.canRequestFocus) {
-        _triggerFocus.requestFocus();
-      }
-    });
+    if (restoreFocus) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && _triggerFocus.canRequestFocus) {
+          _triggerFocus.requestFocus();
+        }
+      });
+    }
   }
 
-  Future<void> _submitFramed() async {
-    if (await _save() && mounted) _finishFramedEditing();
+  Future<void> _submitFramed({bool restoreFocus = true}) async {
+    if (await _save() && mounted) {
+      _finishFramedEditing(restoreFocus: restoreFocus && _focus.hasFocus);
+    }
   }
 
   KeyEventResult _handleKey(FocusNode _, KeyEvent event) {
@@ -348,6 +359,7 @@ class _InlineTopicTitleEditorState extends State<InlineTopicTitleEditor> {
         onPressed: _beginFramedEditing,
         label: TopicTitle(
           _savedTitle,
+          key: const ValueKey('topic-header-compact-title'),
           siteUrl: widget.siteUrl,
           maxLines: widget.maxLines,
           overflow: TextOverflow.ellipsis,
@@ -356,48 +368,19 @@ class _InlineTopicTitleEditorState extends State<InlineTopicTitleEditor> {
       );
     }
     return Focus(
+      key: const ValueKey('topic-header-title-edit-frame'),
       onKeyEvent: _handleKey,
-      child: Column(
-        key: const ValueKey('topic-header-title-edit-frame'),
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          DTextarea(
-            key: const ValueKey('topic-header-title-field'),
-            controller: _controller,
-            focusNode: _focus,
-            semanticLabel: 'Topic title',
-            minLines: 2,
-            maxLines: widget.maxLines < 2 ? 2 : widget.maxLines,
-            readOnly: _saving,
-            textCapitalization: TextCapitalization.sentences,
-            textInputAction: TextInputAction.done,
-            onChanged: (_) => _ensureEmojiCatalog(),
-            onEditingComplete: () => unawaited(_submitFramed()),
-          ),
-          const SizedBox(height: 8),
-          Wrap(
-            alignment: WrapAlignment.end,
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              DButton(
-                label: const Text('Cancel'),
-                variant: DButtonVariant.outline,
-                size: DButtonSize.small,
-                onPressed: _saving ? null : _cancel,
-              ),
-              DButton(
-                label: const Text('Save'),
-                variant: DButtonVariant.outline,
-                size: DButtonSize.small,
-                loading: _saving,
-                loadingSemanticLabel: 'Saving topic title',
-                onPressed: _saving ? null : () => unawaited(_submitFramed()),
-              ),
-            ],
-          ),
-        ],
+      child: DInput(
+        key: const ValueKey('topic-header-title-field'),
+        controller: _controller,
+        focusNode: _focus,
+        semanticLabel: 'Topic title',
+        readOnly: _saving,
+        textCapitalization: TextCapitalization.sentences,
+        textInputAction: TextInputAction.done,
+        onChanged: (_) => _ensureEmojiCatalog(),
+        onTapOutside: (_) => _focus.unfocus(),
+        onEditingComplete: () => unawaited(_submitFramed()),
       ),
     );
   }

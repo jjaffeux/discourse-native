@@ -121,7 +121,7 @@ void main() {
         await tester.enterText(field, _renamed);
         await tester.sendKeyEvent(LogicalKeyboardKey.enter);
         await tester.pump();
-        // Keep the HTTP request pending while its loading indicator animates.
+        // Keep the title request pending while the other fields are edited.
         expect(server.requests, hasLength(1));
         expect(server.topic['title'], _row.title);
 

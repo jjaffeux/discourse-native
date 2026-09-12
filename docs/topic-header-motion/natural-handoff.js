@@ -25,6 +25,7 @@
   let activePopup = '';
   let popupOpener = null;
   let editing = false;
+  let pointerDown = false;
   let toolbarHeight = 52;
   let dockOrigin = 0;
   let postTops = [];
@@ -124,7 +125,7 @@
     reader.style.setProperty('--toolbar-height', `${toolbarHeight}px`);
     const origin = scroller.getBoundingClientRect().top;
     const offset = scroller.scrollTop;
-    dockOrigin = toolbarHeight + (editing ? find('#opening-title').getBoundingClientRect().height : 0);
+    dockOrigin = toolbarHeight;
     postTops = all('.post').map(post => post.getBoundingClientRect().top - origin + offset);
     fitTags(); paint();
   }
@@ -211,13 +212,21 @@
   }
 
   function beginEditing() {
-    stopPlayback(); closePopup(); editing=true; setScroll(0);
-    find('#opening-title').hidden=false; find('#title-editor').hidden=false; find('#title-input').value=state.title;
+    stopPlayback(); closePopup(); editing=true;
+    find('#toolbar-title-label').hidden=true; find('#title-editor').hidden=false; find('#title-input').value=state.title;
     find('#title-input').focus({preventScroll:true}); measure();
   }
-  function finishEditing(save) {
-    if (save) { const title=find('#title-input').value.trim(); if (!title) { find('#title-input').reportValidity(); return; } state.title=title; }
-    editing=false; find('#title-editor').hidden=true; find('#opening-title').hidden=true; updateState(); find('#edit-compact-title').focus({preventScroll:true});
+  function finishEditing(save, restoreFocus=true) {
+    if (!editing) return;
+    const input=find('#title-input');
+    if (save) {
+      const title=input.value.trim();
+      input.setCustomValidity(title ? '' : 'Enter a topic title.');
+      if (!title) { input.reportValidity(); input.focus({preventScroll:true}); return; }
+      state.title=title;
+    }
+    editing=false; input.setCustomValidity(''); find('#title-editor').hidden=true; find('#toolbar-title-label').hidden=false; updateState();
+    if (restoreFocus) find('#edit-compact-title').focus({preventScroll:true});
   }
   function browse(label) { find('#list-filter-label').textContent=label; closePopup(true); flash(`Browsing ${label}`); }
   root.addEventListener('click', async event => {
@@ -226,7 +235,6 @@
     if (['category','subcategory','tags','assign','actions','share','event','notifications','profile'].includes(action)) showPopup(action,control);
     else if (action==='close-popover') closePopup(true);
     else if (action==='edit-title') beginEditing();
-    else if (action==='cancel-title') finishEditing(false);
     else if (action==='choose-category') {
       if (activePopup==='category') { state.parent=control.dataset.value; state.child=categoryChoices[state.parent][0]; }
       else state.child=control.dataset.value;
@@ -261,7 +269,14 @@
     state.tags=event.target.checked?[...new Set([...state.tags,tag])]:state.tags.filter(value=>value!==tag); fitTags();
   });
   find('#title-editor').addEventListener('submit',event=>{event.preventDefault();finishEditing(true);});
-  find('#title-input').addEventListener('keydown',event=>{if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();finishEditing(true);}});
+  find('#title-input').addEventListener('keydown',event=>{if(event.key==='Enter'&&!event.shiftKey&&!event.isComposing){event.preventDefault();finishEditing(true);}});
+  find('#title-input').addEventListener('blur',()=>{if(editing&&!pointerDown)finishEditing(true,false);});
+  // Let the clicked control activate before a wrapped title changes the toolbar height.
+  document.addEventListener('pointerdown',()=>{pointerDown=true;},true);
+  ['pointerup','pointercancel'].forEach(event=>document.addEventListener(event,()=>{
+    pointerDown=false;
+    setTimeout(()=>{if(editing&&document.activeElement!==find('#title-input'))finishEditing(true,false);},0);
+  },true));
   root.addEventListener('keydown',event=>{if(event.key==='Escape'){if(activePopup)closePopup(true);else if(editing)finishEditing(false);}});
   document.addEventListener('pointerdown',event=>{if(activePopup&&!popup.contains(event.target)&&!popupOpener?.contains(event.target))closePopup();});
   scroller.addEventListener('scroll',()=>{cancelAnimationFrame(scrollFrame);scrollFrame=requestAnimationFrame(paint);},{passive:true});
@@ -284,7 +299,7 @@
   motionPreference.addEventListener('change',()=>{if(!motionOverridden){reduced=motionPreference.matches;find('#reduce-motion').checked=reduced;stopPlayback();paint();}});
   find('#inline-account').addEventListener('change',event=>{(event.target.checked?find('#toolbar-account-slot'):find('.window-bar')).append(find('#account-actions'));measure();});
   const observer=new ResizeObserver(measure);
-  [reader,find('#toolbar-actions'),find('#opening-title')].forEach(node=>observer.observe(node));
+  [reader,find('#toolbar-actions'),find('#compact-title')].forEach(node=>observer.observe(node));
   document.addEventListener('visibilitychange',()=>{if(document.hidden)stopPlayback();});
   window.addEventListener('pagehide',()=>{stopPlayback();cancelAnimationFrame(scrollFrame);clearTimeout(noticeTimer);observer.disconnect();});
   fillIcons();setTheme(appearancePreference.matches);updateState();paint();
