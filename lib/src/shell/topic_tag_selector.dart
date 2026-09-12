@@ -257,11 +257,10 @@ class _TopicTagSelectorState extends State<TopicTagSelector> {
         DComboboxList<TopicTag>(
           itemBuilder: (context, option) => Row(
             children: [
-              DIcon(
-                identical(option.value, newTag) ? DIcons.plus : DIcons.tag,
-                size: 16,
-              ),
-              const SizedBox(width: 8),
+              if (identical(option.value, newTag)) ...[
+                const DIcon(DIcons.plus, size: 16),
+                const SizedBox(width: 8),
+              ],
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
