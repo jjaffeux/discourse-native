@@ -1,6 +1,37 @@
 import 'd_icon.dart';
 
 abstract final class DNativeIcons {
+  // Lucide 1.17.0 artwork from the contextual-tints mockup. License:
+  // docs/component-library/evidence/avatar/lucide-LICENSE.txt
+  static const DIconData bookmark = DIconData(
+    'discourse-native-bookmark',
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" '
+        'fill="none" stroke="currentColor" stroke-width="1.8" '
+        'stroke-linecap="round" stroke-linejoin="round">'
+        '<path d="M17 3a2 2 0 0 1 2 2v15a1 1 0 0 1-1.496.868l-4.512-2.578a2 2 0 0 0-1.984 0l-4.512 2.578A1 1 0 0 1 5 20V5a2 2 0 0 1 2-2z"/>'
+        '</svg>',
+  );
+
+  static const DIconData bookmarkCheck = DIconData(
+    'discourse-native-bookmark-check',
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" '
+        'fill="none" stroke="currentColor" stroke-width="1.8" '
+        'stroke-linecap="round" stroke-linejoin="round">'
+        '<path d="M17 3a2 2 0 0 1 2 2v15a1 1 0 0 1-1.496.868l-4.512-2.578a2 2 0 0 0-1.984 0l-4.512 2.578A1 1 0 0 1 5 20V5a2 2 0 0 1 2-2z"/>'
+        '<path d="m9 10 2 2 4-4"/>'
+        '</svg>',
+  );
+
+  static const DIconData bell = DIconData(
+    'discourse-native-bell',
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" '
+        'fill="none" stroke="currentColor" stroke-width="1.8" '
+        'stroke-linecap="round" stroke-linejoin="round">'
+        '<path d="M10.268 21a2 2 0 0 0 3.464 0"/>'
+        '<path d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326"/>'
+        '</svg>',
+  );
+
   static const DIconData closeTopicPane = DIconData(
     'discourse-native-close-topic-pane',
     '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" '
@@ -21,6 +52,9 @@ abstract final class DNativeIcons {
   );
 
   static const Map<String, DIconData> byName = {
+    'discourse-native-bookmark': bookmark,
+    'discourse-native-bookmark-check': bookmarkCheck,
+    'discourse-native-bell': bell,
     'discourse-native-close-topic-pane': closeTopicPane,
     'discourse-native-topic': topic,
   };
