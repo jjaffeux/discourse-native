@@ -25,7 +25,7 @@ Map<String, int> buttonStyleOverrides(String source) {
       arguments.write(depth == 1 ? character : ' ');
     }
     for (final argument in RegExp(
-      r'\b(backgroundColor|borderColor|interactiveBackgroundColor|borderRadius|padding)\s*:',
+      r'\b(backgroundColor|foregroundColor|borderColor|interactiveBackgroundColor|borderRadius|padding)\s*:',
     ).allMatches(arguments.toString())) {
       final name = argument[1]!;
       result.update(name, (count) => count + 1, ifAbsent: () => 1);

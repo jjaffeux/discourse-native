@@ -49,8 +49,9 @@ scale: `extraSmall` (24px), `small` (28px), `regular` (32px), and `large` (36px)
 Component size names are aliases of this enum. Do not introduce alternate
 height enums, control-height wrappers, or padding/constraint size overrides.
 The kit owns text-scaling growth and invisible accessible touch targets.
-Prefer variant and size over local colors, radius or padding. Category identity
-and explicitly inventoried container geometry are the current exceptions in
+Prefer variant and size over local colors, radius or padding. Category identity,
+the selected bookmark's themed fill inside an outline group, and explicitly
+inventoried container geometry are the current exceptions in
 `test/control_style_adoption_test.dart`. Review any new exception against a
 concrete application requirement. Compare the Button **Control consistency**
 example across palettes and states whenever changing a control foundation;
