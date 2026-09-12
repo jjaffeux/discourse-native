@@ -120,9 +120,8 @@ class DButtonGroupExpanded extends StatelessWidget {
 /// A visual divider between adjacent group controls.
 ///
 /// The default vertical rule matches a horizontal group. Set [orientation] to
-/// horizontal when dividing controls in a vertical group. A transparent leading
-/// pixel beside the rule recreates the reference's recessed seam without
-/// changing the filled outer edges of Native buttons.
+/// horizontal when dividing controls in a vertical group. Two full-length
+/// shades of [color] create a recessed edge matching the adjacent buttons.
 class DButtonGroupSeparator extends StatelessWidget {
   const DButtonGroupSeparator({
     super.key,
@@ -133,25 +132,33 @@ class DButtonGroupSeparator extends StatelessWidget {
   });
 
   final Axis orientation;
+
+  /// Adjacent button fill. Defaults to the secondary button color.
   final Color? color;
   final bool decorative;
   final String? semanticLabel;
 
   @override
-  Widget build(BuildContext context) => _GroupSeparatorExtent(
-    orientation: orientation,
-    child: Padding(
-      padding: orientation == Axis.vertical
-          ? const EdgeInsetsDirectional.only(start: 1, top: 1, bottom: 1)
-          : const EdgeInsets.only(top: 1, left: 1, right: 1),
-      child: DSeparator(
-        orientation: orientation,
-        color: color ?? DTokens.of(context).colors.outlineVariant,
-        decorative: decorative,
-        semanticLabel: semanticLabel,
+  Widget build(BuildContext context) {
+    final base = color ?? DTokens.of(context).muted;
+    return _GroupSeparatorExtent(
+      orientation: orientation,
+      child: ColoredBox(
+        color: Color.lerp(base, const Color(0xff000000), .25)!,
+        child: Padding(
+          padding: orientation == Axis.vertical
+              ? const EdgeInsetsDirectional.only(start: 1)
+              : const EdgeInsets.only(top: 1),
+          child: DSeparator(
+            orientation: orientation,
+            color: Color.lerp(base, const Color(0xffffffff), .15),
+            decorative: decorative,
+            semanticLabel: semanticLabel,
+          ),
+        ),
       ),
-    ),
-  );
+    );
+  }
 }
 
 /// Passive rich content aligned with controls in a [DButtonGroup].

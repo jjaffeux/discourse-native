@@ -119,3 +119,12 @@ fails on both unchanged HEAD and the corrected separator. Four seam pixel
 checks pass, and exported Flutter widget-test images were inspected in horizontal
 LTR and vertical RTL (test font, 1× renderer). No native app inspection was run
 for this correction.
+
+## Full-height, button-colored seam — 2026-09-12 follow-up
+
+User visual review supersedes the reference's end insets and canvas-colored
+edge: both seam lines now fill the full group height (or width for vertical
+groups). The color parameter supplies the adjacent button fill, with a 25%
+black shade and 15% white tint forming the two edges. The default matches
+secondary buttons; New topic explicitly supplies the live primary token.
+This removes the gray line and the cut-off ends identified in the review.
