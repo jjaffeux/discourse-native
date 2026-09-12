@@ -6,8 +6,8 @@
   <meta name="color-scheme" content="light dark">
   <title>Natural handoff · Full topic header</title>
   <link rel="stylesheet" href="mockups.css">
-  <link rel="stylesheet" href="natural-handoff.css">
-  <script src="natural-handoff.js" defer></script>
+  <link rel="stylesheet" href="natural-handoff.css?v=single-title">
+  <script src="natural-handoff.js?v=single-title" defer></script>
 </head>
 <body>
 <main class="lab full-content-lab" id="full-header-lab">
@@ -15,7 +15,7 @@
     <div>
       <p class="eyebrow"><span class="brand-dot"></span> DISCOURSE NATIVE <span class="eyebrow-divider">/</span> DIRECTION 02</p>
       <h1>Natural handoff. The full header.</h1>
-      <p class="intro-copy">A quieter opening title, with all the current header’s context and controls.</p>
+      <p class="intro-copy">The topic title from the top, with all the current header’s context and controls.</p>
     </div>
     <div class="intro-actions"><a href="index.html?design=b">← Four directions</a><button class="lab-button" id="theme">Light theme</button></div>
   </header>
@@ -58,8 +58,7 @@
         <div class="reader" id="reader">
           <div class="topic-scroll" id="conversation" role="region" tabindex="0" aria-label="Scroll the example conversation">
             <div class="header-spacer" aria-hidden="true"></div>
-            <div class="opening-title" id="opening-title">
-              <h2 class="hero-title" id="hero-title"><button class="title-edit" id="edit-large-title" data-action="edit-title" title="Edit topic title" aria-label="Edit topic title"><span data-topic-title></span><span class="title-pencil" data-icon="pencil"></span></button></h2>
+            <div class="opening-title" id="opening-title" hidden>
               <form class="inline-editor" id="title-editor" hidden>
                 <label class="sr-only" for="title-input">Topic title</label><textarea id="title-input" rows="3" required></textarea>
                 <div class="editor-actions"><button class="native-button" type="button" data-action="cancel-title">Cancel</button><button class="native-button" type="submit">Save</button></div>
@@ -95,8 +94,7 @@
 
           <header class="topic-header" id="topic-header" aria-label="Topic header">
             <div class="toolbar-leading"><button class="native-button ghost icon-only" data-action="collapse" aria-label="Collapse topic" title="Collapse topic"><span data-icon="collapse"></span></button></div>
-            <div class="toolbar-category" id="toolbar-category"><span class="category-square"></span><span id="toolbar-category-name">world meetups</span></div>
-            <div class="toolbar-title" id="compact-title" aria-hidden="true" inert><h3><button class="title-edit" id="edit-compact-title" data-action="edit-title" aria-label="Edit topic title"><span data-topic-title></span></button></h3></div>
+            <div class="toolbar-title" id="compact-title"><h3><button class="title-edit" id="edit-compact-title" data-action="edit-title" aria-label="Edit topic title"><span data-topic-title></span></button></h3></div>
             <div class="toolbar-actions" id="toolbar-actions">
               <div class="plugin-properties" id="plugin-properties">
                 <button class="native-button event-trigger" id="event-trigger" data-action="event" aria-label="Event details" title="Event details" hidden><span data-icon="calendar"></span><span class="property-label">Sep 21</span></button>
@@ -116,12 +114,12 @@
         </div>
       </div>
     </div>
-    <p class="interaction-hint">Scroll the conversation. The title hands off; the original category and tag controls settle beneath it.</p>
+    <p class="interaction-hint">Scroll the conversation. The topic title, categories and tags stay at the top.</p>
   </section>
 
   <section class="design-note full-note">
     <div class="note-lead"><p class="eyebrow">ALL THE CURRENT CONTEXT</p><h2>The same content.<br>A steadier home.</h2></div>
-    <div><p>The title scrolls naturally into a fixed toolbar. Category editing, category browsing, tag links and the tag editor stay together in one row that pins underneath it. Assignment and topic actions keep their position.</p><p class="tradeoff">Participants, reply count and last activity scroll with the opening. Closed and event states are available in the State selector. Click the title, category controls, tags, assignment, wrench or share button to try them.</p></div>
+    <div><p>The topic title stays in the top bar from the start. Category editing, category browsing, tag links and the tag editor stay together in one row beneath it. Assignment and topic actions keep their position.</p><p class="tradeoff">Participants, reply count and last activity scroll with the posts. Closed and event states are available in the State selector. Click the title, category controls, tags, assignment, wrench or share button to try them.</p></div>
   </section>
   <footer class="lab-footer"><span>Local mockup · Sample values in the current header’s fields</span><details><summary>Content & platform notes</summary><p>Based on TopicInboxHeader, TopicHeaderTags, AssignPlugin, DiscourseEventsPlugin and the existing topic actions. Assignment is intentionally anchored in the toolbar at both scroll positions. The same category and tag controls remain mounted while scrolling.</p><label class="check-label"><input id="inline-account" type="checkbox">Put account controls in the topic toolbar (non-macOS)</label><p>On macOS, notifications and profile belong to the window title bar. On narrower panes, tag overflow keeps every tag accessible. All edits and actions affect this mockup only.</p></details></footer>
 </main>

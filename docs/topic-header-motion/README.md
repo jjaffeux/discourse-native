@@ -6,9 +6,11 @@ There are no build steps, network requests, packages or account dependencies.
 ## Adopted Flutter implementation
 
 Direction 02 is implemented in `lib/src/shell/topic_inbox_header.dart` and
-`lib/src/shell/topic_view.dart`. The 18px opening title scrolls with the posts,
-the final 24px of its exit fades in the 16px toolbar title, and the original
-category/tag controls pin beneath the fixed toolbar. Assignment and topic
+`lib/src/shell/topic_view.dart`. Following the 2026-09-13 review, a single 18px
+topic title stays in the toolbar from the top, replacing the category breadcrumb
+and duplicate opening title. Long titles wrap to at most three lines without
+changing size on scroll. The original category/tag controls pin beneath it.
+Assignment and topic
 actions remain available throughout. The post viewport does not resize on
 scroll or reopen after a small upward gesture.
 
@@ -26,12 +28,18 @@ Validation on 2026-09-12: clean `dart analyze`, successful debug macOS build,
 and 165 passing focused header, title, viewport, lifecycle, date and
 control-adoption tests. The existing macOS test `footer actions stay joined at wide and compact
 widths and remain usable` fails with an unrelated 8px spacing difference; the
-same failure was reproduced with the unchanged source from HEAD.
+same failure was reproduced with the unchanged source from `c84a7d1a`.
 
 The native fixture was reviewed in dark and light palettes, at desktop and
 390px pane widths, with 200% text and reduced motion. Scrolling, a small reverse
 gesture, title Save/Cancel, and the tag overflow were exercised in the real
 macOS window.
+
+The 2026-09-13 single-title follow-up passed the same 165 focused tests, static
+analysis and debug macOS build. Native review covered scrolling, opening and
+cancelling the editor, desktop and 390px widths, both palettes and 200% text.
+The updated browser mockup retained an 80px wrapped toolbar at both 0px and
+560px scroll, restored title focus after Cancel, and fit the 390px preset.
 
 ## Direction 02: full-content follow-up
 
@@ -44,15 +52,17 @@ and profile are in the macOS window bar, with an optional non-macOS placement
 in the topic toolbar. The state selector demonstrates closed, assigned, event,
 many-tag and private-message variants.
 
-One 52px toolbar stays fixed. The 18px semibold opening title scrolls away and
-hands off to a 16px toolbar label; the original 46px category/tag row then pins beneath the toolbar using
+One toolbar stays fixed and shows the 18px topic title at every scroll position.
+Its height accommodates the wrapped title and remains constant while scrolling.
+The original 46px category/tag row pins beneath the toolbar using
 CSS sticky positioning. Assignment is deliberately anchored in the toolbar
 throughout. The activity summary scrolls with the opening, as it is omitted
 from the current app's compact layout too. Header transitions never resize the
 scroll viewport or recreate the taxonomy controls.
 
-The opening title was reduced from 24px to 18px after the user's review, with
-12px top padding instead of 20px. The title editor uses the same 18px type.
+The title was reduced from 24px to 18px after the user's review. A subsequent
+review moved it into the top bar at all scroll positions. Clicking the title
+opens the full-width editor below the toolbar, with Save and Cancel.
 
 The values are illustrative; the inventory comes from
 `topic_inbox_header.dart`, `topic_header_tags.dart`, `topic_actions.dart`,
@@ -60,7 +70,7 @@ The values are illustrative; the inventory comes from
 `discourse_events_plugin.dart`. This is a local HTML/CSS mockup, not a live
 account connection. Its pickers and editor change only its sample state.
 
-The full-content follow-up was checked in the browser in both palettes, in a
+The original full-content follow-up was checked in the browser in both palettes, in a
 390px pane and a 390px browser viewport. Verified title saving, category changes
 and browsing, tag edits and overflow, assignment, closed-state changes, event
 and share content, focus restoration, reduced motion and the alternate account

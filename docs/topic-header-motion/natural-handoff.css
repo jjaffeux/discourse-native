@@ -17,25 +17,22 @@
 .inbox-topic { display: block; border: 0; text-align: left; width: 100%; color: inherit; }
 .inbox-topic:hover { filter: brightness(.97); }
 .full-handoff .reader { --text-inset: 67px; --actions-space: 215px; }
-.full-handoff .topic-header { border-bottom-color: transparent; }
-.full-handoff .toolbar-actions { top: 12px; gap: 4px; }
+.full-handoff .topic-header { border-bottom-color: transparent; height: var(--toolbar-height, 52px); }
+.full-handoff .header-spacer { height: var(--toolbar-height, 52px); }
+.full-handoff .toolbar-actions { top: 50%; transform: translateY(-50%); gap: 4px; }
+.full-handoff .toolbar-leading { top: 50%; transform: translateY(-50%); }
 .full-handoff .toolbar-leading { left: 8px; }
-.full-handoff .toolbar-title, .full-handoff .toolbar-category { right: var(--actions-space); }
-.full-handoff .toolbar-title { opacity: var(--handoff, 0); }
-.full-handoff .toolbar-title h3 { font-size: 16px; line-height: 24px; width: 100%; }
+.full-handoff .toolbar-title { top: 12px; bottom: auto; right: var(--actions-space); opacity: 1; }
+.full-handoff .toolbar-title h3 { font-size: 18px; line-height: 28px; width: 100%; white-space: normal; }
 .plugin-properties { display: flex; align-items: center; gap: 5px; margin-right: 7px; }
 .assignment-trigger { max-width: 160px; font-size: 12px; }
 .assignment-trigger .avatar { width: 18px; height: 18px; font-size: 9px; }
 .property-label { overflow: hidden; text-overflow: ellipsis; }
 .opening-title { padding: 12px 30px 5px var(--text-inset); }
-.full-handoff .hero-title { font-size: 18px; line-height: 28px; letter-spacing: 0; margin: 0; font-weight: 600; }
 .title-edit { padding: 0; border: 0; background: transparent; font: inherit; letter-spacing: inherit; color: inherit; cursor: text; text-align: left; width: 100%; }
 .title-edit:hover { text-decoration: underline; text-decoration-color: var(--native-border); text-underline-offset: 4px; }
-.title-pencil { opacity: 0; display: inline; padding-left: 7px; color: var(--native-muted); }
-.title-pencil .icon { width: 13px; height: 13px; }
-.title-edit:hover .title-pencil, .title-edit:focus-visible .title-pencil { opacity: 1; }
-.toolbar-title .title-edit, .toolbar-title [data-topic-title] { display: block; white-space: nowrap; text-overflow: ellipsis; overflow: hidden; }
-.taxonomy-dock { position: sticky; top: 52px; z-index: 4; display: flex; align-items: center; gap: 8px; min-height: 46px; padding: 11px 24px 10px var(--text-inset); background: var(--native-content); border-bottom: 1px solid transparent; }
+.toolbar-title .title-edit, .toolbar-title [data-topic-title] { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; white-space: normal; text-overflow: ellipsis; overflow: hidden; }
+.taxonomy-dock { position: sticky; top: var(--toolbar-height, 52px); z-index: 4; display: flex; align-items: center; gap: 8px; min-height: 46px; padding: 11px 24px 10px var(--text-inset); background: var(--native-content); border-bottom: 1px solid transparent; }
 .taxonomy-dock[data-pinned="true"] { border-bottom-color: var(--native-border); }
 .category-controls { display: flex; gap: 7px; min-width: 0; flex: 0 1 auto; max-width: 55%; }
 .category-control { display: flex; min-width: 0; }
@@ -67,7 +64,7 @@
 .full-handoff .post-copy { font-size: 14px; line-height: 1.75; }
 .full-handoff .post-heading strong { font-size: 13px; }
 .full-handoff .post-heading time { font-size: 11px; }
-.full-handoff .topic-scroll { scroll-padding-top: 108px; }
+.full-handoff .topic-scroll { scroll-padding-top: calc(var(--toolbar-height, 52px) + 56px); }
 .full-handoff .full-popover { position: absolute; z-index: 12; top: var(--popover-top, 49px); left: var(--popover-left, auto); right: var(--popover-right, 10px); width: min(310px, calc(100% - 20px)); max-height: var(--popover-height, calc(100% - 93px)); padding: 12px; }
 .full-popover .popover-top { margin-bottom: 6px; }
 .full-popover .popover-top strong { font-size: 12px; color: var(--native-text); font-weight: 600; }
@@ -122,7 +119,6 @@
   .tag-controls { gap: 4px; }
   .full-activity { padding-right: 12px; font-size: 11px; }
   .full-handoff .post-copy { font-size: 13px; }
-  .full-handoff .toolbar-title h3 { font-size: 15px; }
   .full-handoff .toolbar-actions { right: 6px; gap: 2px; }
   .full-handoff .toolbar-title { left: 43px; }
   .editor-actions { flex-wrap: wrap; }

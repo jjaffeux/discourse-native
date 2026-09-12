@@ -6,7 +6,6 @@
   const scroller = find('#conversation');
   const reader = find('#reader');
   const dock = find('#taxonomy-dock');
-  const toolbar = find('#topic-header');
   const popup = find('#popover');
   const popupBody = find('#popover-content');
   const slider = find('#scroll-position');
@@ -26,10 +25,9 @@
   let activePopup = '';
   let popupOpener = null;
   let editing = false;
-  let titleCrossing = 0;
+  let toolbarHeight = 52;
   let dockOrigin = 0;
   let postTops = [];
-  const clamp = (value) => Math.max(0, Math.min(1, value));
   const escape = (value) => String(value).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const paths = {
     collapse: '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M15 3v18M7 12h5m-3-3 3 3-3 3"/>',
@@ -99,12 +97,11 @@
   }
   function updateState() {
     all('[data-topic-title]').forEach(node => { node.textContent = state.title; });
-    [find('#edit-large-title'), find('#edit-compact-title')].forEach(button => button.setAttribute('aria-label', `Edit topic title: ${state.title}`));
+    find('#edit-compact-title').setAttribute('aria-label', `Edit topic title: ${state.title}`);
     find('#edit-compact-title').title = state.title;
     find('#parent-name').textContent = state.parent;
     find('.privacy-icon').innerHTML = state.parent === 'staff' ? icon('lock') : '<span class="category-square"></span>';
     find('#child-name').textContent = state.child;
-    find('#toolbar-category-name').textContent = state.message ? 'Private message' : state.child;
     find('#category-controls').hidden = state.message;
     for (const [action,label] of [['category',`Edit topic category: ${state.parent}`],['subcategory',`Edit topic subcategory: ${state.child}`],['browse-parent',`Browse ${state.parent}`],['browse-child',`Browse ${state.child}`]]) {
       const button = find(`[data-action="${action}"]`); button.setAttribute('aria-label', label); button.title = label;
@@ -123,24 +120,17 @@
     const contentLeft = find('.post-heading').getBoundingClientRect().left - rect.left;
     reader.style.setProperty('--text-inset', `${contentLeft}px`);
     reader.style.setProperty('--actions-space', `${find('#toolbar-actions').getBoundingClientRect().width + 24}px`);
+    toolbarHeight = Math.max(52, find('#compact-title').getBoundingClientRect().height + 24);
+    reader.style.setProperty('--toolbar-height', `${toolbarHeight}px`);
     const origin = scroller.getBoundingClientRect().top;
     const offset = scroller.scrollTop;
-    titleCrossing = find('#opening-title').getBoundingClientRect().bottom - origin + offset - 52;
-    // offsetTop is the normal-flow location, independent of sticky positioning.
-    dockOrigin = find('#opening-title').getBoundingClientRect().bottom - origin + offset;
+    dockOrigin = toolbarHeight + (editing ? find('#opening-title').getBoundingClientRect().height : 0);
     postTops = all('.post').map(post => post.getBoundingClientRect().top - origin + offset);
     fitTags(); paint();
   }
   function paint() {
     const offset = scroller.scrollTop;
-    const progress = editing ? 0 : reduced ? Number(offset >= titleCrossing) : clamp((offset-titleCrossing+14)/28);
-    const opacity = clamp(progress*2-1);
-    toolbar.style.setProperty('--handoff', opacity);
-    toolbar.style.setProperty('--category-opacity', 1-clamp(progress*2));
-    find('#compact-title').inert = opacity === 0;
-    find('#compact-title').setAttribute('aria-hidden', String(opacity === 0));
-    find('#toolbar-category').setAttribute('aria-hidden', String(progress >= .5));
-    dock.dataset.pinned = String(offset >= dockOrigin-52);
+    dock.dataset.pinned = String(offset >= dockOrigin-toolbarHeight);
     slider.value = Math.min(560, offset);
     slider.setAttribute('aria-valuetext', `${Math.round(offset)} pixels from the top`);
     find('#scroll-value').textContent = `${Math.round(offset)} px`;
@@ -159,7 +149,7 @@
     closePopup();
     if (reduced) { setScroll(scroller.scrollTop > 200 ? 0 : 360); return; }
     setScroll(0); const start = performance.now();
-    const stops = [[0,0],[500,0],[3100,Math.max(180,titleCrossing+65)],[4200,460],[4850,438],[5300,438],[7300,0]];
+    const stops = [[0,0],[500,0],[3100,180],[4200,460],[4850,438],[5300,438],[7300,0]];
     find('#play-label').textContent = 'Pause'; find('.play-glyph').textContent = 'Ⅱ';
     const tick = now => {
       const t = now-start;
@@ -222,12 +212,12 @@
 
   function beginEditing() {
     stopPlayback(); closePopup(); editing=true; setScroll(0);
-    find('#hero-title').hidden=true; find('#title-editor').hidden=false; find('#title-input').value=state.title;
+    find('#opening-title').hidden=false; find('#title-editor').hidden=false; find('#title-input').value=state.title;
     find('#title-input').focus({preventScroll:true}); measure();
   }
   function finishEditing(save) {
     if (save) { const title=find('#title-input').value.trim(); if (!title) { find('#title-input').reportValidity(); return; } state.title=title; }
-    editing=false; find('#title-editor').hidden=true; find('#hero-title').hidden=false; updateState(); find('#edit-large-title').focus({preventScroll:true});
+    editing=false; find('#title-editor').hidden=true; find('#opening-title').hidden=true; updateState(); find('#edit-compact-title').focus({preventScroll:true});
   }
   function browse(label) { find('#list-filter-label').textContent=label; closePopup(true); flash(`Browsing ${label}`); }
   root.addEventListener('click', async event => {

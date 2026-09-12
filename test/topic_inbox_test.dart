@@ -101,7 +101,7 @@ void main() {
   }
 
   testWidgets(
-    'title hands off without resizing the reader or reversing on a small upward scroll',
+    'toolbar shows the topic title from the top without resizing or changing on scroll',
     (tester) async {
       final setup = await _setup(tester);
       setup.controller.openTopicFromList(setup.rows.first);
@@ -119,8 +119,24 @@ void main() {
       final taxonomy = find.byKey(const ValueKey('topic-header-taxonomy'));
       final taxonomyElement = tester.element(taxonomy);
       final title = find.byKey(const ValueKey('topic-header-title-field'));
-      final titleExtent = tester.getRect(title).bottom - viewportBounds.top + 5;
-      expect(_compactHeader, findsNothing);
+      final toolbarTitleBounds = tester.getRect(_compactHeader);
+      final toolbarTitleElement = tester.element(_compactHeader);
+      expect(_compactHeader.hitTestable(), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byType(TopicInboxHeader),
+          matching: find.byType(TopicTitle),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        tester.widget<TopicTitle>(_compactHeader).title,
+        setup.rows.first.title,
+      );
+      expect(
+        find.descendant(of: toolbar, matching: find.text('Onboarding')),
+        findsNothing,
+      );
       expect(
         tester
             .widget<TopicTitle>(
@@ -131,29 +147,27 @@ void main() {
         18,
       );
 
-      scroll.jumpTo(titleExtent - 12);
-      await tester.pumpAndSettle();
-      final fade = tester.widget<Opacity>(
-        find.byKey(const ValueKey('topic-header-handoff')),
-      );
-      expect(fade.opacity, inExclusiveRange(0, 1));
-      for (final offset in [200.0, 199.0, 300.0, 180.0]) {
+      for (final offset in [12.0, 200.0, 199.0, 300.0, 180.0]) {
         scroll.jumpTo(offset);
         await tester.pumpAndSettle();
-        expect(_compactHeader, findsOneWidget);
+        expect(_compactHeader.hitTestable(), findsOneWidget);
+        expect(tester.getRect(_compactHeader), toolbarTitleBounds);
+        expect(tester.element(_compactHeader), same(toolbarTitleElement));
         expect(tester.getRect(viewport), viewportBounds);
         expect(tester.getRect(toolbar), toolbarBounds);
         expect(tester.element(viewport), same(viewportElement));
         expect(tester.element(taxonomy), same(taxonomyElement));
-        expect(
-          tester.getRect(taxonomy).top,
-          closeTo(viewportBounds.top + 8, 1),
-        );
+        if (offset >= 180) {
+          expect(
+            tester.getRect(taxonomy).top,
+            closeTo(viewportBounds.top + 8, 1),
+          );
+        }
         expect(taxonomy.hitTestable(), findsOneWidget);
       }
       scroll.jumpTo(0);
       await tester.pumpAndSettle();
-      expect(_compactHeader, findsNothing);
+      expect(_compactHeader.hitTestable(), findsOneWidget);
       expect(title.hitTestable(), findsOneWidget);
       expect(tester.getRect(viewport), viewportBounds);
       expect(tester.takeException(), isNull);
@@ -543,11 +557,11 @@ void main() {
       tester.widget<DTextarea>(field).controller!.text,
       'Updated coverage plan',
     );
-    expect(_compactHeader, findsNothing);
+    expect(_compactHeader, findsOneWidget);
     await tester.sendKeyEvent(LogicalKeyboardKey.enter);
     await tester.pumpAndSettle();
     expect(shell.currentTopic!.title, 'Updated coverage plan');
-    expect(_compactHeader, findsNothing);
+    expect(_compactHeader, findsOneWidget);
     expect(field.hitTestable(), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
@@ -576,7 +590,7 @@ void main() {
         await mouse.up();
         await tester.pumpAndSettle();
         expect(tester.widget<DTextarea>(field).focusNode!.hasFocus, isTrue);
-        expect(compact, findsNothing);
+        expect(compact, findsOneWidget);
         expect(find.text('Enter to save · Esc to cancel'), findsNothing);
         expect(find.widgetWithText(DButton, 'Cancel'), findsOneWidget);
         expect(find.widgetWithText(DButton, 'Save'), findsOneWidget);
@@ -590,8 +604,9 @@ void main() {
         await tester.pumpAndSettle();
         final expectedTitle = save ? 'Updated coverage plan' : originalTitle;
         expect(shell.currentTopic!.title, expectedTitle);
-        expect(compact, findsNothing);
+        expect(compact, findsOneWidget);
         expect(field.hitTestable(), findsOneWidget);
+        expect(tester.widget<DButton>(field).focusNode!.hasFocus, isTrue);
         expect(tester.widget<TopicTitle>(title).title, expectedTitle);
         if (save) {
           expect(setup.api.topicsUpdated.single['title'], expectedTitle);
@@ -725,7 +740,7 @@ void main() {
   }
 
   testWidgets(
-    'opening and pinned taxonomy retain the reading lane across desktop zoom levels',
+    'title and pinned taxonomy retain the reading lane across desktop zoom levels',
     (tester) async {
       final setup = await _setup(tester);
       final shell = setup.controller;
@@ -755,7 +770,7 @@ void main() {
         final after = tester.getRect(taxonomy);
         expect(after.left, before.left);
         expect(after.width, before.width);
-        expect(after.top, lessThan(before.top));
+        expect(after.top, before.top);
         expect(
           tester.getRect(find.byKey(const ValueKey('topic-close-reader'))),
           close,
@@ -1435,7 +1450,12 @@ void main() {
       expect(badge, findsOneWidget);
       expect(tester.getRect(title), titleRect);
       expect(tester.getRect(badge).top, greaterThan(titleRect.bottom));
-      expect(tester.getRect(badge).left, closeTo(titleRect.left, 1));
+      expect(
+        tester.getRect(badge).left,
+        tester
+            .getRect(find.byKey(const ValueKey('topic-header-activity')))
+            .left,
+      );
 
       await tester.tap(title);
       await tester.pump();
@@ -1883,7 +1903,17 @@ void main() {
         expect(tester.getRect(overflow).top, greaterThan(titleRect.bottom));
         expect(
           tester.getRect(find.byTooltip('Edit topic category')).left,
-          closeTo(titleRect.left, 1),
+          tester
+              .getRect(find.byKey(const ValueKey('topic-header-activity')))
+              .left,
+        );
+        expect(
+          titleRect.left,
+          greaterThan(
+            tester
+                .getRect(find.byKey(const ValueKey('topic-close-reader')))
+                .right,
+          ),
         );
         expect(tester.getRect(overflow).right, lessThan(width));
         await tester.tap(title);
@@ -2903,12 +2933,8 @@ final class _InboxTestModule implements PluginModule {
   void register(PluginRegistrar registrar) => registrar.addCapability(plugin);
 }
 
-Finder get _compactHeader => find.byWidgetPredicate(
-  (widget) =>
-      widget is Opacity &&
-      widget.key == const ValueKey('topic-header-handoff') &&
-      widget.opacity == 1,
-);
+Finder get _compactHeader =>
+    find.byKey(const ValueKey('topic-header-compact-title'));
 ScrollController _readerScroll(WidgetTester tester) => tester
     .widget<CustomScrollView>(
       find.descendant(
