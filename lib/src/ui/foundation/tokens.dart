@@ -2,6 +2,8 @@ import 'dart:ui' show lerpDouble;
 
 import 'package:flutter/material.dart';
 
+import 'control_theme.dart';
+
 /// Semantic component tokens. The host maps its palette at the theme boundary.
 @immutable
 class DTokens extends ThemeExtension<DTokens> {
@@ -16,6 +18,7 @@ class DTokens extends ThemeExtension<DTokens> {
     required this.selectedForeground,
     this.successColor,
     this.radius = 4,
+    this.controls,
   });
 
   factory DTokens.fromTheme(ThemeData theme) {
@@ -51,6 +54,10 @@ class DTokens extends ThemeExtension<DTokens> {
   final Color? successColor;
   final double radius;
 
+  final DControlTheme? controls;
+
+  double get controlRadius => controls?.radius ?? radius;
+
   Color get foreground => colors.onSurface;
   Color get mutedForeground => colors.onSurfaceVariant;
   Color get primary => colors.primary;
@@ -78,6 +85,7 @@ class DTokens extends ThemeExtension<DTokens> {
     Color? selectedForeground,
     Color? successColor,
     double? radius,
+    DControlTheme? controls,
   }) => DTokens(
     colors: colors ?? this.colors,
     background: background ?? this.background,
@@ -89,6 +97,7 @@ class DTokens extends ThemeExtension<DTokens> {
     selectedForeground: selectedForeground ?? this.selectedForeground,
     successColor: successColor ?? success,
     radius: radius ?? this.radius,
+    controls: controls ?? this.controls,
   );
 
   @override
@@ -109,6 +118,41 @@ class DTokens extends ThemeExtension<DTokens> {
       )!,
       successColor: Color.lerp(success, other.success, t)!,
       radius: lerpDouble(radius, other.radius, t)!,
+      controls: controls == null && other.controls == null
+          ? null
+          : DControlTheme.lerp(
+              controls ?? _referenceControls,
+              other.controls ?? other._referenceControls,
+              t,
+            ),
+    );
+  }
+
+  DControlTheme get _referenceControls {
+    final dark = colors.brightness == Brightness.dark;
+    final action = DControlSurface(
+      background: primary,
+      hover: primary.withValues(alpha: primary.a * .8),
+      foreground: primaryForeground,
+    );
+    return DControlTheme(
+      outline: DControlSurface(
+        background: dark
+            ? colors.outlineVariant.withValues(
+                alpha: colors.outlineVariant.a * .3,
+              )
+            : background,
+        hover: dark
+            ? colors.outlineVariant.withValues(
+                alpha: colors.outlineVariant.a * .5,
+              )
+            : muted,
+        foreground: foreground,
+        border: dark ? colors.outlineVariant : border,
+      ),
+      primary: action,
+      accent: action,
+      radius: radius,
     );
   }
 }

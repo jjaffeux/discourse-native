@@ -146,12 +146,12 @@ void main() {
     await tester.tap(find.text('Support'));
     await tester.pumpAndSettle();
     expect(find.text('Support'), findsNWidgets(4));
-    await tester.ensureVisible(find.text('Normal'));
-    await tester.tap(find.text('Normal'));
-    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Watching'));
     await tester.tap(find.text('Watching'));
     await tester.pumpAndSettle();
-    expect(find.text('Watching'), findsOneWidget);
+    await tester.tap(find.text('Normal'));
+    await tester.pumpAndSettle();
+    expect(find.text('Normal'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 

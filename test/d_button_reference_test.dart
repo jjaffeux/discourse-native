@@ -10,6 +10,29 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'support/button_surface.dart';
 
+// The frozen shadcn reference remains available without the app's contextual
+// surfaces. App palette adoption is covered by contextual_controls_test.dart.
+ThemeData _referenceTheme(ThemeData base) {
+  final tokens = base.extension<DTokens>()!;
+  return base.copyWith(
+    extensions: [
+      ...base.extensions.values.where((value) => value is! DTokens),
+      DTokens(
+        colors: tokens.colors,
+        background: tokens.background,
+        surface: tokens.surface,
+        muted: tokens.muted,
+        border: tokens.border,
+        hover: tokens.hover,
+        selected: tokens.selected,
+        selectedForeground: tokens.selectedForeground,
+        successColor: tokens.success,
+        radius: tokens.radius,
+      ),
+    ],
+  );
+}
+
 void main() {
   Future<void> pump(
     WidgetTester tester,
@@ -18,7 +41,11 @@ void main() {
     TextDirection direction = TextDirection.ltr,
   }) => tester.pumpWidget(
     MaterialApp(
-      theme: theme ?? AppTheme.light.copyWith(platform: TargetPlatform.macOS),
+      theme:
+          theme ??
+          _referenceTheme(
+            AppTheme.light,
+          ).copyWith(platform: TargetPlatform.macOS),
       home: Scaffold(
         body: Directionality(
           textDirection: direction,
@@ -73,7 +100,10 @@ void main() {
         addTearDown(mouse.removePointer);
         await mouse.addPointer(location: Offset.zero);
 
-        for (final theme in [AppTheme.light, AppTheme.dark]) {
+        for (final theme in [
+          _referenceTheme(AppTheme.light),
+          _referenceTheme(AppTheme.dark),
+        ]) {
           final desktop = theme.copyWith(platform: TargetPlatform.macOS);
           await pump(tester, button(), theme: desktop);
           expect(buttonSurface(tester).color, fill);
@@ -120,7 +150,10 @@ void main() {
       addTearDown(focus.dispose);
       const fill = Color(0x1aed1681);
       const border = Color(0x40ed1681);
-      for (final theme in [AppTheme.light, AppTheme.dark]) {
+      for (final theme in [
+        _referenceTheme(AppTheme.light),
+        _referenceTheme(AppTheme.dark),
+      ]) {
         for (final invalid in [false, true]) {
           await pump(
             tester,
@@ -165,7 +198,10 @@ void main() {
   testWidgets(
     'custom colors update live and removing them restores the variant',
     (tester) async {
-      for (final theme in [AppTheme.light, AppTheme.dark]) {
+      for (final theme in [
+        _referenceTheme(AppTheme.light),
+        _referenceTheme(AppTheme.dark),
+      ]) {
         for (final color in <Color?>[
           const Color(0xffed1681),
           const Color(0xff0088cc),
@@ -245,7 +281,7 @@ void main() {
   testWidgets(
     'disabled opacity follows the scoped theme without enabling activation',
     (tester) async {
-      final base = AppTheme.light;
+      final base = _referenceTheme(AppTheme.light);
       expect(base.discourseButtons.disabledOpacity, .5);
       var presses = 0;
       for (final opacity in [.5, 1.0, .25]) {
@@ -294,7 +330,7 @@ void main() {
       (14.0, 10.0, 11.2),
       (20.0, 10.0, 12.0),
     ]) {
-      final base = AppTheme.light;
+      final base = _referenceTheme(AppTheme.light);
       final tokens = base.extension<DTokens>()!.copyWith(radius: baseRadius);
       final theme = base.copyWith(
         extensions: [
@@ -385,7 +421,7 @@ void main() {
   testWidgets('dark outline preserves input token alpha through its overlays', (
     tester,
   ) async {
-    final base = AppTheme.dark;
+    final base = _referenceTheme(AppTheme.dark);
     const input = Color(0x26ffffff);
     final tokens = base.extension<DTokens>()!.copyWith(
       colors: base.colorScheme.copyWith(outlineVariant: input),
@@ -488,7 +524,10 @@ void main() {
   testWidgets(
     'expanded triggers keep the reference surface per variant and brightness',
     (tester) async {
-      for (final theme in [AppTheme.light, AppTheme.dark]) {
+      for (final theme in [
+        _referenceTheme(AppTheme.light),
+        _referenceTheme(AppTheme.dark),
+      ]) {
         final dark = theme.brightness == Brightness.dark;
         for (final variant in [
           DButtonVariant.outline,
@@ -547,7 +586,10 @@ void main() {
   testWidgets('a focused dark outline keeps its input border under the ring', (
     tester,
   ) async {
-    for (final theme in [AppTheme.light, AppTheme.dark]) {
+    for (final theme in [
+      _referenceTheme(AppTheme.light),
+      _referenceTheme(AppTheme.dark),
+    ]) {
       final dark = theme.brightness == Brightness.dark;
       final focus = FocusNode();
       await pump(
@@ -657,7 +699,9 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
-        theme: AppTheme.light.copyWith(platform: TargetPlatform.macOS),
+        theme: _referenceTheme(
+          AppTheme.light,
+        ).copyWith(platform: TargetPlatform.macOS),
         home: MediaQuery(
           data: const MediaQueryData(disableAnimations: true),
           child: Scaffold(
@@ -763,7 +807,7 @@ void main() {
               variant: variant,
               onPressed: () => presses++,
             ),
-            theme: AppTheme.light.copyWith(platform: platform),
+            theme: _referenceTheme(AppTheme.light).copyWith(platform: platform),
           );
           await tester.pumpAndSettle();
           final target = tester.getRect(find.byType(FilledButton));
@@ -810,7 +854,7 @@ void main() {
               size: size,
               onPressed: () => count++,
             ),
-            theme: AppTheme.light.copyWith(platform: platform),
+            theme: _referenceTheme(AppTheme.light).copyWith(platform: platform),
           );
           await tester.pumpAndSettle();
           final material = find.descendant(
@@ -918,7 +962,10 @@ void main() {
           );
         }
       }
-      for (final theme in [AppTheme.light, AppTheme.dark]) {
+      for (final theme in [
+        _referenceTheme(AppTheme.light),
+        _referenceTheme(AppTheme.dark),
+      ]) {
         await pump(
           tester,
           DButton(
