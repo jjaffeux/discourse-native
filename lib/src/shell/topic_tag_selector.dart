@@ -155,11 +155,12 @@ class _TopicTagSelectorState extends State<TopicTagSelector> {
     final seen = <String>{};
     return [
       for (final tag in [
-        if (!widget.includeAll)
-          ...widget.selectedTags.where(
-            (tag) =>
-                tag.name.toLowerCase().contains(_query.trim().toLowerCase()),
-          ),
+        ...widget.selectedTags.where(
+          (tag) =>
+              tag.name.toLowerCase().contains(_query.trim().toLowerCase()) ||
+              (tag.slug?.toLowerCase().contains(_query.trim().toLowerCase()) ??
+                  false),
+        ),
         ..._result.results,
       ])
         if (seen.add(tag.name.toLowerCase())) tag,
@@ -198,7 +199,18 @@ class _TopicTagSelectorState extends State<TopicTagSelector> {
         : selected.firstOrNull?.name ?? widget.placeholder;
     final prefix = widget.keyPrefix;
     final newTag = _newTag;
+    final visibleResults = _visibleResults;
+    DComboboxOption<TopicTag> tagOption(TopicTag tag) => DComboboxOption(
+      value: tag,
+      label: tag.name,
+      enabled: _enabled(tag),
+      itemKey: ValueKey((
+        '$prefix-option',
+        widget.multiple ? tag.name : tag.slug ?? tag.name,
+      )),
+    );
     final options = [
+      for (final tag in visibleResults.where(_selected)) tagOption(tag),
       if (widget.includeAll)
         DComboboxOption(
           value: _all,
@@ -211,16 +223,8 @@ class _TopicTagSelectorState extends State<TopicTagSelector> {
           label: 'Create new tag: “${newTag.name}”',
           itemKey: ValueKey('$prefix-create'),
         ),
-      for (final tag in _visibleResults)
-        DComboboxOption(
-          value: tag,
-          label: tag.name,
-          enabled: _enabled(tag),
-          itemKey: ValueKey((
-            '$prefix-option',
-            widget.multiple ? tag.name : tag.slug ?? tag.name,
-          )),
-        ),
+      for (final tag in visibleResults.where((tag) => !_selected(tag)))
+        tagOption(tag),
     ];
     final anchor = DComboboxTrigger<TopicTag>(
       builder: (context, trigger) => TopicTaxonomyButton(

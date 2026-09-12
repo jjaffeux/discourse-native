@@ -637,6 +637,49 @@ void main() {
 
   for (final multiple in [false, true]) {
     testWidgets(
+      'pins selected tags above All tags and other results (multiple: $multiple)',
+      (tester) async {
+        await pumpBar(
+          tester,
+          selectedTagName: 'Native',
+          selectedTagNames: multiple ? const ['Native', 'selected-only'] : null,
+          onTagsSelected: multiple ? (_) {} : null,
+          searchTags: (_) async => const [
+            TopicFilterLookupValue(name: 'other-tag'),
+            TopicFilterLookupValue(name: 'Native'),
+          ],
+        );
+        await tester.tap(find.byKey(const ValueKey('topic-list-tag-filter')));
+        await tester.pumpAndSettle();
+
+        Finder option(String name) =>
+            find.byKey(ValueKey(('topic-list-tag-filter-option', name)));
+        final native = option(multiple ? 'Native' : 'native');
+        final all = find.byKey(const ValueKey('topic-list-tag-filter-all'));
+        expect(native, findsOneWidget);
+        expect(
+          tester.getTopLeft(native).dy,
+          lessThan(tester.getTopLeft(all).dy),
+        );
+        expect(
+          tester.getTopLeft(all).dy,
+          lessThan(tester.getTopLeft(option('other-tag')).dy),
+        );
+        if (multiple) {
+          expect(option('selected-only'), findsOneWidget);
+          expect(
+            tester.getTopLeft(native).dy,
+            lessThan(tester.getTopLeft(option('selected-only')).dy),
+          );
+          expect(
+            tester.getTopLeft(option('selected-only')).dy,
+            lessThan(tester.getTopLeft(all).dy),
+          );
+        }
+      },
+    );
+
+    testWidgets(
       'preserves known tag fallback and All tags in ${multiple ? 'multiple' : 'single'} selection mode',
       (tester) async {
         final selected = <String?>[];
