@@ -352,6 +352,7 @@ class DButton extends StatelessWidget {
     this.alignment = Alignment.center,
     this.borderRadius,
     this.backgroundColor,
+    this.foregroundColor,
     this.borderColor,
     this.interactiveBackgroundColor,
   }) : _iconOnly = false;
@@ -372,6 +373,7 @@ class DButton extends StatelessWidget {
     this.alignment = Alignment.center,
     this.borderRadius,
     this.backgroundColor,
+    this.foregroundColor,
     this.borderColor,
     this.interactiveBackgroundColor,
     this.expanded = false,
@@ -424,8 +426,12 @@ class DButton extends StatelessWidget {
 
   /// Overrides the variant's fill in every state, including expanded and
   /// disabled. [interactiveBackgroundColor] takes precedence while hovered
-  /// or focused. Foreground colors remain variant-owned.
+  /// or focused. Use [foregroundColor] to override the variant's label and icon.
   final Color? backgroundColor;
+
+  /// Overrides label and icon color together, including disabled states.
+  /// The focus ring retains its separate themed color.
+  final Color? foregroundColor;
 
   /// Overrides the 1px border in every state except [invalid]. The themed focus
   /// ring remains visible, and joined groups still omit the shared border.
@@ -480,27 +486,27 @@ class DButton extends StatelessWidget {
       focused: state(background, foreground, border),
       expanded: state(expanded ?? background, foreground, border),
     );
-    final input = tokens.colors.outlineVariant;
+    final input = DControlStyle.outlineBorder(tokens, dark: dark);
     return switch (_visualVariant) {
       DButtonVariant.primary => pair(
-        tokens.primary,
-        _alpha(tokens.primary, .8),
-        tokens.primaryForeground,
+        tokens.controls?.primary.background ?? tokens.primary,
+        tokens.controls?.primary.hover ?? _alpha(tokens.primary, .8),
+        tokens.controls?.primary.foreground ?? tokens.primaryForeground,
       ),
-      // Dark rest and hover surfaces are declared after aria-expanded in the
-      // reference stylesheet, so an open dark outline trigger does not change.
+      // The uncustomized dark reference keeps its resting fill when expanded.
       DButtonVariant.outline when dark => pair(
         DControlStyle.outlineFill(tokens, dark: true),
         DControlStyle.outlineFill(tokens, dark: true, hovered: true),
-        tokens.foreground,
+        tokens.controls?.outline.foreground ?? tokens.foreground,
         border: input,
+        expanded: tokens.controls?.outline.hover,
       ),
       DButtonVariant.outline => pair(
         DControlStyle.outlineFill(tokens, dark: false),
         DControlStyle.outlineFill(tokens, dark: false, hovered: true),
-        tokens.foreground,
-        border: tokens.border,
-        expanded: tokens.muted,
+        tokens.controls?.outline.foreground ?? tokens.foreground,
+        border: input,
+        expanded: tokens.controls?.outline.hover ?? tokens.muted,
       ),
       DButtonVariant.secondary => pair(
         tokens.muted,
@@ -588,11 +594,11 @@ class DButton extends StatelessWidget {
       final background = interactive
           ? interactiveBackgroundColor ?? backgroundColor
           : backgroundColor;
-      if (background == null) return state;
+      if (background == null && foregroundColor == null) return state;
       return DButtonStateStyle(
-        foregroundColor: state.foregroundColor,
-        backgroundColor: background,
-        iconColor: state.iconColor,
+        foregroundColor: foregroundColor ?? state.foregroundColor,
+        backgroundColor: background ?? state.backgroundColor,
+        iconColor: foregroundColor ?? state.iconColor,
         border: state.border,
       );
     }

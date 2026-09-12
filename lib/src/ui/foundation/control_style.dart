@@ -48,9 +48,9 @@ abstract final class DControlStyle {
   );
 
   static double radius(DTokens tokens, DControlSize size) => switch (size) {
-    DControlSize.extraSmall => (tokens.radius * .8).clamp(0, 10),
-    DControlSize.small => (tokens.radius * .8).clamp(0, 12),
-    _ => tokens.radius,
+    DControlSize.extraSmall => (tokens.controlRadius * .8).clamp(0, 10),
+    DControlSize.small => (tokens.controlRadius * .8).clamp(0, 12),
+    _ => tokens.controlRadius,
   };
   static Color alpha(Color color, double factor) =>
       color.withValues(alpha: color.a * factor);
@@ -60,10 +60,37 @@ abstract final class DControlStyle {
     bool hovered = false,
     bool field = false,
   }) {
+    if (tokens.controls case final controls?) {
+      return hovered ? controls.outline.hover : controls.outline.background;
+    }
     final input = tokens.colors.outlineVariant;
     if (dark) return alpha(input, hovered ? .5 : .3);
     if (field) return hovered ? alpha(input, .5) : Colors.transparent;
     return hovered ? tokens.muted : tokens.background;
+  }
+
+  static Color outlineBorder(
+    DTokens tokens, {
+    required bool dark,
+    bool field = false,
+  }) =>
+      tokens.controls?.outline.border ??
+      (dark || field ? tokens.colors.outlineVariant : tokens.border);
+
+  static Color fieldFill(
+    DTokens tokens, {
+    required bool dark,
+    bool enabled = true,
+  }) {
+    if (tokens.controls case final controls?) {
+      return controls.outline.background;
+    }
+    final input = tokens.colors.outlineVariant;
+    return dark
+        ? alpha(input, enabled ? .3 : .8)
+        : enabled
+        ? Colors.transparent
+        : alpha(input, .5);
   }
 }
 

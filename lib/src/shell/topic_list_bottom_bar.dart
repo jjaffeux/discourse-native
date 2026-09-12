@@ -130,12 +130,12 @@ class TopicListBottomBar extends StatelessWidget {
                       ReadingCommand.openPreviousTopic.prefix!,
                       ReadingCommand.openPreviousTopic.shortcuts.cast(),
                     ),
-                    icon: const DIcon(DIcons.chevronLeft, size: 13),
+                    icon: const DIcon(DIcons.chevronLeft),
                     onPressed: state.previous == null
                         ? null
                         : () => openAdjacentTopic(context, next: false),
                     variant: DButtonVariant.ghost,
-                    size: DButtonSize.small,
+                    size: DButtonSize.regular,
                   ),
                   const SizedBox(width: DSpacing.xs),
                   DButton.iconOnly(
@@ -145,12 +145,12 @@ class TopicListBottomBar extends StatelessWidget {
                       ReadingCommand.openNextTopic.prefix!,
                       ReadingCommand.openNextTopic.shortcuts.cast(),
                     ),
-                    icon: const DIcon(DIcons.chevronRight, size: 13),
+                    icon: const DIcon(DIcons.chevronRight),
                     onPressed: state.next == null && (!state.more || state.busy)
                         ? null
                         : () => openAdjacentTopic(context, next: true),
                     variant: DButtonVariant.ghost,
-                    size: DButtonSize.small,
+                    size: DButtonSize.regular,
                   ),
                 ],
               ),

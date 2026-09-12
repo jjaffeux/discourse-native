@@ -498,16 +498,28 @@ void main() {
         findsOneWidget,
       );
       final headerControls = [
-        add,
-        find.byKey(const ValueKey('topic-close-reader')),
-        find.byKey(const ValueKey('topic-header-browse-category-22')),
-        find.byWidgetPredicate(
-          (widget) =>
-              widget is DButton && widget.tooltip == 'Edit topic category',
+        (add, DButtonSize.regular, 32.0),
+        (
+          find.byKey(const ValueKey('topic-close-reader')),
+          DButtonSize.extraSmall,
+          24.0,
+        ),
+        (
+          find.byKey(const ValueKey('topic-header-browse-category-22')),
+          DButtonSize.regular,
+          32.0,
+        ),
+        (
+          find.byWidgetPredicate(
+            (widget) =>
+                widget is DButton && widget.tooltip == 'Edit topic category',
+          ),
+          DButtonSize.regular,
+          32.0,
         ),
       ];
-      for (final control in headerControls) {
-        expect(tester.widget<DButton>(control).size, DButtonSize.extraSmall);
+      for (final (control, size, height) in headerControls) {
+        expect(tester.widget<DButton>(control).size, size);
         final surface = find.descendant(
           of: control,
           matching: find.byWidgetPredicate(
@@ -516,7 +528,7 @@ void main() {
                 widget.decoration is DButtonDecoration,
           ),
         );
-        expect(tester.getSize(surface).height, 24);
+        expect(tester.getSize(surface).height, height);
       }
       await tester.tap(add);
       await tester.pumpAndSettle();
@@ -2054,8 +2066,8 @@ void main() {
           final touch =
               Theme.of(tester.element(reply)).platform ==
               TargetPlatform.android;
-          expect(readerBar.height, touch ? 64 : 44);
-          expect(controlHeight, touch ? 48 : 28);
+          expect(readerBar.height, touch ? 64 : 48);
+          expect(controlHeight, touch ? 48 : 32);
           for (final key in [
             'topic-progress-button',
             'inbox-previous-topic',
@@ -2101,33 +2113,34 @@ void main() {
             tester.widget<DButton>(control).variant,
             control == reply ? DButtonVariant.primary : DButtonVariant.outline,
           );
-          final theme = Theme.of(tester.element(control));
+          final controls = DTokens.of(tester.element(control)).controls!;
           expect(
             buttonSurface(tester, of: control).color,
             control == reply
-                ? theme.colorScheme.primary
-                : DTokens.of(tester.element(control)).background,
+                ? controls.primary.background
+                : controls.outline.background,
           );
           expect(
             buttonSurface(tester, of: control).borderColor,
-            control == reply
-                ? Colors.transparent
-                : DTokens.of(tester.element(control)).border,
+            control == reply ? Colors.transparent : controls.outline.border,
           );
           expect(tester.getSize(control).height, tester.getSize(reply).height);
         }
-        expect(tester.getRect(reply).right, tester.getRect(bookmark).left);
+        expect(
+          tester.getRect(bookmark).left - tester.getRect(reply).right,
+          DSpacing.sm,
+        );
         expect(
           tester.getRect(bookmark).right,
           tester.getRect(notifications).left,
         );
         expect(
           buttonSurface(tester, of: reply).borderRadius.topRight,
-          Radius.zero,
+          const Radius.circular(8),
         );
         expect(
           buttonSurface(tester, of: bookmark).borderRadius,
-          BorderRadius.zero,
+          const BorderRadius.horizontal(left: Radius.circular(8)),
         );
         expect(
           buttonSurface(tester, of: notifications).borderRadius.topLeft,

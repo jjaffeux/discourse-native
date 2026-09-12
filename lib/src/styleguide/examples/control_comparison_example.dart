@@ -13,7 +13,7 @@ class ControlComparisonExample extends StatefulWidget {
 class _ControlComparisonExampleState extends State<ControlComparisonExample> {
   String _feed = 'Recent';
   String _category = 'Bugs';
-  int _notification = 1;
+  int _notification = 2;
   String _result = 'No action yet';
 
   @override
@@ -91,44 +91,53 @@ class _ControlComparisonExampleState extends State<ControlComparisonExample> {
           ),
           const SizedBox(height: DSpacing.lg),
         ],
-        const Text('Joined topic actions'),
+        const Text('Contextual actions'),
         const SizedBox(height: DSpacing.sm),
         // Wrap keeps the group usable at large text and narrow preview widths.
         SingleChildScrollView(
           scrollDirection: Axis.horizontal,
-          child: DButtonGroup(
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
             children: [
               DButton(
                 label: const Text('Reply'),
                 icon: const Icon(Icons.reply),
-                size: DButtonSize.small,
+                size: DButtonSize.regular,
                 onPressed: () => setState(() => _result = 'Reply activated'),
               ),
-              DButton.iconOnly(
-                icon: const Icon(Icons.bookmark_outline),
-                tooltip: 'Bookmark',
-                variant: DButtonVariant.outline,
-                size: DButtonSize.small,
-                onPressed: () => setState(() => _result = 'Bookmark activated'),
-              ),
-              DNotificationLevelMenu<int>(
-                value: _notification,
-                onChanged: (value) => setState(() => _notification = value),
-                semanticLabel: 'Notifications',
-                showLabel: true,
-                variant: DButtonVariant.outline,
-                options: const [
-                  DNotificationLevelOption(
-                    value: 1,
-                    label: 'Normal',
-                    description: 'Notify on mentions',
-                    icon: Icon(Icons.notifications_none),
+              const SizedBox(width: DSpacing.sm),
+              DButtonGroup(
+                children: [
+                  DButton.iconOnly(
+                    icon: const Icon(Icons.bookmark_outline),
+                    tooltip: 'Bookmark',
+                    variant: DButtonVariant.outline,
+                    size: DButtonSize.regular,
+                    onPressed: () =>
+                        setState(() => _result = 'Bookmark activated'),
                   ),
-                  DNotificationLevelOption(
-                    value: 2,
-                    label: 'Watching',
-                    description: 'Notify on every reply',
-                    icon: Icon(Icons.notifications_active),
+                  DNotificationLevelMenu<int>(
+                    value: _notification,
+                    onChanged: (value) => setState(() => _notification = value),
+                    semanticLabel: 'Notifications',
+                    showLabel: true,
+                    variant: DButtonVariant.outline,
+                    size: DButtonSize.regular,
+                    options: const [
+                      DNotificationLevelOption(
+                        value: 1,
+                        label: 'Normal',
+                        description: 'Notify on mentions',
+                        icon: Icon(Icons.notifications_none),
+                      ),
+                      DNotificationLevelOption(
+                        value: 2,
+                        label: 'Watching',
+                        description: 'Notify on every reply',
+                        icon: Icon(Icons.notifications_active),
+                        emphasized: true,
+                      ),
+                    ],
                   ),
                 ],
               ),

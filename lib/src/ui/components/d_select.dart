@@ -1385,7 +1385,7 @@ class _DSelectBodyState<T> extends State<_DSelectBody<T>> {
         ? tokens.foreground
         : tokens.mutedForeground;
     final dark = Theme.of(context).brightness == Brightness.dark;
-    final input = tokens.colors.outlineVariant;
+    final input = DControlStyle.outlineBorder(tokens, dark: dark, field: true);
     final background = DControlStyle.outlineFill(
       tokens,
       dark: dark,
