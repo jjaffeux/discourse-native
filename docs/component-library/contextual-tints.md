@@ -27,6 +27,7 @@ shadcn reference behavior. Its reference tests exercise that configuration.
 Production adoption covers:
 
 - Topic list category/tag filters and search: regular 32px neutral controls.
+- Bottom navigation arrows: the same regular control height and inherited icons.
 - Topic header category/browse group: the same geometry with category tints.
 - Add tag: the neutral outline variant; existing tag editing keeps its behavior.
 - Reply, bookmark and notification actions: regular size, with selected bookmark
@@ -50,6 +51,12 @@ focus rings, and live notification selection/theme changes.
 `flutter analyze --no-pub` reports no issues. The focused run across 27 test
 files reports **308 passes**, including all 12 updated golden images, and the
 five pre-existing assertions described below. `git diff --check` is clean.
+
+The final candidate starts from the newer main `c36adeb7` and merges the
+implementation commit `3f39e730` without replacing the updated toolbar title.
+The additional inbox/navigation run passes all **87 tests**, covering title
+editing and scrolling, header/tag sizing, aligned footer heights at 100–200%
+text, joined actions at 500px/2000px, bookmark/notification menus and Reply.
 
 The 12 control-family golden images were visually reviewed before updating:
 light, dark, forest and plum at rest, hover and open; Flutter test renderer,
