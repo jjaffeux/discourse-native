@@ -25,6 +25,31 @@ const _draft = UserDraft(
 );
 
 void main() {
+  for (final theme in [AppTheme.light, AppTheme.dark]) {
+    testWidgets(
+      'separator shades match the button fill in ${theme.brightness}',
+      (tester) async {
+        await _pump(tester, theme: theme);
+        final fill = buttonSurface(
+          tester,
+          of: find.byKey(TopicCreateButton.buttonKey),
+        ).color;
+        final separator = find.byType(DButtonGroupSeparator);
+        expect(tester.widget<DButtonGroupSeparator>(separator).color, fill);
+        final shadow = tester.widget<ColoredBox>(
+          find
+              .descendant(of: separator, matching: find.byType(ColoredBox))
+              .first,
+        );
+        final highlight = tester.widget<DSeparator>(
+          find.descendant(of: separator, matching: find.byType(DSeparator)),
+        );
+        expect(shadow.color, Color.lerp(fill, Colors.black, .25));
+        expect(highlight.color, Color.lerp(fill, Colors.white, .15));
+      },
+    );
+  }
+
   for (final compact in [false, true]) {
     testWidgets(
       '${compact ? 'compact icon' : 'labeled'} New topic controls retain their hit targets and keyboard actions',
@@ -340,6 +365,7 @@ typedef _Fixture = ({FakeDiscourseApi api, int Function() createCalls});
 
 Future<_Fixture> _pump(
   WidgetTester tester, {
+  ThemeData? theme,
   bool compact = false,
   bool showLabel = true,
   double textScale = 1,
@@ -384,7 +410,9 @@ Future<_Fixture> _pump(
     ShellScope(
       controller: controller,
       child: MaterialApp(
-        theme: AppTheme.light.copyWith(platform: TargetPlatform.macOS),
+        theme: (theme ?? AppTheme.light).copyWith(
+          platform: TargetPlatform.macOS,
+        ),
         builder: (context, child) => MediaQuery(
           data: MediaQuery.of(
             context,

@@ -99,11 +99,14 @@ class _TopicCreateControl extends StatelessWidget {
     final instance = draftsInstance;
     if (instance == null) return mainButton;
 
+    final tokens = DTokens.of(context);
     return DButtonGroup(
       semanticLabel: 'Topic creation actions',
       children: [
         mainButton,
-        DButtonGroupSeparator(color: DTokens.of(context).primary),
+        DButtonGroupSeparator(
+          color: tokens.controls?.primary.background ?? tokens.primary,
+        ),
         DDropdownMenu(
           key: ValueKey((instance.url, instance.user?.id)),
           onOpenChange: (open, _) {
