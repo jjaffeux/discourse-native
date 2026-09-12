@@ -44,6 +44,12 @@ the contextual action group. Theme switching updates open overlays normally.
 
 ## Saved bookmark follow-up — 13 September 2026
 
+Implemented in `34d7de00` and merged from the main checkout as
+`40fc46b727488517392e409fb2f05a4c742f70d7`. The final candidate includes main's
+tag-ordering changes; the reviewed topic actions, icons and control foundations
+are unchanged from the native review. All 115 focused tests passed on that
+candidate, and `dart analyze --fatal-infos` reported no issues.
+
 The selected bookmark now retains its outline variant and shared divider.
 Its fill, ink and hover come from the existing primary control tokens, matching
 the mockup's selected tint without dropping the perimeter. This uses DButton's
