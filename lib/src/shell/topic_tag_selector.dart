@@ -210,13 +210,13 @@ class _TopicTagSelectorState extends State<TopicTagSelector> {
       )),
     );
     final options = [
-      for (final tag in visibleResults.where(_selected)) tagOption(tag),
       if (widget.includeAll)
         DComboboxOption(
           value: _all,
           label: 'All tags',
           itemKey: ValueKey('$prefix-all'),
         ),
+      for (final tag in visibleResults.where(_selected)) tagOption(tag),
       if (newTag != null)
         DComboboxOption(
           value: newTag,
