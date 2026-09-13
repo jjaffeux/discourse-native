@@ -66,4 +66,7 @@ Verification: all 196 focused button, reference, button-group, dropdown, popover
 styleguide, inbox-menu, notification and user-menu accessibility tests pass.
 `flutter analyze --no-pub` is clean. The macOS debug build of the production
 Messages fixture (`tool/messages_inbox_review_main.dart`) passes on Flutter
-3.47.2. Sub-frame timing is established by the widget tests.
+3.47.2. The isolated macOS fixture launched and was inspected with the production
+Personal inbox menu in dark at 1200px and light at 390px, plus the Dropdown Menu
+styleguide in light and dark. Native selection, Escape, outside-click and trigger
+dismissal passed. Sub-frame timing is established by the widget tests.
