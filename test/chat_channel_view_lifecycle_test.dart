@@ -42,17 +42,94 @@ import 'support/chat_shell.dart';
 import 'support/fakes.dart';
 import 'support/media_pipeline.dart';
 
+Finder _groupEnd(int id) => find.byWidgetPredicate(
+  (widget) =>
+      widget is ChatMessageTile && widget.messageId == id && widget.endsGroup,
+);
+
 void main() {
   const firstSite = 'https://one.example';
   const secondSite = 'https://two.example';
 
   group('DM sender groups', () {
-    testWidgets(
-      'compact rows share one avatar and timestamp after the last bubble',
-      (tester) async {
+    testWidgets('compact rows share one avatar after the last bubble', (
+      tester,
+    ) async {
+      final api = _ChatApi(
+        openPages: {
+          firstSite: [_messagesPage(1, 3)],
+        },
+      );
+      final controller = await _controller(api, sites: const [firstSite]);
+      addTearDown(controller.dispose);
+      controller.chatRecords.put(
+        firstSite,
+        _channel(
+          lastRead: 3,
+          kind: ChatChannelKind.directMessage,
+          isGroup: true,
+        ),
+      );
+      await tester.pumpWidget(_TestView(controller: controller));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(ChatMessageTile), findsNWidgets(3));
+      expect(find.byType(DMessageHeader), findsOneWidget);
+      for (final bubble in find.byType(DBubbleContent).evaluate()) {
+        expect(
+          tester.getSize(find.byWidget(bubble.widget)).width,
+          lessThan(200),
+        );
+      }
+      final tiles = find.byType(ChatMessageTile);
+      expect(
+        find.descendant(of: tiles, matching: find.byType(ChatUserAvatar)),
+        findsOneWidget,
+      );
+      expect(_groupEnd(1), findsNothing);
+      expect(_groupEnd(2), findsNothing);
+      expect(_groupEnd(3), findsOneWidget);
+      for (var id = 1; id <= 2; id++) {
+        final current = find.descendant(
+          of: find.byKey(ValueKey('chat-message-$id')),
+          matching: find.byType(DBubbleContent),
+        );
+        final next = find.descendant(
+          of: find.byKey(ValueKey('chat-message-${id + 1}')),
+          matching: find.byType(DBubbleContent),
+        );
+        expect(
+          tester.getTopLeft(next).dy - tester.getBottomLeft(current).dy,
+          closeTo(8, .01),
+        );
+      }
+    });
+
+    for (final platform in [TargetPlatform.macOS, TargetPlatform.iOS]) {
+      testWidgets('same sender with reactions across a time gap on $platform', (
+        tester,
+      ) async {
         final api = _ChatApi(
           openPages: {
-            firstSite: [_messagesPage(1, 3)],
+            firstSite: [
+              (
+                messages: [
+                  _message(
+                    1,
+                    reactions: const [ChatReaction(emoji: 'heart', count: 1)],
+                  ),
+                  _message(2, createdAt: DateTime.utc(2026, 1, 1, 0, 10)),
+                  _message(
+                    3,
+                    createdAt: DateTime.utc(2026, 1, 1, 0, 11),
+                    authorId: 3,
+                  ),
+                ],
+                canLoadMorePast: false,
+                canLoadMoreFuture: false,
+                targetMessageId: null,
+              ),
+            ],
           },
         );
         final controller = await _controller(api, sites: const [firstSite]);
@@ -65,41 +142,30 @@ void main() {
             isGroup: true,
           ),
         );
-        await tester.pumpWidget(_TestView(controller: controller));
+        await tester.pumpWidget(
+          _TestView(
+            controller: controller,
+            theme: AppTheme.light.copyWith(platform: platform),
+          ),
+        );
         await tester.pumpAndSettle();
-
-        expect(find.byType(ChatMessageTile), findsNWidgets(3));
-        expect(find.byType(DMessageHeader), findsOneWidget);
-        for (final bubble in find.byType(DBubbleContent).evaluate()) {
+        for (final id in [1, 2, 3]) {
           expect(
-            tester.getSize(find.byWidget(bubble.widget)).width,
-            lessThan(200),
+            find.descendant(
+              of: find.byKey(ValueKey('chat-message-$id')),
+              matching: find.byType(ChatUserAvatar),
+            ),
+            id == 1 && platform == TargetPlatform.macOS
+                ? findsNothing
+                : findsOneWidget,
           );
         }
-        final tiles = find.byType(ChatMessageTile);
         expect(
-          find.descendant(of: tiles, matching: find.byType(ChatUserAvatar)),
+          find.byKey(const ValueKey('chat-reaction-pill-1-heart')),
           findsOneWidget,
         );
-        expect(find.byKey(ChatMessageTile.timestampKey(1)), findsNothing);
-        expect(find.byKey(ChatMessageTile.timestampKey(2)), findsNothing);
-        expect(find.byKey(ChatMessageTile.timestampKey(3)), findsOneWidget);
-        for (var id = 1; id <= 2; id++) {
-          final current = find.descendant(
-            of: find.byKey(ValueKey('chat-message-$id')),
-            matching: find.byType(DBubbleContent),
-          );
-          final next = find.descendant(
-            of: find.byKey(ValueKey('chat-message-${id + 1}')),
-            matching: find.byType(DBubbleContent),
-          );
-          expect(
-            tester.getTopLeft(next).dy - tester.getBottomLeft(current).dy,
-            closeTo(8, .01),
-          );
-        }
-      },
-    );
+      });
+    }
 
     testWidgets(
       'a live append moves shared metadata and keeps messages individually selectable',
@@ -137,7 +203,7 @@ void main() {
           ),
         );
         await tester.pumpAndSettle();
-        expect(find.byKey(ChatMessageTile.timestampKey(1)), findsOneWidget);
+        expect(_groupEnd(1), findsOneWidget);
         FakeSiteTracker.built
             .singleWhere((tracker) => tracker.siteUrl == firstSite)
             .deliverPluginMessage('/chat/9/new-messages', {
@@ -154,8 +220,8 @@ void main() {
             });
         await tester.pumpAndSettle();
         expect(controller.chat.stream(firstSite, 9).messageIds, [1, 2]);
-        expect(find.byKey(ChatMessageTile.timestampKey(1)), findsNothing);
-        expect(find.byKey(ChatMessageTile.timestampKey(2)), findsOneWidget);
+        expect(_groupEnd(1), findsNothing);
+        expect(_groupEnd(2), findsOneWidget);
         expect(find.byKey(ChatMessageTile.bodySelectionKey(1)), findsOneWidget);
         expect(find.byKey(ChatMessageTile.bodySelectionKey(2)), findsOneWidget);
         expect(
@@ -174,56 +240,53 @@ void main() {
     );
 
     for (final boundary in ['author', 'time', 'day', 'deleted', 'unread']) {
-      testWidgets(
-        'group metadata stays on each side of the $boundary boundary',
-        (tester) async {
-          final api = _ChatApi(openPages: const {});
-          final controller = await _controller(api, sites: const [firstSite]);
-          addTearDown(controller.dispose);
-          final messages = [
-            _message(1),
-            if (boundary == 'deleted')
-              _message(2, deletedAt: DateTime.utc(2026)),
-            _message(
-              3,
-              authorId: boundary == 'author' ? 3 : 2,
-              createdAt: boundary == 'time'
-                  ? DateTime.utc(2026, 1, 1, 0, 8)
-                  : boundary == 'day'
-                  ? DateTime.utc(2026, 1, 2)
-                  : null,
+      testWidgets('sender group ends respect the $boundary boundary', (
+        tester,
+      ) async {
+        final api = _ChatApi(openPages: const {});
+        final controller = await _controller(api, sites: const [firstSite]);
+        addTearDown(controller.dispose);
+        final messages = [
+          _message(1),
+          if (boundary == 'deleted') _message(2, deletedAt: DateTime.utc(2026)),
+          _message(
+            3,
+            authorId: boundary == 'author' ? 3 : 2,
+            createdAt: boundary == 'time'
+                ? DateTime.utc(2026, 1, 1, 0, 8)
+                : boundary == 'day'
+                ? DateTime.utc(2026, 1, 2)
+                : null,
+          ),
+          if (boundary == 'unread') _message(4),
+        ];
+        controller.chatRecords
+          ..put(
+            firstSite,
+            _channel(lastRead: 1, kind: ChatChannelKind.directMessage),
+          )
+          ..putAll(firstSite, messages);
+        await tester.pumpWidget(
+          _TestStreamView(
+            controller: controller,
+            theme: AppTheme.light.copyWith(platform: TargetPlatform.macOS),
+            messages: messages,
+            lastReadMessageId: boundary == 'unread' ? 1 : null,
+            stream: ChatStreamState(
+              messageIds: [for (final message in messages) message.id],
+              fetchedOnce: true,
+              fetches: 1,
             ),
-            if (boundary == 'unread') _message(4),
-          ];
-          controller.chatRecords
-            ..put(
-              firstSite,
-              _channel(lastRead: 1, kind: ChatChannelKind.directMessage),
-            )
-            ..putAll(firstSite, messages);
-          await tester.pumpWidget(
-            _TestStreamView(
-              controller: controller,
-              messages: messages,
-              lastReadMessageId: boundary == 'unread' ? 1 : null,
-              stream: ChatStreamState(
-                messageIds: [for (final message in messages) message.id],
-                fetchedOnce: true,
-                fetches: 1,
-              ),
-            ),
-          );
-          await tester.pumpAndSettle();
-          expect(find.byKey(ChatMessageTile.timestampKey(1)), findsOneWidget);
-          expect(
-            find.byKey(
-              ChatMessageTile.timestampKey(boundary == 'unread' ? 4 : 3),
-            ),
-            findsOneWidget,
-          );
-          expect(tester.takeException(), isNull);
-        },
-      );
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(
+          _groupEnd(1),
+          boundary == 'time' ? findsNothing : findsOneWidget,
+        );
+        expect(_groupEnd(boundary == 'unread' ? 4 : 3), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      });
     }
 
     testWidgets(
@@ -254,16 +317,16 @@ void main() {
 
         await render([_message(2), _message(3)]);
         await render([_message(1), _message(2), _message(3)]);
-        expect(find.byKey(ChatMessageTile.timestampKey(1)), findsNothing);
-        expect(find.byKey(ChatMessageTile.timestampKey(2)), findsNothing);
-        expect(find.byKey(ChatMessageTile.timestampKey(3)), findsOneWidget);
+        expect(_groupEnd(1), findsNothing);
+        expect(_groupEnd(2), findsNothing);
+        expect(_groupEnd(3), findsOneWidget);
         await render([
           _message(1),
           _message(2),
           _message(3, deletedAt: DateTime.utc(2026)),
         ]);
-        expect(find.byKey(ChatMessageTile.timestampKey(2)), findsOneWidget);
-        expect(find.byKey(ChatMessageTile.timestampKey(3)), findsNothing);
+        expect(_groupEnd(2), findsOneWidget);
+        expect(_groupEnd(3), findsNothing);
       },
     );
   });
@@ -2459,6 +2522,7 @@ ChatMessage _message(
   DateTime? deletedAt,
   int? deletedById,
   ChatReplyTo? replyTo,
+  List<ChatReaction> reactions = const [],
 }) => ChatMessage(
   id: id,
   channelId: 9,
@@ -2470,4 +2534,5 @@ ChatMessage _message(
   replyTo: replyTo,
   threadId: thread?.threadId,
   thread: thread,
+  reactions: reactions,
 );

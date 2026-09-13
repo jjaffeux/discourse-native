@@ -12,6 +12,7 @@ import '../../plugin_api/plugin_scope.dart';
 import '../../shell/adaptive_dialog_action.dart';
 import '../../shell/content_reading_lane.dart';
 import '../../shell/list_boundary_shortcuts.dart';
+import '../../shell/platform.dart';
 import '../../shell/stream_day_separator.dart';
 import '../../shell/time_gap.dart';
 import '../../theme/app_theme.dart';
@@ -1110,6 +1111,25 @@ class _StreamState extends State<ChatMessageStream>
     return widget.items[widget.items.length - 1 - index];
   }
 
+  bool _endsSenderGroup(BuildContext context, int row, int messageId) {
+    final next = _itemAt(row - 1);
+    if (next is! ChatStreamMessage) return true;
+    final chat = _chat!;
+    final message = chat.messageRef(widget.siteUrl, messageId).value;
+    final channel = message == null
+        ? null
+        : chat.channelRef(widget.siteUrl, message.channelId).value;
+    if (!context.isTouch && channel?.isDirectMessage == true) {
+      final following = chat.messageRef(widget.siteUrl, next.id).value;
+      // Bubble avatars mark sender changes, independently of timed spacing.
+      return following == null ||
+          message!.isWebhook ||
+          following.isWebhook ||
+          message.author.id != following.author.id;
+    }
+    return !next.chained;
+  }
+
   String _rowId(int row, {required int lastRow}) {
     if (row < _leadingRows) return 'loading-newer';
     if (row > lastRow) return 'loading-older';
@@ -1433,12 +1453,7 @@ class _StreamState extends State<ChatMessageStream>
                         siteUrl: siteUrl,
                         messageId: id,
                         chained: chained,
-                        // Rows run newest-first; the preceding row describes
-                        // whether the next chronological message continues us.
-                        endsGroup: switch (_itemAt(row - 1)) {
-                          ChatStreamMessage(chained: true) => false,
-                          _ => true,
-                        },
+                        endsGroup: _endsSenderGroup(context, row, id),
                         contextThreadId: widget.target.threadId,
                         onOpenThread: widget.onOpenThread,
                         onJumpToMessage: widget.onJumpToMessage,
