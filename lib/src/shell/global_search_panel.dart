@@ -8,6 +8,7 @@ import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'avatar_image.dart';
 import 'category_icon.dart';
+import 'global_search_api.dart';
 import 'global_search_controller.dart';
 import 'global_search_filters.dart';
 import 'global_search_models.dart';
@@ -15,6 +16,7 @@ import 'shell_scope.dart';
 import 'site_emoji_text.dart';
 
 part 'global_search_filter_picker.dart';
+part 'global_search_category_editor.dart';
 
 /// Search scopes, conditions and results below the shell's persistent input.
 /// The caller owns the anchored surface and result navigation.

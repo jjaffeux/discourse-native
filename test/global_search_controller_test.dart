@@ -1,12 +1,16 @@
 import 'dart:async';
+import 'dart:convert';
 
-import 'package:discourse_native/src/data/discourse_api_contracts.dart';
+import 'package:discourse_native/src/data/discourse_api.dart';
 import 'package:discourse_native/src/data/site_lifecycle.dart';
+import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/shell/global_search_api.dart';
 import 'package:discourse_native/src/shell/global_search_controller.dart';
 import 'package:discourse_native/src/shell/global_search_filters.dart';
 import 'package:discourse_native/src/shell/global_search_models.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 
 import 'support/fakes.dart';
 
@@ -542,6 +546,67 @@ void main() {
     },
   );
 
+  test(
+    'applying a draft restores evicted category names and artwork',
+    () async {
+      const selected = GlobalSearchFilterChoice(
+        value: '1',
+        label: 'Engineering / Support',
+        parentLabel: 'Engineering',
+        category: TopicCategory(id: 1, name: 'Support', color: '0088CC'),
+      );
+      final api = _EngineApi()..categoryValues = const [selected];
+      final search = _controller(api);
+      addTearDown(search.dispose);
+      await search.lookupCategoryChoices('Support');
+      expect(search.choice('category', '1'), same(selected));
+
+      api.categoryValues = [
+        for (var id = 2; id <= 514; id++)
+          GlobalSearchFilterChoice(value: '$id', label: 'Category $id'),
+      ];
+      await search.lookupCategoryChoices('');
+      expect(search.choice('category', '1'), isNull);
+
+      search.rememberCategorySelection([selected]);
+      search.addCondition(
+        const GlobalSearchCondition(
+          filterId: 'category',
+          operator: 'any',
+          value: ['1'],
+        ),
+      );
+      await search.lookupCategoryChoices('');
+      expect(search.choiceLabel('category', '1'), 'Engineering / Support');
+      expect(search.choice('category', '1')?.category, same(selected.category));
+      expect(search.choice('category', '1')?.parentLabel, 'Engineering');
+    },
+  );
+
+  test('category pages cannot cross an invalidated account session', () async {
+    const selected = GlobalSearchFilterChoice(value: '1', label: 'Old account');
+    final api = _EngineApi()..categoryValues = const [selected];
+    final lifecycle = SiteLifecycle();
+    final search = _controller(api, lifecycle: lifecycle);
+    addTearDown(search.dispose);
+    await search.lookupCategoryChoices('');
+    final oldSession = search.categoryLookupSession;
+    api.categoryGate = Completer<GlobalSearchCategoryPage>();
+    api.categoryStarted = Completer<void>();
+    final pending = search.lookupCategoryChoices('', page: 2);
+    await api.categoryStarted!.future;
+    lifecycle.invalidate(_site);
+    search.configure(siteUrl: _site, capabilities: _caps);
+    expect(search.categoryLookupSession, isNot(same(oldSession)));
+    expect(search.choice('category', '1'), isNull);
+
+    api.categoryGate!.complete(
+      const GlobalSearchCategoryPage(choices: [selected], total: 1),
+    );
+    expect((await pending).choices, isEmpty);
+    expect(search.choice('category', '1'), isNull);
+  });
+
   for (final historicalQuery in ['design category:ux', 'design']) {
     testWidgets(
       'server history $historicalQuery replaces retained forum conditions',
@@ -576,7 +641,7 @@ void main() {
   }
 
   test(
-    'category choices use distinct IDs and parent labels and find entries past 100',
+    'public category choices use distinct IDs and parent labels and find entries past 100',
     () async {
       final transport = _Transport()
         ..response = {
@@ -609,7 +674,7 @@ void main() {
           filter = globalSearchFilter('category')!;
       final support = await api.lookupChoices(
         siteUrl: _site,
-        apiKey: 'key',
+        apiKey: null,
         filter: filter,
         term: 'support',
       );
@@ -629,14 +694,177 @@ void main() {
       );
       final late = await api.lookupChoices(
         siteUrl: _site,
-        apiKey: 'key',
+        apiKey: null,
         filter: filter,
         term: 'far beyond',
       );
       expect(late.single.value, '500');
       expect(late.single.label, 'Engineering / Far beyond');
+      final all = await api.lookupCategoryChoices(
+        siteUrl: _site,
+        apiKey: null,
+        term: '',
+      );
+      expect(all.choices.length, 121);
+      expect(all.hasMore, isFalse);
     },
   );
+
+  test(
+    'anonymous lazy category discovery queries and pages the complete taxonomy',
+    () async {
+      final requests = <http.Request>[];
+      final transport = DiscourseApi(
+        client: MockClient((request) async {
+          requests.add(request);
+          if (request.url.path == '/site.json') {
+            return http.Response(
+              '{"lazy_load_categories":true,"categories":[]}',
+              200,
+            );
+          }
+          expect(request.method, 'POST');
+          expect(request.url.path, '/categories/search.json');
+          expect(request.headers['user-api-key'], isNull);
+          expect(request.headers['user-api-client-id'], isNull);
+          final body = jsonDecode(request.body) as Map<String, dynamic>;
+          expect(body['term'], 'Support');
+          expect(body['include_subcategories'], isTrue);
+          final secondPage = body['page'] == 2;
+          return http.Response(
+            jsonEncode({
+              'categories_count': 26,
+              'categories': [
+                for (
+                  var id = secondPage ? 26 : 1;
+                  id <= (secondPage ? 26 : 25);
+                  id++
+                )
+                  {'id': id, 'name': 'Support $id'},
+              ],
+            }),
+            200,
+          );
+        }),
+      );
+      addTearDown(transport.close);
+      final api = GlobalSearchApi(transport: transport);
+      final first = await api.lookupCategoryChoices(
+        siteUrl: _site,
+        apiKey: null,
+        clientId: 'client',
+        term: 'Support',
+      );
+      final second = await api.lookupCategoryChoices(
+        siteUrl: _site,
+        apiKey: null,
+        term: 'Support',
+        page: 2,
+      );
+      expect(first.choices.length, 25);
+      expect(first.hasMore, isTrue);
+      expect(first.total, 26);
+      expect(second.choices.single.value, '26');
+      expect(second.hasMore, isFalse);
+      expect(requests, hasLength(2));
+      expect(requests.every((request) => request.url.query.isEmpty), isTrue);
+    },
+  );
+
+  test(
+    'legacy anonymous transport does not treat a lazy preload as complete',
+    () async {
+      final transport = _Transport()
+        ..response = {
+          'lazy_load_categories': true,
+          'categories': <Map<String, dynamic>>[],
+        };
+      await expectLater(
+        GlobalSearchApi(
+          transport: transport,
+        ).lookupCategoryChoices(siteUrl: _site, apiKey: null, term: ''),
+        throwsFormatException,
+      );
+    },
+  );
+
+  test(
+    'category discovery pages server matches and keeps ancestor artwork',
+    () async {
+      final transport = _Transport()
+        ..categoryResponses = {
+          1: {
+            'categories_count': 26,
+            'categories': [
+              for (var id = 1; id <= 25; id++)
+                {'id': id, 'name': 'Category $id'},
+            ],
+          },
+          2: {
+            'categories_count': 26,
+            'ancestors': [
+              {'id': 77, 'name': 'Engineering'},
+            ],
+            'categories': [
+              {
+                'id': 500,
+                'name': 'Support',
+                'parent_category_id': 77,
+                'color': '0088CC',
+                'style_type': 'icon',
+                'icon': 'folder',
+                'read_restricted': true,
+              },
+            ],
+          },
+        };
+      final api = GlobalSearchApi(transport: transport);
+      final first = await api.lookupCategoryChoices(
+        siteUrl: _site,
+        apiKey: 'key',
+        term: 'support',
+      );
+      final second = await api.lookupCategoryChoices(
+        siteUrl: _site,
+        apiKey: 'key',
+        term: 'support',
+        page: 2,
+      );
+      expect(first.hasMore, isTrue);
+      expect(first.total, 26);
+      expect(second.hasMore, isFalse);
+      expect(second.choices.single.label, 'Engineering / Support');
+      expect(second.choices.single.parentLabel, 'Engineering');
+      expect(second.choices.single.category!.color, '0088CC');
+      expect(second.choices.single.category!.readRestricted, isTrue);
+      expect(transport.paths, isEmpty);
+      expect(transport.categorySearchRequests.map((body) => body['page']), [
+        1,
+        2,
+      ]);
+      expect(transport.categorySearchRequests.last, {
+        'term': 'support',
+        'page': 2,
+        'limit': 25,
+        'include_uncategorized': true,
+        'include_subcategories': true,
+        'include_ancestors': true,
+      });
+    },
+  );
+
+  test('an empty category page cannot hide remaining server matches', () async {
+    final transport = _Transport()
+      ..categoryResponses = {
+        2: {'categories_count': 26, 'categories': <Object>[]},
+      };
+    await expectLater(
+      GlobalSearchApi(
+        transport: transport,
+      ).lookupCategoryChoices(siteUrl: _site, apiKey: 'key', term: '', page: 2),
+      throwsFormatException,
+    );
+  });
 
   test(
     'tag choices serialize the canonical name rather than a differing slug',
@@ -1062,6 +1290,23 @@ class _EngineApi extends GlobalSearchApi {
   List<GlobalSearchFilterChoice> lookupValues = const [];
   Completer<List<GlobalSearchFilterChoice>>? lookupGate;
   Completer<void>? lookupStarted;
+  List<GlobalSearchFilterChoice> categoryValues = const [];
+  Completer<GlobalSearchCategoryPage>? categoryGate;
+  Completer<void>? categoryStarted;
+
+  @override
+  Future<GlobalSearchCategoryPage> lookupCategoryChoices({
+    required String siteUrl,
+    required String? apiKey,
+    String? clientId,
+    required String term,
+    int page = 1,
+  }) async {
+    if (categoryStarted?.isCompleted == false) categoryStarted!.complete();
+    return categoryGate?.future ??
+        GlobalSearchCategoryPage(choices: categoryValues);
+  }
+
   @override
   Future<List<GlobalSearchFilterChoice>> lookupChoices({
     required String siteUrl,
@@ -1101,6 +1346,32 @@ class _EngineApi extends GlobalSearchApi {
 
 class _Transport extends FakeDiscourseApi {
   int? maxTagSearchResults;
+  Map<int, Map<String, dynamic>> categoryResponses = {};
+  final categorySearchRequests = <Map<String, Object?>>[];
+  @override
+  Future<Map<String, dynamic>> pluginWriteJson({
+    required String siteUrl,
+    required String path,
+    required String method,
+    required String apiKey,
+    required Map<String, Object?> body,
+    String? clientId,
+  }) async {
+    if (path == '/categories/search.json') {
+      expect(method, 'POST');
+      categorySearchRequests.add(body);
+      return categoryResponses[body['page']] ?? {};
+    }
+    return super.pluginWriteJson(
+      siteUrl: siteUrl,
+      path: path,
+      method: method,
+      apiKey: apiKey,
+      body: body,
+      clientId: clientId,
+    );
+  }
+
   final paths = <Uri>[];
   final failures = <String, Object>{};
   Map<String, dynamic> response = {};

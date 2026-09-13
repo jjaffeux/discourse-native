@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import '../models/discourse_user.dart';
 import '../models/search_results.dart';
 import '../models/site_config.dart';
+import '../models/topic.dart';
 
 enum GlobalSearchScope {
   all('All'),
@@ -174,10 +175,26 @@ class GlobalSearchFilterChoice {
     required this.label,
     this.token,
     this.topicCount,
+    this.category,
+    this.parentLabel,
   });
   final String value, label;
   final String? token;
   final int? topicCount;
+  final TopicCategory? category;
+  final String? parentLabel;
+}
+
+@immutable
+class GlobalSearchCategoryPage {
+  const GlobalSearchCategoryPage({
+    this.choices = const [],
+    this.total,
+    this.hasMore = false,
+  });
+  final List<GlobalSearchFilterChoice> choices;
+  final int? total;
+  final bool hasMore;
 }
 
 @immutable

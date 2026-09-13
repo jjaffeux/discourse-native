@@ -4,6 +4,7 @@ import '../data/discourse_api_contracts.dart';
 import '../data/plugin_transport.dart';
 import '../models/json.dart';
 import '../models/search_results.dart';
+import '../models/topic.dart';
 import 'global_search_filters.dart';
 import 'global_search_models.dart';
 
@@ -567,8 +568,12 @@ class GlobalSearchApi {
     if (term.length > 255) return const [];
     String path, key;
     if (filter.id == 'category') {
-      path = '/site.json';
-      key = 'categories';
+      return (await lookupCategoryChoices(
+        siteUrl: siteUrl,
+        apiKey: apiKey,
+        clientId: clientId,
+        term: term,
+      )).choices;
     } else if (filter.id == 'tags') {
       // The server defaults to its max_tag_search_results setting and rejects
       // larger limits. Let it choose the page size, including for an empty query.
@@ -603,7 +608,6 @@ class GlobalSearchApi {
       return const [];
     }
     final body = await _get(siteUrl, path, apiKey, clientId);
-    if (filter.id == 'category') return _categoryChoices(body, term);
     final rows = jsonObjects(body[key]);
     return List.unmodifiable(
       [
@@ -633,6 +637,70 @@ class GlobalSearchApi {
     );
   }
 
+  Future<GlobalSearchCategoryPage> lookupCategoryChoices({
+    required String siteUrl,
+    required String? apiKey,
+    String? clientId,
+    required String term,
+    int page = 1,
+  }) async {
+    if (page < 1) throw ArgumentError.value(page, 'page');
+    final query = term.trim();
+    if (query.length > 250) {
+      throw const FormatException('Use a shorter category name.');
+    }
+    final queryTransport = transport is PluginJsonQueryTransport
+        ? transport as PluginJsonQueryTransport
+        : null;
+    // Older transports can read a complete anonymous taxonomy. Lazy loading
+    // also applies to anonymous users, whose site metadata can contain no
+    // categories, so never present that preload as the complete list.
+    if (apiKey == null && queryTransport == null) {
+      final body = await _get(siteUrl, '/site.json', null, clientId);
+      if (body['lazy_load_categories'] == true) {
+        throw const FormatException('Category search is unavailable.');
+      }
+      final choices = _categoryChoices(body, query);
+      return GlobalSearchCategoryPage(choices: choices, total: choices.length);
+    }
+    const limit = 25;
+    final parameters = <String, Object?>{
+      'term': query,
+      'page': page,
+      'limit': limit,
+      'include_uncategorized': true,
+      'include_subcategories': true,
+      'include_ancestors': true,
+    };
+    final body = queryTransport != null
+        ? await queryTransport.pluginQueryJson(
+            siteUrl: siteUrl,
+            path: '/categories/search.json',
+            apiKey: apiKey,
+            clientId: clientId,
+            body: parameters,
+          )
+        : await transport.pluginWriteJson(
+            siteUrl: siteUrl,
+            path: '/categories/search.json',
+            method: 'POST',
+            apiKey: apiKey!,
+            clientId: clientId,
+            body: parameters,
+          );
+    final count = jsonObjects(body['categories']).length;
+    final total = jsonIntOrNull(body['categories_count']);
+    if (count == 0 && total != null && (page - 1) * limit < total) {
+      throw const FormatException('More categories couldn’t load.');
+    }
+    return GlobalSearchCategoryPage(
+      choices: _categoryChoices(body, ''),
+      total: total,
+      hasMore:
+          count > 0 && (total == null ? count == limit : page * limit < total),
+    );
+  }
+
   List<GlobalSearchFilterChoice> _categoryChoices(
     Map<String, dynamic> body,
     String term,
@@ -640,7 +708,10 @@ class GlobalSearchApi {
     // Core's category: filter accepts IDs. Slugs can repeat under different
     // parents, so identity and the command item key must use the category ID.
     final categories = <int, Map<String, dynamic>>{};
-    for (final row in jsonObjects(body['categories'])) {
+    for (final row in [
+      ...jsonObjects(body['ancestors']),
+      ...jsonObjects(body['categories']),
+    ]) {
       final id = jsonIntOrNull(row['id']);
       if (id != null && id > 0) categories[id] = row;
     }
@@ -659,22 +730,28 @@ class GlobalSearchApi {
     final query = term.trim().toLowerCase();
     return List.unmodifiable(
       [
-            for (final entry in categories.entries)
-              GlobalSearchFilterChoice(
-                value: '${entry.key}',
-                label: labelFor(entry.key),
-              ),
-          ]
-          .where(
-            (choice) =>
-                query.isEmpty ||
-                choice.value.contains(query) ||
-                choice.label.toLowerCase().contains(query) ||
-                jsonString(
-                  categories[int.parse(choice.value)]?['slug'],
-                ).toLowerCase().contains(query),
-          )
-          .take(30),
+        for (final row in jsonObjects(body['categories']))
+          if (jsonIntOrNull(row['id']) case final id? when id > 0)
+            GlobalSearchFilterChoice(
+              value: '$id',
+              label: labelFor(id),
+              category: TopicCategory.fromJson(row),
+              parentLabel: switch (jsonIntOrNull(row['parent_category_id'])) {
+                final parent? when categories.containsKey(parent) => labelFor(
+                  parent,
+                ),
+                _ => null,
+              },
+            ),
+      ].where(
+        (choice) =>
+            query.isEmpty ||
+            choice.value.contains(query) ||
+            choice.label.toLowerCase().contains(query) ||
+            jsonString(
+              categories[int.parse(choice.value)]?['slug'],
+            ).toLowerCase().contains(query),
+      ),
     );
   }
 
