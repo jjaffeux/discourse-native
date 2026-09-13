@@ -31,6 +31,7 @@ import 'group_pages_port.dart';
 import 'group_pages_shell_port.dart';
 import 'inline_action.dart';
 import 'keyboard_navigation.dart';
+import 'message_create_button.dart';
 import 'message_inbox_page.dart';
 import 'message_inbox_title.dart';
 import 'open_link.dart';
@@ -157,7 +158,10 @@ class _MainContentBody extends StatelessWidget {
     final pluginContent = registry.content(context, route);
     final pluginOwnsChrome = registry.ownsContentChrome(context, route);
     final sourceRoute = state.sourceRoute;
-    if (pluginContent == null && !pluginOwnsChrome && sourceRoute != null) {
+    if (pluginContent == null &&
+        !pluginOwnsChrome &&
+        sourceRoute != null &&
+        (!sourceRoute.isMessages || state.isConnected)) {
       return Material(
         color: theme.shell.content,
         child: SafeArea(
@@ -337,19 +341,21 @@ class _TopicInboxWorkspaceState extends State<_TopicInboxWorkspace> {
             ? _listWidth.effectiveWidth(maximum: maximumListWidth)
             : constraints.maxWidth;
         final showsUserMenu = !topicOpen && ShellTitleBar.columnsCarryUserMenu;
-        final createAction = _TopicCreateAction(
-          controller: controller,
-          compact: true,
-          fromList: true,
-          showLabel:
-              listWidth >=
-              340 *
-                  MediaQuery.textScalerOf(
-                    context,
-                  ).scale(DiscourseTypography.sm) /
-                  DiscourseTypography.sm,
-          leadingPadding: false,
-        );
+        final messages = sourceRoute.isMessages;
+        final showCreateLabel =
+            listWidth >=
+            340 *
+                MediaQuery.textScalerOf(context).scale(DiscourseTypography.sm) /
+                DiscourseTypography.sm;
+        final createAction = messages
+            ? MessageCreateButton(showLabel: showCreateLabel)
+            : _TopicCreateAction(
+                controller: controller,
+                compact: true,
+                fromList: true,
+                showLabel: showCreateLabel,
+                leadingPadding: false,
+              );
         Widget heading(Widget? navigation) => Row(
           key: const ValueKey('topic-list-heading'),
           children: [
@@ -371,10 +377,15 @@ class _TopicInboxWorkspaceState extends State<_TopicInboxWorkspace> {
                       constraints: BoxConstraints(
                         maxWidth: navigation == null ? double.infinity : 220,
                       ),
-                      child: _TopicListHeadingTitle(
-                        siteUrl: state.siteUrl,
-                        categoryId: sourceRoute.categoryId,
-                      ),
+                      child: messages
+                          ? MessageInboxTitle(
+                              selectedGroup: sourceRoute.messageGroupName,
+                              keepTopicOpen: split,
+                            )
+                          : _TopicListHeadingTitle(
+                              siteUrl: state.siteUrl,
+                              categoryId: sourceRoute.categoryId,
+                            ),
                     ),
                   ),
                   if (navigation != null) ...[
@@ -473,7 +484,9 @@ class _TopicInboxWorkspaceState extends State<_TopicInboxWorkspace> {
                 resizeEnabled: split,
                 edge: ResizablePaneEdge.trailing,
                 resizeKey: 'inbox-list',
-                semanticsLabel: 'Resize topic list',
+                semanticsLabel: messages
+                    ? 'Resize message list'
+                    : 'Resize topic list',
                 maximumWidth: maximumListWidth,
                 handleWidth: 8,
                 // The resize handle owns the list/reader boundary. When the
@@ -678,7 +691,13 @@ class _FeedBackedContent extends StatelessWidget {
       select: (controller) => controller.currentFeed,
       builder: (context, feed, _) {
         final Widget content;
-        if (feed == null) {
+        if (route.isMessages) {
+          content = MessageInboxPage(
+            feed: feed ?? const TopicFeed(),
+            heading: topicListHeadingBuilder?.call(context, null),
+            keepTopicOpen: keepTopicOpen,
+          );
+        } else if (feed == null) {
           content = fallback ?? _ContentPlaceholder(route: route);
         } else if (route.id == 'filter' && siteUrl != null) {
           content = TopicFilterPage(
@@ -686,8 +705,6 @@ class _FeedBackedContent extends StatelessWidget {
             feed: feed,
             categories: filterCategories,
           );
-        } else if (route.isMessages) {
-          content = MessageInboxPage(feed: feed);
         } else {
           content = TopicListView(
             feed: feed,

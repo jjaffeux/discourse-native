@@ -500,10 +500,11 @@ class ContentRoute {
       _listLink?.kind == ListKind.category ||
       tagName != null;
 
-  /// Ordinary topic feeds that can stay beside an open topic.
+  /// Topic and message feeds that can stay beside an open topic.
   bool get isTopicList =>
       !isTopic &&
-      (TopicListMode.fromRoute(this) != null ||
+      (isMessages ||
+          TopicListMode.fromRoute(this) != null ||
           isTopicListFilter ||
           id.startsWith('list-') ||
           id == 'bookmarks');

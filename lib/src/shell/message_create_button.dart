@@ -18,18 +18,23 @@ class MessageCreateButton extends StatelessWidget {
     final user = instance?.user;
     final tabId = controller.activeTabId;
     final route = controller.currentContent;
-    if (instance == null || user == null || route?.isMessages != true) return;
+    final source = controller.topicListContent ?? route;
+    if (instance == null || user == null || source?.isMessages != true) return;
+    final lease = controller.lifecycle.capture(instance.url);
     final recipients =
-        route!.messageGroupName ??
+        source!.messageGroupName ??
         await showDialog<String>(
           context: context,
           builder: (_) => const _MessageRecipientsDialog(),
         );
     if (!context.mounted ||
         recipients == null ||
+        !lease.isCurrent ||
+        controller.currentInstance?.url != instance.url ||
         controller.activeTabId != tabId ||
         controller.currentInstance?.user?.id != user.id ||
-        controller.currentContent != route) {
+        controller.currentContent != route ||
+        controller.topicListContent != source) {
       return;
     }
     controller.openPrivateMessage(
@@ -52,7 +57,7 @@ class MessageCreateButton extends StatelessWidget {
               icon: const DIcon(DIcons.farPenToSquare),
               tooltip: 'New message',
               variant: DButtonVariant.primary,
-              size: DButtonSize.small,
+              size: DButtonSize.regular,
               onPressed: () => unawaited(_compose(context)),
             )
           : DButton.iconOnly(
@@ -60,7 +65,7 @@ class MessageCreateButton extends StatelessWidget {
               icon: const DIcon(DIcons.farPenToSquare),
               tooltip: 'New message',
               variant: DButtonVariant.primary,
-              size: DButtonSize.small,
+              size: DButtonSize.regular,
               onPressed: () => unawaited(_compose(context)),
             );
       return button;

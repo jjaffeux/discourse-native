@@ -11,6 +11,7 @@ typedef _InboxOwner = ({
   Object? session,
   String? tabId,
   String? routeId,
+  String? sourceId,
   List<String> groups,
 });
 
@@ -19,12 +20,14 @@ class MessageInboxTitle extends StatelessWidget {
     super.key,
     required this.selectedGroup,
     this.trailing,
+    this.keepTopicOpen = false,
   });
 
   static const _personal = 'personal:';
 
   final String? selectedGroup;
   final Widget? trailing;
+  final bool keepTopicOpen;
 
   @override
   Widget build(BuildContext context) => ShellSelector<_InboxOwner>(
@@ -37,6 +40,7 @@ class MessageInboxTitle extends StatelessWidget {
             : controller.lifecycle.capture(instance.url).session,
         tabId: controller.activeTabId,
         routeId: controller.currentContent?.id,
+        sourceId: controller.topicListContent?.id,
         groups: instance?.user?.messageGroupNames ?? const [],
       );
     },
@@ -110,13 +114,15 @@ class MessageInboxTitle extends StatelessWidget {
                             !lease.isCurrent ||
                             controller.currentInstance?.url != owner.siteUrl ||
                             controller.activeTabId != owner.tabId ||
-                            controller.currentContent?.id != owner.routeId) {
+                            controller.currentContent?.id != owner.routeId ||
+                            controller.topicListContent?.id != owner.sourceId) {
                           return;
                         }
                         controller.selectMessageInbox(
                           choice == _personal
                               ? null
                               : choice.substring('group:'.length),
+                          keepTopicOpen: keepTopicOpen,
                         );
                       },
               ),

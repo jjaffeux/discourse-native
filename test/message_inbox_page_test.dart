@@ -1,6 +1,7 @@
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
+import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/sidebar.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/shell/adaptive_shell.dart';
@@ -9,6 +10,8 @@ import 'package:discourse_native/src/shell/forum_search.dart';
 import 'package:discourse_native/src/shell/main_content.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
+import 'package:discourse_native/src/shell/topic_list_view.dart';
+import 'package:discourse_native/src/shell/topic_view.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/material.dart';
@@ -277,11 +280,11 @@ void main() {
         final archive = find.byKey(const ValueKey('message-list-archive'));
         expect(archive.hitTestable(), findsOneWidget);
         expect(
-          tester.getRect(archive).right,
+          tester.getRect(archive).bottom,
           lessThanOrEqualTo(
             tester
                 .getRect(find.byKey(const ValueKey('new-message-button')))
-                .left,
+                .top,
           ),
         );
         await tester.sendKeyEvent(LogicalKeyboardKey.space);
@@ -357,6 +360,186 @@ void main() {
       expect(find.byKey(const ValueKey('message-list-sent')), findsOneWidget);
     },
   );
+
+  testWidgets('message reader keeps its list, footer and collapse control', (
+    tester,
+  ) async {
+    final setup = await _pumpInbox(tester, inboxCount: 20);
+    final shell = setup.controller;
+    final list = find.byType(TopicListView);
+    final listElement = tester.element(list);
+    final scroll = tester
+        .widget<Scrollable>(
+          find.descendant(of: list, matching: find.byType(Scrollable)),
+        )
+        .controller!;
+    scroll.jumpTo(350);
+    await tester.pumpAndSettle();
+    final row = find.byKey(const ValueKey('topic-card-14'));
+    await tester.ensureVisible(row);
+    await tester.tap(row);
+    await tester.pumpAndSettle();
+    expect(shell.currentContent?.topicId, 14);
+    expect(shell.topicListContent, ContentRoute.messages());
+    expect(shell.currentFeedId, 'messages');
+    expect(tester.element(list), same(listElement));
+    expect(tester.widget<DItem>(row).selected, isTrue);
+    final listPane = find.byKey(const ValueKey('inbox-topic-list-pane'));
+    final readerPane = find.byKey(const ValueKey('inbox-topic-reader-pane'));
+    expect(tester.getRect(listPane).right, tester.getRect(readerPane).left);
+    final listFooter = find.byKey(const ValueKey('topic-list-bottom-bar'));
+    final readerFooter = find.byKey(const ValueKey('topic-bottom-bar'));
+    expect(
+      tester.getRect(listFooter).bottom,
+      tester.getRect(readerFooter).bottom,
+    );
+    expect(
+      find.descendant(of: listFooter, matching: find.byTooltip('New message')),
+      findsOneWidget,
+    );
+    expect(find.byKey(const ValueKey('topic-reply-button')), findsOneWidget);
+    expect(find.byKey(const ValueKey('topic-bookmark-button')), findsOneWidget);
+    await tester.tap(find.byTooltip('Collapse message'));
+    await tester.pumpAndSettle();
+    expect(find.byType(TopicView), findsNothing);
+    expect(tester.element(list), same(listElement));
+    expect(scroll.offset, greaterThan(0));
+    expect(row.hitTestable(), findsOneWidget);
+    expect(shell.currentContent, ContentRoute.messages());
+    expect(tester.takeException(), isNull);
+  }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
+
+  testWidgets(
+    'message arrows and gj/gk navigate the source feed and paginate',
+    (tester) async {
+      final setup = await _pumpInbox(tester, inboxCount: 2, paginate: true);
+      final shell = setup.controller;
+      await tester.tap(find.byKey(const ValueKey('topic-card-1')));
+      await tester.pumpAndSettle();
+      final previous = find.byKey(const ValueKey('inbox-previous-topic'));
+      final next = find.byKey(const ValueKey('inbox-next-topic'));
+      expect(tester.widget<DButton>(previous).onPressed, isNull);
+      await tester.tap(next);
+      await tester.pumpAndSettle();
+      expect(shell.currentContent?.topicId, 10);
+      await tester.tap(previous);
+      await tester.pumpAndSettle();
+      expect(shell.currentContent?.topicId, 1);
+      FocusManager.instance.primaryFocus?.unfocus();
+      await tester.pump();
+      for (final id in [10, 100]) {
+        await tester.sendKeyEvent(LogicalKeyboardKey.keyG);
+        await tester.sendKeyEvent(LogicalKeyboardKey.keyJ);
+        await tester.pumpAndSettle();
+        expect(shell.currentContent?.topicId, id);
+        expect(shell.contentStack, hasLength(2));
+      }
+      expect(setup.api.feedPaths, contains('$_inbox?page=1'));
+      expect(tester.widget<DButton>(next).onPressed, isNull);
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyG);
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyK);
+      await tester.pumpAndSettle();
+      expect(shell.currentContent?.topicId, 10);
+
+      await tester.tap(find.byKey(const ValueKey('new-message-button')));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const ValueKey('new-message-recipients')),
+        'alex',
+      );
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyG);
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyJ);
+      await tester.pumpAndSettle();
+      expect(shell.currentContent?.topicId, 10);
+      await tester.enterText(
+        find.byKey(const ValueKey('new-message-recipients')),
+        'alex',
+      );
+      await tester.tap(find.text('Continue'));
+      await tester.pumpAndSettle();
+      expect(shell.visibleComposer?.target.targetRecipients, 'alex');
+      expect(shell.visibleComposer?.target.originFeedId, 'messages');
+      expect(tester.takeException(), isNull);
+    },
+    variant: TargetPlatformVariant.only(TargetPlatform.macOS),
+  );
+
+  testWidgets(
+    'folders and group inboxes retain the reader and compose context',
+    (tester) async {
+      final setup = await _pumpInbox(tester);
+      final shell = setup.controller;
+      await tester.tap(find.byKey(const ValueKey('topic-card-1')));
+      await tester.pumpAndSettle();
+      final reader = tester.element(find.byType(TopicView));
+      await tester.tap(find.byKey(const ValueKey('message-list-sent')));
+      await tester.pumpAndSettle();
+      expect(
+        shell.topicListContent,
+        ContentRoute.messages(mode: MessageListMode.sent),
+      );
+      expect(tester.element(find.byType(TopicView)), same(reader));
+      expect(find.text('Sent personal message'), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('message-inbox-selector')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('team'));
+      await tester.pumpAndSettle();
+      expect(shell.topicListContent, ContentRoute.messages(groupName: 'team'));
+      expect(shell.activeTab?.rootDestinationId, 'messages');
+      expect(tester.element(find.byType(TopicView)), same(reader));
+      expect(find.byKey(const ValueKey('message-list-sent')), findsNothing);
+      await tester.tap(find.byKey(const ValueKey('new-message-button')));
+      await tester.pumpAndSettle();
+      expect(shell.visibleComposer?.target.targetRecipients, 'team');
+      expect(
+        shell.visibleComposer?.target.originFeedId,
+        ContentRoute.messages(groupName: 'team').id,
+      );
+      expect(tester.takeException(), isNull);
+    },
+    variant: TargetPlatformVariant.only(TargetPlatform.macOS),
+  );
+
+  testWidgets('narrow message reader collapses back to its retained list', (
+    tester,
+  ) async {
+    final setup = await _pumpInbox(tester, width: 390);
+    await tester.tap(find.byKey(const ValueKey('topic-card-1')));
+    await tester.pumpAndSettle();
+    expect(find.byType(TopicListView), findsNothing);
+    expect(find.byType(TopicListView, skipOffstage: false), findsOneWidget);
+    expect(find.byKey(const ValueKey('topic-bottom-bar')), findsOneWidget);
+    await tester.tap(find.byTooltip('Collapse message'));
+    await tester.pumpAndSettle();
+    expect(find.byType(TopicListView), findsOneWidget);
+    expect(setup.controller.currentContent, ContentRoute.messages());
+    expect(tester.takeException(), isNull);
+  }, variant: TargetPlatformVariant.only(TargetPlatform.iOS));
+
+  testWidgets('open inbox menu rejects folder changes beside the same reader', (
+    tester,
+  ) async {
+    final setup = await _pumpInbox(tester);
+    final shell = setup.controller;
+    await tester.tap(find.byKey(const ValueKey('topic-card-1')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('message-inbox-selector')));
+    await tester.pumpAndSettle();
+    shell.selectMessageListMode(MessageListMode.unread, keepTopicOpen: true);
+    await tester.tap(
+      find.descendant(
+        of: find.byType(DComboboxContent),
+        matching: find.text('team'),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(shell.currentContent?.topicId, 1);
+    expect(
+      shell.topicListContent,
+      ContentRoute.messages(mode: MessageListMode.unread),
+    );
+    expect(tester.takeException(), isNull);
+  });
 }
 
 Future<({ShellController controller, FakeDiscourseApi api})> _pumpInbox(
@@ -364,6 +547,8 @@ Future<({ShellController controller, FakeDiscourseApi api})> _pumpInbox(
   double width = 1440,
   double textScale = 1,
   bool secondSite = false,
+  int inboxCount = 1,
+  bool paginate = false,
   DiscourseUser user = const DiscourseUser(
     id: 1,
     username: 'reader',
@@ -383,14 +568,60 @@ Future<({ShellController controller, FakeDiscourseApi api})> _pumpInbox(
     _groupUnread: 'Unread group message',
     _groupArchive: 'Archived group message',
   };
+  final rows = <String, List<Topic>>{
+    '/latest.json': const [],
+    for (final (index, entry) in feeds.entries.indexed)
+      entry.key: [
+        Topic(
+          id: index + 1,
+          title: entry.value,
+          slug: 'message-$index',
+          privateMessage: true,
+        ),
+        if (entry.key == _inbox)
+          for (var i = 1; i < inboxCount; i++)
+            Topic(
+              id: i + 9,
+              title: 'Personal message $i',
+              slug: 'personal-$i',
+              privateMessage: true,
+            ),
+      ],
+    if (paginate)
+      '$_inbox?page=1': const [
+        Topic(
+          id: 100,
+          title: 'Next page message',
+          slug: 'next-page',
+          privateMessage: true,
+        ),
+      ],
+  };
   final api = FakeDiscourseApi(
     user: user,
-    feeds: {
-      '/latest.json': const [],
-      for (final (index, entry) in feeds.entries.indexed)
-        entry.key: [
-          Topic(id: index + 1, title: entry.value, slug: 'message-$index'),
-        ],
+    feeds: rows,
+    nextPages: {if (paginate) _inbox: '$_inbox?page=1'},
+    topics: {
+      for (final row in rows.values.expand((rows) => rows))
+        row.id: (
+          detail: TopicDetail(
+            id: row.id,
+            title: row.title,
+            stream: [row.id * 100],
+            postsCount: 1,
+            privateMessage: true,
+            canCreatePost: true,
+          ),
+          posts: [
+            Post(
+              id: row.id * 100,
+              postNumber: 1,
+              username: 'alex',
+              userId: 2,
+              cooked: '<p>Message body ${row.id}</p>',
+            ),
+          ],
+        ),
     },
   );
   final controller = ShellController(
