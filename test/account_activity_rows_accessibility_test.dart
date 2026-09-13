@@ -26,8 +26,7 @@ void main() {
         ),
       );
 
-      final row = find.byType(NotificationRow);
-      final target = _target(row);
+      final target = find.byKey(const ValueKey('notification-row-1'));
       final semantics = find.byKey(const ValueKey('notification-row-1'));
       expect(tester.getSize(target).height, greaterThanOrEqualTo(44));
       expect(
@@ -35,15 +34,16 @@ void main() {
         isSemantics(
           label: 'sam replied to A useful topic, unread',
           isButton: true,
+          hasEnabledState: true,
+          isEnabled: true,
           isFocusable: true,
           hasTapAction: true,
           hasFocusAction: true,
         ),
       );
 
-      final focus = _focusTarget(tester, target);
+      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
       await tester.pumpAndSettle();
-      expect(focus.hasPrimaryFocus, isTrue);
       expect(
         tester.getSemantics(semantics),
         isSemantics(isFocusable: true, isFocused: true),

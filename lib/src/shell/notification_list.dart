@@ -545,57 +545,61 @@ class NotificationRow extends StatelessWidget {
 
     final row = Padding(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 1),
-      child: Semantics(
-        key: ValueKey('notification-row-${notification.id}'),
-        label: accessibilityLabel,
-        button: true,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(6),
-          child: ExcludeSemantics(
-            child: Container(
-              constraints: const BoxConstraints(minHeight: 44),
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-              decoration: BoxDecoration(
-                color: notification.isUnread
-                    ? theme.colorScheme.primary.withValues(alpha: 0.12)
-                    : null,
-                borderRadius: BorderRadius.circular(6),
-              ),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.only(top: 1),
-                    child: DIcon(
-                      description.icon,
-                      size: 16,
-                      color: notification.isUnread
-                          ? tokens.primary
-                          : tokens.mutedForeground,
-                    ),
+      child: Container(
+        constraints: const BoxConstraints(minHeight: 44),
+        decoration: BoxDecoration(
+          color: notification.isUnread
+              ? tokens.primary.withValues(alpha: 0.12)
+              : null,
+          borderRadius: tokens.borderRadius,
+        ),
+        child: DItem(
+          key: ValueKey('notification-row-${notification.id}'),
+          semanticLabel: accessibilityLabel,
+          onPressed: onTap,
+          padding: const EdgeInsets.all(7),
+          children: [
+            DItemContent(
+              children: [
+                ExcludeSemantics(
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.only(top: 1),
+                        child: DIcon(
+                          description.icon,
+                          size: 16,
+                          color: notification.isUnread
+                              ? tokens.primary
+                              : tokens.mutedForeground,
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: SiteEmojiText(
+                          [
+                            if (description.actor case final actor?)
+                              SiteEmojiTextRun(
+                                '$actor ',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            SiteEmojiTextRun(description.phrase),
+                          ],
+                          siteUrl: siteUrl,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.bodyMedium,
+                        ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: SiteEmojiText(
-                      [
-                        if (description.actor case final actor?)
-                          SiteEmojiTextRun(
-                            '$actor ',
-                            style: const TextStyle(fontWeight: FontWeight.w600),
-                          ),
-                        SiteEmojiTextRun(description.phrase),
-                      ],
-                      siteUrl: siteUrl,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.bodyMedium,
-                    ),
-                  ),
-                ],
-              ),
+                ),
+              ],
             ),
-          ),
+          ],
         ),
       ),
     );
