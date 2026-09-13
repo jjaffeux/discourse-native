@@ -56,6 +56,14 @@ const _topWeekTopic = Topic(id: 7, title: 'Top this week', slug: 'top-week');
 
 const _popularTopic = Topic(id: 8, title: 'Popular topic', slug: 'popular');
 
+const _unseenTopic = Topic(
+  id: 9,
+  title: 'Unseen untracked reply',
+  slug: 'unseen-untracked-reply',
+  highestPostNumber: 3,
+  lastReadPostNumber: 1,
+);
+
 void main() {
   testWidgets(
     'restored list search is removed before category, tag and feed changes',
@@ -670,6 +678,7 @@ void main() {
         path: '/new.json?subset=replies',
       ),
       TopicListMode.unread: (id: 'unread', path: '/unread.json'),
+      TopicListMode.unseen: (id: 'unseen', path: '/unseen.json'),
       TopicListMode.topAll: (id: 'top-all', path: '/top.json?period=all'),
       TopicListMode.topYearly: (
         id: 'top-yearly',
@@ -979,6 +988,13 @@ void main() {
     expect(find.byKey(const ValueKey('topic-list-new-all')), findsNothing);
     expect(controller.sidebarBadgeFor('latest').count, 1059);
 
+    await _selectFeed(tester, 'topic-list-unseen');
+    expect(controller.currentTopicListMode, TopicListMode.unseen);
+    expect(controller.activeTab?.rootDestinationId, 'latest');
+    expect(find.text('Unseen untracked reply'), findsOneWidget);
+    expect(find.text('Latest topic'), findsNothing);
+    expect(find.byKey(const ValueKey('topic-list-new-all')), findsNothing);
+
     await _selectFeed(tester, 'topic-list-new');
     await tester.pumpAndSettle();
 
@@ -1055,6 +1071,7 @@ void main() {
       api.feedPaths,
       containsAllInOrder(const [
         '/latest.json',
+        '/unseen.json',
         '/new.json',
         '/new.json?subset=topics',
         '/new.json?subset=replies',
@@ -1525,6 +1542,7 @@ void main() {
           expect(find.text('Public support topic'), findsOneWidget);
           expect(primary, findsOneWidget);
           expect(find.byKey(const ValueKey('topic-list-new')), findsNothing);
+          expect(find.byKey(const ValueKey('topic-list-unseen')), findsNothing);
           expect(setup.api.feedPaths, [
             '/latest.json',
             '/top.json?period=yearly',
@@ -1540,7 +1558,7 @@ void main() {
     );
   }
 
-  test('signed-out readers cannot select New or unread lists', () async {
+  test('signed-out readers cannot select personal topic lists', () async {
     final setup = await _controller(user: null);
     addTearDown(setup.controller.dispose);
     await setup.controller.loadFeed('latest');
@@ -1550,12 +1568,84 @@ void main() {
       TopicListMode.newTopics,
       TopicListMode.newReplies,
       TopicListMode.unread,
+      TopicListMode.unseen,
     ]) {
       await setup.controller.selectTopicListMode(mode);
       expect(setup.controller.currentTopicListMode, TopicListMode.latest);
     }
     expect(setup.api.feedPaths, initialPaths);
   });
+
+  for (final unifiedNewEnabled in [false, true]) {
+    testWidgets(
+      'Unseen preserves category and tags with unified New $unifiedNewEnabled',
+      (tester) async {
+        const category = TopicCategory(
+          id: 42,
+          name: 'Support',
+          slug: 'support',
+          color: '3188CC',
+        );
+        final filtered = ContentRoute.filteredTopicList(
+          TopicListMode.unseen,
+          categoryId: category.id,
+          tags: const ['design', 'mobile'],
+        );
+        final filteredLatest = ContentRoute.filteredTopicList(
+          TopicListMode.latest,
+          categoryId: category.id,
+          tags: const ['design', 'mobile'],
+        );
+        final setup = await _controller(
+          user: DiscourseUser(
+            id: 7,
+            username: 'sam',
+            unifiedNewEnabled: unifiedNewEnabled,
+          ),
+          categoryList: const [category],
+          extraFeeds: {
+            '/c/support/42.json': [_latestTopic],
+            filteredLatest.feedPath!: [_latestTopic],
+            filtered.feedPath!: [_unseenTopic],
+          },
+        );
+        final controller = setup.controller;
+        addTearDown(controller.dispose);
+        await tester.pumpWidget(
+          ShellScope(
+            controller: controller,
+            child: MaterialApp(
+              theme: AppTheme.dark,
+              home: const Scaffold(
+                body: MainContent(layout: ShellLayout.expanded),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        controller.selectTopicListCategory(category);
+        await tester.pumpAndSettle();
+        controller.selectTopicListTags(['mobile', 'design']);
+        await tester.pumpAndSettle();
+
+        await _selectFeed(tester, 'topic-list-unseen');
+        expect(setup.api.feedPaths.last, filtered.feedPath);
+        expect(controller.currentTopicListMode, TopicListMode.unseen);
+        expect(controller.topicListContent?.categoryId, category.id);
+        expect(controller.topicListContent?.tagNames, ['design', 'mobile']);
+        expect(find.text('Unseen untracked reply'), findsOneWidget);
+
+        controller.clearTopicListFilters();
+        await tester.pumpAndSettle();
+        expect(setup.api.feedPaths.last, '/unseen.json');
+        expect(controller.currentTopicListMode, TopicListMode.unseen);
+        expect(controller.topicListContent?.categoryId, isNull);
+        expect(controller.topicListContent?.tagNames, isEmpty);
+        expect(find.text('Unseen untracked reply'), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
 
   testWidgets('toolbar retains aligned filters without a local search field', (
     tester,
@@ -2018,6 +2108,7 @@ Future<({ShellController controller, FakeDiscourseApi api})> _controller({
       '/new.json': [_allNewTopic],
       '/new.json?subset=topics': [_newTopic],
       '/new.json?subset=replies': [_newReply],
+      '/unseen.json': [_unseenTopic],
       '/top.json?period=yearly': [_topYearTopic],
       '/top.json?period=weekly': [_topWeekTopic],
       '/hot.json': [_popularTopic],
