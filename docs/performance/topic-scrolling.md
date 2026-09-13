@@ -71,7 +71,9 @@ retention and viewport/navigation behavior are covered by widget tests.
 
 ## Verification
 
-The focused scrolling suite passed 113 tests on the integration candidate. Tests cover reuse, least-recently-viewed
+Final integration with main at `b3507115` passed all 290 tests across the
+scrolling, topic-reading, keyboard, diagnostics and reading-lane suites.
+Tests cover reuse, least-recently-viewed
 eviction, both cache limits, offscreen edits, deferred keep-alive notification,
 disposal, pagination, anchor correction, visible topic context, day separators,
 progress and highlights. The reuse regression fails on the original source
@@ -82,9 +84,7 @@ Targeted downstream checks also passed: diagnostics toggles at widths 390,
 1000 and 2428; pinned-sidebar reading-lane alignment; and independent topic
 list/reader keyboard selections. Static analysis passed without issues.
 
-Broader legacy suites also exposed existing failures. The unchanged baseline
-reproduced the same twelve topic-reading integration failures and the unrelated
-aggregate-layout, diagnostics-width, topic-selection-border and search-shortcut
-failures. Both versions stalled in the legacy manual-post-scrolling keyboard
-test; those broad runs were interrupted. These failures were not counted as
-passing checks and are outside this scrolling change.
+Initial broader runs exposed existing failures on the original baseline. The
+separate test-repair change merged into main before final integration; its
+repairs were preserved, and all affected suites passed together. Formatting
+and full-project static analysis also passed on the final integration source.
