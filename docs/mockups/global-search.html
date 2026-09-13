@@ -35,7 +35,7 @@
  .desktop-search-shortcut{display:inline-flex;flex-shrink:0}
  .mobile-search-trigger{display:none}
  .search-screen{position:fixed;z-index:25;flex:none;min-height:0;border:1px solid var(--d-border);border-radius:12px;background:var(--d-bg);box-shadow:0 20px 48px #0005,0 5px 12px #0003;overflow:hidden}
- .search-header{height:var(--search-header-height,44px);padding:var(--search-header-pad-top,6px) 8px 7px;border-bottom:1px solid var(--d-divider)}
+ .search-header{height:var(--search-header-height,42px);padding:var(--search-header-pad-top,4px) 8px 7px;border-bottom:1px solid var(--d-divider)}
  .desktop-search-open .desktop-search-slot{visibility:hidden}
  .desktop-search-open .search-panel-body{animation:search-panel-open 120ms ease-out}
  .search-screen .search-toolbar{padding:14px 18px 12px}
@@ -1244,7 +1244,7 @@ function syncSearchPresentation({preserveFocus=true}={}){
  input.setAttribute('aria-expanded',String(open));
  input.placeholder=desktop?'Search everywhere':S.scope==='all'?'Search anything in Discourse Meta…':S.scope==='forum'?'Search topics and posts…':S.scope==='chat'?'Search chat messages…':`Search ${S.scope} by name…`;
  if(desktop){
-  const rect=slot.getBoundingClientRect(),top=Math.max(4,rect.top-6);
+  const rect=slot.getBoundingClientRect(),top=Math.max(6,rect.top-4);
   panel.style.left=(rect.left-8)+'px';panel.style.top=top+'px';panel.style.width=(rect.width+16)+'px';
   panel.style.setProperty('--search-header-pad-top',(rect.top-top)+'px');
   panel.style.setProperty('--search-header-height',(rect.bottom-top+6)+'px');
