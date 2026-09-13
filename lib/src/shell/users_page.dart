@@ -642,43 +642,48 @@ class _UsersPageState extends State<UsersPage> {
                           ),
                       ],
                     ),
-                    SizedBox(
-                      width: math.min(240, constraints.maxWidth),
-                      child: DCombobox<String>.controlled(
-                        key: const ValueKey('users-group-filter'),
-                        value: data.query.group ?? '__all_groups__',
-                        anchor: const DComboboxInput<String>(
-                          semanticLabel: 'Filter by group',
-                          placeholder: 'All groups',
-                        ),
-                        content: const DComboboxContent(
-                          children: [
-                            DComboboxEmpty<String>(
-                              child: Text('No groups found.'),
+                    if (data.groupNames.isNotEmpty || data.query.group != null)
+                      SizedBox(
+                        width: math.min(240, constraints.maxWidth),
+                        child: DCombobox<String>.controlled(
+                          key: const ValueKey('users-group-filter'),
+                          value: data.query.group ?? '__all_groups__',
+                          anchor: const DComboboxInput<String>(
+                            semanticLabel: 'Filter by group',
+                            placeholder: 'All groups',
+                          ),
+                          content: const DComboboxContent(
+                            children: [
+                              DComboboxEmpty<String>(
+                                child: Text('No groups found.'),
+                              ),
+                              DComboboxList<String>(),
+                            ],
+                          ),
+                          enabled: widget.onGroupChanged != null,
+                          filter: (value, query, label) =>
+                              query == (data.query.group ?? 'All groups') ||
+                              label.toLowerCase().contains(query.toLowerCase()),
+                          onChanged: (value, reason) => widget.onGroupChanged
+                              ?.call(value == '__all_groups__' ? null : value),
+                          options: [
+                            const DComboboxOption(
+                              value: '__all_groups__',
+                              label: 'All groups',
                             ),
-                            DComboboxList<String>(),
+                            for (final group
+                                in (<String>{
+                                  ...data.groupNames,
+                                  ?data.query.group,
+                                }.toList()..sort(
+                                  (a, b) => a.toLowerCase().compareTo(
+                                    b.toLowerCase(),
+                                  ),
+                                )))
+                              DComboboxOption(value: group, label: group),
                           ],
                         ),
-                        enabled: widget.onGroupChanged != null,
-                        onChanged: (value, reason) => widget.onGroupChanged
-                            ?.call(value == '__all_groups__' ? null : value),
-                        options: [
-                          const DComboboxOption(
-                            value: '__all_groups__',
-                            label: 'All groups',
-                          ),
-                          for (final group
-                              in (<String>{
-                                ...data.groupNames,
-                                ?data.query.group,
-                              }.toList()..sort(
-                                (a, b) =>
-                                    a.toLowerCase().compareTo(b.toLowerCase()),
-                              )))
-                            DComboboxOption(value: group, label: group),
-                        ],
                       ),
-                    ),
                     DDataTableColumnToggle<UserDirectoryItem>(
                       key: const ValueKey('users-columns'),
                       menuLabel: 'Columns',
