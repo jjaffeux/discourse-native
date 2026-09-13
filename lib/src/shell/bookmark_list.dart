@@ -101,7 +101,9 @@ class _BookmarkSectionViewState extends State<_BookmarkSectionView> {
             onRetry: () => controller.loadBookmarks(widget.siteUrl),
           );
         }
-        if (!feed.loaded) return const UserMenuMessage(text: null);
+        if (!feed.loaded) {
+          return const UserMenuLoading(semanticsLabel: 'Loading bookmarks');
+        }
         if (feed.isEmpty) {
           return const UserMenuMessage(text: 'Nothing bookmarked yet.');
         }

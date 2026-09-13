@@ -62,3 +62,46 @@ class UserMenuMessage extends StatelessWidget {
     );
   }
 }
+
+class UserMenuLoading extends StatelessWidget {
+  const UserMenuLoading({
+    super.key,
+    this.semanticsLabel = 'Loading notifications',
+  });
+
+  final String semanticsLabel;
+
+  @override
+  Widget build(BuildContext context) => DSkeletonRegion(
+    semanticsLabel: semanticsLabel,
+    child: Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        for (final width in const [0.65, 0.85, 0.5, 0.75, 0.6, 0.8])
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const DSkeleton(width: 16, height: 16),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const DSkeleton(height: 14),
+                      const SizedBox(height: 6),
+                      FractionallySizedBox(
+                        widthFactor: width,
+                        child: const DSkeleton(height: 14),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+      ],
+    ),
+  );
+}

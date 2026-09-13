@@ -266,7 +266,7 @@ class _InviteListState extends State<InviteList> {
               _Notice(error, error: true),
             if (controller.message case final message?) _Notice(message),
             if (controller.loading && !controller.loaded)
-              const UserMenuMessage(text: null)
+              const UserMenuLoading(semanticsLabel: 'Loading invites')
             else if (controller.error case final error?
                 when !controller.loaded || controller.invites.isEmpty)
               UserMenuMessage(

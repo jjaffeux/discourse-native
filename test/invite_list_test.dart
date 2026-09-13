@@ -120,7 +120,14 @@ void main() {
         ),
       ),
     );
-    expect(find.byType(DSpinner), findsOneWidget);
+    expect(find.byType(DSkeletonRegion), findsOneWidget);
+    expect(
+      tester
+          .widget<DSkeletonRegion>(find.byType(DSkeletonRegion))
+          .semanticsLabel,
+      'Loading invites',
+    );
+    expect(find.byType(DSpinner), findsNothing);
     expect(find.text('No pending invites.'), findsNothing);
     gate.completeError(StateError('offline'));
     await loading;
@@ -131,6 +138,7 @@ void main() {
     );
     transport.onGet = (_) => invitePage([]);
     await tapText(tester, 'Retry');
+    expect(find.byType(DSkeletonRegion), findsNothing);
     expect(find.text('No pending invites.'), findsOneWidget);
     expect(find.text('Create invite'), findsOneWidget);
   });
