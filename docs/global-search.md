@@ -196,3 +196,25 @@ The integrated change passed all 315 focused search, shell navigation,
 accessibility and chat cases, root/full-profile analysis, formatting and
 `git diff --check` against main's updated search-scope checkmarks and HTML
 renderer dependency.
+
+### Category checklist follow-up
+
+The category editor uses the approved compact checklist and omits the three
+removed helper/order labels. Discovery queries the full accessible taxonomy for
+authenticated and anonymous sessions, with parent labels, paging, retry, and
+selection metadata retained across searches. Pages append in server order.
+
+Verification passed 130 focused cases across the search controller, panel,
+presentation, control-adoption and transport suites, including anonymous lazy
+category loading, stale pages and account sessions, draft metadata cache
+eviction, keyboard selection, and narrow dark/light layouts at 200% text. Root
+and `profiles/full` analysis and the isolated macOS debug build passed.
+Independent source review also checked integration with main's tag picker and
+display-property changes. An existing display test was updated to target its
+new Native checkbox.
+
+The offline native macOS pass verified checkbox selection, selected badges and
+paging from 25 to all 32 fixture categories. Subsequent row-spacing, badge-artwork,
+server-order and session refinements were verified through source review, widget
+tests and a rebuilt bundle; the integrated bundle was not re-inspected on the
+shared desktop. No authenticated live-server or physical-device review is claimed.
