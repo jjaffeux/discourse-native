@@ -545,23 +545,13 @@ class _Nav extends StatelessWidget {
       label: label,
       onTap: onTap,
       child: ExcludeSemantics(
-        child: DTooltip(
-          message: label,
-          labelTrigger: true,
-          child: IconButton(
-            onPressed: onTap,
-            tooltip: '',
-            iconSize: 14,
-            constraints: const BoxConstraints.tightFor(
-              width: ImageGridCarousel.controlTargetSize,
-              height: ImageGridCarousel.controlTargetSize,
-            ),
-            padding: EdgeInsets.zero,
-            icon: DIcon(
-              icon,
-              size: 14,
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-            ),
+        child: DButton.iconOnly(
+          onPressed: onTap,
+          variant: DButtonVariant.ghost,
+          tooltip: label,
+          icon: DIcon(
+            icon,
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
           ),
         ),
       ),

@@ -54,7 +54,7 @@ void main() {
   );
 
   Future<void> chooseView(WidgetTester tester, String view) async {
-    await tester.tap(find.byTooltip('Calendar view'));
+    await tester.tap(find.bySemanticsLabel('Calendar view'));
     await tester.pumpAndSettle();
     await tester.tap(find.text(view).last);
     await tester.pumpAndSettle();
@@ -71,8 +71,10 @@ void main() {
     expect(find.byType(kalender.KalenderView), findsOneWidget);
     expect(find.text('September 2026'), findsOneWidget);
     expect(find.text('Team availability'), findsOneWidget);
+    await tester.ensureVisible(find.text('Team availability'));
     await tester.tap(find.text('Team availability'));
     expect(postNumber, 80);
+    await tester.ensureVisible(find.byTooltip('Next month'));
     await tester.tap(find.byTooltip('Next month'));
     await tester.pumpAndSettle();
     expect(find.text('October 2026'), findsOneWidget);
@@ -110,6 +112,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('+5'), findsOneWidget);
       expect(find.text('Person 7'), findsNothing);
+      await tester.ensureVisible(find.text('+5'));
       await tester.tap(find.text('+5'));
       await tester.pumpAndSettle();
       expect(find.text('Person 7'), findsOneWidget);
@@ -131,6 +134,7 @@ void main() {
       expect(find.text('Sat'), findsOneWidget);
       expect(find.text('Sun'), findsOneWidget);
       expect(find.text('Mon'), findsOneWidget);
+      await tester.ensureVisible(find.byTooltip('Next month'));
       await tester.tap(find.byTooltip('Next month'));
       await tester.pumpAndSettle();
       await tester.pumpWidget(
@@ -328,6 +332,7 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
+    await tester.ensureVisible(find.byTooltip('Next month'));
     await tester.tap(find.byTooltip('Next month'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Etc/UTC'));
@@ -473,6 +478,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.byType(TopicCalendar), findsOneWidget);
       expect(find.text('Team availability'), findsOneWidget);
+      await tester.ensureVisible(find.text('Team availability'));
       await tester.ensureVisible(find.text('Team availability'));
       await tester.tap(find.text('Team availability'));
       await tester.pumpAndSettle();

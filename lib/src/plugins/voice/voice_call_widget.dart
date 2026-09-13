@@ -100,17 +100,13 @@ class VoiceCallWidget extends StatelessWidget {
                         ),
                       ),
                     ),
-                    DTooltip(
-                      message: 'Leave room',
-                      labelTrigger: true,
-                      child: IconButton(
-                        tooltip: '',
-                        onPressed: () => port.dispatch(VoiceCallAction.leave),
-                        icon: DIcon(
-                          DIcons.phoneSlash,
-                          size: 18,
-                          color: Theme.of(context).colorScheme.error,
-                        ),
+                    DButton.iconOnly(
+                      onPressed: () => port.dispatch(VoiceCallAction.leave),
+                      variant: DButtonVariant.ghost,
+                      tooltip: 'Leave room',
+                      icon: DIcon(
+                        DIcons.phoneSlash,
+                        color: Theme.of(context).colorScheme.error,
                       ),
                     ),
                   ],

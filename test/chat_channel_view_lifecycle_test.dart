@@ -581,7 +581,7 @@ void main() {
       await tester.pump();
 
       final deleteButton = find.byKey(const ValueKey('chat-delete-selection'));
-      expect(tester.widget<IconButton>(deleteButton).onPressed, isNotNull);
+      expect(tester.widget<DButton>(deleteButton).onPressed, isNotNull);
       await tester.tap(deleteButton);
       await tester.pumpAndSettle();
       expect(find.text('Delete selected messages?'), findsOne);
@@ -598,7 +598,7 @@ void main() {
       expect(api.chatMessageBatchesDeleted.single.messageIds, [1, 2]);
       expect(find.text('2 messages were deleted. [view all]'), findsOne);
       expect(find.text('Messages deleted.'), findsOne);
-      expect(tester.widget<IconButton>(deleteButton).onPressed, isNull);
+      expect(tester.widget<DButton>(deleteButton).onPressed, isNull);
     });
 
     testWidgets('moves a moderator selection and opens its destination', (
@@ -644,7 +644,7 @@ void main() {
       await tester.pump();
 
       final moveButton = find.byKey(const ValueKey('chat-move-selection'));
-      expect(tester.widget<IconButton>(moveButton).onPressed, isNotNull);
+      expect(tester.widget<DButton>(moveButton).onPressed, isNotNull);
       await tester.tap(moveButton);
       await tester.pumpAndSettle();
       expect(find.text('Move messages'), findsOne);
@@ -1880,13 +1880,10 @@ void main() {
             find.ancestor(of: deleted, matching: find.byType(ColoredBox)).first,
           );
           expect(background.color, AppTheme.light.colorScheme.errorContainer);
-          final button = tester.widget<TextButton>(
-            find.ancestor(of: deleted, matching: find.byType(TextButton)),
+          final button = tester.widget<DButton>(
+            find.ancestor(of: deleted, matching: find.byType(DButton)),
           );
-          expect(
-            button.style?.foregroundColor?.resolve(const <WidgetState>{}),
-            AppTheme.light.discourse.primaryHigh,
-          );
+          expect(button.variant, DButtonVariant.ghost);
 
           await tester.tap(deleted);
           await tester.pumpAndSettle();

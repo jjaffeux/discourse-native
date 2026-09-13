@@ -342,7 +342,7 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('topic-move-posts-category')));
     await tester.pumpAndSettle();
     expect(find.text('Default category'), findsWidgets);
-    final menu = find.byType(DropdownMenuItem<int?>);
+    final menu = find.byType(DPopoverContent);
     expect(
       find.descendant(of: menu, matching: find.text('Creatable')),
       findsOneWidget,

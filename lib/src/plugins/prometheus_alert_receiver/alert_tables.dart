@@ -386,22 +386,11 @@ class _AlertActionButton extends StatelessWidget {
   final VoidCallback onPressed;
 
   @override
-  Widget build(BuildContext context) => DTooltip(
-    message: label,
-    labelTrigger: true,
-    child: IconButton(
-      icon: DIcon(icon, size: 14),
-      tooltip: '',
-      onPressed: onPressed,
-      style: IconButton.styleFrom(
-        minimumSize: Size.square(_actionSize(context)),
-        maximumSize: Size.square(_actionSize(context)),
-        padding: EdgeInsets.zero,
-        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-        foregroundColor: Theme.of(context).colorScheme.onSurfaceVariant,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(2)),
-      ),
-    ),
+  Widget build(BuildContext context) => DButton.iconOnly(
+    onPressed: onPressed,
+    variant: DButtonVariant.ghost,
+    tooltip: label,
+    icon: DIcon(icon),
   );
 }
 

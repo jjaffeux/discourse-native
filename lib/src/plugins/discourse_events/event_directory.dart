@@ -404,33 +404,51 @@ class _EventDirectoryState extends State<EventDirectory> {
         _action(action);
       }
     };
-    return DTooltip(
-      message: 'Calendar actions',
-      labelTrigger: true,
-      child: PopupMenuButton<VoidCallback>(
-        tooltip: '',
-        onSelected: (callback) => callback(),
-        itemBuilder: (_) => [
-          PopupMenuItem(
-            value: guarded(_CalendarAction.refresh),
-            child: const Text('Refresh'),
+    return Builder(
+      builder: (menuContext) {
+        void onSelect(VoidCallback callback) => callback();
+        return DDropdownMenu(
+          content: DDropdownMenuContent(
+            semanticLabel: 'Calendar actions',
+            width: 280,
+            children: [
+              DDropdownMenuItem(
+                onPressed: () => onSelect(guarded(_CalendarAction.refresh)),
+                child: const Text('Refresh'),
+              ),
+              DDropdownMenuCheckboxItem(
+                checked: _searchVisible,
+                closeOnSelect: true,
+                onChanged: (_) => onSelect(guarded(_CalendarAction.search)),
+                child: const Text('Search events'),
+              ),
+              DDropdownMenuItem(
+                onPressed: !_exporting
+                    ? () => onSelect(guarded(_CalendarAction.export))
+                    : null,
+                child: Text(
+                  _exporting ? 'Exporting calendar…' : 'Export calendar',
+                ),
+              ),
+              DDropdownMenuItem(
+                onPressed: () => onSelect(guarded(_CalendarAction.web)),
+                child: const Text('Open web calendar'),
+              ),
+            ],
           ),
-          CheckedPopupMenuItem(
-            value: guarded(_CalendarAction.search),
-            checked: _searchVisible,
-            child: const Text('Search events'),
+          child: DDropdownMenuTrigger(
+            builder: (triggerContext, state) => DButton.iconOnly(
+              tooltip: 'Calendar actions',
+              variant: DButtonVariant.ghost,
+              icon: const Icon(Icons.more_vert),
+              focusNode: state.focusNode,
+              hasPopup: true,
+              expanded: state.open,
+              onPressed: state.toggle,
+            ),
           ),
-          PopupMenuItem(
-            value: guarded(_CalendarAction.export),
-            enabled: !_exporting,
-            child: Text(_exporting ? 'Exporting calendar…' : 'Export calendar'),
-          ),
-          PopupMenuItem(
-            value: guarded(_CalendarAction.web),
-            child: const Text('Open web calendar'),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -466,14 +484,11 @@ class _EventDirectoryState extends State<EventDirectory> {
               onSubmitted: (_) => _load(),
               decoration: InputDecoration(
                 labelText: 'Search events',
-                suffixIcon: DTooltip(
-                  message: 'Search events',
-                  labelTrigger: true,
-                  child: IconButton(
-                    tooltip: '',
-                    onPressed: _load,
-                    icon: const Icon(Icons.search),
-                  ),
+                suffixIcon: DButton.iconOnly(
+                  onPressed: _load,
+                  variant: DButtonVariant.ghost,
+                  tooltip: 'Search events',
+                  icon: const Icon(Icons.search),
                 ),
               ),
             ),

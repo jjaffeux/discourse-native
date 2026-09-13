@@ -1,3 +1,4 @@
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/shell/composer_controller.dart';
 import 'package:discourse_native/src/shell/composer_panel.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
@@ -76,8 +77,14 @@ void main() {
       );
       expect(toolbar, findsOneWidget);
       expect(tester.getSize(toolbar), const Size(88, 44));
-      expect(tester.getSize(bold), const Size.square(44));
-      expect(tester.getSize(italic), const Size.square(44));
+      expect(
+        tester.getSize(bold),
+        const Size.square(DControlStyle.regularHeight),
+      );
+      expect(
+        tester.getSize(italic),
+        const Size.square(DControlStyle.regularHeight),
+      );
       expect(
         tester.getSemantics(bold),
         isSemantics(
@@ -122,7 +129,7 @@ void main() {
 
 FocusNode _focusButton(WidgetTester tester, Finder tooltip) {
   final button = find
-      .descendant(of: tooltip, matching: find.byType(IconButton))
+      .ancestor(of: tooltip, matching: find.byType(DButton))
       .first;
   final inkWell = find.descendant(of: button, matching: find.byType(InkWell));
   expect(inkWell, findsOneWidget);

@@ -32,7 +32,7 @@ class _PreferencesPageState extends State<PreferencesPage> {
   final TextEditingController _timezone = TextEditingController();
   final FocusNode _timezoneFocus = FocusNode();
   late final List<String> _timezoneNames;
-  late final List<DropdownMenuEntry<String>> _timezoneEntries;
+  late final List<DComboboxOption<String>> _timezoneEntries;
 
   ShellController? _shell;
   PreferencesController? _preferences;
@@ -44,12 +44,11 @@ class _PreferencesPageState extends State<PreferencesPage> {
     super.initState();
     _timezoneNames = TimezoneEnvironment.instance.timezoneNames.toList()
       ..sort();
-    // `DropdownMenu` materialises a button per entry; the IANA list is built
-    // once here rather than on every rebuild of the card.
+    // Keep the IANA options stable across edits and page rebuilds.
     _timezoneEntries = List.unmodifiable([
-      const DropdownMenuEntry(value: '', label: _forumDefaultTimezoneLabel),
+      const DComboboxOption(value: '', label: _forumDefaultTimezoneLabel),
       for (final name in _timezoneNames)
-        DropdownMenuEntry(value: name, label: name),
+        DComboboxOption(value: name, label: name),
     ]);
     _timezoneFocus.addListener(_restoreSelectedTimezoneAfterFiltering);
   }
@@ -801,7 +800,7 @@ class _ProfileForm extends StatelessWidget {
   final FocusNode timezoneFocus;
   final String selectedTimezone;
   final List<String> timezoneNames;
-  final List<DropdownMenuEntry<String>> timezoneEntries;
+  final List<DComboboxOption<String>> timezoneEntries;
   final String? deviceTimezone;
   final bool enabled;
   final ValueChanged<String> onTimezoneChanged;
@@ -811,29 +810,39 @@ class _ProfileForm extends StatelessWidget {
   Widget build(BuildContext context) {
     return _PreferenceCard(
       children: [
-        DropdownMenu<String>(
-          key: const ValueKey('preferences-timezone'),
-          controller: timezone,
-          focusNode: timezoneFocus,
-          enabled: enabled,
-          initialSelection: selectedTimezone,
-          expandedInsets: EdgeInsets.zero,
-          enableFilter: true,
-          enableSearch: true,
-          requestFocusOnTap: true,
-          label: const Text('Timezone'),
-          helperText:
-              'Type to filter IANA timezones used for dates and reminders.',
-          dropdownMenuEntries: timezoneEntries,
-          onSelected: enabled
-              ? (value) {
-                  if (value == null) {
-                    _restoreSelectedTimezone();
-                  } else {
-                    onTimezoneChanged(value);
-                  }
-                }
-              : null,
+        DField(
+          children: [
+            const DFieldLabel(child: Text('Timezone')),
+            DCombobox<String>.controlled(
+              key: const ValueKey('preferences-timezone'),
+              textController: timezone,
+              focusNode: timezoneFocus,
+              enabled: enabled,
+              value: selectedTimezone,
+              options: timezoneEntries,
+              anchor: const DComboboxInput<String>(semanticLabel: 'Timezone'),
+              content: const DComboboxContent(
+                children: [
+                  DComboboxEmpty<String>(child: Text('No timezones found.')),
+                  DComboboxList<String>(),
+                ],
+              ),
+              onChanged: enabled
+                  ? (value, reason) {
+                      if (value == null) {
+                        _restoreSelectedTimezone();
+                      } else {
+                        onTimezoneChanged(value);
+                      }
+                    }
+                  : null,
+            ),
+            const DFieldDescription(
+              child: Text(
+                'Type to filter IANA timezones used for dates and reminders.',
+              ),
+            ),
+          ],
         ),
         const SizedBox(height: 12),
         DFieldDescription(

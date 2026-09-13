@@ -1,7 +1,8 @@
 import 'dart:convert';
 import 'dart:ui' show PointerDeviceKind;
 
-import 'package:discourse_native/discourse_ui.dart' show DSpinner;
+import 'package:discourse_native/discourse_ui.dart'
+    show DDropdownMenuItem, DSpinner;
 import 'package:discourse_native/src/app.dart';
 import 'package:discourse_native/src/data/draft_store.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
@@ -214,7 +215,7 @@ Future<void> tapPostAction(
       'Put this post back' => 'Undelete',
       _ => throw StateError('No visible label for post action: $tooltip'),
     };
-    action = find.widgetWithText(MenuItemButton, label);
+    action = find.widgetWithText(DDropdownMenuItem, label);
   }
   expect(action, findsOneWidget);
   await tester.tap(action);

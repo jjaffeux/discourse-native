@@ -262,16 +262,15 @@ class _UserStatusDialogState extends State<_UserStatusDialog> {
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  DTooltip(
-                    message: 'Choose status emoji',
-                    child: IconButton.outlined(
-                      onPressed: _busy ? null : _pickEmoji,
-                      icon: SiteEmojiImage(
-                        siteUrl: widget.siteUrl,
-                        name: _emoji,
-                        size: 24,
-                        alt: 'Status emoji',
-                      ),
+                  DButton.iconOnly(
+                    onPressed: _busy ? null : _pickEmoji,
+                    variant: DButtonVariant.outline,
+                    tooltip: 'Choose status emoji',
+                    icon: SiteEmojiImage(
+                      siteUrl: widget.siteUrl,
+                      name: _emoji,
+                      size: 24,
+                      alt: 'Status emoji',
                     ),
                   ),
                   const SizedBox(width: 10),

@@ -105,13 +105,11 @@ PhotoViewControllerBase<PhotoViewControllerValue> photoControllerAt(
 Finder fullImageAt(int index) =>
     find.descendant(of: photoViewAt(index), matching: find.byType(SiteImage));
 
-Finder galleryButton(String tooltip) => find.descendant(
-  of: find.byTooltip(tooltip),
-  matching: find.byType(IconButton),
-);
+Finder galleryButton(String tooltip) =>
+    find.ancestor(of: find.byTooltip(tooltip), matching: find.byType(DButton));
 
-IconButton galleryButtonWidget(WidgetTester tester, String tooltip) =>
-    tester.widget<IconButton>(galleryButton(tooltip));
+DButton galleryButtonWidget(WidgetTester tester, String tooltip) =>
+    tester.widget<DButton>(galleryButton(tooltip));
 
 double containedScale(Size viewport, Size image) {
   final widthScale = viewport.width / image.width;
@@ -498,6 +496,9 @@ void main() {
         );
         expect(controller.scale, zoomedScale);
 
+        // The real image callback runs during a frame. Schedule that frame
+        // explicitly instead of depending on an unrelated button animation.
+        tester.binding.scheduleFrame();
         await tester.pump();
         await tester.pump();
 
@@ -576,8 +577,8 @@ void main() {
               .isButton,
           isTrue,
         );
-        expect(tester.getSize(button).width, greaterThanOrEqualTo(44));
-        expect(tester.getSize(button).height, greaterThanOrEqualTo(44));
+        expect(tester.getSize(button).width, DControlStyle.largeHeight);
+        expect(tester.getSize(button).height, DControlStyle.largeHeight);
       }
 
       expect(
@@ -649,10 +650,7 @@ void main() {
       );
 
       expect(button.onPressed, isNull);
-      expect(
-        button.style?.foregroundColor?.resolve({WidgetState.disabled}),
-        Colors.white38,
-      );
+      expect(button.variant, DButtonVariant.secondary);
       expect(icon.color, isNull);
     });
 
@@ -892,15 +890,13 @@ void main() {
       await tester.tap(thumbnail());
       await tester.pumpAndSettle();
 
-      IconButton button(DIconData icon) => tester.widget<IconButton>(
-        find.ancestor(of: find.dIcon(icon), matching: find.byType(IconButton)),
+      DButton button(DIconData icon) => tester.widget<DButton>(
+        find.ancestor(of: find.dIcon(icon), matching: find.byType(DButton)),
       );
 
       for (final icon in [DIcons.download, DIcons.xmark]) {
-        expect(
-          button(icon).style?.backgroundColor?.resolve({}),
-          const Color(0xBB000000),
-        );
+        expect(button(icon).variant, DButtonVariant.secondary);
+        expect(button(icon).size, DButtonSize.large);
       }
     });
 

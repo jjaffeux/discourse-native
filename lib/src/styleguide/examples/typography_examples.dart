@@ -1,9 +1,9 @@
 import 'dart:ui' show SemanticsRole;
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 
-import '../../../discourse_ui.dart';
 import '../styleguide_example.dart';
 
 final typographyExamples = ComponentExamples(
@@ -354,9 +354,10 @@ SelectionArea(child: DProse(children: [
       style: DText.styleOf(context, DTextVariant.inlineCode)),
     const TextSpan(text: ' to greet new members. '),
     WidgetSpan(alignment: PlaceholderAlignment.middle,
-      child: TextButton(
+      child: DButton(
+        variant: DButtonVariant.ghost,
         onPressed: () => setState(() => details = !details),
-        child: Text(details ? 'Hide details' : 'Show details'),
+        label: Text(details ? 'Hide details' : 'Show details'),
       ),
     ),
   ])),
@@ -820,9 +821,10 @@ class _RichTypographyState extends State<_RichTypography> {
               const TextSpan(text: ' to greet new members. '),
               WidgetSpan(
                 alignment: PlaceholderAlignment.middle,
-                child: TextButton(
+                child: DButton(
                   onPressed: () => setState(() => _details = !_details),
-                  child: Text(_details ? 'Hide details' : 'Show details'),
+                  variant: DButtonVariant.ghost,
+                  label: Text(_details ? 'Hide details' : 'Show details'),
                 ),
               ),
             ],

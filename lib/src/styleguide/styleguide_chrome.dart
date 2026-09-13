@@ -1,6 +1,5 @@
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
-
-import '../../discourse_ui.dart';
 
 /// The documentation canvas is neutral; previews receive the original host
 /// theme separately. Changing this theme never changes app settings or samples.
@@ -141,43 +140,22 @@ class StyleguideChoice<T> extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final tokens = DTokens.of(context);
-    return Semantics(
-      label: label,
-      child: Container(
-        key: ValueKey('styleguide-$label'),
-        constraints: BoxConstraints(minHeight: styleguideTargetHeight(context)),
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-        decoration: BoxDecoration(
-          border: Border.all(color: tokens.border),
-          borderRadius: tokens.borderRadius,
-        ),
-        child: DropdownButtonHideUnderline(
-          child: DropdownButton<T>(
-            value: value,
-            isExpanded: true,
-            isDense: true,
-            itemHeight: null,
-            menuMaxHeight: 360,
-            borderRadius: tokens.borderRadius,
-            dropdownColor: tokens.background,
-            focusColor: tokens.muted,
-            icon: Icon(
-              Icons.keyboard_arrow_down,
-              size: 16,
-              color: tokens.mutedForeground,
-            ),
-            style: styleguideText(context, size: 13, height: 18),
-            items: [
-              for (final option in options.entries)
-                DropdownMenuItem(value: option.key, child: Text(option.value)),
-            ],
-            onChanged: (next) {
-              if (next != null) onChanged(next);
-            },
+    return DSelect<T>.controlled(
+      key: ValueKey('styleguide-$label'),
+      semanticLabel: label,
+      value: value,
+      isExpanded: true,
+      entries: [
+        for (final option in options.entries)
+          DSelectItem(
+            value: option.key,
+            textValue: option.value,
+            child: Text(option.value),
           ),
-        ),
-      ),
+      ],
+      onChanged: (next) {
+        if (next != null) onChanged(next);
+      },
     );
   }
 }

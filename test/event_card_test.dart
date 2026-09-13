@@ -1,3 +1,4 @@
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/plugins/discourse_events/event_card.dart';
 import 'package:discourse_native/src/plugins/discourse_events/event_data.dart';
 import 'package:flutter/material.dart';
@@ -95,7 +96,7 @@ void main() {
         expect(find.text('Every week'), findsOneWidget);
         expect(find.textContaining('(Europe/Paris)'), findsOneWidget);
         expect(find.text('9 going'), findsOneWidget);
-        expect(find.text('Going ▾'), findsOneWidget);
+        expect(find.text('Going'), findsOneWidget);
         expect(find.text('Interested'), findsOneWidget);
         expect(find.text('Not going'), findsOneWidget);
         expect(tester.takeException(), isNull);
@@ -115,19 +116,13 @@ void main() {
       await tester.tap(find.byTooltip('Choose recurring attendance'));
       await tester.pumpAndSettle();
       await tester.tap(
-        find.widgetWithText(
-          CheckedPopupMenuItem<VoidCallback>,
-          'Every occurrence',
-        ),
+        find.widgetWithText(DDropdownMenuCheckboxItem, 'Every occurrence'),
       );
       await tester.pumpAndSettle();
       await tester.tap(find.byTooltip('Choose recurring attendance'));
       await tester.pumpAndSettle();
       await tester.tap(
-        find.widgetWithText(
-          CheckedPopupMenuItem<VoidCallback>,
-          'This occurrence only',
-        ),
+        find.widgetWithText(DDropdownMenuCheckboxItem, 'This occurrence only'),
       );
       await tester.pumpAndSettle();
       await tester.tap(find.text('Interested'));
@@ -157,7 +152,7 @@ void main() {
         PostEvent.decode(eventJson(overrides: {'minimal': true}))!,
         respond: (_, _) {},
       );
-      expect(find.text('Going ▾'), findsNothing);
+      expect(find.text('Going'), findsNothing);
       expect(find.text('Not going'), findsNothing);
       expect(find.text('Interested'), findsOneWidget);
       expect(find.byTooltip('lee'), findsNothing);
@@ -173,12 +168,8 @@ void main() {
       )!;
       await pump(tester, event, respond: (status, _) => responses.add(status));
       expect(
-        tester
-            .widget<PopupMenuButton<VoidCallback>>(
-              find.byType(PopupMenuButton<VoidCallback>),
-            )
-            .enabled,
-        isFalse,
+        tester.widget<DButton>(find.widgetWithText(DButton, 'Going')).onPressed,
+        isNull,
       );
       await tester.pumpAndSettle();
       expect(find.text('Every occurrence'), findsNothing);
@@ -208,7 +199,7 @@ void main() {
         respond: (_, _) {},
         connect: () => connections++,
       );
-      expect(find.text('Going ▾'), findsNothing);
+      expect(find.text('Going'), findsNothing);
       await tester.tap(find.text('Connect to respond'));
       expect(connections, 1);
     },

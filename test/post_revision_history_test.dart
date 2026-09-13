@@ -1,3 +1,4 @@
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/post_revision.dart';
@@ -177,11 +178,13 @@ void main() {
     await tester.tap(find.byTooltip('More actions'));
     await tester.pumpAndSettle();
     expect(
-      find.widgetWithText(MenuItemButton, 'View edit history'),
+      find.widgetWithText(DDropdownMenuItem, 'View edit history'),
       findsOneWidget,
     );
 
-    await tester.tap(find.widgetWithText(MenuItemButton, 'View edit history'));
+    await tester.tap(
+      find.widgetWithText(DDropdownMenuItem, 'View edit history'),
+    );
     await tester.pumpAndSettle();
 
     expect(api.postRevisionsRequested, [(postId: 42, revision: null)]);
