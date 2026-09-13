@@ -492,7 +492,7 @@ class _ForumTabSwitcherState extends State<_ForumTabSwitcher> {
                       borderRadius: BorderRadius.circular(8),
                       borderSide: BorderSide(
                         color: theme.colorScheme.primary.withValues(
-                          alpha: 0.35,
+                          alpha: DFocusHighlight.visibleOf(context) ? 0.35 : 0,
                         ),
                       ),
                     ),

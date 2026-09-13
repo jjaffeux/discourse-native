@@ -92,6 +92,14 @@ hit areas. Support touch, hover, keyboard, visible focus, semantics, text
 scaling, narrow layouts, RTL and reduced motion where applicable. Never expose
 selected, error or loading states using color alone.
 
+The app and standalone styleguide mount `DFocusHighlight` above the Navigator.
+Tab/Shift+Tab enables focus outlines; mouse/touch presses hide them until the
+next Tab. Hovering and ordinary typing do not change that choice. Components
+that paint from raw focus state must also check `DFocusHighlight.visibleOf(context)`
+for their focus decoration. Keep actual focus, carets, selection and validation
+styling independent. Standalone component hosts without this app policy retain
+their default focus styling.
+
 Interactive list rows (Item, Command, Combobox, Select, Navigation Menu and Dropdown Menu,
 including context-menu and menubar consumers) use
 `foundation/interactive_row.dart` to paint state changes immediately. Never

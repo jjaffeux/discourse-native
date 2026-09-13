@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../theme/discourse_typography.dart';
+import '../foundation/focus_highlight.dart';
 import '../foundation/tokens.dart';
 
 /// Accepts one ASCII digit per Input OTP slot.
@@ -562,7 +563,7 @@ class DInputOTPSlot extends StatelessWidget {
           );
     final borderColor = isInvalid
         ? t.destructive.withValues(alpha: t.destructive.a * (dark ? .5 : 1))
-        : active
+        : active && DFocusHighlight.visibleOf(context)
         ? t.focusRing
         : t.colors.outlineVariant;
     final ring = isInvalid
@@ -599,7 +600,9 @@ class DInputOTPSlot extends StatelessWidget {
         ),
       ),
       foregroundDecoration: _OTPRingDecoration(
-        color: active ? ring : ring.withValues(alpha: 0),
+        color: active && (isInvalid || DFocusHighlight.visibleOf(context))
+            ? ring
+            : ring.withValues(alpha: 0),
         radius: math.max(startRadius, endRadius),
       ),
       alignment: Alignment.center,

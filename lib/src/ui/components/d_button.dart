@@ -3,6 +3,7 @@ import 'dart:ui' show SemanticsValidationResult, lerpDouble;
 import 'package:flutter/material.dart';
 
 import '../foundation/control_style.dart';
+import '../foundation/focus_highlight.dart';
 import '../foundation/joined_control.dart';
 import '../foundation/tokens.dart';
 import 'd_kbd.dart';
@@ -695,7 +696,9 @@ class DButton extends StatelessWidget {
       alignment: alignment,
       backgroundBuilder: (context, states, child) {
         final state = resolveState(states);
-        final focused = states.contains(WidgetState.focused);
+        final focused =
+            states.contains(WidgetState.focused) &&
+            DFocusHighlight.visibleOf(context);
         final border = state.border;
         final resolvedBorderColor = invalid
             ? _alpha(tokens.destructive, dark ? .5 : 1)
