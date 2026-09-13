@@ -29,71 +29,76 @@ void main() {
     tester,
   ) async {
     final semantics = tester.ensureSemantics();
-    addTearDown(semantics.dispose);
-    final fixture = await _pumpDrawer(
-      tester,
-      api: FakeDiscourseApi(
-        totals: chatNotificationTotals(),
-        user: _user,
-        chatChannelsBySite: const {
-          _siteUrl: ChatChannels(
-            public: [
-              ChatChannel(
-                id: 9,
-                title: 'Community discussion',
-                kind: ChatChannelKind.category,
-                membership: ChatMembership(following: true),
-                tracking: ChatTracking(unreadCount: 4),
-              ),
-            ],
-            direct: [
-              ChatChannel(
-                id: 10,
-                title: 'Sam',
-                kind: ChatChannelKind.directMessage,
-                membership: ChatMembership(following: true),
-              ),
-            ],
-          ),
-        },
-      ),
-      contentBuilder: (_, _) => const Column(
-        children: [
-          ChatDrawerNavigation(),
-          Expanded(
-            child: ChatDrawerChannelsView(
-              siteUrl: _siteUrl,
-              kind: ChatDrawerChannelListKind.channels,
+    try {
+      final fixture = await _pumpDrawer(
+        tester,
+        api: FakeDiscourseApi(
+          totals: chatNotificationTotals(),
+          user: _user,
+          chatChannelsBySite: const {
+            _siteUrl: ChatChannels(
+              public: [
+                ChatChannel(
+                  id: 9,
+                  title: 'Community discussion',
+                  kind: ChatChannelKind.category,
+                  membership: ChatMembership(following: true),
+                  tracking: ChatTracking(unreadCount: 4),
+                ),
+              ],
+              direct: [
+                ChatChannel(
+                  id: 10,
+                  title: 'Sam',
+                  kind: ChatChannelKind.directMessage,
+                  membership: ChatMembership(following: true),
+                ),
+              ],
             ),
-          ),
-        ],
-      ),
-    );
-    await fixture.shell.chat.loadChannels(_siteUrl);
-    await tester.pumpAndSettle();
+          },
+        ),
+        contentBuilder: (_, _) => const Column(
+          children: [
+            ChatDrawerNavigation(),
+            Expanded(
+              child: ChatDrawerChannelsView(
+                siteUrl: _siteUrl,
+                kind: ChatDrawerChannelListKind.channels,
+              ),
+            ),
+          ],
+        ),
+      );
+      await fixture.shell.chat.loadChannels(_siteUrl);
+      await tester.pumpAndSettle();
 
-    final row = find.byKey(const ValueKey('chat-drawer-channel-9'));
-    expect(row, findsOneWidget);
-    final rowSemantics = tester.getSemantics(row);
-    expect(
-      rowSemantics.label,
-      'Unread conversation\nCommunity discussion\nNo messages yet',
-    );
-    final childLabels = <String>[];
-    rowSemantics.visitChildren((child) {
-      childLabels.add(child.label);
-      return true;
-    });
-    expect(childLabels, ['Open Community discussion menu']);
-    expect(
-      tester
-          .getSemantics(
-            find.byKey(const ValueKey('chat-drawer-navigation-chat-channels')),
-          )
-          .getSemanticsData()
-          .label,
-      'Channels\nUnread messages',
-    );
+      final row = find.byKey(const ValueKey('chat-drawer-channel-9'));
+      expect(row, findsOneWidget);
+      final rowSemantics = tester.getSemantics(row);
+      expect(
+        rowSemantics.label,
+        'Unread conversation\nCommunity discussion\nNo messages yet',
+      );
+      final childLabels = <String>[];
+      rowSemantics.visitChildren((child) {
+        childLabels.add(child.label);
+        return true;
+      });
+      expect(childLabels, ['Open Community discussion menu']);
+      expect(
+        tester
+            .getSemantics(
+              find.byKey(
+                const ValueKey('chat-drawer-navigation-chat-channels'),
+              ),
+            )
+            .getSemanticsData()
+            .label,
+        'Channels\nUnread messages',
+      );
+    } finally {
+      semantics.dispose();
+    }
   });
 
   testWidgets(
