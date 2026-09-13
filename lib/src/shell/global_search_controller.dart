@@ -42,6 +42,7 @@ class GlobalSearchController extends ChangeNotifier {
   List<String> _localRecent = const [];
   final _recentStates = <String, GlobalSearchRequest>{};
   final _choiceLabels = <String, Map<String, String>>{};
+  final _tagChoices = <String, GlobalSearchFilterChoice>{};
   int _historyRevision = 0;
   bool _historyCleared = false;
   GlobalSearchPhase _phase = GlobalSearchPhase.idle;
@@ -54,6 +55,23 @@ class GlobalSearchController extends ChangeNotifier {
   VoidCallback? _queued;
 
   String? get siteUrl => _siteUrl;
+
+  /// Invalidates open filter editors when their account or capabilities change.
+  int get configurationRevision => _configuration;
+
+  /// Tags returned by successful lookups in the current site/account session.
+  List<GlobalSearchFilterChoice> cachedTagChoices(String query) {
+    if (_disposed || _lease?.isCurrent != true || !capabilities.tagging) {
+      return const [];
+    }
+    final term = query.trim().toLowerCase();
+    return List.unmodifiable(
+      _tagChoices.values
+          .where((choice) => choice.value.toLowerCase().contains(term))
+          .take(30),
+    );
+  }
+
   bool get compact => _compact;
   void setCompact(bool value) {
     _compact = value;
@@ -124,6 +142,7 @@ class GlobalSearchController extends ChangeNotifier {
         _capabilities.username != capabilities.username;
     if (!changedSite && _baseFingerprint == capabilities.fingerprint) return;
     _configuration++;
+    _tagChoices.clear();
     _baseFingerprint = capabilities.fingerprint;
     _siteUrl = siteUrl;
     _lease = lease;
@@ -517,6 +536,15 @@ class GlobalSearchController extends ChangeNotifier {
       term: term,
     );
     if (!current()) return const [];
+    if (filter.id == 'tags') {
+      for (final choice in values) {
+        _tagChoices.remove(choice.value);
+        _tagChoices[choice.value] = choice;
+      }
+      while (_tagChoices.length > 512) {
+        _tagChoices.remove(_tagChoices.keys.first);
+      }
+    }
     final labels = _choiceLabels.putIfAbsent(
       filter.id,
       () => <String, String>{},

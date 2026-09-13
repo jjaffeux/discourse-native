@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/data/site_lifecycle.dart';
 import 'package:discourse_native/src/models/site_emoji.dart';
@@ -160,6 +162,188 @@ void main() {
   });
 
   testWidgets(
+    'tags show suggestions first and preserve selections while searching',
+    (tester) async {
+      final api = _PanelApi();
+      final controller = await _pump(tester, api: api);
+      await _filter(tester, 'tags');
+      expect(api.tagTerms, ['']);
+      expect(find.text('Available tags · 3'), findsOneWidget);
+      expect(find.text('1,248'), findsOneWidget);
+      expect(
+        find.text('Match any tag, every tag, or exclude selected tags.'),
+        findsNothing,
+      );
+      expect(find.text('Choose at least one tag'), findsNothing);
+      expect(
+        tester.widget<DButton>(_key('global-search-filter-apply')).onPressed,
+        isNull,
+      );
+      expect(
+        tester.getTopLeft(_key('global-search-filter-value')).dy,
+        lessThan(tester.getTopLeft(_key('global-search-filter-operator')).dy),
+      );
+
+      await tester.enterText(_key('global-search-filter-value'), 'a');
+      await tester.pumpAndSettle();
+      expect(find.text('Matching tags · 2'), findsOneWidget);
+      expect(find.text('Use “a”'), findsNothing);
+      await tester.tap(find.text('api', findRichText: true));
+      await tester.pumpAndSettle();
+      await tester.enterText(_key('global-search-filter-value'), 'bug');
+      await tester.pumpAndSettle();
+      expect(find.bySemanticsLabel('Remove api'), findsOneWidget);
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pumpAndSettle();
+      expect(find.text('Selected · 2'), findsOneWidget);
+      await tester.tap(_key('global-search-filter-apply'));
+      await tester.pumpAndSettle();
+      expect(controller.conditions.single.value, ['api', 'bug']);
+
+      await tester.tap(_key('global-search-condition-0'));
+      await tester.pumpAndSettle();
+      expect(find.text('Apply changes'), findsOneWidget);
+      await tester.tap(find.bySemanticsLabel('Remove api'));
+      await tester.pumpAndSettle();
+      for (final label in [
+        'Include every selected tag',
+        'Exclude any selected tag',
+        'Exclude this combination',
+      ]) {
+        await tester.tap(_key('global-search-filter-operator'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text(label).last);
+        await tester.pumpAndSettle();
+      }
+      await tester.tap(_key('global-search-filter-apply'));
+      await tester.pumpAndSettle();
+      expect(controller.conditions.single.operator, 'notAll');
+      expect(controller.conditions.single.value, ['bug']);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'tag lookups show loading and ignore results for retired queries',
+    (tester) async {
+      final api = _PanelApi();
+      await _pump(tester, api: api);
+      await _filter(tester, 'tags');
+      final first = Completer<List<GlobalSearchFilterChoice>>();
+      final second = Completer<List<GlobalSearchFilterChoice>>();
+      api.tagLookup = (term) => term == 'a' ? first.future : second.future;
+      await tester.enterText(_key('global-search-filter-value'), 'a');
+      await tester.pump(const Duration(milliseconds: 200));
+      await tester.pump();
+      expect(find.text('Finding tags…'), findsOneWidget);
+      expect(find.text('bug'), findsNothing);
+      expect(find.text('Use “a”'), findsNothing);
+      await tester.enterText(_key('global-search-filter-value'), 'ap');
+      await tester.pump(const Duration(milliseconds: 200));
+      await tester.pump();
+      second.complete(const [
+        GlobalSearchFilterChoice(value: 'api', label: 'api'),
+      ]);
+      await tester.pumpAndSettle();
+      first.complete(const [
+        GlobalSearchFilterChoice(
+          value: 'announcements',
+          label: 'announcements',
+        ),
+      ]);
+      await tester.pumpAndSettle();
+      expect(find.text('api', findRichText: true), findsOneWidget);
+      expect(find.text('announcements', findRichText: true), findsNothing);
+      expect(find.text('Finding tags…'), findsNothing);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'failed tag refresh filters saved tags and keeps selections removable',
+    (tester) async {
+      final api = _PanelApi();
+      await _pump(tester, api: api);
+      await _filter(tester, 'tags');
+      await tester.tap(find.text('api'));
+      await tester.pumpAndSettle();
+      api.tagLookup = (_) async => throw StateError('Offline');
+      await tester.enterText(_key('global-search-filter-value'), 'a');
+      await tester.pumpAndSettle();
+      expect(find.text('Couldn’t refresh tags'), findsOneWidget);
+      expect(find.text('Saved tags · 2'), findsOneWidget);
+      expect(find.text('bug'), findsNothing);
+      await tester.tap(find.bySemanticsLabel('Remove api'));
+      await tester.pumpAndSettle();
+      expect(find.text('Selected · 1'), findsNothing);
+      await tester.enterText(_key('global-search-filter-value'), 'unknown-tag');
+      await tester.pumpAndSettle();
+      expect(find.text('No saved tags match “unknown-tag”'), findsOneWidget);
+      expect(find.text('Use “unknown-tag”'), findsNothing);
+      api.tagLookup = null;
+      await tester.tap(find.text('Retry'));
+      await tester.pumpAndSettle();
+      expect(find.text('No tags match “unknown-tag”'), findsOneWidget);
+      await tester.tap(find.text('Clear search'));
+      await tester.pumpAndSettle();
+      expect(find.text('Available tags · 3'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'initial tag lookup failure can retry without accepting arbitrary text',
+    (tester) async {
+      final api = _PanelApi()
+        ..tagLookup = (_) async => throw StateError('Offline');
+      await _pump(tester, api: api);
+      await _filter(tester, 'tags');
+      expect(find.text('Couldn’t load tags'), findsOneWidget);
+      await tester.enterText(_key('global-search-filter-value'), 'a');
+      await tester.pumpAndSettle();
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pumpAndSettle();
+      expect(find.text('Use “a”'), findsNothing);
+      expect(
+        tester.widget<DButton>(_key('global-search-filter-apply')).onPressed,
+        isNull,
+      );
+      api.tagLookup = null;
+      await tester.tap(find.text('Retry'));
+      await tester.pumpAndSettle();
+      expect(find.text('Matching tags · 2'), findsOneWidget);
+      expect(find.text('Couldn’t load tags'), findsNothing);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  for (final dark in [false, true]) {
+    testWidgets(
+      'tag picker fits a narrow ${dark ? 'dark' : 'light'} viewport at 200% text',
+      (tester) async {
+        await _pump(
+          tester,
+          width: 320,
+          viewport: const Size(360, 1000),
+          textScale: 2,
+          dark: dark,
+        );
+        await _filter(tester, 'tags');
+        await tester.tap(find.text('api'));
+        await tester.pumpAndSettle();
+        expect(find.text('Selected · 1'), findsOneWidget);
+        await tester.tap(find.text('Clear selection'));
+        await tester.pumpAndSettle();
+        expect(
+          tester.widget<DButton>(_key('global-search-filter-apply')).onPressed,
+          isNull,
+        );
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
+  testWidgets(
     'display changes compact rows and only exposes relevant properties',
     (tester) async {
       final controller = await _pump(tester);
@@ -198,13 +382,17 @@ Future<GlobalSearchController> _pump(
   double width = 432,
   double height = 500,
   List<GlobalSearchResult> results = const [],
+  _PanelApi? api,
+  Size viewport = const Size(1000, 800),
+  double textScale = 1,
+  bool dark = true,
 }) async {
-  tester.view.physicalSize = const Size(1000, 800);
+  tester.view.physicalSize = viewport;
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
   final controller =
       GlobalSearchController(
-        api: _PanelApi(results: results),
+        api: api ?? _PanelApi(results: results),
         credentials: FakeApiCredentialReader(),
         lifecycle: SiteLifecycle(),
         debounceDuration: Duration.zero,
@@ -236,7 +424,15 @@ Future<GlobalSearchController> _pump(
     ShellScope(
       controller: shell,
       child: MaterialApp(
-        theme: AppTheme.dark.copyWith(platform: TargetPlatform.macOS),
+        theme: (dark ? AppTheme.dark : AppTheme.light).copyWith(
+          platform: TargetPlatform.macOS,
+        ),
+        builder: (context, child) => MediaQuery(
+          data: MediaQuery.of(
+            context,
+          ).copyWith(textScaler: TextScaler.linear(textScale)),
+          child: child!,
+        ),
         home: Align(
           alignment: Alignment.topCenter,
           child: SizedBox(
@@ -255,6 +451,8 @@ Future<GlobalSearchController> _pump(
 class _PanelApi extends GlobalSearchApi {
   _PanelApi({this.results = const []}) : super(transport: FakeDiscourseApi());
   final List<GlobalSearchResult> results;
+  final tagTerms = <String>[];
+  Future<List<GlobalSearchFilterChoice>> Function(String)? tagLookup;
   @override
   Future<GlobalSearchCapabilities> capabilities({
     required String siteUrl,
@@ -280,10 +478,25 @@ class _PanelApi extends GlobalSearchApi {
     String? clientId,
     required GlobalSearchFilter filter,
     required String term,
-  }) async => filter.id == 'category'
-      ? const [
-          GlobalSearchFilterChoice(value: '1', label: 'Support'),
-          GlobalSearchFilterChoice(value: '2', label: 'Development'),
-        ]
-      : filter.choices;
+  }) async {
+    if (filter.id == 'tags') {
+      tagTerms.add(term);
+      if (tagLookup case final lookup?) return lookup(term);
+      return const [
+        GlobalSearchFilterChoice(value: 'api', label: 'api', topicCount: 1248),
+        GlobalSearchFilterChoice(
+          value: 'announcements',
+          label: 'announcements',
+          topicCount: 86,
+        ),
+        GlobalSearchFilterChoice(value: 'bug', label: 'bug', topicCount: 2834),
+      ].where((choice) => choice.value.contains(term.toLowerCase())).toList();
+    }
+    return filter.id == 'category'
+        ? const [
+            GlobalSearchFilterChoice(value: '1', label: 'Support'),
+            GlobalSearchFilterChoice(value: '2', label: 'Development'),
+          ]
+        : filter.choices;
+  }
 }
