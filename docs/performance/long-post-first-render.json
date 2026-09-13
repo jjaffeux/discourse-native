@@ -736,6 +736,8 @@
   "verification": {
     "focusedTests": 412,
     "analysis": "clean",
+    "integrationBase": "9de54a39bb58f7ad0f28d9c81106b94b708239b8",
+    "integrationTestSeed": 391613,
     "nativeChecks": [
       "light palette, 1280x860",
       "automated index jumps and wheel scrolling",

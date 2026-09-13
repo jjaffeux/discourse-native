@@ -109,3 +109,8 @@ Native verification covered the light topic fixture at 1280 × 860: automated
 jumps, manual wheel scrolling away and back, matching topic progress, and drag
 selection with the copy-quote toolbar. Dark palette behavior was exercised in
 widget tests; it was not a separate native device measurement.
+
+Final integration with main `9de54a39` passed the same 412 tests with randomized
+seed `391613`, formatting checks, and full-project static analysis. Two stale
+notification assertions were updated for main's combined notification button;
+they continue to verify the displayed count and live count updates.
