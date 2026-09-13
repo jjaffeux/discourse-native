@@ -94,6 +94,7 @@ class _VoiceRoomEditorDialogState extends State<_VoiceRoomEditorDialog> {
           key: _form,
           autovalidateMode: AutovalidateMode.onUserInteraction,
           child: DFieldGroup(
+            spacing: DSpacing.lg,
             children: [
               DFieldSet(
                 semanticLabel: 'Room details',
@@ -213,7 +214,6 @@ class _VoiceRoomEditorDialogState extends State<_VoiceRoomEditorDialog> {
                   ),
                 ],
               ),
-              const DFieldSeparator(),
               DAccordion<String>(
                 controller: _advanced,
                 keepMounted: true,
