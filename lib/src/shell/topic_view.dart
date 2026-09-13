@@ -4190,8 +4190,6 @@ class _PostTileState extends State<_PostTile> {
                         color: theme.colorScheme.onSurfaceVariant,
                       ),
                     ),
-                  const SizedBox(width: 4),
-                  const PostMoreActionsButton(),
                 ],
               ),
               if (post.notice case final notice?) ...[
