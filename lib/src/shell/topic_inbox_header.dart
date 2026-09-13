@@ -291,6 +291,7 @@ class _TopicHeaderActions extends StatelessWidget {
     final siteUrl = header.siteUrl;
     return Row(
       mainAxisSize: MainAxisSize.min,
+      spacing: DSpacing.sm,
       children: [
         if (topic != null && siteUrl != null)
           _TopicHeaderProperties(
@@ -302,6 +303,7 @@ class _TopicHeaderActions extends StatelessWidget {
         Row(
           key: const ValueKey('topic-header-common-actions'),
           mainAxisSize: MainAxisSize.min,
+          spacing: DSpacing.sm,
           children: [
             if (topic != null && siteUrl != null) ...[
               TopicStatusButton(
