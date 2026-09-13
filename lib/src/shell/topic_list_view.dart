@@ -467,6 +467,7 @@ class _TopicListViewState extends State<TopicListView> {
     if (feed.loading && feed.topicIds.isEmpty) {
       return ContentReadingLaneBox(
         widthLimit: topicListContentWidth,
+        padding: const EdgeInsets.symmetric(vertical: 8),
         child: _TopicListLoadingSkeleton(
           key: const ValueKey('topic-list-loading-skeleton'),
           destination: destination,
@@ -750,7 +751,9 @@ class _TopicListSkeletonRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      padding: const EdgeInsets.symmetric(
+        horizontal: topicListHorizontalPadding,
+      ),
       child: DItem(
         variant: DItemVariant.outline,
         children: [
