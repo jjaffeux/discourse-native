@@ -1,0 +1,752 @@
+{
+  "baseline": "843c8968",
+  "implementation": "26b1fb2b",
+  "environment": {
+    "platform": "macOS",
+    "flutter": "3.47.2",
+    "mode": "profile",
+    "renderer": "Skia on Metal",
+    "refreshRateHz": 120,
+    "devicePixelRatio": 2,
+    "logicalViewport": [
+      1280,
+      860
+    ]
+  },
+  "rendererFixture": "tool/long_post_render_profile_main.dart",
+  "rendererNotes": "Four in-process cycles, column then sliver then progressive. 450 plain paragraphs, 680 logical pixels wide. First-content detection polls every 8 ms. Layout probes include descendant work performed during layout. HTML tree conversion happens on the UI isolate outside frame build timings.",
+  "rendererRuns": [
+    {
+      "run": 0,
+      "mode": "column",
+      "htmlCharacters": 76840,
+      "mountedParagraphsAtFirstObservation": 450,
+      "firstParagraphReadyUs": 78385,
+      "bodyCompleteUs": 78385,
+      "htmlTreeBuildUs": [
+        18759
+      ],
+      "peakColdUiUs": 36553,
+      "peakColdLayoutUs": 30021,
+      "coldUiTotalUs": 41105,
+      "scrollUiP95Us": 2527,
+      "scrollUiP99Us": 2565
+    },
+    {
+      "run": 0,
+      "mode": "sliver",
+      "htmlCharacters": 76840,
+      "mountedParagraphsAtFirstObservation": 18,
+      "firstParagraphReadyUs": 46525,
+      "bodyCompleteUs": 46526,
+      "htmlTreeBuildUs": [
+        24809
+      ],
+      "peakColdUiUs": 3296,
+      "peakColdLayoutUs": 1639,
+      "coldUiTotalUs": 6042,
+      "scrollUiP95Us": 1601,
+      "scrollUiP99Us": 1787
+    },
+    {
+      "run": 0,
+      "mode": "progressive",
+      "htmlCharacters": 76840,
+      "mountedParagraphsAtFirstObservation": 32,
+      "firstParagraphReadyUs": 45876,
+      "bodyCompleteUs": 157485,
+      "htmlTreeBuildUs": [
+        21928
+      ],
+      "peakColdUiUs": 3849,
+      "peakColdLayoutUs": 2191,
+      "coldUiTotalUs": 38705,
+      "scrollUiP95Us": 2489,
+      "scrollUiP99Us": 2921
+    },
+    {
+      "run": 1,
+      "mode": "column",
+      "htmlCharacters": 76840,
+      "mountedParagraphsAtFirstObservation": 450,
+      "firstParagraphReadyUs": 71238,
+      "bodyCompleteUs": 71238,
+      "htmlTreeBuildUs": [
+        22749
+      ],
+      "peakColdUiUs": 28734,
+      "peakColdLayoutUs": 24415,
+      "coldUiTotalUs": 31102,
+      "scrollUiP95Us": 2400,
+      "scrollUiP99Us": 2979
+    },
+    {
+      "run": 1,
+      "mode": "sliver",
+      "htmlCharacters": 76840,
+      "mountedParagraphsAtFirstObservation": 18,
+      "firstParagraphReadyUs": 43517,
+      "bodyCompleteUs": 43517,
+      "htmlTreeBuildUs": [
+        21832
+      ],
+      "peakColdUiUs": 3181,
+      "peakColdLayoutUs": 1684,
+      "coldUiTotalUs": 6425,
+      "scrollUiP95Us": 1717,
+      "scrollUiP99Us": 2311
+    },
+    {
+      "run": 1,
+      "mode": "progressive",
+      "htmlCharacters": 76840,
+      "mountedParagraphsAtFirstObservation": 64,
+      "firstParagraphReadyUs": 50780,
+      "bodyCompleteUs": 157303,
+      "htmlTreeBuildUs": [
+        20438
+      ],
+      "peakColdUiUs": 3743,
+      "peakColdLayoutUs": 2177,
+      "coldUiTotalUs": 38355,
+      "scrollUiP95Us": 2630,
+      "scrollUiP99Us": 2932
+    },
+    {
+      "run": 2,
+      "mode": "column",
+      "htmlCharacters": 76840,
+      "mountedParagraphsAtFirstObservation": 450,
+      "firstParagraphReadyUs": 75782,
+      "bodyCompleteUs": 75782,
+      "htmlTreeBuildUs": [
+        23941
+      ],
+      "peakColdUiUs": 30229,
+      "peakColdLayoutUs": 25447,
+      "coldUiTotalUs": 32809,
+      "scrollUiP95Us": 2803,
+      "scrollUiP99Us": 3093
+    },
+    {
+      "run": 2,
+      "mode": "sliver",
+      "htmlCharacters": 76840,
+      "mountedParagraphsAtFirstObservation": 18,
+      "firstParagraphReadyUs": 41228,
+      "bodyCompleteUs": 41228,
+      "htmlTreeBuildUs": [
+        21542
+      ],
+      "peakColdUiUs": 5227,
+      "peakColdLayoutUs": 1720,
+      "coldUiTotalUs": 7893,
+      "scrollUiP95Us": 1470,
+      "scrollUiP99Us": 1976
+    },
+    {
+      "run": 2,
+      "mode": "progressive",
+      "htmlCharacters": 76840,
+      "mountedParagraphsAtFirstObservation": 64,
+      "firstParagraphReadyUs": 49894,
+      "bodyCompleteUs": 157143,
+      "htmlTreeBuildUs": [
+        21831
+      ],
+      "peakColdUiUs": 4415,
+      "peakColdLayoutUs": 3549,
+      "coldUiTotalUs": 40351,
+      "scrollUiP95Us": 2448,
+      "scrollUiP99Us": 2954
+    },
+    {
+      "run": 3,
+      "mode": "column",
+      "htmlCharacters": 76840,
+      "mountedParagraphsAtFirstObservation": 450,
+      "firstParagraphReadyUs": 63209,
+      "bodyCompleteUs": 63209,
+      "htmlTreeBuildUs": [
+        17657
+      ],
+      "peakColdUiUs": 28672,
+      "peakColdLayoutUs": 23346,
+      "coldUiTotalUs": 30860,
+      "scrollUiP95Us": 2531,
+      "scrollUiP99Us": 2831
+    },
+    {
+      "run": 3,
+      "mode": "sliver",
+      "htmlCharacters": 76840,
+      "mountedParagraphsAtFirstObservation": 18,
+      "firstParagraphReadyUs": 47035,
+      "bodyCompleteUs": 47035,
+      "htmlTreeBuildUs": [
+        25434
+      ],
+      "peakColdUiUs": 3463,
+      "peakColdLayoutUs": 1728,
+      "coldUiTotalUs": 6877,
+      "scrollUiP95Us": 1360,
+      "scrollUiP99Us": 1489
+    },
+    {
+      "run": 3,
+      "mode": "progressive",
+      "htmlCharacters": 76840,
+      "mountedParagraphsAtFirstObservation": 32,
+      "firstParagraphReadyUs": 38995,
+      "bodyCompleteUs": 148958,
+      "htmlTreeBuildUs": [
+        19464
+      ],
+      "peakColdUiUs": 4024,
+      "peakColdLayoutUs": 2383,
+      "coldUiTotalUs": 35846,
+      "scrollUiP95Us": 2352,
+      "scrollUiP99Us": 2720
+    }
+  ],
+  "topicFixture": "tool/topic_scroll_profile_main.dart",
+  "topicNotes": "Two interleaved baseline/progressive process runs. Same 60-post fixture; post 1 warm before capture, post 20 (82,800 HTML characters) initially cold. Per-post UI samples omit its initial loading-placeholder frame. Whole-topic statistics include all navigation frames. These samples show a targeted cold-layout improvement, not a demonstrated improvement in overall topic p99.",
+  "topicRuns": [
+    {
+      "mode": "baseline",
+      "run": 1,
+      "phase": "first-pass",
+      "generatedAtUtc": "2026-09-13T17:09:33.687624Z",
+      "cpuProfileStatus": "available",
+      "topicFrames": {
+        "count": 280,
+        "overBudget": 1,
+        "slowBuilds": 1,
+        "slowRasters": 0,
+        "buildUs": {
+          "count": 280,
+          "total": 127763,
+          "p50": 235,
+          "p95": 1517,
+          "p99": 5898,
+          "max": 13487
+        },
+        "rasterUs": {
+          "count": 280,
+          "total": 155146,
+          "p50": 437,
+          "p95": 952,
+          "p99": 3649,
+          "max": 4792
+        },
+        "vsyncOverheadUs": {
+          "count": 280,
+          "total": 50509,
+          "p50": 134,
+          "p95": 226,
+          "p99": 276,
+          "max": 10675
+        },
+        "totalSpanUs": {
+          "count": 280,
+          "total": 346093,
+          "p50": 856,
+          "p95": 2681,
+          "p99": 7157,
+          "max": 24881
+        }
+      },
+      "postLayoutUs": {
+        "count": 32,
+        "total": 15163,
+        "p50": 254,
+        "p95": 693,
+        "p99": 5894,
+        "max": 5894
+      },
+      "post20LayoutAfterPlaceholderUs": [
+        5894
+      ],
+      "post20UiAfterPlaceholderUs": [
+        13487
+      ],
+      "post20LayoutSpanAfterFirstContentUs": 0
+    },
+    {
+      "mode": "baseline",
+      "run": 1,
+      "phase": "return-pass",
+      "generatedAtUtc": "2026-09-13T17:09:40.294622Z",
+      "cpuProfileStatus": "available",
+      "topicFrames": {
+        "count": 280,
+        "overBudget": 1,
+        "slowBuilds": 1,
+        "slowRasters": 0,
+        "buildUs": {
+          "count": 280,
+          "total": 150422,
+          "p50": 309,
+          "p95": 1863,
+          "p99": 6548,
+          "max": 9142
+        },
+        "rasterUs": {
+          "count": 280,
+          "total": 178256,
+          "p50": 593,
+          "p95": 1061,
+          "p99": 1764,
+          "max": 2650
+        },
+        "vsyncOverheadUs": {
+          "count": 280,
+          "total": 65164,
+          "p50": 150,
+          "p95": 266,
+          "p99": 1497,
+          "max": 10720
+        },
+        "totalSpanUs": {
+          "count": 280,
+          "total": 409476,
+          "p50": 1162,
+          "p95": 3020,
+          "p99": 10403,
+          "max": 11263
+        }
+      },
+      "postLayoutUs": {
+        "count": 25,
+        "total": 9549,
+        "p50": 371,
+        "p95": 844,
+        "p99": 854,
+        "max": 854
+      },
+      "post20LayoutAfterPlaceholderUs": [],
+      "post20UiAfterPlaceholderUs": [],
+      "post20LayoutSpanAfterFirstContentUs": null
+    },
+    {
+      "mode": "baseline",
+      "run": 2,
+      "phase": "first-pass",
+      "generatedAtUtc": "2026-09-13T17:12:27.062782Z",
+      "cpuProfileStatus": "available",
+      "topicFrames": {
+        "count": 280,
+        "overBudget": 6,
+        "slowBuilds": 4,
+        "slowRasters": 2,
+        "buildUs": {
+          "count": 280,
+          "total": 204789,
+          "p50": 355,
+          "p95": 2327,
+          "p99": 10823,
+          "max": 14258
+        },
+        "rasterUs": {
+          "count": 280,
+          "total": 257416,
+          "p50": 739,
+          "p95": 1506,
+          "p99": 5747,
+          "max": 12385
+        },
+        "vsyncOverheadUs": {
+          "count": 280,
+          "total": 61367,
+          "p50": 99,
+          "p95": 303,
+          "p99": 2451,
+          "max": 20691
+        },
+        "totalSpanUs": {
+          "count": 280,
+          "total": 554747,
+          "p50": 1358,
+          "p95": 5571,
+          "p99": 14997,
+          "max": 32865
+        }
+      },
+      "postLayoutUs": {
+        "count": 32,
+        "total": 23100,
+        "p50": 465,
+        "p95": 1326,
+        "p99": 6247,
+        "max": 6247
+      },
+      "post20LayoutAfterPlaceholderUs": [
+        6247
+      ],
+      "post20UiAfterPlaceholderUs": [
+        11320
+      ],
+      "post20LayoutSpanAfterFirstContentUs": 0
+    },
+    {
+      "mode": "baseline",
+      "run": 2,
+      "phase": "return-pass",
+      "generatedAtUtc": "2026-09-13T17:12:33.535980Z",
+      "cpuProfileStatus": "available",
+      "topicFrames": {
+        "count": 280,
+        "overBudget": 5,
+        "slowBuilds": 5,
+        "slowRasters": 0,
+        "buildUs": {
+          "count": 280,
+          "total": 221752,
+          "p50": 382,
+          "p95": 3036,
+          "p99": 9796,
+          "max": 15409
+        },
+        "rasterUs": {
+          "count": 280,
+          "total": 262781,
+          "p50": 892,
+          "p95": 1630,
+          "p99": 3202,
+          "max": 5276
+        },
+        "vsyncOverheadUs": {
+          "count": 280,
+          "total": 68493,
+          "p50": 137,
+          "p95": 307,
+          "p99": 4289,
+          "max": 7884
+        },
+        "totalSpanUs": {
+          "count": 280,
+          "total": 576730,
+          "p50": 1565,
+          "p95": 5692,
+          "p99": 14022,
+          "max": 16937
+        }
+      },
+      "postLayoutUs": {
+        "count": 24,
+        "total": 16212,
+        "p50": 639,
+        "p95": 1681,
+        "p99": 2225,
+        "max": 2225
+      },
+      "post20LayoutAfterPlaceholderUs": [],
+      "post20UiAfterPlaceholderUs": [],
+      "post20LayoutSpanAfterFirstContentUs": null
+    },
+    {
+      "mode": "progressive",
+      "run": 1,
+      "phase": "first-pass",
+      "generatedAtUtc": "2026-09-13T17:10:29.079266Z",
+      "cpuProfileStatus": "available",
+      "topicFrames": {
+        "count": 280,
+        "overBudget": 3,
+        "slowBuilds": 3,
+        "slowRasters": 0,
+        "buildUs": {
+          "count": 280,
+          "total": 203016,
+          "p50": 324,
+          "p95": 2399,
+          "p99": 9980,
+          "max": 12477
+        },
+        "rasterUs": {
+          "count": 280,
+          "total": 235498,
+          "p50": 706,
+          "p95": 1582,
+          "p99": 5142,
+          "max": 5500
+        },
+        "vsyncOverheadUs": {
+          "count": 280,
+          "total": 76113,
+          "p50": 146,
+          "p95": 374,
+          "p99": 4964,
+          "max": 15420
+        },
+        "totalSpanUs": {
+          "count": 280,
+          "total": 535191,
+          "p50": 1369,
+          "p95": 4326,
+          "p99": 13964,
+          "max": 19058
+        }
+      },
+      "postLayoutUs": {
+        "count": 46,
+        "total": 24483,
+        "p50": 519,
+        "p95": 1079,
+        "p99": 1153,
+        "max": 1153
+      },
+      "post20LayoutAfterPlaceholderUs": [
+        519,
+        510,
+        607,
+        464,
+        538,
+        565,
+        515,
+        547,
+        948,
+        588,
+        608,
+        590,
+        629,
+        709,
+        305
+      ],
+      "post20UiAfterPlaceholderUs": [
+        2887,
+        1201,
+        1459,
+        1091,
+        1291,
+        1326,
+        1225,
+        1445,
+        2082,
+        1480,
+        1462,
+        1650,
+        1827,
+        2408,
+        1124
+      ],
+      "post20LayoutSpanAfterFirstContentUs": 116292
+    },
+    {
+      "mode": "progressive",
+      "run": 1,
+      "phase": "return-pass",
+      "generatedAtUtc": "2026-09-13T17:10:35.587727Z",
+      "cpuProfileStatus": "available",
+      "topicFrames": {
+        "count": 280,
+        "overBudget": 4,
+        "slowBuilds": 4,
+        "slowRasters": 0,
+        "buildUs": {
+          "count": 280,
+          "total": 208927,
+          "p50": 402,
+          "p95": 2564,
+          "p99": 9886,
+          "max": 12153
+        },
+        "rasterUs": {
+          "count": 280,
+          "total": 241512,
+          "p50": 789,
+          "p95": 1463,
+          "p99": 2563,
+          "max": 5966
+        },
+        "vsyncOverheadUs": {
+          "count": 280,
+          "total": 61710,
+          "p50": 145,
+          "p95": 289,
+          "p99": 3701,
+          "max": 4419
+        },
+        "totalSpanUs": {
+          "count": 280,
+          "total": 530432,
+          "p50": 1547,
+          "p95": 5115,
+          "p99": 12419,
+          "max": 13122
+        }
+      },
+      "postLayoutUs": {
+        "count": 24,
+        "total": 13511,
+        "p50": 476,
+        "p95": 1169,
+        "p99": 1252,
+        "max": 1252
+      },
+      "post20LayoutAfterPlaceholderUs": [],
+      "post20UiAfterPlaceholderUs": [],
+      "post20LayoutSpanAfterFirstContentUs": null
+    },
+    {
+      "mode": "progressive",
+      "run": 2,
+      "phase": "first-pass",
+      "generatedAtUtc": "2026-09-13T17:13:04.687275Z",
+      "cpuProfileStatus": "available",
+      "topicFrames": {
+        "count": 280,
+        "overBudget": 6,
+        "slowBuilds": 6,
+        "slowRasters": 0,
+        "buildUs": {
+          "count": 280,
+          "total": 240615,
+          "p50": 403,
+          "p95": 3157,
+          "p99": 13528,
+          "max": 19100
+        },
+        "rasterUs": {
+          "count": 280,
+          "total": 254979,
+          "p50": 780,
+          "p95": 1603,
+          "p99": 4237,
+          "max": 6353
+        },
+        "vsyncOverheadUs": {
+          "count": 280,
+          "total": 100749,
+          "p50": 153,
+          "p95": 399,
+          "p99": 6220,
+          "max": 30079
+        },
+        "totalSpanUs": {
+          "count": 280,
+          "total": 614199,
+          "p50": 1590,
+          "p95": 5229,
+          "p99": 16835,
+          "max": 34409
+        }
+      },
+      "postLayoutUs": {
+        "count": 46,
+        "total": 31395,
+        "p50": 612,
+        "p95": 1163,
+        "p99": 1894,
+        "max": 1894
+      },
+      "post20LayoutAfterPlaceholderUs": [
+        723,
+        618,
+        587,
+        586,
+        612,
+        588,
+        593,
+        610,
+        626,
+        602,
+        638,
+        616,
+        688,
+        876,
+        253
+      ],
+      "post20UiAfterPlaceholderUs": [
+        3396,
+        1367,
+        1195,
+        1238,
+        1196,
+        1150,
+        1304,
+        1427,
+        1328,
+        1403,
+        1369,
+        1383,
+        1743,
+        2675,
+        1184
+      ],
+      "post20LayoutSpanAfterFirstContentUs": 117719
+    },
+    {
+      "mode": "progressive",
+      "run": 2,
+      "phase": "return-pass",
+      "generatedAtUtc": "2026-09-13T17:13:11.136623Z",
+      "cpuProfileStatus": "available",
+      "topicFrames": {
+        "count": 280,
+        "overBudget": 6,
+        "slowBuilds": 6,
+        "slowRasters": 0,
+        "buildUs": {
+          "count": 280,
+          "total": 205769,
+          "p50": 311,
+          "p95": 2529,
+          "p99": 10073,
+          "max": 15919
+        },
+        "rasterUs": {
+          "count": 280,
+          "total": 240822,
+          "p50": 760,
+          "p95": 1654,
+          "p99": 3042,
+          "max": 5674
+        },
+        "vsyncOverheadUs": {
+          "count": 280,
+          "total": 69519,
+          "p50": 152,
+          "p95": 273,
+          "p99": 3965,
+          "max": 8440
+        },
+        "totalSpanUs": {
+          "count": 280,
+          "total": 534598,
+          "p50": 1325,
+          "p95": 5418,
+          "p99": 14052,
+          "max": 17643
+        }
+      },
+      "postLayoutUs": {
+        "count": 24,
+        "total": 16828,
+        "p50": 636,
+        "p95": 1456,
+        "p99": 2843,
+        "max": 2843
+      },
+      "post20LayoutAfterPlaceholderUs": [],
+      "post20UiAfterPlaceholderUs": [],
+      "post20LayoutSpanAfterFirstContentUs": null
+    }
+  ],
+  "verification": {
+    "focusedTests": 412,
+    "analysis": "clean",
+    "nativeChecks": [
+      "light palette, 1280x860",
+      "automated index jumps and wheel scrolling",
+      "manual wheel away/back and matching topic progress",
+      "drag selection and visible copy-quote toolbar"
+    ],
+    "limitations": [
+      "No iOS or Android device measurements",
+      "HTML conversion still runs synchronously on UI isolate",
+      "Large single blocks and preserved CSS wrappers use existing rendering",
+      "Full block virtualization not adopted"
+    ]
+  }
+}
