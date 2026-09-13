@@ -601,7 +601,7 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(
         find.descendant(
-          of: find.byType(DCommandList<String>),
+          of: find.byKey(const ValueKey('global-search-category-list')),
           matching: find.text('UX'),
         ),
       );
@@ -660,7 +660,7 @@ void main() {
       await _finishSearch(tester);
       expect(shell.globalSearch.order, 'likes');
       expect(order, findsOneWidget);
-      await tester.tap(find.widgetWithText(DToggle, 'Excerpt'));
+      await tester.tap(find.widgetWithText(DCheckbox, 'Excerpt'));
       await tester.pumpAndSettle();
       expect(
         shell.globalSearch.properties,

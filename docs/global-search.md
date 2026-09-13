@@ -65,6 +65,20 @@ names. Chat reply links retain their thread and message IDs. Replaying a recent
 search restores its conditions instead of accumulating the previous search's
 filters.
 
+The category editor places search above a Native checkbox list, with category
+artwork and separate parent labels. Selected categories stay in removable badges
+below the list; Clear empties the draft, Cancel discards it, and Add filter applies
+it. Include subcategories is a switch. The editor omits the matching-rule helper,
+the subcategory helper and the alphabetical-order label from the approved design.
+
+Category discovery uses Discourse's paged category-search endpoint, including
+ancestors, instead of searching only the navigation categories in `site.json`.
+The count distinguishes loaded entries from the total, and Load more categories
+retrieves subsequent pages. Query changes retire old rows immediately while
+keeping selections. Lookup failures support retry; unknown names cannot become
+invented categories. Opening a new account session resets the draft, and applying
+a selection preserves its labels and artwork beyond the bounded lookup cache.
+
 ## Implementation
 
 `GlobalSearchController` owns query state, per-scope conditions, requests and

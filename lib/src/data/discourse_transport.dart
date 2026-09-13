@@ -332,7 +332,7 @@ final class DiscourseTransport {
   Future<Map<String, dynamic>> postObject(
     Uri url, {
     required String siteUrl,
-    required String apiKey,
+    required String? apiKey,
     required Map<String, Object?> body,
     String? clientId,
   }) async {
@@ -343,12 +343,22 @@ final class DiscourseTransport {
           for (final entry in body.entries)
             if (entry.value != null) entry.key: entry.value,
         });
-      response = await sendAuthenticated(
-        request,
-        siteUrl: siteUrl,
-        apiKey: apiKey,
-        clientId: clientId,
-      );
+      if (apiKey == null) {
+        _requireCredentialOrigin(url, siteUrl);
+        request.headers.addAll({
+          'User-Agent': userAgent,
+          'Content-Type': 'application/json',
+          'Dont-Chunk': 'true',
+        });
+        response = await send(request);
+      } else {
+        response = await sendAuthenticated(
+          request,
+          siteUrl: siteUrl,
+          apiKey: apiKey,
+          clientId: clientId,
+        );
+      }
     } catch (error, stackTrace) {
       throw SiteLookupException(
         SiteLookupFailure.unreachable,
