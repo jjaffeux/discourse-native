@@ -86,7 +86,7 @@ User-approved extensions outside the frozen upstream catalogue.
 
 | Component | Status | Task | Branch | Merge |
 | --- | --- | --- | --- | --- |
-| notification-dot | reviewed | 01a09b55-9a1f-7f50-b2ec-5f4c3d890ad4 | codex/ui-notification-dot | — |
+| notification-dot | merged | 01a09b55-9a1f-7f50-b2ec-5f4c3d890ad4 | codex/ui-notification-dot | 083805d7bd19dd7063b1b3ff06dc19e35fa2a210 |
 
 ## Decisions and evidence
 
@@ -3542,7 +3542,7 @@ Status: merged. Task: 01a08606-ca34-7a13-b7ec-79b90b5ebd8f. Branch: codex/ui-que
 
 ### notification-dot
 
-Status: reviewed. Task: 01a09b55-9a1f-7f50-b2ec-5f4c3d890ad4. Branch: codex/ui-notification-dot.
+Status: merged. Task: 01a09b55-9a1f-7f50-b2ec-5f4c3d890ad4. Branch: codex/ui-notification-dot.
 
 **acceptanceCriteria**
 
@@ -3580,6 +3580,7 @@ Status: reviewed. Task: 01a09b55-9a1f-7f50-b2ec-5f4c3d890ad4. Branch: codex/ui-n
 - CUA launched the isolated fixture. Production chat header opened drawer; channel row AX label was Unread conversation / Community discussion / No messages yet, with only its channel menu as a child. Corrected styleguide header at 200% text had a fitting fixed-size profile icon and unread dot; clear and restore changed the Chat label correctly. Quit through app menu; process absence confirmed. Desktop lease released.
 - Native final bundle: /var/folders/2m/k_kwhr_j70q64prh4z3r44jc0000gn/T/notification-dot-final-4f88-g957dvfy/Notification Dot Final Review.app; reviewed source 90f4e38983ed9eacf7d264e7c2e68f956fc551b3 (production source equivalent to the build-start candidate 9a9fb039; intervening change is test-only); kernel SHA-256 00292409ef4afd209209469c1a29475db270ad451d3ab94de2a37d81df1e3d37. Isolated ad-hoc signature and debug entitlements read back; only the isolated bundle omits the restricted push entitlement.
 - Independent review accepted public API, semantics, adoption and visuals after the two focused corrections. 41 distinct focused tests passed across component, drawer, header, tabs and catalogue; 20 touched Dart files format clean. Original broader baseline comparison retained; no unrelated existing layout fixes undertaken.
+- Merged --no-ff from the clean main checkout based on d252c245 under the exclusive main lease. Implementation and both review branch histories are preserved; unrelated progress rows are unchanged.
 
 **limitations**
 

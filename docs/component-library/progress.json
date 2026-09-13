@@ -6287,7 +6287,7 @@
   "applicationComponents": [
     {
       "id": "notification-dot",
-      "status": "reviewed",
+      "status": "merged",
       "taskId": "01a09b55-9a1f-7f50-b2ec-5f4c3d890ad4",
       "branch": "codex/ui-notification-dot",
       "dependencies": [],
@@ -6321,7 +6321,8 @@
         "Integrated into a fresh candidate from current local main d252c245; preserved every progress field outside applicationComponents. Final isolated bundle and kernel SHA-256 recorded in /tmp/notification-dot-final-build.json.",
         "CUA launched the isolated fixture. Production chat header opened drawer; channel row AX label was Unread conversation / Community discussion / No messages yet, with only its channel menu as a child. Corrected styleguide header at 200% text had a fitting fixed-size profile icon and unread dot; clear and restore changed the Chat label correctly. Quit through app menu; process absence confirmed. Desktop lease released.",
         "Native final bundle: /var/folders/2m/k_kwhr_j70q64prh4z3r44jc0000gn/T/notification-dot-final-4f88-g957dvfy/Notification Dot Final Review.app; reviewed source 90f4e38983ed9eacf7d264e7c2e68f956fc551b3 (production source equivalent to the build-start candidate 9a9fb039; intervening change is test-only); kernel SHA-256 00292409ef4afd209209469c1a29475db270ad451d3ab94de2a37d81df1e3d37. Isolated ad-hoc signature and debug entitlements read back; only the isolated bundle omits the restricted push entitlement.",
-        "Independent review accepted public API, semantics, adoption and visuals after the two focused corrections. 41 distinct focused tests passed across component, drawer, header, tabs and catalogue; 20 touched Dart files format clean. Original broader baseline comparison retained; no unrelated existing layout fixes undertaken."
+        "Independent review accepted public API, semantics, adoption and visuals after the two focused corrections. 41 distinct focused tests passed across component, drawer, header, tabs and catalogue; 20 touched Dart files format clean. Original broader baseline comparison retained; no unrelated existing layout fixes undertaken.",
+        "Merged --no-ff from the clean main checkout based on d252c245 under the exclusive main lease. Implementation and both review branch histories are preserved; unrelated progress rows are unchanged."
       ],
       "limitations": [
         "Actual native UI verification was macOS only. No physical iOS/Linux or spoken screen-reader run.",
@@ -6330,9 +6331,11 @@
       "implementationCommit": "c0bb28875d91ccc470acb27e13b4f6769975893c",
       "reviewTaskId": "01a09b6b-2068-70c2-af0b-397ab895f42f",
       "reviewBranch": "codex/review-notification-dot-final",
-      "reviewStatus": "accepted",
+      "reviewStatus": "merged",
       "reviewPreparationBranch": "codex/review-notification-dot",
-      "reviewCommit": "90f4e38983ed9eacf7d264e7c2e68f956fc551b3"
+      "reviewCommit": "90f4e38983ed9eacf7d264e7c2e68f956fc551b3",
+      "reviewAcceptanceCommit": "0de7c7f5",
+      "mergeCommit": "083805d7bd19dd7063b1b3ff06dc19e35fa2a210"
     }
   ]
 }
