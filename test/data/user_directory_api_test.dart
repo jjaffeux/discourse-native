@@ -7,38 +7,88 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   const siteUrl = 'https://example.com';
 
-  test('loads column metadata and merges visible group names', () async {
-    final transport = _DirectoryTransport()
-      ..responses['/directory-columns.json'] = {
-        'directory_columns': [
+  test(
+    'loads all custom groups with visible members from group search',
+    () async {
+      final transport = _DirectoryTransport()
+        ..responses['/directory-columns.json'] = {
+          'directory_columns': [
+            {
+              'id': 1,
+              'name': 'likes_received',
+              'type': 'automatic',
+              'position': 1,
+            },
+          ],
+        }
+        ..failingPaths.add('/groups.json?order=name&asc=true')
+        ..groupResponses = [
+          for (var index = 0; index < 40; index++)
+            {'id': index + 10, 'name': 'team-$index', 'can_see_members': true},
+          {'id': 4, 'name': 'design', 'can_see_members': true},
+          {'id': 4, 'name': 'design', 'can_see_members': true},
+          {'id': 5, 'name': 'hidden-members', 'can_see_members': false},
+          {'id': 6, 'name': 'unknown-members'},
           {
-            'id': 1,
-            'name': 'likes_received',
-            'type': 'automatic',
-            'position': 1,
+            'id': 3,
+            'name': 'staff',
+            'automatic': true,
+            'can_see_members': true,
           },
-        ],
-      }
-      ..responses['/groups.json?order=name&asc=true'] = {
-        'groups': [
-          {'id': 4, 'name': 'design'},
-        ],
-        'total_rows_groups': 1,
-      };
-    final api = UserDirectoryApi(transport, const DiscourseModelCodec.core());
+        ];
+      final api = UserDirectoryApi(transport, const DiscourseModelCodec.core());
 
-    final metadata = await api.metadata(
-      siteUrl: siteUrl,
-      apiKey: 'secret',
-      fallbackGroupNames: const ['staff'],
+      final metadata = await api.metadata(
+        siteUrl: siteUrl,
+        apiKey: 'secret',
+        clientId: 'client',
+      );
+
+      expect(metadata.columns.single.name, 'likes_received');
+      expect(metadata.groupNames, hasLength(41));
+      expect(metadata.groupNames.first, 'design');
+      expect(metadata.groupNames, contains('team-39'));
+      expect(metadata.groupNames, isNot(contains('hidden-members')));
+      expect(metadata.groupNames, isNot(contains('unknown-members')));
+      expect(metadata.groupNames, isNot(contains('staff')));
+      expect(transport.requests.map((request) => request.path), [
+        '/directory-columns.json',
+        '/groups/search.json?ignore_automatic=true',
+      ]);
+      expect(transport.requests.map((request) => request.clientId).toSet(), {
+        'client',
+      });
+      expect(transport.requests.map((request) => request.apiKey).toSet(), {
+        'secret',
+      });
+    },
+  );
+
+  for (final authenticated in [false, true]) {
+    test(
+      'group discovery ${authenticated ? 'failure' : 'without login'} keeps the directory usable',
+      () async {
+        final transport = _DirectoryTransport()
+          ..failingPaths.add('/groups/search.json?ignore_automatic=true')
+          ..responses['/directory-columns.json'] = {
+            'directory_columns': [
+              {'id': 1, 'name': 'likes_received', 'type': 'automatic'},
+            ],
+          };
+        final metadata = await UserDirectoryApi(
+          transport,
+          const DiscourseModelCodec.core(),
+        ).metadata(siteUrl: siteUrl, apiKey: authenticated ? 'secret' : null);
+
+        expect(metadata.columns.single.name, 'likes_received');
+        expect(metadata.groupNames, isEmpty);
+        expect(transport.requests.map((request) => request.path), [
+          '/directory-columns.json',
+          if (authenticated) '/groups/search.json?ignore_automatic=true',
+        ]);
+      },
     );
-
-    expect(metadata.columns.single.name, 'likes_received');
-    expect(metadata.groupNames, ['design', 'staff']);
-    expect(transport.requests.map((request) => request.apiKey).toSet(), {
-      'secret',
-    });
-  });
+  }
 
   test(
     'loads every editable column for staff and keeps disabled options',
@@ -261,10 +311,12 @@ void main() {
   });
 }
 
-final class _DirectoryTransport implements PluginApiTransport {
+final class _DirectoryTransport
+    implements PluginApiTransport, PluginJsonListTransport {
   final Map<String, Map<String, dynamic>> responses = {};
+  List<Map<String, dynamic>> groupResponses = [];
   final Set<String> failingPaths = {};
-  final List<({String path, String? apiKey})> requests = [];
+  final List<({String path, String? apiKey, String? clientId})> requests = [];
   final List<
     ({
       String path,
@@ -283,13 +335,25 @@ final class _DirectoryTransport implements PluginApiTransport {
     required String? apiKey,
     String? clientId,
   }) async {
-    requests.add((path: path, apiKey: apiKey));
+    requests.add((path: path, apiKey: apiKey, clientId: clientId));
     if (failingPaths.contains(path)) throw StateError('Unavailable');
     return responses[path] ??
         const {
           'directory_items': <Map<String, Object?>>[],
           'meta': <String, Object?>{},
         };
+  }
+
+  @override
+  Future<List<Map<String, dynamic>>> pluginGetJsonList({
+    required String siteUrl,
+    required String path,
+    required String? apiKey,
+    String? clientId,
+  }) async {
+    requests.add((path: path, apiKey: apiKey, clientId: clientId));
+    if (failingPaths.contains(path)) throw StateError('Unavailable');
+    return groupResponses;
   }
 
   @override

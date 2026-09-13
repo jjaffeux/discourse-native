@@ -1,7 +1,6 @@
 import '../models/group.dart';
 import '../models/user_directory.dart';
 import '../plugin_api/discourse_model_codec.dart';
-import 'groups_api.dart';
 import 'plugin_transport.dart';
 
 final class UserDirectoryApi {
@@ -17,7 +16,6 @@ final class UserDirectoryApi {
     required String siteUrl,
     String? apiKey,
     String? clientId,
-    Iterable<String> fallbackGroupNames = const [],
     bool canManageColumns = false,
   }) async {
     var editable = false;
@@ -42,21 +40,32 @@ final class UserDirectoryApi {
       apiKey: apiKey,
       clientId: clientId,
     );
-    var groupNames = <String>{...fallbackGroupNames};
-    try {
-      final groupPage = await GroupsApi(_transport, _models).directory(
-        siteUrl: siteUrl,
-        apiKey: apiKey,
-        clientId: clientId,
-        order: 'name',
-      );
-      groupNames = {
-        ...groupNames,
-        for (final Group group in groupPage.groups) group.name,
-      };
-    } catch (_) {
-      // Group discovery is an enhancement to the directory filter. The
-      // directory remains useful when a site hides or disables /groups.json.
+    final groupNames = <String>[];
+    final transport = _transport;
+    if (apiKey != null && transport is PluginJsonListTransport) {
+      try {
+        // Match the web directory: this unpaginated lookup works even when
+        // the separate Groups directory is disabled.
+        final groups = await (transport as PluginJsonListTransport)
+            .pluginGetJsonList(
+              siteUrl: siteUrl,
+              path: '/groups/search.json?ignore_automatic=true',
+              apiKey: apiKey,
+              clientId: clientId,
+            );
+        for (final raw in groups) {
+          final group = Group.fromWire(
+            raw,
+            siteUrl,
+            extensions: _models.extensions,
+          );
+          if (!group.automatic && group.canSeeMembers) {
+            groupNames.add(group.name);
+          }
+        }
+      } catch (_) {
+        // User browsing remains available when group discovery fails.
+      }
     }
     return UserDirectoryMetadata.fromColumns(
       columns,

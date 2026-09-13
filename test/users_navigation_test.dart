@@ -23,10 +23,6 @@ void main() {
             },
           ],
         },
-        'GET /groups.json?order=name&asc=true': {
-          'groups': <Map<String, Object?>>[],
-          'total_rows_groups': 0,
-        },
         'GET /directory_items.json?period=weekly&order=likes_received': {
           'directory_items': [
             {

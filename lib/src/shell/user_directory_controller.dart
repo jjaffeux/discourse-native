@@ -400,7 +400,6 @@ final class UserDirectoryController extends FrameSafeNotifier {
       siteUrl: instance.url,
       apiKey: auth.apiKey,
       clientId: auth.clientId,
-      fallbackGroupNames: instance.user?.groups ?? const [],
       canManageColumns: instance.user?.staff == true,
     );
     _metadataLoads[instance.url] = future;

@@ -93,7 +93,7 @@ void main() {
     expect(state.loaded, isTrue);
     expect(state.items.map((item) => item.user.username), ['sam', 'hawk']);
     expect(state.columns.single.name, 'likes_received');
-    expect(state.groupNames, ['design', 'staff']);
+    expect(state.groupNames, ['design']);
     expect(state.totalRows, 75);
     expect(state.hasMore, isTrue);
 
@@ -347,7 +347,7 @@ void main() {
     expect(controller.stateFor(instance.url).groupNames, isEmpty);
     expect(transport.requests, [
       '/directory-columns.json',
-      '/groups.json?order=name&asc=true',
+      '/groups/search.json?ignore_automatic=true',
     ]);
 
     await controller.load(
@@ -403,7 +403,8 @@ void main() {
   });
 }
 
-final class _ControllerTransport implements PluginApiTransport {
+final class _ControllerTransport
+    implements PluginApiTransport, PluginJsonListTransport {
   final List<String> requests = [];
   final List<({String path, Map<String, Object?> body})> writes = [];
   final Map<int, bool> columnEnabled = {1: true, 9: false, 14: false};
@@ -465,14 +466,6 @@ final class _ControllerTransport implements PluginApiTransport {
         ],
       };
     }
-    if (uri.path == '/groups.json') {
-      return const {
-        'groups': [
-          {'id': 2, 'name': 'design'},
-        ],
-        'total_rows_groups': 1,
-      };
-    }
     await beforeDirectoryReply?.call(uri);
     final page = int.tryParse(uri.queryParameters['page'] ?? '0') ?? 0;
     final usernames = page == 0 ? const ['sam', 'hawk'] : const ['lindsey'];
@@ -492,6 +485,19 @@ final class _ControllerTransport implements PluginApiTransport {
             '/directory_items.json?period=weekly&page=${page + 1}',
       },
     };
+  }
+
+  @override
+  Future<List<Map<String, dynamic>>> pluginGetJsonList({
+    required String siteUrl,
+    required String path,
+    required String? apiKey,
+    String? clientId,
+  }) async {
+    requests.add(path);
+    return [
+      {'id': 4, 'name': 'design', 'can_see_members': true},
+    ];
   }
 
   @override
