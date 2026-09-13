@@ -44,6 +44,7 @@ import 'tags_page.dart';
 import 'title_bar.dart';
 import 'topic_create_button.dart';
 import 'topic_filter_page.dart';
+import 'topic_inbox_header.dart';
 import 'topic_list_bottom_bar.dart';
 import 'topic_list_layout.dart';
 import 'topic_list_navigation.dart';
@@ -389,61 +390,72 @@ class _TopicInboxWorkspaceState extends State<_TopicInboxWorkspace> {
         );
         // Account controls stay at the pane edge; title, tabs and actions
         // share the same reading lane as the topics below them.
-        Widget buildHeading(BuildContext context, Widget? navigation) =>
-            ContentReadingLane(
-              widthLimit: topicListContentWidth,
-              builder: (context, lane) => ConstrainedBox(
-                constraints: const BoxConstraints(minHeight: shellHeaderHeight),
-                child: Padding(
-                  // Match the sidebar account header's baseline.
-                  padding: EdgeInsets.only(bottom: showsUserMenu ? 1 : 0),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Padding(
-                          padding: EdgeInsetsDirectional.only(
-                            start: DDirection.of(context) == TextDirection.ltr
-                                ? lane.leftInset
-                                : lane.rightInset,
-                          ),
-                          child: Align(
-                            alignment: AlignmentDirectional.centerStart,
-                            child: SizedBox(
-                              width: lane.width,
-                              child: Padding(
-                                padding: EdgeInsetsDirectional.only(
-                                  start: topicListHorizontalPadding,
-                                  end: split
-                                      ? topicInboxDividerInset
-                                      : topicListHorizontalPadding,
-                                ),
-                                child: heading(navigation),
-                              ),
+        Widget buildHeading(
+          BuildContext context,
+          Widget? navigation,
+        ) => ContentReadingLane(
+          widthLimit: topicListContentWidth,
+          builder: (context, lane) => ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: shellHeaderHeight),
+            child: Padding(
+              // Match the sidebar account header's baseline.
+              padding: EdgeInsets.only(bottom: showsUserMenu ? 1 : 0),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Padding(
+                      padding: EdgeInsetsDirectional.only(
+                        start: DDirection.of(context) == TextDirection.ltr
+                            ? lane.leftInset
+                            : lane.rightInset,
+                      ),
+                      child: Align(
+                        alignment: AlignmentDirectional.centerStart,
+                        child: SizedBox(
+                          width: lane.width,
+                          child: Padding(
+                            padding: EdgeInsetsDirectional.only(
+                              start: topicListHorizontalPadding,
+                              end: split
+                                  ? topicInboxDividerInset
+                                  : topicListHorizontalPadding,
                             ),
+                            child: heading(navigation),
                           ),
                         ),
                       ),
-                      if (showsUserMenu)
-                        Padding(
-                          padding: const EdgeInsetsDirectional.only(end: 8),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              ...registry.shellHeaderActions(
-                                context,
-                                surface: PluginHeaderSurface.content,
-                                compact: layout.isCompact,
-                                ringColor: theme.shell.content,
-                              ),
-                              UserMenuButton(ringColor: theme.shell.content),
-                            ],
-                          ),
-                        ),
-                    ],
+                    ),
                   ),
-                ),
+                  if (topicOpen && split)
+                    Padding(
+                      padding: EdgeInsetsDirectional.only(
+                        end: DResizableHandle.resolveHitExtent(context, 8) + 4,
+                      ),
+                      child: TopicCloseButton(
+                        canReturnToSidebar: layout.isCompact,
+                      ),
+                    ),
+                  if (showsUserMenu)
+                    Padding(
+                      padding: const EdgeInsetsDirectional.only(end: 8),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          ...registry.shellHeaderActions(
+                            context,
+                            surface: PluginHeaderSurface.content,
+                            compact: layout.isCompact,
+                            ringColor: theme.shell.content,
+                          ),
+                          UserMenuButton(ringColor: theme.shell.content),
+                        ],
+                      ),
+                    ),
+                ],
               ),
-            );
+            ),
+          ),
+        );
         return Stack(
           children: [
             PositionedDirectional(
