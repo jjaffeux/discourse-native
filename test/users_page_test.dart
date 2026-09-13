@@ -410,6 +410,123 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('directory hides the group filter when there are no choices', (
+    tester,
+  ) async {
+    await _pump(
+      tester,
+      UsersPage(
+        siteUrl: 'https://example.com',
+        data: const UsersPageData(
+          items: [_sam, _hawk],
+          columns: [_likes],
+          loaded: true,
+        ),
+        onGroupChanged: (_) {},
+      ),
+    );
+
+    expect(find.byKey(const ValueKey('users-group-filter')), findsNothing);
+    expect(find.text('All groups'), findsNothing);
+    expect(find.byKey(const ValueKey('users-search')), findsOneWidget);
+    expect(find.byKey(const ValueKey('user-row-sam')), findsOneWidget);
+  });
+
+  testWidgets('an active group can be cleared when discovery has no choices', (
+    tester,
+  ) async {
+    var query = const UserDirectoryQuery(group: 'design');
+    await _pump(
+      tester,
+      StatefulBuilder(
+        builder: (context, setState) => UsersPage(
+          siteUrl: 'https://example.com',
+          data: UsersPageData(
+            columns: const [_likes],
+            loaded: true,
+            query: query,
+          ),
+          onGroupChanged: (group) =>
+              setState(() => query = query.copyWith(group: group)),
+        ),
+      ),
+    );
+
+    final filter = find.byKey(const ValueKey('users-group-filter'));
+    expect(filter, findsOneWidget);
+    final input = find.descendant(
+      of: filter,
+      matching: find.byType(EditableText),
+    );
+    expect(tester.widget<EditableText>(input).controller.text, 'design');
+    await tester.tap(input);
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.descendant(
+        of: find.byType(DComboboxList<String>),
+        matching: find.text('All groups'),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(query.group, isNull);
+    expect(filter, findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+    'opening the group filter shows all choices before and after selection',
+    (tester) async {
+      var query = const UserDirectoryQuery();
+      await _pump(
+        tester,
+        StatefulBuilder(
+          builder: (context, setState) => UsersPage(
+            siteUrl: 'https://example.com',
+            data: UsersPageData(
+              columns: const [_likes],
+              groupNames: const ['design', 'support'],
+              loaded: true,
+              query: query,
+            ),
+            onGroupChanged: (group) =>
+                setState(() => query = query.copyWith(group: group)),
+          ),
+        ),
+      );
+
+      final input = find.descendant(
+        of: find.byKey(const ValueKey('users-group-filter')),
+        matching: find.byType(EditableText),
+      );
+      Finder option(String label) => find.descendant(
+        of: find.byType(DComboboxList<String>),
+        matching: find.text(label),
+      );
+
+      await tester.tap(input);
+      await tester.pumpAndSettle();
+      expect(option('design'), findsOneWidget);
+      expect(option('support'), findsOneWidget);
+      await tester.tap(option('design'));
+      await tester.pumpAndSettle();
+      expect(query.group, 'design');
+
+      await tester.tap(input);
+      await tester.pumpAndSettle();
+      expect(option('All groups'), findsOneWidget);
+      expect(option('support'), findsOneWidget);
+      await tester.enterText(input, 'sup');
+      await tester.pumpAndSettle();
+      expect(option('design'), findsNothing);
+      expect(option('support'), findsOneWidget);
+      await tester.tap(option('support'));
+      await tester.pumpAndSettle();
+      expect(query.group, 'support');
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   testWidgets(
     'directory supports search, periods, sorting, columns, and omits selection',
     (tester) async {
@@ -917,6 +1034,7 @@ void main() {
         data: UsersPageData(
           items: [_sam, _hawk],
           columns: [_likes, _replies, _days],
+          groupNames: ['design'],
           totalRows: 2,
           loaded: true,
         ),
