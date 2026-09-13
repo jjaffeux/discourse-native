@@ -173,9 +173,11 @@ class GlobalSearchFilterChoice {
     required this.value,
     required this.label,
     this.token,
+    this.topicCount,
   });
   final String value, label;
   final String? token;
+  final int? topicCount;
 }
 
 @immutable
