@@ -361,25 +361,27 @@ class _RevisionModePicker extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Align(
     alignment: Alignment.centerRight,
-    child: SegmentedButton<_PostRevisionViewMode>(
+    child: DToggleGroup<_PostRevisionViewMode>(
       key: const ValueKey('post-revision-mode-picker'),
-      showSelectedIcon: false,
-      selected: {mode},
-      onSelectionChanged: (selected) => onChanged(selected.single),
-      segments: const [
-        ButtonSegment(
+      items: const [
+        DToggleGroupItem(
           value: _PostRevisionViewMode.inline,
-          label: Text('Inline'),
+          child: Text('Inline'),
         ),
-        ButtonSegment(
+        DToggleGroupItem(
           value: _PostRevisionViewMode.sideBySide,
-          label: Text('Side by side'),
+          child: Text('Side by side'),
         ),
-        ButtonSegment(
+        DToggleGroupItem(
           value: _PostRevisionViewMode.markdown,
-          label: Text('Markdown'),
+          child: Text('Markdown'),
         ),
       ],
+      values: [mode],
+      allowEmptySelection: false,
+      variant: DToggleVariant.outline,
+      spacing: 0,
+      onChanged: (selected) => onChanged(selected.single),
     ),
   );
 }

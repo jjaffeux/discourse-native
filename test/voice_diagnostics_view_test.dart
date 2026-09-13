@@ -54,9 +54,7 @@ void main() {
       expect(find.text('Capture capture-1'), findsOneWidget);
       expect(
         tester
-            .widget<IconButton>(
-              find.byKey(const ValueKey('voice-clear-capture')),
-            )
+            .widget<DButton>(find.byKey(const ValueKey('voice-clear-capture')))
             .onPressed,
         isNull,
       );

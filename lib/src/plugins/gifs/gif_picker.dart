@@ -105,15 +105,12 @@ class _DialogHeader extends StatelessWidget {
             headingLevel: 1,
           ),
         ),
-        DTooltip(
-          message: 'Close',
-          labelTrigger: true,
-          child: IconButton(
-            key: const ValueKey('gif-picker-close'),
-            onPressed: onClose,
-            icon: const DIcon(DIcons.xmark),
-            tooltip: '',
-          ),
+        DButton.iconOnly(
+          key: const ValueKey('gif-picker-close'),
+          onPressed: onClose,
+          variant: DButtonVariant.ghost,
+          tooltip: 'Close',
+          icon: const DIcon(DIcons.xmark),
         ),
       ],
     ),
@@ -207,19 +204,16 @@ class _GifPickerState extends State<GifPicker> {
       );
     }
     if (_search.text.isEmpty) return null;
-    return DTooltip(
-      message: 'Clear search',
-      labelTrigger: true,
-      child: IconButton(
-        key: const ValueKey('gif-picker-clear'),
-        onPressed: () {
-          _search.clear();
-          widget.controller.updateQuery('');
-          _searchFocus.requestFocus();
-        },
-        icon: const DIcon(DIcons.xmark, size: 16),
-        tooltip: '',
-      ),
+    return DButton.iconOnly(
+      key: const ValueKey('gif-picker-clear'),
+      onPressed: () {
+        _search.clear();
+        widget.controller.updateQuery('');
+        _searchFocus.requestFocus();
+      },
+      variant: DButtonVariant.ghost,
+      tooltip: 'Clear search',
+      icon: const DIcon(DIcons.xmark),
     );
   }
 

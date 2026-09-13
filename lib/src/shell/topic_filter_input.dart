@@ -522,17 +522,14 @@ class _TopicFilterInputState extends State<TopicFilterInput> {
                 ),
               ),
               if (hasQuery)
-                DTooltip(
-                  message: 'Clear all filters',
-                  labelTrigger: true,
-                  child: IconButton(
-                    key: widget.clearKey,
-                    tooltip: '',
-                    onPressed: widget.enabled
-                        ? () => unawaited(_clearTokenQuery())
-                        : null,
-                    icon: const DIcon(DIcons.xmark, size: 17),
-                  ),
+                DButton.iconOnly(
+                  key: widget.clearKey,
+                  onPressed: widget.enabled
+                      ? () => unawaited(_clearTokenQuery())
+                      : null,
+                  variant: DButtonVariant.ghost,
+                  tooltip: 'Clear all filters',
+                  icon: const DIcon(DIcons.xmark),
                 ),
             ],
           ),

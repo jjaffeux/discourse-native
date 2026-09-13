@@ -1,13 +1,13 @@
 import 'dart:async';
 
 import 'package:discourse_native/discourse_plugin_test.dart';
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
 // The review harness deliberately seeds the exact production store without
 // issuing network requests.
 // ignore_for_file: invalid_use_of_visible_for_testing_member
 
-import 'discourse_ui.dart';
 import 'src/macos_launch_screen.dart';
 import 'src/plugin_api/plugin_scope.dart';
 import 'src/plugins/bundled_plugin_manifest.dart';
@@ -166,16 +166,19 @@ class _MessageScrollerReviewState extends State<_MessageScrollerReview> {
             ),
             const SizedBox(height: 16),
             if (_surface == _ReviewSurface.examples) ...[
-              DropdownButton<int>(
+              DSelect<int>.controlled(
                 value: _example,
-                items: [
+                width: 360,
+                semanticLabel: 'Example',
+                entries: [
                   for (
                     var index = 0;
                     index < messageScrollerExamples.examples.length;
                     index++
                   )
-                    DropdownMenuItem(
+                    DSelectItem(
                       value: index,
+                      textValue: messageScrollerExamples.examples[index].title,
                       child: Text(
                         messageScrollerExamples.examples[index].title,
                       ),

@@ -67,14 +67,11 @@ Future<LocalDateComposerSheetAction?> showLocalDateComposerSheet({
                       headingLevel: 1,
                     ),
                   ),
-                  DTooltip(
-                    message: 'Close',
-                    labelTrigger: true,
-                    child: IconButton(
-                      onPressed: () => Navigator.of(dialogContext).pop(),
-                      icon: const Icon(Icons.close),
-                      tooltip: '',
-                    ),
+                  DButton.iconOnly(
+                    onPressed: () => Navigator.of(dialogContext).pop(),
+                    variant: DButtonVariant.ghost,
+                    tooltip: 'Close',
+                    icon: const Icon(Icons.close),
                   ),
                 ],
               ),
@@ -372,21 +369,16 @@ class _LocalDateComposerSheetState extends State<LocalDateComposerSheet> {
                               ),
                             ),
                             const SizedBox(width: 8),
-                            DTooltip(
-                              message: 'Add timezone',
-                              labelTrigger: true,
-                              child: IconButton.filledTonal(
-                                onPressed: _previewCandidate == null
-                                    ? null
-                                    : () => setState(() {
-                                        _previewTimezones.add(
-                                          _previewCandidate!,
-                                        );
-                                        _previewCandidate = null;
-                                      }),
-                                icon: const Icon(Icons.add),
-                                tooltip: '',
-                              ),
+                            DButton.iconOnly(
+                              onPressed: _previewCandidate == null
+                                  ? null
+                                  : () => setState(() {
+                                      _previewTimezones.add(_previewCandidate!);
+                                      _previewCandidate = null;
+                                    }),
+                              variant: DButtonVariant.secondary,
+                              tooltip: 'Add timezone',
+                              icon: const Icon(Icons.add),
                             ),
                           ],
                         ),
@@ -459,14 +451,11 @@ class _LocalDateComposerSheetState extends State<LocalDateComposerSheet> {
                 hintText: '09:00:00',
               ),
             ),
-            DTooltip(
-              message: 'Choose $label time',
-              labelTrigger: true,
-              child: IconButton(
-                onPressed: () => unawaited(_pickTime(time)),
-                icon: const Icon(Icons.schedule),
-                tooltip: '',
-              ),
+            DButton.iconOnly(
+              onPressed: () => unawaited(_pickTime(time)),
+              variant: DButtonVariant.ghost,
+              tooltip: 'Choose $label time',
+              icon: const Icon(Icons.schedule),
             ),
           ],
         ),
@@ -638,21 +627,26 @@ class _TimezoneMenu extends StatelessWidget {
   final bool optional;
 
   @override
-  Widget build(BuildContext context) => LayoutBuilder(
-    builder: (context, constraints) => DropdownMenu<String>(
-      width: constraints.hasBoundedWidth ? constraints.maxWidth : null,
-      label: Text(label),
-      initialSelection: initial,
-      enableFilter: true,
-      enableSearch: true,
-      requestFocusOnTap: true,
-      dropdownMenuEntries: [
-        if (optional)
-          const DropdownMenuEntry(value: '', label: 'None / device timezone'),
-        for (final zone in zones) DropdownMenuEntry(value: zone, label: zone),
-      ],
-      onSelected: (value) =>
-          onSelected(value == null || value.isEmpty ? null : value),
-    ),
+  Widget build(BuildContext context) => DField(
+    children: [
+      DFieldLabel(child: Text(label)),
+      DCombobox<String>.controlled(
+        value: initial ?? (optional ? '' : null),
+        options: [
+          if (optional)
+            const DComboboxOption(value: '', label: 'None / device timezone'),
+          for (final zone in zones) DComboboxOption(value: zone, label: zone),
+        ],
+        anchor: DComboboxInput<String>(semanticLabel: label),
+        content: const DComboboxContent(
+          children: [
+            DComboboxEmpty<String>(child: Text('No timezones found.')),
+            DComboboxList<String>(),
+          ],
+        ),
+        onChanged: (value, reason) =>
+            onSelected(value == null || value.isEmpty ? null : value),
+      ),
+    ],
   );
 }

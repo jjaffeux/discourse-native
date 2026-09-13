@@ -131,20 +131,15 @@ class _DoNotDisturbDialogState extends State<_DoNotDisturbDialog> {
                 for (final option in DoNotDisturbOption.values)
                   SizedBox(
                     width: 190,
-                    child: OutlinedButton(
+                    child: DButton(
                       key: ValueKey('do-not-disturb-${option.name}'),
-                      style: OutlinedButton.styleFrom(
-                        minimumSize: const Size(44, 44),
-                      ),
                       onPressed: _saving == null
                           ? () => unawaited(_save(option))
                           : null,
-                      child: _saving == option
-                          ? const SizedBox.square(
-                              dimension: 16,
-                              child: DSpinner(),
-                            )
-                          : Text(option.label),
+                      variant: DButtonVariant.outline,
+                      size: DButtonSize.large,
+                      loading: _saving == option,
+                      label: Text(option.label),
                     ),
                   ),
               ],

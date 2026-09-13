@@ -701,15 +701,9 @@ class _ParticipantTileState extends State<_ParticipantTile> {
               if (canAdjustLocally)
                 Align(
                   alignment: Alignment.topRight,
-                  child: DTooltip(
-                    message: 'Participant actions',
-                    labelTrigger: true,
-                    child: PopupMenuButton<String>(
-                      tooltip: '',
-                      popUpAnimationStyle: discoursePopupMenuAnimationStyle(
-                        context,
-                      ),
-                      onSelected: (action) async {
+                  child: Builder(
+                    builder: (menuContext) {
+                      void onSelect(Object? action) async {
                         if (action == 'kick') {
                           await controller.kick(participant.id);
                         }
@@ -740,42 +734,56 @@ class _ParticipantTileState extends State<_ParticipantTile> {
                             controllerResolver: controllerResolver,
                           );
                         }
-                      },
-                      itemBuilder: (context) => [
-                        const PopupMenuItem(
-                          value: 'volume',
-                          child: Text('Local volume'),
-                        ),
-                        const PopupMenuItem(
-                          value: 'flag',
-                          child: Text('Notify moderators'),
-                        ),
-                        if (stageRoleChange case final role?)
-                          PopupMenuItem(
-                            value: 'role',
-                            child: Text(
-                              role == VoiceRole.speaker
-                                  ? 'Make speaker'
-                                  : 'Move to listeners',
+                      }
+
+                      return DDropdownMenu(
+                        content: DDropdownMenuContent(
+                          semanticLabel: 'Participant actions',
+                          width: 280,
+                          children: [
+                            DDropdownMenuItem(
+                              onPressed: () => onSelect('volume'),
+                              child: const Text('Local volume'),
                             ),
+                            DDropdownMenuItem(
+                              onPressed: () => onSelect('flag'),
+                              child: const Text('Notify moderators'),
+                            ),
+                            if (stageRoleChange case final role?)
+                              DDropdownMenuItem(
+                                onPressed: () => onSelect('role'),
+                                child: Text(
+                                  role == VoiceRole.speaker
+                                      ? 'Make speaker'
+                                      : 'Move to listeners',
+                                ),
+                              ),
+                            if (canManage && participant.handRaisedAt != null)
+                              DDropdownMenuItem(
+                                onPressed: () => onSelect('dismiss'),
+                                child: const Text('Dismiss raised hand'),
+                              ),
+                            if (canKick)
+                              DDropdownMenuItem(
+                                onPressed: () => onSelect('kick'),
+                                variant: DDropdownMenuItemVariant.destructive,
+                                child: const Text('Remove from room'),
+                              ),
+                          ],
+                        ),
+                        child: DDropdownMenuTrigger(
+                          builder: (triggerContext, state) => DButton.iconOnly(
+                            tooltip: 'Participant actions',
+                            variant: DButtonVariant.secondary,
+                            icon: const DIcon(DIcons.ellipsis, size: 16),
+                            focusNode: state.focusNode,
+                            hasPopup: true,
+                            expanded: state.open,
+                            onPressed: state.toggle,
                           ),
-                        if (canManage && participant.handRaisedAt != null)
-                          const PopupMenuItem(
-                            value: 'dismiss',
-                            child: Text('Dismiss raised hand'),
-                          ),
-                        if (canKick)
-                          const PopupMenuItem(
-                            value: 'kick',
-                            child: Text('Remove from room'),
-                          ),
-                      ],
-                      icon: const DIcon(
-                        DIcons.ellipsis,
-                        size: 16,
-                        color: Colors.white,
-                      ),
-                    ),
+                        ),
+                      );
+                    },
                   ),
                 ),
             ],
@@ -978,23 +986,23 @@ class VoiceToolbarControl extends StatelessWidget {
   final VoidCallback onPressed;
 
   @override
-  Widget build(BuildContext context) => DTooltip(
-    message: label,
-    labelTrigger: true,
-    excludeFromSemantics: selected != null,
-    child: selected == null
-        ? IconButton.filledTonal(
-            tooltip: '',
-            onPressed: onPressed,
-            icon: DIcon(icon, size: 19),
-          )
-        : DToggle.iconOnly(
+  Widget build(BuildContext context) => selected == null
+      ? DButton.iconOnly(
+          onPressed: onPressed,
+          variant: DButtonVariant.secondary,
+          tooltip: label,
+          icon: DIcon(icon),
+        )
+      : DTooltip(
+          message: label,
+          excludeFromSemantics: true,
+          child: DToggle.iconOnly(
             pressed: selected,
             onPressedChanged: (_) => onPressed(),
             semanticLabel: label,
-            icon: DIcon(icon, size: 19),
+            icon: DIcon(icon),
           ),
-  );
+        );
 }
 
 class VoiceVideoSurface extends StatelessWidget {
@@ -1872,22 +1880,19 @@ class _VoiceChatSheetState extends State<_VoiceChatSheet> {
                   hintText: 'Message the room',
                 ),
               ),
-              DTooltip(
-                message: 'Send message',
-                labelTrigger: true,
-                child: IconButton.filled(
-                  tooltip: '',
-                  onPressed: () async {
-                    final text = _composer.text;
-                    _composer.clear();
-                    await widget.controller.sendChatMessage(
-                      widget.siteUrl,
-                      widget.roomId,
-                      text,
-                    );
-                  },
-                  icon: const DIcon(DIcons.paperPlane, size: 18),
-                ),
+              DButton.iconOnly(
+                onPressed: () async {
+                  final text = _composer.text;
+                  _composer.clear();
+                  await widget.controller.sendChatMessage(
+                    widget.siteUrl,
+                    widget.roomId,
+                    text,
+                  );
+                },
+                variant: DButtonVariant.primary,
+                tooltip: 'Send message',
+                icon: const DIcon(DIcons.paperPlane),
               ),
             ],
           ),
@@ -2023,33 +2028,43 @@ class _VoiceMembersDialogState extends State<_VoiceMembersDialog> {
                     trailing: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        DTooltip(
-                          message: 'Change role',
-                          labelTrigger: true,
-                          child: PopupMenuButton<VoiceRole>(
-                            tooltip: '',
-                            popUpAnimationStyle:
-                                discoursePopupMenuAnimationStyle(context),
-                            onSelected: (role) =>
-                                _updateMember(membership, role),
-                            itemBuilder: (context) => [
-                              for (final role in VoiceRole.values)
-                                PopupMenuItem(
-                                  value: role,
-                                  child: Text(role.name),
-                                ),
-                            ],
-                          ),
+                        Builder(
+                          builder: (menuContext) {
+                            void onSelect(VoiceRole role) =>
+                                _updateMember(membership, role);
+                            return DDropdownMenu(
+                              content: DDropdownMenuContent(
+                                semanticLabel: 'Change role',
+                                width: 280,
+                                children: [
+                                  for (final role in VoiceRole.values)
+                                    DDropdownMenuItem(
+                                      onPressed: () => onSelect(role),
+                                      child: Text(role.name),
+                                    ),
+                                ],
+                              ),
+                              child: DDropdownMenuTrigger(
+                                builder: (triggerContext, state) =>
+                                    DButton.iconOnly(
+                                      tooltip: 'Change role',
+                                      variant: DButtonVariant.ghost,
+                                      icon: const Icon(Icons.more_vert),
+                                      focusNode: state.focusNode,
+                                      hasPopup: true,
+                                      expanded: state.open,
+                                      onPressed: state.toggle,
+                                    ),
+                              ),
+                            );
+                          },
                         ),
                         if (membership.userId != widget.room.creatorId)
-                          DTooltip(
-                            message: 'Remove member',
-                            labelTrigger: true,
-                            child: IconButton(
-                              tooltip: '',
-                              onPressed: () => _removeMember(membership),
-                              icon: const DIcon(DIcons.trashCan, size: 17),
-                            ),
+                          DButton.iconOnly(
+                            onPressed: () => _removeMember(membership),
+                            variant: DButtonVariant.ghost,
+                            tooltip: 'Remove member',
+                            icon: const DIcon(DIcons.trashCan),
                           ),
                       ],
                     ),
@@ -2086,14 +2101,11 @@ class _VoiceMembersDialogState extends State<_VoiceMembersDialog> {
                   initialValue: _newRole,
                 ),
               ),
-              DTooltip(
-                message: 'Add member',
-                labelTrigger: true,
-                child: IconButton.filledTonal(
-                  tooltip: '',
-                  onPressed: _addMember,
-                  icon: const DIcon(DIcons.userPlus, size: 17),
-                ),
+              DButton.iconOnly(
+                onPressed: _addMember,
+                variant: DButtonVariant.secondary,
+                tooltip: 'Add member',
+                icon: const DIcon(DIcons.userPlus),
               ),
             ],
           ),

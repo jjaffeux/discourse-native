@@ -450,7 +450,7 @@ void main() {
     testWidgets('category, severity, source, and text filters compose', (
       tester,
     ) async {
-      await _pumpPopulatedDiagnosticsPanel(tester);
+      final diagnostics = await _pumpPopulatedDiagnosticsPanel(tester);
 
       final request = find.text('https://example.test/t/42?token');
       final error = find.textContaining('topic load took too long');
@@ -463,16 +463,18 @@ void main() {
       expect(scrollbar.controller, same(timeline.controller));
 
       await tester.tap(find.text('Requests'));
-      await tester.pump();
+      await tester.pumpAndSettle();
       expect(request, findsOneWidget);
       expect(error, findsNothing);
 
       await tester.tap(find.text('Errors'));
-      await tester.pump();
+      await tester.pumpAndSettle();
       expect(request, findsNothing);
       expect(error, findsOneWidget);
 
       await tester.tap(find.text('All'));
+      await tester.pumpAndSettle();
+      expect(diagnostics.panelState.kindFilter, DiagnosticsKindFilter.all);
       await tester.tap(
         find.byKey(const ValueKey('diagnostics-severity-filter')),
       );
@@ -936,7 +938,7 @@ bool _primaryFocusIsWithin(Finder finder) {
 }
 
 Finder _diagnosticsMenuItem(String label) =>
-    find.widgetWithText(CheckedPopupMenuItem<String>, label);
+    find.widgetWithText(DDropdownMenuCheckboxItem, label);
 
 List<String> _recordClipboardWrites(WidgetTester tester) {
   final copied = <String>[];

@@ -113,14 +113,11 @@ class _SheetBody extends StatelessWidget {
             child: Row(
               children: [
                 if (nested)
-                  DTooltip(
-                    message: 'Back',
-                    labelTrigger: true,
-                    child: IconButton(
-                      onPressed: () => Navigator.of(context).maybePop(),
-                      icon: const DIcon(DIcons.arrowLeft),
-                      tooltip: '',
-                    ),
+                  DButton.iconOnly(
+                    onPressed: () => Navigator.of(context).maybePop(),
+                    variant: DButtonVariant.ghost,
+                    tooltip: 'Back',
+                    icon: const DIcon(DIcons.arrowLeft),
                   ),
                 Expanded(
                   child: DText(
@@ -130,14 +127,11 @@ class _SheetBody extends StatelessWidget {
                   ),
                 ),
                 if (!nested)
-                  DTooltip(
-                    message: 'Close',
-                    labelTrigger: true,
-                    child: IconButton(
-                      onPressed: () => Navigator.of(context).maybePop(),
-                      icon: const DIcon(DIcons.xmark),
-                      tooltip: '',
-                    ),
+                  DButton.iconOnly(
+                    onPressed: () => Navigator.of(context).maybePop(),
+                    variant: DButtonVariant.ghost,
+                    tooltip: 'Close',
+                    icon: const DIcon(DIcons.xmark),
                   ),
               ],
             ),

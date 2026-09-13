@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:discourse_native/discourse_ui.dart';
-import 'package:flutter/gestures.dart' show kPrimaryButton, kSecondaryButton;
+import 'package:flutter/gestures.dart' show kPrimaryButton;
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
@@ -85,7 +85,7 @@ class ForumTabsBar extends StatefulWidget {
     return height + math.max(0, growth);
   }
 
-  static const double minimumActionTarget = 34;
+  static const double minimumActionTarget = DControlStyle.regularHeight;
 
   static const double _tabContentInset = 4;
 
@@ -354,23 +354,20 @@ class _ForumTabSwitcher extends StatefulWidget {
 }
 
 class _ForumTabSwitcherState extends State<_ForumTabSwitcher> {
-  final MenuController _menu = MenuController();
+  final DPopoverController _menu = DPopoverController();
   final TextEditingController _search = TextEditingController();
   final FocusNode _searchFocus = FocusNode(debugLabel: 'tab switcher search');
-  final WidgetStatesController _buttonStates = WidgetStatesController();
-  bool _open = false;
   bool _historyExpanded = false;
 
   @override
   void dispose() {
-    _buttonStates.dispose();
+    _menu.dispose();
     _searchFocus.dispose();
     _search.dispose();
     super.dispose();
   }
 
   void _handleOpen() {
-    setState(() => _open = true);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted && _menu.isOpen) _searchFocus.requestFocus();
     });
@@ -381,7 +378,6 @@ class _ForumTabSwitcherState extends State<_ForumTabSwitcher> {
     _search.clear();
     if (mounted) {
       setState(() {
-        _open = false;
         _historyExpanded = false;
       });
     }
@@ -415,221 +411,131 @@ class _ForumTabSwitcherState extends State<_ForumTabSwitcher> {
     final closedItems = widget.recentlyClosedItems
         .where(_matches)
         .toList(growable: false);
-    final reduceMotion = media.disableAnimations;
 
-    return SizedBox(
-      width: ForumTabsBar.minimumActionTarget,
-      height: ForumTabsBar.minimumActionTarget,
-      child: MenuAnchor(
+    return Center(
+      widthFactor: 1,
+      child: DPopover(
         controller: _menu,
-        onOpen: _handleOpen,
-        onClose: _handleClose,
-        style: MenuStyle(
-          padding: const WidgetStatePropertyAll(EdgeInsets.zero),
-          backgroundColor: WidgetStatePropertyAll(theme.shell.floating),
-          surfaceTintColor: const WidgetStatePropertyAll(Colors.transparent),
-          elevation: const WidgetStatePropertyAll(8),
-          shape: WidgetStatePropertyAll(
-            RoundedRectangleBorder(
-              side: BorderSide(color: theme.shell.divider),
-              borderRadius: BorderRadius.circular(14),
-            ),
-          ),
-        ),
-        menuChildren: [
-          Container(
-            key: const ValueKey('forum-tabs-switcher-menu'),
-            width: panelWidth,
-            constraints: BoxConstraints(
-              maxHeight: math.min(480.0, availablePanelHeight),
-            ),
-            padding: const EdgeInsets.all(10),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                TextField(
-                  key: const ValueKey('forum-tabs-switcher-search'),
-                  controller: _search,
-                  focusNode: _searchFocus,
-                  onChanged: (_) => setState(() {}),
-                  maxLines: 1,
-                  textInputAction: TextInputAction.search,
-                  style: theme.textTheme.bodyMedium,
-                  decoration: InputDecoration(
-                    hintText: 'Search tabs…',
-                    hintStyle: theme.textTheme.bodyMedium?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                    prefixIcon: Padding(
-                      padding: const EdgeInsets.all(12),
-                      child: DIcon(
-                        DIcons.magnifyingGlass,
-                        size: 17,
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                    prefixIconConstraints: const BoxConstraints(
-                      minWidth: 44,
-                      minHeight: 44,
-                    ),
-                    isDense: true,
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 9,
-                    ),
-                    filled: true,
-                    fillColor: theme.shell.content,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      borderSide: BorderSide.none,
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      borderSide: BorderSide.none,
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      borderSide: BorderSide(
-                        color: theme.colorScheme.primary.withValues(
-                          alpha: DFocusHighlight.visibleOf(context) ? 0.35 : 0,
-                        ),
-                      ),
-                    ),
-                  ),
+        focusContentOnOpen: false,
+        onOpenChange: (open, reason) {
+          if (open) {
+            _handleOpen();
+          } else {
+            _handleClose();
+          }
+        },
+        content: DPopoverContent(
+          semanticLabel: 'Browse tabs',
+          width: panelWidth,
+          padding: EdgeInsets.zero,
+          scrollable: false,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                key: const ValueKey('forum-tabs-switcher-menu'),
+                width: panelWidth,
+                constraints: BoxConstraints(
+                  maxHeight: math.min(480.0, availablePanelHeight),
                 ),
-                const SizedBox(height: 10),
-                Flexible(
-                  child: SingleChildScrollView(
-                    primary: false,
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        _TabSwitcherHeading(
-                          label: _search.text.trim().isEmpty
-                              ? 'Open tabs'
-                              : 'Matching tabs',
-                          count: openItems.length,
-                        ),
-                        for (final item in openItems)
-                          _TabSwitcherRow(
-                            key: ValueKey(
-                              'forum-tabs-switcher-open-${item.id}',
+                padding: const EdgeInsets.all(10),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    DInput(
+                      key: const ValueKey('forum-tabs-switcher-search'),
+                      controller: _search,
+                      focusNode: _searchFocus,
+                      onChanged: (_) => setState(() {}),
+                      textInputAction: TextInputAction.search,
+                      hintText: 'Search tabs…',
+                      prefix: const DIcon(DIcons.magnifyingGlass),
+                    ),
+                    const SizedBox(height: 10),
+                    Flexible(
+                      child: SingleChildScrollView(
+                        primary: false,
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            _TabSwitcherHeading(
+                              label: _search.text.trim().isEmpty
+                                  ? 'Open tabs'
+                                  : 'Matching tabs',
+                              count: openItems.length,
                             ),
-                            item: item,
-                            selected: item.id == widget.selectedId,
-                            onTap: () => _select(item.id),
-                            trailing: _TabSwitcherRowAction(
-                              label: 'Close ${item.title}',
-                              icon: DIcons.xmark,
-                              onPressed: () => widget.onClose(item.id),
-                            ),
-                          ),
-                        if (openItems.isEmpty)
-                          const _TabSwitcherEmpty(
-                            label: 'No matching open tabs',
-                          ),
-                        if (widget.recentlyClosedItems.isNotEmpty) ...[
-                          const SizedBox(height: 10),
-                          DSeparator(space: 1, color: theme.shell.divider),
-                          _TabSwitcherHistoryToggle(
-                            count: closedItems.length,
-                            expanded: _historyExpanded,
-                            onTap: () => setState(
-                              () => _historyExpanded = !_historyExpanded,
-                            ),
-                          ),
-                          if (_historyExpanded) ...[
-                            for (final item in closedItems)
+                            for (final item in openItems)
                               _TabSwitcherRow(
                                 key: ValueKey(
-                                  'forum-tabs-switcher-recent-${item.id}',
+                                  'forum-tabs-switcher-open-${item.id}',
                                 ),
                                 item: item,
-                                onTap: widget.onReopen == null
-                                    ? null
-                                    : () => _reopen(item.id),
-                                trailing: const DIcon(
-                                  DIcons.arrowRotateLeft,
-                                  size: 15,
+                                selected: item.id == widget.selectedId,
+                                onTap: () => _select(item.id),
+                                trailing: _TabSwitcherRowAction(
+                                  label: 'Close ${item.title}',
+                                  icon: DIcons.xmark,
+                                  onPressed: () => widget.onClose(item.id),
                                 ),
                               ),
-                            if (closedItems.isEmpty)
+                            if (openItems.isEmpty)
                               const _TabSwitcherEmpty(
-                                label: 'No matching recently closed tabs',
+                                label: 'No matching open tabs',
                               ),
+                            if (widget.recentlyClosedItems.isNotEmpty) ...[
+                              const SizedBox(height: 10),
+                              DSeparator(space: 1, color: theme.shell.divider),
+                              _TabSwitcherHistoryToggle(
+                                count: closedItems.length,
+                                expanded: _historyExpanded,
+                                onTap: () => setState(
+                                  () => _historyExpanded = !_historyExpanded,
+                                ),
+                              ),
+                              if (_historyExpanded) ...[
+                                for (final item in closedItems)
+                                  _TabSwitcherRow(
+                                    key: ValueKey(
+                                      'forum-tabs-switcher-recent-${item.id}',
+                                    ),
+                                    item: item,
+                                    onTap: widget.onReopen == null
+                                        ? null
+                                        : () => _reopen(item.id),
+                                    trailing: const DIcon(
+                                      DIcons.arrowRotateLeft,
+                                      size: 15,
+                                    ),
+                                  ),
+                                if (closedItems.isEmpty)
+                                  const _TabSwitcherEmpty(
+                                    label: 'No matching recently closed tabs',
+                                  ),
+                              ],
+                            ],
                           ],
-                        ],
-                      ],
+                        ),
+                      ),
                     ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-        builder: (context, controller, _) => Semantics(
-          key: const ValueKey('forum-tabs-switcher'),
-          button: true,
-          expanded: _open,
-          label: 'Browse tabs in ${widget.forumName}',
-          onTap: controller.open,
-          child: ExcludeSemantics(
-            child: DTooltip(
-              message: 'Browse tabs',
-              labelTrigger: true,
-              child: IconButton(
-                statesController: _buttonStates,
-                tooltip: '',
-                constraints: const BoxConstraints.expand(
-                  width: ForumTabsBar.minimumActionTarget,
-                  height: ForumTabsBar.minimumActionTarget,
-                ),
-                padding: EdgeInsets.zero,
-                style: const ButtonStyle(
-                  overlayColor: WidgetStatePropertyAll(Colors.transparent),
-                  splashFactory: NoSplash.splashFactory,
-                ),
-                onPressed: controller.isOpen
-                    ? controller.close
-                    : controller.open,
-                icon: ValueListenableBuilder<Set<WidgetState>>(
-                  valueListenable: _buttonStates,
-                  builder: (context, states, _) {
-                    final emphasized =
-                        _open ||
-                        states.contains(WidgetState.hovered) ||
-                        states.contains(WidgetState.focused) ||
-                        states.contains(WidgetState.pressed);
-                    return AnimatedContainer(
-                      key: const ValueKey('forum-tabs-switcher-surface'),
-                      width: 28,
-                      height: 28,
-                      duration: reduceMotion
-                          ? Duration.zero
-                          : const Duration(milliseconds: 100),
-                      curve: Curves.easeOutCubic,
-                      alignment: Alignment.center,
-                      decoration: BoxDecoration(
-                        color: emphasized
-                            ? theme.colorScheme.primaryContainer
-                            : theme.shell.content,
-                        border: Border.all(color: theme.shell.divider),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: DIcon(
-                        DIcons.chevronDown,
-                        size: 15,
-                        color: emphasized
-                            ? theme.colorScheme.onPrimaryContainer
-                            : theme.colorScheme.onSurfaceVariant,
-                      ),
-                    );
-                  },
+                  ],
                 ),
               ),
-            ),
+            ],
+          ),
+        ),
+        child: DPopoverTrigger(
+          builder: (context, state) => DButton.iconOnly(
+            key: const ValueKey('forum-tabs-switcher'),
+            semanticLabel: 'Browse tabs in ${widget.forumName}',
+            tooltip: 'Browse tabs',
+            variant: DButtonVariant.outline,
+            icon: const DIcon(DIcons.chevronDown),
+            focusNode: state.focusNode,
+            hasPopup: true,
+            expanded: state.open,
+            onPressed: state.toggle,
           ),
         ),
       ),
@@ -860,18 +766,11 @@ class _TabSwitcherRowAction extends StatelessWidget {
   final VoidCallback onPressed;
 
   @override
-  Widget build(BuildContext context) => DTooltip(
-    message: label,
-    labelTrigger: true,
-    child: IconButton(
-      tooltip: '',
-      constraints: const BoxConstraints.tightFor(width: 30, height: 30),
-      padding: EdgeInsets.zero,
-      style: const ButtonStyle(tapTargetSize: MaterialTapTargetSize.shrinkWrap),
-      color: Theme.of(context).colorScheme.onSurfaceVariant,
-      onPressed: onPressed,
-      icon: DIcon(icon, size: 14),
-    ),
+  Widget build(BuildContext context) => DButton.iconOnly(
+    onPressed: onPressed,
+    variant: DButtonVariant.ghost,
+    tooltip: label,
+    icon: DIcon(icon),
   );
 }
 
@@ -1072,101 +971,32 @@ class _ForumTabDragFeedback extends StatelessWidget {
   }
 }
 
-class _NewTabButton extends StatefulWidget {
+class _NewTabButton extends StatelessWidget {
   const _NewTabButton({required this.onPressed});
 
   final VoidCallback? onPressed;
 
   @override
-  State<_NewTabButton> createState() => _NewTabButtonState();
-}
-
-class _NewTabButtonState extends State<_NewTabButton> {
-  final WidgetStatesController _states = WidgetStatesController();
-
-  @override
-  void dispose() {
-    _states.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final reduceMotion =
-        MediaQuery.maybeOf(context)?.disableAnimations ?? false;
-    final label = widget.onPressed == null
-        ? 'Close a tab before opening another'
-        : 'Open a new tab';
-    return Semantics(
+  Widget build(BuildContext context) => Center(
+    widthFactor: 1,
+    child: DButton.iconOnly(
       key: const ValueKey('forum-tabs-add'),
-      container: true,
-      button: true,
-      enabled: widget.onPressed != null,
-      label: label,
-      onTap: widget.onPressed,
-      child: ExcludeSemantics(
-        child: DTooltip(
-          message: label,
-          shortcut: widget.onPressed == null
-              ? null
-              : DShortcut(
-                  primaryShortcutForPlatform(
-                    Theme.of(context).platform,
-                    LogicalKeyboardKey.keyT,
-                  ),
-                ),
-          excludeFromSemantics: true,
-          child: SizedBox(
-            width: ForumTabsBar.minimumActionTarget,
-            height: ForumTabsBar.minimumActionTarget,
-            child: IconButton(
-              statesController: _states,
-              constraints: const BoxConstraints.expand(),
-              padding: EdgeInsets.zero,
-              style: const ButtonStyle(
-                overlayColor: WidgetStatePropertyAll(Colors.transparent),
-                splashFactory: NoSplash.splashFactory,
-              ),
-              onPressed: widget.onPressed,
-              icon: ValueListenableBuilder<Set<WidgetState>>(
-                valueListenable: _states,
-                builder: (context, states, _) {
-                  final emphasized =
-                      states.contains(WidgetState.hovered) ||
-                      states.contains(WidgetState.focused) ||
-                      states.contains(WidgetState.pressed);
-                  return AnimatedContainer(
-                    key: const ValueKey('forum-tabs-add-surface'),
-                    width: 28,
-                    height: 28,
-                    duration: reduceMotion
-                        ? Duration.zero
-                        : const Duration(milliseconds: 100),
-                    curve: Curves.easeOutCubic,
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      color: emphasized
-                          ? theme.colorScheme.primaryContainer
-                          : Colors.transparent,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: DIcon(
-                      DIcons.plus,
-                      size: 16,
-                      color: emphasized
-                          ? theme.colorScheme.onSurface
-                          : theme.colorScheme.onSurfaceVariant,
-                    ),
-                  );
-                },
+      tooltip: onPressed == null
+          ? 'Close a tab before opening another'
+          : 'Open a new tab',
+      shortcut: onPressed == null
+          ? null
+          : DShortcut(
+              primaryShortcutForPlatform(
+                Theme.of(context).platform,
+                LogicalKeyboardKey.keyT,
               ),
             ),
-          ),
-        ),
-      ),
-    );
-  }
+      variant: DButtonVariant.ghost,
+      icon: const DIcon(DIcons.plus),
+      onPressed: onPressed,
+    ),
+  );
 }
 
 class _ForumTab extends StatefulWidget {
@@ -1547,7 +1377,7 @@ class _ForumTabState extends State<_ForumTab> {
                 tabId: widget.item.id,
                 tabHovered: _hovered,
                 label: closeLabel,
-                foreground: foreground,
+
                 shortcut: DShortcut(
                   primaryShortcutForPlatform(
                     Theme.of(context).platform,
@@ -1667,73 +1497,56 @@ class _ForumTabActions extends StatefulWidget {
 
 class _ForumTabActionsState extends State<_ForumTabActions> {
   static const _showActions = CustomSemanticsAction(label: 'Show tab actions');
-
-  final MenuController _menu = MenuController();
-
-  void _open(Offset? position) {
-    if (_menu.isOpen) return;
-    _menu.open(position: position);
-  }
+  final _trigger = DContextMenuTriggerController();
 
   @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Semantics(
-      key: ValueKey('forum-tab-${widget.tabId}'),
-      role: SemanticsRole.tab,
-      container: true,
-      explicitChildNodes: true,
-      selected: widget.selected,
-      label: widget.label,
-      onTap: widget.onTap,
-      customSemanticsActions: {
-        ...?widget.customSemanticsActions,
-        _showActions: () => _open(null),
-      },
-      child: MenuAnchor(
-        controller: _menu,
-        style: MenuStyle(
-          backgroundColor: WidgetStatePropertyAll(theme.shell.floating),
-          surfaceTintColor: const WidgetStatePropertyAll(Colors.transparent),
-        ),
-        menuChildren: [
-          MenuItemButton(
+  Widget build(BuildContext context) => Semantics(
+    key: ValueKey('forum-tab-${widget.tabId}'),
+    role: SemanticsRole.tab,
+    container: true,
+    explicitChildNodes: true,
+    selected: widget.selected,
+    label: widget.label,
+    onTap: widget.onTap,
+    customSemanticsActions: {
+      ...?widget.customSemanticsActions,
+      _showActions: _trigger.openFromKeyboard,
+    },
+    child: DContextMenu(
+      content: DContextMenuContent(
+        semanticLabel: 'Tab actions',
+        width: 280,
+        children: [
+          DContextMenuItem(
             key: ValueKey('forum-tab-menu-close-${widget.tabId}'),
-            shortcut: widget.selected
-                ? primaryShortcutForPlatform(
-                    Theme.of(context).platform,
-                    LogicalKeyboardKey.keyW,
+            trailing: widget.selected
+                ? DShortcutKeycaps(
+                    shortcut: DShortcut(
+                      primaryShortcutForPlatform(
+                        Theme.of(context).platform,
+                        LogicalKeyboardKey.keyW,
+                      ),
+                    ),
                   )
                 : null,
             onPressed: widget.onClose,
             child: const Text('Close tab'),
           ),
-          MenuItemButton(
+          DContextMenuItem(
             key: ValueKey('forum-tab-menu-close-others-${widget.tabId}'),
             onPressed: widget.onCloseOthers,
             child: const Text('Close other tabs'),
           ),
         ],
-        child: CallbackShortcuts(
-          bindings: {
-            const SingleActivator(LogicalKeyboardKey.contextMenu): () =>
-                _open(null),
-            const SingleActivator(LogicalKeyboardKey.f10, shift: true): () =>
-                _open(null),
-          },
-          child: Listener(
-            behavior: HitTestBehavior.translucent,
-            onPointerDown: (event) {
-              if (event.buttons & kSecondaryButton != 0) {
-                _open(event.localPosition);
-              }
-            },
-            child: widget.child,
-          ),
-        ),
       ),
-    );
-  }
+      child: DContextMenuTrigger(
+        controller: _trigger,
+        focusable: false,
+        longPressEnabled: false,
+        child: widget.child,
+      ),
+    ),
+  );
 }
 
 class _ForumTabCloseButton extends StatefulWidget {
@@ -1741,7 +1554,6 @@ class _ForumTabCloseButton extends StatefulWidget {
     required this.tabId,
     required this.tabHovered,
     required this.label,
-    required this.foreground,
     required this.shortcut,
     required this.onPressed,
   });
@@ -1749,7 +1561,6 @@ class _ForumTabCloseButton extends StatefulWidget {
   final String tabId;
   final bool tabHovered;
   final String label;
-  final Color foreground;
   final DShortcut? shortcut;
   final VoidCallback onPressed;
 
@@ -1758,87 +1569,36 @@ class _ForumTabCloseButton extends StatefulWidget {
 }
 
 class _ForumTabCloseButtonState extends State<_ForumTabCloseButton> {
-  final WidgetStatesController _states = WidgetStatesController();
+  final _focus = FocusNode();
 
   @override
   void dispose() {
-    _states.dispose();
+    _focus.dispose();
     super.dispose();
   }
 
   @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final reduceMotion =
-        MediaQuery.maybeOf(context)?.disableAnimations ?? false;
-
-    return Semantics(
-      key: ValueKey('forum-tab-close-${widget.tabId}'),
-      container: true,
-      button: true,
-      label: widget.label,
-      onTap: widget.onPressed,
-      child: ExcludeSemantics(
-        child: DTooltip(
-          message: widget.label,
+  Widget build(BuildContext context) => ListenableBuilder(
+    listenable: _focus,
+    builder: (context, _) => AnimatedOpacity(
+      opacity: widget.tabHovered || _focus.hasFocus ? 1 : 0,
+      alwaysIncludeSemantics: true,
+      duration: DMotion.duration(context, DMotion.change),
+      child: Center(
+        widthFactor: 1,
+        child: DButton.iconOnly(
+          key: ValueKey('forum-tab-close-${widget.tabId}'),
+          tooltip: widget.label,
           shortcut: widget.shortcut,
-          excludeFromSemantics: true,
-          child: SizedBox(
-            width: ForumTabsBar.closeTargetWidth,
-            height: double.infinity,
-            child: IconButton(
-              statesController: _states,
-              constraints: const BoxConstraints.expand(),
-              padding: EdgeInsets.zero,
-              style: const ButtonStyle(
-                overlayColor: WidgetStatePropertyAll(Colors.transparent),
-                splashFactory: NoSplash.splashFactory,
-              ),
-              onPressed: widget.onPressed,
-              icon: ValueListenableBuilder<Set<WidgetState>>(
-                valueListenable: _states,
-                builder: (context, states, _) {
-                  final emphasized =
-                      states.contains(WidgetState.hovered) ||
-                      states.contains(WidgetState.focused) ||
-                      states.contains(WidgetState.pressed);
-                  return AnimatedOpacity(
-                    opacity: widget.tabHovered || emphasized ? 1 : 0,
-                    duration: reduceMotion
-                        ? Duration.zero
-                        : const Duration(milliseconds: 100),
-                    child: AnimatedContainer(
-                      key: ValueKey('forum-tab-close-surface-${widget.tabId}'),
-                      width: 24,
-                      height: 24,
-                      duration: reduceMotion
-                          ? Duration.zero
-                          : const Duration(milliseconds: 100),
-                      curve: Curves.easeOutCubic,
-                      alignment: Alignment.center,
-                      decoration: BoxDecoration(
-                        color: emphasized
-                            ? theme.shell.selected
-                            : Colors.transparent,
-                        borderRadius: BorderRadius.circular(7),
-                      ),
-                      child: DIcon(
-                        DIcons.xmark,
-                        size: 12,
-                        color: emphasized
-                            ? theme.colorScheme.onSurface
-                            : widget.foreground,
-                      ),
-                    ),
-                  );
-                },
-              ),
-            ),
-          ),
+          focusNode: _focus,
+          size: DButtonSize.small,
+          variant: DButtonVariant.ghost,
+          icon: const DIcon(DIcons.xmark),
+          onPressed: widget.onPressed,
         ),
       ),
-    );
-  }
+    ),
+  );
 }
 
 @immutable

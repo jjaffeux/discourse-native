@@ -2,48 +2,41 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 
-final _materialButtonConstructor = RegExp(
-  r'\b(?:FilledButton|OutlinedButton|TextButton)'
-  r'(?:\.(?:icon|tonal|tonalIcon))?\s*\(',
+import 'support/control_adoption.dart';
+
+final _frameworkControlConstructor = RegExp(
+  r'\b(?:IconButton|FilledButton|OutlinedButton|TextButton|ElevatedButton|'
+  r'CupertinoButton|PopupMenuButton|PopupMenuItem|CheckedPopupMenuItem|'
+  r'PopupMenuDivider|MenuItemButton|SubmenuButton|MenuAnchor|MenuBar|'
+  r'SegmentedButton|ButtonSegment|ToggleButtons|DropdownButton|'
+  r'DropdownButtonFormField|DropdownMenu)'
+  r'(?:\s*<[^;(){}]*>)?(?:\.[a-zA-Z]+)?\s*\(',
 );
 
-// These controls depend on Material-specific geometry or composition rather
-// than representing ordinary Discourse actions. Keep the counts explicit so
-// adding another raw Material button requires reviewing this boundary.
-const _intentionalMaterialButtons = <String, int>{
-  'lib/src/ui/components/d_button.dart': 1, // DButton's rendering primitive.
-  // Rich-text focus examples, including their usage snippets.
-  'lib/src/styleguide/examples/typography_examples.dart': 2,
-  'lib/src/plugins/chat/chat_channel_view.dart': 2, // Dense selection strips.
-  // Kalender's zero-padding day headers and compact overflow rows.
-  'lib/src/plugins/discourse_events/topic_calendar.dart': 2,
-  'lib/src/plugins/discourse_events/event_calendar.dart': 1,
-  'lib/src/shell/do_not_disturb_dialog.dart': 1, // Fixed 44px option grid.
-  'lib/src/shell/reaction_presentation.dart': 1, // Fixed 44px picker action.
-  'lib/src/shell/topic_view.dart': 8, // Dense selection and inline link tools.
-};
-
 void main() {
-  test('ordinary app actions use DButton', () {
-    final actual = <String, int>{};
+  test('application actions, menus, and selectors use the UI kit', () {
+    final offenders = <String>[];
 
-    for (final entity in Directory('lib/src').listSync(recursive: true)) {
-      if (entity is! File || !entity.path.endsWith('.dart')) continue;
-      final count = _materialButtonConstructor
-          .allMatches(entity.readAsStringSync())
-          .length;
-      if (count > 0) {
-        actual[entity.path] = count;
+    for (final entity in Directory('lib').listSync(recursive: true)) {
+      if (entity is! File ||
+          !entity.path.endsWith('.dart') ||
+          entity.path.startsWith('lib/src/ui/')) {
+        continue;
+      }
+      final code = controlCode(entity.readAsStringSync());
+      for (final match in _frameworkControlConstructor.allMatches(code)) {
+        final line = '\n'.allMatches(code.substring(0, match.start)).length + 1;
+        offenders.add('${entity.path}:$line: ${match[0]}');
       }
     }
 
     expect(
-      actual,
-      _intentionalMaterialButtons,
+      offenders,
+      isEmpty,
       reason:
-          'Ordinary actions use DButton so size, variants, loading, focus, and '
-          'disabled behavior stay consistent. Add an exception only for a '
-          'reviewed control that needs Material-specific composition.',
+          'Use DButton, DToggleGroup, DSelect, DDropdownMenu, or DContextMenu '
+          'through discourse_ui.dart. Framework controls belong only inside '
+          'the UI kit; application code and examples have no exceptions.',
     );
   });
 }
