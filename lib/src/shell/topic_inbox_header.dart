@@ -334,7 +334,7 @@ class TopicCloseButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) => DButton.iconOnly(
     key: const ValueKey('topic-close-reader'),
-    icon: const DIcon(DNativeIcons.closeTopicPane),
+    icon: const DIcon(DNativeIcons.closeTopicPane, size: 20),
     tooltip: 'Collapse topic',
     variant: DButtonVariant.ghost,
     size: DButtonSize.small,
