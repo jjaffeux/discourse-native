@@ -1224,19 +1224,14 @@ class _DestinationTile extends StatelessWidget {
             if (destination.labelSuffixBuilder case final builder?)
               builder(context, 14),
             if (badge.isVisible && badge.dot)
-              Semantics(
-                label: badge.urgent ? 'Unread mentions' : 'Unread',
-                child: Container(
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 3),
+                child: DNotificationDot(
                   key: ValueKey('sidebar-badge-${destination.id}'),
-                  width: 8,
-                  height: 8,
-                  margin: const EdgeInsets.symmetric(horizontal: 3),
-                  decoration: BoxDecoration(
-                    color: badge.urgent
-                        ? theme.discourse.success
-                        : theme.discourse.unreadIndicator,
-                    shape: BoxShape.circle,
-                  ),
+                  semanticLabel: badge.urgent ? 'Unread mentions' : 'Unread',
+                  color: badge.urgent
+                      ? theme.discourse.success
+                      : theme.discourse.unreadIndicator,
                 ),
               ),
           ],

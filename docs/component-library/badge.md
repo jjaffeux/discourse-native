@@ -101,8 +101,8 @@ Retained alternatives from core/plugin audit:
   small anchored overlay geometry and parent-owned accessible names; changing
   them to inline 20px pills would obscure avatars/icons. Avatar group flair and
   DAvatarBadge are image adornments, not inline labels.
-- TopicStateDot, Chat drawer dots and SidebarBadge dots encode availability or
-  unread state without a count. Sidebar numeric menus are owned by DSidebar.
+- TopicStateDot, Chat drawer dots and SidebarBadge dots now use DNotificationDot
+  for unread state without a count. Sidebar numeric menus are owned by DSidebar.
 - Mention/Hashtag/Poll/Local Dates/ComposerLink Pill widgets participate in editor
   selection, text baselines, serialization and editing. ReactionPill and post
   likes are independent pressed/toggle reaction controls, not status labels.

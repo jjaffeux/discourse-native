@@ -101,10 +101,13 @@ class ChatHeaderButton extends StatelessWidget {
                     ),
                   )
                 else if (indicator.unread)
-                  Positioned(
-                    top: -5,
-                    right: -6,
-                    child: _UnreadDot(ringColor: ringColor),
+                  PositionedDirectional(
+                    top: -2,
+                    end: -3,
+                    child: DNotificationDot.overlay(
+                      key: unreadDotKey,
+                      ringColor: ringColor,
+                    ),
                   ),
               ],
             ),
@@ -113,27 +116,6 @@ class ChatHeaderButton extends StatelessWidget {
       },
     );
   }
-}
-
-class _UnreadDot extends StatelessWidget {
-  const _UnreadDot({this.ringColor});
-
-  final Color? ringColor;
-
-  @override
-  Widget build(BuildContext context) => Container(
-    key: ChatHeaderButton.unreadDotKey,
-    // Core uses a 14px box with a 2px header-coloured border.
-    width: 18,
-    height: 18,
-    decoration: BoxDecoration(
-      color: Theme.of(context).colorScheme.primary,
-      shape: BoxShape.circle,
-      border: ringColor == null
-          ? null
-          : Border.all(color: ringColor!, width: 2),
-    ),
-  );
 }
 
 class _UrgentBadge extends StatelessWidget {
