@@ -274,12 +274,26 @@ void main() {
               final mouse = await hover(tester);
               expect(triggerOpacity(tester), 1);
               expect(find.byType(HoverActionToolbar), findsNothing);
-              expect(find.byType(DButton), findsOneWidget);
+              expect(find.byType(DButton), findsNWidgets(2));
               expect(tester.getRect(find.byType(DBubbleContent)), bubble);
               expect(
                 tester.element(find.byKey(ChatMessageTile.bodySelectionKey(7))),
                 same(body),
               );
+              final reaction = find.byKey(
+                const ValueKey('chat-message-react-7'),
+              );
+              final reactionRect = tester.getRect(reaction);
+              final onRight = outgoing == (direction == TextDirection.ltr);
+              expect(
+                onRight
+                    ? reactionRect.right <= bubble.left
+                    : reactionRect.left >= bubble.right,
+                isTrue,
+              );
+              await mouse.moveTo(reactionRect.center);
+              await tester.pump();
+              expect(reaction.hitTestable(), findsOneWidget);
               final control = tester.getRect(trigger);
               expect(bubble.contains(control.center), isTrue);
               expect(
@@ -292,7 +306,10 @@ void main() {
               await tester.pumpAndSettle();
               expect(find.byType(DDropdownMenuContent), findsOneWidget);
               expect(find.text('Reply'), findsOneWidget);
-              expect(find.text('Add reaction'), findsOneWidget);
+              expect(
+                find.widgetWithText(DDropdownMenuItem, 'Add reaction'),
+                findsNothing,
+              );
               expect(find.text('Bookmark'), findsOneWidget);
               await mouse.moveTo(const Offset(790, 590));
               await tester.pumpAndSettle();
@@ -820,5 +837,7 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(find.text('Copy link'), findsOneWidget);
+    expect(find.text('Add reaction'), findsOneWidget);
+    expect(find.byKey(const ValueKey('chat-message-react-7')), findsNothing);
   });
 }
