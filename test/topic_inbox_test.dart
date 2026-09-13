@@ -2779,10 +2779,10 @@ void main() {
       tester.getRect(bookmark).center.dy,
       closeTo(tester.getRect(reply).center.dy, 1),
     );
-    expect(
-      tester.getRect(bookmark).right,
-      closeTo(tester.getRect(body).right, 1),
-    );
+    final more = find.byKey(const ValueKey('post-more-actions-2'));
+    expect(more.hitTestable(), findsOneWidget);
+    expect(tester.getRect(more).left, tester.getRect(bookmark).right);
+    expect(tester.getRect(more).right, closeTo(tester.getRect(body).right, 1));
 
     await tester.tap(reply);
     await tester.pumpAndSettle();
@@ -2821,10 +2821,10 @@ void main() {
       shell.openTopicFromList(setup.rows.first);
       await tester.pumpAndSettle();
       final reader = find.byType(TopicView);
-      final list = tester.widget<CustomScrollView>(
-        find.descendant(of: reader, matching: find.byType(CustomScrollView)),
-      );
-      await tester.tap(find.byKey(const ValueKey('post-more-actions-2')));
+      final more = find.byKey(const ValueKey('post-more-actions-2'));
+      await tester.ensureVisible(more);
+      await tester.pumpAndSettle();
+      await tester.tap(more);
       await tester.pumpAndSettle();
       expect(find.widgetWithText(MenuItemButton, 'Edit'), findsNothing);
       expect(find.text('Copy link'), findsOneWidget);
@@ -2844,6 +2844,11 @@ void main() {
       await tester.sendKeyEvent(LogicalKeyboardKey.escape);
       await tester.pumpAndSettle();
       expect(find.text('Copy link'), findsNothing);
+      await shell.jumpToCurrentTopicIndex(2);
+      await tester.pumpAndSettle();
+      final list = tester.widget<CustomScrollView>(
+        find.descendant(of: reader, matching: find.byType(CustomScrollView)),
+      );
       final before = list.controller!.offset;
       await tester.sendKeyEvent(LogicalKeyboardKey.keyJ);
       await tester.pumpAndSettle();

@@ -21,3 +21,10 @@ to the styleguide.
 Focused verification covers personal/group folders, restored inboxes, stale
 menus, recipient validation, permission gating, split and narrow readers,
 list retention, both footers, previous/next, keyboard navigation and pagination.
+
+Native review on macOS used the isolated `MessagesReviewC584` debug app with
+synthetic data. Inspected the wide split in light/dark palettes, next-message
+activation, `g j`/`g k`, the 390px reader and collapse transition, a 390px list
+at 200% text, the New message recipient dialog, and the Button styleguide.
+No iOS/Linux device or authenticated account was used; iOS/macOS/Linux widget
+variants cover the layout and navigation matrix.
