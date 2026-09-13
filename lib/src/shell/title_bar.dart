@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 
 import '../plugin_api/plugin_scope.dart';
 import '../plugin_api/site_plugin_api.dart';
+import 'aggregate_branding.dart';
 import 'forum_search.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';
@@ -51,6 +52,19 @@ class ShellTitleBar extends StatelessWidget {
               onDoubleTap: _toggleMaximized,
               child: const SizedBox.expand(),
             ),
+            if (showControls)
+              ShellSelector<ShellRootMode>(
+                select: (controller) => controller.rootMode,
+                builder: (context, rootMode, _) =>
+                    rootMode == ShellRootMode.aggregate
+                    ? const IgnorePointer(
+                        child: Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 88),
+                          child: Center(child: AggregateBranding()),
+                        ),
+                      )
+                    : const SizedBox.shrink(),
+              ),
             if (showControls)
               Row(
                 children: [

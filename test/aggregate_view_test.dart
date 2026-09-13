@@ -327,13 +327,17 @@ void main() {
         hasLength(1),
       );
       final heroFinder = find.byKey(const ValueKey('aggregate-hero'));
+      expect(tester.getCenter(heroFinder).dx, closeTo(500, 0.5));
+      expect(tester.getCenter(heroFinder).dy, closeTo(24, 0.5));
+      expect(find.text('Discourse'), findsOneWidget);
+      expect(find.text('alpha'), findsOneWidget);
       final tabsFinder = find.byKey(const ValueKey('aggregate-tabs'));
       final toolbarFinder = find.byKey(
         const ValueKey('aggregate-filter-collapse'),
       );
       expect(
-        tester.getBottomLeft(tabsFinder).dy,
-        lessThanOrEqualTo(tester.getTopLeft(heroFinder).dy),
+        tester.getBottomLeft(heroFinder).dy,
+        lessThanOrEqualTo(tester.getTopLeft(tabsFinder).dy),
       );
       expect(
         tester.getBottomLeft(heroFinder).dy,
