@@ -126,12 +126,23 @@ void main() {
       final pointer = tester.widget<MouseRegion>(
         find.byKey(const ValueKey('topic-header-title-pointer')),
       );
-      final textField = tester.widget<TextField>(field);
+      final textField = tester.widget<TextField>(
+        find.descendant(of: field, matching: find.byType(TextField)),
+      );
       final displayTitle = tester.widget<TopicTitle>(
         find.descendant(of: editor, matching: find.byType(TopicTitle)),
       );
       final idleSize = tester.getSize(editor);
       expect(pointer.cursor, SystemMouseCursors.text);
+      expect(tester.widget<DInput>(field).borderless, isTrue);
+      expect(
+        tester
+            .widget<DTooltip>(
+              find.descendant(of: editor, matching: find.byType(DTooltip)),
+            )
+            .message,
+        'Edit topic title',
+      );
       expect(textField.style, style);
       expect(textField.decoration?.isCollapsed, isTrue);
       expect(textField.decoration?.border, InputBorder.none);
@@ -386,7 +397,12 @@ void main() {
       findsOneWidget,
     );
     expect(
-      tester.widget<TextField>(field).controller?.text,
+      tester
+          .widget<TextField>(
+            find.descendant(of: field, matching: find.byType(TextField)),
+          )
+          .controller
+          ?.text,
       'Lightning :high_voltage: talks',
     );
   });

@@ -289,8 +289,8 @@ class _InlineTopicTitleEditorState extends State<InlineTopicTitleEditor> {
         key: const ValueKey('topic-header-title-pointer'),
         cursor: SystemMouseCursors.text,
         child: DTooltip(
-          message: value.text.isEmpty ? _savedTitle : value.text,
-          // The visible editor owns Escape and needs no duplicate value hint.
+          message: 'Edit topic title',
+          // Hide the editing hint while the editor owns keyboard focus.
           disabled: focused || _saving,
           child: Stack(
             alignment: Alignment.centerLeft,
@@ -317,7 +317,9 @@ class _InlineTopicTitleEditorState extends State<InlineTopicTitleEditor> {
                   alwaysIncludeSemantics: true,
                   child: Focus(
                     onKeyEvent: _handleKey,
-                    child: TextField(
+                    child: DInput(
+                      borderless: true,
+                      semanticLabel: 'Topic title',
                       key: const ValueKey('topic-header-title-field'),
                       controller: _controller,
                       focusNode: _focus,
@@ -326,11 +328,6 @@ class _InlineTopicTitleEditorState extends State<InlineTopicTitleEditor> {
                       textInputAction: TextInputAction.done,
                       textCapitalization: TextCapitalization.sentences,
                       style: widget.style,
-                      strutStyle: StrutStyle.fromTextStyle(
-                        widget.style ?? DefaultTextStyle.of(context).style,
-                      ),
-                      scrollPadding: EdgeInsets.zero,
-                      decoration: const InputDecoration.collapsed(hintText: ''),
                       onChanged: (_) => _ensureEmojiCatalog(),
                       onSubmitted: (_) => _focus.unfocus(),
                       onTapOutside: (_) => _focus.unfocus(),
