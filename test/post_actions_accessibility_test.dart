@@ -47,10 +47,10 @@ void main() {
       WidgetState.hovered,
     });
     expect(hoverShape, isA<RoundedRectangleBorder>());
-    final theme = Theme.of(tester.element(button));
+    final tokens = DTokens.of(tester.element(button));
     expect(
       (hoverShape! as RoundedRectangleBorder).borderRadius,
-      BorderRadius.circular(theme.discourseButtons.borderRadius),
+      BorderRadius.circular(tokens.controlRadius),
     );
     await pointer.moveTo(tester.getCenter(action));
     await tester.pump();
@@ -58,7 +58,10 @@ void main() {
       buttonSurface(tester, of: button).color,
       DTokens.of(tester.element(button)).muted,
     );
-    expect(filledButton.style!.fixedSize!.resolve({}), const Size.square(32));
+    expect(
+      filledButton.style!.fixedSize!.resolve({}),
+      const Size.square(DControlStyle.regularHeight),
+    );
   });
 
   testWidgets('post actions ignore non-finite transformed anchors', (

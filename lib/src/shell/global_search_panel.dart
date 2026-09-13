@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/src/theme/discourse_typography.dart';
 import 'package:flutter/material.dart';
 
 import '../theme/d_icon.dart';
@@ -532,7 +533,7 @@ class _GlobalSearchPanelState extends State<GlobalSearchPanel> {
                 if (metadata.isNotEmpty)
                   DefaultTextStyle.merge(
                     style: TextStyle(
-                      fontSize: 12,
+                      fontSize: DiscourseTypography.xs,
                       color: tokens.mutedForeground,
                     ),
                     child: Wrap(spacing: 10, runSpacing: 3, children: metadata),

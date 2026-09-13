@@ -8,6 +8,7 @@ import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/shell/composer_controller.dart';
+import 'package:discourse_native/src/shell/composer_panel.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:flutter/material.dart';
@@ -37,7 +38,13 @@ void main() {
       final composer = await _openReply(shell);
       await tester.pumpAndSettle();
 
-      await tester.enterText(find.byType(TextField), 'Keep this fresh thought');
+      await tester.enterText(
+        find.descendant(
+          of: find.byType(ComposerPanel),
+          matching: find.byType(TextField),
+        ),
+        'Keep this fresh thought',
+      );
       expect(drafts.saved, isEmpty);
       expect(api.draftsSaved, isEmpty);
 
@@ -66,13 +73,25 @@ void main() {
     final composer = await _openReply(shell);
     await tester.pumpAndSettle();
 
-    await tester.enterText(find.byType(TextField), 'First revision');
+    await tester.enterText(
+      find.descendant(
+        of: find.byType(ComposerPanel),
+        matching: find.byType(TextField),
+      ),
+      'First revision',
+    );
     final saving = composer.flushDraft();
     await tester.pump();
     expect(api.draftsSaved, hasLength(1));
     expect(_localReply(drafts), 'First revision');
 
-    await tester.enterText(find.byType(TextField), 'Newest revision');
+    await tester.enterText(
+      find.descendant(
+        of: find.byType(ComposerPanel),
+        matching: find.byType(TextField),
+      ),
+      'Newest revision',
+    );
     _lifecycle(tester).didChangeAppLifecycleState(AppLifecycleState.hidden);
     await tester.pump();
 

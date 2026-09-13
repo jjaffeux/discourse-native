@@ -12,6 +12,7 @@ import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/plugins/reactions/post_reactors.dart';
 import 'package:discourse_native/src/plugins/reactions/reaction_picker.dart';
 import 'package:discourse_native/src/plugins/reactions/reactions_row.dart';
+import 'package:discourse_native/src/shell/composer_panel.dart';
 import 'package:discourse_native/src/shell/emoji.dart';
 import 'package:discourse_native/src/shell/emoji_picker.dart';
 import 'package:discourse_native/src/shell/hover_panel.dart';
@@ -409,7 +410,13 @@ void _registerReactionAndLikeTests() {
       await tester.tap(find.byTooltip('Edit this post'));
       await tester.pumpAndSettle();
 
-      await tester.enterText(find.byType(TextField), 'First post body!');
+      await tester.enterText(
+        find.descendant(
+          of: find.byType(ComposerPanel),
+          matching: find.byType(TextField),
+        ),
+        'First post body!',
+      );
       await tester.pumpAndSettle();
       await tester.tap(find.widgetWithText(FilledButton, 'Save'));
       await tester.pumpAndSettle();
@@ -888,14 +895,17 @@ void _registerReactionAndLikeTests() {
       tester,
     ) async {
       final api = await openTopic(tester, config: configured, posts: [post()]);
-      for (
-        var tabs = 0;
-        tabs < 40 && find.byType(ReactionGrid).evaluate().isEmpty;
-        tabs++
-      ) {
-        await tester.sendKeyEvent(LogicalKeyboardKey.tab);
-        await tester.pumpAndSettle();
-      }
+      Focus.of(
+        tester.element(
+          find
+              .descendant(
+                of: find.byType(PostReactionButton),
+                matching: find.byType(Center),
+              )
+              .first,
+        ),
+      ).requestFocus();
+      await tester.pumpAndSettle();
 
       expect(find.byType(ReactionGrid), findsOneWidget);
       await tester.sendKeyEvent(LogicalKeyboardKey.tab);
@@ -1588,7 +1598,13 @@ void _registerReactionAndLikeTests() {
       await tester.tap(find.byTooltip('Edit this post'));
       await tester.pumpAndSettle();
 
-      await tester.enterText(find.byType(TextField), 'First post body!');
+      await tester.enterText(
+        find.descendant(
+          of: find.byType(ComposerPanel),
+          matching: find.byType(TextField),
+        ),
+        'First post body!',
+      );
       await tester.pumpAndSettle();
       await tester.tap(find.widgetWithText(FilledButton, 'Save'));
       await tester.pumpAndSettle();

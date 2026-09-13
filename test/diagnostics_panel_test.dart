@@ -194,20 +194,20 @@ void main() {
     );
     await tester.dragFrom(
       Offset(panel.left + 1, panel.top + 28),
-      // Flutter reserves the first 20 logical pixels for drag recognition.
+      // The resize handle applies the full pointer displacement.
       const Offset(-140, 0),
     );
     await tester.pumpAndSettle();
 
     expect(
       tester.getSize(find.byKey(const ValueKey('diagnostics-panel'))).width,
-      560,
+      580,
     );
     expect(
       (await SharedPreferences.getInstance()).getDouble(
         DiagnosticsPanelWidthStore.storageKey,
       ),
-      560,
+      580,
     );
 
     await tester.pumpWidget(const SizedBox.shrink());
@@ -220,7 +220,7 @@ void main() {
 
     expect(
       tester.getSize(find.byKey(const ValueKey('diagnostics-panel'))).width,
-      560,
+      580,
     );
   });
 
@@ -890,9 +890,17 @@ void main() {
         final readerState = tester.state(reader);
         final listFinder = find.descendant(
           of: reader,
-          matching: find.byType(SuperListView),
+          matching: find.byType(CustomScrollView),
         );
-        final list = tester.widget<SuperListView>(listFinder);
+        final list = tester.widget<CustomScrollView>(listFinder);
+        final listController = tester
+            .widget<SuperSliverList>(
+              find.descendant(
+                of: reader,
+                matching: find.byType(SuperSliverList),
+              ),
+            )
+            .listController;
         diagnostics.topicScrollCapture.start();
 
         try {
@@ -901,18 +909,25 @@ void main() {
             await tester.pumpAndSettle();
             expect(tester.state(reader), same(readerState));
             expect(
-              tester.widget<SuperListView>(listFinder).controller,
+              tester.widget<CustomScrollView>(listFinder).controller,
               same(list.controller),
             );
             expect(
-              tester.widget<SuperListView>(listFinder).listController,
-              same(list.listController),
+              tester
+                  .widget<SuperSliverList>(
+                    find.descendant(
+                      of: reader,
+                      matching: find.byType(SuperSliverList),
+                    ),
+                  )
+                  .listController,
+              same(listController),
             );
             diagnostics.closePanel();
             await tester.pumpAndSettle();
             expect(tester.state(reader), same(readerState));
             expect(
-              tester.widget<SuperListView>(listFinder).controller,
+              tester.widget<CustomScrollView>(listFinder).controller,
               same(list.controller),
             );
           }

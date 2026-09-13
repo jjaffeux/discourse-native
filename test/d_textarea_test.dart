@@ -450,7 +450,7 @@ void main() {
           (widget) =>
               widget is Padding &&
               widget.padding ==
-                  const EdgeInsets.only(left: 10, top: 12, right: 6, bottom: 5),
+                  const EdgeInsets.only(left: 10, top: 12, right: 6, bottom: 1),
         ),
       ),
       findsOneWidget,

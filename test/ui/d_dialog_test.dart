@@ -671,7 +671,10 @@ void main() {
           matching: find.byType(FilledButton),
         ),
       );
-      expect(closeSurface.style?.fixedSize?.resolve({}), const Size.square(28));
+      expect(
+        closeSurface.style?.fixedSize?.resolve({}),
+        const Size.square(DControlStyle.smallHeight),
+      );
       if (direction == TextDirection.ltr) {
         expect(close.right, popup.right - 8);
       } else {

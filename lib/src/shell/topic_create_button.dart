@@ -182,6 +182,7 @@ class _TopicCreateControl extends StatelessWidget {
         const DDropdownMenuSeparator(),
         if (feed.loading && drafts.isEmpty)
           const DDropdownMenuItem(
+            key: ValueKey('recent-drafts-loading'),
             leading: DSpinner(size: 16, semanticLabel: null),
             child: Text('Loading drafts…'),
           )

@@ -534,7 +534,13 @@ void _registerTopicModerationTests() {
       expect(find.text('Edit post #1'), findsOneWidget);
       expect(find.text('First **post** body'), findsOneWidget);
 
-      await tester.enterText(find.byType(TextField), 'First **post** body!');
+      await tester.enterText(
+        find.descendant(
+          of: find.byType(ComposerPanel),
+          matching: find.byType(TextField),
+        ),
+        'First **post** body!',
+      );
       await tester.pumpAndSettle();
       await tester.tap(find.widgetWithText(FilledButton, 'Save'));
       await tester.pumpAndSettle();
@@ -593,7 +599,13 @@ void _registerTopicModerationTests() {
       await hoverPost(tester);
       await tapPostAction(tester, 'Edit this post');
       await tester.pumpAndSettle();
-      await tester.enterText(find.byType(TextField), 'Changed post body');
+      await tester.enterText(
+        find.descendant(
+          of: find.byType(ComposerPanel),
+          matching: find.byType(TextField),
+        ),
+        'Changed post body',
+      );
       await tester.pumpAndSettle();
 
       expect(find.text('Cancel edit'), findsNothing);

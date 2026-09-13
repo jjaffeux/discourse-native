@@ -57,12 +57,12 @@ void main() {
     expect(upCue, findsNothing);
     expect(downCue, findsNothing);
 
-    await tester.binding.setSurfaceSize(const Size(800, 300));
+    await tester.binding.setSurfaceSize(const Size(800, 220));
     await tester.pumpAndSettle();
     expect(upCue, findsNothing);
     expect(downCue, findsOneWidget);
     expect(profile, findsNothing);
-    expect(tester.getRect(downCue).bottom, lessThanOrEqualTo(300));
+    expect(tester.getRect(downCue).bottom, lessThanOrEqualTo(220));
 
     await tester.dragFrom(tester.getCenter(downCue), const Offset(0, -40));
     await tester.pumpAndSettle();

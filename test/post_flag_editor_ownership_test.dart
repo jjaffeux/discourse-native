@@ -77,6 +77,9 @@ void main() {
             expect(shell.availablePostFlagTypes(_site, post), contains(type));
             expect(shell.availableTopicFlagTypes(_site, topic), contains(type));
             expect(tester.state(find.byType(PostFlagEditor)), same(editor));
+            // Finish the reader dwell before measuring the flag submission.
+            await tester.pump(const Duration(milliseconds: 500));
+            await tester.pumpAndSettle();
             final keyReads = auth.keyReads.length;
             final clientReads = auth.clientReads;
 

@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/src/theme/discourse_typography.dart';
 import 'package:flutter/material.dart';
 import 'package:super_sliver_list/super_sliver_list.dart';
 
@@ -1106,7 +1107,7 @@ class _TopicRowBody extends StatelessWidget {
     final titleLineHeight =
         MediaQuery.textScalerOf(
           context,
-        ).scale(effectiveTitleStyle?.fontSize ?? 14) *
+        ).scale(effectiveTitleStyle?.fontSize ?? DiscourseTypography.sm) *
         (effectiveTitleStyle?.height ?? 1.5);
     Widget statusIcon(DIconData icon, String label) => SizedBox(
       height: titleLineHeight,

@@ -41,7 +41,6 @@ import 'package:flutter/material.dart'
         MouseRegion,
         Size,
         TextScaler,
-        Theme,
         ValueKey,
         ValueListenableBuilder,
         WidgetState;
@@ -82,7 +81,7 @@ void main() {
           matching: find.byType(FilledButton),
         ),
       );
-      final theme = Theme.of(
+      final tokens = DTokens.of(
         tester.element(find.byKey(TopicCreateButton.buttonKey)),
       );
       expect(find.text('New topic'), findsOneWidget);
@@ -91,11 +90,11 @@ void main() {
           tester,
           of: find.byKey(TopicCreateButton.buttonKey),
         ).color,
-        theme.colorScheme.primary,
+        tokens.controls!.primary.background,
       );
       expect(
         button.style?.foregroundColor?.resolve(<WidgetState>{}),
-        theme.colorScheme.onPrimary,
+        tokens.controls!.primary.foreground,
       );
       expect(
         tester
@@ -112,22 +111,20 @@ void main() {
         find.descendant(
           of: find.byKey(TopicCreateButton.buttonKey),
           matching: find.byWidgetPredicate(
-            (widget) => widget is DIcon && widget.icon == DIcons.farPenToSquare,
+            (widget) => widget is DIcon && widget.icon == DIcons.plus,
           ),
         ),
         findsOneWidget,
       );
     });
 
-    testWidgets('hide only the label below the small breakpoint', (
-      tester,
-    ) async {
+    testWidgets('keep the label below the small breakpoint', (tester) async {
       await _pump(tester, size: const Size(390, 844));
       await tester.tap(find.byKey(const ValueKey('latest')));
       await tester.pumpAndSettle();
 
       expect(find.byKey(TopicCreateButton.buttonKey), findsOneWidget);
-      expect(find.text('New topic'), findsNothing);
+      expect(find.text('New topic'), findsOneWidget);
       expect(
         find.descendant(
           of: find.byKey(TopicCreateButton.buttonKey),

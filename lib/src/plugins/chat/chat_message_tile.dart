@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
@@ -93,6 +94,16 @@ class ChatMessageTile extends StatelessWidget {
   static const double hoverActionsTop = 4;
   static const double minimumHoverActionsHeight =
       hoverActionsTop + HoverActionButton.height;
+
+  static double hoverActionsHeight(BuildContext context) =>
+      hoverActionsTop +
+      math.max(
+        context.isTouch ? 48 : 0,
+        DControlStyle.scaledHeight(
+          DControlSize.regular,
+          MediaQuery.textScalerOf(context),
+        ),
+      );
 
   static Key threadPreviewKey(int threadId) =>
       ValueKey<String>('chat-thread-preview-$threadId');

@@ -152,7 +152,10 @@ void main() {
           final replies = find.byKey(const ValueKey('user-menu-tab-replies'));
 
           for (final tab in [notifications, bookmarks, replies]) {
-            expect(tester.getSize(tab).height, greaterThanOrEqualTo(36));
+            expect(
+              tester.getSize(tab).height,
+              greaterThanOrEqualTo(DControlStyle.largeHeight),
+            );
             expect(tester.getSize(tab).width, greaterThan(100));
           }
           expect(

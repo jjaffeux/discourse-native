@@ -102,7 +102,7 @@ void main() {
               ),
             )
             .height,
-        32,
+        DControlStyle.regularHeight,
       );
 
       await tester.tap(find.bySemanticsLabel('Go to last page'));
@@ -257,7 +257,7 @@ void main() {
       ),
     );
 
-    expect(tester.getSize(find.byType(DPagination)), const Size(240, 42));
+    expect(tester.getSize(find.byType(DPagination)), const Size(240, 34));
     expect(tester.takeException(), isNull);
   });
 
