@@ -7,6 +7,7 @@ analyzer:
     # These have independent package configs or are reviewed vendor trees.
     - packages/discourse_voice/**
     - packages/video_player_avfoundation/**
+    - packages/flutter_widget_from_html_core/**
     - profiles/**
     - android/**
     - ios/**

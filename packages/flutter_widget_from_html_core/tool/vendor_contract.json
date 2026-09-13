@@ -1,0 +1,8 @@
+{
+  "schemaVersion": 1,
+  "name": "Discourse Native flutter_widget_from_html_core",
+  "package": "flutter_widget_from_html_core",
+  "version": "0.17.4",
+  "vendorPath": "packages/flutter_widget_from_html_core",
+  "patchManifest": "packages/flutter_widget_from_html_core/PATCHES.md"
+}
