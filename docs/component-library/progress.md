@@ -86,7 +86,7 @@ User-approved extensions outside the frozen upstream catalogue.
 
 | Component | Status | Task | Branch | Merge |
 | --- | --- | --- | --- | --- |
-| notification-dot | review_ready | 01a09b55-9a1f-7f50-b2ec-5f4c3d890ad4 | codex/ui-notification-dot | — |
+| notification-dot | reviewed | 01a09b55-9a1f-7f50-b2ec-5f4c3d890ad4 | codex/ui-notification-dot | — |
 
 ## Decisions and evidence
 
@@ -3542,7 +3542,7 @@ Status: merged. Task: 01a08606-ca34-7a13-b7ec-79b90b5ebd8f. Branch: codex/ui-que
 
 ### notification-dot
 
-Status: review_ready. Task: 01a09b55-9a1f-7f50-b2ec-5f4c3d890ad4. Branch: codex/ui-notification-dot.
+Status: reviewed. Task: 01a09b55-9a1f-7f50-b2ec-5f4c3d890ad4. Branch: codex/ui-notification-dot.
 
 **acceptanceCriteria**
 
@@ -3573,12 +3573,18 @@ Status: review_ready. Task: 01a09b55-9a1f-7f50-b2ec-5f4c3d890ad4. Branch: codex/
 - Dot/unread/unseen/pinned consumer filter: 19 passed and three failures reproduced unchanged at the base (existing topic alignment/compact-title expectations). Log: /tmp/notification-dot-focused-consumers.log.
 - Independent reviewer integrated c0bb2887 into a review branch based on local main 76080324. Source review covers public API, live tokens, geometry, pointer passthrough, accessible label ownership, all migrations and retained non-notification marker owners; format check passes for all 19 touched Dart files.
 - Reviewer reproduced and fixed duplicate drawer-row unread semantics, retaining unread labels on drawer navigation; replaced the decorative styleguide initials avatar with a fixed-size icon after native 200% text review. Dot geometry/paint is unchanged.
-- Implementation task inspected native macOS fixture built from c0bb2887 component/adoption source: production header/sidebar dark and light, header click opens chat drawer, Forest palette at 390px, RTL mirrored header dot, all three styleguide examples, click-to-clear and restore, 200% inline and RTL header. Final semantics/demo follow-up is pending on corrected source.
+- Implementation task inspected native macOS fixture built from c0bb2887 component/adoption source: production header/sidebar dark and light, header click opens chat drawer, Forest palette at 390px, RTL mirrored header dot, all three styleguide examples, click-to-clear and restore, 200% inline and RTL header. Corrected-source follow-up also passed, as recorded below.
+- Corrected integrated source: flutter test --no-pub --reporter expanded test/chat_drawer_test.dart test/d_notification_dot_test.dart: 13 passed. Drawer regression reproduced the duplicate unread child on original source and now verifies only the menu remains separate; the navigation button still announces Channels / Unread messages. Log: /tmp/notification-dot-review-final-tests.log.
+- Corrected source root flutter analyze --no-pub: no issues; macOS debug fixture build passed. Logs: /tmp/notification-dot-review-final-analysis.log and /tmp/notification-dot-review-build.log. Full-profile locked dependency resolution and analysis passed in implementation task (/tmp/notification-dot-full-analysis.log).
+- Integrated into a fresh candidate from current local main d252c245; preserved every progress field outside applicationComponents. Final isolated bundle and kernel SHA-256 recorded in /tmp/notification-dot-final-build.json.
+- CUA launched the isolated fixture. Production chat header opened drawer; channel row AX label was Unread conversation / Community discussion / No messages yet, with only its channel menu as a child. Corrected styleguide header at 200% text had a fitting fixed-size profile icon and unread dot; clear and restore changed the Chat label correctly. Quit through app menu; process absence confirmed. Desktop lease released.
+- Native final bundle: /var/folders/2m/k_kwhr_j70q64prh4z3r44jc0000gn/T/notification-dot-final-4f88-g957dvfy/Notification Dot Final Review.app; reviewed source 90f4e38983ed9eacf7d264e7c2e68f956fc551b3 (production source equivalent to the build-start candidate 9a9fb039; intervening change is test-only); kernel SHA-256 00292409ef4afd209209469c1a29475db270ad451d3ab94de2a37d81df1e3d37. Isolated ad-hoc signature and debug entitlements read back; only the isolated bundle omits the restricted push entitlement.
+- Independent review accepted public API, semantics, adoption and visuals after the two focused corrections. 41 distinct focused tests passed across component, drawer, header, tabs and catalogue; 20 touched Dart files format clean. Original broader baseline comparison retained; no unrelated existing layout fixes undertaken.
 
 **limitations**
 
-- Native review accepted original dot geometry and migrations. Corrected-source drawer semantics and decorative styleguide avatar follow-up is pending before merge.
-- No physical iOS or Linux device run. The broader suite has 44 verified baseline failures.
+- Actual native UI verification was macOS only. No physical iOS/Linux or spoken screen-reader run.
+- Broader seven-file tests had 44 failures also present at baseline 71c94832; the only extra catalogue assertion was fixed and passes. Dot/unread/unseen/pinned consumer subset had 19 passes and 3 known baseline failures. Native fixtures inspected header, sidebar, drawer and styleguide; other migrations were source/widget-test reviewed.
 
 ### Final audit
 
