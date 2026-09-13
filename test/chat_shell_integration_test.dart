@@ -2900,9 +2900,11 @@ void _registerChatShellTests() {
           await tester.pumpAndSettle();
           expect(shell.currentContent?.id, 'chat-c-9');
           expect(sidebarDestination('Topics'), findsNothing);
-          expect(sidebarDestination('Search'), findsOneWidget);
+          expect(sidebarDestination('Search'), findsNothing);
 
-          await tester.tap(sidebarDestination('Search'));
+          ShellScope.read(
+            tester.element(find.byType(MainContent)),
+          ).pluginSession.require(chatShellService).openSearch();
           await tester.pumpAndSettle();
           expect(shell.currentContent?.id, ChatPlugin.searchRouteId);
           expect(sidebarDestination('Topics'), findsNothing);
@@ -2922,7 +2924,7 @@ void _registerChatShellTests() {
           await tester.pumpAndSettle();
           expect(shell.currentContent?.id, ChatPlugin.searchRouteId);
           expect(sidebarDestination('Topics'), findsNothing);
-          expect(sidebarDestination('Search'), findsOneWidget);
+          expect(sidebarDestination('Search'), findsNothing);
           expect(find.byTooltip('Exit chat'), findsOneWidget);
         });
 
@@ -2946,7 +2948,9 @@ void _registerChatShellTests() {
               find.byKey(const ValueKey('sidebar-panel-switch-chat')),
             );
             await tester.pumpAndSettle();
-            await tester.tap(sidebarDestination('Search'));
+            ShellScope.read(
+              tester.element(find.byType(MainContent)),
+            ).pluginSession.require(chatShellService).openSearch();
             await tester.pumpAndSettle();
 
             expect(shell.currentContent?.id, ChatPlugin.searchRouteId);
@@ -2979,7 +2983,7 @@ void _registerChatShellTests() {
               ChatPlugin.searchRouteId,
             ]);
             expect(sidebarDestination('Topics'), findsNothing);
-            expect(sidebarDestination('Search'), findsOneWidget);
+            expect(sidebarDestination('Search'), findsNothing);
           },
         );
 
@@ -3237,7 +3241,9 @@ void _registerChatShellTests() {
               find.byKey(const ValueKey('sidebar-panel-switch-chat')),
             );
             await tester.pumpAndSettle();
-            await tester.tap(sidebarDestination('Search'));
+            ShellScope.read(
+              tester.element(find.byType(MainContent)),
+            ).pluginSession.require(chatShellService).openSearch();
             await tester.pumpAndSettle();
             expect(shell.currentContent?.id, ChatPlugin.searchRouteId);
 
@@ -3423,19 +3429,25 @@ void _registerChatShellTests() {
         );
       });
 
-      testWidgets('offers search only when the site explicitly enables it', (
-        tester,
-      ) async {
-        await pumpChat(tester);
-        expect(sidebarDestination('Search'), findsNothing);
+      testWidgets(
+        'omits sidebar search even when the site enables chat search',
+        (tester) async {
+          await pumpChat(tester);
+          expect(sidebarDestination('Search'), findsNothing);
 
-        await pumpChat(tester, config: chatConfig(searchEnabled: true));
-        expect(sidebarDestination('Search'), findsOneWidget);
+          await pumpChat(tester, config: chatConfig(searchEnabled: true));
+          expect(sidebarDestination('Search'), findsNothing);
 
-        await tester.tap(sidebarDestination('Search'));
-        await tester.pumpAndSettle();
-        expect(find.byKey(const ValueKey('chat-search-field')), findsOneWidget);
-      });
+          ShellScope.read(
+            tester.element(find.byType(MainContent)),
+          ).pluginSession.require(chatShellService).openSearch();
+          await tester.pumpAndSettle();
+          expect(
+            find.byKey(const ValueKey('chat-search-field')),
+            findsOneWidget,
+          );
+        },
+      );
 
       testWidgets('keeps the improved search sort menu inside the viewport', (
         tester,
@@ -3445,7 +3457,9 @@ void _registerChatShellTests() {
         try {
           await pumpChat(tester, config: chatConfig(searchEnabled: true));
 
-          await tester.tap(sidebarDestination('Search'));
+          ShellScope.read(
+            tester.element(find.byType(MainContent)),
+          ).pluginSession.require(chatShellService).openSearch();
           await tester.pumpAndSettle();
           await tester.tap(find.byKey(const ValueKey('chat-search-sort')));
           await tester.pumpAndSettle();
@@ -3486,7 +3500,9 @@ void _registerChatShellTests() {
       ) async {
         await pumpChat(tester, config: chatConfig(searchEnabled: true));
 
-        await tester.tap(sidebarDestination('Search'));
+        ShellScope.read(
+          tester.element(find.byType(MainContent)),
+        ).pluginSession.require(chatShellService).openSearch();
         await tester.pumpAndSettle();
         await tester.tap(find.byKey(const ValueKey('chat-search-field')));
         await tester.sendKeyEvent(LogicalKeyboardKey.tab);
@@ -3609,7 +3625,9 @@ void _registerChatShellTests() {
         );
         await pumpChat(tester, api: api, config: config);
 
-        await tester.tap(sidebarDestination('Search'));
+        ShellScope.read(
+          tester.element(find.byType(MainContent)),
+        ).pluginSession.require(chatShellService).openSearch();
         await tester.pumpAndSettle();
         await tester.enterText(
           find.byKey(const ValueKey('chat-search-field')),
