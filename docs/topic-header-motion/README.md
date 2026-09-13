@@ -53,6 +53,22 @@ with category focus, and both palettes at desktop and 390px widths. Its title
 editor has no buttons and fits inside the toolbar. Browser diagnostics,
 JavaScript syntax and whitespace checks passed.
 
+The opening-spacing follow-up removes 12px of padding below activity and reduces
+the opening date row from 44px to a 28px minimum. The date can grow for larger
+text, with a single-line label and the full date in its tooltip and semantics.
+This removes 28px before the first post at normal text size. The floating date
+now uses the post's distance from the unobstructed viewport edge: Flutter's
+reveal offset already subtracts the pinned taxonomy, so subtracting it again
+made the date float inside the activity row while its in-stream space stayed
+empty. It now floats only after its in-stream date reaches the category row.
+
+The spacing change passed 153 focused topic, viewport, date, chat-scroll and
+control-adoption tests, clean static analysis and a debug macOS build. Native
+review covered the opening in both palettes, the date floating beneath the
+categories, clicking the date to return, and the 390px opening with 200% text.
+The Mac locked before the remaining browser inspection; the updated HTML/CSS
+preview has passed JavaScript syntax and whitespace checks.
+
 ## Direction 02: full-content follow-up
 
 Open `natural-handoff.html` for the focused continuation requested by the user.
@@ -66,7 +82,7 @@ many-tag and private-message variants.
 
 One toolbar stays fixed and shows the 18px topic title at every scroll position.
 Its height accommodates the wrapped title and remains constant while scrolling.
-The original 46px category/tag row pins beneath the toolbar using
+The category/tag row pins beneath the toolbar using
 CSS sticky positioning. Assignment is deliberately anchored in the toolbar
 throughout. The activity summary scrolls with the opening, as it is omitted
 from the current app's compact layout too. Header transitions never resize the

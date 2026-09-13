@@ -28,6 +28,8 @@
   let pointerDown = false;
   let toolbarHeight = 52;
   let dockOrigin = 0;
+  let dayOrigin = 0;
+  let dayPinTop = 0;
   let postTops = [];
   const escape = (value) => String(value).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const paths = {
@@ -126,12 +128,21 @@
     const origin = scroller.getBoundingClientRect().top;
     const offset = scroller.scrollTop;
     dockOrigin = toolbarHeight;
+    dayOrigin = find('#opening-day').getBoundingClientRect().top - origin + offset;
+    dayPinTop = toolbarHeight + dock.getBoundingClientRect().height;
+    reader.style.setProperty('--date-pin-top', `${dayPinTop}px`);
     postTops = all('.post').map(post => post.getBoundingClientRect().top - origin + offset);
     fitTags(); paint();
   }
   function paint() {
     const offset = scroller.scrollTop;
     dock.dataset.pinned = String(offset >= dockOrigin-toolbarHeight);
+    const dayFloats = offset > dayOrigin - dayPinTop;
+    find('#floating-day').hidden = !dayFloats;
+    const openingDay = find('#opening-day .day-label');
+    openingDay.style.visibility = dayFloats ? 'hidden' : '';
+    openingDay.setAttribute('aria-hidden', String(dayFloats));
+    openingDay.tabIndex = dayFloats ? -1 : 0;
     slider.value = Math.min(560, offset);
     slider.setAttribute('aria-valuetext', `${Math.round(offset)} pixels from the top`);
     find('#scroll-value').textContent = `${Math.round(offset)} px`;
@@ -253,7 +264,8 @@
     else if (action==='copy-link') {
       try { await navigator.clipboard.writeText(find('#share-url').value); flash('Example link copied'); }
       catch { find('#share-url').select(); flash('Select and copy the example link'); }
-    } else if (action==='latest') { stopPlayback(); closePopup(); setScroll(scroller.scrollHeight); }
+    } else if (action==='day-start') { stopPlayback(); closePopup(); setScroll(0); find('#opening-day .day-label').focus({preventScroll:true}); }
+    else if (action==='latest') { stopPlayback(); closePopup(); setScroll(scroller.scrollHeight); }
     else if (action==='collapse') { stopPlayback(); closePopup(); find('#preview').classList.add('collapsed'); find('#reader-closed').hidden=false; find('[data-action="reopen"]').focus(); }
     else if (action==='reopen') reopen();
   });

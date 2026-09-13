@@ -31,11 +31,11 @@
 .title-edit { padding: 0; border: 0; background: transparent; font: inherit; letter-spacing: inherit; color: inherit; cursor: text; text-align: left; width: 100%; }
 .title-edit:hover { text-decoration: underline; text-decoration-color: var(--native-border); text-underline-offset: 4px; }
 .toolbar-title .title-edit, .toolbar-title [data-topic-title] { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; white-space: normal; text-overflow: ellipsis; overflow: hidden; }
-.taxonomy-dock { position: sticky; top: var(--toolbar-height, 52px); z-index: 4; display: flex; align-items: center; gap: 8px; min-height: 46px; padding: 11px 24px 10px var(--text-inset); background: var(--native-content); border-bottom: 1px solid transparent; }
+.taxonomy-dock { position: sticky; top: var(--toolbar-height, 52px); z-index: 4; display: flex; align-items: center; gap: 8px; min-height: 48px; padding: 8px 24px 8px var(--text-inset); background: var(--native-content); border-bottom: 1px solid transparent; }
 .taxonomy-dock[data-pinned="true"] { border-bottom-color: var(--native-border); }
 .category-controls { display: flex; gap: 7px; min-width: 0; flex: 0 1 auto; max-width: 55%; }
 .category-control { display: flex; min-width: 0; }
-.category-control .native-button { height: 24px; font-size: 12px; border-radius: 3px; gap: 5px; }
+.category-control .native-button { height: 32px; font-size: 14px; border-radius: 3px; gap: 5px; }
 .category-trigger { min-width: 0; padding: 0 7px; }
 .category-name { overflow: hidden; text-overflow: ellipsis; }
 .category-trigger .icon { width: 12px; height: 12px; }
@@ -56,7 +56,14 @@
 .tag-controls .tag-edit .icon { width: 12px; height: 12px; }
 .tag-overflow { max-width: 90px; white-space: nowrap; }
 .add-tag { height: 24px; background: var(--native-tag); font-size: 12px; }
-.full-activity { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 3px 24px 16px var(--text-inset); min-height: 42px; font-size: 12px; color: var(--native-muted); border-bottom: 1px solid var(--native-border); }
+.full-activity { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 4px 24px 4px var(--text-inset); min-height: 28px; font-size: 12px; color: var(--native-muted); }
+.opening-day, .floating-day { display: flex; align-items: center; justify-content: center; padding: 0 16px; }
+.opening-day { min-height: 28px; }
+.floating-day { position: absolute; top: var(--date-pin-top); left: 0; right: 0; z-index: 5; height: 44px; pointer-events: none; }
+.day-label { background: var(--native-content); color: var(--native-muted); padding: 4px 8px; font-size: 12px; line-height: 16px; font-weight: 600; border: 1px solid transparent; border-radius: 4px; }
+.floating-day .day-label { background: var(--native-sidebar); border-color: var(--native-border); box-shadow: 0 1px 3px #0002; pointer-events: auto; }
+.day-label:hover { background: var(--native-hover); }
+.full-handoff .post:first-child { padding-top: 14px; }
 .full-activity .avatar { width: 20px; height: 20px; border-width: 1px; margin-left: -5px; font-size: 9px; }
 .closed-badge { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 600; padding: 3px 6px; border: 1px solid var(--native-border); border-radius: 4px; background: var(--native-sidebar); }
 .closed-badge .icon { width: 12px; height: 12px; }
@@ -92,7 +99,7 @@
 .inline-editor input { display: block; font-size: 14px; line-height: 20px; height: 36px; padding: 7px 12px; }
 .reader-closed { position: absolute; z-index: 18; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; background: var(--native-content); color: var(--native-muted); font-size: 13px; }
 .reader-closed p { margin: 0; }
-.full-handoff.collapsed .topic-scroll, .full-handoff.collapsed .topic-header, .full-handoff.collapsed .reader-footer { visibility: hidden; }
+.full-handoff.collapsed .topic-scroll, .full-handoff.collapsed .topic-header, .full-handoff.collapsed .reader-footer, .full-handoff.collapsed .floating-day { visibility: hidden; }
 .full-note { margin-top: 23px; padding: 20px 0; }
 #toolbar-account-slot:empty { display: none; }
 #toolbar-account-slot .account-actions { margin: 0 0 0 3px; gap: 3px; }
