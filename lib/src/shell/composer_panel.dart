@@ -2614,7 +2614,7 @@ class _Toolbar extends StatelessWidget {
                 key: const ValueKey('composer-emoji-picker'),
                 tooltip: 'Add emoji',
                 variant: DButtonVariant.ghost,
-                size: DButtonSize.small,
+                size: DButtonSize.large,
                 onPressed: !composer.isEditing
                     ? null
                     : () => unawaited(
@@ -2656,7 +2656,7 @@ class _Toolbar extends StatelessWidget {
                 expanded: trigger.open,
                 focusNode: trigger.focusNode,
                 variant: DButtonVariant.ghost,
-                size: DButtonSize.small,
+                size: DButtonSize.large,
                 onPressed: composer.isEditing ? trigger.toggle : null,
                 icon: const DIcon(DIcons.circlePlus),
               ),
@@ -2880,7 +2880,7 @@ class _ComposerUploadButtonState extends State<_ComposerUploadButton> {
         : () => unawaited(_pick()),
     icon: const DIcon(DIcons.paperclip),
     variant: DButtonVariant.ghost,
-    size: DButtonSize.small,
+    size: DButtonSize.large,
   );
 }
 
