@@ -142,6 +142,7 @@ final class TopicViewportBinding {
     required this.identity,
     required this.tabId,
     required this.isCurrent,
+    this.session,
     required this.currentSnapshot,
     required this.forumActive,
     required this.loadMore,
@@ -169,6 +170,7 @@ final class TopicViewportBinding {
       owner: controller,
       identity: identity,
       tabId: tabId,
+      session: lease.session,
       isCurrent: () =>
           lease.isCurrent &&
           controller.activeTabId == tabId &&
@@ -214,6 +216,9 @@ final class TopicViewportBinding {
   final TopicViewportIdentity identity;
   final String? tabId;
   final bool Function() isCurrent;
+
+  /// Stable account identity, shared by successive navigation generations.
+  final Object? session;
   final TopicViewportSnapshot Function() currentSnapshot;
   final bool Function() forumActive;
   final Future<void> Function() loadMore;
@@ -439,7 +444,8 @@ final class TopicViewportCoordinator extends FrameSafeNotifier
   bool get _readerActive =>
       _tickerEnabled && (_binding?.forumActive() ?? false);
 
-  /// Replaces every topic-scoped resource when identity, tab, or shell changes.
+  /// Retains measured scroll geometry for navigation within the same topic,
+  /// while retiring callbacks from the previous navigation generation.
   bool bind(TopicViewportBinding binding) {
     final previous = _binding;
     if (previous != null &&
@@ -450,8 +456,17 @@ final class TopicViewportCoordinator extends FrameSafeNotifier
       return false;
     }
 
+    final retainViewport =
+        previous != null &&
+        previous.identity.siteUrl == binding.identity.siteUrl &&
+        previous.identity.topicId == binding.identity.topicId &&
+        previous.tabId == binding.tabId &&
+        identical(previous.owner, binding.owner) &&
+        (previous.session == null
+            ? previous.isCurrent()
+            : identical(previous.session, binding.session));
     _creditReaderNow();
-    _retireControllers();
+    if (!retainViewport) _retireControllers();
     if (previous != null && !identical(previous.owner, binding.owner)) {
       previous.flushAnchorPersist();
     }
@@ -468,8 +483,10 @@ final class TopicViewportCoordinator extends FrameSafeNotifier
     _anchorRestoreBoundary = null;
     _anchorCorrectionScheduled = false;
     _laidOutSnapshot = null;
-    _laidOutPostIds = const [];
-    _laidOutHasHeader = false;
+    if (!retainViewport) {
+      _laidOutPostIds = const [];
+      _laidOutHasHeader = false;
+    }
     _restored = false;
     _restoring = false;
     _userDragging = false;
@@ -477,9 +494,11 @@ final class TopicViewportCoordinator extends FrameSafeNotifier
     _lookScheduled = false;
     _saveAnchorAfterLook = false;
     _savedAnchorPostNumber = null;
-    _floatingDay = null;
-    _floatingDayOffset = 0;
-    _progressPosition = null;
+    if (!retainViewport) {
+      _floatingDay = null;
+      _floatingDayOffset = 0;
+      _progressPosition = null;
+    }
     _streamIndexes = null;
     _indexedStream = null;
     _seen = null;
@@ -490,9 +509,11 @@ final class TopicViewportCoordinator extends FrameSafeNotifier
     _readTimerStartedAt = null;
     _readTimeRemaining = readInterval;
 
-    final controllers = _controllersFactory();
-    _controllers = controllers;
-    controllers.list.addListener(onListLayoutChanged);
+    if (!retainViewport) {
+      final controllers = _controllersFactory();
+      _controllers = controllers;
+      controllers.list.addListener(onListLayoutChanged);
+    }
     onListLayoutChanged();
     return true;
   }
@@ -532,10 +553,17 @@ final class TopicViewportCoordinator extends FrameSafeNotifier
       return;
     }
     _restored = true;
-    if (index <= 0 && binding.savedPostOffset() == 0) return;
-
     final generation = _generation;
     _restoring = true;
+    if (index <= 0 && binding.savedPostOffset() == 0) {
+      _postFrame(() {
+        if (!_isGenerationCurrent(binding, generation)) return;
+        _jumpTo(0, viewportOffset: 0);
+        _restoring = false;
+        scheduleLook();
+      });
+      return;
+    }
 
     void jumpToTarget() {
       if (!_isGenerationCurrent(binding, generation)) return;
