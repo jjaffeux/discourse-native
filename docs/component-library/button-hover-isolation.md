@@ -26,3 +26,24 @@ Verification:
   running main app's palette/settings rail was also inspected before the fix;
   its settled hover was isolated. Sub-frame overlap and its removal are verified
   by rendered widget tests, not the native screenshots.
+
+## Hover entry correction — 2026-09-13
+
+The notification bell and Personal inbox trigger both use DButton. The previous
+exit-only fix left a 150ms entry transition, painting intermediate backgrounds
+before reaching the intended hover fill. Hover entry now snaps to the resolved
+surface as well. Focus and press transitions retain their shared motion.
+
+A regression inspects actual DecoratedBox fills at entry and subsequent frames,
+then leaves and re-enters each variant in light and dark palettes. Before the
+fix, 26 of 30 combinations failed; link variants with unchanged fills passed.
+After the fix, all 112 focused button, reference, button-group, inbox-menu,
+header-notification, user-menu accessibility and button-styleguide tests pass.
+The reference test also verifies that keyboard focus still animates its ring.
+
+`flutter analyze --no-pub` and the macOS debug build of
+`tool/button_custom_colors_review_main.dart` pass with Flutter 3.47.2.
+The isolated native custom-color styleguide fixture launched and was inspected
+in dark at 640px and light at 320px, including joined category controls. Native
+screenshots establish settled appearance; sub-frame hover timing is verified
+by widget tests, not native screenshots. No visual baselines or public APIs changed.

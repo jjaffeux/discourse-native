@@ -655,7 +655,7 @@ void main() {
     },
   );
 
-  testWidgets('surface changes transition over 150ms unless motion is off', (
+  testWidgets('focus transitions animate while hover fills are immediate', (
     tester,
   ) async {
     AnimatedContainer container() => tester.widget<AnimatedContainer>(
@@ -683,15 +683,29 @@ void main() {
                 .decoration
             as DButtonDecoration;
 
-    await pump(tester, DButton(label: const Text('Save'), onPressed: () {}));
+    final focusNode = FocusNode();
+    addTearDown(focusNode.dispose);
+    await pump(
+      tester,
+      DButton(
+        label: const Text('Save'),
+        focusNode: focusNode,
+        onPressed: () {},
+      ),
+    );
+    focusNode.requestFocus();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 75));
+    expect(painted().ringWidth, greaterThan(0));
+    expect(painted().ringWidth, lessThan(3));
+    await tester.pumpAndSettle();
+    expect(painted().ringWidth, 3);
     expect(container().duration, const Duration(milliseconds: 150));
     expect(container().curve, Curves.ease);
     final primary = tokensOf(tester).primary;
     await hover(tester, find.byType(FilledButton));
     await tester.pump(const Duration(milliseconds: 75));
-    final midway = painted().color.a;
-    expect(midway, greaterThan(primary.a * .8));
-    expect(midway, lessThan(primary.a));
+    expect(painted().color, primary.withValues(alpha: primary.a * .8));
     await tester.pumpAndSettle();
     expect(painted().color, primary.withValues(alpha: primary.a * .8));
 

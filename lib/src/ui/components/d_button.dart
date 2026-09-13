@@ -860,8 +860,9 @@ class DButton extends StatelessWidget {
   }
 }
 
-// Clear an exited hover immediately so adjacent controls never retain a trail
-// of highlights. Other state changes keep the shared control transition.
+// Apply hover changes immediately: entry must not cycle through intermediate
+// fills, and exit must not leave a trail on adjacent controls. Other state
+// changes keep the shared control transition.
 class _DButtonSurface extends StatefulWidget {
   const _DButtonSurface({
     required this.duration,
@@ -882,17 +883,17 @@ class _DButtonSurface extends StatefulWidget {
 }
 
 class _DButtonSurfaceState extends State<_DButtonSurface> {
-  bool _exitedHover = false;
+  bool _hoverChanged = false;
 
   @override
   void didUpdateWidget(_DButtonSurface oldWidget) {
     super.didUpdateWidget(oldWidget);
-    _exitedHover = oldWidget.hovered && !widget.hovered;
+    _hoverChanged = oldWidget.hovered != widget.hovered;
   }
 
   @override
   Widget build(BuildContext context) => AnimatedContainer(
-    duration: _exitedHover ? Duration.zero : widget.duration,
+    duration: _hoverChanged ? Duration.zero : widget.duration,
     curve: Curves.ease,
     transform: widget.transform,
     decoration: widget.decoration,
