@@ -200,7 +200,10 @@ class _DMenubarState extends State<DMenubar> {
           borderRadius: BorderRadius.circular(tokens.radius),
         ),
         child: Padding(
-          padding: const EdgeInsets.all(3),
+          padding: EdgeInsets.symmetric(
+            horizontal: 3,
+            vertical: horizontal ? 6 : 3,
+          ),
           child: horizontal
               ? SingleChildScrollView(
                   scrollDirection: Axis.horizontal,
@@ -564,7 +567,11 @@ class _DMenubarTriggerState extends State<DMenubarTrigger> {
                         ),
                         child: DefaultTextStyle(
                           style: style,
-                          child: widget.child,
+                          child: Center(
+                            widthFactor: 1,
+                            heightFactor: 1,
+                            child: widget.child,
+                          ),
                         ),
                       ),
                     ),

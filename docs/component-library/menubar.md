@@ -1,5 +1,18 @@
 # Menubar implementation record
 
+## Height correction — 2026-09-13
+
+The horizontal bar now reserves 6px above and below its triggers, retaining
+3px horizontal padding. Regular desktop triggers produce a 40px bar, and the
+bar grows with text scaling and touch targets. Trigger labels are centered
+inside their control bounds. This user-requested spacing supersedes the frozen
+32px reference geometry below; vertical bars retain their existing padding.
+
+Verification: focused Menubar and styleguide widget tests cover geometry,
+text scaling, narrow RTL palettes and menu interactions; touched-file static
+analysis passes. Native visual inspection was unavailable because another
+task held the shared desktop lease.
+
 ## Frozen reference
 
 - Catalogue date: 2026-09-08.
