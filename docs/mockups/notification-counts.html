@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Notification counts — combined capsule</title>
+<style>
+/* Design proposals only. These HTML counterparts leave the Native kit unchanged. */
+:root{color-scheme:light;--page:#f5f5f7;--surface:#fff;--ink:#303438;--muted:#666a73;--line:#e3e4e9;--wash:#f8f8fa;--accent:#795ae8;--soft:#f0ebff;--accent-ink:#6343cc;--selected:#dcd1ff;--shadow:0 8px 28px #20202c0a;--gap:4px}
+:root[data-theme=dark]{color-scheme:dark;--page:#17181c;--surface:#24262c;--ink:#f1f1f4;--muted:#afb0ba;--line:#3a3c45;--wash:#202228;--accent:#987cf3;--soft:#383047;--accent-ink:#d2c2ff;--selected:#5c467e;--shadow:none}
+*{box-sizing:border-box}body{margin:0;color:var(--ink);background:var(--page);font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased}button,input,select{font:inherit;color:inherit}button,select{cursor:pointer}button{touch-action:manipulation}button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid var(--accent);outline-offset:3px}button:disabled{cursor:default}svg{display:block}h1,h2,p{margin:0}button{border:0}main{max-width:1180px;padding:48px 32px 36px;margin:auto}.eyebrow{text-transform:uppercase;letter-spacing:.14em;font-size:11px;font-weight:650;color:var(--accent-ink);margin-bottom:10px}h1{font-size:32px;line-height:1.16;font-weight:650;letter-spacing:-1px}.intro{color:var(--muted);max-width:720px;margin-top:12px;font-size:15px}.toolbar{display:flex;align-items:end;gap:24px;flex-wrap:wrap;padding:22px 0 26px;margin-top:14px}.control{display:flex;gap:7px;flex-direction:column}.control>span,.field-label{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:600}.segmented{display:flex;gap:3px;padding:3px;border:1px solid var(--line);border-radius:10px;background:var(--surface)}.segmented button{height:30px;min-width:39px;padding:0 10px;background:transparent;border-radius:6px;color:var(--muted);font-size:12px}.segmented button[aria-pressed=true]{background:var(--soft);color:var(--accent-ink);font-weight:600}.select{height:38px;padding:0 30px 0 10px;border:1px solid var(--line);border-radius:9px;background:var(--surface);font-size:12px}.toggle{display:flex;align-items:center;gap:8px;min-height:38px;font-size:12px}.toggle input{accent-color:var(--accent);width:16px;height:16px}.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px}.option{min-width:0;border:1px solid var(--line);background:var(--surface);border-radius:17px;box-shadow:var(--shadow);overflow:hidden;display:flex;flex-direction:column}.option.selected{border-color:var(--accent);box-shadow:0 0 0 2px var(--selected)}.option-heading{padding:19px 20px 16px;display:flex;gap:10px;align-items:center}.number{font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums}.option h2{font-size:15px;line-height:1.25;font-weight:600;letter-spacing:-.15px}.recommended{font-size:10px;line-height:18px;color:var(--accent-ink);background:var(--soft);border-radius:5px;padding:0 6px;margin-left:auto}.preview{margin:0 16px;border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--wash);position:relative}.preview-bar{height:100px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:flex-end;padding:0 13px;background:var(--surface);gap:var(--gap);border-top:5px solid #30343c;border-top-right-radius:14px}.preview-content{height:30px;background:var(--wash)}.mock-control{position:relative;flex:none;width:44px;height:44px;padding:0;border:0;border-radius:8px;background:transparent;display:flex;align-items:center;justify-content:center;color:var(--ink)}.mock-control:hover{background:var(--wash)}.glyph{width:23px;height:23px;fill:currentColor;flex:none;pointer-events:none}.chat .glyph{width:25px;height:25px}.profile{margin-inline-start:2px}.avatar{width:32px;height:32px;background:#d73237;border-radius:50%;display:grid;place-items:center;color:#ffe59d;font-size:11px;font-weight:700;letter-spacing:.2px;position:relative;overflow:hidden}.avatar:before{content:"";position:absolute;width:27px;height:27px;background:#202126;transform:rotate(45deg);inset:13px 3px auto;border-radius:5px}.avatar span{position:relative;margin-top:-3px}.dot{position:absolute;width:12px;height:12px;border:2px solid var(--surface);border-radius:50%;background:var(--accent);top:4px;inset-inline-end:5px;pointer-events:none}.count{font-variant-numeric:tabular-nums;white-space:nowrap;font-weight:650;line-height:1;pointer-events:none}.corner .count{position:absolute;inset-inline-end:0;top:0;min-width:18px;height:18px;padding:0 4px;display:flex;align-items:center;justify-content:center;border-radius:10px;background:var(--accent);color:white;font-size:11px;box-shadow:0 0 0 2px var(--surface)}.inline{width:auto;min-width:44px;gap:6px;padding:0 6px}.inline .count{font-size:12px;color:var(--accent-ink);min-width:13px;text-align:start}.capsule{width:auto;min-width:44px;padding:0 6px}.capsule-inner{display:flex;align-items:center;justify-content:center;gap:7px;height:30px;border-radius:15px;padding:0 10px;background:var(--soft);color:var(--accent-ink)}.capsule .glyph{width:19px;height:19px}.capsule .count{font-size:12px;border-inline-start:1px solid var(--selected);padding-inline-start:7px}.replace .count{height:28px;min-width:28px;padding:0 5px;display:flex;align-items:center;justify-content:center;border-radius:50%;background:var(--accent);color:white;font-size:13px}.replace[data-wide=true] .count{border-radius:14px}.replace[data-active=true]>.glyph{display:none}.stacked{flex-direction:column;gap:2px}.stacked .glyph{width:21px;height:21px}.stacked .count{font-size:11px;color:var(--accent-ink);line-height:12px}.notification:not([data-active=true]) .count,.notification:not([data-active=true]) .dot{display:none}.notification:not([data-active=true]) .capsule-inner{background:transparent;color:var(--ink);padding:0}.notification:not([data-active=true]) .capsule .count{display:none}.notification:not([data-active=true]).stacked{gap:0}[hidden]{display:none!important}.option-copy{padding:17px 20px 16px;flex:1}.option-copy p{font-size:12px;line-height:1.65;color:var(--muted)}.tradeoff{display:block;margin-top:8px;color:var(--ink);font-size:11px}.choose{align-self:start;margin:0 20px 19px;padding:6px 10px;border:1px solid var(--line);border-radius:7px;background:transparent;font-size:11px}.choose:hover,.choose[aria-pressed=true]{color:var(--accent-ink);background:var(--soft);border-color:var(--selected)}.menu{margin:12px;padding:12px;background:var(--surface);border:1px solid var(--line);border-radius:9px;font-size:12px}.menu-title{display:flex;justify-content:space-between;align-items:center;gap:8px}.menu-close{background:var(--wash);width:24px;height:24px;border-radius:5px;color:var(--muted)}.menu p{color:var(--muted);font-size:11px;line-height:1.5;margin-top:7px}.footnote{display:flex;justify-content:space-between;align-items:start;gap:24px;flex-wrap:wrap;padding-top:22px;color:var(--muted);font-size:12px}.footnote strong{color:var(--ink);font-weight:550}.selection{color:var(--accent-ink);font-weight:550}.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}.symbols{position:absolute;width:0;height:0;overflow:hidden}
+@media(max-width:1000px){.grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:640px){main{padding:28px 18px}.grid{grid-template-columns:minmax(0,1fr);gap:16px}h1{font-size:27px}.toolbar{gap:16px}.preview-bar{justify-content:center}.option-heading{padding-top:17px}.intro{font-size:14px}.footnote{gap:10px}}
+@media(pointer:coarse){.segmented button{min-height:40px}.choose{min-height:40px}.menu-close{width:36px;height:36px}}
+/* Core roles are independent of this page’s purple selection accent. */
+:root{--core-notification:#66ccff;--core-sidebar:#66ccff;--core-success:#009900;--core-danger:#c80001}
+:root[data-theme=dark]{--core-notification:#099dd7;--core-sidebar:#099dd7;--core-success:#1ca551;--core-danger:#e45735}
+.mock-control{--signal:var(--core-notification);--signal-ink:color-mix(in srgb,var(--signal) 55%,#111);--signal-soft:color-mix(in srgb,var(--signal) 14%,var(--surface));--signal-line:color-mix(in srgb,var(--signal) 30%,var(--surface))}
+:root[data-theme=dark] .mock-control{--signal-ink:color-mix(in srgb,var(--signal) 60%,#fff)}
+.mock-control .dot,.corner .count,.replace .count{background:var(--signal)}
+.capsule-inner{background:var(--signal-soft);color:var(--signal-ink)}
+.capsule .count{border-color:var(--signal-line)}
+.inline .count,.stacked .count{color:var(--signal-ink)}
+.chat[data-state=urgent],.notification[data-state=personal]{--signal:var(--core-success)}
+.notification[data-state=review]{--signal:var(--core-danger)}
+.option[data-option="3"]{order:-1;grid-column:1/-1;display:grid;grid-template-columns:1fr 1fr}
+.option[data-option="3"] .option-heading{grid-column:1/-1}
+.option[data-option="3"] .preview{grid-row:2/4;margin-bottom:20px}
+.option[data-option="3"] .choose{display:none}
+.palette-note{margin-top:24px;padding:22px;background:var(--surface);border:1px solid var(--line);border-radius:14px}
+.palette-note h2{font-size:16px;margin-bottom:12px}.palette-note table{width:100%;border-collapse:collapse;font-size:12px}.palette-note th,.palette-note td{text-align:start;padding:9px 10px;border-bottom:1px solid var(--line)}.palette-note code{font-size:11px}.palette-note p{margin-top:12px;color:var(--muted);font-size:12px}
+@media(max-width:640px){.option[data-option="3"]{display:flex}.palette-note{padding:14px;overflow:auto}.palette-note table{min-width:480px}}
+</style>
+</head>
+<body>
+<svg class="symbols" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+  <symbol id="icon-chat" viewBox="0 0 24 24"><path d="M12 2C5.9 2 1 5.9 1 10.8c0 2.4 1.2 4.5 3.1 6.1L2 22l6-2.7c1.3.4 2.6.6 4 .6 6.1 0 11-4 11-9.1C23 5.9 18.1 2 12 2Z"/></symbol>
+  <symbol id="icon-bell" viewBox="0 0 24 24"><path d="M12 1.5a1.5 1.5 0 0 0-1.5 1.4A7 7 0 0 0 5 9.7v3.1c0 1.7-.7 3.1-2.1 4.6-.6.6-.2 1.6.7 1.6h16.8c.9 0 1.3-1 .7-1.6-1.4-1.5-2.1-2.9-2.1-4.6V9.7a7 7 0 0 0-5.5-6.8A1.5 1.5 0 0 0 12 1.5ZM9.4 21a2.7 2.7 0 0 0 5.2 0H9.4Z"/></symbol>
+</svg>
+<main>
+  <header>
+    <p class="eyebrow">Discourse / Header studies</p>
+    <h1>One capsule. The right signal.</h1>
+    <p class="intro">Combined capsules for both chat and notifications. Chat counts direct messages, mentions, and watched-thread activity; ordinary unread chat keeps a dot. Preview the core color roles below.</p>
+  </header>
+  <div class="toolbar" aria-label="Preview controls">
+    <div class="control"><span>Bell count</span><div class="segmented" role="group" aria-label="Unread count">
+      <button type="button" data-count="0" aria-pressed="false">0</button><button type="button" data-count="2" aria-pressed="true">2</button><button type="button" data-count="12" aria-pressed="false">12</button><button type="button" data-count="99" aria-pressed="false">99</button><button type="button" data-count="128" aria-pressed="false">128</button><button type="button" data-count="9999" aria-pressed="false">9,999</button>
+    </div></div>
+    <label class="control"><span>Spacing</span><select id="spacing" class="select"><option value="0">Tight</option><option value="4" selected>Regular</option><option value="10">Relaxed</option></select></label>
+    <label class="control"><span>Appearance</span><select id="appearance" class="select"><option value="light">Light</option><option value="dark">Dark</option></select></label>
+    <label class="control"><span>Chat activity</span><select id="chat-state" class="select"><option value="urgent" selected>DMs / mentions / watched threads</option><option value="unread">Ordinary unread</option><option value="none">Nothing unread</option></select></label>
+    <label class="control"><span>Chat count</span><select id="chat-count" class="select"><option value="2">2</option><option value="12" selected>12</option><option value="128">128 (99+)</option></select></label>
+    <label class="control"><span>Bell activity</span><select id="bell-state" class="select"><option value="unread">Unread / topic mention / reply</option><option value="personal">Personal message</option><option value="review">Reviewable</option></select></label>
+    <label class="toggle"><input id="rtl" type="checkbox">RTL</label>
+  </div>
+  <section class="grid" aria-label="Six notification-count options">
+    <article class="option" data-option="1">
+      <div class="option-heading"><span class="number">01</span><h2>Compact corner badge</h2></div>
+      <div class="preview" data-variant="corner"></div>
+      <div class="option-copy"><p>An 18px badge with a 2px surface ring. Anchored inside the button; longer counts grow inward, away from the avatar.</p><span class="tradeoff">Familiar · small overlap · caps at 99+</span></div>
+      <button class="choose" type="button" aria-pressed="false">Choose 01</button>
+    </article>
+    <article class="option" data-option="2">
+      <div class="option-heading"><span class="number">02</span><h2>Inline count</h2></div>
+      <div class="preview" data-variant="inline"></div>
+      <div class="option-copy"><p>Give the count its own space beside the bell. A quiet accent-colored number stays legible without another bubble.</p><span class="tradeoff">No overlap · uses more header width</span></div>
+      <button class="choose" type="button" aria-pressed="false">Choose 02</button>
+    </article>
+    <article class="option selected" data-option="3">
+      <div class="option-heading"><span class="number">03</span><h2>Combined capsule</h2><span class="recommended">Selected</span></div>
+      <div class="preview" data-variant="capsule"></div>
+      <div class="option-copy"><p>The same capsule holds chat and bell counts. Its tint follows the activity: theme accent for ordinary notifications, success for urgent chat and personal messages, danger for reviewables.</p><span class="tradeoff">Clear grouping · more visual emphasis</span></div>
+      <button class="choose" type="button" aria-pressed="false">Choose 03</button>
+    </article>
+    <article class="option" data-option="4">
+      <div class="option-heading"><span class="number">04</span><h2>Count replaces bell</h2></div>
+      <div class="preview" data-variant="replace"></div>
+      <div class="option-copy"><p>Show a 28px count circle when activity is waiting; restore the bell at zero. One visual occupies the same button slot.</p><span class="tradeoff">Stable width · notification identity less obvious</span></div>
+      <button class="choose" type="button" aria-pressed="false">Choose 04</button>
+    </article>
+    <article class="option" data-option="5">
+      <div class="option-heading"><span class="number">05</span><h2>Dot here, count in menu</h2></div>
+      <div class="preview" data-variant="dot-only"></div>
+      <div class="option-copy"><p>Use the same 8px dot as chat, with its 2px ring. Open notifications to see the exact count. The header stays equally quiet at 2 or 128.</p><span class="tradeoff">Most compact · exact count needs a click</span></div>
+      <button class="choose" type="button" aria-pressed="false">Choose 05</button>
+    </article>
+    <article class="option" data-option="6">
+      <div class="option-heading"><span class="number">06</span><h2>Count beneath the bell</h2></div>
+      <div class="preview" data-variant="stacked"></div>
+      <div class="option-copy"><p>Stack a small count beneath the icon inside its 44px target. No badge crosses the icon, and neighboring buttons keep their positions.</p><span class="tradeoff">Stable width · different vertical rhythm</span></div>
+      <button class="choose" type="button" aria-pressed="false">Choose 06</button>
+    </article>
+  </section>
+  <section class="palette-note" aria-label="Core notification colors">
+    <h2>Color audit · Discourse core</h2>
+    <table><thead><tr><th>Activity</th><th>Core color</th><th>Presentation</th></tr></thead><tbody>
+      <tr><td>Ordinary unread chat; unread bell; topic mentions and replies</td><td><code>--tertiary-med-or-tertiary</code></td><td>Chat dot; bell capsule</td></tr>
+      <tr><td>Chat DMs, mentions, watched-thread activity</td><td><code>--success</code></td><td>Chat count capsule</td></tr>
+      <tr><td>Personal messages</td><td><code>--success</code></td><td>Bell capsule; priority over reviewables</td></tr>
+      <tr><td>Reviewables</td><td><code>--danger</code></td><td>Bell capsule; priority over regular unread</td></tr>
+      <tr><td>New topics / new replies / unread post counts</td><td><code>--tertiary-med-or-tertiary</code></td><td>Topic dots or numeric badges</td></tr>
+      <tr><td>Ordinary sidebar unread</td><td><code>--token-color-background-accent-subtle</code></td><td>Dot; urgent chat still uses success</td></tr>
+    </tbody></table>
+    <p>These are theme roles, not fixed universal colors. Preview swatches use Native’s default light/dark palettes. Site themes supply their own values. The chosen capsule uses a soft tint of the role with darker/lighter text; core’s solid badges use <code>--secondary</code> text. “Only mentions”, “DMs and mentions”, “Never”, and Do Not Disturb continue to govern chat visibility.</p>
+    <p>Source: local pr-discourse checkout <code>438ea4de</code>, header.scss, badges.scss, sidebar.scss, tokens.scss, chat-unread-indicator.scss, and the chat header indicator component. WCAG themes also override some solid badge colors.</p>
+  </section>
+  <footer class="footnote"><p>Open any bell/count to inspect its menu. Click chat for its exact count. Counts above 99 display <strong>99+</strong>.<br>All designs keep the exact count in the button’s accessible name.</p><p class="selection" id="selection" role="status" aria-live="polite">Selected: 03 — Combined capsule.</p></footer>
+</main>
+<script>
+(function () {
+  'use strict';
+  var count = 2;
+  var previews = Array.from(document.querySelectorAll('.preview'));
+  function icon(name) { return '<svg class="glyph" aria-hidden="true"><use href="#icon-' + name + '"></use></svg>'; }
+  previews.forEach(function (preview, index) {
+    var variant = preview.dataset.variant;
+    var content = icon('bell') + '<span class="count" aria-hidden="true"></span>';
+    if (variant === 'capsule') content = '<span class="capsule-inner">' + content + '</span>';
+    if (variant === 'dot-only') content = icon('bell') + '<span class="dot" aria-hidden="true"></span>';
+    preview.innerHTML = '<div class="preview-bar"><button type="button" class="mock-control chat" aria-label="Chat, unread messages">' + icon('chat') + '<span class="dot" aria-hidden="true"></span></button><button type="button" class="mock-control notification ' + variant + '" aria-expanded="false" aria-controls="menu-' + index + '">' + content + '</button><button type="button" class="mock-control profile" aria-label="Profile"><span class="avatar" aria-hidden="true"><span>JJ</span></span></button></div><div class="preview-content"></div><div class="menu" id="menu-' + index + '" hidden><div class="menu-title"><strong class="menu-count"></strong><button type="button" class="menu-close" aria-label="Close notification preview">×</button></div><p>This preview keeps the exact total here, even when the header shows 99+ or a dot.</p></div>';
+    var notification = preview.querySelector('.notification');
+    var menu = preview.querySelector('.menu');
+    function closeMenu() { menu.hidden = true; notification.setAttribute('aria-expanded', 'false'); }
+    notification.addEventListener('click', function () { menu.hidden = !menu.hidden; notification.setAttribute('aria-expanded', String(!menu.hidden)); });
+    preview.querySelector('.menu-close').addEventListener('click', function () { closeMenu(); notification.focus(); });
+    preview.addEventListener('keydown', function (event) { if (event.key === 'Escape' && !menu.hidden) { closeMenu(); notification.focus(); } });
+    preview.querySelector('.chat').addEventListener('click', function () { document.getElementById('selection').textContent = preview.querySelector('.chat').getAttribute('aria-label') + '. Chat preferences control which activity is shown.'; });
+    preview.querySelector('.profile').addEventListener('click', function () { document.getElementById('selection').textContent = 'Profile is shown for spacing reference.'; });
+  });
+  function update() {
+    var visibleCount = count > 99 ? '99+' : String(count);
+    var fullCount = count.toLocaleString('en');
+    previews.forEach(function (preview) {
+      var notification = preview.querySelector('.notification');
+      notification.dataset.active = String(count > 0);
+      notification.dataset.wide = String(count > 9);
+      notification.setAttribute('aria-label', count ? 'Notifications, ' + fullCount + ' unread' : 'Notifications, no unread items');
+      notification.title = notification.getAttribute('aria-label');
+      notification.dataset.state = document.getElementById('bell-state').value;
+      var badge = notification.querySelector('.count');
+      if (badge) badge.textContent = visibleCount;
+      preview.querySelector('.menu-count').textContent = count ? fullCount + ' unread notifications' : 'You’re all caught up';
+      var chat = preview.querySelector('.chat');
+      var state = document.getElementById('chat-state').value;
+      var chatCount = Number(document.getElementById('chat-count').value);
+      chat.dataset.state = state;
+      chat.classList.toggle('capsule', state === 'urgent');
+      chat.innerHTML = state === 'urgent' ? '<span class="capsule-inner">' + icon('chat') + '<span class="count" aria-hidden="true">' + (chatCount > 99 ? '99+' : chatCount) + '</span></span>' : icon('chat') + (state === 'unread' ? '<span class="dot" aria-hidden="true"></span>' : '');
+      chat.setAttribute('aria-label', state === 'urgent' ? 'Chat, ' + chatCount + ' urgent messages' : state === 'unread' ? 'Chat, unread messages' : 'Chat');
+      chat.title = chat.getAttribute('aria-label');
+      preview.querySelector('.preview-bar').dir = document.getElementById('rtl').checked ? 'rtl' : 'ltr';
+    });
+  }
+  document.querySelectorAll('[data-count]').forEach(function (button) {
+    button.addEventListener('click', function () {
+      count = Number(button.dataset.count);
+      document.querySelectorAll('[data-count]').forEach(function (item) { item.setAttribute('aria-pressed', String(item === button)); });
+      update();
+    });
+  });
+  document.getElementById('spacing').addEventListener('change', function (event) { document.documentElement.style.setProperty('--gap', event.target.value + 'px'); });
+  document.getElementById('appearance').addEventListener('change', function (event) { document.documentElement.dataset.theme = event.target.value; });
+  ['chat-state', 'chat-count', 'bell-state'].forEach(function (id) { document.getElementById(id).addEventListener('change', update); });
+  document.getElementById('rtl').addEventListener('change', update);
+  document.querySelectorAll('.choose').forEach(function (button) {
+    button.addEventListener('click', function () {
+      var option = button.closest('.option');
+      document.querySelectorAll('.option').forEach(function (item) { var selected = item === option; item.classList.toggle('selected', selected); item.querySelector('.choose').setAttribute('aria-pressed', String(selected)); });
+      document.getElementById('selection').textContent = 'Selected: ' + option.dataset.option.padStart(2, '0') + ' — ' + option.querySelector('h2').textContent + '.';
+    });
+  });
+  update();
+}());
+</script>
+</body>
+</html>
