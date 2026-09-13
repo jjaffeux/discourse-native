@@ -407,6 +407,7 @@ class ComposerPanel extends StatelessWidget {
                     if (!minimized)
                       _Footer(
                         composer: composer,
+                        sideDocked: placement.isSide,
                         pickImages: pickImages,
                         message:
                             error?.message ??
@@ -3038,6 +3039,7 @@ class _ComposerUploadThumbnail extends StatelessWidget {
 class _Footer extends StatelessWidget {
   const _Footer({
     required this.composer,
+    required this.sideDocked,
     required this.pickImages,
     required this.message,
     required this.isError,
@@ -3047,6 +3049,7 @@ class _Footer extends StatelessWidget {
   });
 
   final ComposerController composer;
+  final bool sideDocked;
   final ComposerImagePicker pickImages;
   final String? message;
   final bool isError;
@@ -3173,7 +3176,7 @@ class _Footer extends StatelessWidget {
     );
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(8, 0, 14, 10),
+      padding: EdgeInsets.fromLTRB(8, 0, 14, sideDocked ? 0 : 10),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -3182,7 +3185,12 @@ class _Footer extends StatelessWidget {
             Align(alignment: Alignment.centerRight, child: status),
             const SizedBox(height: 4),
           ],
-          controls,
+          ConstrainedBox(
+            constraints: BoxConstraints(
+              minHeight: sideDocked ? topicBottomBarHeight(context) : 0,
+            ),
+            child: controls,
+          ),
         ],
       ),
     );
