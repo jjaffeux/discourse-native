@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:collection';
 import 'dart:ui' show PointerDeviceKind;
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/gestures.dart'
     show PointerDownEvent, kBackMouseButton, kForwardMouseButton;
@@ -31,7 +32,6 @@ import 'shell/platform.dart';
 import 'shell/shell_controller.dart';
 import 'shell/shell_scope.dart';
 import 'theme/app_theme.dart';
-import 'ui/components/d_toast.dart';
 
 class DiscourseApp extends StatefulWidget {
   const DiscourseApp({
@@ -594,13 +594,15 @@ class _DiscourseAppState extends State<DiscourseApp>
     themeAnimationStyle: AnimationStyle.noAnimation,
     localizationsDelegates: RelativeTimeLocalizations.localizationsDelegates,
     supportedLocales: RelativeTimeLocalizations.supportedLocales,
-    builder: (context, child) => DToaster(
-      key: ObjectKey(_controller),
-      child: AppTextScaleRegion(
-        controller: _controller.appSettings,
-        child: _MouseNavigationRegion(
-          navigatorKey: _navigatorKey,
-          child: child ?? const SizedBox.shrink(),
+    builder: (context, child) => DFocusHighlight(
+      child: DToaster(
+        key: ObjectKey(_controller),
+        child: AppTextScaleRegion(
+          controller: _controller.appSettings,
+          child: _MouseNavigationRegion(
+            navigatorKey: _navigatorKey,
+            child: child ?? const SizedBox.shrink(),
+          ),
         ),
       ),
     ),

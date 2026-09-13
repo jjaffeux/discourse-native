@@ -7,6 +7,7 @@ import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
 import '../../theme/discourse_typography.dart';
 import '../foundation/control_style.dart';
+import '../foundation/focus_highlight.dart';
 import '../foundation/interactive_row.dart';
 import '../foundation/tokens.dart';
 import 'd_button.dart';
@@ -1363,7 +1364,8 @@ class DComboboxChips<T> extends StatelessWidget {
     final root = _DComboboxScope.of<T>(context);
     final tokens = DTokens.of(context);
     final dark = Theme.of(context).brightness == Brightness.dark;
-    final focused = root.focusNode.hasFocus;
+    final focused =
+        root.focusNode.hasFocus && DFocusHighlight.visibleOf(context);
     final isInvalid = invalid || root.hasError;
     final border = isInvalid
         ? tokens.destructive.withValues(
@@ -1539,7 +1541,9 @@ class _DComboboxChipState<T> extends State<DComboboxChip<T>> {
               color: tokens.muted,
               borderRadius: BorderRadius.circular(tokens.radius * .6),
               border: Border.all(
-                color: _focused ? tokens.focusRing : Colors.transparent,
+                color: _focused && DFocusHighlight.visibleOf(context)
+                    ? tokens.focusRing
+                    : Colors.transparent,
               ),
             ),
             child: ConstrainedBox(

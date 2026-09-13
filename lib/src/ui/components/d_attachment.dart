@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../theme/discourse_typography.dart';
+import '../foundation/focus_highlight.dart';
 import '../foundation/tokens.dart';
 import 'd_button.dart';
 import 'd_marker.dart';
@@ -144,7 +145,7 @@ class _DAttachmentState extends State<DAttachment> {
               : borderColor,
         ),
       ),
-      foregroundDecoration: _focused
+      foregroundDecoration: _focused && DFocusHighlight.visibleOf(context)
           ? BoxDecoration(
               borderRadius: radius,
               border: Border.all(

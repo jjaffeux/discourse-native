@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 
 import '../../theme/discourse_typography.dart';
 import '../foundation/control_style.dart';
+import '../foundation/focus_highlight.dart';
 import '../foundation/input_group_scope.dart';
 import '../foundation/joined_control.dart';
 import '../foundation/tokens.dart';
@@ -465,12 +466,12 @@ class _InputSurface extends StatelessWidget {
     final dark = Theme.of(context).brightness == Brightness.dark;
     final border = invalid
         ? t.destructive.withValues(alpha: t.destructive.a * (dark ? .5 : 1))
-        : focused
+        : focused && DFocusHighlight.visibleOf(context)
         ? t.focusRing
         : DControlStyle.outlineBorder(t, dark: dark, field: true);
     final ring = invalid
         ? t.destructive.withValues(alpha: t.destructive.a * (dark ? .4 : .2))
-        : focused
+        : focused && DFocusHighlight.visibleOf(context)
         ? t.focusRing.withValues(alpha: t.focusRing.a * .5)
         : null;
     return Opacity(

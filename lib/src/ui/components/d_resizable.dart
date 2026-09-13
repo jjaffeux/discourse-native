@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../foundation/focus_highlight.dart';
 import '../foundation/tokens.dart';
 import 'd_direction.dart';
 
@@ -893,7 +894,8 @@ class _DResizableHandleState extends State<DResizableHandle> {
             );
     }
 
-    final thickness = _focused
+    final focusVisible = _focused && DFocusHighlight.visibleOf(context);
+    final thickness = focusVisible
         ? widget.focusedDividerThickness ?? widget.dividerThickness
         : widget.dividerThickness;
     final line = place(
@@ -902,7 +904,7 @@ class _DResizableHandleState extends State<DResizableHandle> {
         key: widget.dividerKey,
         width: horizontal ? thickness : double.infinity,
         height: horizontal ? double.infinity : thickness,
-        color: _focused && widget.focusedDividerThickness != null
+        color: focusVisible && widget.focusedDividerThickness != null
             ? t.focusRing
             : t.border,
       ),
@@ -981,7 +983,7 @@ class _DResizableHandleState extends State<DResizableHandle> {
                       ),
                     ),
                   ),
-                if (_focused)
+                if (focusVisible)
                   place(
                     3,
                     Container(

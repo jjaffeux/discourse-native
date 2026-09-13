@@ -8,6 +8,7 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 
 import '../../theme/discourse_typography.dart';
+import '../foundation/focus_highlight.dart';
 import '../foundation/tokens.dart';
 import 'd_kbd.dart';
 
@@ -877,7 +878,10 @@ class DTooltipState extends State<DTooltip>
           behavior: HitTestBehavior.translucent,
           onPointerDown: _pointerDown,
           child: _TooltipFocusRing(
-            visible: widget.focusable && _focusVisible,
+            visible:
+                widget.focusable &&
+                _focusVisible &&
+                DFocusHighlight.visibleOf(context),
             child: child,
           ),
         ),

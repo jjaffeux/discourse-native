@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../theme/discourse_typography.dart';
 import '../foundation/control_style.dart';
+import '../foundation/focus_highlight.dart';
 import '../foundation/input_group_scope.dart';
 import '../foundation/joined_control.dart';
 import '../foundation/tokens.dart';
@@ -101,7 +102,9 @@ class _DInputGroupState extends State<DInputGroup> {
   Widget build(BuildContext context) {
     final tokens = DTokens.of(context);
     final dark = Theme.of(context).brightness == Brightness.dark;
-    final focused = _controls.keys.any((node) => node.hasFocus);
+    final focused =
+        DFocusHighlight.visibleOf(context) &&
+        _controls.keys.any((node) => node.hasFocus);
     final controlEnabled =
         _controls.isEmpty || _controls.values.every((state) => state.enabled);
     final invalid =

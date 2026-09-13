@@ -10,6 +10,7 @@ import 'package:timezone/timezone.dart' as tz;
 import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
 import '../../theme/discourse_typography.dart';
+import '../foundation/focus_highlight.dart';
 import '../foundation/tokens.dart';
 import 'd_button.dart';
 import 'd_select.dart';
@@ -1581,7 +1582,7 @@ class _DCalendarDayButtonState extends State<DCalendarDayButton> {
                 borderRadius: radius,
               ),
               foregroundDecoration: _CalendarFocusRingDecoration(
-                color: _focused
+                color: _focused && DFocusHighlight.visibleOf(context)
                     ? tokens.focusRing.withValues(
                         alpha: tokens.focusRing.a * .5,
                       )
