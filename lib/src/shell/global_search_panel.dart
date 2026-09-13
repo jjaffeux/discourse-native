@@ -12,6 +12,7 @@ import 'global_search_controller.dart';
 import 'global_search_filters.dart';
 import 'global_search_models.dart';
 import 'shell_scope.dart';
+import 'site_emoji_text.dart';
 
 part 'global_search_filter_picker.dart';
 
@@ -517,6 +518,7 @@ class _GlobalSearchPanelState extends State<GlobalSearchPanel> {
                 DItemTitle(
                   maxLines: 2,
                   child: _SearchHighlight(
+                    siteUrl: controller.siteUrl!,
                     text: result.title,
                     query: controller.query,
                   ),
@@ -526,6 +528,7 @@ class _GlobalSearchPanelState extends State<GlobalSearchPanel> {
                   DItemDescription(
                     maxLines: controller.compact ? 1 : 2,
                     child: _SearchHighlight(
+                      siteUrl: controller.siteUrl!,
                       text: result.excerpt,
                       query: controller.query,
                     ),
@@ -551,8 +554,12 @@ String _searchDate(DateTime value) =>
     '${value.day} ${const ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][value.month - 1]} ${value.year}';
 
 class _SearchHighlight extends StatelessWidget {
-  const _SearchHighlight({required this.text, required this.query});
-  final String text, query;
+  const _SearchHighlight({
+    required this.siteUrl,
+    required this.text,
+    required this.query,
+  });
+  final String siteUrl, text, query;
   @override
   Widget build(BuildContext context) {
     final words = query
@@ -561,20 +568,20 @@ class _SearchHighlight extends StatelessWidget {
         .map((word) => word.replaceAll('"', ''))
         .where((word) => word.isNotEmpty)
         .toSet();
-    if (words.isEmpty) return Text(text);
+    if (words.isEmpty) return SiteEmojiText.plain(text, siteUrl: siteUrl);
     final expression = RegExp(
       words.map(RegExp.escape).join('|'),
       caseSensitive: false,
     );
-    final spans = <InlineSpan>[];
+    final runs = <SiteEmojiTextRun>[];
     var cursor = 0;
     for (final match in expression.allMatches(text)) {
       if (match.start > cursor) {
-        spans.add(TextSpan(text: text.substring(cursor, match.start)));
+        runs.add(SiteEmojiTextRun(text.substring(cursor, match.start)));
       }
-      spans.add(
-        TextSpan(
-          text: match.group(0),
+      runs.add(
+        SiteEmojiTextRun(
+          match.group(0)!,
           style: TextStyle(
             color: DTokens.of(context).foreground,
             fontWeight: FontWeight.w600,
@@ -583,8 +590,10 @@ class _SearchHighlight extends StatelessWidget {
       );
       cursor = match.end;
     }
-    if (cursor < text.length) spans.add(TextSpan(text: text.substring(cursor)));
-    return Text.rich(TextSpan(children: spans));
+    if (cursor < text.length) {
+      runs.add(SiteEmojiTextRun(text.substring(cursor)));
+    }
+    return SiteEmojiText(runs, siteUrl: siteUrl);
   }
 }
 
