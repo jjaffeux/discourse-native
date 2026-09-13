@@ -34,6 +34,7 @@ export 'src/ui/components/d_dropdown_menu.dart';
 export 'src/ui/components/d_empty.dart';
 export 'src/ui/components/d_field.dart';
 export 'src/ui/components/d_hover_card.dart';
+export 'src/ui/components/d_image_preview.dart';
 export 'src/ui/components/d_input.dart';
 export 'src/ui/components/d_input_group.dart';
 export 'src/ui/components/d_input_otp.dart';

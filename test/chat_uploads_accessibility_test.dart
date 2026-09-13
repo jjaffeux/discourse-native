@@ -4,6 +4,7 @@ import 'package:discourse_native/src/plugins/chat/chat_uploads.dart';
 import 'package:discourse_native/src/shell/inline_video.dart';
 import 'package:discourse_native/src/shell/lightbox.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -47,7 +48,7 @@ void main() {
     expect(find.byType(LightboxGallery), findsNothing);
   });
 
-  testWidgets('image is a named button without a hover overlay', (
+  testWidgets('image hover metadata preserves the named image button', (
     tester,
   ) async {
     final semantics = tester.ensureSemantics();
@@ -82,6 +83,8 @@ void main() {
         isSemantics(
           label: 'Open image: screenshot.png',
           isButton: true,
+          hasEnabledState: true,
+          isEnabled: true,
           hasTapAction: true,
         ),
       );
@@ -92,6 +95,23 @@ void main() {
       );
       expect(inkWell, findsOneWidget);
       expect(tester.widget<InkWell>(inkWell).hoverColor, Colors.transparent);
+      final preview = find.byType(DImagePreview);
+      final bounds = tester.getRect(preview);
+      final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      await mouse.addPointer(location: bounds.center);
+      await tester.pumpAndSettle();
+      final opacity = find.descendant(
+        of: preview,
+        matching: find.byType(AnimatedOpacity),
+      );
+      expect(tester.widget<AnimatedOpacity>(opacity).opacity, .9);
+      expect(find.text('screenshot.png'), findsOneWidget);
+      expect(tester.getRect(preview), bounds);
+      expect(
+        find.bySemanticsLabel('Open image: screenshot.png'),
+        findsOneWidget,
+      );
+      await mouse.removePointer();
     } finally {
       semantics.dispose();
     }

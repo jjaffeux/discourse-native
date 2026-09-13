@@ -389,13 +389,27 @@ void main() {
       );
     });
 
-    testWidgets('does not print the .meta overlay as stray text', (
+    testWidgets('reveals post metadata inside the image on hover', (
       tester,
     ) async {
       await pumpCooked(tester, singleImage);
 
       expect(renderedText('screenshot.png'), findsNothing);
       expect(renderedText('1920×1080 234 KB'), findsNothing);
+      final preview = find.byType(DImagePreview);
+      final bounds = tester.getRect(preview);
+      final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      await mouse.addPointer(location: bounds.center);
+      await tester.pumpAndSettle();
+      final opacity = find.descendant(
+        of: preview,
+        matching: find.byType(AnimatedOpacity),
+      );
+      expect(tester.widget<AnimatedOpacity>(opacity).opacity, .9);
+      expect(find.text('screenshot.png'), findsOneWidget);
+      expect(find.text('1920×1080 234 KB'), findsOneWidget);
+      expect(tester.getRect(preview), bounds);
+      await mouse.removePointer();
     });
 
     testWidgets('opens the gallery on the image that was tapped', (
