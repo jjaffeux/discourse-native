@@ -47,3 +47,23 @@ The isolated native custom-color styleguide fixture launched and was inspected
 in dark at 640px and light at 320px, including joined category controls. Native
 screenshots establish settled appearance; sub-frame hover timing is verified
 by widget tests, not native screenshots. No visual baselines or public APIs changed.
+
+## Dropdown dismissal correction — 2026-09-13
+
+Closing a dropdown retained the trigger's expanded fill during the button's
+150ms transition, briefly leaving a darker background after dismissal. DButton
+now clears that fill immediately when `expanded` changes from true to false.
+Opening, focus and press transitions retain their existing behavior.
+
+The regression checks painted decorations across dismissal frames and reopening
+for outline, secondary and ghost triggers in light and dark themes. It covers
+item selection, outside clicks, Escape and clicking the trigger again, including
+focus restoration. The expanded fill was still painted at dismissal before the
+fix. All 24 cases pass with the fix; color assertions compare rendered 8-bit
+channels to avoid floating-point interpolation noise during focus transitions.
+
+Verification: all 196 focused button, reference, button-group, dropdown, popover,
+styleguide, inbox-menu, notification and user-menu accessibility tests pass.
+`flutter analyze --no-pub` is clean. The macOS debug build of the production
+Messages fixture (`tool/messages_inbox_review_main.dart`) passes on Flutter
+3.47.2. Sub-frame timing is established by the widget tests.
