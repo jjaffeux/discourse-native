@@ -146,7 +146,6 @@ class _UserMenuButtonState extends State<UserMenuButton> {
                   ],
                 ),
               ),
-              const SizedBox(width: 8),
               _AccountMenuPopover(
                 view: UserMenuView.profile,
                 controller: _profile,
