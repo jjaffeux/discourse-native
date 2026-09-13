@@ -17,10 +17,11 @@ The baseline and representative inputs are recorded in
 - `data-default`, comma-separated `data-defaults`, `data-description`, and
   `data-delimiter` (default `=`), plus rich descriptions inside the wrapper.
 - Native Input or single-choice Select, composed with stacked Field. Labels
-  sit above controls in a column capped at 528 px. Each field has a subtle
-  forum-accent tint and a 4 px leading accent rail, mirrored in RTL. Rich
-  descriptions below controls inherit FieldDescription's muted helper-text
-  typography. The field label is the declared key, with no added icon or caption.
+  sit above controls in a container that fills the post's available width. Each
+  field has a subtle forum-accent tint and a 4 px leading accent rail, mirrored
+  in RTL. Rich descriptions below controls inherit FieldDescription's muted
+  helper-text typography. The field label is the declared key, with no added
+  icon or caption.
 - Substitution in headings, paragraphs, code, blockquotes, list descendants,
   `.md-table` descendants, and anchor hrefs. Other attributes remain unchanged.
 - Clearing an input restores its declared substitution default. Empty and
@@ -74,3 +75,7 @@ It verified both palettes at 320 px with 200% text and RTL, typing with focus
 retained, select changes, live substitutions, and values surviving remounting.
 The 69 focused placeholder, selection, and control-adoption tests passed;
 `flutter analyze --no-pub` reported no issues.
+
+The full-width adjustment passed all seven placeholder widget tests and static
+analysis. Native macOS review confirmed 720 px containers in both palettes and
+320 px containers with 200% text and RTL in dark mode.

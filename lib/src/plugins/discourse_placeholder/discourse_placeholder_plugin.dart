@@ -272,8 +272,8 @@ class _PlaceholderField extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: DSpacing.sm),
       child: Align(
         alignment: AlignmentDirectional.centerStart,
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 528),
+        child: SizedBox(
+          width: double.infinity,
           child: Container(
             decoration: BoxDecoration(
               color: Color.alphaBlend(
