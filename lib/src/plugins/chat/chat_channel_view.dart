@@ -15,7 +15,6 @@ import '../../shell/list_boundary_shortcuts.dart';
 import '../../shell/platform.dart';
 import '../../shell/stream_day_separator.dart';
 import '../../shell/time_gap.dart';
-import '../../theme/app_theme.dart';
 import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
 import '../../utils/pagination.dart';
@@ -1862,69 +1861,51 @@ class _ChatMessageSelectionBarState extends State<ChatMessageSelectionBar> {
                   style: Theme.of(context).textTheme.labelLarge,
                 ),
               ),
-              DTooltip(
-                message: 'Quote selected messages',
-                labelTrigger: true,
-                child: IconButton(
-                  key: const ValueKey('chat-quote-selection'),
-                  tooltip: '',
-                  onPressed: count == 0 || busy ? null : _quote,
-                  icon: _quoting
-                      ? const SizedBox.square(dimension: 18, child: DSpinner())
-                      : const DIcon(DIcons.quoteLeft, size: 18),
-                ),
+              DButton.iconOnly(
+                key: const ValueKey('chat-quote-selection'),
+                onPressed: count == 0 || busy ? null : _quote,
+                variant: DButtonVariant.ghost,
+                tooltip: 'Quote selected messages',
+                loading: _quoting,
+                icon: const DIcon(DIcons.quoteLeft),
               ),
-              FilledButton.icon(
+              DButton(
                 key: const ValueKey('chat-copy-selection'),
                 onPressed: count == 0 || busy ? null : _copy,
-                icon: _copying
-                    ? const SizedBox.square(dimension: 16, child: DSpinner())
-                    : const DIcon(DIcons.copy, size: 16),
+                variant: DButtonVariant.primary,
+                loading: _copying,
+                icon: const DIcon(DIcons.copy),
                 label: const Text('Copy'),
               ),
               const SizedBox(width: 4),
               if (offersMove)
-                DTooltip(
-                  message: 'Move selected messages to another channel',
-                  labelTrigger: true,
-                  child: IconButton(
-                    key: const ValueKey('chat-move-selection'),
-                    tooltip: '',
-                    onPressed: canMove && !busy
-                        ? () => _move(moveDestinations)
-                        : null,
-                    icon: _moving
-                        ? const SizedBox.square(
-                            dimension: 18,
-                            child: DSpinner(),
-                          )
-                        : const DIcon(DIcons.rightFromBracket, size: 18),
-                  ),
+                DButton.iconOnly(
+                  key: const ValueKey('chat-move-selection'),
+                  onPressed: canMove && !busy
+                      ? () => _move(moveDestinations)
+                      : null,
+                  variant: DButtonVariant.ghost,
+                  tooltip: 'Move selected messages to another channel',
+                  loading: _moving,
+                  icon: const DIcon(DIcons.rightFromBracket),
                 ),
-              DTooltip(
-                message: count > ChatController.maximumBulkDeleteMessages
+              DButton.iconOnly(
+                key: const ValueKey('chat-delete-selection'),
+                onPressed: canDelete && !busy ? _delete : null,
+                variant: DButtonVariant.ghost,
+                tooltip: count > ChatController.maximumBulkDeleteMessages
                     ? 'Select no more than '
                           '${ChatController.maximumBulkDeleteMessages} messages'
                     : 'Delete selected messages',
-                labelTrigger: true,
-                child: IconButton(
-                  key: const ValueKey('chat-delete-selection'),
-                  tooltip: '',
-                  onPressed: canDelete && !busy ? _delete : null,
-                  icon: _deleting
-                      ? const SizedBox.square(dimension: 18, child: DSpinner())
-                      : const DIcon(DIcons.trashCan, size: 18),
-                ),
+                loading: _deleting,
+                icon: const DIcon(DIcons.trashCan),
               ),
-              DTooltip(
-                message: 'Cancel selection',
-                labelTrigger: true,
-                child: IconButton(
-                  key: const ValueKey('chat-cancel-selection'),
-                  tooltip: '',
-                  onPressed: busy ? null : widget.onCancel,
-                  icon: const DIcon(DIcons.xmark, size: 18),
-                ),
+              DButton.iconOnly(
+                key: const ValueKey('chat-cancel-selection'),
+                onPressed: busy ? null : widget.onCancel,
+                variant: DButtonVariant.ghost,
+                tooltip: 'Cancel selection',
+                icon: const DIcon(DIcons.xmark),
               ),
             ],
           ),
@@ -2136,27 +2117,10 @@ class _DeletedRun extends StatelessWidget {
             ),
             child: Align(
               alignment: Alignment.centerLeft,
-              child: TextButton(
+              child: DButton(
                 onPressed: onExpand,
-                style: ButtonStyle(
-                  alignment: Alignment.centerLeft,
-                  minimumSize: const WidgetStatePropertyAll(Size.zero),
-                  padding: const WidgetStatePropertyAll(EdgeInsets.all(4)),
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  overlayColor: const WidgetStatePropertyAll(
-                    Colors.transparent,
-                  ),
-                  foregroundColor: WidgetStateProperty.resolveWith((states) {
-                    if (states.contains(WidgetState.hovered) ||
-                        states.contains(WidgetState.focused) ||
-                        states.contains(WidgetState.pressed)) {
-                      return theme.colorScheme.error;
-                    }
-                    return theme.discourse.primaryHigh;
-                  }),
-                  textStyle: WidgetStatePropertyAll(theme.textTheme.bodyMedium),
-                ),
-                child: Text(label),
+                variant: DButtonVariant.ghost,
+                label: Text(label),
               ),
             ),
           ),

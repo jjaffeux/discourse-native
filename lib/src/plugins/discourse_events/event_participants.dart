@@ -110,14 +110,11 @@ class _ParticipantsState extends State<_Participants> {
             controller: _search,
             decoration: InputDecoration(
               labelText: 'Search participants',
-              suffixIcon: DTooltip(
-                message: 'Search',
-                labelTrigger: true,
-                child: IconButton(
-                  tooltip: '',
-                  onPressed: _loading ? null : _load,
-                  icon: const Icon(Icons.search),
-                ),
+              suffixIcon: DButton.iconOnly(
+                onPressed: _loading ? null : _load,
+                variant: DButtonVariant.ghost,
+                tooltip: 'Search',
+                icon: const Icon(Icons.search),
               ),
             ),
             onSubmitted: (_) => _load(),

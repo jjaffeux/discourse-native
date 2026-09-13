@@ -1,3 +1,4 @@
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/data/discourse_api.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/found_user.dart';
@@ -455,8 +456,8 @@ void _registerTopicModerationTests() {
         // can_edit and can_delete are the whole question: the guardian behind
         // them has already weighed ownership, staff, the edit window and the
         // state of the topic.
-        expect(find.widgetWithText(MenuItemButton, 'Edit'), findsNothing);
-        expect(find.widgetWithText(MenuItemButton, 'Delete'), findsNothing);
+        expect(find.widgetWithText(DDropdownMenuItem, 'Edit'), findsNothing);
+        expect(find.widgetWithText(DDropdownMenuItem, 'Delete'), findsNothing);
       },
     );
 

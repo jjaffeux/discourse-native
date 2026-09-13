@@ -38,6 +38,10 @@ bool navigationShortcutsAllowed(
       return widget.open ?? widget.controller?.isOpen ?? true;
     }
     return widget is EditableText ||
+        widget is DDropdownMenuContent ||
+        widget is DContextMenuContent ||
+        widget is DToggleGroup<Object> ||
+        widget is DToggle ||
         widget is MenuItemButton ||
         widget is SubmenuButton ||
         widget is FormField<Object?> ||

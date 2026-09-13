@@ -155,18 +155,15 @@ class _VoiceDiagnosticsViewState extends State<VoiceDiagnosticsView> {
               ),
               suffixIcon: _search.text.isEmpty
                   ? null
-                  : DTooltip(
-                      message: 'Clear search',
-                      labelTrigger: true,
-                      child: IconButton(
-                        key: const ValueKey('voice-diagnostics-clear-search'),
-                        tooltip: '',
-                        onPressed: () {
-                          _search.clear();
-                          setState(() {});
-                        },
-                        icon: const DIcon(DIcons.xmark, size: 16),
-                      ),
+                  : DButton.iconOnly(
+                      key: const ValueKey('voice-diagnostics-clear-search'),
+                      onPressed: () {
+                        _search.clear();
+                        setState(() {});
+                      },
+                      variant: DButtonVariant.ghost,
+                      tooltip: 'Clear search',
+                      icon: const DIcon(DIcons.xmark),
                     ),
               border: const OutlineInputBorder(),
             ),
@@ -469,17 +466,14 @@ class _CaptureControls extends StatelessWidget {
                     icon: const DIcon(DIcons.download),
                     label: Text(exporterLabel),
                   ),
-                  DTooltip(
-                    message: state.enabled
+                  DButton.iconOnly(
+                    key: const ValueKey('voice-clear-capture'),
+                    onPressed: onClear,
+                    variant: DButtonVariant.outline,
+                    tooltip: state.enabled
                         ? 'Turn recording off before clearing'
                         : 'Clear capture',
-                    labelTrigger: true,
-                    child: IconButton.outlined(
-                      key: const ValueKey('voice-clear-capture'),
-                      tooltip: '',
-                      onPressed: onClear,
-                      icon: const DIcon(DIcons.trashCan, size: 16),
-                    ),
+                    icon: const DIcon(DIcons.trashCan),
                   ),
                 ],
               ),
@@ -640,15 +634,12 @@ class _CaptureEventDetail extends StatelessWidget {
       children: [
         Row(
           children: [
-            DTooltip(
-              message: 'Back to capture',
-              labelTrigger: true,
-              child: IconButton(
-                key: const ValueKey('voice-diagnostics-detail-back'),
-                tooltip: '',
-                onPressed: onBack,
-                icon: const DIcon(DIcons.arrowLeft, size: 18),
-              ),
+            DButton.iconOnly(
+              key: const ValueKey('voice-diagnostics-detail-back'),
+              onPressed: onBack,
+              variant: DButtonVariant.ghost,
+              tooltip: 'Back to capture',
+              icon: const DIcon(DIcons.arrowLeft),
             ),
             Expanded(
               child: Column(

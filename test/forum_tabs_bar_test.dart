@@ -24,6 +24,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
+import 'support/button_surface.dart';
 import 'support/fakes.dart';
 import 'support/media_pipeline.dart';
 
@@ -192,7 +193,7 @@ void main() {
       expect(tester.getSize(close).width, ForumTabsBar.closeTargetWidth);
       expect(
         tester.getSize(close).height,
-        greaterThanOrEqualTo(ForumTabsBar.minimumActionTarget),
+        greaterThanOrEqualTo(DControlStyle.smallHeight),
       );
     });
 
@@ -458,19 +459,18 @@ void main() {
       );
 
       const closeKey = ValueKey('forum-tab-close-topic-1');
-      const surfaceKey = ValueKey('forum-tab-close-surface-topic-1');
+      const surfaceKey = ValueKey('forum-tab-close-topic-1');
       final close = find.byKey(closeKey);
       final surface = find.byKey(surfaceKey);
-      final theme = Theme.of(tester.element(close));
       final titleRect = tester.getRect(find.text(first.title));
 
       expect(tester.getSize(close).width, ForumTabsBar.closeTargetWidth);
       expect(
         tester.getSize(close).height,
-        greaterThanOrEqualTo(ForumTabsBar.minimumActionTarget),
+        greaterThanOrEqualTo(DControlStyle.smallHeight),
       );
       expect(tester.getSize(surface), const Size.square(24));
-      expect(_decoration(tester, surface).color, Colors.transparent);
+      expect(buttonSurface(tester, of: surface).color, Colors.transparent);
       expect(_closeOpacity(tester, first.id), 0);
       expect(_closeOpacity(tester, second.id), 0);
 
@@ -487,7 +487,10 @@ void main() {
       await pointer.moveTo(tester.getCenter(close));
       await tester.pumpAndSettle();
 
-      expect(_decoration(tester, surface).color, theme.shell.selected);
+      expect(
+        buttonSurface(tester, of: surface).color,
+        isNot(Colors.transparent),
+      );
       expect(tester.getSize(surface), const Size.square(24));
 
       await pointer.moveTo(tester.getCenter(find.text(second.title)));
@@ -528,28 +531,28 @@ void main() {
         expect(selected, isEmpty);
         expect(
           tester
-              .widget<MenuItemButton>(
+              .widget<DContextMenuItem>(
                 find.byKey(const ValueKey('forum-tab-menu-close-chat-2')),
               )
-              .leadingIcon,
+              .leading,
           isNull,
         );
         expect(
           tester
-              .widget<MenuItemButton>(
+              .widget<DContextMenuItem>(
                 find.byKey(
                   const ValueKey('forum-tab-menu-close-others-chat-2'),
                 ),
               )
-              .leadingIcon,
+              .leading,
           isNull,
         );
         expect(
           tester
-              .widget<MenuItemButton>(
+              .widget<DContextMenuItem>(
                 find.byKey(const ValueKey('forum-tab-menu-close-chat-2')),
               )
-              .shortcut,
+              .trailing,
           isNull,
         );
 
@@ -586,14 +589,14 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      final closeOthers = tester.widget<MenuItemButton>(
+      final closeOthers = tester.widget<DContextMenuItem>(
         find.byKey(const ValueKey('forum-tab-menu-close-others-topic-1')),
       );
-      final close = tester.widget<MenuItemButton>(
+      final close = tester.widget<DContextMenuItem>(
         find.byKey(const ValueKey('forum-tab-menu-close-topic-1')),
       );
       _expectPrimaryShortcut(
-        close.shortcut,
+        (close.trailing! as DShortcutKeycaps).shortcut[0],
         Theme.of(tester.element(find.byType(ForumTabsBar))).platform,
         LogicalKeyboardKey.keyW,
       );
@@ -606,21 +609,13 @@ void main() {
         await _pumpBar(tester, items: const [first], selectedId: first.id);
 
         const addKey = ValueKey('forum-tabs-add');
-        const surfaceKey = ValueKey('forum-tabs-add-surface');
         final tab = find.byKey(const ValueKey('forum-tab-item-topic-1'));
         final add = find.byKey(addKey);
-        final surface = find.byKey(surfaceKey);
-        final theme = Theme.of(tester.element(add));
-
-        expect(
-          tester.getSize(add),
-          const Size.square(ForumTabsBar.minimumActionTarget),
-        );
-        expect(tester.getSize(surface), const Size.square(28));
-        expect(tester.getRect(add).left, tester.getRect(tab).right + 4);
-        expect(tester.getRect(surface).left, tester.getRect(tab).right + 7);
-        expect(_decoration(tester, surface).color, Colors.transparent);
-
+        final before = tester.getRect(add);
+        expect(before.size, const Size.square(DControlStyle.regularHeight));
+        expect(before.left, tester.getRect(tab).right + 4);
+        expect(tester.widget<DButton>(add).variant, DButtonVariant.ghost);
+        final fill = buttonSurface(tester, of: add).color;
         final pointer = await tester.createGesture(
           kind: PointerDeviceKind.mouse,
         );
@@ -628,46 +623,34 @@ void main() {
         await pointer.addPointer();
         await pointer.moveTo(tester.getCenter(add));
         await tester.pumpAndSettle();
-
-        expect(
-          _decoration(tester, surface).color,
-          theme.colorScheme.primaryContainer,
-        );
-        expect(tester.getSize(surface), const Size.square(28));
+        expect(buttonSurface(tester, of: add).color, isNot(fill));
+        expect(tester.getRect(add), before);
       },
     );
   });
 
   group('tab switcher', () {
-    testWidgets('renders as a bordered button with a tertiary hover state', (
+    testWidgets('uses the shared outline surface without moving on hover', (
       tester,
     ) async {
       await _pumpBar(tester, items: const [first], selectedId: first.id);
 
       final switcher = find.byKey(const ValueKey('forum-tabs-switcher'));
-      final surface = find.byKey(const ValueKey('forum-tabs-switcher-surface'));
-      final theme = Theme.of(tester.element(surface));
-      final decoration = _decoration(tester, surface);
-
-      expect(tester.getSize(switcher).width, ForumTabsBar.minimumActionTarget);
-      expect(
-        tester.getSize(switcher).height,
-        greaterThanOrEqualTo(ForumTabsBar.minimumActionTarget),
-      );
-      expect(tester.getSize(surface), const Size.square(28));
-      expect(decoration.color, theme.shell.content);
-      expect((decoration.border! as Border).top.color, theme.shell.divider);
-
+      final before = tester.getRect(switcher);
+      expect(before.size, const Size.square(DControlStyle.regularHeight));
+      expect(tester.widget<DButton>(switcher).variant, DButtonVariant.outline);
       final pointer = await tester.createGesture(kind: PointerDeviceKind.mouse);
       addTearDown(pointer.removePointer);
-      await pointer.addPointer();
-      await pointer.moveTo(tester.getCenter(switcher));
+      await pointer.addPointer(location: const Offset(500, 500));
       await tester.pumpAndSettle();
 
+      await pointer.moveTo(tester.getCenter(switcher));
+      await tester.pumpAndSettle();
       expect(
-        _decoration(tester, surface).color,
-        theme.colorScheme.primaryContainer,
+        buttonSurface(tester, of: switcher).color,
+        DTokens.of(tester.element(switcher)).controls!.outline.hover,
       );
+      expect(tester.getRect(switcher), before);
     });
 
     testWidgets('searches open tabs and restores a chosen closed tab', (
@@ -684,9 +667,7 @@ void main() {
         onReopen: reopened.add,
       );
 
-      await tester.tap(
-        find.byKey(const ValueKey('forum-tabs-switcher-surface')),
-      );
+      await tester.tap(find.byKey(const ValueKey('forum-tabs-switcher')));
       await tester.pumpAndSettle();
 
       expect(find.text('Open tabs  2'), findsOneWidget);
@@ -741,9 +722,7 @@ void main() {
         findsNothing,
       );
 
-      await tester.tap(
-        find.byKey(const ValueKey('forum-tabs-switcher-surface')),
-      );
+      await tester.tap(find.byKey(const ValueKey('forum-tabs-switcher')));
       await tester.pumpAndSettle();
       await tester.tap(
         find.byKey(const ValueKey('forum-tabs-switcher-open-chat-2')),
@@ -757,9 +736,7 @@ void main() {
     ) async {
       await _pumpBar(tester, items: const [first], selectedId: first.id);
 
-      await tester.tap(
-        find.byKey(const ValueKey('forum-tabs-switcher-surface')),
-      );
+      await tester.tap(find.byKey(const ValueKey('forum-tabs-switcher')));
       await tester.pumpAndSettle();
 
       expect(
@@ -809,9 +786,7 @@ void main() {
             onSelect: selected.add,
           );
 
-          await tester.tap(
-            find.byKey(const ValueKey('forum-tabs-switcher-surface')),
-          );
+          await tester.tap(find.byKey(const ValueKey('forum-tabs-switcher')));
           await tester.pumpAndSettle();
 
           final menu = find.byKey(const ValueKey('forum-tabs-switcher-menu'));
@@ -823,7 +798,7 @@ void main() {
           );
           final close = find.descendant(
             of: row,
-            matching: find.byType(IconButton),
+            matching: find.byType(DButton),
           );
           expect(tester.takeException(), isNull);
           expect(
@@ -1091,19 +1066,16 @@ void main() {
         selectedId: first.id,
         onClose: closed.add,
       );
-      final button = tester.widget<IconButton>(
-        find.descendant(
-          of: find.byKey(const ValueKey('forum-tab-close-topic-1')),
-          matching: find.byType(IconButton),
-        ),
+      final button = tester.widget<DButton>(
+        find.byKey(const ValueKey('forum-tab-close-topic-1')),
       );
       expect(_closeOpacity(tester, first.id), 0);
       for (var step = 0; step < 6; step++) {
         await tester.sendKeyEvent(LogicalKeyboardKey.tab);
         await tester.pumpAndSettle();
-        if (button.statesController!.value.contains(WidgetState.focused)) break;
+        if (button.focusNode!.hasFocus) break;
       }
-      expect(button.statesController!.value, contains(WidgetState.focused));
+      expect(button.focusNode!.hasFocus, isTrue);
       expect(_closeOpacity(tester, first.id), 1);
       await tester.sendKeyEvent(LogicalKeyboardKey.enter);
       await tester.pumpAndSettle();
@@ -1243,7 +1215,7 @@ double _closeOpacity(WidgetTester tester, String tabId) => tester
     .widget<AnimatedOpacity>(
       find
           .ancestor(
-            of: find.byKey(ValueKey('forum-tab-close-surface-$tabId')),
+            of: find.byKey(ValueKey('forum-tab-close-$tabId')),
             matching: find.byType(AnimatedOpacity),
           )
           .first,
@@ -1298,7 +1270,7 @@ Future<void> _pumpBar(
   ShellController? controller,
 }) async {
   Widget child = MaterialApp(
-    theme: theme ?? AppTheme.light,
+    theme: (theme ?? AppTheme.light).copyWith(platform: TargetPlatform.macOS),
     home: Scaffold(
       body: Align(
         alignment: Alignment.topLeft,

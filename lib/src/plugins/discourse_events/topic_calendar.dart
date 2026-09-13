@@ -376,26 +376,22 @@ final class _TopicCalendarState extends State<TopicCalendar> {
                       ),
                     ),
                   ),
-                  DTooltip(
-                    message:
+                  DButton.iconOnly(
+                    onPressed: () =>
+                        unawaited(_calendar.animateToPreviousPage()),
+                    variant: DButtonVariant.ghost,
+                    size: DButtonSize.small,
+                    tooltip:
                         'Previous ${_view == _CalendarView.agenda ? 'month' : _view.label.toLowerCase()}',
-                    labelTrigger: true,
-                    child: IconButton(
-                      tooltip: '',
-                      onPressed: () =>
-                          unawaited(_calendar.animateToPreviousPage()),
-                      icon: const Icon(Icons.chevron_left),
-                    ),
+                    icon: const Icon(Icons.chevron_left),
                   ),
-                  DTooltip(
-                    message:
+                  DButton.iconOnly(
+                    onPressed: () => unawaited(_calendar.animateToNextPage()),
+                    variant: DButtonVariant.ghost,
+                    size: DButtonSize.small,
+                    tooltip:
                         'Next ${_view == _CalendarView.agenda ? 'month' : _view.label.toLowerCase()}',
-                    labelTrigger: true,
-                    child: IconButton(
-                      tooltip: '',
-                      onPressed: () => unawaited(_calendar.animateToNextPage()),
-                      icon: const Icon(Icons.chevron_right),
-                    ),
+                    icon: const Icon(Icons.chevron_right),
                   ),
                 ],
               ),
@@ -410,31 +406,21 @@ final class _TopicCalendarState extends State<TopicCalendar> {
                     onPressed: _goToday,
                     label: const Text('Today'),
                   ),
-                  DTooltip(
-                    message: 'Calendar view',
-                    labelTrigger: true,
-                    child: PopupMenuButton<_CalendarView>(
-                      tooltip: '',
-                      initialValue: _view,
-                      onSelected: _switchView,
-                      itemBuilder: (_) => [
-                        for (final view in _CalendarView.values)
-                          PopupMenuItem(value: view, child: Text(view.label)),
-                      ],
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 12,
+                  DSelect<_CalendarView>.controlled(
+                    value: _view,
+                    semanticLabel: 'Calendar view',
+                    width: 148,
+                    entries: [
+                      for (final view in _CalendarView.values)
+                        DSelectItem(
+                          value: view,
+                          textValue: view.label,
+                          child: Text(view.label),
                         ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(_view.label),
-                            const Icon(Icons.arrow_drop_down),
-                          ],
-                        ),
-                      ),
-                    ),
+                    ],
+                    onChanged: (value) {
+                      if (value != null) _switchView(value);
+                    },
                   ),
                   DButton(
                     variant: DButtonVariant.outline,
@@ -483,8 +469,12 @@ final class _TopicCalendarState extends State<TopicCalendar> {
   }
 
   Widget _buildCalendar(BuildContext context, BoxConstraints constraints) {
+    final touch = switch (Theme.of(context).platform) {
+      TargetPlatform.android || TargetPlatform.iOS => true,
+      _ => false,
+    };
     final rowHeight = math.max(
-      28.0,
+      touch ? kMinInteractiveDimension : DControlStyle.smallHeight,
       MediaQuery.textScalerOf(context).scale(DiscourseTypography.sm) *
               DiscourseTypography.lineHeightSmall +
           10,
@@ -506,12 +496,7 @@ final class _TopicCalendarState extends State<TopicCalendar> {
             required getMultiDayEventLayoutRenderBox,
             required overlayTileBuilder,
             required overlayBuilders,
-          }) => TextButton(
-            style: TextButton.styleFrom(
-              padding: EdgeInsets.zero,
-              minimumSize: Size.zero,
-              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-            ),
+          }) => DButton(
             onPressed: () => _openDay(
               topicCalendarDay(date),
               events
@@ -519,7 +504,9 @@ final class _TopicCalendarState extends State<TopicCalendar> {
                   .map((event) => event.occurrence)
                   .toList(),
             ),
-            child: Text(
+            variant: DButtonVariant.ghost,
+            size: DButtonSize.small,
+            label: Text(
               '+$numberOfHiddenRows',
               semanticsLabel: '$numberOfHiddenRows more entries',
             ),
@@ -610,16 +597,11 @@ final class _TopicCalendarState extends State<TopicCalendar> {
     final day = topicCalendarDay(date);
     return SizedBox(
       height: 44,
-      child: TextButton(
-        style: TextButton.styleFrom(
-          padding: EdgeInsets.zero,
-          minimumSize: Size.zero,
-          foregroundColor: day.month == _focus.month
-              ? Theme.of(context).colorScheme.onSurface
-              : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.45),
-        ),
+      child: DButton(
         onPressed: () => _openDay(day, _eventsOn(day)),
-        child: Text(
+        variant: DButtonVariant.ghost,
+        size: DButtonSize.small,
+        label: Text(
           '${day.day}',
           semanticsLabel:
               '${DateFormat.yMMMMEEEEd(_locale).format(day)}, ${_eventsOn(day).length} entries',

@@ -173,27 +173,20 @@ final class _EventCalendarState extends State<EventCalendar> {
     EventCalendarView.year => DateFormat.y(_locale).format(widget.page.date),
   };
 
-  Widget _segments<T>(
+  Widget _segments<T extends Object>(
     Map<T, String> values,
     T selected,
     ValueChanged<T>? onChanged,
-  ) => SegmentedButton<T>(
-    segments: [
+  ) => DToggleGroup<T>(
+    items: [
       for (final entry in values.entries)
-        ButtonSegment(value: entry.key, label: Text(entry.value)),
+        DToggleGroupItem(value: entry.key, child: Text(entry.value)),
     ],
-    selected: {selected},
-    showSelectedIcon: false,
-    onSelectionChanged: onChanged == null
-        ? null
-        : (values) => onChanged(values.single),
-    style: SegmentedButton.styleFrom(
-      selectedBackgroundColor: Theme.of(context).colorScheme.primary,
-      selectedForegroundColor: Theme.of(context).colorScheme.onPrimary,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
-      padding: const EdgeInsets.symmetric(horizontal: 12),
-      visualDensity: VisualDensity.compact,
-    ),
+    values: [selected],
+    allowEmptySelection: false,
+    variant: DToggleVariant.outline,
+    spacing: 0,
+    onChanged: onChanged == null ? null : (values) => onChanged(values.single),
   );
 
   Widget _toolbar(BuildContext context, BoxConstraints constraints) {
@@ -220,27 +213,23 @@ final class _EventCalendarState extends State<EventCalendar> {
     final navigation = Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        DTooltip(
-          message: 'Previous ${_view.name}',
-          labelTrigger: true,
-          child: IconButton(
-            tooltip: '',
-            onPressed: widget.page.move(-1).date.year >= 1900
-                ? () => widget.onPageChanged(widget.page.move(-1))
-                : null,
-            icon: const Icon(Icons.chevron_left),
-          ),
+        DButton.iconOnly(
+          onPressed: widget.page.move(-1).date.year >= 1900
+              ? () => widget.onPageChanged(widget.page.move(-1))
+              : null,
+          variant: DButtonVariant.ghost,
+          size: DButtonSize.small,
+          tooltip: 'Previous ${_view.name}',
+          icon: const Icon(Icons.chevron_left),
         ),
-        DTooltip(
-          message: 'Next ${_view.name}',
-          labelTrigger: true,
-          child: IconButton(
-            tooltip: '',
-            onPressed: widget.page.move(1).date.year < 2200
-                ? () => widget.onPageChanged(widget.page.move(1))
-                : null,
-            icon: const Icon(Icons.chevron_right),
-          ),
+        DButton.iconOnly(
+          onPressed: widget.page.move(1).date.year < 2200
+              ? () => widget.onPageChanged(widget.page.move(1))
+              : null,
+          variant: DButtonVariant.ghost,
+          size: DButtonSize.small,
+          tooltip: 'Next ${_view.name}',
+          icon: const Icon(Icons.chevron_right),
         ),
         DButton(
           variant: DButtonVariant.outline,
@@ -319,8 +308,12 @@ final class _EventCalendarState extends State<EventCalendar> {
   );
 
   Widget _buildCalendar() {
+    final touch = switch (Theme.of(context).platform) {
+      TargetPlatform.android || TargetPlatform.iOS => true,
+      _ => false,
+    };
     final rowHeight = math.max(
-      26.0,
+      touch ? kMinInteractiveDimension : DControlStyle.smallHeight,
       MediaQuery.textScalerOf(context).scale(DiscourseTypography.sm) *
               DiscourseTypography.lineHeightSmall +
           10,
@@ -337,14 +330,11 @@ final class _EventCalendarState extends State<EventCalendar> {
             required getMultiDayEventLayoutRenderBox,
             required overlayTileBuilder,
             required overlayBuilders,
-          }) => TextButton(
-            style: TextButton.styleFrom(
-              padding: EdgeInsets.zero,
-              minimumSize: Size.zero,
-              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-            ),
+          }) => DButton(
             onPressed: () => _openDay(date),
-            child: Text(
+            variant: DButtonVariant.ghost,
+            size: DButtonSize.small,
+            label: Text(
               '+$numberOfHiddenRows more',
               maxLines: 1,
               overflow: TextOverflow.ellipsis,

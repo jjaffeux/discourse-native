@@ -1120,168 +1120,168 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
                                 icon: const DIcon(DIcons.reply, size: 16),
                               ),
                             if (hasSecondaryActions)
-                              MenuAnchor(
-                                alignmentOffset: const Offset(0, 4),
-                                onOpen: _moreActionsOpened,
-                                onClose: _moreActionsClosed,
-                                style: MenuStyle(
-                                  backgroundColor: WidgetStatePropertyAll(
-                                    Theme.of(context).shell.floating,
+                              DDropdownMenu(
+                                onOpenChange: (open, reason) {
+                                  if (open) {
+                                    (_moreActionsOpened)();
+                                  }
+                                  if (!open) {
+                                    (_moreActionsClosed)();
+                                  }
+                                },
+                                content: DDropdownMenuContent(
+                                  semanticLabel: 'Actions',
+                                  width: 300,
+                                  constraints: const BoxConstraints(
+                                    maxHeight: 440,
                                   ),
-                                  surfaceTintColor:
-                                      const WidgetStatePropertyAll(
-                                        Colors.transparent,
+                                  children: [
+                                    if (widget.canCopyLink)
+                                      DDropdownMenuItem(
+                                        key: ValueKey(
+                                          'chat-message-copy-link-${widget.message.id}',
+                                        ),
+                                        onPressed: () => unawaited(_copyLink()),
+                                        leading: const DIcon(
+                                          DIcons.link,
+                                          size: 16,
+                                        ),
+                                        child: const Text('Copy link'),
                                       ),
-                                  maximumSize: const WidgetStatePropertyAll(
-                                    Size(300, 440),
-                                  ),
+                                    if (canEdit)
+                                      DDropdownMenuItem(
+                                        key: ValueKey(
+                                          'chat-message-edit-${widget.message.id}',
+                                        ),
+                                        onPressed: _edit,
+                                        leading: const DIcon(
+                                          DIcons.pencil,
+                                          size: 16,
+                                        ),
+                                        child: const Text('Edit'),
+                                      ),
+                                    if (widget.onSelect != null)
+                                      DDropdownMenuItem(
+                                        key: ValueKey(
+                                          'chat-message-select-${widget.message.id}',
+                                        ),
+                                        onPressed: widget.onSelect,
+                                        leading: const DIcon(
+                                          DIcons.list,
+                                          size: 16,
+                                        ),
+                                        child: const Text('Select'),
+                                      ),
+                                    if (canPin)
+                                      DDropdownMenuItem(
+                                        key: ValueKey(
+                                          'chat-message-pin-${widget.message.id}',
+                                        ),
+                                        onPressed: _pinning
+                                            ? null
+                                            : () => unawaited(_togglePin()),
+                                        leading: _pinning
+                                            ? const SizedBox.square(
+                                                dimension: 16,
+                                                child: DSpinner(),
+                                              )
+                                            : const DIcon(
+                                                DIcons.thumbtack,
+                                                size: 16,
+                                              ),
+                                        child: Text(
+                                          widget.message.pinned
+                                              ? 'Unpin'
+                                              : 'Pin',
+                                        ),
+                                      ),
+                                    if (flagTypes.isNotEmpty)
+                                      DDropdownMenuItem(
+                                        key: ValueKey(
+                                          'chat-message-flag-${widget.message.id}',
+                                        ),
+                                        onPressed: () =>
+                                            unawaited(_flag(flagTypes)),
+                                        leading: const DIcon(
+                                          DIcons.flag,
+                                          size: 16,
+                                        ),
+                                        child: const Text('Flag'),
+                                      ),
+                                    if (canDelete)
+                                      DDropdownMenuItem(
+                                        key: ValueKey(
+                                          'chat-message-delete-${widget.message.id}',
+                                        ),
+                                        onPressed: () => unawaited(_delete()),
+                                        leading: const DIcon(
+                                          DIcons.trashCan,
+                                          size: 16,
+                                        ),
+                                        variant: DDropdownMenuItemVariant
+                                            .destructive,
+                                        child: const Text('Delete'),
+                                      ),
+                                    if (canRestore)
+                                      DDropdownMenuItem(
+                                        key: ValueKey(
+                                          'chat-message-restore-${widget.message.id}',
+                                        ),
+                                        onPressed: _restoring
+                                            ? null
+                                            : () => unawaited(_restore()),
+                                        leading: _restoring
+                                            ? const SizedBox.square(
+                                                dimension: 16,
+                                                child: DSpinner(),
+                                              )
+                                            : const DIcon(
+                                                DIcons.arrowRotateLeft,
+                                                size: 16,
+                                              ),
+                                        child: const Text(
+                                          'Restore deleted message',
+                                        ),
+                                      ),
+                                    if (canRebake)
+                                      DDropdownMenuItem(
+                                        key: ValueKey(
+                                          'chat-message-rebake-${widget.message.id}',
+                                        ),
+                                        onPressed: _rebaking
+                                            ? null
+                                            : () => unawaited(_rebake()),
+                                        leading: _rebaking
+                                            ? const SizedBox.square(
+                                                dimension: 16,
+                                                child: DSpinner(),
+                                              )
+                                            : const DIcon(
+                                                DIcons.arrowsRotate,
+                                                size: 16,
+                                              ),
+                                        child: const Text('Rebuild HTML'),
+                                      ),
+                                  ],
                                 ),
-                                menuChildren: [
-                                  if (widget.canCopyLink)
-                                    MenuItemButton(
-                                      key: ValueKey(
-                                        'chat-message-copy-link-${widget.message.id}',
+                                child: DDropdownMenuTrigger(
+                                  builder: (triggerContext, state) =>
+                                      DButton.iconOnly(
+                                        focusNode: state.focusNode,
+                                        hasPopup: true,
+                                        expanded: state.open,
+                                        variant: DButtonVariant.ghost,
+                                        key: ValueKey(
+                                          'chat-message-more-actions-${widget.message.id}',
+                                        ),
+                                        tooltip: 'More message actions',
+                                        onPressed: state.toggle,
+                                        icon: const DIcon(
+                                          DIcons.ellipsisVertical,
+                                          size: 16,
+                                        ),
                                       ),
-                                      onPressed: () => unawaited(_copyLink()),
-                                      leadingIcon: const DIcon(
-                                        DIcons.link,
-                                        size: 16,
-                                      ),
-                                      child: const Text('Copy link'),
-                                    ),
-                                  if (canEdit)
-                                    MenuItemButton(
-                                      key: ValueKey(
-                                        'chat-message-edit-${widget.message.id}',
-                                      ),
-                                      onPressed: _edit,
-                                      leadingIcon: const DIcon(
-                                        DIcons.pencil,
-                                        size: 16,
-                                      ),
-                                      child: const Text('Edit'),
-                                    ),
-                                  if (widget.onSelect != null)
-                                    MenuItemButton(
-                                      key: ValueKey(
-                                        'chat-message-select-${widget.message.id}',
-                                      ),
-                                      onPressed: widget.onSelect,
-                                      leadingIcon: const DIcon(
-                                        DIcons.list,
-                                        size: 16,
-                                      ),
-                                      child: const Text('Select'),
-                                    ),
-                                  if (canPin)
-                                    MenuItemButton(
-                                      key: ValueKey(
-                                        'chat-message-pin-${widget.message.id}',
-                                      ),
-                                      onPressed: _pinning
-                                          ? null
-                                          : () => unawaited(_togglePin()),
-                                      leadingIcon: _pinning
-                                          ? const SizedBox.square(
-                                              dimension: 16,
-                                              child: DSpinner(),
-                                            )
-                                          : const DIcon(
-                                              DIcons.thumbtack,
-                                              size: 16,
-                                            ),
-                                      child: Text(
-                                        widget.message.pinned ? 'Unpin' : 'Pin',
-                                      ),
-                                    ),
-                                  if (flagTypes.isNotEmpty)
-                                    MenuItemButton(
-                                      key: ValueKey(
-                                        'chat-message-flag-${widget.message.id}',
-                                      ),
-                                      onPressed: () =>
-                                          unawaited(_flag(flagTypes)),
-                                      leadingIcon: const DIcon(
-                                        DIcons.flag,
-                                        size: 16,
-                                      ),
-                                      child: const Text('Flag'),
-                                    ),
-                                  if (canDelete)
-                                    MenuItemButton(
-                                      key: ValueKey(
-                                        'chat-message-delete-${widget.message.id}',
-                                      ),
-                                      onPressed: () => unawaited(_delete()),
-                                      leadingIcon: const DIcon(
-                                        DIcons.trashCan,
-                                        size: 16,
-                                      ),
-                                      style: MenuItemButton.styleFrom(
-                                        foregroundColor: Theme.of(
-                                          context,
-                                        ).colorScheme.error,
-                                        iconColor: Theme.of(
-                                          context,
-                                        ).colorScheme.error,
-                                      ),
-                                      child: const Text('Delete'),
-                                    ),
-                                  if (canRestore)
-                                    MenuItemButton(
-                                      key: ValueKey(
-                                        'chat-message-restore-${widget.message.id}',
-                                      ),
-                                      onPressed: _restoring
-                                          ? null
-                                          : () => unawaited(_restore()),
-                                      leadingIcon: _restoring
-                                          ? const SizedBox.square(
-                                              dimension: 16,
-                                              child: DSpinner(),
-                                            )
-                                          : const DIcon(
-                                              DIcons.arrowRotateLeft,
-                                              size: 16,
-                                            ),
-                                      child: const Text(
-                                        'Restore deleted message',
-                                      ),
-                                    ),
-                                  if (canRebake)
-                                    MenuItemButton(
-                                      key: ValueKey(
-                                        'chat-message-rebake-${widget.message.id}',
-                                      ),
-                                      onPressed: _rebaking
-                                          ? null
-                                          : () => unawaited(_rebake()),
-                                      leadingIcon: _rebaking
-                                          ? const SizedBox.square(
-                                              dimension: 16,
-                                              child: DSpinner(),
-                                            )
-                                          : const DIcon(
-                                              DIcons.arrowsRotate,
-                                              size: 16,
-                                            ),
-                                      child: const Text('Rebuild HTML'),
-                                    ),
-                                ],
-                                builder: (context, menu, child) =>
-                                    HoverActionButton(
-                                      key: ValueKey(
-                                        'chat-message-more-actions-${widget.message.id}',
-                                      ),
-                                      tooltip: 'More message actions',
-                                      onPressed: menu.isOpen
-                                          ? menu.close
-                                          : menu.open,
-                                      icon: const DIcon(
-                                        DIcons.ellipsisVertical,
-                                        size: 16,
-                                      ),
-                                    ),
+                                ),
                               ),
                           ],
                         ),

@@ -170,47 +170,61 @@ class EventCard extends StatelessWidget {
                     onWeb,
                     onWithdraw,
                   ].any((callback) => callback != null))
-                    DTooltip(
-                      message: 'Event actions',
-                      labelTrigger: true,
-                      child: PopupMenuButton<VoidCallback>(
-                        tooltip: '',
-                        onSelected: (callback) => callback(),
-                        itemBuilder: (_) => [
-                          if (onEdit != null)
-                            PopupMenuItem(
-                              value: onEdit,
-                              child: const Text('Edit event'),
-                            ),
-                          if (onInvite != null)
-                            PopupMenuItem(
-                              value: onInvite,
-                              child: const Text('Invite people'),
-                            ),
-                          if (onWithdraw != null)
-                            PopupMenuItem(
-                              value: onWithdraw,
-                              child: const Text('Remove my response'),
-                            ),
-                          if (onExport != null)
-                            PopupMenuItem(
-                              value: onExport,
-                              child: const Text('Export calendar'),
-                            ),
-                          if (onWeb != null)
-                            PopupMenuItem(
-                              value: onWeb,
-                              child: const Text('Open event on web'),
-                            ),
-                          if (onWeb != null && event.canManage)
-                            PopupMenuItem(
-                              value: onWeb,
-                              child: const Text(
-                                'Bulk invitations and reports on web',
-                              ),
-                            ),
-                        ],
-                      ),
+                    Builder(
+                      builder: (menuContext) {
+                        return DDropdownMenu(
+                          content: DDropdownMenuContent(
+                            semanticLabel: 'Event actions',
+                            width: 280,
+                            children: [
+                              if (onEdit != null)
+                                DDropdownMenuItem(
+                                  onPressed: onEdit,
+                                  child: const Text('Edit event'),
+                                ),
+                              if (onInvite != null)
+                                DDropdownMenuItem(
+                                  onPressed: onInvite,
+                                  child: const Text('Invite people'),
+                                ),
+                              if (onWithdraw != null)
+                                DDropdownMenuItem(
+                                  onPressed: onWithdraw,
+                                  child: const Text('Remove my response'),
+                                ),
+                              if (onExport != null)
+                                DDropdownMenuItem(
+                                  onPressed: onExport,
+                                  child: const Text('Export calendar'),
+                                ),
+                              if (onWeb != null)
+                                DDropdownMenuItem(
+                                  onPressed: onWeb,
+                                  child: const Text('Open event on web'),
+                                ),
+                              if (onWeb != null && event.canManage)
+                                DDropdownMenuItem(
+                                  onPressed: onWeb,
+                                  child: const Text(
+                                    'Bulk invitations and reports on web',
+                                  ),
+                                ),
+                            ],
+                          ),
+                          child: DDropdownMenuTrigger(
+                            builder: (triggerContext, state) =>
+                                DButton.iconOnly(
+                                  tooltip: 'Event actions',
+                                  variant: DButtonVariant.ghost,
+                                  icon: const Icon(Icons.more_vert),
+                                  focusNode: state.focusNode,
+                                  hasPopup: true,
+                                  expanded: state.open,
+                                  onPressed: state.toggle,
+                                ),
+                          ),
+                        );
+                      },
                     ),
                 ],
               ),
@@ -357,41 +371,59 @@ class EventCard extends StatelessWidget {
                     for (final status in settings.buttons)
                       if (!event.flag('minimal') || status == 'interested')
                         if (status == 'going' && event.recurring)
-                          DTooltip(
-                            message: 'Choose recurring attendance',
-                            labelTrigger: true,
-                            child: PopupMenuButton<VoidCallback>(
-                              tooltip: '',
-                              enabled: !pending && event.canChoose(status),
-                              // Menu values retain the callback from opening,
-                              // even if the button's widget is replaced meanwhile.
-                              onSelected: (callback) => callback(),
-                              itemBuilder: (_) => [
-                                CheckedPopupMenuItem(
-                                  value: () => onRespond!(status, false),
-                                  checked:
-                                      selected == 'going' &&
-                                      event.watching?.recurring == false,
-                                  child: const Text('This occurrence only'),
+                          Builder(
+                            builder: (menuContext) {
+                              void onSelect(VoidCallback callback) =>
+                                  callback();
+                              return DDropdownMenu(
+                                content: DDropdownMenuContent(
+                                  semanticLabel: 'Choose recurring attendance',
+                                  width: 280,
+                                  children: [
+                                    DDropdownMenuCheckboxItem(
+                                      checked:
+                                          selected == 'going' &&
+                                          event.watching?.recurring == false,
+                                      closeOnSelect: true,
+                                      onChanged: (_) => onSelect(
+                                        () => onRespond!(status, false),
+                                      ),
+                                      child: const Text('This occurrence only'),
+                                    ),
+                                    DDropdownMenuCheckboxItem(
+                                      checked:
+                                          selected == 'going' &&
+                                          event.watching?.recurring == true,
+                                      closeOnSelect: true,
+                                      onChanged: (_) => onSelect(
+                                        () => onRespond!(status, true),
+                                      ),
+                                      child: const Text('Every occurrence'),
+                                    ),
+                                  ],
                                 ),
-                                CheckedPopupMenuItem(
-                                  value: () => onRespond!(status, true),
-                                  checked:
-                                      selected == 'going' &&
-                                      event.watching?.recurring == true,
-                                  child: const Text('Every occurrence'),
-                                ),
-                              ],
-                              child: IgnorePointer(
-                                child: _ResponseButton(
-                                  status: status,
+                                child: Semantics(
                                   selected: selected == status,
-                                  enabled: !pending && event.canChoose(status),
-                                  recurring: true,
-                                  onTap: () {},
+                                  child: DDropdownMenuTrigger(
+                                    builder: (triggerContext, state) => DButton(
+                                      label: Text(eventResponseLabel(status)),
+                                      tooltip: 'Choose recurring attendance',
+                                      variant: selected == status
+                                          ? DButtonVariant.primary
+                                          : DButtonVariant.outline,
+                                      focusNode: state.focusNode,
+                                      hasPopup: true,
+                                      expanded: state.open,
+                                      onPressed:
+                                          !pending && event.canChoose(status)
+                                          ? state.toggle
+                                          : null,
+                                      icon: const Icon(Icons.arrow_drop_down),
+                                    ),
+                                  ),
                                 ),
-                              ),
-                            ),
+                              );
+                            },
                           )
                         else
                           _ResponseButton(
@@ -444,18 +476,16 @@ class _ResponseButton extends StatelessWidget {
     required this.selected,
     required this.enabled,
     required this.onTap,
-    this.recurring = false,
   });
   final String status;
   final bool selected;
   final bool enabled;
-  final bool recurring;
   final VoidCallback onTap;
   @override
   Widget build(BuildContext context) => Semantics(
     selected: selected,
     child: DButton(
-      label: Text('${eventResponseLabel(status)}${recurring ? ' ▾' : ''}'),
+      label: Text(eventResponseLabel(status)),
       icon: Icon(switch (status) {
         'going' => Icons.check,
         'interested' => Icons.star,

@@ -53,13 +53,16 @@ class _UpdatePanel extends StatelessWidget {
             ),
             const SizedBox(height: 20),
 
-            SegmentedButton<UpdateChannel>(
-              segments: [
+            DToggleGroup<UpdateChannel>(
+              items: [
                 for (final channel in UpdateChannel.values)
-                  ButtonSegment(value: channel, label: Text(channel.label)),
+                  DToggleGroupItem(value: channel, child: Text(channel.label)),
               ],
-              selected: {updates.channel},
-              onSelectionChanged: busy
+              values: [updates.channel],
+              allowEmptySelection: false,
+              variant: DToggleVariant.outline,
+              spacing: 0,
+              onChanged: busy
                   ? null
                   : (selection) => updates.setChannel(selection.first),
             ),

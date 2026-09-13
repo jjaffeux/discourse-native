@@ -1176,12 +1176,7 @@ void main() {
       );
       await tester.pumpAndSettle();
       await tester.tap(
-        find
-            .widgetWithText(
-              PopupMenuItem<VoiceRole>,
-              VoiceRole.participant.name,
-            )
-            .last,
+        find.widgetWithText(DDropdownMenuItem, VoiceRole.participant.name).last,
       );
       await tester.pumpAndSettle();
       final update = transport.writes.singleWhere(

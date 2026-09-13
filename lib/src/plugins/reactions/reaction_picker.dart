@@ -481,14 +481,11 @@ class ReactionGrid extends StatelessWidget {
         if (more != null)
           SizedBox.square(
             dimension: cell,
-            child: DTooltip(
-              message: 'More emojis',
-              labelTrigger: true,
-              child: IconButton(
-                tooltip: '',
-                onPressed: enabled ? more : null,
-                icon: const DIcon(DIcons.farFaceSmile, size: 24),
-              ),
+            child: DButton.iconOnly(
+              onPressed: enabled ? more : null,
+              variant: DButtonVariant.ghost,
+              tooltip: 'More emojis',
+              icon: const DIcon(DIcons.farFaceSmile),
             ),
           ),
       ],
