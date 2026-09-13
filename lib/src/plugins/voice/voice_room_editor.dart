@@ -39,6 +39,8 @@ class _VoiceRoomEditorDialog extends StatefulWidget {
 }
 
 class _VoiceRoomEditorDialogState extends State<_VoiceRoomEditorDialog> {
+  final _form = GlobalKey<FormState>();
+  final _advanced = DAccordionController<String>();
   late final TextEditingController _name;
   late final TextEditingController _description;
   late final TextEditingController _maximum;
@@ -71,7 +73,7 @@ class _VoiceRoomEditorDialogState extends State<_VoiceRoomEditorDialog> {
   @override
   Widget build(BuildContext context) => DDialogContent(
     showCloseButton: false,
-    maxWidth: 452,
+    maxWidth: 520,
     semanticLabel: _room == null ? 'Create voice room' : 'Edit voice room',
     children: [
       DDialogHeader(
@@ -81,83 +83,192 @@ class _VoiceRoomEditorDialogState extends State<_VoiceRoomEditorDialog> {
               _room == null ? 'Create voice room' : 'Edit voice room',
             ),
           ),
+          const DDialogDescription(
+            child: Text('Choose how people join and participate in your room.'),
+          ),
         ],
       ),
       DDialogScrollArea(
         maxHeightFactor: .65,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Semantics(
-              isRequired: true,
-              child: DInput(
-                isRequired: true,
-                controller: _name,
-                autofocus: true,
-                onChanged: (_) => setState(() {}),
-                labelText: 'Name',
-                helperText: 'Required',
-              ),
-            ),
-            DTextarea(
-              controller: _description,
-              labelText: 'Description',
-              minLines: 2,
-              maxLines: 5,
-            ),
-            DSwitchTile(
-              value: _isPublic,
-              onChanged: (value) => setState(() => _isPublic = value),
-              title: const DLabel(child: Text('Public room')),
-            ),
-            DSwitchTile(
-              value: _stage,
-              onChanged: (value) => setState(() => _stage = value),
-              title: const DLabel(child: Text('Stage room')),
-            ),
-            DSwitchTile(
-              value: _video,
-              onChanged: (value) => setState(() => _video = value),
-              title: const DLabel(child: Text('Allow video')),
-            ),
-            DInput(
-              controller: _maximum,
-              keyboardType: TextInputType.number,
-              labelText: 'Maximum participants',
-            ),
-            DSelect<VoiceQualityProfile>.controlled(
-              isExpanded: true,
-              value: _quality,
-              label: const Text('Maximum media quality'),
-              onChanged: (value) =>
-                  setState(() => _quality = value ?? _quality),
-              entries: [
-                for (final value in VoiceQualityProfile.values)
-                  DSelectOption(
-                    value: value,
-                    label: value.name,
-                    child: Text(value.name),
+        child: Form(
+          key: _form,
+          autovalidateMode: AutovalidateMode.onUserInteraction,
+          child: DFieldGroup(
+            spacing: DSpacing.lg,
+            children: [
+              DFieldSet(
+                semanticLabel: 'Room details',
+                children: [
+                  DInput(
+                    isRequired: true,
+                    controller: _name,
+                    autofocus: true,
+                    onChanged: (_) => setState(() {}),
+                    labelText: 'Name',
+                    hintText: 'e.g. Community lounge',
+                    validator: (value) {
+                      final name = value?.trim() ?? '';
+                      if (name.isEmpty) return 'Enter a room name.';
+                      if (name.runes.length > 80) {
+                        return 'Use 80 characters or fewer.';
+                      }
+                      return null;
+                    },
                   ),
-              ],
-              initialValue: _quality,
-            ),
-            DInput(
-              controller: _chatChannel,
-              keyboardType: TextInputType.number,
-              labelText: 'Chat channel ID (optional)',
-            ),
-            DInput(
-              controller: _chatIdle,
-              keyboardType: TextInputType.number,
-              labelText: 'Chat idle minutes',
-            ),
-            if (_room?.livekitEnabled != null)
-              DSwitchTile(
-                value: _livekit,
-                onChanged: (value) => setState(() => _livekit = value),
-                title: const DLabel(child: Text('Use LiveKit')),
+                  DTextarea(
+                    controller: _description,
+                    labelText: 'Description',
+                    hintText: 'What will people talk about? (optional)',
+                    minLines: 2,
+                    maxLines: 5,
+                  ),
+                ],
               ),
-          ],
+              const DFieldSeparator(),
+              DFieldSet(
+                children: [
+                  const DFieldLegend(child: Text('Room settings')),
+                  DFieldGroup(
+                    variant: DFieldGroupVariant.choice,
+                    children: [
+                      DSwitchTile(
+                        value: _isPublic,
+                        onChanged: (value) => setState(() => _isPublic = value),
+                        title: const DFieldLabel(child: Text('Public room')),
+                        subtitle: const DFieldDescription(
+                          child: Text('Visible to everyone on the forum.'),
+                        ),
+                      ),
+                      DSwitchTile(
+                        value: _stage,
+                        onChanged: (value) => setState(() => _stage = value),
+                        title: const DFieldLabel(child: Text('Stage room')),
+                        subtitle: const DFieldDescription(
+                          child: Text(
+                            'People join as listeners until invited to speak.',
+                          ),
+                        ),
+                      ),
+                      DSwitchTile(
+                        value: _video,
+                        onChanged: (value) => setState(() => _video = value),
+                        title: const DFieldLabel(child: Text('Allow video')),
+                        subtitle: const DFieldDescription(
+                          child: Text(
+                            'Let participants share their camera and screen.',
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  LayoutBuilder(
+                    builder: (context, constraints) {
+                      final horizontal =
+                          constraints.maxWidth >= 440 &&
+                          MediaQuery.textScalerOf(context).scale(14) <= 21;
+                      return Flex(
+                        direction: horizontal ? Axis.horizontal : Axis.vertical,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        spacing: DSpacing.lg,
+                        children: [
+                          Flexible(
+                            flex: horizontal ? 1 : 0,
+                            child: DInput(
+                              controller: _maximum,
+                              keyboardType: TextInputType.number,
+                              labelText: 'Maximum participants',
+                              hintText: 'Forum default',
+                              helperText: _stage
+                                  ? 'Optional, 2–200 people.'
+                                  : 'Optional, 2–50 people.',
+                              validator: (value) => _validateNumber(
+                                value,
+                                min: 2,
+                                max: _stage ? 200 : 50,
+                              ),
+                            ),
+                          ),
+                          Flexible(
+                            flex: horizontal ? 1 : 0,
+                            child: DSelect<VoiceQualityProfile>.controlled(
+                              isExpanded: true,
+                              value: _quality,
+                              label: const Text('Maximum media quality'),
+                              onChanged: (value) =>
+                                  setState(() => _quality = value ?? _quality),
+                              entries: [
+                                for (final value in VoiceQualityProfile.values)
+                                  DSelectOption(
+                                    value: value,
+                                    label: _qualityLabel(value),
+                                    child: Text(_qualityLabel(value)),
+                                  ),
+                              ],
+                              initialValue: _quality,
+                            ),
+                          ),
+                        ],
+                      );
+                    },
+                  ),
+                ],
+              ),
+              DAccordion<String>(
+                controller: _advanced,
+                keepMounted: true,
+                children: [
+                  DAccordionItem<String>(
+                    value: 'advanced',
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        const DAccordionTrigger(
+                          child: Text('Advanced settings'),
+                        ),
+                        DAccordionContent(
+                          child: DFieldGroup(
+                            children: [
+                              DInput(
+                                controller: _chatChannel,
+                                keyboardType: TextInputType.number,
+                                labelText: 'Chat channel ID (optional)',
+                                hintText: 'e.g. 42',
+                                helperText:
+                                    'Use a channel with threading enabled for room conversations.',
+                                validator: (value) =>
+                                    _validateNumber(value, min: 1),
+                              ),
+                              DInput(
+                                controller: _chatIdle,
+                                keyboardType: TextInputType.number,
+                                labelText: 'New chat thread after (minutes)',
+                                hintText: '15',
+                                helperText:
+                                    'Start a fresh thread after 2–1,440 minutes of inactivity. Defaults to 15.',
+                                validator: (value) =>
+                                    _validateNumber(value, min: 2, max: 1440),
+                              ),
+                              if (_room?.livekitEnabled != null)
+                                DSwitchTile(
+                                  value: _livekit,
+                                  onChanged: (value) =>
+                                      setState(() => _livekit = value),
+                                  title: const DFieldLabel(
+                                    child: Text('Use LiveKit'),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
       DDialogFooter(
@@ -171,7 +282,7 @@ class _VoiceRoomEditorDialogState extends State<_VoiceRoomEditorDialog> {
           ),
           DButton(
             onPressed: _name.text.trim().isEmpty ? null : _save,
-            label: const Text('Save'),
+            label: Text(_room == null ? 'Create room' : 'Save changes'),
             variant: DButtonVariant.primary,
           ),
         ],
@@ -179,23 +290,57 @@ class _VoiceRoomEditorDialogState extends State<_VoiceRoomEditorDialog> {
     ],
   );
 
-  void _save() => widget.dialog.close(
-    VoiceRoomDraft(
-      name: _name.text.trim(),
-      description: _description.text.trim(),
-      isPublic: _isPublic,
-      type: _stage ? VoiceRoomType.stage : VoiceRoomType.open,
-      videoEnabled: _video,
-      maxParticipants: int.tryParse(_maximum.text),
-      chatChannelId: int.tryParse(_chatChannel.text),
-      chatIdleMinutes: int.tryParse(_chatIdle.text),
-      livekitEnabled: _room?.livekitEnabled == null ? null : _livekit,
-      maxQualityProfile: _quality,
-    ),
-  );
+  String _qualityLabel(VoiceQualityProfile quality) => switch (quality) {
+    VoiceQualityProfile.standard => 'Standard',
+    VoiceQualityProfile.high => 'High',
+    VoiceQualityProfile.maximum => 'Maximum',
+  };
+
+  String? _validateNumber(String? value, {required int min, int? max}) {
+    final text = value?.trim() ?? '';
+    if (text.isEmpty) return null;
+    final number = int.tryParse(text);
+    if (number == null || number < min || (max != null && number > max)) {
+      return max == null
+          ? 'Enter a whole number of $min or more.'
+          : 'Enter a whole number from $min to $max.';
+    }
+    return null;
+  }
+
+  void _save() {
+    final invalid = _form.currentState!.validateGranularly();
+    if (invalid.isNotEmpty) {
+      if (_validateNumber(_chatChannel.text, min: 1) != null ||
+          _validateNumber(_chatIdle.text, min: 2, max: 1440) != null) {
+        _advanced.open('advanced');
+      }
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && invalid.first.mounted) {
+          Scrollable.ensureVisible(invalid.first.context);
+        }
+      });
+      return;
+    }
+    widget.dialog.close(
+      VoiceRoomDraft(
+        name: _name.text.trim(),
+        description: _description.text.trim(),
+        isPublic: _isPublic,
+        type: _stage ? VoiceRoomType.stage : VoiceRoomType.open,
+        videoEnabled: _video,
+        maxParticipants: int.tryParse(_maximum.text.trim()),
+        chatChannelId: int.tryParse(_chatChannel.text.trim()),
+        chatIdleMinutes: int.tryParse(_chatIdle.text.trim()) ?? 15,
+        livekitEnabled: _room?.livekitEnabled == null ? null : _livekit,
+        maxQualityProfile: _quality,
+      ),
+    );
+  }
 
   @override
   void dispose() {
+    _advanced.dispose();
     _name.dispose();
     _description.dispose();
     _maximum.dispose();
