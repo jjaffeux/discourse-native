@@ -11,7 +11,7 @@ import '../foundation/tokens.dart';
 import 'd_button.dart';
 import 'd_label.dart';
 
-/// A single-line shadcn input with Flutter editing and Form ownership.
+/// A shadcn input with Flutter editing and Form ownership.
 ///
 /// Supply [controller] for full selection/composing control, [value] for a
 /// parent-updated string, or [initialValue] for local editing. These modes are
@@ -27,10 +27,14 @@ import 'd_label.dart';
 /// inline slots for application search/status controls, not Input Group's API.
 /// The box is editable edge to edge: its padding takes the text cursor and a
 /// press there focuses the editor. Multiline editing belongs to Textarea. Use
-/// [DFileInput] for file selection.
+/// [DFileInput] for file selection. [borderless] supports editing a title in
+/// place, with [style] and wrapping up to [maxLines] lines.
 class DInput extends FormField<String> {
   DInput({
     super.key,
+    this.borderless = false,
+    this.style,
+    this.maxLines = 1,
     this.controller,
     this.value,
     String? initialValue,
@@ -72,13 +76,24 @@ class DInput extends FormField<String> {
     super.onReset,
     super.validator,
     super.autovalidateMode,
-  }) : assert(controller == null || (initialValue == null && value == null)),
+  }) : assert(maxLines > 0),
+       assert(borderless || maxLines == 1),
+       assert(controller == null || (initialValue == null && value == null)),
        assert(initialValue == null || value == null),
        assert(maxLength == null || maxLength > 0),
        super(
          initialValue: controller?.text ?? value ?? initialValue ?? '',
          builder: (state) => (state as _DInputState)._build(),
        );
+
+  /// Removes the field surface and insets for editing text in place.
+  final bool borderless;
+
+  /// Text styling for an inline editor.
+  final TextStyle? style;
+
+  /// Inline editors may wrap; ordinary form inputs remain single-line.
+  final int maxLines;
 
   final TextEditingController? controller;
   final String? value;
@@ -243,13 +258,15 @@ class _DInputState extends FormFieldState<String> {
       _ => false,
     };
     final fontSize = touch ? DiscourseTypography.base : DiscourseTypography.sm;
-    final style = Theme.of(context).textTheme.bodyMedium!.copyWith(
-      fontSize: fontSize,
-      height: (touch ? 24 : 20) / fontSize,
-      fontWeight: FontWeight.w400,
-      letterSpacing: 0,
-      color: t.foreground,
-    );
+    final style =
+        input.style ??
+        Theme.of(context).textTheme.bodyMedium!.copyWith(
+          fontSize: fontSize,
+          height: (touch ? 24 : 20) / fontSize,
+          fontWeight: FontWeight.w400,
+          letterSpacing: 0,
+          color: t.foreground,
+        );
     final group = _group;
     final enabled = input.enabled && (group?.enabled ?? true);
     group?.report(_focus, enabled, isInvalid);
@@ -277,6 +294,14 @@ class _DInputState extends FormFieldState<String> {
                 readOnly: input.readOnly,
                 autofocus: input.autofocus,
                 style: style,
+                maxLines: input.maxLines,
+                minLines: input.borderless ? 1 : null,
+                strutStyle: input.borderless
+                    ? StrutStyle.fromTextStyle(style)
+                    : null,
+                scrollPadding: input.borderless
+                    ? EdgeInsets.zero
+                    : const EdgeInsets.all(20),
                 decoration: InputDecoration(
                   isCollapsed: true,
                   isDense: true,
@@ -327,6 +352,12 @@ class _DInputState extends FormFieldState<String> {
     if (group != null) {
       return Padding(padding: group.inputPadding, child: editor);
     }
+    if (input.borderless &&
+        input.labelText == null &&
+        error == null &&
+        input.helperText == null) {
+      return editor;
+    }
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -348,19 +379,22 @@ class _DInputState extends FormFieldState<String> {
           ),
           const SizedBox(height: 8),
         ],
-        _InputHitTarget(
-          touch: touch,
-          onTap: input.enabled ? _focus.requestFocus : null,
-          child: _InputSurface(
-            enabled: input.enabled,
-            invalid: isInvalid,
-            focused: _focus.hasFocus,
-            borderRadius: radius,
-            joinedAxis: joined?.axis,
-            omitLeadingBorder: joined?.omitsLeadingBorder ?? false,
-            child: editor,
+        if (input.borderless)
+          editor
+        else
+          _InputHitTarget(
+            touch: touch,
+            onTap: input.enabled ? _focus.requestFocus : null,
+            child: _InputSurface(
+              enabled: input.enabled,
+              invalid: isInvalid,
+              focused: _focus.hasFocus,
+              borderRadius: radius,
+              joinedAxis: joined?.axis,
+              omitLeadingBorder: joined?.omitsLeadingBorder ?? false,
+              child: editor,
+            ),
           ),
-        ),
         if (error != null || input.helperText != null) ...[
           const SizedBox(height: 8),
           Semantics(

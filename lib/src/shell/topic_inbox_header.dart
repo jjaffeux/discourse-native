@@ -27,7 +27,6 @@ import 'title_bar.dart';
 import 'topic_actions.dart';
 import 'topic_category_picker.dart';
 import 'topic_header_tags.dart';
-import 'topic_list_layout.dart';
 import 'topic_title.dart';
 import 'user_menu_button.dart';
 
@@ -201,11 +200,6 @@ class _TopicHeaderToolbar extends StatelessWidget {
         availableWidth: constraints.maxWidth,
         basePadding: const EdgeInsets.symmetric(horizontal: 12),
       );
-      final leadingPadding = header.keepTopicListOpen
-          ? topicInboxDividerInset
-          : 16.0;
-      final toolbarStart =
-          leadingPadding + DButton.iconOnlyDimensionFor(DButtonSize.extraSmall);
       return ColoredBox(
         color: Theme.of(context).shell.content,
         child: ConstrainedBox(
@@ -213,31 +207,25 @@ class _TopicHeaderToolbar extends StatelessWidget {
           constraints: const BoxConstraints(minHeight: shellHeaderHeight),
           child: Padding(
             padding: EdgeInsetsDirectional.only(
-              start: leadingPadding,
+              start: lane.padding.left + 16,
               end: 12,
               top: 8,
               bottom: 8,
             ),
             child: Row(
               children: [
-                _TopicCloseButton(
-                  canReturnToSidebar: header.canReturnToSidebar,
-                ),
                 Expanded(
                   child: Padding(
-                    padding: EdgeInsetsDirectional.only(
-                      start: (lane.padding.left + 16 - toolbarStart).clamp(
-                        8,
-                        double.infinity,
-                      ),
-                      end: 8,
-                    ),
+                    padding: const EdgeInsetsDirectional.only(end: 8),
                     child: _TopicHeaderTitle(header: header),
                   ),
                 ),
                 _TopicHeaderActions(
                   header: header,
                   width: constraints.maxWidth,
+                ),
+                _TopicCloseButton(
+                  canReturnToSidebar: header.canReturnToSidebar,
                 ),
               ],
             ),
@@ -266,7 +254,6 @@ class _TopicHeaderTitle extends StatelessWidget {
         siteUrl: siteUrl,
         style: style,
         maxLines: 3,
-        showEditingFrame: true,
         onSave: (value) => ShellScope.read(
           context,
         ).saveTopicTitle(siteUrl: siteUrl, topicId: topic.id, title: value),

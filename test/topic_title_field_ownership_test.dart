@@ -116,6 +116,10 @@ void main() {
         final reader = tester.state(find.byType(TopicView));
         final header = tester.state(find.byType(TopicInboxHeader));
         final field = find.byKey(const ValueKey('topic-header-title-field'));
+        expect(
+          tester.getTopLeft(field).dx,
+          tester.getTopLeft(find.byTooltip('Edit topic category')).dx,
+        );
         await tester.tap(field);
         await tester.pumpAndSettle();
         await tester.enterText(field, _renamed);

@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import '../styleguide_example.dart';
 
 final inputExamples = ComponentExamples(
-  topLevelExampleIndex: 7,
+  topLevelExampleIndex: 8,
   status: ComponentStatus.implemented,
   description: 'A text input for forms and everyday data entry.',
   notes:
@@ -22,6 +22,18 @@ final inputExamples = ComponentExamples(
       'from its inset; the ring appears immediately while colors ease. Large '
       'text grows naturally.',
   examples: [
+    StyleguideExample(
+      title: 'Borderless editing',
+      description: 'Edit text in place without a field border or inset.',
+      code:
+          "DInput(borderless: true, initialValue: 'Editable title', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600))",
+      builder: (_) => DInput(
+        borderless: true,
+        initialValue: 'Editable title',
+        style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w600),
+      ),
+      states: const ['Default', 'Focus', 'Selection'],
+    ),
     StyleguideExample(
       title: 'Basic',
       description:
