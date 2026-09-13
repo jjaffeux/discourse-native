@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 import '../foundation/uri_path.dart';
 import '../models/discourse_instance.dart';
@@ -20,8 +19,6 @@ import 'shell_controller.dart';
 import 'shell_scope.dart';
 import 'user_menu_message.dart';
 import 'user_status.dart';
-
-final _userCardTransitionCurve = CurveTween(curve: Curves.easeOutCubic);
 
 class UserCardTarget extends StatelessWidget {
   const UserCardTarget({
@@ -121,14 +118,7 @@ class _UserCardHoverPreview extends StatelessWidget {
             }
             unawaited(controller.loadUserCard(username, siteUrl: targetSite));
           });
-          return const Row(
-            mainAxisSize: MainAxisSize.min,
-            spacing: 8,
-            children: [
-              DSpinner(size: 16, semanticLabel: null),
-              Text('Loading profile…'),
-            ],
-          );
+          return const _CardSkeleton(preview: true);
         }
         return _UserCardHoverContent(card: card);
       },
@@ -261,23 +251,11 @@ Future<void> showUserCard({
 
   return showGeneralDialog<void>(
     context: context,
-    barrierDismissible: true,
-    barrierLabel: 'Dismiss',
+    useRootNavigator: false,
     barrierColor: Colors.transparent,
-    transitionDuration: const Duration(milliseconds: 140),
+    transitionDuration: Duration.zero,
     pageBuilder: (context, animation, secondaryAnimation) =>
         _UserCardPopup(username: username, siteUrl: targetSite, anchor: anchor),
-    transitionBuilder: (context, animation, secondary, child) {
-      final curved = animation.drive(_userCardTransitionCurve);
-      return FadeTransition(
-        opacity: curved,
-        child: ScaleTransition(
-          scale: Tween<double>(begin: 0.96, end: 1).animate(curved),
-          alignment: Alignment.topLeft,
-          child: child,
-        ),
-      );
-    },
   );
 }
 
@@ -288,33 +266,78 @@ class _UserCardPopup extends StatelessWidget {
     required this.anchor,
   });
 
-  static const double width = 624;
-
-  static const double _gap = 8;
-
-  static const double _margin = 12;
-
   final String username;
   final String siteUrl;
   final Rect? anchor;
 
   @override
-  Widget build(BuildContext context) =>
-      ShellSelector<({ShellController controller, Object session})>(
-        select: (controller) => (
-          controller: controller,
-          session: controller.lifecycle.capture(siteUrl).session,
+  Widget build(BuildContext context) {
+    final route = ModalRoute.of(context)!;
+    return DPopover(
+      defaultOpen: true,
+      onOpenChangeComplete: (open) {
+        // Remove this card's route even if a plugin action opened another one.
+        if (!open && route.isActive) route.navigator?.removeRoute(route);
+      },
+      content: DPopoverContent(
+        key: const ValueKey<String>('user-card-surface'),
+        semanticLabel: 'Profile for @$username',
+        width: 400,
+        constraints: const BoxConstraints(maxHeight: 480),
+        align: DPopoverAlign.start,
+        sideOffset: 8,
+        collisionPadding: 12,
+        padding: const EdgeInsets.all(12),
+        child: DPopoverClose(
+          builder: (context, close) =>
+              ShellSelector<({ShellController controller, Object session})>(
+                select: (controller) => (
+                  controller: controller,
+                  session: controller.lifecycle.capture(siteUrl).session,
+                ),
+                builder: (context, owner, _) => _ControllerUserCardPopup(
+                  // Account changes clear the cache, so load the new session.
+                  key: ValueKey(owner),
+                  controller: owner.controller,
+                  username: username,
+                  siteUrl: siteUrl,
+                  close: close,
+                ),
+              ),
         ),
-        builder: (context, owner, _) => _ControllerUserCardPopup(
-          // Account changes clear the card cache without replacing the
-          // controller, so the popup must load again for the new session.
-          key: ValueKey(owner),
-          controller: owner.controller,
-          username: username,
-          siteUrl: siteUrl,
-          anchor: anchor,
-        ),
-      );
+      ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          // A profile link can supply an entire cooked post as its context.
+          // Only its opening corner belongs to the popover's anchor area.
+          final point =
+              switch (Directionality.of(context)) {
+                TextDirection.ltr => anchor?.bottomLeft,
+                TextDirection.rtl => anchor?.bottomRight,
+              } ??
+              constraints.biggest.center(Offset.zero);
+          final padding = MediaQuery.paddingOf(context);
+          return Stack(
+            children: [
+              Positioned(
+                left: point.dx.clamp(
+                  padding.left,
+                  constraints.maxWidth - padding.right - 1,
+                ),
+                top: (point.dy - 1).clamp(
+                  padding.top,
+                  constraints.maxHeight - padding.bottom - 1,
+                ),
+                width: 1,
+                height: 1,
+                child: const DPopoverAnchor(child: SizedBox.expand()),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
 }
 
 class _ControllerUserCardPopup extends StatefulWidget {
@@ -323,13 +346,13 @@ class _ControllerUserCardPopup extends StatefulWidget {
     required this.controller,
     required this.username,
     required this.siteUrl,
-    required this.anchor,
+    required this.close,
   });
 
   final ShellController controller;
   final String username;
   final String siteUrl;
-  final Rect? anchor;
+  final VoidCallback close;
 
   @override
   State<_ControllerUserCardPopup> createState() =>
@@ -353,75 +376,22 @@ class _ControllerUserCardPopupState extends State<_ControllerUserCardPopup> {
     if (!mounted || !identical(widget.controller, controller)) return;
     if (!controller.loaded) return;
     if (!controller.contains(widget.siteUrl)) {
-      unawaited(Navigator.of(context).maybePop());
+      widget.close();
       return;
     }
     await controller.loadUserCard(widget.username, siteUrl: widget.siteUrl);
   }
 
   @override
-  Widget build(BuildContext context) {
-    void dismiss() => Navigator.of(context).maybePop();
-
-    return CallbackShortcuts(
-      bindings: {const SingleActivator(LogicalKeyboardKey.escape): dismiss},
-      child: Focus(
-        autofocus: true,
-        child: CustomSingleChildLayout(
-          delegate: AnchoredLayout(
-            anchor: widget.anchor,
-            maxWidth: _UserCardPopup.width,
-            gap: _UserCardPopup._gap,
-            margin: _UserCardPopup._margin,
-          ),
-          child: ListenableBuilder(
-            listenable: widget.controller,
-            builder: (context, _) => _CardSurface(
-              child: _CardBody(
-                controller: widget.controller,
-                username: widget.username,
-                siteUrl: widget.siteUrl,
-                close: dismiss,
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _CardSurface extends StatelessWidget {
-  const _CardSurface({required this.child});
-
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return Material(
-      key: const ValueKey<String>('user-card-surface'),
-      color: theme.shell.floating,
-      elevation: 8,
-      borderRadius: BorderRadius.circular(4),
-      clipBehavior: Clip.antiAlias,
-      // A `Container`, not a `DecoratedBox`: a bordered decoration's
-      // dimensions are padding a `Container` applies and a `DecoratedBox`
-      // does not, so the panel's contents would sit under its own border and
-      // be clipped by the rounded `Material` around it.
-      child: SizedBox(
-        width: double.infinity,
-        child: Container(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(4),
-            border: Border.all(color: theme.shell.divider),
-          ),
-          child: child,
-        ),
-      ),
-    );
-  }
+  Widget build(BuildContext context) => ListenableBuilder(
+    listenable: widget.controller,
+    builder: (context, _) => _CardBody(
+      controller: widget.controller,
+      username: widget.username,
+      siteUrl: widget.siteUrl,
+      close: widget.close,
+    ),
+  );
 }
 
 class _CardBody extends StatelessWidget {
@@ -453,8 +423,55 @@ class _CardBody extends StatelessWidget {
             controller.loadUserCard(username, force: true, siteUrl: siteUrl),
       );
     }
-    return const UserMenuMessage(text: null, height: 132);
+    return const _CardSkeleton();
   }
+}
+
+class _CardSkeleton extends StatelessWidget {
+  const _CardSkeleton({this.preview = false});
+
+  final bool preview;
+
+  @override
+  Widget build(BuildContext context) => DSkeletonRegion(
+    semanticsLabel: 'Loading profile',
+    child: Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            DSkeleton.circle(diameter: preview ? 40 : 64),
+            SizedBox(width: preview ? 10 : 16),
+            const Expanded(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                spacing: 8,
+                children: [
+                  DSkeleton(width: 160, height: 16),
+                  DSkeleton(width: 104, height: 14),
+                ],
+              ),
+            ),
+          ],
+        ),
+        if (!preview) ...[
+          const SizedBox(height: 12),
+          const DSkeleton(height: 28),
+          const SizedBox(height: 12),
+          const DSkeleton(height: 14),
+          const SizedBox(height: 8),
+          const FractionallySizedBox(
+            widthFactor: 0.75,
+            child: DSkeleton(height: 14),
+          ),
+          const SizedBox(height: 12),
+          const DSkeleton(width: 160, height: 12),
+        ],
+      ],
+    ),
+  );
 }
 
 class _CardContent extends StatelessWidget {
@@ -474,119 +491,78 @@ class _CardContent extends StatelessWidget {
     final pluginActions = PluginScope.of(
       context,
     ).registry.userCardActions(context, siteUrl, card, close);
-    return SingleChildScrollView(
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final narrow = constraints.maxWidth < 500;
-            final profileAction = SizedBox(
-              width: double.infinity,
-              child: DButton(
-                label: const Text('View profile'),
-                onPressed: () {
-                  close();
-                  unawaited(openExternalLink('$siteUrl${card.path}'));
-                },
-                icon: const DIcon(DIcons.upRightFromSquare),
-              ),
-            );
-            final actions = [...pluginActions, profileAction];
-
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (narrow) ...[
-                  _CardIdentity(
-                    card: card,
-                    siteUrl: siteUrl,
-                    avatarSize: 88,
-                    compact: true,
-                  ),
-                  const SizedBox(height: 12),
-                  _CardActions(actions: actions, horizontal: true),
-                ] else
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(
-                        child: _CardIdentity(
-                          card: card,
-                          siteUrl: siteUrl,
-                          avatarSize: 112,
-                          compact: false,
-                        ),
-                      ),
-                      const SizedBox(width: 20),
-                      SizedBox(
-                        width: 156,
-                        child: _CardActions(actions: actions),
-                      ),
-                    ],
-                  ),
-                if (card.bioExcerpt case final bio?) ...[
-                  const SizedBox(height: 12),
-                  CookedHtml(
-                    html: bio,
-                    textStyle: theme.textTheme.bodyMedium?.copyWith(
-                      height: DiscourseTypography.lineHeightCooked,
-                    ),
-                    siteUrl: siteUrl,
-                  ),
-                ],
-                if (card.website != null || card.location != null) ...[
-                  const SizedBox(height: 10),
-                  Wrap(
-                    spacing: 14,
-                    runSpacing: 6,
-                    children: [
-                      if (card.website case final website?)
-                        _CardDetail(
-                          icon: const DIcon(DIcons.globe, size: 16),
-                          label: card.websiteName ?? _websiteLabel(website),
-                          onTap: () => unawaited(openExternalLink(website)),
-                        ),
-                      if (card.location case final location?)
-                        _CardDetail(
-                          icon: const Icon(
-                            Icons.location_on_outlined,
-                            size: 16,
-                          ),
-                          label: location,
-                        ),
-                    ],
-                  ),
-                ],
-                if (card.createdAt != null ||
-                    card.lastPostedAt != null ||
-                    card.timeRead > 0) ...[
-                  const SizedBox(height: 10),
-                  Wrap(
-                    spacing: 12,
-                    runSpacing: 4,
-                    children: [
-                      if (card.lastPostedAt case final last?)
-                        _Metadata(label: 'Last post', value: _month(last)),
-                      if (card.createdAt case final joined?)
-                        _Metadata(label: 'Joined', value: _month(joined)),
-                      if (card.timeRead > 0)
-                        _Metadata(
-                          label: 'Time read',
-                          value: _duration(card.timeRead),
-                        ),
-                    ],
-                  ),
-                ],
-                if (card.badgeCount > 0) ...[
-                  const SizedBox(height: 10),
-                  _BadgeCount(count: card.badgeCount),
-                ],
-              ],
-            );
-          },
-        ),
+    final profileAction = SizedBox(
+      width: double.infinity,
+      child: DButton(
+        label: const Text('View profile'),
+        onPressed: () {
+          close();
+          unawaited(openExternalLink('$siteUrl${card.path}'));
+        },
+        icon: const DIcon(DIcons.upRightFromSquare),
       ),
+    );
+    final actions = [...pluginActions, profileAction];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _CardIdentity(card: card, siteUrl: siteUrl),
+        const SizedBox(height: 12),
+        _CardActions(actions: actions),
+        if (card.bioExcerpt case final bio?) ...[
+          const SizedBox(height: 12),
+          CookedHtml(
+            html: bio,
+            textStyle: theme.textTheme.bodyMedium?.copyWith(
+              height: DiscourseTypography.lineHeightCooked,
+            ),
+            siteUrl: siteUrl,
+          ),
+        ],
+        if (card.website != null || card.location != null) ...[
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 14,
+            runSpacing: 6,
+            children: [
+              if (card.website case final website?)
+                _CardDetail(
+                  icon: const DIcon(DIcons.globe, size: 16),
+                  label: card.websiteName ?? _websiteLabel(website),
+                  onTap: () => unawaited(openExternalLink(website)),
+                ),
+              if (card.location case final location?)
+                _CardDetail(
+                  icon: const Icon(Icons.location_on_outlined, size: 16),
+                  label: location,
+                ),
+            ],
+          ),
+        ],
+        if (card.createdAt != null ||
+            card.lastPostedAt != null ||
+            card.timeRead > 0) ...[
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 12,
+            runSpacing: 4,
+            children: [
+              if (card.lastPostedAt case final last?)
+                _Metadata(label: 'Last post', value: _month(last)),
+              if (card.createdAt case final joined?)
+                _Metadata(label: 'Joined', value: _month(joined)),
+              if (card.timeRead > 0)
+                _Metadata(label: 'Time read', value: _duration(card.timeRead)),
+            ],
+          ),
+        ],
+        if (card.badgeCount > 0) ...[
+          const SizedBox(height: 10),
+          _BadgeCount(count: card.badgeCount),
+        ],
+      ],
     );
   }
 
@@ -625,17 +601,11 @@ class _CardContent extends StatelessWidget {
 }
 
 class _CardIdentity extends StatelessWidget {
-  const _CardIdentity({
-    required this.card,
-    required this.siteUrl,
-    required this.avatarSize,
-    required this.compact,
-  });
+  const _CardIdentity({required this.card, required this.siteUrl});
 
   final UserCard card;
   final String siteUrl;
-  final double avatarSize;
-  final bool compact;
+  static const double avatarSize = 64;
 
   @override
   Widget build(BuildContext context) {
@@ -674,11 +644,9 @@ class _CardIdentity extends StatelessWidget {
                 card.displayName,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style:
-                    (compact
-                            ? theme.textTheme.headlineSmall
-                            : theme.textTheme.headlineMedium)
-                        ?.copyWith(fontWeight: FontWeight.w700),
+                style: theme.textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
               ),
               Text(
                 '@${card.username}',
@@ -726,27 +694,15 @@ class _CardIdentity extends StatelessWidget {
 }
 
 class _CardActions extends StatelessWidget {
-  const _CardActions({required this.actions, this.horizontal = false});
+  const _CardActions({required this.actions});
 
   final List<Widget> actions;
-  final bool horizontal;
 
   @override
   Widget build(BuildContext context) {
-    if (!horizontal) {
-      return Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          for (var index = 0; index < actions.length; index++) ...[
-            if (index > 0) const SizedBox(height: 6),
-            actions[index],
-          ],
-        ],
-      );
-    }
     return LayoutBuilder(
       builder: (context, constraints) {
-        final width = actions.length == 1
+        final width = actions.length == 1 || constraints.maxWidth < 320
             ? constraints.maxWidth
             : (constraints.maxWidth - 8) / 2;
         return Wrap(
