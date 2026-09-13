@@ -1987,7 +1987,7 @@ void _registerShellNavigationTests() {
     expect(tester.widget<DSidebarMenuButton>(selectedRow).isActive, isTrue);
     final selectedRect = tester.getRect(selectedRow);
     final hoveredRect = tester.getRect(inkWell);
-    expect(hoveredRect.top - selectedRect.bottom, closeTo(5, 0.01));
+    expect(hoveredRect.top - selectedRect.bottom, closeTo(1, 0.01));
 
     await gesture.moveTo(
       Offset(selectedRect.center.dx, selectedRect.bottom + 0.5),
