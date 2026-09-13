@@ -949,9 +949,22 @@ void main() {
     expect(find.text('Group settings'), findsNothing);
     expect(find.text('Copy group link'), findsNothing);
     expect(find.text('Delete group'), findsNothing);
-    await tester.tap(find.byKey(const ValueKey('group-actions')));
+    final trigger = find.byKey(const ValueKey('group-actions'));
+    final triggerFocus = tester.widget<DButton>(trigger).focusNode!;
+    triggerFocus.requestFocus();
+    await tester.pump();
+    await tester.sendKeyEvent(LogicalKeyboardKey.space);
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('delete-group')));
+    expect(find.byType(DDropdownMenuContent), findsOneWidget);
+    expect(tester.widget<DButton>(trigger).expanded, isTrue);
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+    expect(find.byType(DDropdownMenuContent), findsNothing);
+    expect(triggerFocus.hasFocus, isTrue);
+    expect(deleted, isFalse);
+    await tester.sendKeyEvent(LogicalKeyboardKey.space);
+    await tester.pumpAndSettle();
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
     await tester.pumpAndSettle();
     expect(
       tester

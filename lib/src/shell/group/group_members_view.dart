@@ -701,33 +701,16 @@ class _MemberActions extends StatelessWidget {
   final bool mutating;
   final GroupMemberActionCallback? onAction;
 
-  List<CommandMenuOption<GroupMemberAction>> get options => [
+  List<GroupMemberAction> get actions => [
     if (group.canAdminGroup || (group.canEditGroup && !member.owner))
-      CommandMenuOption(
-        value: member.owner
-            ? GroupMemberAction.removeOwner
-            : GroupMemberAction.makeOwner,
-        label: member.owner ? 'Remove as owner' : 'Make owner',
-        icon: DIcons.certificate,
-      ),
+      member.owner
+          ? GroupMemberAction.removeOwner
+          : GroupMemberAction.makeOwner,
     if (currentUserStaff)
-      CommandMenuOption(
-        value: member.primary
-            ? GroupMemberAction.removePrimary
-            : GroupMemberAction.makePrimary,
-        label: member.primary
-            ? 'Remove as primary group'
-            : 'Make primary group',
-        icon: DIcons.star,
-      ),
-    if (group.canManage)
-      const CommandMenuOption(
-        value: GroupMemberAction.remove,
-        label: 'Remove from group',
-        icon: DIcons.trashCan,
-        dividerBefore: true,
-        destructive: true,
-      ),
+      member.primary
+          ? GroupMemberAction.removePrimary
+          : GroupMemberAction.makePrimary,
+    if (group.canManage) GroupMemberAction.remove,
   ];
 
   Future<void> _run(BuildContext context, GroupMemberAction action) async {
@@ -758,18 +741,59 @@ class _MemberActions extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (options.isEmpty || onAction == null) return const SizedBox.shrink();
-    return CommandMenuAnchor<GroupMemberAction>(
-      title: 'Manage @${member.username}',
-      options: options,
-      enabled: !mutating,
-      onSelected: (action) => unawaited(_run(context, action)),
-      builder: (context, openMenu) => DButton.iconOnly(
-        key: ValueKey('manage-member-${member.username}'),
-        size: DButtonSize.small,
-        icon: const DIcon(DIcons.wrench),
-        tooltip: 'Manage @${member.username}',
-        onPressed: openMenu,
+    final availableActions = actions;
+    if (availableActions.isEmpty || onAction == null) {
+      return const SizedBox.shrink();
+    }
+    return Semantics(
+      container: true,
+      explicitChildNodes: true,
+      child: DDropdownMenu(
+        content: DDropdownMenuContent(
+          semanticLabel: 'Manage @${member.username}',
+          align: DPopoverAlign.end,
+          width: 224,
+          children: [
+            for (final (index, action) in availableActions.indexed) ...[
+              if (action == GroupMemberAction.remove && index > 0)
+                const DDropdownMenuSeparator(),
+              DDropdownMenuItem(
+                leading: DIcon(switch (action) {
+                  GroupMemberAction.makeOwner ||
+                  GroupMemberAction.removeOwner => DIcons.certificate,
+                  GroupMemberAction.makePrimary ||
+                  GroupMemberAction.removePrimary => DIcons.star,
+                  GroupMemberAction.remove => DIcons.trashCan,
+                }),
+                variant: action == GroupMemberAction.remove
+                    ? DDropdownMenuItemVariant.destructive
+                    : DDropdownMenuItemVariant.standard,
+                onPressed: mutating
+                    ? null
+                    : () => unawaited(_run(context, action)),
+                child: Text(switch (action) {
+                  GroupMemberAction.makeOwner => 'Make owner',
+                  GroupMemberAction.removeOwner => 'Remove as owner',
+                  GroupMemberAction.makePrimary => 'Make primary group',
+                  GroupMemberAction.removePrimary => 'Remove as primary group',
+                  GroupMemberAction.remove => 'Remove from group',
+                }),
+              ),
+            ],
+          ],
+        ),
+        child: DDropdownMenuTrigger(
+          builder: (context, state) => DButton.iconOnly(
+            key: ValueKey('manage-member-${member.username}'),
+            size: DButtonSize.small,
+            icon: const DIcon(DIcons.wrench),
+            tooltip: 'Manage @${member.username}',
+            focusNode: state.focusNode,
+            hasPopup: true,
+            expanded: state.open,
+            onPressed: mutating ? null : state.toggle,
+          ),
+        ),
       ),
     );
   }

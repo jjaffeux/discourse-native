@@ -12,7 +12,6 @@ import '../../models/composer_upload.dart';
 import '../../models/site_config.dart';
 import '../../plugin_api/core_plugin_host.dart';
 import '../../plugin_api/plugin_scope.dart';
-import '../../shell/command_menu.dart';
 import '../../shell/composer_autocomplete.dart';
 import '../../shell/composer_controller.dart';
 import '../../shell/composer_drop.dart';
@@ -72,8 +71,6 @@ class ChatUploadDropController {
     composer.focus.requestFocus();
   }
 }
-
-enum _ChatComposerAddAction { uploadImages, gif }
 
 /// The web app binds chat uploads to the channel/thread root, not its textarea.
 class ChatUploadDropRegion extends StatefulWidget {
@@ -1087,23 +1084,9 @@ class _ChatComposerState extends State<ChatComposer> {
                     final canInsertGif =
                         widget.editingMessage == null &&
                         (gifs?.isAvailable(widget.siteUrl) ?? false);
-                    final options = <CommandMenuOption<_ChatComposerAddAction>>[
-                      if (canUpload)
-                        const CommandMenuOption(
-                          value: _ChatComposerAddAction.uploadImages,
-                          label: 'Upload images',
-                          icon: DIcons.upload,
-                          key: ValueKey('chat-composer-upload'),
-                        ),
-                      if (canInsertGif)
-                        const CommandMenuOption(
-                          value: _ChatComposerAddAction.gif,
-                          label: 'Insert GIF',
-                          icon: gifsPickerIcon,
-                          key: ValueKey('chat-composer-gif'),
-                        ),
-                    ];
-                    if (options.isEmpty) return const SizedBox.shrink();
+                    if (!canUpload && !canInsertGif) {
+                      return const SizedBox.shrink();
+                    }
 
                     final enabled =
                         !_pickingGif &&
@@ -1114,25 +1097,59 @@ class _ChatComposerState extends State<ChatComposer> {
                             false);
                     return Center(
                       heightFactor: 1,
-                      child: CommandMenuAnchor<_ChatComposerAddAction>(
-                        title: 'Add to message',
-                        options: options,
-                        enabled: enabled,
-                        onSelected: (action) => switch (action) {
-                          _ChatComposerAddAction.uploadImages => unawaited(
-                            _pickImages(),
+                      child: Semantics(
+                        container: true,
+                        explicitChildNodes: true,
+                        child: DDropdownMenu(
+                          key: ValueKey((composer, widget.editingMessage?.id)),
+                          content: DDropdownMenuContent(
+                            semanticLabel: 'Add to message',
+                            side: DPopoverSide.top,
+                            width: 192,
+                            children: [
+                              if (canUpload)
+                                DDropdownMenuItem(
+                                  key: const ValueKey('chat-composer-upload'),
+                                  leading: const DIcon(DIcons.upload),
+                                  onPressed: enabled
+                                      ? () {
+                                          if (identical(_composer, composer)) {
+                                            unawaited(_pickImages());
+                                          }
+                                        }
+                                      : null,
+                                  child: const Text('Upload images'),
+                                ),
+                              if (canInsertGif)
+                                DDropdownMenuItem(
+                                  key: const ValueKey('chat-composer-gif'),
+                                  leading: const DIcon(gifsPickerIcon),
+                                  onPressed: enabled
+                                      ? () {
+                                          if (identical(_composer, composer)) {
+                                            unawaited(_pickGif());
+                                          }
+                                        }
+                                      : null,
+                                  child: const Text('Insert GIF'),
+                                ),
+                            ],
                           ),
-                          _ChatComposerAddAction.gif => unawaited(_pickGif()),
-                        },
-                        builder: (context, openMenu) => DButton.iconOnly(
-                          key: const ValueKey('chat-composer-add'),
-                          onPressed: openMenu,
-                          icon: const DIcon(
-                            DIcons.plus,
-                            key: ValueKey('chat-composer-add-icon'),
+                          child: DDropdownMenuTrigger(
+                            builder: (context, state) => DButton.iconOnly(
+                              key: const ValueKey('chat-composer-add'),
+                              onPressed: enabled ? state.toggle : null,
+                              focusNode: state.focusNode,
+                              hasPopup: true,
+                              expanded: state.open,
+                              icon: const DIcon(
+                                DIcons.plus,
+                                key: ValueKey('chat-composer-add-icon'),
+                              ),
+                              tooltip: 'Add to message',
+                              variant: DButtonVariant.ghost,
+                            ),
                           ),
-                          tooltip: 'Add to message',
-                          variant: DButtonVariant.ghost,
                         ),
                       ),
                     );

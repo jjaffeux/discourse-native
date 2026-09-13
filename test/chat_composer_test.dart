@@ -1296,7 +1296,7 @@ void main() {
         await tester.pump();
         await tester.tap(find.byTooltip('More message actions'));
         await tester.pumpAndSettle();
-        await tester.tap(find.widgetWithText(MenuItemButton, 'Edit'));
+        await tester.tap(find.widgetWithText(DDropdownMenuItem, 'Edit'));
         await tester.pumpAndSettle();
 
         expect(find.text('Edit message'), findsNothing);
@@ -1331,7 +1331,7 @@ void main() {
         await tester.pump();
         await tester.tap(find.byTooltip('More message actions'));
         await tester.pumpAndSettle();
-        await tester.tap(find.widgetWithText(MenuItemButton, 'Edit'));
+        await tester.tap(find.widgetWithText(DDropdownMenuItem, 'Edit'));
         await tester.pumpAndSettle();
 
         await tester.enterText(_composerField(), '**after**');
@@ -1615,6 +1615,8 @@ void main() {
         await tester.tap(add);
         await tester.pumpAndSettle();
 
+        expect(find.byType(DDropdownMenuContent), findsOneWidget);
+        expect(tester.widget<DButton>(add).expanded, isTrue);
         expect(find.text('Upload images'), findsOneWidget);
         expect(find.text('Insert GIF'), findsOneWidget);
         expect(
@@ -1625,7 +1627,59 @@ void main() {
 
         await tester.sendKeyEvent(LogicalKeyboardKey.escape);
         await tester.pumpAndSettle();
+        expect(find.byType(DDropdownMenuContent), findsNothing);
+        expect(tester.widget<DButton>(add).focusNode!.hasFocus, isTrue);
       }
+    });
+
+    testWidgets('the add dropdown retires when the channel changes', (
+      tester,
+    ) async {
+      var pickerCalls = 0;
+      final fixture = await _fixture(
+        pages: {FakeDiscourseApi.chatMessagesKey(9): _emptyPage},
+      );
+      addTearDown(fixture.shell.dispose);
+      Future<List<ComposerUploadFile>> pickImages() async {
+        pickerCalls++;
+        return const [];
+      }
+
+      await tester.pumpWidget(
+        _ComposerView(
+          shell: fixture.shell,
+          channelId: 9,
+          pickImages: pickImages,
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('chat-composer-add')));
+      await tester.pumpAndSettle();
+      final retiredAction = tester
+          .widget<DDropdownMenuItem>(
+            find.byKey(const ValueKey('chat-composer-upload')),
+          )
+          .onPressed!;
+
+      await tester.pumpWidget(
+        _ComposerView(
+          shell: fixture.shell,
+          channelId: 10,
+          pickImages: pickImages,
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.byType(DDropdownMenuContent), findsNothing);
+      retiredAction();
+      await tester.pumpAndSettle();
+      expect(pickerCalls, 0);
+
+      await tester.tap(find.byKey(const ValueKey('chat-composer-add')));
+      await tester.pumpAndSettle();
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pumpAndSettle();
+      expect(pickerCalls, 1);
+      expect(_field(tester).focusNode!.hasFocus, isTrue);
     });
 
     testWidgets('opens the image picker from the add menu', (tester) async {

@@ -1,3 +1,4 @@
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/group.dart';
 import 'package:discourse_native/src/models/group_route.dart';
 import 'package:discourse_native/src/models/topic_feed.dart';
@@ -24,6 +25,34 @@ const _carol = GroupMember(id: 3, username: 'carol');
 void main() {
   for (final width in [1180.0, 390.0]) {
     group('member menus at width $width', () {
+      testWidgets('an open menu follows current ownership and busy state', (
+        tester,
+      ) async {
+        final port = await _pump(tester, width: width);
+        await _openMenu(tester, _alice);
+        port.mutating = true;
+        port.replaceMembers([_alice.copyWith(owner: true), _bob]);
+        await tester.pump();
+
+        expect(find.text('Make owner'), findsNothing);
+        final removeOwner = find.widgetWithText(
+          DDropdownMenuItem,
+          'Remove as owner',
+        );
+        expect(tester.widget<DDropdownMenuItem>(removeOwner).onPressed, isNull);
+        expect(port.actions, isEmpty);
+
+        port.mutating = false;
+        port.replaceMembers(port.members);
+        await tester.pumpAndSettle();
+        await tester.tap(removeOwner);
+        await tester.pumpAndSettle();
+        expect(port.actions, [
+          _expectedAction(port, _alice, GroupMemberAction.removeOwner),
+        ]);
+        _expectNoStaleFeedback(tester);
+      });
+
       for (final action in [
         GroupMemberAction.makeOwner,
         GroupMemberAction.remove,
@@ -53,8 +82,10 @@ void main() {
             await _openMenu(tester, _alice);
 
             port.replaceMembers(members);
-            await tester.pump();
-            await _selectAction(tester, action);
+            await tester.pumpAndSettle();
+
+            // The dropdown is owned by its row and disappears with it.
+            expect(find.byType(DDropdownMenuContent), findsNothing);
 
             expect(port.actions, isEmpty);
             expect(find.byType(AlertDialog), findsNothing);
@@ -113,7 +144,7 @@ void main() {
         if (confirming) {
           await _confirmRemoval(tester, _alice);
         } else {
-          await _selectAction(tester, GroupMemberAction.makeOwner);
+          expect(find.byType(DDropdownMenuContent), findsNothing);
         }
 
         expect(port.actions, isEmpty);
@@ -175,7 +206,7 @@ Future<_Port> _pump(WidgetTester tester, {double width = 1180}) async {
 Future<void> _openMenu(WidgetTester tester, GroupMember member) async {
   await tester.tap(find.byTooltip('Manage @${member.username}'));
   await tester.pumpAndSettle();
-  expect(find.byKey(const ValueKey('command-menu-surface')), findsOneWidget);
+  expect(find.byType(DDropdownMenuContent), findsOneWidget);
 }
 
 Future<void> _selectAction(
@@ -198,7 +229,7 @@ Future<void> _confirmRemoval(WidgetTester tester, GroupMember member) async {
 }
 
 void _expectNoStaleFeedback(WidgetTester tester) {
-  expect(find.byKey(const ValueKey('command-menu-surface')), findsNothing);
+  expect(find.byType(DDropdownMenuContent), findsNothing);
   expect(find.text('The member could not be updated.'), findsNothing);
   expect(tester.takeException(), isNull);
 }
@@ -235,6 +266,7 @@ final class _Port extends ChangeNotifier implements GroupPagesPort {
     tabId: 'tab-1',
   );
   Group group = _group;
+  bool mutating = false;
   List<GroupMember> members = [_alice, _bob];
   final actions = <_Action>[];
 
@@ -257,6 +289,7 @@ final class _Port extends ChangeNotifier implements GroupPagesPort {
   ) => GroupPageData(
     detail: GroupDetail(group: group),
     members: GroupMembersPage(members: members, total: members.length),
+    mutating: mutating,
     loaded: true,
   );
 
