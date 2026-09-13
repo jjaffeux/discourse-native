@@ -500,7 +500,7 @@ void main() {
         findsOneWidget,
       );
       final headerControls = [
-        (add, DButtonSize.regular, 32.0),
+        (add, DButtonSize.small, 28.0),
         (
           find.byKey(const ValueKey('topic-close-reader')),
           DButtonSize.extraSmall,
@@ -508,16 +508,16 @@ void main() {
         ),
         (
           find.byKey(const ValueKey('topic-header-browse-category-22')),
-          DButtonSize.regular,
-          32.0,
+          DButtonSize.small,
+          28.0,
         ),
         (
           find.byWidgetPredicate(
             (widget) =>
                 widget is DButton && widget.tooltip == 'Edit topic category',
           ),
-          DButtonSize.regular,
-          32.0,
+          DButtonSize.small,
+          28.0,
         ),
       ];
       for (final (control, size, height) in headerControls) {
