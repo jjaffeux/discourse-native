@@ -10,6 +10,7 @@ import '../core_data.dart';
 import '../core_helpers.dart';
 import '../core_widget_factory.dart';
 import 'core_ops.dart';
+import 'default_styles_cache.dart';
 import 'flattener.dart';
 
 // https://infra.spec.whatwg.org/#ascii-whitespace
@@ -23,6 +24,7 @@ final _rootElement = dom.Element.tag('root');
 
 class CoreBuildTree extends BuildTree {
   final WidgetFactory wf;
+  final DefaultStylesCache _defaultStylesCache;
 
   final BuildTree? _parent;
   final Iterable<_CoreBuildOp> _parentOps;
@@ -37,8 +39,10 @@ class CoreBuildTree extends BuildTree {
     BuildTree? parent,
     Iterable<_CoreBuildOp> parentOps = const [],
     required this.wf,
+    DefaultStylesCache? defaultStylesCache,
   })  : _parent = parent,
-        _parentOps = parentOps;
+        _parentOps = parentOps,
+        _defaultStylesCache = defaultStylesCache ?? DefaultStylesCache();
 
   factory CoreBuildTree.root({
     required InheritanceResolvers inheritanceResolvers,
@@ -131,6 +135,7 @@ class CoreBuildTree extends BuildTree {
           ? _prepareParentOps(copiedParent._parentOps, copiedParent)
           : const [],
       wf: wf,
+      defaultStylesCache: _defaultStylesCache,
     );
 
     if (copyContents) {
@@ -382,8 +387,7 @@ class _CoreBuildOp {
     }
 
     final str = map.entries.map((e) => '${e.key}: ${e.value}').join(';');
-    final styleSheet = css.parse('*{$str}');
-    return styleSheet.collectDeclarations();
+    return tree._defaultStylesCache.parse(str);
   }
 
   BuildTree onParsed(BuildTree input) => op.onParsed?.call(input) ?? input;

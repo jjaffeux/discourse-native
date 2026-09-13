@@ -9,7 +9,7 @@ void main() {
   test('discovers vendor configurations from their owning packages', () async {
     final contracts = await loadVendorProvenanceContracts();
 
-    expect(contracts, hasLength(2));
+    expect(contracts, hasLength(3));
     final contract = contracts.singleWhere(
       (candidate) => candidate.package == 'flutter_webrtc',
     );
@@ -50,6 +50,18 @@ void main() {
     expect(
       videoPlayerContract.vendorPath,
       endsWith('packages/video_player_avfoundation'),
+    );
+    final htmlContract = contracts.singleWhere(
+      (candidate) => candidate.package == 'flutter_widget_from_html_core',
+    );
+    expect(htmlContract.version, '0.17.4');
+    expect(
+      htmlContract.vendorPath,
+      endsWith('packages/flutter_widget_from_html_core'),
+    );
+    expect(
+      htmlContract.patchManifest,
+      endsWith('packages/flutter_widget_from_html_core/PATCHES.md'),
     );
   });
 

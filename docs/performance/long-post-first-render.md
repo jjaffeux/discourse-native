@@ -1,5 +1,8 @@
 # First render of long topic posts
 
+The subsequent [default-style cache investigation](html-default-style-cache.md)
+removes repeated CSS parsing within conversion and records its measured limits.
+
 The long-post cache in `843c8968` avoids rebuilding recently viewed posts. It
 cannot reduce the first uncached render. This follow-up (`26b1fb2b`) spreads
 initial mounting and layout over frames while keeping the existing post,
