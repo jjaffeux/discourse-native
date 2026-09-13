@@ -441,7 +441,9 @@ void _registerChatShellTests() {
                 Future<void> open() async {
                   if (keyboard) {
                     await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
+                    await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
                     await tester.sendKeyEvent(LogicalKeyboardKey.keyF);
+                    await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
                     await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
                   } else {
                     await tester.tap(find.byKey(ForumSearch.inputKey));
@@ -466,7 +468,12 @@ void _registerChatShellTests() {
                 await tester.tap(find.byTooltip('Remove Channel condition'));
                 await tester.pumpAndSettle();
                 await open();
-                expect(shell.globalSearch.conditions, isEmpty);
+                expect(
+                  shell.globalSearch.conditions.map(
+                    (condition) => condition.text,
+                  ),
+                  keyboard ? ['${target.id}'] : <String>[],
+                );
                 await tester.tap(
                   find.byKey(const ValueKey('global-search-scope-users')),
                 );

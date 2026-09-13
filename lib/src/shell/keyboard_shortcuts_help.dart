@@ -69,11 +69,15 @@ Future<void> showKeyboardShortcuts(BuildContext context) async {
             shortcuts: [SingleActivator(LogicalKeyboardKey.escape)],
           ),
           _ShortcutRow(
-            label: 'Search',
+            label: 'Global search',
+            shortcuts: [searchShortcutForPlatform(defaultTargetPlatform)],
+          ),
+          _ShortcutRow(
+            label: 'Contextual search',
             shortcuts: [
-              primaryShortcutForPlatform(
+              searchShortcutForPlatform(
                 defaultTargetPlatform,
-                LogicalKeyboardKey.keyF,
+                contextual: true,
               ),
             ],
           ),

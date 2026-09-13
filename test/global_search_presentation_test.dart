@@ -76,7 +76,9 @@ void main() {
         Future<void> open() async {
           if (keyboard) {
             await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
+            await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
             await tester.sendKeyEvent(LogicalKeyboardKey.keyF);
+            await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
             await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
           } else {
             await tester.tap(find.byKey(ForumSearch.inputKey));
@@ -100,11 +102,13 @@ void main() {
 
         shell.globalSearch.clearConditions();
         await _finishSearch(tester);
-        await open();
+        await tester.tap(find.byKey(ForumSearch.inputKey));
+        await tester.pumpAndSettle();
         expect(shell.globalSearch.conditions, isEmpty);
         shell.globalSearch.setScope(GlobalSearchScope.users);
         await _finishSearch(tester);
-        await open();
+        await tester.tap(find.byKey(ForumSearch.inputKey));
+        await tester.pumpAndSettle();
         expect(shell.globalSearch.scope, GlobalSearchScope.users);
         await tester.sendKeyEvent(LogicalKeyboardKey.escape);
         await tester.pumpAndSettle();
@@ -331,6 +335,114 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
+
+  for (final platform in [TargetPlatform.macOS, TargetPlatform.linux]) {
+    for (final context in ['topic', 'list', 'chat drawer']) {
+      _testPresentation(
+        '${platform.name} search shortcuts switch global and $context context',
+        (tester) async {
+          debugDefaultTargetPlatformOverride = platform;
+          final shell = await _pumpSearch(tester);
+          if (context != 'list') {
+            shell.pushContent(
+              ContentRoute.topic(
+                topicId: 1038,
+                slug: 'search',
+                title: 'Search shortcuts',
+              ),
+            );
+          }
+          if (context == 'chat drawer') {
+            shell.pluginSession.require(chatShellService).openChannel(2);
+          }
+          await tester.pumpAndSettle();
+
+          Future<void> shortcut({bool contextual = false}) async {
+            final modifier = platform == TargetPlatform.macOS
+                ? LogicalKeyboardKey.metaLeft
+                : LogicalKeyboardKey.controlLeft;
+            await tester.sendKeyDownEvent(modifier);
+            if (contextual) {
+              await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+            }
+            expect(await tester.sendKeyEvent(LogicalKeyboardKey.keyF), isTrue);
+            if (contextual) {
+              await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+            }
+            await tester.sendKeyUpEvent(modifier);
+            await _finishSearch(tester);
+          }
+
+          await shortcut();
+          final search = shell.globalSearch;
+          expect(search.scope, GlobalSearchScope.all);
+          expect(search.conditions, isEmpty);
+          await tester.enterText(find.byKey(ForumSearch.inputKey), 'design');
+          await _finishSearch(tester);
+          final editor = _editor(tester).controller;
+          editor.selection = const TextSelection.collapsed(offset: 3);
+          for (final closeFirst in [false, true]) {
+            if (closeFirst) {
+              await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+              await tester.pumpAndSettle();
+            }
+            await shortcut(contextual: true);
+            expect(
+              search.scope,
+              context == 'chat drawer'
+                  ? GlobalSearchScope.chat
+                  : GlobalSearchScope.forum,
+            );
+            expect(
+              search.conditions.map((condition) => condition.filterId),
+              switch (context) {
+                'topic' => ['topicId'],
+                'chat drawer' => ['chatChannel'],
+                _ => <String>[],
+              },
+            );
+            expect(
+              search.conditions.map((condition) => condition.text),
+              switch (context) {
+                'topic' => ['1038'],
+                'chat drawer' => ['2'],
+                _ => <String>[],
+              },
+            );
+            expect(_editor(tester).focusNode.hasFocus, isTrue);
+            expect(editor.selection.baseOffset, 3);
+
+            await shortcut();
+            expect(search.scope, GlobalSearchScope.all);
+            for (final scope in GlobalSearchScope.values) {
+              expect(search.conditionsFor(scope), isEmpty);
+            }
+            expect(search.query, 'design');
+            expect(_editor(tester).controller, same(editor));
+            expect(editor.selection.baseOffset, 3);
+          }
+          final footer = find.byKey(const ValueKey('global-search-footer'));
+          final hints = tester
+              .widgetList<DShortcutKeycaps>(
+                find.descendant(
+                  of: footer,
+                  matching: find.byType(DShortcutKeycaps),
+                ),
+              )
+              .toList();
+          expect(hints, hasLength(2));
+          for (final (index, hint) in hints.indexed) {
+            final shortcut = hint.shortcut[0];
+            expect(shortcut.trigger, LogicalKeyboardKey.keyF);
+            expect(shortcut.meta, platform == TargetPlatform.macOS);
+            expect(shortcut.control, platform != TargetPlatform.macOS);
+            expect(shortcut.shift, index == 1);
+          }
+          expect(tester.takeException(), isNull);
+        },
+      );
+    }
+  }
 
   _testPresentation(
     'the app search shortcut opens and focuses the same search surface',
@@ -564,6 +676,10 @@ void main() {
           case 'back':
             await tester.tap(find.byKey(const ValueKey('global-search-back')));
           case 'result':
+            await tester.ensureVisible(
+              _panelText('The search design is ready for a keyboard review.'),
+            );
+            await tester.pumpAndSettle();
             await tester.tap(
               _panelText('The search design is ready for a keyboard review.'),
             );
@@ -587,20 +703,32 @@ void main() {
   }
 
   _testPresentation(
-    'outside dismissal preserves the query and has no shortcut footer or recent clocks',
+    'search shows shortcuts in its footer and preserves the query on dismissal',
     (tester) async {
       final shell = await _pumpSearch(tester);
       await tester.tap(find.byKey(ForumSearch.inputKey));
       await tester.pumpAndSettle();
       final panel = find.byKey(ForumSearch.panelKey);
+      final footer = find.byKey(const ValueKey('global-search-footer'));
       final keycaps = find.descendant(
-        of: panel,
+        of: footer,
         matching: find.byType(DShortcutKeycaps),
+      );
+      expect(keycaps, findsNWidgets(2));
+      expect(
+        find.descendant(of: footer, matching: find.text('Global search')),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(of: footer, matching: find.text('Contextual search')),
+        findsOneWidget,
       );
       for (final element in keycaps.evaluate()) {
         expect(
           tester.getRect(find.byWidget(element.widget)).center.dy,
-          lessThan(tester.getRect(_editorFinder()).bottom + 4),
+          greaterThan(
+            tester.getRect(panel).bottom - tester.getSize(footer).height,
+          ),
         );
       }
       expect(

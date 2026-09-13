@@ -74,7 +74,7 @@ class _ForumSearchState extends State<ForumSearch> {
     _search.addListener(_searchChanged);
     _global.addListener(_globalChanged);
     shell.addListener(_siteChanged);
-    _unregisterFocus = _search.registerFocus(_field, _requestFocus);
+    _unregisterFocus = _search.registerFocus(_field, _requestShortcutFocus);
     _syncSite();
     _syncText();
   }
@@ -159,32 +159,46 @@ class _ForumSearchState extends State<ForumSearch> {
     _focus.requestFocus();
   }
 
+  void _requestShortcutFocus(SearchFocusMode mode) {
+    if (!mounted) return;
+    _search.activateField(_field);
+    _openSearch(mode: mode);
+    _focus.requestFocus();
+  }
+
   void _focusChanged() {
     if (_focus.hasFocus && !_suppressFocus && !_open) _requestFocus();
   }
 
-  void _openSearch() {
+  void _openSearch({SearchFocusMode? mode}) {
     if (_search.siteUrl == null) return;
     _measureAnchor();
-    if (!_popover.isOpen) {
+    if (!_popover.isOpen || mode != null) {
       final route = _shell!.currentContent;
       final pluginContext = _shell!.plugins.registry.contentSearchContext(
         context,
       );
-      _global.setContext(
-        pluginContext ??
-            (route?.isTopic == true || route?.isTopicList == true
-                ? GlobalSearchContext(
-                    scope: GlobalSearchScope.forum,
-                    condition: route?.topicId == null
-                        ? null
-                        : GlobalSearchCondition(
-                            filterId: 'topicId',
-                            value: ['${route!.topicId}'],
-                          ),
-                  )
-                : null),
-      );
+      final openingContext =
+          pluginContext ??
+          (route?.isTopic == true || route?.isTopicList == true
+              ? GlobalSearchContext(
+                  scope: GlobalSearchScope.forum,
+                  condition: route?.topicId == null
+                      ? null
+                      : GlobalSearchCondition(
+                          filterId: 'topicId',
+                          value: ['${route!.topicId}'],
+                        ),
+                )
+              : null);
+      if (mode == SearchFocusMode.global || openingContext == null) {
+        _global.clearAllConditions();
+        _global.setScope(GlobalSearchScope.all);
+      } else {
+        _global.setContext(openingContext);
+      }
+    }
+    if (!_popover.isOpen) {
       _popover.open(DPopoverInteraction.keyboard);
     }
   }
@@ -346,10 +360,7 @@ class _ForumSearchState extends State<ForumSearch> {
                     280 * MediaQuery.textScalerOf(context).scale(14) / 14)
                   DShortcutKeycaps(
                     shortcut: DShortcut(
-                      primaryShortcutForPlatform(
-                        defaultTargetPlatform,
-                        LogicalKeyboardKey.keyF,
-                      ),
+                      searchShortcutForPlatform(defaultTargetPlatform),
                     ),
                     listenToKeyboard: false,
                   ),
@@ -477,6 +488,47 @@ class _ForumSearchState extends State<ForumSearch> {
                       selectedResultId: _selectedResultId,
                       onSelect: (id) => setState(() => _selectedResultId = id),
                       onOpen: _openResult,
+                    ),
+                  ),
+                  const DSeparator(),
+                  Padding(
+                    key: const ValueKey('global-search-footer'),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
+                    child: DefaultTextStyle.merge(
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: DTokens.of(context).mutedForeground,
+                      ),
+                      child: Wrap(
+                        spacing: 16,
+                        runSpacing: 8,
+                        children: [
+                          for (final contextual in [false, true])
+                            Wrap(
+                              spacing: 6,
+                              runSpacing: 4,
+                              crossAxisAlignment: WrapCrossAlignment.center,
+                              children: [
+                                DShortcutKeycaps(
+                                  shortcut: DShortcut(
+                                    searchShortcutForPlatform(
+                                      defaultTargetPlatform,
+                                      contextual: contextual,
+                                    ),
+                                  ),
+                                  listenToKeyboard: false,
+                                ),
+                                Text(
+                                  contextual
+                                      ? 'Contextual search'
+                                      : 'Global search',
+                                ),
+                              ],
+                            ),
+                        ],
+                      ),
                     ),
                   ),
                 ],

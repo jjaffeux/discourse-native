@@ -48,7 +48,10 @@ void main() {
           ),
         );
         await tester.pump();
-        final hint = find.byType(DShortcutKeycaps);
+        final hint = find.descendant(
+          of: find.byType(DInputGroup),
+          matching: find.byType(DShortcutKeycaps),
+        );
         if (width >= 560) {
           expect(hint, findsOneWidget);
           final caps = tester.widget<DShortcutKeycaps>(hint);
@@ -67,11 +70,23 @@ void main() {
       await tester.enterText(find.byKey(ForumSearch.inputKey), 'community');
       await tester.pump();
       expect(controller.globalSearch.query, 'community');
-      expect(find.byType(DShortcutKeycaps), findsNothing);
+      expect(
+        find.descendant(
+          of: find.byType(DInputGroup),
+          matching: find.byType(DShortcutKeycaps),
+        ),
+        findsNothing,
+      );
       await tester.tap(find.byKey(const ValueKey('forum-search-clear')));
       await tester.pump();
       expect(controller.globalSearch.query, isEmpty);
-      expect(find.byType(DShortcutKeycaps), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byType(DInputGroup),
+          matching: find.byType(DShortcutKeycaps),
+        ),
+        findsOneWidget,
+      );
       expect(
         tester.widget<EditableText>(_editableInput()).focusNode.hasFocus,
         isTrue,

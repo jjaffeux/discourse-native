@@ -17,15 +17,27 @@ SingleActivator primaryShortcutForPlatform(
   TargetPlatform platform,
   LogicalKeyboardKey trigger, {
   bool includeRepeats = true,
+  bool shift = false,
 }) {
   final macOS = platform == TargetPlatform.macOS;
   return SingleActivator(
     trigger,
     meta: macOS,
     control: !macOS,
+    shift: shift,
     includeRepeats: includeRepeats,
   );
 }
+
+SingleActivator searchShortcutForPlatform(
+  TargetPlatform platform, {
+  bool contextual = false,
+}) => primaryShortcutForPlatform(
+  platform,
+  LogicalKeyboardKey.keyF,
+  shift: contextual,
+  includeRepeats: false,
+);
 
 SingleActivator newDirectMessageShortcutForPlatform(TargetPlatform platform) =>
     primaryShortcutForPlatform(
