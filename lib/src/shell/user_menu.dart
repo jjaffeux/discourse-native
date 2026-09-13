@@ -319,6 +319,7 @@ class _UserMenuPanelState extends State<UserMenuPanel> {
             section: section,
             siteUrl: menu.siteUrl,
             host: menu.host,
+            showHeader: widget.view == UserMenuView.profile,
             onDismiss: widget.onDismiss,
             onPauseNotifications: () {
               if (siteUrl == null) return;
