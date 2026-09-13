@@ -4,7 +4,6 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
 import '../app_shortcuts.dart';
-import '../data/site_lifecycle.dart';
 import '../models/content_route.dart';
 import '../models/post.dart';
 import '../models/post_flag.dart';
@@ -14,7 +13,6 @@ import '../theme/d_icons.dart';
 import '../theme/d_native_icons.dart';
 import 'adaptive_dialog_action.dart';
 import 'bookmark_ui.dart';
-import 'command_menu.dart';
 import 'post_flag_editor.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';
@@ -176,7 +174,7 @@ class TopicShareButton extends StatelessWidget {
   }
 }
 
-class TopicStatusButton extends StatelessWidget {
+class TopicStatusButton extends StatefulWidget {
   const TopicStatusButton({
     super.key,
     required this.siteUrl,
@@ -187,6 +185,9 @@ class TopicStatusButton extends StatelessWidget {
   final String siteUrl;
   final TopicDetail topic;
   final List<PostFlagType> topicFlags;
+
+  @override
+  State<TopicStatusButton> createState() => _TopicStatusButtonState();
 
   void _flag(BuildContext context) {
     final controller = ShellScope.read(context);
@@ -331,10 +332,9 @@ class TopicStatusButton extends StatelessWidget {
       controller.topicPinWriteInFlight(siteUrl, topic.id) ||
       controller.topicFlagWriteInFlight(siteUrl, topic.id);
 
-  @override
-  Widget build(BuildContext context) {
-    final controller = ShellScope.identityOf(context);
-    SiteLease? lease;
+  List<Widget> _menuItems(BuildContext context) {
+    final controller = ShellScope.read(context);
+    final lease = controller.lifecycle.capture(siteUrl);
     bool ownsController() =>
         context.mounted &&
         !controller.accountSessionDisposed &&
@@ -343,92 +343,119 @@ class TopicStatusButton extends StatelessWidget {
     // The popup retains its options across anchor rebuilds. Each option must
     // retain the same topic and intent, and the account that opened it.
     void select(_TopicCommand command) {
-      if (!ownsController() || lease?.isCurrent != true) return;
+      if (!ownsController() || !lease.isCurrent) return;
       _selectCommand(context, command);
     }
 
-    final options = [
+    return [
       if (topicFlags.isNotEmpty)
-        CommandMenuOption(
-          value: () => select(_TopicCommand.flag),
-          label: 'Flag topic',
-          icon: DIcons.flag,
+        DDropdownMenuItem(
+          onPressed: () => select(_TopicCommand.flag),
           key: const ValueKey('topic-flag-button'),
+          leading: const DIcon(DIcons.flag),
+          child: const Text('Flag topic'),
         ),
       if (topic.hasPinPreference)
-        CommandMenuOption(
-          value: () => select(_TopicCommand.pinned),
-          label: topic.pinned ? 'Unpin topic' : 'Pin topic',
-          icon: DIcons.thumbtack,
+        DDropdownMenuItem(
+          onPressed: () => select(_TopicCommand.pinned),
           key: const ValueKey('topic-pin-button'),
+          leading: const DIcon(DIcons.thumbtack),
+          child: Text(topic.pinned ? 'Unpin topic' : 'Pin topic'),
         ),
       if (topic.canSelectPosts)
-        CommandMenuOption(
-          value: () => select(_TopicCommand.selectPosts),
-          label: 'Select posts',
-          icon: DIcons.list,
+        DDropdownMenuItem(
+          onPressed: () => select(_TopicCommand.selectPosts),
           key: const ValueKey('topic-select-posts'),
+          leading: const DIcon(DIcons.list),
+          child: const Text('Select posts'),
         ),
       if (topic.canCloseTopic)
-        CommandMenuOption(
-          value: () => select(_TopicCommand.closed),
-          label: topic.closed ? 'Open topic' : 'Close topic',
-          icon: DIcons.lock,
+        DDropdownMenuItem(
+          onPressed: () => select(_TopicCommand.closed),
           key: const ValueKey('topic-status-closed'),
+          leading: const DIcon(DIcons.lock),
+          child: Text(topic.closed ? 'Open topic' : 'Close topic'),
         ),
       if (topic.canArchiveTopic)
-        CommandMenuOption(
-          value: () => select(_TopicCommand.archived),
-          label: topic.archived ? 'Unarchive topic' : 'Archive topic',
-          icon: topic.archived ? DIcons.folderOpen : DIcons.folder,
+        DDropdownMenuItem(
+          onPressed: () => select(_TopicCommand.archived),
           key: const ValueKey('topic-status-archived'),
+          leading: DIcon(topic.archived ? DIcons.folderOpen : DIcons.folder),
+          child: Text(topic.archived ? 'Unarchive topic' : 'Archive topic'),
         ),
       if (topic.canToggleTopicVisibility)
-        CommandMenuOption(
-          value: () => select(_TopicCommand.visible),
-          label: topic.visible ? 'Make topic unlisted' : 'Make topic visible',
-          icon: topic.visible ? DIcons.farEyeSlash : DIcons.farEye,
+        DDropdownMenuItem(
+          onPressed: () => select(_TopicCommand.visible),
           key: const ValueKey('topic-status-visible'),
+          leading: DIcon(topic.visible ? DIcons.farEyeSlash : DIcons.farEye),
+          child: Text(
+            topic.visible ? 'Make topic unlisted' : 'Make topic visible',
+          ),
         ),
       if (topic.canDeleteTopic)
-        CommandMenuOption(
-          value: () => select(_TopicCommand.delete),
-          label: 'Delete topic',
-          icon: DIcons.trashCan,
+        DDropdownMenuItem(
+          onPressed: () => select(_TopicCommand.delete),
           key: const ValueKey('topic-status-delete'),
-          destructive: true,
+          leading: const DIcon(DIcons.trashCan),
+          variant: DDropdownMenuItemVariant.destructive,
+          child: const Text('Delete topic'),
         ),
       if (topic.canRecoverTopic)
-        CommandMenuOption(
-          value: () => select(_TopicCommand.recover),
-          label: 'Recover topic',
-          icon: DIcons.arrowRotateLeft,
+        DDropdownMenuItem(
+          onPressed: () => select(_TopicCommand.recover),
           key: const ValueKey('topic-status-recover'),
+          leading: const DIcon(DIcons.arrowRotateLeft),
+          child: const Text('Recover topic'),
         ),
     ];
+  }
+}
+
+class _TopicStatusButtonState extends State<TopicStatusButton> {
+  List<Widget> _openItems = const [];
+
+  @override
+  Widget build(BuildContext context) {
+    final controller = ShellScope.identityOf(context);
+    final items = widget._menuItems(context);
     return ShellSelector<bool>(
-      select: _busy,
-      builder: (context, busy, _) => CommandMenuAnchor<VoidCallback>(
-        title: 'More topic actions',
-        options: options,
-        enabled: !busy,
-        onSelected: (select) => select(),
-        builder: (context, openMenu) => DButton.iconOnly(
-          key: const ValueKey('topic-status-button'),
-          tooltip: 'More topic actions',
-          onPressed: openMenu == null
-              ? null
-              : () {
-                  if (!ownsController() || _busy(controller)) return;
-                  lease = controller.lifecycle.capture(siteUrl);
-                  openMenu();
-                },
-          loading: busy,
-          variant: DButtonVariant.ghost,
-          size: DButtonSize.small,
-          icon: busy
-              ? const SizedBox.square(dimension: 16, child: DSpinner())
-              : const DIcon(DIcons.wrench, size: 16),
+      select: widget._busy,
+      builder: (context, busy, _) => DDropdownMenu(
+        onOpenChange: (open, reason) {
+          if (open) {
+            // Keep the displayed commands and their captured topic/account
+            // together until dismissal, even when the header rebuilds.
+            setState(() => _openItems = widget._menuItems(this.context));
+          }
+        },
+        content: DDropdownMenuContent(
+          semanticLabel: 'More topic actions',
+          align: DPopoverAlign.end,
+          width: 224,
+          children: _openItems,
+        ),
+        child: DDropdownMenuTrigger(
+          builder: (context, state) => DButton.iconOnly(
+            key: const ValueKey('topic-status-button'),
+            tooltip: 'More topic actions',
+            focusNode: state.focusNode,
+            hasPopup: true,
+            expanded: state.open,
+            onPressed: busy || items.isEmpty
+                ? null
+                : () {
+                    if (controller.accountSessionDisposed ||
+                        !identical(ShellScope.read(context), controller) ||
+                        widget._busy(controller)) {
+                      return;
+                    }
+                    state.toggle();
+                  },
+            loading: busy,
+            variant: DButtonVariant.ghost,
+            size: DButtonSize.small,
+            icon: const DIcon(DIcons.wrench),
+          ),
         ),
       ),
     );
