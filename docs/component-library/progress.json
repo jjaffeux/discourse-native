@@ -6335,7 +6335,48 @@
       "reviewPreparationBranch": "codex/review-notification-dot",
       "reviewCommit": "90f4e38983ed9eacf7d264e7c2e68f956fc551b3",
       "reviewAcceptanceCommit": "0de7c7f5",
-      "mergeCommit": "083805d7bd19dd7063b1b3ff06dc19e35fa2a210"
+      "mergeCommit": "083805d7bd19dd7063b1b3ff06dc19e35fa2a210",
+      "capsuleFollowUp": {
+        "request": "2026-09-13: user selected combined capsules for numeric header indicators, requested the same for Chat, and asked to match core colors.",
+        "taskId": "01a09b6b-2068-70c2-af0b-397ab895f42f",
+        "branch": "codex/header-notification-capsules-verified",
+        "implementationCommit": "940e6a41",
+        "reviewedSource": "70b3d23e2d5d62543c06be8f17eee5c41d18d175",
+        "coreReference": "438ea4dea8ccc4d5f7bc8460b46fc16d29bff65a",
+        "status": "verified",
+        "decisions": [
+          "Compose DButton and DSeparator without changing the kit API. Chat urgent counts and bell totals use one softly tinted capsule, with 99+ visual cap and exact accessible count.",
+          "Preserve core Chat count/preferences/DND policy. Use success for urgent Chat and personal-message priority, danger for reviewable priority, and the distinct core ordinary indicator and sidebar accent roles.",
+          "Correct topic, thread, pinned-chat and forum-tab indicator roles; persist a backward-compatible notification palette role. Document selector-specific WCAG/theme CSS limits in notification-colors.md.",
+          "Native review caught dense header navigation overflow at 390px/200%. Narrow desktop headers now place account controls below the traffic-light/search row at enlarged text. Numeric text keeps LTR order within RTL controls."
+        ],
+        "verification": [
+          "Integrated from local main 96e57138: 282 focused tests passed across palette serialization, theme mapping, buttons/semantics, chat/sidebar/drawer/thread behavior, caps, geometry and core preference/DND integration. Log: /tmp/notification-capsule-final-tests.log.",
+          "Final integration from local main 60eedf0f: 176 header/navigation/session tests passed, including actual macOS-target headers at 320px and 390px with two 128-count capsules and 200% text, plus notification-panel opening. Log: /tmp/notification-capsule-header-regressions.log.",
+          "Final root flutter analyze --no-pub passes. macOS debug fixture build passes; isolated copied bundle has distinct identity and verified ad-hoc signature/debug entitlements. Manifest: /tmp/notification-capsule-final-bundle.json.",
+          "Native macOS review confirmed dark/light capsules and exact AX labels, Chat drawer opening and urgent green drawer badge. Final source reinspection confirmed the 390px Forest header at 200% in RTL: two usable rows, no overflow, correct 99+ order. Reviewed the real styleguide Combined count capsules example; quit both isolated apps through their menus.",
+          "Updated HTML reloaded in the in-app browser: confirmed chat urgent capsule versus ordinary unread dot, bell reviewable/personal/ordinary roles, independent counts, dark/light and RTL. No browser console errors. Selected capsule preview retained as the deliverable."
+        ],
+        "limitations": [
+          "Native UI inspection is macOS only; no physical mobile-device or spoken screen-reader run. Final full-suite execution is not part of the authorized focused-verification policy.",
+          "Bell/profile popup activation is covered by focused pointer/keyboard/semantics tests, including the actual narrow header. Native CUA activation did not expose the bell popover in the isolated background fixture; no native bell-popover pass is claimed."
+        ],
+        "nativeBundle": {
+          "source": "70b3d23e2d5d62543c06be8f17eee5c41d18d175",
+          "bundle": "/var/folders/2m/k_kwhr_j70q64prh4z3r44jc0000gn/T/notification-capsules-final-4f88-d_rhmouq/Notification Capsules Final.app",
+          "bundleIdentifier": "org.discourse.native.notification-capsules.4f88.final",
+          "kernelSha256": "953b3115701b0947c4fcfaf8f40fc7b14dd7ffd70e397d04372fae8b4ece210e",
+          "entitlements": {
+            "com.apple.security.app-sandbox": true,
+            "com.apple.security.cs.allow-jit": true,
+            "com.apple.security.device.audio-input": true,
+            "com.apple.security.device.camera": true,
+            "com.apple.security.files.user-selected.read-write": true,
+            "com.apple.security.network.client": true,
+            "com.apple.security.network.server": true
+          }
+        }
+      }
     }
   ]
 }
