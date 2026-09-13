@@ -68,3 +68,11 @@ Native review source SHA-256, before the follow-up description removals:
 - `lib/src/shell/user_summary.dart`: `f63f652735cfc747a1ea896cb4a7177afda915cd5643b34afd684f2c5ceb6a18`
 - `tool/user_summary_review_main.dart`: `7ac7419861ef26354d8fb01fefe383c26b71492b7bbc33f272dba264edad6f0b`
 - macOS fixture `kernel_blob.bin`: `a72671a3440cbfbe577aaffaf4b4dc20d6eaff9a13858829e6675c43ae03f220`
+
+## Main integration
+
+Prepared from main `4e39ad0a6cb31f4265635731f6c874237e839822`, preserving the
+implementation commit `49d8d2c0`. The merge required no conflict resolution.
+The final copy removals are included. On the combined source, all 23 focused
+summary tests passed again, full `flutter analyze --no-pub` reported no issues,
+and formatting, JavaScript syntax and patch whitespace checks were clean.
