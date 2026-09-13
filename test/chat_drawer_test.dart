@@ -90,6 +90,7 @@ void main() {
           .getSemantics(
             find.byKey(const ValueKey('chat-drawer-navigation-chat-channels')),
           )
+          .getSemanticsData()
           .label,
       'Channels\nUnread messages',
     );

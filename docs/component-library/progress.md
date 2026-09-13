@@ -3568,13 +3568,16 @@ Status: review_ready. Task: 01a09b55-9a1f-7f50-b2ec-5f4c3d890ad4. Branch: codex/
 **verification**
 
 - flutter analyze --no-pub: clean; flutter build macos --debug --no-pub -t tool/notification_dot_review_main.dart: passed.
-- 32 component/header/forum-tab tests passed; frozen catalogue test passed after placing progress in applicationComponents. Final added extension-registration test still to run.
+- Reviewer: 33 component/header/forum-tab tests passed, including the extension-registration test; frozen catalogue assertion passed. Logs: /tmp/notification-dot-review-kit.log and /tmp/notification-dot-review-catalogue.log.
 - Seven broader consumer/styleguide files at base 71c94832: 392 passed, 44 failed. Candidate had the exact same 44 failures plus the now-fixed catalogue scheduling assertion. Logs: /tmp/notification-dot-baseline-tests.log and /tmp/notification-dot-current-tests.log. No remaining unique regression was found.
 - Dot/unread/unseen/pinned consumer filter: 19 passed and three failures reproduced unchanged at the base (existing topic alignment/compact-title expectations). Log: /tmp/notification-dot-focused-consumers.log.
+- Independent reviewer integrated c0bb2887 into a review branch based on local main 76080324. Source review covers public API, live tokens, geometry, pointer passthrough, accessible label ownership, all migrations and retained non-notification marker owners; format check passes for all 19 touched Dart files.
+- Reviewer reproduced and fixed duplicate drawer-row unread semantics, retaining unread labels on drawer navigation; replaced the decorative styleguide initials avatar with a fixed-size icon after native 200% text review. Dot geometry/paint is unchanged.
+- Implementation task inspected native macOS fixture built from c0bb2887 component/adoption source: production header/sidebar dark and light, header click opens chat drawer, Forest palette at 390px, RTL mirrored header dot, all three styleguide examples, click-to-clear and restore, 200% inline and RTL header. Final semantics/demo follow-up is pending on corrected source.
 
 **limitations**
 
-- Native visual review is pending the shared desktop lease. Built isolated local-data fixture at /var/folders/2m/k_kwhr_j70q64prh4z3r44jc0000gn/T/native-notification-dot-ulm62kxb/Notification Dot Review.app. Root task will supply visual evidence before merge.
+- Native review accepted original dot geometry and migrations. Corrected-source drawer semantics and decorative styleguide avatar follow-up is pending before merge.
 - No physical iOS or Linux device run. The broader suite has 44 verified baseline failures.
 
 ### Final audit
