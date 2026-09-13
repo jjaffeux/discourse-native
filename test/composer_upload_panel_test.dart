@@ -84,7 +84,7 @@ void main() {
           expect(composer.notice, isNull);
           expect(
             composer.text.text,
-            '${ontoGallery ? gallery : ''}[screen.mp4](upload://screen.mp4)${ontoGallery ? '\n' : ''}',
+            '${ontoGallery ? gallery : ''}[screen.mp4](upload://screen.mp4)\n',
           );
           expect(composer.text.imageBlocks, hasLength(ontoGallery ? 2 : 0));
           if (ontoGallery) {
@@ -544,7 +544,7 @@ void main() {
       final source = composer.text.text;
       expect(
         composer.text.selection,
-        TextSelection.collapsed(offset: image.end),
+        TextSelection.collapsed(offset: image.end + 1),
       );
       expect(composer.text.keyboardSelectedImage, isNull);
       expect(find.byTooltip('Save alt text'), findsNothing);
@@ -557,6 +557,16 @@ void main() {
 
       composer.focus.requestFocus();
       await tester.pump();
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
+      await tester.pump();
+
+      // The upload leaves a real text line below the image. Move through its
+      // separator before entering the image's keyboard selection.
+      expect(
+        composer.text.selection,
+        TextSelection.collapsed(offset: image.end),
+      );
+      expect(composer.text.keyboardSelectedImage, isNull);
       await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
       await tester.pump();
 
