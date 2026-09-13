@@ -4,56 +4,97 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
 import '../data/discourse_api.dart';
+import '../data/discover_sites.dart';
 import '../diagnostics/diagnostics_controller.dart';
 import '../models/discourse_instance.dart';
 import '../theme/app_theme.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
+import 'discover_site_suggestions.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';
-import 'shell_sheet.dart';
 
 const Duration addInstanceLookupDebounce = Duration(milliseconds: 750);
 
-Future<void> showAddInstanceSheet(BuildContext context) async {
+Future<void> showAddInstanceSheet(
+  BuildContext context, {
+  DiscoverSites? discoverSites,
+}) async {
   const title = 'Add a site';
-  const form = _AddInstanceForm();
+  final shell = ShellScope.maybeRead(context);
+  final source = discoverSites ?? shell?.discoverSites ?? DiscoverSites();
+  final ownsSource = discoverSites == null && shell == null;
   final isTouch = switch (Theme.of(context).platform) {
     TargetPlatform.iOS || TargetPlatform.android => true,
     _ => false,
   };
 
-  if (isTouch) {
-    return showShellSheet<void>(
-      context: context,
-      title: title,
-      builder: (context) => form,
-    );
-  }
-
   final addressFocus = FocusNode(debugLabel: 'Add site address');
   try {
+    if (isTouch) {
+      await showDDrawer<void>(
+        context: context,
+        showSwipeHandle: true,
+        initialFocusNode: addressFocus,
+        builder: (context, controller) => DDrawerContent(
+          semanticLabel: title,
+          children: [
+            DDrawerHeader(
+              children: [
+                Row(
+                  children: [
+                    const Expanded(child: DDrawerTitle(child: Text(title))),
+                    DButton.iconOnly(
+                      variant: DButtonVariant.ghost,
+                      icon: const DIcon(DIcons.xmark),
+                      tooltip: 'Close',
+                      onPressed: () => controller.close(),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+            Flexible(
+              child: DScrollArea(
+                padding: const EdgeInsets.all(DSpacing.lg),
+                child: _AddInstanceForm(
+                  focusNode: addressFocus,
+                  discoverSites: source,
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
     await showDDialog<void>(
       context: context,
       initialFocusNode: addressFocus,
       builder: (context, controller) => DDialogContent(
-        maxWidth: 480,
+        maxWidth: 600,
         semanticLabel: title,
         children: [
           const DDialogHeader(children: [DDialogTitle(child: Text(title))]),
-          _AddInstanceForm(focusNode: addressFocus),
+          _AddInstanceForm(focusNode: addressFocus, discoverSites: source),
         ],
       ),
     );
   } finally {
-    addressFocus.dispose();
+    if (ownsSource) source.dispose();
   }
 }
 
 class _AddInstanceForm extends StatefulWidget {
-  const _AddInstanceForm({this.focusNode});
+  const _AddInstanceForm({
+    required this.discoverSites,
+    required this.focusNode,
+  });
 
-  final FocusNode? focusNode;
+  // Own the node until the closing route has actually unmounted. The overlay
+  // helpers resolve on pop, before their dismissal animation finishes.
+  final FocusNode focusNode;
+  final DiscoverSites discoverSites;
 
   @override
   State<_AddInstanceForm> createState() => _AddInstanceFormState();
@@ -77,6 +118,7 @@ class _AddInstanceFormState extends State<_AddInstanceForm> {
   void dispose() {
     _lookupTimer?.cancel();
     _field.dispose();
+    widget.focusNode.dispose();
     super.dispose();
   }
 
@@ -331,6 +373,19 @@ class _AddInstanceFormState extends State<_AddInstanceForm> {
           onPressed: _connect,
           variant: DButtonVariant.primary,
           loading: _connecting,
+        ),
+        const SizedBox(height: DSpacing.xl),
+        DiscoverSiteSuggestions(
+          source: widget.discoverSites,
+          address: _field.text,
+          enabled: !_connecting,
+          onSelected: (site) {
+            _field.value = TextEditingValue(
+              text: site.url,
+              selection: TextSelection.collapsed(offset: site.url.length),
+            );
+            _addressChanged(site.url);
+          },
         ),
       ],
     );

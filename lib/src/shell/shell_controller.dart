@@ -11,6 +11,7 @@ import '../data/app_settings_store.dart';
 import '../data/authenticator.dart';
 import '../data/badges_api.dart';
 import '../data/discourse_api_contracts.dart';
+import '../data/discover_sites.dart';
 import '../data/draft_store.dart';
 import '../data/emoji_picker_store.dart';
 import '../data/forum_tab_store.dart';
@@ -275,6 +276,7 @@ class ShellController extends FrameSafeNotifier
     SiteLifecycle? lifecycle,
     DateTime Function()? clock,
     SiteImageRepository? siteImages,
+    this._discoverSites,
     this.trackers = SiteTracker.new,
     Updater updater = const UnsupportedUpdater(),
     UpdateStore? updateStore,
@@ -328,6 +330,9 @@ class ShellController extends FrameSafeNotifier
   final Store store;
 
   final ShellApiPorts api;
+
+  DiscoverSites? _discoverSites;
+  DiscoverSites get discoverSites => _discoverSites ??= DiscoverSites();
 
   final bool ownsApi;
 
@@ -13949,6 +13954,7 @@ class ShellController extends FrameSafeNotifier
     for (final composer in _composers.values) {
       _composerDrafts.preservePendingLocally(composer);
     }
+    _discoverSites?.dispose();
 
     // A window can close in the frame immediately after a selection or a
     // scroll. Keep the latest local choice and anchor durable, but never start
