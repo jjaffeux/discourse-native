@@ -259,6 +259,8 @@ class _PlaceholderField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final tokens = DTokens.of(context);
+    final dark = Theme.of(context).brightness == Brightness.dark;
     final options = definition.defaults.toSet();
     final value = values.overrides[definition.key] ?? definition.defaultValue;
     void change(String value) => values.change(
@@ -271,66 +273,84 @@ class _PlaceholderField extends StatelessWidget {
       child: Align(
         alignment: AlignmentDirectional.centerStart,
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 448),
-          child: DField(
-            children: [
-              DFieldLabel(
-                focusNode: field.focus,
-                excludeSemantics: true,
-                child: Text(definition.key),
+          constraints: const BoxConstraints(maxWidth: 528),
+          child: Container(
+            decoration: BoxDecoration(
+              color: Color.alphaBlend(
+                tokens.primary.withValues(alpha: dark ? .10 : .05),
+                tokens.background,
               ),
-              DFieldControl(
-                // Text editors expose their label at the editor's native boundary.
-                label: options.isEmpty ? '' : definition.key,
-                description: description,
-                child: options.isEmpty
-                    ? DInput(
-                        controller: field.text,
-                        focusNode: field.focus,
-                        semanticLabel: definition.key,
-                        hintText: description,
-                        autocorrect: false,
-                        enableSuggestions: false,
-                        onChanged: change,
-                      )
-                    : DSelect<String>.controlled(
-                        focusNode: field.focus,
-                        isExpanded: true,
-                        value: options.contains(value) || value == 'none'
-                            ? value
-                            : null,
-                        placeholder: description ?? 'Select a value',
-                        entries: [
-                          if (description != null &&
-                              description!.isNotEmpty &&
-                              !options.contains('none'))
-                            DSelectOption(
-                              value: 'none',
-                              label: description!,
-                              child: Text(description!),
-                            ),
-                          for (final option in options)
-                            DSelectOption(
-                              value: option,
-                              label: option,
-                              child: Text(option),
-                            ),
-                        ],
-                        onChanged: (value) => change(value ?? 'none'),
+              borderRadius: const BorderRadiusDirectional.only(
+                topEnd: Radius.circular(DSpacing.sm),
+                bottomEnd: Radius.circular(DSpacing.sm),
+              ),
+            ),
+            foregroundDecoration: BoxDecoration(
+              border: BorderDirectional(
+                start: BorderSide(color: tokens.primary, width: DSpacing.xs),
+              ),
+            ),
+            padding: const EdgeInsetsDirectional.fromSTEB(22, 16, 18, 16),
+            child: DField(
+              children: [
+                DFieldLabel(
+                  focusNode: field.focus,
+                  excludeSemantics: true,
+                  child: Text(definition.key),
+                ),
+                DFieldControl(
+                  // Text editors expose their label at the editor's native boundary.
+                  label: options.isEmpty ? '' : definition.key,
+                  description: description,
+                  child: options.isEmpty
+                      ? DInput(
+                          controller: field.text,
+                          focusNode: field.focus,
+                          semanticLabel: definition.key,
+                          hintText: description,
+                          autocorrect: false,
+                          enableSuggestions: false,
+                          onChanged: change,
+                        )
+                      : DSelect<String>.controlled(
+                          focusNode: field.focus,
+                          isExpanded: true,
+                          value: options.contains(value) || value == 'none'
+                              ? value
+                              : null,
+                          placeholder: description ?? 'Select a value',
+                          entries: [
+                            if (description != null &&
+                                description!.isNotEmpty &&
+                                !options.contains('none'))
+                              DSelectOption(
+                                value: 'none',
+                                label: description!,
+                                child: Text(description!),
+                              ),
+                            for (final option in options)
+                              DSelectOption(
+                                value: option,
+                                label: option,
+                                child: Text(option),
+                              ),
+                          ],
+                          onChanged: (value) => change(value ?? 'none'),
+                        ),
+                ),
+                if (descriptionHtml.trim().isNotEmpty)
+                  DFieldDescription(
+                    child: Builder(
+                      builder: (context) => CookedHtml(
+                        html: descriptionHtml,
+                        textStyle: DefaultTextStyle.of(context).style,
+                        siteUrl: siteUrl,
+                        compactParagraphs: true,
                       ),
-              ),
-              if (descriptionHtml.trim().isNotEmpty)
-                DFieldDescription(
-                  child: Builder(
-                    builder: (context) => CookedHtml(
-                      html: descriptionHtml,
-                      textStyle: DefaultTextStyle.of(context).style,
-                      siteUrl: siteUrl,
-                      compactParagraphs: true,
                     ),
                   ),
-                ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
