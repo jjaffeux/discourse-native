@@ -326,9 +326,9 @@ extension DiscourseButtonThemeAccess on ThemeData {
 /// Text can opt into wrapping using its own softWrap and maxLines properties.
 /// Icon-only controls require an accessible tooltip. Desktop surfaces follow
 /// the shared Native sizes; touch platforms expand their invisible targets to 48px.
-/// The painted surface is a [DButtonDecoration]: hover, expanded, focus,
-/// invalid and pressed changes transition together over 150ms. Hover exit
-/// clears immediately to avoid overlapping highlights on neighboring buttons.
+/// The painted surface is a [DButtonDecoration]: state changes transition
+/// together over 150ms, except hover changes and popup dismissal, which apply
+/// immediately to avoid lingering highlights.
 class DButton extends StatelessWidget {
   const DButton({
     super.key,
@@ -711,6 +711,7 @@ class DButton extends StatelessWidget {
         return _DButtonSurface(
           duration: animationDuration,
           hovered: states.contains(WidgetState.hovered),
+          expanded: expanded,
           transform: Matrix4.translationValues(
             0,
             states.contains(WidgetState.pressed) && !hasPopup ? 1 : 0,
@@ -864,12 +865,14 @@ class DButton extends StatelessWidget {
 }
 
 // Apply hover changes immediately: entry must not cycle through intermediate
-// fills, and exit must not leave a trail on adjacent controls. Other state
-// changes keep the shared control transition.
+// fills, and exit must not leave a trail on adjacent controls. Clear expanded
+// styling immediately on dismissal too. Other state changes keep the shared
+// control transition.
 class _DButtonSurface extends StatefulWidget {
   const _DButtonSurface({
     required this.duration,
     required this.hovered,
+    required this.expanded,
     required this.transform,
     required this.decoration,
     required this.child,
@@ -877,6 +880,7 @@ class _DButtonSurface extends StatefulWidget {
 
   final Duration duration;
   final bool hovered;
+  final bool expanded;
   final Matrix4 transform;
   final DButtonDecoration decoration;
   final Widget? child;
@@ -886,17 +890,19 @@ class _DButtonSurface extends StatefulWidget {
 }
 
 class _DButtonSurfaceState extends State<_DButtonSurface> {
-  bool _hoverChanged = false;
+  bool _skipTransition = false;
 
   @override
   void didUpdateWidget(_DButtonSurface oldWidget) {
     super.didUpdateWidget(oldWidget);
-    _hoverChanged = oldWidget.hovered != widget.hovered;
+    _skipTransition =
+        oldWidget.hovered != widget.hovered ||
+        (oldWidget.expanded && !widget.expanded);
   }
 
   @override
   Widget build(BuildContext context) => AnimatedContainer(
-    duration: _hoverChanged ? Duration.zero : widget.duration,
+    duration: _skipTransition ? Duration.zero : widget.duration,
     curve: Curves.ease,
     transform: widget.transform,
     decoration: widget.decoration,
