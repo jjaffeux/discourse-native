@@ -177,3 +177,8 @@ light/390px layouts, including 200% text. The footer wrapped without clipping.
 Native automation sent F without modifier flags, confirmed with a temporary
 key-event diagnostic; the shortcut combinations were verified by widget tests.
 No authenticated server or physical mobile device was used.
+
+The integrated change passed all 315 focused search, shell navigation,
+accessibility and chat cases, root/full-profile analysis, formatting and
+`git diff --check` against main's updated search-scope checkmarks and HTML
+renderer dependency.
