@@ -4,15 +4,20 @@ import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'support/discover_sites.dart';
+
 void main() {
   Future<void> openAddSite(WidgetTester tester, TargetPlatform platform) async {
+    final source = emptyDiscoverSites();
+    addTearDown(source.dispose);
     await tester.pumpWidget(
       MaterialApp(
         theme: AppTheme.dark.copyWith(platform: platform),
         home: Scaffold(
           body: Builder(
             builder: (context) => FilledButton(
-              onPressed: () => showAddInstanceSheet(context),
+              onPressed: () =>
+                  showAddInstanceSheet(context, discoverSites: source),
               child: const Text('Open'),
             ),
           ),
@@ -38,11 +43,12 @@ void main() {
     );
   });
 
-  testWidgets('uses a bottom sheet on Android', (tester) async {
+  testWidgets('uses the Native drawer on Android', (tester) async {
     await openAddSite(tester, TargetPlatform.android);
 
     expect(find.byType(Dialog), findsNothing);
-    expect(find.byType(BottomSheet), findsOneWidget);
+    expect(find.byType(BottomSheet), findsNothing);
+    expect(find.byType(DDrawerContent), findsOneWidget);
     expect(find.text('Add a site'), findsOneWidget);
     expect(
       tester.widget<EditableText>(find.byType(EditableText)).focusNode.hasFocus,
