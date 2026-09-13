@@ -31,16 +31,16 @@
 .title-edit { padding: 0; border: 0; background: transparent; font: inherit; letter-spacing: inherit; color: inherit; cursor: text; text-align: left; width: 100%; }
 .title-edit:hover { text-decoration: underline; text-decoration-color: var(--native-border); text-underline-offset: 4px; }
 .toolbar-title .title-edit, .toolbar-title [data-topic-title] { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; white-space: normal; text-overflow: ellipsis; overflow: hidden; }
-.taxonomy-dock { position: sticky; top: var(--toolbar-height, 52px); z-index: 4; display: flex; align-items: center; gap: 8px; min-height: 48px; padding: 8px 24px 8px var(--text-inset); background: var(--native-content); border-bottom: 1px solid transparent; }
+.taxonomy-dock { position: sticky; top: var(--toolbar-height, 52px); z-index: 4; display: flex; align-items: center; gap: 8px; min-height: 44px; padding: 8px 24px 8px var(--text-inset); background: var(--native-content); border-bottom: 1px solid transparent; }
 .taxonomy-dock[data-pinned="true"] { border-bottom-color: var(--native-border); }
 .category-controls { display: flex; gap: 7px; min-width: 0; flex: 0 1 auto; max-width: 55%; }
 .category-control { display: flex; min-width: 0; }
-.category-control .native-button { height: 32px; font-size: 14px; border-radius: 3px; gap: 5px; }
+.category-control .native-button { height: 28px; font-size: 12.8px; line-height: 22.4px; border-radius: 6.4px; gap: 5px; }
 .category-trigger { min-width: 0; padding: 0 7px; }
 .category-name { overflow: hidden; text-overflow: ellipsis; }
-.category-trigger .icon { width: 12px; height: 12px; }
-.category-browse { flex: 0 0 24px; width: 24px; padding: 0; margin-left: -1px; border-top-left-radius: 0 !important; border-bottom-left-radius: 0 !important; }
-.category-browse .icon { width: 11px; height: 11px; }
+.category-trigger .icon { width: 14px; height: 14px; }
+.category-browse { flex: 0 0 28px; width: 28px; padding: 0; margin-left: -1px; border-top-left-radius: 0 !important; border-bottom-left-radius: 0 !important; }
+.category-browse .icon { width: 14px; height: 14px; }
 .category-trigger { border-top-right-radius: 0 !important; border-bottom-right-radius: 0 !important; }
 .parent-control .native-button { color: var(--native-muted); background: var(--native-tag); }
 .child-control .native-button { color: var(--native-category); background: var(--native-category-bg); border-color: var(--native-category-line); }
@@ -52,10 +52,10 @@
 .tag-list .native-badge { display: block; max-width: 148px; white-space: nowrap; text-overflow: ellipsis; overflow: hidden; }
 .tag-controls .native-badge { height: 20px; font-size: 12px; font-weight: 500; border: 0; flex-shrink: 0; padding: 0 8px; }
 .tag-controls .native-badge:hover { color: var(--native-text); background: var(--native-border); }
-.tag-controls .tag-edit { width: 24px; height: 24px; flex: 0 0 24px; }
-.tag-controls .tag-edit .icon { width: 12px; height: 12px; }
+.tag-controls .tag-edit { width: 28px; height: 28px; flex: 0 0 28px; }
+.tag-controls .tag-edit .icon, .add-tag .icon { width: 14px; height: 14px; }
 .tag-overflow { max-width: 90px; white-space: nowrap; }
-.add-tag { height: 24px; background: var(--native-tag); font-size: 12px; }
+.add-tag { height: 28px; background: var(--native-tag); font-size: 12.8px; line-height: 22.4px; border-radius: 6.4px; }
 .full-activity { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 4px 24px 4px var(--text-inset); min-height: 28px; font-size: 12px; color: var(--native-muted); }
 .opening-day, .floating-day { display: flex; align-items: center; justify-content: center; padding: 0 16px; }
 .opening-day { min-height: 28px; }
@@ -118,8 +118,6 @@
   .category-trigger { padding: 0 4px; gap: 3px !important; }
   .parent-control { flex: 1 1 40%; }
   .child-control { flex: 1 1 60%; }
-  .category-browse { width: 20px; flex-basis: 20px; }
-  .category-control .native-button { font-size: 11px; }
   .tag-controls .native-badge { font-size: 11px; padding: 0 6px; }
   .tag-controls { gap: 4px; }
   .full-activity { padding-right: 12px; font-size: 11px; }

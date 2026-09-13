@@ -69,6 +69,18 @@ categories, clicking the date to return, and the 390px opening with 200% text.
 The Mac locked before the remaining browser inspection; the updated HTML/CSS
 preview has passed JavaScript syntax and whitespace checks.
 
+The small-controls follow-up uses Native `DButtonSize.small` for category
+editing, category browsing and both tag editor triggers. At normal text size,
+these have 28px surfaces, 12.8px labels and 14px icons; the tag layout reserves
+the matching scaled editor width. The HTML/CSS mockup uses the same size.
+No shared component API or size tokens changed. All 95 focused header, tag,
+date and control-adoption tests passed (excluding the unrelated footer test
+documented above), along with static analysis and the debug macOS build.
+Native review covered dark desktop, light 390px, 200% text and the Button
+styleguide's Size example. The mockup server was restarted, but browser
+inspection could not finish because the tool rejected its connection-error
+page's `data:` URL; no browser visual verification is claimed for this change.
+
 ## Direction 02: full-content follow-up
 
 Open `natural-handoff.html` for the focused continuation requested by the user.
