@@ -89,8 +89,7 @@ void main() {
       bounds.right,
       closeTo(
         pane.right -
-            DResizableHandle.resolveHitExtent(tester.element(close), 8) -
-            4,
+            DResizableHandle.resolveHitExtent(tester.element(close), 8),
         1,
       ),
     );

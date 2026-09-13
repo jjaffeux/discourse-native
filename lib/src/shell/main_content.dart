@@ -429,7 +429,7 @@ class _TopicInboxWorkspaceState extends State<_TopicInboxWorkspace> {
                   if (topicOpen && split)
                     Padding(
                       padding: EdgeInsetsDirectional.only(
-                        end: DResizableHandle.resolveHitExtent(context, 8) + 4,
+                        end: DResizableHandle.resolveHitExtent(context, 8),
                       ),
                       child: TopicCloseButton(
                         canReturnToSidebar: layout.isCompact,
