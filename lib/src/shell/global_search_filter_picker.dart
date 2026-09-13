@@ -48,7 +48,7 @@ class _GlobalSearchFilterPickerState extends State<_GlobalSearchFilterPicker> {
         if (!open && mounted) setState(() => _editing = null);
       },
       content: DPopoverContent(
-        width: 350,
+        width: editor?.id == 'tags' ? 430 : 350,
         align: DPopoverAlign.end,
         padding: EdgeInsets.zero,
         semanticLabel: editor == null
@@ -57,7 +57,11 @@ class _GlobalSearchFilterPickerState extends State<_GlobalSearchFilterPicker> {
         child: editor == null
             ? _catalogue(context)
             : _GlobalSearchConditionEditor(
-                key: ValueKey('${editor.id}-${widget.conditionIndex}'),
+                key: ValueKey((
+                  editor.id,
+                  widget.conditionIndex,
+                  widget.controller.configurationRevision,
+                )),
                 controller: widget.controller,
                 filter: editor,
                 initial: condition,
@@ -251,10 +255,12 @@ class _GlobalSearchConditionEditorState
   );
   late List<String> _values = List.of(widget.initial?.value ?? const []);
   List<GlobalSearchFilterChoice> _choices = const [];
+  final _tagSearchFocus = FocusNode();
   String? _error;
   String? _lookupError;
   bool _loading = false;
   int _generation = 0;
+  bool get _tags => widget.filter.id == 'tags';
   bool get _multiple => widget.filter.kind == GlobalSearchFilterKind.multi;
   bool get _choicesOnly => widget.filter.kind == GlobalSearchFilterKind.choice;
   bool get _searchable =>
@@ -285,6 +291,7 @@ class _GlobalSearchConditionEditorState
   void dispose() {
     _generation++;
     _text.dispose();
+    _tagSearchFocus.dispose();
     super.dispose();
   }
 
@@ -293,6 +300,7 @@ class _GlobalSearchConditionEditorState
     setState(() {
       _loading = true;
       _lookupError = null;
+      if (_tags) _choices = widget.controller.cachedTagChoices(query);
     });
     try {
       if (query.isNotEmpty) {
@@ -312,7 +320,11 @@ class _GlobalSearchConditionEditorState
       if (!mounted || generation != _generation) return;
       setState(() {
         _loading = false;
-        _lookupError = 'Suggestions could not load.';
+        _lookupError = _tags
+            ? widget.controller.cachedTagChoices('').isEmpty
+                  ? 'Couldn’t load tags'
+                  : 'Couldn’t refresh tags'
+            : 'Suggestions could not load.';
       });
     }
   }
@@ -331,6 +343,7 @@ class _GlobalSearchConditionEditorState
         if (!_choicesOnly) _text.text = value;
       }
     });
+    if (_tags) _tagSearchFocus.requestFocus();
   }
 
   void _apply() {
@@ -388,52 +401,17 @@ class _GlobalSearchConditionEditorState
               ],
             ),
             const SizedBox(height: 12),
-            if (filter.operators.length > 1) ...[
-              DSelect<String>.controlled(
-                key: const ValueKey('global-search-filter-operator'),
-                value: _operator,
-                onChanged: (value) {
-                  if (value != null) setState(() => _operator = value);
-                },
-                semanticLabel: '${filter.label} condition',
-                width: double.infinity,
-                entries: [
-                  for (final op in filter.operators)
-                    DSelectItem(
-                      value: op.value,
-                      textValue: op.label,
-                      child: Text(op.label),
-                    ),
-                ],
-              ),
+            if (!_tags && filter.operators.length > 1) ...[
+              _operatorPicker(),
               const SizedBox(height: 8),
             ],
-            if (_multiple && _values.isNotEmpty) ...[
-              Wrap(
-                spacing: 4,
-                runSpacing: 4,
-                children: [
-                  for (final value in _values)
-                    DBadge.action(
-                      trailing: const DIcon(DIcons.xmark, size: 10),
-                      variant: DBadgeVariant.secondary,
-                      semanticLabel:
-                          'Remove ${_searchChoiceLabel(context, widget.controller, filter, value)}',
-                      onPressed: () => _choose(value),
-                      child: Text(
-                        _searchChoiceLabel(
-                          context,
-                          widget.controller,
-                          filter,
-                          value,
-                        ),
-                      ),
-                    ),
-                ],
-              ),
+            if (!_tags && _multiple && _values.isNotEmpty) ...[
+              _selectedChoices(context),
               const SizedBox(height: 8),
             ],
-            if (_searchable)
+            if (_tags)
+              _tagChoiceList(context)
+            else if (_searchable)
               _choiceList(context)
             else if (filter.kind == GlobalSearchFilterKind.date)
               DDatePicker.controlled(
@@ -460,7 +438,13 @@ class _GlobalSearchConditionEditorState
                     : TextInputType.text,
                 onSubmitted: (_) => _apply(),
               ),
-            if (filter.help.isNotEmpty) ...[
+            if (_tags) ...[
+              const SizedBox(height: 16),
+              const DLabel(child: Text('Match topics that')),
+              const SizedBox(height: 6),
+              _operatorPicker(),
+            ],
+            if (!_tags && filter.help.isNotEmpty) ...[
               const SizedBox(height: 10),
               Text(
                 filter.help,
@@ -485,19 +469,279 @@ class _GlobalSearchConditionEditorState
               ),
             ],
             const SizedBox(height: 12),
+            if (_tags) ...[const DSeparator(), const SizedBox(height: 12)],
             Align(
               alignment: AlignmentDirectional.centerEnd,
               child: DButton(
                 key: const ValueKey('global-search-filter-apply'),
                 label: Text(
-                  widget.initial == null ? 'Add condition' : 'Apply changes',
+                  widget.initial != null
+                      ? 'Apply changes'
+                      : _tags
+                      ? 'Add filter'
+                      : 'Add condition',
                 ),
-                onPressed: _apply,
-                size: DButtonSize.small,
+                onPressed: _tags && _values.isEmpty ? null : _apply,
+                size: _tags ? DButtonSize.regular : DButtonSize.small,
               ),
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _operatorPicker() {
+    String label(GlobalSearchFilterOperator op) => _tags
+        ? switch (op.value) {
+            'any' => 'Include any selected tag',
+            'all' => 'Include every selected tag',
+            'none' => 'Exclude any selected tag',
+            'notAll' => 'Exclude this combination',
+            _ => op.label,
+          }
+        : op.label;
+    return DSelect<String>.controlled(
+      key: const ValueKey('global-search-filter-operator'),
+      value: _operator,
+      onChanged: (value) {
+        if (value != null) setState(() => _operator = value);
+      },
+      semanticLabel: _tags
+          ? 'Match topics that'
+          : '${widget.filter.label} condition',
+      width: double.infinity,
+      entries: [
+        for (final op in widget.filter.operators)
+          DSelectItem(
+            value: op.value,
+            textValue: label(op),
+            child: Text(label(op)),
+          ),
+      ],
+    );
+  }
+
+  Widget _selectedChoices(BuildContext context) => Wrap(
+    spacing: 4,
+    runSpacing: 4,
+    children: [
+      for (final value in _values)
+        DBadge.action(
+          trailing: const DIcon(DIcons.xmark, size: 10),
+          variant: DBadgeVariant.secondary,
+          semanticLabel:
+              'Remove ${_searchChoiceLabel(context, widget.controller, widget.filter, value)}',
+          onPressed: () => _choose(value),
+          child: Text(
+            _searchChoiceLabel(
+              context,
+              widget.controller,
+              widget.filter,
+              value,
+            ),
+          ),
+        ),
+    ],
+  );
+
+  void _clearTagSearch() {
+    _text.clear();
+    _tagSearchFocus.requestFocus();
+  }
+
+  Widget _tagChoiceList(BuildContext context) {
+    final query = _text.text.trim();
+    final saved = _lookupError != null;
+    final hasSavedTags = widget.controller.cachedTagChoices('').isNotEmpty;
+    final showCounts = _choices.any((choice) => choice.topicCount != null);
+    final mutedStyle = TextStyle(
+      fontSize: DiscourseTypography.xs,
+      color: DTokens.of(context).mutedForeground,
+    );
+    return DCommand<String>(
+      query: _text.text,
+      onQueryChanged: (value) {
+        setState(() => _error = null);
+        unawaited(_loadChoices(value));
+      },
+      onSelected: _choose,
+      shouldFilter: false,
+      loading: _loading,
+      semanticLabel: 'Available tags',
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: DCommandInput<String>(
+                  key: const ValueKey('global-search-filter-value'),
+                  controller: _text,
+                  focusNode: _tagSearchFocus,
+                  placeholder: 'Search available tags…',
+                  semanticLabel: 'Search available tags',
+                ),
+              ),
+              if (query.isNotEmpty) ...[
+                const SizedBox(width: 4),
+                DButton.iconOnly(
+                  icon: const DIcon(DIcons.xmark),
+                  tooltip: 'Clear search',
+                  variant: DButtonVariant.ghost,
+                  onPressed: _clearTagSearch,
+                ),
+              ],
+            ],
+          ),
+          if (_values.isNotEmpty) ...[
+            Wrap(
+              alignment: WrapAlignment.spaceBetween,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: 8,
+              children: [
+                Text('Selected · ${_values.length}', style: mutedStyle),
+                DButton(
+                  label: const Text('Clear selection', softWrap: true),
+                  variant: DButtonVariant.ghost,
+                  size: DButtonSize.small,
+                  onPressed: () {
+                    setState(() => _values.clear());
+                    _tagSearchFocus.requestFocus();
+                  },
+                ),
+              ],
+            ),
+            _selectedChoices(context),
+            const SizedBox(height: 8),
+          ],
+          if (saved) ...[
+            DAlert(
+              title: DAlertTitle(child: Text(_lookupError!)),
+              description: DAlertDescription(
+                child: Text(
+                  hasSavedTags
+                      ? 'Showing saved tags. More may be available.'
+                      : 'Try again to see available tags.',
+                ),
+              ),
+              action: DAlertAction(
+                child: DButton(
+                  label: const Text('Retry'),
+                  variant: DButtonVariant.ghost,
+                  size: DButtonSize.small,
+                  onPressed: () => _loadChoices(_text.text),
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+          ],
+          if (_choices.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      '${saved
+                          ? 'Saved tags'
+                          : query.isEmpty
+                          ? 'Available tags'
+                          : 'Matching tags'} · ${_choices.length}',
+                      style: mutedStyle,
+                    ),
+                  ),
+                  if (showCounts) Text('Topics', style: mutedStyle),
+                  const SizedBox(width: 24),
+                ],
+              ),
+            ),
+          DCommandList<String>(
+            maxHeight: 240,
+            semanticLabel: 'Tag suggestions',
+            children: [
+              for (final choice in _choices)
+                DCommandItem<String>(
+                  value: choice.value,
+                  checked: _values.contains(choice.value),
+                  semanticLabel:
+                      '${choice.label}${choice.topicCount == null ? '' : ', ${choice.topicCount} topics'}',
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (choice.topicCount case final count?)
+                        Text(
+                          MaterialLocalizations.of(
+                            context,
+                          ).formatDecimal(count),
+                          style: mutedStyle,
+                        ),
+                      const SizedBox(width: 8),
+                      SizedBox(
+                        width: 16,
+                        child: _values.contains(choice.value)
+                            ? const DIcon(DIcons.check, size: 16)
+                            : null,
+                      ),
+                    ],
+                  ),
+                  child: _highlightTag(context, choice.label, query),
+                ),
+              const DCommandLoading(
+                child: Padding(
+                  padding: EdgeInsets.all(8),
+                  child: Row(
+                    children: [
+                      DSpinner(size: 16),
+                      SizedBox(width: 8),
+                      Expanded(child: Text('Finding tags…')),
+                    ],
+                  ),
+                ),
+              ),
+              if (!saved || hasSavedTags)
+                DCommandEmpty(
+                  child: Column(
+                    children: [
+                      Text(
+                        query.isEmpty
+                            ? 'No tags available.'
+                            : '${saved ? 'No saved tags match' : 'No tags match'} “$query”',
+                      ),
+                      if (query.isNotEmpty)
+                        DButton(
+                          label: const Text('Clear search'),
+                          variant: DButtonVariant.ghost,
+                          onPressed: _clearTagSearch,
+                        ),
+                    ],
+                  ),
+                ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _highlightTag(BuildContext context, String label, String query) {
+    final index = label.toLowerCase().indexOf(query.toLowerCase());
+    if (query.isEmpty || index < 0) return Text(label);
+    return Text.rich(
+      TextSpan(
+        children: [
+          TextSpan(text: label.substring(0, index)),
+          TextSpan(
+            text: label.substring(index, index + query.length),
+            style: TextStyle(
+              fontWeight: FontWeight.w600,
+              backgroundColor: DTokens.of(context).selected,
+            ),
+          ),
+          TextSpan(text: label.substring(index + query.length)),
+        ],
       ),
     );
   }
@@ -515,6 +759,7 @@ class _GlobalSearchConditionEditorState
       },
       onSelected: _choose,
       shouldFilter: widget.filter.choices.isNotEmpty,
+      loading: _loading,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,

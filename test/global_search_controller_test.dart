@@ -667,6 +667,83 @@ void main() {
     },
   );
 
+  test(
+    'tag suggestions use the server limit on open and while typing',
+    () async {
+      final transport = _Transport()
+        ..maxTagSearchResults = 5
+        ..response = {
+          'results': [
+            {'name': 'api', 'count': 1248},
+            {'name': 'announcements', 'count': 0},
+            {'name': 'bug'},
+          ],
+        };
+      final api = GlobalSearchApi(transport: transport);
+      final filter = globalSearchFilter('tags')!;
+      final initial = await api.lookupChoices(
+        siteUrl: _site,
+        apiKey: 'key',
+        filter: filter,
+        term: '',
+      );
+      expect(initial.map((choice) => (choice.value, choice.topicCount)), [
+        ('api', 1248),
+        ('announcements', 0),
+        ('bug', null),
+      ]);
+      final matches = await api.lookupChoices(
+        siteUrl: _site,
+        apiKey: 'key',
+        filter: filter,
+        term: ' A ',
+      );
+      expect(matches.map((choice) => choice.value), ['api', 'announcements']);
+      expect(transport.paths.map((uri) => uri.queryParameters), [
+        {'q': ''},
+        {'q': 'A'},
+      ]);
+    },
+  );
+
+  test(
+    'saved tag choices are bounded and isolated by site and account',
+    () async {
+      final api = _EngineApi()
+        ..lookupValues = [
+          for (var index = 0; index < 520; index++)
+            GlobalSearchFilterChoice(
+              value: 'tag-$index',
+              label: 'tag-$index',
+              topicCount: index,
+            ),
+        ];
+      final lifecycle = SiteLifecycle();
+      final search = _controller(api, lifecycle: lifecycle);
+      addTearDown(search.dispose);
+      final filter = globalSearchFilter('tags')!;
+      await search.lookupChoices(filter, '');
+      expect(search.cachedTagChoices('tag-0'), isEmpty);
+      expect(search.cachedTagChoices(' TAG-519 ').single.topicCount, 519);
+      expect(search.cachedTagChoices(''), hasLength(30));
+      search.configure(siteUrl: 'https://other.test', capabilities: _caps);
+      expect(search.cachedTagChoices(''), isEmpty);
+      await search.lookupChoices(filter, '');
+      lifecycle.invalidate('https://other.test');
+      expect(search.cachedTagChoices(''), isEmpty);
+      search.configure(siteUrl: 'https://other.test', capabilities: _caps);
+      expect(search.cachedTagChoices(''), isEmpty);
+      api.lookupGate = Completer<List<GlobalSearchFilterChoice>>();
+      api.lookupStarted = Completer<void>();
+      final pending = search.lookupChoices(filter, '');
+      await api.lookupStarted!.future;
+      search.configure(siteUrl: _site, capabilities: _caps);
+      api.lookupGate!.complete(api.lookupValues);
+      expect(await pending, isEmpty);
+      expect(search.cachedTagChoices(''), isEmpty);
+    },
+  );
+
   for (final filterId in ['userGroup', 'userName']) {
     testWidgets(
       'editing $filterId exclusion into singleton removes conflicting chip',
@@ -1023,6 +1100,7 @@ class _EngineApi extends GlobalSearchApi {
 }
 
 class _Transport extends FakeDiscourseApi {
+  int? maxTagSearchResults;
   final paths = <Uri>[];
   final failures = <String, Object>{};
   Map<String, dynamic> response = {};
@@ -1036,6 +1114,12 @@ class _Transport extends FakeDiscourseApi {
   }) async {
     final uri = Uri.parse(path);
     paths.add(uri);
+    if (uri.path == '/tags/filter/search.json' && maxTagSearchResults != null) {
+      final limit = int.tryParse(uri.queryParameters['limit'] ?? '');
+      if (limit != null && limit > maxTagSearchResults!) {
+        throw const FormatException('Limit is invalid');
+      }
+    }
     if (failures[uri.path] case final error?) throw error;
     return responses[uri.path] ?? response;
   }

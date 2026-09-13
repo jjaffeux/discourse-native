@@ -563,13 +563,16 @@ class GlobalSearchApi {
     required String term,
   }) async {
     if (filter.choices.isNotEmpty) return filter.choices;
+    if (filter.id == 'tags') term = term.trim();
     if (term.length > 255) return const [];
     String path, key;
     if (filter.id == 'category') {
       path = '/site.json';
       key = 'categories';
     } else if (filter.id == 'tags') {
-      path = _path('/tags/filter/search.json', {'q': term, 'limit': '20'});
+      // The server defaults to its max_tag_search_results setting and rejects
+      // larger limits. Let it choose the page size, including for an empty query.
+      path = _path('/tags/filter/search.json', {'q': term.trim()});
       key = 'results';
     } else if ([
       'authorGroup',
@@ -619,6 +622,12 @@ class GlobalSearchApi {
               GlobalSearchFilterChoice(
                 value: value,
                 label: jsonText(row['name']) ?? value,
+                topicCount: filter.id == 'tags'
+                    ? switch (jsonIntOrNull(row['count'])) {
+                        final count? when count >= 0 => count,
+                        _ => null,
+                      }
+                    : null,
               ),
       ].take(30),
     );
