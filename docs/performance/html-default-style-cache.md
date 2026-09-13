@@ -80,3 +80,13 @@ flutter run --profile -d macos -t tool/long_post_render_profile_main.dart
 HTML conversion remains synchronous. Tables, large single blocks, complex CSS
 and custom/plugin rendering can still pause the UI. This change removes repeated
 default-style parsing; incremental conversion is a separate future step.
+
+## Final integration
+
+Integration with main `dd11940d` passed 528 focused tests with seed `391615`,
+including chat quoting and alert tables, and clean static analysis and archive
+provenance checks. A lifecycle fixture also failed on unchanged main because a
+post-action layout change left the next post outside its assumed initial
+viewport. The fixture now explicitly exposes only the start of the tall final
+post and verifies that it remains unread until scrolled to its end. No reading
+or scrolling production behavior was changed for that repair.

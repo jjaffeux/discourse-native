@@ -520,6 +520,9 @@
   "verification": {
     "focusedTests": 516,
     "randomSeed": 391614,
+    "integrationBase": "dd11940dfb4b5b4844de5db52b61ee02e92f7763",
+    "integrationTests": 528,
+    "integrationRandomSeed": 391615,
     "rootAndFullAndVendorAnalysis": "clean",
     "provenance": "all three archive checks passed",
     "native": "Final profile fixture completed all 12 rendering/scroll cycles. CUA reported the Mac locked at final visual inspection; no fresh manual visual check claimed."

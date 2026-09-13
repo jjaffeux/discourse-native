@@ -272,7 +272,26 @@ void main() {
         await tester.pumpWidget(_topicView(controller));
         await tester.pumpAndSettle();
         final list = topicPostList(tester);
+        final viewport = tester.getRect(topicPostListFinder());
+        final firstPost = tester.getRect(
+          find.byKey(const ValueKey('topic-post-highlight-1')),
+        );
+        final position = list.controller!.position;
+        // Keep only the start of the final post visible regardless of changes
+        // to post headers, actions, or the test viewport's available height.
+        position.jumpTo(
+          (position.pixels + firstPost.bottom - viewport.bottom + 80).clamp(
+            position.minScrollExtent,
+            position.maxScrollExtent,
+          ),
+        );
+        await tester.pumpAndSettle();
         expect(_lastVisiblePost(list), 2);
+        final finalPost = tester.getRect(
+          find.byKey(const ValueKey('topic-post-highlight-2')),
+        );
+        expect(finalPost.top, greaterThan(viewport.center.dy));
+        expect(finalPost.bottom, greaterThan(viewport.bottom));
         await tester.pump(const Duration(milliseconds: 600));
 
         expect(api.topicReadsRecorded.last, (topicId: 1, postNumber: 1));
