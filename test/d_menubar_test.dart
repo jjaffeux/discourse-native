@@ -14,7 +14,12 @@ void main() {
       const _TestApp(platform: TargetPlatform.macOS, child: _BasicMenubar()),
     );
 
-    expect(tester.getSize(find.byType(DMenubar)).height, 34);
+    final bar = tester.getRect(find.byType(DMenubar));
+    final trigger = tester.getRect(find.byType(DMenubarTrigger).first);
+    expect(bar.height, 40);
+    expect(trigger.top - bar.top, 6);
+    expect(bar.bottom - trigger.bottom, 6);
+    expect(tester.getCenter(find.text('File')).dy, trigger.center.dy);
     expect(find.text('New Tab'), findsNothing);
 
     await tester.tap(find.text('File'));
@@ -29,6 +34,26 @@ void main() {
           .isExpanded,
       Tristate.isTrue,
     );
+  });
+
+  testWidgets('keeps vertical breathing room as trigger text grows', (
+    tester,
+  ) async {
+    for (final scale in [1.0, 2.0, 3.0]) {
+      await tester.pumpWidget(
+        _TestApp(
+          platform: TargetPlatform.macOS,
+          textScaler: TextScaler.linear(scale),
+          child: const _BasicMenubar(),
+        ),
+      );
+      final bar = tester.getRect(find.byType(DMenubar));
+      final trigger = tester.getRect(find.byType(DMenubarTrigger).first);
+      expect(trigger.top - bar.top, 6);
+      expect(bar.bottom - trigger.bottom, 6);
+      expect(tester.getCenter(find.text('File')).dy, trigger.center.dy);
+      expect(tester.takeException(), isNull);
+    }
   });
 
   testWidgets('retains accessible touch trigger bounds on iOS', (tester) async {
