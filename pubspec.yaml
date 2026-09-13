@@ -108,6 +108,10 @@ dependencies:
   file_selector: ^1.1.0
 
 dependency_overrides:
+  # Reuse parsed default styles within each HTML body. See the bounded cache
+  # and exact upstream diff in this reviewed package's PATCHES.md.
+  flutter_widget_from_html_core:
+    path: packages/flutter_widget_from_html_core
   # Keep every consumer, including livekit_client, on the reviewed local copy
   # with the iOS privacy manifest, track lifecycle, and awaited logging fixes.
   # See packages/discourse_voice/third_party/flutter_webrtc/PATCHES.md.

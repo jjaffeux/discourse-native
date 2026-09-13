@@ -1,0 +1,537 @@
+{
+  "baseline": "9d00898e",
+  "upstream": {
+    "package": "flutter_widget_from_html_core",
+    "version": "0.17.4",
+    "archiveSha256": "530f2e3cc57be1a00f8bfae1b0000064e8a6df0cf1fb4d48a80f85afde9b39b7"
+  },
+  "fixture": {
+    "entrypoint": "tool/long_post_render_profile_main.dart",
+    "platform": "macOS",
+    "flutter": "3.47.2",
+    "mode": "profile",
+    "paragraphs": 450,
+    "htmlCharacters": 76840,
+    "contentWidth": 680,
+    "cyclesPerProcess": 4,
+    "modeOrder": [
+      "column",
+      "sliver",
+      "progressive"
+    ]
+  },
+  "measurement": "Temporary probes measured total _buildBody, CSS parsing/cache lookup and cloning for default-style strings, and customWidgetBuilder. Default-style callbacks and map serialization are outside the defaultStyleUs probe. Both compared builds had identical probes; baseline bypassed the cache. Probes and bypass switch are absent from shipped source.",
+  "runs": [
+    {
+      "name": "baseline",
+      "samples": [
+        {
+          "conversionUs": 20431,
+          "defaultStyleUs": 5236,
+          "defaultStyleCalls": 450,
+          "customBuilderUs": 283,
+          "customBuilderCalls": 450
+        },
+        {
+          "conversionUs": 20422,
+          "defaultStyleUs": 4171,
+          "defaultStyleCalls": 450,
+          "customBuilderUs": 407,
+          "customBuilderCalls": 450
+        },
+        {
+          "conversionUs": 22669,
+          "defaultStyleUs": 4278,
+          "defaultStyleCalls": 450,
+          "customBuilderUs": 272,
+          "customBuilderCalls": 450
+        },
+        {
+          "conversionUs": 22434,
+          "defaultStyleUs": 6132,
+          "defaultStyleCalls": 450,
+          "customBuilderUs": 252,
+          "customBuilderCalls": 450
+        },
+        {
+          "conversionUs": 20118,
+          "defaultStyleUs": 4094,
+          "defaultStyleCalls": 450,
+          "customBuilderUs": 230,
+          "customBuilderCalls": 450
+        },
+        {
+          "conversionUs": 22874,
+          "defaultStyleUs": 6671,
+          "defaultStyleCalls": 450,
+          "customBuilderUs": 316,
+          "customBuilderCalls": 450
+        },
+        {
+          "conversionUs": 20820,
+          "defaultStyleUs": 5568,
+          "defaultStyleCalls": 450,
+          "customBuilderUs": 259,
+          "customBuilderCalls": 450
+        },
+        {
+          "conversionUs": 18166,
+          "defaultStyleUs": 3974,
+          "defaultStyleCalls": 450,
+          "customBuilderUs": 289,
+          "customBuilderCalls": 450
+        },
+        {
+          "conversionUs": 18720,
+          "defaultStyleUs": 4153,
+          "defaultStyleCalls": 450,
+          "customBuilderUs": 231,
+          "customBuilderCalls": 450
+        },
+        {
+          "conversionUs": 22029,
+          "defaultStyleUs": 4823,
+          "defaultStyleCalls": 450,
+          "customBuilderUs": 308,
+          "customBuilderCalls": 450
+        },
+        {
+          "conversionUs": 22887,
+          "defaultStyleUs": 7132,
+          "defaultStyleCalls": 450,
+          "customBuilderUs": 242,
+          "customBuilderCalls": 450
+        },
+        {
+          "conversionUs": 21611,
+          "defaultStyleUs": 4409,
+          "defaultStyleCalls": 450,
+          "customBuilderUs": 284,
+          "customBuilderCalls": 450
+        }
+      ],
+      "median": {
+        "conversionUs": 21215.5,
+        "defaultStyleUs": 4616.0,
+        "defaultStyleCalls": 450.0,
+        "customBuilderUs": 277.5,
+        "customBuilderCalls": 450.0
+      }
+    },
+    {
+      "name": "cached",
+      "samples": [
+        {
+          "conversionUs": 10163,
+          "defaultStyleUs": 862,
+          "defaultStyleCalls": 450,
+          "customBuilderUs": 120,
+          "customBuilderCalls": 450
+        },
+        {
+          "conversionUs": 10173,
+          "defaultStyleUs": 198,
+          "defaultStyleCalls": 450,
+          "customBuilderUs": 153,
+          "customBuilderCalls": 450
+        },
+        {
+          "conversionUs": 18162,
+          "defaultStyleUs": 317,
+          "defaultStyleCalls": 450,
+          "customBuilderUs": 766,
+          "customBuilderCalls": 450
+        },
+        {
+          "conversionUs": 19330,
+          "defaultStyleUs": 1330,
+          "defaultStyleCalls": 450,
+          "customBuilderUs": 292,
+          "customBuilderCalls": 450
+        },
+        {
+          "conversionUs": 18434,
+          "defaultStyleUs": 392,
+          "defaultStyleCalls": 450,
+          "customBuilderUs": 354,
+          "customBuilderCalls": 450
+        },
+        {
+          "conversionUs": 18924,
+          "defaultStyleUs": 516,
+          "defaultStyleCalls": 450,
+          "customBuilderUs": 403,
+          "customBuilderCalls": 450
+        },
+        {
+          "conversionUs": 20574,
+          "defaultStyleUs": 490,
+          "defaultStyleCalls": 450,
+          "customBuilderUs": 397,
+          "customBuilderCalls": 450
+        },
+        {
+          "conversionUs": 15741,
+          "defaultStyleUs": 303,
+          "defaultStyleCalls": 450,
+          "customBuilderUs": 226,
+          "customBuilderCalls": 450
+        },
+        {
+          "conversionUs": 20934,
+          "defaultStyleUs": 463,
+          "defaultStyleCalls": 450,
+          "customBuilderUs": 315,
+          "customBuilderCalls": 450
+        },
+        {
+          "conversionUs": 19797,
+          "defaultStyleUs": 487,
+          "defaultStyleCalls": 450,
+          "customBuilderUs": 281,
+          "customBuilderCalls": 450
+        },
+        {
+          "conversionUs": 18091,
+          "defaultStyleUs": 358,
+          "defaultStyleCalls": 450,
+          "customBuilderUs": 1343,
+          "customBuilderCalls": 450
+        },
+        {
+          "conversionUs": 17612,
+          "defaultStyleUs": 335,
+          "defaultStyleCalls": 450,
+          "customBuilderUs": 217,
+          "customBuilderCalls": 450
+        }
+      ],
+      "median": {
+        "conversionUs": 18298.0,
+        "defaultStyleUs": 427.5,
+        "defaultStyleCalls": 450.0,
+        "customBuilderUs": 303.5,
+        "customBuilderCalls": 450.0
+      }
+    },
+    {
+      "name": "baseline-2",
+      "samples": [
+        {
+          "conversionUs": 11551,
+          "defaultStyleUs": 2545,
+          "defaultStyleCalls": 450,
+          "customBuilderUs": 147,
+          "customBuilderCalls": 450
+        },
+        {
+          "conversionUs": 13362,
+          "defaultStyleUs": 2309,
+          "defaultStyleCalls": 450,
+          "customBuilderUs": 1509,
+          "customBuilderCalls": 450
+        },
+        {
+          "conversionUs": 12197,
+          "defaultStyleUs": 2966,
+          "defaultStyleCalls": 450,
+          "customBuilderUs": 120,
+          "customBuilderCalls": 450
+        },
+        {
+          "conversionUs": 10755,
+          "defaultStyleUs": 2801,
+          "defaultStyleCalls": 450,
+          "customBuilderUs": 143,
+          "customBuilderCalls": 450
+        },
+        {
+          "conversionUs": 10830,
+          "defaultStyleUs": 2149,
+          "defaultStyleCalls": 450,
+          "customBuilderUs": 118,
+          "customBuilderCalls": 450
+        },
+        {
+          "conversionUs": 11303,
+          "defaultStyleUs": 2223,
+          "defaultStyleCalls": 450,
+          "customBuilderUs": 135,
+          "customBuilderCalls": 450
+        },
+        {
+          "conversionUs": 11666,
+          "defaultStyleUs": 2342,
+          "defaultStyleCalls": 450,
+          "customBuilderUs": 147,
+          "customBuilderCalls": 450
+        },
+        {
+          "conversionUs": 14435,
+          "defaultStyleUs": 3106,
+          "defaultStyleCalls": 450,
+          "customBuilderUs": 232,
+          "customBuilderCalls": 450
+        },
+        {
+          "conversionUs": 11133,
+          "defaultStyleUs": 2150,
+          "defaultStyleCalls": 450,
+          "customBuilderUs": 109,
+          "customBuilderCalls": 450
+        },
+        {
+          "conversionUs": 11371,
+          "defaultStyleUs": 2404,
+          "defaultStyleCalls": 450,
+          "customBuilderUs": 146,
+          "customBuilderCalls": 450
+        },
+        {
+          "conversionUs": 12845,
+          "defaultStyleUs": 2277,
+          "defaultStyleCalls": 450,
+          "customBuilderUs": 123,
+          "customBuilderCalls": 450
+        },
+        {
+          "conversionUs": 12117,
+          "defaultStyleUs": 2388,
+          "defaultStyleCalls": 450,
+          "customBuilderUs": 153,
+          "customBuilderCalls": 450
+        }
+      ],
+      "median": {
+        "conversionUs": 11608.5,
+        "defaultStyleUs": 2365.0,
+        "defaultStyleCalls": 450.0,
+        "customBuilderUs": 144.5,
+        "customBuilderCalls": 450.0
+      }
+    },
+    {
+      "name": "cached-2",
+      "samples": [
+        {
+          "conversionUs": 9400,
+          "defaultStyleUs": 182,
+          "defaultStyleCalls": 450,
+          "customBuilderUs": 107,
+          "customBuilderCalls": 450
+        },
+        {
+          "conversionUs": 13971,
+          "defaultStyleUs": 298,
+          "defaultStyleCalls": 450,
+          "customBuilderUs": 224,
+          "customBuilderCalls": 450
+        },
+        {
+          "conversionUs": 17968,
+          "defaultStyleUs": 319,
+          "defaultStyleCalls": 450,
+          "customBuilderUs": 228,
+          "customBuilderCalls": 450
+        },
+        {
+          "conversionUs": 18970,
+          "defaultStyleUs": 439,
+          "defaultStyleCalls": 450,
+          "customBuilderUs": 288,
+          "customBuilderCalls": 450
+        },
+        {
+          "conversionUs": 18320,
+          "defaultStyleUs": 406,
+          "defaultStyleCalls": 450,
+          "customBuilderUs": 300,
+          "customBuilderCalls": 450
+        },
+        {
+          "conversionUs": 18227,
+          "defaultStyleUs": 392,
+          "defaultStyleCalls": 450,
+          "customBuilderUs": 391,
+          "customBuilderCalls": 450
+        },
+        {
+          "conversionUs": 20017,
+          "defaultStyleUs": 427,
+          "defaultStyleCalls": 450,
+          "customBuilderUs": 370,
+          "customBuilderCalls": 450
+        },
+        {
+          "conversionUs": 16932,
+          "defaultStyleUs": 324,
+          "defaultStyleCalls": 450,
+          "customBuilderUs": 225,
+          "customBuilderCalls": 450
+        },
+        {
+          "conversionUs": 20919,
+          "defaultStyleUs": 1884,
+          "defaultStyleCalls": 450,
+          "customBuilderUs": 357,
+          "customBuilderCalls": 450
+        },
+        {
+          "conversionUs": 9308,
+          "defaultStyleUs": 192,
+          "defaultStyleCalls": 450,
+          "customBuilderUs": 119,
+          "customBuilderCalls": 450
+        },
+        {
+          "conversionUs": 8582,
+          "defaultStyleUs": 160,
+          "defaultStyleCalls": 450,
+          "customBuilderUs": 150,
+          "customBuilderCalls": 450
+        },
+        {
+          "conversionUs": 8968,
+          "defaultStyleUs": 572,
+          "defaultStyleCalls": 450,
+          "customBuilderUs": 109,
+          "customBuilderCalls": 450
+        }
+      ],
+      "median": {
+        "conversionUs": 17450.0,
+        "defaultStyleUs": 358.0,
+        "defaultStyleCalls": 450.0,
+        "customBuilderUs": 226.5,
+        "customBuilderCalls": 450.0
+      }
+    }
+  ],
+  "finalWithoutProbes": [
+    {
+      "run": 0,
+      "mode": "column",
+      "htmlTreeBuildUs": [
+        20907
+      ],
+      "firstParagraphReadyUs": 152966,
+      "bodyCompleteUs": 152967
+    },
+    {
+      "run": 0,
+      "mode": "sliver",
+      "htmlTreeBuildUs": [
+        20440
+      ],
+      "firstParagraphReadyUs": 42060,
+      "bodyCompleteUs": 42060
+    },
+    {
+      "run": 0,
+      "mode": "progressive",
+      "htmlTreeBuildUs": [
+        17659
+      ],
+      "firstParagraphReadyUs": 41944,
+      "bodyCompleteUs": 148884
+    },
+    {
+      "run": 1,
+      "mode": "column",
+      "htmlTreeBuildUs": [
+        19147
+      ],
+      "firstParagraphReadyUs": 66193,
+      "bodyCompleteUs": 66193
+    },
+    {
+      "run": 1,
+      "mode": "sliver",
+      "htmlTreeBuildUs": [
+        20062
+      ],
+      "firstParagraphReadyUs": 40612,
+      "bodyCompleteUs": 40612
+    },
+    {
+      "run": 1,
+      "mode": "progressive",
+      "htmlTreeBuildUs": [
+        9295
+      ],
+      "firstParagraphReadyUs": 26606,
+      "bodyCompleteUs": 133186
+    },
+    {
+      "run": 2,
+      "mode": "column",
+      "htmlTreeBuildUs": [
+        9134
+      ],
+      "firstParagraphReadyUs": 50630,
+      "bodyCompleteUs": 50630
+    },
+    {
+      "run": 2,
+      "mode": "sliver",
+      "htmlTreeBuildUs": [
+        9589
+      ],
+      "firstParagraphReadyUs": 27312,
+      "bodyCompleteUs": 27312
+    },
+    {
+      "run": 2,
+      "mode": "progressive",
+      "htmlTreeBuildUs": [
+        9820
+      ],
+      "firstParagraphReadyUs": 27248,
+      "bodyCompleteUs": 133992
+    },
+    {
+      "run": 3,
+      "mode": "column",
+      "htmlTreeBuildUs": [
+        8859
+      ],
+      "firstParagraphReadyUs": 49875,
+      "bodyCompleteUs": 49875
+    },
+    {
+      "run": 3,
+      "mode": "sliver",
+      "htmlTreeBuildUs": [
+        14387
+      ],
+      "firstParagraphReadyUs": 33494,
+      "bodyCompleteUs": 33494
+    },
+    {
+      "run": 3,
+      "mode": "progressive",
+      "htmlTreeBuildUs": [
+        9367
+      ],
+      "firstParagraphReadyUs": 27395,
+      "bodyCompleteUs": 133793
+    }
+  ],
+  "verification": {
+    "focusedTests": 516,
+    "randomSeed": 391614,
+    "integrationBase": "dd11940dfb4b5b4844de5db52b61ee02e92f7763",
+    "integrationTests": 528,
+    "integrationRandomSeed": 391615,
+    "rootAndFullAndVendorAnalysis": "clean",
+    "provenance": "all three archive checks passed",
+    "native": "Final profile fixture completed all 12 rendering/scroll cycles. CUA reported the Mac locked at final visual inspection; no fresh manual visual check claimed."
+  },
+  "limitations": [
+    "Separate-process timings varied substantially; no precise whole-conversion speedup or frame-rate claim.",
+    "Default-style callbacks still execute per element.",
+    "Only safe literal default CSS is cached; complex CSS and app/plugin rendering remain unchanged.",
+    "Final no-probe timings excluded from comparisons because the Mac was locked at final inspection.",
+    "No iOS or Android device measurements."
+  ]
+}
