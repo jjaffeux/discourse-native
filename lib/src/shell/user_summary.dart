@@ -445,7 +445,6 @@ class _Highlights extends StatelessWidget {
             ),
             right: _SummarySection(
               title: 'Top replies',
-              description: 'Conversations you joined',
               child: _TopicRows(
                 emptyMessage: 'No replies yet.',
                 rows: [
@@ -464,7 +463,6 @@ class _Highlights extends StatelessWidget {
           if (instance.config.badgesEnabled)
             _SummarySection(
               title: 'Your milestones',
-              description: 'Badges earned in the community',
               child: _BadgeRows(badges: summary.badges),
             ),
         ],
@@ -807,24 +805,14 @@ class _PairedSections extends StatelessWidget {
 }
 
 class _SummarySection extends StatelessWidget {
-  const _SummarySection({
-    required this.title,
-    this.description,
-    required this.child,
-  });
+  const _SummarySection({required this.title, required this.child});
   final String title;
-  final String? description;
   final Widget child;
 
   @override
   Widget build(BuildContext context) => DCard(
     children: [
-      DCardHeader(
-        title: DCardTitle(child: Text(title)),
-        description: description == null
-            ? null
-            : DCardDescription(child: Text(description!)),
-      ),
+      DCardHeader(title: DCardTitle(child: Text(title))),
       DCardContent(child: child),
     ],
   );
