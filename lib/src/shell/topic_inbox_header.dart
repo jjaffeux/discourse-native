@@ -224,9 +224,10 @@ class _TopicHeaderToolbar extends StatelessWidget {
                   header: header,
                   width: constraints.maxWidth,
                 ),
-                _TopicCloseButton(
-                  canReturnToSidebar: header.canReturnToSidebar,
-                ),
+                if (!header.keepTopicListOpen)
+                  TopicCloseButton(
+                    canReturnToSidebar: header.canReturnToSidebar,
+                  ),
               ],
             ),
           ),
@@ -325,8 +326,8 @@ class _TopicHeaderActions extends StatelessWidget {
   }
 }
 
-class _TopicCloseButton extends StatelessWidget {
-  const _TopicCloseButton({required this.canReturnToSidebar});
+class TopicCloseButton extends StatelessWidget {
+  const TopicCloseButton({super.key, required this.canReturnToSidebar});
 
   final bool canReturnToSidebar;
 

@@ -69,6 +69,56 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('collapse action belongs to the open topic list header', (
+    tester,
+  ) async {
+    final setup = await _setup(tester);
+    final close = find.byKey(const ValueKey('topic-close-reader'));
+    expect(close, findsNothing);
+    setup.controller.openTopicFromList(setup.rows.first);
+    await tester.pumpAndSettle();
+    final listPane = find.byKey(const ValueKey('inbox-topic-list-pane'));
+    expect(find.descendant(of: listPane, matching: close), findsOneWidget);
+    expect(
+      find.descendant(of: find.byType(TopicInboxHeader), matching: close),
+      findsNothing,
+    );
+    final bounds = tester.getRect(close);
+    final pane = tester.getRect(listPane);
+    expect(
+      bounds.right,
+      closeTo(
+        pane.right -
+            DResizableHandle.resolveHitExtent(tester.element(close), 8) -
+            4,
+        1,
+      ),
+    );
+    expect(
+      bounds.center.dy,
+      closeTo(
+        tester.getCenter(find.byKey(const ValueKey('topic-list-heading'))).dy,
+        1,
+      ),
+    );
+    expect(close.hitTestable(), findsOneWidget);
+    tester.view.physicalSize = const Size(700, 800);
+    await tester.pumpAndSettle();
+    expect(
+      find.descendant(of: find.byType(TopicInboxHeader), matching: close),
+      findsOneWidget,
+    );
+    expect(close.hitTestable(), findsOneWidget);
+    tester.view.physicalSize = const Size(1200, 800);
+    await tester.pumpAndSettle();
+    expect(find.descendant(of: listPane, matching: close), findsOneWidget);
+    await tester.tap(close);
+    await tester.pumpAndSettle();
+    expect(close, findsNothing);
+    expect(find.byType(TopicView), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
   for (final (username, initial) in [
     ('sam', 'S'),
     ('𐐨ser', '𐐀'),
@@ -940,7 +990,7 @@ void main() {
           tester.getRect(tags).top,
           greaterThan(tester.getRect(title).bottom),
         );
-        for (final key in ['topic-close-reader', 'topic-status-button']) {
+        for (final key in ['topic-status-button']) {
           expect(
             tester.getCenter(find.byKey(ValueKey(key))).dy,
             closeTo(tester.getCenter(title).dy, 1),
@@ -1042,16 +1092,15 @@ void main() {
             ),
           );
           await tester.pumpAndSettle();
-          final close = find.byKey(const ValueKey('topic-close-reader'));
+          expect(
+            find.byKey(const ValueKey('topic-close-reader')),
+            findsNothing,
+          );
           final category = compact
               ? find.byKey(const ValueKey('topic-header-category'))
               : find.byTooltip('Edit topic category');
           final overflow = find.byKey(const ValueKey('topic-header-more-tags'));
           final status = find.byKey(const ValueKey('topic-status-button'));
-          expect(
-            tester.getRect(close).overlaps(tester.getRect(category)),
-            isFalse,
-          );
           expect(
             tester.getRect(category).right,
             lessThan(tester.getRect(overflow).left),
@@ -1070,10 +1119,6 @@ void main() {
           final parent = compact
               ? find.byKey(const ValueKey('topic-header-parent-category'))
               : category;
-          expect(
-            tester.getRect(category).overlaps(tester.getRect(close)),
-            isFalse,
-          );
           expect(
             tester.getRect(overflow).overlaps(tester.getRect(status)),
             isFalse,
@@ -1108,7 +1153,7 @@ void main() {
           for (final control in [status, if (compact) title]) {
             expect(
               tester.getCenter(control).dy,
-              closeTo(tester.getCenter(close).dy, 1),
+              closeTo(tester.getCenter(status).dy, 1),
             );
           }
           expect(
@@ -1960,14 +2005,6 @@ void main() {
           tester
               .getRect(find.byKey(const ValueKey('topic-header-activity')))
               .left,
-        );
-        expect(
-          titleRect.left,
-          greaterThan(
-            tester
-                .getRect(find.byKey(const ValueKey('topic-close-reader')))
-                .right,
-          ),
         );
         expect(tester.getRect(overflow).right, lessThan(width));
         await tester.tap(title);
