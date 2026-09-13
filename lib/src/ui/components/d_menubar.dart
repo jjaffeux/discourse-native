@@ -200,10 +200,7 @@ class _DMenubarState extends State<DMenubar> {
           borderRadius: BorderRadius.circular(tokens.radius),
         ),
         child: Padding(
-          padding: EdgeInsets.symmetric(
-            horizontal: 3,
-            vertical: horizontal ? 6 : 3,
-          ),
+          padding: const EdgeInsets.all(3),
           child: horizontal
               ? SingleChildScrollView(
                   scrollDirection: Axis.horizontal,
