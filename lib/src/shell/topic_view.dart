@@ -51,6 +51,7 @@ import 'topic_inbox_header.dart';
 import 'topic_inbox_row.dart';
 import 'topic_list_view.dart';
 import 'topic_move_posts.dart';
+import 'topic_post_retention.dart';
 import 'topic_progress.dart';
 import 'topic_tag_picker.dart';
 import 'topic_taxonomy_fields.dart';
@@ -228,6 +229,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
   bool _tickerEnabled = true;
   TopicPostIndexProjection? _postIndexProjection;
   final Map<int, BuildContext> _postContexts = {};
+  final _postRetention = TopicPostRetention();
   final Map<int, _RetainedTopicPostExtent> _retainedPostExtents = {};
   bool _retainedGeometryRefreshScheduled = false;
   double _laidOutPostWidth = 0;
@@ -293,7 +295,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
         },
         'devicePixelRatio': _devicePixelRatio,
         'list': {
-          'widget': 'SuperListView.separated',
+          'widget': 'CustomScrollView',
           'sliver': 'SuperSliverList',
           'listController': 'ListController',
           'scrollController': 'ScrollController',
@@ -560,6 +562,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     _postIndexProjection = null;
     _chatContextCurrentPostId = null;
     _postContexts.clear();
+    _postRetention.clear();
     _retainedPostExtents.clear();
     _laidOutPostWidth = 0;
     _extentGeneration = 0;
@@ -738,6 +741,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
 
   @override
   void dispose() {
+    _postRetention.dispose();
     WidgetsBinding.instance.removeObserver(this);
     _controller?.clearVisibleTopicContext(_visibleTopicContextOwner);
     _sidebarRestoreGeneration++;
@@ -1205,6 +1209,20 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     }
     contextPost ??= leadingPost;
     _chatContextCurrentPostId = contextPost?.postId;
+    if (_postContexts[contextPost?.postId] case final context?) {
+      // Several async placeholders can initially fit in the viewport. Once
+      // they expand, prefer the post being read over later offscreen rows.
+      final html =
+          controller.store
+              .read<Post>(snapshot.siteUrl!, contextPost!.postId)
+              ?.cooked ??
+          '';
+      _postRetention.retain(
+        context,
+        CookedHtml.buildsAsynchronously(html) ? html.length : 0,
+      );
+      _postRetention.touch(context);
+    }
 
     controller.updateVisibleTopicContext(
       owner: _visibleTopicContextOwner,
@@ -1908,28 +1926,20 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     }
     _scheduleLook();
 
-    final postList = SuperListView.separated(
-      key: ValueKey((
-        siteUrl,
-        snapshot.topicId,
-        snapshot.navigationRevision,
-        _extentGeneration,
-      )),
-      controller: _scroll,
+    final itemCount =
+        postIds.length +
+        (showHeader ? 1 : 0) +
+        (showFooter ? 1 : 0) +
+        (showRecommendations && (!widget.showSidebar || !canPinSidebar)
+            ? 1
+            : 0);
+    final postList = SuperSliverList.separated(
       listController: _list,
-      // The viewport owns the topic column only. A pinned sidebar is a
-      // separate structural column, so no compensating inset is needed.
-      padding: readingLane.padding,
-      // A short around-post window still needs to accept a pull toward the
-      // top, both to fetch and to retry an earlier page. Once post one is in
-      // hand, stop forcing top-edge overscroll: there is no earlier request
-      // left for that gesture to make.
-      physics: SuperRangeMaintainingScrollPhysics(
-        parent: snapshot.hasEarlier || snapshot.hasMore
-            ? const AlwaysScrollableScrollPhysics()
-            : null,
-      ),
       extentEstimation: TopicView._estimateChildExtent,
+      delayPopulatingCacheArea: true,
+      // Async HTML and live edits can dirty a retained row. Selection
+      // geometry must be laid out even while that row is offscreen.
+      layoutKeptAliveChildren: true,
       // Keep existing post elements attached to their ids when a page is
       // inserted before them; separated lists address the expanded index.
       findChildIndexCallback: (key) {
@@ -1947,13 +1957,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
         }
         return childIndex;
       },
-      itemCount:
-          postIds.length +
-          (showHeader ? 1 : 0) +
-          (showFooter ? 1 : 0) +
-          (showRecommendations && (!widget.showSidebar || !canPinSidebar)
-              ? 1
-              : 0),
+      itemCount: itemCount,
       separatorBuilder: (context, index) {
         final nextPostIndex = index + 1 - (showHeader ? 1 : 0);
         if (_isScrollCaptureRecording) {
@@ -2026,7 +2030,8 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
           key: ValueKey(postId),
           postId: postId,
           topicId: snapshot.topicId!,
-          htmlCharacters: post?.cooked.length ?? 0,
+          post: controller.postRef(siteUrl, postId),
+          retention: _postRetention,
           scrollCapture: _scrollCapture,
           viewportState: _viewportState,
           retainedMinimumHeight: _retainedPostMinimumHeight(
@@ -2091,27 +2096,26 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
             }
             return false;
           },
-          // SuperListView retains measured post heights without eagerly building
-          // media-heavy offscreen posts, keeping scrollbar estimates stable.
-          child: openingSlivers.isEmpty
-              ? postList
-              : CustomScrollView(
-                  key: postList.key,
-                  controller: _scroll,
-                  physics: postList.physics,
-                  semanticChildCount: postList.semanticChildCount,
-                  slivers: [
-                    ...openingSlivers,
-                    SliverPadding(
-                      padding: readingLane.padding,
-                      sliver: SuperSliverList(
-                        delegate: postList.childrenDelegate,
-                        listController: _list,
-                        extentEstimation: TopicView._estimateChildExtent,
-                      ),
-                    ),
-                  ],
-                ),
+          child: CustomScrollView(
+            key: ValueKey((
+              siteUrl,
+              snapshot.topicId,
+              snapshot.navigationRevision,
+              _extentGeneration,
+            )),
+            controller: _scroll,
+            // A partial window must accept a pull to fetch or retry a page.
+            physics: SuperRangeMaintainingScrollPhysics(
+              parent: snapshot.hasEarlier || snapshot.hasMore
+                  ? const AlwaysScrollableScrollPhysics()
+                  : null,
+            ),
+            semanticChildCount: itemCount,
+            slivers: [
+              ...openingSlivers,
+              SliverPadding(padding: readingLane.padding, sliver: postList),
+            ],
+          ),
         ),
       );
       return ReadingShortcuts(
@@ -3592,7 +3596,8 @@ class _TopicPostItem extends StatefulWidget {
     super.key,
     required this.postId,
     required this.topicId,
-    required this.htmlCharacters,
+    required this.post,
+    required this.retention,
     required this.scrollCapture,
     required this.viewportState,
     required this.retainedMinimumHeight,
@@ -3611,7 +3616,8 @@ class _TopicPostItem extends StatefulWidget {
 
   final int postId;
   final int topicId;
-  final int htmlCharacters;
+  final ValueListenable<Post?> post;
+  final TopicPostRetention retention;
   final TopicScrollCaptureController? scrollCapture;
   final TopicViewportListenable viewportState;
   final double? retainedMinimumHeight;
@@ -3631,13 +3637,40 @@ class _TopicPostItem extends StatefulWidget {
   State<_TopicPostItem> createState() => _TopicPostItemState();
 }
 
-class _TopicPostItemState extends State<_TopicPostItem> {
+class _TopicPostItemState extends State<_TopicPostItem>
+    with AutomaticKeepAliveClientMixin {
   double? _retainedMinimumHeight;
   bool _releaseScheduled = false;
+  bool _keepAliveUpdateScheduled = false;
+
+  @override
+  bool get wantKeepAlive => widget.retention.contains(context);
+
+  void _scheduleKeepAliveUpdate() {
+    if (_keepAliveUpdateScheduled) return;
+    _keepAliveUpdateScheduled = true;
+    // AutomaticKeepAlive applies a newly mounted child's parent data at the
+    // end of the frame. Do not release its handle before that callback runs.
+    scheduleMicrotask(() {
+      _keepAliveUpdateScheduled = false;
+      if (mounted) updateKeepAlive();
+    });
+  }
+
+  void _updateRetention() {
+    final html = widget.post.value?.cooked ?? '';
+    widget.retention.retain(
+      context,
+      CookedHtml.buildsAsynchronously(html) ? html.length : 0,
+    );
+  }
 
   @override
   void initState() {
     super.initState();
+    _updateRetention();
+    widget.retention.addListener(_scheduleKeepAliveUpdate);
+    widget.post.addListener(_updateRetention);
     _retainedMinimumHeight = widget.retainedMinimumHeight;
     widget.onAttach(widget.postId, context);
   }
@@ -3645,6 +3678,16 @@ class _TopicPostItemState extends State<_TopicPostItem> {
   @override
   void didUpdateWidget(_TopicPostItem oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (oldWidget.retention != widget.retention ||
+        oldWidget.post != widget.post) {
+      oldWidget.retention.removeListener(_scheduleKeepAliveUpdate);
+      oldWidget.retention.release(context);
+      oldWidget.post.removeListener(_updateRetention);
+      _updateRetention();
+      widget.retention.addListener(_scheduleKeepAliveUpdate);
+      widget.post.addListener(_updateRetention);
+      _scheduleKeepAliveUpdate();
+    }
     if (oldWidget.postId == widget.postId) {
       if (oldWidget.retainedMinimumHeight != widget.retainedMinimumHeight) {
         _retainedMinimumHeight = widget.retainedMinimumHeight;
@@ -3660,12 +3703,16 @@ class _TopicPostItemState extends State<_TopicPostItem> {
 
   @override
   void dispose() {
+    widget.retention.removeListener(_scheduleKeepAliveUpdate);
+    widget.retention.release(context);
+    widget.post.removeListener(_updateRetention);
     widget.onDetach(widget.postId, context);
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     final day = widget.day;
     final child = Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -3712,7 +3759,7 @@ class _TopicPostItemState extends State<_TopicPostItem> {
       minimumHeight: retainedMinimumHeight ?? 0,
       topicId: widget.topicId,
       postId: widget.postId,
-      htmlCharacters: widget.htmlCharacters,
+      htmlCharacters: widget.post.value?.cooked.length ?? 0,
       scrollCapture: widget.scrollCapture,
       onNaturalHeightRestored: retainedMinimumHeight == null
           ? null

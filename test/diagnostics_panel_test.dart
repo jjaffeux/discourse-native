@@ -26,9 +26,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:super_sliver_list/super_sliver_list.dart';
 
 import 'support/fakes.dart';
+import 'support/topic_post_list.dart';
 import 'support/topic_scroll_capture.dart';
 
 void main() {
@@ -888,19 +888,7 @@ void main() {
         await tester.pumpAndSettle();
         final reader = find.byType(TopicView);
         final readerState = tester.state(reader);
-        final listFinder = find.descendant(
-          of: reader,
-          matching: find.byType(CustomScrollView),
-        );
-        final list = tester.widget<CustomScrollView>(listFinder);
-        final listController = tester
-            .widget<SuperSliverList>(
-              find.descendant(
-                of: reader,
-                matching: find.byType(SuperSliverList),
-              ),
-            )
-            .listController;
+        final list = topicPostList(tester);
         diagnostics.topicScrollCapture.start();
 
         try {
@@ -908,28 +896,15 @@ void main() {
             diagnostics.openPanel();
             await tester.pumpAndSettle();
             expect(tester.state(reader), same(readerState));
+            expect(topicPostList(tester).controller, same(list.controller));
             expect(
-              tester.widget<CustomScrollView>(listFinder).controller,
-              same(list.controller),
-            );
-            expect(
-              tester
-                  .widget<SuperSliverList>(
-                    find.descendant(
-                      of: reader,
-                      matching: find.byType(SuperSliverList),
-                    ),
-                  )
-                  .listController,
-              same(listController),
+              topicPostList(tester).listController,
+              same(list.listController),
             );
             diagnostics.closePanel();
             await tester.pumpAndSettle();
             expect(tester.state(reader), same(readerState));
-            expect(
-              tester.widget<CustomScrollView>(listFinder).controller,
-              same(list.controller),
-            );
+            expect(topicPostList(tester).controller, same(list.controller));
           }
         } finally {
           diagnostics.topicScrollCapture.stop();

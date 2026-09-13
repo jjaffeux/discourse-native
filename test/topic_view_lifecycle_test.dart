@@ -30,6 +30,7 @@ import 'package:http/testing.dart';
 import 'package:super_sliver_list/super_sliver_list.dart';
 
 import 'support/fakes.dart';
+import 'support/topic_post_list.dart';
 import 'support/topic_scroll_capture.dart';
 
 void main() {
@@ -104,7 +105,7 @@ void main() {
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 100));
 
-        final list = tester.widget<SuperListView>(find.byType(SuperListView));
+        final list = topicPostList(tester);
         expect(_lastVisiblePost(list), greaterThan(1));
         expect(api.topicReadsRecorded, isEmpty);
 
@@ -195,7 +196,7 @@ void main() {
           await tester.pumpWidget(_topicView(controller));
           await tester.pump();
           await tester.pump();
-          final list = tester.widget<SuperListView>(find.byType(SuperListView));
+          final list = topicPostList(tester);
           expect(list.controller!.position.pixels, 0);
 
           final siteImage = tester.widget<SiteImage>(find.byType(SiteImage));
@@ -270,7 +271,7 @@ void main() {
 
         await tester.pumpWidget(_topicView(controller));
         await tester.pumpAndSettle();
-        final list = tester.widget<SuperListView>(find.byType(SuperListView));
+        final list = topicPostList(tester);
         expect(_lastVisiblePost(list), 2);
         await tester.pump(const Duration(milliseconds: 600));
 
@@ -299,7 +300,7 @@ void main() {
         await tester.pumpWidget(_topicView(controller));
         await tester.pumpAndSettle();
 
-        final list = tester.widget<SuperListView>(find.byType(SuperListView));
+        final list = topicPostList(tester);
         final position = list.controller!.position;
         expect(position.maxScrollExtent, greaterThan(0));
 
@@ -400,9 +401,7 @@ void main() {
         controller.openCurrentTopicPost(80, loadAroundPost: true);
         await tester.pump();
         await tester.pump();
-        final loadingList = tester.widget<SuperListView>(
-          find.byType(SuperListView),
-        );
+        final loadingList = topicPostList(tester);
         final loadingKey = loadingList.key;
         final whileLoading = loadingList.listController!.totalExtent;
 
@@ -410,7 +409,7 @@ void main() {
         await tester.pump();
         await tester.pumpAndSettle();
 
-        final list = tester.widget<SuperListView>(find.byType(SuperListView));
+        final list = topicPostList(tester);
         expect(find.byKey(const ValueKey(80)), findsOneWidget);
         expect(list.key, isNot(loadingKey));
         expect(list.listController!.totalExtent, lessThan(whileLoading / 2));
@@ -596,7 +595,7 @@ void main() {
 
         await tester.pumpWidget(_topicView(controller));
         await tester.pumpAndSettle();
-        var list = tester.widget<SuperListView>(find.byType(SuperListView));
+        var list = topicPostList(tester);
         list.controller!.jumpTo(list.controller!.position.maxScrollExtent);
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 600));
@@ -615,7 +614,7 @@ void main() {
         await tester.pumpWidget(_topicView(controller));
         await tester.pumpAndSettle();
 
-        list = tester.widget<SuperListView>(find.byType(SuperListView));
+        list = topicPostList(tester);
         expect(
           list.controller!.position.pixels,
           closeTo(list.controller!.position.maxScrollExtent, 1),
@@ -806,7 +805,7 @@ void main() {
           );
           api.topicReadsRecorded.clear();
 
-          final list = tester.widget<SuperListView>(find.byType(SuperListView));
+          final list = topicPostList(tester);
           final scroll = list.controller!;
           final initialRange = list.listController!.visibleRange;
           final initialPixels = scroll.position.pixels;
@@ -1171,9 +1170,7 @@ void main() {
           await tester.pumpAndSettle();
           expect(controller.currentTopicHasEarlier, isTrue);
           expect(controller.currentTopicHasMore, isTrue);
-          final scroll = tester
-              .widget<SuperListView>(find.byType(SuperListView))
-              .controller!;
+          final scroll = topicPostList(tester).controller!;
           expect(scroll.positions, hasLength(1));
           final position = scroll.position;
 
@@ -1188,14 +1185,9 @@ void main() {
             expect(sidebar, findsOneWidget);
             expect(tester.getSize(sidebar).width, 344);
             expect(tester.getRect(sidebar).right, 1200);
-            final pinnedList = tester.widget<SuperListView>(
-              find.byType(SuperListView),
-            );
+            final pinnedList = topicPostList(tester);
             final pinnedPadding = pinnedList.padding! as EdgeInsets;
-            expect(
-              tester.getSize(find.byType(SuperListView)).width,
-              1200 - 344,
-            );
+            expect(tester.getSize(topicPostListFinder()).width, 1200 - 344);
             expect(pinnedPadding.left, 15.5);
             expect(pinnedPadding.right, 15.5);
             expect(
@@ -1298,7 +1290,7 @@ void main() {
                 );
               }
               await tester.pumpAndSettle();
-              final viewport = tester.getRect(find.byType(SuperListView));
+              final viewport = tester.getRect(topicPostListFinder());
               final post = find.byKey(const ValueKey(137));
               expect(post, findsOneWidget);
               expect(
@@ -1348,7 +1340,7 @@ void main() {
           tester.state<ScrollableState>(vertical.first).position.pixels,
           greaterThan(0),
         );
-        final list = tester.widget<SuperListView>(find.byType(SuperListView));
+        final list = topicPostList(tester);
         final range = list.listController!.visibleRange!;
         expect((range.$1 + 1) ~/ 2, lessThanOrEqualTo(11));
         expect(range.$2 ~/ 2, greaterThanOrEqualTo(11));
@@ -1436,7 +1428,7 @@ void main() {
           expect(api.postFetches, [
             [for (var id = 41; id <= 60; id++) id],
           ]);
-          final viewport = tester.getRect(find.byType(SuperListView));
+          final viewport = tester.getRect(topicPostListFinder());
           final target = find.byKey(const ValueKey(80));
           expect(target, findsOneWidget);
           expect(tester.getTopLeft(target).dy, closeTo(viewport.top, 1));
@@ -1505,7 +1497,7 @@ void main() {
 
             final viewportFinder = inbox
                 ? find.byType(CustomScrollView)
-                : find.byType(SuperListView);
+                : topicPostListFinder();
             final scroll = tester
                 .widget<ScrollView>(viewportFinder)
                 .controller!;
@@ -1578,7 +1570,7 @@ void main() {
           expect(fixture.api.postFetches, [
             [1],
           ]);
-          final list = tester.widget<SuperListView>(find.byType(SuperListView));
+          final list = topicPostList(tester);
           list.controller!.jumpTo(700);
           await tester.pump();
           final secondPost = find.byKey(const ValueKey(2));
@@ -1586,7 +1578,7 @@ void main() {
           final topBeforePrepend = tester.getTopLeft(secondPost).dy;
 
           final gesture = await tester.startGesture(
-            tester.getCenter(find.byType(SuperListView)),
+            tester.getCenter(topicPostListFinder()),
           );
           await gesture.moveBy(const Offset(0, 20));
           await tester.pump();
@@ -1623,11 +1615,11 @@ void main() {
           final fixture = await _pumpTallPrependTopic(tester);
           final controller = fixture.controller;
 
-          final list = tester.widget<SuperListView>(find.byType(SuperListView));
+          final list = topicPostList(tester);
           list.controller!.jumpTo(700);
           await tester.pump();
           final secondPost = find.byKey(const ValueKey(2));
-          final topicCenter = tester.getCenter(find.byType(SuperListView));
+          final topicCenter = tester.getCenter(topicPostListFinder());
           final topBeforePrepend = tester.getTopLeft(secondPost).dy;
 
           await tester.sendEventToBinding(
@@ -1716,7 +1708,7 @@ void main() {
           await tester.pump();
           await _pumpUntilRendered(tester, 'A tall asynchronous first post');
 
-          final list = tester.widget<SuperListView>(find.byType(SuperListView));
+          final list = topicPostList(tester);
           final scroll = list.controller!;
           list.listController!.jumpToItem(
             index: 2,
@@ -1737,12 +1729,16 @@ void main() {
 
           await tester.sendEventToBinding(
             PointerScrollEvent(
-              position: tester.getCenter(find.byType(SuperListView)),
+              position: tester.getCenter(topicPostListFinder()),
               scrollDelta: const Offset(0, -400),
             ),
           );
           await tester.pump();
-          await _pumpUntilRendered(tester, 'A tall asynchronous first post');
+          await _pumpUntilRendered(
+            tester,
+            'A tall asynchronous first post',
+            skipOffstage: false,
+          );
 
           expect(secondPost, findsOneWidget);
           expect(
@@ -1803,7 +1799,7 @@ void main() {
         expect(api.postFetches, [
           [1, 2, 3],
         ]);
-        final list = tester.widget<SuperListView>(find.byType(SuperListView));
+        final list = topicPostList(tester);
         list.controller!.jumpTo(list.controller!.position.minScrollExtent);
         await tester.pump();
         final skeleton = find.byKey(
@@ -1860,7 +1856,7 @@ void main() {
 
         await tester.pumpWidget(_topicView(controller));
         await tester.pumpAndSettle();
-        final list = tester.widget<SuperListView>(find.byType(SuperListView));
+        final list = topicPostList(tester);
         list.controller!.jumpTo(list.controller!.position.maxScrollExtent);
         await tester.pump();
         await tester.pump();
@@ -1928,7 +1924,7 @@ void main() {
 
         await tester.pumpWidget(_topicView(controller));
         await tester.pumpAndSettle();
-        final list = tester.widget<SuperListView>(find.byType(SuperListView));
+        final list = topicPostList(tester);
         list.controller!.jumpTo(list.controller!.position.maxScrollExtent);
         await tester.pump();
         await tester.pump();
@@ -2106,7 +2102,7 @@ void main() {
         await tester.pumpAndSettle();
         expect(api.postFetches, isEmpty);
 
-        final list = tester.widget<SuperListView>(find.byType(SuperListView));
+        final list = topicPostList(tester);
         list.controller!.jumpTo(list.controller!.position.maxScrollExtent);
         await tester.pumpAndSettle();
 
@@ -2740,10 +2736,15 @@ void main() {
   });
 }
 
-Future<void> _pumpUntilRendered(WidgetTester tester, String text) async {
+Future<void> _pumpUntilRendered(
+  WidgetTester tester,
+  String text, {
+  bool skipOffstage = true,
+}) async {
   final rendered = find.byWidgetPredicate(
     (widget) => widget is RichText && widget.text.toPlainText().contains(text),
     description: 'rendered cooked text containing "$text"',
+    skipOffstage: skipOffstage,
   );
   const timeout = Duration(seconds: 5);
   final elapsed = Stopwatch()..start();
@@ -2757,7 +2758,7 @@ Future<void> _pumpUntilRendered(WidgetTester tester, String text) async {
   fail('Cooked HTML did not finish rendering "$text" within $timeout.');
 }
 
-int _lastVisiblePost(SuperListView list) {
+int _lastVisiblePost(TopicPostListHandle list) {
   final range = list.listController!.visibleRange!;
   final lastPostChild = range.$2.isEven ? range.$2 : range.$2 - 1;
   return lastPostChild ~/ 2 + 1;

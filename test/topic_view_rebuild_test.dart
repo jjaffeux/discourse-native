@@ -1,5 +1,6 @@
 import 'dart:collection';
 
+import 'package:discourse_native/src/diagnostics/diagnostics.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/shell/cooked_html.dart';
@@ -11,9 +12,11 @@ import 'package:discourse_native/src/shell/topic_view.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:super_sliver_list/super_sliver_list.dart';
 
 import 'support/fakes.dart';
+import 'support/topic_post_list.dart';
+import 'support/topic_scroll_capture.dart';
+import 'support/topic_scroll_fixture.dart';
 
 void main() {
   test('post index projection scans a retained stream only once', () {
@@ -152,8 +155,8 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      final listFinder = find.byType(SuperListView);
-      final list = tester.widget<SuperListView>(listFinder);
+      final listFinder = topicPostListFinder();
+      final list = topicPostList(tester);
       final listElement = tester.element(listFinder);
       final topicViewElement = tester.element(find.byType(TopicView));
       final headerElement = tester.element(
@@ -206,97 +209,205 @@ void main() {
     },
   );
 
-  testWidgets(
-    'recycling an asynchronous post refreshes only newly retained geometry',
-    (tester) async {
-      final posts = [
-        Post(
-          id: 1,
-          postNumber: 1,
-          username: 'sam',
-          cooked: List.filled(450, '<p>A tall first post</p>').join(),
-        ),
-        for (var id = 2; id <= 25; id++)
+  for (final retain in [true, false]) {
+    testWidgets(
+      retain
+          ? 'returning to a long post reuses its rendered HTML without rebuilding the topic'
+          : 'oversized posts recycle without repeated geometry refreshes',
+      (tester) async {
+        final posts = [
           Post(
-            id: id,
-            postNumber: id,
+            id: 1,
+            postNumber: 1,
             username: 'sam',
-            cooked: List.filled(5, '<p>Post $id</p>').join(),
+            cooked:
+                List.filled(450, '<p>A tall first post</p>').join() +
+                (retain ? '' : '<!--${List.filled(256 * 1024, 'x').join()}-->'),
           ),
-      ];
-      final api = FakeDiscourseApi(
-        topics: {7: topicPayload(id: 7, title: 'A topic', posts: posts)},
-      );
-      final controller = ShellController(
-        instanceStore: FakeInstanceStore([instance('meta.discourse.org')]),
-        api: api,
-        authenticator: FakeAuthenticator(),
-        drafts: FakeDraftStore(),
-        trackers: FakeSiteTracker.reset(),
-        updateStore: FakeUpdateStore(),
-      );
-      addTearDown(controller.dispose);
+          for (var id = 2; id <= 25; id++)
+            Post(
+              id: id,
+              postNumber: id,
+              username: 'sam',
+              cooked: List.filled(5, '<p>Post $id</p>').join(),
+            ),
+        ];
+        final api = FakeDiscourseApi(
+          topics: {7: topicPayload(id: 7, title: 'A topic', posts: posts)},
+        );
+        final controller = ShellController(
+          instanceStore: FakeInstanceStore([instance('meta.discourse.org')]),
+          api: api,
+          authenticator: FakeAuthenticator(),
+          drafts: FakeDraftStore(),
+          trackers: FakeSiteTracker.reset(),
+          updateStore: FakeUpdateStore(),
+        );
+        addTearDown(controller.dispose);
 
-      await controller.load();
-      controller.pushContent(
-        ContentRoute.topic(topicId: 7, slug: 'a-topic', title: 'A topic'),
-      );
-      await controller.loadTopic(7, 'a-topic');
-      await tester.pumpWidget(
-        ShellScope(
-          controller: controller,
-          child: MaterialApp(
-            theme: AppTheme.dark,
-            home: const Scaffold(body: TopicView()),
+        await controller.load();
+        controller.pushContent(
+          ContentRoute.topic(topicId: 7, slug: 'a-topic', title: 'A topic'),
+        );
+        await controller.loadTopic(7, 'a-topic');
+        await tester.pumpWidget(
+          ShellScope(
+            controller: controller,
+            child: MaterialApp(
+              theme: AppTheme.dark,
+              home: const Scaffold(body: TopicView()),
+            ),
           ),
+        );
+        await tester.pump();
+        await _pumpUntilRendered(tester, 'A tall first post');
+        final firstHtml = tester.element(find.byType(CookedHtml).first);
+
+        final topicViewElement = tester.element(find.byType(TopicView));
+        var topicViewRebuilds = 0;
+        final previousRebuildHook = debugOnRebuildDirtyWidget;
+        debugOnRebuildDirtyWidget = (element, builtOnce) {
+          previousRebuildHook?.call(element, builtOnce);
+          if (identical(element, topicViewElement)) topicViewRebuilds++;
+        };
+        addTearDown(() => debugOnRebuildDirtyWidget = previousRebuildHook);
+
+        final list = topicPostList(tester);
+        list.listController!.jumpToItem(
+          index: 40,
+          scrollController: list.controller!,
+          alignment: 0,
+        );
+        await tester.pump();
+        await tester.pump();
+
+        expect(find.byKey(const ValueKey(1)), findsNothing);
+        expect(firstHtml.mounted, retain);
+        expect(topicViewRebuilds, retain ? 0 : greaterThan(0));
+        final rebuildsAfterFirstRecycle = topicViewRebuilds;
+
+        list.listController!.jumpToItem(
+          index: 0,
+          scrollController: list.controller!,
+          alignment: 0,
+        );
+        await tester.pump();
+        await _pumpUntilRendered(tester, 'A tall first post');
+        expect(find.byKey(const ValueKey(1)), findsOneWidget);
+        expect(
+          tester.element(find.byType(CookedHtml).first),
+          retain ? same(firstHtml) : isNot(same(firstHtml)),
+        );
+
+        list.listController!.jumpToItem(
+          index: 40,
+          scrollController: list.controller!,
+          alignment: 0,
+        );
+        await tester.pump();
+        await tester.pump();
+
+        expect(find.byKey(const ValueKey(1)), findsNothing);
+        expect(topicViewRebuilds, rebuildsAfterFirstRecycle);
+      },
+    );
+  }
+
+  testWidgets('retained inbox posts accept edits and evict old HTML trees', (
+    tester,
+  ) async {
+    final controller = await topicScrollController();
+    final diagnostics = DiagnosticsController.start(
+      persistence: MemoryDiagnosticsPersistence(),
+      topicScrollCapture: topicScrollCaptureWithoutVm(),
+    );
+    addTearDown(controller.dispose);
+    addTearDown(diagnostics.close);
+    final site = controller.currentInstance!.url;
+    final longHtml = controller.store.read<Post>(site, 1)!.cooked;
+    // Neighboring async placeholders can temporarily share the first viewport.
+    for (final id in [2, 3, 4, 35, 50]) {
+      controller.store.update<Post>(
+        site,
+        id,
+        (post) => Post(
+          id: post.id,
+          postNumber: post.postNumber,
+          username: post.username,
+          createdAt: post.createdAt,
+          cooked: longHtml.replaceAll('Post 1:', 'Post $id:'),
         ),
       );
-      await tester.pump();
-      await _pumpUntilRendered(tester, 'A tall first post');
-
-      final topicViewElement = tester.element(find.byType(TopicView));
-      var topicViewRebuilds = 0;
-      final previousRebuildHook = debugOnRebuildDirtyWidget;
-      debugOnRebuildDirtyWidget = (element, builtOnce) {
-        previousRebuildHook?.call(element, builtOnce);
-        if (identical(element, topicViewElement)) topicViewRebuilds++;
-      };
-      addTearDown(() => debugOnRebuildDirtyWidget = previousRebuildHook);
-
-      final list = tester.widget<SuperListView>(find.byType(SuperListView));
+    }
+    await tester.pumpWidget(
+      TopicScrollFixture(controller: controller, diagnostics: diagnostics),
+    );
+    await _pumpUntilRendered(tester, 'Post 1:');
+    Finder htmlFor(int id, {bool offscreen = false}) => find.byWidgetPredicate(
+      (widget) => widget is CookedHtml && widget.post?.id == id,
+      skipOffstage: !offscreen,
+    );
+    final firstHtml = tester.element(htmlFor(1));
+    final list = topicPostList(tester);
+    Future<void> jumpTo(int id) async {
       list.listController!.jumpToItem(
-        index: 40,
+        index: (id - 1) * 2,
         scrollController: list.controller!,
         alignment: 0,
       );
       await tester.pump();
-      await tester.pump();
+      await _pumpUntilRendered(tester, 'Post $id:');
+      await tester.pumpAndSettle();
+    }
 
-      expect(find.byKey(const ValueKey(1)), findsNothing);
-      expect(topicViewRebuilds, greaterThan(0));
-      final rebuildsAfterFirstRecycle = topicViewRebuilds;
-
-      list.listController!.jumpToItem(
-        index: 0,
-        scrollController: list.controller!,
-        alignment: 0,
+    await jumpTo(20);
+    expect(firstHtml.mounted, isTrue);
+    controller.store.update<Post>(
+      site,
+      1,
+      (post) => Post(
+        id: post.id,
+        postNumber: post.postNumber,
+        username: post.username,
+        createdAt: post.createdAt,
+        cooked: longHtml.replaceAll('Post 1:', 'Edited 1:'),
+      ),
+    );
+    await _pumpUntilRendered(tester, 'Post 20:');
+    // An offscreen async edit still needs layout for text selection.
+    for (var i = 0; i < 10; i++) {
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 10)),
       );
       await tester.pump();
-      await _pumpUntilRendered(tester, 'A tall first post');
-      expect(find.byKey(const ValueKey(1)), findsOneWidget);
+    }
+    expect(tester.takeException(), isNull);
+    expect(
+      tester.widget<CookedHtml>(htmlFor(1, offscreen: true)).html,
+      contains('Edited 1:'),
+    );
 
-      list.listController!.jumpToItem(
-        index: 40,
-        scrollController: list.controller!,
-        alignment: 0,
-      );
-      await tester.pump();
-      await tester.pump();
+    await jumpTo(35);
+    await jumpTo(50);
+    expect(firstHtml.mounted, isFalse);
+    final retainedLongPosts = tester
+        .widgetList<CookedHtml>(find.byType(CookedHtml, skipOffstage: false))
+        .where(
+          (widget) =>
+              widget.post != null &&
+              CookedHtml.buildsAsynchronously(widget.html),
+        );
+    expect(retainedLongPosts.length, lessThanOrEqualTo(3));
 
-      expect(find.byKey(const ValueKey(1)), findsNothing);
-      expect(topicViewRebuilds, rebuildsAfterFirstRecycle);
-    },
-  );
+    final retainedElements = tester
+        .elementList(find.byType(CookedHtml, skipOffstage: false))
+        .toList();
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump();
+    expect(retainedElements.every((element) => !element.mounted), isTrue);
+    expect(tester.takeException(), isNull);
+    await diagnostics.close();
+  });
 }
 
 Future<void> _pumpUntilRendered(WidgetTester tester, String text) async {
