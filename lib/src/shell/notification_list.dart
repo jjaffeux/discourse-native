@@ -353,7 +353,9 @@ class _PluginNotificationsSectionState
           ),
         );
       }
-      if (!feed.loaded) return const UserMenuMessage(text: null);
+      if (!feed.loaded) {
+        return const UserMenuLoading(semanticsLabel: 'Loading notifications');
+      }
       if (feed.isEmpty) {
         return _withActions(
           UserMenuMessage(text: widget.source.emptyMessage),
@@ -473,7 +475,9 @@ class _NotificationSectionViewState extends State<_NotificationSectionView> {
         if (currentFeed.error case final error?) {
           return UserMenuMessage(text: error, onRetry: retry);
         }
-        if (!currentFeed.loaded) return const UserMenuMessage(text: null);
+        if (!currentFeed.loaded) {
+          return const UserMenuLoading(semanticsLabel: 'Loading notifications');
+        }
         if (currentFeed.isEmpty) {
           return UserMenuMessage(
             text: switch (widget.kind) {
