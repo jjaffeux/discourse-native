@@ -1,12 +1,17 @@
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/app.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/notification.dart';
+import 'package:discourse_native/src/shell/notification_list.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/user_menu.dart';
 import 'package:discourse_native/src/shell/user_menu_button.dart';
+import 'package:discourse_native/src/theme/app_theme.dart';
+import 'package:discourse_native/src/theme/d_icon.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/fakes.dart';
@@ -15,6 +20,91 @@ const _siteUrl = 'https://forum.example';
 const _rowKey = ValueKey('notification-row-1');
 
 void main() {
+  for (final brightness in Brightness.values) {
+    testWidgets(
+      'read and unread rows switch hover immediately in ${brightness.name} mode',
+      (tester) async {
+        final theme = brightness == Brightness.dark
+            ? AppTheme.dark
+            : AppTheme.light;
+        var opens = 0;
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: theme.copyWith(platform: TargetPlatform.macOS),
+            home: Scaffold(
+              backgroundColor: theme.shell.floating,
+              body: Align(
+                alignment: Alignment.topLeft,
+                child: SizedBox(
+                  width: 320,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      for (final read in [false, true])
+                        NotificationRow(
+                          siteUrl: _siteUrl,
+                          notification: DiscourseNotification.test(
+                            id: read ? 2 : 1,
+                            typeId: const NotificationTypeId(2),
+                            read: read,
+                            title: 'A useful topic',
+                            data: const {'display_username': 'sam'},
+                          ),
+                          onTap: () => opens++,
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        final rows = find.byType(NotificationRow);
+        final tokens = DTokens.of(tester.element(rows.first));
+        final backdrop = theme.shell.floating;
+        final unread = Color.alphaBlend(
+          tokens.primary.withValues(alpha: .12),
+          backdrop,
+        );
+        Color background(int index) => _rowBackground(rows.at(index), backdrop);
+        expect(background(0), unread);
+        expect(background(1), backdrop);
+
+        final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+        await mouse.addPointer(location: const Offset(600, 400));
+        addTearDown(mouse.removePointer);
+        for (final hovered in [0, 1, 0]) {
+          await mouse.moveTo(tester.getCenter(rows.at(hovered)));
+          for (final frame in [
+            Duration.zero,
+            const Duration(milliseconds: 16),
+          ]) {
+            await tester.pump(frame);
+            expect(background(hovered), tokens.muted);
+            expect(background(1 - hovered), hovered == 0 ? backdrop : unread);
+          }
+        }
+        await mouse.moveTo(const Offset(600, 400));
+        await tester.pump();
+        expect(background(0), unread);
+        expect(background(1), backdrop);
+        expect(opens, 0);
+        expect(
+          tester
+              .widget<DIcon>(
+                find.descendant(of: rows.first, matching: find.byType(DIcon)),
+              )
+              .color,
+          tokens.primary,
+        );
+        expect(tester.takeException(), isNull);
+      },
+      variant: TargetPlatformVariant.only(TargetPlatform.macOS),
+    );
+  }
+
   for (final (section, type) in const [
     ('all', CoreNotificationTypes.replied),
     ('replies', CoreNotificationTypes.replied),
@@ -98,6 +188,20 @@ void main() {
     },
     variant: TargetPlatformVariant.only(TargetPlatform.macOS),
   );
+}
+
+Color _rowBackground(Finder row, Color backdrop) {
+  var color = backdrop;
+  for (final box
+      in find
+          .descendant(of: row, matching: find.byType(DecoratedBox))
+          .evaluate()) {
+    final decoration = (box.renderObject! as RenderDecoratedBox).decoration;
+    if (decoration is BoxDecoration && decoration.color != null) {
+      color = Color.alphaBlend(decoration.color!, color);
+    }
+  }
+  return color;
 }
 
 Future<(ShellController, FakeDiscourseApi)> _pumpMenu(
