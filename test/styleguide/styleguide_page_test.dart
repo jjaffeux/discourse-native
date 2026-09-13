@@ -386,7 +386,7 @@ void main() {
       expect(find.widgetWithText(StyleguideAction, 'Align'), findsOneWidget);
       expect(
         find.widgetWithText(StyleguideAction, 'inline-start'),
-        findsNothing,
+        findsOneWidget,
       );
       expect(find.widgetWithText(StyleguideAction, 'InputGroup'), findsNothing);
       expect(

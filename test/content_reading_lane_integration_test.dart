@@ -214,10 +214,10 @@ void main() {
           _shellSurface(controller, const AggregateView()),
         );
         await tester.pumpAndSettle();
-        final viewport = find.byType(ListView);
+        final viewport = find.byType(CustomScrollView);
         final card = find.byKey(ValueKey('aggregate-topic-card-${one.url}-42'));
         final hero = find.byKey(const ValueKey('aggregate-hero'));
-        final toolbar = find.byKey(const ValueKey('aggregate-tab-toolbar'));
+        final toolbar = find.byKey(const ValueKey('aggregate-tabs'));
         expect(tester.getSize(viewport).width, 1400);
         expect(tester.getSize(card).width, closeTo(825, 0.001));
         expect(tester.getTopLeft(card).dx, closeTo(287.5, 0.001));
@@ -236,7 +236,7 @@ void main() {
           expect(tester.getSize(toolbar).width, 1400);
         }
 
-        final scroll = tester.widget<ListView>(viewport).controller!;
+        final scroll = tester.widget<CustomScrollView>(viewport).controller!;
         await tester.drag(viewport, const Offset(0, -300));
         await tester.pumpAndSettle();
         final offset = scroll.offset;
@@ -244,7 +244,10 @@ void main() {
           await controller.appSettings.setContentAlignment(alignment);
           await tester.pump();
           expect(tester.getSize(toolbar).width, 1400);
-          expect(tester.widget<ListView>(viewport).controller, same(scroll));
+          expect(
+            tester.widget<CustomScrollView>(viewport).controller,
+            same(scroll),
+          );
           expect(scroll.offset, closeTo(offset, 0.001));
         }
       });

@@ -142,13 +142,13 @@ void main() {
               find.descendant(of: recovery, matching: find.byType(Material)),
             )
             .height,
-        32,
+        DControlStyle.regularHeight,
       );
       final recoveryStyle = DefaultTextStyle.of(
         tester.element(find.text('Forgot your password?')),
       ).style;
       expect(recoveryStyle.fontWeight, FontWeight.w500);
-      expect(recoveryStyle.height, 20 / 14);
+      expect(recoveryStyle.height, 16 / 12);
 
       await tester.tap(find.text('Email'));
       await tester.pump();

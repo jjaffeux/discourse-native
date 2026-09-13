@@ -842,10 +842,12 @@ void main() {
         ),
         theme: AppTheme.light.copyWith(platform: platform),
       );
-      final dimension = platform == TargetPlatform.iOS ? 48.0 : 32.0;
+      final dimension = platform == TargetPlatform.iOS
+          ? 48.0
+          : DControlStyle.regularHeight;
       expect(
         tester.getSize(find.byKey(const ValueKey('users-search'))).height,
-        dimension,
+        platform == TargetPlatform.iOS ? 48.0 : DControlStyle.largeHeight,
       );
       expect(
         tester

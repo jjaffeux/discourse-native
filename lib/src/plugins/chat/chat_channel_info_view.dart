@@ -109,10 +109,9 @@ class _ChannelInfoTabs extends StatelessWidget {
         child: LayoutBuilder(
           builder: (context, constraints) {
             final leadingSpace = constraints.maxWidth <= 740 ? 8.0 : 22.0;
-            return SizedBox(
+            return ConstrainedBox(
               key: const ValueKey('chat-channel-info-tabs'),
-              width: double.infinity,
-              height: 58,
+              constraints: const BoxConstraints(minHeight: 58),
               child: Padding(
                 padding: EdgeInsetsDirectional.only(start: leadingSpace),
                 child: Align(

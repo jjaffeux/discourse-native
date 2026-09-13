@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:ui' show PointerDeviceKind;
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
@@ -384,42 +383,33 @@ void main() {
   }
   for (final openWithKeyboard in [false, true]) {
     testWidgets(
-      'opening a topic with ${openWithKeyboard ? 'the keyboard' : 'the mouse'} keeps one row border as the cursor moves',
+      'opening a topic with ${openWithKeyboard ? 'the keyboard' : 'the mouse'} retains its selection as the cursor moves',
       (tester) async {
         final setup = await _setup(tester);
         if (openWithKeyboard) {
           await _moveTopic(tester, next: true);
-          expect(_topicBorders(tester, 1), hasLength(1));
+          expect(_topicItem(tester, 1).variant, DItemVariant.muted);
           await tester.sendKeyEvent(LogicalKeyboardKey.enter);
         } else {
           await tester.tap(find.text('Keyboard topic 1'));
         }
         await tester.pumpAndSettle();
         expect(setup.shell.currentContent?.topicId, 1);
-        expect(_topicBorders(tester, 1), hasLength(1));
-        expect(_topicBorders(tester, 1).single.width, 2);
+        expect(_topicItem(tester, 1).selected, isTrue);
 
         await _moveTopic(tester, next: true);
-        expect(setup.shell.currentContent?.topicId, 1);
         _scrollable(tester, find.byType(TopicListView)).controller!.jumpTo(0);
         await tester.pumpAndSettle();
-        expect(_topicBorders(tester, 1), hasLength(1));
-        expect(_topicBorders(tester, 1).single.width, 1);
-        expect(_topicBorders(tester, 2), hasLength(1));
-        expect(_topicBorders(tester, 2).single.width, 2);
-
-        final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
-        await mouse.addPointer();
-        addTearDown(mouse.removePointer);
-        await mouse.moveTo(
-          tester.getCenter(find.byKey(const ValueKey('inbox-row-2'))),
-        );
-        await tester.pumpAndSettle();
-        expect(_topicBorders(tester, 2), hasLength(1));
+        expect(setup.shell.currentContent?.topicId, 1);
+        expect(_topicItem(tester, 1).selected, isTrue);
+        expect(_topicItem(tester, 2).selected, isFalse);
+        expect(_topicItem(tester, 2).variant, DItemVariant.muted);
+        expect(_selectedTopics(tester), [2]);
 
         await _moveTopic(tester, next: false);
-        expect(_topicBorders(tester, 1), hasLength(1));
-        expect(_topicBorders(tester, 1).single.width, 2);
+        expect(_topicItem(tester, 1).selected, isTrue);
+        expect(_topicItem(tester, 1).variant, DItemVariant.muted);
+        expect(_selectedTopics(tester), [1]);
         expect(tester.takeException(), isNull);
       },
     );
@@ -612,6 +602,8 @@ void main() {
       expect(_selectedTopics(tester), [2]);
     }
 
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
     FocusManager.instance.primaryFocus?.unfocus();
     await tester.pump();
     await tester.sendKeyEvent(LogicalKeyboardKey.slash, character: '?');
@@ -764,27 +756,8 @@ void main() {
   });
 }
 
-Iterable<BorderSide> _topicBorders(WidgetTester tester, int topicId) sync* {
-  final row = find.byKey(ValueKey('topic-list-keyboard-$topicId'));
-  for (final widget in tester.widgetList<Widget>(
-    find.descendant(
-      of: row,
-      matching: find.byWidgetPredicate(
-        (widget) => widget is Material || widget is DecoratedBox,
-      ),
-    ),
-  )) {
-    final side = switch (widget) {
-      Material(shape: RoundedRectangleBorder(:final side)) => side,
-      DecoratedBox(decoration: BoxDecoration(border: Border(:final top))) =>
-        top,
-      _ => null,
-    };
-    if (side != null && side.style == BorderStyle.solid && side.color.a > 0) {
-      yield side;
-    }
-  }
-}
+DItem _topicItem(WidgetTester tester, int topicId) =>
+    tester.widget<DItem>(find.byKey(ValueKey('topic-card-$topicId')));
 
 void _expectTopicVisible(WidgetTester tester, int topicId) {
   final row = find.byKey(ValueKey('topic-list-keyboard-$topicId'));
@@ -854,9 +827,14 @@ List<int> _selectedTopics(WidgetTester tester) =>
 List<int> _selectedPosts(WidgetTester tester) =>
     _selection(tester, 'topic-post-keyboard-');
 
-SuperListView _scrollable(WidgetTester tester, Finder root) =>
-    tester.widget<SuperListView>(
-      find.descendant(of: root, matching: find.byType(SuperListView)),
+ScrollView _scrollable(WidgetTester tester, Finder root) =>
+    tester.widget<ScrollView>(
+      find.descendant(
+        of: root,
+        matching: find.byWidgetPredicate(
+          (widget) => widget is SuperListView || widget is CustomScrollView,
+        ),
+      ),
     );
 
 Future<({ShellController shell, FakeDiscourseApi api})> _setup(

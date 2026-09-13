@@ -1444,7 +1444,7 @@ class _StreamState extends State<ChatMessageStream>
                     // Reserve hover overflow only when the live-edge row is short.
                     constraints: BoxConstraints(
                       minHeight: row == 0
-                          ? ChatMessageTile.minimumHoverActionsHeight
+                          ? ChatMessageTile.hoverActionsHeight(context)
                           : 0,
                     ),
                     child: _HighlightedChatMessage(

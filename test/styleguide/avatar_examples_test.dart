@@ -221,7 +221,7 @@ void main() {
         ),
       );
       expect(tester.getSize(find.byType(DAvatar)), const Size.square(64));
-      expect(tester.getSize(find.byType(DButton)), const Size.square(64));
+      expect(tester.getSize(find.byType(DButton)), const Size(86, 66));
       expect(tester.takeException(), isNull);
     },
   );
@@ -254,7 +254,7 @@ void main() {
       expect(trigger.hasPopup, isTrue);
       expect(trigger.label, isA<DAvatar>());
       expect(trigger.borderRadius, BorderRadius.circular(999));
-      expect(tester.getSize(find.byType(DButton)), const Size.square(32));
+      expect(tester.getSize(find.byType(DButton)), const Size(54, 34));
 
       await tester.tap(find.byType(DButton));
       await tester.pumpAndSettle();

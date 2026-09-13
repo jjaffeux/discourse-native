@@ -463,7 +463,7 @@ class _GlobalSearchConditionEditorState
               Text(
                 filter.help,
                 style: TextStyle(
-                  fontSize: 12,
+                  fontSize: DiscourseTypography.xs,
                   height: 1.4,
                   color: DTokens.of(context).mutedForeground,
                 ),
@@ -477,7 +477,7 @@ class _GlobalSearchConditionEditorState
                   _error!,
                   style: TextStyle(
                     color: DTokens.of(context).destructive,
-                    fontSize: 12,
+                    fontSize: DiscourseTypography.xs,
                   ),
                 ),
               ),
@@ -562,7 +562,7 @@ class _GlobalSearchConditionEditorState
                     _lookupError!,
                     style: TextStyle(
                       color: DTokens.of(context).mutedForeground,
-                      fontSize: 12,
+                      fontSize: DiscourseTypography.xs,
                     ),
                   ),
                 ),

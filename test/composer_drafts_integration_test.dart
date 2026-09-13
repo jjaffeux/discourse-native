@@ -35,6 +35,11 @@ import 'support/fakes.dart';
 
 import 'support/shell_test_harness.dart';
 
+Finder get _composerField => find.descendant(
+  of: find.byType(ComposerPanel),
+  matching: find.byType(TextField),
+);
+
 void main() {
   _registerTopicReplyTests();
   _registerComposerAndDraftTests();
@@ -185,7 +190,7 @@ void _registerTopicReplyTests() {
         );
         expect(shell.visibleComposer?.target.replyToPostNumber, 1);
         expect(
-          tester.widget<TextField>(find.byType(TextField)).focusNode?.hasFocus,
+          tester.widget<TextField>(_composerField).focusNode?.hasFocus,
           isTrue,
         );
 
@@ -215,7 +220,7 @@ void _registerTopicReplyTests() {
       );
       expect(renderedText('First post body'), findsOneWidget);
 
-      await tester.enterText(find.byType(TextField), 'Sounds good to me.');
+      await tester.enterText(_composerField, 'Sounds good to me.');
       await tester.pumpAndSettle();
       await tester.tap(sendButton());
       await tester.pumpAndSettle();
@@ -248,7 +253,7 @@ void _registerTopicReplyTests() {
           tester.element(find.byType(ComposerPanel)),
         );
 
-        await tester.enterText(find.byType(TextField), 'Said in public.');
+        await tester.enterText(_composerField, 'Said in public.');
         await tester.pumpAndSettle();
         await tester.tap(sendButton());
         await tester.pump();
@@ -287,7 +292,7 @@ void _registerTopicReplyTests() {
       await openTopic(tester, api, user: whisperer);
       await tester.tap(find.byTooltip('Reply to this topic'));
       await tester.pumpAndSettle();
-      await tester.enterText(find.byType(TextField), 'For the team only.');
+      await tester.enterText(_composerField, 'For the team only.');
       await tester.pump();
       final shell = ShellScope.read(tester.element(find.byType(ComposerPanel)));
 
@@ -355,7 +360,7 @@ void _registerTopicReplyTests() {
 
       expect(find.text('@sam'), findsOneWidget);
 
-      await tester.enterText(find.byType(TextField), 'Agreed.');
+      await tester.enterText(_composerField, 'Agreed.');
       await tester.pumpAndSettle();
       await tester.tap(sendButton());
       await tester.pumpAndSettle();
@@ -406,7 +411,7 @@ void _registerTopicReplyTests() {
         find.byKey(const ValueKey('composer-reply-options')),
         findsNothing,
       );
-      await tester.enterText(find.byType(TextField), 'Following up privately.');
+      await tester.enterText(_composerField, 'Following up privately.');
       await tester.pumpAndSettle();
       await tester.tap(sendButton());
       await tester.pumpAndSettle();
@@ -426,7 +431,7 @@ void _registerTopicReplyTests() {
       await openTopic(tester, api);
       await tester.tap(find.byTooltip('Reply to this topic'));
       await tester.pumpAndSettle();
-      await tester.enterText(find.byType(TextField), 'Quick one.');
+      await tester.enterText(_composerField, 'Quick one.');
       await tester.pumpAndSettle();
       await tester.tap(sendButton());
       await tester.pumpAndSettle();
@@ -448,7 +453,7 @@ void _registerTopicReplyTests() {
       await openTopic(tester, api);
       await tester.tap(find.byTooltip('Reply to this topic'));
       await tester.pumpAndSettle();
-      await tester.enterText(find.byType(TextField), 'Shipped.');
+      await tester.enterText(_composerField, 'Shipped.');
       await tester.pumpAndSettle();
 
       await tester.sendKeyDownEvent(LogicalKeyboardKey.meta);
@@ -473,7 +478,7 @@ void _registerTopicReplyTests() {
       await openTopic(tester, api);
       await tester.tap(find.byTooltip('Reply to this topic'));
       await tester.pumpAndSettle();
-      await tester.enterText(find.byType(TextField), 'no');
+      await tester.enterText(_composerField, 'no');
       await tester.pumpAndSettle();
       await tester.tap(sendButton());
       await tester.pumpAndSettle();
@@ -499,7 +504,7 @@ void _registerTopicReplyTests() {
       await openTopic(tester, api);
       await tester.tap(find.byTooltip('Reply to this topic'));
       await tester.pumpAndSettle();
-      await tester.enterText(find.byType(TextField), 'Held for review.');
+      await tester.enterText(_composerField, 'Held for review.');
       await tester.pumpAndSettle();
       await tester.tap(sendButton());
       await tester.pumpAndSettle();
@@ -523,7 +528,7 @@ void _registerTopicReplyTests() {
       await openTopic(tester, api);
       await tester.tap(find.byTooltip('Reply to this topic'));
       await tester.pumpAndSettle();
-      await tester.enterText(find.byType(TextField), 'Held for review.');
+      await tester.enterText(_composerField, 'Held for review.');
       await tester.pumpAndSettle();
       // What gets recorded for undo is throttled. Without waiting that out
       // there is nothing on the stack, and this passes on a composer that
@@ -556,7 +561,7 @@ void _registerTopicReplyTests() {
       await openTopic(tester, api);
       await tester.tap(find.byTooltip('Reply to this topic'));
       await tester.pumpAndSettle();
-      await tester.enterText(find.byType(TextField), 'Meant for meta.');
+      await tester.enterText(_composerField, 'Meant for meta.');
       await tester.pumpAndSettle();
 
       await tester.tap(find.text('DT'));
@@ -592,7 +597,7 @@ void _registerTopicReplyTests() {
       await openTopic(tester, api);
       await tester.tap(find.byTooltip('Reply to this topic'));
       await tester.pumpAndSettle();
-      await tester.enterText(find.byType(TextField), 'Too eager.');
+      await tester.enterText(_composerField, 'Too eager.');
       await tester.pumpAndSettle();
       await tester.tap(sendButton());
       await tester.pumpAndSettle();
@@ -629,7 +634,7 @@ void _registerTopicReplyTests() {
       await openTopic(tester, api);
       await tester.tap(find.byTooltip('Reply to this topic'));
       await tester.pumpAndSettle();
-      await tester.enterText(find.byType(TextField), 'It landed.');
+      await tester.enterText(_composerField, 'It landed.');
       await tester.pumpAndSettle();
 
       api.topics[7] = topicPayload(
@@ -662,7 +667,7 @@ void _registerTopicReplyTests() {
       await openTopic(tester, api);
       await tester.tap(find.byTooltip('Reply to this topic'));
       await tester.pumpAndSettle();
-      await tester.enterText(find.byType(TextField), 'Never arrived.');
+      await tester.enterText(_composerField, 'Never arrived.');
       await tester.pumpAndSettle();
       await tester.tap(sendButton());
       await tester.pumpAndSettle();
@@ -684,7 +689,7 @@ void _registerTopicReplyTests() {
       await openTopic(tester, api);
       await tester.tap(find.byTooltip('Reply to this topic'));
       await tester.pumpAndSettle();
-      await tester.enterText(find.byType(TextField), 'Unknown fate.');
+      await tester.enterText(_composerField, 'Unknown fate.');
       await tester.pumpAndSettle();
 
       api.topics.remove(7);
@@ -882,9 +887,7 @@ void _registerComposerAndDraftTests() {
       // spell-checked composer is one with no markdown highlighting — and it
       // would fail by flickering rather than by breaking. This is the tripwire.
       expect(
-        tester
-            .widget<TextField>(find.byType(TextField))
-            .spellCheckConfiguration,
+        tester.widget<TextField>(_composerField).spellCheckConfiguration,
         isNull,
       );
     });
@@ -896,10 +899,10 @@ void _registerComposerAndDraftTests() {
       );
 
       await openComposer(tester, api);
-      await tester.enterText(find.byType(TextField), 'say hello');
+      await tester.enterText(_composerField, 'say hello');
       await tester.pumpAndSettle();
 
-      final field = tester.widget<TextField>(find.byType(TextField));
+      final field = tester.widget<TextField>(_composerField);
       field.controller!.selection = const TextSelection(
         baseOffset: 4,
         extentOffset: 9,
@@ -999,13 +1002,13 @@ void _registerComposerAndDraftTests() {
     }
 
     TextField field(WidgetTester tester) =>
-        tester.widget<TextField>(find.byType(TextField));
+        tester.widget<TextField>(_composerField);
 
     testWidgets('offers people once enough has been typed', (tester) async {
       final fake = api();
       await openComposer(tester, fake);
 
-      await tester.enterText(find.byType(TextField), 'hey @sa');
+      await tester.enterText(_composerField, 'hey @sa');
       await tester.pump(ComposerAutocomplete.debounce);
       await tester.pump();
 
@@ -1019,7 +1022,7 @@ void _registerComposerAndDraftTests() {
     testWidgets('writes the whole mention when one is picked', (tester) async {
       await openComposer(tester, api());
 
-      await tester.enterText(find.byType(TextField), 'hey @sa');
+      await tester.enterText(_composerField, 'hey @sa');
       await tester.pump(ComposerAutocomplete.debounce);
       await tester.pump();
 
@@ -1033,7 +1036,7 @@ void _registerComposerAndDraftTests() {
     testWidgets('arrowing down picks the second name', (tester) async {
       await openComposer(tester, api());
 
-      await tester.enterText(find.byType(TextField), 'hey @sa');
+      await tester.enterText(_composerField, 'hey @sa');
       await tester.pump(ComposerAutocomplete.debounce);
       await tester.pump();
 
@@ -1048,7 +1051,7 @@ void _registerComposerAndDraftTests() {
     testWidgets('escape closes the list, not the reply', (tester) async {
       await openComposer(tester, api());
 
-      await tester.enterText(find.byType(TextField), 'hey @sa');
+      await tester.enterText(_composerField, 'hey @sa');
       await tester.pump(ComposerAutocomplete.debounce);
       await tester.pump();
       expect(find.text('Sam Saffron'), findsOneWidget);
@@ -1062,19 +1065,19 @@ void _registerComposerAndDraftTests() {
       // CallbackShortcuts — that one reports a key handled whenever an
       // activator matches, open or not.
       expect(find.text('Sam Saffron'), findsNothing);
-      expect(find.byType(TextField), findsOneWidget);
+      expect(_composerField, findsOneWidget);
       expect(field(tester).controller!.text, 'hey @sa');
 
       await tester.sendKeyEvent(LogicalKeyboardKey.escape);
       await tester.pumpAndSettle();
-      expect(find.byType(TextField), findsNothing);
+      expect(_composerField, findsNothing);
     });
 
     testWidgets('cmd+enter still sends with the list open', (tester) async {
       final fake = api();
       await openComposer(tester, fake);
 
-      await tester.enterText(find.byType(TextField), 'hey @sa');
+      await tester.enterText(_composerField, 'hey @sa');
       await tester.pump(ComposerAutocomplete.debounce);
       await tester.pump();
       expect(find.text('Sam Saffron'), findsOneWidget);
@@ -1091,7 +1094,7 @@ void _registerComposerAndDraftTests() {
       final fake = api();
       await openComposer(tester, fake);
 
-      await tester.enterText(find.byType(TextField), 'a :sm');
+      await tester.enterText(_composerField, 'a :sm');
       await tester.pumpAndSettle();
 
       expect(find.text('smile'), findsOneWidget);
@@ -1103,7 +1106,7 @@ void _registerComposerAndDraftTests() {
       final fake = api();
       await openComposer(tester, fake);
 
-      await tester.enterText(find.byType(TextField), 'see #ran');
+      await tester.enterText(_composerField, 'see #ran');
       await tester.pumpAndSettle();
 
       expect(fake.hashtagSearchesRequested, ['ran']);
@@ -1117,7 +1120,7 @@ void _registerComposerAndDraftTests() {
     ) async {
       await openComposer(tester, api());
 
-      await tester.enterText(find.byType(TextField), 'see #ran');
+      await tester.enterText(_composerField, 'see #ran');
       await tester.pumpAndSettle();
 
       // The tag, whose slug collides with the category's — which is the whole
@@ -1132,7 +1135,7 @@ void _registerComposerAndDraftTests() {
       final fake = api();
       await openComposer(tester, fake);
 
-      await tester.enterText(find.byType(TextField), 'see #ran');
+      await tester.enterText(_composerField, 'see #ran');
       await tester.pumpAndSettle();
       await tester.tap(find.text('Random'));
       await tester.pumpAndSettle();
@@ -1146,7 +1149,7 @@ void _registerComposerAndDraftTests() {
       final fake = api();
       await openComposer(tester, fake);
 
-      await tester.enterText(find.byType(TextField), 'hey @sa');
+      await tester.enterText(_composerField, 'hey @sa');
       await tester.pumpAndSettle();
       await tester.tap(find.text('Sam Saffron'));
       await tester.pumpAndSettle();
@@ -1164,7 +1167,7 @@ void _registerComposerAndDraftTests() {
       );
       await openComposer(tester, fake);
 
-      await tester.enterText(find.byType(TextField), 'hey @sam there');
+      await tester.enterText(_composerField, 'hey @sam there');
       await tester.pumpAndSettle();
 
       final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
@@ -1185,7 +1188,7 @@ void _registerComposerAndDraftTests() {
         SystemMouseCursors.click,
       );
 
-      await mouse.moveTo(tester.getCenter(find.byType(TextField)));
+      await mouse.moveTo(tester.getCenter(_composerField));
       await tester.pump();
       expect(
         RendererBinding.instance.mouseTracker.debugDeviceActiveCursor(1),
@@ -1203,7 +1206,7 @@ void _registerComposerAndDraftTests() {
       );
       await openComposer(tester, fake);
 
-      await tester.enterText(find.byType(TextField), 'ask @sam now');
+      await tester.enterText(_composerField, 'ask @sam now');
       await tester.pumpAndSettle();
 
       expect(fake.mentionChecksRequested, [
@@ -1219,7 +1222,7 @@ void _registerComposerAndDraftTests() {
       );
       await openComposer(tester, fake);
 
-      await tester.enterText(find.byType(TextField), 'ask @nobody now');
+      await tester.enterText(_composerField, 'ask @nobody now');
       await tester.pumpAndSettle();
 
       expect(fake.mentionChecksRequested, [
@@ -1232,7 +1235,7 @@ void _registerComposerAndDraftTests() {
       final fake = api();
       await openComposer(tester, fake);
 
-      await tester.enterText(find.byType(TextField), 'issue a#ran');
+      await tester.enterText(_composerField, 'issue a#ran');
       await tester.pumpAndSettle();
 
       expect(fake.hashtagSearchesRequested, isEmpty);
@@ -1241,7 +1244,7 @@ void _registerComposerAndDraftTests() {
     testWidgets('writes the shortcode when an emoji is picked', (tester) async {
       await openComposer(tester, api());
 
-      await tester.enterText(find.byType(TextField), 'a :sm');
+      await tester.enterText(_composerField, 'a :sm');
       await tester.pumpAndSettle();
 
       await tester.tap(find.text('smirk'));
@@ -1261,12 +1264,12 @@ void _registerComposerAndDraftTests() {
         MockClient((_) async => http.Response.bytes(emojiPng, 200)),
       );
 
-      await tester.enterText(find.byType(TextField), 'hey :smile:');
+      await tester.enterText(_composerField, 'hey :smile:');
       await tester.pumpAndSettle();
 
       expect(find.byType(EmojiImage), findsOneWidget);
       expect(
-        tester.widget<TextField>(find.byType(TextField)).controller!.text,
+        tester.widget<TextField>(_composerField).controller!.text,
         'hey :smile:',
       );
     });
@@ -1275,7 +1278,7 @@ void _registerComposerAndDraftTests() {
       final fake = api();
       await openComposer(tester, fake);
 
-      await tester.enterText(find.byType(TextField), 'write to sam@example');
+      await tester.enterText(_composerField, 'write to sam@example');
       await tester.pump(ComposerAutocomplete.debounce);
       await tester.pumpAndSettle();
 
@@ -1415,10 +1418,7 @@ void _registerComposerAndDraftTests() {
           );
           final composer = shell.visibleComposer!;
           if (!empty) {
-            await tester.enterText(
-              find.byType(TextField),
-              'Keep my reply safe',
-            );
+            await tester.enterText(_composerField, 'Keep my reply safe');
           }
 
           await tester.tap(find.byTooltip('Save and close'));
@@ -1467,7 +1467,7 @@ void _registerComposerAndDraftTests() {
         await openComposer(tester, api);
         final shell = ShellScope.read(tester.element(find.byType(MainContent)));
         final closing = shell.visibleComposer!;
-        await tester.enterText(find.byType(TextField), 'The earlier reply');
+        await tester.enterText(_composerField, 'The earlier reply');
         await tester.tap(find.byTooltip('Save and close'));
         await tester.pump();
 
@@ -1475,7 +1475,7 @@ void _registerComposerAndDraftTests() {
         await tester.pumpAndSettle();
         final replacement = shell.visibleComposer!;
         expect(replacement, isNot(same(closing)));
-        await tester.enterText(find.byType(TextField), 'The replacement reply');
+        await tester.enterText(_composerField, 'The replacement reply');
         gate.complete();
         await tester.pumpAndSettle();
 
@@ -1504,7 +1504,7 @@ void _registerComposerAndDraftTests() {
       await openComposer(tester, api, drafts: drafts);
       final shell = ShellScope.read(tester.element(find.byType(MainContent)));
       final composer = shell.visibleComposer!;
-      await tester.enterText(find.byType(TextField), 'Keep the exact editor');
+      await tester.enterText(_composerField, 'Keep the exact editor');
       final editor = tester.state(find.byType(ComposerEditor));
 
       await tester.tap(find.byTooltip('Save and close'));
@@ -2102,7 +2102,7 @@ void _registerComposerAndDraftTests() {
       );
 
       await openComposer(tester, api, drafts: drafts);
-      await tester.enterText(find.byType(TextField), 'Come back to this');
+      await tester.enterText(_composerField, 'Come back to this');
       await settleDraft(tester);
       await _requestDiscard(tester);
       await tester.pumpAndSettle();
@@ -2246,7 +2246,7 @@ void _registerComposerAndDraftTests() {
       await openComposer(tester, api);
       final shell = ShellScope.read(tester.element(find.byType(MainContent)));
       final composer = shell.visibleComposer!;
-      await tester.enterText(find.byType(TextField), 'First revision');
+      await tester.enterText(_composerField, 'First revision');
       await settleDraft(tester);
       await _requestDiscard(tester);
       await tester.pumpAndSettle();
@@ -2306,11 +2306,11 @@ void _registerComposerAndDraftTests() {
 
       await openComposer(tester, api, drafts: drafts);
       final shell = ShellScope.read(tester.element(find.byType(MainContent)));
-      await tester.enterText(find.byType(TextField), 'Save still in flight');
+      await tester.enterText(_composerField, 'Save still in flight');
       await tester.pump(ComposerController.draftDebounce);
       await tester.pump();
       expect(api.draftsSaved, hasLength(1));
-      await tester.enterText(find.byType(TextField), 'Queued latest revision');
+      await tester.enterText(_composerField, 'Queued latest revision');
       await tester.pump(ComposerController.draftDebounce);
       await tester.pump();
       expect(api.draftsSaved, hasLength(1));
@@ -2354,10 +2354,10 @@ void _registerComposerAndDraftTests() {
 
       await openComposer(tester, api, drafts: drafts);
       final shell = ShellScope.read(tester.element(find.byType(MainContent)));
-      await tester.enterText(find.byType(TextField), 'Old first revision');
+      await tester.enterText(_composerField, 'Old first revision');
       await tester.pump(ComposerController.draftDebounce);
       await tester.pump();
-      await tester.enterText(find.byType(TextField), 'Old queued revision');
+      await tester.enterText(_composerField, 'Old queued revision');
       await tester.pump(ComposerController.draftDebounce);
       await tester.pump();
 
@@ -2407,7 +2407,7 @@ void _registerComposerAndDraftTests() {
 
       await openComposer(tester, api, drafts: drafts);
       final shell = ShellScope.read(tester.element(find.byType(MainContent)));
-      await tester.enterText(find.byType(TextField), 'Remote-only revision');
+      await tester.enterText(_composerField, 'Remote-only revision');
       await tester.pump(ComposerController.draftDebounce);
       await tester.pump();
       expect(drafts.saved, isEmpty);
@@ -2440,10 +2440,10 @@ void _registerComposerAndDraftTests() {
 
       await openComposer(tester, api, drafts: drafts, authenticator: auth);
       final shell = ShellScope.read(tester.element(find.byType(MainContent)));
-      await tester.enterText(find.byType(TextField), 'Account A first');
+      await tester.enterText(_composerField, 'Account A first');
       await tester.pump(ComposerController.draftDebounce);
       await tester.pump();
-      await tester.enterText(find.byType(TextField), 'Account A queued');
+      await tester.enterText(_composerField, 'Account A queued');
       await tester.pump(ComposerController.draftDebounce);
       await tester.pump();
       shell.closeComposer();
@@ -2490,7 +2490,7 @@ void _registerComposerAndDraftTests() {
       );
 
       await openComposer(tester, api);
-      await tester.enterText(find.byType(TextField), 'Keep this revision');
+      await tester.enterText(_composerField, 'Keep this revision');
       await settleDraft(tester);
       await _requestDiscard(tester);
       await tester.pumpAndSettle();
@@ -2508,7 +2508,7 @@ void _registerComposerAndDraftTests() {
 
       await tester.tap(find.byKey(const ValueKey('composer-cancel-discard')));
       await tester.pumpAndSettle();
-      await tester.enterText(find.byType(TextField), 'Queue still works');
+      await tester.enterText(_composerField, 'Queue still works');
       await settleDraft(tester);
 
       expect(api.draftsSaved, hasLength(3));
@@ -2526,7 +2526,7 @@ void _registerComposerAndDraftTests() {
       );
 
       await openComposer(tester, api, drafts: drafts);
-      await tester.enterText(find.byType(TextField), 'Must not resurrect');
+      await tester.enterText(_composerField, 'Must not resurrect');
       await settleDraft(tester);
       drafts.clearFailures = 1;
 
@@ -2553,7 +2553,7 @@ void _registerComposerAndDraftTests() {
       );
 
       await openComposer(tester, api);
-      await tester.enterText(find.byType(TextField), 'Half a thought');
+      await tester.enterText(_composerField, 'Half a thought');
       await tester.pumpAndSettle();
 
       expect(api.draftsSaved, isEmpty);
@@ -2579,7 +2579,7 @@ void _registerComposerAndDraftTests() {
       );
 
       await openComposer(tester, api);
-      await tester.enterText(find.byType(TextField), 'Held for review');
+      await tester.enterText(_composerField, 'Held for review');
       await tester.pumpAndSettle();
       await tester.tap(
         find.descendant(
@@ -2590,7 +2590,7 @@ void _registerComposerAndDraftTests() {
       await tester.pumpAndSettle();
       api.draftsSaved.clear();
 
-      await tester.enterText(find.byType(TextField), 'A different reply');
+      await tester.enterText(_composerField, 'A different reply');
       await settleDraft(tester);
 
       expect(api.draftsSaved, hasLength(1));
@@ -2608,11 +2608,11 @@ void _registerComposerAndDraftTests() {
       );
 
       await openComposer(tester, api, drafts: drafts);
-      await tester.enterText(find.byType(TextField), 'First revision');
+      await tester.enterText(_composerField, 'First revision');
       await tester.pump(ComposerController.draftDebounce);
       await tester.pump();
 
-      await tester.enterText(find.byType(TextField), 'Latest revision');
+      await tester.enterText(_composerField, 'Latest revision');
       await tester.pump(ComposerController.draftDebounce);
       await tester.pump();
 
@@ -2636,7 +2636,7 @@ void _registerComposerAndDraftTests() {
       );
 
       await openComposer(tester, api);
-      await tester.enterText(find.byType(TextField), 'Come back to this');
+      await tester.enterText(_composerField, 'Come back to this');
       await settleDraft(tester);
 
       await tester.tap(find.byTooltip('Save and close'));
@@ -2682,7 +2682,7 @@ void _registerComposerAndDraftTests() {
       );
 
       await openComposer(tester, api, drafts: drafts);
-      await tester.enterText(find.byType(TextField), 'Written offline');
+      await tester.enterText(_composerField, 'Written offline');
       await settleDraft(tester);
 
       expect(drafts.saved, hasLength(1));
@@ -2709,12 +2709,12 @@ void _registerComposerAndDraftTests() {
         attempt <= ComposerController.maxDraftFailures;
         attempt++
       ) {
-        await tester.enterText(find.byType(TextField), 'Attempt $attempt');
+        await tester.enterText(_composerField, 'Attempt $attempt');
         await settleDraft(tester);
       }
       expect(api.draftsSaved, hasLength(ComposerController.maxDraftFailures));
 
-      await tester.enterText(find.byType(TextField), 'And one more');
+      await tester.enterText(_composerField, 'And one more');
       await settleDraft(tester);
 
       expect(api.draftsSaved, hasLength(ComposerController.maxDraftFailures));
@@ -2729,7 +2729,7 @@ void _registerComposerAndDraftTests() {
       );
 
       await openComposer(tester, api, drafts: drafts);
-      await tester.enterText(find.byType(TextField), 'Going out now');
+      await tester.enterText(_composerField, 'Going out now');
       await settleDraft(tester);
       expect(drafts.saved, isNotEmpty);
 

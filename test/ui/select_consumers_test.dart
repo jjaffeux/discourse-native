@@ -57,7 +57,21 @@ void main() {
           tester.state<NavigatorState>(find.byType(Navigator).first).pop();
           await tester.pumpAndSettle();
         }
-        if (label != 'Voice devices, roles and quality' &&
+        if (label == 'Assignment editor') {
+          expect(find.byKey(const Key('assignment-status')), findsOneWidget);
+          await tester.tap(find.text('Waiting'));
+          await tester.pumpAndSettle();
+          expect(
+            tester
+                .widget<DRadioGroup<String>>(
+                  find.byKey(const Key('assignment-status')),
+                )
+                .groupValue,
+            'Waiting',
+          );
+        }
+        if (label != 'Assignment editor' &&
+            label != 'Voice devices, roles and quality' &&
             label != 'Chat move messages') {
           expect(
             find.byWidgetPredicate((widget) => widget is DSelect),

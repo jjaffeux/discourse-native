@@ -1,4 +1,5 @@
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/src/theme/discourse_typography.dart';
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 
@@ -26,11 +27,14 @@ final inputExamples = ComponentExamples(
       title: 'Borderless editing',
       description: 'Edit text in place without a field border or inset.',
       code:
-          "DInput(borderless: true, initialValue: 'Editable title', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600))",
+          "DInput(borderless: true, initialValue: 'Editable title', style: TextStyle(fontSize: DiscourseTypography.xl, fontWeight: FontWeight.w600))",
       builder: (_) => DInput(
         borderless: true,
         initialValue: 'Editable title',
-        style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w600),
+        style: const TextStyle(
+          fontSize: DiscourseTypography.xl,
+          fontWeight: FontWeight.w600,
+        ),
       ),
       states: const ['Default', 'Focus', 'Selection'],
     ),

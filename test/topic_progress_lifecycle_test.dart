@@ -393,8 +393,9 @@ Future<NavigatorState> _openProgress(
         platform: platform,
       ),
       builder: (context, child) => MediaQuery(
-        data: MediaQuery.of(context)
-            .copyWith(textScaler: TextScaler.linear(scale)),
+        data: MediaQuery.of(
+          context,
+        ).copyWith(textScaler: TextScaler.linear(scale)),
         child: Directionality(textDirection: direction, child: child!),
       ),
       home: Scaffold(

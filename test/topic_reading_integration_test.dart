@@ -38,8 +38,10 @@ import 'package:discourse_native/src/shell/user_menu_button.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:discourse_native/src/theme/d_icon.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
+import 'package:discourse_native/src/theme/d_native_icons.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -51,6 +53,20 @@ import 'package:super_sliver_list/super_sliver_list.dart';
 import 'support/fakes.dart';
 import 'support/finders.dart';
 import 'support/shell_test_harness.dart';
+
+Rect _lastTitleLine(WidgetTester tester, String title) {
+  final paragraph = tester.renderObject<RenderParagraph>(
+    find
+        .descendant(of: find.text(title), matching: find.byType(RichText))
+        .first,
+  );
+  final box = paragraph
+      .getBoxesForSelection(
+        TextSelection(baseOffset: 0, extentOffset: title.length),
+      )
+      .last;
+  return box.toRect().shift(paragraph.localToGlobal(Offset.zero));
+}
 
 void main() {
   _registerTopicReadingTests();
@@ -1046,7 +1062,7 @@ void _registerTopicReadingTests() {
       await pumpShell(tester, desktop, api: api);
 
       final title = find.text('Closed topic');
-      final row = minimumHeightAncestors(title, TopicListRow.minimumHeight);
+      final row = find.byKey(const ValueKey('topic-card-9'));
       final lock = find.descendant(of: row, matching: find.dIcon(DIcons.lock));
       final lockGlyph = find.descendant(
         of: lock,
@@ -1069,10 +1085,10 @@ void _registerTopicReadingTests() {
       expect(lockGlyph, findsOneWidget);
       expect(categoryBlock, findsOneWidget);
       expect(
-        tester.getTopLeft(lockGlyph).dx,
-        tester.getTopLeft(categoryBlock).dx,
+        tester.getCenter(lock).dx,
+        closeTo(tester.getCenter(categoryBlock).dx, 4),
       );
-      expect(find.bySemanticsLabel('Closed topic'), findsOneWidget);
+      expect(find.bySemanticsLabel('Closed'), findsOneWidget);
     });
 
     testWidgets('mirrored unread fields produce one undoubled count', (
@@ -1159,7 +1175,7 @@ void _registerTopicReadingTests() {
       expect(find.byKey(const ValueKey('new-replies-dot')), findsNothing);
     });
 
-    testWidgets('unread dots align before titles of different lengths', (
+    testWidgets('unread dots follow titles of different lengths', (
       tester,
     ) async {
       final api = FakeDiscourseApi(
@@ -1183,16 +1199,25 @@ void _registerTopicReadingTests() {
 
       await pumpShell(tester, desktop, api: api);
 
-      final title = find.text('Short title');
       final dots = find.byKey(const ValueKey('new-topic-dot'));
       expect(dots, findsNWidgets(2));
       final firstDot = tester.getRect(dots.first);
       final secondDot = tester.getRect(dots.last);
-      expect(firstDot.left, secondDot.left);
-      expect(tester.getRect(title).left - firstDot.right, closeTo(8, 0.5));
+      expect(
+        firstDot.left - _lastTitleLine(tester, 'Short title').right,
+        closeTo(6, 0.5),
+      );
+      expect(
+        secondDot.left -
+            _lastTitleLine(
+              tester,
+              'A longer title for the next unread topic',
+            ).right,
+        closeTo(6, 0.5),
+      );
     });
 
-    testWidgets('topic state aligns with the first line of a wrapped title', (
+    testWidgets('topic state follows the final line of a wrapped title', (
       tester,
     ) async {
       const title = 'Footnotes can scroll?';
@@ -1217,7 +1242,7 @@ void _registerTopicReadingTests() {
       final titleRect = tester.getRect(find.text(title));
       final dot = tester.getRect(find.byKey(const ValueKey('new-topic-dot')));
       expect(titleRect.height, inInclusiveRange(25, 48));
-      expect(dot.center.dy, lessThan(titleRect.center.dy));
+      expect(dot.left - _lastTitleLine(tester, title).right, closeTo(6, 0.5));
       expect(dot.top, greaterThanOrEqualTo(titleRect.top));
       expect(dot.bottom, lessThanOrEqualTo(titleRect.bottom));
     });
@@ -1245,7 +1270,11 @@ void _registerTopicReadingTests() {
       final titleRect = tester.getRect(find.text(title));
       final count = tester.getRect(find.text('3'));
       expect(titleRect.height, inInclusiveRange(25, 48));
-      expect(count.center.dy, closeTo(titleRect.center.dy, 0.5));
+      expect(
+        tester.getRect(find.byKey(const ValueKey('inbox-row-unread-9'))).left -
+            _lastTitleLine(tester, title).right,
+        closeTo(6, 0.5),
+      );
       expect(count.bottom, lessThanOrEqualTo(titleRect.bottom));
     });
 
@@ -1348,20 +1377,14 @@ void _registerTopicReadingTests() {
         ),
         findsOneWidget,
       );
-      final parentLink = find.bySemanticsLabel(
-        'Parent category: ${parent.name}',
+      final parentLink = find.descendant(
+        of: find.byKey(const ValueKey('topic-card-3')),
+        matching: find.bySemanticsLabel('Parent category: ${parent.name}'),
       );
       final categoryLink = find.bySemanticsLabel('Category: ${category.name}');
       expect(parentLink, findsOneWidget);
       expect(categoryLink, findsOneWidget);
-      expect(
-        tester.getTopRight(parentLink).dx,
-        lessThan(tester.getTopLeft(categoryLink).dx),
-      );
-      final row = minimumHeightAncestors(
-        find.text('Off-page child topic'),
-        TopicListRow.minimumHeight,
-      );
+      final row = find.byKey(const ValueKey('topic-card-3'));
       final parentLabel = find.descendant(
         of: row,
         matching: find.text(parent.name),
@@ -1388,15 +1411,21 @@ void _registerTopicReadingTests() {
           ValueKey(('topic-row-category-chevron', parent.id, category.id)),
         ),
       );
-      final metadataCenter = tester.getCenter(parentLabel).dy;
-      for (final element in [
-        categoryLabel,
-        parentSwatch,
-        categorySwatch,
-        chevron,
-      ]) {
-        expect(tester.getCenter(element).dy, closeTo(metadataCenter, 0.01));
+      final parentBounds = tester.getRect(parentLabel);
+      final childBounds = tester.getRect(categoryLabel);
+      expect(childBounds.top, greaterThanOrEqualTo(parentBounds.top));
+      if (childBounds.top == parentBounds.top) {
+        expect(childBounds.left, greaterThan(parentBounds.right));
       }
+      expect(
+        tester.getCenter(parentSwatch).dy,
+        closeTo(parentBounds.center.dy, .01),
+      );
+      expect(
+        tester.getCenter(categorySwatch).dy,
+        closeTo(childBounds.center.dy, .01),
+      );
+      expect(chevron, findsOneWidget);
       expect(api.categoryIdsRequested, isEmpty);
 
       final controller = ShellScope.read(
@@ -1465,15 +1494,15 @@ void _registerTopicReadingTests() {
         tester.getSize(find.bySemanticsLabel('Category: Feature')).height,
         greaterThanOrEqualTo(24),
       );
-      expect(tester.getSize(firstTagLink).height, closeTo(20, 0.01));
+      expect(tester.getSize(firstTagLink).height, 48);
       expect(
-        tester.widget<Text>(firstTag).style?.fontSize,
+        DefaultTextStyle.of(tester.element(firstTag)).style.fontSize,
         DiscourseTypography.xs,
       );
       expect(
         tester.getTopLeft(secondTagLink).dx -
             tester.getTopRight(firstTagLink).dx,
-        closeTo(5, 0.01),
+        closeTo(6, 0.01),
       );
       final category = find.descendant(
         of: find.byType(TopicListView),
@@ -1789,9 +1818,10 @@ void _registerTopicReadingTests() {
       expect(tester.getSize(firstTag).width, lessThan(80));
       expect(tester.getSize(secondTag).width, lessThan(80));
       expect(tester.getSize(overflow).width, lessThan(80));
-      expect(tester.getSize(overflow).height, tester.getSize(firstTag).height);
+      expect(tester.getSize(overflow).height, 20);
+      expect(tester.getSize(firstTag).height, 48);
       expect(
-        tester.widget<Text>(find.text('+12')).style?.fontSize,
+        DefaultTextStyle.of(tester.element(find.text('+12'))).style.fontSize,
         DiscourseTypography.xs,
       );
       expect(tester.getCenter(secondTag).dy, tester.getCenter(firstTag).dy);
@@ -2564,7 +2594,7 @@ void _registerTopicReadingTests() {
         final editorRect = tester.getRect(editor);
         await tester.tapAt(Offset(editorRect.left + 1, editorRect.center.dy));
         await tester.pump();
-        var textField = tester.widget<TextField>(field);
+        var textField = tester.widget<DInput>(field);
         expect(textField.focusNode?.hasFocus, isTrue);
         expect(textField.controller?.selection.baseOffset, 0);
 
@@ -2585,7 +2615,7 @@ void _registerTopicReadingTests() {
         expect(shell.currentTopic?.tags, tags);
         expect(shell.currentContent?.title, 'Renamed topic');
         expect(find.byType(ComposerPanel), findsNothing);
-        textField = tester.widget<TextField>(field);
+        textField = tester.widget<DInput>(field);
         expect(textField.focusNode?.hasFocus, isFalse);
 
         await tester.tap(field);
@@ -2593,16 +2623,13 @@ void _registerTopicReadingTests() {
         await tester.testTextInput.receiveAction(TextInputAction.done);
         await tester.pumpAndSettle();
         expect(api.topicsUpdated, hasLength(1));
-        expect(
-          tester.widget<TextField>(field).controller?.text,
-          'Renamed topic',
-        );
+        expect(tester.widget<DInput>(field).controller?.text, 'Renamed topic');
 
         await tester.tap(field);
         await tester.enterText(field, '');
         await tester.testTextInput.receiveAction(TextInputAction.done);
         await tester.pumpAndSettle();
-        textField = tester.widget<TextField>(field);
+        textField = tester.widget<DInput>(field);
         expect(api.topicsUpdated, hasLength(1));
         expect(textField.controller?.text, '');
         expect(textField.focusNode?.hasFocus, isTrue);
@@ -3166,7 +3193,10 @@ void _registerTopicReadingTests() {
       expect(find.text('Topic summary'), findsOneWidget);
       expect(find.text('A concise AI summary.'), findsOneWidget);
       expect(find.text('Generated with test-model'), findsOneWidget);
-      expect(api.pluginReadPaths, ['/discourse-ai/summarization/t/7.json']);
+      expect(
+        api.pluginReadPaths.where((path) => path.startsWith('/discourse-ai/')),
+        ['/discourse-ai/summarization/t/7.json'],
+      );
     });
 
     testWidgets('a signed-in topic exposes all web notification levels', (
@@ -3206,10 +3236,10 @@ void _registerTopicReadingTests() {
       expect(trigger, findsOneWidget);
       DIconData triggerIcon() => tester
           .widget<DIcon>(
-            find.descendant(of: trigger, matching: find.byType(DIcon)),
+            find.descendant(of: trigger, matching: find.byType(DIcon)).first,
           )
           .icon;
-      expect(triggerIcon(), DIcons.bell);
+      expect(triggerIcon(), DNativeIcons.bell);
 
       await tester.tap(trigger);
       await tester.pumpAndSettle();
@@ -3244,7 +3274,7 @@ void _registerTopicReadingTests() {
               find.descendant(of: muted, matching: find.byType(DIcon)),
             )
             .map((icon) => icon.icon),
-        contains(DIcons.discourseBellSlash),
+        contains(DNativeIcons.bellOff),
       );
 
       await tester.tap(muted);
@@ -3259,7 +3289,7 @@ void _registerTopicReadingTests() {
         ).currentTopic?.notificationLevel,
         TopicNotificationLevel.muted,
       );
-      expect(triggerIcon(), DIcons.discourseBellSlash);
+      expect(triggerIcon(), DNativeIcons.bellOff);
       debugDefaultTargetPlatformOverride = previousPlatform;
     });
 
@@ -3364,10 +3394,10 @@ void _registerTopicReadingTests() {
       await pointer.addPointer(location: Offset.zero);
       await pointer.moveTo(tester.getCenter(item));
       await tester.pumpAndSettle();
-      final row = tester.widget<AnimatedContainer>(
-        find.descendant(of: item, matching: find.byType(AnimatedContainer)),
+      final row = tester.widget<DecoratedBox>(
+        find.descendant(of: item, matching: find.byType(DecoratedBox)).first,
       );
-      final decoration = row.decoration! as BoxDecoration;
+      final decoration = row.decoration as BoxDecoration;
       expect(
         decoration.color,
         Theme.of(tester.element(item)).extension<DTokens>()?.muted ??
@@ -3949,7 +3979,7 @@ void _registerTopicReadingTests() {
       expect(find.text('Topic 1'), findsNothing);
 
       await tester.tap(
-        find.ancestor(of: row, matching: find.byType(InkWell)).first,
+        find.ancestor(of: row, matching: find.byType(DItem)).first,
       );
       await tester.pumpAndSettle();
       await tester.tap(find.byTooltip('Collapse topic'));

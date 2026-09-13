@@ -156,10 +156,13 @@ void main() {
             '42',
           ]) {
             final paragraph = _paragraph(tester, label);
-            // base-nova's small button is text-[0.8rem] with 22.4px leading.
-            final (fontSize, lineHeight) = label == 'Native small'
-                ? (12.8, 22.4)
-                : (14.0, 20.0);
+            final (fontSize, lineHeight) = switch (label) {
+              'Native small' ||
+              'Native regular' ||
+              'Latest topics' ||
+              'All categories' => (12.0, 16.0),
+              _ => (14.0, 20.0),
+            };
             expect(
               paragraph.text.style!.fontSize,
               fontSize,

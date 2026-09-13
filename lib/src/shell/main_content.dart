@@ -341,7 +341,13 @@ class _TopicInboxWorkspaceState extends State<_TopicInboxWorkspace> {
           controller: controller,
           compact: true,
           fromList: true,
-          showLabel: true,
+          showLabel:
+              listWidth >=
+              340 *
+                  MediaQuery.textScalerOf(
+                    context,
+                  ).scale(DiscourseTypography.sm) /
+                  DiscourseTypography.sm,
           leadingPadding: false,
         );
         Widget heading(Widget? navigation) => Row(
@@ -390,72 +396,70 @@ class _TopicInboxWorkspaceState extends State<_TopicInboxWorkspace> {
         );
         // Account controls stay at the pane edge; title, tabs and actions
         // share the same reading lane as the topics below them.
-        Widget buildHeading(
-          BuildContext context,
-          Widget? navigation,
-        ) => ContentReadingLane(
-          widthLimit: topicListContentWidth,
-          builder: (context, lane) => ConstrainedBox(
-            constraints: const BoxConstraints(minHeight: shellHeaderHeight),
-            child: Padding(
-              // Match the sidebar account header's baseline.
-              padding: EdgeInsets.only(bottom: showsUserMenu ? 1 : 0),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Padding(
-                      padding: EdgeInsetsDirectional.only(
-                        start: DDirection.of(context) == TextDirection.ltr
-                            ? lane.leftInset
-                            : lane.rightInset,
-                      ),
-                      child: Align(
-                        alignment: AlignmentDirectional.centerStart,
-                        child: SizedBox(
-                          width: lane.width,
-                          child: Padding(
-                            padding: EdgeInsetsDirectional.only(
-                              start: topicListHorizontalPadding,
-                              end: split
-                                  ? topicInboxDividerInset
-                                  : topicListHorizontalPadding,
+        Widget buildHeading(BuildContext context, Widget? navigation) =>
+            ContentReadingLane(
+              widthLimit: topicListContentWidth,
+              builder: (context, lane) => ConstrainedBox(
+                constraints: const BoxConstraints(minHeight: shellHeaderHeight),
+                child: Padding(
+                  // Match the sidebar account header's baseline.
+                  padding: EdgeInsets.only(bottom: showsUserMenu ? 1 : 0),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Padding(
+                          padding: EdgeInsetsDirectional.only(
+                            start: DDirection.of(context) == TextDirection.ltr
+                                ? lane.leftInset
+                                : lane.rightInset,
+                          ),
+                          child: Align(
+                            alignment: AlignmentDirectional.centerStart,
+                            child: SizedBox(
+                              width: lane.width,
+                              child: Padding(
+                                padding: EdgeInsetsDirectional.only(
+                                  start: topicListHorizontalPadding,
+                                  end: split
+                                      ? topicInboxDividerInset
+                                      : topicListHorizontalPadding,
+                                ),
+                                child: heading(navigation),
+                              ),
                             ),
-                            child: heading(navigation),
                           ),
                         ),
                       ),
-                    ),
-                  ),
-                  if (topicOpen && split)
-                    Padding(
-                      padding: EdgeInsetsDirectional.only(
-                        end: DResizableHandle.resolveHitExtent(context, 8),
-                      ),
-                      child: TopicCloseButton(
-                        canReturnToSidebar: layout.isCompact,
-                      ),
-                    ),
-                  if (showsUserMenu)
-                    Padding(
-                      padding: const EdgeInsetsDirectional.only(end: 8),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          ...registry.shellHeaderActions(
-                            context,
-                            surface: PluginHeaderSurface.content,
-                            compact: layout.isCompact,
-                            ringColor: theme.shell.content,
+                      if (topicOpen && split)
+                        Padding(
+                          padding: EdgeInsetsDirectional.only(
+                            end: DResizableHandle.resolveHitExtent(context, 8),
                           ),
-                          UserMenuButton(ringColor: theme.shell.content),
-                        ],
-                      ),
-                    ),
-                ],
+                          child: TopicCloseButton(
+                            canReturnToSidebar: layout.isCompact,
+                          ),
+                        ),
+                      if (showsUserMenu)
+                        Padding(
+                          padding: const EdgeInsetsDirectional.only(end: 8),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              ...registry.shellHeaderActions(
+                                context,
+                                surface: PluginHeaderSurface.content,
+                                compact: layout.isCompact,
+                                ringColor: theme.shell.content,
+                              ),
+                              UserMenuButton(ringColor: theme.shell.content),
+                            ],
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
               ),
-            ),
-          ),
-        );
+            );
         return Stack(
           children: [
             PositionedDirectional(

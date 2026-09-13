@@ -172,7 +172,10 @@ void main() {
       final title = find.byKey(const ValueKey('topic-header-title-field'));
       final toolbarTitleBounds = tester.getRect(_compactHeader);
       final toolbarTitleElement = tester.element(_compactHeader);
-      expect(_compactHeader.hitTestable(), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('topic-header-title-field')).hitTestable(),
+        findsOneWidget,
+      );
       expect(
         find.descendant(
           of: find.byType(TopicInboxHeader),
@@ -188,20 +191,15 @@ void main() {
         find.descendant(of: toolbar, matching: find.text('Onboarding')),
         findsNothing,
       );
-      expect(
-        tester
-            .widget<TopicTitle>(
-              find.descendant(of: title, matching: find.byType(TopicTitle)),
-            )
-            .style!
-            .fontSize,
-        18,
-      );
+      expect(tester.widget<TopicTitle>(_compactHeader).style!.fontSize, 18);
 
       for (final offset in [12.0, 200.0, 199.0, 300.0, 180.0]) {
         scroll.jumpTo(offset);
         await tester.pumpAndSettle();
-        expect(_compactHeader.hitTestable(), findsOneWidget);
+        expect(
+          find.byKey(const ValueKey('topic-header-title-field')).hitTestable(),
+          findsOneWidget,
+        );
         expect(tester.getRect(_compactHeader), toolbarTitleBounds);
         expect(tester.element(_compactHeader), same(toolbarTitleElement));
         expect(tester.getRect(viewport), viewportBounds);
@@ -215,7 +213,10 @@ void main() {
       }
       scroll.jumpTo(0);
       await tester.pumpAndSettle();
-      expect(_compactHeader.hitTestable(), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('topic-header-title-field')).hitTestable(),
+        findsOneWidget,
+      );
       expect(title.hitTestable(), findsOneWidget);
       expect(tester.getRect(viewport), viewportBounds);
       expect(tester.takeException(), isNull);
@@ -640,7 +641,7 @@ void main() {
         await tester.pumpAndSettle();
         final scrollOffset = scroll.offset;
         final compact = _compactHeader;
-        final title = find.byKey(const ValueKey('topic-header-compact-title'));
+        final title = _compactHeader;
         final field = find.byKey(const ValueKey('topic-header-title-field'));
         final titleLeft = tester.getRect(field).left;
         await tester.sendKeyEvent(LogicalKeyboardKey.tab);
@@ -648,9 +649,9 @@ void main() {
         expect(FocusScope.of(tester.element(title)).focusedChild, isNotNull);
         final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
         addTearDown(mouse.removePointer);
-        await mouse.addPointer(location: tester.getCenter(title));
+        await mouse.addPointer(location: tester.getCenter(field));
         await tester.pump();
-        await mouse.down(tester.getCenter(title));
+        await mouse.down(tester.getCenter(field));
         await tester.pump(const Duration(milliseconds: 16));
         await mouse.up();
         await tester.pumpAndSettle();
@@ -675,7 +676,7 @@ void main() {
         expect(shell.currentTopic!.title, expectedTitle);
         expect(compact, findsOneWidget);
         expect(field.hitTestable(), findsOneWidget);
-        expect(tester.widget<DButton>(field).focusNode!.hasFocus, isTrue);
+        expect(tester.widget<DInput>(field).focusNode!.hasFocus, isFalse);
         expect(tester.widget<TopicTitle>(title).title, expectedTitle);
         expect(scroll.offset, scrollOffset);
         if (save) {
@@ -726,7 +727,7 @@ void main() {
     final shell = setup.controller;
     shell.openTopicFromList(setup.rows.first);
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('topic-header-compact-title')));
+    await tester.tap(_compactHeader);
     await tester.pumpAndSettle();
     expect(_compactHeader, findsOneWidget);
     expect(
@@ -929,7 +930,7 @@ void main() {
         await tester.pumpAndSettle();
         final header = find.byKey(const ValueKey('topic-content-header'));
         expect(tester.getSize(header).height, greaterThan(shellHeaderHeight));
-        final title = find.byKey(const ValueKey('topic-header-compact-title'));
+        final title = _compactHeader;
         final category = find.byKey(const ValueKey('topic-header-category'));
         final parent = find.byKey(
           const ValueKey('topic-header-parent-category'),
@@ -1105,13 +1106,7 @@ void main() {
             tester.getCenter(category).dy,
             closeTo(tester.getCenter(overflow).dy, 1),
           );
-          final title = find.byKey(
-            ValueKey(
-              compact
-                  ? 'topic-header-compact-title'
-                  : 'topic-header-title-field',
-            ),
-          );
+          final title = find.byKey(const ValueKey('topic-header-title-field'));
           final parent = compact
               ? find.byKey(const ValueKey('topic-header-parent-category'))
               : category;
@@ -1554,8 +1549,8 @@ void main() {
 
       await tester.tap(title);
       await tester.pump();
-      final frame = find.byKey(const ValueKey('topic-header-title-edit-frame'));
-      expect(frame, findsOneWidget);
+      final frame = find.byKey(const ValueKey('topic-header-title-field'));
+      expect(tester.widget<DInput>(frame).focusNode!.hasFocus, isTrue);
       expect(
         tester.getRect(badge).top,
         greaterThan(tester.getRect(frame).bottom),
@@ -2007,7 +2002,7 @@ void main() {
         await tester.pumpAndSettle();
         expect(tester.takeException(), isNull, reason: 'editing $width');
         final frame = tester.getRect(
-          find.byKey(const ValueKey('topic-header-title-edit-frame')),
+          find.byKey(const ValueKey('topic-header-title-field')),
         );
         expect(
           frame.top,
@@ -2699,13 +2694,13 @@ void main() {
       await tester.pumpAndSettle();
       await _scrollReaderToTop(tester);
       final title = find.byKey(const ValueKey('topic-header-title-field'));
-      final frame = find.byKey(const ValueKey('topic-header-title-edit-frame'));
+      final frame = find.byKey(const ValueKey('topic-header-title-field'));
       final hint = find.text('Enter to save · Esc to cancel');
-      expect(frame, findsNothing);
+      expect(tester.widget<DInput>(frame).focusNode!.hasFocus, isFalse);
       expect(hint, findsNothing);
       await tester.tap(title);
       await tester.pump();
-      expect(frame, findsOneWidget);
+      expect(tester.widget<DInput>(frame).focusNode!.hasFocus, isTrue);
       expect(hint, findsNothing);
       expect(find.widgetWithText(DButton, 'Save'), findsNothing);
       await tester.enterText(title, 'A clearer topic title');
@@ -2713,7 +2708,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(shell.currentTopic?.title, 'A clearer topic title');
       expect(setup.api.topicsUpdated.last['title'], 'A clearer topic title');
-      expect(frame, findsNothing);
+      expect(tester.widget<DInput>(frame).focusNode!.hasFocus, isFalse);
       expect(hint, findsNothing);
       await tester.tap(title);
       await tester.pumpAndSettle();
@@ -2722,7 +2717,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(shell.currentTopic?.title, 'A clearer topic title');
       expect(setup.api.topicsUpdated, hasLength(1));
-      expect(frame, findsNothing);
+      expect(tester.widget<DInput>(frame).focusNode!.hasFocus, isFalse);
       expect(hint, findsNothing);
 
       await tester.tap(find.byTooltip('Edit topic subcategory'));
@@ -3111,8 +3106,18 @@ final class _InboxTestModule implements PluginModule {
   void register(PluginRegistrar registrar) => registrar.addCapability(plugin);
 }
 
-Finder get _compactHeader =>
-    find.byKey(const ValueKey('topic-header-compact-title'));
+Finder get _compactHeader => find.descendant(
+  of: find.byKey(const ValueKey('topic-content-header')),
+  matching: find.byElementPredicate((element) {
+    if (element.widget is! TopicTitle) return false;
+    var visible = true;
+    element.visitAncestorElements((ancestor) {
+      if (ancestor.widget case Opacity(opacity: 0)) visible = false;
+      return visible;
+    });
+    return visible;
+  }),
+);
 ScrollController _readerScroll(WidgetTester tester) => tester
     .widget<CustomScrollView>(
       find.descendant(

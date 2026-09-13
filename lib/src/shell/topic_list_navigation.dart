@@ -113,9 +113,9 @@ class TopicListNavigation extends StatelessWidget {
       if (!showsTabs && !showsFilters && trailing == null) {
         return child;
       }
-      return Column(
-        children: [
-          _TopicListNavigationControls(
+      return LayoutBuilder(
+        builder: (context, constraints) {
+          final controls = _TopicListNavigationControls(
             state: state,
             showsTabs: showsTabs,
             showsFilters: showsFilters,
@@ -123,9 +123,17 @@ class TopicListNavigation extends StatelessWidget {
             headingBuilder: headingBuilder,
             stacked: stacked,
             keepTopicOpen: keepTopicOpen,
-          ),
-          Expanded(child: child),
-        ],
+          );
+          return Column(
+            children: [
+              if (constraints.maxHeight < 320)
+                Flexible(child: DScrollArea(child: controls))
+              else
+                controls,
+              Expanded(child: child),
+            ],
+          );
+        },
       );
     },
   );

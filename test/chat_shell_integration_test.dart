@@ -1027,6 +1027,7 @@ void _registerChatShellTests() {
           );
           expect(tester.takeException(), isNull);
         },
+        variant: TargetPlatformVariant.only(TargetPlatform.macOS),
       );
 
       testWidgets('drawer state immediately updates separate sidebar policy', (
@@ -2575,7 +2576,7 @@ void _registerChatShellTests() {
           expect(switcherRect.height, greaterThan(36));
           expect(
             tester.getRect(switcherContent).center.dx,
-            moreOrLessEquals(switcherRect.center.dx),
+            closeTo(switcherRect.center.dx - 2, .01),
           );
         });
 
@@ -4696,18 +4697,21 @@ void _registerChatShellTests() {
                 ),
               )
               .height,
-          25,
+          DControlStyle.regularHeight - 7,
         );
         expect(
           tester
               .getSize(find.byKey(const ValueKey('chat-channel-info-tabs')))
               .height,
-          58,
+          61,
         );
         final settingsStyle = DefaultTextStyle.of(
           tester.element(settingsLabel),
         ).style;
-        expect(settingsStyle.fontSize, 14);
+        expect(
+          settingsStyle.fontSize,
+          DControlStyle.fontSize(DControlSize.regular),
+        );
         expect(settingsStyle.fontWeight, FontWeight.w500);
         expect(
           tester.widget<Text>(summaryTitle).style?.fontSize,

@@ -294,7 +294,10 @@ void main() {
       of: find.byKey(const ValueKey('recent-draft-new_topic')),
       matching: find.byType(TopicTitle),
     );
-    expect(Focus.of(tester.element(title)).hasPrimaryFocus, isTrue);
+    expect(Focus.of(tester.element(find.text('All drafts'))).hasFocus, isTrue);
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+    await tester.pump();
+    expect(Focus.of(tester.element(title)).hasFocus, isTrue);
     expect(tester.widget<DButton>(trigger).expanded, isTrue);
     await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
     expect(
@@ -382,7 +385,7 @@ void _expectRegularDButton(
   final size = tester.getSize(target);
   expect(button.size, DButtonSize.regular);
   expect(button.variant, DButtonVariant.primary);
-  const dimension = 28.0;
+  const dimension = DControlStyle.regularHeight;
   expect(size.height, dimension);
   if (iconOnly) {
     expect(size.width, dimension);

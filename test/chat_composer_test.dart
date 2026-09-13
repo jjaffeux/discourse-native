@@ -2368,9 +2368,19 @@ Future<void> _hoverReply(WidgetTester tester, int messageId) async {
     final tile = find.byWidgetPredicate(
       (widget) => widget is ChatMessageTile && widget.messageId == messageId,
     );
+    await tester.ensureVisible(tile);
+    await tester.pumpAndSettle();
     await pointer.moveTo(tester.getCenter(tile));
     await tester.pump();
-    await tester.tap(find.byTooltip('Reply'));
+    await pointer.moveBy(const Offset(1, 0));
+    await tester.pump();
+    if (find.byTooltip('Reply').evaluate().isEmpty) {
+      await tester.tap(find.byTooltip('More message actions'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Reply'));
+    } else {
+      await tester.tap(find.byTooltip('Reply'));
+    }
   } finally {
     await pointer.removePointer();
   }

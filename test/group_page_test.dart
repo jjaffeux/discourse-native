@@ -109,7 +109,13 @@ void main() {
             find.byKey(const ValueKey('group-actions')),
           );
           expect(groupActions.right, right);
-          expect(groupActions.height, join.height);
+          final touch =
+              Theme.of(
+                tester.element(find.byKey(const ValueKey('group-join'))),
+              ).platform ==
+              TargetPlatform.iOS;
+          expect(groupActions.height, touch ? 48 : DControlStyle.smallHeight);
+          expect(join.height, touch ? 48 : DControlStyle.regularHeight);
           final search = tester.getRect(
             find.byKey(const ValueKey('group-member-search')),
           );
