@@ -270,6 +270,14 @@ publishes and persists the replacement user.
 
 ## UI extensions
 
+`PostBodyTransformPlugin` composes topic-stream presentation wrappers before
+selection and cooked rendering. Each wrapper receives incoming HTML and an
+owner-scoped post context, then calls the next builder with displayed HTML and
+a descendant context. Registry order and ownership also apply to deferred
+builders. The host retains the canonical post for edits and passes the displayed
+HTML to selection reconstruction. Placeholder owns its forms, substitutions,
+and private local persistence through this seam; core has no placeholder parser.
+
 `PluginScope` is a host-only root which carries the installed registry and
 private session. It exposes neither the session nor a global service lookup.
 Every registry dispatch stamps the contribution owner onto the callback

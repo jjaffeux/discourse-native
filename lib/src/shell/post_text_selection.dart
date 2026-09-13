@@ -21,6 +21,7 @@ class PostTextSelection extends StatefulWidget {
     required this.post,
     required this.topicId,
     required this.child,
+    this.displayedCooked,
   });
 
   final String siteUrl;
@@ -28,11 +29,16 @@ class PostTextSelection extends StatefulWidget {
   final int topicId;
   final Widget child;
 
+  /// Presentation used for quoting; edits always target [post]'s source.
+  final String? displayedCooked;
+
   @override
   State<PostTextSelection> createState() => _PostTextSelectionState();
 }
 
 class _PostTextSelectionState extends State<PostTextSelection> {
+  String get _displayedCooked => widget.displayedCooked ?? widget.post.cooked;
+  bool get _transformed => _displayedCooked != widget.post.cooked;
   static const Duration _toolbarDelay = Duration(milliseconds: 150);
 
   final GlobalKey<SelectionAreaState> _selectionKey = GlobalKey();
@@ -62,6 +68,7 @@ class _PostTextSelectionState extends State<PostTextSelection> {
     if (oldWidget.siteUrl != widget.siteUrl ||
         oldWidget.post.id != widget.post.id ||
         oldWidget.post.cooked != widget.post.cooked ||
+        oldWidget.displayedCooked != widget.displayedCooked ||
         oldWidget.post.isLocalized != widget.post.isLocalized) {
       _quoteResolver = null;
       _dismiss(clearSelection: true);
@@ -73,7 +80,7 @@ class _PostTextSelectionState extends State<PostTextSelection> {
   void _selectionChanged(SelectedContent? content) {
     _showTimer?.cancel();
     _selection = (_quoteResolver ??= PostQuoteSelectionResolver(
-      widget.post.cooked,
+      _displayedCooked,
     )).resolve(content?.plainText ?? '', isLocalized: widget.post.isLocalized);
     if (_selection.markdown.isEmpty) {
       _dismiss(clearSelection: false);
@@ -138,6 +145,10 @@ class _PostTextSelectionState extends State<PostTextSelection> {
     if (selection.markdown.isEmpty) return;
     final controller = ShellScope.read(context);
     _dismiss(clearSelection: true);
+    if (_transformed) {
+      controller.openEdit(widget.post);
+      return;
+    }
     if (!selection.supportsFastEdit) {
       controller.openEdit(widget.post, focusText: selection.markdown);
       return;

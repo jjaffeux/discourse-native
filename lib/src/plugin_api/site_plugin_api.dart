@@ -258,6 +258,24 @@ abstract interface class PostBodyPlugin {
   Widget? postBodyElement(PluginPostBodyContext context, dom.Element element);
 }
 
+/// Continues rendering within a transform's inherited widget scope.
+typedef PluginPostBodyBuilder =
+    Widget Function(BuildContext context, String displayedCooked);
+
+/// Transforms a topic-stream post's presentation without mutating its record.
+///
+/// Return null to pass through. Otherwise call [builder] with the displayed
+/// HTML and a descendant context so nested renderers inherit local state.
+/// Contributors compose in registry order; each receives its predecessor's
+/// output. The terminal builder owns selection and ordinary cooked rendering.
+abstract interface class PostBodyTransformPlugin {
+  Widget? transformPostBody(
+    PluginPostBodyContext context,
+    String cooked,
+    PluginPostBodyBuilder builder,
+  );
+}
+
 /// Unlike [PostBodyPlugin], this also runs for chat and nested cooked fragments.
 /// The first plugin to recognize an element owns it.
 abstract interface class CookedElementPlugin {

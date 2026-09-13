@@ -460,6 +460,65 @@ void main() {
   });
 
   group('selection actions', () {
+    testWidgets('quotes displayed formatting and edits the original template', (
+      tester,
+    ) async {
+      const displayed = '<p>Hello <strong>personalized</strong></p>';
+      const post = Post(
+        id: 22,
+        postNumber: 2,
+        username: 'sam',
+        cooked: '<p>Hello <strong>=NAME=</strong></p>',
+        raw: 'Hello **=NAME=**',
+        canEdit: true,
+      );
+      String? clipboard;
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        (call) async {
+          if (call.method == 'Clipboard.setData') {
+            clipboard = (call.arguments as Map)['text'] as String;
+          }
+          return null;
+        },
+      );
+      addTearDown(
+        () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+          SystemChannels.platform,
+          null,
+        ),
+      );
+      final shell = await _pumpSelection(
+        tester,
+        post: post,
+        displayedCooked: displayed,
+        child: const CookedHtml(html: displayed),
+      );
+      addTearDown(shell.dispose);
+      Future<void> select() async {
+        tester
+            .state<SelectionAreaState>(find.byType(SelectionArea))
+            .selectableRegion
+            .selectAll(SelectionChangedCause.toolbar);
+        await tester.pump(const Duration(milliseconds: 151));
+        await tester.pump();
+      }
+
+      await select();
+      await tester.tap(find.byKey(const ValueKey('copy-quote-selection')));
+      await tester.pumpAndSettle();
+      expect(
+        clipboard,
+        '[quote="sam, post:2, topic:7"]\nHello **personalized**\n[/quote]\n\n',
+      );
+      await select();
+      await tester.tap(find.byKey(const ValueKey('edit-selection')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('fast-edit-input')), findsNothing);
+      expect(shell.visibleComposer?.raw, 'Hello **=NAME=**');
+      expect(shell.store.read<Post>(_siteUrl, post.id)?.cooked, post.cooked);
+    });
+
     testWidgets('copy portable markup for a pointer selection', (tester) async {
       String? clipboard;
       tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
@@ -982,6 +1041,7 @@ Future<ShellController> _pumpSelection(
   FakeAuthenticator? authenticator,
   SiteConfig config = const SiteConfig.unknown(),
   bool withToaster = false,
+  String? displayedCooked,
 }) async {
   final shell = await _shell(
     post: post,
@@ -1003,6 +1063,7 @@ Future<ShellController> _pumpSelection(
               siteUrl: _siteUrl,
               post: post,
               topicId: 7,
+              displayedCooked: displayedCooked,
               child: child,
             ),
           ),

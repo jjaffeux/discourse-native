@@ -1054,6 +1054,36 @@ final class PluginRegistry
     return merged;
   }
 
+  Widget transformPostBody(
+    BuildContext context,
+    String siteUrl,
+    Post post, {
+    PluginContainingTopic? topic,
+    required PluginPostBodyBuilder builder,
+  }) {
+    final transforms = plugins.whereType<PostBodyTransformPlugin>().toList();
+    Widget next(int index, BuildContext context, String cooked) {
+      if (index == transforms.length) return builder(context, cooked);
+      final plugin = transforms[index];
+      final result = plugin.transformPostBody(
+        PluginPostBodyContext(
+          buildContext: _uiContext(context, plugin),
+          siteUrl: siteUrl,
+          post: post,
+          topic: topic,
+        ),
+        cooked,
+        (innerContext, displayedCooked) =>
+            next(index + 1, innerContext, displayedCooked),
+      );
+      return result == null
+          ? next(index + 1, context, cooked)
+          : _owned(plugin, result);
+    }
+
+    return next(0, context, post.cooked);
+  }
+
   Widget? postBodyElement(
     BuildContext context,
     String siteUrl,

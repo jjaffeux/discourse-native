@@ -33,6 +33,7 @@ class CookedHtml extends StatelessWidget {
     this.post,
     this.containingTopic,
     this.registry,
+    this.buildAsync,
     this.compactParagraphs = false,
     this.contentSized = false,
     this.revisionDiff = false,
@@ -53,6 +54,9 @@ class CookedHtml extends StatelessWidget {
   final PluginContainingTopic? containingTopic;
 
   final PluginRegistry? registry;
+
+  /// Pins parsing mode when interactive presentation can change HTML length.
+  final bool? buildAsync;
 
   final bool compactParagraphs;
 
@@ -276,6 +280,7 @@ class CookedHtml extends StatelessWidget {
       registry: resolvedRegistry,
       child: HtmlWidget(
         html,
+        buildAsync: buildAsync,
         baseUrl: resolvedSiteUrl == null ? null : Uri.tryParse(resolvedSiteUrl),
         textStyle: style,
         renderMode: RenderMode.column,

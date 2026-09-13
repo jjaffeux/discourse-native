@@ -9,6 +9,7 @@ import 'package:discourse_native/src/plugins/discourse_ai/discourse_ai_module.da
 import 'package:discourse_native/src/plugins/discourse_events/discourse_events_module.dart';
 import 'package:discourse_native/src/plugins/discourse_github/discourse_github_module.dart';
 import 'package:discourse_native/src/plugins/discourse_lazy_videos/discourse_lazy_videos_module.dart';
+import 'package:discourse_native/src/plugins/discourse_placeholder/discourse_placeholder_module.dart';
 import 'package:discourse_native/src/plugins/gifs/gifs_api.dart';
 import 'package:discourse_native/src/plugins/gifs/gifs_module.dart';
 import 'package:discourse_native/src/plugins/local_dates/local_dates_module.dart';
@@ -33,6 +34,7 @@ final PluginManifest _testBundledPluginManifest = PluginManifest([
   localDatesModule,
   discourseGithubModule,
   discourseLazyVideosModule,
+  discoursePlaceholderModule,
   const ReactionsModule(apiFactory: _reactionsApis),
   const PollModule(apiFactory: _pollsApi),
   discourseEventsModule,
