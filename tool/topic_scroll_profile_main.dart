@@ -28,9 +28,9 @@ Future<void> main() async {
   SuperSliverList? sliver;
   ScrollableState? scrollable;
   void findList(Element element) {
-    if (element.widget case final SuperSliverList list) sliver = list;
-    if (element is StatefulElement && element.state is ScrollableState) {
-      scrollable ??= element.state as ScrollableState;
+    if (element.widget case final SuperSliverList list) {
+      sliver = list;
+      scrollable = Scrollable.maybeOf(element);
     }
     element.visitChildren(findList);
   }

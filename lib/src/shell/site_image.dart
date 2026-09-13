@@ -429,11 +429,27 @@ final class SiteImageWidgetFactory extends WidgetFactory {
     required this.siteUrl,
     this.registry = PluginRegistry.empty,
     this.onMiddleClickUrl,
+    this.columnBodyMode,
   });
 
   final String? siteUrl;
   final PluginRegistry registry;
   final ValueChanged<String>? onMiddleClickUrl;
+
+  /// Replaces only the normalized root column, preserving CSS wrappers that
+  /// the HTML library otherwise unwraps for sliver/list render modes.
+  final RenderMode? columnBodyMode;
+
+  @override
+  Widget buildBodyWidget(BuildContext context, Widget child) {
+    final body = super.buildBodyWidget(context, child);
+    final mode = columnBodyMode;
+    if (mode != null && body is Column) {
+      return mode.buildBodyWidget(this, context, body.children);
+    }
+    return body;
+  }
+
   final Set<dom.Element> _excludeLinkSemantics = Set.identity();
 
   @override

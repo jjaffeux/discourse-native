@@ -35,6 +35,7 @@ import 'post_actions.dart';
 import 'post_footer.dart';
 import 'post_revision_history.dart';
 import 'post_text_selection.dart';
+import 'progressive_html_mode.dart';
 import 'relative_time.dart';
 import 'shell_controller.dart';
 import 'shell_metrics.dart';
@@ -1474,9 +1475,13 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     }
   }
 
-  void _unregisterPostContext(int postId, BuildContext context) {
+  void _unregisterPostContext(
+    int postId,
+    BuildContext context,
+    bool bodyComplete,
+  ) {
     if (identical(_postContexts[postId], context)) {
-      final retainedExtentChanged = _rememberPostExtent(postId);
+      final retainedExtentChanged = bodyComplete && _rememberPostExtent(postId);
       _postContexts.remove(postId);
       if (retainedExtentChanged) _scheduleRetainedPostGeometryRefresh();
       if (_isScrollCaptureRecording) {
@@ -3630,7 +3635,8 @@ class _TopicPostItem extends StatefulWidget {
   final Future<void> Function() expandGapBefore;
   final Future<void> Function() expandGapAfter;
   final void Function(int postId, BuildContext context) onAttach;
-  final void Function(int postId, BuildContext context) onDetach;
+  final void Function(int postId, BuildContext context, bool bodyComplete)
+  onDetach;
   final Widget child;
 
   @override
@@ -3642,6 +3648,7 @@ class _TopicPostItemState extends State<_TopicPostItem>
   double? _retainedMinimumHeight;
   bool _releaseScheduled = false;
   bool _keepAliveUpdateScheduled = false;
+  final _mountingBodies = <Future<void>>{};
 
   @override
   bool get wantKeepAlive => widget.retention.contains(context);
@@ -3695,7 +3702,7 @@ class _TopicPostItemState extends State<_TopicPostItem>
       }
       return;
     }
-    oldWidget.onDetach(oldWidget.postId, context);
+    oldWidget.onDetach(oldWidget.postId, context, _mountingBodies.isEmpty);
     _retainedMinimumHeight = widget.retainedMinimumHeight;
     _releaseScheduled = false;
     widget.onAttach(widget.postId, context);
@@ -3706,7 +3713,7 @@ class _TopicPostItemState extends State<_TopicPostItem>
     widget.retention.removeListener(_scheduleKeepAliveUpdate);
     widget.retention.release(context);
     widget.post.removeListener(_updateRetention);
-    widget.onDetach(widget.postId, context);
+    widget.onDetach(widget.postId, context, _mountingBodies.isEmpty);
     super.dispose();
   }
 
@@ -3755,24 +3762,38 @@ class _TopicPostItemState extends State<_TopicPostItem>
       ],
     );
     final retainedMinimumHeight = _retainedMinimumHeight;
-    return _RetainedMinimumHeight(
-      minimumHeight: retainedMinimumHeight ?? 0,
-      topicId: widget.topicId,
-      postId: widget.postId,
-      htmlCharacters: widget.post.value?.cooked.length ?? 0,
-      scrollCapture: widget.scrollCapture,
-      onNaturalHeightRestored: retainedMinimumHeight == null
-          ? null
-          : _releaseRetainedMinimumHeight,
-      child: child,
+    return NotificationListener<HtmlBodyMountingNotification>(
+      onNotification: (notification) {
+        final completion = notification.completion;
+        _mountingBodies.add(completion);
+        unawaited(
+          completion.whenComplete(() => _mountingBodies.remove(completion)),
+        );
+        return true;
+      },
+      child: _RetainedMinimumHeight(
+        minimumHeight: retainedMinimumHeight ?? 0,
+        topicId: widget.topicId,
+        postId: widget.postId,
+        htmlCharacters: widget.post.value?.cooked.length ?? 0,
+        scrollCapture: widget.scrollCapture,
+        onNaturalHeightRestored: retainedMinimumHeight == null
+            ? null
+            : _releaseRetainedMinimumHeight,
+        child: child,
+      ),
     );
   }
 
   void _releaseRetainedMinimumHeight() {
-    if (_releaseScheduled) return;
+    if (_releaseScheduled || _mountingBodies.isNotEmpty) return;
     _releaseScheduled = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
+      if (_mountingBodies.isNotEmpty) {
+        _releaseScheduled = false;
+        return;
+      }
       setState(() {
         _retainedMinimumHeight = null;
         _releaseScheduled = false;
@@ -4207,6 +4228,7 @@ class _PostTileState extends State<_PostTile> {
                                 displayedCooked: displayedCooked,
                                 child: CookedHtml(
                                   html: displayedCooked,
+                                  renderMode: const ProgressiveHtmlMode(),
                                   buildAsync: CookedHtml.buildsAsynchronously(
                                     post.cooked,
                                   ),
