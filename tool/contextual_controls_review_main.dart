@@ -113,6 +113,7 @@ class _ReviewState extends State<_Review> {
   bool _rtl = false;
   bool _comparison = false;
   bool _replying = false;
+  bool _comparePalette = false;
   int? _category;
   String? _tag;
   String _query = '';
@@ -125,6 +126,18 @@ class _ReviewState extends State<_Review> {
         )
         as Map<String, dynamic>,
   );
+  final _comparisonAppearance = SiteAppearance.fromJson(
+    jsonDecode(
+          const String.fromEnvironment(
+            'CONTEXTUAL_COMPARISON_PALETTE',
+            defaultValue: '{}',
+          ),
+        )
+        as Map<String, dynamic>,
+  );
+
+  SiteAppearance get _activeAppearance =>
+      _comparePalette ? _comparisonAppearance : _appearance;
 
   @override
   Widget build(BuildContext context) => ShellScope(
@@ -132,10 +145,10 @@ class _ReviewState extends State<_Review> {
     child: MaterialApp(
       debugShowCheckedModeBanner: false,
       theme: switch (_palette) {
-        StyleguideTheme.dark when _appearance.alternate != null =>
-          AppTheme.fromPalette(_appearance.alternate!),
-        StyleguideTheme.light when _appearance.base != null =>
-          AppTheme.fromPalette(_appearance.base!),
+        StyleguideTheme.dark when _activeAppearance.alternate != null =>
+          AppTheme.fromPalette(_activeAppearance.alternate!),
+        StyleguideTheme.light when _activeAppearance.base != null =>
+          AppTheme.fromPalette(_activeAppearance.base!),
         _ => _palette.resolve(AppTheme.light),
       },
       home: DToaster(
@@ -149,6 +162,17 @@ class _ReviewState extends State<_Review> {
                     spacing: 8,
                     runSpacing: 8,
                     children: [
+                      if (_comparisonAppearance.isKnown)
+                        DButton(
+                          label: Text(
+                            _comparePalette
+                                ? 'Palette: dev.discourse.org'
+                                : 'Palette: meta.discourse.org',
+                          ),
+                          onPressed: () => setState(
+                            () => _comparePalette = !_comparePalette,
+                          ),
+                        ),
                       DButton(
                         label: Text(
                           _comparison

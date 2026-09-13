@@ -49,6 +49,9 @@ the foreground in dark mode for legibility.
 - `index.html`: standalone browser export with the visualization runtime.
 - `buttons.css`, `interactions.js`: readable extracts of the fragment's CSS and JS.
 - `palette.json`: appearance values only; no account or authentication data.
+- `meta-palette.json`: Meta's saved light/dark appearance, added on 13 September
+  for native implementation regression checks. The original four HTML proposals
+  continue to use the dev.discourse.org snapshot.
 
 The standalone export loads the supplied visualization runtime's icon and
 positioning assets from its approved CDNs. The proposals themselves do not

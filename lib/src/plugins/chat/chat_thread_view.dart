@@ -12,6 +12,7 @@ import '../../shell/user_menu_button.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
+import '../../theme/d_native_icons.dart';
 import 'chat_channel_search.dart';
 import 'chat_channel_star_button.dart';
 import 'chat_channel_view.dart';
@@ -816,19 +817,19 @@ class _NotificationLevelButton extends StatelessWidget {
       value: ChatThreadNotificationLevel.normal,
       label: 'Normal',
       description: 'Mentions only',
-      icon: DIcon(DIcons.farBell),
+      icon: DIcon(DNativeIcons.bell),
     ),
     DNotificationLevelOption(
       value: ChatThreadNotificationLevel.tracking,
       label: 'Tracking',
       description: 'Mentions and unread reply count',
-      icon: DIcon(DIcons.bell),
+      icon: DIcon(DNativeIcons.bell),
     ),
     DNotificationLevelOption(
       value: ChatThreadNotificationLevel.watching,
       label: 'Watching',
       description: 'Every reply and unread count',
-      icon: DIcon(DIcons.discourseBellExclamation),
+      icon: DIcon(DNativeIcons.bellRing),
     ),
   ];
 

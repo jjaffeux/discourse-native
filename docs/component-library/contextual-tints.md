@@ -14,7 +14,8 @@ Merged into local main from the main checkout as
 controls contain no dev.discourse.org swatches or site data. Neutral surfaces
 use the forum background mixed with `primary-low`; their 1px border mixes
 `primary-low-mid` into that background. Primary actions use `tertiary-low` with
-readable accent ink. Tracking and Watching use a lighter accent tint and border.
+readable accent ink. Tracking and Watching use a lighter accent tint inside the
+same neutral outline as adjacent controls.
 Category triggers mix their actual category color into the same background.
 Focus rings and links retain the forum accent instead of inheriting an action
 fill. An inconsistent or missing `tertiary-low` falls back to a derived soft
@@ -80,6 +81,48 @@ permitted debug entitlements read back. Its kernel matched the build at SHA-256
 Static analysis passed. Focused checks cover saved-state transitions and hover
 in both themes and footer widths, existing topic inbox interactions, bookmark
 menus, icon rendering, contextual palettes and the explicit styling guard.
+
+## Meta palette follow-up — 13 September 2026
+
+Meta's light purple accent made the notification half of the joined group look
+heavier than its neutral bookmark. Active notifications now use the shared
+neutral border in every palette. Their tint is 5% at rest and 10% on hover in
+light mode, and 10%/18% in dark mode. Light-mode foregrounds mix less accent into
+the forum text color, with contrast checked against both states. Primary actions
+and the selected bookmark keep their existing fill and foreground tokens.
+This is a theme rule for every forum; there is no Meta-specific production code.
+
+Watching now uses an outline ringing bell, Muted an outline crossed bell, and
+the labeled trigger the matching chevron. Topic, category, chat-thread and
+styleguide notification menus use the same artwork family. These are existing
+DIcon and DButton options, with no new component API. Additional Lucide 1.17.0
+sources: [bell-ring](https://raw.githubusercontent.com/lucide-icons/lucide/1.17.0/icons/bell-ring.svg),
+[bell-off](https://raw.githubusercontent.com/lucide-icons/lucide/1.17.0/icons/bell-off.svg),
+[chevron-down](https://raw.githubusercontent.com/lucide-icons/lucide/1.17.0/icons/chevron-down.svg).
+
+The regression palette [meta-palette.json](../mockups/button-directions/meta-palette.json)
+contains only appearance values from the app's saved Meta instance. Both modes
+join dev.discourse.org and the four styleguide palettes in contrast and shared
+border checks. Widget tests switch an open joined notification menu from dev
+dark to Meta light and verify its border, geometry, selection and dismissal.
+
+Native macOS review used the real topic controls with both saved site palettes:
+Meta Watching with and without a bookmark, Tracking and Muted, light/dark palette
+switching, keyboard Home/End/Return selection and focus, and 320px RTL layout at
+200% text. The dev light Control consistency example and dev dark topic actions
+were also inspected. The matching kernel hash for the launched isolated
+`/tmp/meta-controls-629a.app` and its build was
+`3ec657e86133d9ce83a6fa846766b285e535a7da55723a4dfb34c10433108278`;
+permitted debug entitlements were read back. No iOS or Linux device was run.
+Category and chat-thread consumers were exercised by widget tests.
+
+Reviewed the control renders at 720×480 with the bundled JetBrains Mono test
+font: light/dark at rest, forest with a menu open, and plum on hover. Updated
+the 12 visual baselines after that and the native review. A pre-existing
+category toolbar ordering assertion
+failed identically on main `551cb7a9` (872px versus an expected maximum 264px).
+It now checks that the two controls do not overlap, allowing the current toolbar
+order while preserving the menu interaction checks.
 
 ## Verification — 13 September 2026
 

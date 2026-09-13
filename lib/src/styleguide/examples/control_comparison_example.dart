@@ -1,6 +1,9 @@
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
+import '../../theme/d_icon.dart';
+import '../../theme/d_native_icons.dart';
+
 /// Side-by-side acceptance surface for control styles and interactions.
 class ControlComparisonExample extends StatefulWidget {
   const ControlComparisonExample({super.key});
@@ -109,7 +112,7 @@ class _ControlComparisonExampleState extends State<ControlComparisonExample> {
               DButtonGroup(
                 children: [
                   DButton.iconOnly(
-                    icon: const Icon(Icons.bookmark_outline),
+                    icon: const DIcon(DNativeIcons.bookmark),
                     tooltip: 'Bookmark',
                     variant: DButtonVariant.outline,
                     size: DButtonSize.regular,
@@ -128,13 +131,13 @@ class _ControlComparisonExampleState extends State<ControlComparisonExample> {
                         value: 1,
                         label: 'Normal',
                         description: 'Notify on mentions',
-                        icon: Icon(Icons.notifications_none),
+                        icon: DIcon(DNativeIcons.bell),
                       ),
                       DNotificationLevelOption(
                         value: 2,
                         label: 'Watching',
                         description: 'Notify on every reply',
-                        icon: Icon(Icons.notifications_active),
+                        icon: DIcon(DNativeIcons.bellRing),
                         emphasized: true,
                       ),
                     ],
