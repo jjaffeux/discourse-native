@@ -547,12 +547,9 @@ class _DMultiSliderState extends State<DMultiSlider> {
                             child: CustomPaint(
                               painter: _SliderTrack(
                                 vertical: _vertical,
-                                start: _position(
-                                  _values.length == 1
-                                      ? widget.min
-                                      : _values.first,
-                                  extent,
-                                ),
+                                start: _values.length == 1
+                                    ? (_reverse ? extent : 0)
+                                    : _position(_values.first, extent),
                                 end: _position(_values.last, extent),
                                 buffered: widget.secondaryTrackValue == null
                                     ? null
@@ -563,7 +560,7 @@ class _DMultiSliderState extends State<DMultiSlider> {
                                         ),
                                         extent,
                                       ),
-                                origin: _position(widget.min, extent),
+                                origin: _reverse ? extent : 0,
                                 muted: tokens.muted,
                                 primary: tokens.primary,
                               ),
