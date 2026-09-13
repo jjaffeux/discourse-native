@@ -29,6 +29,7 @@ class DInputGroup extends StatefulWidget {
     this.size = DControlSize.regular,
     this.enabled = true,
     this.invalid = false,
+    this.borderless = false,
     this.semanticLabel,
   }) : assert(children.length > 0);
 
@@ -36,6 +37,10 @@ class DInputGroup extends StatefulWidget {
   final DControlSize size;
   final bool enabled;
   final bool invalid;
+
+  /// Lets a surrounding surface own the fill and border without changing the
+  /// editor, addon spacing, size, focus behavior or semantics.
+  final bool borderless;
   final String? semanticLabel;
 
   @override
@@ -210,24 +215,30 @@ class _DInputGroupState extends State<DInputGroup> {
               child: AnimatedContainer(
                 duration: DMotion.duration(
                   context,
-                  const Duration(milliseconds: 150),
+                  widget.borderless
+                      ? Duration.zero
+                      : const Duration(milliseconds: 150),
                 ),
                 constraints: BoxConstraints(
                   minHeight: multiline ? 64 : DControlStyle.height(widget.size),
                 ),
                 decoration: _InputGroupSurfaceDecoration(
-                  backgroundColor: DControlStyle.fieldFill(
-                    tokens,
-                    dark: dark,
-                    enabled: controlEnabled,
-                  ),
+                  backgroundColor: widget.borderless
+                      ? Colors.transparent
+                      : DControlStyle.fieldFill(
+                          tokens,
+                          dark: dark,
+                          enabled: controlEnabled,
+                        ),
                   borderRadius: radius,
-                  borderColor: border,
+                  borderColor: widget.borderless ? Colors.transparent : border,
                   joinedAxis: joined?.axis,
                   omitLeadingBorder: joined?.omitsLeadingBorder ?? false,
                 ),
                 foregroundDecoration: _InputGroupRingDecoration(
-                  color: invalid || focused ? ring : ring.withValues(alpha: 0),
+                  color: !widget.borderless && (invalid || focused)
+                      ? ring
+                      : ring.withValues(alpha: 0),
                   radius: radius,
                 ),
                 child: DJoinedControlScope.boundary(child: content),

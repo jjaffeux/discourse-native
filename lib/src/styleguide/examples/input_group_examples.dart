@@ -21,6 +21,31 @@ final inputGroupExamples = ComponentExamples(
       'a downstream consumer of this public API.',
   examples: [
     StyleguideExample(
+      title: 'Shared surrounding surface',
+      description:
+          'A borderless group lets the surrounding card own the surface while preserving editor and addon spacing.',
+      states: const ['Borderless', 'Focus', 'Shared surface'],
+      code: '''DCard(child: Padding(
+  padding: EdgeInsets.all(8),
+  child: DInputGroup(borderless: true, children: [
+    DInputGroupInput(hintText: 'Search...', semanticLabel: 'Search'),
+    DInputGroupAddon(child: Icon(Icons.search)),
+  ]),
+))''',
+      builder: (_) => DCard(
+        child: Padding(
+          padding: const EdgeInsets.all(8),
+          child: DInputGroup(
+            borderless: true,
+            children: [
+              DInputGroupInput(hintText: 'Search...', semanticLabel: 'Search'),
+              const DInputGroupAddon(child: Icon(Icons.search)),
+            ],
+          ),
+        ),
+      ),
+    ),
+    StyleguideExample(
       title: 'Default search',
       description:
           'The icon is visually inline-start while the editor remains the only text field.',

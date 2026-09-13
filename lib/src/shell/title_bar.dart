@@ -58,7 +58,7 @@ class ShellTitleBar extends StatelessWidget {
                   Expanded(
                     child: Center(
                       child: ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 520),
+                        constraints: const BoxConstraints(maxWidth: 860),
                         child: ShellSelector<ShellRootMode>(
                           select: (controller) => controller.rootMode,
                           builder: (context, rootMode, _) => switch (rootMode) {

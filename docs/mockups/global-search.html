@@ -1,0 +1,1346 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Global search · Approved search mockup</title>
+<style>
+/* HTML counterparts of Native UI components. Palette: saved Meta appearance,
+   docs/mockups/button-directions/meta-palette.json. No runtime dependencies. */
+:root{color-scheme:dark;--d-bg:#1a1a1a;--d-rail:#161616;--d-sidebar:#232323;--d-surface:#2a2a2a;--d-muted:#2e2e2e;--d-border:#383838;--d-divider:#2b2b2b;--d-fg:#f3f3f3;--d-secondary:#a6a6a6;--d-hover:#303030;--d-accent:#a18aef;--d-accent-fill:#342b4c;--d-ring:#9c84ed;--d-input:#202020;--d-shadow:0 8px 30px #0005,0 2px 5px #0004;--d-radius:8px;--d-green:#92c49b;--d-danger:#ed9393}
+:root[data-theme=light]{color-scheme:light;--d-bg:#fff;--d-rail:#f1f1f1;--d-sidebar:#f9f9f9;--d-surface:#fff;--d-muted:#f3f3f3;--d-border:#e2e3e4;--d-divider:#eee;--d-fg:#333638;--d-secondary:#6d7377;--d-hover:#eee;--d-accent:#7053d4;--d-accent-fill:#ebe7fb;--d-ring:#7b5fe2;--d-input:#fff;--d-shadow:0 8px 30px #0001,0 2px 5px #0001;--d-green:#327e41;--d-danger:#b83b3b}
+*{box-sizing:border-box}body{margin:0;background:var(--d-bg);color:var(--d-fg);font:14px/20px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased}button,input,select,textarea{font:inherit;color:inherit}button{cursor:pointer}button:disabled{cursor:default;opacity:.45}a{color:var(--d-accent)}button,input,select,textarea{outline-offset:3px} :focus-visible{outline:2px solid var(--d-ring)}[hidden]{display:none!important}button{border:0;background:none}svg{width:16px;height:16px;flex-shrink:0;vertical-align:middle}h1,h2,h3,p{margin:0}h2{font-size:18px;line-height:28px;font-weight:600}strong{font-weight:550}kbd{display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;padding:0 4px;border:1px solid var(--d-border);border-radius:4px;font:11px/16px -apple-system,BlinkMacSystemFont,sans-serif;color:var(--d-secondary)}.d-button{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:32px;border:1px solid var(--d-border);border-radius:8px;background:var(--d-surface);padding:5px 10px;line-height:20px;white-space:nowrap;font-weight:500}.d-button:hover{background:var(--d-hover)}.d-button.ghost{background:transparent;border-color:transparent;color:var(--d-secondary)}.d-button.ghost:hover{background:var(--d-hover);color:var(--d-fg)}.d-button.primary{background:var(--d-accent-fill);color:var(--d-accent);border-color:transparent}.d-button.small{min-height:28px;padding:3px 8px;font-size:12px}.d-button.icon{width:32px;padding:7px}.d-button[aria-expanded=true]{background:var(--d-hover);color:var(--d-fg);border-color:var(--d-border)}.d-input{width:100%;height:32px;border:1px solid var(--d-border);background:var(--d-input);border-radius:8px;padding:5px 9px;min-width:0}.d-label{font-size:12px;color:var(--d-secondary);display:block;margin-bottom:7px}.muted{color:var(--d-secondary)}.spacer{flex:1}.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}.d-avatar{display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;width:32px;height:32px;border-radius:50%;font-size:12px;font-weight:600;background:var(--d-muted);color:var(--d-fg)}.d-avatar.purple{background:#443c5a;color:#dcd0ff}.d-avatar.green{background:#2e493e;color:#b5dbbd}.d-avatar.ochre{background:#534333;color:#ead2b7}.d-avatar.blue{background:#324651;color:#bcdce9}.d-avatar.rose{background:#50363d;color:#e5bdc7}.d-badge{display:inline-flex;align-items:center;border:1px solid var(--d-border);padding:0 6px;line-height:18px;font-size:12px;border-radius:5px;white-space:nowrap;color:var(--d-secondary)}.d-switch{appearance:none;width:30px;height:18px;background:var(--d-border);border-radius:20px;position:relative;cursor:pointer;border:0;margin:0}.d-switch:after{content:"";position:absolute;width:14px;height:14px;background:var(--d-fg);border-radius:50%;left:2px;top:2px}.d-switch:checked{background:#7b5fe2}.d-switch:checked:after{left:14px;background:#fff}
+.app{display:grid;grid-template-columns:56px 204px minmax(0,1fr);height:100dvh;min-height:480px}.rail{background:var(--d-rail);border-right:1px solid var(--d-divider);display:flex;align-items:center;flex-direction:column;gap:14px;padding:17px 8px 12px}.traffic{display:flex;gap:4px;margin:0 0 14px}.traffic i{width:7px;height:7px;border-radius:50%;background:#555}.site-logo{display:grid;place-items:center;width:36px;height:36px;background:#f3f3f3;border-radius:11px;color:#262626;font-size:26px;font-weight:750;letter-spacing:-2px;position:relative;border:2px solid var(--d-accent)}.site-logo:after{content:"";position:absolute;bottom:7px;left:8px;border-top:5px solid #262626;border-right:5px solid transparent}.rail .rail-bottom{margin-top:auto;display:flex;flex-direction:column;gap:10px}.sidebar{background:var(--d-sidebar);border-right:1px solid var(--d-divider);display:flex;flex-direction:column;padding:16px 12px;gap:20px}.forum-name{height:30px;display:flex;align-items:center;gap:8px;font-size:14px;font-weight:600;padding:0 8px}.sidebar nav{display:grid;gap:4px}.nav-item{display:flex;align-items:center;gap:10px;min-height:32px;border-radius:8px;color:var(--d-secondary);text-align:left;padding:6px 8px}.nav-item:hover{background:var(--d-hover);color:var(--d-fg)}.nav-item.active{background:var(--d-muted);color:var(--d-fg)}.nav-item .count{margin-left:auto;font-size:12px}.side-label{font-size:12px;color:var(--d-secondary);padding:0 8px 7px}.category-dot{display:inline-block;width:8px;height:8px;border-radius:2px;background:var(--cat,#ac9bd6);flex-shrink:0}.sidebar-bottom{margin-top:auto;display:grid;gap:8px}.account{display:flex;gap:8px;align-items:center;padding:10px 6px 0;border-top:1px solid var(--d-divider);font-size:12px}.account .d-avatar{width:28px;height:28px}.main{min-width:0;display:flex;flex-direction:column;position:relative;overflow:hidden}.topbar{height:54px;min-height:54px;border-bottom:1px solid var(--d-divider);padding:10px 24px;display:flex;align-items:center;gap:8px}.crumb{font-size:12px;color:var(--d-secondary);display:flex;gap:10px;align-items:center}.top-search{margin-left:auto;width:238px;justify-content:flex-start;font-weight:400;color:var(--d-secondary);font-size:12px;background:transparent}.top-search kbd{margin-left:auto}.mobile-menu{display:none}.search-screen{flex:1;min-height:0;display:flex;flex-direction:column}.search-input-row{display:flex;align-items:center;gap:12px;padding:0 24px;min-height:48px;flex-shrink:0;border-bottom:1px solid var(--d-divider)}.search-input-row>span:first-child svg{width:19px;height:19px;color:var(--d-secondary)}#search-input{border:0;background:transparent;height:32px;flex:1;min-width:0;font-size:16px;line-height:24px;outline-offset:-2px;padding:4px}#search-input::placeholder{color:var(--d-secondary)}.search-toolbar{display:flex;gap:12px;align-items:center;padding:16px 24px 12px}.scope-tabs{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.scope-tab{min-height:32px;padding:5px 11px;border:1px solid var(--d-border);border-radius:8px;background:var(--d-surface);font-weight:500;color:var(--d-secondary);white-space:nowrap}.scope-tab:hover{background:var(--d-hover)}.scope-tab[aria-pressed=true]{color:var(--d-fg);border-color:var(--d-secondary);background:var(--d-muted)}.scope-tab .tab-count{font-size:11px;margin-left:5px;color:var(--d-secondary)}.toolbar-actions{margin-left:auto;display:flex;gap:8px;align-self:flex-start}.toolbar-actions .d-button{color:var(--d-secondary)}.toolbar-actions .has-filters{color:var(--d-accent);border-color:var(--d-accent)}.filter-bar{display:flex;align-items:center;flex-wrap:wrap;gap:8px;padding:10px 12px;margin:0 24px 8px;background:var(--d-surface);border-radius:8px;min-height:48px}.condition{display:inline-flex;align-items:stretch;border:1px solid var(--d-border);border-radius:8px;overflow:hidden;max-width:100%;font-size:12px}.condition button{min-height:24px;border-right:1px solid var(--d-border);padding:2px 7px;display:inline-flex;align-items:center;gap:6px;background:transparent;white-space:nowrap;max-width:230px;overflow:hidden;text-overflow:ellipsis}.condition button:hover{background:var(--d-hover)}.condition button:focus-visible{outline-offset:-3px}.condition button:last-child{border:0;color:var(--d-secondary)}.condition .op{color:var(--d-secondary)}.condition .value{color:var(--d-fg)}.condition svg{width:13px;height:13px}.filter-clear{margin-left:auto}.scope-note{font-size:12px;color:var(--d-secondary);padding:0 24px 8px}.results-scroll{padding:4px 24px 32px;flex:1;min-height:0;overflow:auto}.recent{width:100%;margin-top:19px}.section-label{font-size:12px;font-weight:500;color:var(--d-secondary);display:flex;align-items:center;gap:8px;margin:0 0 12px}.recent-row{display:flex;align-items:center;gap:12px;width:calc(100% + 16px);text-align:left;padding:9px 8px;margin:2px -8px;border-radius:8px;color:var(--d-fg);min-height:36px}.recent-row:hover{background:var(--d-hover)}.recent-row svg{color:var(--d-secondary)}.recent-row .recent-scope{margin-left:auto;color:var(--d-secondary);font-size:12px}.recent-clear{justify-content:flex-start;margin:10px -8px;color:var(--d-secondary)}.results-info{display:flex;align-items:center;gap:8px;padding:12px 0 16px;font-size:12px;color:var(--d-secondary)}.results-info .sort-label{margin-left:auto}.result-section{margin-bottom:22px}.result-section-head{display:flex;align-items:center;padding:0 0 8px;border-bottom:1px solid var(--d-divider);gap:8px}.result-section-head h2{font-size:12px;font-weight:500;line-height:20px;color:var(--d-secondary)}.result-section-head .d-button{margin-left:auto}.result-row{width:100%;text-align:left;display:flex;align-items:flex-start;gap:12px;padding:17px 10px;margin:0 -10px;width:calc(100% + 20px);border-radius:8px;color:var(--d-fg);border-bottom:1px solid var(--d-divider)}.result-row:hover,.result-row.keyboard-active{background:var(--d-hover)}.result-icon{width:32px;height:32px;display:flex;align-items:center;justify-content:center;color:var(--d-secondary);margin-top:1px;flex-shrink:0}.result-content{flex:1;min-width:0}.result-title{display:flex;gap:8px;align-items:center;font-size:14px;line-height:22px;font-weight:500}.result-title .kind{font-size:11px;color:var(--d-secondary);font-weight:400}.result-description{font-size:14px;line-height:21px;color:var(--d-secondary);margin-top:4px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}.result-meta{display:flex;align-items:center;flex-wrap:wrap;gap:7px;margin-top:9px;font-size:12px;color:var(--d-secondary)}.result-meta .category{display:inline-flex;align-items:center;gap:6px}.result-end{min-width:66px;text-align:right;color:var(--d-secondary);font-size:12px;padding-top:2px}.result-end .stats{display:flex;gap:10px;justify-content:flex-end;margin-top:13px}.stat{display:flex;gap:4px;align-items:center}.stat svg{width:13px;height:13px}.result-row mark{color:var(--d-fg);background:var(--d-accent-fill);border-radius:2px;padding:0 1px}.compact .result-description{display:none}.compact .result-row{padding-top:10px;padding-bottom:10px}.compact .result-meta{margin-top:4px}.prototype-dot{height:5px;width:5px;border-radius:50%;background:var(--d-secondary)}.empty-state{padding:72px 16px;text-align:center;max-width:500px;margin:auto}.empty-state>svg{width:28px;height:28px;color:var(--d-secondary);margin-bottom:15px}.empty-state h2{font-size:16px;margin-bottom:7px}.empty-state p{color:var(--d-secondary);margin-bottom:20px}.empty-state .actions{display:flex;gap:8px;justify-content:center}.loading-row{display:flex;gap:14px;padding:20px 0}.skeleton{background:var(--d-muted);border-radius:5px;height:12px;animation:pulse 1.4s ease-in-out infinite}.loading-row .circle{width:32px;height:32px;border-radius:50%}.loading-row .lines{flex:1;display:grid;gap:10px}.loading-row .lines .skeleton:nth-child(1){width:44%}.loading-row .lines .skeleton:nth-child(2){width:73%}.loading-row .lines .skeleton:nth-child(3){width:26%}@keyframes pulse{50%{opacity:.4}}
+.popover{position:fixed;z-index:30;background:var(--d-surface);border:1px solid var(--d-border);border-radius:12px;box-shadow:var(--d-shadow);overflow:hidden;width:302px;max-width:calc(100vw - 24px);max-height:calc(100dvh - 24px);display:flex;flex-direction:column}.popover-header{display:flex;align-items:center;gap:10px;min-height:49px;padding:9px 14px;border-bottom:1px solid var(--d-border)}.popover-header input{min-width:0;flex:1;border:0;background:none;height:30px;outline-offset:-1px}.popover-header svg{color:var(--d-secondary)}.menu-list{padding:6px;overflow:auto;min-height:0}.menu-group{padding:10px 9px 4px;font-size:11px;color:var(--d-secondary)}.menu-item{display:flex;align-items:center;gap:10px;width:100%;min-height:34px;text-align:left;border-radius:6px;padding:7px 9px;line-height:20px}.menu-item:hover,.menu-item.active{background:var(--d-hover)}.menu-item>svg{color:var(--d-secondary)}.menu-item .menu-hint{margin-left:auto;font-size:11px;color:var(--d-secondary)}.menu-item .chevron{margin-left:auto;width:12px}.menu-item .check{width:16px;height:16px;flex-shrink:0;border:1px solid var(--d-secondary);border-radius:4px;display:grid;place-items:center}.menu-item[aria-checked=true] .check{border-color:var(--d-accent);background:var(--d-accent-fill);color:var(--d-accent)}.menu-item .check svg{width:12px;height:12px}.menu-item .check:empty{background:none}.menu-separator{height:1px;background:var(--d-border);margin:5px -6px}.menu-bottom{padding:10px 14px;border-top:1px solid var(--d-border);color:var(--d-secondary);font-size:11px}.submenu{width:282px;z-index:31}.submenu-title{font-weight:500}.submenu-form{padding:14px;overflow:auto;min-height:0}.submenu-form .d-input{margin-bottom:12px}.submenu-form .help{font-size:12px;color:var(--d-secondary);margin:0 0 12px;line-height:18px}.submenu-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:4px}.menu-option-row{display:flex;gap:10px;align-items:center;justify-content:space-between;padding:10px 0}.display-menu{width:322px}.display-section{padding:16px}.display-section+.display-section{border-top:1px solid var(--d-border)}.property-chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px}.property-chips button[aria-pressed=true]{background:var(--d-hover);color:var(--d-fg)}.property-chips button[aria-pressed=false]{color:var(--d-secondary);background:transparent}.display-section .d-label{margin:0}.display-section select{max-width:178px;font-size:12px}.display-section p{font-size:12px;color:var(--d-secondary);margin-top:9px}.toast{position:fixed;bottom:58px;left:calc(50% + 110px);transform:translateX(-50%);background:var(--d-surface);border:1px solid var(--d-border);padding:10px 16px;border-radius:8px;box-shadow:var(--d-shadow);z-index:70;font-size:12px;max-width:calc(100vw - 32px)}dialog{background:var(--d-bg);color:var(--d-fg);border:1px solid var(--d-border);border-radius:12px;box-shadow:var(--d-shadow);width:min(660px,calc(100vw - 32px));max-height:calc(100dvh - 48px);padding:0}dialog::backdrop{background:#0008}dialog .dialog-top{display:flex;align-items:center;gap:8px;padding:17px 22px;border-bottom:1px solid var(--d-divider)}dialog .dialog-top h2{font-size:16px;flex:1}dialog .dialog-body{padding:22px;overflow:auto;max-height:calc(100dvh - 145px)}dialog p{margin-bottom:14px;line-height:22px;color:var(--d-secondary)}dialog h3{font-size:14px;font-weight:600;margin:20px 0 9px}dialog code{font-size:12px;background:var(--d-muted);padding:2px 4px;border-radius:4px;overflow-wrap:anywhere}dialog pre{white-space:pre-wrap;overflow-wrap:anywhere;background:var(--d-surface);padding:12px;border-radius:8px;font-size:12px;line-height:20px}dialog table{border-collapse:collapse;width:100%;font-size:12px}dialog td,dialog th{text-align:left;vertical-align:top;border-bottom:1px solid var(--d-divider);padding:9px 6px}dialog td{color:var(--d-secondary)}dialog textarea{min-height:100px;resize:vertical;line-height:22px}.detail-view{flex:1;overflow:auto;padding:24px 36px}.detail-view .back{margin-left:-8px;margin-bottom:24px}.detail-view h1{font-size:24px;line-height:32px;max-width:800px;letter-spacing:-.4px;margin:12px 0 24px}.detail-card{max-width:760px;display:flex;gap:16px;border-top:1px solid var(--d-divider);padding-top:24px}.detail-card p{line-height:26px;margin:12px 0 24px}.home-header{display:flex;align-items:center;justify-content:space-between;margin:0 0 25px}.home-header h1{margin:0}.home-note{font-size:12px;color:var(--d-secondary);padding:16px 0}.error-text{color:var(--d-danger);font-size:12px;line-height:18px;margin-bottom:12px}.active-filter-summary{font-size:12px;color:var(--d-secondary)}
+@media(min-width:1700px){.app{grid-template-columns:56px 220px minmax(0,1fr)}.results-scroll{padding-right:40px}.search-input-row{padding-right:40px}.search-toolbar{padding-right:40px}.filter-bar{margin-right:40px}}
+@media(max-width:1050px){.app{grid-template-columns:52px 172px minmax(0,1fr)}.sidebar{padding:16px 8px}.search-toolbar{gap:8px}.scope-tabs{gap:3px}.scope-tab{padding:5px 8px;font-size:12px}.top-search{width:194px}.topbar{padding:10px 18px}.search-input-row{padding:0 18px}.search-toolbar{padding:14px 18px 12px}.filter-bar{margin-left:18px;margin-right:18px}.results-scroll{padding-left:18px;padding-right:18px}.result-end{min-width:50px}}
+@media(max-width:780px){.app{grid-template-columns:52px minmax(0,1fr)}.sidebar{display:none}.topbar .crumb{font-size:11px}.top-search{width:185px}.toast{left:50%}.result-meta .tag-extra{display:none}}
+@media(max-width:540px){.app{grid-template-columns:minmax(0,1fr)}.rail{display:none}.topbar{height:48px;min-height:48px;padding:8px 12px}.topbar .crumb{gap:6px}.topbar .crumb svg{display:none}.top-search{width:auto;min-width:32px;border:0;padding:7px}.top-search .trigger-text,.top-search kbd{display:none}.search-input-row{padding:0 14px;gap:6px}.search-toolbar{padding:12px 14px;flex-wrap:wrap;gap:10px}.scope-tabs{gap:2px;flex:1}.scope-tab{font-size:12px;padding:5px 7px}.toolbar-actions{width:100%;justify-content:flex-end;margin-top:-1px}.toolbar-actions:before{content:'Refine your search';color:var(--d-secondary);font-size:12px;margin-right:auto;align-self:center}.filter-bar{margin:0 14px 8px;padding:8px}.condition{max-width:100%}.condition button{max-width:170px}.results-scroll{padding:4px 14px 22px}.result-row{gap:8px}.result-end .stats{display:none}.result-end{min-width:36px;font-size:11px}.result-title{display:block}.result-title .kind{margin-left:6px}.result-meta{gap:6px;font-size:11px}.recent-row .recent-scope{display:none}.result-description{font-size:13px}.detail-view{padding:20px}.detail-card{gap:10px}.detail-view h1{font-size:20px;line-height:28px}.scope-note{padding-left:14px}.filter-clear{margin-left:0}.submenu{z-index:33}.popover{max-height:calc(100dvh - 24px)}.toast{bottom:50px}dialog .dialog-body{padding:16px}.display-menu{width:300px}}
+@media(prefers-reduced-motion:reduce){*{animation:none!important;scroll-behavior:auto!important}}
+@media(pointer:coarse){.menu-item{min-height:44px}.condition button{min-height:32px}.scope-tab{min-height:36px}.d-input{min-height:36px;font-size:16px}}
+
+/* The same input moves between matching navbar and popover header slots. */
+.search-header{flex-shrink:0}.search-panel-body{display:flex;flex-direction:column;flex:1;min-height:0}
+.desktop-search-shortcut{display:none}.mobile-search-trigger[data-action="close-search"]{order:-1;margin-left:0}
+@media(min-width:768px),(hover:hover) and (pointer:fine){
+ .topbar{position:relative;flex-shrink:0;gap:24px}.topbar .crumb{flex-shrink:0;white-space:nowrap}
+ .desktop-search-slot{display:flex;position:relative;z-index:26;margin-left:auto;width:100%;max-width:860px;min-width:0;height:32px;flex:1;border:1px solid var(--d-border);border-radius:8px;background:var(--d-input)}
+ .desktop-search-layout .search-input-row{width:100%;min-height:30px;height:30px;gap:8px;padding:0 10px;border:0}
+ .desktop-search-layout .search-input-row>span:first-child svg{width:16px;height:16px}
+ .desktop-search-layout #search-input{height:30px;font-size:14px;line-height:20px;padding:5px 0}
+ .desktop-search-layout #search-input:focus-visible{outline:none}
+ .desktop-search-slot:focus-within{border-color:var(--d-ring)}
+ .desktop-search-layout #clear-query{width:24px;min-height:24px;height:24px;padding:3px;flex-shrink:0}
+ .desktop-search-layout #clear-query[hidden]{display:inline-flex!important;visibility:hidden;pointer-events:none}
+ .desktop-search-shortcut{display:inline-flex;flex-shrink:0}
+ .mobile-search-trigger{display:none}
+ .search-screen{position:fixed;z-index:25;flex:none;min-height:0;border:1px solid var(--d-border);border-radius:12px;background:var(--d-bg);box-shadow:0 20px 48px #0005,0 5px 12px #0003;overflow:hidden}
+ .search-header{height:var(--search-header-height,44px);padding:var(--search-header-pad-top,6px) 8px 7px;border-bottom:1px solid var(--d-divider)}
+ .desktop-search-open .desktop-search-slot{visibility:hidden}
+ .desktop-search-open .search-panel-body{animation:search-panel-open 120ms ease-out}
+ .search-screen .search-toolbar{padding:14px 18px 12px}
+ .search-screen .filter-bar{margin-left:18px;margin-right:18px}
+ .search-screen .results-scroll{padding-left:18px;padding-right:18px}
+ .search-screen .scope-note{padding-left:18px;padding-right:18px}
+ .search-screen .recent{margin-top:12px}
+ .search-screen .scope-tabs{gap:6px}
+ .search-screen .scope-tab{padding-left:9px;padding-right:9px}
+}
+@media(max-width:1050px){.desktop-search-layout .topbar .crumb{display:none}.desktop-search-layout .desktop-search-slot{margin-left:0;max-width:none}}
+@keyframes search-panel-open{from{opacity:0;clip-path:inset(0 0 12px 0)}to{opacity:1;clip-path:inset(0)}}
+@media(prefers-reduced-motion:reduce){.desktop-search-open .search-panel-body{animation:none}}
+</style>
+</head>
+<body>
+<div class="app">
+ <aside class="rail" aria-label="Forum rail">
+  <div class="traffic" aria-hidden="true"><i></i><i></i><i></i></div>
+  <button class="site-logo" aria-label="Discourse Meta home" data-action="home">d</button>
+  <div class="spacer"></div>
+  <div class="rail-bottom"><button class="d-button ghost icon" data-action="appearance" aria-label="Toggle light and dark appearance" title="Appearance" data-icon="sun"></button><button class="d-button ghost icon" data-action="settings" aria-label="Prototype settings" title="Prototype settings" data-icon="sliders"></button></div>
+ </aside>
+ <aside class="sidebar" data-component="DSidebar">
+  <div class="forum-name">Discourse Meta</div>
+  <nav aria-label="Main navigation">
+   <button class="nav-item" data-action="home"><span data-icon="topics"></span>Topics</button>
+   <button class="nav-item active" data-action="search"><span data-icon="search"></span>Search</button>
+   <button class="nav-item" data-action="nav-users"><span data-icon="user"></span>Users</button>
+   <button class="nav-item" data-action="nav-groups"><span data-icon="users"></span>Groups</button>
+  </nav>
+  <div><div class="side-label">Categories</div><nav aria-label="Categories">
+   <button class="nav-item" data-category="support"><span class="category-dot" style="--cat:#86a9e1"></span>Support</button>
+   <button class="nav-item" data-category="feature"><span class="category-dot" style="--cat:#ab94d9"></span>Feature</button>
+   <button class="nav-item" data-category="dev"><span class="category-dot" style="--cat:#d0b07b"></span>Dev</button>
+   <button class="nav-item" data-category="ux"><span class="category-dot" style="--cat:#8db59b"></span>UX</button>
+  </nav></div>
+  <div id="sidebar-chat"><div class="side-label">Chat</div><nav aria-label="Chat channels">
+   <button class="nav-item" data-channel="general"><span data-icon="hash"></span>general</button>
+   <button class="nav-item" data-channel="design"><span data-icon="hash"></span>design</button>
+   <button class="nav-item" data-channel="dev"><span data-icon="hash"></span>dev</button>
+  </nav></div>
+  <div class="sidebar-bottom"><button class="nav-item" data-action="notes"><span data-icon="info"></span>About this mockup</button><div class="account"><span class="d-avatar purple">J</span><div>joffrey<div class="muted">Discourse Meta</div></div></div></div>
+ </aside>
+ <main class="main" id="main">
+  <header class="topbar"><div class="crumb"><span>Discourse Meta</span><span data-icon="chevron"></span><span id="breadcrumb">Search</span></div><div class="desktop-search-slot" id="desktop-search-slot" data-component="DPopoverAnchor DInputGroup" hidden></div><button class="d-button top-search mobile-search-trigger" id="mobile-search-trigger" aria-label="Search everywhere" data-action="search" data-component="DButton"><span data-icon="search"></span><span class="trigger-text">Search everywhere</span></button></header>
+  <section class="search-screen" id="search-screen" aria-label="Global search">
+   <div class="search-header" id="search-header">
+   <div class="search-input-row" id="search-input-row" data-component="DInputGroup"><span data-icon="search"></span><input id="search-input" type="text" autocomplete="off" spellcheck="false" aria-label="Search Discourse Meta" aria-controls="search-screen" aria-expanded="true" placeholder="Search anything in Discourse Meta…"><button class="d-button ghost icon" id="clear-query" data-action="clear-query" aria-label="Clear search text" data-icon="x" hidden></button><kbd class="desktop-search-shortcut" id="global-shortcut" aria-hidden="true">⌘ F</kbd></div>
+   </div>
+   <div class="search-panel-body">
+   <div class="search-toolbar"><div class="scope-tabs" id="scope-tabs" data-component="DToggleGroup" role="group" aria-label="Search type"></div><div class="toolbar-actions"><button class="d-button icon" id="filter-trigger" data-action="filters" data-component="DDropdownMenu" aria-label="Add filter" title="Add filter · F" aria-expanded="false" aria-controls="filter-menu" data-icon="filter"></button><button class="d-button icon" id="display-trigger" data-action="display" data-component="DPopover" aria-label="Ordering and display" title="Ordering and display" aria-expanded="false" aria-controls="display-menu" data-icon="sliders"></button></div></div>
+   <div id="filter-bar" class="filter-bar" aria-label="Active search conditions" hidden></div>
+   <div id="scope-note" class="scope-note" hidden></div>
+   <div class="results-scroll" id="results-scroll"><div id="results" aria-live="polite" aria-atomic="false"></div></div>
+   </div>
+  </section>
+  <section id="content-screen" class="detail-view" hidden aria-label="Content"></section>
+ </main>
+</div>
+<div class="popover" id="filter-menu" hidden aria-label="Add filter" data-component="DCommand DDropdownMenu"><div class="popover-header"><span data-icon="search"></span><input id="filter-search" aria-label="Find a filter" placeholder="Add filter…" autocomplete="off"><kbd>F</kbd></div><div id="filter-list" class="menu-list" role="menu" aria-label="Search filters"></div><div class="menu-bottom" id="filter-menu-footer">Choose a filter, then set its condition.</div></div>
+<div class="popover submenu" id="filter-submenu" hidden role="dialog" aria-label="Filter condition" data-component="DDropdownMenuSub"></div>
+<div class="popover display-menu" id="display-menu" hidden aria-label="Ordering and display" data-component="DPopover"></div>
+<div class="toast" role="status" id="toast" hidden></div>
+<dialog id="dialog" aria-labelledby="dialog-title"><div class="dialog-top"><h2 id="dialog-title"></h2><button class="d-button ghost icon" data-action="close-dialog" aria-label="Close dialog" data-icon="x"></button></div><div id="dialog-body" class="dialog-body"></div></dialog>
+<script>
+'use strict';
+const ICONS={search:'<circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 4.5 4.5"/>',x:'<path d="m6 6 12 12M6 18 18 6"/>',chevron:'<path d="m9 5 7 7-7 7"/>',down:'<path d="m6 9 6 6 6-6"/>',back:'<path d="m10 5-7 7 7 7M3 12h17"/>',filter:'<path d="M4 6h16M7 12h10M10 18h4"/>',sliders:'<path d="M3 6h5m4 0h9M3 12h10m4 0h4M3 18h3m4 0h11"/><circle cx="10" cy="6" r="2"/><circle cx="15" cy="12" r="2"/><circle cx="8" cy="18" r="2"/>',topics:'<rect x="4" y="4" width="16" height="16" rx="3"/><path d="M8 9h8M8 13h8M8 17h4"/>',post:'<path d="M5 4h14a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H9l-5 3V6a2 2 0 0 1 1-2Z"/><path d="M8 8h9M8 12h6"/>',chat:'<path d="M21 11a9 9 0 0 1-9 9 9 9 0 0 1-4-.9L3 21l1.8-5A9 9 0 1 1 21 11Z"/>',user:'<circle cx="12" cy="8" r="4"/><path d="M4 21v-2a8 6 0 0 1 16 0v2"/>',users:'<circle cx="9" cy="7" r="3"/><path d="M2 21v-3a7 6 0 0 1 14 0v3M16 4a3 3 0 0 1 0 6M18 14a6 5 0 0 1 4 5v2"/>',hash:'<path d="M10 3 7 21M17 3l-3 18M4 8h17M3 16h17"/>',tag:'<path d="m3 3 9 0 10 10-9 9L3 12Z"/><circle cx="8" cy="8" r="1"/>',calendar:'<rect x="3" y="5" width="18" height="16" rx="3"/><path d="M7 3v4M17 3v4M3 11h18"/>',clock:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',check:'<path d="m5 12 4 4L19 6"/>',plus:'<path d="M12 5v14M5 12h14"/>',info:'<circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7h.01"/>',sun:'<circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.5 1.5m11 11L19 19M5 19l1.5-1.5m11-11L19 5"/>',eye:'<path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/>',heart:'<path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1.1-1.1a5.5 5.5 0 0 0-7.8 7.8L12 21l8.8-8.6a5.5 5.5 0 0 0 0-7.8Z"/>',bookmark:'<path d="M6 3h12v19l-6-4-6 4Z"/>',status:'<circle cx="12" cy="12" r="9" stroke-dasharray="3 3"/>',text:'<path d="M4 5h16M8 10h12M4 15h16M8 20h8"/>',image:'<rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8" cy="8" r="1.5"/><path d="m21 15-5-5-8 11M3 16l4-4 3 3"/>',lock:'<rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V6a4 4 0 0 1 8 0v4"/>',globe:'<circle cx="12" cy="12" r="9"/><ellipse cx="12" cy="12" rx="4" ry="9"/><path d="M3 12h18"/>',arrowup:'<path d="m5 12 7-7 7 7M12 5v15"/>',code:'<path d="m7 5-6 7 6 7m10-14 6 7-6 7M14 3l-4 18"/>',copy:'<rect x="8" y="8" width="13" height="13" rx="2"/><path d="M16 8V3H3v13h5"/>',mail:'<rect x="2" y="4" width="20" height="16" rx="3"/><path d="m3 5 9 8 9-8"/>',pin:'<path d="m8 3 8 0-1 7 4 4H5l4-4ZM12 14v8"/>',badge:'<circle cx="12" cy="9" r="6"/><path d="m8 14-1 8 5-3 5 3-1-8"/>',folder:'<path d="M3 5h6l2 3h10v12H3Z"/>',sort:'<path d="M4 5h16M4 10h12M4 15h8M4 20h4"/>',alert:'<path d="m12 3 10 18H2Z"/><path d="M12 9v5m0 3h.01"/>'};
+const $=id=>document.getElementById(id), esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const icon=name=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[name]||ICONS.filter}</svg>`;
+function paintIcons(root=document){root.querySelectorAll('[data-icon]').forEach(e=>{e.innerHTML=icon(e.dataset.icon);e.removeAttribute('data-icon')})}
+const CATEGORIES={'search-help':['Search help','#86a9e1'],'team-notes':['Team notes','#d0b07b'],support:['Support','#86a9e1'],feature:['Feature','#ab94d9'],dev:['Dev','#d0b07b'],ux:['UX','#8db59b'],announcements:['Announcements','#de957e'],general:['General','#9c9c9c']};
+const SCOPES={all:'All',forum:'Topics & posts',users:'Users',groups:'Groups',chat:'Chat'};
+const TYPE_SCOPE={topic:'forum',post:'forum',user:'users',group:'groups',chat:'chat'};
+const NOW=new Date('2026-09-13T12:00:00Z');
+/* START FIXTURES */
+const DATA = [{"type":"topic","id":"t-1038","title":"A calmer, more useful global search","text":"Search should feel like a place you can explore. Here is a design proposal for one search across topics, people, groups, and chat, with filters that stay visible as you work.","username":"mira","name":"Mira Laurent","category":"ux","tags":["search","design","feedback"],"created":"2026-09-11","updated":"2026-09-13","likes":48,"views":1240,"replies":26,"posts":27,"status":["open","listed"],"personal":["seen","tracked","bookmarked","liked","posted"],"group":"design","channel":"general","channelId":1,"channelType":"public","thread":false,"first":true,"members":0,"trust":0,"orderRank":1,"with":["image","link"],"topicId":"1038","topicCreated":"2026-09-11","topicAuthor":"mira","postType":"regular","pinned":false,"wiki":false,"bot":false,"files":["png","fig"],"locale":"en","badges":["member","regular","great_topic"],"privateMessage":false,"directMessage":false,"groupInbox":"","assigned":"mira","solved":false,"poll":true,"votes":27,"allowedUsers":[],"publicCategory":true,"parentCategory":"","categoryAncestors":[],"solvedEnabled":true,"solutionsEnabled":true,"tagGroups":["design-topics","search-topics"],"badgeIds":[12,13,29],"lastVisitedAt":"2026-09-13T11:30:00Z"},{"type":"topic","id":"t-1037","title":"Search results disappear after changing a category","text":"I can reproduce this when searching for keyboard in Support, then switching to UX. The query stays in place but the results go blank until I press Enter again.","username":"arun","name":"Arun Mehta","category":"search-help","tags":["search","bug"],"created":"2026-09-10","updated":"2026-09-13","likes":12,"views":384,"replies":9,"posts":10,"status":["open","listed"],"personal":["seen","watching","posted"],"group":"developers","channel":"general","channelId":1,"channelType":"public","thread":false,"first":true,"members":0,"trust":0,"orderRank":2,"with":["video"],"topicId":"1037","topicCreated":"2026-09-10","topicAuthor":"arun","postType":"regular","pinned":false,"wiki":false,"bot":false,"files":["mp4"],"locale":"en","badges":["member","helpful"],"privateMessage":false,"directMessage":false,"groupInbox":"","assigned":"leo","solved":true,"poll":false,"votes":0,"parentCategory":"support","categoryAncestors":["support"],"allowedUsers":[],"publicCategory":true,"solvedEnabled":true,"solutionsEnabled":true,"tagGroups":["search-topics"],"badgeIds":[12,101],"lastVisitedAt":"2026-09-13T08:45:00Z"},{"type":"topic","id":"t-1036","title":"Keyboard navigation throughout the new interface","text":"A small design detail with a big impact: keeping focus predictable when you move between the sidebar, search, and topic list. Try the prototype using only your keyboard.","username":"clara","name":"Clara Bennett","category":"ux","tags":["keyboard","accessibility","design"],"created":"2026-09-08","updated":"2026-09-12","likes":37,"views":968,"replies":18,"posts":19,"status":["open","listed"],"personal":["unseen","tracked"],"group":"design","channel":"general","channelId":1,"channelType":"public","thread":false,"first":true,"members":0,"trust":0,"orderRank":3,"with":["link","video"],"topicId":"1036","topicCreated":"2026-09-08","topicAuthor":"clara","postType":"regular","pinned":false,"wiki":false,"bot":false,"files":["mp4"],"locale":"en","badges":["member","regular"],"privateMessage":false,"directMessage":false,"groupInbox":"","assigned":"design","solved":false,"poll":false,"votes":18,"allowedUsers":[],"publicCategory":true,"parentCategory":"","categoryAncestors":[],"solvedEnabled":true,"solutionsEnabled":true,"tagGroups":["design-topics"],"badgeIds":[12,13],"lastVisitedAt":null},{"type":"topic","id":"t-1035","title":"Native component library: September update","text":"The design library now includes quieter menus, better focus states, and a compact filter chip. We have also documented keyboard behavior for search and nested menus.","username":"leo","name":"Leo Navarro","category":"team-notes","tags":["components","design","keyboard"],"created":"2026-09-07","updated":"2026-09-12","likes":29,"views":782,"replies":12,"posts":13,"status":["open","listed","pinned"],"personal":["seen","watching_first_post","bookmarked"],"group":"developers","channel":"general","channelId":1,"channelType":"public","thread":false,"first":true,"members":0,"trust":0,"orderRank":4,"with":["image","link"],"topicId":"1035","topicCreated":"2026-09-07","topicAuthor":"leo","postType":"regular","pinned":true,"wiki":true,"bot":false,"files":["png","pdf"],"locale":"en","badges":["member","regular"],"privateMessage":false,"directMessage":false,"groupInbox":"","assigned":"","solved":false,"poll":false,"votes":0,"parentCategory":"dev","categoryAncestors":["dev"],"allowedUsers":[],"publicCategory":false,"solvedEnabled":false,"solutionsEnabled":false,"tagGroups":["design-topics"],"badgeIds":[12,13],"lastVisitedAt":"2026-09-12T12:15:00Z"},{"type":"topic","id":"t-1034","title":"Dark mode needs a little more contrast","text":"In the current dark theme, muted text disappears against the sidebar. Could we compare a few surface colors and make selected search filters easier to identify?","username":"nora","name":"Nora Chen","category":"ux","tags":["dark-mode","design","accessibility"],"created":"2026-09-05","updated":"2026-09-11","likes":24,"views":620,"replies":16,"posts":17,"status":["open","listed"],"personal":["seen","liked"],"group":"design","channel":"general","channelId":1,"channelType":"public","thread":false,"first":true,"members":0,"trust":0,"orderRank":5,"with":["image"],"topicId":"1034","topicCreated":"2026-09-05","topicAuthor":"nora","postType":"regular","pinned":false,"wiki":false,"bot":false,"files":["png"],"locale":"en","badges":["member","nice_topic"],"privateMessage":false,"directMessage":false,"groupInbox":"","assigned":"design","solved":false,"poll":true,"votes":15,"allowedUsers":[],"publicCategory":true,"parentCategory":"","categoryAncestors":[],"solvedEnabled":true,"solutionsEnabled":true,"tagGroups":["design-topics"],"badgeIds":[12,27],"lastVisitedAt":"2026-09-12T17:50:00Z"},{"type":"topic","id":"t-1033","title":"Search chat messages from the global header","text":"It would be lovely to search a conversation without remembering which channel it happened in. A Chat tab could bring channel, author, and date filters into the same flow.","username":"sam","name":"Sam Okafor","category":"feature","tags":["chat","search"],"created":"2026-09-04","updated":"2026-09-13","likes":63,"views":1840,"replies":31,"posts":32,"status":["open","listed"],"personal":["unseen","watching"],"group":"team","channel":"general","channelId":1,"channelType":"public","thread":false,"first":true,"members":0,"trust":0,"orderRank":6,"with":["image","link"],"topicId":"1033","topicCreated":"2026-09-04","topicAuthor":"sam","postType":"regular","pinned":false,"wiki":false,"bot":false,"files":["png"],"locale":"en","badges":["member","regular","great_topic"],"privateMessage":false,"directMessage":false,"groupInbox":"","assigned":"developers","solved":false,"poll":false,"votes":46,"allowedUsers":[],"publicCategory":true,"parentCategory":"","categoryAncestors":[],"solvedEnabled":true,"solutionsEnabled":true,"tagGroups":["search-topics","community-topics"],"badgeIds":[12,13,29],"lastVisitedAt":null},{"type":"topic","id":"t-1032","title":"Helping new members find their first conversation","text":"We are trying a friendlier onboarding flow: choose a few interests, meet the people behind each group, then jump into one welcoming discussion. Sharing the early design here.","username":"jules","name":"Jules Martin","category":"ux","tags":["onboarding","design"],"created":"2026-09-02","updated":"2026-09-10","likes":19,"views":543,"replies":7,"posts":8,"status":["open","listed"],"personal":["seen","tracked"],"group":"moderators","channel":"general","channelId":1,"channelType":"public","thread":false,"first":true,"members":0,"trust":0,"orderRank":7,"with":["image"],"topicId":"1032","topicCreated":"2026-09-02","topicAuthor":"jules","postType":"regular","pinned":false,"wiki":false,"bot":false,"files":["png"],"locale":"fr","badges":["member","welcome"],"privateMessage":false,"directMessage":false,"groupInbox":"","assigned":"","solved":false,"poll":true,"votes":9,"allowedUsers":[],"publicCategory":true,"parentCategory":"","categoryAncestors":[],"solvedEnabled":true,"solutionsEnabled":true,"tagGroups":["design-topics","community-topics"],"badgeIds":[12,15],"lastVisitedAt":"2026-09-10T15:15:00Z"},{"type":"topic","id":"t-1031","title":"Search operators: a practical reference","text":"A guide to category, tag, author, and date conditions, plus a few combinations we use every day. Bookmark this if you often need to find one particular post.","username":"evan","name":"Evan Brooks","category":"support","tags":["search","how-to"],"created":"2026-08-24","updated":"2026-09-09","likes":86,"views":6420,"replies":22,"posts":23,"status":["open","listed","pinned"],"personal":["seen","bookmarked","liked"],"group":"moderators","channel":"general","channelId":1,"channelType":"public","thread":false,"first":true,"members":0,"trust":0,"orderRank":8,"with":["link"],"topicId":"1031","topicCreated":"2026-08-24","topicAuthor":"evan","postType":"regular","pinned":true,"wiki":true,"bot":false,"files":["pdf"],"locale":"en","badges":["member","regular","helpful"],"privateMessage":false,"directMessage":false,"groupInbox":"","assigned":"","solved":true,"poll":false,"votes":0,"allowedUsers":[],"publicCategory":true,"parentCategory":"","categoryAncestors":[],"solvedEnabled":true,"solutionsEnabled":true,"tagGroups":["search-topics"],"badgeIds":[12,13,101],"lastVisitedAt":"2026-09-13T14:20:00Z"},{"type":"topic","id":"t-1030","title":"Escape key no longer closes search","text":"Opening global search with the shortcut works, but Escape leaves focus behind in the search field. I expected it to return me to the topic I was reading.","username":"arun","name":"Arun Mehta","category":"support","tags":["search","keyboard","bug"],"created":"2026-09-12","updated":"2026-09-13","likes":3,"views":64,"replies":0,"posts":1,"status":["open","listed","noreplies","single_user"],"personal":["unseen"],"group":"developers","channel":"general","channelId":1,"channelType":"public","thread":false,"first":true,"members":0,"trust":0,"orderRank":9,"with":[],"topicId":"1030","topicCreated":"2026-09-12","topicAuthor":"arun","postType":"regular","pinned":false,"wiki":false,"bot":false,"files":[],"locale":"none","badges":["member"],"privateMessage":false,"directMessage":false,"groupInbox":"","assigned":"arun","solved":false,"poll":false,"votes":0,"allowedUsers":[],"publicCategory":true,"parentCategory":"","categoryAncestors":[],"solvedEnabled":true,"solutionsEnabled":true,"tagGroups":["design-topics","search-topics"],"badgeIds":[12],"lastVisitedAt":null},{"type":"topic","id":"t-1029","title":"Chat search indexing improvements are now available","text":"Today’s update makes recent messages available in search more quickly and improves matching for longer conversations. Thank you to everyone who tested the early builds.","username":"releasebot","name":"Release Bot","category":"announcements","tags":["chat","search","release"],"created":"2026-09-03","updated":"2026-09-08","likes":54,"views":2480,"replies":14,"posts":15,"status":["closed","listed"],"personal":["seen","watching_first_post"],"group":"team","channel":"general","channelId":1,"channelType":"public","thread":false,"first":true,"members":0,"trust":0,"orderRank":10,"with":["link"],"topicId":"1029","topicCreated":"2026-09-03","topicAuthor":"releasebot","postType":"regular","pinned":false,"wiki":false,"bot":true,"files":[],"locale":"en","badges":["member","team"],"privateMessage":false,"directMessage":false,"groupInbox":"","assigned":"","solved":false,"poll":false,"votes":0,"allowedUsers":[],"publicCategory":true,"parentCategory":"","categoryAncestors":[],"solvedEnabled":false,"solutionsEnabled":false,"tagGroups":["search-topics","community-topics"],"badgeIds":[12,102],"lastVisitedAt":"2026-09-08T18:15:00Z"},{"type":"topic","id":"t-1028","title":"How are you organizing your community groups?","text":"We have a design group, a developers group, and a small welcome team. I would love to hear how others make those groups discoverable without overwhelming new members.","username":"nora","name":"Nora Chen","category":"general","tags":["groups","community"],"created":"2026-08-30","updated":"2026-09-07","likes":17,"views":456,"replies":11,"posts":12,"status":["open","listed"],"personal":["seen","posted"],"group":"moderators","channel":"general","channelId":1,"channelType":"public","thread":false,"first":true,"members":0,"trust":0,"orderRank":11,"with":[],"topicId":"1028","topicCreated":"2026-08-30","topicAuthor":"nora","postType":"regular","pinned":false,"wiki":false,"bot":false,"files":[],"locale":"en","badges":["member","nice_topic"],"privateMessage":false,"directMessage":false,"groupInbox":"","assigned":"","solved":false,"poll":true,"votes":12,"allowedUsers":[],"publicCategory":true,"parentCategory":"","categoryAncestors":[],"solvedEnabled":false,"solutionsEnabled":false,"tagGroups":["community-topics"],"badgeIds":[12,27],"lastVisitedAt":"2026-09-07T19:15:00Z"},{"type":"topic","id":"t-1027","title":"Earlier search redesign explorations","text":"A collection of our first design explorations for global search. This thread is archived so the discussion can continue in the September proposal.","username":"clara","name":"Clara Bennett","category":"ux","tags":["search","design"],"created":"2026-06-18","updated":"2026-08-20","likes":41,"views":1860,"replies":34,"posts":35,"status":["closed","archived","listed"],"personal":["seen","bookmarked"],"group":"design","channel":"general","channelId":1,"channelType":"public","thread":false,"first":true,"members":0,"trust":0,"orderRank":12,"with":["image","link"],"topicId":"1027","topicCreated":"2026-06-18","topicAuthor":"clara","postType":"regular","pinned":false,"wiki":true,"bot":false,"files":["png","pdf","zip"],"locale":"en","badges":["member","regular"],"privateMessage":false,"directMessage":false,"groupInbox":"","assigned":"","solved":false,"poll":false,"votes":0,"allowedUsers":[],"publicCategory":true,"parentCategory":"","categoryAncestors":[],"solvedEnabled":true,"solutionsEnabled":true,"tagGroups":["design-topics","search-topics"],"badgeIds":[12,13],"lastVisitedAt":"2026-08-20T09:15:00Z"},{"type":"topic","id":"t-1026","title":"Audio introductions in the welcome topic","text":"We invited a few regulars to record a short hello. Hearing a real voice made the first chat feel a little less daunting, especially for people joining from a different time zone.","username":"joffrey","name":"Joffrey Jaffeux","category":"general","tags":["onboarding","community","audio"],"created":"2026-09-06","updated":"2026-09-06","likes":8,"views":172,"replies":0,"posts":1,"status":["open","listed","noreplies","single_user"],"personal":["seen","created","posted"],"group":"team","channel":"general","channelId":1,"channelType":"public","thread":false,"first":true,"members":0,"trust":0,"orderRank":13,"with":["audio"],"topicId":"1026","topicCreated":"2026-09-06","topicAuthor":"joffrey","postType":"regular","pinned":false,"wiki":false,"bot":false,"files":["mp3"],"locale":"none","badges":["member","team"],"privateMessage":false,"directMessage":false,"groupInbox":"","assigned":"","solved":false,"poll":false,"votes":0,"allowedUsers":[],"publicCategory":true,"parentCategory":"","categoryAncestors":[],"solvedEnabled":false,"solutionsEnabled":false,"tagGroups":["community-topics"],"badgeIds":[12,102],"lastVisitedAt":"2026-09-06T10:15:00Z"},{"type":"topic","id":"t-1025","title":"Design review notes for the September release","text":"Private notes from the team’s search and keyboard design review. The September release is out, and this conversation is archived for reference.","username":"leo","name":"Leo Navarro","category":"","tags":["design","search","keyboard"],"created":"2026-08-28","updated":"2026-09-12","likes":6,"views":82,"replies":4,"posts":5,"status":["closed","archived","listed"],"personal":["seen","tracked","posted"],"group":"team","channel":"team","channelId":4,"channelType":"private","thread":false,"first":true,"members":0,"trust":0,"orderRank":14,"with":["image"],"topicId":"1025","topicCreated":"2026-08-28","topicAuthor":"leo","postType":"regular","pinned":false,"wiki":false,"bot":false,"files":["png"],"locale":"en","badges":["member","team"],"privateMessage":true,"directMessage":false,"groupInbox":"team","assigned":"mira","solved":false,"poll":false,"votes":0,"allowedUsers":["joffrey","leo","mira"],"publicCategory":false,"parentCategory":"","categoryAncestors":[],"solvedEnabled":false,"solutionsEnabled":false,"tagGroups":["design-topics","search-topics"],"badgeIds":[12,102],"lastVisitedAt":"2026-09-12T11:15:00Z"},{"type":"topic","id":"t-1039","title":"A few notes on your global search prototype","text":"Thanks for sharing the design. I tried the keyboard flow and left a few search notes below. Let’s review the filter menu together before the next team chat.","username":"mira","name":"Mira Laurent","category":"","tags":["search","design","keyboard"],"created":"2026-09-12","updated":"2026-09-13","likes":2,"views":8,"replies":3,"posts":4,"status":["open","listed"],"personal":["seen","bookmarked","posted"],"group":"design","channel":"team","channelId":6,"channelType":"dm","thread":false,"first":true,"members":0,"trust":0,"orderRank":8,"with":[],"topicId":"1039","topicCreated":"2026-09-12","topicAuthor":"mira","postType":"regular","pinned":false,"wiki":false,"bot":false,"files":[],"locale":"en","badges":["member","regular"],"privateMessage":true,"directMessage":true,"groupInbox":"","assigned":"","solved":false,"poll":false,"votes":0,"allowedUsers":["joffrey","mira"],"publicCategory":false,"parentCategory":"","categoryAncestors":[],"solvedEnabled":false,"solutionsEnabled":false,"tagGroups":["design-topics","search-topics"],"badgeIds":[12,13],"lastVisitedAt":"2026-09-13T13:10:00Z"},{"type":"topic","id":"t-1040","title":"Early search design: feedback from the first five testers","text":"A small public-by-link research log from our first search sessions. The keyboard shortcut was easy to find; the ordering menu needed a clearer label. Keeping this unlisted while we collect the final notes.","username":"nora","name":"Nora Chen","category":"ux","tags":["search","design","research"],"created":"2026-09-09","updated":"2026-09-11","likes":4,"views":57,"replies":2,"posts":3,"status":["open","unlisted"],"personal":["seen","tracked"],"group":"design","channel":"general","channelId":1,"channelType":"public","thread":false,"first":true,"members":0,"trust":0,"orderRank":28,"with":["link"],"topicId":"1040","topicCreated":"2026-09-09","topicAuthor":"nora","postType":"regular","pinned":false,"wiki":false,"bot":false,"files":["pdf"],"locale":"en","badges":["member"],"privateMessage":false,"directMessage":false,"groupInbox":"","assigned":"","solved":false,"poll":false,"votes":0,"allowedUsers":[],"publicCategory":true,"parentCategory":"","categoryAncestors":[],"solvedEnabled":true,"solutionsEnabled":true,"tagGroups":["design-topics","search-topics"],"badgeIds":[12],"lastVisitedAt":"2026-09-11T13:15:00Z"},{"type":"post","id":"p-2041","title":"A calmer, more useful global search","text":"I like that the conditions stay visible. Could a keyboard shortcut focus the filter menu, so adding a category feels as quick as typing category:ux?","username":"clara","name":"Clara Bennett","category":"ux","tags":["search","design","feedback"],"created":"2026-09-12","updated":"2026-09-12","likes":14,"views":1240,"replies":26,"posts":27,"status":["open","listed"],"personal":["seen","liked","bookmarked"],"group":"design","channel":"general","channelId":1,"channelType":"public","thread":false,"first":false,"members":0,"trust":0,"orderRank":15,"with":["image"],"topicId":"1038","topicCreated":"2026-09-11","topicAuthor":"mira","postType":"regular","pinned":false,"wiki":false,"bot":false,"files":["png"],"locale":"en","badges":["member","regular"],"privateMessage":false,"directMessage":false,"groupInbox":"","assigned":"mira","solved":false,"poll":true,"votes":27,"allowedUsers":[],"publicCategory":true,"parentCategory":"","categoryAncestors":[],"solvedEnabled":true,"solutionsEnabled":true,"tagGroups":["design-topics","search-topics"],"badgeIds":[12,13],"lastVisitedAt":"2026-09-13T11:30:00Z"},{"type":"post","id":"p-2042","title":"Search chat messages from the global header","text":"The author filter should carry over when I switch from topics to chat. Category filters could stay attached to Topics, ready for when I come back.","username":"evan","name":"Evan Brooks","category":"feature","tags":["chat","search"],"created":"2026-09-11","updated":"2026-09-11","likes":11,"views":1840,"replies":31,"posts":32,"status":["open","listed"],"personal":["unseen","watching"],"group":"moderators","channel":"general","channelId":1,"channelType":"public","thread":false,"first":false,"members":0,"trust":0,"orderRank":16,"with":[],"topicId":"1033","topicCreated":"2026-09-04","topicAuthor":"sam","postType":"regular","pinned":false,"wiki":false,"bot":false,"files":[],"locale":"en","badges":["member","regular","helpful"],"privateMessage":false,"directMessage":false,"groupInbox":"","assigned":"developers","solved":false,"poll":false,"votes":46,"allowedUsers":[],"publicCategory":true,"parentCategory":"","categoryAncestors":[],"solvedEnabled":true,"solutionsEnabled":true,"tagGroups":["search-topics","community-topics"],"badgeIds":[12,13,101],"lastVisitedAt":null},{"type":"post","id":"p-2043","title":"Keyboard navigation throughout the new interface","text":"We tested this design with a screen reader yesterday. Announcing the result count after a search was helpful; moving focus automatically was much less helpful.","username":"nora","name":"Nora Chen","category":"ux","tags":["keyboard","accessibility","design"],"created":"2026-09-10","updated":"2026-09-11","likes":18,"views":968,"replies":18,"posts":19,"status":["open","listed"],"personal":["seen","bookmarked"],"group":"design","channel":"general","channelId":1,"channelType":"public","thread":false,"first":false,"members":0,"trust":0,"orderRank":17,"with":["link"],"topicId":"1036","topicCreated":"2026-09-08","topicAuthor":"clara","postType":"regular","pinned":false,"wiki":false,"bot":false,"files":[],"locale":"en","badges":["member","nice_topic"],"privateMessage":false,"directMessage":false,"groupInbox":"","assigned":"design","solved":false,"poll":false,"votes":18,"allowedUsers":[],"publicCategory":true,"parentCategory":"","categoryAncestors":[],"solvedEnabled":true,"solutionsEnabled":true,"tagGroups":["design-topics"],"badgeIds":[12,27],"lastVisitedAt":"2026-09-11T16:15:00Z"},{"type":"post","id":"p-2044","title":"Search results disappear after changing a category","text":"Staff note: I found the issue in the search state. We clear the results before the new request finishes, but an older response can still replace the current one.","username":"leo","name":"Leo Navarro","category":"search-help","tags":["search","bug"],"created":"2026-09-12","updated":"2026-09-13","likes":7,"views":384,"replies":9,"posts":10,"status":["open","listed"],"personal":["seen","watching","liked"],"group":"developers","channel":"general","channelId":1,"channelType":"public","thread":false,"first":false,"members":0,"trust":0,"orderRank":18,"with":["link"],"topicId":"1037","topicCreated":"2026-09-10","topicAuthor":"arun","postType":"whisper","pinned":false,"wiki":false,"bot":false,"files":[],"locale":"en","badges":["member","regular"],"privateMessage":false,"directMessage":false,"groupInbox":"","assigned":"leo","solved":true,"poll":false,"votes":0,"parentCategory":"support","categoryAncestors":["support"],"allowedUsers":[],"publicCategory":true,"solvedEnabled":true,"solutionsEnabled":true,"tagGroups":["search-topics"],"badgeIds":[12,13],"lastVisitedAt":"2026-09-13T08:45:00Z"},{"type":"post","id":"p-2045","title":"Native component library: September update","text":"The new menu feels much better in dark mode. I added a quick video showing keyboard navigation between the filter list and its submenus.","username":"arun","name":"Arun Mehta","category":"team-notes","tags":["components","design","keyboard"],"created":"2026-09-09","updated":"2026-09-09","likes":9,"views":782,"replies":12,"posts":13,"status":["open","listed"],"personal":["seen","tracked"],"group":"developers","channel":"general","channelId":1,"channelType":"public","thread":false,"first":false,"members":0,"trust":0,"orderRank":19,"with":["video"],"topicId":"1035","topicCreated":"2026-09-07","topicAuthor":"leo","postType":"regular","pinned":true,"wiki":true,"bot":false,"files":["mp4","zip"],"locale":"en","badges":["member","helpful"],"privateMessage":false,"directMessage":false,"groupInbox":"","assigned":"","solved":false,"poll":false,"votes":0,"parentCategory":"dev","categoryAncestors":["dev"],"allowedUsers":[],"publicCategory":false,"solvedEnabled":false,"solutionsEnabled":false,"tagGroups":["design-topics"],"badgeIds":[12,101],"lastVisitedAt":"2026-09-09T18:15:00Z"},{"type":"post","id":"p-2046","title":"Helping new members find their first conversation","text":"One thing we learned from the welcome chat: people search for a person as often as a topic. A short bio in user results helps them recognize the right person.","username":"jules","name":"Jules Martin","category":"ux","tags":["onboarding","design"],"created":"2026-09-08","updated":"2026-09-10","likes":6,"views":543,"replies":7,"posts":8,"status":["open","listed"],"personal":["unseen"],"group":"moderators","channel":"general","channelId":1,"channelType":"public","thread":false,"first":false,"members":0,"trust":0,"orderRank":20,"with":[],"topicId":"1032","topicCreated":"2026-09-02","topicAuthor":"jules","postType":"regular","pinned":false,"wiki":false,"bot":false,"files":[],"locale":"fr","badges":["member","welcome"],"privateMessage":false,"directMessage":false,"groupInbox":"","assigned":"","solved":false,"poll":true,"votes":9,"allowedUsers":[],"publicCategory":true,"parentCategory":"","categoryAncestors":[],"solvedEnabled":true,"solutionsEnabled":true,"tagGroups":["design-topics","community-topics"],"badgeIds":[12,15],"lastVisitedAt":null},{"type":"user","id":"u-101","title":"Mira Laurent","text":"Product designer making community software feel more human. Working on global search, discovery, and the little details that help people feel at home.","username":"mira","name":"Mira Laurent","category":"ux","tags":["design","search"],"created":"2021-03-14","updated":"2026-09-13","likes":1284,"views":0,"replies":0,"posts":438,"status":["open","listed"],"personal":["seen"],"group":"design","channel":"general","channelId":1,"channelType":"public","thread":false,"first":false,"members":0,"trust":4,"orderRank":3,"with":[],"groups":["design","developers"],"badges":["member","regular","team"],"stats":{"all":{"likes_received":1284,"likes_given":912,"topics_entered":2190,"topic_count":53,"post_count":438,"posts_read":13578,"days_visited":1138},"yearly":{"likes_received":539,"likes_given":383,"topics_entered":920,"topic_count":22,"post_count":184,"posts_read":5703,"days_visited":365},"quarterly":{"likes_received":205,"likes_given":146,"topics_entered":350,"topic_count":8,"post_count":70,"posts_read":2172,"days_visited":92},"monthly":{"likes_received":69,"likes_given":49,"topics_entered":118,"topic_count":3,"post_count":24,"posts_read":733,"days_visited":31},"weekly":{"likes_received":19,"likes_given":14,"topics_entered":33,"topic_count":1,"post_count":7,"posts_read":204,"days_visited":7},"daily":{"likes_received":3,"likes_given":2,"topics_entered":5,"topic_count":0,"post_count":1,"posts_read":33,"days_visited":1}},"badgeIds":[12,13,102]},{"type":"user","id":"u-102","title":"Clara Bennett","text":"Interaction design and accessibility. Usually thinking about keyboard navigation, thoughtful defaults, and making the next action obvious.","username":"clara","name":"Clara Bennett","category":"ux","tags":["design","keyboard","accessibility"],"created":"2022-07-09","updated":"2026-09-13","likes":867,"views":0,"replies":0,"posts":294,"status":["open","listed"],"personal":["seen"],"group":"design","channel":"general","channelId":1,"channelType":"public","thread":false,"first":false,"members":0,"trust":3,"orderRank":7,"with":[],"groups":["design","accessibility"],"badges":["member","regular"],"stats":{"all":{"likes_received":867,"likes_given":685,"topics_entered":1487,"topic_count":38,"post_count":294,"posts_read":9187,"days_visited":764},"yearly":{"likes_received":364,"likes_given":288,"topics_entered":625,"topic_count":16,"post_count":123,"posts_read":3859,"days_visited":321},"quarterly":{"likes_received":139,"likes_given":110,"topics_entered":238,"topic_count":6,"post_count":47,"posts_read":1470,"days_visited":92},"monthly":{"likes_received":47,"likes_given":37,"topics_entered":80,"topic_count":2,"post_count":16,"posts_read":496,"days_visited":31},"weekly":{"likes_received":13,"likes_given":10,"topics_entered":22,"topic_count":1,"post_count":4,"posts_read":138,"days_visited":7},"daily":{"likes_received":2,"likes_given":2,"topics_entered":4,"topic_count":0,"post_count":1,"posts_read":22,"days_visited":1}},"badgeIds":[12,13]},{"type":"user","id":"u-103","title":"Leo Navarro","text":"Developer on the Native component library. Happy to chat about search performance, rendering, and the space between design and code.","username":"leo","name":"Leo Navarro","category":"dev","tags":["components","search","design"],"created":"2020-11-23","updated":"2026-09-12","likes":2140,"views":0,"replies":0,"posts":926,"status":["open","listed"],"personal":["seen"],"group":"developers","channel":"general","channelId":1,"channelType":"public","thread":false,"first":false,"members":0,"trust":4,"orderRank":9,"with":[],"groups":["developers"],"badges":["member","regular","team"],"stats":{"all":{"likes_received":2140,"likes_given":1862,"topics_entered":4664,"topic_count":128,"post_count":926,"posts_read":28852,"days_visited":1546},"yearly":{"likes_received":899,"likes_given":782,"topics_entered":1959,"topic_count":54,"post_count":389,"posts_read":12118,"days_visited":365},"quarterly":{"likes_received":342,"likes_given":298,"topics_entered":746,"topic_count":20,"post_count":148,"posts_read":4616,"days_visited":92},"monthly":{"likes_received":116,"likes_given":101,"topics_entered":252,"topic_count":7,"post_count":50,"posts_read":1558,"days_visited":31},"weekly":{"likes_received":32,"likes_given":28,"topics_entered":70,"topic_count":2,"post_count":14,"posts_read":433,"days_visited":7},"daily":{"likes_received":0,"likes_given":0,"topics_entered":0,"topic_count":0,"post_count":0,"posts_read":0,"days_visited":0}},"badgeIds":[12,13,102]},{"type":"user","id":"u-104","title":"Arun Mehta","text":"Frontend developer and enthusiastic bug reporter. Testing search, keyboard shortcuts, and all the paths people find that we did not expect.","username":"arun","name":"Arun Mehta","category":"dev","tags":["search","keyboard"],"created":"2023-02-18","updated":"2026-09-13","likes":342,"views":0,"replies":0,"posts":187,"status":["open","listed"],"personal":["seen"],"group":"developers","channel":"general","channelId":1,"channelType":"public","thread":false,"first":false,"members":0,"trust":2,"orderRank":13,"with":[],"groups":["developers","accessibility"],"badges":["member","helpful"],"stats":{"all":{"likes_received":342,"likes_given":325,"topics_entered":986,"topic_count":27,"post_count":187,"posts_read":6016,"days_visited":652},"yearly":{"likes_received":144,"likes_given":136,"topics_entered":414,"topic_count":11,"post_count":79,"posts_read":2527,"days_visited":274},"quarterly":{"likes_received":55,"likes_given":52,"topics_entered":158,"topic_count":4,"post_count":30,"posts_read":963,"days_visited":92},"monthly":{"likes_received":18,"likes_given":18,"topics_entered":53,"topic_count":1,"post_count":10,"posts_read":325,"days_visited":31},"weekly":{"likes_received":5,"likes_given":5,"topics_entered":15,"topic_count":0,"post_count":3,"posts_read":90,"days_visited":7},"daily":{"likes_received":1,"likes_given":1,"topics_entered":2,"topic_count":0,"post_count":0,"posts_read":14,"days_visited":1}},"badgeIds":[12,101]},{"type":"user","id":"u-105","title":"Nora Chen","text":"Design researcher, community gardener, and advocate for accessible dark mode. I listen, take notes, and ask one more question.","username":"nora","name":"Nora Chen","category":"ux","tags":["design","accessibility"],"created":"2022-05-04","updated":"2026-09-11","likes":623,"views":0,"replies":0,"posts":256,"status":["open","listed"],"personal":["seen"],"group":"design","channel":"general","channelId":1,"channelType":"public","thread":false,"first":false,"members":0,"trust":3,"orderRank":17,"with":[],"groups":["design","accessibility"],"badges":["member","regular","team"],"stats":{"all":{"likes_received":623,"likes_given":642,"topics_entered":1348,"topic_count":40,"post_count":256,"posts_read":8228,"days_visited":827},"yearly":{"likes_received":262,"likes_given":270,"topics_entered":566,"topic_count":17,"post_count":108,"posts_read":3456,"days_visited":347},"quarterly":{"likes_received":100,"likes_given":103,"topics_entered":216,"topic_count":6,"post_count":41,"posts_read":1316,"days_visited":92},"monthly":{"likes_received":34,"likes_given":35,"topics_entered":73,"topic_count":2,"post_count":14,"posts_read":444,"days_visited":31},"weekly":{"likes_received":9,"likes_given":10,"topics_entered":20,"topic_count":1,"post_count":4,"posts_read":123,"days_visited":7},"daily":{"likes_received":0,"likes_given":0,"topics_entered":0,"topic_count":0,"post_count":0,"posts_read":0,"days_visited":0}},"badgeIds":[12,13,102]},{"type":"user","id":"u-106","title":"Sam Okafor","text":"Helping teams build welcoming communities. Working on chat, onboarding, and better ways to search the knowledge people share every day.","username":"sam","name":"Sam Okafor","category":"general","tags":["chat","search","community"],"created":"2021-08-26","updated":"2026-09-13","likes":1576,"views":0,"replies":0,"posts":612,"status":["open","listed"],"personal":["seen"],"group":"team","channel":"general","channelId":1,"channelType":"public","thread":false,"first":false,"members":0,"trust":4,"orderRank":20,"with":[],"groups":["design","developers","moderators"],"badges":["member","regular","team"],"stats":{"all":{"likes_received":1576,"likes_given":1749,"topics_entered":3145,"topic_count":101,"post_count":612,"posts_read":19337,"days_visited":1065},"yearly":{"likes_received":662,"likes_given":735,"topics_entered":1321,"topic_count":42,"post_count":257,"posts_read":8122,"days_visited":365},"quarterly":{"likes_received":252,"likes_given":280,"topics_entered":503,"topic_count":16,"post_count":98,"posts_read":3094,"days_visited":92},"monthly":{"likes_received":85,"likes_given":94,"topics_entered":170,"topic_count":5,"post_count":33,"posts_read":1044,"days_visited":31},"weekly":{"likes_received":24,"likes_given":26,"topics_entered":47,"topic_count":2,"post_count":9,"posts_read":290,"days_visited":7},"daily":{"likes_received":4,"likes_given":4,"topics_entered":8,"topic_count":0,"post_count":1,"posts_read":46,"days_visited":1}},"badgeIds":[12,13,102]},{"type":"user","id":"u-107","title":"Jules Martin","text":"Community moderator. I host the weekly welcome chat and help new members find people, groups, and conversations that matter to them.","username":"jules","name":"Jules Martin","category":"general","tags":["chat","onboarding"],"created":"2024-01-12","updated":"2026-09-12","likes":428,"views":0,"replies":0,"posts":209,"status":["open","listed"],"personal":["seen"],"group":"moderators","channel":"general","channelId":1,"channelType":"public","thread":false,"first":false,"members":0,"trust":3,"orderRank":23,"with":[],"groups":["moderators"],"badges":["member","regular","team","helpful"],"stats":{"all":{"likes_received":428,"likes_given":509,"topics_entered":1147,"topic_count":36,"post_count":209,"posts_read":6917,"days_visited":559},"yearly":{"likes_received":180,"likes_given":214,"topics_entered":482,"topic_count":15,"post_count":88,"posts_read":2905,"days_visited":235},"quarterly":{"likes_received":68,"likes_given":81,"topics_entered":184,"topic_count":6,"post_count":33,"posts_read":1107,"days_visited":89},"monthly":{"likes_received":23,"likes_given":27,"topics_entered":62,"topic_count":2,"post_count":11,"posts_read":374,"days_visited":30},"weekly":{"likes_received":6,"likes_given":8,"topics_entered":17,"topic_count":1,"post_count":3,"posts_read":104,"days_visited":7},"daily":{"likes_received":0,"likes_given":0,"topics_entered":0,"topic_count":0,"post_count":0,"posts_read":0,"days_visited":0}},"badgeIds":[12,13,102,101]},{"type":"user","id":"u-108","title":"Joffrey Jaffeux","text":"Building a thoughtful native home for Discourse. Working with the design team on global search, keyboard navigation, and the component library.","username":"joffrey","name":"Joffrey Jaffeux","category":"dev","tags":["search","design","keyboard"],"created":"2020-06-03","updated":"2026-09-13","likes":982,"views":0,"replies":0,"posts":367,"status":["open","listed"],"personal":["seen"],"group":"design","channel":"general","channelId":1,"channelType":"public","thread":false,"first":false,"members":0,"trust":4,"orderRank":15,"with":[],"groups":["design"],"badges":["member","regular","team"],"stats":{"all":{"likes_received":982,"likes_given":1248,"topics_entered":2140,"topic_count":74,"post_count":367,"posts_read":14382,"days_visited":1196},"yearly":{"likes_received":393,"likes_given":499,"topics_entered":856,"topic_count":30,"post_count":147,"posts_read":5753,"days_visited":365},"quarterly":{"likes_received":167,"likes_given":212,"topics_entered":364,"topic_count":13,"post_count":62,"posts_read":2445,"days_visited":92},"monthly":{"likes_received":49,"likes_given":62,"topics_entered":107,"topic_count":4,"post_count":18,"posts_read":719,"days_visited":31},"weekly":{"likes_received":13,"likes_given":16,"topics_entered":28,"topic_count":1,"post_count":5,"posts_read":187,"days_visited":7},"daily":{"likes_received":2,"likes_given":2,"topics_entered":4,"topic_count":0,"post_count":1,"posts_read":29,"days_visited":1}},"badgeIds":[12,13,102]},{"type":"group","id":"g-201","title":"Design","text":"A place for product design, interaction patterns, accessibility, and thoughtful feedback. Currently exploring global search and keyboard navigation.","username":"design","name":"Design","category":"ux","tags":["design","search","keyboard"],"created":"2020-04-06","updated":"2026-09-13","likes":0,"views":0,"replies":0,"posts":1820,"status":["open","listed"],"personal":["seen"],"group":"design","channel":"general","channelId":1,"channelType":"public","thread":false,"first":false,"members":24,"trust":0,"orderRank":4,"with":[],"groupType":"public","mine":true,"owner":true,"automatic":false,"usernames":["mira","clara","nora","sam","joffrey"],"membersVisible":true},{"type":"group","id":"g-202","title":"Developers","text":"The people building and maintaining the community. Discuss APIs, search indexing, chat integrations, and the Native component library.","username":"developers","name":"Developers","category":"dev","tags":["development","search","chat"],"created":"2019-10-11","updated":"2026-09-13","likes":0,"views":0,"replies":0,"posts":4230,"status":["open","listed"],"personal":["seen"],"group":"developers","channel":"general","channelId":1,"channelType":"public","thread":false,"first":false,"members":86,"trust":0,"orderRank":11,"with":[],"groupType":"public","mine":false,"owner":false,"automatic":false,"usernames":["leo","arun","mira","sam"],"membersVisible":true},{"type":"group","id":"g-203","title":"Moderators","text":"The community’s staff and moderators, kept in sync automatically. Find us for help with groups, topic organization, search, or chat guidelines.","username":"moderators","name":"Moderators","category":"general","tags":["community","search","chat"],"created":"2019-10-11","updated":"2026-09-12","likes":0,"views":0,"replies":0,"posts":2914,"status":["open","listed"],"personal":["seen"],"group":"moderators","channel":"general","channelId":1,"channelType":"public","thread":false,"first":false,"members":12,"trust":0,"orderRank":18,"with":[],"groupType":"close","mine":false,"owner":false,"automatic":true,"usernames":["jules","sam","evan"],"membersVisible":true},{"type":"group","id":"g-204","title":"Community team","text":"Working together on the everyday details of a healthy community, from onboarding and chat to the next design review.","username":"team","name":"Community team","category":"general","tags":["community","design","chat"],"created":"2020-01-20","updated":"2026-09-12","likes":0,"views":0,"replies":0,"posts":3167,"status":["open","listed"],"personal":["seen"],"group":"team","channel":"general","channelId":1,"channelType":"public","thread":false,"first":false,"members":18,"trust":0,"orderRank":24,"with":[],"groupType":"close","mine":true,"owner":false,"automatic":false,"usernames":["sam","mira","leo","nora","jules","joffrey"],"membersVisible":false},{"type":"group","id":"g-205","title":"Accessibility champions","text":"Sharing practical feedback on keyboard access, screen readers, color, and inclusive design. Everyone is welcome to test, learn, and contribute.","username":"accessibility","name":"Accessibility champions","category":"ux","tags":["keyboard","accessibility","design"],"created":"2025-02-05","updated":"2026-09-10","likes":0,"views":0,"replies":0,"posts":364,"status":["open","listed"],"personal":["seen"],"group":"design","channel":"general","channelId":1,"channelType":"public","thread":false,"first":false,"members":31,"trust":0,"orderRank":27,"with":[],"groupType":"public","mine":false,"owner":false,"automatic":false,"usernames":["clara","nora","arun"],"membersVisible":true},{"type":"chat","id":"c-3001","title":"design","text":"The search prototype is ready for another look. I kept the filter chips visible, even when the menu is closed. Curious how it feels with the keyboard.","username":"mira","name":"Mira Laurent","category":"ux","tags":["search","design","keyboard"],"created":"2026-09-13","updated":"2026-09-13","likes":8,"views":0,"replies":0,"posts":1,"status":["open","listed"],"personal":["seen"],"group":"design","channel":"design","channelId":2,"channelType":"public","thread":true,"first":false,"members":0,"trust":0,"orderRank":5,"with":["image","link"],"threadStarter":true},{"type":"chat","id":"c-3002","title":"design","text":"I tried the global search design this morning. Being able to jump from a topic result to the person who wrote it feels really natural.","username":"clara","name":"Clara Bennett","category":"ux","tags":["search","design"],"created":"2026-09-13","updated":"2026-09-13","likes":5,"views":0,"replies":0,"posts":1,"status":["open","listed"],"personal":["seen"],"group":"design","channel":"design","channelId":2,"channelType":"public","thread":true,"first":false,"members":0,"trust":0,"orderRank":12,"with":[],"threadStarter":false},{"type":"chat","id":"c-3003","title":"dev","text":"The chat search endpoint is returning channel details now. We should have everything needed to show the author, channel, and a useful snippet.","username":"leo","name":"Leo Navarro","category":"dev","tags":["chat","search"],"created":"2026-09-12","updated":"2026-09-12","likes":4,"views":0,"replies":0,"posts":1,"status":["open","listed"],"personal":["seen"],"group":"developers","channel":"dev","channelId":3,"channelType":"public","thread":false,"first":false,"members":0,"trust":0,"orderRank":14,"with":["link"],"threadStarter":false},{"type":"chat","id":"c-3004","title":"general","text":"Does anyone remember the design thread about keyboard shortcuts? I am helping a new member set up their workflow and would love to send it along.","username":"jules","name":"Jules Martin","category":"general","tags":["design","keyboard"],"created":"2026-09-12","updated":"2026-09-12","likes":2,"views":0,"replies":0,"posts":1,"status":["open","listed"],"personal":["seen"],"group":"moderators","channel":"general","channelId":1,"channelType":"public","thread":false,"first":false,"members":0,"trust":0,"orderRank":19,"with":[],"threadStarter":false},{"type":"chat","id":"c-3005","title":"dev","text":"Found the keyboard focus issue in search. The input was being recreated when the result type changed. A small fix, and it feels much steadier now.","username":"arun","name":"Arun Mehta","category":"dev","tags":["keyboard","search"],"created":"2026-09-11","updated":"2026-09-11","likes":6,"views":0,"replies":0,"posts":1,"status":["open","listed"],"personal":["seen"],"group":"developers","channel":"dev","channelId":3,"channelType":"public","thread":true,"first":false,"members":0,"trust":0,"orderRank":21,"with":["video"],"threadStarter":true},{"type":"chat","id":"c-3006","title":"design","text":"A quick dark-mode comparison. The slightly warmer background makes the design feel less stark, and the filter chips are easier to pick out.","username":"nora","name":"Nora Chen","category":"ux","tags":["design","dark-mode"],"created":"2026-09-10","updated":"2026-09-10","likes":9,"views":0,"replies":0,"posts":1,"status":["open","listed"],"personal":["seen"],"group":"design","channel":"design","channelId":2,"channelType":"public","thread":false,"first":false,"members":0,"trust":0,"orderRank":26,"with":["image"],"threadStarter":false},{"type":"chat","id":"c-3007","title":"team","text":"For tomorrow’s review, let’s try searching for the same phrase across topics, users, groups, and chat. It should feel like one continuous search.","username":"sam","name":"Sam Okafor","category":"general","tags":["search","chat"],"created":"2026-09-12","updated":"2026-09-12","likes":3,"views":0,"replies":0,"posts":1,"status":["open","listed"],"personal":["seen"],"group":"team","channel":"team","channelId":4,"channelType":"private","thread":false,"first":false,"members":0,"trust":0,"orderRank":29,"with":[],"threadStarter":false},{"type":"chat","id":"c-3008","title":"general","text":"Welcome to the community! If you are interested in design, start with the Design group. The weekly chat is a friendly place to share a first idea.","username":"jules","name":"Jules Martin","category":"general","tags":["design","chat","onboarding"],"created":"2026-09-09","updated":"2026-09-09","likes":7,"views":0,"replies":0,"posts":1,"status":["open","listed"],"personal":["seen"],"group":"moderators","channel":"general","channelId":1,"channelType":"public","thread":false,"first":false,"members":0,"trust":0,"orderRank":31,"with":[],"threadStarter":false},{"type":"chat","id":"c-3009","title":"Mira & you","text":"I left a few notes on the keyboard flow in your search prototype. The design is feeling close; the nested filter menu is the bit I would revisit together.","username":"mira","name":"Mira Laurent","category":"ux","tags":["search","design","keyboard"],"created":"2026-09-11","updated":"2026-09-11","likes":1,"views":0,"replies":0,"posts":1,"status":["open","listed"],"personal":["seen","bookmarked"],"group":"design","channel":"team","channelId":5,"channelType":"dm","thread":false,"first":false,"members":0,"trust":0,"orderRank":34,"with":["link"],"threadStarter":false},{"type":"chat","id":"c-3010","title":"dev","text":"Here is a short recording of the search indexing walkthrough from today. We also cover how chat messages become searchable and what happens when a channel is private.","username":"leo","name":"Leo Navarro","category":"dev","tags":["search","chat"],"created":"2026-09-08","updated":"2026-09-08","likes":4,"views":0,"replies":0,"posts":1,"status":["open","listed"],"personal":["seen"],"group":"developers","channel":"dev","channelId":3,"channelType":"public","thread":true,"first":false,"members":0,"trust":0,"orderRank":37,"with":["audio","link"],"threadStarter":true}];
+/* END FIXTURES */
+/* START FILTERS */
+const FILTERS = [
+  {
+    "id": "category",
+    "label": "Category",
+    "icon": "folder",
+    "scope": "forum",
+    "group": "Where",
+    "kind": "multi",
+    "ops": [
+      {
+        "value": "any",
+        "label": "include subcategories"
+      },
+      {
+        "value": "exactCategory",
+        "label": "only these categories"
+      }
+    ],
+    "token": "category",
+    "placeholder": "Choose categories",
+    "help": "Choose one or more categories. Multiple categories match any selected category."
+  },
+  {
+    "id": "tags",
+    "label": "Tags",
+    "icon": "tag",
+    "scope": "forum",
+    "group": "Where",
+    "kind": "multi",
+    "ops": [
+      {
+        "value": "any",
+        "label": "include any"
+      },
+      {
+        "value": "all",
+        "label": "include all"
+      },
+      {
+        "value": "none",
+        "label": "exclude any"
+      },
+      {
+        "value": "notAll",
+        "label": "exclude combination"
+      }
+    ],
+    "token": "tags",
+    "placeholder": "Choose tags",
+    "help": "Match any tag, every tag, or exclude selected tags."
+  },
+  {
+    "id": "author",
+    "label": "Posted by",
+    "icon": "user",
+    "scope": "forum",
+    "group": "People",
+    "kind": "text",
+    "ops": [
+      {
+        "value": "is",
+        "label": "is"
+      }
+    ],
+    "token": "@",
+    "placeholder": "Username or me",
+    "help": "Find posts written by a specific person. Use me for your posts."
+  },
+  {
+    "id": "topicAuthor",
+    "label": "Started by",
+    "icon": "user",
+    "scope": "forum",
+    "group": "People",
+    "kind": "text",
+    "ops": [
+      {
+        "value": "is",
+        "label": "is"
+      }
+    ],
+    "token": "created:@",
+    "placeholder": "Username",
+    "help": "Find opening posts written by this person."
+  },
+  {
+    "id": "authorGroup",
+    "label": "Author’s group",
+    "icon": "users",
+    "scope": "forum",
+    "group": "People",
+    "kind": "text",
+    "ops": [
+      {
+        "value": "is",
+        "label": "is"
+      }
+    ],
+    "token": "group",
+    "placeholder": "Group name",
+    "help": "Find posts written by members of a group whose membership you can view."
+  },
+  {
+    "id": "groupInbox",
+    "label": "Group inbox",
+    "icon": "mail",
+    "scope": "forum",
+    "group": "Where",
+    "kind": "text",
+    "ops": [
+      {
+        "value": "is",
+        "label": "is"
+      }
+    ],
+    "token": "group_messages",
+    "placeholder": "Group name",
+    "help": "Search personal messages addressed to this group."
+  },
+  {
+    "id": "searchIn",
+    "label": "Search in",
+    "icon": "search",
+    "scope": "forum",
+    "group": "Where",
+    "kind": "choice",
+    "ops": [
+      {
+        "value": "is",
+        "label": "is"
+      }
+    ],
+    "choices": [
+      {
+        "value": "title",
+        "label": "Topic titles",
+        "token": "in:title"
+      },
+      {
+        "value": "first",
+        "label": "Opening posts",
+        "token": "in:first"
+      },
+      {
+        "value": "replies",
+        "label": "Replies",
+        "token": "in:replies"
+      },
+      {
+        "value": "allPosts",
+        "label": "Every matching post",
+        "token": "in:all-posts"
+      }
+    ],
+    "help": "By default, results are grouped by topic. Every matching post shows separate results from the same topic."
+  },
+  {
+    "id": "privateMessages",
+    "label": "Messages & topics",
+    "icon": "mail",
+    "scope": "forum",
+    "group": "Where",
+    "kind": "choice",
+    "ops": [
+      {
+        "value": "is",
+        "label": "is"
+      }
+    ],
+    "choices": [
+      {
+        "value": "all",
+        "label": "Topics and my messages",
+        "token": "in:all"
+      },
+      {
+        "value": "personal",
+        "label": "My personal messages",
+        "token": "in:personal"
+      },
+      {
+        "value": "direct",
+        "label": "One-to-one personal messages",
+        "token": "in:personal-direct"
+      }
+    ],
+    "help": "Search the topics and personal messages available to your account."
+  },
+  {
+    "id": "activity",
+    "label": "My activity",
+    "icon": "bookmark",
+    "scope": "forum",
+    "group": "Personal",
+    "kind": "choice",
+    "ops": [
+      {
+        "value": "is",
+        "label": "is"
+      }
+    ],
+    "choices": [
+      {
+        "value": "seen",
+        "label": "Read posts",
+        "token": "in:seen"
+      },
+      {
+        "value": "unseen",
+        "label": "Unread posts",
+        "token": "in:unseen"
+      },
+      {
+        "value": "watching",
+        "label": "Watching",
+        "token": "in:watching"
+      },
+      {
+        "value": "tracking",
+        "label": "Tracking or watching",
+        "token": "in:tracking"
+      },
+      {
+        "value": "bookmarks",
+        "label": "Bookmarked posts",
+        "token": "in:bookmarks"
+      },
+      {
+        "value": "likes",
+        "label": "Liked posts",
+        "token": "in:likes"
+      },
+      {
+        "value": "posted",
+        "label": "My posts",
+        "token": "in:posted"
+      },
+      {
+        "value": "created",
+        "label": "Topics I started",
+        "token": "in:created"
+      }
+    ],
+    "help": "Narrow results using your reading, notification, and posting activity."
+  },
+  {
+    "id": "status",
+    "label": "Topic status",
+    "icon": "status",
+    "scope": "forum",
+    "group": "Content",
+    "kind": "choice",
+    "ops": [
+      {
+        "value": "is",
+        "label": "is"
+      }
+    ],
+    "choices": [
+      {
+        "value": "open",
+        "label": "Open",
+        "token": "status:open"
+      },
+      {
+        "value": "closed",
+        "label": "Closed",
+        "token": "status:closed"
+      },
+      {
+        "value": "archived",
+        "label": "Archived",
+        "token": "status:archived"
+      },
+      {
+        "value": "noreplies",
+        "label": "No replies",
+        "token": "status:noreplies"
+      },
+      {
+        "value": "singleUser",
+        "label": "One participant",
+        "token": "status:single_user"
+      },
+      {
+        "value": "public",
+        "label": "Public categories",
+        "token": "status:public"
+      }
+    ],
+    "help": "Open topics are neither closed nor archived."
+  },
+  {
+    "id": "postType",
+    "label": "Post type",
+    "icon": "post",
+    "scope": "forum",
+    "group": "Content",
+    "kind": "choice",
+    "ops": [
+      {
+        "value": "is",
+        "label": "is"
+      }
+    ],
+    "choices": [
+      {
+        "value": "regular",
+        "label": "Regular posts",
+        "token": "in:regular"
+      },
+      {
+        "value": "wiki",
+        "label": "Wiki posts",
+        "token": "in:wiki"
+      },
+      {
+        "value": "pinned",
+        "label": "Posts in pinned topics",
+        "token": "in:pinned"
+      },
+      {
+        "value": "bot",
+        "label": "Posts by bots",
+        "token": "in:bot"
+      },
+      {
+        "value": "human",
+        "label": "Posts by people",
+        "token": "in:human"
+      }
+    ],
+    "help": "Choose the type of post to find."
+  },
+  {
+    "id": "content",
+    "label": "Contains",
+    "icon": "image",
+    "scope": "forum",
+    "group": "Content",
+    "kind": "choice",
+    "ops": [
+      {
+        "value": "is",
+        "label": "is"
+      }
+    ],
+    "choices": [
+      {
+        "value": "images",
+        "label": "Images",
+        "token": "with:images"
+      },
+      {
+        "value": "tagged",
+        "label": "At least one tag",
+        "token": "in:tagged"
+      },
+      {
+        "value": "untagged",
+        "label": "No tags",
+        "token": "in:untagged"
+      }
+    ],
+    "help": "Find posts with images or topics with or without tags."
+  },
+  {
+    "id": "files",
+    "label": "File types",
+    "icon": "folder",
+    "scope": "forum",
+    "group": "Content",
+    "kind": "text",
+    "ops": [
+      {
+        "value": "any",
+        "label": "include any"
+      }
+    ],
+    "token": "filetypes",
+    "placeholder": "pdf, png, jpg",
+    "help": "Enter one or more file extensions, separated by commas."
+  },
+  {
+    "id": "postDate",
+    "label": "Post date",
+    "icon": "calendar",
+    "scope": "forum",
+    "group": "Dates & counts",
+    "kind": "date",
+    "ops": [
+      {
+        "value": "after",
+        "label": "after"
+      },
+      {
+        "value": "before",
+        "label": "before"
+      }
+    ],
+    "token": "after",
+    "opTokens": {
+      "after": "after",
+      "before": "before"
+    },
+    "placeholder": "YYYY-MM-DD",
+    "help": "Match when a post was created."
+  },
+  {
+    "id": "postCount",
+    "label": "Post count",
+    "icon": "topics",
+    "scope": "forum",
+    "group": "Dates & counts",
+    "kind": "number",
+    "ops": [
+      {
+        "value": "gte",
+        "label": "at least"
+      },
+      {
+        "value": "lte",
+        "label": "at most"
+      },
+      {
+        "value": "eq",
+        "label": "exactly"
+      }
+    ],
+    "token": "min_posts",
+    "opTokens": {
+      "gte": "min_posts",
+      "lte": "max_posts",
+      "eq": "posts_count"
+    },
+    "placeholder": "10",
+    "help": "Count all posts in the topic, including the opening post."
+  },
+  {
+    "id": "viewCount",
+    "label": "Views",
+    "icon": "eye",
+    "scope": "forum",
+    "group": "Dates & counts",
+    "kind": "number",
+    "ops": [
+      {
+        "value": "gte",
+        "label": "at least"
+      },
+      {
+        "value": "lte",
+        "label": "at most"
+      }
+    ],
+    "token": "min_views",
+    "opTokens": {
+      "gte": "min_views",
+      "lte": "max_views"
+    },
+    "placeholder": "100",
+    "help": "Match the topic’s view count."
+  },
+  {
+    "id": "locale",
+    "label": "Language",
+    "icon": "globe",
+    "scope": "forum",
+    "group": "Content",
+    "kind": "text",
+    "ops": [
+      {
+        "value": "is",
+        "label": "is"
+      }
+    ],
+    "token": "locale",
+    "placeholder": "en, fr, any, or none",
+    "choices": [
+      {
+        "value": "en",
+        "label": "English",
+        "token": "locale:en"
+      },
+      {
+        "value": "fr",
+        "label": "French",
+        "token": "locale:fr"
+      },
+      {
+        "value": "de",
+        "label": "German",
+        "token": "locale:de"
+      },
+      {
+        "value": "es",
+        "label": "Spanish",
+        "token": "locale:es"
+      },
+      {
+        "value": "any",
+        "label": "Any detected language",
+        "token": "locale:any"
+      },
+      {
+        "value": "none",
+        "label": "No detected language",
+        "token": "locale:none"
+      }
+    ],
+    "help": "Enter a language code, any for a detected language, or none for posts without one."
+  },
+  {
+    "id": "badge",
+    "label": "Author’s badge",
+    "icon": "badge",
+    "scope": "forum",
+    "group": "People",
+    "kind": "text",
+    "ops": [
+      {
+        "value": "is",
+        "label": "is"
+      }
+    ],
+    "token": "badge",
+    "placeholder": "Badge name or ID",
+    "help": "Find posts written by users who hold this badge."
+  },
+  {
+    "id": "topicId",
+    "label": "Specific topic",
+    "icon": "topics",
+    "scope": "forum",
+    "group": "Where",
+    "kind": "number",
+    "ops": [
+      {
+        "value": "is",
+        "label": "is"
+      }
+    ],
+    "token": "topic",
+    "placeholder": "Topic ID",
+    "help": "Search posts within one topic."
+  },
+  {
+    "id": "hashtag",
+    "label": "Category, tag or tag group",
+    "icon": "hash",
+    "scope": "forum",
+    "group": "Advanced",
+    "kind": "text",
+    "ops": [
+      {
+        "value": "is",
+        "label": "is"
+      }
+    ],
+    "token": "#",
+    "placeholder": "Category, tag, or tag group slug",
+    "help": "Look up a category first, then a tag, then a tag group with this slug."
+  },
+  {
+    "id": "visibility",
+    "label": "Unlisted topics",
+    "icon": "eye",
+    "scope": "forum",
+    "group": "Permissions",
+    "kind": "choice",
+    "ops": [
+      {
+        "value": "is",
+        "label": "is"
+      }
+    ],
+    "choices": [
+      {
+        "value": "include",
+        "label": "Include unlisted topics",
+        "token": "include:unlisted"
+      }
+    ],
+    "optional": "staff",
+    "help": "Available when your account can view unlisted topics, including eligible trust level 4 users."
+  },
+  {
+    "id": "whispers",
+    "label": "Whispers",
+    "icon": "lock",
+    "scope": "forum",
+    "group": "Permissions",
+    "kind": "choice",
+    "ops": [
+      {
+        "value": "is",
+        "label": "is"
+      }
+    ],
+    "choices": [
+      {
+        "value": "whispers",
+        "label": "Whisper posts",
+        "token": "in:whisper"
+      }
+    ],
+    "optional": "staff",
+    "help": "Requires permission to read whispers."
+  },
+  {
+    "id": "adminMessages",
+    "label": "All personal messages",
+    "icon": "lock",
+    "scope": "forum",
+    "group": "Permissions",
+    "kind": "choice",
+    "ops": [
+      {
+        "value": "is",
+        "label": "is"
+      }
+    ],
+    "choices": [
+      {
+        "value": "all",
+        "label": "All users’ personal messages",
+        "token": "in:all-pms"
+      }
+    ],
+    "optional": "admin",
+    "help": "Administrator search across personal messages."
+  },
+  {
+    "id": "adminUserMessages",
+    "label": "User’s personal messages",
+    "icon": "mail",
+    "scope": "forum",
+    "group": "Permissions",
+    "kind": "text",
+    "ops": [
+      {
+        "value": "is",
+        "label": "is"
+      }
+    ],
+    "token": "personal_messages",
+    "placeholder": "Username",
+    "optional": "admin",
+    "help": "Administrator search within the personal messages of this user."
+  },
+  {
+    "id": "solved",
+    "label": "Solution",
+    "icon": "status",
+    "scope": "forum",
+    "group": "Extensions",
+    "kind": "choice",
+    "ops": [
+      {
+        "value": "is",
+        "label": "is"
+      }
+    ],
+    "choices": [
+      {
+        "value": "solved",
+        "label": "Solved",
+        "token": "status:solved"
+      },
+      {
+        "value": "unsolved",
+        "label": "Unsolved",
+        "token": "status:unsolved"
+      }
+    ],
+    "optional": "solved",
+    "help": "Find solved topics or unsolved topics in categories that support solutions."
+  },
+  {
+    "id": "assignment",
+    "label": "Assignment",
+    "icon": "user",
+    "scope": "forum",
+    "group": "Extensions",
+    "kind": "choice",
+    "ops": [
+      {
+        "value": "is",
+        "label": "is"
+      }
+    ],
+    "choices": [
+      {
+        "value": "assigned",
+        "label": "Assigned",
+        "token": "in:assigned"
+      },
+      {
+        "value": "unassigned",
+        "label": "Unassigned",
+        "token": "in:unassigned"
+      }
+    ],
+    "optional": "assign",
+    "help": "Requires permission to view assignments."
+  },
+  {
+    "id": "assignee",
+    "label": "Assigned to",
+    "icon": "user",
+    "scope": "forum",
+    "group": "Extensions",
+    "kind": "text",
+    "ops": [
+      {
+        "value": "is",
+        "label": "is"
+      }
+    ],
+    "token": "assigned",
+    "placeholder": "Username or group name",
+    "optional": "assign",
+    "help": "Find topics assigned to a person or group."
+  },
+  {
+    "id": "polls",
+    "label": "Polls",
+    "icon": "status",
+    "scope": "forum",
+    "group": "Extensions",
+    "kind": "choice",
+    "ops": [
+      {
+        "value": "is",
+        "label": "is"
+      }
+    ],
+    "choices": [
+      {
+        "value": "polls",
+        "label": "Contains a poll",
+        "token": "in:polls"
+      }
+    ],
+    "optional": "poll",
+    "help": "Find posts containing polls."
+  },
+  {
+    "id": "votes",
+    "label": "Topic votes",
+    "icon": "heart",
+    "scope": "forum",
+    "group": "Extensions",
+    "kind": "number",
+    "ops": [
+      {
+        "value": "gte",
+        "label": "at least"
+      }
+    ],
+    "token": "min_vote_count",
+    "opTokens": {
+      "gte": "min_vote_count"
+    },
+    "placeholder": "5",
+    "optional": "voting",
+    "help": "Match the number of votes on a topic."
+  },
+  {
+    "id": "userGroup",
+    "label": "Group",
+    "icon": "users",
+    "scope": "users",
+    "group": "People",
+    "kind": "text",
+    "ops": [
+      {
+        "value": "is",
+        "label": "is a member of"
+      },
+      {
+        "value": "excludes",
+        "label": "is not a member of"
+      }
+    ],
+    "token": "group",
+    "opTokens": {
+      "is": "group",
+      "excludes": "exclude_groups"
+    },
+    "placeholder": "Group name",
+    "help": "Select a group whose membership is visible. Exclusions can contain multiple group names."
+  },
+  {
+    "id": "userName",
+    "label": "Username",
+    "icon": "user",
+    "scope": "users",
+    "group": "People",
+    "kind": "text",
+    "ops": [
+      {
+        "value": "is",
+        "label": "is exactly"
+      },
+      {
+        "value": "excludes",
+        "label": "excludes"
+      }
+    ],
+    "token": "username",
+    "opTokens": {
+      "is": "username",
+      "excludes": "exclude_usernames"
+    },
+    "placeholder": "Username",
+    "help": "Match one exact username, or exclude usernames separated by commas."
+  },
+  {
+    "id": "userPeriod",
+    "label": "Activity period",
+    "icon": "calendar",
+    "scope": "users",
+    "group": "Activity",
+    "kind": "choice",
+    "ops": [
+      {
+        "value": "is",
+        "label": "is"
+      }
+    ],
+    "choices": [
+      {
+        "value": "all",
+        "label": "All time",
+        "token": "period=all"
+      },
+      {
+        "value": "yearly",
+        "label": "Year",
+        "token": "period=yearly"
+      },
+      {
+        "value": "quarterly",
+        "label": "Quarter",
+        "token": "period=quarterly"
+      },
+      {
+        "value": "monthly",
+        "label": "Month",
+        "token": "period=monthly"
+      },
+      {
+        "value": "weekly",
+        "label": "Week",
+        "token": "period=weekly"
+      },
+      {
+        "value": "daily",
+        "label": "Day",
+        "token": "period=daily"
+      }
+    ],
+    "help": "Choose the time period used for user activity statistics."
+  },
+  {
+    "id": "groupType",
+    "label": "Group type",
+    "icon": "users",
+    "scope": "groups",
+    "group": "Membership",
+    "kind": "choice",
+    "ops": [
+      {
+        "value": "is",
+        "label": "is"
+      }
+    ],
+    "choices": [
+      {
+        "value": "my",
+        "label": "Groups I joined",
+        "token": "type=my"
+      },
+      {
+        "value": "owner",
+        "label": "Groups I own",
+        "token": "type=owner"
+      },
+      {
+        "value": "public",
+        "label": "Open membership",
+        "token": "type=public"
+      },
+      {
+        "value": "close",
+        "label": "Closed membership",
+        "token": "type=close"
+      },
+      {
+        "value": "non_automatic",
+        "label": "Custom groups",
+        "token": "type=non_automatic"
+      }
+    ],
+    "help": "Filter group membership or admission. Closed membership does not mean the group is hidden."
+  },
+  {
+    "id": "groupAutomatic",
+    "label": "Automatic groups",
+    "icon": "users",
+    "scope": "groups",
+    "group": "Permissions",
+    "kind": "choice",
+    "ops": [
+      {
+        "value": "is",
+        "label": "is"
+      }
+    ],
+    "choices": [
+      {
+        "value": "automatic",
+        "label": "Automatic groups",
+        "token": "type=automatic"
+      }
+    ],
+    "optional": "staff",
+    "help": "Browse automatic groups available to staff."
+  },
+  {
+    "id": "groupMember",
+    "label": "Member",
+    "icon": "user",
+    "scope": "groups",
+    "group": "Membership",
+    "kind": "text",
+    "ops": [
+      {
+        "value": "is",
+        "label": "is"
+      }
+    ],
+    "token": "username",
+    "placeholder": "Username",
+    "help": "Find groups this person belongs to, where group membership is visible."
+  },
+  {
+    "id": "chatAuthor",
+    "label": "Sent by",
+    "icon": "user",
+    "scope": "chat",
+    "group": "People",
+    "kind": "text",
+    "ops": [
+      {
+        "value": "is",
+        "label": "is"
+      }
+    ],
+    "token": "@",
+    "placeholder": "Username or me",
+    "help": "Find messages sent by one person."
+  },
+  {
+    "id": "chatChannel",
+    "label": "Channel",
+    "icon": "hash",
+    "scope": "chat",
+    "group": "Where",
+    "kind": "text",
+    "ops": [
+      {
+        "value": "is",
+        "label": "is"
+      }
+    ],
+    "token": "#",
+    "placeholder": "Channel slug",
+    "help": "Search one channel available to your account."
+  },
+  {
+    "id": "chatThreads",
+    "label": "Thread replies",
+    "icon": "post",
+    "scope": "chat",
+    "group": "Content",
+    "kind": "choice",
+    "ops": [
+      {
+        "value": "is",
+        "label": "is"
+      }
+    ],
+    "choices": [
+      {
+        "value": "include",
+        "label": "Include thread replies",
+        "token": "exclude_threads=false"
+      },
+      {
+        "value": "exclude",
+        "label": "Exclude thread replies",
+        "token": "exclude_threads=true"
+      }
+    ],
+    "help": "Excluding replies still includes messages that started a thread."
+  }
+];
+
+
+/* END FILTERS */
+/* START LOGIC */
+const S={scope:'all',q:'',filters:{forum:[],users:[],groups:[],chat:[]},sort:{all:'relevance',forum:'relevance',users:'username',groups:'name',chat:'relevance'},asc:{users:true,groups:true},settings:{chat:true,solved:true,assign:true,poll:true,voting:false,staff:false,admin:false,userDirectory:true,groupDirectory:true},props:{excerpts:true,category:true,tags:true,author:true,likes:true,replies:true},compact:false,page:1,screen:'search',previous:'home',selected:-1,popup:null,editing:null,editIndex:null,draft:null,loading:false,error:false,rawError:''};
+const ORDERING={forum:[['relevance','Most relevant'],['latest','Latest post'],['oldest','Oldest post'],['latest_topic','Newest topic'],['oldest_topic','Oldest topic'],['views','Most viewed'],['likes','Most liked'],['read','Recently read']],chat:[['relevance','Most relevant'],['latest','Latest message']],users:[['username','Username'],['likes_received','Likes received'],['likes_given','Likes given'],['topics_entered','Topics viewed'],['topic_count','Topics created'],['post_count','Posts created'],['posts_read','Posts read'],['days_visited','Days visited']],groups:[['name','Group name'],['user_count','Member count']],all:[['relevance','Most relevant']]};
+const defaults={forum:'relevance',chat:'relevance',users:'username',groups:'name',all:'relevance'};
+let timer,toastTimer,visibleResults=[],menuAnchor=null,detailItem=null;
+function getHistory(){try{return JSON.parse(localStorage.getItem('native-global-search-history-v1'))||[{q:'keyboard',scope:'all',filters:[]},{q:'search',scope:'forum',filters:[]},{q:'clara',scope:'all',filters:[]}]}catch{return[]}}
+let recent=getHistory();
+function saveHistory(){if(!S.q.trim()&&!activeFilters().length)return;const item={q:S.q,scope:S.scope,filters:structuredClone(activeFilters())};recent=[item,...recent.filter(r=>JSON.stringify(r)!==JSON.stringify(item))].slice(0,7);try{localStorage.setItem('native-global-search-history-v1',JSON.stringify(recent))}catch{}}
+function activeFilters(scope=S.scope){const fs=S.filters[scope];if(!fs)return [];for(let i=fs.length-1;i>=0;i--)if(!canDef(defFor(fs[i].id)))fs.splice(i,1);return fs}
+function defFor(id){return FILTERS.find(d=>d.id===id)}
+function isStaff(){return S.settings.staff||S.settings.admin}
+function directoryAvailable(scope){return scope==='groups'?S.settings.groupDirectory||isStaff():scope==='users'?S.settings.userDirectory:true}
+function canDef(d){if(!d)return false;if(d.optional&&!(d.optional==='staff'?isStaff():S.settings[d.optional]))return false;if(d.scope==='chat'&&!S.settings.chat)return false;if(!directoryAvailable(d.scope))return false;return true}
+function membersVisible(group){return !!group&&(isStaff()||group.membersVisible!==false)}
+function normalizeUser(value){const name=String(value).trim().replace(/^@/,'').toLowerCase();return name==='me'?'joffrey':name}
+function groupFor(value){return DATA.find(x=>x.type==='group'&&x.username.toLowerCase()===String(value).toLowerCase())}
+function availableDefs(){return FILTERS.filter(d=>canDef(d)&&(S.scope==='all'||d.scope===S.scope))}
+function choicesFor(d){if(d.choices?.length)return d.choices;if(d.id==='category')return Object.entries(CATEGORIES).map(([value,c])=>({value,label:c[0]})).sort((a,b)=>a.label.localeCompare(b.label));if(d.id==='tags')return [...new Set(DATA.filter(x=>TYPE_SCOPE[x.type]==='forum').flatMap(x=>x.tags||[]))].sort().map(value=>({value,label:value}));if(d.id==='files')return [...new Set(DATA.filter(x=>TYPE_SCOPE[x.type]==='forum').flatMap(x=>x.files||[]))].sort().map(value=>({value,label:value.toUpperCase()}));const people=DATA.filter(x=>x.type==='user').map(x=>({value:x.username,label:`${x.title} · @${x.username}`}));if(['author','chatAuthor'].includes(d.id))return [{value:'me',label:'Me · joffrey'},...people];if(['topicAuthor','userName','groupMember','adminUserMessages'].includes(d.id))return people;const groups=DATA.filter(x=>x.type==='group'&&membersVisible(x)).map(x=>({value:x.username,label:x.title}));if(['authorGroup','groupInbox','userGroup'].includes(d.id))return groups;if(d.id==='assignee')return [...people,...groups];if(d.id==='chatChannel')return [...new Set(DATA.filter(x=>x.type==='chat'&&x.channelType!=='dm').map(x=>x.channel))].map(value=>({value,label:'#'+value}));if(d.id==='hashtag')return [...choicesFor(defFor('category')),...choicesFor(defFor('tags')),...[...new Set(DATA.flatMap(x=>x.tagGroups||[]))].map(value=>({value,label:value+' · tag group'}))];return []}
+function currentValue(d){return activeFilters(d.scope).find(f=>f.id===d.id)}
+function opLabel(d,op){return d.ops?.find(o=>o.value===op)?.label||'is'}
+function valueLabel(d,f){const values=Array.isArray(f.value)?f.value:[f.value];return values.map(v=>choicesFor(d).find(c=>String(c.value)===String(v))?.label||String(v)).join(f.op==='all'?' + ':', ')}
+function tokenFor(f){const d=defFor(f.id);if(!d||!canDef(d))return '';let v=Array.isArray(f.value)?f.value.join(','):String(f.value);const choice=d.choices?.find(c=>String(c.value)===v);if(choice?.token)return choice.token;if(d.id==='category')return `category:${(Array.isArray(f.value)?f.value:[f.value]).map(x=>f.op==='exactCategory'?'='+x:x).join(',')}`;if(d.id==='tags'){const sep=['all','notAll'].includes(f.op)?'+':',';return `${['none','notAll'].includes(f.op)?'-':''}tags:${(Array.isArray(f.value)?f.value:[f.value]).join(sep)}`}
+const key=d.opTokens?.[f.op]||d.token;if(!key)return '';if(['userName','groupMember'].includes(d.id))v=v.split(',').map(normalizeUser).join(',');if(d.scope==='users'||d.scope==='groups'){if(key==='exclude_groups')v=v.split(/[,|]/).map(x=>x.trim()).filter(Boolean).join('|');return key+'='+v}if(key==='@')return '@'+v.replace(/^@/,'').toLowerCase();if(key==='#')return '#'+v.replace(/^#/,'').toLowerCase();if(key==='created:@')return 'created:@'+normalizeUser(v);if(d.id==='files')v=v.toLowerCase().split(',').map(x=>x.trim().replace(/^\./,'')).join(',');return `${key}:${/\s/.test(v)?'"'+v+'"':v}`}
+function compiled(scope=S.scope){if(scope==='users'||scope==='groups')return S.q.trim();const f=activeFilters(scope).map(tokenFor).filter(Boolean);if(scope==='forum'&&S.sort.forum!=='relevance'&&(S.sort.forum!=='votes'||S.settings.voting))f.push('order:'+S.sort.forum);return [S.q.trim(),...f].filter(Boolean).join(' ')}
+function notify(message){$('toast').textContent=message;$('toast').hidden=false;clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('toast').hidden=true,3400)}
+function prettyDate(date){return new Date(date+'T12:00:00Z').toLocaleDateString('en-US',{month:'short',day:'numeric',...(date.slice(0,4)!=='2026'?{year:'numeric'}:{})})}
+function initials(d){return(d.name||d.title||d.username).split(/\s+/).slice(0,2).map(x=>x[0]).join('').toUpperCase()}
+function avatar(d){const tones=['purple','green','ochre','blue','rose'];return `<span class="d-avatar ${tones[(d.username||'a').charCodeAt(0)%tones.length]}" data-component="DAvatar" aria-hidden="true">${esc(initials(d))}</span>`}
+function words(q){return(q.match(/"[^"]*"|\S+/g)||[]).map(w=>w.replace(/^"|"$/g,'').toLowerCase())}
+function highlight(text){let html=esc(text);const terms=words(S.q).filter(x=>x.length>1&&!x.includes(':'));if(!terms.length)return html;const re=new RegExp('('+terms.map(w=>esc(w).replace(/[.*+?^${}()|[\]\\]/g,'\\$&')).join('|')+')','gi');return html.replace(re,'<mark>$1</mark>')}
+function has(t,value){return(Array.isArray(t)?t:[]).includes(value)}
+function compare(value,op,wanted){return ['gte','min','atLeast'].includes(op)?value>=+wanted:['lte','max','atMost'].includes(op)?value<=+wanted:value===+wanted}
+function filterMatches(x,f){const d=defFor(f.id);if(!d||!canDef(d))return true;let v=Array.isArray(f.value)?String(f.value[0]):String(f.value);const values=(Array.isArray(f.value)?f.value:v.split(/[,|]/)).map(a=>String(a).trim().toLowerCase());v=v.trim().toLowerCase();const tok=tokenFor(f);const suffix=tok.slice(tok.indexOf(':')+1).replace(/^"|"$/g,'');
+switch(f.id){
+case 'category':return values.includes(x.category)||(f.op!=='exactCategory'&&values.some(a=>has(x.categoryAncestors,a)));
+case 'tags':{const matches=values.map(a=>has(x.tags,a));return f.op==='all'?matches.every(Boolean):f.op==='none'?!matches.some(Boolean):f.op==='notAll'?!matches.every(Boolean):matches.some(Boolean)}
+case 'author':case 'chatAuthor':return x.username===normalizeUser(v);
+case 'topicAuthor':return x.first&&x.username===normalizeUser(v);
+case 'authorGroup':return membersVisible(groupFor(v))&&(x.group===v||has(DATA.find(z=>z.type==='user'&&z.username===x.username)?.groups,v)||has(groupFor(v)?.usernames,x.username));
+case 'groupInbox':return x.privateMessage&&x.groupInbox===v&&membersVisible(groupFor(v));
+case 'searchIn':if(suffix==='first')return x.first;if(suffix==='replies')return !x.first;return true;
+case 'privateMessages':return suffix==='personal'?!!x.privateMessage:suffix==='personal-direct'?!!x.privateMessage&&!!x.directMessage:true;
+case 'activity':{if(suffix==='posted')return x.username==='joffrey';if(suffix==='created')return x.username==='joffrey'&&x.first;const map={bookmarks:'bookmarked',likes:'liked',tracking:'tracked'};return has(x.personal,map[suffix]||suffix)||(suffix==='tracking'&&has(x.personal,'watching'))}
+case 'status':if(suffix==='public')return !x.privateMessage&&x.publicCategory!==false;if(suffix==='noreplies')return x.posts===1;if(suffix==='open')return !has(x.status,'closed')&&!has(x.status,'archived');return has(x.status,suffix);
+case 'postType':return suffix==='pinned'?x.pinned:suffix==='wiki'?x.wiki:suffix==='bot'?x.bot:suffix==='human'?!x.bot:x.postType===suffix;
+case 'whispers':return x.postType==='whisper';
+case 'content':return suffix==='images'?has(x.with,'image'):suffix==='tagged'?(x.tags||[]).length>0:suffix==='untagged'?!(x.tags||[]).length:true;
+case 'files':return values.some(a=>has(x.files,a.replace(/^\./,'')));
+case 'postDate':{const date=new Date(x.created.length===10?x.created+'T12:00:00Z':x.created).getTime(),bound=new Date(v+'T00:00:00Z').getTime();return f.op==='before'?date<bound:date>bound}
+case 'postCount':return compare(x.posts,f.op,v);
+case 'viewCount':return compare(x.views,f.op,v);
+case 'locale':{const locale=String(x.locale||'none').toLowerCase();return ['any','present'].includes(v)?!['none','null',''].includes(locale):['none','null'].includes(v)?['none','null',''].includes(locale):locale.split(/[-_]/)[0]===v.split(/[-_]/)[0]}
+case 'badge':return has(x.badges,v.replace(/\s+/g,'_'))||has((x.badgeIds||[]).map(String),v);
+case 'topicId':return String(x.topicId)===v;
+case 'hashtag':{const slug=v.replace(/^#/,'');if(Object.hasOwn(CATEGORIES,slug)||DATA.some(z=>z.category===slug))return x.category===slug||has(x.categoryAncestors,slug);if(DATA.some(z=>has(z.tags,slug)))return has(x.tags,slug);return has(x.tagGroups,slug)}
+case 'visibility':return true;
+case 'adminMessages':return !!x.privateMessage;
+case 'adminUserMessages':return !!x.privateMessage&&has(x.allowedUsers,normalizeUser(v));
+case 'solved':return !x.privateMessage&&(suffix==='solved'?!!x.solved:!x.solved&&(x.solvedEnabled??x.solutionsEnabled??x.category==='support'));
+case 'assignment':return suffix==='assigned'?!!x.assigned:!x.assigned;
+case 'assignee':return String(x.assigned||'').toLowerCase()===normalizeUser(v);
+case 'polls':return !!x.poll;
+case 'votes':return x.votes>=+v;
+case 'userGroup':{const accessible=values.filter(a=>membersVisible(groupFor(a)));return f.op==='excludes'?!accessible.some(a=>has(x.groups,a)):values.length===1&&accessible.length===1&&has(x.groups,v)}
+case 'userName':return f.op==='excludes'?!values.map(normalizeUser).includes(x.username):x.username===normalizeUser(v);
+case 'userPeriod':return true;
+case 'groupType':return v==='my'?x.mine:v==='owner'?x.owner:v==='automatic'?x.automatic:v==='non_automatic'?!x.automatic:!x.automatic&&x.groupType===v;
+case 'groupAutomatic':return !!x.automatic;
+case 'groupMember':return membersVisible(x)&&has(x.usernames,normalizeUser(v));
+case 'chatChannel':return x.channelType!=='dm'&&x.channel===v.replace(/^#/,'');
+case 'chatThreads':return v==='exclude'?!x.thread||x.threadStarter:true;
+default:return true;
+}}
+function searchData(scope=S.scope,{ignoreFilters=false,unsorted=false}={}){const fs=ignoreFilters?[]:activeFilters(scope);let rows=DATA.filter(x=>TYPE_SCOPE[x.type]===scope);if(scope==='chat'&&(!S.settings.chat||!S.q.trim()&&!fs.some(f=>['chatAuthor','chatChannel'].includes(f.id))))return [];if(scope==='forum'){const topic=fs.find(f=>f.id==='topicId'),includesPM=fs.some(f=>['privateMessages','groupInbox','adminMessages','adminUserMessages'].includes(f.id))||topic&&DATA.some(x=>String(x.topicId)===String(topic.value)&&x.privateMessage),unlisted=fs.some(f=>f.id==='visibility')||!!topic;rows=rows.filter(x=>(includesPM||!x.privateMessage)&&(unlisted||!has(x.status,'unlisted'))&&(isStaff()||x.postType!=='whisper'))}if(scope==='groups'&&directoryAvailable('groups'))rows=rows.filter(x=>isStaff()||!x.automatic||x.username==='moderators');
+const titleOnly=fs.some(f=>tokenFor(f)==='in:title'),qs=words(S.q);rows=rows.filter(x=>{const text=scope==='users'||scope==='groups'?[x.title,x.username,scope==='users'?x.searchableFields||'':''].join(' '):scope==='chat'?x.text:titleOnly?x.title:x.title+' '+x.text;return qs.every(w=>text.toLowerCase().includes(w))&&fs.every(f=>filterMatches(x,f))});if(unsorted)return rows;
+let sort=ignoreFilters?'relevance':S.sort[scope];if(['users','groups'].includes(scope)&&(!directoryAvailable(scope)||ignoreFilters))sort=scope==='users'?'relevance':'name';if(scope==='groups'&&sort==='user_count'&&!rows.every(membersVisible))sort='name';if(sort==='votes'&&!S.settings.voting)sort='relevance';const ascending=S.asc[scope],period=fs.find(f=>f.id==='userPeriod')?.value||'all';
+rows.sort((a,b)=>{if(scope==='users'){if(sort==='relevance')return a.orderRank-b.orderRank;const av=sort==='username'?a.username:a.stats?.[period]?.[sort]||0,bv=sort==='username'?b.username:b.stats?.[period]?.[sort]||0;return(typeof av==='string'?av.localeCompare(bv):av-bv)*(ascending?1:-1)}if(scope==='groups')return(sort==='user_count'?a.members-b.members:a.username.localeCompare(b.username))*(ignoreFilters?1:ascending?1:-1);switch(sort){case'latest':return(titleOnly?b.updated:b.created).localeCompare(titleOnly?a.updated:a.created);case'oldest':return(titleOnly?a.updated:a.created).localeCompare(titleOnly?b.updated:b.created);case'latest_topic':return(b.topicCreated||b.created).localeCompare(a.topicCreated||a.created);case'oldest_topic':return(a.topicCreated||a.created).localeCompare(b.topicCreated||b.created);case'views':return b.views-a.views;case'likes':return b.likes-a.likes;case'read':return String(b.lastVisitedAt||'').localeCompare(String(a.lastVisitedAt||''));case'votes':return b.votes-a.votes;default:return a.orderRank-b.orderRank}});
+if(scope==='forum'&&!fs.some(f=>tokenFor(f)==='in:all-posts'||f.id==='topicId')){const seen=new Set();rows=rows.filter(x=>{if(seen.has(x.topicId))return false;seen.add(x.topicId);return true})}return rows}
+function allData(){return Object.fromEntries(['forum','users','groups',...(S.settings.chat?['chat']:[])].map(scope=>[scope,searchData(scope,{ignoreFilters:S.scope==='all'})]))}
+function canOrderGroupsByMembers(){return directoryAvailable('groups')&&searchData('groups',{unsorted:true}).every(membersVisible)}
+function setScope(scope,{focus=false}={}){if(scope==='chat'&&!S.settings.chat)return;closePopups(false);S.scope=scope;S.page=1;S.selected=-1;S.rawError='';render();if(focus)$('search-input').focus()}
+function renderTabs(data){$('scope-tabs').innerHTML=Object.entries(SCOPES).filter(([k])=>k!=='chat'||S.settings.chat).map(([key,label])=>`<button class="scope-tab" aria-pressed="${S.scope===key}" data-scope="${key}">${label}${S.q&&key!=='all'?`<span class="tab-count"> ${data[key]?.length||0}</span>`:''}</button>`).join('')}
+function renderFilters(){const fs=activeFilters();const sort=S.sort[S.scope];$('filter-bar').hidden=!fs.length&&sort===defaults[S.scope];$('filter-bar').innerHTML=fs.map((f,index)=>{const d=defFor(f.id);return `<div class="condition" data-component="DButtonGroup" aria-label="${esc(d.label+' '+opLabel(d,f.op)+' '+valueLabel(d,f))}"><button data-edit-filter="${d.id}|${index}" aria-label="Edit ${esc(d.label)}">${icon(d.icon)}${esc(d.label)}</button><button class="op" data-edit-filter="${d.id}|${index}" aria-label="Change ${esc(d.label)} condition">${esc(opLabel(d,f.op))}</button><button class="value" data-edit-filter="${d.id}|${index}" aria-label="Change ${esc(d.label)} value">${esc(valueLabel(d,f))}</button><button data-remove-filter="${index}" aria-label="Remove ${esc(d.label)} filter">${icon('x')}</button></div>`}).join('')+(sort!==defaults[S.scope]?`<div class="condition"><button data-action="display">${icon('sort')}Order</button><button data-action="display" class="value">${esc(orderLabel())}</button><button data-action="reset-sort" aria-label="Reset ordering">${icon('x')}</button></div>`:'')+`<button class="d-button ghost icon small" data-action="filters" aria-label="Add another filter">${icon('plus')}</button><button class="d-button ghost small filter-clear" data-action="clear-filters">Clear</button>`;$('filter-trigger').classList.toggle('has-filters',!!fs.length);$('filter-trigger').setAttribute('aria-label',fs.length?`Add filter · ${fs.length} active`:'Add filter');
+const dirOff=!directoryAvailable(S.scope);const note=dirOff?'Directory disabled on this site. Basic name search remains available.':S.rawError;$('scope-note').hidden=!note;$('scope-note').textContent=note;$('scope-note').style.color=S.rawError?'var(--d-danger)':'';
+}
+function orderLabel(){if(S.scope==='forum'&&S.sort.forum==='votes')return 'Most votes';return(ORDERING[S.scope].find(o=>o[0]===S.sort[S.scope])||['','Most relevant'])[1]}
+function resultRow(d){const scope=TYPE_SCOPE[d.type];const user=scope==='users',group=scope==='groups',chat=scope==='chat';const count=S.props;const cat=CATEGORIES[d.category]||CATEGORIES.general;let title=chat?`<span>${esc(d.name||d.username)}</span><span class="kind">in ${d.channelType==='dm'?esc(d.title):'#'+esc(d.channel)}</span>`:highlight(d.title)+(d.type==='post'?'<span class="kind">Post</span>':'');const stats=user?d.stats?.[(S.scope==='all'?null:activeFilters('users').find(f=>f.id==='userPeriod')?.value)||'all']:null;
+let meta=user?`<span>@${esc(d.username)}</span><span>·</span><span>${stats?.post_count||0} posts</span><span>·</span><span>${stats?.likes_received||0} likes received</span>`:group?`<span>@${esc(d.username)}</span><span>·</span><span>${!membersVisible(d)?'Hidden membership':d.members+' members'}</span><span>·</span><span>${d.groupType==='public'?'Open to join':'By request or invitation'}</span>${d.mine?'<span class="d-badge">Member</span>':''}`:chat?`<span>${prettyDate(d.created)}</span>${d.thread?`<span>·</span><span>${d.threadStarter?'Thread starter':'In a thread'}</span>`:''}${d.channelType!=='public'?`<span>·</span>${icon('lock')}<span>${d.channelType==='dm'?'Direct message':'Private channel'}</span>`:''}`:`${count.category?`<span class="category"><i class="category-dot" style="--cat:${cat[1]}"></i>${cat[0]}</span>`:''}${count.tags?d.tags.slice(0,3).map((t,i)=>`<span class="d-badge ${i>1?'tag-extra':''}">${esc(t)}</span>`).join(''):''}${count.author?`<span>${count.category||count.tags?'· ':''}@${esc(d.username)}</span>`:''}${d.solved&&S.settings.solved?`<span aria-label="Solved" title="Solved" style="color:var(--d-green)">${icon('check')}</span>`:''}${has(d.status,'closed')?`${icon('lock')}<span>Closed</span>`:''}${has(d.status,'archived')?'<span class="d-badge">Archived</span>':''}`;
+return `<button class="result-row" data-result="${d.id}" data-component="DItem" aria-label="${esc((chat?'Message by '+(d.name||d.username)+' in '+d.title+' · '+d.text:d.title+(user?' · @'+d.username:''))+' · '+(user?'User':group?'Group':chat?'Chat message':d.type))}">${user||chat?avatar(d):`<span class="result-icon">${icon(group?'users':d.type==='post'?'post':'topics')}</span>`}<span class="result-content"><span class="result-title">${title}</span>${count.excerpts?`<span class="result-description">${highlight(d.text)}</span>`:''}<span class="result-meta">${meta}</span></span>${!group&&!user?`<span class="result-end">${chat?'':prettyDate(d.created)}<span class="stats">${count.likes&&d.likes?`<span class="stat" aria-label="${d.likes} likes">${icon('heart')}${d.likes}</span>`:''}${count.replies&&!chat?`<span class="stat" aria-label="${d.replies} replies">${icon('chat')}${d.replies}</span>`:''}</span></span>`:''}</button>`}
+function renderRecent(){visibleResults=[];return `<section class="recent"><h2 class="section-label">Recent searches</h2>${recent.length?recent.map((r,i)=>`<button class="recent-row" data-recent="${i}"><span>${esc(r.q||r.filters.map(f=>defFor(f.id)?.label||'Filter').join(', '))}</span><span class="recent-scope">${SCOPES[r.scope]}</span></button>`).join('')+`<button class="recent-row recent-clear" data-action="clear-history">${icon('x')}Clear history</button>`:'<p class="muted" style="font-size:12px;padding:5px 0">Your searches will appear here.</p>'}</section>`}
+function render(){const data=allData();renderTabs(data);renderFilters();$('clear-query').hidden=!S.q;$('search-input').placeholder=desktopSearch()?'Search everywhere':S.scope==='all'?'Search anything in Discourse Meta…':S.scope==='forum'?'Search topics and posts…':S.scope==='chat'?'Search chat messages…':`Search ${S.scope} by name…`;$('results-scroll').classList.toggle('compact',S.compact);$('sidebar-chat').hidden=!S.settings.chat;if(S.loading){$('results').innerHTML=Array.from({length:5},()=>'<div class="loading-row"><div class="skeleton circle"></div><div class="lines"><div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div></div></div>').join('');return}
+if(S.error){$('results').innerHTML=`<div class="empty-state">${icon('alert')}<h2>Search couldn’t load</h2><p>Your query and filters are still here. Try again in a moment.</p><button class="d-button" data-action="retry">Try again</button></div>`;return}
+if(S.scope==='chat'&&!S.q.trim()&&activeFilters().length&&!activeFilters().some(f=>['chatAuthor','chatChannel'].includes(f.id))){$('results').innerHTML='<div class="empty-state"><h2>Add words, a person, or a channel</h2><p>Choose what to search for. Your thread preference will apply to the results.</p></div>';return}if(!S.q.trim()&&!activeFilters().length){$('results').innerHTML=renderRecent();return}
+let total=S.scope==='all'?Object.values(data).reduce((n,a)=>n+a.length,0):data[S.scope]?.length||0;visibleResults=[];if(!total){$('results').innerHTML=`<div class="empty-state">${icon('search')}<h2>No results${S.q?' for “'+esc(S.q)+'”':''}</h2><p>${activeFilters().length?'Try removing a condition or searching with fewer words.':'Try a different name or phrase. This mockup searches a small sample community.'}</p><div class="actions">${activeFilters().length?'<button class="d-button" data-action="clear-filters">Clear filters</button>':''}<button class="d-button ghost" data-action="reset-search">Start over</button></div></div>`;return}
+let html=`<div class="results-info"><span>${total} ${total===1?'result':'results'}</span>${activeFilters().length?`<span>· ${activeFilters().length} ${activeFilters().length===1?'condition':'conditions'}</span>`:''}<span class="sort-label">${S.scope==='all'?'Across your community':esc(orderLabel())}</span></div>`;
+if(S.scope==='all'){for(const [scope,items]of Object.entries(data)){if(!items.length)continue;const shown=items.slice(0,scope==='forum'?4:3);visibleResults.push(...shown);html+=`<section class="result-section"><div class="result-section-head"><h2>${SCOPES[scope]} <span class="muted">${items.length}</span></h2><button class="d-button ghost small" data-scope="${scope}">View ${items.length>shown.length?'all '+items.length:'results'} ${icon('chevron')}</button></div>${shown.map(resultRow).join('')}</section>`}}
+else{const rows=data[S.scope]||[],shown=rows.slice(0,S.page*10);visibleResults=shown;html+=shown.map(resultRow).join('');if(shown.length<rows.length)html+=`<div style="text-align:center;padding:20px"><button class="d-button" data-action="more">Show more results <span class="muted">${shown.length} of ${rows.length}</span></button></div>`}
+$('results').innerHTML=html;S.selected=-1;
+}
+function setQuery(q){S.q=q;S.page=1;S.rawError='';$('search-input').value=q;render()}
+let suppressSearchFocus=false;
+function desktopSearch(){return window.matchMedia('(min-width:768px), (hover:hover) and (pointer:fine)').matches}
+function syncSearchPresentation({preserveFocus=true}={}){
+ const desktop=desktopSearch(),open=S.screen==='search',row=$('search-input-row'),panel=$('search-screen'),slot=$('desktop-search-slot'),input=$('search-input');
+ const focused=preserveFocus&&document.activeElement===input;
+ const selection=focused?[input.selectionStart,input.selectionEnd,input.selectionDirection]:null;
+ slot.hidden=!desktop;
+ const mobileTrigger=$('mobile-search-trigger');mobileTrigger.hidden=desktop;
+ mobileTrigger.dataset.action=open?'close-search':'search';
+ mobileTrigger.setAttribute('aria-label',open?'Back to content':'Search everywhere');
+ mobileTrigger.innerHTML=icon(open?'back':'search');
+ document.body.classList.toggle('desktop-search-layout',desktop);
+ document.body.classList.toggle('desktop-search-open',desktop&&open);
+ panel.setAttribute('role',desktop?'dialog':'region');panel.dataset.component=desktop?'DPopover':'DScrollArea';
+ input.setAttribute('aria-expanded',String(open));
+ input.placeholder=desktop?'Search everywhere':S.scope==='all'?'Search anything in Discourse Meta…':S.scope==='forum'?'Search topics and posts…':S.scope==='chat'?'Search chat messages…':`Search ${S.scope} by name…`;
+ if(desktop){
+  const rect=slot.getBoundingClientRect(),top=Math.max(4,rect.top-6);
+  panel.style.left=(rect.left-8)+'px';panel.style.top=top+'px';panel.style.width=(rect.width+16)+'px';
+  panel.style.setProperty('--search-header-pad-top',(rect.top-top)+'px');
+  panel.style.setProperty('--search-header-height',(rect.bottom-top+6)+'px');
+  panel.style.height=Math.max(180,Math.min(654,innerHeight-top-24))+'px';
+  $('content-screen').hidden=false
+ }else{
+  for(const key of ['left','top','width','height'])panel.style[key]='';
+  $('content-screen').hidden=open
+ }
+ const target=desktop&&!open?slot:$('search-header');
+ if(row.parentElement!==target){
+  // Reparent the actual field without restarting search or moving its caret.
+  const previousSuppression=suppressSearchFocus;suppressSearchFocus=true;
+  try{target.append(row);if(focused){input.focus({preventScroll:true});input.setSelectionRange(...selection)}}
+  finally{suppressSearchFocus=previousSuppression}
+ }
+ if(open){$('breadcrumb').textContent=desktop?(S.backgroundBreadcrumb||'Topics'):'Search';document.querySelectorAll('.nav-item[data-action]').forEach(x=>x.classList.toggle('active',desktop?(!detailItem&&x.dataset.action==='home'):x.dataset.action==='search'))}
+}
+function closeDesktopSearch({restoreFocus=false}={}){
+ const input=$('search-input'),selection=[input.selectionStart,input.selectionEnd,input.selectionDirection];
+ closePopups(false);saveHistory();S.screen=detailItem?'detail':'home';$('search-screen').hidden=true;$('content-screen').hidden=false;$('breadcrumb').textContent=S.backgroundBreadcrumb||'Topics';
+ document.querySelectorAll('.nav-item[data-action]').forEach(x=>x.classList.toggle('active',!detailItem&&x.dataset.action==='home'));
+ syncSearchPresentation({preserveFocus:false});if(restoreFocus){const previous=suppressSearchFocus;suppressSearchFocus=true;try{input.focus({preventScroll:true});input.setSelectionRange(...selection)}finally{suppressSearchFocus=previous}}
+}
+function showSearch({focus=true}={}){
+ if(S.screen!=='search'){S.previous=detailItem?detailItem.id:'home';S.backgroundBreadcrumb=$('breadcrumb').textContent}
+ S.screen='search';$('search-screen').hidden=false;syncSearchPresentation();
+ document.querySelectorAll('.nav-item[data-action]').forEach(x=>x.classList.toggle('active',desktopSearch()?(!detailItem&&x.dataset.action==='home'):x.dataset.action==='search'));
+ render();if(focus)$('search-input').focus({preventScroll:true});
+}
+function leaveSearch(){if(desktopSearch()){closeDesktopSearch({restoreFocus:true});return}closePopups(false);saveHistory();if(S.previous!=='home'){const item=DATA.find(d=>d.id===S.previous);if(item){openResult(item);return}}showHome()}
+
+function showHome(){S.screen='home';detailItem=null;$('search-screen').hidden=true;syncSearchPresentation();$('content-screen').hidden=false;$('breadcrumb').textContent='Topics';document.querySelectorAll('.nav-item[data-action]').forEach(x=>x.classList.toggle('active',x.dataset.action==='home'));const home=DATA.filter(x=>x.type==='topic'&&!x.privateMessage).slice(0,8);$('content-screen').innerHTML=`<div class="home-header"><h1>Latest topics</h1><button class="d-button" data-action="search">${icon('search')}Search <kbd>${isMac?'⌘':'Ctrl'} F</kbd></button></div>${home.map(resultRow).join('')}<p class="home-note">Click Search in the header or use ${isMac?'⌘F':'Ctrl+F'} to search without losing your place.</p>`}
+function openResult(d){saveHistory();closePopups(false);detailItem=d;S.screen='detail';$('search-screen').hidden=true;syncSearchPresentation();$('content-screen').hidden=false;$('breadcrumb').textContent=d.type==='user'?'User':d.type==='group'?'Group':d.type==='chat'?'Chat':'Topic';const meta=d.type==='chat'?'Chat · '+(d.channelType==='dm'?d.title:'#'+d.channel):d.type==='group'?'Group · '+(membersVisible(d)?d.members+' members':'Hidden membership'):d.type==='user'?'User · @'+d.username:(CATEGORIES[d.category]?.[0]||'Topic')+' · '+prettyDate(d.created);$('content-screen').innerHTML=`<button class="d-button ghost back" data-action="back-results">${icon('back')}Back to search results</button><div class="muted" style="font-size:12px">${esc(meta)}</div><h1>${esc(d.type==='chat'?d.name||d.username:d.title)}</h1><div class="detail-card">${avatar(d)}<div><strong>${esc(d.name||d.username)}</strong><p>${esc(d.text)}</p>${['topic','post','chat'].includes(d.type)?`<span class="muted">${icon('heart')} ${d.likes} likes ${d.type!=='chat'?' · '+d.replies+' replies':''}</span>`:''}<p class="muted" style="font-size:12px">Sample ${d.type==='post'?'post':d.type}. Return to search to keep refining your results.</p><button class="d-button" data-action="back-results">${icon('back')}Back to results</button></div></div>`;$('content-screen').scrollTop=0;$('content-screen').querySelector('button').focus()}
+function positionPopup(el,anchor,{left=false}={}){el.hidden=false;const r=anchor.getBoundingClientRect();const below=innerHeight-r.bottom-18,above=r.top-18;const useAbove=!left&&below<200&&above>below;el.style.maxHeight=(left?innerHeight-24:Math.max(160,useAbove?above:below))+'px';const w=el.offsetWidth,h=el.offsetHeight;let x=left?r.left-w-8:r.right-w,y=left?r.top:useAbove?r.top-h-6:r.bottom+6;x=Math.max(12,Math.min(innerWidth-w-12,x));y=Math.max(12,Math.min(innerHeight-h-12,y));el.style.left=x+'px';el.style.top=y+'px'}
+function closePopups(restore=true){const was=S.popup;$('filter-menu').hidden=true;$('filter-submenu').hidden=true;$('display-menu').hidden=true;$('filter-trigger').setAttribute('aria-expanded','false');$('display-trigger').setAttribute('aria-expanded','false');S.popup=null;S.editing=null;S.editIndex=null;S.draft=null;if(restore&&was)(was==='display'?$('display-trigger'):$('filter-trigger')).focus()}
+function openFilters(anchor=$('filter-trigger')){closePopups(false);S.popup='filters';menuAnchor=anchor;$('filter-trigger').setAttribute('aria-expanded','true');$('filter-search').value='';renderFilterList();positionPopup($('filter-menu'),anchor);$('filter-search').focus()}
+function renderFilterList(){const q=$('filter-search').value.toLowerCase();const groupOrder=['Where','People','Personal','Content','Dates & counts','Activity','Membership','Advanced','Permissions','Extensions'];const defs=availableDefs().sort((a,b)=>Object.keys(SCOPES).indexOf(a.scope)-Object.keys(SCOPES).indexOf(b.scope)||groupOrder.indexOf(a.group)-groupOrder.indexOf(b.group)).filter(d=>(d.label+' '+d.group+' '+(d.help||'')+' '+(d.token||'')+' '+(d.choices||[]).map(c=>c.label+' '+c.token).join(' ')).toLowerCase().includes(q));let last='',html='';for(const d of defs){const g=S.scope==='all'?SCOPES[d.scope]:d.group;if(g!==last){html+=`<div class="menu-group">${esc(g)}</div>`;last=g}html+=`<button class="menu-item ${S.editing===d.id?'active':''}" role="menuitem" aria-haspopup="dialog" data-filter="${d.id}">${icon(d.icon)}<span>${esc(d.label)}</span>${currentValue(d)?`<span class="menu-hint">${icon('check')}</span>`:''}<span class="chevron">${icon('chevron')}</span></button>`}
+$('filter-list').innerHTML=html||'<div class="menu-item muted">No matching filters</div>';$('filter-menu-footer').textContent=S.scope==='all'?'Choosing a filter switches to its search type.':S.scope==='chat'?'Search channels and messages you can access.':'Conditions combine with AND.'}
+function openFilter(id,anchor,index=null){const d=defFor(id);if(!d||!canDef(d))return;if(!S.popup)openFilters(anchor||$('filter-trigger'));S.editing=id;S.editIndex=Number.isInteger(index)?index:null;const existing=S.editIndex===null?null:activeFilters(d.scope)[S.editIndex];S.draft={id:d.id,op:existing?.op||d.ops?.[0]?.value||'is',value:structuredClone(existing?.value??(d.kind==='multi'?[]:''))};renderFilterList();renderSubmenu();const row=$('filter-list').querySelector(`[data-filter="${id}"]`);positionPopup($('filter-submenu'),row||anchor||$('filter-trigger'),{left:innerWidth>640});if(innerWidth<640){$('filter-submenu').style.left=$('filter-menu').style.left;$('filter-submenu').style.top=$('filter-menu').style.top}const focus=$('filter-submenu').querySelector('input:not([type=checkbox]),select,button');focus?.focus()}
+function renderSubmenu(){const d=defFor(S.editing),f=S.draft,opts=d.ops||[{value:'is',label:'is'}];let body=`<div class="popover-header"><button class="d-button ghost icon small" data-action="back-filter-menu" aria-label="Back to filters">${icon('back')}</button><span class="submenu-title">${esc(d.label)}</span></div><div class="submenu-form">${opts.length>1?`<label class="d-label" for="condition-op">Condition</label><select class="d-input" id="condition-op">${opts.map(o=>`<option value="${esc(o.value)}" ${o.value===f.op?'selected':''}>${esc(o.label)}</option>`).join('')}</select>`:''}`;
+if(['choice','multi'].includes(d.kind)){const choices=choicesFor(d);if(d.kind==='multi'){body+=`<div class="d-label">${d.id==='category'?'Categories':'Choose values'}</div>`}body+=`<div role="${d.kind==='multi'?'group':'radiogroup'}" aria-label="${esc(d.label)} values">${choices.map(c=>{const selected=d.kind==='multi'?has(f.value,c.value):String(f.value)===String(c.value);return `<button class="menu-item" role="${d.kind==='multi'?'checkbox':'radio'}" aria-checked="${selected}" data-filter-value="${esc(c.value)}"><span class="check">${selected?icon('check'):''}</span><span>${esc(c.label)}</span></button>`}).join('')}</div>`;if(d.kind==='multi')body+=`<label class="d-label" for="custom-values" style="margin-top:12px">Or enter ${d.id==='category'?'category slugs':'tags'}, separated by commas</label><input class="d-input" id="custom-values" placeholder="${esc(d.placeholder||'Add a value…')}" value="${esc((Array.isArray(f.value)?f.value:[]).filter(v=>!choices.some(c=>c.value===v)).join(', '))}">`}
+else{body+=`<label class="d-label" for="condition-value">${d.kind==='date'?'Date':d.kind==='number'?'Number':'Value'}</label><input class="d-input" id="condition-value" type="${d.kind==='date'?'date':d.kind==='number'?'number':'text'}" ${d.kind==='number'?'min="0" step="1"':''} value="${esc(f.value)}" placeholder="${esc(d.placeholder||'Enter a value…')}" ${choicesFor(d).length?'list="filter-suggestions"':''}>`;if(choicesFor(d).length)body+=`<datalist id="filter-suggestions">${choicesFor(d).map(c=>`<option value="${esc(c.value)}">${esc(c.label)}</option>`).join('')}</datalist>`}
+body+=`<div id="condition-error" class="error-text" hidden></div>${d.help?`<p class="help" style="margin-top:12px">${esc(d.help)}</p>`:''}<div class="submenu-actions"><button class="d-button ghost small" data-action="back-filter-menu">Cancel</button><button class="d-button primary small" data-action="apply-filter">${S.editIndex!==null?'Update':'Apply'} filter</button></div></div>`;$('filter-submenu').innerHTML=body}
+function filterError(d,f){const values=Array.isArray(f.value)?f.value:[f.value];if(!values.length||values.some(v=>!String(v).trim()))return 'Choose or enter a value.';if(!d.ops.some(o=>o.value===f.op))return 'Choose a supported condition.';const v=String(f.value);if(d.kind==='choice'&&!d.choices.some(c=>String(c.value)===v))return 'Choose one of the available values.';if(d.kind==='number'&&(!Number.isInteger(+v)||+v<0||d.id==='topicId'&&+v<=1))return d.id==='topicId'?'Enter a topic ID greater than 1.':'Enter a whole number of zero or more.';if(d.kind==='date'&&(!/^\d{4}-\d{2}-\d{2}$/.test(v)||isNaN(Date.parse(v))||new Date(v).toISOString().slice(0,10)!==v))return 'Choose a valid date.';if(['author','topicAuthor','authorGroup','groupInbox','chatAuthor','chatChannel','adminUserMessages','assignee','groupMember'].includes(d.id)&&/[\s,:]/.test(v))return 'Enter one username, group name, or channel slug.';if(d.id==='userGroup'&&f.op==='is'&&/[,|\s]/.test(v))return 'Choose one group. Exclusions can contain several groups.';if(d.id==='userName'&&f.op==='is'&&/[,|\s]/.test(v))return 'Enter one exact username.';if(d.id==='locale'&&!/^[a-zA-Z0-9_-]+$/.test(v))return 'Enter one language code, any, or none.';if(['tags','category'].includes(d.id)&&values.some(v=>!String(v).match(/^[\p{L}\p{M}0-9_\-:]+$/u)))return 'Enter valid category slugs or tag names.';if(d.id==='badge'&&v.includes(','))return 'Enter one badge name or ID.';return ''}
+function filterParameter(d,f){if(d.choices){const t=d.choices.find(c=>c.value===f.value)?.token;if(t?.includes('='))return t.split('=')[0]}return d.opTokens?.[f.op]||d.token}
+function applyFilter(){const d=defFor(S.editing);if(!d||!canDef(d))return;const f=S.draft;f.op=$('condition-op')?.value||f.op;if($('condition-value'))f.value=$('condition-value').value.trim();if(d.kind==='multi'){const known=choicesFor(d).map(c=>c.value);f.value=[...(Array.isArray(f.value)?f.value:[]).filter(v=>known.includes(v)),...($('custom-values')?.value||'').split(',').map(x=>x.trim()).filter(Boolean)];f.value=[...new Set(f.value)]}let error=filterError(d,f);const fs=activeFilters(d.scope),key=filterParameter(d,f);if(!error&&(['users','groups'].includes(d.scope)||d.id==='chatThreads')&&!['exclude_groups','exclude_usernames'].includes(key)&&fs.some((x,i)=>i!==S.editIndex&&filterParameter(defFor(x.id),x)===key))error='This field accepts one condition. Edit or remove its existing condition first.';if(error){const el=$('condition-error');el.textContent=error;el.hidden=false;return}if(S.editIndex!==null)fs.splice(S.editIndex,1,structuredClone(f));else if(!fs.some(x=>x.id===f.id&&x.op===f.op&&JSON.stringify(x.value)===JSON.stringify(f.value)))fs.push(structuredClone(f));const switched=S.scope!==d.scope;closePopups(false);S.scope=d.scope;S.page=1;S.rawError='';render();if(switched)notify(`Searching ${SCOPES[d.scope].toLowerCase()} with ${d.label.toLowerCase()}.`);$('filter-trigger').focus();saveHistory()}
+function openDisplay(){closePopups(false);S.popup='display';$('display-trigger').setAttribute('aria-expanded','true');renderDisplay();positionPopup($('display-menu'),$('display-trigger'));$('display-menu').querySelector('select,button')?.focus()}
+function renderDisplay(){let options=[...ORDERING[S.scope]];if(S.scope==='groups'&&!canOrderGroupsByMembers()){options=options.filter(o=>o[0]!=='user_count');if(S.sort.groups==='user_count')S.sort.groups='name'}if(S.scope==='forum'&&S.settings.voting)options.push(['votes','Most votes']);const dir=!directoryAvailable(S.scope);$('display-menu').innerHTML=`<div class="display-section">${S.scope==='all'?'<div class="menu-option-row"><span>Ordering</span><span class="muted" style="font-size:12px">Most relevant</span></div><p>Results are grouped by type. Choose a type to change its ordering.</p>':dir?'<p>Advanced ordering is unavailable while the directory is disabled.</p>':`<label class="menu-option-row"><span>Ordering</span><select class="d-input" style="width:auto;margin:0" id="sort-select">${options.map(o=>`<option value="${o[0]}" ${S.sort[S.scope]===o[0]?'selected':''}>${o[1]}</option>`).join('')}</select></label>${['users','groups'].includes(S.scope)?`<label class="menu-option-row"><span>Direction</span><select class="d-input" style="width:auto;margin:0" id="direction-select"><option value="asc" ${S.asc[S.scope]?'selected':''}>Ascending</option><option value="desc" ${!S.asc[S.scope]?'selected':''}>Descending</option></select></label>`:''}`}<label class="menu-option-row"><span>Compact rows</span><input class="d-switch" id="compact-toggle" type="checkbox" role="switch" ${S.compact?'checked':''}></label></div><div class="display-section"><div class="d-label">Display properties</div><div class="property-chips">${Object.entries({excerpts:'Excerpt',category:'Category',tags:'Tags',author:'Author',likes:'Likes',replies:'Replies'}).filter(([k])=>['all','forum'].includes(S.scope)||['excerpts',...(S.scope==='chat'?['likes']:[])].includes(k)).map(([key,label])=>`<button class="d-button small" data-prop="${key}" aria-pressed="${S.props[key]}">${label}</button>`).join('')}</div></div>`}
+function setMenuPosition(){if(S.popup==='display')positionPopup($('display-menu'),$('display-trigger'));if(S.popup==='filters'){positionPopup($('filter-menu'),menuAnchor?.isConnected?menuAnchor:$('filter-trigger'));if(S.editing){const row=$('filter-list').querySelector(`[data-filter="${S.editing}"]`);positionPopup($('filter-submenu'),row||$('filter-trigger'),{left:innerWidth>640});if(innerWidth<640){$('filter-submenu').style.left=$('filter-menu').style.left;$('filter-submenu').style.top=$('filter-menu').style.top}}}}
+function queryPlan(){const params=new URLSearchParams(),scope=S.scope;if(scope==='all')return ['GET /search/query.json?'+new URLSearchParams({term:S.q}),...(S.settings.chat&&S.q.trim()?['GET /chat/api/search.json?'+new URLSearchParams({query:S.q,sort:'relevance',limit:'20',offset:'0'})]:[])];if(scope==='forum')return ['GET /search.json?'+new URLSearchParams({q:compiled(),page:String(S.page)})];if(scope==='chat'){const query=[S.q,...activeFilters().filter(f=>f.id!=='chatThreads').map(tokenFor)].filter(Boolean).join(' ');if(!query.trim())return ['No request: add words, a person, or a channel.'];params.set('query',query);params.set('sort',S.sort.chat);const threads=activeFilters().find(f=>f.id==='chatThreads');if(threads)params.set('exclude_threads',String(threads.value==='exclude'));params.set('limit','20');params.set('offset',String((S.page-1)*20));return ['GET /chat/api/search.json?'+params]}
+if(scope==='users'&&!directoryAvailable(scope))return['GET /search/query.json?'+new URLSearchParams({term:S.q,type_filter:'user'})];if(scope==='groups'&&!directoryAvailable(scope))return['GET /search/query.json?'+new URLSearchParams({term:S.q})];params.set(scope==='users'?'name':'filter',S.q);params.set('order',scope==='groups'&&S.sort.groups==='user_count'&&!canOrderGroupsByMembers()?'name':S.sort[scope]);if(scope==='users'){params.set('period',activeFilters().find(f=>f.id==='userPeriod')?.value||'all');if(S.asc.users)params.set('asc','true')}else params.set('asc',String(S.asc.groups));
+for(const f of activeFilters()){if(f.id==='userPeriod')continue;const token=tokenFor(f),equals=token.indexOf('=');if(equals<0)continue;const key=token.slice(0,equals);let value=token.slice(equals+1);if(params.has(key)&&['exclude_groups','exclude_usernames'].includes(key)){const sep=key==='exclude_groups'?'|':',';value=[...new Set((params.get(key)+sep+value).split(sep))].join(sep)}params.set(key,value)}params.set('page',String(S.page-1));return ['GET /'+(scope==='users'?'directory_items':'groups')+'.json?'+params]}
+function dialog(title,html){closePopups(false);$('dialog-title').textContent=title;$('dialog-body').innerHTML=html;paintIcons($('dialog'));if(!$('dialog').open)$('dialog').showModal()}
+function showSyntax(){dialog('Search syntax',`<p>Type words or an exact phrase in quotes. On Enter, supported operators become editable conditions.</p><label class="d-label" for="syntax-query">${S.scope==='users'||S.scope==='groups'?'Search text · use the filter menu for directory conditions':'Search query'}</label><textarea class="d-input" id="syntax-query" spellcheck="false">${esc(['users','groups'].includes(S.scope)?S.q:compiled())}</textarea><div id="syntax-error" class="error-text" hidden></div><div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px"><button class="d-button ghost" data-action="copy-query">${icon('copy')}Copy</button><button class="d-button primary" data-action="apply-syntax">Apply search</button></div><h3>Examples</h3><div class="menu-list">${[['search category:ux tags:design','Design conversations about search'],['keyboard after:2026-09-01 before:2026-09-14','Keyboard posts in a date range'],['in:bookmarks status:open','Your bookmarked posts in open topics'],['clara','Find a person and their conversations']].map(([q,label])=>`<button class="menu-item" data-syntax-example="${esc(q)}"><span><strong>${esc(label)}</strong><br><code>${esc(q)}</code></span></button>`).join('')}</div><p>Filters combine with AND. Multiple categories match any; tags support any, all, and exclusion. Chat uses <code>@person</code> and <code>#channel</code>. Other operators vary by installed plugins and account permissions.</p>`)}
+function showSettings(){dialog('Prototype settings',`<p>Change the sample site’s capabilities to try the search experience in different conditions.</p><div class="menu-option-row"><span>Dark appearance</span><input class="d-switch" type="checkbox" role="switch" data-setting="dark" aria-label="Dark appearance" ${document.documentElement.dataset.theme==='dark'?'checked':''}></div>${Object.entries({chat:'Chat search enabled',userDirectory:'User directory enabled',groupDirectory:'Group directory enabled',solved:'Solved plugin',assign:'Assign plugin and access',poll:'Poll plugin',voting:'Topic Voting plugin',staff:'Staff search permissions',admin:'Administrator message search'}).map(([key,label])=>`<label class="menu-option-row"><span>${label}</span><input class="d-switch" type="checkbox" role="switch" data-setting="${key}" ${S.settings[key]?'checked':''}></label>`).join('')}<h3>Try a state</h3><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="d-button" data-action="demo-loading">Loading</button><button class="d-button" data-action="demo-error">Connection error</button><button class="d-button" data-action="demo-empty">No results</button><button class="d-button" data-action="reset-demo">Reset prototype</button></div><p style="margin-top:16px;font-size:12px">These controls affect this local mockup only. All results are fictional sample data.</p>`)}
+function showNotes(){dialog('About this mockup',`<p>A single interactive proposal for global search in Discourse Native. The header input and <strong>${isMac?'⌘F':'Ctrl+F'}</strong> open a large desktop popover. Opening search replaces the navbar field with the same input inside the popover at the same coordinates. Closing it restores the navbar field. Mouse-driven desktop windows keep this behavior at narrow widths; touch phone layouts keep a full-page search. Escape returns to the previous content, and opening a result preserves your search.</p><h3>Native components</h3><p>This HTML translates the project’s Native UI kit; it does not run Flutter widgets. Implementation uses <code>package:discourse_native/discourse_ui.dart</code>.</p><table><thead><tr><th>Interface</th><th>Existing kit composition</th></tr></thead><tbody><tr><td>Search and scope</td><td>DPopover, DPopoverAnchor, DInputGroup, DInput, DKbd, DToggleGroup</td></tr><tr><td>Filter menu and values</td><td>DPopover + DCommand, DDropdownMenuSub, DCombobox, DCheckbox, DSelect, DDatePicker</td></tr><tr><td>Condition chips</td><td>DButtonGroup with label, condition, value and remove controls</td></tr><tr><td>Ordering and results</td><td>DSelect, DSwitch, DItem, DBadge, DAvatar</td></tr><tr><td>Loading and empty states</td><td>DSkeleton, DEmpty, DAlert</td></tr></tbody></table><p style="margin-top:14px"><strong>No new kit primitive is required.</strong> The search condition is a new application composition of existing controls. The mockup uses Meta’s saved palette, Native’s 8px radius, and 32 / 28 / 24px control sizes.</p><h3>What you can try</h3><p>Search all four content types, browse recent searches, add and edit condition chips, combine date or count bounds, change ordering and display properties, open results, and return without losing context. Type search operators and press Enter to turn them into chips.</p><p>Type-specific filters switch to their matching search type. Each type keeps its conditions while you switch tabs; All searches broadly. Chat disappears when chat search is disabled. Prototype settings let you try plugins, permissions, directory fallbacks, loading, and connection errors.</p><button class="d-button" data-action="settings">${icon('sliders')}Prototype settings</button><h3>API boundaries</h3><p>Forum search uses the full search API. Users and groups use their directory endpoints; a disabled directory falls back to basic aggregate search. Chat uses its separate search endpoint. There is no universal OR builder, chat date filter, user trust-level filter, or core AI filter.</p><p>The sample evaluator covers the represented filters and sorts. It is not Discourse’s full-text ranking engine. All content is local: no site requests, credentials, or account changes. Category descendants, tag groups, badge IDs, and additional site-defined directory columns need real site metadata in implementation.</p><h3>Current request mapping</h3><pre>${esc(queryPlan().join('\n\n'))}</pre><p>Aggregate production search combines Discourse’s header results with chat. Dedicated tabs paginate independently. Forum results normally group by topic; “Every matching post” removes that grouping.</p><h3>Sources checked</h3><p><a href="https://github.com/discourse/discourse/blob/main/lib/search.rb" target="_blank" rel="noreferrer">Core search operators</a> · <a href="https://github.com/discourse/discourse/blob/main/app/controllers/search_controller.rb" target="_blank" rel="noreferrer">Search endpoints</a> · <a href="https://github.com/discourse/discourse/blob/main/app/controllers/directory_items_controller.rb" target="_blank" rel="noreferrer">User directory</a> · <a href="https://github.com/discourse/discourse/blob/main/app/controllers/groups_controller.rb" target="_blank" rel="noreferrer">Groups</a> · <a href="https://github.com/discourse/discourse/blob/main/plugins/chat/app/services/chat/search_message.rb" target="_blank" rel="noreferrer">Chat search</a></p><p style="font-size:12px">Verified September 13, 2026. Optional plugin filters include Solved, Assign, Poll, and Topic Voting; additional installed plugins may extend search.</p>`)}
+function parseExpression(input,{replace=false}={}){if(['users','groups'].includes(S.scope)){S.q=input.trim();$('search-input').value=S.q;render();return true}const parts=input.match(/(?:[^\s"]+|"[^"]*")+/g)||[];const plain=[],found=[],errors=[];let target=S.scope==='chat'?'chat':'forum',sort=null;
+for(let token of parts){if(/^".*"$/.test(token)){plain.push(token);continue}let matched=false;const raw=token;token=({l:'order:latest',r:'order:read',f:'in:first',t:'in:title','in:messages':'in:personal','in:mine':'in:created','in:whispers':'in:whisper','in:bots':'in:bot','in:humans':'in:human','include:invisible':'include:unlisted'}[token]||token).replace(/^min_post_count:/,'min_posts:').replace(/^filetype:/,'filetypes:');if(token.startsWith('order:')){const value=token.slice(6);if((target==='chat'?ORDERING.chat:ORDERING.forum).some(o=>o[0]===value)||value==='votes'&&S.settings.voting)sort=value;else errors.push('Unsupported ordering: '+value);continue}
+for(const d of FILTERS.filter(d=>canDef(d)&&d.scope===target)){const c=d.choices?.find(c=>c.token===token);if(c){found.push({id:d.id,op:d.ops?.[0]?.value||'is',value:c.value});matched=true;break}}
+if(matched)continue;
+if(token.startsWith('@')){found.push({id:target==='chat'?'chatAuthor':'author',op:'is',value:token.slice(1)});continue}
+if(token.startsWith('#')){const value=token.slice(1);found.push({id:target==='chat'?'chatChannel':'hashtag',op:'is',value});continue}
+if(!token.includes(':')){plain.push(token);continue}
+let key=token.slice(0,token.indexOf(':')),value=token.slice(token.indexOf(':')+1).replace(/^"|"$/g,'');if(target==='chat'){errors.push('Chat supports @person and #channel; use the menu for thread replies.');continue}if(key==='user'){found.push({id:'author',op:'is',value});continue}if(key==='created'&&value.startsWith('@')){found.push({id:'topicAuthor',op:'is',value:value.slice(1)});continue}
+if(['category','categories'].includes(key)){found.push({id:'category',op:value.startsWith('=')?'exactCategory':'any',value:value.split(',').map(v=>v.replace(/^=/,''))});continue}if(['tag','tags','-tag','-tags'].includes(key)){found.push({id:'tags',op:key.startsWith('-')?(value.includes('+')?'notAll':'none'):(value.includes('+')?'all':'any'),value:value.split(/[,+]/)});continue}
+for(const d of FILTERS.filter(d=>canDef(d)&&d.scope==='forum'&&!['choice','multi'].includes(d.kind))){const op=Object.entries(d.opTokens||{}).find(([,v])=>v===key)?.[0];if(op||d.token===key){if(d.kind==='date'){if(/^\d{1,3}$/.test(value)){const date=new Date(NOW);date.setUTCDate(date.getUTCDate()-+value);value=date.toISOString().slice(0,10)}if(!/^\d{4}-\d{2}-\d{2}$/.test(value)){errors.push('Use an ISO date (YYYY-MM-DD) or relative days in this prototype.');matched=true;break}}if(d.kind==='number'&&!/^\d+$/.test(value)){errors.push('Use a whole number for '+d.label.toLowerCase()+'.');matched=true;break}found.push({id:d.id,op:op||d.ops?.[0]?.value||'is',value});matched=true;break}}
+if(!matched)errors.push('Unknown or unavailable operator: '+raw)
+}
+for(const f of found){const d=defFor(f.id);if(!canDef(d))errors.push('This filter is unavailable.');else{const message=filterError(d,f);if(message)errors.push(d.label+': '+message)}}if(errors.length){S.rawError=errors.join(' ');renderFilters();return false}if(replace){S.filters[target]=[];S.sort[target]=defaults[target]}if(found.length||sort){S.scope=target;for(const f of found){const same=activeFilters(target).findIndex(x=>x.id===f.id&&x.op===f.op&&JSON.stringify(x.value)===JSON.stringify(f.value));if(same<0)S.filters[target].push(f)}if(sort)S.sort[target]=sort}S.q=plain.join(' ');S.rawError='';$('search-input').value=S.q;S.page=1;render();saveHistory();return true}
+function applySetting(key,value){if(key==='dark'){document.documentElement.dataset.theme=value?'dark':'light';return}S.settings[key]=value;if(key==='staff'&&!value)S.settings.admin=false;if(key==='admin'&&value)S.settings.staff=true;for(const scope of Object.keys(S.filters))S.filters[scope]=S.filters[scope].filter(f=>canDef(defFor(f.id)));if(!S.settings.chat&&S.scope==='chat')S.scope='all';if(!S.settings.voting&&S.sort.forum==='votes')S.sort.forum='relevance';if(!directoryAvailable('users'))S.sort.users='username';if(!directoryAvailable('groups')||!canOrderGroupsByMembers())S.sort.groups='name';render();if($('dialog').open)showSettings()}
+function handleAction(action,el){switch(action){case'search':showSearch();break;case'home':closePopups(false);showHome();break;case'nav-users':showSearch({focus:false});setScope('users',{focus:true});break;case'nav-groups':showSearch({focus:false});setScope('groups',{focus:true});break;case'close-search':leaveSearch();break;case'back-results':showSearch();break;case'clear-query':setQuery('');$('search-input').focus();break;case'reset-search':S.filters[S.scope]=[];S.sort[S.scope]=defaults[S.scope];setQuery('');$('search-input').focus();break;case'clear-filters':if(S.scope!=='all')S.filters[S.scope]=[];S.sort[S.scope]=defaults[S.scope];render();break;case'reset-sort':S.sort[S.scope]=defaults[S.scope];render();break;case'filters':S.popup==='filters'?closePopups():openFilters(el);break;case'display':S.popup==='display'?closePopups():openDisplay();break;case'back-filter-menu':$('filter-submenu').hidden=true;S.editing=null;S.editIndex=null;S.draft=null;renderFilterList();$('filter-search').focus();break;case'apply-filter':applyFilter();break;case'clear-history':recent=[];try{localStorage.setItem('native-global-search-history-v1','[]')}catch{}render();break;case'more':S.page++;render();break;case'syntax':showSyntax();break;case'notes':showNotes();break;case'settings':showSettings();break;case'appearance':applySetting('dark',document.documentElement.dataset.theme!=='dark');break;case'close-dialog':$('dialog').close();break;case'apply-syntax':if(parseExpression($('syntax-query').value,{replace:true})){$('dialog').close();showSearch()}else{$('syntax-error').hidden=false;$('syntax-error').textContent=S.rawError}break;case'copy-query':{const value=$('syntax-query').value;if(navigator.clipboard)navigator.clipboard.writeText(value).then(()=>notify('Query copied.')).catch(()=>{$('syntax-query').select();notify('Select and copy the query.');});else{$('syntax-query').select();notify('Select and copy the query.')}break}case'demo-loading':$('dialog').close();showSearch();S.error=false;S.loading=true;render();setTimeout(()=>{S.loading=false;if(!S.q)setQuery('search');else render()},1500);break;case'demo-error':$('dialog').close();showSearch();S.error=true;render();break;case'retry':S.error=false;S.loading=true;render();setTimeout(()=>{S.loading=false;render()},450);break;case'demo-empty':$('dialog').close();showSearch();setQuery('a phrase with no matching results');break;case'reset-demo':$('dialog').close();Object.assign(S.settings,{chat:true,solved:true,assign:true,poll:true,voting:false,staff:false,admin:false,userDirectory:true,groupDirectory:true});S.asc={users:true,groups:true};document.documentElement.dataset.theme='dark';recent=[{q:'keyboard',scope:'all',filters:[]},{q:'search',scope:'forum',filters:[]},{q:'clara',scope:'all',filters:[]}];try{localStorage.setItem('native-global-search-history-v1',JSON.stringify(recent))}catch{}S.scope='all';for(const k of Object.keys(S.filters))S.filters[k]=[];Object.assign(S.sort,defaults);S.error=false;S.loading=false;S.compact=false;Object.keys(S.props).forEach(k=>S.props[k]=true);setQuery('');showSearch();break}}
+document.addEventListener('click',event=>{const el=event.target.closest('button');if(el){if(el.dataset.action)handleAction(el.dataset.action,el);else if(el.dataset.scope)setScope(el.dataset.scope);else if(el.dataset.result){const d=DATA.find(d=>d.id===el.dataset.result);if(d)openResult(d)}else if(el.dataset.filter)openFilter(el.dataset.filter,el);else if(el.dataset.editFilter){const [id,index]=el.dataset.editFilter.split('|');openFilter(id,el,+index)}else if(el.dataset.removeFilter!==undefined){const index=+el.dataset.removeFilter;activeFilters().splice(index,1);render()}else if(el.dataset.filterValue!==undefined){const d=defFor(S.editing);if(d.kind==='multi'){const value=el.dataset.filterValue;S.draft.value=has(S.draft.value,value)?S.draft.value.filter(v=>v!==value):[...S.draft.value,value]}else S.draft.value=el.dataset.filterValue;const op=$('condition-op')?.value;if(op)S.draft.op=op;const custom=$('custom-values')?.value;renderSubmenu();if(custom&&$('custom-values'))$('custom-values').value=custom;setMenuPosition();$('filter-submenu').querySelector(`[data-filter-value="${CSS.escape(el.dataset.filterValue)}"]`)?.focus()}else if(el.dataset.prop){S.props[el.dataset.prop]=!S.props[el.dataset.prop];render();renderDisplay();$('display-menu').querySelector(`[data-prop="${el.dataset.prop}"]`)?.focus()}else if(el.dataset.recent!==undefined){const r=recent[+el.dataset.recent];S.scope=r.scope==='chat'&&!S.settings.chat?'all':r.scope;if(S.scope!=='all')S.filters[S.scope]=structuredClone(r.filters).filter(f=>defFor(f.id)&&canDef(defFor(f.id)));setQuery(r.q);$('search-input').focus()}else if(el.dataset.syntaxExample){$('syntax-query').value=el.dataset.syntaxExample;if(['groups','users'].includes(S.scope))S.scope='all'}else if(el.dataset.category){showSearch({focus:false});S.scope='forum';S.filters.forum=[{id:'category',op:'any',value:[el.dataset.category]}];setQuery('')}else if(el.dataset.channel){showSearch({focus:false});S.scope='chat';S.filters.chat=[{id:'chatChannel',op:'is',value:el.dataset.channel}];setQuery('')}}});
+document.addEventListener('pointerdown',e=>{if(S.popup&&!e.target.closest('.popover,#filter-trigger,#display-trigger,[data-action=filters],[data-action=display],[data-edit-filter]'))closePopups(false)});
+$('search-input').addEventListener('input',e=>{if(S.screen!=='search')showSearch({focus:false});S.q=e.target.value;S.rawError='';S.page=1;S.selected=-1;clearTimeout(timer);timer=setTimeout(render,140)});
+$('filter-search').addEventListener('input',()=>{$('filter-submenu').hidden=true;S.editing=null;renderFilterList();setMenuPosition()});
+document.addEventListener('change',e=>{if(e.target.id==='condition-op')S.draft.op=e.target.value;else if(e.target.id==='sort-select'){S.sort[S.scope]=e.target.value;render();renderDisplay();$('sort-select')?.focus()}else if(e.target.id==='direction-select'){S.asc[S.scope]=e.target.value==='asc';render();renderDisplay();$('direction-select')?.focus()}else if(e.target.id==='compact-toggle'){S.compact=e.target.checked;render()}else if(e.target.dataset.setting)applySetting(e.target.dataset.setting,e.target.checked)});
+const isMac=/Mac|iPhone|iPad/.test(navigator.platform);$('global-shortcut').textContent=isMac?'⌘ F':'Ctrl F';
+function moveResult(delta){if(!visibleResults.length)return;S.selected=(S.selected+delta+visibleResults.length)%visibleResults.length;document.querySelectorAll('.result-row').forEach(x=>x.classList.remove('keyboard-active'));const target=$('results').querySelector(`[data-result="${visibleResults[S.selected].id}"]`);target?.classList.add('keyboard-active');target?.focus();target?.scrollIntoView({block:'nearest'})}
+document.addEventListener('keydown',e=>{const editing=['INPUT','TEXTAREA','SELECT'].includes(e.target.tagName);if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='f'){e.preventDefault();if($('dialog').open)$('dialog').close();closePopups(false);showSearch();return}if(e.key==='Escape'){if($('dialog').open)return;e.preventDefault();if(!$('filter-submenu').hidden){handleAction('back-filter-menu');return}if(S.popup){closePopups();return}if(S.screen==='detail'){showSearch();return}if(S.screen==='search')leaveSearch();return}if($('dialog').open)return;
+if(S.popup){if(e.key==='Enter'&&e.target.id==='condition-value'){e.preventDefault();applyFilter();return}if(['ArrowDown','ArrowUp'].includes(e.key)&&e.target.tagName!=='SELECT'){e.preventDefault();const parent=!$('filter-submenu').hidden?$('filter-submenu'):S.popup==='filters'?$('filter-menu'):$('display-menu');const items=[...parent.querySelectorAll('button:not(:disabled),select,input:not([type=checkbox])')];const i=items.indexOf(document.activeElement),next=(i+(e.key==='ArrowDown'?1:-1)+items.length)%items.length;items[next]?.focus();return}if(e.key==='ArrowRight'&&e.target.dataset.filter){e.preventDefault();openFilter(e.target.dataset.filter,e.target);return}if(e.key==='ArrowLeft'&&!$('filter-submenu').hidden&&!editing){e.preventDefault();handleAction('back-filter-menu');return}return}
+if(!editing&&e.key.toLowerCase()==='f'&&S.screen==='search'&&!e.metaKey&&!e.ctrlKey){e.preventDefault();openFilters();return}if(!editing&&e.key==='/'&&!e.metaKey&&!e.ctrlKey){e.preventDefault();showSearch();return}if(S.screen==='search'&&['ArrowDown','ArrowUp'].includes(e.key)&&(!editing||e.target.id==='search-input')){e.preventDefault();moveResult(e.key==='ArrowDown'?1:-1);return}if(e.key==='Enter'&&e.target.id==='search-input'){e.preventDefault();if(S.screen!=='search')showSearch({focus:false});clearTimeout(timer);if(parseExpression(e.target.value)){saveHistory();render()}return}});
+document.addEventListener('keydown',e=>{if(e.target.matches('.scope-tab')&&['ArrowLeft','ArrowRight','Home','End'].includes(e.key)){e.preventDefault();const scopes=Object.keys(SCOPES).filter(s=>s!=='chat'||S.settings.chat);const current=scopes.indexOf(S.scope);const index=e.key==='Home'?0:e.key==='End'?scopes.length-1:(current+(e.key==='ArrowRight'?1:-1)+scopes.length)%scopes.length;setScope(scopes[index]);$('scope-tabs').querySelector('[data-scope="'+scopes[index]+'"]').focus()}});
+document.addEventListener('focusin',e=>{if(S.popup&&!e.target.closest('.popover,#filter-trigger,#display-trigger,[data-action=filters],[data-action=display],[data-edit-filter]'))closePopups(false)});
+$('desktop-search-slot').addEventListener('click',e=>{if(e.target!==$('search-input')&&!e.target.closest('button'))showSearch()});
+$('search-input').addEventListener('click',()=>{if(S.screen!=='search')showSearch({focus:false})});
+$('search-input').addEventListener('focus',()=>{if(S.screen!=='search'&&!suppressSearchFocus)showSearch({focus:false})});
+document.addEventListener('pointerdown',e=>{if(desktopSearch()&&S.screen==='search'&&!$('dialog').open&&!e.target.closest('#desktop-search-slot,#search-screen,.popover,dialog,[data-action="search"]'))closeDesktopSearch()});
+document.addEventListener('focusin',e=>{if(desktopSearch()&&S.screen==='search'&&!$('dialog').open&&!e.target.closest('#desktop-search-slot,#search-screen,.popover,dialog,[data-action="search"]'))closeDesktopSearch()});
+window.addEventListener('resize',()=>{syncSearchPresentation();setMenuPosition()});
+$('dialog').addEventListener('click',e=>{if(e.target===$('dialog')){const r=$('dialog').getBoundingClientRect();if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom)$('dialog').close()}});
+paintIcons();showHome();syncSearchPresentation();
+/* Read-only diagnostics for local interaction verification; no site requests. */
+window.searchPrototype={state:S,definitions:FILTERS,data:DATA,queryPlan,compiled,searchData,parseExpression};
+
+/* END LOGIC */
+</script>
+</body>
+</html>
