@@ -16,7 +16,9 @@ The baseline and representative inputs are recorded in
 - `.d-wrap[data-wrap=placeholder]` divs and spans with a nonempty `data-key`.
 - `data-default`, comma-separated `data-defaults`, `data-description`, and
   `data-delimiter` (default `=`), plus rich descriptions inside the wrapper.
-- Native Input or single-choice Select, composed with responsive Field.
+- Native Input or single-choice Select, composed with stacked Field. Labels
+  sit above controls in a column capped at 448 px. Rich descriptions below
+  controls inherit FieldDescription's muted helper-text typography.
 - Substitution in headings, paragraphs, code, blockquotes, list descendants,
   `.md-table` descendants, and anchor hrefs. Other attributes remain unchanged.
 - Clearing an input restores its declared substitution default. Empty and
@@ -64,3 +66,5 @@ production plugin and a temporary private store. Its controls exercise light
 and dark palettes, a 320 px column, 200% text, RTL, and post remounting. The
 macOS review verified typing, select changes, live prose/code/link updates,
 remount restoration, and the narrow/large-text/RTL layouts in both palettes.
+The stacked-layout review also used the long `HOSTED_SITE_NAME` label from
+the reported form, with rich helper text beneath its input.

@@ -268,67 +268,71 @@ class _PlaceholderField extends StatelessWidget {
     );
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: DSpacing.sm),
-      child: DField(
-        orientation: DFieldOrientation.responsive,
-        children: [
-          DFieldContent(
+      child: Align(
+        alignment: AlignmentDirectional.centerStart,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 448),
+          child: DField(
             children: [
               DFieldLabel(
                 focusNode: field.focus,
                 excludeSemantics: true,
                 child: Text(definition.key),
               ),
+              DFieldControl(
+                // Text editors expose their label at the editor's native boundary.
+                label: options.isEmpty ? '' : definition.key,
+                description: description,
+                child: options.isEmpty
+                    ? DInput(
+                        controller: field.text,
+                        focusNode: field.focus,
+                        semanticLabel: definition.key,
+                        hintText: description,
+                        autocorrect: false,
+                        enableSuggestions: false,
+                        onChanged: change,
+                      )
+                    : DSelect<String>.controlled(
+                        focusNode: field.focus,
+                        isExpanded: true,
+                        value: options.contains(value) || value == 'none'
+                            ? value
+                            : null,
+                        placeholder: description ?? 'Select a value',
+                        entries: [
+                          if (description != null &&
+                              description!.isNotEmpty &&
+                              !options.contains('none'))
+                            DSelectOption(
+                              value: 'none',
+                              label: description!,
+                              child: Text(description!),
+                            ),
+                          for (final option in options)
+                            DSelectOption(
+                              value: option,
+                              label: option,
+                              child: Text(option),
+                            ),
+                        ],
+                        onChanged: (value) => change(value ?? 'none'),
+                      ),
+              ),
               if (descriptionHtml.trim().isNotEmpty)
                 DFieldDescription(
-                  child: CookedHtml(
-                    html: descriptionHtml,
-                    siteUrl: siteUrl,
-                    compactParagraphs: true,
+                  child: Builder(
+                    builder: (context) => CookedHtml(
+                      html: descriptionHtml,
+                      textStyle: DefaultTextStyle.of(context).style,
+                      siteUrl: siteUrl,
+                      compactParagraphs: true,
+                    ),
                   ),
                 ),
             ],
           ),
-          DFieldControl(
-            // Text editors expose their label at the editor's native boundary.
-            label: options.isEmpty ? '' : definition.key,
-            description: description,
-            child: options.isEmpty
-                ? DInput(
-                    controller: field.text,
-                    focusNode: field.focus,
-                    semanticLabel: definition.key,
-                    hintText: description,
-                    autocorrect: false,
-                    enableSuggestions: false,
-                    onChanged: change,
-                  )
-                : DSelect<String>.controlled(
-                    focusNode: field.focus,
-                    isExpanded: true,
-                    value: options.contains(value) || value == 'none'
-                        ? value
-                        : null,
-                    placeholder: description ?? 'Select a value',
-                    entries: [
-                      if (description != null &&
-                          description!.isNotEmpty &&
-                          !options.contains('none'))
-                        DSelectOption(
-                          value: 'none',
-                          label: description!,
-                          child: Text(description!),
-                        ),
-                      for (final option in options)
-                        DSelectOption(
-                          value: option,
-                          label: option,
-                          child: Text(option),
-                        ),
-                    ],
-                    onChanged: (value) => change(value ?? 'none'),
-                  ),
-          ),
-        ],
+        ),
       ),
     );
   }
