@@ -11,6 +11,8 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'support/button_surface.dart';
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
@@ -37,6 +39,105 @@ void main() {
   Future<void> open(WidgetTester tester) async {
     await tester.tap(find.text('Open'));
     await tester.pumpAndSettle();
+  }
+
+  for (final dark in [false, true]) {
+    for (final variant in [
+      DButtonVariant.outline,
+      DButtonVariant.secondary,
+      DButtonVariant.ghost,
+    ]) {
+      for (final dismissal in ['selection', 'outside', 'escape', 'trigger']) {
+        testWidgets(
+          'closing dropdown clears expanded fill immediately ($dark, $variant, $dismissal)',
+          (tester) async {
+            final focus = FocusNode();
+            addTearDown(focus.dispose);
+            await pumpMenu(
+              tester,
+              theme: (dark ? AppTheme.dark : AppTheme.light).copyWith(
+                platform: TargetPlatform.macOS,
+              ),
+              child: DDropdownMenu(
+                content: const DDropdownMenuContent(
+                  children: [
+                    DDropdownMenuItem(onPressed: _noop, child: Text('Action')),
+                  ],
+                ),
+                child: DDropdownMenuTrigger.button(
+                  label: const Text('Open'),
+                  variant: variant,
+                  focusNode: focus,
+                ),
+              ),
+            );
+            final trigger = find.byType(DButton);
+            final restingFill = buttonSurface(tester, of: trigger).color;
+            Color paintedFill() => tester
+                .widgetList<DecoratedBox>(
+                  find.descendant(
+                    of: trigger,
+                    matching: find.byType(DecoratedBox),
+                  ),
+                )
+                .map((box) => box.decoration)
+                .whereType<DButtonDecoration>()
+                .single
+                .color;
+            final mouse = await tester.createGesture(
+              kind: PointerDeviceKind.mouse,
+            );
+            await mouse.addPointer(location: Offset.zero);
+            addTearDown(mouse.removePointer);
+            Future<void> click(Offset position) async {
+              await mouse.moveTo(position);
+              await mouse.down(position);
+              await mouse.up();
+            }
+
+            for (var visit = 0; visit < 2; visit++) {
+              if (dismissal == 'escape') {
+                focus.requestFocus();
+                await tester.pump();
+                await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+              } else {
+                await click(tester.getCenter(trigger));
+              }
+              await mouse.moveTo(Offset.zero);
+              await tester.pumpAndSettle();
+              expect(tester.widget<DButton>(trigger).expanded, isTrue);
+
+              switch (dismissal) {
+                case 'selection':
+                  await click(tester.getCenter(find.text('Action')));
+                case 'outside':
+                  await click(const Offset(10, 10));
+                case 'escape':
+                  await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+                case 'trigger':
+                  await mouse.moveTo(tester.getCenter(trigger));
+                  await tester.pumpAndSettle();
+                  await click(tester.getCenter(trigger));
+              }
+              await tester.pump();
+              expect(tester.widget<DButton>(trigger).expanded, isFalse);
+              final closedFill = buttonSurface(tester, of: trigger).color;
+              if (dismissal != 'trigger') expect(closedFill, restingFill);
+              for (final elapsed in [0, 16, 32, 75, 150]) {
+                await tester.pump(Duration(milliseconds: elapsed));
+                expect(
+                  paintedFill().toARGB32(),
+                  closedFill.toARGB32(),
+                  reason: 'dismissal frame +$elapsed ms, visit $visit',
+                );
+              }
+              expect(find.text('Action'), findsNothing);
+              if (dismissal != 'outside') expect(focus.hasFocus, isTrue);
+            }
+          },
+        );
+      }
+    }
   }
 
   for (final direction in TextDirection.values) {
