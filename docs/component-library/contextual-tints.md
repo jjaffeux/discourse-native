@@ -88,6 +88,8 @@ Implementation: `8206fb4a`, integrated with main `e7c4d6d2` on
 `codex/meta-contextual-controls-final`. The reviewed notification controls,
 theme, icons and styleguide are unchanged by that integration. All 162 focused
 tests passed, including the 12 visual snapshots across four golden tests.
+Static analysis passed. Merged from the main checkout as
+`b2bf624f27f344a6465f0e757bb3ee813017e632`.
 
 Meta's light purple accent made the notification half of the joined group look
 heavier than its neutral bookmark. Active notifications now use the shared
