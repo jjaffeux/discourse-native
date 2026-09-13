@@ -288,39 +288,30 @@ class LightboxTile extends StatelessWidget {
         };
         void activate() => open(context);
 
-        return Semantics(
-          container: true,
-          explicitChildNodes: true,
-          button: true,
-          label: label,
-          onTap: activate,
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(4),
-            child: Material(
-              type: MaterialType.transparency,
-              child: InkWell(
-                onTap: activate,
-                child: Hero(
-                  tag: image.heroTag,
-                  child: SiteImage(
-                    url: image.thumbnailSrc ?? image.fullSrc,
-                    siteUrl: siteUrl,
-                    fit: fit,
-                    width: double.infinity,
-                    height: fillsBox ? double.infinity : null,
-                    cacheWidth: cacheWidth,
-                    gifPlaybackControls: true,
-                    errorBuilder: (context, error, stackTrace) {
-                      reportImageError(
-                        error,
-                        stackTrace,
-                        operation: 'lightbox.thumbnail',
-                      );
-                      return UnavailableImage(color: theme.shell.placeholder);
-                    },
-                  ),
-                ),
-              ),
+        return DImagePreview(
+          semanticLabel: label,
+          filename: image.title,
+          details: image.details,
+          onPressed: activate,
+          child: Hero(
+            tag: image.heroTag,
+            child: SiteImage(
+              url: image.thumbnailSrc ?? image.fullSrc,
+              siteUrl: siteUrl,
+              fit: fit,
+              width: double.infinity,
+              height: fillsBox ? double.infinity : null,
+              cacheWidth: cacheWidth,
+              gifPlaybackControls: true,
+              gifPlaybackControlsAtTop: true,
+              errorBuilder: (context, error, stackTrace) {
+                reportImageError(
+                  error,
+                  stackTrace,
+                  operation: 'lightbox.thumbnail',
+                );
+                return UnavailableImage(color: theme.shell.placeholder);
+              },
             ),
           ),
         );

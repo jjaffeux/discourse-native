@@ -34,6 +34,7 @@ class SiteImage extends StatefulWidget {
     this.loadingBuilder,
     this.errorBuilder,
     this.gifPlaybackControls = false,
+    this.gifPlaybackControlsAtTop = false,
     this.knownAnimated = false,
   }) : assert(
          coverDecodeSize == null ||
@@ -57,6 +58,9 @@ class SiteImage extends StatefulWidget {
   final WidgetBuilder? loadingBuilder;
   final ImageErrorWidgetBuilder? errorBuilder;
   final bool gifPlaybackControls;
+
+  /// Keeps playback controls clear of an enclosing preview's metadata bar.
+  final bool gifPlaybackControlsAtTop;
   final bool knownAnimated;
 
   @override
@@ -265,13 +269,18 @@ class _SiteImageState extends State<SiteImage> {
 
     final appSettings = ShellScope.maybeIdentityOf(context)?.appSettings;
     if (appSettings == null) {
-      return _GifPlaybackControl(disabledByDefault: false, child: child);
+      return _GifPlaybackControl(
+        disabledByDefault: false,
+        atTop: widget.gifPlaybackControlsAtTop,
+        child: child,
+      );
     }
     return ListenableBuilder(
       listenable: appSettings,
       child: child,
       builder: (context, child) => _GifPlaybackControl(
         disabledByDefault: appSettings.disableGifAnimations,
+        atTop: widget.gifPlaybackControlsAtTop,
         child: child!,
       ),
     );
@@ -362,10 +371,12 @@ class _SiteImageState extends State<SiteImage> {
 class _GifPlaybackControl extends StatefulWidget {
   const _GifPlaybackControl({
     required this.disabledByDefault,
+    required this.atTop,
     required this.child,
   });
 
   final bool disabledByDefault;
+  final bool atTop;
   final Widget child;
 
   @override
@@ -400,7 +411,8 @@ class _GifPlaybackControlState extends State<_GifPlaybackControl> {
         image,
         PositionedDirectional(
           end: 4,
-          bottom: 4,
+          top: widget.atTop ? 4 : null,
+          bottom: widget.atTop ? null : 4,
           child: DButton.iconOnly(
             key: const ValueKey('gif-playback-toggle'),
             icon: Icon(_playing ? Icons.pause : Icons.play_arrow),

@@ -4,6 +4,11 @@ import 'styleguide_example.dart';
 /// component reference catalogue.
 const applicationComponentCatalogue = <ComponentReference>[
   ComponentReference(
+    id: 'image-preview',
+    name: 'Image preview',
+    sections: ['Post image', 'Chat image', 'Narrow and disabled'],
+  ),
+  ComponentReference(
     id: 'notification-dot',
     name: 'Notification dot',
     sections: ['Inline states', 'Header overlay', 'Surface rings'],
