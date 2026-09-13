@@ -2098,7 +2098,7 @@ class _Reactions extends StatelessWidget {
           ),
           visualKey: ValueKey('chat-reaction-${reaction.emoji}'),
         ),
-      if (canAdd)
+      if (canAdd && (!messageFooter || context.isTouch))
         ReactionPickerButton(
           key: ValueKey('chat-reaction-picker-${message.id}'),
           onOpenPicker: _pickReaction,
