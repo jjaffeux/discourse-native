@@ -1,6 +1,8 @@
+import 'dart:async';
 import 'dart:ui' show SemanticsAction;
 
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/src/data/user_api_key.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/notification_totals.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
@@ -17,6 +19,87 @@ import 'support/fakes.dart';
 const _siteUrl = 'https://meta.example';
 
 void main() {
+  for (final width in [800.0, 1100.0]) {
+    testWidgets('account actions stay disabled during sign-in at ${width}px', (
+      tester,
+    ) async {
+      await tester.binding.setSurfaceSize(Size(width, 600));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final authenticator = _PendingAuthenticator();
+      final controller = ShellController(
+        instanceStore: FakeInstanceStore([instance('meta.example')]),
+        api: FakeDiscourseApi(),
+        authenticator: authenticator,
+        drafts: FakeDraftStore(),
+        trackers: FakeSiteTracker.reset(),
+        updater: FakeUpdater(),
+        updateStore: FakeUpdateStore(),
+      );
+      addTearDown(controller.dispose);
+      addTearDown(() {
+        if (!authenticator.pending.isCompleted) {
+          authenticator.pending.complete();
+        }
+      });
+      await controller.load();
+      final semantics = tester.ensureSemantics();
+      try {
+        await tester.pumpWidget(
+          ShellScope(
+            controller: controller,
+            child: MaterialApp(
+              theme: AppTheme.light.copyWith(platform: TargetPlatform.macOS),
+              home: const Scaffold(body: Center(child: UserMenuButton())),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        final signUp = find.byKey(UserMenuButton.signUpKey);
+        final signIn = find.byKey(UserMenuButton.signInKey);
+        expect(tester.getSize(signUp).height, 32);
+        expect(tester.getSize(signIn).height, 32);
+        expect(tester.getSemantics(signUp).label, 'Sign up');
+        expect(tester.getSemantics(signIn).label, 'Sign in');
+
+        _focusButton(tester, signIn);
+        await tester.pump();
+        await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+        await tester.pump();
+
+        expect(authenticator.connected, [_siteUrl]);
+        expect(tester.getSemantics(signIn).label, 'Sign in');
+        expect(tester.getSemantics(signIn).value, 'Signing in…');
+        for (final button in [signUp, signIn]) {
+          expect(
+            tester
+                .getSemantics(button)
+                .getSemanticsData()
+                .hasAction(SemanticsAction.tap),
+            isFalse,
+          );
+        }
+        await tester.tap(signIn);
+        await tester.pump();
+        expect(authenticator.connected, [_siteUrl]);
+
+        authenticator.pending.complete();
+        await tester.pumpAndSettle();
+        expect(tester.getSemantics(signIn).value, isEmpty);
+        for (final button in [signUp, signIn]) {
+          expect(
+            tester
+                .getSemantics(button)
+                .getSemanticsData()
+                .hasAction(SemanticsAction.tap),
+            isTrue,
+          );
+        }
+      } finally {
+        semantics.dispose();
+      }
+    });
+  }
+
   for (final (totals, role) in [
     (const NotificationTotals(unreadNotifications: 128), 'unread'),
     (
@@ -196,4 +279,17 @@ FocusNode _focusButton(WidgetTester tester, Finder button) {
   final focus = Focus.of(tester.element(focusChild));
   focus.requestFocus();
   return focus;
+}
+
+class _PendingAuthenticator extends FakeAuthenticator {
+  _PendingAuthenticator() : super(failure: UserApiAuthFailure.cancelled);
+
+  final pending = Completer<void>();
+
+  @override
+  Future<UserApiCredentials> authorize(String siteUrl) async {
+    connected.add(siteUrl);
+    await pending.future;
+    return super.authorize(siteUrl);
+  }
 }
