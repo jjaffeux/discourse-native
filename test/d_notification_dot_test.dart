@@ -33,7 +33,9 @@ void main() {
             )
             as Map<String, dynamic>;
     expect(
-      (progress['applicationComponents'] as List).map((row) => row['id']),
+      (progress['applicationComponents'] as List)
+          .cast<Map<String, dynamic>>()
+          .map((row) => row['id']),
       contains('notification-dot'),
     );
   });

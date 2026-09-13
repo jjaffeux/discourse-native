@@ -170,7 +170,7 @@ class _HeaderNotificationExampleState
             icon: const DAvatar(
               dimension: 26,
               decorative: true,
-              fallback: DAvatarFallback(child: Text('JD')),
+              fallback: DAvatarFallback(child: DIcon(DIcons.user, size: 14)),
             ),
             onPressed: () => DToast.show(context, 'Profile preview'),
           ),

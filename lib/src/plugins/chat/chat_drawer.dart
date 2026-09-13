@@ -1373,14 +1373,15 @@ SidebarBadge _drawerChannelBadge(ChatChannel channel) {
 }
 
 class _DrawerBadge extends StatelessWidget {
-  const _DrawerBadge({super.key, required this.badge});
+  const _DrawerBadge({super.key, required this.badge, this.dotSemanticLabel});
 
   final SidebarBadge badge;
+  final String? dotSemanticLabel;
 
   @override
   Widget build(BuildContext context) {
     if (badge.dot) {
-      return const DNotificationDot(semanticLabel: 'Unread messages');
+      return DNotificationDot(semanticLabel: dotSemanticLabel);
     }
     return DBadge(
       semanticLabel: '${badge.count} urgent notifications',
@@ -1568,6 +1569,7 @@ class ChatDrawerNavigation extends StatelessWidget {
                             'chat-drawer-navigation-badge-${item.routeId}',
                           ),
                           badge: item.badge,
+                          dotSemanticLabel: 'Unread messages',
                         ),
                       ],
                     ],
