@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
+import 'package:intl/intl.dart' hide TextDirection;
 
 import '../data/site_lifecycle.dart';
 import '../models/discourse_instance.dart';
@@ -277,10 +277,11 @@ class _SummaryLayout extends StatelessWidget {
           ),
         );
       }
+      final rtl = Directionality.of(context) == TextDirection.rtl;
       return Padding(
         padding: EdgeInsets.only(
-          left: lane.padding.left,
-          right: lane.padding.right,
+          left: rtl ? 0 : lane.padding.left,
+          right: rtl ? lane.padding.right : 0,
         ),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -305,8 +306,8 @@ class _SummaryLayout extends StatelessWidget {
                 padding: EdgeInsets.only(
                   top: lane.padding.top,
                   bottom: lane.padding.bottom,
-                  left: 1,
-                  right: 1,
+                  left: rtl ? lane.padding.left + 1 : 1,
+                  right: rtl ? 1 : lane.padding.right + 1,
                 ),
                 thumbVisibility: false,
                 physics: const AlwaysScrollableScrollPhysics(),

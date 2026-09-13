@@ -79,7 +79,11 @@ class ContentReadingLane extends StatelessWidget {
     EdgeInsets basePadding = EdgeInsets.zero,
     double widthLimit = maxWidth,
   }) {
-    final contentWidth = math.max(0.0, availableWidth - basePadding.horizontal);
+    final reserved = _ReadingLaneInsets.of(context);
+    final contentWidth = math.max(
+      0.0,
+      availableWidth - reserved.horizontal - basePadding.horizontal,
+    );
     final constrained = _usesDesktopLane && contentWidth.isFinite;
     final appTextScaleFactor = constrained
         ? ContentAlignmentScope.appTextScaleFactorOf(context)
@@ -97,12 +101,12 @@ class ContentReadingLane extends StatelessWidget {
         : (0.0, 0.0, Alignment.center);
     return ContentReadingLaneGeometry(
       width: width,
-      leftInset: leftInset,
-      rightInset: rightInset,
+      leftInset: leftInset + reserved.left,
+      rightInset: rightInset + reserved.right,
       alignment: alignment,
       padding: basePadding.copyWith(
-        left: basePadding.left + leftInset,
-        right: basePadding.right + rightInset,
+        left: basePadding.left + leftInset + reserved.left,
+        right: basePadding.right + rightInset + reserved.right,
       ),
     );
   }
@@ -125,15 +129,18 @@ class ContentReadingLane extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
-      builder: (context, constraints) => builder(
-        context,
-        geometryFor(
+      builder: (context, constraints) {
+        final lane = geometryFor(
           context,
           availableWidth: constraints.maxWidth,
           basePadding: basePadding,
           widthLimit: widthLimit,
-        ),
-      ),
+        );
+        return _ReadingLaneInsets(
+          padding: EdgeInsets.zero,
+          child: Builder(builder: (context) => builder(context, lane)),
+        );
+      },
     );
   }
 
@@ -147,6 +154,69 @@ class ContentReadingLane extends StatelessWidget {
         TargetPlatform.fuchsia ||
         TargetPlatform.iOS => false,
       };
+}
+
+/// Keeps a fixed sidebar in the reading lane while the adjacent page viewport
+/// extends to the trailing edge. Descendant reading lanes inset their content by
+/// the remaining outer margin, preserving the column widths and alignment.
+class ContentReadingLaneWithSidebar extends StatelessWidget {
+  const ContentReadingLaneWithSidebar({
+    super.key,
+    required this.sidebar,
+    required this.sidebarWidth,
+    required this.child,
+    this.padding = EdgeInsets.zero,
+  });
+
+  final Widget sidebar;
+  final double sidebarWidth;
+  final Widget child;
+  final EdgeInsets padding;
+
+  @override
+  Widget build(BuildContext context) => ContentReadingLane(
+    basePadding: padding,
+    builder: (context, lane) {
+      final rtl = Directionality.of(context) == TextDirection.rtl;
+      return Padding(
+        padding: lane.padding.copyWith(
+          left: rtl ? 0 : lane.padding.left,
+          right: rtl ? lane.padding.right : 0,
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            SizedBox(width: sidebarWidth, child: sidebar),
+            Expanded(
+              child: _ReadingLaneInsets(
+                padding: EdgeInsets.only(
+                  left: rtl ? lane.padding.left : 0,
+                  right: rtl ? 0 : lane.padding.right,
+                ),
+                child: child,
+              ),
+            ),
+          ],
+        ),
+      );
+    },
+  );
+}
+
+class _ReadingLaneInsets extends InheritedWidget {
+  const _ReadingLaneInsets({required this.padding, required super.child});
+
+  final EdgeInsets padding;
+
+  static EdgeInsets of(BuildContext context) =>
+      context
+          .dependOnInheritedWidgetOfExactType<_ReadingLaneInsets>()
+          ?.padding ??
+      EdgeInsets.zero;
+
+  @override
+  bool updateShouldNotify(_ReadingLaneInsets oldWidget) =>
+      padding != oldWidget.padding;
 }
 
 /// Applies the same reading-lane geometry to a non-scrollable placeholder.

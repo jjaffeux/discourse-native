@@ -18,6 +18,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'support/page_scrollbar.dart';
+
 const _group = Group(
   id: 9,
   name: 'support',
@@ -46,6 +48,72 @@ const _member = GroupMember(
 void _ignoreMember(BuildContext context, GroupMember member) {}
 
 void main() {
+  for (final (section, subsection, scrollKey) in [
+    (GroupRoute.activity, GroupRoute.posts, 'group-activity-posts-scroll'),
+    (GroupRoute.manage, GroupRoute.profile, 'group-manage-profile-scroll'),
+  ]) {
+    testWidgets('$section keeps its scrollbar at the page edge', (
+      tester,
+    ) async {
+      final settings = AppSettingsController(
+        store: AppSettingsStore(persistence: MemoryAppSettingsPersistence()),
+      );
+      addTearDown(settings.dispose);
+      await _pump(
+        tester,
+        ContentAlignmentScope(
+          controller: settings,
+          child: GroupPage(
+            siteUrl: 'https://meta.discourse.org',
+            route: GroupRoute.detail(
+              'support',
+              section: section,
+              subsection: subsection,
+            ),
+            registry: PluginRegistry.empty,
+            data: GroupPageData(
+              detail: _detail,
+              loaded: true,
+              activity: GroupActivityPage(
+                posts: [
+                  for (var id = 1; id <= 40; id++)
+                    GroupActivityPost(
+                      id: id,
+                      topicId: id,
+                      postNumber: 1,
+                      topicTitle: 'Activity $id',
+                      topicSlug: 'activity-$id',
+                      excerpt: 'Group activity excerpt $id',
+                    ),
+                ],
+              ),
+            ),
+            onOpenMember: _ignoreMember,
+          ),
+        ),
+        size: const Size(1600, 550),
+      );
+      for (final alignment in ContentAlignment.values) {
+        await settings.setContentAlignment(alignment);
+        await tester.pumpAndSettle();
+        final left = switch (alignment) {
+          ContentAlignment.left => 16.0,
+          ContentAlignment.center => 387.5,
+          ContentAlignment.right => 759.0,
+        };
+        expect(
+          tester.getRect(find.byKey(ValueKey('group-$section-sidebar'))).left,
+          left,
+        );
+        await expectPageEdgeScrolling(
+          tester,
+          viewport: find.byKey(PageStorageKey(scrollKey)),
+          right: 1600,
+        );
+      }
+    }, variant: const TargetPlatformVariant({TargetPlatform.macOS}));
+  }
+
   for (final (width, contentWidth) in [
     (1400.0, 825.0),
     (700.0, 668.0),

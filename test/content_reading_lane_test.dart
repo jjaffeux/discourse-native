@@ -1,3 +1,4 @@
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/data/app_settings_store.dart';
 import 'package:discourse_native/src/models/app_settings.dart';
 import 'package:discourse_native/src/shell/app_settings_controller.dart';
@@ -7,6 +8,70 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  for (final direction in TextDirection.values) {
+    testWidgets('sidebar lane keeps the viewport at the edge in $direction', (
+      tester,
+    ) async {
+      await _withPlatform(TargetPlatform.macOS, () async {
+        await _setViewport(tester, const Size(2000, 600));
+        final controller = _controller();
+        await tester.pumpWidget(
+          MaterialApp(
+            home: ContentAlignmentScope(
+              controller: controller,
+              child: Directionality(
+                textDirection: direction,
+                child: Scaffold(
+                  body: ContentReadingLaneWithSidebar(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    sidebarWidth: 190,
+                    sidebar: const SizedBox(key: ValueKey('lane-sidebar')),
+                    child: ContentReadingLane(
+                      basePadding: const EdgeInsets.symmetric(horizontal: 16),
+                      builder: (context, lane) => DScrollArea(
+                        key: _viewportKey,
+                        padding: lane.padding,
+                        child: const ContentReadingLaneBox(
+                          child: SizedBox(key: _contentKey, height: 2000),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+        for (final scale in [
+          AppTextScale.percent80,
+          AppTextScale.percent100,
+          AppTextScale.percent200,
+        ]) {
+          await controller.setTextScale(scale);
+          for (final alignment in ContentAlignment.values) {
+            await controller.setContentAlignment(alignment);
+            await tester.pump();
+            final width = 825 * controller.textScaleFactor;
+            final left = switch (alignment) {
+              ContentAlignment.left => 16.0,
+              ContentAlignment.center => (2000 - width) / 2,
+              ContentAlignment.right => 1984 - width,
+            };
+            final rtl = direction == TextDirection.rtl;
+            final viewport = tester.getRect(find.byKey(_viewportKey));
+            expect(rtl ? viewport.left : viewport.right, rtl ? 0 : 2000);
+            _expectLane(
+              tester,
+              left: left + (rtl ? 16 : 206),
+              width: width - 222,
+            );
+            expect(tester.takeException(), isNull);
+          }
+        }
+      });
+    });
+  }
+
   testWidgets('caps only the child lane and applies each physical alignment', (
     tester,
   ) async {
