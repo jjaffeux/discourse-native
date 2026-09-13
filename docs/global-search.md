@@ -4,27 +4,28 @@ The navbar search opens a large popover whose input replaces the navbar field
 at the same coordinates. The editor retains its controller, focus and selection.
 Escape closes the innermost menu first, then restores the navbar search. Clicking
 outside closes search without moving focus back. Touch phone layouts use the
-available screen with a Back button. The existing Cmd/Ctrl+F shortcut and topic
-search context remain available.
+available screen with a Back button. Cmd/Ctrl+F opens unfiltered global search
+with All selected. Cmd/Ctrl+Shift+F opens contextual search. Both shortcuts
+also switch an already open search while keeping its query, editor and caret.
 
-Opening search on a topic selects Topics & posts and adds that topic's filter.
+Contextual search on a topic selects Topics & posts and adds that topic's filter.
 Opening it from a topic list selects Topics & posts and clears the previous
-topic filter. These defaults apply once per opening; users can remove the topic
-filter or switch scopes while search is open. Clicking the navbar field and
-using Cmd/Ctrl+F share the same context. The separate topic-list search field
-has been removed, and `/` opens global search from topic pages and topic lists
-when an editor or other form control does not own the keyboard.
+topic filter. Clicking the navbar applies these defaults once per opening;
+users can remove the topic filter or switch scopes while search is open.
+Cmd/Ctrl+Shift+F reapplies the current context. The separate topic-list search
+field has been removed, and `/` opens contextual search from topic pages and
+topic lists when an editor or other form control does not own the keyboard.
 Saved topic-list routes drop the old field's search parameter on restoration,
 so a removed control cannot leave the list invisibly filtered. Other filters
 and tab-history anchors are retained.
 
-Opening search from a chat channel or thread selects Chat and adds the parent
+Contextual search from a chat channel or thread selects Chat and adds the parent
 channel's filter. An expanded chat drawer supplies this context ahead of the
 forum page behind it. Channel filters use stable IDs, including direct messages,
 and display the channel's title. Closing the drawer or returning to a forum page
 clears that opening context the next time search opens. The header search icons
 and inline channel search bar, result counter, and previous/next controls are
-removed. Cmd/Ctrl+F opens and refocuses the same global editor.
+removed. Cmd/Ctrl+F searches across the forum even when Chat is open.
 
 Chat results retain their channel, thread, and message targets and use the
 existing in-app navigation: an open drawer receives the result; otherwise Chat
@@ -38,7 +39,8 @@ height instead of moving the input upward.
 
 The approved interactive reference is [the mockup](mockups/global-search.html).
 Recent searches are full-width text rows; Clear history uses the same row inset.
-There are no leading clock icons or footer.
+There are no leading clock icons. A fixed footer displays the global and
+contextual search shortcuts using Native keycaps, wrapping on narrow layouts.
 
 ## Search capabilities
 
@@ -158,3 +160,25 @@ offline fixture to check the removed controls, channel chips, result selection
 and message highlighting in drawer and full-page modes, dark/light palettes,
 and a narrow viewport. Keyboard refocusing and Escape refinements were verified
 with widget tests; no authenticated server or physical mobile device was used.
+
+### Search shortcuts follow-up
+
+Cmd/Ctrl+F now selects All and clears retained conditions. Cmd/Ctrl+Shift+F
+applies the current topic, list or chat context, including drawer precedence,
+even while search is open. Clicks preserve manual scope and filter edits while
+the panel remains open. The search footer and keyboard-shortcuts help display
+both bindings from the same platform-aware shortcut definitions.
+
+Focused verification covers global/contextual switching on macOS and Linux
+target-platform overrides, retained text and caret, topic/list/channel context,
+chat drawers and direct messages, dismissal, scrolling to results, and footer
+keycaps. Native macOS inspection used the offline fixture in dark/wide and
+light/390px layouts, including 200% text. The footer wrapped without clipping.
+Native automation sent F without modifier flags, confirmed with a temporary
+key-event diagnostic; the shortcut combinations were verified by widget tests.
+No authenticated server or physical mobile device was used.
+
+The integrated change passed all 315 focused search, shell navigation,
+accessibility and chat cases, root/full-profile analysis, formatting and
+`git diff --check` against main's updated search-scope checkmarks and HTML
+renderer dependency.

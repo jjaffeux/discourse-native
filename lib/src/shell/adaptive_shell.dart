@@ -30,6 +30,7 @@ import 'resizable_pane.dart';
 import 'shell_controller.dart';
 import 'shell_panel.dart';
 import 'shell_scope.dart';
+import 'shell_search_controller.dart';
 import 'title_bar.dart';
 
 enum ShellLayout {
@@ -163,8 +164,19 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
         (controller.currentContent?.isTopic == true ||
             controller.currentContent?.isTopicList == true) &&
         !_formControlHasFocus) {
-      controller.search.requestFocus();
+      controller.search.requestFocus(mode: SearchFocusMode.contextual);
       return true;
+    }
+
+    for (final mode in SearchFocusMode.values) {
+      if (searchShortcutForPlatform(
+        defaultTargetPlatform,
+        contextual: mode == SearchFocusMode.contextual,
+      ).accepts(event, keyboard)) {
+        if (controller.rootMode != ShellRootMode.forum) return false;
+        controller.search.requestFocus(mode: mode);
+        return true;
+      }
     }
 
     final usesMetaModifier = defaultTargetPlatform == TargetPlatform.macOS;
@@ -186,18 +198,6 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
     }
 
     if (_handleSidebarActionShortcut(event, keyboard, controller)) return true;
-
-    if (event.logicalKey == LogicalKeyboardKey.keyF) {
-      if (controller.rootMode != ShellRootMode.forum) return false;
-
-      final route = controller.currentContent;
-      if (route?.topicId case final topicId?) {
-        controller.search.requestTopicFocus(topicId);
-      } else {
-        controller.search.requestFocus();
-      }
-      return true;
-    }
 
     if (event.logicalKey == LogicalKeyboardKey.keyT) {
       return _openTab(controller);

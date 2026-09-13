@@ -489,7 +489,7 @@ void main() {
       )..selectSite(site);
       addTearDown(search.dispose);
       final field = Object();
-      final unregister = search.registerFocus(field, () {});
+      final unregister = search.registerFocus(field, (_) {});
       addTearDown(unregister);
 
       search.activateField(field);
@@ -530,7 +530,7 @@ void main() {
       )..selectSite(site);
       addTearDown(search.dispose);
       final field = Object();
-      final unregister = search.registerFocus(field, () {});
+      final unregister = search.registerFocus(field, (_) {});
       addTearDown(unregister);
 
       search.activateField(field);
@@ -568,7 +568,7 @@ void main() {
       )..selectSite(site);
       addTearDown(search.dispose);
       final field = Object();
-      final unregister = search.registerFocus(field, () {});
+      final unregister = search.registerFocus(field, (_) {});
       addTearDown(unregister);
 
       search.activateField(field);
