@@ -28,6 +28,16 @@ enum GlobalSearchDisplayProperty {
 
 enum GlobalSearchFilterKind { choice, multi, text, number, date }
 
+/// Defaults supplied by the visible surface when global search opens.
+@immutable
+class GlobalSearchContext {
+  const GlobalSearchContext({required this.scope, this.condition, this.label});
+
+  final GlobalSearchScope scope;
+  final GlobalSearchCondition? condition;
+  final String? label;
+}
+
 @immutable
 class GlobalSearchCapabilities {
   const GlobalSearchCapabilities({

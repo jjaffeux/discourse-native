@@ -14,6 +14,7 @@ import '../models/topic.dart';
 import '../models/user_card.dart';
 import '../models/user_preferences.dart';
 import '../shell/composer_controller.dart';
+import '../shell/global_search_models.dart';
 import '../shell/post_action.dart';
 import '../theme/d_icon.dart';
 import 'composer_syntax.dart';
@@ -675,10 +676,8 @@ abstract interface class ContentPlugin {
 }
 
 abstract interface class ContentSearchPlugin {
-  bool ownsContentSearch(BuildContext context, ContentRoute route);
-
-  /// Returns null when this route owns search but search is unavailable.
-  VoidCallback? contentSearchAction(BuildContext context, ContentRoute route);
+  /// Supplies context from the active plugin surface, including overlays.
+  GlobalSearchContext? contentSearchContext(BuildContext context);
 }
 
 abstract interface class ContentChromePlugin {

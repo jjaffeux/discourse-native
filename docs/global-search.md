@@ -18,6 +18,19 @@ Saved topic-list routes drop the old field's search parameter on restoration,
 so a removed control cannot leave the list invisibly filtered. Other filters
 and tab-history anchors are retained.
 
+Opening search from a chat channel or thread selects Chat and adds the parent
+channel's filter. An expanded chat drawer supplies this context ahead of the
+forum page behind it. Channel filters use stable IDs, including direct messages,
+and display the channel's title. Closing the drawer or returning to a forum page
+clears that opening context the next time search opens. The header search icons
+and inline channel search bar, result counter, and previous/next controls are
+removed. Cmd/Ctrl+F opens and refocuses the same global editor.
+
+Chat results retain their channel, thread, and message targets and use the
+existing in-app navigation: an open drawer receives the result; otherwise Chat
+uses the saved display preference, falling back to full page on compact layouts.
+Escape dismisses search before the drawer, including from filter controls.
+
 On a narrow desktop, the results surface grows beyond the navbar field to use
 the available width. The input, clear action and caret keep their original
 coordinates inside that larger header. Short windows reduce the results area's
@@ -130,3 +143,15 @@ search API and panel suites passed. Root and `profiles/full` analysis, formattin
 and `git diff --check` passed. A public Discourse response was also replayed
 successfully through the parser and aggregate-search adapter. This follow-up
 does not claim a new authenticated live-server or native UI review.
+
+### Contextual chat search follow-up
+
+The chat change passed 286 focused cases covering channel and direct-message
+scope from clicks and shortcuts, drawer precedence over the underlying topic,
+filter removal and reopening, delayed capability discovery, saved display
+preferences, exact message navigation, Escape, and existing chat consumers.
+Root and `profiles/full` analysis passed. Native macOS inspection used the
+offline fixture to check the removed controls, channel chips, result selection
+and message highlighting in drawer and full-page modes, dark/light palettes,
+and a narrow viewport. Keyboard refocusing and Escape refinements were verified
+with widget tests; no authenticated server or physical mobile device was used.

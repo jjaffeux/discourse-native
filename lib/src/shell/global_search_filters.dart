@@ -770,7 +770,7 @@ const globalSearchFilters = <GlobalSearchFilter>[
     group: "Where",
     operators: [GlobalSearchFilterOperator("is", "is")],
     token: "#",
-    placeholder: "Channel slug",
+    placeholder: "Channel slug or ID",
     help: "Search one channel available to your account.",
   ),
   GlobalSearchFilter(

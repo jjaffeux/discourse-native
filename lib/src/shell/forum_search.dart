@@ -156,6 +156,7 @@ class _ForumSearchState extends State<ForumSearch> {
     if (!mounted) return;
     _search.activateField(_field);
     _openSearch();
+    _focus.requestFocus();
   }
 
   void _focusChanged() {
@@ -167,9 +168,22 @@ class _ForumSearchState extends State<ForumSearch> {
     _measureAnchor();
     if (!_popover.isOpen) {
       final route = _shell!.currentContent;
-      _global.setTopicContext(
-        route?.topicId,
-        selectForum: route?.isTopicList == true,
+      final pluginContext = _shell!.plugins.registry.contentSearchContext(
+        context,
+      );
+      _global.setContext(
+        pluginContext ??
+            (route?.isTopic == true || route?.isTopicList == true
+                ? GlobalSearchContext(
+                    scope: GlobalSearchScope.forum,
+                    condition: route?.topicId == null
+                        ? null
+                        : GlobalSearchCondition(
+                            filterId: 'topicId',
+                            value: ['${route!.topicId}'],
+                          ),
+                  )
+                : null),
       );
       _popover.open(DPopoverInteraction.keyboard);
     }

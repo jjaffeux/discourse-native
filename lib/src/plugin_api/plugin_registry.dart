@@ -12,6 +12,7 @@ import '../models/topic.dart';
 import '../models/user_card.dart';
 import '../models/user_preferences.dart';
 import '../shell/composer_controller.dart';
+import '../shell/global_search_models.dart';
 import '../shell/post_action.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
@@ -1645,17 +1646,13 @@ final class PluginRegistry
     return null;
   }
 
-  ({bool owned, VoidCallback? action}) contentSearch(
-    BuildContext context,
-    ContentRoute route,
-  ) {
+  GlobalSearchContext? contentSearchContext(BuildContext context) {
     for (final plugin in plugins.whereType<ContentSearchPlugin>()) {
       final pluginContext = _uiContext(context, plugin);
-      if (!plugin.ownsContentSearch(pluginContext, route)) continue;
-      final action = plugin.contentSearchAction(pluginContext, route);
-      return (owned: true, action: action);
+      final searchContext = plugin.contentSearchContext(pluginContext);
+      if (searchContext != null) return searchContext;
     }
-    return (owned: false, action: null);
+    return null;
   }
 
   bool ownsContentChrome(BuildContext context, ContentRoute route) =>

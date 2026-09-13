@@ -13,7 +13,6 @@ import '../../theme/app_theme.dart';
 import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
 import '../../theme/d_native_icons.dart';
-import 'chat_channel_search.dart';
 import 'chat_channel_star_button.dart';
 import 'chat_channel_view.dart';
 import 'chat_composer.dart';
@@ -684,7 +683,6 @@ class _ChannelPaneHeader extends StatelessWidget {
                   ),
                   const SizedBox(width: 4),
                 ],
-                ChatChannelSearchButton(siteUrl: siteUrl, channelId: channelId),
                 if (shell.fullPageChatActive && shell.drawerAvailable)
                   _FullPageCloseButton(shell: shell),
                 if (ShellTitleBar.columnsCarryUserMenu) ...[

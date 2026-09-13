@@ -13,6 +13,7 @@ import '../../models/user_card.dart';
 import '../../plugin_api/plugin_scope.dart';
 import '../../plugin_api/site_plugin_api.dart';
 import '../../shell/composer_controller.dart';
+import '../../shell/global_search_models.dart';
 import '../../shell/user_status.dart';
 import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
@@ -20,7 +21,6 @@ import 'chat_browse_channels_view.dart';
 import 'chat_channel.dart';
 import 'chat_channel_actions.dart';
 import 'chat_channel_info_view.dart';
-import 'chat_channel_search.dart';
 import 'chat_channel_star_button.dart';
 import 'chat_channel_threads_view.dart';
 import 'chat_channel_view.dart';
@@ -545,14 +545,9 @@ class ChatPlugin
   }
 
   @override
-  bool ownsContentSearch(BuildContext context, ContentRoute route) {
-    return ownsRouteId(route.id);
-  }
-
-  @override
-  VoidCallback? contentSearchAction(BuildContext context, ContentRoute route) {
-    if (!ownsContentSearch(context, route)) return null;
+  GlobalSearchContext? contentSearchContext(BuildContext context) {
     final shell = PluginUiScope.require(context, chatShellService);
+    if (!shell.drawerExpanded && !shell.fullPageChatActive) return null;
     final siteUrl = shell.currentSiteUrl;
     final available =
         siteUrl != null &&
@@ -562,13 +557,22 @@ class ChatPlugin
         shell.currentTotals?.hasChatEnabled == true;
     if (!available) return null;
 
-    final search = PluginUiScope.require(context, chatSearchControllerService);
-    return () {
-      shell.openSearch();
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        search.requestGlobalFocus(siteUrl);
-      });
-    };
+    final route = shell.currentContent;
+    final channelId = route == null
+        ? null
+        : ChatRoute.parse(route.id)?.channelId;
+    return GlobalSearchContext(
+      scope: GlobalSearchScope.chat,
+      condition: channelId == null
+          ? null
+          : GlobalSearchCondition(
+              filterId: 'chatChannel',
+              value: ['$channelId'],
+            ),
+      label: channelId == null
+          ? null
+          : shell.chat.channel(siteUrl, channelId)?.title,
+    );
   }
 
   @override
@@ -603,13 +607,7 @@ class ChatPlugin
         ?fullPageAction,
       ];
     }
-    if (chatRoute.isInfo) {
-      return fullPageAction == null ? const [] : [fullPageAction];
-    }
-    return [
-      ChatChannelSearchButton(siteUrl: siteUrl, channelId: chatRoute.channelId),
-      ?fullPageAction,
-    ];
+    return [?fullPageAction];
   }
 
   @override

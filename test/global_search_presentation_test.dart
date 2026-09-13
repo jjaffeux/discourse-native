@@ -1,5 +1,8 @@
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/content_route.dart';
+import 'package:discourse_native/src/plugins/chat/chat_drawer.dart';
+import 'package:discourse_native/src/plugins/chat/chat_drawer_preferences_store.dart';
+import 'package:discourse_native/src/plugins/chat/chat_shell_service.dart';
 import 'package:discourse_native/src/shell/forum_search.dart';
 import 'package:discourse_native/src/shell/global_search_models.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
@@ -16,6 +19,45 @@ import 'support/global_search_fixtures.dart';
 import 'support/shell_test_harness.dart';
 
 void main() {
+  for (final mode in ChatPreferredDisplayMode.values) {
+    _testPresentation(
+      'chat results from a forum open in the saved ${mode.name} mode',
+      (tester) async {
+        await const ChatDrawerPreferencesStore().writePreferredDisplayMode(
+          mode,
+        );
+        final shell = await _pumpSearch(tester);
+        final chat = shell.pluginSession.require(chatShellService);
+        final underlying = shell.currentContent;
+        expect(chat.chatActive, isFalse);
+        await tester.tap(find.byKey(ForumSearch.inputKey));
+        await tester.pumpAndSettle();
+        await tester.tap(
+          find.byKey(const ValueKey('global-search-scope-chat')),
+        );
+        await tester.enterText(find.byKey(ForumSearch.inputKey), 'design');
+        await _finishSearch(tester);
+        await tester.tap(
+          _panelText('The search design is ready for a keyboard review.'),
+        );
+        await tester.pumpAndSettle();
+        expect(chat.drawerActive, mode == ChatPreferredDisplayMode.drawer);
+        expect(chat.currentContent?.id, 'chat-c-2');
+        expect(find.byKey(ForumSearch.panelKey), findsNothing);
+        expect(
+          find.byKey(ChatDrawerOverlay.drawerKey),
+          mode == ChatPreferredDisplayMode.drawer
+              ? findsOneWidget
+              : findsNothing,
+        );
+        if (mode == ChatPreferredDisplayMode.drawer) {
+          expect(shell.currentContent, underlying);
+        }
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
   for (final keyboard in [false, true]) {
     _testPresentation(
       '${keyboard ? 'shortcut' : 'click'} search defaults to the open topic and clears it on a list',

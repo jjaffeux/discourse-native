@@ -336,10 +336,17 @@ class GlobalSearchApi {
     if (!r.capabilities.chat || key == null) {
       throw const FormatException('Chat search is unavailable.');
     }
+    final channelId = r.conditions
+        .where((f) => f.filterId == 'chatChannel')
+        .map((f) => int.tryParse(f.text))
+        .whereType<int>()
+        .where((id) => id > 0)
+        .firstOrNull;
     final terms = [
       r.query,
       for (final f in r.conditions)
-        if (f.filterId != 'chatThreads')
+        if (f.filterId != 'chatThreads' &&
+            !(f.filterId == 'chatChannel' && channelId != null))
           globalSearchConditionToken(f, username: r.capabilities.username),
     ].where((x) => x.trim().isNotEmpty).join(' ');
     if (terms.isEmpty) {
@@ -352,6 +359,7 @@ class GlobalSearchApi {
       'sort': r.order,
       'offset': '${r.offset}',
       'limit': '20',
+      if (channelId != null) 'channel_id': '$channelId',
     };
     for (final f in r.conditions) {
       if (f.filterId == 'chatThreads') {

@@ -32,6 +32,7 @@ class GlobalSearchController extends ChangeNotifier {
   String _baseFingerprint = '';
   GlobalSearchCapabilities _capabilities = const GlobalSearchCapabilities();
   GlobalSearchScope _scope = GlobalSearchScope.all;
+  GlobalSearchContext? _context, _pendingContext;
   String _query = '';
   final _banks = <GlobalSearchScope, List<GlobalSearchCondition>>{};
   final _orders = <GlobalSearchScope, String>{};
@@ -136,6 +137,8 @@ class GlobalSearchController extends ChangeNotifier {
       _localRecent = const [];
       _recentStates.clear();
       _choiceLabels.clear();
+      _context = null;
+      _pendingContext = null;
       _historyRevision++;
       _historyCleared = false;
     }
@@ -169,6 +172,7 @@ class GlobalSearchController extends ChangeNotifier {
       if (!current() || loaded.fingerprint == capabilities.fingerprint) return;
       _capabilities = loaded;
       _sanitize();
+      if (_pendingContext case final pending?) setContext(pending);
       _schedule();
     } catch (_) {
       // Optional discovery does not prevent core search.
@@ -202,6 +206,7 @@ class GlobalSearchController extends ChangeNotifier {
   }
 
   void setScope(GlobalSearchScope value) {
+    _pendingContext = null;
     if (_disposed || !scopes.contains(value) || value == scope) return;
     _scope = value;
     _schedule();
@@ -217,6 +222,7 @@ class GlobalSearchController extends ChangeNotifier {
   }
 
   void _putCondition(GlobalSearchCondition condition, {int? index}) {
+    _pendingContext = null;
     final validation = validateGlobalSearchCondition(condition, capabilities);
     if (validation != null) throw FormatException(validation);
     final filter = globalSearchFilter(condition.filterId)!;
@@ -274,35 +280,66 @@ class GlobalSearchController extends ChangeNotifier {
   }
 
   void removeCondition(int index) {
+    _pendingContext = null;
     if (index < 0 || index >= conditions.length) return;
     _banks[scope] = List.unmodifiable(conditions.toList()..removeAt(index));
     _schedule();
   }
 
   void clearConditions() {
+    _pendingContext = null;
     if (conditions.isEmpty) return;
     _banks[scope] = const [];
     _schedule();
   }
 
-  void setTopicContext(int? topicId, {bool selectForum = false}) {
-    if (_disposed || topicId != null && topicId < 2) return;
-    final previous = conditionsFor(GlobalSearchScope.forum);
-    final topics = previous.where((item) => item.filterId == 'topicId');
-    final nextScope = topicId != null || selectForum
-        ? GlobalSearchScope.forum
-        : scope;
-    final sameTopic = topicId == null
-        ? topics.isEmpty
-        : topics.length == 1 && topics.single.text == '$topicId';
-    if (scope == nextScope && sameTopic) return;
-    final next = previous.where((item) => item.filterId != 'topicId').toList();
-    if (topicId != null) {
-      next.add(GlobalSearchCondition(filterId: 'topicId', value: ['$topicId']));
+  /// Applies the visible surface's defaults once when search opens.
+  void setContext(GlobalSearchContext? context) {
+    if (_disposed) return;
+    final previous = _context;
+    _context = context;
+    _pendingContext = null;
+    if (context != null && !scopes.contains(context.scope)) {
+      if (context.scope == GlobalSearchScope.chat &&
+          capabilities.chatEligible) {
+        _pendingContext = context;
+      }
+      context = null;
     }
-    _scope = nextScope;
-    _banks[GlobalSearchScope.forum] = List.unmodifiable(next);
-    _schedule();
+    final condition = context?.condition;
+    var changed = false;
+    for (final bank in {previous?.scope, context?.scope}.nonNulls) {
+      final held = conditionsFor(bank);
+      final next = held
+          .where(
+            (item) =>
+                !(previous?.scope == bank &&
+                    item.filterId == previous?.condition?.filterId) &&
+                !(context?.scope == bank &&
+                    item.filterId == condition?.filterId),
+          )
+          .toList();
+      if (context?.scope == bank && condition != null) next.add(condition);
+      String token(GlobalSearchCondition item) =>
+          globalSearchConditionToken(item, username: capabilities.username);
+      if (!listEquals(held.map(token).toList(), next.map(token).toList())) {
+        _banks[bank] = List.unmodifiable(next);
+        changed = true;
+      }
+    }
+    final label = context?.label;
+    if (condition != null && label != null) {
+      final labels = _choiceLabels.putIfAbsent(condition.filterId, () => {});
+      if (labels[condition.text] != label) {
+        labels[condition.text] = label;
+        changed = true;
+      }
+    }
+    if (context != null && scope != context.scope) {
+      _scope = context.scope;
+      changed = true;
+    }
+    if (changed) _schedule();
   }
 
   void setOrder(String value, {bool? ascending}) {
@@ -364,6 +401,7 @@ class GlobalSearchController extends ChangeNotifier {
   }
 
   void useRecentSearch(String value) {
+    _pendingContext = null;
     final saved = _recentStates[value];
     if (saved != null && scopes.contains(saved.scope)) {
       _scope = saved.scope;
