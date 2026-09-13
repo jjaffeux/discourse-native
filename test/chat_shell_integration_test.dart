@@ -2704,7 +2704,7 @@ void _registerChatShellTests() {
           expect(switcherRect.height, greaterThan(36));
           expect(
             tester.getRect(switcherContent).center.dx,
-            closeTo(switcherRect.center.dx - 2, .01),
+            closeTo(switcherRect.center.dx - 1, .01),
           );
         });
 

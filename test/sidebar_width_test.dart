@@ -61,7 +61,7 @@ void main() {
       matching: find.text('Topics'),
     );
     expect(topics, findsOneWidget);
-    expect(DefaultTextStyle.of(tester.element(topics)).style.fontSize, 12);
+    expect(DefaultTextStyle.of(tester.element(topics)).style.fontSize, 14);
     expect(
       tester
           .getSize(
@@ -70,7 +70,7 @@ void main() {
                 .first,
           )
           .height,
-      DControlStyle.regularHeight,
+      DControlStyle.largeHeight,
     );
   }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 
@@ -101,8 +101,8 @@ void main() {
         final textRect = tester.getRect(topics);
         final rowRect = tester.getRect(row);
 
-        expect(DefaultTextStyle.of(tester.element(topics)).style.fontSize, 12);
-        expect(rowRect.height, greaterThan(DControlStyle.regularHeight));
+        expect(DefaultTextStyle.of(tester.element(topics)).style.fontSize, 14);
+        expect(rowRect.height, greaterThan(DControlStyle.largeHeight));
         expect(textRect.top, greaterThanOrEqualTo(rowRect.top));
         expect(textRect.bottom, lessThanOrEqualTo(rowRect.bottom));
 

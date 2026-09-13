@@ -528,7 +528,7 @@ class _SidebarPanelSwitchRow extends StatelessWidget {
             onPressed: canSwitch
                 ? () => controller.switchSidebarPanel(active!.panel.onClose)
                 : null,
-            size: DButtonSize.regular,
+            size: DButtonSize.large,
           ),
         ),
       for (final candidate in panels)
@@ -541,7 +541,7 @@ class _SidebarPanelSwitchRow extends StatelessWidget {
               onPressed: canSwitch
                   ? () => controller.switchSidebarPanel(candidate.panel.onOpen)
                   : null,
-              size: DButtonSize.regular,
+              size: DButtonSize.large,
             ),
           ),
     ];
@@ -899,7 +899,7 @@ class _SectionState extends State<_Section> {
           ? null
           : context.isTouch
           ? 48.0
-          : DControlStyle.height(DSidebarMenuButtonSize.regular);
+          : DControlStyle.height(DSidebarMenuButtonSize.large);
       final menu = submenu
           ? DSidebarMenuSub.sliverBuilder(
               itemCount: run.length,
@@ -990,6 +990,7 @@ class _MoreDestinationsTile extends StatelessWidget {
     ),
     child: DDropdownMenuTrigger(
       builder: (context, menu) => DSidebarMenuButton(
+        size: DSidebarMenuButtonSize.large,
         icon: const DIcon(DIcons.ellipsisVertical, size: 16),
         focusNode: menu.focusNode,
         expanded: menu.open,
@@ -1032,6 +1033,7 @@ class _SectionHeader extends StatelessWidget {
             ),
       child: section.collapsible
           ? DSidebarMenuButton(
+              size: DSidebarMenuButtonSize.large,
               icon: DIcon(
                 collapsed ? expandIcon : DIcons.chevronDown,
                 size: 16,
@@ -1206,6 +1208,7 @@ class _DestinationTile extends StatelessWidget {
                   ),
                 )),
       child: DSidebarMenuButton(
+        size: DSidebarMenuButtonSize.large,
         isActive: selected,
         onPressed: destination.enabled ? onTap : null,
         iconSize: context.isTouch ? 22 : 18,

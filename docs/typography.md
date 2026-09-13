@@ -32,8 +32,12 @@ Flutter while keeping the platform font family and Discourse colors.
 | Larger headings | headlineMedium | 30 / 36, semibold |
 | Display headings | headlineLarge | 36 / 40, semibold |
 
-Small and large buttons change spacing and icon geometry while keeping the
-same label role. Narrow layouts keep the same type roles and provide larger
+The Native control presets use 12/16 labels for small and regular controls,
+and 14/20 for large controls. The application sidebar uses the large preset
+for destinations, expandable section headings, More, and Forum/Chat switches:
+14/20 text in 32px desktop rows. Counts and the forum URL remain 12/16.
+This keeps primary navigation closer to 16/24 topic titles and reading text
+at every zoom level. Narrow layouts keep the same type roles and provide larger
 touch targets. Authored h1–h6 use 30, 24, 20, 18, 16, and 14 with their paired
 leading in both cooked HTML and the composer. Relative authored formatting
 (small, big, superscripts, inline code) derives from its surrounding text;
