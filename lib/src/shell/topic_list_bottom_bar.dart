@@ -125,7 +125,11 @@ class TopicListBottomBar extends StatelessWidget {
                   const Spacer(),
                   DButton.iconOnly(
                     key: const ValueKey('inbox-previous-topic'),
-                    tooltip: 'Previous topic',
+                    tooltip:
+                        ShellScope.read(context).topicListContent?.isMessages ==
+                            true
+                        ? 'Previous message'
+                        : 'Previous topic',
                     shortcut: DShortcut.sequence(
                       ReadingCommand.openPreviousTopic.prefix!,
                       ReadingCommand.openPreviousTopic.shortcuts.cast(),
@@ -140,7 +144,11 @@ class TopicListBottomBar extends StatelessWidget {
                   const SizedBox(width: DSpacing.xs),
                   DButton.iconOnly(
                     key: const ValueKey('inbox-next-topic'),
-                    tooltip: 'Next topic',
+                    tooltip:
+                        ShellScope.read(context).topicListContent?.isMessages ==
+                            true
+                        ? 'Next message'
+                        : 'Next topic',
                     shortcut: DShortcut.sequence(
                       ReadingCommand.openNextTopic.prefix!,
                       ReadingCommand.openNextTopic.shortcuts.cast(),

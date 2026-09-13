@@ -337,7 +337,9 @@ class TopicCloseButton extends StatelessWidget {
   Widget build(BuildContext context) => DButton.iconOnly(
     key: const ValueKey('topic-close-reader'),
     icon: const DIcon(DNativeIcons.closeTopicPane, size: 20),
-    tooltip: 'Collapse topic',
+    tooltip: ShellScope.read(context).topicListContent?.isMessages == true
+        ? 'Collapse message'
+        : 'Collapse topic',
     variant: DButtonVariant.ghost,
     size: DButtonSize.small,
     onPressed: () {

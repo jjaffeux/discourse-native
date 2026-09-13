@@ -2857,9 +2857,9 @@ class ShellController extends FrameSafeNotifier
     };
   }
 
-  void selectMessageInbox(String? groupName) {
+  void selectMessageInbox(String? groupName, {bool keepTopicOpen = false}) {
     final instance = currentInstance;
-    final route = currentContent;
+    final route = topicListContent ?? currentContent;
     final user = instance?.user;
     if (instance == null || user == null || route?.isMessages != true) return;
 
@@ -2872,18 +2872,25 @@ class ShellController extends FrameSafeNotifier
       mode: group == null || mode.supportsGroup ? mode : MessageListMode.inbox,
     );
     if (route.id == replacement.id) return;
-    replaceCurrentContent(replacement);
+    _replaceTopicListContent(replacement, keepTopicOpen: keepTopicOpen);
+    _syncTopicChannels();
+    _notify();
     unawaited(loadFeed(replacement.id));
   }
 
-  void selectMessageListMode(MessageListMode mode) {
-    final route = currentContent;
+  void selectMessageListMode(
+    MessageListMode mode, {
+    bool keepTopicOpen = false,
+  }) {
+    final route = topicListContent ?? currentContent;
     if (currentInstance?.user == null || route?.isMessages != true) return;
     final group = route!.messageGroupName;
     if (group != null && !mode.supportsGroup) return;
     final replacement = ContentRoute.messages(groupName: group, mode: mode);
     if (route.id == replacement.id) return;
-    replaceCurrentContent(replacement);
+    _replaceTopicListContent(replacement, keepTopicOpen: keepTopicOpen);
+    _syncTopicChannels();
+    _notify();
     unawaited(loadFeed(replacement.id));
   }
 
@@ -7073,7 +7080,8 @@ class ShellController extends FrameSafeNotifier
     required String targetRecipients,
   }) {
     final instance = currentInstance;
-    final route = currentContent;
+    final source = topicListContent;
+    final route = source?.isMessages == true ? source : currentContent;
     final tabId = activeTabId;
     final feedId = currentFeedId;
     final recipients = targetRecipients
@@ -13198,7 +13206,7 @@ class ShellController extends FrameSafeNotifier
         tab.contentStack[sourceIndex].isTopicList;
     _replaceActiveTab(
       tab.copyWith(
-        rootDestinationId: 'latest',
+        rootDestinationId: route.isMessages ? 'messages' : 'latest',
         contentStack: retainReader
             ? [
                 ...tab.contentStack.take(sourceIndex),
