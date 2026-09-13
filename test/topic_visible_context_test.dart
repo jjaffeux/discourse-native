@@ -6,9 +6,9 @@ import 'package:discourse_native/src/shell/topic_view.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:super_sliver_list/super_sliver_list.dart';
 
 import 'support/fakes.dart';
+import 'support/topic_post_list.dart';
 
 void main() {
   group('topicContextEyeline', () {
@@ -110,7 +110,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      final list = tester.widget<SuperListView>(find.byType(SuperListView));
+      final list = topicPostList(tester);
       final range = list.listController!.visibleRange!;
       final firstPostChild = range.$1.isEven ? range.$1 : range.$1 + 1;
       final currentIndex = firstPostChild ~/ 2;
@@ -137,7 +137,7 @@ void main() {
         ?eligibleNeighbor(currentIndex + 1, 1),
       ]);
 
-      await tester.drag(find.byType(SuperListView), const Offset(0, -10000));
+      await tester.drag(topicPostListFinder(), const Offset(0, -10000));
       await tester.pumpAndSettle();
       expect(controller.visibleTopicContext?.postIds, [
         posts[10].id,

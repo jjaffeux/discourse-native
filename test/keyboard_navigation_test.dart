@@ -19,6 +19,7 @@ import 'package:super_sliver_list/super_sliver_list.dart';
 
 import 'support/fakes.dart';
 import 'support/shell_test_harness.dart';
+import 'support/topic_post_list.dart';
 
 const _unlistedTopic = Topic(id: 32, title: 'Unlisted topic', slug: 'unlisted');
 
@@ -854,10 +855,17 @@ List<int> _selectedTopics(WidgetTester tester) =>
 List<int> _selectedPosts(WidgetTester tester) =>
     _selection(tester, 'topic-post-keyboard-');
 
-SuperListView _scrollable(WidgetTester tester, Finder root) =>
-    tester.widget<SuperListView>(
-      find.descendant(of: root, matching: find.byType(SuperListView)),
-    );
+TopicPostListHandle _scrollable(WidgetTester tester, Finder root) {
+  final lists = find.descendant(of: root, matching: find.byType(SuperListView));
+  if (lists.evaluate().isEmpty) return topicPostList(tester);
+  final list = tester.widget<SuperListView>(lists);
+  return (
+    controller: list.controller,
+    listController: list.listController,
+    padding: list.padding,
+    key: list.key,
+  );
+}
 
 Future<({ShellController shell, FakeDiscourseApi api})> _setup(
   WidgetTester tester, {
