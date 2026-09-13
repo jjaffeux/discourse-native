@@ -110,6 +110,7 @@ class _GlobalSearchPanelState extends State<GlobalSearchPanel> {
                                       controller.setScope(scope),
                                   variant: DToggleVariant.outline,
                                   size: DToggleSize.small,
+                                  selectedIcon: const DIcon(DIcons.check),
                                   semanticLabel: 'Search ${scope.label}',
                                   child: Text(scope.label),
                                 ),
