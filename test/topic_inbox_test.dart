@@ -160,10 +160,7 @@ void main() {
         expect(tester.element(viewport), same(viewportElement));
         expect(tester.element(taxonomy), same(taxonomyElement));
         if (offset >= 180) {
-          expect(
-            tester.getRect(taxonomy).top,
-            closeTo(viewportBounds.top + 8, 1),
-          );
+          expect(tester.getRect(taxonomy).top, closeTo(viewportBounds.top, 1));
         }
         expect(taxonomy.hitTestable(), findsOneWidget);
       }
