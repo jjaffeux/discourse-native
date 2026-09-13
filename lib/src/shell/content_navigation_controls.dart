@@ -49,7 +49,7 @@ class ContentNavigationControls extends StatelessWidget {
                   contentBackShortcutForPlatform(defaultTargetPlatform),
                 ),
                 variant: DButtonVariant.ghost,
-                size: DButtonSize.small,
+                size: DButtonSize.large,
                 onPressed: state.back
                     ? () => controller.handleBack(canReturnToSidebar: false)
                     : null,
@@ -63,7 +63,7 @@ class ContentNavigationControls extends StatelessWidget {
                   contentForwardShortcutForPlatform(defaultTargetPlatform),
                 ),
                 variant: DButtonVariant.ghost,
-                size: DButtonSize.small,
+                size: DButtonSize.large,
                 onPressed: state.forward ? controller.handleForward : null,
               ),
               DButton.iconOnly(
@@ -74,7 +74,7 @@ class ContentNavigationControls extends StatelessWidget {
                   refreshTabShortcutForPlatform(defaultTargetPlatform),
                 ),
                 variant: DButtonVariant.ghost,
-                size: DButtonSize.small,
+                size: DButtonSize.large,
                 loading: state.refreshing,
                 onPressed: state.refresh
                     ? () => unawaited(controller.refreshCurrentTab())
