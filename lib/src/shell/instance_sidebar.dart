@@ -1205,7 +1205,7 @@ class _DestinationTile extends StatelessWidget {
         isActive: selected,
         onPressed: destination.enabled ? onTap : null,
         iconSize: context.isTouch ? 22 : 18,
-        icon: _prefix(context, foreground),
+        icon: Center(child: _prefix(context, foreground)),
         semanticLabel: description == null
             ? null
             : '${destination.label}, $description',
