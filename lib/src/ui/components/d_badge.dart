@@ -8,6 +8,9 @@ import '../foundation/tokens.dart';
 /// The six base-nova badge treatments. A treatment does not imply interaction.
 enum DBadgeVariant { primary, secondary, destructive, outline, ghost, link }
 
+/// Regular labels use 20px height; compact counts use 16px. Both grow with text.
+enum DBadgeSize { regular, compact }
+
 enum _BadgeInteraction { none, action, link }
 
 /// Tailwind's default transition timing, `cubic-bezier(.4, 0, .2, 1)`.
@@ -22,7 +25,8 @@ const _transitionCurve = Cubic(.4, 0, .2, 1);
 /// Children must not contain independent controls. Inline artwork is decorative
 /// and fitted to 12px; label text inherits 12/16px medium metrics, can wrap,
 /// and stays selectable inside an enclosing selection area like the reference
-/// span. The normal visual height is 20px, growing with text. Touch actions
+/// span. The regular visual height is 20px; [DBadgeSize.compact] uses 16px
+/// height, 12/14px type and narrower insets. Both grow with text. Touch actions
 /// reserve a transparent 48px target around the compact visual. Only ghost and
 /// link paint a hover treatment on a static badge, so other static variants do
 /// not track the pointer. Borrowed focus nodes are never disposed. Colors are
@@ -32,6 +36,7 @@ class DBadge extends StatefulWidget {
     super.key,
     required this.child,
     this.variant = DBadgeVariant.primary,
+    this.size = DBadgeSize.regular,
     this.leading,
     this.trailing,
     this.backgroundColor,
@@ -52,6 +57,7 @@ class DBadge extends StatefulWidget {
     required this.child,
     required this.onPressed,
     this.variant = DBadgeVariant.primary,
+    this.size = DBadgeSize.regular,
     this.leading,
     this.trailing,
     this.backgroundColor,
@@ -74,6 +80,7 @@ class DBadge extends StatefulWidget {
     required this.onPressed,
     this.url,
     this.variant = DBadgeVariant.primary,
+    this.size = DBadgeSize.regular,
     this.leading,
     this.trailing,
     this.backgroundColor,
@@ -89,6 +96,7 @@ class DBadge extends StatefulWidget {
 
   final Widget child;
   final DBadgeVariant variant;
+  final DBadgeSize size;
   final Widget? leading;
   final Widget? trailing;
   final Color? backgroundColor;
@@ -145,6 +153,7 @@ class _DBadgeState extends State<DBadge> {
   @override
   Widget build(BuildContext context) {
     final tokens = DTokens.of(context);
+    final compact = widget.size == DBadgeSize.compact;
     final dark = Theme.of(context).brightness == Brightness.dark;
     final active = _enabled && (_hovered || _pressed);
     final actionHover = active && _interactive;
@@ -191,7 +200,7 @@ class _DBadgeState extends State<DBadge> {
       duration: DMotion.duration(context, const Duration(milliseconds: 150)),
       curve: _transitionCurve,
       clipBehavior: Clip.antiAlias,
-      constraints: const BoxConstraints(minHeight: 20),
+      constraints: BoxConstraints(minHeight: compact ? 16 : 20),
       decoration: BoxDecoration(
         color: widget.backgroundColor ?? baseBackground,
         border: Border.all(color: border),
@@ -204,12 +213,12 @@ class _DBadgeState extends State<DBadge> {
           alpha: destructiveRing ? (dark ? .4 : .2) : .5,
         ),
       ),
-      // Border-box h-5 centers the 16px line in 18px of interior space.
+      // Compact counts keep 12px type with 14px leading inside a 1px border.
       padding: EdgeInsetsDirectional.fromSTEB(
-        widget.leading == null ? 8 : 6,
-        1,
-        widget.trailing == null ? 8 : 6,
-        1,
+        compact ? 4 : (widget.leading == null ? 8 : 6),
+        compact ? 0 : 1,
+        compact ? 4 : (widget.trailing == null ? 8 : 6),
+        compact ? 0 : 1,
       ),
       child: IconTheme.merge(
         data: IconThemeData(size: 12, color: foreground),
@@ -217,7 +226,9 @@ class _DBadgeState extends State<DBadge> {
           style: (Theme.of(context).textTheme.bodySmall ?? const TextStyle())
               .copyWith(
                 fontSize: DiscourseTypography.xs,
-                height: DiscourseTypography.lineHeightCaption,
+                height: compact
+                    ? 14 / DiscourseTypography.xs
+                    : DiscourseTypography.lineHeightCaption,
                 fontWeight: FontWeight.w500,
                 letterSpacing: 0,
                 color: foreground,

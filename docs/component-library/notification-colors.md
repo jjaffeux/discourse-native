@@ -9,6 +9,7 @@ These are theme roles; purple, green and red are not hardcoded universal values.
 | Ordinary unread header notifications, including topic mentions/replies | `--tertiary-med-or-tertiary` | Soft count capsule |
 | Personal-message notification | `--success` | Bell capsule; takes priority over reviewables and ordinary unread |
 | Reviewable notification | `--danger` | Bell capsule; takes priority over ordinary unread |
+| User-menu tab counts, including Assign list and Other | `--tertiary-med-or-tertiary` | Compact 16px badge with `--secondary` foreground |
 | Ordinary unread public chat / unread thread | `--tertiary-med-or-tertiary` | Header dot |
 | Chat DM unread, mentions, watched-thread unread | `--success` | Header count capsule; urgent drawer/thread/tab indicators |
 | New topic, new replies, unread post count | `--tertiary-med-or-tertiary` | Topic dot or solid numeric badge |
@@ -19,6 +20,7 @@ These are theme roles; purple, green and red are not hardcoded universal values.
 Core sources relative to that checkout:
 
 - `app/assets/stylesheets/common/base/header.scss`: PM, reviewable and ordinary badges.
+- `app/assets/stylesheets/common/base/menu-panel.scss`: user-menu tab badge colors.
 - `frontend/discourse/app/components/header/user-dropdown/notifications.gjs`: PM > reviewable > ordinary priority. Core renders PM/reviewable icons; Native retains its existing aggregate bell count.
 - `plugins/chat/assets/stylesheets/common/chat-unread-indicator.scss`: ordinary/urgent chat roles and `--secondary` text.
 - `plugins/chat/assets/javascripts/discourse/components/chat/header/icon/unread-indicator.gjs`: count, cap and preference policy.

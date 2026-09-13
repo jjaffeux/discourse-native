@@ -53,6 +53,18 @@ rounding. Tests exercise 0/1/4/12 radii at 300%, plus RTL at 200%.
 Flutter text decoration cannot exactly specify CSS underline-offset:4; native
 font underline placement is retained. No stock Material Chip is used.
 
+`DBadgeSize.compact` is an opt-in Native adaptation for dense counts, authorized
+on 2026-09-13. It uses a 16px minimum height, the same 12px font with 14px leading,
+4px horizontal insets and no vertical padding inside the 1px border. Regular
+badges retain the reference geometry. Both sizes grow with text scaling, wrap
+under finite constraints and preserve the 48px touch target for actions/links.
+
+Verification: 52 focused badge, styleguide, menu and migration tests passed;
+root static analysis was clean. The isolated macOS preview displayed the real
+user menu with Assign list (1) and Other (6), alongside the compact styleguide
+example. Inspected dark, light and plum palettes, 200% text, RTL, selected Assign
+list and the narrow icon rail. Native accessibility retained both unread labels.
+
 ## Composition and interaction
 
 - `DBadge(child: ...)` is static, has no focus or activation owner, and can be
@@ -84,7 +96,7 @@ font underline placement is retained. No stock Material Chip is used.
 Migrated renderers preserve their domain adapters and existing callback owners:
 
 - `TopicUnreadBadge`: exact unread post count, singular/plural label and tooltip.
-- `user_menu.dart` `_Badge`: existing error/onError custom colors, 99+ visual cap,
+- `user_menu.dart` `_Badge`: compact size, core notification accent/foreground colors, 99+ visual cap,
   with the full count announced as unread; selection and feed permissions unchanged.
 - `user_card.dart`: staff/suspension labels retain caller colors; earned badge
   count uses outline with the existing certificate artwork. No award model changed.

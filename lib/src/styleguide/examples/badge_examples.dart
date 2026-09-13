@@ -16,6 +16,8 @@ final badgeExamples = ComponentExamples(
       'Use leading/trailing for decorative 12px artwork or DSpinner. '
       'Variants use live theme tokens; custom colors resolve in the caller build. '
       'The reference uses 20px height, 12/16px medium type, 4px gaps and pill corners. '
+      'DBadgeSize.compact uses 16px height, 12/14px type and 4px horizontal '
+      'insets for dense counts. Regular badges retain the reference geometry. '
       'Labels grow and wrap for accessibility; native touch actions reserve 48px '
       'around their compact visual. No selected/toggle behavior is implied. '
       'Use semanticValue and liveRegion for changes, invalid for validation, '
@@ -268,6 +270,29 @@ DBadge(
             child: Text('Destructive'),
           ),
           DBadge(variant: DBadgeVariant.outline, child: Text('Outline')),
+        ],
+      ),
+    ),
+    StyleguideExample(
+      title: 'Compact counts',
+      description:
+          'Regular labels alongside 16px compact counts. Both keep readable 12px text and grow with the text scale.',
+      states: const ['Regular', 'Compact', 'Single digit', '99+', 'Large text'],
+      code: r'''const Wrap(spacing: 8, runSpacing: 8, children: [
+  DBadge(child: Text('Regular')),
+  DBadge(size: DBadgeSize.compact, child: Text('1')),
+  DBadge(size: DBadgeSize.compact, child: Text('6')),
+  DBadge(size: DBadgeSize.compact, child: Text('99+')),
+])''',
+      builder: (_) => const Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          DBadge(child: Text('Regular')),
+          DBadge(size: DBadgeSize.compact, child: Text('1')),
+          DBadge(size: DBadgeSize.compact, child: Text('6')),
+          DBadge(size: DBadgeSize.compact, child: Text('99+')),
         ],
       ),
     ),
