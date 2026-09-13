@@ -8,6 +8,7 @@ import 'package:discourse_native/src/macos_launch_screen.dart';
 import 'package:discourse_native/src/shell/add_instance_sheet.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
+import 'package:discourse_native/src/styleguide/styleguide_theme.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
@@ -84,8 +85,14 @@ class _ReviewState extends State<_Review> {
   @override
   Widget build(BuildContext context) => MaterialApp(
     debugShowCheckedModeBanner: false,
-    theme: (_dark ? AppTheme.dark : AppTheme.light).copyWith(
-      platform: TargetPlatform.macOS,
+    theme: (_dark ? StyleguideTheme.plum : StyleguideTheme.forest)
+        .resolve(AppTheme.light)
+        .copyWith(platform: TargetPlatform.macOS),
+    builder: (context, child) => MediaQuery(
+      data: MediaQuery.of(context).copyWith(
+        platformBrightness: _dark ? Brightness.dark : Brightness.light,
+      ),
+      child: child!,
     ),
     home: Builder(
       builder: (context) => ColoredBox(
