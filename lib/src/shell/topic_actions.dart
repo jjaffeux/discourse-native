@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
+import '../app_shortcuts.dart';
 import '../data/site_lifecycle.dart';
 import '../models/content_route.dart';
 import '../models/post.dart';
@@ -76,6 +77,7 @@ class TopicBookmarkButton extends StatelessWidget {
         icon: icon,
         label: Text(topic.hasBookmarks ? 'Bookmarked' : 'Bookmark'),
         tooltip: tooltip,
+        shortcut: const DShortcut(topicBookmarkShortcut),
         loading: busy,
         variant: buttonVariant,
         backgroundColor: selectedSurface?.background,
@@ -90,6 +92,7 @@ class TopicBookmarkButton extends StatelessWidget {
       onPressed: busy ? null : open,
       icon: icon,
       tooltip: tooltip,
+      shortcut: const DShortcut(topicBookmarkShortcut),
       loading: busy,
       variant: buttonVariant,
       backgroundColor: selectedSurface?.background,

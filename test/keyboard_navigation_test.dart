@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/src/models/bookmark.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/topic.dart';
@@ -11,6 +12,7 @@ import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/topic_list_view.dart';
 import 'package:discourse_native/src/shell/topic_view.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -22,6 +24,88 @@ import 'support/shell_test_harness.dart';
 const _unlistedTopic = Topic(id: 32, title: 'Unlisted topic', slug: 'unlisted');
 
 void main() {
+  for (final size in [desktop, phone]) {
+    testWidgets(
+      'B bookmarks the open topic and advertises the footer shortcut at $size',
+      (tester) async {
+        final setup = await _setup(tester, size: size);
+        expect(await tester.sendKeyEvent(LogicalKeyboardKey.keyB), isFalse);
+        expect(setup.api.createdBookmarks, isEmpty);
+        setup.shell.openTopicFromList(setup.api.feeds['/latest.json']!.first);
+        await tester.pumpAndSettle();
+
+        final button = find.byKey(const ValueKey('topic-bookmark-button'));
+        final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+        addTearDown(mouse.removePointer);
+        await mouse.addPointer(location: Offset.zero);
+        await mouse.moveTo(tester.getCenter(button));
+        await tester.pumpAndSettle(const Duration(milliseconds: 200));
+        expect(find.text('Bookmark this topic'), findsOneWidget);
+        expect(find.widgetWithText(DKbd, 'B'), findsOneWidget);
+        await mouse.moveTo(Offset.zero);
+        await tester.pumpAndSettle();
+
+        for (final modifier in [
+          LogicalKeyboardKey.shiftLeft,
+          LogicalKeyboardKey.controlLeft,
+          LogicalKeyboardKey.metaLeft,
+          LogicalKeyboardKey.altLeft,
+        ]) {
+          await tester.sendKeyDownEvent(modifier);
+          await tester.sendKeyEvent(LogicalKeyboardKey.keyB);
+          await tester.sendKeyUpEvent(modifier);
+        }
+        expect(setup.api.createdBookmarks, isEmpty);
+        final payload = setup.api.topics[1]!;
+        // The post-write refresh reads the newly saved bookmark from the server.
+        setup.api.topics[1] = (
+          detail: payload.detail.copyWith(
+            bookmarks: const [
+              Bookmark(id: 1000, bookmarkableId: 1, bookmarkableType: 'Topic'),
+            ],
+          ),
+          posts: payload.posts,
+        );
+        expect(await tester.sendKeyDownEvent(LogicalKeyboardKey.keyB), isTrue);
+        await tester.pumpAndSettle();
+        await tester.sendKeyRepeatEvent(LogicalKeyboardKey.keyB);
+        await tester.sendKeyUpEvent(LogicalKeyboardKey.keyB);
+        await tester.sendKeyEvent(LogicalKeyboardKey.keyB);
+        await tester.pumpAndSettle();
+        expect(setup.api.createdBookmarks, hasLength(1));
+        expect(
+          setup.api.createdBookmarks.single.targetType,
+          BookmarkTargetType.topic,
+        );
+        expect(setup.api.createdBookmarks.single.targetId, 1);
+        expect(setup.shell.currentTopic?.topicBookmark, isNotNull);
+        expect(find.text('Bookmarked!'), findsOneWidget);
+
+        await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+        await tester.pumpAndSettle();
+        expect(await tester.sendKeyEvent(LogicalKeyboardKey.keyB), isTrue);
+        await tester.pumpAndSettle();
+        expect(find.text('Topic bookmark'), findsOneWidget);
+        expect(find.text('Delete bookmark'), findsOneWidget);
+        expect(setup.api.createdBookmarks, hasLength(1));
+      },
+      variant: const TargetPlatformVariant({
+        TargetPlatform.macOS,
+        TargetPlatform.linux,
+      }),
+    );
+  }
+
+  testWidgets('B does not bookmark a topic while signed out', (tester) async {
+    final setup = await _setup(tester, signedIn: false);
+    setup.shell.openTopicFromList(setup.api.feeds['/latest.json']!.first);
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('topic-bookmark-button')), findsNothing);
+    expect(await tester.sendKeyEvent(LogicalKeyboardKey.keyB), isFalse);
+    await tester.pumpAndSettle();
+    expect(setup.api.createdBookmarks, isEmpty);
+  });
+
   for (final menu in ['category', 'tag']) {
     testWidgets('topic sequences resume after closing the $menu filter', (
       tester,
@@ -559,12 +643,14 @@ void main() {
       LogicalKeyboardKey.keyG,
       LogicalKeyboardKey.keyK,
       LogicalKeyboardKey.keyR,
+      LogicalKeyboardKey.keyB,
     ]) {
       await tester.sendKeyEvent(key);
     }
     expect(setup.shell.currentContent?.topicId, 1);
     expect(_selectedTopics(tester), [1]);
     expect(setup.shell.visibleComposer?.target.replyToPostNumber, isNull);
+    expect(setup.api.createdBookmarks, isEmpty);
 
     await tester.sendKeyEvent(LogicalKeyboardKey.escape);
     await tester.pumpAndSettle();
@@ -579,9 +665,11 @@ void main() {
     await tester.sendKeyEvent(LogicalKeyboardKey.keyJ);
     await tester.sendKeyEvent(LogicalKeyboardKey.keyU);
     await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyB);
     await tester.pumpAndSettle();
     expect(setup.shell.currentContent?.topicId, 1);
     expect(_selectedTopics(tester), [1]);
+    expect(setup.api.createdBookmarks, isEmpty);
     await tester.sendKeyEvent(LogicalKeyboardKey.escape);
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('keyboard-shortcuts-help')), findsNothing);
@@ -841,8 +929,9 @@ Future<({ShellController shell, FakeDiscourseApi api})> _setup(
   WidgetTester tester, {
   Size size = desktop,
   Completer<void>? nextPageGate,
+  bool signedIn = true,
 }) async {
-  const user = DiscourseUser(id: 7, username: 'sam');
+  final user = signedIn ? const DiscourseUser(id: 7, username: 'sam') : null;
   final site = instance('meta.example').copyWith(user: user);
   final rows = [
     for (var id = 1; id <= 32; id++)
@@ -891,7 +980,8 @@ Future<({ShellController shell, FakeDiscourseApi api})> _setup(
     size,
     api: api,
     instances: [site],
-    authenticator: FakeAuthenticator()..keys[site.url] = 'key',
+    authenticator: FakeAuthenticator()
+      ..keys.addAll({if (signedIn) site.url: 'key'}),
   );
   final shell = ShellScope.read(tester.element(find.byType(AdaptiveShell)));
   return (shell: shell, api: api);

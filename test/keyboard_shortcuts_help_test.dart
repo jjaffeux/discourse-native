@@ -55,6 +55,8 @@ void main() {
           hasLength(2),
         );
         expect(find.widgetWithText(DKbd, '?'), findsOneWidget);
+        expect(find.text('Bookmark topic'), findsOneWidget);
+        expect(find.widgetWithText(DKbd, 'B'), findsOneWidget);
         expect(tester.takeException(), isNull);
         final firstRow = find.text('Next topic in the list');
         final beforeScroll = tester.getTopLeft(firstRow).dy;
