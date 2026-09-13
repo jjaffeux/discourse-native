@@ -63,9 +63,10 @@ class _ActivitySection extends StatelessWidget {
               constraints.maxWidth,
             ) >=
             _groupDesktopBreakpoint) {
-          return ContentReadingLaneBox(
+          return ContentReadingLaneWithSidebar(
             padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Row(
+            sidebarWidth: 191,
+            sidebar: Row(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 SizedBox(
@@ -84,9 +85,9 @@ class _ActivitySection extends StatelessWidget {
                   space: 1,
                   color: Theme.of(context).shell.divider,
                 ),
-                Expanded(child: content),
               ],
             ),
+            child: content,
           );
         }
         return Column(
@@ -398,9 +399,10 @@ class _MessagesSection extends StatelessWidget {
               constraints.maxWidth,
             ) >=
             _groupDesktopBreakpoint) {
-          return ContentReadingLaneBox(
+          return ContentReadingLaneWithSidebar(
             padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Row(
+            sidebarWidth: 191,
+            sidebar: Row(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 SizedBox(
@@ -419,9 +421,9 @@ class _MessagesSection extends StatelessWidget {
                   space: 1,
                   color: Theme.of(context).shell.divider,
                 ),
-                Expanded(child: messageContent),
               ],
             ),
+            child: messageContent,
           );
         }
         return Column(

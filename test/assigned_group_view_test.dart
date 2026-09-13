@@ -16,6 +16,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'support/page_scrollbar.dart';
+
 const _siteUrl = 'https://forum.example.com';
 const _topic = Topic(
   id: 42,
@@ -102,6 +104,34 @@ void main() {
   });
 
   group('AssignedGroupView', () {
+    testWidgets('keeps the assignment scrollbar at the page edge', (
+      tester,
+    ) async {
+      final topics = [
+        for (var id = 1; id <= 40; id++)
+          Topic(id: id, title: 'Assignment $id', slug: 'assignment-$id'),
+      ];
+      await _pumpView(
+        tester,
+        _FakeAssignedGroupPresentation(
+          _state(
+            feed: TopicFeed(
+              loaded: true,
+              topicIds: [for (final topic in topics) topic.id],
+            ),
+            topics: topics,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(tester.getRect(find.byType(TopicListRow).first).right, 1012.5);
+      await expectPageEdgeScrolling(
+        tester,
+        viewport: find.byType(CustomScrollView),
+        right: 1200,
+      );
+    }, variant: const TargetPlatformVariant({TargetPlatform.macOS}));
+
     testWidgets('keeps assignments visible without a refresh indicator', (
       tester,
     ) async {

@@ -2,9 +2,12 @@ import 'package:discourse_native/src/models/app_settings.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
+import 'package:discourse_native/src/models/group.dart';
+import 'package:discourse_native/src/models/group_route.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/models/topic_feed.dart';
+import 'package:discourse_native/src/plugin_api/plugin_registry.dart';
 import 'package:discourse_native/src/plugin_api/plugin_runtime.dart';
 import 'package:discourse_native/src/plugin_api/plugin_scope.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel_view.dart';
@@ -15,6 +18,7 @@ import 'package:discourse_native/src/plugins/chat/chat_stream.dart';
 import 'package:discourse_native/src/plugins/chat/chat_stream_target.dart';
 import 'package:discourse_native/src/shell/aggregate_view.dart';
 import 'package:discourse_native/src/shell/content_reading_lane.dart';
+import 'package:discourse_native/src/shell/group_page.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/topic_list_view.dart';
@@ -28,10 +32,82 @@ import 'package:super_sliver_list/super_sliver_list.dart';
 import 'support/bundled_plugins.dart';
 import 'support/chat_shell.dart';
 import 'support/fakes.dart';
+import 'support/page_scrollbar.dart';
 import 'support/topic_post_list.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+
+  for (final section in [GroupRoute.activity, GroupRoute.messages]) {
+    testWidgets('group $section topic feed scrolls at the page edge', (
+      tester,
+    ) async {
+      await _withDesktop(tester, const Size(1800, 800), () async {
+        final site = instance('one.example');
+        final controller = await _shell(
+          site,
+          FakeDiscourseApi(feeds: const {'/latest.json': []}),
+        );
+        addTearDown(controller.dispose);
+        final topics = [
+          for (var id = 1; id <= 40; id++)
+            Topic(id: id, title: 'Group topic $id', slug: 'group-topic-$id'),
+        ];
+        controller.store.putAll(site.url, topics);
+        final feed = TopicListView(
+          feed: TopicFeed(
+            topicIds: [for (final topic in topics) topic.id],
+            loaded: true,
+          ),
+          showHeader: false,
+        );
+        await tester.pumpWidget(
+          _shellSurface(
+            controller,
+            GroupPage(
+              siteUrl: site.url,
+              route: GroupRoute.detail(
+                'support',
+                section: section,
+                subsection: section == GroupRoute.activity
+                    ? GroupRoute.topics
+                    : GroupRoute.inbox,
+              ),
+              registry: PluginRegistry.empty,
+              data: const GroupPageData(
+                loaded: true,
+                detail: GroupDetail(
+                  group: Group(
+                    id: 1,
+                    name: 'support',
+                    canSeeMembers: true,
+                    hasMessages: true,
+                  ),
+                ),
+              ),
+              topicFeed: feed,
+              messageFeed: feed,
+              onOpenMember: (_, _) {},
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        final viewport = find.byType(SuperListView);
+        final scroll = tester.widget<SuperListView>(viewport).controller!;
+        for (final alignment in ContentAlignment.values) {
+          await controller.appSettings.setContentAlignment(alignment);
+          scroll.jumpTo(0);
+          await tester.pumpAndSettle();
+          expect(tester.getSize(find.byKey(const ValueKey(1))).width, 634);
+          await expectPageEdgeScrolling(
+            tester,
+            viewport: viewport,
+            right: 1800,
+          );
+        }
+      });
+    });
+  }
 
   testWidgets(
     'TopicListView aligns its 1120px child lane and keeps its offset',
@@ -187,7 +263,7 @@ void main() {
   );
 
   testWidgets(
-    'AggregateView aligns cards while hero and toolbar stay full width',
+    'AggregateView aligns constrained cards while its toolbar stays full width',
     (tester) async {
       await _withDesktop(tester, const Size(1400, 800), () async {
         const user = DiscourseUser(username: 'sam');
@@ -217,12 +293,10 @@ void main() {
         await tester.pumpAndSettle();
         final viewport = find.byType(CustomScrollView);
         final card = find.byKey(ValueKey('aggregate-topic-card-${one.url}-42'));
-        final hero = find.byKey(const ValueKey('aggregate-hero'));
         final toolbar = find.byKey(const ValueKey('aggregate-tabs'));
         expect(tester.getSize(viewport).width, 1400);
         expect(tester.getSize(card).width, closeTo(825, 0.001));
         expect(tester.getTopLeft(card).dx, closeTo(287.5, 0.001));
-        expect(tester.getSize(hero).width, 1400);
         expect(tester.getSize(toolbar).width, 1400);
 
         for (final alignment in ContentAlignment.values) {
@@ -233,7 +307,6 @@ void main() {
             tester.getTopLeft(card).dx,
             closeTo(_aggregateCardLeft(1400, alignment), 0.001),
           );
-          expect(tester.getSize(hero).width, 1400);
           expect(tester.getSize(toolbar).width, 1400);
         }
 
