@@ -923,8 +923,9 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     }
 
     double? topOf(_TopicDayStart start) {
-      final top = _postViewportOffset(snapshot.postIds[start.postIndex]);
-      return top == null ? null : top - _headerObstruction;
+      // getOffsetToReveal already accounts for the pinned taxonomy. This is
+      // the distance to its lower edge, not to the full viewport's top.
+      return _postViewportOffset(snapshot.postIds[start.postIndex]);
     }
 
     // The first visible post can itself begin a day while its marker is still

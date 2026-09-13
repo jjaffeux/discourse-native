@@ -6,8 +6,8 @@
   <meta name="color-scheme" content="light dark">
   <title>Natural handoff · Full topic header</title>
   <link rel="stylesheet" href="mockups.css">
-  <link rel="stylesheet" href="natural-handoff.css?v=inline-edit">
-  <script src="natural-handoff.js?v=inline-edit-2" defer></script>
+  <link rel="stylesheet" href="natural-handoff.css?v=opening-spacing">
+  <script src="natural-handoff.js?v=opening-spacing" defer></script>
 </head>
 <body>
 <main class="lab full-content-lab" id="full-header-lab">
@@ -83,6 +83,7 @@
               <span class="avatar-stack" aria-label="Participants: Alex, Maya and Sam"><span class="avatar" title="Alex">A</span><span class="avatar maya" title="Maya">M</span><span class="avatar sam" title="Sam">S</span></span>
               <span>8 replies</span><span class="activity-separator">·</span><span>Last activity 1h ago</span>
             </div>
+            <div class="opening-day" id="opening-day"><button class="day-label" data-action="day-start" aria-label="Go to start of 12 September 2026">12 September 2026</button></div>
             <div class="posts" id="posts"></div>
           </div>
 
@@ -104,6 +105,7 @@
               <span id="toolbar-account-slot"></span>
             </div>
           </header>
+          <div class="floating-day" id="floating-day" hidden><button class="day-label" data-action="day-start" aria-label="Go to start of 12 September 2026">12 September 2026</button></div>
           <section class="detail-popover full-popover" id="popover" role="dialog" aria-labelledby="popover-heading" hidden>
             <div class="popover-top"><strong id="popover-heading"></strong><button class="native-button ghost icon-only" data-action="close-popover" aria-label="Close popover"><span data-icon="close"></span></button></div><div id="popover-content"></div>
           </section>
@@ -118,7 +120,7 @@
 
   <section class="design-note full-note">
     <div class="note-lead"><p class="eyebrow">ALL THE CURRENT CONTEXT</p><h2>The same content.<br>A steadier home.</h2></div>
-    <div><p>The topic title stays in the top bar from the start. Category editing, category browsing, tag links and the tag editor stay together in one row beneath it. Assignment and topic actions keep their position.</p><p class="tradeoff">Participants, reply count and last activity scroll with the posts. Closed and event states are available in the State selector. Click the title, category controls, tags, assignment, wrench or share button to try them.</p></div>
+    <div><p>The topic title stays in the top bar from the start. Category editing, category browsing, tag links and the tag editor stay together in one row beneath it. Assignment and topic actions keep their position.</p><p class="tradeoff">A tighter opening leads into the first post. The date sits in the conversation and only floats beneath the categories once you scroll past it. Participants, reply count and last activity scroll with the posts. Click the title, date, category controls, tags, assignment, wrench or share button to try them.</p></div>
   </section>
   <footer class="lab-footer"><span>Local mockup · Sample values in the current header’s fields</span><details><summary>Content & platform notes</summary><p>Based on TopicInboxHeader, TopicHeaderTags, AssignPlugin, DiscourseEventsPlugin and the existing topic actions. Assignment is intentionally anchored in the toolbar at both scroll positions. The same category and tag controls remain mounted while scrolling.</p><label class="check-label"><input id="inline-account" type="checkbox">Put account controls in the topic toolbar (non-macOS)</label><p>On macOS, notifications and profile belong to the window title bar. On narrower panes, tag overflow keeps every tag accessible. All edits and actions affect this mockup only.</p></details></footer>
 </main>

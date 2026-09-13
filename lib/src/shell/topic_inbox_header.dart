@@ -127,7 +127,7 @@ class _TopicInboxHeaderState extends State<TopicInboxHeader> {
     final activity = hasTopic
         ? _TopicHeaderReadingLane(
             child: Padding(
-              padding: const EdgeInsets.only(top: 4, bottom: 16),
+              padding: const EdgeInsets.symmetric(vertical: 4),
               child: _TopicActivitySummary(siteUrl: siteUrl, topic: topic),
             ),
           )

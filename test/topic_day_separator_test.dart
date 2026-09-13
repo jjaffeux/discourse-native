@@ -126,6 +126,90 @@ void main() {
     expect(find.byType(StreamDaySeparator), findsNothing);
   });
 
+  for (final (width, scale) in [(900.0, 1.0), (390.0, 1.0), (390.0, 2.0)]) {
+    testWidgets(
+      'the opening date stays below the header at ${width}px and ${scale}x text',
+      (tester) async {
+        tester.view.physicalSize = Size(width, 800);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+        final site = instance('meta.example');
+        final day = DateTime(2020, 1, 2);
+        final posts = [for (var id = 1; id <= 8; id++) _post(id, day: day)];
+        final controller = _controller(site);
+        addTearDown(controller.dispose);
+        await controller.load();
+        controller.store
+          ..put(
+            site.url,
+            TopicDetail(
+              id: 1,
+              title: 'One',
+              stream: [for (final post in posts) post.id],
+              postsCount: posts.length,
+            ),
+          )
+          ..putAll(site.url, posts);
+        controller.pushContent(
+          ContentRoute.topic(topicId: 1, slug: 'one', title: 'One'),
+        );
+        await tester.pumpWidget(
+          ShellScope(
+            controller: controller,
+            child: MaterialApp(
+              theme: AppTheme.light,
+              home: Scaffold(
+                body: MediaQuery(
+                  data: MediaQueryData(textScaler: TextScaler.linear(scale)),
+                  child: const TopicView(inbox: true),
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        final scroll = tester
+            .widget<CustomScrollView>(find.byType(CustomScrollView))
+            .controller!;
+        scroll.jumpTo(0);
+        await tester.pumpAndSettle();
+        final activity = find.byKey(const ValueKey('topic-header-activity'));
+        final date = find.byKey(ValueKey(('topic-day', day)));
+        final floating = find.byKey(ValueKey(('topic-floating-day', day)));
+        expect(floating, findsNothing);
+        expect(
+          tester.getRect(date).top,
+          greaterThan(tester.getRect(activity).bottom),
+        );
+        final firstPost = find.byKey(const ValueKey('topic-post-highlight-1'));
+        expect(
+          tester.getRect(firstPost).top - tester.getRect(activity).bottom,
+          lessThanOrEqualTo(scale == 1 ? 32 : 48),
+          reason: 'the opening should not reserve a full day-boundary gap',
+        );
+        final taxonomy = find.byKey(const ValueKey('topic-header-taxonomy'));
+        final pinAt =
+            tester.getRect(date).top - tester.getRect(taxonomy).bottom - 8;
+        scroll.jumpTo(pinAt - 1);
+        await tester.pumpAndSettle();
+        expect(floating, findsNothing);
+        scroll.jumpTo(pinAt + 1);
+        await tester.pumpAndSettle();
+        expect(floating, findsOneWidget);
+        expect(
+          tester.getRect(floating).top,
+          tester.getRect(taxonomy).bottom + 8,
+        );
+        scroll.jumpTo(0);
+        await tester.pumpAndSettle();
+        expect(floating, findsNothing);
+        expect(tester.takeException(), isNull);
+      },
+      variant: TargetPlatformVariant.only(TargetPlatform.macOS),
+    );
+  }
+
   testWidgets('still separates today from an older topic opening post', (
     tester,
   ) async {

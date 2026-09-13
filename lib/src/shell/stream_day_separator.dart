@@ -80,6 +80,8 @@ class _StreamDaySeparatorState extends State<StreamDaySeparator> {
         ),
         child: Text(
           label,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
           style: theme.textTheme.labelSmall?.copyWith(
             color: theme.colorScheme.onSurfaceVariant,
             fontWeight: FontWeight.w600,
@@ -111,8 +113,12 @@ class _StreamDaySeparatorState extends State<StreamDaySeparator> {
       );
     }
 
-    return SizedBox(
-      height: StreamDaySeparator.height,
+    return ConstrainedBox(
+      constraints: BoxConstraints(
+        minHeight: !widget.floating && !widget.showDivider
+            ? 28
+            : StreamDaySeparator.height,
+      ),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16),
         child: DMarker(
