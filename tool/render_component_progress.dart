@@ -11,6 +11,9 @@ void main() {
   final components = (progress['components'] as List<dynamic>)
       .cast<Map<String, dynamic>>()
       .toList();
+  final applicationComponents =
+      (progress['applicationComponents'] as List<dynamic>? ?? const [])
+          .cast<Map<String, dynamic>>();
   String cell(Object? value) =>
       value == null || value == '' ? '—' : '$value'.replaceAll('|', r'\|');
   final output = StringBuffer()
@@ -37,6 +40,20 @@ void main() {
       '| ${i + 1} | ${row['id']} | ${row['status']} | ${cell(row['taskId'])} | ${cell(row['branch'])} | ${cell((row['dependencies'] as List<dynamic>).join(', '))} | ${cell(row['mergeCommit'])} |',
     );
   }
+  if (applicationComponents.isNotEmpty) {
+    output
+      ..writeln('\n## Application components\n')
+      ..writeln(
+        'User-approved extensions outside the frozen upstream catalogue.\n',
+      )
+      ..writeln('| Component | Status | Task | Branch | Merge |')
+      ..writeln('| --- | --- | --- | --- | --- |');
+    for (final row in applicationComponents) {
+      output.writeln(
+        '| ${row['id']} | ${row['status']} | ${cell(row['taskId'])} | ${cell(row['branch'])} | ${cell(row['mergeCommit'])} |',
+      );
+    }
+  }
   output.writeln('\n## Decisions and evidence\n');
   for (final (name, row) in [
     ('Foundation', foundation),
@@ -46,6 +63,7 @@ void main() {
       ('Documentation layout and Sidebar adoption', review),
     for (final row in components.where((row) => row['status'] != 'planned'))
       (row['id'] as String, row),
+    for (final row in applicationComponents) (row['id'] as String, row),
     ('Final audit', progress['finalAudit'] as Map<String, dynamic>),
   ]) {
     output.writeln('### $name\n');

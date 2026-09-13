@@ -40,6 +40,7 @@ import 'examples/message_examples.dart';
 import 'examples/message_inbox_menu_examples.dart';
 import 'examples/message_scroller_examples.dart';
 import 'examples/navigation_menu_examples.dart';
+import 'examples/notification_dot_examples.dart';
 import 'examples/notification_level_menu_examples.dart';
 import 'examples/pagination_examples.dart';
 import 'examples/popover_examples.dart';
@@ -71,6 +72,7 @@ import 'styleguide_example.dart';
 final componentExamples = <String, ComponentExamples>{
   'message-inbox-menu': messageInboxMenuExamples,
   'notification-level-menu': notificationLevelMenuExamples,
+  'notification-dot': notificationDotExamples,
   'category-selector': categorySelectorExamples,
   'tag-selector': tagSelectorExamples,
   'date-picker': datePickerExamples,

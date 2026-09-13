@@ -28,20 +28,9 @@ class TopicStateDot extends StatelessWidget {
   final String label;
 
   @override
-  Widget build(BuildContext context) => Semantics(
-    container: true,
-    label: label,
-    child: DTooltip(
-      message: label,
-      excludeFromSemantics: true,
-      child: Container(
-        width: 8,
-        height: 8,
-        decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.primary,
-          shape: BoxShape.circle,
-        ),
-      ),
-    ),
+  Widget build(BuildContext context) => DTooltip(
+    message: label,
+    excludeFromSemantics: true,
+    child: DNotificationDot(semanticLabel: label),
   );
 }

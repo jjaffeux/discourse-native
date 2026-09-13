@@ -4,6 +4,11 @@ import 'styleguide_example.dart';
 /// component reference catalogue.
 const applicationComponentCatalogue = <ComponentReference>[
   ComponentReference(
+    id: 'notification-dot',
+    name: 'Notification dot',
+    sections: ['Inline states', 'Header overlay', 'Surface rings'],
+  ),
+  ComponentReference(
     id: 'message-inbox-menu',
     name: 'Message inbox menu',
     sections: [

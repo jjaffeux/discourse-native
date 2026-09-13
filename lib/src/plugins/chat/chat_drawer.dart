@@ -1380,14 +1380,7 @@ class _DrawerBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (badge.dot) {
-      return Container(
-        width: 8,
-        height: 8,
-        decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.primary,
-          shape: BoxShape.circle,
-        ),
-      );
+      return const DNotificationDot(semanticLabel: 'Unread messages');
     }
     return DBadge(
       semanticLabel: '${badge.count} urgent notifications',
