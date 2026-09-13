@@ -68,3 +68,5 @@ leave the narrow search editor 136px of its 212px row. The search anchor
 initially uses the shared regular height before its first layout measurement.
 
 Verified implementation: `8e2321a6c86e2440ff368c7067f5a2940c6cc7a5`.
+
+Merged from the main checkout as `5413e21c027e56d930c30b67352976f7ce5f30fa`.
