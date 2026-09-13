@@ -34,7 +34,7 @@ class AggregateBranding extends StatelessWidget {
             Theme.of(context).colorScheme.onSurface,
           ),
         ),
-        const SizedBox(width: 8),
+        const SizedBox(width: 4),
         Flexible(
           child: Text(
             'Discourse',
