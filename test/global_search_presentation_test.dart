@@ -60,7 +60,7 @@ void main() {
 
   for (final keyboard in [false, true]) {
     _testPresentation(
-      '${keyboard ? 'shortcut' : 'click'} search defaults to the open topic and clears it on a list',
+      '${keyboard ? 'contextual shortcut' : 'click'} search opens with the expected scope',
       (tester) async {
         final api = GlobalSearchFixtureApi();
         final shell = await _pumpSearch(tester, api: api);
@@ -87,17 +87,30 @@ void main() {
         }
 
         await open();
-        expect(shell.globalSearch.scope, GlobalSearchScope.forum);
-        expect(shell.globalSearch.conditions.single.filterId, 'topicId');
-        expect(shell.globalSearch.conditions.single.text, '1038');
+        expect(
+          shell.globalSearch.scope,
+          keyboard ? GlobalSearchScope.forum : GlobalSearchScope.all,
+        );
+        expect(
+          shell.globalSearch.conditions.map((condition) => condition.filterId),
+          keyboard ? ['topicId'] : <String>[],
+        );
+        expect(
+          shell.globalSearch.conditions.map((condition) => condition.text),
+          keyboard ? ['1038'] : <String>[],
+        );
         await tester.enterText(find.byKey(ForumSearch.inputKey), 'design');
         await _finishSearch(tester);
         expect(
           api.requests
-              .lastWhere((r) => r.uri.path == '/search.json')
+              .lastWhere(
+                (r) =>
+                    r.uri.path ==
+                    (keyboard ? '/search.json' : '/search/query.json'),
+              )
               .uri
-              .queryParameters['q'],
-          'design topic:1038',
+              .queryParameters[keyboard ? 'q' : 'term'],
+          keyboard ? 'design topic:1038' : 'design',
         );
 
         shell.globalSearch.clearConditions();
@@ -114,8 +127,14 @@ void main() {
         await tester.pumpAndSettle();
 
         await open();
-        expect(shell.globalSearch.scope, GlobalSearchScope.forum);
-        expect(shell.globalSearch.conditions.single.text, '1038');
+        expect(
+          shell.globalSearch.scope,
+          keyboard ? GlobalSearchScope.forum : GlobalSearchScope.all,
+        );
+        expect(
+          shell.globalSearch.conditions.map((condition) => condition.text),
+          keyboard ? ['1038'] : <String>[],
+        );
         await tester.sendKeyEvent(LogicalKeyboardKey.escape);
         await tester.pumpAndSettle();
         shell.replaceCurrentContent(
@@ -127,7 +146,10 @@ void main() {
         );
         await tester.pumpAndSettle();
         await open();
-        expect(shell.globalSearch.conditions.single.text, '1037');
+        expect(
+          shell.globalSearch.conditions.map((condition) => condition.text),
+          keyboard ? ['1037'] : <String>[],
+        );
         await tester.sendKeyEvent(LogicalKeyboardKey.escape);
         await tester.pumpAndSettle();
         shell.handleBack(canReturnToSidebar: false);
@@ -135,13 +157,20 @@ void main() {
         expect(shell.currentContent?.isTopicList, isTrue);
         await open();
         await _finishSearch(tester);
-        expect(shell.globalSearch.scope, GlobalSearchScope.forum);
+        expect(
+          shell.globalSearch.scope,
+          keyboard ? GlobalSearchScope.forum : GlobalSearchScope.all,
+        );
         expect(shell.globalSearch.conditions, isEmpty);
         expect(
           api.requests
-              .lastWhere((r) => r.uri.path == '/search.json')
+              .lastWhere(
+                (r) =>
+                    r.uri.path ==
+                    (keyboard ? '/search.json' : '/search/query.json'),
+              )
               .uri
-              .queryParameters['q'],
+              .queryParameters[keyboard ? 'q' : 'term'],
           'design',
         );
         expect(tester.takeException(), isNull);

@@ -341,7 +341,7 @@ void _registerChatShellTests() {
         for (final keyboard in [false, true]) {
           for (final direct in [false, true]) {
             testWidgets(
-              '${mode.name} ${keyboard ? 'shortcut' : 'click'} scopes ${direct ? 'DM' : 'channel'} and opens its result',
+              '${mode.name} ${keyboard ? 'contextual shortcut' : 'global click'} searches from ${direct ? 'DM' : 'channel'} and opens its result',
               (tester) async {
                 final target = direct ? dm(12) : channel(9);
                 final config = chatConfig(searchEnabled: true);
@@ -352,7 +352,7 @@ void _registerChatShellTests() {
                     'sort': 'relevance',
                     'offset': '0',
                     'limit': '20',
-                    'channel_id': '${target.id}',
+                    if (keyboard) 'channel_id': '${target.id}',
                   },
                 ).toString();
                 final api = FakeDiscourseApi(
@@ -452,21 +452,33 @@ void _registerChatShellTests() {
                 }
 
                 await open();
-                expect(shell.globalSearch.scope, GlobalSearchScope.chat);
                 expect(
-                  shell.globalSearch.conditions.single.filterId,
-                  'chatChannel',
+                  shell.globalSearch.scope,
+                  keyboard ? GlobalSearchScope.chat : GlobalSearchScope.all,
                 );
                 expect(
-                  shell.globalSearch.conditions.single.text,
-                  '${target.id}',
+                  shell.globalSearch.conditions.map(
+                    (condition) => condition.filterId,
+                  ),
+                  keyboard ? ['chatChannel'] : <String>[],
                 );
                 expect(
-                  shell.globalSearch.choiceLabel('chatChannel', '${target.id}'),
-                  target.title,
+                  shell.globalSearch.conditions.map(
+                    (condition) => condition.text,
+                  ),
+                  keyboard ? ['${target.id}'] : <String>[],
                 );
-                await tester.tap(find.byTooltip('Remove Channel condition'));
-                await tester.pumpAndSettle();
+                if (keyboard) {
+                  expect(
+                    shell.globalSearch.choiceLabel(
+                      'chatChannel',
+                      '${target.id}',
+                    ),
+                    target.title,
+                  );
+                  await tester.tap(find.byTooltip('Remove Channel condition'));
+                  await tester.pumpAndSettle();
+                }
                 await open();
                 expect(
                   shell.globalSearch.conditions.map(
@@ -486,8 +498,10 @@ void _registerChatShellTests() {
                 );
                 await open();
                 expect(
-                  shell.globalSearch.conditions.single.text,
-                  '${target.id}',
+                  shell.globalSearch.conditions.map(
+                    (condition) => condition.text,
+                  ),
+                  keyboard ? ['${target.id}'] : <String>[],
                 );
                 await tester.enterText(
                   find.byKey(ForumSearch.inputKey),
@@ -526,7 +540,10 @@ void _registerChatShellTests() {
                 }
                 await tester.pumpAndSettle();
                 await open();
-                expect(shell.globalSearch.scope, GlobalSearchScope.forum);
+                expect(
+                  shell.globalSearch.scope,
+                  keyboard ? GlobalSearchScope.forum : GlobalSearchScope.all,
+                );
                 expect(
                   shell.globalSearch.conditionsFor(GlobalSearchScope.chat),
                   isEmpty,

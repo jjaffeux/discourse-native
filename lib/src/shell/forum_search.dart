@@ -191,7 +191,7 @@ class _ForumSearchState extends State<ForumSearch> {
                         ),
                 )
               : null);
-      if (mode == SearchFocusMode.global || openingContext == null) {
+      if (mode != SearchFocusMode.contextual || openingContext == null) {
         _global.clearAllConditions();
         _global.setScope(GlobalSearchScope.all);
       } else {
