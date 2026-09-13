@@ -755,30 +755,34 @@ class _MultiSelectMenu extends StatelessWidget {
     return Builder(
       builder: (menuContext) {
         final ValueChanged<String> onSelect = onToggle;
-        return DDropdownMenu(
-          content: DDropdownMenuContent(
-            semanticLabel: 'Filter by ${label.toLowerCase()}',
-            width: 280,
-            children: [
-              for (final value in values)
-                DDropdownMenuCheckboxItem(
-                  checked: selected.contains(value),
-                  closeOnSelect: true,
-                  onChanged: (_) => onSelect(value),
-                  child: Text(sentenceCase(value)),
-                ),
-            ],
-          ),
-          child: DDropdownMenuTrigger(
-            builder: (triggerContext, state) => DButton(
-              label: Text(sentenceCase(description)),
-              icon: const DIcon(DIcons.filter),
-              semanticLabel: 'Filter by $label',
-              variant: DButtonVariant.outline,
-              focusNode: state.focusNode,
-              hasPopup: true,
-              expanded: state.open,
-              onPressed: values.isNotEmpty ? state.toggle : null,
+        return Semantics(
+          container: true,
+          explicitChildNodes: true,
+          child: DDropdownMenu(
+            content: DDropdownMenuContent(
+              semanticLabel: 'Filter by ${label.toLowerCase()}',
+              width: 280,
+              children: [
+                for (final value in values)
+                  DDropdownMenuCheckboxItem(
+                    checked: selected.contains(value),
+                    closeOnSelect: true,
+                    onChanged: (_) => onSelect(value),
+                    child: Text(sentenceCase(value)),
+                  ),
+              ],
+            ),
+            child: DDropdownMenuTrigger(
+              builder: (triggerContext, state) => DButton(
+                label: Text(sentenceCase(description)),
+                icon: const DIcon(DIcons.filter),
+                semanticLabel: 'Filter by $label',
+                variant: DButtonVariant.outline,
+                focusNode: state.focusNode,
+                hasPopup: true,
+                expanded: state.open,
+                onPressed: values.isNotEmpty ? state.toggle : null,
+              ),
             ),
           ),
         );

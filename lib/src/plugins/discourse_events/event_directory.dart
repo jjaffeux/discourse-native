@@ -407,44 +407,48 @@ class _EventDirectoryState extends State<EventDirectory> {
     return Builder(
       builder: (menuContext) {
         void onSelect(VoidCallback callback) => callback();
-        return DDropdownMenu(
-          content: DDropdownMenuContent(
-            semanticLabel: 'Calendar actions',
-            width: 280,
-            children: [
-              DDropdownMenuItem(
-                onPressed: () => onSelect(guarded(_CalendarAction.refresh)),
-                child: const Text('Refresh'),
-              ),
-              DDropdownMenuCheckboxItem(
-                checked: _searchVisible,
-                closeOnSelect: true,
-                onChanged: (_) => onSelect(guarded(_CalendarAction.search)),
-                child: const Text('Search events'),
-              ),
-              DDropdownMenuItem(
-                onPressed: !_exporting
-                    ? () => onSelect(guarded(_CalendarAction.export))
-                    : null,
-                child: Text(
-                  _exporting ? 'Exporting calendar…' : 'Export calendar',
+        return Semantics(
+          container: true,
+          explicitChildNodes: true,
+          child: DDropdownMenu(
+            content: DDropdownMenuContent(
+              semanticLabel: 'Calendar actions',
+              width: 280,
+              children: [
+                DDropdownMenuItem(
+                  onPressed: () => onSelect(guarded(_CalendarAction.refresh)),
+                  child: const Text('Refresh'),
                 ),
+                DDropdownMenuCheckboxItem(
+                  checked: _searchVisible,
+                  closeOnSelect: true,
+                  onChanged: (_) => onSelect(guarded(_CalendarAction.search)),
+                  child: const Text('Search events'),
+                ),
+                DDropdownMenuItem(
+                  onPressed: !_exporting
+                      ? () => onSelect(guarded(_CalendarAction.export))
+                      : null,
+                  child: Text(
+                    _exporting ? 'Exporting calendar…' : 'Export calendar',
+                  ),
+                ),
+                DDropdownMenuItem(
+                  onPressed: () => onSelect(guarded(_CalendarAction.web)),
+                  child: const Text('Open web calendar'),
+                ),
+              ],
+            ),
+            child: DDropdownMenuTrigger(
+              builder: (triggerContext, state) => DButton.iconOnly(
+                tooltip: 'Calendar actions',
+                variant: DButtonVariant.ghost,
+                icon: const Icon(Icons.more_vert),
+                focusNode: state.focusNode,
+                hasPopup: true,
+                expanded: state.open,
+                onPressed: state.toggle,
               ),
-              DDropdownMenuItem(
-                onPressed: () => onSelect(guarded(_CalendarAction.web)),
-                child: const Text('Open web calendar'),
-              ),
-            ],
-          ),
-          child: DDropdownMenuTrigger(
-            builder: (triggerContext, state) => DButton.iconOnly(
-              tooltip: 'Calendar actions',
-              variant: DButtonVariant.ghost,
-              icon: const Icon(Icons.more_vert),
-              focusNode: state.focusNode,
-              hasPopup: true,
-              expanded: state.open,
-              onPressed: state.toggle,
             ),
           ),
         );

@@ -4668,22 +4668,26 @@ class _TopicMapStat extends StatelessWidget {
     if (menuChildren.isEmpty) {
       return DTooltip(message: tooltip, child: content);
     }
-    return DDropdownMenu(
-      content: DDropdownMenuContent(
-        semanticLabel: tooltip,
-        width: 380,
-        constraints: const BoxConstraints(maxHeight: 440),
-        children: menuChildren,
-      ),
-      child: DDropdownMenuTrigger(
-        builder: (triggerContext, state) => DButton(
-          label: content,
-          tooltip: tooltip,
-          variant: DButtonVariant.ghost,
-          onPressed: state.toggle,
-          focusNode: state.focusNode,
-          hasPopup: true,
-          expanded: state.open,
+    return Semantics(
+      container: true,
+      explicitChildNodes: true,
+      child: DDropdownMenu(
+        content: DDropdownMenuContent(
+          semanticLabel: tooltip,
+          width: 380,
+          constraints: const BoxConstraints(maxHeight: 440),
+          children: menuChildren,
+        ),
+        child: DDropdownMenuTrigger(
+          builder: (triggerContext, state) => DButton(
+            label: content,
+            tooltip: tooltip,
+            variant: DButtonVariant.ghost,
+            onPressed: state.toggle,
+            focusNode: state.focusNode,
+            hasPopup: true,
+            expanded: state.open,
+          ),
         ),
       ),
     );

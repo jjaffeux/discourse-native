@@ -2367,50 +2367,57 @@ class _GalleryComposerMenu extends StatelessWidget {
                           }
                         }
 
-                        return DDropdownMenu(
-                          content: DDropdownMenuContent(
-                            semanticLabel: 'Add images to gallery',
-                            width: 280,
-                            children: [
-                              DDropdownMenuItem(
-                                onPressed: canUpload
-                                    ? () => onSelect(_GalleryAddChoice.upload)
-                                    : null,
-                                leading: const Icon(Icons.upload_outlined),
-                                child: const Text('Upload new images'),
-                              ),
-                              DDropdownMenuItem(
-                                onPressed: hasStandaloneImages
-                                    ? () => onSelect(_GalleryAddChoice.existing)
-                                    : null,
-                                leading: const Icon(
-                                  Icons.photo_library_outlined,
-                                ),
-                                child: const Text('Add existing draft images'),
-                              ),
-                            ],
-                          ),
-                          child: DDropdownMenuTrigger(
-                            builder: (triggerContext, state) =>
-                                DButton.iconOnly(
-                                  tooltip: 'Add images to gallery',
-                                  variant: DButtonVariant.ghost,
-                                  icon: pickingImages
-                                      ? const SizedBox.square(
-                                          dimension: 18,
-                                          child: DSpinner(),
-                                        )
-                                      : const Icon(
-                                          Icons.add_photo_alternate_outlined,
-                                          size: 18,
-                                        ),
-                                  focusNode: state.focusNode,
-                                  hasPopup: true,
-                                  expanded: state.open,
-                                  onPressed: !pickingImages
-                                      ? state.toggle
+                        return Semantics(
+                          container: true,
+                          explicitChildNodes: true,
+                          child: DDropdownMenu(
+                            content: DDropdownMenuContent(
+                              semanticLabel: 'Add images to gallery',
+                              width: 280,
+                              children: [
+                                DDropdownMenuItem(
+                                  onPressed: canUpload
+                                      ? () => onSelect(_GalleryAddChoice.upload)
                                       : null,
+                                  leading: const Icon(Icons.upload_outlined),
+                                  child: const Text('Upload new images'),
                                 ),
+                                DDropdownMenuItem(
+                                  onPressed: hasStandaloneImages
+                                      ? () =>
+                                            onSelect(_GalleryAddChoice.existing)
+                                      : null,
+                                  leading: const Icon(
+                                    Icons.photo_library_outlined,
+                                  ),
+                                  child: const Text(
+                                    'Add existing draft images',
+                                  ),
+                                ),
+                              ],
+                            ),
+                            child: DDropdownMenuTrigger(
+                              builder: (triggerContext, state) =>
+                                  DButton.iconOnly(
+                                    tooltip: 'Add images to gallery',
+                                    variant: DButtonVariant.ghost,
+                                    icon: pickingImages
+                                        ? const SizedBox.square(
+                                            dimension: 18,
+                                            child: DSpinner(),
+                                          )
+                                        : const Icon(
+                                            Icons.add_photo_alternate_outlined,
+                                            size: 18,
+                                          ),
+                                    focusNode: state.focusNode,
+                                    hasPopup: true,
+                                    expanded: state.open,
+                                    onPressed: !pickingImages
+                                        ? state.toggle
+                                        : null,
+                                  ),
+                            ),
                           ),
                         );
                       },

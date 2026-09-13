@@ -736,50 +736,55 @@ class _ParticipantTileState extends State<_ParticipantTile> {
                         }
                       }
 
-                      return DDropdownMenu(
-                        content: DDropdownMenuContent(
-                          semanticLabel: 'Participant actions',
-                          width: 280,
-                          children: [
-                            DDropdownMenuItem(
-                              onPressed: () => onSelect('volume'),
-                              child: const Text('Local volume'),
-                            ),
-                            DDropdownMenuItem(
-                              onPressed: () => onSelect('flag'),
-                              child: const Text('Notify moderators'),
-                            ),
-                            if (stageRoleChange case final role?)
+                      return Semantics(
+                        container: true,
+                        explicitChildNodes: true,
+                        child: DDropdownMenu(
+                          content: DDropdownMenuContent(
+                            semanticLabel: 'Participant actions',
+                            width: 280,
+                            children: [
                               DDropdownMenuItem(
-                                onPressed: () => onSelect('role'),
-                                child: Text(
-                                  role == VoiceRole.speaker
-                                      ? 'Make speaker'
-                                      : 'Move to listeners',
+                                onPressed: () => onSelect('volume'),
+                                child: const Text('Local volume'),
+                              ),
+                              DDropdownMenuItem(
+                                onPressed: () => onSelect('flag'),
+                                child: const Text('Notify moderators'),
+                              ),
+                              if (stageRoleChange case final role?)
+                                DDropdownMenuItem(
+                                  onPressed: () => onSelect('role'),
+                                  child: Text(
+                                    role == VoiceRole.speaker
+                                        ? 'Make speaker'
+                                        : 'Move to listeners',
+                                  ),
                                 ),
-                              ),
-                            if (canManage && participant.handRaisedAt != null)
-                              DDropdownMenuItem(
-                                onPressed: () => onSelect('dismiss'),
-                                child: const Text('Dismiss raised hand'),
-                              ),
-                            if (canKick)
-                              DDropdownMenuItem(
-                                onPressed: () => onSelect('kick'),
-                                variant: DDropdownMenuItemVariant.destructive,
-                                child: const Text('Remove from room'),
-                              ),
-                          ],
-                        ),
-                        child: DDropdownMenuTrigger(
-                          builder: (triggerContext, state) => DButton.iconOnly(
-                            tooltip: 'Participant actions',
-                            variant: DButtonVariant.secondary,
-                            icon: const DIcon(DIcons.ellipsis, size: 16),
-                            focusNode: state.focusNode,
-                            hasPopup: true,
-                            expanded: state.open,
-                            onPressed: state.toggle,
+                              if (canManage && participant.handRaisedAt != null)
+                                DDropdownMenuItem(
+                                  onPressed: () => onSelect('dismiss'),
+                                  child: const Text('Dismiss raised hand'),
+                                ),
+                              if (canKick)
+                                DDropdownMenuItem(
+                                  onPressed: () => onSelect('kick'),
+                                  variant: DDropdownMenuItemVariant.destructive,
+                                  child: const Text('Remove from room'),
+                                ),
+                            ],
+                          ),
+                          child: DDropdownMenuTrigger(
+                            builder: (triggerContext, state) =>
+                                DButton.iconOnly(
+                                  tooltip: 'Participant actions',
+                                  variant: DButtonVariant.secondary,
+                                  icon: const DIcon(DIcons.ellipsis, size: 16),
+                                  focusNode: state.focusNode,
+                                  hasPopup: true,
+                                  expanded: state.open,
+                                  onPressed: state.toggle,
+                                ),
                           ),
                         ),
                       );
@@ -2032,29 +2037,33 @@ class _VoiceMembersDialogState extends State<_VoiceMembersDialog> {
                           builder: (menuContext) {
                             void onSelect(VoiceRole role) =>
                                 _updateMember(membership, role);
-                            return DDropdownMenu(
-                              content: DDropdownMenuContent(
-                                semanticLabel: 'Change role',
-                                width: 280,
-                                children: [
-                                  for (final role in VoiceRole.values)
-                                    DDropdownMenuItem(
-                                      onPressed: () => onSelect(role),
-                                      child: Text(role.name),
-                                    ),
-                                ],
-                              ),
-                              child: DDropdownMenuTrigger(
-                                builder: (triggerContext, state) =>
-                                    DButton.iconOnly(
-                                      tooltip: 'Change role',
-                                      variant: DButtonVariant.ghost,
-                                      icon: const Icon(Icons.more_vert),
-                                      focusNode: state.focusNode,
-                                      hasPopup: true,
-                                      expanded: state.open,
-                                      onPressed: state.toggle,
-                                    ),
+                            return Semantics(
+                              container: true,
+                              explicitChildNodes: true,
+                              child: DDropdownMenu(
+                                content: DDropdownMenuContent(
+                                  semanticLabel: 'Change role',
+                                  width: 280,
+                                  children: [
+                                    for (final role in VoiceRole.values)
+                                      DDropdownMenuItem(
+                                        onPressed: () => onSelect(role),
+                                        child: Text(role.name),
+                                      ),
+                                  ],
+                                ),
+                                child: DDropdownMenuTrigger(
+                                  builder: (triggerContext, state) =>
+                                      DButton.iconOnly(
+                                        tooltip: 'Change role',
+                                        variant: DButtonVariant.ghost,
+                                        icon: const Icon(Icons.more_vert),
+                                        focusNode: state.focusNode,
+                                        hasPopup: true,
+                                        expanded: state.open,
+                                        onPressed: state.toggle,
+                                      ),
+                                ),
                               ),
                             );
                           },

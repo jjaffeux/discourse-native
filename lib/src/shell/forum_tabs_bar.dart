@@ -414,128 +414,135 @@ class _ForumTabSwitcherState extends State<_ForumTabSwitcher> {
 
     return Center(
       widthFactor: 1,
-      child: DPopover(
-        controller: _menu,
-        focusContentOnOpen: false,
-        onOpenChange: (open, reason) {
-          if (open) {
-            _handleOpen();
-          } else {
-            _handleClose();
-          }
-        },
-        content: DPopoverContent(
-          semanticLabel: 'Browse tabs',
-          width: panelWidth,
-          padding: EdgeInsets.zero,
-          scrollable: false,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                key: const ValueKey('forum-tabs-switcher-menu'),
-                width: panelWidth,
-                constraints: BoxConstraints(
-                  maxHeight: math.min(480.0, availablePanelHeight),
-                ),
-                padding: const EdgeInsets.all(10),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    DInput(
-                      key: const ValueKey('forum-tabs-switcher-search'),
-                      controller: _search,
-                      focusNode: _searchFocus,
-                      onChanged: (_) => setState(() {}),
-                      textInputAction: TextInputAction.search,
-                      hintText: 'Search tabs…',
-                      prefix: const DIcon(DIcons.magnifyingGlass),
-                    ),
-                    const SizedBox(height: 10),
-                    Flexible(
-                      child: SingleChildScrollView(
-                        primary: false,
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            _TabSwitcherHeading(
-                              label: _search.text.trim().isEmpty
-                                  ? 'Open tabs'
-                                  : 'Matching tabs',
-                              count: openItems.length,
-                            ),
-                            for (final item in openItems)
-                              _TabSwitcherRow(
-                                key: ValueKey(
-                                  'forum-tabs-switcher-open-${item.id}',
-                                ),
-                                item: item,
-                                selected: item.id == widget.selectedId,
-                                onTap: () => _select(item.id),
-                                trailing: _TabSwitcherRowAction(
-                                  label: 'Close ${item.title}',
-                                  icon: DIcons.xmark,
-                                  onPressed: () => widget.onClose(item.id),
-                                ),
+      child: Semantics(
+        container: true,
+        explicitChildNodes: true,
+        child: DPopover(
+          controller: _menu,
+          focusContentOnOpen: false,
+          onOpenChange: (open, reason) {
+            if (open) {
+              _handleOpen();
+            } else {
+              _handleClose();
+            }
+          },
+          content: DPopoverContent(
+            semanticLabel: 'Browse tabs',
+            width: panelWidth,
+            padding: EdgeInsets.zero,
+            scrollable: false,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  key: const ValueKey('forum-tabs-switcher-menu'),
+                  width: panelWidth,
+                  constraints: BoxConstraints(
+                    maxHeight: math.min(480.0, availablePanelHeight),
+                  ),
+                  padding: const EdgeInsets.all(10),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      DInput(
+                        key: const ValueKey('forum-tabs-switcher-search'),
+                        controller: _search,
+                        focusNode: _searchFocus,
+                        onChanged: (_) => setState(() {}),
+                        textInputAction: TextInputAction.search,
+                        hintText: 'Search tabs…',
+                        prefix: const DIcon(DIcons.magnifyingGlass),
+                      ),
+                      const SizedBox(height: 10),
+                      Flexible(
+                        child: SingleChildScrollView(
+                          primary: false,
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              _TabSwitcherHeading(
+                                label: _search.text.trim().isEmpty
+                                    ? 'Open tabs'
+                                    : 'Matching tabs',
+                                count: openItems.length,
                               ),
-                            if (openItems.isEmpty)
-                              const _TabSwitcherEmpty(
-                                label: 'No matching open tabs',
-                              ),
-                            if (widget.recentlyClosedItems.isNotEmpty) ...[
-                              const SizedBox(height: 10),
-                              DSeparator(space: 1, color: theme.shell.divider),
-                              _TabSwitcherHistoryToggle(
-                                count: closedItems.length,
-                                expanded: _historyExpanded,
-                                onTap: () => setState(
-                                  () => _historyExpanded = !_historyExpanded,
-                                ),
-                              ),
-                              if (_historyExpanded) ...[
-                                for (final item in closedItems)
-                                  _TabSwitcherRow(
-                                    key: ValueKey(
-                                      'forum-tabs-switcher-recent-${item.id}',
-                                    ),
-                                    item: item,
-                                    onTap: widget.onReopen == null
-                                        ? null
-                                        : () => _reopen(item.id),
-                                    trailing: const DIcon(
-                                      DIcons.arrowRotateLeft,
-                                      size: 15,
-                                    ),
+                              for (final item in openItems)
+                                _TabSwitcherRow(
+                                  key: ValueKey(
+                                    'forum-tabs-switcher-open-${item.id}',
                                   ),
-                                if (closedItems.isEmpty)
-                                  const _TabSwitcherEmpty(
-                                    label: 'No matching recently closed tabs',
+                                  item: item,
+                                  selected: item.id == widget.selectedId,
+                                  onTap: () => _select(item.id),
+                                  trailing: _TabSwitcherRowAction(
+                                    label: 'Close ${item.title}',
+                                    icon: DIcons.xmark,
+                                    onPressed: () => widget.onClose(item.id),
                                   ),
+                                ),
+                              if (openItems.isEmpty)
+                                const _TabSwitcherEmpty(
+                                  label: 'No matching open tabs',
+                                ),
+                              if (widget.recentlyClosedItems.isNotEmpty) ...[
+                                const SizedBox(height: 10),
+                                DSeparator(
+                                  space: 1,
+                                  color: theme.shell.divider,
+                                ),
+                                _TabSwitcherHistoryToggle(
+                                  count: closedItems.length,
+                                  expanded: _historyExpanded,
+                                  onTap: () => setState(
+                                    () => _historyExpanded = !_historyExpanded,
+                                  ),
+                                ),
+                                if (_historyExpanded) ...[
+                                  for (final item in closedItems)
+                                    _TabSwitcherRow(
+                                      key: ValueKey(
+                                        'forum-tabs-switcher-recent-${item.id}',
+                                      ),
+                                      item: item,
+                                      onTap: widget.onReopen == null
+                                          ? null
+                                          : () => _reopen(item.id),
+                                      trailing: const DIcon(
+                                        DIcons.arrowRotateLeft,
+                                        size: 15,
+                                      ),
+                                    ),
+                                  if (closedItems.isEmpty)
+                                    const _TabSwitcherEmpty(
+                                      label: 'No matching recently closed tabs',
+                                    ),
+                                ],
                               ],
                             ],
-                          ],
+                          ),
                         ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
-        child: DPopoverTrigger(
-          builder: (context, state) => DButton.iconOnly(
-            key: const ValueKey('forum-tabs-switcher'),
-            semanticLabel: 'Browse tabs in ${widget.forumName}',
-            tooltip: 'Browse tabs',
-            variant: DButtonVariant.outline,
-            icon: const DIcon(DIcons.chevronDown),
-            focusNode: state.focusNode,
-            hasPopup: true,
-            expanded: state.open,
-            onPressed: state.toggle,
+          child: DPopoverTrigger(
+            builder: (context, state) => DButton.iconOnly(
+              key: const ValueKey('forum-tabs-switcher'),
+              semanticLabel: 'Browse tabs in ${widget.forumName}',
+              tooltip: 'Browse tabs',
+              variant: DButtonVariant.outline,
+              icon: const DIcon(DIcons.chevronDown),
+              focusNode: state.focusNode,
+              hasPopup: true,
+              expanded: state.open,
+              onPressed: state.toggle,
+            ),
           ),
         ),
       ),

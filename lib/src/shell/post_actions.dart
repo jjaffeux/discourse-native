@@ -885,61 +885,65 @@ class _PostActionsMenu extends StatelessWidget {
               ),
             ),
           if (collapse)
-            DDropdownMenu(
-              onOpenChange: (open, reason) {
-                if (open) {
-                  onOverflowChanged(true);
-                }
-                if (!open) {
-                  onOverflowChanged(false);
-                }
-              },
-              content: DDropdownMenuContent(
-                semanticLabel: 'Actions',
-                width: 300,
-                constraints: const BoxConstraints(maxHeight: 440),
-                children: [
-                  for (final (index, action) in overflowActions.indexed) ...[
-                    if (action.destructive &&
-                        !overflowActions
-                            .take(index)
-                            .any((candidate) => candidate.destructive))
-                      const DSeparator(space: 1),
-                    Builder(
-                      builder: (buttonContext) => DDropdownMenuItem(
-                        onPressed: action.enabled
-                            ? () => onInvoke(action, buttonContext)
-                            : null,
-                        leading: action.leading(
-                          context,
-                          size: 16,
-                          color:
-                              action.tint ??
-                              (action.destructive
-                                  ? theme.colorScheme.error
-                                  : null),
+            Semantics(
+              container: true,
+              explicitChildNodes: true,
+              child: DDropdownMenu(
+                onOpenChange: (open, reason) {
+                  if (open) {
+                    onOverflowChanged(true);
+                  }
+                  if (!open) {
+                    onOverflowChanged(false);
+                  }
+                },
+                content: DDropdownMenuContent(
+                  semanticLabel: 'Actions',
+                  width: 300,
+                  constraints: const BoxConstraints(maxHeight: 440),
+                  children: [
+                    for (final (index, action) in overflowActions.indexed) ...[
+                      if (action.destructive &&
+                          !overflowActions
+                              .take(index)
+                              .any((candidate) => candidate.destructive))
+                        const DSeparator(space: 1),
+                      Builder(
+                        builder: (buttonContext) => DDropdownMenuItem(
+                          onPressed: action.enabled
+                              ? () => onInvoke(action, buttonContext)
+                              : null,
+                          leading: action.leading(
+                            context,
+                            size: 16,
+                            color:
+                                action.tint ??
+                                (action.destructive
+                                    ? theme.colorScheme.error
+                                    : null),
+                          ),
+                          variant: action.destructive
+                              ? DDropdownMenuItemVariant.destructive
+                              : DDropdownMenuItemVariant.standard,
+                          child: Text(action.label),
                         ),
-                        variant: action.destructive
-                            ? DDropdownMenuItemVariant.destructive
-                            : DDropdownMenuItemVariant.standard,
-                        child: Text(action.label),
                       ),
-                    ),
+                    ],
                   ],
-                ],
-              ),
-              child: DDropdownMenuTrigger(
-                focusNode: leadingActions.isEmpty ? firstActionFocus : null,
-                builder: (triggerContext, state) => DButton.iconOnly(
-                  focusNode: state.focusNode,
-                  hasPopup: true,
-                  expanded: state.open,
-                  variant: DButtonVariant.ghost,
-                  key: const ValueKey('post-actions-overflow'),
+                ),
+                child: DDropdownMenuTrigger(
+                  focusNode: leadingActions.isEmpty ? firstActionFocus : null,
+                  builder: (triggerContext, state) => DButton.iconOnly(
+                    focusNode: state.focusNode,
+                    hasPopup: true,
+                    expanded: state.open,
+                    variant: DButtonVariant.ghost,
+                    key: const ValueKey('post-actions-overflow'),
 
-                  tooltip: 'More actions',
-                  onPressed: state.toggle,
-                  icon: const DIcon(DIcons.ellipsis, size: 16),
+                    tooltip: 'More actions',
+                    onPressed: state.toggle,
+                    icon: const DIcon(DIcons.ellipsis, size: 16),
+                  ),
                 ),
               ),
             ),
@@ -1069,57 +1073,61 @@ class PostMoreActionsButton extends StatelessWidget {
         .where((action) => action.placement != PostActionPlacement.trailing)
         .toList(growable: false);
     if (actions.isEmpty) return const SizedBox.shrink();
-    return DDropdownMenu(
-      controller: scope.menu,
-      onOpenChange: (open, reason) {
-        if (open) {
-          (() => WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (context.mounted && scope.menu.isOpen) {
-              scope.firstFocus.requestFocus();
-            }
-          }))();
-        }
-      },
-      content: DDropdownMenuContent(
-        semanticLabel: 'Actions',
-        width: 300,
-        constraints: const BoxConstraints(maxHeight: 440),
-        children: [
-          for (final action in actions)
-            DDropdownMenuItem(
-              focusNode:
-                  identical(
-                    action,
-                    actions.where((item) => item.enabled).firstOrNull,
-                  )
-                  ? scope.firstFocus
-                  : null,
-              onPressed: action.enabled
-                  ? () => scope.onInvoke(action, context)
-                  : null,
-              leading: DIcon(
-                action.icon,
-                size: 16,
-                color: action.destructive
-                    ? Theme.of(context).colorScheme.error
-                    : action.tint,
+    return Semantics(
+      container: true,
+      explicitChildNodes: true,
+      child: DDropdownMenu(
+        controller: scope.menu,
+        onOpenChange: (open, reason) {
+          if (open) {
+            (() => WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (context.mounted && scope.menu.isOpen) {
+                scope.firstFocus.requestFocus();
+              }
+            }))();
+          }
+        },
+        content: DDropdownMenuContent(
+          semanticLabel: 'Actions',
+          width: 300,
+          constraints: const BoxConstraints(maxHeight: 440),
+          children: [
+            for (final action in actions)
+              DDropdownMenuItem(
+                focusNode:
+                    identical(
+                      action,
+                      actions.where((item) => item.enabled).firstOrNull,
+                    )
+                    ? scope.firstFocus
+                    : null,
+                onPressed: action.enabled
+                    ? () => scope.onInvoke(action, context)
+                    : null,
+                leading: DIcon(
+                  action.icon,
+                  size: 16,
+                  color: action.destructive
+                      ? Theme.of(context).colorScheme.error
+                      : action.tint,
+                ),
+                child: Text(action.label),
               ),
-              child: Text(action.label),
-            ),
-        ],
-      ),
-      child: DDropdownMenuTrigger(
-        builder: (triggerContext, state) => DButton.iconOnly(
-          focusNode: state.focusNode,
-          hasPopup: true,
-          expanded: state.open,
-          key: ValueKey('post-more-actions-${scope.postNumber}'),
-          icon: const DIcon(DIcons.ellipsis),
-          tooltip: 'More actions for post ${scope.postNumber}',
-          semanticLabel: 'More actions for post ${scope.postNumber}',
-          variant: DButtonVariant.ghost,
-          size: DButtonSize.small,
-          onPressed: state.toggle,
+          ],
+        ),
+        child: DDropdownMenuTrigger(
+          builder: (triggerContext, state) => DButton.iconOnly(
+            focusNode: state.focusNode,
+            hasPopup: true,
+            expanded: state.open,
+            key: ValueKey('post-more-actions-${scope.postNumber}'),
+            icon: const DIcon(DIcons.ellipsis),
+            tooltip: 'More actions for post ${scope.postNumber}',
+            semanticLabel: 'More actions for post ${scope.postNumber}',
+            variant: DButtonVariant.ghost,
+            size: DButtonSize.small,
+            onPressed: state.toggle,
+          ),
         ),
       ),
     );

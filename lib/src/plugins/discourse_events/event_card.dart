@@ -172,56 +172,62 @@ class EventCard extends StatelessWidget {
                   ].any((callback) => callback != null))
                     Builder(
                       builder: (menuContext) {
-                        return DDropdownMenu(
-                          content: DDropdownMenuContent(
-                            semanticLabel: 'Event actions',
-                            width: 280,
-                            children: [
-                              if (onEdit != null)
-                                DDropdownMenuItem(
-                                  onPressed: onEdit,
-                                  child: const Text('Edit event'),
-                                ),
-                              if (onInvite != null)
-                                DDropdownMenuItem(
-                                  onPressed: onInvite,
-                                  child: const Text('Invite people'),
-                                ),
-                              if (onWithdraw != null)
-                                DDropdownMenuItem(
-                                  onPressed: onWithdraw,
-                                  child: const Text('Remove my response'),
-                                ),
-                              if (onExport != null)
-                                DDropdownMenuItem(
-                                  onPressed: onExport,
-                                  child: const Text('Export calendar'),
-                                ),
-                              if (onWeb != null)
-                                DDropdownMenuItem(
-                                  onPressed: onWeb,
-                                  child: const Text('Open event on web'),
-                                ),
-                              if (onWeb != null && event.canManage)
-                                DDropdownMenuItem(
-                                  onPressed: onWeb,
-                                  child: const Text(
-                                    'Bulk invitations and reports on web',
+                        // Keep independent popup anchors separate in the
+                        // card's native accessibility tree.
+                        return Semantics(
+                          container: true,
+                          explicitChildNodes: true,
+                          child: DDropdownMenu(
+                            content: DDropdownMenuContent(
+                              semanticLabel: 'Event actions',
+                              width: 280,
+                              children: [
+                                if (onEdit != null)
+                                  DDropdownMenuItem(
+                                    onPressed: onEdit,
+                                    child: const Text('Edit event'),
                                   ),
-                                ),
-                            ],
-                          ),
-                          child: DDropdownMenuTrigger(
-                            builder: (triggerContext, state) =>
-                                DButton.iconOnly(
-                                  tooltip: 'Event actions',
-                                  variant: DButtonVariant.ghost,
-                                  icon: const Icon(Icons.more_vert),
-                                  focusNode: state.focusNode,
-                                  hasPopup: true,
-                                  expanded: state.open,
-                                  onPressed: state.toggle,
-                                ),
+                                if (onInvite != null)
+                                  DDropdownMenuItem(
+                                    onPressed: onInvite,
+                                    child: const Text('Invite people'),
+                                  ),
+                                if (onWithdraw != null)
+                                  DDropdownMenuItem(
+                                    onPressed: onWithdraw,
+                                    child: const Text('Remove my response'),
+                                  ),
+                                if (onExport != null)
+                                  DDropdownMenuItem(
+                                    onPressed: onExport,
+                                    child: const Text('Export calendar'),
+                                  ),
+                                if (onWeb != null)
+                                  DDropdownMenuItem(
+                                    onPressed: onWeb,
+                                    child: const Text('Open event on web'),
+                                  ),
+                                if (onWeb != null && event.canManage)
+                                  DDropdownMenuItem(
+                                    onPressed: onWeb,
+                                    child: const Text(
+                                      'Bulk invitations and reports on web',
+                                    ),
+                                  ),
+                              ],
+                            ),
+                            child: DDropdownMenuTrigger(
+                              builder: (triggerContext, state) =>
+                                  DButton.iconOnly(
+                                    tooltip: 'Event actions',
+                                    variant: DButtonVariant.ghost,
+                                    icon: const Icon(Icons.more_vert),
+                                    focusNode: state.focusNode,
+                                    hasPopup: true,
+                                    expanded: state.open,
+                                    onPressed: state.toggle,
+                                  ),
+                            ),
                           ),
                         );
                       },
@@ -375,50 +381,64 @@ class EventCard extends StatelessWidget {
                             builder: (menuContext) {
                               void onSelect(VoidCallback callback) =>
                                   callback();
-                              return DDropdownMenu(
-                                content: DDropdownMenuContent(
-                                  semanticLabel: 'Choose recurring attendance',
-                                  width: 280,
-                                  children: [
-                                    DDropdownMenuCheckboxItem(
-                                      checked:
-                                          selected == 'going' &&
-                                          event.watching?.recurring == false,
-                                      closeOnSelect: true,
-                                      onChanged: (_) => onSelect(
-                                        () => onRespond!(status, false),
+                              return Semantics(
+                                container: true,
+                                explicitChildNodes: true,
+                                child: DDropdownMenu(
+                                  content: DDropdownMenuContent(
+                                    semanticLabel:
+                                        'Choose recurring attendance',
+                                    width: 280,
+                                    children: [
+                                      DDropdownMenuCheckboxItem(
+                                        checked:
+                                            selected == 'going' &&
+                                            event.watching?.recurring == false,
+                                        closeOnSelect: true,
+                                        onChanged: (_) => onSelect(
+                                          () => onRespond!(status, false),
+                                        ),
+                                        child: const Text(
+                                          'This occurrence only',
+                                        ),
                                       ),
-                                      child: const Text('This occurrence only'),
-                                    ),
-                                    DDropdownMenuCheckboxItem(
-                                      checked:
-                                          selected == 'going' &&
-                                          event.watching?.recurring == true,
-                                      closeOnSelect: true,
-                                      onChanged: (_) => onSelect(
-                                        () => onRespond!(status, true),
+                                      DDropdownMenuCheckboxItem(
+                                        checked:
+                                            selected == 'going' &&
+                                            event.watching?.recurring == true,
+                                        closeOnSelect: true,
+                                        onChanged: (_) => onSelect(
+                                          () => onRespond!(status, true),
+                                        ),
+                                        child: const Text('Every occurrence'),
                                       ),
-                                      child: const Text('Every occurrence'),
-                                    ),
-                                  ],
-                                ),
-                                child: Semantics(
-                                  selected: selected == status,
-                                  child: DDropdownMenuTrigger(
-                                    builder: (triggerContext, state) => DButton(
-                                      label: Text(eventResponseLabel(status)),
-                                      tooltip: 'Choose recurring attendance',
-                                      variant: selected == status
-                                          ? DButtonVariant.primary
-                                          : DButtonVariant.outline,
-                                      focusNode: state.focusNode,
-                                      hasPopup: true,
-                                      expanded: state.open,
-                                      onPressed:
-                                          !pending && event.canChoose(status)
-                                          ? state.toggle
-                                          : null,
-                                      icon: const Icon(Icons.arrow_drop_down),
+                                    ],
+                                  ),
+                                  child: Semantics(
+                                    selected: selected == status,
+                                    child: DDropdownMenuTrigger(
+                                      builder: (triggerContext, state) =>
+                                          DButton(
+                                            label: Text(
+                                              eventResponseLabel(status),
+                                            ),
+                                            tooltip:
+                                                'Choose recurring attendance',
+                                            variant: selected == status
+                                                ? DButtonVariant.primary
+                                                : DButtonVariant.outline,
+                                            focusNode: state.focusNode,
+                                            hasPopup: true,
+                                            expanded: state.open,
+                                            onPressed:
+                                                !pending &&
+                                                    event.canChoose(status)
+                                                ? state.toggle
+                                                : null,
+                                            icon: const Icon(
+                                              Icons.arrow_drop_down,
+                                            ),
+                                          ),
                                     ),
                                   ),
                                 ),
