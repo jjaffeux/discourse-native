@@ -1,9 +1,8 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
-
-import '../../../discourse_ui.dart';
 
 import '../../foundation/diagnostic_errors.dart';
 import '../../shell/image_decode.dart';
@@ -132,6 +131,7 @@ class _Image extends StatelessWidget {
       width: double.infinity,
       cacheWidth: imagePhysicalPixels(context, width),
       gifPlaybackControls: true,
+      gifPlaybackControlsAtTop: true,
       errorBuilder: (context, error, stackTrace) {
         reportImageError(error, stackTrace, operation: 'chat.image');
         return UnavailableImage(color: theme.shell.placeholder);
@@ -142,24 +142,24 @@ class _Image extends StatelessWidget {
       picture = DAspectRatio(ratio: ratio, child: picture);
     }
 
-    return Semantics(
-      container: true,
-      explicitChildNodes: true,
-      button: true,
-      label: 'Open image: ${upload.originalFilename}',
-      onTap: open,
-      child: ConstrainedBox(
-        constraints: BoxConstraints(
-          maxWidth: width,
-          maxHeight: ChatUploads.maxHeight,
-        ),
-        child: Material(
+    return ConstrainedBox(
+      constraints: BoxConstraints(
+        maxWidth: width,
+        maxHeight: ChatUploads.maxHeight,
+      ),
+      child: DImagePreview(
+        semanticLabel: 'Open image: ${upload.originalFilename}',
+        filename: upload.originalFilename,
+        details: [
+          if (upload.width case final width? when width > 0)
+            if (upload.height case final height? when height > 0)
+              '$width×$height',
+          if (upload.humanFilesize case final size? when size.isNotEmpty) size,
+        ].join(' '),
+        onPressed: open,
+        child: ColoredBox(
           color: _placeholder ?? theme.shell.floating,
-          child: InkWell(
-            hoverColor: Colors.transparent,
-            onTap: open,
-            child: picture,
-          ),
+          child: picture,
         ),
       ),
     );
