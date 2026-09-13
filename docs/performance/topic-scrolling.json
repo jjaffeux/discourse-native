@@ -1,0 +1,798 @@
+{
+  "baselineCommit": "76080324",
+  "platform": "macOS",
+  "flutter": "3.47.2",
+  "buildMode": "profile",
+  "renderer": "Skia on Metal",
+  "refreshRateHz": 120,
+  "viewportLogicalSize": {
+    "width": 1280,
+    "height": 860
+  },
+  "devicePixelRatio": 2,
+  "fixture": "tool/topic_scroll_profile_main.dart",
+  "notes": [
+    "Two baseline runs followed by three fixed runs on the same desktop; the third fixed run verifies the final lifecycle refinements. Other desktop work can affect timings.",
+    "Synthetic local text posts: 14640 and 82800 HTML characters, 60 loaded posts. No network media.",
+    "P99 values use topic-active UI frames. HTML budget is a memory-cost proxy, not heap bytes."
+  ],
+  "runs": [
+    {
+      "variant": "baseline",
+      "run": 1,
+      "phase": "first-pass",
+      "capture": {
+        "status": "stopped",
+        "startedAtUtc": "2026-09-13T15:50:16.043411Z",
+        "endedAtUtc": "2026-09-13T15:50:21.324164Z",
+        "durationUs": 5280753,
+        "stopReason": "manual",
+        "memoryOnly": true,
+        "maximumEvents": 12000,
+        "maximumDurationMs": 120000
+      },
+      "frames": {
+        "count": 280,
+        "overBudget": 5,
+        "slowBuilds": 5,
+        "slowRasters": 0,
+        "buildUs": {
+          "count": 280,
+          "total": 193310,
+          "p50": 286,
+          "p95": 2133,
+          "p99": 11307,
+          "max": 17436
+        },
+        "rasterUs": {
+          "count": 280,
+          "total": 189074,
+          "p50": 552,
+          "p95": 983,
+          "p99": 4467,
+          "max": 5910
+        },
+        "vsyncOverheadUs": {
+          "count": 280,
+          "total": 98218,
+          "p50": 128,
+          "p95": 229,
+          "p99": 11870,
+          "max": 20785
+        },
+        "totalSpanUs": {
+          "count": 280,
+          "total": 493108,
+          "p50": 1039,
+          "p95": 3790,
+          "p99": 23935,
+          "max": 39167
+        }
+      },
+      "activityCounts": {
+        "topic.capture.context": 1,
+        "scroll.notification": 1377,
+        "sliver.separator.built": 45,
+        "sliver.layout.changed": 283,
+        "viewport.work": 280,
+        "viewport.inspected": 280,
+        "scroll.metricsChanged": 279,
+        "sliver.child.built": 49,
+        "sliver.post.attached": 36,
+        "post.layout": 47,
+        "sliver.post.detached": 36,
+        "topic.progress.changed": 16,
+        "viewport.anchor.saved": 16,
+        "topic.view.built": 2,
+        "sliver.childIndex.resolved": 13
+      },
+      "postLayoutUs": {
+        "count": 47,
+        "total": 41310,
+        "p50": 290,
+        "p95": 6404,
+        "p99": 8331,
+        "max": 8331
+      },
+      "longPostAttachments": 6
+    },
+    {
+      "variant": "baseline",
+      "run": 1,
+      "phase": "return-pass",
+      "capture": {
+        "status": "stopped",
+        "startedAtUtc": "2026-09-13T15:50:23.748645Z",
+        "endedAtUtc": "2026-09-13T15:50:29.232641Z",
+        "durationUs": 5483996,
+        "stopReason": "manual",
+        "memoryOnly": true,
+        "maximumEvents": 12000,
+        "maximumDurationMs": 120000
+      },
+      "frames": {
+        "count": 288,
+        "overBudget": 8,
+        "slowBuilds": 6,
+        "slowRasters": 2,
+        "buildUs": {
+          "count": 288,
+          "total": 214503,
+          "p50": 272,
+          "p95": 2331,
+          "p99": 14585,
+          "max": 17311
+        },
+        "rasterUs": {
+          "count": 288,
+          "total": 291004,
+          "p50": 563,
+          "p95": 1055,
+          "p99": 7953,
+          "max": 60211
+        },
+        "vsyncOverheadUs": {
+          "count": 288,
+          "total": 91730,
+          "p50": 62,
+          "p95": 190,
+          "p99": 14298,
+          "max": 16419
+        },
+        "totalSpanUs": {
+          "count": 288,
+          "total": 699681,
+          "p50": 985,
+          "p95": 4504,
+          "p99": 36785,
+          "max": 88715
+        }
+      },
+      "activityCounts": {
+        "topic.capture.context": 1,
+        "scroll.notification": 1377,
+        "sliver.separator.built": 29,
+        "sliver.layout.changed": 279,
+        "viewport.work": 288,
+        "viewport.inspected": 288,
+        "scroll.metricsChanged": 279,
+        "sliver.child.built": 30,
+        "sliver.post.attached": 30,
+        "post.layout": 42,
+        "sliver.post.detached": 30,
+        "topic.progress.changed": 16,
+        "viewport.anchor.saved": 16
+      },
+      "postLayoutUs": {
+        "count": 42,
+        "total": 49711,
+        "p50": 348,
+        "p95": 7513,
+        "p99": 8584,
+        "max": 8584
+      },
+      "longPostAttachments": 6
+    },
+    {
+      "variant": "baseline",
+      "run": 2,
+      "phase": "first-pass",
+      "capture": {
+        "status": "stopped",
+        "startedAtUtc": "2026-09-13T15:51:33.561867Z",
+        "endedAtUtc": "2026-09-13T15:51:38.855358Z",
+        "durationUs": 5293491,
+        "stopReason": "manual",
+        "memoryOnly": true,
+        "maximumEvents": 12000,
+        "maximumDurationMs": 120000
+      },
+      "frames": {
+        "count": 280,
+        "overBudget": 4,
+        "slowBuilds": 4,
+        "slowRasters": 0,
+        "buildUs": {
+          "count": 280,
+          "total": 193497,
+          "p50": 293,
+          "p95": 2257,
+          "p99": 13032,
+          "max": 16711
+        },
+        "rasterUs": {
+          "count": 280,
+          "total": 208426,
+          "p50": 595,
+          "p95": 1029,
+          "p99": 6690,
+          "max": 7597
+        },
+        "vsyncOverheadUs": {
+          "count": 280,
+          "total": 97730,
+          "p50": 82,
+          "p95": 192,
+          "p99": 17697,
+          "max": 19731
+        },
+        "totalSpanUs": {
+          "count": 280,
+          "total": 513798,
+          "p50": 1009,
+          "p95": 4333,
+          "p99": 32074,
+          "max": 37634
+        }
+      },
+      "activityCounts": {
+        "topic.capture.context": 1,
+        "scroll.notification": 1377,
+        "sliver.separator.built": 45,
+        "sliver.layout.changed": 283,
+        "viewport.work": 280,
+        "viewport.inspected": 280,
+        "scroll.metricsChanged": 279,
+        "sliver.child.built": 49,
+        "sliver.post.attached": 36,
+        "post.layout": 47,
+        "sliver.post.detached": 36,
+        "topic.progress.changed": 16,
+        "viewport.anchor.saved": 16,
+        "topic.view.built": 2,
+        "sliver.childIndex.resolved": 13
+      },
+      "postLayoutUs": {
+        "count": 47,
+        "total": 43680,
+        "p50": 293,
+        "p95": 7366,
+        "p99": 8234,
+        "max": 8234
+      },
+      "longPostAttachments": 6
+    },
+    {
+      "variant": "baseline",
+      "run": 2,
+      "phase": "return-pass",
+      "capture": {
+        "status": "stopped",
+        "startedAtUtc": "2026-09-13T15:51:40.795940Z",
+        "endedAtUtc": "2026-09-13T15:51:46.055262Z",
+        "durationUs": 5259322,
+        "stopReason": "manual",
+        "memoryOnly": true,
+        "maximumEvents": 12000,
+        "maximumDurationMs": 120000
+      },
+      "frames": {
+        "count": 280,
+        "overBudget": 4,
+        "slowBuilds": 4,
+        "slowRasters": 0,
+        "buildUs": {
+          "count": 280,
+          "total": 174247,
+          "p50": 286,
+          "p95": 1840,
+          "p99": 12577,
+          "max": 15550
+        },
+        "rasterUs": {
+          "count": 280,
+          "total": 174796,
+          "p50": 547,
+          "p95": 897,
+          "p99": 2064,
+          "max": 7246
+        },
+        "vsyncOverheadUs": {
+          "count": 280,
+          "total": 71798,
+          "p50": 81,
+          "p95": 163,
+          "p99": 10122,
+          "max": 12336
+        },
+        "totalSpanUs": {
+          "count": 280,
+          "total": 431899,
+          "p50": 947,
+          "p95": 2837,
+          "p99": 23488,
+          "max": 28883
+        }
+      },
+      "activityCounts": {
+        "topic.capture.context": 1,
+        "scroll.notification": 1377,
+        "sliver.separator.built": 29,
+        "sliver.layout.changed": 279,
+        "viewport.work": 280,
+        "viewport.inspected": 280,
+        "scroll.metricsChanged": 279,
+        "sliver.child.built": 30,
+        "sliver.post.attached": 30,
+        "post.layout": 42,
+        "sliver.post.detached": 30,
+        "topic.progress.changed": 16,
+        "viewport.anchor.saved": 16
+      },
+      "postLayoutUs": {
+        "count": 42,
+        "total": 36160,
+        "p50": 202,
+        "p95": 6349,
+        "p99": 7299,
+        "max": 7299
+      },
+      "longPostAttachments": 6
+    },
+    {
+      "variant": "fixed",
+      "run": 1,
+      "phase": "first-pass",
+      "capture": {
+        "status": "stopped",
+        "startedAtUtc": "2026-09-13T15:52:21.250455Z",
+        "endedAtUtc": "2026-09-13T15:52:26.748854Z",
+        "durationUs": 5498399,
+        "stopReason": "manual",
+        "memoryOnly": true,
+        "maximumEvents": 12000,
+        "maximumDurationMs": 120000
+      },
+      "frames": {
+        "count": 280,
+        "overBudget": 4,
+        "slowBuilds": 1,
+        "slowRasters": 3,
+        "buildUs": {
+          "count": 280,
+          "total": 137839,
+          "p50": 249,
+          "p95": 1697,
+          "p99": 6639,
+          "max": 13019
+        },
+        "rasterUs": {
+          "count": 280,
+          "total": 544660,
+          "p50": 535,
+          "p95": 973,
+          "p99": 29551,
+          "max": 310400
+        },
+        "vsyncOverheadUs": {
+          "count": 280,
+          "total": 31495,
+          "p50": 52,
+          "p95": 137,
+          "p99": 170,
+          "max": 14590
+        },
+        "totalSpanUs": {
+          "count": 280,
+          "total": 1075161,
+          "p50": 925,
+          "p95": 3630,
+          "p99": 32810,
+          "max": 311332
+        }
+      },
+      "activityCounts": {
+        "topic.capture.context": 1,
+        "scroll.notification": 1377,
+        "sliver.separator.built": 34,
+        "sliver.layout.changed": 283,
+        "viewport.work": 280,
+        "viewport.inspected": 280,
+        "scroll.metricsChanged": 279,
+        "sliver.child.built": 31,
+        "sliver.post.attached": 31,
+        "post.layout": 32,
+        "topic.progress.changed": 16,
+        "viewport.anchor.saved": 16,
+        "sliver.post.detached": 30
+      },
+      "postLayoutUs": {
+        "count": 32,
+        "total": 16161,
+        "p50": 235,
+        "p95": 530,
+        "p99": 7413,
+        "max": 7413
+      },
+      "longPostAttachments": 1
+    },
+    {
+      "variant": "fixed",
+      "run": 1,
+      "phase": "return-pass",
+      "capture": {
+        "status": "stopped",
+        "startedAtUtc": "2026-09-13T15:52:28.851754Z",
+        "endedAtUtc": "2026-09-13T15:52:33.979407Z",
+        "durationUs": 5127653,
+        "stopReason": "manual",
+        "memoryOnly": true,
+        "maximumEvents": 12000,
+        "maximumDurationMs": 120000
+      },
+      "frames": {
+        "count": 280,
+        "overBudget": 0,
+        "slowBuilds": 0,
+        "slowRasters": 0,
+        "buildUs": {
+          "count": 280,
+          "total": 112166,
+          "p50": 238,
+          "p95": 1498,
+          "p99": 3122,
+          "max": 5165
+        },
+        "rasterUs": {
+          "count": 280,
+          "total": 162927,
+          "p50": 520,
+          "p95": 847,
+          "p99": 1932,
+          "max": 7907
+        },
+        "vsyncOverheadUs": {
+          "count": 280,
+          "total": 19168,
+          "p50": 61,
+          "p95": 141,
+          "p99": 177,
+          "max": 246
+        },
+        "totalSpanUs": {
+          "count": 280,
+          "total": 305201,
+          "p50": 878,
+          "p95": 2291,
+          "p99": 5631,
+          "max": 8413
+        }
+      },
+      "activityCounts": {
+        "topic.capture.context": 1,
+        "scroll.notification": 1377,
+        "sliver.separator.built": 29,
+        "sliver.layout.changed": 279,
+        "viewport.work": 280,
+        "viewport.inspected": 280,
+        "scroll.metricsChanged": 279,
+        "sliver.child.built": 24,
+        "sliver.post.attached": 24,
+        "post.layout": 24,
+        "topic.progress.changed": 16,
+        "viewport.anchor.saved": 16,
+        "sliver.post.detached": 24
+      },
+      "postLayoutUs": {
+        "count": 24,
+        "total": 6477,
+        "p50": 225,
+        "p95": 474,
+        "p99": 509,
+        "max": 509
+      },
+      "longPostAttachments": 0
+    },
+    {
+      "variant": "fixed",
+      "run": 2,
+      "phase": "first-pass",
+      "capture": {
+        "status": "stopped",
+        "startedAtUtc": "2026-09-13T15:53:27.337041Z",
+        "endedAtUtc": "2026-09-13T15:53:32.513453Z",
+        "durationUs": 5176412,
+        "stopReason": "manual",
+        "memoryOnly": true,
+        "maximumEvents": 12000,
+        "maximumDurationMs": 120000
+      },
+      "frames": {
+        "count": 280,
+        "overBudget": 3,
+        "slowBuilds": 2,
+        "slowRasters": 1,
+        "buildUs": {
+          "count": 280,
+          "total": 145531,
+          "p50": 273,
+          "p95": 1785,
+          "p99": 6635,
+          "max": 14709
+        },
+        "rasterUs": {
+          "count": 280,
+          "total": 189065,
+          "p50": 557,
+          "p95": 1026,
+          "p99": 2499,
+          "max": 9516
+        },
+        "vsyncOverheadUs": {
+          "count": 280,
+          "total": 39964,
+          "p50": 76,
+          "p95": 168,
+          "p99": 188,
+          "max": 16816
+        },
+        "totalSpanUs": {
+          "count": 280,
+          "total": 389112,
+          "p50": 976,
+          "p95": 2923,
+          "p99": 10023,
+          "max": 32619
+        }
+      },
+      "activityCounts": {
+        "topic.capture.context": 1,
+        "scroll.notification": 1377,
+        "sliver.separator.built": 34,
+        "sliver.layout.changed": 283,
+        "viewport.work": 280,
+        "viewport.inspected": 280,
+        "scroll.metricsChanged": 279,
+        "sliver.child.built": 31,
+        "sliver.post.attached": 31,
+        "post.layout": 32,
+        "topic.progress.changed": 16,
+        "viewport.anchor.saved": 16,
+        "sliver.post.detached": 30
+      },
+      "postLayoutUs": {
+        "count": 32,
+        "total": 17765,
+        "p50": 244,
+        "p95": 546,
+        "p99": 8187,
+        "max": 8187
+      },
+      "longPostAttachments": 1
+    },
+    {
+      "variant": "fixed",
+      "run": 2,
+      "phase": "return-pass",
+      "capture": {
+        "status": "stopped",
+        "startedAtUtc": "2026-09-13T15:53:34.501871Z",
+        "endedAtUtc": "2026-09-13T15:53:39.629512Z",
+        "durationUs": 5127641,
+        "stopReason": "manual",
+        "memoryOnly": true,
+        "maximumEvents": 12000,
+        "maximumDurationMs": 120000
+      },
+      "frames": {
+        "count": 280,
+        "overBudget": 0,
+        "slowBuilds": 0,
+        "slowRasters": 0,
+        "buildUs": {
+          "count": 280,
+          "total": 128470,
+          "p50": 262,
+          "p95": 1835,
+          "p99": 3241,
+          "max": 6443
+        },
+        "rasterUs": {
+          "count": 280,
+          "total": 185541,
+          "p50": 570,
+          "p95": 978,
+          "p99": 1901,
+          "max": 6882
+        },
+        "vsyncOverheadUs": {
+          "count": 280,
+          "total": 29572,
+          "p50": 89,
+          "p95": 187,
+          "p99": 242,
+          "max": 1201
+        },
+        "totalSpanUs": {
+          "count": 280,
+          "total": 356515,
+          "p50": 1006,
+          "p95": 2621,
+          "p99": 6599,
+          "max": 7592
+        }
+      },
+      "activityCounts": {
+        "topic.capture.context": 1,
+        "scroll.notification": 1377,
+        "sliver.separator.built": 29,
+        "sliver.layout.changed": 279,
+        "viewport.work": 280,
+        "viewport.inspected": 280,
+        "scroll.metricsChanged": 279,
+        "sliver.child.built": 24,
+        "sliver.post.attached": 24,
+        "post.layout": 24,
+        "topic.progress.changed": 16,
+        "viewport.anchor.saved": 16,
+        "sliver.post.detached": 24
+      },
+      "postLayoutUs": {
+        "count": 24,
+        "total": 7554,
+        "p50": 294,
+        "p95": 510,
+        "p99": 516,
+        "max": 516
+      },
+      "longPostAttachments": 0
+    },
+    {
+      "variant": "fixed",
+      "run": 3,
+      "phase": "first-pass",
+      "implementationCommit": "8ccce5ba",
+      "capture": {
+        "status": "stopped",
+        "startedAtUtc": "2026-09-13T16:01:22.712953Z",
+        "endedAtUtc": "2026-09-13T16:01:28.123172Z",
+        "durationUs": 5410219,
+        "stopReason": "manual",
+        "memoryOnly": true,
+        "maximumEvents": 12000,
+        "maximumDurationMs": 120000
+      },
+      "frames": {
+        "count": 280,
+        "overBudget": 6,
+        "slowBuilds": 3,
+        "slowRasters": 3,
+        "buildUs": {
+          "count": 280,
+          "total": 189097,
+          "p50": 348,
+          "p95": 1400,
+          "p99": 9548,
+          "max": 17973
+        },
+        "rasterUs": {
+          "count": 280,
+          "total": 469207,
+          "p50": 667,
+          "p95": 1293,
+          "p99": 21836,
+          "max": 213644
+        },
+        "vsyncOverheadUs": {
+          "count": 280,
+          "total": 47988,
+          "p50": 84,
+          "p95": 241,
+          "p99": 1363,
+          "max": 18627
+        },
+        "totalSpanUs": {
+          "count": 280,
+          "total": 973132,
+          "p50": 1263,
+          "p95": 4587,
+          "p99": 38131,
+          "max": 243487
+        }
+      },
+      "activityCounts": {
+        "topic.capture.context": 1,
+        "scroll.notification": 1377,
+        "sliver.separator.built": 34,
+        "sliver.layout.changed": 283,
+        "viewport.work": 280,
+        "viewport.inspected": 280,
+        "scroll.metricsChanged": 279,
+        "sliver.child.built": 31,
+        "sliver.post.attached": 31,
+        "post.layout": 32,
+        "topic.progress.changed": 16,
+        "viewport.anchor.saved": 16,
+        "sliver.post.detached": 30
+      },
+      "postLayoutUs": {
+        "count": 32,
+        "total": 20776,
+        "p50": 358,
+        "p95": 1035,
+        "p99": 7717,
+        "max": 7717
+      },
+      "longPostAttachments": 1
+    },
+    {
+      "variant": "fixed",
+      "run": 3,
+      "phase": "return-pass",
+      "implementationCommit": "8ccce5ba",
+      "capture": {
+        "status": "stopped",
+        "startedAtUtc": "2026-09-13T16:01:29.539499Z",
+        "endedAtUtc": "2026-09-13T16:01:34.663703Z",
+        "durationUs": 5124204,
+        "stopReason": "manual",
+        "memoryOnly": true,
+        "maximumEvents": 12000,
+        "maximumDurationMs": 120000
+      },
+      "frames": {
+        "count": 280,
+        "overBudget": 2,
+        "slowBuilds": 2,
+        "slowRasters": 0,
+        "buildUs": {
+          "count": 280,
+          "total": 172402,
+          "p50": 350,
+          "p95": 2469,
+          "p99": 8008,
+          "max": 11424
+        },
+        "rasterUs": {
+          "count": 280,
+          "total": 202009,
+          "p50": 701,
+          "p95": 1234,
+          "p99": 3530,
+          "max": 4997
+        },
+        "vsyncOverheadUs": {
+          "count": 280,
+          "total": 40800,
+          "p50": 102,
+          "p95": 320,
+          "p99": 757,
+          "max": 3869
+        },
+        "totalSpanUs": {
+          "count": 280,
+          "total": 430080,
+          "p50": 1365,
+          "p95": 4278,
+          "p99": 8972,
+          "max": 12450
+        }
+      },
+      "activityCounts": {
+        "topic.capture.context": 1,
+        "scroll.notification": 1377,
+        "sliver.separator.built": 29,
+        "sliver.layout.changed": 279,
+        "viewport.work": 280,
+        "viewport.inspected": 280,
+        "scroll.metricsChanged": 279,
+        "sliver.child.built": 24,
+        "sliver.post.attached": 24,
+        "post.layout": 24,
+        "topic.progress.changed": 16,
+        "viewport.anchor.saved": 16,
+        "sliver.post.detached": 24
+      },
+      "postLayoutUs": {
+        "count": 24,
+        "total": 10853,
+        "p50": 338,
+        "p95": 1055,
+        "p99": 1584,
+        "max": 1584
+      },
+      "longPostAttachments": 0
+    }
+  ],
+  "implementationCommit": "8ccce5ba"
+}
