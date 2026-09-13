@@ -324,13 +324,14 @@ class _GlobalSearchPanelState extends State<GlobalSearchPanel> {
         controller: _scroll,
         padding: const EdgeInsets.all(8),
         children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
-            child: Text(
-              'Recent searches',
-              style: TextStyle(color: DTokens.of(context).mutedForeground),
+          if (controller.recentSearches.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+              child: Text(
+                'Recent searches',
+                style: TextStyle(color: DTokens.of(context).mutedForeground),
+              ),
             ),
-          ),
           for (final query in controller.recentSearches)
             DItem(
               size: DItemSize.sm,
@@ -338,14 +339,6 @@ class _GlobalSearchPanelState extends State<GlobalSearchPanel> {
               children: [
                 DItemContent(children: [DItemTitle(child: Text(query))]),
               ],
-            ),
-          if (controller.recentSearches.isEmpty)
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              child: Text(
-                'Your searches will appear here.',
-                style: TextStyle(color: DTokens.of(context).mutedForeground),
-              ),
             ),
           if (controller.error != null)
             Padding(
