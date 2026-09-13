@@ -1,11 +1,13 @@
 import 'dart:async';
 import 'dart:ui' show SemanticsAction;
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/app.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/forum_workspace.dart';
 import 'package:discourse_native/src/models/notification_totals.dart';
+import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/models/user_summary.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
@@ -224,6 +226,7 @@ void main() {
       final fixture = await _pump(tester);
       await _openSummaryFromMenu(tester);
 
+      await _selectSummaryTab(tester, 'Reading');
       await tester.tap(
         find.bySemanticsLabel('Search 2 topics by @reader in Support'),
       );
@@ -243,34 +246,37 @@ void main() {
       try {
         await _openSummaryFromMenu(tester);
 
-        final count = tester.getSemantics(
-          find.bySemanticsLabel('Search 2 topics by @reader in Support'),
-        );
-        expect(count.label, 'Search 2 topics by @reader in Support');
-        expect(count.getSemanticsData().hasAction(SemanticsAction.tap), isTrue);
-
         expect(
           find.bySemanticsLabel('read time: 1 day, all time'),
-          findsOneWidget,
-        );
-        expect(
-          find.bySemanticsLabel(
-            'recent read time: 17 mins, in the last 60 days',
-          ),
           findsOneWidget,
         );
         expect(
           find.bySemanticsLabel('Open Top native topic, 5 likes'),
           findsOneWidget,
         );
-        expect(
-          find.bySemanticsLabel('View profile for Sam Example, 4 replies'),
-          findsOneWidget,
-        );
+        await tester.ensureVisible(find.text('Helpful'));
+        await tester.pump();
         expect(
           find.bySemanticsLabel('Helpful, earned 2 times'),
           findsOneWidget,
         );
+        await _selectSummaryTab(tester, 'Connections');
+        expect(
+          find.bySemanticsLabel('View profile for Sam Example, 4 replies'),
+          findsOneWidget,
+        );
+        await _selectSummaryTab(tester, 'Reading');
+        expect(
+          find.bySemanticsLabel(
+            'recent read time: 17 mins, in the last 60 days',
+          ),
+          findsOneWidget,
+        );
+        final count = tester.getSemantics(
+          find.bySemanticsLabel('Search 2 topics by @reader in Support'),
+        );
+        expect(count.label, 'Search 2 topics by @reader in Support');
+        expect(count.getSemanticsData().hasAction(SemanticsAction.tap), isTrue);
       } finally {
         semantics.dispose();
       }
@@ -324,18 +330,118 @@ void main() {
       }
     });
 
-    testWidgets('keeps section-specific empty states for an empty account', (
+    testWidgets('shows a focused empty state in each summary tab', (
       tester,
     ) async {
       await _pump(tester, summary: const UserSummary(canSeeSummaryStats: true));
       await _openSummaryFromMenu(tester);
 
       expect(find.text('<1m'), findsOneWidget);
-      expect(find.text('No replies yet.'), findsNWidgets(2));
-      expect(find.text('No topics yet.'), findsOneWidget);
+      expect(
+        find.text('Your story starts with a conversation.'),
+        findsOneWidget,
+      );
+      expect(find.text('No replies yet.'), findsNothing);
+      expect(find.text('No topics yet.'), findsNothing);
+      await _selectSummaryTab(tester, 'Connections');
+      expect(find.text('No connections yet.'), findsOneWidget);
+      await _selectSummaryTab(tester, 'Reading');
       expect(find.text('No links yet.'), findsOneWidget);
-      expect(find.text('No likes yet.'), findsNWidgets(2));
-      expect(find.text('No badges yet.'), findsOneWidget);
+      expect(find.text('recent read time'), findsNothing);
+      expect(find.text('Bookmarks'), findsNothing);
+    });
+
+    testWidgets('keeps contribution lists when account stats are unavailable', (
+      tester,
+    ) async {
+      await _pump(
+        tester,
+        badgesEnabled: false,
+        summary: UserSummary(
+          topics: const [_topTopic],
+          badges: _summary.badges,
+        ),
+      );
+      await _openSummaryFromMenu(tester);
+      expect(find.text('Top native topic'), findsOneWidget);
+      expect(find.text('Likes received'), findsNothing);
+      expect(find.text('Days visited'), findsNothing);
+      expect(find.text('Your milestones'), findsNothing);
+      await _selectSummaryTab(tester, 'Reading');
+      expect(find.text('Time well spent'), findsNothing);
+      expect(find.text('No links yet.'), findsOneWidget);
+    });
+
+    testWidgets(
+      'retains the selected tab through refresh and window resizing',
+      (tester) async {
+        final fixture = await _pump(tester);
+        await _openSummaryFromMenu(tester);
+        await _selectSummaryTab(tester, 'Reading');
+        await fixture.controller.userSummary.load(
+          fixture.controller.currentInstance!,
+          refresh: true,
+        );
+        await tester.pumpAndSettle();
+        expect(find.text('Time well spent'), findsOneWidget);
+        tester.view.physicalSize = const Size(390, 844);
+        await tester.pumpAndSettle();
+        expect(find.text('Time well spent'), findsOneWidget);
+        expect(find.text('Top native reply'), findsNothing);
+        expect(tester.takeException(), isNull);
+      },
+    );
+
+    for (final size in [const Size(320, 844), const Size(768, 900)]) {
+      testWidgets('fits ${size.width}px and exposes each tab at large text', (
+        tester,
+      ) async {
+        tester.platformDispatcher.textScaleFactorTestValue = 2;
+        addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+        await _pump(tester, size: size);
+        await _openSummaryFromMenu(tester);
+        for (final tab in ['Connections', 'Reading', 'Highlights']) {
+          await _selectSummaryTab(tester, tab);
+          if (tab == 'Reading') {
+            final category = find.descendant(
+              of: find.byType(DTable),
+              matching: find.text('Support'),
+            );
+            expect(
+              tester.getSize(category).height,
+              lessThan(80),
+              reason: 'Category names must not wrap one character per line.',
+            );
+          }
+          expect(tester.takeException(), isNull);
+        }
+        expect(find.text('Your summary'), findsNothing);
+        expect(
+          find.text('A little perspective on your participation.'),
+          findsNothing,
+        );
+        expect(find.text('Your activity in this community.'), findsNothing);
+        expect(find.text('All time, in one place.'), findsNothing);
+        expect(find.text('Ideas you started'), findsNothing);
+      });
+    }
+
+    testWidgets('returns to Reading after opening a linked topic', (
+      tester,
+    ) async {
+      final fixture = await _pump(tester);
+      await _openSummaryFromMenu(tester);
+      await _selectSummaryTab(tester, 'Reading');
+      final sourceTopic = find.bySemanticsLabel('Open Top native topic');
+      await tester.ensureVisible(sourceTopic);
+      await tester.tap(sourceTopic);
+      await tester.pumpAndSettle();
+      expect(fixture.controller.currentContent?.topicId, 11);
+      expect(fixture.controller.currentContent?.postNumber, 2);
+      fixture.controller.handleBack(canReturnToSidebar: false);
+      await tester.pumpAndSettle();
+      expect(find.text('Time well spent'), findsOneWidget);
+      expect(fixture.api.userSummaryRequests, hasLength(1));
     });
   });
 }
@@ -348,14 +454,20 @@ Future<_Fixture> _pump(
   UserSummary? summary = _summary,
   Completer<void>? summaryGate,
   FakeForumTabStore? forumTabs,
+  bool badgesEnabled = true,
 }) async {
   tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
 
-  final site = instance(
-    'meta.discourse.org',
-  ).copyWith(user: const DiscourseUser(id: 7, username: 'reader'));
+  final site = instance('meta.discourse.org').copyWith(
+    user: const DiscourseUser(
+      id: 7,
+      username: 'reader',
+      name: 'Reader Example',
+    ),
+    config: SiteConfig(badgesEnabled: badgesEnabled),
+  );
   final api = FakeDiscourseApi(
     user: site.user,
     totals: const NotificationTotals(),
@@ -397,4 +509,11 @@ Future<void> _openSummaryFromMenu(
   if (settle) {
     await tester.pumpAndSettle();
   }
+}
+
+Future<void> _selectSummaryTab(WidgetTester tester, String tab) async {
+  final target = find.text(tab);
+  await tester.ensureVisible(target);
+  await tester.tap(target);
+  await tester.pumpAndSettle();
 }
