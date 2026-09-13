@@ -120,7 +120,10 @@ class ChatMessageTile extends StatelessWidget {
       builder: (context, message, _) {
         // The stream may lag one frame behind permanent deletion.
         if (message == null) return const SizedBox.shrink();
-        Widget tile([Widget? directMessageActions]) => _Tile(
+        Widget tile([
+          Widget? directMessageActions,
+          Widget? directMessageReaction,
+        ]) => _Tile(
           siteUrl: siteUrl,
           message: message,
           chained: chained,
@@ -129,6 +132,7 @@ class ChatMessageTile extends StatelessWidget {
           onJumpToMessage: onJumpToMessage,
           showThreadSummary: showThreadSummary,
           directMessageActions: directMessageActions,
+          directMessageReaction: directMessageReaction,
         );
         if (selecting) {
           return Semantics(
@@ -241,7 +245,11 @@ class _ChatMessageActions extends StatefulWidget {
   final bool canCopyText;
   final List<PostFlagType> flagTypes;
   final VoidCallback? onSelect;
-  final Widget Function(Widget? directMessageActions) childBuilder;
+  final Widget Function(
+    Widget? directMessageActions,
+    Widget? directMessageReaction,
+  )
+  childBuilder;
 
   @override
   State<_ChatMessageActions> createState() => _ChatMessageActionsState();
@@ -694,9 +702,38 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
     });
   }
 
+  Widget _directMessageReaction({required bool enabled}) {
+    final visible =
+        enabled &&
+        !_hoverSuppressed &&
+        (_hovered || _focused || _reactionPickerOpening);
+    return Opacity(
+      opacity: visible ? 1 : 0,
+      child: IgnorePointer(
+        ignoring: !visible,
+        child: ExcludeSemantics(
+          excluding: !visible,
+          child: EmojiPickerAnchor(
+            child: Builder(
+              builder: (anchorContext) => DButton.iconOnly(
+                key: ValueKey('chat-message-react-${widget.message.id}'),
+                tooltip: 'Add reaction',
+                icon: const DIcon(DIcons.farFaceSmile, size: 16),
+                size: DButtonSize.extraSmall,
+                variant: DButtonVariant.ghost,
+                onPressed: !enabled || _reactionPickerOpening
+                    ? null
+                    : () => unawaited(_pickReaction(anchorContext)),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _directMessageDropdown({
     required bool bookmarkBusy,
-    required bool canAddReaction,
     required bool canEdit,
     required bool canDelete,
     required bool canRestore,
@@ -752,14 +789,6 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
                 const DDropdownMenuSeparator(),
               ],
               if (canReply) item('reply', 'Reply', DIcons.reply, _reply),
-              if (canAddReaction)
-                item(
-                  'react',
-                  'Add reaction',
-                  DIcons.farFaceSmile,
-                  () => unawaited(_pickReaction(anchorContext)),
-                  busy: _reactionPickerOpening,
-                ),
               if (canBookmark)
                 item(
                   'bookmark',
@@ -1016,7 +1045,6 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
                       useDropdown
                           ? _directMessageDropdown(
                               bookmarkBusy: bookmarkBusy,
-                              canAddReaction: canAddReaction,
                               canEdit: canEdit,
                               canDelete: canDelete,
                               canRestore: canRestore,
@@ -1024,6 +1052,9 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
                               canRebake: canRebake,
                               flagTypes: flagTypes,
                             )
+                          : null,
+                      useDropdown
+                          ? _directMessageReaction(enabled: canAddReaction)
                           : null,
                     ),
                     if (_hovered && !useDropdown)
@@ -1262,6 +1293,7 @@ class _Tile extends StatelessWidget {
     required this.onJumpToMessage,
     required this.showThreadSummary,
     this.directMessageActions,
+    this.directMessageReaction,
   });
 
   final String siteUrl;
@@ -1272,6 +1304,7 @@ class _Tile extends StatelessWidget {
   final ValueChanged<int>? onJumpToMessage;
   final bool showThreadSummary;
   final Widget? directMessageActions;
+  final Widget? directMessageReaction;
 
   @override
   Widget build(BuildContext context) {
@@ -1525,6 +1558,37 @@ class _Tile extends StatelessWidget {
         message.bookmark != null ||
         message.delivery != ChatMessageDelivery.sent;
 
+    final bubbleContent = DBubbleContent(
+      child: Builder(
+        builder: (context) {
+          final style = DefaultTextStyle.of(context).style;
+          final body = _MessageBodySelection(
+            selectionKey: ChatMessageTile.bodySelectionKey(message.id),
+            child: _body(
+              context,
+              textStyle: style,
+              contentSized: true,
+              linkStyle: DText.linkStyleOf(context).copyWith(
+                color: outgoing ? style.color : null,
+                decorationColor: outgoing ? style.color : null,
+              ),
+            )!,
+          );
+          return directMessageActions == null
+              ? body
+              : Row(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  spacing: DSpacing.xs,
+                  children: [
+                    Flexible(child: body),
+                    directMessageActions!,
+                  ],
+                );
+        },
+      ),
+    );
+
     return Padding(
       key: ValueKey('chat-message-${message.id}'),
       padding: EdgeInsetsDirectional.fromSTEB(
@@ -1602,38 +1666,18 @@ class _Tile extends StatelessWidget {
                       ? DBubbleVariant.primary
                       : DBubbleVariant.muted,
                   children: [
-                    DBubbleContent(
-                      child: Builder(
-                        builder: (context) {
-                          final style = DefaultTextStyle.of(context).style;
-                          final body = _MessageBodySelection(
-                            selectionKey: ChatMessageTile.bodySelectionKey(
-                              message.id,
-                            ),
-                            child: _body(
-                              context,
-                              textStyle: style,
-                              contentSized: true,
-                              linkStyle: DText.linkStyleOf(context).copyWith(
-                                color: outgoing ? style.color : null,
-                                decorationColor: outgoing ? style.color : null,
-                              ),
-                            )!,
-                          );
-                          return directMessageActions == null
-                              ? body
-                              : Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  spacing: DSpacing.xs,
-                                  children: [
-                                    Flexible(child: body),
-                                    directMessageActions!,
-                                  ],
-                                );
-                        },
+                    if (directMessageReaction == null)
+                      bubbleContent
+                    else
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        spacing: DSpacing.sm,
+                        children: [
+                          if (outgoing) directMessageReaction!,
+                          Flexible(child: bubbleContent),
+                          if (!outgoing) directMessageReaction!,
+                        ],
                       ),
-                    ),
                   ],
                 ),
               if (message.uploads.isNotEmpty)
@@ -1642,6 +1686,8 @@ class _Tile extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   spacing: DSpacing.xs,
                   children: [
+                    if (!hasBody && outgoing && directMessageReaction != null)
+                      directMessageReaction!,
                     Flexible(
                       child: ChatUploads(
                         siteUrl: siteUrl,
@@ -1653,6 +1699,8 @@ class _Tile extends StatelessWidget {
                     ),
                     if (!hasBody && directMessageActions != null)
                       directMessageActions!,
+                    if (!hasBody && !outgoing && directMessageReaction != null)
+                      directMessageReaction!,
                   ],
                 ),
               if (!hasBody &&
