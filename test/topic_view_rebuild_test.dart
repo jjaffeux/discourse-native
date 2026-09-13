@@ -261,6 +261,7 @@ void main() {
         );
         await tester.pump();
         await _pumpUntilRendered(tester, 'A tall first post');
+        await tester.pumpAndSettle();
         final firstHtml = tester.element(find.byType(CookedHtml).first);
 
         final topicViewElement = tester.element(find.byType(TopicView));
@@ -293,6 +294,7 @@ void main() {
         );
         await tester.pump();
         await _pumpUntilRendered(tester, 'A tall first post');
+        await tester.pumpAndSettle();
         expect(find.byKey(const ValueKey(1)), findsOneWidget);
         expect(
           tester.element(find.byType(CookedHtml).first),
