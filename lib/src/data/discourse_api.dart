@@ -60,8 +60,10 @@ class DiscourseApi
     DiscourseTransport? transport,
     this.models = const DiscourseModelCodec.core(),
     this.timeout = const Duration(seconds: 10),
+    this.searchTimeout = const Duration(seconds: 30),
     int maxResponseBytes = 16 * 1024 * 1024,
   }) : assert(timeout > Duration.zero),
+       assert(searchTimeout > Duration.zero),
        assert(maxResponseBytes > 0),
        assert(
          client == null || transport == null,
@@ -95,6 +97,9 @@ class DiscourseApi
   @override
   final Duration timeout;
 
+  /// Forum search can take longer than ordinary reads on large communities.
+  final Duration searchTimeout;
+
   final DiscourseTransport _transport;
 
   late final DiscourseAccountApi _account = DiscourseAccountApi(
@@ -105,7 +110,10 @@ class DiscourseApi
     _transport,
     models,
   );
-  late final DiscourseSearchApi _search = DiscourseSearchApi(_transport);
+  late final DiscourseSearchApi _search = DiscourseSearchApi(
+    _transport,
+    searchTimeout: searchTimeout,
+  );
   late final DiscourseSiteApi _site = DiscourseSiteApi(_transport, models);
   late final DiscourseTopicApi _topic = DiscourseTopicApi(_transport, models);
 
@@ -1489,11 +1497,13 @@ class DiscourseApi
     required String siteUrl,
     String? apiKey,
     String? clientId,
+    Duration? requestTimeout,
   }) => _transport.getObject(
     url,
     siteUrl: siteUrl,
     apiKey: apiKey,
     clientId: clientId,
+    requestTimeout: requestTimeout,
   );
 
   @override
@@ -1507,7 +1517,22 @@ class DiscourseApi
     siteUrl: siteUrl,
     apiKey: apiKey,
     clientId: clientId,
+    requestTimeout: _isForumSearchPath(path) ? searchTimeout : null,
   );
+
+  static bool _isForumSearchPath(String path) {
+    final relative = Uri.tryParse(path);
+    if (relative == null || relative.hasScheme || relative.hasAuthority) {
+      return false;
+    }
+    return switch (relative.path) {
+      '/search/query.json' ||
+      'search/query.json' ||
+      '/search.json' ||
+      'search.json' => true,
+      _ => false,
+    };
+  }
 
   @override
   Future<String> pluginGetText({

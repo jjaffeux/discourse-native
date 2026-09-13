@@ -81,3 +81,25 @@ Acceptance on 2026-09-13:
 - The HTML mockup's inline JavaScript passed `node --check`. Browser rendering
   was unavailable under the browser access policy; native review is recorded
   separately above.
+
+### Slow forum search follow-up
+
+The reported partial failure on 2026-09-13 came from the ordinary 10-second
+request deadline: forum search was cancelled after 10.004 seconds while chat
+returned successfully in 0.519 seconds. A later forum retry succeeded in 5.830
+seconds. The response format and search endpoint were valid.
+
+Forum search now has a separately configurable 30-second deadline for both
+aggregate and full search, including the legacy search caller. Ordinary reads
+keep their existing timeout. Requests still abort at their deadline, and
+coalescing keeps different deadlines and credentials separate. Search feedback
+identifies timeouts, busy forums and rate limits while retaining successful
+sections and the existing Retry action.
+
+Verification covers delayed responses, bounded cancellation, independent
+timeout configuration, credentials and subfolder URLs, request coalescing,
+partial results and retry recovery. The focused transport, search controller,
+search API and panel suites passed. Root and `profiles/full` analysis, formatting
+and `git diff --check` passed. A public Discourse response was also replayed
+successfully through the parser and aggregate-search adapter. This follow-up
+does not claim a new authenticated live-server or native UI review.

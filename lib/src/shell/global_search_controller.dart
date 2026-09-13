@@ -637,9 +637,7 @@ class GlobalSearchController extends ChangeNotifier {
       _notify();
     } catch (exception) {
       if (!current()) return;
-      _error = exception is FormatException
-          ? exception.message
-          : 'Search could not load. Please try again.';
+      _error = GlobalSearchApi.failureMessage(exception);
       _phase = results.isEmpty
           ? GlobalSearchPhase.failed
           : GlobalSearchPhase.results;

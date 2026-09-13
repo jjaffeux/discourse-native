@@ -1,3 +1,6 @@
+import 'dart:async';
+
+import '../data/discourse_api_contracts.dart';
 import '../data/plugin_transport.dart';
 import '../models/json.dart';
 import '../models/search_results.dart';
@@ -8,6 +11,33 @@ import 'global_search_models.dart';
 class GlobalSearchApi {
   const GlobalSearchApi({required this.transport});
   final PluginApiTransport transport;
+
+  /// Keep recoverable failures actionable without displaying raw URLs or
+  /// exception text, which may contain a private search expression.
+  static String failureMessage(
+    Object exception, {
+    String fallback = 'Search could not load. Please try again.',
+  }) {
+    Object? cause = exception;
+    for (var depth = 0; depth < 4 && cause != null; depth++) {
+      if (cause is TimeoutException) {
+        return 'The search timed out. Please try again.';
+      }
+      if (cause is SiteLookupException) {
+        switch (cause.statusCode) {
+          case 409:
+            return 'The forum is busy. Please try again.';
+          case 429:
+            return 'Too many searches. Wait a moment before trying again.';
+        }
+        cause = cause.cause;
+        continue;
+      }
+      if (cause is FormatException) return cause.message;
+      break;
+    }
+    return fallback;
+  }
 
   Future<Map<String, dynamic>> _get(
     String site,
@@ -130,11 +160,14 @@ class GlobalSearchApi {
               clientId,
             );
             sections.addAll(_core(body, siteUrl).sections);
-          } catch (_) {
+          } catch (error) {
             sections.add(
-              const GlobalSearchSection(
+              GlobalSearchSection(
                 scope: GlobalSearchScope.forum,
-                error: 'Topics, users and groups could not load.',
+                error: failureMessage(
+                  error,
+                  fallback: 'Topics, users and groups could not load.',
+                ),
               ),
             );
           }
@@ -153,11 +186,14 @@ class GlobalSearchApi {
                 ),
               );
               sections.addAll(page.sections);
-            } catch (_) {
+            } catch (error) {
               sections.add(
-                const GlobalSearchSection(
+                GlobalSearchSection(
                   scope: GlobalSearchScope.chat,
-                  error: 'Chat search could not load.',
+                  error: failureMessage(
+                    error,
+                    fallback: 'Chat search could not load.',
+                  ),
                 ),
               );
             }

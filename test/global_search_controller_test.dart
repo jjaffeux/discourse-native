@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:discourse_native/src/data/discourse_api_contracts.dart';
 import 'package:discourse_native/src/data/site_lifecycle.dart';
 import 'package:discourse_native/src/shell/global_search_api.dart';
 import 'package:discourse_native/src/shell/global_search_controller.dart';
@@ -25,6 +26,117 @@ const _caps = GlobalSearchCapabilities(
 );
 
 void main() {
+  test(
+    'All reports a forum timeout while retaining successful chat results',
+    () async {
+      final transport = _Transport()
+        ..failures['/search/query.json'] = SiteLookupException(
+          SiteLookupFailure.unreachable,
+          _site,
+          cause: TimeoutException('private request details'),
+        )
+        ..responses['/chat/api/search.json'] = {
+          'messages': [
+            {
+              'id': 9,
+              'chat_channel_id': 3,
+              'channel': {'id': 3, 'slug': 'design'},
+              'user': {'username': 'mira'},
+              'message': 'A matching chat message',
+            },
+          ],
+        };
+      final api = GlobalSearchApi(transport: transport);
+      const request = GlobalSearchRequest(
+        scope: GlobalSearchScope.all,
+        query: 'test',
+        capabilities: _caps,
+      );
+      final page = await api.search(
+        siteUrl: _site,
+        apiKey: 'key',
+        request: request,
+      );
+      expect(
+        page.sections.first.error,
+        'The search timed out. Please try again.',
+      );
+      expect(page.sections.last.results.single.messageId, 9);
+
+      transport.failures.clear();
+      transport.responses['/search/query.json'] = {
+        'posts': [
+          {'id': 1, 'topic_id': 2, 'post_number': 1, 'blurb': 'A test result'},
+        ],
+        'topics': [
+          {'id': 2, 'title': 'Test result', 'slug': 'test-result'},
+        ],
+      };
+      final retry = await api.search(
+        siteUrl: _site,
+        apiKey: 'key',
+        request: request,
+      );
+      expect(retry.sections.where((section) => section.error != null), isEmpty);
+      expect(retry.sections.first.results.single.title, 'Test result');
+      expect(retry.sections.last.results.single.messageId, 9);
+    },
+  );
+
+  testWidgets(
+    'dedicated search reports a timeout and retry replaces the error',
+    (tester) async {
+      final api = _EngineApi()..hold = true;
+      final controller = _controller(api)..setScope(GlobalSearchScope.forum);
+      addTearDown(controller.dispose);
+      controller.setQuery('test');
+      await tester.pump(const Duration(seconds: 1));
+      api.pending.single.completeError(
+        SiteLookupException(
+          SiteLookupFailure.unreachable,
+          _site,
+          cause: TimeoutException('private request details'),
+        ),
+      );
+      await tester.pump();
+      expect(controller.phase, GlobalSearchPhase.failed);
+      expect(controller.error, 'The search timed out. Please try again.');
+      controller.retry();
+      await tester.pump();
+      api.pending.last.complete(_page('Recovered result'));
+      await tester.pump();
+      expect(controller.error, isNull);
+      expect(controller.results.single.title, 'Recovered result');
+    },
+  );
+
+  test('busy and rate-limited searches have specific recovery messages', () {
+    expect(
+      GlobalSearchApi.failureMessage(
+        const SiteLookupException(
+          SiteLookupFailure.unreachable,
+          _site,
+          statusCode: 409,
+        ),
+      ),
+      'The forum is busy. Please try again.',
+    );
+    expect(
+      GlobalSearchApi.failureMessage(
+        const SiteLookupException(
+          SiteLookupFailure.unreachable,
+          _site,
+          statusCode: 429,
+        ),
+      ),
+      'Too many searches. Wait a moment before trying again.',
+    );
+    expect(
+      GlobalSearchApi.failureMessage(StateError('private request details')),
+      'Search could not load. Please try again.',
+    );
+  });
+
   test('forum expression preserves date ranges, tag conditions and ordering', () {
     final parsed = parseGlobalSearchExpression(
       'design after:2026-01-01 before:2026-09-01 tags:ux+search -tags:noise created:@me order:likes',
@@ -760,6 +872,7 @@ class _EngineApi extends GlobalSearchApi {
 
 class _Transport extends FakeDiscourseApi {
   final paths = <Uri>[];
+  final failures = <String, Object>{};
   Map<String, dynamic> response = {};
   Map<String, Map<String, dynamic>> responses = {};
   @override
@@ -771,6 +884,7 @@ class _Transport extends FakeDiscourseApi {
   }) async {
     final uri = Uri.parse(path);
     paths.add(uri);
+    if (failures[uri.path] case final error?) throw error;
     return responses[uri.path] ?? response;
   }
 }
