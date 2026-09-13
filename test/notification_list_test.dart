@@ -1,5 +1,10 @@
+import 'dart:async';
+import 'dart:convert';
+
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/app.dart';
+import 'package:discourse_native/src/diagnostics/diagnostics_controller.dart';
+import 'package:discourse_native/src/diagnostics/diagnostics_persistence.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/notification.dart';
 import 'package:discourse_native/src/models/post.dart';
@@ -17,11 +22,126 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'support/fakes.dart';
 import 'support/topic_post_list.dart';
+import 'support/topic_scroll_capture.dart';
 
 const _siteUrl = 'https://forum.example';
 const _rowKey = ValueKey('notification-row-1');
 
 void main() {
+  for (final startingPost in [20, 137]) {
+    testWidgets(
+      'notification refresh preserves the viewport from post $startingPost on every frame',
+      (tester) async {
+        final diagnostics = await DiagnosticsController.create(
+          topicScrollCapture: topicScrollCaptureWithoutVm(),
+          persistence: MemoryDiagnosticsPersistence(),
+          sessionId: 'notification-scroll-frames',
+        );
+        final posts = [
+          for (var number = 1; number <= 180; number++)
+            Post(
+              id: number,
+              postNumber: number,
+              username: 'sam',
+              cooked:
+                  '<p>Notification target $number</p>' *
+                  (number % 7 == 0 ? 70 : number % 5 + 1),
+            ),
+        ];
+        final topic = TopicDetail(
+          id: 42,
+          title: 'Notification topic',
+          stream: [for (final post in posts) post.id],
+          postsCount: posts.length,
+        );
+        final gate = Completer<void>();
+        final (controller, api) = await _pumpMenu(
+          tester,
+          diagnostics: diagnostics,
+          topicGate: gate,
+          postNumber: 137,
+          topics: {42: (detail: topic, posts: posts)},
+        );
+        controller.store
+          ..put(_siteUrl, topic)
+          ..putAll(_siteUrl, posts);
+        await tester.tap(find.byKey(UserMenuButton.bellKey));
+        await tester.pumpAndSettle();
+        controller.openTopicUrl(
+          '$_siteUrl/t/notification-topic/42/$startingPost',
+        );
+        await tester.pumpAndSettle();
+        final scroll = topicPostList(tester).controller!;
+        final initialPixels = scroll.position.pixels;
+        final initialTop = tester
+            .getTopLeft(find.byKey(ValueKey(startingPost)))
+            .dy;
+        await tester.tap(find.byKey(UserMenuButton.bellKey));
+        await tester.pumpAndSettle();
+        diagnostics.topicScrollCapture.start();
+        await tester.tap(find.byKey(_rowKey));
+
+        for (var frame = 0; frame < 20; frame++) {
+          if (frame == 4) gate.complete();
+          await tester.pump(const Duration(milliseconds: 16));
+          final expectedPost = frame <= 4 ? startingPost : 137;
+          final target = find.byKey(ValueKey(expectedPost));
+          final viewport = tester.getRect(topicPostListFinder());
+          diagnostics.topicScrollCapture
+              .recordTopicEvent('notification.test.frame', {
+                'frame': frame,
+                'loading': controller.currentTopicLoading,
+                'pixels': scroll.position.pixels,
+                'expectedPost': expectedPost,
+                'targetTop': target.evaluate().isEmpty
+                    ? null
+                    : tester.getTopLeft(target).dy,
+              });
+          expect(target, findsOneWidget, reason: 'Frame $frame');
+          expect(
+            tester.getRect(target).overlaps(viewport),
+            isTrue,
+            reason: 'Frame $frame',
+          );
+          if (frame < 4 || startingPost == 137) {
+            expect(
+              scroll.position.pixels,
+              closeTo(initialPixels, 0.5),
+              reason: 'Frame $frame',
+            );
+            expect(
+              tester.getTopLeft(target).dy,
+              closeTo(initialTop, 0.5),
+              reason: 'Frame $frame',
+            );
+          }
+        }
+        expect(api.topicPostNumbersOpened, [137]);
+        expect(controller.topicScrollPostNumber(42), 137);
+        expect(
+          diagnostics.topicScrollCapture.events
+              .singleWhere((event) => event.name == 'topic.controllers.sync')
+              .data['viewportRetained'],
+          isTrue,
+        );
+        expect(tester.takeException(), isNull);
+        if (const bool.fromEnvironment('TRACE_NOTIFICATION_SCROLL')) {
+          for (final event in diagnostics.topicScrollCapture.events) {
+            if (event.name == 'notification.test.frame' ||
+                event.name == 'topic.controllers.sync' ||
+                event.name.startsWith('scroll.jump') ||
+                event.name.startsWith('viewport.anchor')) {
+              debugPrint(jsonEncode(event.toJson()));
+            }
+          }
+        }
+        diagnostics.topicScrollCapture.stop();
+        await tester.pumpWidget(const SizedBox.shrink());
+      },
+      variant: TargetPlatformVariant.only(TargetPlatform.macOS),
+    );
+  }
+
   for (final postNumber in [1, 7]) {
     for (final startingPoint in ['new topic', 'same topic', 'another topic']) {
       testWidgets(
@@ -278,6 +398,8 @@ Future<(ShellController, FakeDiscourseApi)> _pumpMenu(
   NotificationWireType type = CoreNotificationTypes.replied,
   int postNumber = 7,
   Map<int, TopicPayload> topics = const {},
+  DiagnosticsController? diagnostics,
+  Completer<void>? topicGate,
 }) async {
   tester.view.physicalSize = const Size(1440, 900);
   tester.view.devicePixelRatio = 1;
@@ -303,9 +425,11 @@ Future<(ShellController, FakeDiscourseApi)> _pumpMenu(
     bookmarkList: const [],
     feeds: const {'/latest.json': []},
     topics: topics,
+    topicGate: topicGate,
   );
   await tester.pumpWidget(
     DiscourseApp(
+      diagnostics: diagnostics,
       store: FakeInstanceStore([
         instance('forum.example').copyWith(user: user),
       ]),

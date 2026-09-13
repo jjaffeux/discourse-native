@@ -7,6 +7,52 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   group('TopicViewportCoordinator', () {
+    for (final sameSession in [true, false]) {
+      test('navigation retires queued work and retains geometry only in the '
+          'same account session (same session: $sameSession)', () {
+        final frames = _FrameQueue();
+        final geometry = _Geometry();
+        final subject = _coordinator(frames: frames, geometry: geometry);
+        _disposeAfter(subject, frames);
+        final shell = Object();
+        final session = Object();
+        final first = _Owner(
+          _snapshot(topicId: 1, postIds: const [10, 11], hasMore: true),
+          owner: shell,
+          session: session,
+        );
+        final next = _Owner(
+          _snapshot(topicId: 1, postIds: const [10, 11], navigationRevision: 2),
+          owner: shell,
+          session: sameSession ? session : Object(),
+        );
+        subject
+          ..bind(first.binding)
+          ..scheduleLoadMore(first.snapshot);
+        final scroll = subject.scrollController;
+        final list = subject.listController;
+        final generation = subject.generation;
+        first.current = false;
+
+        expect(subject.bind(next.binding), isTrue);
+        expect(subject.generation, generation + 1);
+        expect(
+          subject.scrollController,
+          sameSession ? same(scroll) : isNot(same(scroll)),
+        );
+        expect(
+          subject.listController,
+          sameSession ? same(list) : isNot(same(list)),
+        );
+        frames.flushAll();
+
+        expect(first.loadMoreCount, 0);
+        expect(next.loadMoreCount, 0);
+        expect(subject.isCurrent(first.binding), isFalse);
+        expect(subject.isCurrent(next.binding), isTrue);
+      });
+    }
+
     test('viewport aspects notify only their affected consumers', () {
       final frames = _FrameQueue();
       final geometry = _Geometry();
@@ -453,6 +499,7 @@ TopicViewportSnapshot _snapshot({
   required List<int> postIds,
   bool hasMore = false,
   bool hasEarlier = false,
+  int? navigationRevision,
 }) => TopicViewportSnapshot(
   topicId: topicId,
   topic: TopicDetail(
@@ -475,13 +522,14 @@ TopicViewportSnapshot _snapshot({
   summaryLoading: false,
   readTimeWordCount: 500,
   showTimeGapDays: 14,
-  navigationRevision: topicId,
+  navigationRevision: navigationRevision ?? topicId,
 );
 
 final class _Owner {
-  _Owner(this.snapshot, {this.owner});
+  _Owner(this.snapshot, {this.owner, this.session});
 
   final Object? owner;
+  final Object? session;
   TopicViewportSnapshot snapshot;
   bool current = true;
   bool forumActive = true;
@@ -500,6 +548,7 @@ final class _Owner {
       navigationRevision: snapshot.navigationRevision,
     ),
     tabId: 'tab',
+    session: session,
     isCurrent: () => current,
     currentSnapshot: () => snapshot,
     forumActive: () => forumActive,

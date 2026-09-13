@@ -527,6 +527,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     final previousIdentity = _topicIdentity;
     final previousController = _controller;
     final previousTabId = _viewport.binding?.tabId;
+    final previousScroll = _scroll;
     final changed = _viewport.bind(
       TopicViewportBinding.fromShell(controller, snapshot),
     );
@@ -556,8 +557,12 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
         'navigationRevision': snapshot.navigationRevision,
         'controllerChanged': !identical(previousController, controller),
         'tabChanged': previousTabId != controller.activeTabId,
+        'viewportRetained': identical(previousScroll, _scroll),
+        'targetPostNumber': controller.currentContent?.postNumber,
+        'loading': snapshot.loading,
       });
     }
+    if (identical(previousScroll, _scroll)) return;
     _laidOutDayStarts = const [];
     _dayJumpToken = null;
     _postIndexProjection = null;
@@ -2105,7 +2110,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
             key: ValueKey((
               siteUrl,
               snapshot.topicId,
-              snapshot.navigationRevision,
+              _scroll,
               _extentGeneration,
             )),
             controller: _scroll,
@@ -2207,7 +2212,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
                     'topic-inbox-header',
                     siteUrl,
                     snapshot.topicId,
-                    snapshot.navigationRevision,
+                    _scroll,
                   )),
                   title: snapshot.topic!.title,
                   siteUrl: siteUrl,
