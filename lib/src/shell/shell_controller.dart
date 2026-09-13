@@ -13087,7 +13087,12 @@ class ShellController extends FrameSafeNotifier
     final tab = activeTab;
     final currentMode = currentTopicListMode;
     if (instance == null || tab == null || currentMode == null) return;
-    if (user == null && (mode.isNew || mode == TopicListMode.unread)) return;
+    if (user == null &&
+        (mode.isNew ||
+            mode == TopicListMode.unread ||
+            mode == TopicListMode.unseen)) {
+      return;
+    }
     if (mode.isSubset && user?.unifiedNewEnabled != true) return;
     if (mode == currentMode) return;
 
