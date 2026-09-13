@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
 import '../../theme/discourse_typography.dart';
+import '../foundation/focus_highlight.dart';
 import '../foundation/interactive_row.dart';
 import '../foundation/tokens.dart';
 import 'd_dialog.dart';
@@ -1007,7 +1008,8 @@ class _DCommandItemSurfaceState<T> extends State<_DCommandItemSurface<T>> {
           decoration: BoxDecoration(
             color: interactive ? tokens.muted : Colors.transparent,
             borderRadius: radius,
-            border: _focused && interactive
+            border:
+                _focused && interactive && DFocusHighlight.visibleOf(context)
                 ? Border.all(color: tokens.focusRing, width: 2)
                 : null,
           ),

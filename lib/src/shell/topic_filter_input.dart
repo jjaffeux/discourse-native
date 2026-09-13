@@ -396,7 +396,10 @@ class _TopicFilterInputState extends State<TopicFilterInput> {
                 ),
           border: _plainInputBorder(theme),
           enabledBorder: _plainInputBorder(theme),
-          focusedBorder: _plainInputBorder(theme, focused: true),
+          focusedBorder: _plainInputBorder(
+            theme,
+            focused: DFocusHighlight.visibleOf(context),
+          ),
           contentPadding: const EdgeInsets.symmetric(
             horizontal: 12,
             vertical: 10,

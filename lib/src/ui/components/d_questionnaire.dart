@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../theme/discourse_typography.dart';
+import '../foundation/focus_highlight.dart';
 import '../foundation/tokens.dart';
 import 'd_button.dart';
 import 'd_field.dart';
@@ -876,7 +877,7 @@ class _DQuestionnaireChoiceTileState extends State<DQuestionnaireChoiceTile> {
             behavior: HitTestBehavior.opaque,
             onTap: widget.choice.enabled ? _activate : null,
             child: CustomPaint(
-              foregroundPainter: _focused
+              foregroundPainter: _focused && DFocusHighlight.visibleOf(context)
                   ? _QuestionnaireFocusRingPainter(
                       color: tokens.focusRing.withValues(
                         alpha: tokens.focusRing.a * .5,
@@ -891,7 +892,9 @@ class _DQuestionnaireChoiceTileState extends State<DQuestionnaireChoiceTile> {
                 decoration: BoxDecoration(
                   color: background,
                   border: Border.all(
-                    color: _focused ? tokens.focusRing : border,
+                    color: _focused && DFocusHighlight.visibleOf(context)
+                        ? tokens.focusRing
+                        : border,
                   ),
                   borderRadius: radius,
                 ),

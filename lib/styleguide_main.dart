@@ -14,8 +14,9 @@ void main() {
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light,
       darkTheme: AppTheme.dark,
-      builder: (context, child) =>
-          DToaster(child: child ?? const SizedBox.shrink()),
+      builder: (context, child) => DFocusHighlight(
+        child: DToaster(child: child ?? const SizedBox.shrink()),
+      ),
       home: const ComponentStyleguidePage(),
     ),
   );

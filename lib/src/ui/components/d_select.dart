@@ -10,6 +10,7 @@ import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
 import '../../theme/discourse_typography.dart';
 import '../foundation/control_style.dart';
+import '../foundation/focus_highlight.dart';
 import '../foundation/interactive_row.dart';
 import '../foundation/joined_control.dart';
 import '../foundation/tokens.dart';
@@ -1418,7 +1419,10 @@ class _DSelectBodyState<T> extends State<_DSelectBody<T>> {
           invalid ? tokens.destructive : tokens.focusRing,
           invalid ? (dark ? .4 : .2) : .5,
         ),
-        ringWidth: _triggerFocused || invalid ? 3 : 0,
+        ringWidth:
+            (_triggerFocused && DFocusHighlight.visibleOf(context)) || invalid
+            ? 3
+            : 0,
       ),
       child: Row(
         children: [
