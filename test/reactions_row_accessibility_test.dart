@@ -228,7 +228,12 @@ void main() {
         ),
       );
 
-      expect(find.byType(DSpinner), findsOneWidget);
+      expect(find.byType(DSkeletonRegion), findsOneWidget);
+      expect(find.byType(DSpinner), findsNothing);
+      expect(
+        tester.getSemantics(find.byType(DSkeletonRegion)),
+        isSemantics(label: 'Loading reactions', isLiveRegion: true),
+      );
       await reactions.load(siteUrl: _siteUrl, postId: _post.id, filter: 'clap');
       await tester.pumpAndSettle();
 
