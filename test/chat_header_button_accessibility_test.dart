@@ -27,6 +27,9 @@ void main() {
     try {
       final button = find.byKey(ChatHeaderButton.buttonKey);
       expect(button, findsOneWidget);
+      final dot = find.byKey(ChatHeaderButton.unreadDotKey);
+      expect(tester.widget(dot), isA<DNotificationDot>());
+      expect(tester.getSize(dot), const Size.square(12));
       expect(find.byTooltip('Chat, unread messages'), findsOneWidget);
       expect(tester.widget<DButton>(button).variant, DButtonVariant.ghost);
       expect(tester.getSize(button), const Size.square(48));

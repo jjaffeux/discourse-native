@@ -4329,7 +4329,14 @@ void _registerChatShellTests() {
         const urgentKey = ValueKey('sidebar-badge-chat-c-12');
         final theme = Theme.of(tester.element(find.byKey(urgentKey)));
         Color? dotColor(Key key) =>
-            (tester.widget<Container>(find.byKey(key)).decoration!
+            (tester
+                        .widget<DecoratedBox>(
+                          find.descendant(
+                            of: find.byKey(key),
+                            matching: find.byType(DecoratedBox),
+                          ),
+                        )
+                        .decoration
                     as BoxDecoration)
                 .color;
 

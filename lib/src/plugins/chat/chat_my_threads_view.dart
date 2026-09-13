@@ -272,7 +272,8 @@ class ChatThreadListRow extends StatelessWidget {
                   ],
                 ),
                 trailing: unread
-                    ? _UnreadIndicator(
+                    ? DNotificationDot(
+                        semanticLabel: 'Unread',
                         key: ValueKey<String>('$keyPrefix-unread-${thread.id}'),
                       )
                     : null,
@@ -430,7 +431,8 @@ class _NestedThreadListRowState extends State<_NestedThreadListRow> {
                         const SizedBox(width: 12),
                         Padding(
                           padding: const EdgeInsets.only(top: 6),
-                          child: _UnreadIndicator(
+                          child: DNotificationDot(
+                            semanticLabel: 'Unread',
                             key: ValueKey<String>(
                               '$keyPrefix-unread-${thread.id}',
                             ),
@@ -784,23 +786,6 @@ class _ThreadParticipants extends StatelessWidget {
       ],
     );
   }
-}
-
-class _UnreadIndicator extends StatelessWidget {
-  const _UnreadIndicator({super.key});
-
-  @override
-  Widget build(BuildContext context) => Semantics(
-    label: 'Unread',
-    child: Container(
-      width: 9,
-      height: 9,
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.primary,
-        shape: BoxShape.circle,
-      ),
-    ),
-  );
 }
 
 class _AvatarFallback extends StatelessWidget {
