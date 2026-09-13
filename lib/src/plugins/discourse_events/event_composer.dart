@@ -366,14 +366,11 @@ class _EventComposerSheetState extends State<EventComposerSheet> {
           ? (_booleans['all-day']! ? 'YYYY-MM-DD' : 'YYYY-MM-DD HH:mm')
           : null,
       suffix: {'start', 'end', 'recurrence-until'}.contains(name)
-          ? DTooltip(
-              message: 'Choose date and time',
-              labelTrigger: true,
-              child: IconButton(
-                tooltip: '',
-                icon: const Icon(Icons.calendar_today),
-                onPressed: () => _chooseDate(name),
-              ),
+          ? DButton.iconOnly(
+              onPressed: () => _chooseDate(name),
+              variant: DButtonVariant.ghost,
+              tooltip: 'Choose date and time',
+              icon: const Icon(Icons.calendar_today),
             )
           : null,
       keyboardType: name == 'max-attendees'

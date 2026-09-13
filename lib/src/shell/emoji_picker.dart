@@ -246,15 +246,12 @@ class _DesktopPickerCard extends StatelessWidget {
                         ),
                       ),
                     ),
-                    DTooltip(
-                      message: 'Close',
-                      labelTrigger: true,
-                      child: IconButton(
-                        key: const ValueKey('emoji-picker-close'),
-                        onPressed: onDismiss,
-                        icon: const DIcon(DIcons.xmark, size: 17),
-                        tooltip: '',
-                      ),
+                    DButton.iconOnly(
+                      key: const ValueKey('emoji-picker-close'),
+                      onPressed: onDismiss,
+                      variant: DButtonVariant.ghost,
+                      tooltip: 'Close',
+                      icon: const DIcon(DIcons.xmark),
                     ),
                   ],
                 ),
@@ -808,19 +805,16 @@ class _SearchAndTone extends StatelessWidget {
                 ),
                 suffixIcon: search.text.isEmpty
                     ? null
-                    : DTooltip(
-                        message: 'Clear search',
-                        labelTrigger: true,
-                        child: IconButton(
-                          key: const ValueKey('emoji-picker-clear-search'),
-                          onPressed: () {
-                            search.clear();
-                            controller.updateQuery('');
-                            searchFocus.requestFocus();
-                          },
-                          icon: const DIcon(DIcons.xmark, size: 15),
-                          tooltip: '',
-                        ),
+                    : DButton.iconOnly(
+                        key: const ValueKey('emoji-picker-clear-search'),
+                        onPressed: () {
+                          search.clear();
+                          controller.updateQuery('');
+                          searchFocus.requestFocus();
+                        },
+                        variant: DButtonVariant.ghost,
+                        tooltip: 'Clear search',
+                        icon: const DIcon(DIcons.xmark),
                       ),
                 border: const OutlineInputBorder(),
               ),
@@ -848,44 +842,37 @@ class _ToneMenu extends StatelessWidget {
     return Semantics(
       button: true,
       label: 'Skin tone: ${_toneLabel(controller.tone)}',
-      child: DTooltip(
-        message: 'Choose skin tone',
-        labelTrigger: true,
-        child: PopupMenuButton<EmojiSkinTone>(
-          key: const ValueKey('emoji-picker-tone'),
-          tooltip: '',
-          popUpAnimationStyle: discoursePopupMenuAnimationStyle(context),
-          initialValue: controller.tone,
-          onSelected: controller.setTone,
-          itemBuilder: (context) => [
-            for (final tone in EmojiSkinTone.values)
-              PopupMenuItem(
+      child: DSelect<EmojiSkinTone>.controlled(
+        key: const ValueKey('emoji-picker-tone'),
+        value: controller.tone,
+        semanticLabel: 'Choose skin tone',
+        onChanged: (tone) {
+          if (tone != null) controller.setTone(tone);
+        },
+        entries: [
+          for (final tone in EmojiSkinTone.values)
+            DSelectItem(
+              value: tone,
+              textValue: _toneLabel(tone),
+              child: Row(
                 key: ValueKey('emoji-picker-tone-${tone.code}'),
-                value: tone,
-                height: _cellExtent,
-                child: Semantics(
-                  selected: tone == controller.tone,
-                  label: _toneLabel(tone),
-                  child: ExcludeSemantics(
-                    child: Row(
-                      children: [
-                        _TonePreview(sample: sample, tone: tone),
-                        const SizedBox(width: 10),
-                        Expanded(child: Text(_toneLabel(tone))),
-                        if (tone == controller.tone)
-                          const DIcon(DIcons.check, size: 16),
-                      ],
-                    ),
-                  ),
-                ),
+                children: [
+                  _TonePreview(sample: sample, tone: tone),
+                  const SizedBox(width: 10),
+                  Expanded(child: Text(_toneLabel(tone))),
+                ],
               ),
-          ],
-          child: SizedBox.square(
-            dimension: _cellExtent,
-            child: Center(
-              child: _TonePreview(sample: sample, tone: controller.tone),
             ),
-          ),
+        ],
+        triggerBuilder: (context, state, defaultTrigger) => DButton.iconOnly(
+          tooltip: 'Choose skin tone',
+          semanticLabel: 'Skin tone: ${_toneLabel(controller.tone)}',
+          variant: DButtonVariant.ghost,
+          icon: _TonePreview(sample: sample, tone: controller.tone),
+          focusNode: state.focusNode,
+          hasPopup: true,
+          expanded: state.open,
+          onPressed: state.toggle,
         ),
       ),
     );
@@ -1024,18 +1011,13 @@ class _SectionHeader extends StatelessWidget {
         ),
       ),
       if (frequent)
-        DTooltip(
-          message: 'Clear frequently used emoji',
-          labelTrigger: true,
-          child: IconButton(
-            key: const ValueKey('emoji-picker-clear-history'),
-            onPressed: clearing ? null : onClear,
-            visualDensity: VisualDensity.compact,
-            icon: clearing
-                ? const SizedBox.square(dimension: 14, child: DSpinner())
-                : const DIcon(DIcons.trashCan, size: 14),
-            tooltip: '',
-          ),
+        DButton.iconOnly(
+          key: const ValueKey('emoji-picker-clear-history'),
+          onPressed: clearing ? null : onClear,
+          variant: DButtonVariant.ghost,
+          tooltip: 'Clear frequently used emoji',
+          loading: clearing,
+          icon: const DIcon(DIcons.trashCan),
         ),
     ],
   );

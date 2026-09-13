@@ -657,20 +657,12 @@ class _YoutubePoster extends StatelessWidget {
             label: openLabel,
             onTap: openOnYoutube,
             child: ExcludeSemantics(
-              child: DTooltip(
-                message: 'Open on YouTube',
-                child: IconButton.filled(
-                  onPressed: openOnYoutube,
-                  style: IconButton.styleFrom(
-                    backgroundColor: const Color(0xBB000000),
-                    foregroundColor: Colors.white,
-                  ),
-                  icon: const DIcon(
-                    DIcons.upRightFromSquare,
-                    size: 18,
-                    color: Colors.white,
-                  ),
-                ),
+              child: DButton.iconOnly(
+                onPressed: openOnYoutube,
+                variant: DButtonVariant.secondary,
+                size: DButtonSize.large,
+                tooltip: 'Open on YouTube',
+                icon: const DIcon(DIcons.upRightFromSquare),
               ),
             ),
           ),

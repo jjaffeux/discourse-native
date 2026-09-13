@@ -471,14 +471,11 @@ class _ReactionUsersListState extends State<ReactionUsersList> {
               ),
             ),
             const SizedBox(height: 4),
-            TextButton(
+            DButton(
               key: const ValueKey('reactor-list-retry'),
               onPressed: _retry,
-              style: TextButton.styleFrom(
-                minimumSize: const Size(44, 44),
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              ),
-              child: const Text('Retry'),
+              variant: DButtonVariant.ghost,
+              label: const Text('Retry'),
             ),
           ],
         ),

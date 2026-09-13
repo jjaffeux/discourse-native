@@ -1,9 +1,9 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:timezone/timezone.dart' as tz;
 
-import '../../discourse_ui.dart';
 import '../data/bookmark_reminder_store.dart';
 import '../foundation/timezone_environment.dart';
 import '../models/bookmark.dart';
@@ -1111,30 +1111,9 @@ class _TopicBookmarksSheet extends StatelessWidget {
                         postNumber: bookmark.postNumber,
                       ),
                     ),
-              trailing: DTooltip(
-                message: 'Post bookmark actions',
-                labelTrigger: true,
-                child: PopupMenuButton<_TopicBookmarksActionKind>(
-                  tooltip: '',
-                  enabled: !snapshot.busyTargets
-                      .split(',')
-                      .contains('${bookmark.bookmarkableId}'),
-                  itemBuilder: (_) => [
-                    if (bookmark.postNumber != null)
-                      const PopupMenuItem(
-                        value: _TopicBookmarksActionKind.jump,
-                        child: Text('Jump'),
-                      ),
-                    const PopupMenuItem(
-                      value: _TopicBookmarksActionKind.edit,
-                      child: Text('Edit'),
-                    ),
-                    const PopupMenuItem(
-                      value: _TopicBookmarksActionKind.delete,
-                      child: Text('Delete'),
-                    ),
-                  ],
-                  onSelected: (kind) => _choose(
+              trailing: Builder(
+                builder: (menuContext) {
+                  void onSelect(_TopicBookmarksActionKind kind) => _choose(
                     context,
                     _TopicBookmarksAction(
                       kind,
@@ -1143,8 +1122,53 @@ class _TopicBookmarksSheet extends StatelessWidget {
                           ? bookmark.postNumber
                           : null,
                     ),
-                  ),
-                ),
+                  );
+                  return Semantics(
+                    container: true,
+                    explicitChildNodes: true,
+                    child: DDropdownMenu(
+                      content: DDropdownMenuContent(
+                        semanticLabel: 'Post bookmark actions',
+                        width: 280,
+                        children: [
+                          if (bookmark.postNumber != null)
+                            DDropdownMenuItem(
+                              onPressed: () =>
+                                  onSelect(_TopicBookmarksActionKind.jump),
+                              child: const Text('Jump'),
+                            ),
+                          DDropdownMenuItem(
+                            onPressed: () =>
+                                onSelect(_TopicBookmarksActionKind.edit),
+                            child: const Text('Edit'),
+                          ),
+                          DDropdownMenuItem(
+                            onPressed: () =>
+                                onSelect(_TopicBookmarksActionKind.delete),
+                            variant: DDropdownMenuItemVariant.destructive,
+                            child: const Text('Delete'),
+                          ),
+                        ],
+                      ),
+                      child: DDropdownMenuTrigger(
+                        builder: (triggerContext, state) => DButton.iconOnly(
+                          tooltip: 'Post bookmark actions',
+                          variant: DButtonVariant.ghost,
+                          icon: const Icon(Icons.more_vert),
+                          focusNode: state.focusNode,
+                          hasPopup: true,
+                          expanded: state.open,
+                          onPressed:
+                              !snapshot.busyTargets
+                                  .split(',')
+                                  .contains('${bookmark.bookmarkableId}')
+                              ? state.toggle
+                              : null,
+                        ),
+                      ),
+                    ),
+                  );
+                },
               ),
             ),
           if (topic.bookmarks.length > 1) ...[

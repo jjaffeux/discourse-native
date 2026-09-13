@@ -2517,7 +2517,7 @@ class _TopicPostSelectionToolbar extends StatelessWidget {
                       style: theme.textTheme.labelLarge,
                     ),
                     const SizedBox(width: 8),
-                    TextButton(
+                    DButton(
                       key: const ValueKey('topic-selected-posts-all'),
                       onPressed: state.busy || !state.anyLoaded
                           ? null
@@ -2525,9 +2525,10 @@ class _TopicPostSelectionToolbar extends StatelessWidget {
                               siteUrl,
                               topic.id,
                             ),
-                      child: const Text('Select all loaded'),
+                      variant: DButtonVariant.ghost,
+                      label: const Text('Select all loaded'),
                     ),
-                    TextButton(
+                    DButton(
                       key: const ValueKey('topic-selected-posts-clear'),
                       onPressed: state.busy || selected.isEmpty
                           ? null
@@ -2535,9 +2536,10 @@ class _TopicPostSelectionToolbar extends StatelessWidget {
                               siteUrl,
                               topic.id,
                             ),
-                      child: const Text('Clear'),
+                      variant: DButtonVariant.ghost,
+                      label: const Text('Clear'),
                     ),
-                    TextButton.icon(
+                    DButton(
                       key: const ValueKey('topic-selected-posts-move'),
                       onPressed:
                           state.busy || selected.isEmpty || !topic.canMovePosts
@@ -2551,10 +2553,11 @@ class _TopicPostSelectionToolbar extends StatelessWidget {
                                 selectedPosts: selected,
                               ),
                             ),
-                      icon: const DIcon(DIcons.rightFromBracket, size: 15),
+                      variant: DButtonVariant.ghost,
+                      icon: const DIcon(DIcons.rightFromBracket),
                       label: const Text('Move'),
                     ),
-                    TextButton.icon(
+                    DButton(
                       key: const ValueKey('topic-selected-posts-change-owner'),
                       onPressed: state.busy || !canChangeOwner
                           ? null
@@ -2567,30 +2570,33 @@ class _TopicPostSelectionToolbar extends StatelessWidget {
                                 selectedPosts: selected,
                               ),
                             ),
-                      icon: const DIcon(DIcons.user, size: 15),
+                      variant: DButtonVariant.ghost,
+                      icon: const DIcon(DIcons.user),
                       label: const Text('Change owner'),
                     ),
-                    TextButton.icon(
+                    DButton(
                       key: const ValueKey('topic-selected-posts-merge'),
                       onPressed: state.busy || !canMerge
                           ? null
                           : () => unawaited(
                               _merge(context, controller, selected.length),
                             ),
-                      icon: const DIcon(DIcons.layerGroup, size: 15),
+                      variant: DButtonVariant.ghost,
+                      icon: const DIcon(DIcons.layerGroup),
                       label: const Text('Merge'),
                     ),
-                    TextButton.icon(
+                    DButton(
                       key: const ValueKey('topic-selected-posts-delete'),
                       onPressed: state.busy || !canDelete
                           ? null
                           : () => unawaited(
                               _delete(context, controller, selected.length),
                             ),
-                      icon: const DIcon(DIcons.trashCan, size: 15),
+                      variant: DButtonVariant.ghost,
+                      icon: const DIcon(DIcons.trashCan),
                       label: const Text('Delete'),
                     ),
-                    TextButton(
+                    DButton(
                       key: const ValueKey('topic-selected-posts-cancel'),
                       onPressed: state.busy
                           ? null
@@ -2599,7 +2605,8 @@ class _TopicPostSelectionToolbar extends StatelessWidget {
                               topic.id,
                               false,
                             ),
-                      child: const Text('Cancel'),
+                      variant: DButtonVariant.ghost,
+                      label: const Text('Cancel'),
                     ),
                   ],
                 ),
@@ -4406,9 +4413,10 @@ class _PostInboundLinks extends StatelessWidget {
           if (remaining > 0)
             Align(
               alignment: Alignment.centerLeft,
-              child: TextButton(
+              child: DButton(
                 onPressed: onExpand,
-                child: Text(
+                variant: DButtonVariant.ghost,
+                label: Text(
                   '$remaining more ${remaining == 1 ? 'link' : 'links'}',
                 ),
               ),
@@ -4489,8 +4497,7 @@ class _TopicMap extends StatelessWidget {
         tooltip: 'Links in this topic',
         menuChildren: [
           for (final link in topic.links)
-            MenuItemButton(
-              leadingIcon: const DIcon(DIcons.link, size: 14),
+            DDropdownMenuItem(
               onPressed: () => unawaited(
                 openLink(
                   context,
@@ -4499,6 +4506,7 @@ class _TopicMap extends StatelessWidget {
                   siteUrl: siteUrl,
                 ),
               ),
+              leading: const DIcon(DIcons.link, size: 14),
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 320),
                 child: Text(
@@ -4518,19 +4526,19 @@ class _TopicMap extends StatelessWidget {
         tooltip: 'Participants',
         menuChildren: [
           for (final participant in topic.participants)
-            MenuItemButton(
-              leadingIcon: _TopicParticipantAvatar(
-                participant: participant,
-                siteUrl: siteUrl,
-                size: 24,
-                interactive: false,
-              ),
+            DDropdownMenuItem(
               onPressed: () => unawaited(
                 showUserCard(
                   context: context,
                   username: participant.username,
                   siteUrl: siteUrl,
                 ),
+              ),
+              leading: _TopicParticipantAvatar(
+                participant: participant,
+                siteUrl: siteUrl,
+                size: 24,
+                interactive: false,
               ),
               child: Text(participant.displayName),
             ),
@@ -4660,22 +4668,28 @@ class _TopicMapStat extends StatelessWidget {
     if (menuChildren.isEmpty) {
       return DTooltip(message: tooltip, child: content);
     }
-    return MenuAnchor(
-      style: MenuStyle(
-        backgroundColor: WidgetStatePropertyAll(theme.shell.floating),
-        surfaceTintColor: const WidgetStatePropertyAll(Colors.transparent),
-        maximumSize: const WidgetStatePropertyAll(Size(380, 440)),
-      ),
-      menuChildren: menuChildren,
-      builder: (context, menu, child) => DTooltip(
-        message: tooltip,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(4),
-          onTap: menu.open,
-          child: child,
+    return Semantics(
+      container: true,
+      explicitChildNodes: true,
+      child: DDropdownMenu(
+        content: DDropdownMenuContent(
+          semanticLabel: tooltip,
+          width: 380,
+          constraints: const BoxConstraints(maxHeight: 440),
+          children: menuChildren,
+        ),
+        child: DDropdownMenuTrigger(
+          builder: (triggerContext, state) => DButton(
+            label: content,
+            tooltip: tooltip,
+            variant: DButtonVariant.ghost,
+            onPressed: state.toggle,
+            focusNode: state.focusNode,
+            hasPopup: true,
+            expanded: state.open,
+          ),
         ),
       ),
-      child: content,
     );
   }
 }

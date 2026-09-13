@@ -259,25 +259,27 @@ class _ContentAlignmentSetting extends StatelessWidget {
           label: 'Content alignment options',
           child: SizedBox(
             width: double.infinity,
-            child: SegmentedButton<ContentAlignment>(
+            child: DToggleGroup<ContentAlignment>(
               key: const ValueKey('content-alignment-segmented-button'),
-              segments: const [
-                ButtonSegment(
+              items: const [
+                DToggleGroupItem(
                   value: ContentAlignment.left,
-                  label: Text('Left'),
+                  child: Text('Left'),
                 ),
-                ButtonSegment(
+                DToggleGroupItem(
                   value: ContentAlignment.center,
-                  label: Text('Center'),
+                  child: Text('Center'),
                 ),
-                ButtonSegment(
+                DToggleGroupItem(
                   value: ContentAlignment.right,
-                  label: Text('Right'),
+                  child: Text('Right'),
                 ),
               ],
-              selected: {alignment},
-              showSelectedIcon: false,
-              onSelectionChanged: (selection) => onChanged(selection.single),
+              values: [alignment],
+              allowEmptySelection: false,
+              variant: DToggleVariant.outline,
+              spacing: 0,
+              onChanged: (selection) => onChanged(selection.single),
             ),
           ),
         ),

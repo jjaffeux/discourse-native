@@ -239,18 +239,12 @@ void main() {
     final wikiAction = find
         .ancestor(
           of: find.text('Make wiki'),
-          matching: find.byType(MenuItemButton),
+          matching: find.byType(DDropdownMenuItem),
         )
         .first;
-    final wikiButton = tester.widget<MenuItemButton>(wikiAction);
-    final theme = Theme.of(tester.element(wikiAction));
-    expect(wikiButton.style?.backgroundColor, isNull);
-    expect(
-      theme.menuButtonTheme.style!.backgroundColor!.resolve({
-        WidgetState.hovered,
-      }),
-      theme.hoverColor,
-    );
+    final wikiButton = tester.widget<DDropdownMenuItem>(wikiAction);
+    expect(wikiButton.onPressed, isNotNull);
+    expect(wikiButton.variant, DDropdownMenuItemVariant.standard);
   });
 }
 
