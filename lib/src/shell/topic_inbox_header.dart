@@ -113,7 +113,7 @@ class _TopicInboxHeaderState extends State<TopicInboxHeader> {
             color: Theme.of(context).shell.content,
             child: _TopicHeaderReadingLane(
               child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 8),
+                padding: const EdgeInsets.only(bottom: DSpacing.sm),
                 child: _TopicHeaderTaxonomy(
                   siteUrl: siteUrl,
                   topic: topic,
