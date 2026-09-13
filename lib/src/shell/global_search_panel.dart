@@ -470,7 +470,7 @@ class _GlobalSearchPanelState extends State<GlobalSearchPanel> {
         },
         child: DItem(
           key: ValueKey('global-search-result-${result.id}'),
-          size: controller.compact ? DItemSize.xs : DItemSize.standard,
+          size: DItemSize.standard,
           onPressed: () {
             widget.onSelect?.call(result.id);
             widget.onOpen(result);
@@ -520,7 +520,7 @@ class _GlobalSearchPanelState extends State<GlobalSearchPanel> {
                 if (properties.contains(GlobalSearchDisplayProperty.excerpt) &&
                     result.excerpt.isNotEmpty)
                   DItemDescription(
-                    maxLines: controller.compact ? 1 : 2,
+                    maxLines: 2,
                     child: _SearchHighlight(
                       siteUrl: controller.siteUrl!,
                       text: result.excerpt,
@@ -639,23 +639,11 @@ class _GlobalSearchDisplay extends StatelessWidget {
                 ],
               ),
             ],
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                const Expanded(child: Text('Compact rows')),
-                DSwitch(
-                  value: controller.compact,
-                  onChanged: controller.setCompact,
-                  semanticLabel: 'Compact results',
-                ),
-              ],
-            ),
             const DSeparator(space: 25),
             const DLabel(child: Text('Display properties')),
             const SizedBox(height: 8),
-            Wrap(
-              spacing: 6,
-              runSpacing: 6,
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 for (final property in GlobalSearchDisplayProperty.values.where(
                   (property) =>
@@ -665,13 +653,12 @@ class _GlobalSearchDisplay extends StatelessWidget {
                       (controller.scope == GlobalSearchScope.chat &&
                           property == GlobalSearchDisplayProperty.likes),
                 ))
-                  DToggle(
-                    pressed: controller.properties.contains(property),
-                    onPressedChanged: (value) =>
-                        controller.setDisplayProperty(property, value),
-                    variant: DToggleVariant.outline,
-                    size: DToggleSize.small,
-                    child: Text(switch (property) {
+                  DCheckbox(
+                    key: ValueKey('global-search-property-${property.name}'),
+                    value: controller.properties.contains(property),
+                    onChanged: (value) =>
+                        controller.setDisplayProperty(property, value == true),
+                    title: Text(switch (property) {
                       GlobalSearchDisplayProperty.excerpt => 'Excerpt',
                       GlobalSearchDisplayProperty.category => 'Category',
                       GlobalSearchDisplayProperty.tags => 'Tags',

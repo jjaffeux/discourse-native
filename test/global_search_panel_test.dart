@@ -74,9 +74,6 @@ void main() {
       }
       expect(excerpt().maxLines, 2);
       expect(excerpt().overflow, TextOverflow.ellipsis);
-      controller.setCompact(true);
-      await tester.pumpAndSettle();
-      expect(excerpt().maxLines, 1);
       expect(tester.takeException(), isNull);
     });
   }
@@ -343,26 +340,74 @@ void main() {
     );
   }
 
-  testWidgets(
-    'display changes compact rows and only exposes relevant properties',
-    (tester) async {
-      final controller = await _pump(tester);
-      controller.setScope(GlobalSearchScope.chat);
-      await tester.pumpAndSettle();
-      await tester.tap(_key('global-search-display-trigger'));
-      await tester.pumpAndSettle();
-      expect(find.text('Excerpt'), findsOneWidget);
-      expect(find.text('Likes'), findsOneWidget);
-      expect(find.text('Category'), findsNothing);
-      await tester.tap(find.bySemanticsLabel('Compact results'));
-      await tester.pumpAndSettle();
-      expect(controller.compact, isTrue);
-      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
-      await tester.pumpAndSettle();
-      expect(find.byType(GlobalSearchPanel), findsOneWidget);
-      expect(tester.takeException(), isNull);
-    },
-  );
+  for (final dark in [false, true]) {
+    testWidgets(
+      'display properties fit narrow ${dark ? 'dark' : 'light'} layouts at 200% text',
+      (tester) async {
+        await _pump(
+          tester,
+          width: 320,
+          viewport: const Size(360, 1000),
+          textScale: 2,
+          dark: dark,
+        );
+        await tester.tap(_key('global-search-display-trigger'));
+        await tester.pumpAndSettle();
+        expect(find.byType(DCheckbox), findsNWidgets(6));
+        await tester.tap(find.text('Replies'));
+        await tester.pumpAndSettle();
+        expect(
+          tester
+              .widget<DCheckbox>(_key('global-search-property-replies'))
+              .value,
+          isFalse,
+        );
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
+  testWidgets('display uses checkboxes and only exposes relevant properties', (
+    tester,
+  ) async {
+    final controller = await _pump(tester);
+    controller.setScope(GlobalSearchScope.chat);
+    controller.setDisplayProperty(GlobalSearchDisplayProperty.likes, false);
+    await tester.pumpAndSettle();
+    await tester.tap(_key('global-search-display-trigger'));
+    await tester.pumpAndSettle();
+    expect(find.text('Excerpt'), findsOneWidget);
+    expect(find.text('Likes'), findsOneWidget);
+    expect(find.text('Category'), findsNothing);
+    expect(find.text('Compact rows'), findsNothing);
+    expect(find.bySemanticsLabel('Compact results'), findsNothing);
+    final excerpt = _key('global-search-property-excerpt');
+    final likes = _key('global-search-property-likes');
+    expect(tester.widget<DCheckbox>(excerpt).value, isTrue);
+    expect(tester.widget<DCheckbox>(likes).value, isFalse);
+    await tester.tap(find.text('Excerpt'));
+    await tester.pumpAndSettle();
+    expect(tester.widget<DCheckbox>(excerpt).value, isFalse);
+    expect(
+      controller.properties,
+      isNot(contains(GlobalSearchDisplayProperty.excerpt)),
+    );
+    await tester.sendKeyEvent(LogicalKeyboardKey.space);
+    await tester.pumpAndSettle();
+    expect(tester.widget<DCheckbox>(excerpt).value, isTrue);
+    expect(
+      controller.properties,
+      contains(GlobalSearchDisplayProperty.excerpt),
+    );
+    await tester.tap(find.text('Likes'));
+    await tester.pumpAndSettle();
+    expect(tester.widget<DCheckbox>(likes).value, isTrue);
+    expect(controller.properties, contains(GlobalSearchDisplayProperty.likes));
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+    expect(find.byType(GlobalSearchPanel), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
 }
 
 Finder _key(String key) => find.byKey(ValueKey(key));

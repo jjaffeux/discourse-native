@@ -50,7 +50,6 @@ class GlobalSearchController extends ChangeNotifier {
   bool _hasMore = false, _loadingMore = false, _disposed = false;
   int _revision = 0, _configuration = 0, _page = 0, _offset = 0;
   final _inFlight = <Object, int>{};
-  bool _compact = false;
   Timer? _debounce;
   VoidCallback? _queued;
 
@@ -70,12 +69,6 @@ class GlobalSearchController extends ChangeNotifier {
           .where((choice) => choice.value.toLowerCase().contains(term))
           .take(30),
     );
-  }
-
-  bool get compact => _compact;
-  void setCompact(bool value) {
-    _compact = value;
-    _notify();
   }
 
   /// Display text for a stable filter value returned in this site session.
