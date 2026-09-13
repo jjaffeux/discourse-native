@@ -4135,32 +4135,61 @@ class _PostTileState extends State<_PostTile> {
                 ),
               ],
               const SizedBox(height: 10),
-              PostTextSelection(
-                siteUrl: widget.siteUrl,
-                post: post,
-                topicId: widget.topic.id,
-                child: CookedHtml(
-                  html: post.cooked,
-                  textStyle: post.isWhisper
-                      ? theme.textTheme.bodyLarge?.copyWith(
-                          color: theme.discourse.whisper,
-                          fontStyle: FontStyle.italic,
-                          height: DiscourseTypography.lineHeightCooked,
-                        )
-                      : theme.textTheme.bodyLarge?.copyWith(
-                          height: DiscourseTypography.lineHeightCooked,
+              ShellSelector<int?>(
+                select: (controller) =>
+                    controller.currentUserFor(widget.siteUrl)?.id,
+                builder: (context, _, _) =>
+                    (PluginScope.maybeOf(context)?.registry ??
+                            PluginRegistry.empty)
+                        .transformPostBody(
+                          context,
+                          widget.siteUrl,
+                          post,
+                          topic: PluginContainingTopic(
+                            id: widget.topic.id,
+                            slug:
+                                ShellScope.read(context).currentContent?.slug ??
+                                'topic',
+                            archived: widget.topic.archived,
+                          ),
+                          builder: (context, displayedCooked) =>
+                              PostTextSelection(
+                                siteUrl: widget.siteUrl,
+                                post: post,
+                                topicId: widget.topic.id,
+                                displayedCooked: displayedCooked,
+                                child: CookedHtml(
+                                  html: displayedCooked,
+                                  buildAsync: CookedHtml.buildsAsynchronously(
+                                    post.cooked,
+                                  ),
+                                  textStyle: post.isWhisper
+                                      ? theme.textTheme.bodyLarge?.copyWith(
+                                          color: theme.discourse.whisper,
+                                          fontStyle: FontStyle.italic,
+                                          height: DiscourseTypography
+                                              .lineHeightCooked,
+                                        )
+                                      : theme.textTheme.bodyLarge?.copyWith(
+                                          height: DiscourseTypography
+                                              .lineHeightCooked,
+                                        ),
+                                  siteUrl: widget.siteUrl,
+                                  post: post,
+                                  containingTopic: PluginContainingTopic(
+                                    id: widget.topic.id,
+                                    slug:
+                                        ShellScope.read(
+                                          context,
+                                        ).currentContent?.slug ??
+                                        'topic',
+                                    archived: widget.topic.archived,
+                                  ),
+                                  mentionedUserStatuses:
+                                      post.mentionedUserStatuses,
+                                ),
+                              ),
                         ),
-                  siteUrl: widget.siteUrl,
-                  post: post,
-                  containingTopic: PluginContainingTopic(
-                    id: widget.topic.id,
-                    slug:
-                        ShellScope.read(context).currentContent?.slug ??
-                        'topic',
-                    archived: widget.topic.archived,
-                  ),
-                  mentionedUserStatuses: post.mentionedUserStatuses,
-                ),
               ),
               ...(PluginScope.maybeOf(context)?.registry ??
                       PluginRegistry.empty)

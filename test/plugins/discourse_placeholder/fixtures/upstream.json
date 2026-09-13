@@ -1,0 +1,26 @@
+{
+  "repository": "https://github.com/discourse/discourse-placeholder-theme-component",
+  "commit": "08be8263cbfc6197b19e76999a31423c16f14a06",
+  "source": "javascripts/discourse/initializers/setup.js",
+  "cases": [
+    {
+      "name": "block input with default and rich description",
+      "cooked": "<div class=\"d-wrap\" data-wrap=\"placeholder\" data-key=\"NAME\" data-description=\"Your name\" data-default=\"Reader\"><p>Used in <strong>examples</strong>.</p></div><p id=\"result\">Hello =NAME=</p>",
+      "values": {},
+      "text": "Hello Reader"
+    },
+    {
+      "name": "inline single-choice select",
+      "cooked": "<p><span class=\"d-wrap\" data-wrap=\"placeholder\" data-key=\"COUNTRY\" data-default=\"US\" data-defaults=\"FR,DE,US,CN,AU,CA\"></span></p><p id=\"result\">Country: =COUNTRY=</p>",
+      "values": {"COUNTRY": "FR"},
+      "text": "Country: FR"
+    },
+    {
+      "name": "custom delimiter, multiple keys and href",
+      "cooked": "<div class=\"d-wrap\" data-wrap=\"placeholder\" data-key=\"HOST\" data-delimiter=\"%%\"></div><div class=\"d-wrap\" data-wrap=\"placeholder\" data-key=\"PATH\"></div><p id=\"result\"><a href=\"https://%%HOST%%/=PATH=\">%%HOST%%: =PATH=</a></p>",
+      "values": {"HOST": "example.com", "PATH": "docs"},
+      "text": "example.com: docs",
+      "href": "https://example.com/docs"
+    }
+  ]
+}
