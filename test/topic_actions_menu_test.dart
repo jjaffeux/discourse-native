@@ -12,6 +12,7 @@ import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/topic_actions.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/fakes.dart';
@@ -35,6 +36,53 @@ const _flag = PostFlagType(
 final _trigger = find.byKey(const ValueKey('topic-status-button'));
 
 void main() {
+  testWidgets('topic dropdown supports keyboard selection and restores focus', (
+    tester,
+  ) async {
+    final api = _MenuApi();
+    final shell = await _fixture(tester, api);
+    final triggerFocus = tester.widget<DButton>(_trigger).focusNode!;
+    triggerFocus.requestFocus();
+    await tester.pump();
+    await tester.sendKeyEvent(LogicalKeyboardKey.space);
+    await tester.pumpAndSettle();
+    expect(tester.widget<DButton>(_trigger).expanded, isTrue);
+    expect(find.byType(DDropdownMenuContent), findsOneWidget);
+    expect(Focus.of(tester.element(find.text('Flag topic'))).hasFocus, isTrue);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+    await tester.pump();
+    expect(Focus.of(tester.element(find.text('Unpin topic'))).hasFocus, isTrue);
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+    expect(find.byType(DDropdownMenuContent), findsNothing);
+    expect(triggerFocus.hasFocus, isTrue);
+    expect(api.writes, isEmpty);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.space);
+    await tester.pumpAndSettle();
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyC);
+    await tester.pump();
+    expect(Focus.of(tester.element(find.text('Close topic'))).hasFocus, isTrue);
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pumpAndSettle();
+    expect(api.writes, [_write('closed', true)]);
+    expect(shell.currentTopic?.closed, isTrue);
+    expect(find.byType(DDropdownMenuContent), findsNothing);
+    expect(triggerFocus.hasFocus, isTrue);
+  });
+
+  testWidgets('outside dismissal leaves the topic unchanged', (tester) async {
+    final api = _MenuApi();
+    await _fixture(tester, api);
+    await _open(tester);
+    await tester.tapAt(const Offset(700, 500));
+    await tester.pumpAndSettle();
+    expect(find.byType(DDropdownMenuContent), findsNothing);
+    expect(tester.widget<DButton>(_trigger).expanded, isFalse);
+    expect(api.writes, isEmpty);
+  });
+
   for (final (status, enableLabel, disableLabel) in [
     (TopicStatusProperty.closed, 'Close topic', 'Open topic'),
     (TopicStatusProperty.archived, 'Archive topic', 'Unarchive topic'),
