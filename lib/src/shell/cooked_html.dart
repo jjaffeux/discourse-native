@@ -18,6 +18,7 @@ import 'lightbox.dart';
 import 'mention.dart';
 import 'oneboxes/onebox.dart';
 import 'open_link.dart';
+import 'progressive_html_mode.dart';
 import 'quote.dart';
 import 'shell_scope.dart';
 import 'site_image.dart';
@@ -34,6 +35,7 @@ class CookedHtml extends StatelessWidget {
     this.containingTopic,
     this.registry,
     this.buildAsync,
+    this.renderMode = RenderMode.column,
     this.compactParagraphs = false,
     this.contentSized = false,
     this.revisionDiff = false,
@@ -57,6 +59,9 @@ class CookedHtml extends StatelessWidget {
 
   /// Pins parsing mode when interactive presentation can change HTML length.
   final bool? buildAsync;
+
+  /// How the HTML body participates in its surrounding scrolling layout.
+  final RenderMode renderMode;
 
   final bool compactParagraphs;
 
@@ -283,8 +288,12 @@ class CookedHtml extends StatelessWidget {
         buildAsync: buildAsync,
         baseUrl: resolvedSiteUrl == null ? null : Uri.tryParse(resolvedSiteUrl),
         textStyle: style,
-        renderMode: RenderMode.column,
+        // Progressive mounting preserves the column renderer's CSS normalization.
+        renderMode: renderMode is ProgressiveHtmlMode
+            ? RenderMode.column
+            : renderMode,
         factoryBuilder: () => SiteImageWidgetFactory(
+          columnBodyMode: renderMode is ProgressiveHtmlMode ? renderMode : null,
           siteUrl: resolvedSiteUrl,
           registry: resolvedRegistry,
           onMiddleClickUrl: (url) =>
@@ -316,6 +325,7 @@ class CookedHtml extends StatelessWidget {
         // caches what they built — so a change to either has to say so to reach
         // the inline code and the emoji.
         rebuildTriggers: [
+          renderMode,
           style,
           linkStyle,
           resolvedSiteUrl,

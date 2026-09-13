@@ -88,3 +88,9 @@ Initial broader runs exposed existing failures on the original baseline. The
 separate test-repair change merged into main before final integration; its
 repairs were preserved, and all affected suites passed together. Formatting
 and full-project static analysis also passed on the final integration source.
+
+## First-render follow-up
+
+[First render of long topic posts](long-post-first-render.md) measures the
+remaining conversion and layout costs separately and records the subsequent
+staged-mounting change, including its limits and whole-topic comparison.

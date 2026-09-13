@@ -2114,14 +2114,17 @@ void _registerTopicReadingTests() {
       expect(avatar.onPressed, isNotNull);
     });
 
-    testWidgets('the bell carries the unread count using the Native badge', (
+    testWidgets('the bell carries the unread count inside its Native button', (
       tester,
     ) async {
       await pumpConnected(
         tester,
         totals: const NotificationTotals(unreadNotifications: 3),
       );
-      expect(tester.widget<DBadge>(bellBadge).variant, DBadgeVariant.primary);
+      expect(
+        tester.widget<DButton>(find.byKey(UserMenuButton.bellKey)).variant,
+        DButtonVariant.ghost,
+      );
       expect(
         find.descendant(
           of: find.byKey(UserMenuButton.bellKey),
@@ -2136,10 +2139,7 @@ void _registerTopicReadingTests() {
         ),
         findsNothing,
       );
-      expect(
-        find.descendant(of: bellBadge, matching: find.text('3')),
-        findsOneWidget,
-      );
+      expect(tester.widget<Text>(bellBadge).data, '3');
     });
 
     testWidgets('a notification arriving marks the bell', (tester) async {
@@ -2203,10 +2203,7 @@ void _registerTopicReadingTests() {
         find.descendant(of: railBadge, matching: find.text('3')),
         findsOneWidget,
       );
-      expect(
-        find.descendant(of: bellBadge, matching: find.text('3')),
-        findsOneWidget,
-      );
+      expect(tester.widget<Text>(bellBadge).data, '3');
 
       tracker.deliverNotification(const {
         'all_unread_notifications_count': 5,
@@ -2218,10 +2215,7 @@ void _registerTopicReadingTests() {
         find.descendant(of: railBadge, matching: find.text('5')),
         findsOneWidget,
       );
-      expect(
-        find.descendant(of: bellBadge, matching: find.text('5')),
-        findsOneWidget,
-      );
+      expect(tester.widget<Text>(bellBadge).data, '5');
       expect(find.text('2'), findsOneWidget);
     });
 

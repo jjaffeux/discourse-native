@@ -11,6 +11,7 @@ import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/shell/cooked_html.dart';
 import 'package:discourse_native/src/shell/post_quote.dart';
 import 'package:discourse_native/src/shell/post_text_selection.dart';
+import 'package:discourse_native/src/shell/progressive_html_mode.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
@@ -42,6 +43,59 @@ const _replacementUser = DiscourseUser(id: 99, username: 'replacement');
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+
+  testWidgets('copy quote includes all progressively mounted paragraphs', (
+    tester,
+  ) async {
+    String? clipboard;
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      SystemChannels.platform,
+      (call) async {
+        if (call.method == 'Clipboard.setData') {
+          clipboard = (call.arguments as Map)['text'] as String;
+        }
+        return null;
+      },
+    );
+    addTearDown(
+      () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        null,
+      ),
+    );
+    final html = List.generate(
+      450,
+      (i) => '<p>Paragraph $i with <strong>bold</strong> words.</p>',
+    ).join();
+    final post = Post(id: 22, postNumber: 2, username: 'sam', cooked: html);
+    final shell = await _pumpSelection(
+      tester,
+      post: post,
+      child: SizedBox(
+        height: 400,
+        child: SingleChildScrollView(
+          child: CookedHtml(
+            html: html,
+            buildAsync: false,
+            renderMode: const ProgressiveHtmlMode(),
+          ),
+        ),
+      ),
+    );
+    addTearDown(shell.dispose);
+    tester
+        .state<SelectionAreaState>(find.byType(SelectionArea))
+        .selectableRegion
+        .selectAll(SelectionChangedCause.toolbar);
+    await tester.pump(const Duration(milliseconds: 151));
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('copy-quote-selection')));
+    await tester.pumpAndSettle();
+    expect(clipboard, startsWith('[quote="sam, post:2, topic:7"]'));
+    expect(clipboard, contains('Paragraph 0 with **bold** words.'));
+    expect(clipboard, contains('Paragraph 449 with **bold** words.'));
+    expect('Paragraph'.allMatches(clipboard!).length, 450);
+  });
 
   group('post quote serialization', () {
     test('builds Discourse-compatible markup', () {
