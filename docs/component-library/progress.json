@@ -561,7 +561,9 @@
         "status": "verified",
         "record": "docs/component-library/compact-control-sizing.md",
         "changes": "Use 24/28/32px controls with 12/12/14px labels; remove extra-small control size, migrate callers, and inherit standard icon sizing.",
-        "verification": "352 control/styleguide checks passed, including 12 visually reviewed golden images. Native macOS review covered production topic controls and the control comparison in light, dark, and plum palettes, 740px/320px widths, 100%/200% text, RTL, and keyboard select activation. Remaining app test failures reproduce at starting main cf4d0983."
+        "verification": "352 control/styleguide checks passed, including 12 visually reviewed golden images. Native macOS review covered production topic controls and the control comparison in light, dark, and plum palettes, 740px/320px widths, 100%/200% text, RTL, and keyboard select activation. Remaining app test failures reproduce at starting main cf4d0983. After rebasing onto main 71c94832, root analysis and 50 focused search, profile, composer and taxonomy integration tests passed.",
+        "implementationCommit": "8e2321a6c86e2440ff368c7067f5a2940c6cc7a5",
+        "integrationBase": "71c94832900bdbea95ba6e4c827cbf6a94ad77aa"
       }
     },
     {

@@ -60,3 +60,11 @@ reference files and historical review records retain their original measurements
   `2ec3f8c511f1b4623146ca1c911d5a6187dcb5f62a20fe211205bd2c50aecbe6`.
   Debug signing and entitlements were verified for the isolated review bundle.
   iOS/Android checks were widget platform overrides, not device runs.
+
+After integration onto main `71c94832`, root analysis passed again. A further
+50 focused search, profile, composer and taxonomy checks passed, including
+search-editor bounds across popup activation. The smaller navigation buttons
+leave the narrow search editor 136px of its 212px row. The search anchor
+initially uses the shared regular height before its first layout measurement.
+
+Verified implementation: `8e2321a6c86e2440ff368c7067f5a2940c6cc7a5`.
