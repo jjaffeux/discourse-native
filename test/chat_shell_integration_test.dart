@@ -31,6 +31,7 @@ import 'package:discourse_native/src/plugins/chat/chat_notification_counter.dart
 import 'package:discourse_native/src/plugins/chat/chat_plugin.dart';
 import 'package:discourse_native/src/plugins/chat/chat_plugin_data.dart';
 import 'package:discourse_native/src/plugins/chat/chat_reactors.dart';
+import 'package:discourse_native/src/plugins/chat/chat_route.dart';
 import 'package:discourse_native/src/plugins/chat/chat_search.dart';
 import 'package:discourse_native/src/plugins/chat/chat_shell_service.dart';
 import 'package:discourse_native/src/plugins/chat/chat_thread.dart';
@@ -43,6 +44,7 @@ import 'package:discourse_native/src/shell/emoji.dart';
 import 'package:discourse_native/src/shell/emoji_picker.dart';
 import 'package:discourse_native/src/shell/forum_search.dart';
 import 'package:discourse_native/src/shell/forum_tabs_bar.dart';
+import 'package:discourse_native/src/shell/global_search_models.dart';
 import 'package:discourse_native/src/shell/hover_action_toolbar.dart';
 import 'package:discourse_native/src/shell/instance_rail.dart';
 import 'package:discourse_native/src/shell/instance_sidebar.dart';
@@ -333,6 +335,203 @@ void _registerChatShellTests() {
       await tester.pumpAndSettle();
       await tester.pump(const Duration(milliseconds: 600));
     }
+
+    group('contextual global search', () {
+      for (final mode in ChatPreferredDisplayMode.values) {
+        for (final keyboard in [false, true]) {
+          for (final direct in [false, true]) {
+            testWidgets(
+              '${mode.name} ${keyboard ? 'shortcut' : 'click'} scopes ${direct ? 'DM' : 'channel'} and opens its result',
+              (tester) async {
+                final target = direct ? dm(12) : channel(9);
+                final config = chatConfig(searchEnabled: true);
+                final requestPath = Uri(
+                  path: '/chat/api/search.json',
+                  queryParameters: {
+                    'query': 'needle',
+                    'sort': 'relevance',
+                    'offset': '0',
+                    'limit': '20',
+                    'channel_id': '${target.id}',
+                  },
+                ).toString();
+                final api = FakeDiscourseApi(
+                  feeds: const {'/latest.json': []},
+                  totals: withChat,
+                  user: me,
+                  siteConfigs: {site: config},
+                  chatChannelsBySite: {
+                    site: ChatChannels(
+                      public: direct ? const [] : [target],
+                      direct: direct ? [target] : const [],
+                    ),
+                  },
+                  chatMessagesByKey: {
+                    key(target.id): page(const []),
+                    FakeDiscourseApi.chatMessagesKey(
+                      target.id,
+                      targetMessageId: 40,
+                    ): page([
+                      ChatMessage(
+                        id: 40,
+                        channelId: target.id,
+                        cooked: '<p>Target channel message</p>',
+                        author: const ChatMessageAuthor(id: 2, username: 'sam'),
+                        createdAt: DateTime.utc(2026, 9, 13),
+                      ),
+                    ]),
+                  },
+                  pluginResponses: {
+                    'GET /site/settings.json': {
+                      'chat_enabled': true,
+                      'chat_search_enabled': true,
+                    },
+                    'GET /session/current.json': {
+                      'current_user': {
+                        'has_chat_enabled': true,
+                        'can_chat': true,
+                      },
+                    },
+                    'GET $requestPath': {
+                      'messages': [
+                        {
+                          'id': 40,
+                          'chat_channel_id': target.id,
+                          'channel': {'id': target.id, 'title': target.title},
+                          'user': {'username': 'sam'},
+                          'excerpt': '<p>Needle from global search</p>',
+                        },
+                      ],
+                    },
+                  },
+                );
+                await pumpChat(
+                  tester,
+                  api: api,
+                  config: config,
+                  preferredDisplayMode: mode,
+                );
+                final shell = ShellScope.read(
+                  tester.element(find.byType(MainContent)),
+                );
+                final chatShell = shell.pluginSession.require(chatShellService);
+                if (mode == ChatPreferredDisplayMode.drawer) {
+                  shell.pushContent(
+                    ContentRoute.topic(
+                      topicId: 1038,
+                      slug: 'underlying-topic',
+                      title: 'Underlying topic',
+                    ),
+                  );
+                  await tester.pumpAndSettle();
+                }
+                final underlying = shell.currentContent;
+                shell.openChatChannel(target.id);
+                await tester.pumpAndSettle();
+                await tester.pump();
+                expect(
+                  find.byKey(const ValueKey('chat-channel-search-button')),
+                  findsNothing,
+                );
+                expect(
+                  find.byKey(const ValueKey('chat-drawer-search')),
+                  findsNothing,
+                );
+
+                Future<void> open() async {
+                  if (keyboard) {
+                    await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
+                    await tester.sendKeyEvent(LogicalKeyboardKey.keyF);
+                    await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
+                  } else {
+                    await tester.tap(find.byKey(ForumSearch.inputKey));
+                  }
+                  await tester.pumpAndSettle();
+                }
+
+                await open();
+                expect(shell.globalSearch.scope, GlobalSearchScope.chat);
+                expect(
+                  shell.globalSearch.conditions.single.filterId,
+                  'chatChannel',
+                );
+                expect(
+                  shell.globalSearch.conditions.single.text,
+                  '${target.id}',
+                );
+                expect(
+                  shell.globalSearch.choiceLabel('chatChannel', '${target.id}'),
+                  target.title,
+                );
+                await tester.tap(find.byTooltip('Remove Channel condition'));
+                await tester.pumpAndSettle();
+                await open();
+                expect(shell.globalSearch.conditions, isEmpty);
+                await tester.tap(
+                  find.byKey(const ValueKey('global-search-scope-users')),
+                );
+                await tester.pumpAndSettle();
+                await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+                await tester.pumpAndSettle();
+                expect(
+                  chatShell.drawerActive,
+                  mode == ChatPreferredDisplayMode.drawer,
+                );
+                await open();
+                expect(
+                  shell.globalSearch.conditions.single.text,
+                  '${target.id}',
+                );
+                await tester.enterText(
+                  find.byKey(ForumSearch.inputKey),
+                  'needle',
+                );
+                await tester.pump(const Duration(milliseconds: 400));
+                await tester.pumpAndSettle();
+                expect(api.pluginReadPaths, contains(requestPath));
+                await tester.tap(find.text('Needle from global search'));
+                await tester.pumpAndSettle();
+                expect(find.byKey(ForumSearch.panelKey), findsNothing);
+                expect(
+                  chatShell.drawerActive,
+                  mode == ChatPreferredDisplayMode.drawer,
+                );
+                expect(
+                  chatShell.currentContent?.id,
+                  ChatRoute.channel(target.id).routeId,
+                );
+                expect(renderedText('Target channel message'), findsOneWidget);
+                expect(
+                  find.byKey(const ValueKey('chat-channel-search-bar')),
+                  findsNothing,
+                );
+                if (mode == ChatPreferredDisplayMode.drawer) {
+                  expect(shell.currentContent, underlying);
+                  chatShell.closeDrawer();
+                } else {
+                  shell.selectDestination(
+                    SidebarDestination(
+                      id: underlying!.id,
+                      label: underlying.title,
+                      icon: underlying.icon,
+                    ),
+                  );
+                }
+                await tester.pumpAndSettle();
+                await open();
+                expect(shell.globalSearch.scope, GlobalSearchScope.forum);
+                expect(
+                  shell.globalSearch.conditionsFor(GlobalSearchScope.chat),
+                  isEmpty,
+                );
+                expect(tester.takeException(), isNull);
+              },
+              variant: TargetPlatformVariant.only(TargetPlatform.macOS),
+            );
+          }
+        }
+      }
+    });
 
     group('in the header', () {
       final shortcut = find.byKey(ChatHeaderButton.buttonKey);
@@ -633,17 +832,9 @@ void _registerChatShellTests() {
             findsOneWidget,
           );
 
-          await tester.tap(find.byKey(ChatDrawerOverlay.searchButtonKey));
-          await tester.pumpAndSettle();
-          final shell = ShellScope.read(
-            tester.element(find.byType(MainContent)),
-          );
           expect(
-            shell.pluginSession
-                .require(chatShellService)
-                .drawerCurrentContent
-                ?.id,
-            ChatPlugin.searchRouteId,
+            find.byKey(const ValueKey('chat-drawer-search')),
+            findsNothing,
           );
           expect(tester.takeException(), isNull);
         },
@@ -703,7 +894,10 @@ void _registerChatShellTests() {
             find.byKey(const ValueKey('chat-drawer-preview-9')),
             findsOneWidget,
           );
-          expect(find.byKey(ChatDrawerOverlay.searchButtonKey), findsOneWidget);
+          expect(
+            find.byKey(const ValueKey('chat-drawer-search')),
+            findsNothing,
+          );
         },
       );
 
@@ -988,7 +1182,7 @@ void _registerChatShellTests() {
             find
                 .byKey(const ValueKey('chat-channel-search-button'))
                 .hitTestable(),
-            findsOneWidget,
+            findsNothing,
           );
           expect(
             find.byKey(ChatDrawerOverlay.fullPageButtonKey).hitTestable(),
@@ -1005,26 +1199,6 @@ void _registerChatShellTests() {
           );
           expect(find.byKey(ChatDrawerOverlay.drawerKey), findsOneWidget);
 
-          await tester.tap(find.byKey(ChatDrawerOverlay.overflowButtonKey));
-          await tester.pumpAndSettle();
-
-          await tester.tap(
-            find
-                .byKey(const ValueKey('chat-channel-search-button'))
-                .hitTestable(),
-          );
-          await tester.pumpAndSettle();
-
-          expect(
-            find.byKey(const ValueKey('chat-channel-search-field')),
-            findsOneWidget,
-          );
-          expect(
-            find
-                .byKey(const ValueKey('chat-channel-star-button'))
-                .hitTestable(),
-            findsOneWidget,
-          );
           expect(tester.takeException(), isNull);
         },
         variant: TargetPlatformVariant.only(TargetPlatform.macOS),
@@ -1812,76 +1986,6 @@ void _registerChatShellTests() {
         await tester.sendKeyEvent(LogicalKeyboardKey.escape);
         await tester.pumpAndSettle();
         expect(find.byKey(ChatDrawerOverlay.drawerKey), findsNothing);
-      });
-
-      testWidgets('Escape closes scoped channel search before the drawer', (
-        tester,
-      ) async {
-        await pumpChat(
-          tester,
-          public: [channel(9)],
-          messages: {key(9): page(const [])},
-          config: chatConfig(searchEnabled: true),
-          preferredDisplayMode: ChatPreferredDisplayMode.drawer,
-        );
-        await tester.tap(shortcut);
-        await tester.pumpAndSettle();
-        await tester.tap(find.byKey(const ValueKey('chat-drawer-channel-9')));
-        await tester.pumpAndSettle();
-        await tester.tap(
-          find.byKey(const ValueKey('chat-channel-search-button')),
-        );
-        await tester.pumpAndSettle();
-        expect(
-          find.byKey(const ValueKey('chat-channel-search-field')),
-          findsOneWidget,
-        );
-
-        await tester.sendKeyEvent(LogicalKeyboardKey.escape);
-        await tester.pumpAndSettle();
-        expect(
-          find.byKey(const ValueKey('chat-channel-search-field')),
-          findsNothing,
-        );
-        expect(find.byKey(ChatDrawerOverlay.drawerKey), findsOneWidget);
-
-        await tester.sendKeyEvent(LogicalKeyboardKey.escape);
-        await tester.pumpAndSettle();
-        expect(find.byKey(ChatDrawerOverlay.drawerKey), findsNothing);
-      });
-
-      testWidgets('closing the drawer resets scoped channel search', (
-        tester,
-      ) async {
-        await pumpChat(
-          tester,
-          public: [channel(9)],
-          messages: {key(9): page(const [])},
-          config: chatConfig(searchEnabled: true),
-          preferredDisplayMode: ChatPreferredDisplayMode.drawer,
-        );
-        await tester.tap(shortcut);
-        await tester.pumpAndSettle();
-        await tester.tap(find.byKey(const ValueKey('chat-drawer-channel-9')));
-        await tester.pumpAndSettle();
-        await tester.tap(
-          find.byKey(const ValueKey('chat-channel-search-button')),
-        );
-        await tester.pumpAndSettle();
-        final search = find.byKey(const ValueKey('chat-channel-search-field'));
-        await tester.enterText(search, 'stale query');
-
-        await tester.tap(find.byKey(ChatDrawerOverlay.closeButtonKey));
-        await tester.pumpAndSettle();
-        await tester.tap(shortcut);
-        await tester.pumpAndSettle();
-
-        expect(find.byType(ChatChannelView), findsOneWidget);
-        expect(search, findsNothing);
-        expect(
-          find.byKey(const ValueKey('chat-channel-search-button')),
-          findsOneWidget,
-        );
       });
 
       testWidgets(
@@ -3394,44 +3498,7 @@ void _registerChatShellTests() {
         );
       });
 
-      testWidgets('toggles the inline search bar from a channel header', (
-        tester,
-      ) async {
-        await pumpChat(
-          tester,
-          public: [channel(9)],
-          messages: {key(9): page(const [])},
-          config: chatConfig(searchEnabled: true),
-        );
-
-        await tester.tap(sidebarDestination('Bugs'));
-        await tester.pumpAndSettle();
-        expect(
-          find.byKey(const ValueKey('chat-channel-search-button')),
-          findsOneWidget,
-        );
-
-        await tester.tap(
-          find.byKey(const ValueKey('chat-channel-search-button')),
-        );
-        await tester.pump();
-        expect(
-          find.byKey(const ValueKey('chat-channel-search-field')),
-          findsOneWidget,
-        );
-
-        await tester.tap(
-          find.byKey(const ValueKey('chat-channel-search-field')),
-        );
-        await tester.sendKeyEvent(LogicalKeyboardKey.tab);
-        await tester.pump();
-        expect(
-          _primaryFocusIsWithin(find.widgetWithText(DButton, 'Done')),
-          isTrue,
-        );
-      });
-
-      testWidgets('Command F opens and refocuses global Chat search', (
+      testWidgets('Command F opens and refocuses global search from Chat', (
         tester,
       ) async {
         final previous = debugDefaultTargetPlatformOverride;
@@ -3458,12 +3525,13 @@ void _registerChatShellTests() {
           final searchField = tester
               .widget<EditableText>(
                 find.descendant(
-                  of: find.byKey(const ValueKey('chat-search-field')),
+                  of: find.byKey(ForumSearch.inputKey),
                   matching: find.byType(EditableText),
                 ),
               )
               .focusNode;
-          expect(shell.currentContent?.id, ChatPlugin.searchRouteId);
+          expect(shell.currentContent?.id, ChatRoute.channel(9).routeId);
+          expect(find.byKey(ForumSearch.panelKey), findsOneWidget);
           expect(searchField.hasFocus, isTrue);
 
           searchField.unfocus();
@@ -3480,31 +3548,35 @@ void _registerChatShellTests() {
         }
       });
 
-      testWidgets('Command F stays native when Chat search is unavailable', (
-        tester,
-      ) async {
-        final previous = debugDefaultTargetPlatformOverride;
-        debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
-        try {
-          await pumpChat(
-            tester,
-            public: [channel(9)],
-            messages: {key(9): page(const [])},
-          );
+      testWidgets(
+        'Command F still opens global search when Chat search is unavailable',
+        (tester) async {
+          final previous = debugDefaultTargetPlatformOverride;
+          debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+          try {
+            await pumpChat(
+              tester,
+              public: [channel(9)],
+              messages: {key(9): page(const [])},
+            );
 
-          await tester.tap(sidebarDestination('Bugs'));
-          await tester.pumpAndSettle();
-          await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
-          expect(await tester.sendKeyEvent(LogicalKeyboardKey.keyF), isFalse);
-          await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
-          await tester.pump();
+            await tester.tap(sidebarDestination('Bugs'));
+            await tester.pumpAndSettle();
+            await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
+            expect(await tester.sendKeyEvent(LogicalKeyboardKey.keyF), isTrue);
+            await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
+            await tester.pump();
 
-          expect(find.byKey(const ValueKey('chat-search-field')), findsNothing);
-          expect(find.byKey(ForumSearch.panelKey), findsNothing);
-        } finally {
-          debugDefaultTargetPlatformOverride = previous;
-        }
-      });
+            expect(
+              find.byKey(const ValueKey('chat-search-field')),
+              findsNothing,
+            );
+            expect(find.byKey(ForumSearch.panelKey), findsOneWidget);
+          } finally {
+            debugDefaultTargetPlatformOverride = previous;
+          }
+        },
+      );
 
       testWidgets('opens a global search result at its exact message', (
         tester,

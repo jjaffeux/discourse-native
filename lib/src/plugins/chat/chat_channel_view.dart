@@ -20,7 +20,6 @@ import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
 import '../../utils/pagination.dart';
 import 'chat_channel.dart';
-import 'chat_channel_search.dart';
 import 'chat_composer.dart';
 import 'chat_controller.dart';
 import 'chat_drawer.dart';
@@ -28,7 +27,6 @@ import 'chat_message.dart';
 import 'chat_message_tile.dart';
 import 'chat_pinned_bar.dart';
 import 'chat_route.dart';
-import 'chat_search_controller.dart';
 import 'chat_services.dart';
 import 'chat_shell_service.dart';
 import 'chat_stream.dart';
@@ -92,7 +90,6 @@ class _ChatChannelBodyState extends State<_ChatChannelBody> {
   bool _tickerEnabled = true;
   bool _drawerSurface = false;
   ChatShellService? _shell;
-  ChatSearchController? _search;
   Listenable? _navigation;
   bool _opened = false;
   List<int>? _projectedMessageIds;
@@ -115,7 +112,6 @@ class _ChatChannelBodyState extends State<_ChatChannelBody> {
   void _handleShellChanged() {
     final shell = _shell;
     if (_drawerSurface && shell?.drawerActive != true) {
-      _search?.closeScoped(widget.siteUrl, widget.channelId);
       if (_selectingMessages || _selectedMessageIds.isNotEmpty) {
         setState(() {
           _selectingMessages = false;
@@ -166,7 +162,6 @@ class _ChatChannelBodyState extends State<_ChatChannelBody> {
     }
     _tickerEnabled = TickerMode.valuesOf(context).enabled;
     _drawerSurface = ChatDrawerScope.isDrawer(context);
-    _search = PluginUiScope.require(context, chatSearchControllerService);
     _syncViewing();
 
     final navigation = shell.navigation;
@@ -295,10 +290,6 @@ class _ChatChannelBodyState extends State<_ChatChannelBody> {
       title: 'Drop files to upload to #$channelTitle',
       child: Column(
         children: [
-          ChatChannelSearchBar(
-            siteUrl: widget.siteUrl,
-            channelId: widget.channelId,
-          ),
           if (channel?.hasPinnedMessages == true)
             ChatPinnedBar(
               siteUrl: widget.siteUrl,

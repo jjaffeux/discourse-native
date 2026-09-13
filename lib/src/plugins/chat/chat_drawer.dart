@@ -106,7 +106,6 @@ class ChatDrawerOverlay extends StatefulWidget {
   static const Key fullPageButtonKey = ValueKey('chat-drawer-full-page');
   static const Key overflowButtonKey = ValueKey('chat-drawer-overflow');
   static const Key closeButtonKey = ValueKey('chat-drawer-close');
-  static const Key searchButtonKey = ValueKey('chat-drawer-search');
   static const double headerHeight = 45;
   static const double endMargin = 15;
   static const double topMargin = 15;
@@ -162,6 +161,10 @@ class _ChatDrawerOverlayState extends State<ChatDrawerOverlay> {
     if (event.logicalKey == LogicalKeyboardKey.escape) {
       if (!shell.drawerActive) return false;
       if (_headerMenuOpen) return false;
+      if (focusedContext?.findAncestorWidgetOfExactType<DPopoverContent>() !=
+          null) {
+        return false;
+      }
       if (editingText || _drawerContains(focusedContext)) return false;
       shell.closeDrawer();
       return true;
@@ -331,7 +334,6 @@ class _ChatDrawerOverlayState extends State<ChatDrawerOverlay> {
     final route = shell.drawerCurrentContent;
     if (route == null) return const SizedBox.shrink();
     final showNavigation = widget.showNavigationForRoute(route);
-    final siteUrl = shell.currentSiteUrl;
     final isChannelList = const {
       'chat-channels',
       'chat-starred',
@@ -426,16 +428,6 @@ class _ChatDrawerOverlayState extends State<ChatDrawerOverlay> {
                     onToggle: shell.toggleDrawerExpanded,
                     onFullPage: () => unawaited(shell.openFullPageFromDrawer()),
                     onClose: shell.closeDrawer,
-                    onSearch:
-                        showNavigation &&
-                            shell.currentUser != null &&
-                            siteUrl != null &&
-                            shell.chat
-                                .siteConfigFor(siteUrl)
-                                .chatSettings
-                                .searchEnabled
-                        ? shell.openSearch
-                        : null,
                     leading: widget.headerLeadingBuilder(context, route),
                     titleTrailing: widget.headerTitleTrailingBuilder(
                       context,
@@ -599,7 +591,6 @@ class _DrawerHeader extends StatelessWidget {
     required this.onToggle,
     required this.onFullPage,
     required this.onClose,
-    required this.onSearch,
     required this.leading,
     required this.titleTrailing,
     required this.titleAction,
@@ -615,7 +606,6 @@ class _DrawerHeader extends StatelessWidget {
   final VoidCallback onToggle;
   final VoidCallback onFullPage;
   final VoidCallback onClose;
-  final VoidCallback? onSearch;
   final Widget? leading;
   final Widget? titleTrailing;
   final VoidCallback? titleAction;
@@ -689,16 +679,6 @@ class _DrawerHeader extends StatelessWidget {
                     ),
                   ),
                 ),
-                if (expanded && onSearch != null)
-                  DButton.iconOnly(
-                    key: ChatDrawerOverlay.searchButtonKey,
-                    tooltip: 'Search chat',
-                    onPressed: onSearch,
-                    variant: route.id == 'chat-search'
-                        ? DButtonVariant.primary
-                        : DButtonVariant.ghost,
-                    icon: const DIcon(DIcons.magnifyingGlass),
-                  ),
                 if (overflowActions)
                   _DrawerHeaderOverflowMenu(
                     actions: [...routeActions, fullPageButton()],

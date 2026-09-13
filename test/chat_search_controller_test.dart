@@ -55,11 +55,8 @@ void main() {
     lifecycle = SiteLifecycle();
   });
 
-  for (final scoped in [false, true]) {
-    final scope = scoped ? 'scoped' : 'global';
-    testWidgets('$scope rejects overlong retries and sort changes', (
-      tester,
-    ) async {
+  group('global search', () {
+    testWidgets('rejects overlong retries and sort changes', (tester) async {
       final credentials = CountingCredentials()..keys[site] = 'key';
       final api = FakeDiscourseApi();
       final search = ChatSearchController(
@@ -70,31 +67,21 @@ void main() {
       addTearDown(search.dispose);
       final query = 'x' * (ChatSearchController.maximumQueryLength + 1);
       final phases = <ChatSearchPhase>[];
-      if (scoped) {
-        search.setScopedQuery(site, 9, query);
-        search.scopedRef(site, 9).addListener(() {
-          phases.add(search.scopedState(site, 9).phase);
-        });
-        search.retryScoped(site, 9);
-      } else {
-        search.setGlobalQuery(site, query);
-        search.globalRef(site).addListener(() {
-          phases.add(search.globalState(site).phase);
-        });
-        await search.retryGlobal(site);
-        search.setGlobalSort(site, ChatSearchSort.latest);
-      }
+      search.setGlobalQuery(site, query);
+      search.globalRef(site).addListener(() {
+        phases.add(search.globalState(site).phase);
+      });
+      await search.retryGlobal(site);
+      search.setGlobalSort(site, ChatSearchSort.latest);
       await tester.pump(const Duration(seconds: 1));
       expect(credentials.reads, 0);
       expect(api.chatSearchesRequested, isEmpty);
       expect(phases, everyElement(ChatSearchPhase.failed));
       expect(
-        scoped
-            ? search.scopedState(site, 9).error
-            : search.globalState(site).error,
+        search.globalState(site).error,
         'Search terms must be at most 2048 characters.',
       );
-      if (!scoped) expect(search.globalState(site).sort, ChatSearchSort.latest);
+      expect(search.globalState(site).sort, ChatSearchSort.latest);
     });
 
     for (final phase in [ChatSearchPhase.waiting, ChatSearchPhase.loading]) {
@@ -105,9 +92,7 @@ void main() {
         'invalidate',
         if (phase == ChatSearchPhase.waiting) 'retry',
       ]) {
-        testWidgets('$scope $action during $phase notification', (
-          tester,
-        ) async {
+        testWidgets('$action during $phase notification', (tester) async {
           final credentials = CountingCredentials()..keys[site] = 'key';
           final api = FakeDiscourseApi();
           final search = ChatSearchController(
@@ -120,18 +105,12 @@ void main() {
           );
           addTearDown(search.dispose);
           void setQuery(String query) {
-            if (scoped) {
-              search.setScopedQuery(site, 9, query);
-            } else {
-              search.setGlobalQuery(site, query);
-            }
+            search.setGlobalQuery(site, query);
           }
 
           var changed = false;
           void listener() {
-            final currentPhase = scoped
-                ? search.scopedState(site, 9).phase
-                : search.globalState(site).phase;
+            final currentPhase = search.globalState(site).phase;
             if (changed || currentPhase != phase) return;
             changed = true;
             switch (action) {
@@ -144,19 +123,11 @@ void main() {
               case 'invalidate':
                 lifecycle.invalidate(site);
               case 'retry':
-                if (scoped) {
-                  search.retryScoped(site, 9);
-                } else {
-                  unawaited(search.retryGlobal(site));
-                }
+                unawaited(search.retryGlobal(site));
             }
           }
 
-          if (scoped) {
-            search.scopedRef(site, 9).addListener(listener);
-          } else {
-            search.globalRef(site).addListener(listener);
-          }
+          search.globalRef(site).addListener(listener);
           setQuery('old');
           await tester.pump(const Duration(milliseconds: 400));
           await tester.pump(const Duration(milliseconds: 400));
@@ -173,18 +144,14 @@ void main() {
           expect(credentials.reads, expected.length);
           if (action == 'replace' || action == 'clear' || action == 'forget') {
             expect(
-              scoped
-                  ? search.scopedState(site, 9).query
-                  : search.globalState(site).query,
+              search.globalState(site).query,
               action == 'replace' ? 'new' : '',
             );
           }
         });
       }
     }
-  }
 
-  group('global search', () {
     test('stores results and appends unique pages', () async {
       final api = FakeDiscourseApi(
         chatSearchPagesByKey: {
@@ -305,85 +272,6 @@ void main() {
 
       expect(search.globalState(site).query, 'new');
       expect(search.globalState(site).hits.single.id, 2);
-      expect(store.read<ChatMessage>(site, 1), isNull);
-    });
-  });
-
-  group('channel search', () {
-    test('uses latest, excludes replies, and cycles results', () async {
-      final api = FakeDiscourseApi(
-        chatSearchPagesByKey: {
-          FakeDiscourseApi.chatSearchKey(
-            'needle',
-            channelId: 9,
-            sort: ChatSearchSort.latest,
-          ): ChatSearchPage(
-            hits: [hit(2), hit(1)],
-          ),
-        },
-      );
-      final search = ChatSearchController(
-        api: api,
-        requests: FakePluginRequestHost(
-          credentials: credentials,
-          lifecycle: lifecycle,
-        ),
-        store: store,
-        debounceDuration: Duration.zero,
-      );
-      addTearDown(search.dispose);
-
-      search.openScoped(site, 9);
-      search.setScopedQuery(site, 9, 'needle');
-      await drain();
-
-      final request = api.chatSearchesRequested.single;
-      expect(request.channelId, 9);
-      expect(request.sort, ChatSearchSort.latest);
-      expect(request.excludeThreads, isTrue);
-      expect(search.scopedState(site, 9).selectedHit?.id, 2);
-
-      search.selectPrevious(site, 9);
-      expect(search.scopedState(site, 9).selectedHit?.id, 1);
-      search.selectPrevious(site, 9);
-      expect(search.scopedState(site, 9).selectedHit?.id, 2);
-      search.selectNext(site, 9);
-      expect(search.scopedState(site, 9).selectedHit?.id, 1);
-    });
-
-    test('closing rejects its late response', () async {
-      final gate = Completer<void>();
-      final api = FakeDiscourseApi(
-        chatSearchGate: gate,
-        chatSearchPagesByKey: {
-          FakeDiscourseApi.chatSearchKey(
-            'needle',
-            channelId: 9,
-            sort: ChatSearchSort.latest,
-          ): ChatSearchPage(
-            hits: [hit(1)],
-          ),
-        },
-      );
-      final search = ChatSearchController(
-        api: api,
-        requests: FakePluginRequestHost(
-          credentials: credentials,
-          lifecycle: lifecycle,
-        ),
-        store: store,
-        debounceDuration: Duration.zero,
-      );
-      addTearDown(search.dispose);
-
-      search.openScoped(site, 9);
-      search.setScopedQuery(site, 9, 'needle');
-      await drain();
-      search.closeScoped(site, 9);
-      gate.complete();
-      await drain();
-
-      expect(search.scopedState(site, 9), const ScopedChatSearchState());
       expect(store.read<ChatMessage>(site, 1), isNull);
     });
   });

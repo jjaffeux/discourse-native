@@ -6,6 +6,9 @@ import 'package:discourse_native/src/models/sidebar_tag.dart';
 import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/plugin_api/plugin_data.dart';
+import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
+import 'package:discourse_native/src/plugins/chat/chat_message.dart';
+import 'package:discourse_native/src/plugins/chat/chat_notification_counter.dart';
 import 'package:discourse_native/src/plugins/chat/chat_plugin_data.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 
@@ -38,7 +41,7 @@ final globalSearchFixtureSites = [
     config: SiteConfig(
       plugins: PluginData.none.withValue(
         chatSettingsDataKey,
-        const ChatSettings(),
+        const ChatSettings(searchEnabled: true),
       ),
     ),
   ),
@@ -96,6 +99,50 @@ class GlobalSearchFixtureApi extends FakeDiscourseApi {
   GlobalSearchFixtureApi()
     : super(
         user: globalSearchFixtureUser,
+        totals: chatNotificationTotals(),
+        chatChannelsBySite: {
+          globalSearchFixtureSite: const ChatChannels(
+            public: [
+              ChatChannel(
+                id: 2,
+                title: 'Design chat',
+                slug: 'design',
+                kind: ChatChannelKind.category,
+                membership: ChatMembership(following: true),
+              ),
+            ],
+            direct: [
+              ChatChannel(
+                id: 12,
+                title: 'david, sam',
+                kind: ChatChannelKind.directMessage,
+                membership: ChatMembership(following: true),
+              ),
+            ],
+          ),
+        },
+        chatMessagesByKey: {
+          for (final channelId in [2, 12])
+            for (final target in [null, channelId == 12 ? 3012 : 3001])
+              FakeDiscourseApi.chatMessagesKey(
+                channelId,
+                targetMessageId: target,
+              ): (
+                messages: [
+                  ChatMessage(
+                    id: channelId == 12 ? 3012 : 3001,
+                    channelId: channelId,
+                    cooked:
+                        '<p>The search design is ready for a keyboard review.</p>',
+                    author: const ChatMessageAuthor(id: 8, username: 'mira'),
+                    createdAt: DateTime.utc(2026, 9, 13, 10, 20),
+                  ),
+                ],
+                canLoadMorePast: false,
+                canLoadMoreFuture: false,
+                targetMessageId: target,
+              ),
+        },
         feeds: {'/latest.json': globalSearchFixtureTopics},
         categoryList: globalSearchFixtureCategories,
         categorySiteTopTags: const [
@@ -292,12 +339,14 @@ class GlobalSearchFixtureApi extends FakeDiscourseApi {
           'extras': {'type_filters': <Object>[], 'can_see_members': true},
         };
       case '/chat/api/search.json':
+        final channelId = int.tryParse(params['channel_id'] ?? '') ?? 2;
+        final channelTitle = channelId == 12 ? 'david, sam' : 'Design chat';
         return {
           'messages': [
             if (!empty && !otherSite)
               {
-                'id': 3001,
-                'chat_channel_id': 2,
+                'id': channelId == 12 ? 3012 : 3001,
+                'chat_channel_id': channelId,
                 'message': 'The search design is ready for a keyboard review.',
                 'cooked':
                     '<p>The search design is ready for a keyboard review.</p>',
@@ -305,9 +354,9 @@ class GlobalSearchFixtureApi extends FakeDiscourseApi {
                 'created_at': '2026-09-13T10:20:00Z',
                 'user': _userJson,
                 'channel': {
-                  'id': 2,
-                  'title': 'Design chat',
-                  'name': 'Design chat',
+                  'id': channelId,
+                  'title': channelTitle,
+                  'name': channelTitle,
                   'slug': 'design',
                   'chatable_type': 'Category',
                   'chatable_id': 1,

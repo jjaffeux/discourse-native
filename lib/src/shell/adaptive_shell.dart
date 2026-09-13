@@ -191,13 +191,6 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
       if (controller.rootMode != ShellRootMode.forum) return false;
 
       final route = controller.currentContent;
-      final pluginSearch = route == null
-          ? (owned: false, action: null)
-          : PluginScope.of(context).registry.contentSearch(context, route);
-      if (pluginSearch.owned) {
-        pluginSearch.action?.call();
-        return pluginSearch.action != null;
-      }
       if (route?.topicId case final topicId?) {
         controller.search.requestTopicFocus(topicId);
       } else {

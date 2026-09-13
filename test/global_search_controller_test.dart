@@ -26,6 +26,135 @@ const _caps = GlobalSearchCapabilities(
 );
 
 void main() {
+  for (final action in ['none', 'scope', 'recent']) {
+    testWidgets(
+      'late chat capabilities respect the opening context after $action',
+      (tester) async {
+        final gate = Completer<GlobalSearchCapabilities>();
+        final api = _EngineApi()..capabilitiesGate = gate;
+        final search =
+            GlobalSearchController(
+              api: api,
+              credentials: FakeApiCredentialReader()..keys[_site] = 'key',
+              lifecycle: SiteLifecycle(),
+            )..configure(
+              siteUrl: _site,
+              capabilities: const GlobalSearchCapabilities(
+                authenticated: true,
+                chatEligible: true,
+              ),
+            );
+        addTearDown(search.dispose);
+        search.setContext(
+          const GlobalSearchContext(
+            scope: GlobalSearchScope.chat,
+            condition: GlobalSearchCondition(
+              filterId: 'chatChannel',
+              value: ['12'],
+            ),
+          ),
+        );
+        if (action == 'scope') search.setScope(GlobalSearchScope.users);
+        if (action == 'recent') search.useRecentSearch('design');
+        gate.complete(_caps);
+        await tester.pump(const Duration(seconds: 1));
+        expect(search.scope, switch (action) {
+          'scope' => GlobalSearchScope.users,
+          'recent' => GlobalSearchScope.all,
+          _ => GlobalSearchScope.chat,
+        });
+        expect(
+          search.conditions.map((c) => c.text),
+          action == 'none' ? ['12'] : <String>[],
+        );
+        await tester.pump(const Duration(seconds: 1));
+      },
+    );
+  }
+
+  testWidgets(
+    'opening context replaces only its own filter and preserves other banks',
+    (tester) async {
+      final api = _EngineApi();
+      final search = _controller(api);
+      addTearDown(search.dispose);
+      search.addCondition(
+        const GlobalSearchCondition(filterId: 'chatAuthor', value: ['mira']),
+      );
+      search.setQuery('design');
+      const first = GlobalSearchContext(
+        scope: GlobalSearchScope.chat,
+        condition: GlobalSearchCondition(filterId: 'chatChannel', value: ['9']),
+        label: 'Design',
+      );
+      search.setContext(first);
+      await tester.pump(const Duration(milliseconds: 10));
+      expect(search.scope, GlobalSearchScope.chat);
+      expect(api.requests.last.conditions.map((c) => c.text), ['mira', '9']);
+      expect(search.choiceLabel('chatChannel', '9'), 'Design');
+      search.removeCondition(1);
+      search.setScope(GlobalSearchScope.users);
+      search.setContext(first);
+      expect(search.scope, GlobalSearchScope.chat);
+      expect(search.conditions.map((c) => c.text), ['mira', '9']);
+      search.setContext(
+        const GlobalSearchContext(
+          scope: GlobalSearchScope.chat,
+          condition: GlobalSearchCondition(
+            filterId: 'chatChannel',
+            value: ['12'],
+          ),
+          label: 'david, sam',
+        ),
+      );
+      expect(search.conditions.map((c) => c.text), ['mira', '12']);
+      search.setContext(
+        const GlobalSearchContext(
+          scope: GlobalSearchScope.forum,
+          condition: GlobalSearchCondition(
+            filterId: 'topicId',
+            value: ['1038'],
+          ),
+        ),
+      );
+      expect(search.conditions.single.text, '1038');
+      expect(
+        search.conditionsFor(GlobalSearchScope.chat).single.filterId,
+        'chatAuthor',
+      );
+      search.setContext(
+        const GlobalSearchContext(scope: GlobalSearchScope.forum),
+      );
+      expect(search.conditions, isEmpty);
+      expect(search.query, 'design');
+      await tester.pump(const Duration(milliseconds: 10));
+    },
+  );
+
+  test('channel IDs scope chat requests without relying on a slug', () async {
+    final transport = _Transport();
+    final api = GlobalSearchApi(transport: transport);
+    await api.search(
+      siteUrl: _site,
+      apiKey: 'key',
+      request: const GlobalSearchRequest(
+        scope: GlobalSearchScope.chat,
+        query: 'needle',
+        capabilities: _caps,
+        conditions: [
+          GlobalSearchCondition(filterId: 'chatChannel', value: ['12']),
+        ],
+      ),
+    );
+    expect(transport.paths.single.queryParameters, {
+      'query': 'needle',
+      'sort': 'relevance',
+      'offset': '0',
+      'limit': '20',
+      'channel_id': '12',
+    });
+  });
+
   test(
     'All reports a forum timeout while retaining successful chat results',
     () async {
@@ -847,6 +976,7 @@ class _EngineApi extends GlobalSearchApi {
   }
 
   final requests = <GlobalSearchRequest>[];
+  Completer<GlobalSearchCapabilities>? capabilitiesGate;
   final pending = <Completer<GlobalSearchPage>>[];
   @override
   Future<GlobalSearchCapabilities> capabilities({
@@ -854,7 +984,7 @@ class _EngineApi extends GlobalSearchApi {
     required String? apiKey,
     String? clientId,
     required GlobalSearchCapabilities base,
-  }) async => base;
+  }) async => capabilitiesGate?.future ?? base;
   @override
   Future<GlobalSearchPage> search({
     required String siteUrl,

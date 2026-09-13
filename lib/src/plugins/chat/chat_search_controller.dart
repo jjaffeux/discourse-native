@@ -62,51 +62,6 @@ final class GlobalChatSearchState {
   );
 }
 
-@immutable
-final class ScopedChatSearchState {
-  const ScopedChatSearchState({
-    this.open = false,
-    this.query = '',
-    this.phase = ChatSearchPhase.idle,
-    this.hits = const [],
-    this.selectedIndex = 0,
-    this.selectionRevision = 0,
-    this.error,
-  });
-
-  final bool open;
-  final String query;
-  final ChatSearchPhase phase;
-  final List<ChatSearchHit> hits;
-  final int selectedIndex;
-  final int selectionRevision;
-  final String? error;
-
-  ChatSearchHit? get selectedHit => hits.isEmpty ? null : hits[selectedIndex];
-
-  @override
-  bool operator ==(Object other) =>
-      other is ScopedChatSearchState &&
-      other.open == open &&
-      other.query == query &&
-      other.phase == phase &&
-      listEquals(other.hits, hits) &&
-      other.selectedIndex == selectedIndex &&
-      other.selectionRevision == selectionRevision &&
-      other.error == error;
-
-  @override
-  int get hashCode => Object.hash(
-    open,
-    query,
-    phase,
-    Object.hashAll(hits),
-    selectedIndex,
-    selectionRevision,
-    error,
-  );
-}
-
 final class ChatSearchController {
   ChatSearchController({
     required this.api,
@@ -129,18 +84,10 @@ final class ChatSearchController {
   final Map<String, GlobalChatSearchState> _global = {};
   final Map<String, FrameSafeValueNotifier<GlobalChatSearchState>> _globalRefs =
       {};
-  final Map<String, ScopedChatSearchState> _scoped = {};
-  final Map<String, FrameSafeValueNotifier<ScopedChatSearchState>> _scopedRefs =
-      {};
   final Map<String, Timer> _globalTimers = {};
-  final Map<String, Timer> _scopedTimers = {};
   final Map<String, Object> _globalRequests = {};
-  final Map<String, Object> _scopedRequests = {};
   final Map<String, VoidCallback> _globalFocus = {};
   bool _disposed = false;
-
-  static String _scopedKey(String siteUrl, int channelId) =>
-      '$siteUrl~$channelId';
 
   ValueListenable<GlobalChatSearchState> globalRef(String siteUrl) =>
       _globalRefs.putIfAbsent(
@@ -166,21 +113,6 @@ final class ChatSearchController {
   void requestGlobalFocus(String siteUrl) {
     if (!_disposed) _globalFocus[siteUrl]?.call();
   }
-
-  ValueListenable<ScopedChatSearchState> scopedRef(
-    String siteUrl,
-    int channelId,
-  ) {
-    final key = _scopedKey(siteUrl, channelId);
-    return _scopedRefs.putIfAbsent(
-      key,
-      () =>
-          FrameSafeValueNotifier(_scoped[key] ?? const ScopedChatSearchState()),
-    );
-  }
-
-  ScopedChatSearchState scopedState(String siteUrl, int channelId) =>
-      _scoped[_scopedKey(siteUrl, channelId)] ?? const ScopedChatSearchState();
 
   void setGlobalQuery(String siteUrl, String query) {
     if (_disposed) return;
@@ -387,228 +319,6 @@ final class ChatSearchController {
     ]);
   }
 
-  void toggleScoped(String siteUrl, int channelId) {
-    final held = scopedState(siteUrl, channelId);
-    if (held.open) {
-      closeScoped(siteUrl, channelId);
-    } else {
-      openScoped(siteUrl, channelId);
-    }
-  }
-
-  void openScoped(String siteUrl, int channelId) {
-    if (_disposed) return;
-    final held = scopedState(siteUrl, channelId);
-    _setScoped(
-      siteUrl,
-      channelId,
-      ScopedChatSearchState(
-        open: true,
-        query: held.query,
-        phase: held.phase,
-        hits: held.hits,
-        selectedIndex: held.selectedIndex,
-        selectionRevision: held.selectionRevision,
-        error: held.error,
-      ),
-    );
-  }
-
-  void closeScoped(String siteUrl, int channelId) {
-    final key = _scopedKey(siteUrl, channelId);
-    _cancelScoped(key);
-    _setScoped(siteUrl, channelId, const ScopedChatSearchState());
-  }
-
-  void setScopedQuery(String siteUrl, int channelId, String query) {
-    if (_disposed) return;
-    final key = _scopedKey(siteUrl, channelId);
-    final held = scopedState(siteUrl, channelId);
-    if (held.query == query) return;
-    _cancelScoped(key);
-    final term = query.trim();
-    if (term.isEmpty) {
-      _setScoped(
-        siteUrl,
-        channelId,
-        ScopedChatSearchState(
-          open: true,
-          query: query,
-          selectionRevision: held.selectionRevision,
-        ),
-      );
-      return;
-    }
-    if (term.length > maximumQueryLength) {
-      _setScoped(
-        siteUrl,
-        channelId,
-        ScopedChatSearchState(
-          open: true,
-          query: query,
-          phase: ChatSearchPhase.failed,
-          selectionRevision: held.selectionRevision,
-          error: 'Search terms must be at most $maximumQueryLength characters.',
-        ),
-      );
-      return;
-    }
-    final run = Object();
-    _scopedRequests[key] = run;
-    final lease = _requests.capture(siteUrl);
-    _setScoped(
-      siteUrl,
-      channelId,
-      ScopedChatSearchState(
-        open: true,
-        query: query,
-        phase: ChatSearchPhase.waiting,
-        selectionRevision: held.selectionRevision,
-      ),
-    );
-    if (_disposed ||
-        !lease.isCurrent ||
-        !identical(_scopedRequests[key], run)) {
-      return;
-    }
-    _scopedTimers[key] = Timer(debounceDuration, () {
-      if (!_disposed &&
-          lease.isCurrent &&
-          identical(_scopedRequests[key], run)) {
-        unawaited(_searchScoped(siteUrl, channelId));
-      }
-    });
-  }
-
-  void retryScoped(String siteUrl, int channelId) {
-    final held = scopedState(siteUrl, channelId);
-    if (_disposed || held.query.trim().isEmpty) return;
-    final key = _scopedKey(siteUrl, channelId);
-    _cancelScoped(key);
-    unawaited(_searchScoped(siteUrl, channelId));
-  }
-
-  Future<void> _searchScoped(String siteUrl, int channelId) async {
-    final key = _scopedKey(siteUrl, channelId);
-    _scopedTimers.remove(key)?.cancel();
-    if (_disposed) return;
-    final held = scopedState(siteUrl, channelId);
-    final term = held.query.trim();
-    if (!held.open || term.isEmpty) return;
-    if (term.length > maximumQueryLength) {
-      _setScoped(
-        siteUrl,
-        channelId,
-        ScopedChatSearchState(
-          open: true,
-          query: held.query,
-          phase: ChatSearchPhase.failed,
-          selectionRevision: held.selectionRevision,
-          error: 'Search terms must be at most $maximumQueryLength characters.',
-        ),
-      );
-      return;
-    }
-    final run = Object();
-    _scopedRequests[key] = run;
-    final lease = _requests.capture(siteUrl);
-    bool current() =>
-        !_disposed &&
-        lease.isCurrent &&
-        identical(_scopedRequests[key], run) &&
-        scopedState(siteUrl, channelId).open;
-
-    try {
-      if (!current()) return;
-      _setScoped(
-        siteUrl,
-        channelId,
-        ScopedChatSearchState(
-          open: true,
-          query: held.query,
-          phase: ChatSearchPhase.loading,
-          selectionRevision: held.selectionRevision,
-        ),
-      );
-      if (!current()) return;
-      final requestCredentials = await _requests.credentialsFor(siteUrl);
-      final apiKey = requestCredentials.apiKey;
-      if (!current()) return;
-      if (apiKey == null) throw StateError('Chat search requires an account.');
-      final clientId = requestCredentials.clientId;
-      if (!current()) return;
-      final page = await api.searchChatMessages(
-        siteUrl: siteUrl,
-        apiKey: apiKey,
-        clientId: clientId,
-        query: term,
-        channelId: channelId,
-        sort: ChatSearchSort.latest,
-        excludeThreads: true,
-      );
-      if (!current()) return;
-      lease.commit(() {
-        _store.putAll(siteUrl, page.hits.map((hit) => hit.message));
-        _setScoped(
-          siteUrl,
-          channelId,
-          ScopedChatSearchState(
-            open: true,
-            query: held.query,
-            phase: page.hits.isEmpty
-                ? ChatSearchPhase.empty
-                : ChatSearchPhase.results,
-            hits: page.hits,
-            selectionRevision:
-                held.selectionRevision + (page.hits.isEmpty ? 0 : 1),
-          ),
-        );
-      });
-    } catch (error, stackTrace) {
-      if (!current()) return;
-      _report(error, stackTrace, 'chat.searchChannel');
-      lease.commit(() {
-        _setScoped(
-          siteUrl,
-          channelId,
-          ScopedChatSearchState(
-            open: true,
-            query: held.query,
-            phase: ChatSearchPhase.failed,
-            selectionRevision: held.selectionRevision,
-            error: 'Could not search this channel. Try again.',
-          ),
-        );
-      });
-    } finally {
-      if (identical(_scopedRequests[key], run)) _scopedRequests.remove(key);
-    }
-  }
-
-  void selectPrevious(String siteUrl, int channelId) =>
-      _moveSelection(siteUrl, channelId, 1);
-
-  void selectNext(String siteUrl, int channelId) =>
-      _moveSelection(siteUrl, channelId, -1);
-
-  void _moveSelection(String siteUrl, int channelId, int delta) {
-    final held = scopedState(siteUrl, channelId);
-    if (_disposed || held.hits.isEmpty) return;
-    final index = (held.selectedIndex + delta) % held.hits.length;
-    _setScoped(
-      siteUrl,
-      channelId,
-      ScopedChatSearchState(
-        open: true,
-        query: held.query,
-        phase: ChatSearchPhase.results,
-        hits: held.hits,
-        selectedIndex: index,
-        selectionRevision: held.selectionRevision + 1,
-      ),
-    );
-  }
-
   void _setGlobal(String siteUrl, GlobalChatSearchState state) {
     if (_disposed) return;
     _global[siteUrl] = state;
@@ -616,22 +326,9 @@ final class ChatSearchController {
     if (ref != null) ref.value = state;
   }
 
-  void _setScoped(String siteUrl, int channelId, ScopedChatSearchState state) {
-    if (_disposed) return;
-    final key = _scopedKey(siteUrl, channelId);
-    _scoped[key] = state;
-    final ref = _scopedRefs[key];
-    if (ref != null) ref.value = state;
-  }
-
   void _cancelGlobal(String siteUrl) {
     _globalTimers.remove(siteUrl)?.cancel();
     _globalRequests.remove(siteUrl);
-  }
-
-  void _cancelScoped(String key) {
-    _scopedTimers.remove(key)?.cancel();
-    _scopedRequests.remove(key);
   }
 
   void _report(Object error, StackTrace stackTrace, String operation) {
@@ -651,45 +348,21 @@ final class ChatSearchController {
     _globalFocus.remove(siteUrl);
     final globalRef = _globalRefs.remove(siteUrl);
     globalRef?.value = const GlobalChatSearchState();
-
-    final prefix = '$siteUrl~';
-    for (final key
-        in _scopedTimers.keys.where((key) => key.startsWith(prefix)).toList()) {
-      _cancelScoped(key);
-    }
-    _scopedRequests.removeWhere((key, _) => key.startsWith(prefix));
-    _scoped.removeWhere((key, _) => key.startsWith(prefix));
-    final forgotten = <FrameSafeValueNotifier<ScopedChatSearchState>>[];
-    _scopedRefs.removeWhere((key, ref) {
-      if (!key.startsWith(prefix)) return false;
-      forgotten.add(ref);
-      return true;
-    });
-    for (final ref in forgotten) {
-      ref.value = const ScopedChatSearchState();
-    }
   }
 
   void dispose() {
     if (_disposed) return;
     _disposed = true;
-    for (final timer in [..._globalTimers.values, ..._scopedTimers.values]) {
+    for (final timer in _globalTimers.values) {
       timer.cancel();
     }
     _globalTimers.clear();
-    _scopedTimers.clear();
     _globalRequests.clear();
-    _scopedRequests.clear();
     for (final ref in _globalRefs.values) {
       ref.dispose();
     }
-    for (final ref in _scopedRefs.values) {
-      ref.dispose();
-    }
     _globalRefs.clear();
-    _scopedRefs.clear();
     _global.clear();
-    _scoped.clear();
     _globalFocus.clear();
   }
 }

@@ -795,27 +795,6 @@ final class ChatShellService
     return true;
   }
 
-  bool revealChannelMessage({
-    required String siteUrl,
-    required int channelId,
-    required int messageId,
-  }) {
-    if (channelId <= 0 ||
-        messageId <= 0 ||
-        _host.currentInstance?.url != siteUrl ||
-        chat.channel(siteUrl, channelId) == null) {
-      return false;
-    }
-    navigation.offer(
-      ChatNavigationTarget(
-        siteUrl: siteUrl,
-        route: ChatRoute.channel(channelId),
-        messageId: messageId,
-      ),
-    );
-    return true;
-  }
-
   Future<String?> openQuote(
     String siteUrl,
     int channelId,
