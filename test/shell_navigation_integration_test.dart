@@ -1915,6 +1915,10 @@ void _registerShellNavigationTests() {
       ),
       findsOneWidget,
     );
+    expect(
+      tester.getSize(find.byKey(const ValueKey('sidebar-prefix-category-2'))),
+      const Size.square(12),
+    );
     final categoryDecoration =
         tester
                 .widget<Container>(
@@ -2151,6 +2155,10 @@ void _registerShellNavigationTests() {
       findsOneWidget,
     );
     expect(sidebarDestination('Support'), findsOneWidget);
+    expect(
+      tester.getSize(find.byKey(const ValueKey('sidebar-prefix-category-1'))),
+      const Size.square(12),
+    );
   });
 
   testWidgets('opens All categories as a native root-only page', (
