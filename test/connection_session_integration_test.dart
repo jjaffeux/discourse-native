@@ -2455,7 +2455,7 @@ void _registerConnectionSessionTests() {
       expect(find.text('12 badges'), findsOneWidget);
       expect(
         tester.getSize(find.byKey(const ValueKey('user-card-surface'))).width,
-        624,
+        400,
       );
       semantics.dispose();
     });
@@ -2593,6 +2593,7 @@ void _registerConnectionSessionTests() {
       final shell = ShellScope.read(tester.element(find.byType(TopicView)));
 
       await tester.tap(find.text('Joffrey'));
+      await tester.pump();
       await tester.pump();
       await api.started.future;
       await tester.pump(const Duration(milliseconds: 200));

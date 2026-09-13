@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/data/user_api_key.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/topic.dart';
@@ -91,7 +92,7 @@ void main() {
     api.requests.last.response.complete(_connectedCard);
     await tester.pumpAndSettle();
     expect(find.text('Connected profile'), findsOneWidget);
-    expect(activityIndicators, findsNothing);
+    expect(find.byType(DSkeletonRegion), findsNothing);
   });
 
   for (final oldResponseFirst in [true, false]) {
@@ -116,13 +117,13 @@ void main() {
         await tester.pump();
         expect(find.text('Public profile'), findsNothing);
         expect(controller.userCard('author', siteUrl: _siteUrl), isNull);
-        expect(activityIndicators, findsOneWidget);
+        expect(find.byType(DSkeletonRegion), findsOneWidget);
       }
 
       replacement.response.complete(_connectedCard);
       await tester.pumpAndSettle();
       expect(find.text('Connected profile'), findsOneWidget);
-      expect(activityIndicators, findsNothing);
+      expect(find.byType(DSkeletonRegion), findsNothing);
 
       if (!oldResponseFirst) {
         oldRequest.response.complete(_publicCard);
@@ -166,7 +167,7 @@ void main() {
     await tester.pumpAndSettle();
     await newerDialog;
     expect(find.text('Connected profile'), findsOneWidget);
-    expect(activityIndicators, findsNothing);
+    expect(find.byType(DSkeletonRegion), findsNothing);
   });
 
   testWidgets('a replacement card error waits for Retry before reloading', (
@@ -204,7 +205,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Connected profile'), findsOneWidget);
     expect(find.text('Retry'), findsNothing);
-    expect(activityIndicators, findsNothing);
+    expect(find.byType(DSkeletonRegion), findsNothing);
   });
 }
 
