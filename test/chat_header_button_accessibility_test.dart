@@ -9,6 +9,7 @@ import 'package:discourse_native/src/plugins/chat/chat_plugin.dart';
 import 'package:discourse_native/src/plugins/chat/chat_shell_service.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
+import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -89,14 +90,17 @@ void main() {
       expect(find.text('99+'), findsOneWidget);
       expect(find.byTooltip('Chat, 103 urgent messages'), findsOneWidget);
 
-      final decoration =
-          tester.widget<Container>(badge).decoration! as BoxDecoration;
       final theme = Theme.of(tester.element(badge));
-      final label = tester.widget<Text>(
-        find.descendant(of: badge, matching: find.text('99+')),
+      final capsule = tester.widget<DButton>(button);
+      expect(
+        capsule.backgroundColor,
+        theme.discourse.success.withValues(alpha: .14),
       );
-      expect(decoration.color, theme.colorScheme.primary);
-      expect(label.style?.color, Colors.white);
+      expect(tester.getRect(button).contains(tester.getTopLeft(badge)), isTrue);
+      expect(
+        tester.getRect(button).contains(tester.getBottomRight(badge)),
+        isTrue,
+      );
 
       final node = tester.getSemantics(button);
       expect(node.label, 'Chat, 103 urgent messages');

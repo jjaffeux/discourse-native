@@ -1,6 +1,8 @@
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
+import '../../shell/header_notification_button.dart';
+import '../../theme/app_theme.dart';
 import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
 import '../styleguide_example.dart';
@@ -21,10 +23,10 @@ final notificationDotExamples = ComponentExamples(
     StyleguideExample(
       title: 'Inline states',
       description: 'Use a compact dot beside a title or destination label.',
-      states: const ['Unread', 'Urgent', 'Semantics', 'Large text'],
+      states: const ['Unread', 'Semantics', 'Large text'],
       code: '''const DNotificationDot(semanticLabel: 'Unread messages')
 DNotificationDot(
-  color: DTokens.of(context).destructive,
+  color: Theme.of(context).discourse.notificationIndicator,
   semanticLabel: 'Unseen pinned messages',
 )''',
       builder: (context) => Column(
@@ -43,7 +45,7 @@ DNotificationDot(
             children: [
               const Flexible(child: Text('Pinned messages')),
               DNotificationDot(
-                color: DTokens.of(context).destructive,
+                color: Theme.of(context).discourse.notificationIndicator,
                 semanticLabel: 'Unseen pinned messages',
               ),
             ],
@@ -71,6 +73,61 @@ DNotificationDot(
   ]),
 )''',
       builder: (_) => const _HeaderNotificationExample(),
+    ),
+    StyleguideExample(
+      title: 'Combined count capsules',
+      description:
+          'The approved application header composition uses success for '
+          'urgent chat and the ordinary notification accent for the bell. '
+          'Counts cap at 99+ and keep their exact accessible label.',
+      states: const [
+        'Urgent chat',
+        'Notifications',
+        'Counts',
+        'RTL',
+        'Large text',
+      ],
+      code: '''// Application composition of DButton and DSeparator.
+headerNotificationButton(
+  context,
+  key: const ValueKey('chat'),
+  countKey: const ValueKey('chat-count'),
+  icon: const DIcon(DIcons.comment, size: 20),
+  count: 128,
+  color: Theme.of(context).discourse.success,
+  surface: Theme.of(context).shell.content,
+  tooltip: 'Chat, 128 urgent messages',
+  semanticLabel: 'Chat, 128 urgent messages',
+  onPressed: openChat,
+)''',
+      builder: (context) => Wrap(
+        spacing: DSpacing.sm,
+        runSpacing: DSpacing.sm,
+        children: [
+          for (final (name, icon, color, count) in [
+            ('Chat', DIcons.comment, Theme.of(context).discourse.success, 12),
+            (
+              'Notifications',
+              DIcons.bell,
+              Theme.of(context).discourse.notificationIndicator,
+              128,
+            ),
+          ])
+            headerNotificationButton(
+              context,
+              key: ValueKey('capsule-example-$name'),
+              countKey: ValueKey('capsule-example-count-$name'),
+              icon: DIcon(icon, size: 20),
+              count: count,
+              color: color,
+              surface: Theme.of(context).shell.content,
+              tooltip: '$name, $count unread items',
+              semanticLabel: '$name, $count unread items',
+              onPressed: () =>
+                  DToast.show(context, '$name: $count unread items'),
+            ),
+        ],
+      ),
     ),
     StyleguideExample(
       title: 'Surface rings',

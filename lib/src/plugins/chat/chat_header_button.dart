@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 
 import '../../plugin_api/plugin_scope.dart';
 import '../../shell/adaptive_shell.dart';
+import '../../shell/header_notification_button.dart';
+import '../../theme/app_theme.dart';
 import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
 import 'chat_controller.dart';
@@ -75,37 +77,45 @@ class ChatHeaderButton extends StatelessWidget {
             ? 'Chat, unread messages'
             : 'Chat';
 
+        void openChat() => unawaited(
+          shell.openShortcut(
+            drawerAvailable:
+                ShellLayout.forWidth(MediaQuery.sizeOf(context).width) !=
+                ShellLayout.compact,
+          ),
+        );
+        final theme = Theme.of(context);
+        if (urgentCount != null) {
+          return headerNotificationButton(
+            context,
+            key: buttonKey,
+            countKey: urgentBadgeKey,
+            icon: const DIcon(DIcons.comment, size: 20),
+            count: urgentCount,
+            color: theme.discourse.success,
+            surface: ringColor ?? theme.shell.content,
+            tooltip: tooltip,
+            semanticLabel: tooltip,
+            onPressed: openChat,
+          );
+        }
         return DButton.iconOnly(
           key: buttonKey,
           tooltip: tooltip,
-          onPressed: () => unawaited(
-            shell.openShortcut(
-              drawerAvailable:
-                  ShellLayout.forWidth(MediaQuery.sizeOf(context).width) !=
-                  ShellLayout.compact,
-            ),
-          ),
+          onPressed: openChat,
           variant: DButtonVariant.ghost,
           icon: ExcludeSemantics(
             child: Stack(
               clipBehavior: Clip.none,
               children: [
                 const DIcon(DIcons.comment, size: 22),
-                if (urgentCount != null)
-                  Positioned(
-                    top: -8,
-                    right: -12,
-                    child: _UrgentBadge(
-                      label: indicator.label!,
-                      ringColor: ringColor,
-                    ),
-                  )
-                else if (indicator.unread)
+                if (indicator.unread)
                   PositionedDirectional(
                     top: -2,
                     end: -3,
                     child: DNotificationDot.overlay(
                       key: unreadDotKey,
+                      color: theme.discourse.notificationIndicator,
                       ringColor: ringColor,
                     ),
                   ),
@@ -114,39 +124,6 @@ class ChatHeaderButton extends StatelessWidget {
           ),
         );
       },
-    );
-  }
-}
-
-class _UrgentBadge extends StatelessWidget {
-  const _UrgentBadge({required this.label, this.ringColor});
-
-  final String label;
-  final Color? ringColor;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Container(
-      key: ChatHeaderButton.urgentBadgeKey,
-      constraints: const BoxConstraints(minWidth: 20, minHeight: 20),
-      padding: const EdgeInsets.symmetric(horizontal: 4),
-      alignment: Alignment.center,
-      decoration: BoxDecoration(
-        color: theme.colorScheme.primary,
-        borderRadius: BorderRadius.circular(10),
-        border: ringColor == null
-            ? null
-            : Border.all(color: ringColor!, width: 2),
-      ),
-      child: Text(
-        label,
-        style: theme.textTheme.labelSmall?.copyWith(
-          color: Colors.white,
-          height: 1,
-          fontWeight: FontWeight.w700,
-        ),
-      ),
     );
   }
 }

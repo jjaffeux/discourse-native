@@ -327,9 +327,16 @@ ResolvedSitePalette? parseSiteAppearanceStylesheets(Iterable<String> sources) {
   // light scheme and the unmodified tertiary in a dark scheme. The common
   // token stylesheet is not among the site-specific stylesheets fetched by
   // the app, so resolve that light-dark choice here from its source colors.
-  final accentSubtle = brightness == Brightness.light
-      ? color('--tertiary-600') ?? tertiary
-      : tertiary;
+  final accentSubtle =
+      color('--token-color-background-accent-subtle') ??
+      (brightness == Brightness.light
+          ? color('--tertiary-600') ?? tertiary
+          : tertiary);
+  final notificationIndicator =
+      color('--tertiary-med-or-tertiary') ??
+      (brightness == Brightness.light
+          ? color('--tertiary-medium') ?? tertiary
+          : tertiary);
 
   final json = <String, dynamic>{
     'brightness': brightness.name,
@@ -337,6 +344,7 @@ ResolvedSitePalette? parseSiteAppearanceStylesheets(Iterable<String> sources) {
     'secondary': secondary.toARGB32(),
     'tertiary': tertiary.toARGB32(),
     'accentSubtle': accentSubtle.toARGB32(),
+    'notificationIndicator': notificationIndicator.toARGB32(),
     'borderRadius': ?length('--d-border-radius'),
     'avatarBorderRadius': _resolveAvatarBorderRadius(
       avatarDeclarations,
