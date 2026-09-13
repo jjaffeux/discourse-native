@@ -158,6 +158,15 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
       return true;
     }
 
+    if (const CharacterActivator('/').accepts(event, keyboard) &&
+        controller.rootMode == ShellRootMode.forum &&
+        (controller.currentContent?.isTopic == true ||
+            controller.currentContent?.isTopicList == true) &&
+        !_formControlHasFocus) {
+      controller.search.requestFocus();
+      return true;
+    }
+
     final usesMetaModifier = defaultTargetPlatform == TargetPlatform.macOS;
     final modifierPressed = usesMetaModifier
         ? keyboard.isMetaPressed

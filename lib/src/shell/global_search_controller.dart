@@ -285,15 +285,22 @@ class GlobalSearchController extends ChangeNotifier {
     _schedule();
   }
 
-  void setTopicContext(int? topicId) {
-    if (topicId != null && topicId < 2) return;
-    final next = conditionsFor(
-      GlobalSearchScope.forum,
-    ).where((item) => item.filterId != 'topicId').toList();
+  void setTopicContext(int? topicId, {bool selectForum = false}) {
+    if (_disposed || topicId != null && topicId < 2) return;
+    final previous = conditionsFor(GlobalSearchScope.forum);
+    final topics = previous.where((item) => item.filterId == 'topicId');
+    final nextScope = topicId != null || selectForum
+        ? GlobalSearchScope.forum
+        : scope;
+    final sameTopic = topicId == null
+        ? topics.isEmpty
+        : topics.length == 1 && topics.single.text == '$topicId';
+    if (scope == nextScope && sameTopic) return;
+    final next = previous.where((item) => item.filterId != 'topicId').toList();
     if (topicId != null) {
       next.add(GlobalSearchCondition(filterId: 'topicId', value: ['$topicId']));
-      _scope = GlobalSearchScope.forum;
     }
+    _scope = nextScope;
     _banks[GlobalSearchScope.forum] = List.unmodifiable(next);
     _schedule();
   }

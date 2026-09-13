@@ -53,7 +53,6 @@ class _ForumSearchState extends State<ForumSearch> {
   double? _layoutWidth;
   Size? _layoutViewport;
   String? _lastExternalQuery;
-  int? _lastTopicId;
   String? _selectedResultId;
 
   @override
@@ -72,7 +71,6 @@ class _ForumSearchState extends State<ForumSearch> {
     _search = shell.search;
     _global = shell.globalSearch;
     _lastExternalQuery = _search.query;
-    _lastTopicId = _search.topicId;
     _search.addListener(_searchChanged);
     _global.addListener(_globalChanged);
     shell.addListener(_siteChanged);
@@ -121,10 +119,6 @@ class _ForumSearchState extends State<ForumSearch> {
       _lastExternalQuery = _search.query;
       _global.setQuery(_search.query);
     }
-    if (_lastTopicId != _search.topicId) {
-      _lastTopicId = _search.topicId;
-      _global.setTopicContext(_search.topicId);
-    }
     _syncText();
     if (_syncScheduled) return;
     _syncScheduled = true;
@@ -171,7 +165,14 @@ class _ForumSearchState extends State<ForumSearch> {
   void _openSearch() {
     if (_search.siteUrl == null) return;
     _measureAnchor();
-    if (!_popover.isOpen) _popover.open(DPopoverInteraction.keyboard);
+    if (!_popover.isOpen) {
+      final route = _shell!.currentContent;
+      _global.setTopicContext(
+        route?.topicId,
+        selectForum: route?.isTopicList == true,
+      );
+      _popover.open(DPopoverInteraction.keyboard);
+    }
   }
 
   void _measureAnchor() {
@@ -212,7 +213,9 @@ class _ForumSearchState extends State<ForumSearch> {
       } else {
         _focus.unfocus();
       }
-      _suppressFocus = false;
+      // Focus requests apply in a microtask. Keep restoration suppressed until
+      // then, so Escape from a filter or scope button cannot reopen search.
+      scheduleMicrotask(() => _suppressFocus = false);
     });
   }
 

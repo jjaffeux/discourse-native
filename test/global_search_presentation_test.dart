@@ -1,4 +1,5 @@
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/shell/forum_search.dart';
 import 'package:discourse_native/src/shell/global_search_models.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
@@ -15,6 +16,131 @@ import 'support/global_search_fixtures.dart';
 import 'support/shell_test_harness.dart';
 
 void main() {
+  for (final keyboard in [false, true]) {
+    _testPresentation(
+      '${keyboard ? 'shortcut' : 'click'} search defaults to the open topic and clears it on a list',
+      (tester) async {
+        final api = GlobalSearchFixtureApi();
+        final shell = await _pumpSearch(tester, api: api);
+        shell.pushContent(
+          ContentRoute.topic(
+            topicId: 1038,
+            slug: 'a-calmer-search',
+            title: 'A calmer, more useful global search',
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        Future<void> open() async {
+          if (keyboard) {
+            await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
+            await tester.sendKeyEvent(LogicalKeyboardKey.keyF);
+            await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
+          } else {
+            await tester.tap(find.byKey(ForumSearch.inputKey));
+          }
+          await tester.pumpAndSettle();
+        }
+
+        await open();
+        expect(shell.globalSearch.scope, GlobalSearchScope.forum);
+        expect(shell.globalSearch.conditions.single.filterId, 'topicId');
+        expect(shell.globalSearch.conditions.single.text, '1038');
+        await tester.enterText(find.byKey(ForumSearch.inputKey), 'design');
+        await _finishSearch(tester);
+        expect(
+          api.requests
+              .lastWhere((r) => r.uri.path == '/search.json')
+              .uri
+              .queryParameters['q'],
+          'design topic:1038',
+        );
+
+        shell.globalSearch.clearConditions();
+        await _finishSearch(tester);
+        await open();
+        expect(shell.globalSearch.conditions, isEmpty);
+        shell.globalSearch.setScope(GlobalSearchScope.users);
+        await _finishSearch(tester);
+        await open();
+        expect(shell.globalSearch.scope, GlobalSearchScope.users);
+        await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+        await tester.pumpAndSettle();
+
+        await open();
+        expect(shell.globalSearch.scope, GlobalSearchScope.forum);
+        expect(shell.globalSearch.conditions.single.text, '1038');
+        await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+        await tester.pumpAndSettle();
+        shell.replaceCurrentContent(
+          ContentRoute.topic(
+            topicId: 1037,
+            slug: 'keyboard-search-focus',
+            title: 'Keyboard search focus after switching categories',
+          ),
+        );
+        await tester.pumpAndSettle();
+        await open();
+        expect(shell.globalSearch.conditions.single.text, '1037');
+        await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+        await tester.pumpAndSettle();
+        shell.handleBack(canReturnToSidebar: false);
+        await tester.pumpAndSettle();
+        expect(shell.currentContent?.isTopicList, isTrue);
+        await open();
+        await _finishSearch(tester);
+        expect(shell.globalSearch.scope, GlobalSearchScope.forum);
+        expect(shell.globalSearch.conditions, isEmpty);
+        expect(
+          api.requests
+              .lastWhere((r) => r.uri.path == '/search.json')
+              .uri
+              .queryParameters['q'],
+          'design',
+        );
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
+  _testPresentation(
+    'slash opens global search on a topic list and leaves typing to the editor',
+    (tester) async {
+      final shell = await _pumpSearch(tester);
+      expect(find.byKey(const ValueKey('topic-list-search')), findsNothing);
+      await tester.sendKeyEvent(LogicalKeyboardKey.slash, character: '/');
+      await tester.pumpAndSettle();
+      expect(find.byKey(ForumSearch.panelKey), findsOneWidget);
+      expect(shell.globalSearch.scope, GlobalSearchScope.forum);
+      expect(shell.globalSearch.conditions, isEmpty);
+      expect(_editor(tester).focusNode.hasFocus, isTrue);
+
+      shell.globalSearch.setScope(GlobalSearchScope.users);
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byKey(ForumSearch.inputKey), 'sam/');
+      await _finishSearch(tester);
+      expect(shell.globalSearch.query, 'sam/');
+      expect(shell.globalSearch.scope, GlobalSearchScope.users);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  _testPresentation(
+    'Escape from a search control restores the editor without reopening search',
+    (tester) async {
+      await _pumpSearch(tester);
+      await _openAndSearch(tester, 'design');
+      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+      await tester.pumpAndSettle();
+      expect(_editor(tester).focusNode.hasFocus, isFalse);
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+      expect(find.byKey(ForumSearch.panelKey), findsNothing);
+      expect(_editor(tester).focusNode.hasFocus, isTrue);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   _testPresentation(
     'desktop search replaces the field in place and retains editing state',
     (tester) async {
@@ -187,6 +313,8 @@ void main() {
     (tester) async {
       final shell = await _pumpSearch(tester);
       await _openAndSearch(tester, 'design');
+      await tester.tap(find.byKey(const ValueKey('global-search-scope-all')));
+      await _finishSearch(tester);
 
       expect(_panelText('A calmer, more useful global search'), findsWidgets);
       expect(_panelText('Mira Laurent'), findsWidgets);
@@ -460,13 +588,13 @@ void main() {
 Future<ShellController> _pumpSearch(
   WidgetTester tester, {
   Size size = desktop,
+  GlobalSearchFixtureApi? api,
 }) async {
-  final api = GlobalSearchFixtureApi();
   await pumpShell(
     tester,
     size,
     instances: globalSearchFixtureSites,
-    api: api,
+    api: api ?? GlobalSearchFixtureApi(),
     authenticator: FakeAuthenticator()
       ..keys.addAll({
         globalSearchFixtureSite: 'local-fixture',

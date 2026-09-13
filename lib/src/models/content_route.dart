@@ -592,7 +592,7 @@ class ContentRoute {
     } else {
       throw const FormatException('Invalid content badge route');
     }
-    return ContentRoute(
+    final route = ContentRoute(
       id: id,
       title: title,
       // Upgrade the speech bubble saved by older topic tabs without changing
@@ -612,6 +612,18 @@ class ContentRoute {
       groupRoute: groupRoute,
       badgeRoute: badgeRoute,
     );
+    // The removed list-search field stored its query in the feed URL. Restore
+    // those lists without an invisible filter, retaining their durable IDs so
+    // tab history and viewport anchors still refer to the same routes.
+    if (!route.isTopicList || feedPath == null) return route;
+    final uri = Uri.parse(feedPath);
+    if (!uri.queryParametersAll.containsKey('search')) return route;
+    final query = {...uri.queryParametersAll}..remove('search');
+    final path = Uri(
+      path: uri.path,
+      queryParameters: query.isEmpty ? null : query,
+    ).toString();
+    return route._withFeedPath(path);
   }
 
   static bool _isSafeFeedPath(Object? value) {

@@ -7,6 +7,17 @@ outside closes search without moving focus back. Touch phone layouts use the
 available screen with a Back button. The existing Cmd/Ctrl+F shortcut and topic
 search context remain available.
 
+Opening search on a topic selects Topics & posts and adds that topic's filter.
+Opening it from a topic list selects Topics & posts and clears the previous
+topic filter. These defaults apply once per opening; users can remove the topic
+filter or switch scopes while search is open. Clicking the navbar field and
+using Cmd/Ctrl+F share the same context. The separate topic-list search field
+has been removed, and `/` opens global search from topic pages and topic lists
+when an editor or other form control does not own the keyboard.
+Saved topic-list routes drop the old field's search parameter on restoration,
+so a removed control cannot leave the list invisibly filtered. Other filters
+and tab-history anchors are retained.
+
 On a narrow desktop, the results surface grows beyond the navbar field to use
 the available width. The input, clear action and caret keep their original
 coordinates inside that larger header. Short windows reduce the results area's
@@ -81,6 +92,22 @@ Acceptance on 2026-09-13:
 - The HTML mockup's inline JavaScript passed `node --check`. Browser rendering
   was unavailable under the browser access policy; native review is recorded
   separately above.
+
+### Contextual opening follow-up
+
+The contextual opening change passed 16 presentation cases covering mouse and
+keyboard opening, changing topics, returning to lists, manual scope changes,
+and Escape focus restoration. Native macOS review covered the removed list
+field in dark/wide and light/narrow layouts, the topic condition, returning to
+the list, and dismissal after changing scope. The offline fixture does not
+provide topic bodies; opening context was verified from its route and request.
+
+After incorporating the concurrently merged compact control sizing, the 95
+focused presentation, accessibility, navigation and restored-route cases
+passed, with the inherited size assertions updated to the shared control scale.
+Root and `profiles/full` analysis passed. Four unrelated keyboard-navigation
+failures also reproduced identically on the unchanged `71c94832` baseline
+(selected-row borders, split-view scrolling, and resuming J/K after dialogs).
 
 ### Slow forum search follow-up
 
