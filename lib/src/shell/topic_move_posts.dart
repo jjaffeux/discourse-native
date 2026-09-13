@@ -185,21 +185,24 @@ class _TopicMovePostsDialogState extends State<_TopicMovePostsDialog> {
           children: [
             Text('Move $count selected ${count == 1 ? 'post' : 'posts'}.'),
             const SizedBox(height: 12),
-            SegmentedButton<_MoveMode>(
+            DToggleGroup<_MoveMode>(
               key: const ValueKey('topic-move-posts-mode'),
-              segments: [
+              items: [
                 if (_canCreateNew)
-                  const ButtonSegment(
+                  const DToggleGroupItem(
                     value: _MoveMode.newTopic,
-                    label: Text('New topic'),
+                    child: Text('New topic'),
                   ),
-                const ButtonSegment(
+                const DToggleGroupItem(
                   value: _MoveMode.existingTopic,
-                  label: Text('Existing topic'),
+                  child: Text('Existing topic'),
                 ),
               ],
-              selected: {_mode},
-              onSelectionChanged: _saving
+              values: [_mode],
+              allowEmptySelection: false,
+              variant: DToggleVariant.outline,
+              spacing: 0,
+              onChanged: _saving
                   ? null
                   : (selection) => setState(() {
                       _mode = selection.single;
@@ -253,18 +256,22 @@ class _TopicMovePostsDialogState extends State<_TopicMovePostsDialog> {
         labelText: 'Topic title',
       ),
       const SizedBox(height: 16),
-      DropdownButtonFormField<int?>(
+      DSelect<int>.controlled(
         key: const ValueKey('topic-move-posts-category'),
-        initialValue: _categoryId,
-        decoration: const InputDecoration(
-          labelText: 'Category',
-          border: OutlineInputBorder(),
-        ),
-        items: [
-          const DropdownMenuItem(value: null, child: Text('Default category')),
+        value: _categoryId,
+        label: const Text('Category'),
+        isExpanded: true,
+        enabled: !_saving,
+        entries: [
+          const DSelectItem<int>(
+            value: null,
+            textValue: 'Default category',
+            child: Text('Default category'),
+          ),
           for (final category in widget.categories)
-            DropdownMenuItem(
+            DSelectItem(
               value: category.id,
+              textValue: category.name,
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [

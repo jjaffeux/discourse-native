@@ -1,8 +1,8 @@
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
 
-import '../../discourse_ui.dart';
 import '../theme/app_theme.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
@@ -478,20 +478,12 @@ class _FilterableChoiceRowsState<T> extends State<_FilterableChoiceRows<T>> {
                 ),
                 suffixIcon: _query.isEmpty
                     ? null
-                    : DTooltip(
-                        message: 'Clear filter',
-                        labelTrigger: true,
-                        child: IconButton(
-                          key: const ValueKey('choice-menu-filter-clear'),
-                          padding: EdgeInsets.zero,
-                          constraints: const BoxConstraints(minWidth: 42),
-                          style: IconButton.styleFrom(
-                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                          ),
-                          onPressed: _clearFilter,
-                          icon: const DIcon(DIcons.xmark, size: 16),
-                          tooltip: '',
-                        ),
+                    : DButton.iconOnly(
+                        key: const ValueKey('choice-menu-filter-clear'),
+                        onPressed: _clearFilter,
+                        variant: DButtonVariant.ghost,
+                        tooltip: 'Clear filter',
+                        icon: const DIcon(DIcons.xmark),
                       ),
                 suffixIconConstraints: const BoxConstraints(
                   minWidth: 42,

@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
 import 'src/models/composer_upload.dart';
@@ -9,7 +10,6 @@ import 'src/shell/composer_controller.dart';
 import 'src/shell/composer_panel.dart';
 import 'src/styleguide/examples/attachment_examples.dart';
 import 'src/theme/app_theme.dart';
-import 'src/ui/foundation/tokens.dart';
 
 void main() => runApp(const AttachmentReviewApp());
 
@@ -46,40 +46,46 @@ class _AttachmentReviewAppState extends State<AttachmentReviewApp> {
             appBar: AppBar(
               title: const Text('Attachment source review'),
               actions: [
-                IconButton(
-                  tooltip: dark ? 'Use light theme' : 'Use dark theme',
+                DButton.iconOnly(
                   onPressed: () => setState(() => dark = !dark),
+                  variant: DButtonVariant.ghost,
+                  tooltip: dark ? 'Use light theme' : 'Use dark theme',
                   icon: Icon(dark ? Icons.light_mode : Icons.dark_mode),
                 ),
-                IconButton(
+                DButton.iconOnly(
+                  onPressed: () =>
+                      setState(() => customPalette = !customPalette),
+                  variant: DButtonVariant.ghost,
                   tooltip: customPalette
                       ? 'Use default palette'
                       : 'Use custom palette and radius',
-                  onPressed: () =>
-                      setState(() => customPalette = !customPalette),
                   icon: const Icon(Icons.palette_outlined),
                 ),
-                IconButton(
-                  tooltip: rtl ? 'Use left-to-right' : 'Use right-to-left',
+                DButton.iconOnly(
                   onPressed: () => setState(() => rtl = !rtl),
+                  variant: DButtonVariant.ghost,
+                  tooltip: rtl ? 'Use left-to-right' : 'Use right-to-left',
                   icon: const Icon(Icons.format_textdirection_r_to_l),
                 ),
-                IconButton(
-                  tooltip: largeText ? 'Use 100% text' : 'Use 200% text',
+                DButton.iconOnly(
                   onPressed: () => setState(() => largeText = !largeText),
+                  variant: DButtonVariant.ghost,
+                  tooltip: largeText ? 'Use 100% text' : 'Use 200% text',
                   icon: const Icon(Icons.text_increase),
                 ),
-                IconButton(
+                DButton.iconOnly(
+                  onPressed: () =>
+                      setState(() => reducedMotion = !reducedMotion),
+                  variant: DButtonVariant.ghost,
                   tooltip: reducedMotion
                       ? 'Use standard motion'
                       : 'Use reduced motion',
-                  onPressed: () =>
-                      setState(() => reducedMotion = !reducedMotion),
                   icon: const Icon(Icons.motion_photos_off_outlined),
                 ),
-                IconButton(
-                  tooltip: narrow ? 'Use wide canvas' : 'Use narrow canvas',
+                DButton.iconOnly(
                   onPressed: () => setState(() => narrow = !narrow),
+                  variant: DButtonVariant.ghost,
+                  tooltip: narrow ? 'Use wide canvas' : 'Use narrow canvas',
                   icon: const Icon(Icons.width_normal),
                 ),
               ],
@@ -231,25 +237,28 @@ class _ProductionUploadFixtureState extends State<_ProductionUploadFixture> {
         spacing: 8,
         runSpacing: 8,
         children: [
-          OutlinedButton(
+          DButton(
             onPressed: composer.uploads.isEmpty ? _newUpload : null,
-            child: const Text('New local upload'),
+            variant: DButtonVariant.outline,
+            label: const Text('New local upload'),
           ),
-          OutlinedButton(
+          DButton(
             onPressed: calls.isNotEmpty && !calls.last.result.isCompleted
                 ? () => calls.last.onProgress(.64)
                 : null,
-            child: const Text('64% progress'),
+            variant: DButtonVariant.outline,
+            label: const Text('64% progress'),
           ),
-          OutlinedButton(
+          DButton(
             onPressed: calls.isNotEmpty && !calls.last.result.isCompleted
                 ? () => calls.last.result.completeError(
                     const ComposerUploadException('Upload failed. Try again.'),
                   )
                 : null,
-            child: const Text('Fail upload'),
+            variant: DButtonVariant.outline,
+            label: const Text('Fail upload'),
           ),
-          OutlinedButton(
+          DButton(
             onPressed: calls.isNotEmpty && !calls.last.result.isCompleted
                 ? () => calls.last.result.complete(
                     const ComposerUploadResult(
@@ -260,7 +269,8 @@ class _ProductionUploadFixtureState extends State<_ProductionUploadFixture> {
                     ),
                   )
                 : null,
-            child: const Text('Complete upload'),
+            variant: DButtonVariant.outline,
+            label: const Text('Complete upload'),
           ),
         ],
       ),

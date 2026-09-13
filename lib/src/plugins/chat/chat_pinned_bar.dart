@@ -232,14 +232,11 @@ class _ChatPinnedBarState extends State<ChatPinnedBar> {
                       Stack(
                         clipBehavior: Clip.none,
                         children: [
-                          DTooltip(
-                            message: 'Pinned messages',
-                            labelTrigger: true,
-                            child: IconButton(
-                              tooltip: '',
-                              onPressed: () => unawaited(_showAll(ordered)),
-                              icon: const DIcon(DIcons.list, size: 16),
-                            ),
+                          DButton.iconOnly(
+                            onPressed: () => unawaited(_showAll(ordered)),
+                            variant: DButtonVariant.ghost,
+                            tooltip: 'Pinned messages',
+                            icon: const DIcon(DIcons.list),
                           ),
                           if (widget.channel.membership.hasUnseenPins)
                             PositionedDirectional(

@@ -1,8 +1,8 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
-import '../../../discourse_ui.dart';
 import '../../models/topic.dart';
 import '../../plugin_api/plugin_scope.dart';
 import '../../shell/avatar_image.dart';
@@ -721,20 +721,17 @@ class _AssignedQueryControls extends StatelessWidget {
       ),
       initialValue: query.order,
     );
-    final direction = DTooltip(
-      message: query.ascending ? 'Descending' : 'Ascending',
-      labelTrigger: true,
-      child: IconButton(
-        tooltip: '',
-        onPressed: () => onQueryChanged(
-          AssignedGroupTopicQuery(
-            order: query.order,
-            ascending: !query.ascending,
-            search: query.search,
-          ),
+    final direction = DButton.iconOnly(
+      onPressed: () => onQueryChanged(
+        AssignedGroupTopicQuery(
+          order: query.order,
+          ascending: !query.ascending,
+          search: query.search,
         ),
-        icon: Icon(query.ascending ? Icons.arrow_upward : Icons.arrow_downward),
       ),
+      variant: DButtonVariant.ghost,
+      tooltip: query.ascending ? 'Descending' : 'Ascending',
+      icon: Icon(query.ascending ? Icons.arrow_upward : Icons.arrow_downward),
     );
 
     return FocusTraversalGroup(

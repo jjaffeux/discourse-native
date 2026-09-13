@@ -1,9 +1,9 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../../discourse_ui.dart';
 import '../models/bookmark.dart';
 import '../models/post.dart';
 import '../models/post_flag.dart';
@@ -51,7 +51,7 @@ enum _PostActionsHoverTarget { post, toolbar }
 class _PostActionsState extends State<PostActions> {
   static const double _inset = 8;
 
-  final MenuController _menu = MenuController();
+  final DDropdownMenuController _menu = DDropdownMenuController();
   final OverlayPortalController _portal = OverlayPortalController();
   final FocusNode _firstActionFocus = FocusNode(
     debugLabel: 'First post action',
@@ -672,6 +672,7 @@ class _PostActionsState extends State<PostActions> {
 
   @override
   void dispose() {
+    _menu.dispose();
     _detachScroll();
     _anchor.dispose();
     _firstActionFocus.dispose();
@@ -884,57 +885,66 @@ class _PostActionsMenu extends StatelessWidget {
               ),
             ),
           if (collapse)
-            MenuAnchor(
-              alignmentOffset: const Offset(0, 4),
-              onOpen: () => onOverflowChanged(true),
-              onClose: () => onOverflowChanged(false),
-              style: MenuStyle(
-                backgroundColor: WidgetStatePropertyAll(theme.shell.floating),
-                surfaceTintColor: const WidgetStatePropertyAll(
-                  Colors.transparent,
+            Semantics(
+              container: true,
+              explicitChildNodes: true,
+              child: DDropdownMenu(
+                onOpenChange: (open, reason) {
+                  if (open) {
+                    onOverflowChanged(true);
+                  }
+                  if (!open) {
+                    onOverflowChanged(false);
+                  }
+                },
+                content: DDropdownMenuContent(
+                  semanticLabel: 'Actions',
+                  width: 300,
+                  constraints: const BoxConstraints(maxHeight: 440),
+                  children: [
+                    for (final (index, action) in overflowActions.indexed) ...[
+                      if (action.destructive &&
+                          !overflowActions
+                              .take(index)
+                              .any((candidate) => candidate.destructive))
+                        const DSeparator(space: 1),
+                      Builder(
+                        builder: (buttonContext) => DDropdownMenuItem(
+                          onPressed: action.enabled
+                              ? () => onInvoke(action, buttonContext)
+                              : null,
+                          leading: action.leading(
+                            context,
+                            size: 16,
+                            color:
+                                action.tint ??
+                                (action.destructive
+                                    ? theme.colorScheme.error
+                                    : null),
+                          ),
+                          variant: action.destructive
+                              ? DDropdownMenuItemVariant.destructive
+                              : DDropdownMenuItemVariant.standard,
+                          child: Text(action.label),
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
-                maximumSize: const WidgetStatePropertyAll(Size(300, 440)),
-              ),
-              menuChildren: [
-                for (final (index, action) in overflowActions.indexed) ...[
-                  if (action.destructive &&
-                      !overflowActions
-                          .take(index)
-                          .any((candidate) => candidate.destructive))
-                    const DSeparator(space: 1),
-                  Builder(
-                    builder: (buttonContext) => MenuItemButton(
-                      onPressed: action.enabled
-                          ? () => onInvoke(action, buttonContext)
-                          : null,
-                      leadingIcon: action.leading(
-                        context,
-                        size: 16,
-                        color:
-                            action.tint ??
-                            (action.destructive
-                                ? theme.colorScheme.error
-                                : null),
-                      ),
-                      style: ButtonStyle(
-                        foregroundColor: action.destructive
-                            ? WidgetStatePropertyAll(theme.colorScheme.error)
-                            : null,
-                        iconColor: action.destructive
-                            ? WidgetStatePropertyAll(theme.colorScheme.error)
-                            : null,
-                      ),
-                      child: Text(action.label),
-                    ),
+                child: DDropdownMenuTrigger(
+                  focusNode: leadingActions.isEmpty ? firstActionFocus : null,
+                  builder: (triggerContext, state) => DButton.iconOnly(
+                    focusNode: state.focusNode,
+                    hasPopup: true,
+                    expanded: state.open,
+                    variant: DButtonVariant.ghost,
+                    key: const ValueKey('post-actions-overflow'),
+
+                    tooltip: 'More actions',
+                    onPressed: state.toggle,
+                    icon: const DIcon(DIcons.ellipsis, size: 16),
                   ),
-                ],
-              ],
-              builder: (context, menu, child) => HoverActionButton(
-                key: const ValueKey('post-actions-overflow'),
-                focusNode: leadingActions.isEmpty ? firstActionFocus : null,
-                tooltip: 'More actions',
-                onPressed: menu.isOpen ? menu.close : menu.open,
-                icon: const DIcon(DIcons.ellipsis, size: 16),
+                ),
               ),
             ),
           for (final (index, action) in trailingActions.indexed)
@@ -971,7 +981,7 @@ class _PostActionsScope extends InheritedWidget {
     required super.child,
   });
   final List<PostAction> actions;
-  final MenuController menu;
+  final DDropdownMenuController menu;
   final FocusNode firstFocus;
   final void Function(PostAction, BuildContext) onInvoke;
   final int postNumber;
@@ -1063,44 +1073,62 @@ class PostMoreActionsButton extends StatelessWidget {
         .where((action) => action.placement != PostActionPlacement.trailing)
         .toList(growable: false);
     if (actions.isEmpty) return const SizedBox.shrink();
-    return MenuAnchor(
-      controller: scope.menu,
-      onOpen: () => WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (context.mounted && scope.menu.isOpen) {
-          scope.firstFocus.requestFocus();
-        }
-      }),
-      menuChildren: [
-        for (final action in actions)
-          MenuItemButton(
-            focusNode:
-                identical(
-                  action,
-                  actions.where((item) => item.enabled).firstOrNull,
-                )
-                ? scope.firstFocus
-                : null,
-            leadingIcon: DIcon(
-              action.icon,
-              size: 16,
-              color: action.destructive
-                  ? Theme.of(context).colorScheme.error
-                  : action.tint,
-            ),
-            onPressed: action.enabled
-                ? () => scope.onInvoke(action, context)
-                : null,
-            child: Text(action.label),
+    return Semantics(
+      container: true,
+      explicitChildNodes: true,
+      child: DDropdownMenu(
+        controller: scope.menu,
+        onOpenChange: (open, reason) {
+          if (open) {
+            (() => WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (context.mounted && scope.menu.isOpen) {
+                scope.firstFocus.requestFocus();
+              }
+            }))();
+          }
+        },
+        content: DDropdownMenuContent(
+          semanticLabel: 'Actions',
+          width: 300,
+          constraints: const BoxConstraints(maxHeight: 440),
+          children: [
+            for (final action in actions)
+              DDropdownMenuItem(
+                focusNode:
+                    identical(
+                      action,
+                      actions.where((item) => item.enabled).firstOrNull,
+                    )
+                    ? scope.firstFocus
+                    : null,
+                onPressed: action.enabled
+                    ? () => scope.onInvoke(action, context)
+                    : null,
+                leading: DIcon(
+                  action.icon,
+                  size: 16,
+                  color: action.destructive
+                      ? Theme.of(context).colorScheme.error
+                      : action.tint,
+                ),
+                child: Text(action.label),
+              ),
+          ],
+        ),
+        child: DDropdownMenuTrigger(
+          builder: (triggerContext, state) => DButton.iconOnly(
+            focusNode: state.focusNode,
+            hasPopup: true,
+            expanded: state.open,
+            key: ValueKey('post-more-actions-${scope.postNumber}'),
+            icon: const DIcon(DIcons.ellipsis),
+            tooltip: 'More actions for post ${scope.postNumber}',
+            semanticLabel: 'More actions for post ${scope.postNumber}',
+            variant: DButtonVariant.ghost,
+            size: DButtonSize.small,
+            onPressed: state.toggle,
           ),
-      ],
-      builder: (context, menu, _) => DButton.iconOnly(
-        key: ValueKey('post-more-actions-${scope.postNumber}'),
-        icon: const DIcon(DIcons.ellipsis),
-        tooltip: 'More actions for post ${scope.postNumber}',
-        semanticLabel: 'More actions for post ${scope.postNumber}',
-        variant: DButtonVariant.ghost,
-        size: DButtonSize.small,
-        onPressed: () => menu.isOpen ? menu.close() : menu.open(),
+        ),
       ),
     );
   }

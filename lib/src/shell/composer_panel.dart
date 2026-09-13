@@ -2153,29 +2153,17 @@ class _SelectionFormattingMenu extends StatelessWidget {
                   (ComposerMark.bold, DIcons.bold, 'Bold'),
                   (ComposerMark.italic, DIcons.italic, 'Italic'),
                 ])
-                  DTooltip(
-                    message: label,
-                    labelTrigger: true,
-                    child: IconButton(
-                      onPressed: composer.isEditing
-                          ? () {
-                              if (!composer.isEditing) return;
-                              composer.toggleMark(mark);
-                              composer.focus.requestFocus();
-                            }
-                          : null,
-                      icon: DIcon(icon, size: 18),
-                      tooltip: '',
-                      constraints: const BoxConstraints.tightFor(
-                        width: 44,
-                        height: 44,
-                      ),
-                      style: const ButtonStyle(
-                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                        visualDensity: VisualDensity.standard,
-                      ),
-                      color: theme.colorScheme.onSurface,
-                    ),
+                  DButton.iconOnly(
+                    onPressed: composer.isEditing
+                        ? () {
+                            if (!composer.isEditing) return;
+                            composer.toggleMark(mark);
+                            composer.focus.requestFocus();
+                          }
+                        : null,
+                    variant: DButtonVariant.ghost,
+                    tooltip: label,
+                    icon: DIcon(icon),
                   ),
               ],
             ),
@@ -2230,54 +2218,30 @@ class _ImageComposerMenu extends StatelessWidget {
                 Row(
                   children: [
                     if (gallery == null) ...[
-                      DTooltip(
-                        message: 'Decrease image size',
-                        labelTrigger: true,
-                        child: IconButton(
-                          onPressed: scaleIndex > 0
-                              ? () => onScale(scales[scaleIndex - 1])
-                              : null,
-                          icon: const Icon(Icons.zoom_out, size: 18),
-                          tooltip: '',
-                          visualDensity: VisualDensity.compact,
-                          constraints: const BoxConstraints.tightFor(
-                            width: 44,
-                            height: 44,
-                          ),
-                        ),
+                      DButton.iconOnly(
+                        onPressed: scaleIndex > 0
+                            ? () => onScale(scales[scaleIndex - 1])
+                            : null,
+                        variant: DButtonVariant.ghost,
+                        tooltip: 'Decrease image size',
+                        icon: const Icon(Icons.zoom_out),
                       ),
                       Text('$scale%', style: theme.textTheme.labelMedium),
-                      DTooltip(
-                        message: 'Increase image size',
-                        labelTrigger: true,
-                        child: IconButton(
-                          onPressed: scaleIndex < scales.length - 1
-                              ? () => onScale(scales[scaleIndex + 1])
-                              : null,
-                          icon: const Icon(Icons.zoom_in, size: 18),
-                          tooltip: '',
-                          visualDensity: VisualDensity.compact,
-                          constraints: const BoxConstraints.tightFor(
-                            width: 44,
-                            height: 44,
-                          ),
-                        ),
+                      DButton.iconOnly(
+                        onPressed: scaleIndex < scales.length - 1
+                            ? () => onScale(scales[scaleIndex + 1])
+                            : null,
+                        variant: DButtonVariant.ghost,
+                        tooltip: 'Increase image size',
+                        icon: const Icon(Icons.zoom_in),
                       ),
                     ],
                     const Spacer(),
-                    DTooltip(
-                      message: 'Delete image',
-                      labelTrigger: true,
-                      child: IconButton(
-                        onPressed: onDelete,
-                        icon: const Icon(Icons.delete_outline, size: 18),
-                        tooltip: '',
-                        visualDensity: VisualDensity.compact,
-                        constraints: const BoxConstraints.tightFor(
-                          width: 44,
-                          height: 44,
-                        ),
-                      ),
+                    DButton.iconOnly(
+                      onPressed: onDelete,
+                      variant: DButtonVariant.ghost,
+                      tooltip: 'Delete image',
+                      icon: const Icon(Icons.delete_outline),
                     ),
                   ],
                 ),
@@ -2295,19 +2259,11 @@ class _ImageComposerMenu extends StatelessWidget {
                         width: 44,
                         height: 44,
                       ),
-                      suffixIcon: DTooltip(
-                        message: 'Save alt text',
-                        labelTrigger: true,
-                        child: IconButton(
-                          onPressed: onSaveAlt,
-                          tooltip: '',
-                          icon: const Icon(Icons.check, size: 16),
-                          constraints: const BoxConstraints.tightFor(
-                            width: 44,
-                            height: 44,
-                          ),
-                          padding: EdgeInsets.zero,
-                        ),
+                      suffixIcon: DButton.iconOnly(
+                        onPressed: onSaveAlt,
+                        variant: DButtonVariant.ghost,
+                        tooltip: 'Save alt text',
+                        icon: const Icon(Icons.check),
                       ),
                     ),
                   ),
@@ -2400,77 +2356,77 @@ class _GalleryComposerMenu extends StatelessWidget {
                         ),
                       ],
                     ),
-                    DTooltip(
-                      message: 'Add images to gallery',
-                      labelTrigger: true,
-                      child: PopupMenuButton<_GalleryAddChoice>(
-                        enabled: !pickingImages,
-                        tooltip: '',
-                        padding: EdgeInsets.zero,
-                        style: const ButtonStyle(
-                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                          visualDensity: VisualDensity.standard,
-                          fixedSize: WidgetStatePropertyAll(
-                            Size.square(
-                              _ComposerEditorState._galleryMenuButtonExtent,
-                            ),
-                          ),
-                        ),
-                        icon: pickingImages
-                            ? const SizedBox.square(
-                                dimension: 18,
-                                child: DSpinner(),
-                              )
-                            : const Icon(
-                                Icons.add_photo_alternate_outlined,
-                                size: 18,
-                              ),
-                        onSelected: (choice) {
+                    Builder(
+                      builder: (menuContext) {
+                        void onSelect(Object? choice) {
                           switch (choice) {
                             case _GalleryAddChoice.upload:
                               onUploadImages();
                             case _GalleryAddChoice.existing:
                               onAddExistingImages();
                           }
-                        },
-                        itemBuilder: (context) => [
-                          PopupMenuItem(
-                            value: _GalleryAddChoice.upload,
-                            enabled: canUpload,
-                            child: const ListTile(
-                              contentPadding: EdgeInsets.zero,
-                              leading: Icon(Icons.upload_outlined),
-                              title: Text('Upload new images'),
+                        }
+
+                        return Semantics(
+                          container: true,
+                          explicitChildNodes: true,
+                          child: DDropdownMenu(
+                            content: DDropdownMenuContent(
+                              semanticLabel: 'Add images to gallery',
+                              width: 280,
+                              children: [
+                                DDropdownMenuItem(
+                                  onPressed: canUpload
+                                      ? () => onSelect(_GalleryAddChoice.upload)
+                                      : null,
+                                  leading: const Icon(Icons.upload_outlined),
+                                  child: const Text('Upload new images'),
+                                ),
+                                DDropdownMenuItem(
+                                  onPressed: hasStandaloneImages
+                                      ? () =>
+                                            onSelect(_GalleryAddChoice.existing)
+                                      : null,
+                                  leading: const Icon(
+                                    Icons.photo_library_outlined,
+                                  ),
+                                  child: const Text(
+                                    'Add existing draft images',
+                                  ),
+                                ),
+                              ],
+                            ),
+                            child: DDropdownMenuTrigger(
+                              builder: (triggerContext, state) =>
+                                  DButton.iconOnly(
+                                    tooltip: 'Add images to gallery',
+                                    variant: DButtonVariant.ghost,
+                                    icon: pickingImages
+                                        ? const SizedBox.square(
+                                            dimension: 18,
+                                            child: DSpinner(),
+                                          )
+                                        : const Icon(
+                                            Icons.add_photo_alternate_outlined,
+                                            size: 18,
+                                          ),
+                                    focusNode: state.focusNode,
+                                    hasPopup: true,
+                                    expanded: state.open,
+                                    onPressed: !pickingImages
+                                        ? state.toggle
+                                        : null,
+                                  ),
                             ),
                           ),
-                          PopupMenuItem(
-                            value: _GalleryAddChoice.existing,
-                            enabled: hasStandaloneImages,
-                            child: const ListTile(
-                              contentPadding: EdgeInsets.zero,
-                              leading: Icon(Icons.photo_library_outlined),
-                              title: Text('Add existing draft images'),
-                            ),
-                          ),
-                        ],
-                      ),
+                        );
+                      },
                     ),
-                    DTooltip(
-                      message: 'Remove gallery, keep images',
-                      labelTrigger: true,
-                      child: IconButton(
-                        onPressed: onUnwrap,
-                        icon: const Icon(Icons.grid_off_outlined, size: 18),
-                        tooltip: '',
-                        constraints: const BoxConstraints.tightFor(
-                          width: _ComposerEditorState._galleryMenuButtonExtent,
-                          height: _ComposerEditorState._galleryMenuButtonExtent,
-                        ),
-                        style: const ButtonStyle(
-                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                          visualDensity: VisualDensity.standard,
-                        ),
-                      ),
+                    DButton.iconOnly(
+                      onPressed: onUnwrap,
+                      variant: DButtonVariant.ghost,
+                      tooltip: 'Remove gallery, keep images',
+                      icon: const Icon(Icons.grid_off_outlined),
                     ),
                   ],
                 ),

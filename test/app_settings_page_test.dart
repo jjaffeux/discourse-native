@@ -45,20 +45,20 @@ void main() {
     );
     expect(find.textContaining('Save'), findsNothing);
 
-    var segmented = tester.widget<SegmentedButton<ContentAlignment>>(
+    var segmented = tester.widget<DToggleGroup<ContentAlignment>>(
       find.byKey(const ValueKey('content-alignment-segmented-button')),
     );
-    expect(segmented.selected, {ContentAlignment.center});
+    expect(segmented.values, [ContentAlignment.center]);
 
     await tester.tap(find.text('Left'));
     await tester.pump();
 
     expect(controller.appSettings.contentAlignment, ContentAlignment.left);
     expect(persistence.contentAlignment, 'left');
-    segmented = tester.widget<SegmentedButton<ContentAlignment>>(
+    segmented = tester.widget<DToggleGroup<ContentAlignment>>(
       find.byKey(const ValueKey('content-alignment-segmented-button')),
     );
-    expect(segmented.selected, {ContentAlignment.left});
+    expect(segmented.values, [ContentAlignment.left]);
 
     await tester.tap(find.byKey(const ValueKey('text-size-increase')));
     await tester.pump();

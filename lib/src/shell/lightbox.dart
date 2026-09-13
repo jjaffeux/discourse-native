@@ -960,19 +960,12 @@ class _Button extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return DTooltip(
-      message: tooltip,
-      labelTrigger: true,
-      child: IconButton.filled(
-        onPressed: onTap,
-        tooltip: '',
-        style: IconButton.styleFrom(
-          backgroundColor: const Color(0xBB000000),
-          foregroundColor: Colors.white,
-          disabledForegroundColor: Colors.white38,
-        ),
-        icon: DIcon(icon, size: 18),
-      ),
+    return DButton.iconOnly(
+      onPressed: onTap,
+      variant: DButtonVariant.secondary,
+      size: DButtonSize.large,
+      tooltip: tooltip,
+      icon: DIcon(icon),
     );
   }
 }
@@ -994,12 +987,12 @@ class _Arrow extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 12),
       child: Opacity(
         opacity: enabled ? 1 : 0.25,
-        child: IconButton(
+        child: DButton.iconOnly(
           onPressed: enabled ? onTap : null,
-          icon: DIcon(icon, size: 20, color: Colors.white),
-          style: IconButton.styleFrom(
-            backgroundColor: Colors.black.withValues(alpha: 0.4),
-          ),
+          variant: DButtonVariant.secondary,
+          size: DButtonSize.large,
+          tooltip: icon == DIcons.chevronLeft ? 'Previous image' : 'Next image',
+          icon: DIcon(icon),
         ),
       ),
     );

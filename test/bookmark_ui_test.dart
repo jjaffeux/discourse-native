@@ -59,7 +59,7 @@ void main() {
 
       await tester.tap(find.byKey(const ValueKey('post-more-actions-2')));
       await tester.pumpAndSettle();
-      expect(find.widgetWithText(MenuItemButton, 'Bookmark'), findsNothing);
+      expect(find.widgetWithText(DDropdownMenuItem, 'Bookmark'), findsNothing);
       await tester.tap(find.byKey(const ValueKey('post-more-actions-2')));
       await tester.pumpAndSettle();
       await tester.tap(find.byTooltip('Bookmark this post'));
@@ -156,7 +156,10 @@ void main() {
     );
     await tester.tap(find.byKey(const ValueKey('post-more-actions-2')));
     await tester.pumpAndSettle();
-    expect(find.widgetWithText(MenuItemButton, 'Edit bookmark'), findsNothing);
+    expect(
+      find.widgetWithText(DDropdownMenuItem, 'Edit bookmark'),
+      findsNothing,
+    );
   });
 
   testWidgets('editor prefill is local and cancel discards it', (tester) async {

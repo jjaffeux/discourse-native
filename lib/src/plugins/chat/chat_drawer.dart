@@ -821,7 +821,7 @@ class _DrawerHeaderOverflowMenu extends StatefulWidget {
 }
 
 class _DrawerHeaderOverflowMenuState extends State<_DrawerHeaderOverflowMenu> {
-  final MenuController _controller = MenuController();
+  final DDropdownMenuController _controller = DDropdownMenuController();
 
   @override
   void initState() {
@@ -842,6 +842,7 @@ class _DrawerHeaderOverflowMenuState extends State<_DrawerHeaderOverflowMenu> {
   @override
   void dispose() {
     HardwareKeyboard.instance.removeHandler(_handleKeyboard);
+    _controller.dispose();
     super.dispose();
   }
 
@@ -852,48 +853,68 @@ class _DrawerHeaderOverflowMenuState extends State<_DrawerHeaderOverflowMenu> {
   }
 
   @override
-  Widget build(BuildContext context) => MenuAnchor(
-    controller: _controller,
-    menuChildren: [
-      for (final action in widget.actions)
-        Focus(
-          onKeyEvent: (_, event) {
-            if (event is KeyDownEvent &&
-                event.logicalKey == LogicalKeyboardKey.escape) {
-              _controller.close();
-              return KeyEventResult.handled;
-            }
-            if (action is! ChatDrawerNestedMenuAction &&
-                event is KeyDownEvent &&
-                (event.logicalKey == LogicalKeyboardKey.enter ||
-                    event.logicalKey == LogicalKeyboardKey.space)) {
-              _closeAfterActivation();
-            }
-            return KeyEventResult.ignored;
-          },
-          child: Listener(
-            onPointerUp: action is ChatDrawerNestedMenuAction
-                ? null
-                : (_) => _closeAfterActivation(),
-            child: Align(
-              alignment: AlignmentDirectional.centerStart,
-              child: ChatDrawerOverflowActionScope(
-                closeOverflow: _controller.close,
-                child: action,
+  Widget build(BuildContext context) => Semantics(
+    container: true,
+    explicitChildNodes: true,
+    child: DDropdownMenu(
+      controller: _controller,
+      onOpenChange: (open, reason) {
+        if (open) {
+          widget.onOpenChanged(true);
+        }
+        if (!open) {
+          widget.onOpenChanged(false);
+        }
+      },
+      content: DDropdownMenuContent(
+        semanticLabel: 'Actions',
+        width: 300,
+        constraints: const BoxConstraints(maxHeight: 440),
+        children: [
+          for (final action in widget.actions)
+            Focus(
+              onKeyEvent: (_, event) {
+                if (event is KeyDownEvent &&
+                    event.logicalKey == LogicalKeyboardKey.escape) {
+                  _controller.close();
+                  return KeyEventResult.handled;
+                }
+                if (action is! ChatDrawerNestedMenuAction &&
+                    event is KeyDownEvent &&
+                    (event.logicalKey == LogicalKeyboardKey.enter ||
+                        event.logicalKey == LogicalKeyboardKey.space)) {
+                  _closeAfterActivation();
+                }
+                return KeyEventResult.ignored;
+              },
+              child: Listener(
+                onPointerUp: action is ChatDrawerNestedMenuAction
+                    ? null
+                    : (_) => _closeAfterActivation(),
+                child: Align(
+                  alignment: AlignmentDirectional.centerStart,
+                  child: ChatDrawerOverflowActionScope(
+                    closeOverflow: _controller.close,
+                    child: action,
+                  ),
+                ),
               ),
             ),
-          ),
+        ],
+      ),
+      child: DDropdownMenuTrigger(
+        builder: (triggerContext, state) => DButton.iconOnly(
+          focusNode: state.focusNode,
+          hasPopup: true,
+          expanded: state.open,
+          key: ChatDrawerOverlay.overflowButtonKey,
+          tooltip: 'More Chat actions',
+          semanticLabel: 'More Chat actions',
+          onPressed: state.toggle,
+          variant: DButtonVariant.ghost,
+          icon: const DIcon(DIcons.ellipsis),
         ),
-    ],
-    onOpen: () => widget.onOpenChanged(true),
-    onClose: () => widget.onOpenChanged(false),
-    builder: (context, _, _) => DButton.iconOnly(
-      key: ChatDrawerOverlay.overflowButtonKey,
-      tooltip: 'More Chat actions',
-      semanticLabel: 'More Chat actions',
-      onPressed: _controller.isOpen ? _controller.close : _controller.open,
-      variant: DButtonVariant.ghost,
-      icon: const DIcon(DIcons.ellipsis),
+      ),
     ),
   );
 }

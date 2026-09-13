@@ -547,20 +547,15 @@ void main() {
       final fixture = await _fixture();
       await _pumpPage(tester, fixture);
       await _chooseNarrowSection(tester, PreferenceSection.profile);
-      final entries = tester
-          .widget<DropdownMenu<String>>(_timezoneMenu)
-          .dropdownMenuEntries;
+      final entries = tester.widget<DCombobox<String>>(_timezoneMenu).options;
       expect(entries.map((entry) => entry.value), contains('Europe/London'));
 
       await _pumpPage(tester, fixture);
 
-      // The menu materialises a button per IANA entry; a rebuild of the card
-      // must hand it the list it already has.
+      // Rebuilding the card retains the page's IANA options.
       expect(
         identical(
-          tester
-              .widget<DropdownMenu<String>>(_timezoneMenu)
-              .dropdownMenuEntries,
+          tester.widget<DCombobox<String>>(_timezoneMenu).options,
           entries,
         ),
         isTrue,
@@ -574,11 +569,10 @@ void main() {
       await _pumpPage(tester, fixture);
       await _chooseNarrowSection(tester, PreferenceSection.profile);
 
-      final menu = tester.widget<DropdownMenu<String>>(_timezoneMenu);
-      expect(menu.enableFilter, isTrue);
-      expect(menu.enableSearch, isTrue);
+      final menu = tester.widget<DCombobox<String>>(_timezoneMenu);
+      expect(menu.filterLocally, isTrue);
       expect(
-        menu.dropdownMenuEntries.map((entry) => entry.value),
+        menu.options.map((entry) => entry.value),
         contains('Europe/London'),
       );
 
@@ -593,15 +587,15 @@ void main() {
       expect(_saveButton(tester, PreferenceSection.profile).onPressed, isNull);
       expect(fixture.api.userPreferenceUpdates, isEmpty);
 
-      await tester.testTextInput.receiveAction(TextInputAction.done);
-      await tester.pump();
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
       expect(
         tester.widget<EditableText>(_timezoneInput).controller.text,
         'Etc/UTC',
       );
 
       await tester.enterText(_timezoneInput, 'Europe/Lond');
-      await tester.pump();
+      await tester.pumpAndSettle();
       expect(find.text('Europe/London'), findsOneWidget);
 
       await tester.tap(find.text('Europe/London'));

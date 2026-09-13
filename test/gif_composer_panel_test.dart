@@ -232,7 +232,7 @@ void main() {
 Future<void> _openInsertMenu(WidgetTester tester) async {
   final insert = find.byKey(const ValueKey('composer-insert'));
   if (insert.evaluate().isEmpty ||
-      find.byType(MenuItemButton).evaluate().isNotEmpty) {
+      find.byType(DDropdownMenuItem).evaluate().isNotEmpty) {
     return;
   }
   await tester.tap(insert);
