@@ -13297,6 +13297,64 @@ class ShellController extends FrameSafeNotifier
     );
   }
 
+  /// Switches sidebar panels in a fresh tab, retaining both pane histories.
+  void switchSidebarPanel(VoidCallback switchPanel) {
+    if (!forumTabsEnabled) {
+      switchPanel();
+      return;
+    }
+    final instance = currentInstance;
+    final workspace = currentWorkspace;
+    final source = activeTab;
+    if (!canCreateTab ||
+        instance == null ||
+        workspace == null ||
+        source == null) {
+      return;
+    }
+
+    final id = _nextTabId();
+    ForumTab copyTab(ForumTab tab) => ForumTab(
+      id: id,
+      rootDestinationId: tab.rootDestinationId,
+      contentStack: tab.contentStack,
+      forwardStack: tab.forwardStack,
+      anchors: tab.anchors,
+    );
+
+    for (final panes in [_mainPaneTabs, _pluginPaneTabs]) {
+      final entries = panes.entries
+          .where(
+            (entry) =>
+                entry.key.siteUrl == instance.url &&
+                entry.key.tabId == source.id,
+          )
+          .toList();
+      for (final entry in entries) {
+        panes[(siteUrl: instance.url, tabId: id, owner: entry.key.owner)] =
+            copyTab(entry.value);
+      }
+    }
+    final sourceKey = (siteUrl: instance.url, tabId: source.id);
+    final targetKey = (siteUrl: instance.url, tabId: id);
+    if (_activePluginPanes[sourceKey] case final owner?) {
+      _activePluginPanes[targetKey] = owner;
+    }
+    if (_coldPluginPanes.contains(sourceKey)) {
+      _coldPluginPanes.add(targetKey);
+    }
+    _putWorkspace(
+      workspace.copyWith(
+        tabs: [...workspace.tabs, copyTab(source)],
+        activeTabId: id,
+      ),
+    );
+    _mobilePane = MobilePane.content;
+    _syncTopicChannels();
+    _notify();
+    switchPanel();
+  }
+
   void createTab() {
     if (!canCreateTab) return;
     final instance = currentInstance;

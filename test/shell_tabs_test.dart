@@ -154,6 +154,9 @@ void main() {
         expect(controller.canCreateTab, isFalse);
 
         controller.createTab();
+        var switched = false;
+        controller.switchSidebarPanel(() => switched = true);
+        expect(switched, isFalse);
         expect(
           controller.tabsForCurrentForum,
           hasLength(ForumWorkspace.maximumTabs),
