@@ -3,6 +3,7 @@ import 'dart:ui' show SemanticsAction;
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/app.dart';
+import 'package:discourse_native/src/models/app_settings.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/forum_workspace.dart';
@@ -16,11 +17,14 @@ import 'package:discourse_native/src/shell/user_menu.dart';
 import 'package:discourse_native/src/shell/user_menu_button.dart';
 import 'package:discourse_native/src/shell/user_summary.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
-import 'package:flutter/material.dart' show Semantics, Size, SizedBox, ValueKey;
+import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart'
+    show Semantics, Size, SizedBox, ValueKey, PageStorageKey;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'support/fakes.dart';
+import 'support/page_scrollbar.dart';
 
 const _siteUrl = 'https://meta.discourse.org';
 const _topTopic = UserSummaryTopic(
@@ -238,6 +242,35 @@ void main() {
   });
 
   group('content states', () {
+    testWidgets('scrollbar stays at the page edge for each content alignment', (
+      tester,
+    ) async {
+      final fixture = await _pump(tester, size: const Size(2200, 650));
+      await _openSummaryFromMenu(tester);
+      await _selectSummaryTab(tester, 'Reading');
+      final page = find.byType(UserSummaryView);
+      final viewport = find.byKey(const PageStorageKey('user-summary-scroll'));
+      final profile = find.byKey(const ValueKey('user-summary-profile'));
+      final table = find.byType(DTable);
+      for (final alignment in ContentAlignment.values) {
+        await fixture.controller.appSettings.setContentAlignment(alignment);
+        await tester.pumpAndSettle();
+        final pageBounds = tester.getRect(page);
+        final left = switch (alignment) {
+          ContentAlignment.left => pageBounds.left + 16,
+          ContentAlignment.center => pageBounds.center.dx - 568,
+          ContentAlignment.right => pageBounds.right - 16 - 1136,
+        };
+        expect(tester.getRect(profile).left, closeTo(left + 1, 0.001));
+        expect(tester.getSize(table).width, 822);
+        await expectPageEdgeScrolling(
+          tester,
+          viewport: viewport,
+          right: pageBounds.right,
+        );
+      }
+    }, variant: const TargetPlatformVariant({TargetPlatform.macOS}));
+
     testWidgets('exposes meaningful button and value semantics', (
       tester,
     ) async {

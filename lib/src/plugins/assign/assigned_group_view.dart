@@ -195,10 +195,11 @@ class AssignedGroupPresentationView extends StatelessWidget {
           );
         }
 
+        final rtl = Directionality.of(context) == TextDirection.rtl;
         return Padding(
           padding: EdgeInsets.only(
-            left: lane.padding.left,
-            right: lane.padding.right,
+            left: rtl ? 0 : lane.padding.left,
+            right: rtl ? lane.padding.right : 0,
           ),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -220,7 +221,15 @@ class AssignedGroupPresentationView extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 16),
-              Expanded(child: _buildFeed(horizontalPadding: 0)),
+              Expanded(
+                child: _buildFeed(
+                  horizontalPadding: 0,
+                  insets: EdgeInsets.only(
+                    left: rtl ? lane.padding.left : 0,
+                    right: rtl ? 0 : lane.padding.right,
+                  ),
+                ),
+              ),
             ],
           ),
         );
@@ -228,7 +237,11 @@ class AssignedGroupPresentationView extends StatelessWidget {
     );
   }
 
-  Widget _buildFeed({required double horizontalPadding, Widget? people}) {
+  Widget _buildFeed({
+    required double horizontalPadding,
+    EdgeInsets insets = EdgeInsets.zero,
+    Widget? people,
+  }) {
     final feed = state.feed;
     final topics = state.topics;
     return RefreshIndicator(
@@ -239,66 +252,69 @@ class AssignedGroupPresentationView extends StatelessWidget {
         ),
         physics: const AlwaysScrollableScrollPhysics(),
         slivers: [
-          SliverMainAxisGroup(
-            slivers: [
-              if (people != null) SliverToBoxAdapter(child: people),
-              SliverToBoxAdapter(
-                child: _AssignedQueryControls(
-                  horizontalPadding: horizontalPadding,
-                  query: state.query,
-                  onQueryChanged: onQueryChanged,
-                ),
-              ),
-              if (feed.error case final error?)
+          SliverPadding(
+            padding: insets,
+            sliver: SliverMainAxisGroup(
+              slivers: [
+                if (people != null) SliverToBoxAdapter(child: people),
                 SliverToBoxAdapter(
-                  child: _AssignedError(message: error, onRetry: onRefresh),
-                ),
-              if (!feed.loaded && feed.loading)
-                const SliverFillRemaining(
-                  hasScrollBody: false,
-                  child: Center(child: DSpinner(size: DSpacing.xl)),
-                )
-              else if (topics.isEmpty && feed.error == null)
-                const SliverFillRemaining(
-                  hasScrollBody: false,
-                  child: _AssignedEmpty(),
-                )
-              else
-                SliverPadding(
-                  padding: EdgeInsets.fromLTRB(
-                    horizontalPadding,
-                    4,
-                    horizontalPadding,
-                    28,
-                  ),
-                  sliver: SliverList.separated(
-                    itemCount: topics.length,
-                    separatorBuilder: (context, _) => DSeparator(
-                      space: 1,
-                      color: Theme.of(context).shell.divider,
-                    ),
-                    itemBuilder: (context, index) => TopicListRow(
-                      topic: topics[index],
-                      siteUrl: siteUrl,
-                      onTap: () => onOpenTopic(topics[index]),
-                    ),
+                  child: _AssignedQueryControls(
+                    horizontalPadding: horizontalPadding,
+                    query: state.query,
+                    onQueryChanged: onQueryChanged,
                   ),
                 ),
-              if (feed.hasMore || feed.loadingMore)
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.only(bottom: 28),
-                    child: Center(
-                      child: DButton(
-                        key: const ValueKey('assigned-load-more-topics'),
-                        label: const Text('Load more assignments'),
-                        loading: feed.loadingMore,
-                        onPressed: feed.loadingMore ? null : onLoadMoreTopics,
+                if (feed.error case final error?)
+                  SliverToBoxAdapter(
+                    child: _AssignedError(message: error, onRetry: onRefresh),
+                  ),
+                if (!feed.loaded && feed.loading)
+                  const SliverFillRemaining(
+                    hasScrollBody: false,
+                    child: Center(child: DSpinner(size: DSpacing.xl)),
+                  )
+                else if (topics.isEmpty && feed.error == null)
+                  const SliverFillRemaining(
+                    hasScrollBody: false,
+                    child: _AssignedEmpty(),
+                  )
+                else
+                  SliverPadding(
+                    padding: EdgeInsets.fromLTRB(
+                      horizontalPadding,
+                      4,
+                      horizontalPadding,
+                      28,
+                    ),
+                    sliver: SliverList.separated(
+                      itemCount: topics.length,
+                      separatorBuilder: (context, _) => DSeparator(
+                        space: 1,
+                        color: Theme.of(context).shell.divider,
+                      ),
+                      itemBuilder: (context, index) => TopicListRow(
+                        topic: topics[index],
+                        siteUrl: siteUrl,
+                        onTap: () => onOpenTopic(topics[index]),
                       ),
                     ),
                   ),
-                ),
-            ],
+                if (feed.hasMore || feed.loadingMore)
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.only(bottom: 28),
+                      child: Center(
+                        child: DButton(
+                          key: const ValueKey('assigned-load-more-topics'),
+                          label: const Text('Load more assignments'),
+                          loading: feed.loadingMore,
+                          onPressed: feed.loadingMore ? null : onLoadMoreTopics,
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
           ),
         ],
       ),
