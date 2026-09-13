@@ -26,6 +26,8 @@ enum SearchSessionPhase {
 
 enum SearchMode { facets, topics }
 
+enum SearchFocusMode { global, contextual }
+
 enum SearchSuggestionKind { shortcut, category, tag, user }
 
 @immutable
@@ -178,7 +180,7 @@ class ShellSearchController extends ChangeNotifier {
   int _remoteSearches = 0;
   _SearchRequest? _queued;
   Timer? _debounce;
-  VoidCallback? _focusField;
+  ValueChanged<SearchFocusMode>? _focusField;
   Object? _focusRegistration;
   Object? _activeField;
   String? _recentSearchesLoadedFor;
@@ -991,7 +993,10 @@ class ShellSearchController extends ChangeNotifier {
     }
   }
 
-  VoidCallback registerFocus(Object field, VoidCallback focus) {
+  VoidCallback registerFocus(
+    Object field,
+    ValueChanged<SearchFocusMode> focus,
+  ) {
     _focusRegistration = field;
     _focusField = focus;
     return () {
@@ -1017,10 +1022,10 @@ class ShellSearchController extends ChangeNotifier {
     }
   }
 
-  void requestFocus() {
+  void requestFocus({SearchFocusMode mode = SearchFocusMode.global}) {
     if (_siteUrl == null) return;
     _setTopicScope(null);
-    _focusSearchField();
+    _focusSearchField(mode);
   }
 
   void requestTopicFocus(int topicId) {
@@ -1029,7 +1034,7 @@ class ShellSearchController extends ChangeNotifier {
     }
     if (_siteUrl == null) return;
     _setTopicScope(topicId);
-    _focusSearchField();
+    _focusSearchField(SearchFocusMode.contextual);
   }
 
   void _setTopicScope(int? topicId) {
@@ -1039,8 +1044,8 @@ class ShellSearchController extends ChangeNotifier {
     _schedule(_query, immediate: topicId != null && _query.trim().isNotEmpty);
   }
 
-  void _focusSearchField() {
-    _focusField?.call();
+  void _focusSearchField(SearchFocusMode mode) {
+    _focusField?.call(mode);
     openPanel();
   }
 
