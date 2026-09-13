@@ -16,7 +16,6 @@ import 'topic_title.dart';
 class TopicCreateButton extends StatelessWidget {
   const TopicCreateButton({
     super.key,
-    required this.showLabel,
     required this.onPressed,
     this.compact = false,
   });
@@ -24,7 +23,6 @@ class TopicCreateButton extends StatelessWidget {
   static const Key buttonKey = ValueKey('new-topic-button');
   static const Key draftsButtonKey = ValueKey('new-topic-drafts-button');
 
-  final bool showLabel;
   final bool compact;
   final VoidCallback onPressed;
 
@@ -41,7 +39,6 @@ class TopicCreateButton extends StatelessWidget {
             controller.draftCountFor(instance!.url) > 0;
 
         return _TopicCreateControl(
-          showLabel: showLabel,
           compact: compact,
           onPressed: onPressed,
           draftsInstance: hasDrafts ? instance : null,
@@ -54,14 +51,12 @@ class TopicCreateButton extends StatelessWidget {
 
 class _TopicCreateControl extends StatelessWidget {
   const _TopicCreateControl({
-    required this.showLabel,
     required this.compact,
     required this.onPressed,
     required this.draftsInstance,
     required this.controller,
   });
 
-  final bool showLabel;
   final bool compact;
   final VoidCallback onPressed;
   final DiscourseInstance? draftsInstance;
@@ -69,74 +64,63 @@ class _TopicCreateControl extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final mainButton = showLabel
-        ? DButton(
-            key: TopicCreateButton.buttonKey,
-            label: Text(
-              'New topic',
-              style: compact
-                  ? const TextStyle(fontWeight: FontWeight.w500)
-                  : null,
-            ),
-            icon: DIcon(DIcons.plus, size: compact ? 14 : 18),
-            tooltip: 'New topic',
-            shortcut: const DShortcut(newTopicShortcut),
-            semanticLabel: 'New topic',
-            onPressed: onPressed,
-            variant: DButtonVariant.primary,
-            size: DButtonSize.regular,
-          )
-        : DButton.iconOnly(
-            key: TopicCreateButton.buttonKey,
-            icon: const DIcon(DIcons.plus),
-            tooltip: 'New topic',
-            shortcut: const DShortcut(newTopicShortcut),
-            semanticLabel: 'New topic',
-            onPressed: onPressed,
-            variant: DButtonVariant.primary,
-            size: DButtonSize.regular,
-          );
+    final mainButton = DButton(
+      key: TopicCreateButton.buttonKey,
+      label: Text(
+        'New topic',
+        softWrap: true,
+        maxLines: 2,
+        style: compact ? const TextStyle(fontWeight: FontWeight.w500) : null,
+      ),
+      icon: DIcon(DIcons.plus, size: compact ? 14 : 18),
+      tooltip: 'New topic',
+      shortcut: const DShortcut(newTopicShortcut),
+      semanticLabel: 'New topic',
+      onPressed: onPressed,
+      variant: DButtonVariant.primary,
+      size: DButtonSize.regular,
+    );
     final instance = draftsInstance;
     if (instance == null) return mainButton;
 
     final tokens = DTokens.of(context);
-    return DButtonGroup(
-      semanticLabel: 'Topic creation actions',
-      children: [
-        mainButton,
-        DButtonGroupSeparator(
-          color: tokens.controls?.primary.background ?? tokens.primary,
-        ),
-        DDropdownMenu(
-          key: ValueKey((instance.url, instance.user?.id)),
-          onOpenChange: (open, _) {
-            if (open) {
-              unawaited(controller.draftList.load(instance, refresh: true));
-            }
-          },
-          content: _draftsContent(context, instance),
-          child: DDropdownMenuTrigger(
-            builder: (context, state) {
-              final button = DButton.iconOnly(
-                key: TopicCreateButton.draftsButtonKey,
-                icon: DIcon(
-                  DIcons.chevronDown,
-                  size: compact && showLabel ? 12 : 16,
-                ),
-                tooltip: 'Open the latest drafts menu',
-                semanticLabel: 'Open the latest drafts menu',
-                onPressed: state.toggle,
-                focusNode: state.focusNode,
-                hasPopup: true,
-                expanded: state.open,
-                variant: DButtonVariant.primary,
-                size: DButtonSize.regular,
-              );
-              return button;
-            },
+    return IntrinsicWidth(
+      child: DButtonGroup(
+        mainAxisSize: MainAxisSize.max,
+        semanticLabel: 'Topic creation actions',
+        children: [
+          DButtonGroupExpanded(child: mainButton),
+          DButtonGroupSeparator(
+            color: tokens.controls?.primary.background ?? tokens.primary,
           ),
-        ),
-      ],
+          DDropdownMenu(
+            key: ValueKey((instance.url, instance.user?.id)),
+            onOpenChange: (open, _) {
+              if (open) {
+                unawaited(controller.draftList.load(instance, refresh: true));
+              }
+            },
+            content: _draftsContent(context, instance),
+            child: DDropdownMenuTrigger(
+              builder: (context, state) {
+                final button = DButton.iconOnly(
+                  key: TopicCreateButton.draftsButtonKey,
+                  icon: DIcon(DIcons.chevronDown, size: compact ? 12 : 16),
+                  tooltip: 'Open the latest drafts menu',
+                  semanticLabel: 'Open the latest drafts menu',
+                  onPressed: state.toggle,
+                  focusNode: state.focusNode,
+                  hasPopup: true,
+                  expanded: state.open,
+                  variant: DButtonVariant.primary,
+                  size: DButtonSize.regular,
+                );
+                return button;
+              },
+            ),
+          ),
+        ],
+      ),
     );
   }
 

@@ -52,13 +52,9 @@ void main() {
 
   for (final compact in [false, true]) {
     testWidgets(
-      '${compact ? 'compact icon' : 'labeled'} New topic controls retain their hit targets and keyboard actions',
+      '${compact ? 'compact' : 'regular'} New topic controls retain their labels, hit targets and keyboard actions',
       (tester) async {
-        final fixture = await _pump(
-          tester,
-          compact: compact,
-          showLabel: !compact,
-        );
+        final fixture = await _pump(tester, compact: compact);
         final semantics = tester.ensureSemantics();
         try {
           final create = find.byKey(TopicCreateButton.buttonKey);
@@ -67,8 +63,12 @@ void main() {
           _expectRegularDButton(
             tester,
             create,
-            iconOnly: compact,
+            iconOnly: false,
             compact: compact,
+          );
+          expect(
+            find.descendant(of: create, matching: find.text('New topic')),
+            findsOneWidget,
           );
           _expectRegularDButton(
             tester,
@@ -181,12 +181,7 @@ void main() {
       testWidgets(
         'joins ${compact ? 'compact' : 'labeled'} button surfaces in $direction',
         (tester) async {
-          await _pump(
-            tester,
-            direction: direction,
-            compact: compact,
-            showLabel: !compact,
-          );
+          await _pump(tester, direction: direction, compact: compact);
           final create = find.byKey(TopicCreateButton.buttonKey);
           final drafts = find.byKey(TopicCreateButton.draftsButtonKey);
           final createSurface = tester.getRect(
@@ -398,7 +393,6 @@ Future<_Fixture> _pump(
   WidgetTester tester, {
   ThemeData? theme,
   bool compact = false,
-  bool showLabel = true,
   double textScale = 1,
   TextDirection direction = TextDirection.ltr,
   int draftCount = 1,
@@ -454,7 +448,6 @@ Future<_Fixture> _pump(
           body: Align(
             alignment: Alignment.topLeft,
             child: TopicCreateButton(
-              showLabel: showLabel,
               compact: compact,
               onPressed: () => createCalls++,
             ),

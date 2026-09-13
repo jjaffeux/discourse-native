@@ -342,18 +342,12 @@ class _TopicInboxWorkspaceState extends State<_TopicInboxWorkspace> {
             : constraints.maxWidth;
         final showsUserMenu = !topicOpen && ShellTitleBar.columnsCarryUserMenu;
         final messages = sourceRoute.isMessages;
-        final showCreateLabel =
-            listWidth >=
-            340 *
-                MediaQuery.textScalerOf(context).scale(DiscourseTypography.sm) /
-                DiscourseTypography.sm;
         final createAction = messages
             ? const MessageCreateButton(showLabel: true)
             : _TopicCreateAction(
                 controller: controller,
                 compact: true,
                 fromList: true,
-                showLabel: showCreateLabel,
                 leadingPadding: false,
               );
         Widget heading(Widget? navigation) => Row(
@@ -1215,14 +1209,12 @@ class _TopicCreateAction extends StatelessWidget {
     this.compact = false,
     this.leadingPadding = true,
     this.fromList = false,
-    this.showLabel,
   });
 
   final ShellController controller;
   final bool compact;
   final bool leadingPadding;
   final bool fromList;
-  final bool? showLabel;
 
   @override
   Widget build(BuildContext context) => _TopicFeedSelector<bool>(
@@ -1234,7 +1226,6 @@ class _TopicCreateAction extends StatelessWidget {
         ? Padding(
             padding: EdgeInsets.only(left: leadingPadding ? 8 : 0),
             child: TopicCreateButton(
-              showLabel: showLabel ?? MediaQuery.sizeOf(context).width >= 760,
               compact: compact,
               onPressed: () => unawaited(
                 fromList
