@@ -218,7 +218,10 @@ class _ForumSearchState extends State<ForumSearch> {
     final editingValue = _text.value;
     _suppressFocus = true;
     setState(() => _open = open);
-    if (!open) _search.closePanel();
+    if (!open) {
+      _global.clearAllConditions();
+      _search.closePanel();
+    }
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       if (_text.text == editingValue.text) _text.value = editingValue;

@@ -26,7 +26,7 @@ const _caps = GlobalSearchCapabilities(
 );
 
 void main() {
-  for (final action in ['none', 'scope', 'recent']) {
+  for (final action in ['none', 'scope', 'recent', 'close']) {
     testWidgets(
       'late chat capabilities respect the opening context after $action',
       (tester) async {
@@ -56,11 +56,12 @@ void main() {
         );
         if (action == 'scope') search.setScope(GlobalSearchScope.users);
         if (action == 'recent') search.useRecentSearch('design');
+        if (action == 'close') search.clearAllConditions();
         gate.complete(_caps);
         await tester.pump(const Duration(seconds: 1));
         expect(search.scope, switch (action) {
           'scope' => GlobalSearchScope.users,
-          'recent' => GlobalSearchScope.all,
+          'recent' || 'close' => GlobalSearchScope.all,
           _ => GlobalSearchScope.chat,
         });
         expect(
@@ -71,6 +72,27 @@ void main() {
       },
     );
   }
+
+  testWidgets('clearing all filters rejects pending filtered results', (
+    tester,
+  ) async {
+    final api = _EngineApi()..hold = true;
+    final search = _controller(api);
+    addTearDown(search.dispose);
+    search.addCondition(
+      const GlobalSearchCondition(filterId: 'author', value: ['sam']),
+    );
+    await tester.pump(const Duration(milliseconds: 10));
+    expect(api.requests.single.conditions.single.text, 'sam');
+
+    search.clearAllConditions();
+    expect(search.phase, GlobalSearchPhase.idle);
+    api.pending.single.complete(_page('Filtered result'));
+    await tester.pump(const Duration(milliseconds: 10));
+    expect(search.results, isEmpty);
+    expect(search.phase, GlobalSearchPhase.idle);
+    expect(api.requests, hasLength(1));
+  });
 
   testWidgets(
     'opening context replaces only its own filter and preserves other banks',
