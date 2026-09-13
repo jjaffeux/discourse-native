@@ -14,10 +14,16 @@ class TopicUnreadBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final label = '$count unread ${count == 1 ? 'post' : 'posts'}';
+    final colors = Theme.of(context).discourse;
     return DTooltip(
       message: label,
       excludeFromSemantics: true,
-      child: DBadge(semanticLabel: label, child: Text('$count')),
+      child: DBadge(
+        semanticLabel: label,
+        backgroundColor: colors.notificationIndicator,
+        foregroundColor: colors.notificationForeground,
+        child: Text('$count'),
+      ),
     );
   }
 }
@@ -31,6 +37,9 @@ class TopicStateDot extends StatelessWidget {
   Widget build(BuildContext context) => DTooltip(
     message: label,
     excludeFromSemantics: true,
-    child: DNotificationDot(semanticLabel: label),
+    child: DNotificationDot(
+      semanticLabel: label,
+      color: Theme.of(context).discourse.notificationIndicator,
+    ),
   );
 }

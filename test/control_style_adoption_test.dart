@@ -58,6 +58,13 @@ void main() {
           'foregroundColor': 2,
           'interactiveBackgroundColor': 2,
         },
+        // User-approved header capsules use each core notification color.
+        'lib/src/shell/header_notification_button.dart': {
+          'backgroundColor': 1,
+          'foregroundColor': 1,
+          'interactiveBackgroundColor': 1,
+          'borderRadius': 1,
+        },
         // These are container/rail/navigation geometry, not alternative palettes.
         'lib/src/shell/instance_rail.dart': {'borderRadius': 1},
       },

@@ -1332,14 +1332,14 @@ class _ForumTabState extends State<_ForumTab> {
       padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
       alignment: Alignment.center,
       decoration: BoxDecoration(
-        color: badge.urgent ? theme.colorScheme.error : theme.shell.selected,
+        color: badge.urgent ? theme.discourse.success : theme.shell.selected,
         borderRadius: BorderRadius.circular(9),
       ),
       child: Text(
         '${badge.count}',
         style: theme.textTheme.labelSmall?.copyWith(
           color: badge.urgent
-              ? theme.colorScheme.onError
+              ? theme.discourse.notificationForeground
               : theme.colorScheme.primary,
           fontWeight: FontWeight.w700,
         ),
