@@ -103,7 +103,6 @@ class AppSettingsModal extends StatelessWidget {
               ],
             ),
           ),
-          const DFieldDescription(child: Text('Changes apply immediately.')),
         ],
       ),
     );
