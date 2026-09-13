@@ -1222,7 +1222,7 @@ void main() {
 
         final nameField = find.byType(TextField).first;
         expect(find.text('Chat thread title template'), findsNothing);
-        expect(find.text('Required'), findsOneWidget);
+        expect(find.text('Required'), findsNothing);
         expect(
           tester.getSemantics(nameField),
           isSemantics(
@@ -1238,7 +1238,10 @@ void main() {
           of: description,
           matching: find.byType(EditableText),
         );
-        expect(tester.getSemantics(descriptionEditable).label, 'Description');
+        expect(
+          tester.getSemantics(descriptionEditable).label,
+          'Description\nWhat will people talk about? (optional)',
+        );
         await tester.tap(find.text('Description'));
         await tester.pump();
         expect(
@@ -1253,7 +1256,7 @@ void main() {
           isTrue,
         );
 
-        final save = find.widgetWithText(DButton, 'Save');
+        final save = find.widgetWithText(DButton, 'Save changes');
         expect(tester.widget<DButton>(save).onPressed, isNotNull);
 
         await tester.enterText(nameField, '   ');
@@ -1310,7 +1313,7 @@ void main() {
 
       current = replacement.controller;
       await tester.enterText(find.byType(TextField).first, 'Replacement save');
-      await tester.tap(find.widgetWithText(DButton, 'Save'));
+      await tester.tap(find.widgetWithText(DButton, 'Save changes'));
       await tester.pumpAndSettle();
 
       expect(original.transport.writes, isEmpty);
@@ -1326,6 +1329,192 @@ void main() {
         isNot(contains('chat_thread_title_template')),
       );
     });
+
+    Future<void> openEditor(
+      WidgetTester tester,
+      _Harness harness, {
+      VoiceRoom? room,
+      double scale = 1,
+    }) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          builder: (context, child) => MediaQuery(
+            data: MediaQuery.of(
+              context,
+            ).copyWith(textScaler: TextScaler.linear(scale)),
+            child: child!,
+          ),
+          home: Builder(
+            builder: (context) => Center(
+              child: DButton(
+                label: const Text('Open editor'),
+                onPressed: () => unawaited(
+                  showVoiceRoomEditor(
+                    context,
+                    siteUrl: _siteUrl,
+                    room: room,
+                    controller: harness.controller,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('Open editor'));
+      await tester.pumpAndSettle();
+    }
+
+    Finder input(String label) => find.descendant(
+      of: find.widgetWithText(DInput, label),
+      matching: find.byType(TextField),
+    );
+
+    Future<void> enter(WidgetTester tester, String label, String value) async {
+      final field = input(label);
+      await tester.ensureVisible(field);
+      await tester.enterText(field, value);
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('creates a room with defaults and no advanced setup', (
+      tester,
+    ) async {
+      final harness = _Harness();
+      addTearDown(harness.dispose);
+      await openEditor(tester, harness);
+      final create = find.widgetWithText(DButton, 'Create room');
+      expect(tester.widget<DButton>(create).onPressed, isNull);
+      expect(find.text('Chat channel ID (optional)'), findsNothing);
+      expect(find.text('Enter a room name.'), findsNothing);
+      await enter(tester, 'Name', '  Community lounge  ');
+      await tester.tap(create);
+      await tester.pumpAndSettle();
+      final write = harness.transport.writes.single;
+      expect(write.method, 'POST');
+      expect(write.path, '/voice/rooms.json');
+      expect(write.body['room'], {
+        'name': 'Community lounge',
+        'description': '',
+        'public': true,
+        'room_type': 'open',
+        'video_enabled': true,
+        'max_participants': null,
+        'chat_channel_id': null,
+        'chat_idle_minutes': 15,
+        'livekit_enabled': null,
+        'max_quality_profile': 'maximum',
+      });
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets(
+      'validates numbers and reveals errors in collapsed advanced settings',
+      (tester) async {
+        final harness = _Harness();
+        addTearDown(harness.dispose);
+        await openEditor(tester, harness);
+        await enter(tester, 'Name', 'Community lounge');
+        await enter(tester, 'Maximum participants', '2.5');
+        await tester.tap(find.text('Create room'));
+        await tester.pumpAndSettle();
+        expect(harness.transport.writes, isEmpty);
+        expect(find.text('Enter a whole number from 2 to 50.'), findsOneWidget);
+        await enter(tester, 'Maximum participants', '60');
+        expect(find.text('Enter a whole number from 2 to 50.'), findsOneWidget);
+        await tester.ensureVisible(find.text('Stage room'));
+        await tester.tap(find.text('Stage room'));
+        await tester.pumpAndSettle();
+        expect(find.text('Enter a whole number from 2 to 50.'), findsNothing);
+
+        await tester.ensureVisible(find.text('Advanced settings'));
+        await tester.tap(find.text('Advanced settings'));
+        await tester.pumpAndSettle();
+        await enter(tester, 'Chat channel ID (optional)', 'abc');
+        await enter(tester, 'New chat thread after (minutes)', '1');
+        await tester.ensureVisible(find.text('Advanced settings'));
+        await tester.tap(find.text('Advanced settings'));
+        await tester.pumpAndSettle();
+        expect(find.text('Chat channel ID (optional)'), findsNothing);
+        await tester.tap(find.text('Create room'));
+        await tester.pumpAndSettle();
+        expect(harness.transport.writes, isEmpty);
+        expect(find.text('Enter a whole number of 1 or more.'), findsOneWidget);
+        expect(
+          find.text('Enter a whole number from 2 to 1440.'),
+          findsOneWidget,
+        );
+        await enter(tester, 'Chat channel ID (optional)', ' 42 ');
+        await enter(tester, 'New chat thread after (minutes)', ' 30 ');
+        await tester.ensureVisible(find.text('Advanced settings'));
+        await tester.tap(find.text('Advanced settings'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Create room'));
+        await tester.pumpAndSettle();
+        final body =
+            harness.transport.writes.single.body['room']!
+                as Map<String, Object?>;
+        expect(body['max_participants'], 60);
+        expect(body['room_type'], 'stage');
+        expect(body['chat_channel_id'], 42);
+        expect(body['chat_idle_minutes'], 30);
+        expect(tester.takeException(), isNull);
+      },
+    );
+
+    testWidgets(
+      'keeps existing advanced values when saving at narrow width and large text',
+      (tester) async {
+        tester.view.physicalSize = const Size(360, 740);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+        final harness = _Harness();
+        addTearDown(harness.dispose);
+        const room = VoiceRoom(
+          id: 7,
+          name: 'Lounge',
+          slug: 'lounge',
+          isPublic: false,
+          ephemeral: false,
+          type: VoiceRoomType.stage,
+          participants: [],
+          maxParticipants: 100,
+          videoEnabled: false,
+          livekitEnabled: true,
+          chatChannelId: 42,
+          chatIdleMinutes: 30,
+          maxQualityProfile: VoiceQualityProfile.high,
+        );
+        await openEditor(tester, harness, room: room, scale: 2);
+        await enter(tester, 'Name', 'Renamed lounge');
+        await tester.ensureVisible(find.text('Advanced settings'));
+        await tester.tap(find.text('Advanced settings'));
+        await tester.pumpAndSettle();
+        await tester.ensureVisible(find.text('Use LiveKit'));
+        expect(tester.takeException(), isNull);
+        await tester.ensureVisible(find.text('Advanced settings'));
+        await tester.tap(find.text('Advanced settings'));
+        await tester.pumpAndSettle();
+        final save = find.widgetWithText(DButton, 'Save changes');
+        await tester.ensureVisible(save);
+        await tester.tap(save);
+        await tester.pumpAndSettle();
+        expect(harness.transport.writes.single.body['room'], {
+          'name': 'Renamed lounge',
+          'description': '',
+          'public': false,
+          'room_type': 'stage',
+          'video_enabled': false,
+          'max_participants': 100,
+          'chat_channel_id': 42,
+          'chat_idle_minutes': 30,
+          'livekit_enabled': true,
+          'max_quality_profile': 'high',
+        });
+        expect(tester.takeException(), isNull);
+      },
+    );
 
     testWidgets('uses the latest controller when confirming a flag', (
       tester,
