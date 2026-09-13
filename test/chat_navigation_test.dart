@@ -965,7 +965,6 @@ void main() {
         expect(navigation.destinations.map((destination) => destination.id), [
           ChatPlugin.browseRouteId,
           ChatPlugin.myThreadsRouteId,
-          ChatPlugin.searchRouteId,
         ]);
       });
 

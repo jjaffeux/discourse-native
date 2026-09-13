@@ -259,7 +259,6 @@ class ChatPlugin
         chatAvailable && shell.currentUser != null;
     final publicChannelsEnabled =
         chatAvailable && settings.publicChannelsEnabled;
-    final searchEnabled = authenticatedChatAvailable && settings.searchEnabled;
     final myThreadsEnabled =
         authenticatedChatAvailable &&
         settings.threadsEnabled &&
@@ -282,13 +281,6 @@ class ChatPlugin
           label: 'My threads',
           icon: DIcons.comments,
           onTap: shell.openMyThreads,
-        ),
-      if (searchEnabled)
-        SidebarDestination(
-          id: searchRouteId,
-          label: 'Search',
-          icon: DIcons.magnifyingGlass,
-          onTap: shell.openSearch,
         ),
     ];
 
