@@ -64,13 +64,18 @@ void main() {
           final create = find.byKey(TopicCreateButton.buttonKey);
           final drafts = find.byKey(TopicCreateButton.draftsButtonKey);
 
-          _expectSmallDButton(
+          _expectRegularDButton(
             tester,
             create,
             iconOnly: compact,
             compact: compact,
           );
-          _expectSmallDButton(tester, drafts, iconOnly: true, compact: compact);
+          _expectRegularDButton(
+            tester,
+            drafts,
+            iconOnly: true,
+            compact: compact,
+          );
           expect(
             tester.widget<DButton>(drafts).tooltip,
             'Open the latest drafts menu',
@@ -156,7 +161,7 @@ void main() {
     final drafts = find.byKey(TopicCreateButton.draftsButtonKey);
     final createRect = tester.getRect(create);
     final draftRect = tester.getRect(drafts);
-    expect(createRect.height, greaterThan(40));
+    expect(createRect.height, 34);
     expect(draftRect.height, createRect.height);
     expect(draftRect.top, createRect.top);
     final label = tester.getRect(find.text('New topic'));
@@ -367,7 +372,7 @@ void main() {
   }
 }
 
-void _expectSmallDButton(
+void _expectRegularDButton(
   WidgetTester tester,
   Finder target, {
   required bool iconOnly,
@@ -375,7 +380,7 @@ void _expectSmallDButton(
 }) {
   final button = tester.widget<DButton>(target);
   final size = tester.getSize(target);
-  expect(button.size, DButtonSize.small);
+  expect(button.size, DButtonSize.regular);
   expect(button.variant, DButtonVariant.primary);
   const dimension = 28.0;
   expect(size.height, dimension);

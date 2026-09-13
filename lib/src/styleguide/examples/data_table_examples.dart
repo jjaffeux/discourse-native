@@ -428,7 +428,7 @@ class _PaymentActions extends StatelessWidget {
             'فتح قائمة ${payment.email}',
           ),
           variant: DButtonVariant.ghost,
-          size: DButtonSize.extraSmall,
+          size: DButtonSize.small,
           hasPopup: true,
           expanded: trigger.open,
           focusNode: trigger.focusNode,

@@ -334,10 +334,10 @@ class TopicCloseButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) => DButton.iconOnly(
     key: const ValueKey('topic-close-reader'),
-    icon: const DIcon(DNativeIcons.closeTopicPane, size: 20),
+    icon: const DIcon(DNativeIcons.closeTopicPane),
     tooltip: 'Collapse topic',
     variant: DButtonVariant.ghost,
-    size: DButtonSize.extraSmall,
+    size: DButtonSize.small,
     onPressed: () {
       final controller = ShellScope.read(context);
       if (controller.topicListContent != null) {
@@ -853,7 +853,7 @@ class _TopicPropertyPopoverState extends State<_TopicPropertyPopover> {
     if (widget.compact) {
       return section.compactHeader?.call(context, showDetails) ??
           DButton.iconOnly(
-            icon: const DIcon(DIcons.ellipsis, size: 16),
+            icon: const DIcon(DIcons.ellipsis),
             tooltip: section.label,
             size: DButtonSize.small,
             variant: DButtonVariant.ghost,

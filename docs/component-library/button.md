@@ -1,5 +1,9 @@
 # Button implementation and reference mapping
 
+Current sizing: [24/28/32px Native scale](compact-control-sizing.md), with
+12px normal labels and no extra-small controls. The frozen reference metrics
+below describe the original upstream implementation.
+
 Current shared control styling and application adoption: [2026-09-11 follow-up](control-consistency.md).
 
 Task: `01a083ac-5fd5-78b1-9263-7e3218a878b6`, branch `codex/ui-button`,

@@ -87,7 +87,7 @@ final messageExamples = ComponentExamples(
   DMessageStatus(state: DMessageDeliveryState.failed),
   DButton.iconOnly(
     icon: Icon(Icons.refresh), tooltip: 'Retry', onPressed: retry,
-    variant: DButtonVariant.ghost, size: DButtonSize.extraSmall,
+    variant: DButtonVariant.ghost, size: DButtonSize.small,
   ),
 ])''',
       builder: (_) => const _ActionsExample(),
@@ -471,7 +471,7 @@ class _ActionsExampleState extends State<_ActionsExample> {
                     tooltip: 'Copy',
                     onPressed: () => setState(() => copied = !copied),
                     variant: DButtonVariant.ghost,
-                    size: DButtonSize.extraSmall,
+                    size: DButtonSize.small,
                   ),
                   DButton.iconOnly(
                     icon: Icon(
@@ -483,7 +483,7 @@ class _ActionsExampleState extends State<_ActionsExample> {
                       if (liked) disliked = false;
                     }),
                     variant: DButtonVariant.ghost,
-                    size: DButtonSize.extraSmall,
+                    size: DButtonSize.small,
                   ),
                   DButton.iconOnly(
                     icon: Icon(
@@ -497,7 +497,7 @@ class _ActionsExampleState extends State<_ActionsExample> {
                       if (disliked) liked = false;
                     }),
                     variant: DButtonVariant.ghost,
-                    size: DButtonSize.extraSmall,
+                    size: DButtonSize.small,
                   ),
                 ],
               ),
@@ -531,7 +531,7 @@ class _ActionsExampleState extends State<_ActionsExample> {
                           )
                         : null,
                     variant: DButtonVariant.ghost,
-                    size: DButtonSize.extraSmall,
+                    size: DButtonSize.small,
                   ),
                 ],
               ),

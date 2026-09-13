@@ -342,7 +342,7 @@ class _TopicTagPickerState extends State<TopicTagPicker> {
         if (newTag != null)
           DButton(
             key: const ValueKey('topic-tag-picker-create'),
-            icon: const DIcon(DIcons.plus, size: 16),
+            icon: const DIcon(DIcons.plus),
             label: Text('Create new tag: “${newTag.name}”', maxLines: 2),
             variant: DButtonVariant.ghost,
             onPressed: () => _choose(newTag),
@@ -396,10 +396,7 @@ class _TopicTagPickerState extends State<TopicTagPicker> {
                                     'topic-tag-picker-open',
                                     tag.name,
                                   )),
-                                  icon: const DIcon(
-                                    DIcons.upRightFromSquare,
-                                    size: 12,
-                                  ),
+                                  icon: const DIcon(DIcons.upRightFromSquare),
                                   tooltip: 'Open tag ${tag.name}',
                                   onPressed: () => widget.onTagNavigate!(tag),
                                   isLink: true,

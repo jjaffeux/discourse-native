@@ -403,7 +403,7 @@ class _GifPlaybackControlState extends State<_GifPlaybackControl> {
           bottom: 4,
           child: DButton.iconOnly(
             key: const ValueKey('gif-playback-toggle'),
-            icon: Icon(_playing ? Icons.pause : Icons.play_arrow, size: 18),
+            icon: Icon(_playing ? Icons.pause : Icons.play_arrow),
             tooltip: action,
             semanticLabel: action,
             size: DButtonSize.small,

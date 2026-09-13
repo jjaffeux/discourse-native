@@ -105,7 +105,7 @@ void main() {
     handle.dispose();
   });
 
-  testWidgets('touch keeps 48px hit bounds around compact 32px artwork', (
+  testWidgets('touch keeps 48px hit bounds around compact 28px artwork', (
     tester,
   ) async {
     final focus = FocusNode();
@@ -136,7 +136,7 @@ void main() {
       ),
     );
     expect(decorated, isNotEmpty);
-    expect(decorated.first.constraints, const BoxConstraints(minHeight: 32));
+    expect(decorated.first.constraints, const BoxConstraints(minHeight: 28));
 
     final bounds = tester.getRect(find.byType(DInputGroup));
     await tester.tapAt(bounds.topCenter + const Offset(0, 2));
@@ -144,7 +144,7 @@ void main() {
     expect(focus.hasFocus, isTrue);
   });
 
-  testWidgets('inline input keeps compact 32px grouped surface', (
+  testWidgets('inline input keeps compact 28px grouped surface', (
     tester,
   ) async {
     await tester.pumpWidget(
@@ -158,7 +158,7 @@ void main() {
       ),
     );
 
-    expect(tester.getSize(find.byType(DInputGroup)).height, 32);
+    expect(tester.getSize(find.byType(DInputGroup)).height, 28);
     expect(tester.getSize(find.byType(EditableText)).height, 20);
   });
 

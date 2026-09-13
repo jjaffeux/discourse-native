@@ -852,7 +852,7 @@ class _ProfileForm extends StatelessWidget {
             onPressed: enabled && deviceTimezone != null
                 ? onUseDeviceTimezone
                 : null,
-            icon: const DIcon(DIcons.globe, size: 16),
+            icon: const DIcon(DIcons.globe),
             variant: DButtonVariant.outline,
             size: DButtonSize.small,
           ),

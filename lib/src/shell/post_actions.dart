@@ -1094,7 +1094,7 @@ class PostMoreActionsButton extends StatelessWidget {
       ],
       builder: (context, menu, _) => DButton.iconOnly(
         key: ValueKey('post-more-actions-${scope.postNumber}'),
-        icon: const DIcon(DIcons.ellipsis, size: 16),
+        icon: const DIcon(DIcons.ellipsis),
         tooltip: 'More actions for post ${scope.postNumber}',
         semanticLabel: 'More actions for post ${scope.postNumber}',
         variant: DButtonVariant.ghost,

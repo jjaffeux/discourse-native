@@ -42,7 +42,7 @@ class ContentNavigationControls extends StatelessWidget {
             children: [
               DButton.iconOnly(
                 key: backKey,
-                icon: const Icon(Icons.arrow_back, size: 20),
+                icon: const Icon(Icons.arrow_back),
                 tooltip: 'Back (mouse back button)',
                 semanticLabel: 'Back',
                 shortcut: DShortcut(
@@ -56,7 +56,7 @@ class ContentNavigationControls extends StatelessWidget {
               ),
               DButton.iconOnly(
                 key: forwardKey,
-                icon: const Icon(Icons.arrow_forward, size: 20),
+                icon: const Icon(Icons.arrow_forward),
                 tooltip: 'Forward (mouse forward button)',
                 semanticLabel: 'Forward',
                 shortcut: DShortcut(
@@ -68,7 +68,7 @@ class ContentNavigationControls extends StatelessWidget {
               ),
               DButton.iconOnly(
                 key: refreshKey,
-                icon: const Icon(Icons.refresh, size: 20),
+                icon: const Icon(Icons.refresh),
                 tooltip: 'Refresh current tab',
                 shortcut: DShortcut(
                   refreshTabShortcutForPlatform(defaultTargetPlatform),

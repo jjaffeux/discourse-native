@@ -277,78 +277,77 @@ class _InlineTopicTitleEditorState extends State<InlineTopicTitleEditor> {
   }
 
   @override
-  Widget build(
-    BuildContext context,
-  ) => ValueListenableBuilder<TextEditingValue>(
-    valueListenable: _controller,
-    builder: (context, value, _) {
-      if (widget.showEditingFrame) return _buildFramedEditor();
-      final focused = _focus.hasFocus;
-      final displayedTitle = value.text.isEmpty ? ' ' : value.text;
-      final editor = MouseRegion(
-        key: const ValueKey('topic-header-title-pointer'),
-        cursor: SystemMouseCursors.text,
-        child: DTooltip(
-          message: 'Edit topic title',
-          // Hide the editing hint while the editor owns keyboard focus.
-          disabled: focused || _saving,
-          child: Stack(
-            alignment: Alignment.centerLeft,
-            clipBehavior: Clip.hardEdge,
-            children: [
-              ConstrainedBox(
-                constraints: const BoxConstraints(minWidth: 12),
-                child: Opacity(
-                  opacity: focused ? 0 : 1,
-                  child: ExcludeSemantics(
-                    child: TopicTitle(
-                      displayedTitle,
-                      siteUrl: widget.siteUrl,
-                      maxLines: widget.maxLines,
-                      overflow: TextOverflow.ellipsis,
-                      style: widget.style,
+  Widget build(BuildContext context) =>
+      ValueListenableBuilder<TextEditingValue>(
+        valueListenable: _controller,
+        builder: (context, value, _) {
+          if (widget.showEditingFrame) return _buildFramedEditor();
+          final focused = _focus.hasFocus;
+          final displayedTitle = value.text.isEmpty ? ' ' : value.text;
+          final editor = MouseRegion(
+            key: const ValueKey('topic-header-title-pointer'),
+            cursor: SystemMouseCursors.text,
+            child: DTooltip(
+              message: 'Edit topic title',
+              // Hide the editing hint while the editor owns keyboard focus.
+              disabled: focused || _saving,
+              child: Stack(
+                alignment: Alignment.centerLeft,
+                clipBehavior: Clip.hardEdge,
+                children: [
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(minWidth: 12),
+                    child: Opacity(
+                      opacity: focused ? 0 : 1,
+                      child: ExcludeSemantics(
+                        child: TopicTitle(
+                          displayedTitle,
+                          siteUrl: widget.siteUrl,
+                          maxLines: widget.maxLines,
+                          overflow: TextOverflow.ellipsis,
+                          style: widget.style,
+                        ),
+                      ),
                     ),
                   ),
-                ),
-              ),
-              Positioned.fill(
-                child: Opacity(
-                  opacity: focused ? 1 : 0,
-                  alwaysIncludeSemantics: true,
-                  child: Focus(
-                    onKeyEvent: _handleKey,
-                    child: DInput(
-                      borderless: true,
-                      semanticLabel: 'Topic title',
-                      key: const ValueKey('topic-header-title-field'),
-                      controller: _controller,
-                      focusNode: _focus,
-                      readOnly: _saving,
-                      maxLines: widget.maxLines,
-                      textInputAction: TextInputAction.done,
-                      textCapitalization: TextCapitalization.sentences,
-                      style: widget.style,
-                      onChanged: (_) => _ensureEmojiCatalog(),
-                      onSubmitted: (_) => _focus.unfocus(),
-                      onTapOutside: (_) => _focus.unfocus(),
+                  Positioned.fill(
+                    child: Opacity(
+                      opacity: focused ? 1 : 0,
+                      alwaysIncludeSemantics: true,
+                      child: Focus(
+                        onKeyEvent: _handleKey,
+                        child: DInput(
+                          borderless: true,
+                          semanticLabel: 'Topic title',
+                          key: const ValueKey('topic-header-title-field'),
+                          controller: _controller,
+                          focusNode: _focus,
+                          readOnly: _saving,
+                          maxLines: widget.maxLines,
+                          textInputAction: TextInputAction.done,
+                          textCapitalization: TextCapitalization.sentences,
+                          style: widget.style,
+                          onChanged: (_) => _ensureEmojiCatalog(),
+                          onSubmitted: (_) => _focus.unfocus(),
+                          onTapOutside: (_) => _focus.unfocus(),
+                        ),
+                      ),
                     ),
                   ),
-                ),
+                ],
               ),
-            ],
-          ),
-        ),
+            ),
+          );
+          return editor;
+        },
       );
-      return editor;
-    },
-  );
 
   Widget _buildFramedEditor() {
     if (!_editing) {
       return DButton(
         key: const ValueKey('topic-header-title-field'),
         variant: DButtonVariant.ghost,
-        size: DButtonSize.extraSmall,
+        size: DButtonSize.small,
         alignment: AlignmentDirectional.centerStart,
         focusNode: _triggerFocus,
         semanticLabel: 'Edit topic title',

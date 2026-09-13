@@ -349,7 +349,7 @@ class _TopicInboxWorkspaceState extends State<_TopicInboxWorkspace> {
           children: [
             if (layout.isCompact)
               DButton.iconOnly(
-                icon: const DIcon(DIcons.arrowLeft, size: 18),
+                icon: const DIcon(DIcons.arrowLeft),
                 tooltip: 'Back',
                 variant: DButtonVariant.ghost,
                 onPressed: () =>
@@ -785,7 +785,7 @@ class _ContentHeader extends StatelessWidget {
                       );
                     }
                   },
-                  icon: const DIcon(DIcons.arrowLeft, size: 20),
+                  icon: const DIcon(DIcons.arrowLeft),
                   tooltip: 'Back',
                   variant: DButtonVariant.ghost,
                 )
@@ -1327,7 +1327,7 @@ class _SignedOutMessagesState extends StatelessWidget {
                     label: const Text('Sign in'),
                     onPressed: () =>
                         unawaited(controller.connectCurrentInstance()),
-                    icon: const DIcon(DIcons.user, size: 18),
+                    icon: const DIcon(DIcons.user),
                     variant: DButtonVariant.primary,
                     loading: state.connecting,
                     loadingLabel: const Text('Signing in…'),
@@ -1397,7 +1397,7 @@ class _ContentPlaceholder extends StatelessWidget {
                       subtitle: 'opened from ${route.title}',
                     ),
                   ),
-                  icon: const DIcon(DIcons.upRightFromSquare, size: 18),
+                  icon: const DIcon(DIcons.upRightFromSquare),
                 ),
                 DButton(
                   label: const Text('Show sheet'),
@@ -1412,7 +1412,7 @@ class _ContentPlaceholder extends StatelessWidget {
                       style: theme.textTheme.bodyMedium,
                     ),
                   ),
-                  icon: const DIcon(DIcons.arrowUp, size: 18),
+                  icon: const DIcon(DIcons.arrowUp),
                 ),
               ],
             ),

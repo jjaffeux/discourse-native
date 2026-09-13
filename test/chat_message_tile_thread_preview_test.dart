@@ -1151,7 +1151,7 @@ void main() {
       );
       expect(
         tester.getSize(action).height,
-        greaterThan(ChatMessageTile.minimumChainedHeight),
+        greaterThanOrEqualTo(ChatMessageTile.minimumChainedHeight),
       );
       expect(tester.widget<Stack>(actionStack).clipBehavior, Clip.none);
     });

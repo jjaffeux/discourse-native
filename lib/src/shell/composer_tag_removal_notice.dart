@@ -23,7 +23,7 @@ class ComposerTagRemovalNotice extends StatelessWidget {
       description: DAlertDescription(child: Text(message)),
       action: DAlertAction(
         child: DButton.iconOnly(
-          icon: const DIcon(DIcons.xmark, size: 14),
+          icon: const DIcon(DIcons.xmark),
           tooltip: 'Dismiss tag notice',
           variant: DButtonVariant.ghost,
           size: DButtonSize.small,

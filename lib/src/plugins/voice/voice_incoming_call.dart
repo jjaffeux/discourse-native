@@ -108,7 +108,7 @@ class _VoiceIncomingCallBannerState extends State<VoiceIncomingCallBanner> {
                       const SizedBox(width: 12),
                       DButton(
                         onPressed: _answering ? null : _answer,
-                        icon: const DIcon(VoiceIcons.phone, size: 16),
+                        icon: const DIcon(VoiceIcons.phone),
                         label: const Text('Answer'),
                         variant: DButtonVariant.primary,
                         loading: _answering,
@@ -116,7 +116,7 @@ class _VoiceIncomingCallBannerState extends State<VoiceIncomingCallBanner> {
                       const SizedBox(width: 8),
                       DButton(
                         onPressed: widget.controller.declineIncomingCall,
-                        icon: const DIcon(DIcons.phoneSlash, size: 16),
+                        icon: const DIcon(DIcons.phoneSlash),
                         label: const Text('Decline'),
                         variant: DButtonVariant.destructive,
                       ),

@@ -967,7 +967,7 @@ void main() {
 
     expect(
       tester.getSize(find.byKey(const Key('d-select-trigger-visual'))).height,
-      greaterThanOrEqualTo(42),
+      greaterThanOrEqualTo(34),
     );
     await tester.tap(find.text('Apple'));
     await tester.pumpAndSettle();

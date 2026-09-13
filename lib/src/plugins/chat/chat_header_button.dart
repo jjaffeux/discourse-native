@@ -59,7 +59,7 @@ class ChatHeaderButton extends StatelessWidget {
             tooltip: 'Exit chat',
             onPressed: shell.closeSidebarPanel,
             variant: DButtonVariant.ghost,
-            icon: const DIcon(DIcons.shuffle, size: 22),
+            icon: const DIcon(DIcons.shuffle),
           );
         }
         final preference =

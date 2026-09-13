@@ -506,7 +506,7 @@ class _BasicState extends State<_Basic> {
                               'This panel can be expanded or collapsed to reveal additional content.',
                             ),
                             DButton(
-                              size: DButtonSize.extraSmall,
+                              size: DButtonSize.small,
                               label: const Text('Learn More'),
                               onPressed: () => setState(() => learned = true),
                             ),

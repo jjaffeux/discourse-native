@@ -121,7 +121,7 @@ class _InputOTPReviewState extends State<_InputOTPReview> {
                       children: [
                         DButton(
                           label: const Text('Clear probe'),
-                          size: DButtonSize.extraSmall,
+                          size: DButtonSize.small,
                           variant: DButtonVariant.outline,
                           onPressed: () => setState(() => _probeValue = ''),
                         ),

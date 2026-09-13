@@ -390,7 +390,6 @@ class _TopicFilterInputState extends State<TopicFilterInput> {
                         : null,
                     icon: DIcon(
                       DIcons.xmark,
-                      size: 13,
                       color: theme.colorScheme.onSurfaceVariant,
                     ),
                   ),

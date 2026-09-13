@@ -88,7 +88,7 @@ class _TopicCreateControl extends StatelessWidget {
           )
         : DButton.iconOnly(
             key: TopicCreateButton.buttonKey,
-            icon: const DIcon(DIcons.plus, size: 18),
+            icon: const DIcon(DIcons.plus),
             tooltip: 'New topic',
             shortcut: const DShortcut(newTopicShortcut),
             semanticLabel: 'New topic',

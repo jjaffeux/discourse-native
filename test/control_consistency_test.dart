@@ -136,16 +136,16 @@ void main() {
         home: const Scaffold(body: ControlComparisonExample()),
       ),
     );
-    await tester.tap(find.bySemanticsLabel('extraSmall feed'));
+    await tester.tap(find.bySemanticsLabel('small feed'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Trending').last);
     await tester.pumpAndSettle();
-    expect(find.text('Trending'), findsNWidgets(4));
-    await tester.tap(find.bySemanticsLabel('extraSmall category'));
+    expect(find.text('Trending'), findsNWidgets(3));
+    await tester.tap(find.bySemanticsLabel('small category'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Support'));
     await tester.pumpAndSettle();
-    expect(find.text('Support'), findsNWidgets(4));
+    expect(find.text('Support'), findsNWidgets(3));
     await tester.ensureVisible(find.text('Watching'));
     await tester.tap(find.text('Watching'));
     await tester.pumpAndSettle();

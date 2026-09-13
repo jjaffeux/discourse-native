@@ -43,7 +43,6 @@ class ChatChannelSearchButton extends StatelessWidget {
             variant: DButtonVariant.ghost,
             icon: DIcon(
               DIcons.magnifyingGlass,
-              size: 18,
               color: state.open ? Theme.of(context).colorScheme.primary : null,
             ),
             tooltip: state.open

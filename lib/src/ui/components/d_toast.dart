@@ -775,7 +775,7 @@ class _DToastCardState extends State<_DToastCard> {
                       tooltip: 'Close toast',
                       semanticLabel: 'Close notification',
                       variant: DButtonVariant.ghost,
-                      size: DButtonSize.extraSmall,
+                      size: DButtonSize.small,
                       onPressed: () => widget.controller.close(
                         widget.entry.id,
                         reason: DToastCloseReason.closeButton,

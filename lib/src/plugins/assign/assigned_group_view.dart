@@ -399,10 +399,7 @@ class _AssignedPeoplePanelState extends State<_AssignedPeoplePanel> {
           ),
           DButton.iconOnly(
             key: const ValueKey('assigned-member-search-toggle'),
-            icon: DIcon(
-              _showSearch ? DIcons.xmark : DIcons.magnifyingGlass,
-              size: 16,
-            ),
+            icon: DIcon(_showSearch ? DIcons.xmark : DIcons.magnifyingGlass),
             tooltip: _showSearch
                 ? 'Hide person search'
                 : 'Find assigned person',

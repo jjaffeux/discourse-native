@@ -167,13 +167,13 @@ void main() {
     );
   });
 
-  testWidgets('base-nova artwork stays compact inside touch targets', (
+  testWidgets('Native artwork stays compact inside touch targets', (
     tester,
   ) async {
     for (final entry in const [
-      (DToggleSize.small, 28.0, 14.0),
-      (DToggleSize.regular, 32.0, 16.0),
-      (DToggleSize.large, 36.0, 16.0),
+      (DToggleSize.small, 24.0, 12.0),
+      (DToggleSize.regular, 28.0, 14.0),
+      (DToggleSize.large, 32.0, 16.0),
     ]) {
       for (final platform in [TargetPlatform.macOS, TargetPlatform.iOS]) {
         await mount(

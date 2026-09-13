@@ -497,10 +497,7 @@ class _ChannelSettings extends StatelessWidget {
                                     label: const Text('Leave channel'),
                                     onPressed: () =>
                                         unawaited(_leave(context, channel)),
-                                    icon: const DIcon(
-                                      DIcons.rightFromBracket,
-                                      size: 16,
-                                    ),
+                                    icon: const DIcon(DIcons.rightFromBracket),
                                     variant: DButtonVariant.destructive,
                                     size: DButtonSize.small,
                                     loading: followingBusy,
@@ -599,7 +596,7 @@ class _ChannelSummary extends StatelessWidget {
       key: const ValueKey('chat-channel-edit-details'),
       label: const Text('Edit details'),
       onPressed: onEdit,
-      icon: const DIcon(DIcons.pencil, size: 14),
+      icon: const DIcon(DIcons.pencil),
       variant: DButtonVariant.outline,
       size: DButtonSize.small,
     );

@@ -471,7 +471,7 @@ class DAttachmentActions extends StatelessWidget {
   final List<DAttachmentAction> children;
 
   double get horizontalVisualWidth => math.max(
-    DButton.visualDimensionFor(DButtonSize.extraSmall),
+    DButton.visualDimensionFor(DButtonSize.small),
     children.fold(
       0,
       (width, action) => width + DButton.visualDimensionFor(action.size),
@@ -515,7 +515,7 @@ class DAttachmentAction extends StatelessWidget {
     this.autofocus = false,
     this.loading = false,
     this.variant = DButtonVariant.ghost,
-    this.size = DButtonSize.extraSmall,
+    this.size = DButtonSize.small,
   });
 
   final Widget icon;

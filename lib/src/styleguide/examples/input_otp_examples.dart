@@ -349,7 +349,7 @@ class _OTPFormExampleState extends State<_OTPFormExample> {
                         _resends == 0 ? 'Resend Code' : 'Resent ($_resends)',
                       ),
                       icon: const Icon(Icons.refresh, size: 16),
-                      size: DButtonSize.extraSmall,
+                      size: DButtonSize.small,
                       variant: DButtonVariant.outline,
                       onPressed: () => setState(() => _resends++),
                     ),

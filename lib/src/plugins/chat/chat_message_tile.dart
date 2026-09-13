@@ -721,8 +721,8 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
               builder: (anchorContext) => DButton.iconOnly(
                 key: ValueKey('chat-message-react-${widget.message.id}'),
                 tooltip: 'Add reaction',
-                icon: const DIcon(DIcons.farFaceSmile, size: 16),
-                size: DButtonSize.extraSmall,
+                icon: const DIcon(DIcons.farFaceSmile),
+                size: DButtonSize.small,
                 variant: DButtonVariant.ghost,
                 onPressed: !enabled || _reactionPickerOpening
                     ? null
@@ -879,8 +879,8 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
                         'chat-message-more-actions-${widget.message.id}',
                       ),
                       tooltip: 'More message actions',
-                      icon: const DIcon(DIcons.chevronDown, size: 16),
-                      size: DButtonSize.extraSmall,
+                      icon: const DIcon(DIcons.chevronDown),
+                      size: DButtonSize.small,
                       variant: DButtonVariant.secondary,
                       focusNode: state.focusNode,
                       hasPopup: true,

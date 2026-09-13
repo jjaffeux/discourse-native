@@ -5,10 +5,9 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   for (final (size, height) in [
-    (DControlSize.extraSmall, 24.0),
-    (DControlSize.small, 28.0),
-    (DControlSize.regular, 32.0),
-    (DControlSize.large, 36.0),
+    (DControlSize.small, 24.0),
+    (DControlSize.regular, 28.0),
+    (DControlSize.large, 32.0),
   ]) {
     testWidgets('${size.name} has the same height across controls', (
       tester,
@@ -95,6 +94,7 @@ void main() {
                   DTabs<String>(
                     children: [
                       DTabList<String>(
+                        key: const Key('tab-list'),
                         size: size,
                         children: const [
                           DTabTrigger<String>(
@@ -158,7 +158,6 @@ void main() {
         'combobox',
         'attachment',
         'page',
-        'tab',
         'menubar',
         'sidebar',
       ]) {
@@ -168,6 +167,17 @@ void main() {
           reason: key,
         );
       }
+      // Tabs inset their triggers; the list owns the shared minimum height.
+      expect(
+        tester.getSize(find.byKey(const Key('tab-list'))).height,
+        greaterThanOrEqualTo(height),
+      );
+      expect(
+        tester
+            .getRect(find.byKey(const Key('tab-list')))
+            .contains(tester.getCenter(find.byKey(const Key('tab')))),
+        isTrue,
+      );
       await tester.tap(find.byKey(const Key('button')));
       await tester.tap(find.byKey(const Key('icon')));
       expect(presses, 2);

@@ -822,7 +822,7 @@ class _IncomingBanner extends StatelessWidget {
               key: const ValueKey('incoming-topics-button'),
               variant: DButtonVariant.primary,
               size: DButtonSize.small,
-              icon: const DIcon(DIcons.arrowUp, size: 16),
+              icon: const DIcon(DIcons.arrowUp),
               label: label,
               loading: loading,
               loadingLabel: label,

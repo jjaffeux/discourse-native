@@ -685,7 +685,7 @@ class _GlobalSearchDisplay extends StatelessWidget {
     child: DPopoverTrigger(
       builder: (context, state) => DButton.iconOnly(
         key: const ValueKey('global-search-display-trigger'),
-        icon: const DIcon(DIcons.gear, size: 14),
+        icon: const DIcon(DIcons.gear),
         tooltip: 'Ordering and display',
         variant: DButtonVariant.outline,
         size: DButtonSize.small,

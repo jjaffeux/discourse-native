@@ -272,7 +272,7 @@ class _StackToastExampleState extends State<_StackToastExample> {
                     icon: const Icon(Icons.close, size: 16),
                     tooltip: 'Close toast',
                     variant: DButtonVariant.ghost,
-                    size: DButtonSize.extraSmall,
+                    size: DButtonSize.small,
                     onPressed: () => DToast.of(context).close(toast.id),
                   ),
                 ],

@@ -349,7 +349,7 @@ class _PostFlagEditorState extends State<PostFlagEditor> {
                         : widget.submitLabel,
                   ),
                   onPressed: _valid ? _submit : null,
-                  icon: const DIcon(DIcons.flag, size: 16),
+                  icon: const DIcon(DIcons.flag),
                   variant: DButtonVariant.primary,
                   loading: _saving,
                 ),

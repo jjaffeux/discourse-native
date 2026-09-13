@@ -49,7 +49,7 @@ class MessageCreateButton extends StatelessWidget {
           ? DButton(
               key: const ValueKey('new-message-button'),
               label: const Text('New message'),
-              icon: const DIcon(DIcons.farPenToSquare, size: 16),
+              icon: const DIcon(DIcons.farPenToSquare),
               tooltip: 'New message',
               variant: DButtonVariant.primary,
               size: DButtonSize.small,
@@ -57,7 +57,7 @@ class MessageCreateButton extends StatelessWidget {
             )
           : DButton.iconOnly(
               key: const ValueKey('new-message-button'),
-              icon: const DIcon(DIcons.farPenToSquare, size: 18),
+              icon: const DIcon(DIcons.farPenToSquare),
               tooltip: 'New message',
               variant: DButtonVariant.primary,
               size: DButtonSize.small,

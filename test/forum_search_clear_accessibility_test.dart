@@ -118,15 +118,15 @@ void main() {
         expect(clear, findsOneWidget);
         expect(
           tester.widget<DInputGroupButton>(clear).size,
-          DControlSize.extraSmall,
+          DControlSize.small,
         );
         expect(tester.getSize(clear), const Size.square(24));
-        expect(tester.getSize(find.byType(ForumSearch)).height, 32);
+        expect(tester.getSize(find.byType(ForumSearch)).height, 28);
         final groupRect = tester.getRect(find.byType(DInputGroup));
         final clearRect = tester.getRect(clear);
         expect(clearRect.right, lessThan(groupRect.right));
-        expect(clearRect.top - groupRect.top, closeTo(4, .5));
-        expect(groupRect.bottom - clearRect.bottom, closeTo(4, .5));
+        expect(clearRect.top - groupRect.top, closeTo(2, .5));
+        expect(groupRect.bottom - clearRect.bottom, closeTo(2, .5));
         expect(
           tester.getSemantics(clear),
           isSemantics(

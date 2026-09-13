@@ -165,7 +165,7 @@ Future<void> _showShareSheet({
                 Navigator.of(context).pop();
                 unawaited(onReplyAsNewTopic());
               },
-              icon: const DIcon(DIcons.plus, size: 16),
+              icon: const DIcon(DIcons.plus),
               size: DButtonSize.small,
               variant: DButtonVariant.ghost,
             ),
@@ -282,7 +282,7 @@ class _TopicShareBodyState extends State<_TopicShareBody> {
                     child: Text(_copied ? 'Copied!' : 'Copy link'),
                   ),
                   onPressed: () => unawaited(_copy()),
-                  icon: DIcon(_copied ? DIcons.check : DIcons.copy, size: 16),
+                  icon: DIcon(_copied ? DIcons.check : DIcons.copy),
                   size: DButtonSize.small,
                   variant: DButtonVariant.primary,
                 ),
@@ -325,7 +325,7 @@ class _TopicShareBodyState extends State<_TopicShareBody> {
                   softWrap: true,
                 ),
                 onPressed: () => unawaited(_share(buttonContext)),
-                icon: const DIcon(DIcons.upRightFromSquare, size: 16),
+                icon: const DIcon(DIcons.upRightFromSquare),
                 size: DButtonSize.small,
                 variant: DButtonVariant.ghost,
               ),

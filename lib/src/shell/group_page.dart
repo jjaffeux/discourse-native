@@ -438,7 +438,7 @@ class _GroupHeader extends StatelessWidget {
                 if (group.messageable && onMessageGroup != null)
                   DButton(
                     key: const ValueKey('group-message'),
-                    icon: const DIcon(DIcons.envelope, size: 16),
+                    icon: const DIcon(DIcons.envelope),
                     label: const Text('Message'),
                     onPressed: onMessageGroup,
                   ),
@@ -458,7 +458,7 @@ class _GroupHeader extends StatelessWidget {
                     onSelected: (_) => unawaited(_deleteGroup(context)),
                     builder: (context, openMenu) => DButton.iconOnly(
                       key: const ValueKey('group-actions'),
-                      icon: const DIcon(DIcons.ellipsis, size: 16),
+                      icon: const DIcon(DIcons.ellipsis),
                       tooltip: 'More group actions',
                       size: overflowButtonSize,
                       onPressed: openMenu,

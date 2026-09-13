@@ -2311,7 +2311,7 @@ class _TopicBottomBar extends StatelessWidget {
                               DButton(
                                 key: const ValueKey('topic-reply-button'),
                                 onPressed: onReplyPressed,
-                                icon: const DIcon(DIcons.reply, size: 16),
+                                icon: const DIcon(DIcons.reply),
                                 label: const Text('Reply'),
                                 tooltip: 'Reply to this topic',
                                 shortcut: const DShortcut(topicReplyShortcut),
@@ -2803,7 +2803,7 @@ class _TopicViewHeader extends StatelessWidget {
             DButton.iconOnly(
               onPressed: () =>
                   controller.handleBack(canReturnToSidebar: canReturnToSidebar),
-              icon: const DIcon(DIcons.arrowLeft, size: 16),
+              icon: const DIcon(DIcons.arrowLeft),
               tooltip: 'Back',
               variant: DButtonVariant.ghost,
               size: DButtonSize.small,
@@ -4535,10 +4535,7 @@ class _TopicMap extends StatelessWidget {
                   key: const ValueKey('topic-summary-button'),
                   label: Text(summary ? 'Show all' : 'Summarize'),
                   onPressed: () => unawaited(_toggleSummary(context)),
-                  icon: DIcon(
-                    summary ? DIcons.list : DIcons.layerGroup,
-                    size: 14,
-                  ),
+                  icon: DIcon(summary ? DIcons.list : DIcons.layerGroup),
                   loading: summaryLoading,
                 ),
               ...pluginActions.actions,

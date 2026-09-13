@@ -85,7 +85,7 @@ class _VoiceUserCardCallButtonState extends State<VoiceUserCardCallButton> {
       key: ValueKey<String>('user-card-call-${widget.user.username}'),
       label: const Text('Call'),
       onPressed: _call,
-      icon: const DIcon(VoiceIcons.phone, size: 16),
+      icon: const DIcon(VoiceIcons.phone),
       variant: DButtonVariant.primary,
       loading: _calling,
     ),

@@ -413,7 +413,8 @@
         "Restore existing disabledOpacity scoped override with .5 default; preserve disabled/loading activation guards. No Input changes.",
         "Users search height follows touch targets; reorder arrows are outside CheckboxListTile semantics/height constraints, with authored40px pointer and48px touch targets.",
         "Native AX correction: icon-only tooltip becomes default spoken label; UserSummary count label moves onto DButton to eliminate duplicate nested buttons.",
-        "Custom-color follow-up (2026-09-10): user authorized optional per-button backgroundColor and borderColor for category-tinted split controls. Existing Button/Group/Combobox owners compose the working example; see docs/component-library/button-custom-colors.md and customColorsFollowUp for its current verification status."
+        "Custom-color follow-up (2026-09-10): user authorized optional per-button backgroundColor and borderColor for category-tinted split controls. Existing Button/Group/Combobox owners compose the working example; see docs/component-library/button-custom-colors.md and customColorsFollowUp for its current verification status.",
+        "2026-09-13: Normal controls are 28px with 12px labels. Use small 24px or large 32px; extra-small control APIs and usages were removed. See compact-control-sizing.md for typography, icons, migration and verification."
       ],
       "migrations": [
         "All existing direct Button imports migrated to discourse_ui.dart; obsolete theme/d_button.dart removed.",
@@ -553,6 +554,16 @@
           "Native macOS review only; touch and enlarged-layout widget tests do not constitute iOS or Linux device testing."
         ],
         "mergeCommit": "8b910d2acd59240dffa57eb6624ee286e42d467e"
+      },
+      "compactSizingFollowUp": {
+        "date": "2026-09-13",
+        "branch": "codex/compact-button-scale",
+        "status": "verified",
+        "record": "docs/component-library/compact-control-sizing.md",
+        "changes": "Use 24/28/32px controls with 12/12/14px labels; remove extra-small control size, migrate callers, and inherit standard icon sizing.",
+        "verification": "352 control/styleguide checks passed, including 12 visually reviewed golden images. Native macOS review covered production topic controls and the control comparison in light, dark, and plum palettes, 740px/320px widths, 100%/200% text, RTL, and keyboard select activation. Remaining app test failures reproduce at starting main cf4d0983. After rebasing onto main 71c94832, root analysis and 50 focused search, profile, composer and taxonomy integration tests passed.",
+        "implementationCommit": "8e2321a6c86e2440ff368c7067f5a2940c6cc7a5",
+        "integrationBase": "71c94832900bdbea95ba6e4c827cbf6a94ad77aa"
       }
     },
     {

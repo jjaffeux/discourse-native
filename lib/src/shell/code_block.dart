@@ -388,7 +388,7 @@ class _CodeBlockState extends State<CodeBlock> {
                   semanticLabel: 'View code full screen',
                   variant: DButtonVariant.ghost,
                   size: DButtonSize.small,
-                  icon: const DIcon(DIcons.expand, size: 16),
+                  icon: const DIcon(DIcons.expand),
                 ),
             ],
           ),
@@ -506,7 +506,7 @@ class _CodeBlockFullscreenState extends State<CodeBlockFullscreen> {
                       semanticLabel: 'Close code viewer',
                       variant: DButtonVariant.ghost,
                       size: DButtonSize.small,
-                      icon: const DIcon(DIcons.xmark, size: 18),
+                      icon: const DIcon(DIcons.xmark),
                     ),
                   ],
                 ),
@@ -673,7 +673,6 @@ class _CodeCopyButtonState extends State<_CodeCopyButton> {
       size: DButtonSize.small,
       icon: DIcon(
         _copied ? DIcons.check : DIcons.copy,
-        size: 16,
         color: _copied ? theme.colorScheme.primary : null,
       ),
     );

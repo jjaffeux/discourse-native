@@ -34,7 +34,7 @@ class EmptyState extends StatelessWidget {
                   DButton(
                     label: const Text('Add a site'),
                     onPressed: () => showAddInstanceSheet(context),
-                    icon: const DIcon(DIcons.plus, size: 18),
+                    icon: const DIcon(DIcons.plus),
                     variant: DButtonVariant.primary,
                   ),
                 ],

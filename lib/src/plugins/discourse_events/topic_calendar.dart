@@ -439,7 +439,7 @@ final class _TopicCalendarState extends State<TopicCalendar> {
                   DButton(
                     variant: DButtonVariant.outline,
                     onPressed: _pickTimezone,
-                    icon: const Icon(Icons.public, size: 16),
+                    icon: const Icon(Icons.public),
                     label: Text(_timezone.replaceAll('_', ' ')),
                   ),
                 ],
@@ -472,7 +472,7 @@ final class _TopicCalendarState extends State<TopicCalendar> {
               child: DButton(
                 variant: DButtonVariant.link,
                 onPressed: widget.onOpenWeb,
-                icon: const Icon(Icons.open_in_browser, size: 16),
+                icon: const Icon(Icons.open_in_browser),
                 label: const Text('Open web calendar'),
               ),
             ),

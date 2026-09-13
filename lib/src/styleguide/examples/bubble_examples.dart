@@ -598,7 +598,7 @@ class _ReactionDemoState extends State<_ReactionDemo> {
               interactive: true,
               children: [
                 DButton(
-                  size: DButtonSize.extraSmall,
+                  size: DButtonSize.small,
                   variant: selected
                       ? DButtonVariant.secondary
                       : DButtonVariant.ghost,
@@ -610,14 +610,14 @@ class _ReactionDemoState extends State<_ReactionDemo> {
                   label: Text('👍 $count${selected ? ' ✓' : ''}'),
                 ),
                 const DButton(
-                  size: DButtonSize.extraSmall,
+                  size: DButtonSize.small,
                   variant: DButtonVariant.ghost,
                   onPressed: null,
                   semanticLabel: 'Fire, 2 reactions, disabled',
                   label: Text('🔥 2'),
                 ),
                 DButton(
-                  size: DButtonSize.extraSmall,
+                  size: DButtonSize.small,
                   variant: DButtonVariant.ghost,
                   onPressed: () {
                     setState(() => failed = !failed);
@@ -742,7 +742,7 @@ class _TooltipDemo extends StatelessWidget {
                   child: DButton.iconOnly(
                     icon: const Icon(Icons.check, size: 14),
                     tooltip: 'Read receipt',
-                    size: DButtonSize.extraSmall,
+                    size: DButtonSize.small,
                     variant: DButtonVariant.ghost,
                     onPressed: () {},
                   ),
@@ -797,7 +797,7 @@ class _PopoverDemo extends StatelessWidget {
                     builder: (context, trigger) => DButton.iconOnly(
                       icon: const Icon(Icons.info_outline, size: 14),
                       tooltip: 'Show error details',
-                      size: DButtonSize.extraSmall,
+                      size: DButtonSize.small,
                       variant: DButtonVariant.ghost,
                       hasPopup: true,
                       expanded: trigger.open,
