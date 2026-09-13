@@ -496,6 +496,9 @@ void main() {
       final shell = await _pumpSearch(tester);
       await _openAndSearch(tester, 'design');
       await tester.tap(find.byKey(const ValueKey('global-search-scope-forum')));
+      shell.globalSearch.addCondition(
+        const GlobalSearchCondition(filterId: 'author', value: ['sam']),
+      );
       await _finishSearch(tester);
       await tester.tap(
         find.byKey(const ValueKey('global-search-display-trigger')),
@@ -509,6 +512,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(order, findsOneWidget);
       expect(find.byKey(ForumSearch.panelKey), findsOneWidget);
+      expect(shell.globalSearch.conditions.single.text, 'sam');
       await tester.tap(order);
       await tester.pumpAndSettle();
       await tester.tap(find.text('Most liked'));
@@ -525,9 +529,62 @@ void main() {
       await tester.pumpAndSettle();
       expect(order, findsNothing);
       expect(find.byKey(ForumSearch.panelKey), findsOneWidget);
+      expect(shell.globalSearch.conditions.single.text, 'sam');
       expect(tester.takeException(), isNull);
     },
   );
+
+  for (final dismissal in ['escape', 'outside', 'back', 'result']) {
+    _testPresentation(
+      '$dismissal dismissal clears filters from every search scope',
+      (tester) async {
+        final mobile = dismissal == 'back';
+        if (mobile) debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+        final shell = await _pumpSearch(tester, size: mobile ? phone : desktop);
+        await _openAndSearch(tester, 'design');
+        final search = shell.globalSearch;
+        for (final filter in [
+          'author',
+          'userGroup',
+          'groupMember',
+          'chatAuthor',
+        ]) {
+          search.addCondition(
+            GlobalSearchCondition(filterId: filter, value: const ['sam']),
+          );
+        }
+        search.setScope(GlobalSearchScope.all);
+        await _finishSearch(tester);
+
+        switch (dismissal) {
+          case 'escape':
+            await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+          case 'outside':
+            await tester.tapAt(const Offset(1400, 850));
+          case 'back':
+            await tester.tap(find.byKey(const ValueKey('global-search-back')));
+          case 'result':
+            await tester.tap(
+              _panelText('The search design is ready for a keyboard review.'),
+            );
+        }
+        await _finishSearch(tester);
+        expect(find.byKey(ForumSearch.panelKey), findsNothing);
+        expect(search.query, 'design');
+        for (final scope in GlobalSearchScope.values) {
+          expect(search.conditionsFor(scope), isEmpty, reason: scope.name);
+        }
+
+        await tester.tap(find.byKey(ForumSearch.inputKey));
+        await _finishSearch(tester);
+        search.setScope(GlobalSearchScope.users);
+        await _finishSearch(tester);
+        expect(search.conditions, isEmpty);
+        expect(search.query, 'design');
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
 
   _testPresentation(
     'outside dismissal preserves the query and has no shortcut footer or recent clocks',

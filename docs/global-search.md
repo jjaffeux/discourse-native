@@ -51,7 +51,10 @@ search permission. Server responses remain authoritative for accessible results.
 The filter picker exposes each scope's supported conditions. Conditions combine
 with AND; repeatable conditions support date/count bounds. Chips expose the
 filter, operator, value and removal action. Scoped filters and ordering survive
-switching between scopes. Plugin and permission-dependent conditions only appear
+switching between scopes. Closing search clears filters from every scope while
+retaining the query. Reopening applies the current topic or chat context again.
+Closing a nested filter or display menu leaves search filters in place.
+Plugin and permission-dependent conditions only appear
 when the site exposes them. Sorting and display properties use their own menu.
 
 Category lookups use category IDs, including when subcategories share a slug;

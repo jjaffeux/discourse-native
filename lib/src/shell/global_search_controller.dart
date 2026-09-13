@@ -293,6 +293,15 @@ class GlobalSearchController extends ChangeNotifier {
     _schedule();
   }
 
+  /// Clears every scope's filters and opening context when search closes.
+  void clearAllConditions() {
+    _context = null;
+    _pendingContext = null;
+    if (_banks.values.every((conditions) => conditions.isEmpty)) return;
+    _banks.clear();
+    _schedule();
+  }
+
   /// Applies the visible surface's defaults once when search opens.
   void setContext(GlobalSearchContext? context) {
     if (_disposed) return;
