@@ -16,7 +16,6 @@ import '../utils/pagination.dart';
 import 'adaptive_dialog_action.dart';
 import 'avatar_image.dart';
 import 'category_icon.dart';
-import 'command_menu.dart';
 import 'content_reading_lane.dart';
 import 'group/group_manage_controller.dart';
 import 'group/group_members_controller.dart';
@@ -443,25 +442,38 @@ class _GroupHeader extends StatelessWidget {
                     onPressed: onMessageGroup,
                   ),
                 if (canDelete)
-                  CommandMenuAnchor<_GroupHeaderAction>(
-                    title: 'Group actions',
-                    enabled: !mutating,
-                    options: const [
-                      CommandMenuOption(
-                        value: _GroupHeaderAction.delete,
-                        label: 'Delete group',
-                        icon: DIcons.trashCan,
-                        key: ValueKey('delete-group'),
-                        destructive: true,
+                  Semantics(
+                    container: true,
+                    explicitChildNodes: true,
+                    child: DDropdownMenu(
+                      key: ValueKey((siteUrl, group.id, group.name)),
+                      content: DDropdownMenuContent(
+                        semanticLabel: 'Group actions',
+                        align: DPopoverAlign.end,
+                        children: [
+                          DDropdownMenuItem(
+                            key: const ValueKey('delete-group'),
+                            leading: const DIcon(DIcons.trashCan),
+                            variant: DDropdownMenuItemVariant.destructive,
+                            onPressed: mutating
+                                ? null
+                                : () => unawaited(_deleteGroup(context)),
+                            child: const Text('Delete group'),
+                          ),
+                        ],
                       ),
-                    ],
-                    onSelected: (_) => unawaited(_deleteGroup(context)),
-                    builder: (context, openMenu) => DButton.iconOnly(
-                      key: const ValueKey('group-actions'),
-                      icon: const DIcon(DIcons.ellipsis),
-                      tooltip: 'More group actions',
-                      size: overflowButtonSize,
-                      onPressed: openMenu,
+                      child: DDropdownMenuTrigger(
+                        builder: (context, state) => DButton.iconOnly(
+                          key: const ValueKey('group-actions'),
+                          icon: const DIcon(DIcons.ellipsis),
+                          tooltip: 'More group actions',
+                          size: overflowButtonSize,
+                          focusNode: state.focusNode,
+                          hasPopup: true,
+                          expanded: state.open,
+                          onPressed: mutating ? null : state.toggle,
+                        ),
+                      ),
                     ),
                   ),
               ],
@@ -565,8 +577,6 @@ class _GroupHeader extends StatelessWidget {
     );
   }
 }
-
-enum _GroupHeaderAction { delete }
 
 Future<bool?> _confirmDeleteGroup(BuildContext context, Group group) {
   return showDialog<bool>(
