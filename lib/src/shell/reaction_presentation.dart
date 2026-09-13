@@ -446,10 +446,23 @@ class _ReactionUsersListState extends State<ReactionUsersList> {
     if (held == null) {
       final error = _snapshot.error;
       if (error == null) {
-        return const Padding(
-          padding: EdgeInsets.symmetric(vertical: 16),
-          child: Center(
-            child: SizedBox(width: 18, height: 18, child: DSpinner()),
+        return DSkeletonRegion(
+          semanticsLabel: 'Loading reactions',
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              for (final width in [120.0, 96.0, 136.0])
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  child: Row(
+                    children: [
+                      const DSkeleton.circle(diameter: 24),
+                      const SizedBox(width: 8),
+                      Flexible(child: DSkeleton(width: width, height: 14)),
+                    ],
+                  ),
+                ),
+            ],
           ),
         );
       }
