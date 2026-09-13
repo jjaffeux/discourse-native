@@ -164,6 +164,28 @@ void main() {
           find.byKey(const ValueKey('chat-reaction-pill-1-heart')),
           findsOneWidget,
         );
+        final reactions = tester.getRect(
+          find.byKey(const ValueKey('chat-reactions')),
+        );
+        final bubble = tester.getRect(
+          find.descendant(
+            of: find.byKey(const ValueKey('chat-message-1')),
+            matching: find.byType(DBubbleContent),
+          ),
+        );
+        expect(
+          reactions.top - bubble.bottom,
+          closeTo(platform == TargetPlatform.macOS ? 4 : 10, .01),
+        );
+        if (platform == TargetPlatform.macOS) {
+          final nextRow = tester.getRect(
+            find.descendant(
+              of: find.byKey(const ValueKey('chat-message-2')),
+              matching: find.byType(DMessage),
+            ),
+          );
+          expect(nextRow.top - reactions.bottom, closeTo(4, .01));
+        }
       });
     }
 

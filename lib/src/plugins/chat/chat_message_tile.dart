@@ -43,6 +43,7 @@ class ChatMessageTile extends StatelessWidget {
     required this.messageId,
     required this.chained,
     this.endsGroup = true,
+    this.followsReactions = false,
     this.contextThreadId,
     this.onOpenThread,
     this.onJumpToMessage,
@@ -66,6 +67,7 @@ class ChatMessageTile extends StatelessWidget {
   /// Whether this is the last visible message in a consecutive-sender run.
   /// DMs show their optional avatar here; channel rows ignore it.
   final bool endsGroup;
+  final bool followsReactions;
 
   final ValueChanged<ChatThreadPreview>? onOpenThread;
 
@@ -128,6 +130,7 @@ class ChatMessageTile extends StatelessWidget {
           message: message,
           chained: chained,
           endsGroup: endsGroup,
+          followsReactions: followsReactions,
           onOpenThread: onOpenThread,
           onJumpToMessage: onJumpToMessage,
           showThreadSummary: showThreadSummary,
@@ -1289,6 +1292,7 @@ class _Tile extends StatelessWidget {
     required this.message,
     required this.chained,
     required this.endsGroup,
+    required this.followsReactions,
     required this.onOpenThread,
     required this.onJumpToMessage,
     required this.showThreadSummary,
@@ -1300,6 +1304,7 @@ class _Tile extends StatelessWidget {
   final ChatMessage message;
   final bool chained;
   final bool endsGroup;
+  final bool followsReactions;
   final ValueChanged<ChatThreadPreview>? onOpenThread;
   final ValueChanged<int>? onJumpToMessage;
   final bool showThreadSummary;
@@ -1593,7 +1598,11 @@ class _Tile extends StatelessWidget {
       key: ValueKey('chat-message-${message.id}'),
       padding: EdgeInsetsDirectional.fromSTEB(
         DSpacing.lg,
-        chained ? DSpacing.sm : DSpacing.lg,
+        !context.isTouch && followsReactions
+            ? DSpacing.xs
+            : chained
+            ? DSpacing.sm
+            : DSpacing.lg,
         DSpacing.lg,
         0,
       ),
@@ -1624,6 +1633,9 @@ class _Tile extends StatelessWidget {
                     ),
             ),
           DMessageContent(
+            spacing: !context.isTouch && message.reactions.isNotEmpty
+                ? DSpacing.xs
+                : 10,
             children: [
               if (showIdentity && !outgoing && !chained)
                 DMessageHeader(
