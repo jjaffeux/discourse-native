@@ -15,9 +15,9 @@ import '../../shell/relative_time.dart';
 import '../../shell/site_emoji_text.dart';
 import '../../shell/title_bar.dart';
 import '../../shell/user_status.dart';
+import '../../theme/app_theme.dart';
 import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
-import '../../theme/discourse_typography.dart';
 import 'chat_channel.dart';
 import 'chat_channel_actions.dart';
 import 'chat_controller.dart';
@@ -1361,10 +1361,15 @@ class _DrawerBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (badge.dot) {
-      return DNotificationDot(semanticLabel: dotSemanticLabel);
+      return DNotificationDot(
+        semanticLabel: dotSemanticLabel,
+        color: Theme.of(context).discourse.notificationIndicator,
+      );
     }
     return DBadge(
       semanticLabel: '${badge.count} urgent notifications',
+      backgroundColor: Theme.of(context).discourse.success,
+      foregroundColor: Theme.of(context).discourse.notificationForeground,
       child: Text(badge.count > 99 ? '99+' : '${badge.count}'),
     );
   }

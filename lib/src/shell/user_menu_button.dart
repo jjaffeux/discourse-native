@@ -4,9 +4,11 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
 import '../models/user_status.dart';
+import '../theme/app_theme.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'external_link.dart';
+import 'header_notification_button.dart';
 import 'platform.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';
@@ -110,8 +112,13 @@ class _UserMenuButtonState extends State<UserMenuButton> {
         listenable: controller.accountActivity.totalsListenable,
         builder: (context, _) {
           final connecting = account.connecting;
-          final unreadCount =
-              controller.accountActivity.totalsFor(siteUrl)?.coreBadge ?? 0;
+          final totals = controller.accountActivity.totalsFor(siteUrl);
+          final unreadCount = totals?.coreBadge ?? 0;
+          final notificationColor = (totals?.unreadPersonalMessages ?? 0) > 0
+              ? theme.discourse.success
+              : (totals?.unseenReviewables ?? 0) > 0
+              ? theme.colorScheme.error
+              : theme.discourse.notificationIndicator;
           return Row(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -124,27 +131,10 @@ class _UserMenuButtonState extends State<UserMenuButton> {
                 semanticLabel: unreadCount > 0
                     ? 'Notifications, $unreadCount unread ${unreadCount == 1 ? 'item' : 'items'}'
                     : 'Notifications',
-                icon: Stack(
-                  clipBehavior: Clip.none,
-                  children: [
-                    const DIcon(DIcons.bell, size: 20),
-                    if (unreadCount > 0 && !connecting)
-                      PositionedDirectional(
-                        top: -10,
-                        end: -12,
-                        child: IgnorePointer(
-                          child: ExcludeSemantics(
-                            child: DBadge(
-                              key: UserMenuButton.unreadDotKey,
-                              child: Text(
-                                unreadCount > 99 ? '99+' : '$unreadCount',
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
+                notificationCount: unreadCount,
+                notificationColor: notificationColor,
+                notificationSurface: widget.ringColor ?? theme.shell.content,
+                icon: const DIcon(DIcons.bell, size: 20),
               ),
               _AccountMenuPopover(
                 view: UserMenuView.profile,
@@ -197,6 +187,9 @@ class _AccountMenuPopover extends StatelessWidget {
     required this.tooltip,
     required this.semanticLabel,
     required this.icon,
+    this.notificationCount = 0,
+    this.notificationColor,
+    this.notificationSurface,
   });
 
   final UserMenuView view;
@@ -206,33 +199,55 @@ class _AccountMenuPopover extends StatelessWidget {
   final String tooltip;
   final String semanticLabel;
   final Widget icon;
+  final int notificationCount;
+  final Color? notificationColor;
+  final Color? notificationSurface;
 
   @override
   Widget build(BuildContext context) {
-    Widget buildTrigger(BuildContext context, DPopoverTriggerState trigger) =>
-        DButton.iconOnly(
-          key: view == UserMenuView.profile
-              ? UserMenuButton.avatarKey
-              : UserMenuButton.bellKey,
-          icon: ExcludeSemantics(child: icon),
-          tooltip: connecting ? 'Connecting…' : tooltip,
+    void activate(BuildContext context, DPopoverTriggerState trigger) {
+      onOpen();
+      if (context.isTouch) {
+        unawaited(showUserMenuSheet(context, view: view));
+      } else {
+        trigger.toggle();
+      }
+    }
+
+    Widget buildTrigger(BuildContext context, DPopoverTriggerState trigger) {
+      if (notificationCount > 0 && !connecting) {
+        return headerNotificationButton(
+          context,
+          key: UserMenuButton.bellKey,
+          countKey: UserMenuButton.unreadDotKey,
+          icon: icon,
+          count: notificationCount,
+          color: notificationColor!,
+          surface: notificationSurface!,
+          tooltip: tooltip,
           semanticLabel: semanticLabel,
-          variant: DButtonVariant.ghost,
-          size: DButtonSize.large,
+          focusNode: trigger.focusNode,
           hasPopup: true,
           expanded: trigger.open,
-          focusNode: trigger.focusNode,
-          onPressed: connecting
-              ? null
-              : () {
-                  onOpen();
-                  if (context.isTouch) {
-                    unawaited(showUserMenuSheet(context, view: view));
-                  } else {
-                    trigger.toggle();
-                  }
-                },
+          onPressed: () => activate(context, trigger),
         );
+      }
+      return DButton.iconOnly(
+        key: view == UserMenuView.profile
+            ? UserMenuButton.avatarKey
+            : UserMenuButton.bellKey,
+        icon: ExcludeSemantics(child: icon),
+        tooltip: connecting ? 'Connecting…' : tooltip,
+        semanticLabel: semanticLabel,
+        variant: DButtonVariant.ghost,
+        size: DButtonSize.large,
+        hasPopup: true,
+        expanded: trigger.open,
+        focusNode: trigger.focusNode,
+        onPressed: connecting ? null : () => activate(context, trigger),
+      );
+    }
+
     if (view == UserMenuView.profile && !context.isTouch) {
       return DDropdownMenu(
         controller: controller,

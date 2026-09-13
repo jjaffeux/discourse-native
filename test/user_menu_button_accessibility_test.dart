@@ -17,6 +17,62 @@ import 'support/fakes.dart';
 const _siteUrl = 'https://meta.example';
 
 void main() {
+  for (final (totals, role) in [
+    (const NotificationTotals(unreadNotifications: 128), 'unread'),
+    (
+      const NotificationTotals(unreadNotifications: 126, unseenReviewables: 2),
+      'review',
+    ),
+    (
+      const NotificationTotals(
+        unreadNotifications: 125,
+        unseenReviewables: 2,
+        unreadPersonalMessages: 1,
+      ),
+      'personal',
+    ),
+  ]) {
+    testWidgets('bell capsule follows core $role color priority', (
+      tester,
+    ) async {
+      const user = DiscourseUser(id: 7, username: 'reader');
+      final controller = ShellController(
+        instanceStore: FakeInstanceStore([
+          instance('meta.example').copyWith(user: user),
+        ]),
+        api: FakeDiscourseApi(user: user, totals: totals),
+        authenticator: FakeAuthenticator()..keys[_siteUrl] = 'api-key',
+        drafts: FakeDraftStore(),
+        trackers: FakeSiteTracker.reset(),
+        updater: FakeUpdater(),
+        updateStore: FakeUpdateStore(),
+      );
+      await controller.load();
+      await controller.accountActivity.refresh(controller.currentInstance!);
+      addTearDown(controller.dispose);
+      final theme = AppTheme.light.copyWith(platform: TargetPlatform.macOS);
+      await tester.pumpWidget(
+        ShellScope(
+          controller: controller,
+          child: MaterialApp(
+            theme: theme,
+            home: const Scaffold(body: Center(child: UserMenuButton())),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final button = tester.widget<DButton>(find.byKey(UserMenuButton.bellKey));
+      final color = switch (role) {
+        'personal' => theme.discourse.success,
+        'review' => theme.colorScheme.error,
+        _ => theme.discourse.notificationIndicator,
+      };
+      expect(button.backgroundColor, color.withValues(alpha: .14));
+      expect(find.text('99+'), findsOneWidget);
+      expect(button.semanticLabel, 'Notifications, 128 unread items');
+    });
+  }
+
   testWidgets('bell owns unread activity and avatar opens profile directly', (
     tester,
   ) async {
@@ -53,7 +109,14 @@ void main() {
       await tester.pumpAndSettle();
 
       final button = find.byKey(UserMenuButton.bellKey);
-      expect(tester.getSize(button), const Size.square(32));
+      expect(tester.getSize(button).height, 28);
+      expect(tester.getSize(button).width, greaterThan(28));
+      expect(
+        tester.getRect(button).right,
+        lessThanOrEqualTo(
+          tester.getRect(find.byKey(UserMenuButton.avatarKey)).left,
+        ),
+      );
       expect(find.byKey(UserMenuButton.unreadDotKey), findsOneWidget);
       expect(find.byTooltip('Notifications'), findsOneWidget);
       expect(find.byTooltip('Profile'), findsOneWidget);

@@ -31,16 +31,15 @@ already announces unread activity. Use directional positioning for overlays.
   dot, preserving its visual center and mirroring the corner in RTL.
 - Chat drawer: unread channel indicators; urgent numeric badges stay numeric.
 - Chat My Threads and channel thread lists: shared 8px unread dots.
-- Chat pinned messages: shared 8px indicator with the existing error color
-  and an accessible unseen-pins label.
+- Chat pinned messages: shared 8px indicator with the ordinary chat activity
+  accent and an accessible unseen-pins label.
 - Forum sidebar and tabs: shared 8px dots, retaining ordinary unread and
   urgent mention colors and existing labels.
 - Topic lists/inbox: `TopicStateDot` retains its tooltip and state label while
   delegating rendering to the kit.
 - Update rail button: shared ringed notification dot with the rail surface.
 
-Retained alternatives: notification counts (`DBadge` and anchored count
-adapters), avatar presence/flair (`DAvatarBadge`), category identity markers,
+Retained alternatives: notification counts (`DBadge` and header capsules), avatar presence/flair (`DAvatarBadge`), category identity markers,
 diagnostics/voice recording status, calendar event markers, carousel/page
 positions, and rail drag-insertion markers. These indicate identity, an ongoing
 state, position, or a count rather than unread/new activity.
@@ -58,3 +57,14 @@ it does not read or mutate the user's forum accounts.
 
 Verification and independent review/merge evidence are recorded in the
 `notification-dot` row of `progress.json`.
+
+## Counts and core colors
+
+The user selected combined capsules on 2026-09-13. Both numeric header controls
+now compose the existing `DButton` and `DSeparator`: icon, divider and capped
+count share one pill. Ordinary unread chat keeps its small dot. See
+[the source audit](notification-colors.md) for exact color roles and count policy.
+
+`tool/notification_capsule_review_main.dart` mounts the real shell with 128 urgent
+chat items and 128 ordinary notifications, with light/dark, site palette,
+390px width, 200% text and RTL controls. It uses only local fixtures.
