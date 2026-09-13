@@ -2,11 +2,11 @@
 
 ## Height correction — 2026-09-13
 
-The horizontal bar now reserves 6px above and below its triggers, retaining
-3px horizontal padding. Regular desktop triggers produce a 40px bar, and the
-bar grows with text scaling and touch targets. Trigger labels are centered
-inside their control bounds. This user-requested spacing supersedes the frozen
-32px reference geometry below; vertical bars retain their existing padding.
+The bar retains compact 3px padding around its triggers. Regular desktop
+triggers produce a 34px bar, and the bar grows with text scaling and touch
+targets. Trigger labels are centered inside their control bounds. The initial
+6px vertical-padding change was a misinterpretation of the request and was
+reverted after user feedback; label centering is retained.
 
 Verification: focused Menubar and styleguide widget tests cover geometry,
 text scaling, narrow RTL palettes and menu interactions; touched-file static
