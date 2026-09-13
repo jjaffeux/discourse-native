@@ -533,6 +533,7 @@ class NotificationRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final tokens = DTokens.of(context);
     final description = resolved == null
         ? NotificationDescription.of(notification)
         : NotificationDescription.fromPresentation(resolved!.presentation);
@@ -569,7 +570,9 @@ class NotificationRow extends StatelessWidget {
                     child: DIcon(
                       description.icon,
                       size: 16,
-                      color: theme.colorScheme.onSurfaceVariant,
+                      color: notification.isUnread
+                          ? tokens.primary
+                          : tokens.mutedForeground,
                     ),
                   ),
                   const SizedBox(width: 10),
