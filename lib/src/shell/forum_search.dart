@@ -321,6 +321,7 @@ class _ForumSearchState extends State<ForumSearch> {
       skipTraversal: true,
       onKeyEvent: _handleKey,
       child: DInputGroup(
+        size: DControlSize.large,
         borderless: expanded,
         children: [
           DInputGroupInput(

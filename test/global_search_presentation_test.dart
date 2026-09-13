@@ -285,7 +285,7 @@ void main() {
       await tester.pumpAndSettle();
       final groupBefore = tester.getRect(find.byType(DInputGroup));
       final editorBefore = tester.getRect(_editorFinder());
-      expect(groupBefore.width, 136);
+      expect(groupBefore.width, 112);
 
       await tester.tap(find.byKey(ForumSearch.inputKey));
       await tester.pumpAndSettle();
