@@ -95,6 +95,8 @@ import 'composer_quotes.dart';
 import 'composer_triggers.dart';
 import 'do_not_disturb_controller.dart';
 import 'draft_list_controller.dart';
+import 'global_search_api.dart';
+import 'global_search_controller.dart';
 import 'groups_controller.dart';
 import 'hashtag.dart';
 import 'plugin_background_retention.dart';
@@ -872,6 +874,13 @@ class ShellController extends FrameSafeNotifier
     api: api.search,
     credentials: authenticator,
     lifecycle: lifecycle,
+  );
+
+  late final GlobalSearchController globalSearch = GlobalSearchController(
+    api: GlobalSearchApi(transport: api.pluginTransport),
+    credentials: authenticator,
+    lifecycle: lifecycle,
+    recentSource: search,
   );
 
   SitePresentationController? _sitePresentation;
@@ -13932,6 +13941,7 @@ class ShellController extends FrameSafeNotifier
     } else {
       _pluginTeardownFuture = closePluginSession;
     }
+    globalSearch.dispose();
     search.dispose();
     for (final host in _coreBookmarkTargetHosts.values) {
       host.dispose();

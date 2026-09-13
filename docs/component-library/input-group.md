@@ -57,8 +57,9 @@ focus node to its builder; the group consumes only focus/enabled/invalid state.
 
 ## Examples
 
-The styleguide registers nine actual examples:
+The styleguide registers ten actual examples:
 
+- Shared surrounding surface.
 - Default search.
 - Inline/block alignments.
 - Text addons.
@@ -144,3 +145,11 @@ Button Group dependency:
   for Input Group.
 - Spinner’s former local Input Group validation fixture now uses public
   `DInputGroup` while preserving its example coverage.
+
+## Shared surrounding surfaces
+
+`DInputGroup(borderless: true)` keeps the same editor and addon geometry while
+letting a containing surface own the border, fill and focus ring. Global search
+uses it when its navbar field becomes the header of a popover. The regular
+standalone presentation remains the default; disabled and invalid semantics,
+text editing, and control ownership do not change.
