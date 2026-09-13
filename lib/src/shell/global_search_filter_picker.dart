@@ -388,24 +388,26 @@ class _GlobalSearchConditionEditorState
               ],
             ),
             const SizedBox(height: 12),
-            DSelect<String>.controlled(
-              key: const ValueKey('global-search-filter-operator'),
-              value: _operator,
-              onChanged: (value) {
-                if (value != null) setState(() => _operator = value);
-              },
-              semanticLabel: '${filter.label} condition',
-              width: double.infinity,
-              entries: [
-                for (final op in filter.operators)
-                  DSelectItem(
-                    value: op.value,
-                    textValue: op.label,
-                    child: Text(op.label),
-                  ),
-              ],
-            ),
-            const SizedBox(height: 8),
+            if (filter.operators.length > 1) ...[
+              DSelect<String>.controlled(
+                key: const ValueKey('global-search-filter-operator'),
+                value: _operator,
+                onChanged: (value) {
+                  if (value != null) setState(() => _operator = value);
+                },
+                semanticLabel: '${filter.label} condition',
+                width: double.infinity,
+                entries: [
+                  for (final op in filter.operators)
+                    DSelectItem(
+                      value: op.value,
+                      textValue: op.label,
+                      child: Text(op.label),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 8),
+            ],
             if (_multiple && _values.isNotEmpty) ...[
               Wrap(
                 spacing: 4,
