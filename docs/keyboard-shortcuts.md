@@ -12,6 +12,7 @@ through posts when a topic is open and through the list when no topic is open.
 | `J` / `K` | Select and reveal the next / previous post in the open topic. When no topic is open, highlight the next / previous topic in the visible list. |
 | `R` | Reply to the selected post. |
 | `Shift+R` | Reply to the topic. |
+| `B` | Bookmark the open topic or manage its existing bookmarks. |
 | `C` | Create a topic. |
 | `U` | Go back through the active tab's content history. |
 | `Cmd+[` / `Cmd+]` (macOS), `Alt+Left` / `Alt+Right` (Windows/Linux) | Go back / forward through the active tab's content history, like the mouse side buttons. |
@@ -22,7 +23,7 @@ through posts when a topic is open and through the list when no topic is open.
 | `?` | Show the shortcut reference. |
 
 `Cmd` applies on macOS; other platforms use `Ctrl`. Cursor movement accepts
-key repeats; opening, replying, back, and help do not.
+key repeats; opening, replying, bookmarking, back, and help do not.
 
 ## Selection and focus
 

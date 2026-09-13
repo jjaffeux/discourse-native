@@ -55,6 +55,10 @@ Future<void> showKeyboardShortcuts(BuildContext context) async {
             label: 'Reply to topic',
             shortcuts: [topicReplyShortcut],
           ),
+          const _ShortcutRow(
+            label: 'Bookmark topic',
+            shortcuts: [topicBookmarkShortcut],
+          ),
           _ShortcutRow(
             label: 'Submit composer',
             shortcuts: [

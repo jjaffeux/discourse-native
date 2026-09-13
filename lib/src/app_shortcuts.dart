@@ -57,6 +57,11 @@ const topicReplyShortcut = SingleActivator(
   includeRepeats: false,
 );
 
+const topicBookmarkShortcut = SingleActivator(
+  LogicalKeyboardKey.keyB,
+  includeRepeats: false,
+);
+
 SingleActivator contentBackShortcutForPlatform(TargetPlatform platform) =>
     platform == TargetPlatform.macOS
     ? const SingleActivator(LogicalKeyboardKey.bracketLeft, meta: true)

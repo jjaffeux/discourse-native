@@ -12,11 +12,13 @@ import '../data/diagnostics_panel_width_store.dart';
 import '../data/sidebar_width_store.dart';
 import '../diagnostics/diagnostics_controller.dart';
 import '../diagnostics/diagnostics_scope.dart';
+import '../models/bookmark.dart';
 import '../plugin_api/plugin_scope.dart';
 import '../theme/app_theme.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'aggregate_view.dart';
+import 'bookmark_ui.dart';
 import 'composer_presentation.dart';
 import 'diagnostics_panel.dart';
 import 'empty_state.dart';
@@ -156,6 +158,34 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
         return false;
       }
       controller.openReply();
+      return true;
+    }
+
+    if (topicBookmarkShortcut.accepts(event, keyboard)) {
+      final instance = controller.currentInstance;
+      final topic = controller.currentTopic;
+      if (controller.rootMode != ShellRootMode.forum ||
+          controller.currentContent?.isTopic != true ||
+          instance == null ||
+          instance.user == null ||
+          topic == null ||
+          _formControlHasFocus ||
+          controller.bookmarkWriteInFlight(
+            siteUrl: instance.url,
+            topicId: topic.id,
+            targetType: BookmarkTargetType.topic,
+            targetId: topic.id,
+          )) {
+        return false;
+      }
+      unawaited(
+        showTopicBookmarkMenu(
+          context: context,
+          controller: controller,
+          siteUrl: instance.url,
+          topic: topic,
+        ),
+      );
       return true;
     }
 
