@@ -10,6 +10,43 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  testWidgets('compact counts keep full text and semantics at large scales', (
+    tester,
+  ) async {
+    final semantics = tester.ensureSemantics();
+    try {
+      for (final scale in [1.0, 2.0, 3.0]) {
+        await _pump(
+          tester,
+          const DBadge(
+            size: DBadgeSize.compact,
+            semanticLabel: '123 unread',
+            child: Text('99+'),
+          ),
+          width: 150,
+          scale: scale,
+          rtl: true,
+        );
+        final bounds = tester.getRect(find.byType(DBadge));
+        final labelBounds = tester.getRect(find.text('99+'));
+        expect(bounds.height, closeTo(14 * scale + 2, 0.01));
+        expect(bounds.width, closeTo(labelBounds.width + 10, 0.01));
+        expect(bounds.contains(labelBounds.topLeft), isTrue);
+        expect(bounds.contains(labelBounds.bottomRight), isTrue);
+        expect(find.bySemanticsLabel('123 unread'), findsOneWidget);
+        expect(
+          tester
+              .renderObject<RenderParagraph>(find.text('99+'))
+              .didExceedMaxLines,
+          isFalse,
+        );
+        expect(tester.takeException(), isNull);
+      }
+    } finally {
+      semantics.dispose();
+    }
+  });
+
   testWidgets(
     'static badges have compact geometry and no activation or tab stop',
     (tester) async {
@@ -392,21 +429,30 @@ void main() {
     },
   );
 
-  testWidgets('touch target grows invisibly while badge stays 20px', (
+  testWidgets('both badge sizes retain an independently tappable 48px target', (
     tester,
   ) async {
-    var activated = false;
-    await _pump(
-      tester,
-      DBadge.action(onPressed: () => activated = true, child: const Text('Go')),
-      theme: AppTheme.light.copyWith(platform: TargetPlatform.iOS),
-    );
-    final bounds = tester.getRect(find.byType(DBadge));
-    expect(bounds.height, 48);
-    expect(bounds.width, greaterThanOrEqualTo(48));
-    expect(tester.getSize(find.byType(AnimatedContainer)).height, 20);
-    await tester.tapAt(bounds.topCenter + const Offset(0, 2));
-    expect(activated, isTrue);
+    for (final size in DBadgeSize.values) {
+      var activated = false;
+      await _pump(
+        tester,
+        DBadge.action(
+          size: size,
+          onPressed: () => activated = true,
+          child: const Text('Go'),
+        ),
+        theme: AppTheme.light.copyWith(platform: TargetPlatform.iOS),
+      );
+      final bounds = tester.getRect(find.byType(DBadge));
+      expect(bounds.height, 48);
+      expect(bounds.width, greaterThanOrEqualTo(48));
+      expect(
+        tester.getSize(find.byType(AnimatedContainer)).height,
+        size == DBadgeSize.compact ? 16 : 20,
+      );
+      await tester.tapAt(bounds.topCenter + const Offset(0, 2));
+      expect(activated, isTrue);
+    }
   });
 
   testWidgets(

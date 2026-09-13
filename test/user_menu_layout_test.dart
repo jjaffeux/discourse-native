@@ -80,6 +80,31 @@ void main() {
           expect(rect.left, greaterThanOrEqualTo(0));
           expect(rect.right, lessThanOrEqualTo(width));
           expect(rect.bottom, lessThanOrEqualTo(800));
+          if (key == UserMenuButton.bellKey) {
+            final badges = find.descendant(
+              of: surface,
+              matching: find.byType(DBadge),
+            );
+            expect(badges, findsWidgets);
+            final colors = Theme.of(tester.element(surface)).discourse;
+            for (final badge in badges.evaluate()) {
+              final badgeFinder = find.byWidget(badge.widget);
+              final decoration =
+                  tester
+                          .widget<AnimatedContainer>(
+                            find
+                                .descendant(
+                                  of: badgeFinder,
+                                  matching: find.byType(AnimatedContainer),
+                                )
+                                .first,
+                          )
+                          .decoration!
+                      as BoxDecoration;
+              expect(decoration.color, colors.notificationIndicator);
+              expect(tester.getSize(badgeFinder).height, 30);
+            }
+          }
         }
         await tester.tapAt(const Offset(15, 760));
         await tester.pumpAndSettle();

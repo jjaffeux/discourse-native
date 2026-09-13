@@ -1290,6 +1290,7 @@ class _Badge extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = Theme.of(context).discourse;
     return DBadge(
+      size: DBadgeSize.compact,
       backgroundColor: colors.notificationIndicator,
       foregroundColor: colors.notificationForeground,
       semanticLabel: '$count unread',
