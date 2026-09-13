@@ -539,7 +539,6 @@ class _Reading extends StatelessWidget {
         if (summary.canSeeSummaryStats)
           _SummarySection(
             title: 'Time well spent',
-            description: 'Reading across the community',
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
