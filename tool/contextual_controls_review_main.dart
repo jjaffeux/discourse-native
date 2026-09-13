@@ -15,7 +15,6 @@ import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/topic_actions.dart';
 import 'package:discourse_native/src/shell/topic_inbox_header.dart';
 import 'package:discourse_native/src/shell/topic_list_filter_bar.dart';
-import 'package:discourse_native/src/shell/topic_list_search.dart';
 import 'package:discourse_native/src/shell/topic_progress.dart';
 import 'package:discourse_native/src/styleguide/examples/control_comparison_example.dart';
 import 'package:discourse_native/src/styleguide/styleguide_theme.dart';
@@ -116,7 +115,6 @@ class _ReviewState extends State<_Review> {
   bool _comparePalette = false;
   int? _category;
   String? _tag;
-  String _query = '';
   final _appearance = SiteAppearance.fromJson(
     jsonDecode(
           const String.fromEnvironment(
@@ -304,14 +302,6 @@ class _ReviewState extends State<_Review> {
                                                   onTagSelected: (tag) =>
                                                       setState(
                                                         () => _tag = tag,
-                                                      ),
-                                                ),
-                                                const SizedBox(height: 8),
-                                                TopicListSearch(
-                                                  query: _query,
-                                                  onChanged: (query) =>
-                                                      setState(
-                                                        () => _query = query,
                                                       ),
                                                 ),
                                               ],

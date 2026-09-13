@@ -18,6 +18,7 @@ import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/topic_create_button.dart';
 import 'package:discourse_native/src/shell/topic_list_filter_bar.dart';
+import 'package:discourse_native/src/shell/topic_list_layout.dart';
 import 'package:discourse_native/src/shell/topic_list_navigation.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/foundation.dart';
@@ -57,7 +58,7 @@ const _popularTopic = Topic(id: 8, title: 'Popular topic', slug: 'popular');
 
 void main() {
   testWidgets(
-    'list search uses server feeds and follows category and tag changes',
+    'restored list search is removed before category, tag and feed changes',
     (tester) async {
       const category = TopicCategory(
         id: 42,
@@ -77,33 +78,34 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      await tester.enterText(
-        find.byKey(const ValueKey('topic-list-search')),
-        'layout',
+      final restored = ContentRoute.fromJson(
+        ContentRoute.topicList(
+          TopicListMode.latest,
+        ).withTopicListSearch('layout').toJson(),
       );
-      await tester.pump(const Duration(milliseconds: 350));
+      setup.controller.pushContent(restored);
+      await setup.controller.loadFeed(restored.id);
       await tester.pumpAndSettle();
-      expect(setup.api.feedPaths.last, '/latest.json?search=layout');
+      expect(setup.api.feedPaths.last, '/latest.json');
+      expect(setup.controller.topicListContent!.topicListSearch, isEmpty);
       setup.controller.selectTopicListCategory(category);
       await tester.pumpAndSettle();
       expect(
         Uri.parse(setup.api.feedPaths.last).queryParameters['search'],
-        'layout',
+        isNull,
       );
       expect(setup.controller.topicListContent!.categoryId, 42);
       setup.controller.selectTopicListTags(['design', 'mobile']);
       await tester.pumpAndSettle();
       expect(setup.controller.topicListContent!.tagNames, ['design', 'mobile']);
-      expect(setup.controller.topicListContent!.topicListSearch, 'layout');
+      expect(setup.controller.topicListContent!.topicListSearch, isEmpty);
       await setup.controller.selectTopicListMode(TopicListMode.unread);
       await tester.pumpAndSettle();
       expect(Uri.parse(setup.api.feedPaths.last).path, '/unread.json');
       expect(
         Uri.parse(setup.api.feedPaths.last).queryParameters['search'],
-        'layout',
+        isNull,
       );
-      await tester.tap(find.text('Clear'));
-      await tester.pumpAndSettle();
       expect(setup.controller.topicListContent!.topicListSearch, isEmpty);
       expect(setup.controller.topicListContent!.categoryId, 42);
       expect(setup.controller.topicListContent!.tagNames, ['design', 'mobile']);
@@ -189,6 +191,7 @@ void main() {
           );
           expect(find.text('Clear all'), findsNothing);
           expect(find.text('Latest conversations'), findsNothing);
+          expect(find.byKey(const ValueKey('topic-list-search')), findsNothing);
           expect(tester.takeException(), isNull);
         }
       });
@@ -1109,14 +1112,20 @@ void main() {
         );
         final segments = find.byKey(const ValueKey('topic-list-new-segments'));
         final segmentRect = tester.getRect(segments);
-        expect(tabs.left, 16);
-        expect(tabs.right, lessThanOrEqualTo(309));
+        expect(tabs.left, topicListHorizontalPadding);
+        expect(tabs.right, lessThanOrEqualTo(325 - topicListHorizontalPadding));
         expect(segmentRect.left, tabs.left);
         final filters = tester.getRect(
           find.byKey(const ValueKey('topic-list-category-filter')),
         );
         expect(segmentRect.top, greaterThanOrEqualTo(filters.bottom + 12));
-        expect(segmentRect.height, inInclusiveRange(32, 40));
+        expect(
+          segmentRect.height,
+          inInclusiveRange(
+            DControlStyle.regularHeight,
+            DControlStyle.regularHeight + 8,
+          ),
+        );
         final all = find.byKey(const ValueKey('topic-list-new-all'));
         final topics = find.byKey(const ValueKey('topic-list-new-topics'));
         final replies = find.byKey(const ValueKey('topic-list-new-replies'));
@@ -1548,7 +1557,7 @@ void main() {
     expect(setup.api.feedPaths, initialPaths);
   });
 
-  testWidgets('desktop toolbar aligns filters and search with topic cards', (
+  testWidgets('toolbar retains aligned filters without a local search field', (
     tester,
   ) async {
     debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
@@ -1574,14 +1583,12 @@ void main() {
       final filters = tester.getRect(
         find.byKey(const ValueKey('topic-list-filter-bar')),
       );
-      final search = tester.getRect(
-        find.ancestor(
-          of: find.byKey(const ValueKey('topic-list-search')),
-          matching: find.byType(DInputGroup),
-        ),
+      final refinement = tester.getRect(
+        find.byKey(const ValueKey('topic-list-refinement-row')),
       );
       expect(filters.left, closeTo(card.left, 1));
-      expect(search.right, closeTo(card.right, 1));
+      expect(refinement.right, closeTo(card.right, 1));
+      expect(find.byKey(const ValueKey('topic-list-search')), findsNothing);
       expect(tester.takeException(), isNull);
     }
     debugDefaultTargetPlatformOverride = null;
