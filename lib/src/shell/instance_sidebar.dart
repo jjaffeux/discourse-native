@@ -515,6 +515,8 @@ class _SidebarPanelSwitchRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final controller = ShellScope.read(context);
+    final canSwitch = !controller.forumTabsEnabled || controller.canCreateTab;
     final active = selectedPanel;
     final targets = <Widget>[
       if (active?.panel.showSwitch == true)
@@ -523,7 +525,9 @@ class _SidebarPanelSwitchRow extends StatelessWidget {
             key: const ValueKey('sidebar-panel-switch-main'),
             label: const Text('Forum'),
             icon: const DIcon(DIcons.shuffle),
-            onPressed: active!.panel.onClose,
+            onPressed: canSwitch
+                ? () => controller.switchSidebarPanel(active!.panel.onClose)
+                : null,
             size: DButtonSize.regular,
           ),
         ),
@@ -534,7 +538,9 @@ class _SidebarPanelSwitchRow extends StatelessWidget {
               key: ValueKey('sidebar-panel-switch-${candidate.owner.value}'),
               label: Text(candidate.panel.label),
               icon: DIcon(candidate.panel.icon),
-              onPressed: candidate.panel.onOpen,
+              onPressed: canSwitch
+                  ? () => controller.switchSidebarPanel(candidate.panel.onOpen)
+                  : null,
               size: DButtonSize.regular,
             ),
           ),
