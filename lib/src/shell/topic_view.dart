@@ -4228,47 +4228,34 @@ class _PostNoticeBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final cooked = notice.cooked;
     final label = switch (notice.type) {
-      'new_user' => 'This is this user’s first post.',
-      'returning_user' => 'This user is returning after a long absence.',
+      'new_user' =>
+        'This is the first time ${post.username} has posted — let’s welcome them to our community!',
+      'returning_user' =>
+        'It’s been a while since we’ve seen ${post.username} — welcome back!',
       _ => notice.raw ?? 'Staff notice',
     };
-    return Container(
+    return DAlert(
       key: ValueKey('post-notice-${post.id}'),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.secondaryContainer,
-        borderRadius: BorderRadius.circular(6),
+      liveRegion: false,
+      icon: DIcon(
+        notice.type == 'new_user' || notice.type == 'returning_user'
+            ? DIcons.hand
+            : DIcons.user,
+        size: 16,
       ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          DIcon(
-            DIcons.user,
-            size: 16,
-            color: theme.colorScheme.onSecondaryContainer,
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: cooked == null || cooked.isEmpty
-                ? Text(
-                    label,
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: theme.colorScheme.onSecondaryContainer,
-                    ),
-                  )
-                : CookedHtml(
-                    html: cooked,
-                    siteUrl: siteUrl,
-                    post: post,
-                    textStyle: theme.textTheme.bodyMedium?.copyWith(
-                      color: theme.colorScheme.onSecondaryContainer,
-                    ),
-                  ),
-          ),
-        ],
+      description: DAlertDescription(
+        child: cooked == null || cooked.isEmpty
+            ? Text(label)
+            : Builder(
+                builder: (context) => CookedHtml(
+                  html: cooked,
+                  siteUrl: siteUrl,
+                  post: post,
+                  textStyle: DefaultTextStyle.of(context).style,
+                ),
+              ),
       ),
     );
   }
