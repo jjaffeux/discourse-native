@@ -1157,14 +1157,25 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
       for (final pending in _pendingUploads.values) (pending, pending.anchor),
     ];
     int move(int value) => value < at ? value : value + insertion.length;
+
+    // A reused separator is outside the insertion, but typing should resume
+    // after it. Keep pending upload anchors at the insertion boundary so later
+    // results still land before that text, in upload order.
+    final reusesLineBreak =
+        !insertion.endsWith('\n') &&
+        at < old.text.length &&
+        old.text[at] == '\n';
+    final caretAfter = at + insertion.length + (reusesLineBreak ? 1 : 0);
     text.value = old.copyWith(
       text: old.text.replaceRange(at, at, insertion),
-      selection: old.selection.isValid
-          ? TextSelection(
+      selection:
+          !old.selection.isValid ||
+              (old.selection.isCollapsed && old.selection.extentOffset == at)
+          ? TextSelection.collapsed(offset: caretAfter)
+          : TextSelection(
               baseOffset: move(old.selection.baseOffset),
               extentOffset: move(old.selection.extentOffset),
-            )
-          : TextSelection.collapsed(offset: at + insertion.length),
+            ),
       composing: TextRange.empty,
     );
     // [_onTextChanged] has to infer an arbitrary edit from a before/after
@@ -1184,7 +1195,7 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
   ) {
     final at = offset.clamp(0, source.length);
     final before = at > 0 && source[at - 1] != '\n' ? '\n' : '';
-    final after = at < source.length && source[at] != '\n' ? '\n' : '';
+    final after = at == source.length || source[at] != '\n' ? '\n' : '';
     return '$before$markdown$after';
   }
 
@@ -1192,12 +1203,7 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
     String source,
     int offset,
     String markdown,
-  ) {
-    final at = offset.clamp(0, source.length);
-    final before = at > 0 && source[at - 1] != '\n' ? '\n' : '';
-    final after = at < source.length && source[at] != '\n' ? '\n' : '';
-    return '$before[grid]\n$markdown\n[/grid]$after';
-  }
+  ) => _imageBlockInsertion(source, offset, '[grid]\n$markdown\n[/grid]');
 
   Timer? _wait;
   bool _rateLimited = false;

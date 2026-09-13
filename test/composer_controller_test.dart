@@ -960,7 +960,7 @@ void main() {
         '![one|640x480](upload://one)\n'
         '[screen.mp4](upload://screen.mp4)\n'
         '![two|640x480](upload://two)\n'
-        '![three|640x480](upload://three)',
+        '![three|640x480](upload://three)\n',
       );
       expect(composer.text.galleryBlocks, isEmpty);
       expect(composer.text.imageBlocks, hasLength(3));
@@ -1001,6 +1001,66 @@ void main() {
   });
 
   group('image uploads', () {
+    for (final reversed in [false, true]) {
+      testWidgets(
+        'a late upload preserves a ${reversed ? 'backward' : 'forward'} range',
+        (tester) async {
+          final calls = <_UploadCall>[];
+          final composer = ComposerController(
+            _target,
+            imageUploader: _recordingUploader(calls),
+          );
+          addTearDown(composer.dispose);
+          composer.text.value = const TextEditingValue(
+            text: 'Before\nAfter',
+            selection: TextSelection.collapsed(offset: 6),
+          );
+          composer.addImages([_file('one.png')], 6);
+          composer.text.selection = TextSelection(
+            baseOffset: reversed ? 12 : 6,
+            extentOffset: reversed ? 6 : 12,
+          );
+          calls.single.complete(_result('one'));
+          await tester.pump();
+
+          final selection = composer.text.selection;
+          expect(selection.textInside(composer.text.text), '\nAfter');
+          expect(selection.baseOffset > selection.extentOffset, reversed);
+        },
+      );
+    }
+
+    for (final atEnd in [false, true]) {
+      testWidgets(
+        'a late upload preserves a caret moved to the ${atEnd ? 'end' : 'start'}',
+        (tester) async {
+          final calls = <_UploadCall>[];
+          final composer = ComposerController(
+            _target,
+            imageUploader: _recordingUploader(calls),
+          );
+          addTearDown(composer.dispose);
+          composer.text.value = const TextEditingValue(
+            text: 'Before\nAfter',
+            selection: TextSelection.collapsed(offset: 6),
+          );
+          composer.addImages([_file('one.png')], 6);
+          composer.text.selection = TextSelection.collapsed(
+            offset: atEnd ? 12 : 0,
+          );
+          calls.single.complete(_result('one'));
+          await tester.pump();
+
+          expect(
+            composer.text.selection,
+            TextSelection.collapsed(
+              offset: atEnd ? composer.text.text.length : 0,
+            ),
+          );
+        },
+      );
+    }
+
     testWidgets('automatically groups three accepted images in picker order', (
       tester,
     ) async {
@@ -2050,7 +2110,7 @@ void main() {
       await tester.pump();
 
       expect(composer.uploads, isEmpty);
-      expect(composer.text.text, 'body\n![photo|640x480](upload://photo)');
+      expect(composer.text.text, 'body\n![photo|640x480](upload://photo)\n');
     });
 
     testWidgets('only failed uploads can be retried', (tester) async {
@@ -2109,7 +2169,7 @@ void main() {
         expect(composer.uploads, hasLength(1));
         expect(composer.uploads.single.status, ComposerUploadStatus.failed);
         expect(composer.canSubmit, isTrue);
-        expect(composer.text.text, 'body\n![two|640x480](upload://two)');
+        expect(composer.text.text, 'body\n![two|640x480](upload://two)\n');
 
         composer.retryUpload(composer.uploads.single.id);
         calls.last.complete(_result('one'));
@@ -2119,7 +2179,7 @@ void main() {
           composer.text.text,
           'body\n'
           '![one|640x480](upload://one)\n'
-          '![two|640x480](upload://two)',
+          '![two|640x480](upload://two)\n',
         );
       },
     );
