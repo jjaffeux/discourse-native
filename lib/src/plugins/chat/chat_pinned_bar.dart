@@ -245,13 +245,9 @@ class _ChatPinnedBarState extends State<ChatPinnedBar> {
                             PositionedDirectional(
                               top: 8,
                               end: 8,
-                              child: Container(
-                                width: 7,
-                                height: 7,
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  color: theme.colorScheme.error,
-                                ),
+                              child: DNotificationDot(
+                                semanticLabel: 'Unseen pinned messages',
+                                color: theme.colorScheme.error,
                               ),
                             ),
                         ],

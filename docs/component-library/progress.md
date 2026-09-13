@@ -80,6 +80,14 @@ Each component has an independent review task that owns fixes, remaining verific
 | 62 | input-otp | merged | 01a08606-ca44-78f3-98f2-d147200278ef | codex/ui-input-otp | input, field | 7c5d30c31961c42b8a6aa4d99ea1b144f6551af1 |
 | 63 | questionnaire | merged | 01a08606-ca34-7a13-b7ec-79b90b5ebd8f | codex/ui-questionnaire | field, button, progress, card, dialog, select | 4217ffe98a37c61510d464f21cfef87c563e82f1 |
 
+## Application components
+
+User-approved extensions outside the frozen upstream catalogue.
+
+| Component | Status | Task | Branch | Merge |
+| --- | --- | --- | --- | --- |
+| notification-dot | review_ready | 01a09b55-9a1f-7f50-b2ec-5f4c3d890ad4 | codex/ui-notification-dot | — |
+
 ## Decisions and evidence
 
 ### Foundation
@@ -3531,6 +3539,46 @@ Status: merged. Task: 01a08606-ca34-7a13-b7ec-79b90b5ebd8f. Branch: codex/ui-que
 
 - Official browser comparison and native macOS inspection are complete. Native IME composition itself was not synthesized; active-composition behavior is covered by a direct widget regression.
 - No iOS/Linux device, spoken VoiceOver session or production consumer claim is made. Native accessibility-tree inspection is not a spoken-reader or cross-platform claim.
+
+### notification-dot
+
+Status: review_ready. Task: 01a09b55-9a1f-7f50-b2ec-5f4c3d890ad4. Branch: codex/ui-notification-dot.
+
+**acceptanceCriteria**
+
+- Provide a public, noninteractive DNotificationDot with an 8px center and optional 2px surrounding surface ring, live theme colors and optional accessible label.
+- Replace appropriate notification/unread dot renderers throughout core and bundled plugins, preserving conditions, color meaning and parent-owned interaction.
+- Register an application component styleguide entry with live unread, inline, overlay, palette and RTL compositions without altering the frozen upstream catalogue.
+- Pass component and migrated-consumer tests, static analysis and macOS visual review; independent reviewer merges from the main checkout.
+
+**decisions**
+
+- User explicitly approved this Native extension on 2026-09-13; it is not an upstream shadcn catalogue addition.
+- Inline constructor uses 8px; overlay constructor allocates 12px including a 2px surface ring. Both ignore pointer input, expose optional standalone semantics and use live theme tokens.
+- Keep the frozen upstream catalogue unchanged; track approved extensions in applicationComponents and render a separate progress section.
+
+**migrations**
+
+- Chat header, chat drawer, My Threads and channel thread lists, unseen pinned messages, forum sidebar and tabs, topic lists/inbox and the update rail indicator. Header changes from 18px to 12px overall; inline 7px/9px variants normalize to 8px.
+
+**retainedAlternatives**
+
+- Numeric badges/counters; avatar presence/flair; category and calendar identity markers; diagnostics/voice recording state; carousel position and rail insertion markers.
+
+**verification**
+
+- flutter analyze --no-pub: clean; flutter build macos --debug --no-pub -t tool/notification_dot_review_main.dart: passed.
+- Reviewer: 33 component/header/forum-tab tests passed, including the extension-registration test; frozen catalogue assertion passed. Logs: /tmp/notification-dot-review-kit.log and /tmp/notification-dot-review-catalogue.log.
+- Seven broader consumer/styleguide files at base 71c94832: 392 passed, 44 failed. Candidate had the exact same 44 failures plus the now-fixed catalogue scheduling assertion. Logs: /tmp/notification-dot-baseline-tests.log and /tmp/notification-dot-current-tests.log. No remaining unique regression was found.
+- Dot/unread/unseen/pinned consumer filter: 19 passed and three failures reproduced unchanged at the base (existing topic alignment/compact-title expectations). Log: /tmp/notification-dot-focused-consumers.log.
+- Independent reviewer integrated c0bb2887 into a review branch based on local main 76080324. Source review covers public API, live tokens, geometry, pointer passthrough, accessible label ownership, all migrations and retained non-notification marker owners; format check passes for all 19 touched Dart files.
+- Reviewer reproduced and fixed duplicate drawer-row unread semantics, retaining unread labels on drawer navigation; replaced the decorative styleguide initials avatar with a fixed-size icon after native 200% text review. Dot geometry/paint is unchanged.
+- Implementation task inspected native macOS fixture built from c0bb2887 component/adoption source: production header/sidebar dark and light, header click opens chat drawer, Forest palette at 390px, RTL mirrored header dot, all three styleguide examples, click-to-clear and restore, 200% inline and RTL header. Final semantics/demo follow-up is pending on corrected source.
+
+**limitations**
+
+- Native review accepted original dot geometry and migrations. Corrected-source drawer semantics and decorative styleguide avatar follow-up is pending before merge.
+- No physical iOS or Linux device run. The broader suite has 44 verified baseline failures.
 
 ### Final audit
 

@@ -1232,17 +1232,8 @@ class _UpdateButton extends StatelessWidget {
                       Positioned(
                         right: -2,
                         bottom: -2,
-                        child: Container(
-                          width: 12,
-                          height: 12,
-                          decoration: BoxDecoration(
-                            color: theme.colorScheme.primary,
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color: theme.shell.rail,
-                              width: 2,
-                            ),
-                          ),
+                        child: DNotificationDot.overlay(
+                          ringColor: theme.shell.rail,
                         ),
                       ),
                   ],

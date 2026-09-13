@@ -1312,16 +1312,11 @@ class _ForumTabState extends State<_ForumTab> {
     final theme = Theme.of(context);
 
     if (badge.dot) {
-      return Container(
+      return DNotificationDot(
         key: ValueKey('forum-tab-badge-${widget.item.id}'),
-        width: 8,
-        height: 8,
-        decoration: BoxDecoration(
-          color: badge.urgent
-              ? theme.discourse.success
-              : theme.discourse.unreadIndicator,
-          shape: BoxShape.circle,
-        ),
+        color: badge.urgent
+            ? theme.discourse.success
+            : theme.discourse.unreadIndicator,
       );
     }
 
