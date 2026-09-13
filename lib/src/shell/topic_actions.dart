@@ -460,7 +460,7 @@ class TopicNotificationLevelButton extends StatelessWidget {
       emphasized: true,
       label: 'Watching',
       description: 'Every reply and unread count',
-      icon: DIcon(DIcons.discourseBellExclamation),
+      icon: DIcon(DNativeIcons.bellRing),
     ),
     DNotificationLevelOption(
       value: TopicNotificationLevel.tracking,
@@ -479,7 +479,7 @@ class TopicNotificationLevelButton extends StatelessWidget {
       value: TopicNotificationLevel.muted,
       label: 'Muted',
       description: 'No notifications; hidden from Latest',
-      icon: DIcon(DIcons.discourseBellSlash),
+      icon: DIcon(DNativeIcons.bellOff),
     ),
   ];
 

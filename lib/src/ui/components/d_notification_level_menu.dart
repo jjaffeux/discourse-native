@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../theme/d_icon.dart';
-import '../../theme/d_icons.dart';
+import '../../theme/d_native_icons.dart';
 import '../../theme/discourse_typography.dart';
 import '../foundation/tokens.dart';
 import 'd_button.dart';
@@ -132,7 +132,7 @@ class DNotificationLevelMenu<T> extends StatelessWidget {
                   children: [
                     Text(selected.label),
                     const SizedBox(width: 6),
-                    const DIcon(DIcons.chevronDown),
+                    const DIcon(DNativeIcons.chevronDown),
                   ],
                 ),
                 icon: selected.icon,

@@ -2,7 +2,7 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
 import '../../theme/d_icon.dart';
-import '../../theme/d_icons.dart';
+import '../../theme/d_native_icons.dart';
 import '../styleguide_example.dart';
 
 final notificationLevelMenuExamples = ComponentExamples(
@@ -38,7 +38,7 @@ const DNotificationLevelOption(
   value: 1,
   label: 'Normal',
   description: 'Mentions and replies only',
-  icon: DIcon(DIcons.farBell),
+  icon: DIcon(DNativeIcons.bell),
 )''',
       builder: (_) => const _NotificationExample(
         showLabel: true,
@@ -155,7 +155,7 @@ class _NotificationExampleState extends State<_NotificationExample> {
       description: widget.category
           ? 'Every new post and unread count'
           : 'Every reply and unread count',
-      icon: const DIcon(DIcons.discourseBellExclamation),
+      icon: const DIcon(DNativeIcons.bellRing),
       emphasized: !widget.thread,
     );
     final tracking = DNotificationLevelOption(
@@ -164,7 +164,7 @@ class _NotificationExampleState extends State<_NotificationExample> {
       description: widget.thread
           ? 'Mentions and unread reply count'
           : 'Mentions, replies, and unread count',
-      icon: const DIcon(DIcons.bell),
+      icon: const DIcon(DNativeIcons.bell),
       emphasized: !widget.thread,
     );
     final normal = DNotificationLevelOption(
@@ -173,7 +173,7 @@ class _NotificationExampleState extends State<_NotificationExample> {
       description: widget.thread
           ? 'Mentions only'
           : 'Mentions and replies only',
-      icon: const DIcon(DIcons.farBell),
+      icon: const DIcon(DNativeIcons.bell),
     );
     return DNotificationLevelMenu<int>(
       value: _value,
@@ -187,7 +187,7 @@ class _NotificationExampleState extends State<_NotificationExample> {
                   value: 4,
                   label: 'Watching First Post',
                   description: 'New topics only',
-                  icon: DIcon(DIcons.discourseBellExclamation),
+                  icon: DIcon(DNativeIcons.bellRing),
                   emphasized: true,
                 ),
               normal,
@@ -195,7 +195,7 @@ class _NotificationExampleState extends State<_NotificationExample> {
                 value: 0,
                 label: 'Muted',
                 description: 'No notifications; hidden from Latest',
-                icon: DIcon(DIcons.discourseBellSlash),
+                icon: DIcon(DNativeIcons.bellOff),
               ),
             ],
       semanticLabel: widget.category
