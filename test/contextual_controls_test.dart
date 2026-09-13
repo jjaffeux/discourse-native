@@ -18,20 +18,25 @@ double _contrast(Color foreground, Color background) {
   return ((a > b ? a : b) + .05) / ((a > b ? b : a) + .05);
 }
 
-void main() {
+Map<String, ThemeData> _savedThemes(String site, String file) {
   final saved =
       jsonDecode(
-            File(
-              'docs/mockups/button-directions/palette.json',
-            ).readAsStringSync(),
+            File('docs/mockups/button-directions/$file').readAsStringSync(),
           )
           as Map<String, dynamic>;
   final appearance = SiteAppearance.fromJson(
     saved['appearance'] as Map<String, dynamic>,
   );
+  return {
+    '$site light': AppTheme.fromPalette(appearance.base!),
+    '$site dark': AppTheme.fromPalette(appearance.alternate!),
+  };
+}
+
+void main() {
   final themes = {
-    'dev light': AppTheme.fromPalette(appearance.base!),
-    'dev dark': AppTheme.fromPalette(appearance.alternate!),
+    ..._savedThemes('dev', 'palette.json'),
+    ..._savedThemes('meta', 'meta-palette.json'),
     for (final palette in StyleguideTheme.values.where(
       (palette) => palette != StyleguideTheme.current,
     ))
@@ -44,6 +49,11 @@ void main() {
       for (final entry in themes.entries) {
         final tokens = entry.value.extension<DTokens>()!;
         final controls = tokens.controls!;
+        expect(
+          controls.accent.border,
+          controls.outline.border,
+          reason: '${entry.key}: active and neutral controls share an outline',
+        );
         for (final surface in [
           controls.outline,
           controls.primary,
@@ -129,6 +139,8 @@ void main() {
     testWidgets(
       'active notification tint follows selection and live palette (label: $showLabel)',
       (tester) async {
+        final trigger = find.byKey(const ValueKey('notification-trigger'));
+        final bookmark = find.byKey(const ValueKey('bookmark-trigger'));
         final theme = ValueNotifier(themes['dev dark']!);
         final value = ValueNotifier(2);
         addTearDown(theme.dispose);
@@ -140,55 +152,73 @@ void main() {
               theme: currentTheme.copyWith(platform: TargetPlatform.macOS),
               home: Scaffold(
                 body: Center(
-                  child: ValueListenableBuilder<int>(
-                    valueListenable: value,
-                    builder: (_, current, _) => DNotificationLevelMenu<int>(
-                      value: current,
-                      onChanged: (next) => value.value = next,
-                      showLabel: showLabel,
-                      size: DButtonSize.regular,
-                      variant: DButtonVariant.outline,
-                      semanticLabel: 'Notifications',
-                      options: const [
-                        DNotificationLevelOption(
-                          value: 2,
-                          label: 'Tracking',
-                          description: 'Count unread replies',
-                          icon: Icon(Icons.notifications),
-                          emphasized: true,
+                  child: DButtonGroup(
+                    children: [
+                      DButton.iconOnly(
+                        key: const ValueKey('bookmark-trigger'),
+                        icon: const Icon(Icons.bookmark_outline),
+                        tooltip: 'Bookmark',
+                        variant: DButtonVariant.outline,
+                        onPressed: () {},
+                      ),
+                      ValueListenableBuilder<int>(
+                        valueListenable: value,
+                        builder: (_, current, _) => DNotificationLevelMenu<int>(
+                          buttonKey: const ValueKey('notification-trigger'),
+                          value: current,
+                          onChanged: (next) => value.value = next,
+                          showLabel: showLabel,
+                          size: DButtonSize.regular,
+                          variant: DButtonVariant.outline,
+                          semanticLabel: 'Notifications',
+                          options: const [
+                            DNotificationLevelOption(
+                              value: 2,
+                              label: 'Watching',
+                              description: 'Notify on every reply',
+                              icon: Icon(Icons.notifications),
+                              emphasized: true,
+                            ),
+                            DNotificationLevelOption(
+                              value: 1,
+                              label: 'Normal',
+                              description: 'Mentions only',
+                              icon: Icon(Icons.notifications_none),
+                            ),
+                          ],
                         ),
-                        DNotificationLevelOption(
-                          value: 1,
-                          label: 'Normal',
-                          description: 'Mentions only',
-                          icon: Icon(Icons.notifications_none),
-                        ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
                 ),
               ),
             ),
           ),
         );
-        DTokens tokens() => DTokens.of(tester.element(find.byType(DButton)));
+        DTokens tokens() => DTokens.of(tester.element(trigger));
         expect(
-          buttonSurface(tester).color,
+          buttonSurface(tester, of: trigger).color,
           tokens().controls!.accent.background,
         );
         expect(
-          buttonSurface(tester).borderColor,
+          buttonSurface(tester, of: trigger).borderColor,
           tokens().controls!.accent.border,
         );
-        await tester.tap(find.byType(DButton));
+        await tester.tap(trigger);
         await tester.pumpAndSettle();
-        theme.value = themes['dev light']!;
+        theme.value = themes['meta light']!;
         await tester.pumpAndSettle();
         expect(find.byType(DDropdownMenuContent), findsOneWidget);
         expect(
-          buttonSurface(tester).color,
+          buttonSurface(tester, of: trigger).color,
           tokens().controls!.accent.background,
         );
+        expect(
+          buttonSurface(tester, of: trigger).borderColor,
+          buttonSurface(tester, of: bookmark).borderColor,
+        );
+        expect(buttonSurface(tester, of: trigger).joinedAxis, Axis.horizontal);
+        expect(tester.getRect(bookmark).right, tester.getRect(trigger).left);
         await tester.tap(
           find.byWidgetPredicate(
             (widget) =>
@@ -200,7 +230,7 @@ void main() {
         expect(find.byType(DDropdownMenuContent), findsNothing);
         expect(find.byTooltip('Notifications: Normal'), findsOneWidget);
         expect(
-          buttonSurface(tester).color,
+          buttonSurface(tester, of: trigger).color,
           tokens().controls!.outline.background,
         );
       },

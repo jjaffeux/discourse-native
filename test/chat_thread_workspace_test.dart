@@ -22,7 +22,7 @@ import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:discourse_native/src/theme/d_icon.dart';
-import 'package:discourse_native/src/theme/d_icons.dart';
+import 'package:discourse_native/src/theme/d_native_icons.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
@@ -447,7 +447,7 @@ void main() {
             find.descendant(of: trigger, matching: find.byType(DIcon)),
           )
           .icon;
-      expect(triggerIcon(), DIcons.bell);
+      expect(triggerIcon(), DNativeIcons.bell);
 
       await tester.tap(trigger);
       await tester.pumpAndSettle();
@@ -483,15 +483,15 @@ void main() {
 
       expect(
         optionIcons(ChatThreadNotificationLevel.normal),
-        contains(DIcons.farBell),
+        contains(DNativeIcons.bell),
       );
       expect(
         optionIcons(ChatThreadNotificationLevel.tracking),
-        contains(DIcons.bell),
+        contains(DNativeIcons.bell),
       );
       expect(
         optionIcons(ChatThreadNotificationLevel.watching),
-        contains(DIcons.discourseBellExclamation),
+        contains(DNativeIcons.bellRing),
       );
 
       final selected = tester.getSemantics(
@@ -514,7 +514,7 @@ void main() {
           notificationLevel: ChatThreadNotificationLevel.watching,
         ),
       ]);
-      expect(triggerIcon(), DIcons.discourseBellExclamation);
+      expect(triggerIcon(), DNativeIcons.bellRing);
     } finally {
       semantics.dispose();
     }

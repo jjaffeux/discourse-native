@@ -572,6 +572,8 @@ abstract final class AppTheme {
     Color mix(Color color, double amount) =>
         Color.lerp(background, color, amount)!;
     final backdrop = opaqueColorOnCanvas(background, colors.brightness);
+    final dark = colors.brightness == Brightness.dark;
+    final outlineBorder = mix(colors.outlineVariant, .30);
     final hover = mix(colors.primary, .22);
     final foreground = _readableOn(
       hover,
@@ -586,14 +588,23 @@ abstract final class AppTheme {
             foreground
         ? colors.primaryContainer
         : mix(colors.primary, .18);
-    final accentFill = mix(colors.primary, .10);
+    // Light canvases need less tint to show the same persistent selection.
+    // Shared borders keep active and neutral controls joined as one family.
+    final accentFill = mix(colors.primary, dark ? .10 : .05);
+    final accentHover = mix(colors.primary, dark ? .18 : .10);
+    final accentForeground = _readableOn(
+      accentHover,
+      Color.lerp(colors.onSurface, colors.primary, dark ? .48 : .32)!,
+      backdrop: backdrop,
+      alternative: colors.onSurface,
+    );
     return DControlTheme(
       radius: 8,
       outline: DControlSurface(
         background: mix(colors.surfaceContainerHigh, .28),
         hover: mix(colors.surfaceContainerHigh, .88),
         foreground: colors.onSurface,
-        border: mix(colors.outlineVariant, .30),
+        border: outlineBorder,
       ),
       primary: DControlSurface(
         background: primaryFill,
@@ -607,11 +618,11 @@ abstract final class AppTheme {
       ),
       accent: DControlSurface(
         background: accentFill,
-        hover: hover,
-        border: mix(colors.primary, .30),
+        hover: accentHover,
+        border: outlineBorder,
         foreground: _readableOn(
           accentFill,
-          foreground,
+          accentForeground,
           backdrop: backdrop,
           alternative: colors.onSurface,
         ),

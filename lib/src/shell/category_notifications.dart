@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 
 import '../models/topic.dart';
 import '../theme/d_icon.dart';
-import '../theme/d_icons.dart';
+import '../theme/d_native_icons.dart';
 import 'shell_scope.dart';
 
 class CategoryNotificationLevelButton extends StatelessWidget {
@@ -24,33 +24,33 @@ class CategoryNotificationLevelButton extends StatelessWidget {
       emphasized: true,
       label: 'Watching',
       description: 'Every new post and unread count',
-      icon: DIcon(DIcons.discourseBellExclamation),
+      icon: DIcon(DNativeIcons.bellRing),
     ),
     DNotificationLevelOption(
       value: CategoryNotificationLevel.tracking,
       emphasized: true,
       label: 'Tracking',
       description: 'Mentions, replies, and unread count',
-      icon: DIcon(DIcons.bell),
+      icon: DIcon(DNativeIcons.bell),
     ),
     DNotificationLevelOption(
       value: CategoryNotificationLevel.watchingFirstPost,
       emphasized: true,
       label: 'Watching First Post',
       description: 'New topics only',
-      icon: DIcon(DIcons.discourseBellExclamation),
+      icon: DIcon(DNativeIcons.bellRing),
     ),
     DNotificationLevelOption(
       value: CategoryNotificationLevel.normal,
       label: 'Normal',
       description: 'Mentions and replies only',
-      icon: DIcon(DIcons.farBell),
+      icon: DIcon(DNativeIcons.bell),
     ),
     DNotificationLevelOption(
       value: CategoryNotificationLevel.muted,
       label: 'Muted',
       description: 'No notifications; hidden from Latest',
-      icon: DIcon(DIcons.discourseBellSlash),
+      icon: DIcon(DNativeIcons.bellOff),
     ),
   ];
 
