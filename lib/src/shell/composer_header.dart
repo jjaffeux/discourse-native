@@ -23,6 +23,7 @@ class ComposerHeader extends StatelessWidget {
   });
 
   static const double height = 44;
+  static const double _controlIconSize = 24;
 
   final ComposerController composer;
   final bool minimized;
@@ -240,7 +241,10 @@ class ComposerHeader extends StatelessWidget {
                   ComposerPlacement.bottom => 1,
                   ComposerPlacement.right => 0,
                 },
-                child: const Icon(Icons.view_sidebar_outlined, size: 18),
+                child: const Icon(
+                  Icons.view_sidebar_outlined,
+                  size: _controlIconSize,
+                ),
               ),
               tooltip: 'Composer options',
               semanticLabel: 'Composer options',
@@ -249,7 +253,7 @@ class ComposerHeader extends StatelessWidget {
               focusNode: trigger.focusNode,
               onPressed: trigger.toggle,
               variant: DButtonVariant.ghost,
-              size: DButtonSize.small,
+              size: DButtonSize.large,
             ),
           ),
         ),
@@ -257,27 +261,27 @@ class ComposerHeader extends StatelessWidget {
         DButton.iconOnly(
           key: const ValueKey('composer-restore'),
           onPressed: restore,
-          icon: const DIcon(DIcons.expand),
+          icon: const DIcon(DIcons.expand, size: _controlIconSize),
           tooltip: 'Restore composer',
           variant: DButtonVariant.ghost,
-          size: DButtonSize.small,
+          size: DButtonSize.large,
         )
       else if (onMinimize case final minimize?)
         DButton.iconOnly(
           key: const ValueKey('composer-minimize'),
           onPressed: minimize,
-          icon: const Icon(Icons.remove),
+          icon: const Icon(Icons.remove, size: _controlIconSize),
           tooltip: 'Minimize composer',
           variant: DButtonVariant.ghost,
-          size: DButtonSize.small,
+          size: DButtonSize.large,
         ),
       DButton.iconOnly(
         key: const ValueKey('composer-close'),
         onPressed: onClose,
-        icon: const DIcon(DIcons.xmark),
+        icon: const DIcon(DIcons.xmark, size: _controlIconSize),
         tooltip: closeTooltip,
         variant: DButtonVariant.ghost,
-        size: DButtonSize.small,
+        size: DButtonSize.large,
       ),
     ];
     return SizedBox(
