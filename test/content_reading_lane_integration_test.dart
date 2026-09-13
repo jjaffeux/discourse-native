@@ -28,6 +28,7 @@ import 'package:super_sliver_list/super_sliver_list.dart';
 import 'support/bundled_plugins.dart';
 import 'support/chat_shell.dart';
 import 'support/fakes.dart';
+import 'support/topic_post_list.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -137,7 +138,7 @@ void main() {
 
         final header = find.byKey(const ValueKey('topic-content-header'));
         final sidebar = find.byKey(const ValueKey('topic-sidebar-panel'));
-        final list = find.byType(SuperListView);
+        final list = topicPostListFinder();
         final post = find.byKey(const ValueKey(1));
         expect(tester.getSize(header).width, 1056);
         expect(tester.getSize(sidebar).width, 344);
@@ -145,7 +146,7 @@ void main() {
         expect(tester.getSize(list).width, 1056);
         expect(tester.getSize(post).width, closeTo(825, 0.001));
 
-        final scroll = tester.widget<SuperListView>(list).controller!;
+        final scroll = topicPostList(tester).controller!;
         for (final alignment in ContentAlignment.values) {
           await controller.appSettings.setContentAlignment(alignment);
           await tester.pump();
@@ -154,7 +155,7 @@ void main() {
             closeTo(_laneLeft(1056, alignment), 0.001),
           );
           expect(tester.getSize(post).width, closeTo(825, 0.001));
-          expect(tester.widget<SuperListView>(list).controller, same(scroll));
+          expect(topicPostList(tester).controller, same(scroll));
         }
 
         scroll.jumpTo(200);
@@ -164,7 +165,7 @@ void main() {
         for (final alignment in ContentAlignment.values) {
           await controller.appSettings.setContentAlignment(alignment);
           await tester.pump();
-          expect(tester.widget<SuperListView>(list).controller, same(scroll));
+          expect(topicPostList(tester).controller, same(scroll));
           expect(scroll.offset, closeTo(offset, 0.001));
         }
 

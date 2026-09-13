@@ -15,9 +15,9 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:super_sliver_list/super_sliver_list.dart';
 
 import 'support/fakes.dart';
+import 'support/topic_post_list.dart';
 
 void main() {
   testWidgets('skips reveal for a sliver child without a layout offset', (
@@ -301,7 +301,7 @@ void main() {
       reason: 'the web rule is strictly greater than the seven-day default',
     );
 
-    final list = tester.widget<SuperListView>(find.byType(SuperListView));
+    final list = topicPostList(tester);
     list.listController!.jumpToItem(
       index: 2 * 2,
       scrollController: list.controller!,
@@ -351,7 +351,7 @@ void main() {
       findsNothing,
     );
 
-    final list = tester.widget<SuperListView>(find.byType(SuperListView));
+    final list = topicPostList(tester);
     list.listController!.jumpToItem(
       index: 3 * 2,
       scrollController: list.controller!,
@@ -420,7 +420,7 @@ void main() {
     await tester.tap(floatingFirst);
     await tester.pumpAndSettle();
 
-    final viewport = tester.getRect(find.byType(SuperListView));
+    final viewport = tester.getRect(topicPostListFinder());
     expect(tester.getTopLeft(find.byKey(const ValueKey(1))).dy, viewport.top);
     expect(floatingFirst, findsNothing);
 
@@ -494,7 +494,7 @@ void main() {
 
       final viewport = inbox
           ? find.byType(CustomScrollView)
-          : find.byType(SuperListView);
+          : topicPostListFinder();
       final scroll = tester.widget<ScrollView>(viewport).controller!;
       final boundaryOffset = scroll.offset;
       final openingHeader = await _headerPixels(tester, captureKey);
@@ -588,7 +588,7 @@ void main() {
       [for (var id = 21; id <= 40; id++) id],
       [for (var id = 1; id <= 20; id++) id],
     ]);
-    final viewport = tester.getRect(find.byType(SuperListView));
+    final viewport = tester.getRect(topicPostListFinder());
     expect(tester.getTopLeft(find.byKey(const ValueKey(21))).dy, viewport.top);
     expect(find.byKey(ValueKey(('topic-day', targetDay))), findsOneWidget);
     expect(
