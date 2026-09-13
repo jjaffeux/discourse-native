@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>User summary · Three Native design directions</title>
+  <link rel="stylesheet" href="palette.css"><link rel="stylesheet" href="styles.css">
+  <style>
+    body { background: var(--muted); }
+    .review-header { padding: 28px 32px 24px; background: var(--background); border-bottom: 1px solid var(--border); }
+    .review-heading { max-width: 1200px; margin: auto; display: flex; justify-content: space-between; align-items: start; gap: 24px; }
+    .review-heading h1 { margin: 8px 0; }
+    .review-heading p { max-width: 680px; color: var(--muted-foreground); }
+    .review-main { padding: 24px 32px 32px; max-width: 1264px; margin: auto; }
+    .directions { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 16px; margin-bottom: 24px; }
+    .direction { background: var(--surface); text-align: left; color: var(--foreground); border: 1px solid var(--border); border-radius: 6px; padding: 16px; }
+    .direction[aria-pressed='true'] { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+    .direction .line { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 8px; }
+    .direction .line strong { font-size: 14px; font-weight: 600; }
+    .direction .number { font-size: 12px; color: var(--muted-foreground); }
+    .direction p { color: var(--muted-foreground); font-size: 12px; line-height: 20px; }
+    .direction .recommendation { font-size: 12px; color: var(--link); margin-top: 10px; display: block; }
+    .toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: 16px; margin-bottom: 16px; }
+    .widths { display: flex; border: 1px solid var(--control-border); border-radius: 8px; background: var(--control); }
+    .widths .d-button { border: 0; background: transparent; }
+    .widths .d-button[aria-pressed='true'] { background: var(--surface); box-shadow: 0 0 0 1px var(--control-border); }
+    .state-label { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted-foreground); }
+    .toolbar > a { margin-left: auto; }
+    .stage { width: 100%; display: flex; justify-content: center; }
+    iframe { border: 1px solid var(--border); border-radius: 6px; width: 100%; max-width: 1120px; height: 930px; background: var(--background); }
+    .review-note { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px; font-size: 12px; color: var(--muted-foreground); margin: 12px 0 24px; }
+    .mapping { border-top: 1px solid var(--border); padding-top: 20px; }
+    .mapping summary { font-size: 12px; font-weight: 500; }
+    .mapping article { max-width: 840px; padding: 20px 0; }
+    .mapping article p + p { margin-top: 12px; }
+    .mapping p, .mapping table { font-size: 12px; }
+    .mapping table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+    .mapping td, .mapping th { text-align: left; padding: 10px 12px 10px 0; border-bottom: 1px solid var(--border); vertical-align: top; }
+    code { font-family: ui-monospace, monospace; font-size: 11px; }
+    @media(max-width: 700px) { .review-header { padding: 24px 16px; } .review-main { padding: 20px 16px; } .directions { grid-template-columns: 1fr; gap: 10px; } .direction { padding: 12px; } .direction .line { margin-bottom: 3px; } .direction .recommendation { margin-top: 4px; } .review-heading { flex-wrap: wrap; } .toolbar { gap: 12px; } .toolbar > a { margin-left: 0; } }
+  </style>
+</head>
+<body>
+  <header class="review-header"><div class="review-heading"><div><div class="eyebrow">Discourse Native / Design study 03</div><h1>A summary with a point of view.</h1><p>Three different ways to bring your contributions, reading and community into focus.</p></div><button id="theme" class="d-button">Dark palette</button></div></header>
+  <main class="review-main">
+    <div class="directions" role="group" aria-label="Design direction">
+      <button class="direction" data-direction="overview" aria-pressed="true"><span class="line"><strong>01 · The overview</strong><span class="number">At a glance</span></span><p>Four key numbers, clear sections, and people alongside your contributions. Familiar and easy to scan.</p><span class="recommendation">Recommended starting point</span></button>
+      <button class="direction" data-direction="contributions" aria-pressed="false"><span class="line"><strong>02 · The contributions</strong><span class="number">Content first</span></span><p>Your best topic takes the lead. An open reading layout makes the page feel more personal and less like a dashboard.</p></button>
+      <button class="direction" data-direction="profile" aria-pressed="false"><span class="line"><strong>03 · The profile</strong><span class="number">Focused detail</span></span><p>A persistent identity column with Highlights, Connections and Reading tabs. Less scrolling, more deliberate browsing.</p></button>
+    </div>
+    <div class="toolbar">
+      <div class="widths" role="group" aria-label="Preview width"><button class="d-button" data-width="1120" aria-pressed="true">Desktop</button><button class="d-button" data-width="768" aria-pressed="false">Tablet</button><button class="d-button" data-width="390" aria-pressed="false">Mobile</button><button class="d-button" data-width="320" aria-pressed="false">320px</button></div>
+      <label class="state-label">Sample state <select id="state" class="d-button"><option value="ready">Populated</option><option value="empty">New member</option><option value="private">Stats unavailable</option><option value="error">Refresh error</option><option value="loading">Loading</option></select></label>
+      <a id="fullsize" class="d-button" href="overview.html" target="_blank" rel="noopener">Open full size ↗</a>
+    </div>
+    <div class="stage"><iframe id="preview" title="01 · The overview — interactive summary proposal" src="overview.html"></iframe></div>
+    <div class="review-note"><span id="description">Try the contribution tabs, people tabs, statistics disclosure and topic rows.</span><span>Illustrative data · HTML/CSS prototypes</span></div>
+    <details class="mapping"><summary>Design rationale & Native component mapping</summary><article>
+      <p>The current page starts with ten equally weighted stat tiles, then pairs unrelated sections into a long grid. These proposals introduce hierarchy, clearer labels and intentional grouping. Every existing summary data category is retained.</p>
+      <p><strong>01:</strong> The best general-purpose replacement. Prioritizes likes received, replies written, days visited and reading time. Secondary stats sit in a disclosure; topic/reply and people tabs reduce repetition. The tradeoff is one click for secondary information.</p>
+      <p><strong>02:</strong> Makes the page feel like a record of participation. A featured topic is followed by other topics, replies and links; reading and people live in a narrower side column. The tradeoff is a longer page on mobile.</p>
+      <p><strong>03:</strong> A compact profile with three focused sections. Identity and key account totals stay visible while browsing. The tradeoff is lower discoverability for content behind tabs.</p>
+      <table><thead><tr><th>Element</th><th>Existing Native kit components</th></tr></thead><tbody>
+        <tr><td>Surfaces & hierarchy</td><td>DCard, DCardHeader, DCardContent, DText, DSeparator</td></tr>
+        <tr><td>Statistics</td><td>DText in a DCard; DCollapsible for secondary values</td></tr>
+        <tr><td>Topic, link & person rows</td><td>DItemGroup, DItem, DItemContent, DItemTitle, DItemDescription, DAvatar</td></tr>
+        <tr><td>Tabs & actions</td><td>DTabs (line / default), DButton (28px regular, 8px radius)</td></tr>
+        <tr><td>Categories & milestones</td><td>DTable, existing CategoryIcon adapter, DBadge</td></tr>
+        <tr><td>Loading, empty & error</td><td>DSkeleton, DEmpty, DAlert, DButton</td></tr>
+      </tbody></table>
+      <p>No new generic component is required for these directions. Their reusable summary sections can be application compositions of the kit. Native implementation will import <code>package:discourse_native/discourse_ui.dart</code>. These HTML studies mirror its geometry and semantic palette; they do not execute Flutter widgets.</p>
+      <p>The saved dev.discourse.org light/dark palette supplies the colors. Sample data is fictional and shared between directions. No invented time series, streak, growth percentage or period filter is shown: the existing API returns all-time totals plus recent read time. Topic and person clicks show local inspection dialogs. No account data is requested or changed.</p>
+    </article></details>
+  </main>
+  <script>
+    const preview = document.getElementById('preview');
+    let current = 'overview', theme = 'light';
+    const state = document.getElementById('state');
+    const descriptions = { overview:'Try the contribution tabs, people tabs, statistics disclosure and topic rows.', contributions:'Try the featured topic, community tabs, category counts and badge details.', profile:'Switch Highlights, Connections and Reading; inspect the topic and person rows.' };
+    function url() { return `${current}.html?theme=${theme}&state=${state.value}`; }
+    function sync() { document.documentElement.dataset.theme=theme; document.getElementById('theme').textContent=theme==='light'?'Dark palette':'Light palette'; document.getElementById('fullsize').href=url(); preview.contentWindow.postMessage({type:'summary-preview',theme,state:state.value},'*'); }
+    document.querySelectorAll('[data-direction]').forEach(button=>button.addEventListener('click',()=>{ current=button.dataset.direction; document.querySelectorAll('[data-direction]').forEach(b=>b.setAttribute('aria-pressed',String(b===button))); preview.src=url(); preview.title=button.querySelector('strong').textContent+' — interactive summary proposal'; document.getElementById('description').textContent=descriptions[current]; document.getElementById('fullsize').href=url(); }));
+    document.querySelectorAll('[data-width]').forEach(button=>button.addEventListener('click',()=>{ preview.style.maxWidth=button.dataset.width+'px'; document.querySelectorAll('[data-width]').forEach(b=>b.setAttribute('aria-pressed',String(b===button))); }));
+    document.getElementById('theme').addEventListener('click',()=>{theme=theme==='light'?'dark':'light';sync();});
+    state.addEventListener('change',sync);
+    preview.addEventListener('load',sync);
+  </script>
+</body>
+</html>
