@@ -39,67 +39,100 @@ class ShellTitleBar extends StatelessWidget {
 
     final surface = Theme.of(context).scaffoldBackgroundColor;
 
-    return SizedBox(
-      height: height,
-      child: ColoredBox(
-        color: surface,
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            GestureDetector(
-              key: maximizeGestureKey,
-              behavior: HitTestBehavior.opaque,
-              onDoubleTap: _toggleMaximized,
-              child: const SizedBox.expand(),
-            ),
-            if (showControls)
-              ShellSelector<ShellRootMode>(
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // Large-text count capsules keep their full labels. At narrow desktop
+        // widths, give account actions a second row below the window controls.
+        final stacked =
+            showControls &&
+            constraints.maxWidth < 480 &&
+            MediaQuery.textScalerOf(context).scale(12) > 18;
+        final search = Expanded(
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 860),
+              child: ShellSelector<ShellRootMode>(
                 select: (controller) => controller.rootMode,
-                builder: (context, rootMode, _) =>
-                    rootMode == ShellRootMode.aggregate
-                    ? const IgnorePointer(
-                        child: Padding(
-                          padding: EdgeInsets.symmetric(horizontal: 88),
-                          child: Center(child: AggregateBranding()),
-                        ),
-                      )
-                    : const SizedBox.shrink(),
+                builder: (context, rootMode, _) => switch (rootMode) {
+                  ShellRootMode.forum => const ForumSearch(dense: true),
+                  ShellRootMode.aggregate => const SizedBox.shrink(),
+                },
               ),
-            if (showControls)
-              Row(
-                children: [
-                  const SizedBox(width: 88),
-                  Expanded(
-                    child: Center(
-                      child: ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 860),
-                        child: ShellSelector<ShellRootMode>(
-                          select: (controller) => controller.rootMode,
-                          builder: (context, rootMode, _) => switch (rootMode) {
-                            ShellRootMode.forum => const ForumSearch(
-                              dense: true,
+            ),
+          ),
+        );
+        final actions = <Widget>[
+          if (showControls)
+            ...PluginScope.of(context).registry.shellHeaderActions(
+              context,
+              surface: PluginHeaderSurface.titleBar,
+              compact: stacked,
+              ringColor: surface,
+            ),
+          if (showControls)
+            Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: UserMenuButton(size: 26, ringColor: surface),
+            ),
+        ];
+        return SizedBox(
+          height: stacked ? height * 2 : height,
+          child: ColoredBox(
+            color: surface,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                GestureDetector(
+                  key: maximizeGestureKey,
+                  behavior: HitTestBehavior.opaque,
+                  onDoubleTap: _toggleMaximized,
+                  child: const SizedBox.expand(),
+                ),
+                if (showControls)
+                  ShellSelector<ShellRootMode>(
+                    select: (controller) => controller.rootMode,
+                    builder: (context, rootMode, _) =>
+                        rootMode == ShellRootMode.aggregate
+                        ? const IgnorePointer(
+                            child: Padding(
+                              padding: EdgeInsets.symmetric(horizontal: 88),
+                              child: Center(child: AggregateBranding()),
                             ),
-                            ShellRootMode.aggregate => const SizedBox.shrink(),
-                          },
+                          )
+                        : const SizedBox.shrink(),
+                  ),
+                if (showControls)
+                  if (stacked)
+                    Column(
+                      children: [
+                        SizedBox(
+                          height: height,
+                          child: Row(
+                            children: [
+                              const SizedBox(width: 88),
+                              search,
+                              const SizedBox(width: 8),
+                            ],
+                          ),
                         ),
-                      ),
+                        SizedBox(
+                          height: height,
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.end,
+                            children: actions,
+                          ),
+                        ),
+                      ],
+                    )
+                  else
+                    Row(
+                      children: [const SizedBox(width: 88), search, ...actions],
                     ),
-                  ),
-                  ...PluginScope.of(context).registry.shellHeaderActions(
-                    context,
-                    surface: PluginHeaderSurface.titleBar,
-                    compact: false,
-                    ringColor: surface,
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.only(right: 8),
-                    child: UserMenuButton(size: 26, ringColor: surface),
-                  ),
-                ],
-              ),
-          ],
-        ),
-      ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 }

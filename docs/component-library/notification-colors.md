@@ -65,3 +65,8 @@ Capsule text contrast is independently checked on its normal and hover fills.
 The interactive HTML study is `docs/mockups/notification-counts.html`. Its
 swatches illustrate Native's default palettes; actual site themes supply live
 role values in the application.
+
+At narrow macOS widths with large text, account actions use a second header row
+below the window controls. Dense search omits its navigation buttons when they
+would squeeze the editor; keyboard navigation remains available. Capped numeric
+text stays LTR inside an otherwise mirrored RTL capsule.

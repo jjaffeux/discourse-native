@@ -48,7 +48,11 @@ DButton headerNotificationButton(
           length: 14,
           color: foreground.withValues(alpha: .25),
         ),
-        Text(key: countKey, count > 99 ? '99+' : '$count'),
+        Text(
+          count > 99 ? '99+' : '$count',
+          key: countKey,
+          textDirection: TextDirection.ltr,
+        ),
       ],
     ),
     variant: DButtonVariant.ghost,

@@ -86,6 +86,10 @@ void main() {
             for (var index = 0; index < 2; index++) {
               final button = find.byKey(ValueKey('button-$index'));
               final count = find.byKey(ValueKey('count-$index'));
+              expect(
+                tester.widget<Text>(count).textDirection,
+                TextDirection.ltr,
+              );
               final bounds = tester.getRect(button);
               expect(bounds.contains(tester.getTopLeft(count)), isTrue);
               expect(bounds.contains(tester.getBottomRight(count)), isTrue);

@@ -7,9 +7,13 @@ import 'package:discourse_native/src/plugins/chat/chat_message.dart';
 import 'package:discourse_native/src/plugins/chat/chat_notification_counter.dart';
 import 'package:discourse_native/src/plugins/chat/chat_plugin.dart';
 import 'package:discourse_native/src/plugins/chat/chat_shell_service.dart';
+import 'package:discourse_native/src/shell/forum_search.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
+import 'package:discourse_native/src/shell/user_menu.dart';
+import 'package:discourse_native/src/shell/user_menu_button.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -20,6 +24,36 @@ import 'support/fakes.dart';
 const _siteUrl = 'https://meta.discourse.org';
 
 void main() {
+  for (final width in [320.0, 390.0]) {
+    testWidgets('real macOS header fits two large counts at $width and 200%', (
+      tester,
+    ) async {
+      final previous = debugDefaultTargetPlatformOverride;
+      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+      tester.platformDispatcher.textScaleFactorTestValue = 2;
+      try {
+        await _pump(tester, mentionCount: 128, bellCount: 128, width: width);
+        expect(tester.takeException(), isNull);
+        expect(find.byKey(ForumSearch.inputKey), findsOneWidget);
+        final chat = tester.getRect(find.byKey(ChatHeaderButton.buttonKey));
+        final bell = tester.getRect(find.byKey(UserMenuButton.bellKey));
+        final avatar = tester.getRect(find.byKey(UserMenuButton.avatarKey));
+        expect(chat.overlaps(bell), isFalse);
+        expect(bell.overlaps(avatar), isFalse);
+        expect(chat.left, greaterThanOrEqualTo(0));
+        expect(chat.top, greaterThanOrEqualTo(48));
+        expect(avatar.right, lessThanOrEqualTo(width));
+        await tester.tap(find.byKey(UserMenuButton.bellKey));
+        await tester.pumpAndSettle();
+        expect(find.byType(UserMenuPanel), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      } finally {
+        tester.platformDispatcher.clearTextScaleFactorTestValue();
+        debugDefaultTargetPlatformOverride = previous;
+      }
+    });
+  }
+
   testWidgets('unread chat has one descriptive keyboard button', (
     tester,
   ) async {
@@ -127,8 +161,10 @@ Future<void> _pump(
   WidgetTester tester, {
   int unreadCount = 0,
   int mentionCount = 0,
+  int bellCount = 0,
+  double width = 1440,
 }) async {
-  tester.view.physicalSize = const Size(1440, 900);
+  tester.view.physicalSize = Size(width, 900);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
 
@@ -147,7 +183,7 @@ Future<void> _pump(
   );
   final api = FakeDiscourseApi(
     user: user,
-    totals: chatNotificationTotals(),
+    totals: chatNotificationTotals(unreadNotifications: bellCount),
     feeds: const {'/latest.json': []},
     chatChannelsBySite: {
       _siteUrl: ChatChannels(

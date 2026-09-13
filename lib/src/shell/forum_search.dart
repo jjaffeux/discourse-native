@@ -502,12 +502,18 @@ class _ForumSearchState extends State<ForumSearch> {
       );
     }
     if (!ContentNavigationControls.isSupported) return field;
-    return Row(
-      children: [
-        const ContentNavigationControls(),
-        const SizedBox(width: 4),
-        Expanded(child: field),
-      ],
+    return LayoutBuilder(
+      builder: (context, constraints) => Row(
+        children: [
+          // Count capsules need their own width. Keep the search editor and
+          // its keyboard shortcut available when title-bar space is tight.
+          if (!widget.dense || constraints.maxWidth >= 180) ...[
+            const ContentNavigationControls(),
+            const SizedBox(width: 4),
+          ],
+          Expanded(child: field),
+        ],
+      ),
     );
   }
 
