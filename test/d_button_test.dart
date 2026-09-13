@@ -9,6 +9,57 @@ import 'support/button_surface.dart';
 
 void main() {
   for (final dark in [false, true]) {
+    for (final variant in DButtonVariant.values) {
+      testWidgets(
+        'hover fill is stable from its first frame ($dark, $variant)',
+        (tester) async {
+          await tester.pumpWidget(
+            MaterialApp(
+              theme: (dark ? AppTheme.dark : AppTheme.light).copyWith(
+                platform: TargetPlatform.macOS,
+              ),
+              home: Scaffold(
+                body: Center(
+                  child: DButton(
+                    variant: variant,
+                    label: const Text('Personal'),
+                    onPressed: _noop,
+                  ),
+                ),
+              ),
+            ),
+          );
+          await tester.pumpAndSettle();
+          final mouse = await tester.createGesture(
+            kind: PointerDeviceKind.mouse,
+          );
+          await mouse.addPointer(location: Offset.zero);
+          addTearDown(mouse.removePointer);
+          Color paintedFill() => tester
+              .widgetList<DecoratedBox>(find.byType(DecoratedBox))
+              .map((box) => box.decoration)
+              .whereType<DButtonDecoration>()
+              .single
+              .color;
+          for (var visit = 0; visit < 2; visit++) {
+            await mouse.moveTo(tester.getCenter(find.byType(DButton)));
+            await tester.pump();
+            final hover = buttonSurface(tester).color;
+            for (final elapsed in [0, 16, 32, 75, 150]) {
+              await tester.pump(Duration(milliseconds: elapsed));
+              expect(paintedFill(), hover, reason: 'entry frame +$elapsed ms');
+            }
+            await mouse.moveTo(Offset.zero);
+            await tester.pump();
+            expect(paintedFill(), buttonSurface(tester).color);
+            await tester.pump(const Duration(milliseconds: 16));
+          }
+        },
+      );
+    }
+  }
+
+  for (final dark in [false, true]) {
     for (final grouped in [false, true]) {
       testWidgets(
         'adjacent buttons clear hover independently (dark: $dark, grouped: $grouped)',
