@@ -247,7 +247,7 @@ class _ChatPinnedBarState extends State<ChatPinnedBar> {
                               end: 8,
                               child: DNotificationDot(
                                 semanticLabel: 'Unseen pinned messages',
-                                color: theme.colorScheme.error,
+                                color: theme.discourse.notificationIndicator,
                               ),
                             ),
                         ],

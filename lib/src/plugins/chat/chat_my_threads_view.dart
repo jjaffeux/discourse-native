@@ -8,6 +8,7 @@ import '../../plugin_api/plugin_scope.dart';
 import '../../shell/content_reading_lane.dart';
 import '../../shell/relative_time.dart';
 import '../../shell/user_status.dart';
+import '../../theme/app_theme.dart';
 import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
 import '../../utils/pagination.dart';
@@ -273,6 +274,7 @@ class ChatThreadListRow extends StatelessWidget {
                 ),
                 trailing: unread
                     ? DNotificationDot(
+                        color: _threadIndicatorColor(context, thread),
                         semanticLabel: 'Unread',
                         key: ValueKey<String>('$keyPrefix-unread-${thread.id}'),
                       )
@@ -432,6 +434,7 @@ class _NestedThreadListRowState extends State<_NestedThreadListRow> {
                         Padding(
                           padding: const EdgeInsets.only(top: 6),
                           child: DNotificationDot(
+                            color: _threadIndicatorColor(context, thread),
                             semanticLabel: 'Unread',
                             key: ValueKey<String>(
                               '$keyPrefix-unread-${thread.id}',
@@ -857,4 +860,12 @@ List<ChatMessageAuthor> _visibleParticipants(
 String? _text(String? value) {
   final trimmed = value?.trim();
   return trimmed == null || trimmed.isEmpty ? null : trimmed;
+}
+
+Color _threadIndicatorColor(BuildContext context, ChatThread thread) {
+  final colors = Theme.of(context).discourse;
+  final tracking = thread.tracking;
+  return tracking.mentionCount + tracking.watchedThreadsUnreadCount > 0
+      ? colors.success
+      : colors.notificationIndicator;
 }

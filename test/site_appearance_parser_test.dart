@@ -183,6 +183,35 @@ void main() {
       expect(palette?.codeMeta, const Color(0xFF113355));
     });
 
+    test('separates core notification and sidebar accent roles', () {
+      final light = parseSiteAppearanceStylesheet(
+        _stylesheet({'--tertiary-medium': '#5599DD'}),
+      )!;
+      final dark = parseSiteAppearanceStylesheet(
+        _stylesheet({'--scheme-type': 'dark', '--tertiary-medium': '#5599DD'}),
+      )!;
+      expect(light.notificationIndicator, const Color(0xFF5599DD));
+      expect(light.accentSubtle, const Color(0xFF66CCFF));
+      expect(dark.notificationIndicator, dark.tertiary);
+      expect(dark.accentSubtle, dark.tertiary);
+
+      final overridden = parseSiteAppearanceStylesheet(
+        _stylesheet({
+          '--tertiary-med-or-tertiary': '#778899',
+          '--token-color-background-accent-subtle': '#AABBCC',
+        }),
+      )!;
+      expect(overridden.notificationIndicator, const Color(0xFF778899));
+      expect(overridden.accentSubtle, const Color(0xFFAABBCC));
+      expect(ResolvedSitePalette.fromJson(overridden.toJson()), overridden);
+      final legacy = Map<String, Object?>.from(overridden.toJson())
+        ..remove('notificationIndicator');
+      expect(
+        ResolvedSitePalette.fromJson(legacy).notificationIndicator,
+        isNull,
+      );
+    });
+
     test('uses the unmodified accent for the dark unread token', () {
       final palette = parseSiteAppearanceStylesheet(
         _stylesheet({'--scheme-type': 'dark'}),

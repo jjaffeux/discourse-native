@@ -109,6 +109,7 @@ class ResolvedSitePalette {
     required this.secondary,
     required this.tertiary,
     required this.accentSubtle,
+    this.notificationIndicator,
     required this.quaternary,
     required this.headerBackground,
     required this.headerPrimary,
@@ -176,6 +177,7 @@ class ResolvedSitePalette {
       secondary: secondary,
       tertiary: tertiary,
       accentSubtle: _color(json['accentSubtle']) ?? tertiary,
+      notificationIndicator: _color(json['notificationIndicator']),
       quaternary: _color(json['quaternary']) ?? tertiary,
       headerBackground: _color(json['headerBackground']) ?? secondary,
       headerPrimary: _color(json['headerPrimary']) ?? primary,
@@ -225,6 +227,9 @@ class ResolvedSitePalette {
 
   final Color accentSubtle;
 
+  /// Core's `--tertiary-med-or-tertiary`; absent in older saved palettes.
+  final Color? notificationIndicator;
+
   final Color quaternary;
   final Color headerBackground;
   final Color headerPrimary;
@@ -272,6 +277,7 @@ class ResolvedSitePalette {
     'secondary': secondary.toARGB32(),
     'tertiary': tertiary.toARGB32(),
     'accentSubtle': accentSubtle.toARGB32(),
+    'notificationIndicator': ?notificationIndicator?.toARGB32(),
     'quaternary': quaternary.toARGB32(),
     'headerBackground': headerBackground.toARGB32(),
     'headerPrimary': headerPrimary.toARGB32(),
@@ -317,6 +323,7 @@ class ResolvedSitePalette {
       other.secondary == secondary &&
       other.tertiary == tertiary &&
       other.accentSubtle == accentSubtle &&
+      other.notificationIndicator == notificationIndicator &&
       other.quaternary == quaternary &&
       other.headerBackground == headerBackground &&
       other.headerPrimary == headerPrimary &&
@@ -360,6 +367,7 @@ class ResolvedSitePalette {
     secondary,
     tertiary,
     accentSubtle,
+    notificationIndicator,
     quaternary,
     headerBackground,
     headerPrimary,
