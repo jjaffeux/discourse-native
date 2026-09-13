@@ -54,6 +54,7 @@ class DiscourseApi
     implements
         ShellApiCapabilities,
         DiscourseApiConfiguration,
+        PluginJsonQueryTransport,
         PluginTextTransport {
   DiscourseApi({
     http.Client? client,
@@ -1579,6 +1580,21 @@ class DiscourseApi
       );
     }
   }
+
+  @override
+  Future<Map<String, dynamic>> pluginQueryJson({
+    required String siteUrl,
+    required String path,
+    required String? apiKey,
+    required Map<String, Object?> body,
+    String? clientId,
+  }) async => _transport.postObject(
+    _resolvePluginPath(siteUrl, path),
+    siteUrl: siteUrl,
+    apiKey: apiKey,
+    body: body,
+    clientId: clientId,
+  );
 
   @override
   Future<Map<String, dynamic>> pluginWriteJson({

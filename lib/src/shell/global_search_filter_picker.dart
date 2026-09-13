@@ -48,7 +48,7 @@ class _GlobalSearchFilterPickerState extends State<_GlobalSearchFilterPicker> {
         if (!open && mounted) setState(() => _editing = null);
       },
       content: DPopoverContent(
-        width: 350,
+        width: editor?.id == 'category' ? 420 : 350,
         align: DPopoverAlign.end,
         padding: EdgeInsets.zero,
         semanticLabel: editor == null
@@ -56,6 +56,30 @@ class _GlobalSearchFilterPickerState extends State<_GlobalSearchFilterPicker> {
             : 'Edit ${editor.label} condition',
         child: editor == null
             ? _catalogue(context)
+            : editor.id == 'category'
+            ? _GlobalSearchCategoryEditor(
+                key: ValueKey((
+                  widget.conditionIndex,
+                  widget.controller.siteUrl,
+                  widget.controller.capabilities.username,
+                  widget.controller.categoryLookupSession,
+                )),
+                controller: widget.controller,
+                initial: condition,
+                onBack: condition == null
+                    ? () => setState(() => _editing = null)
+                    : null,
+                onCancel: _popover.close,
+                onApply: (value) {
+                  final index = widget.conditionIndex;
+                  if (index == null) {
+                    widget.controller.addCondition(value);
+                  } else {
+                    widget.controller.updateCondition(index, value);
+                  }
+                  _popover.close();
+                },
+              )
             : _GlobalSearchConditionEditor(
                 key: ValueKey('${editor.id}-${widget.conditionIndex}'),
                 controller: widget.controller,

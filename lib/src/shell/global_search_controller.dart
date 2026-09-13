@@ -41,7 +41,7 @@ class GlobalSearchController extends ChangeNotifier {
   List<GlobalSearchSection> _sections = const [];
   List<String> _localRecent = const [];
   final _recentStates = <String, GlobalSearchRequest>{};
-  final _choiceLabels = <String, Map<String, String>>{};
+  final _choiceLabels = <String, Map<String, GlobalSearchFilterChoice>>{};
   int _historyRevision = 0;
   bool _historyCleared = false;
   GlobalSearchPhase _phase = GlobalSearchPhase.idle;
@@ -54,6 +54,7 @@ class GlobalSearchController extends ChangeNotifier {
   VoidCallback? _queued;
 
   String? get siteUrl => _siteUrl;
+  Object? get categoryLookupSession => _lease?.session;
   bool get compact => _compact;
   void setCompact(bool value) {
     _compact = value;
@@ -62,7 +63,14 @@ class GlobalSearchController extends ChangeNotifier {
 
   /// Display text for a stable filter value returned in this site session.
   String? choiceLabel(String filterId, String value) =>
+      choice(filterId, value)?.label;
+
+  GlobalSearchFilterChoice? choice(String filterId, String value) =>
       _choiceLabels[filterId]?[value];
+
+  /// Retains draft category metadata before applying its stable IDs.
+  void rememberCategorySelection(List<GlobalSearchFilterChoice> choices) =>
+      _rememberChoices('category', choices);
 
   String get query => _query;
   GlobalSearchScope get scope => _scope;
@@ -339,8 +347,11 @@ class GlobalSearchController extends ChangeNotifier {
     final label = context?.label;
     if (condition != null && label != null) {
       final labels = _choiceLabels.putIfAbsent(condition.filterId, () => {});
-      if (labels[condition.text] != label) {
-        labels[condition.text] = label;
+      if (labels[condition.text]?.label != label) {
+        labels[condition.text] = GlobalSearchFilterChoice(
+          value: condition.text,
+          label: label,
+        );
         changed = true;
       }
     }
@@ -517,22 +528,54 @@ class GlobalSearchController extends ChangeNotifier {
       term: term,
     );
     if (!current()) return const [];
-    final labels = _choiceLabels.putIfAbsent(
-      filter.id,
-      () => <String, String>{},
+    _rememberChoices(filter.id, values);
+    return values;
+  }
+
+  Future<GlobalSearchCategoryPage> lookupCategoryChoices(
+    String term, {
+    int page = 1,
+  }) async {
+    final site = siteUrl, lease = _lease, epoch = _configuration;
+    if (site == null || lease == null) return const GlobalSearchCategoryPage();
+    bool current() => !_disposed && lease.isCurrent && epoch == _configuration;
+    final key = await credentials.apiKeyFor(site);
+    if (!current()) return const GlobalSearchCategoryPage();
+    final client = await credentials.clientId();
+    if (!current()) return const GlobalSearchCategoryPage();
+    final result = await api.lookupCategoryChoices(
+      siteUrl: site,
+      apiKey: key,
+      clientId: client,
+      term: term,
+      page: page,
     );
+    if (!current()) return const GlobalSearchCategoryPage();
+    _rememberChoices('category', result.choices);
+    return result;
+  }
+
+  void _rememberChoices(
+    String filterId,
+    List<GlobalSearchFilterChoice> values,
+  ) {
+    final labels = _choiceLabels.putIfAbsent(filterId, () => {});
     var changed = false;
     for (final choice in values) {
-      if (labels[choice.value] != choice.label) changed = true;
+      if (labels[choice.value] != choice) changed = true;
       labels.remove(choice.value);
-      labels[choice.value] = choice.label;
+      labels[choice.value] = choice;
     }
-    // Search suggestions can be explored indefinitely without an unbounded cache.
-    while (labels.length > 512) {
-      labels.remove(labels.keys.first);
+    final selected = {
+      for (final bank in _banks.values)
+        for (final condition in bank)
+          if (condition.filterId == filterId) ...condition.value,
+    };
+    for (final key in labels.keys.toList()) {
+      if (labels.length <= 512) break;
+      if (!selected.contains(key)) labels.remove(key);
     }
     if (changed) _notify();
-    return values;
   }
 
   void retry() => _schedule(immediate: true);

@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:discourse_native/src/data/plugin_transport.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/sidebar_tag.dart';
@@ -95,7 +96,8 @@ const globalSearchFixtureTopics = [
 ///
 /// No HTTP client is created. The short fixture corpus supports search/design/
 /// keyboard queries; `missing` is empty and `failure` exercises the retry state.
-class GlobalSearchFixtureApi extends FakeDiscourseApi {
+class GlobalSearchFixtureApi extends FakeDiscourseApi
+    implements PluginJsonQueryTransport {
   GlobalSearchFixtureApi()
     : super(
         user: globalSearchFixtureUser,
@@ -158,6 +160,53 @@ class GlobalSearchFixtureApi extends FakeDiscourseApi {
   final requests = <({String siteUrl, Uri uri})>[];
   Completer<void>? responseGate;
   bool failRequests = false;
+
+  @override
+  Future<Map<String, dynamic>> pluginQueryJson({
+    required String siteUrl,
+    required String path,
+    required String? apiKey,
+    required Map<String, Object?> body,
+    String? clientId,
+  }) async {
+    if (path != '/categories/search.json') {
+      throw StateError('Unexpected fixture query: $path');
+    }
+    final term = (body['term'] as String? ?? '').toLowerCase();
+    if (term == 'failure') throw StateError('Offline category fixture');
+    final categories = [
+      for (final category in globalSearchFixtureCategories)
+        {
+          'id': category.id,
+          'name': category.name,
+          'slug': category.slug,
+          'color': category.color,
+        },
+      {'id': 4, 'name': 'Discourse Native App', 'color': '9980BA'},
+      {'id': 5, 'name': 'alerts', 'color': 'CC765B'},
+      {
+        'id': 6,
+        'name': 'Bug reports',
+        'parent_category_id': 4,
+        'color': 'C27580',
+      },
+      {'id': 7, 'name': 'Design', 'parent_category_id': 4, 'color': 'B480A6'},
+      for (var id = 8; id <= 32; id++)
+        {'id': id, 'name': 'Community $id', 'color': '679CB1'},
+    ];
+    final matches = categories
+        .where(
+          (category) =>
+              (category['name']! as String).toLowerCase().contains(term),
+        )
+        .toList();
+    final page = body['page'] as int? ?? 1;
+    return {
+      'categories_count': matches.length,
+      'categories': matches.skip((page - 1) * 25).take(25).toList(),
+      'ancestors': [categories[3]],
+    };
+  }
 
   @override
   Future<List<String>> recentSearches({

@@ -572,7 +572,7 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(
         find.descendant(
-          of: find.byType(DCommandList<String>),
+          of: find.byKey(const ValueKey('global-search-category-list')),
           matching: find.text('UX'),
         ),
       );
