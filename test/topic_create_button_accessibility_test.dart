@@ -236,6 +236,29 @@ void main() {
     expect(fixture.api.userDraftRequests, isEmpty);
   });
 
+  testWidgets('loading draft row matches the loaded draft height', (
+    tester,
+  ) async {
+    final gate = Completer<void>();
+    await _pump(tester, userDraftGate: gate);
+    await tester.tap(find.byKey(TopicCreateButton.draftsButtonKey));
+    await tester.pump(const Duration(milliseconds: 200));
+    final loadingRow = find.ancestor(
+      of: find.text('Loading drafts…'),
+      matching: find.byType(DDropdownMenuItem),
+    );
+    final loadingHeight = tester.getSize(loadingRow).height;
+    expect(tester.widget<DDropdownMenuItem>(loadingRow).onPressed, isNull);
+    gate.complete();
+    await tester.pumpAndSettle();
+    expect(
+      tester
+          .getSize(find.byKey(const ValueKey('recent-draft-new_topic')))
+          .height,
+      loadingHeight,
+    );
+  });
+
   testWidgets('focuses loaded drafts and restores the trigger on Escape', (
     tester,
   ) async {

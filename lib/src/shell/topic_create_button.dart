@@ -181,14 +181,9 @@ class _TopicCreateControl extends StatelessWidget {
         ),
         const DDropdownMenuSeparator(),
         if (feed.loading && drafts.isEmpty)
-          const DDropdownMenuLabel(
-            child: Row(
-              children: [
-                DSpinner(size: 16, semanticLabel: null),
-                SizedBox(width: DSpacing.sm),
-                Expanded(child: Text('Loading drafts…')),
-              ],
-            ),
+          const DDropdownMenuItem(
+            leading: DSpinner(size: 16, semanticLabel: null),
+            child: Text('Loading drafts…'),
           )
         else if (feed.error != null && drafts.isEmpty)
           const DDropdownMenuLabel(child: Text("Couldn't load drafts."))
