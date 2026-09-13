@@ -899,9 +899,7 @@ class _SectionState extends State<_Section> {
           ? null
           : context.isTouch
           ? 48.0
-          : submenu
-          ? 28.0
-          : 32.0;
+          : DControlStyle.height(DSidebarMenuButtonSize.regular);
       final menu = submenu
           ? DSidebarMenuSub.sliverBuilder(
               itemCount: run.length,
