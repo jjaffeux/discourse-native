@@ -6343,7 +6343,7 @@
         "implementationCommit": "940e6a41",
         "reviewedSource": "70b3d23e2d5d62543c06be8f17eee5c41d18d175",
         "coreReference": "438ea4dea8ccc4d5f7bc8460b46fc16d29bff65a",
-        "status": "verified",
+        "status": "merged",
         "decisions": [
           "Compose DButton and DSeparator without changing the kit API. Chat urgent counts and bell totals use one softly tinted capsule, with 99+ visual cap and exact accessible count.",
           "Preserve core Chat count/preferences/DND policy. Use success for urgent Chat and personal-message priority, danger for reviewable priority, and the distinct core ordinary indicator and sidebar accent roles.",
@@ -6355,7 +6355,8 @@
           "Final integration from local main 60eedf0f: 176 header/navigation/session tests passed, including actual macOS-target headers at 320px and 390px with two 128-count capsules and 200% text, plus notification-panel opening. Log: /tmp/notification-capsule-header-regressions.log.",
           "Final root flutter analyze --no-pub passes. macOS debug fixture build passes; isolated copied bundle has distinct identity and verified ad-hoc signature/debug entitlements. Manifest: /tmp/notification-capsule-final-bundle.json.",
           "Native macOS review confirmed dark/light capsules and exact AX labels, Chat drawer opening and urgent green drawer badge. Final source reinspection confirmed the 390px Forest header at 200% in RTL: two usable rows, no overflow, correct 99+ order. Reviewed the real styleguide Combined count capsules example; quit both isolated apps through their menus.",
-          "Updated HTML reloaded in the in-app browser: confirmed chat urgent capsule versus ordinary unread dot, bell reviewable/personal/ordinary roles, independent counts, dark/light and RTL. No browser console errors. Selected capsule preview retained as the deliverable."
+          "Updated HTML reloaded in the in-app browser: confirmed chat urgent capsule versus ordinary unread dot, bell reviewable/personal/ordinary roles, independent counts, dark/light and RTL. No browser console errors. Selected capsule preview retained as the deliverable.",
+          "Final candidate includes current main notification loading skeletons. All changed production files match natively reviewed source 70b3d23e byte-for-byte; 78 affected header/account-session tests pass after integration. Merged --no-ff from the clean main checkout under its exclusive lease; no remote writes."
         ],
         "limitations": [
           "Native UI inspection is macOS only; no physical mobile-device or spoken screen-reader run. Final full-suite execution is not part of the authorized focused-verification policy.",
@@ -6375,7 +6376,10 @@
             "com.apple.security.network.client": true,
             "com.apple.security.network.server": true
           }
-        }
+        },
+        "mergeCommit": "8623c04a4925b4fbe74854513e7a9c7414880fd0",
+        "mergeBranch": "codex/header-notification-capsules-merge",
+        "integrationBase": "707716a79f83618a3c2ef732df1cccd3cfed1899"
       }
     }
   ]
