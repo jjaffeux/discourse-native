@@ -460,13 +460,13 @@ class _CaptureControls extends StatelessWidget {
                   DButton(
                     key: const ValueKey('voice-copy-report'),
                     onPressed: onCopy,
-                    icon: const DIcon(DIcons.copy, size: 15),
+                    icon: const DIcon(DIcons.copy),
                     label: const Text('Copy report'),
                   ),
                   DButton(
                     key: const ValueKey('voice-export-report'),
                     onPressed: onExport,
-                    icon: const DIcon(DIcons.download, size: 15),
+                    icon: const DIcon(DIcons.download),
                     label: Text(exporterLabel),
                   ),
                   DTooltip(
@@ -672,7 +672,7 @@ class _CaptureEventDetail extends StatelessWidget {
             DButton(
               key: const ValueKey('voice-copy-event'),
               onPressed: onCopy,
-              icon: const DIcon(DIcons.copy, size: 15),
+              icon: const DIcon(DIcons.copy),
               label: const Text('Copy'),
             ),
           ],

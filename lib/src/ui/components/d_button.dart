@@ -324,7 +324,7 @@ extension DiscourseButtonThemeAccess on ThemeData {
 /// [focusNode] is borrowed and never disposed. [label] accepts rich content;
 /// Text can opt into wrapping using its own softWrap and maxLines properties.
 /// Icon-only controls require an accessible tooltip. Desktop surfaces follow
-/// base-nova sizes; touch platforms expand their invisible targets to 48px.
+/// the shared Native sizes; touch platforms expand their invisible targets to 48px.
 /// The painted surface is a [DButtonDecoration]: hover, expanded, focus,
 /// invalid and pressed changes transition together over 150ms. Hover exit
 /// clears immediately to avoid overlapping highlights on neighboring buttons.
@@ -548,14 +548,8 @@ class DButton extends StatelessWidget {
     final dark = theme.brightness == Brightness.dark;
     final variantStyle = _referenceStyle(tokens, dark);
     final fontSize = fontSizeFor(size);
-    final spacingUnit = switch (size) {
-      DButtonSize.extraSmall => 12.0,
-      DButtonSize.small => _iconOnly ? 16.0 : 14.0,
-      _ => DControlStyle.iconSize,
-    };
-    final gap = size == DButtonSize.extraSmall || size == DButtonSize.small
-        ? 4.0
-        : DControlStyle.gap;
+    final spacingUnit = DControlStyle.iconDimension(size);
+    final gap = DControlStyle.contentGap(size);
     final visualDimension = DControlStyle.scaledHeight(
       size,
       MediaQuery.textScalerOf(context),
@@ -645,19 +639,13 @@ class DButton extends StatelessWidget {
                 start:
                     (icon != null || (loading && loadingLabel != null)) &&
                         iconPosition == DButtonIconPosition.start
-                    ? (size == DButtonSize.extraSmall ||
-                              size == DButtonSize.small
-                          ? 7
-                          : 9)
-                    : (size == DButtonSize.extraSmall ? 9 : 11),
+                    ? (size == DButtonSize.large ? 9 : 7)
+                    : (size == DButtonSize.small ? 9 : 11),
                 end:
                     (icon != null || (loading && loadingLabel != null)) &&
                         iconPosition == DButtonIconPosition.end
-                    ? (size == DButtonSize.extraSmall ||
-                              size == DButtonSize.small
-                          ? 7
-                          : 9)
-                    : (size == DButtonSize.extraSmall ? 9 : 11),
+                    ? (size == DButtonSize.large ? 9 : 7)
+                    : (size == DButtonSize.small ? 9 : 11),
                 top: 1,
                 bottom: 1,
               )),

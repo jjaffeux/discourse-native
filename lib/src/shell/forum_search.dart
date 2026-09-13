@@ -47,7 +47,7 @@ class _ForumSearchState extends State<ForumSearch> {
   bool _suppressFocus = false;
   bool _syncScheduled = false;
   bool _geometryScheduled = false;
-  double _anchorHeight = 32;
+  double _anchorHeight = DControlStyle.regularHeight;
   double _anchorLeft = 8;
   double _anchorTop = 6;
   double? _layoutWidth;

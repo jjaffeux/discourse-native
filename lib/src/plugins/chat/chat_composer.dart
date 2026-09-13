@@ -928,7 +928,7 @@ class _ChatComposerState extends State<ChatComposer> {
             key: const ValueKey('chat-composer-cancel-reply'),
             onPressed: _clearReply,
             tooltip: 'Cancel reply',
-            icon: const DIcon(DIcons.xmark, size: 16),
+            icon: const DIcon(DIcons.xmark),
             variant: DButtonVariant.ghost,
           ),
         ],
@@ -1130,7 +1130,6 @@ class _ChatComposerState extends State<ChatComposer> {
                           icon: const DIcon(
                             DIcons.plus,
                             key: ValueKey('chat-composer-add-icon'),
-                            size: 16,
                           ),
                           tooltip: 'Add to message',
                           variant: DButtonVariant.ghost,
@@ -1170,10 +1169,7 @@ class _ChatComposerState extends State<ChatComposer> {
                                             pickerContext: buttonContext,
                                           ),
                                         ),
-                                  icon: const DIcon(
-                                    DIcons.discourseEmojis,
-                                    size: 16,
-                                  ),
+                                  icon: const DIcon(DIcons.discourseEmojis),
                                   tooltip: 'Add emoji',
                                   variant: DButtonVariant.ghost,
                                 ),
@@ -1190,7 +1186,7 @@ class _ChatComposerState extends State<ChatComposer> {
                     child: DButton.iconOnly(
                       key: const ValueKey('chat-composer-edit-cancel'),
                       onPressed: _savingEdit ? null : _cancelEdit,
-                      icon: const DIcon(DIcons.xmark, size: 16),
+                      icon: const DIcon(DIcons.xmark),
                       tooltip: 'Cancel edit',
                       variant: DButtonVariant.ghost,
                     ),

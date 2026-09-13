@@ -659,7 +659,7 @@ class _PrivateForumSignIn extends StatelessWidget {
                     label: const Text('Sign in'),
                     onPressed: () =>
                         unawaited(controller.connectCurrentInstance()),
-                    icon: const DIcon(DIcons.upRightFromSquare, size: 18),
+                    icon: const DIcon(DIcons.upRightFromSquare),
                     variant: DButtonVariant.primary,
                     loading: connecting,
                     loadingLabel: const Text('Signing in…'),
@@ -741,7 +741,7 @@ class _UnavailableForum extends StatelessWidget {
                           label: const Text('Try again'),
                           onPressed: () =>
                               unawaited(controller.retryCurrentForum()),
-                          icon: const DIcon(DIcons.arrowsRotate, size: 18),
+                          icon: const DIcon(DIcons.arrowsRotate),
                           variant: DButtonVariant.primary,
                           loading: retrying,
                           loadingLabel: const Text('Trying again…'),
@@ -757,7 +757,7 @@ class _UnavailableForum extends StatelessWidget {
                               );
                             }
                           },
-                          icon: const DIcon(DIcons.trashCan, size: 18),
+                          icon: const DIcon(DIcons.trashCan),
                           variant: DButtonVariant.destructive,
                         ),
                       ],
@@ -1027,7 +1027,7 @@ class _ShellLoadFailure extends StatelessWidget {
                     key: const ValueKey('instance-load-retry-panel'),
                     label: const Text('Retry'),
                     onPressed: ShellScope.read(context).load,
-                    icon: const DIcon(DIcons.arrowsRotate, size: 18),
+                    icon: const DIcon(DIcons.arrowsRotate),
                     variant: DButtonVariant.primary,
                   ),
                 ],

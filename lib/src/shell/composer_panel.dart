@@ -2590,7 +2590,7 @@ class _FormattingToolbar extends StatelessWidget {
                 shortcut: DShortcut(_formattingShortcut(key)),
                 variant: DButtonVariant.ghost,
                 size: DButtonSize.small,
-                icon: DIcon(icon, size: 16),
+                icon: DIcon(icon),
                 onPressed: composer.isEditing && !composer.loadingBody
                     ? () {
                         composer.toggleMark(mark);
@@ -2604,7 +2604,7 @@ class _FormattingToolbar extends StatelessWidget {
               shortcut: DShortcut(_formattingShortcut(LogicalKeyboardKey.keyL)),
               variant: DButtonVariant.ghost,
               size: DButtonSize.small,
-              icon: const DIcon(DIcons.link, size: 16),
+              icon: const DIcon(DIcons.link),
               onPressed: composer.isEditing && !composer.loadingBody
                   ? () => unawaited(
                       showComposerLinkDialog(
@@ -2667,7 +2667,7 @@ class _Toolbar extends StatelessWidget {
                           composer: composer,
                         ),
                       ),
-                icon: const DIcon(DIcons.discourseEmojis, size: 18),
+                icon: const DIcon(DIcons.discourseEmojis),
               ),
             ),
           ),
@@ -2702,7 +2702,7 @@ class _Toolbar extends StatelessWidget {
                 variant: DButtonVariant.ghost,
                 size: DButtonSize.small,
                 onPressed: composer.isEditing ? trigger.toggle : null,
-                icon: const DIcon(DIcons.circlePlus, size: 18),
+                icon: const DIcon(DIcons.circlePlus),
               ),
             ),
           ),
@@ -2850,10 +2850,7 @@ class _ComposerToolbarScrollButton extends StatelessWidget {
             ? 'Show more composer tools'
             : 'Show previous composer tools',
         onPressed: onPressed,
-        icon: DIcon(
-          pointsRight ? DIcons.chevronRight : DIcons.chevronLeft,
-          size: 13,
-        ),
+        icon: DIcon(pointsRight ? DIcons.chevronRight : DIcons.chevronLeft),
         variant: DButtonVariant.ghost,
         size: DButtonSize.small,
       ),
@@ -2925,7 +2922,7 @@ class _ComposerUploadButtonState extends State<_ComposerUploadButton> {
     onPressed: !widget.composer.canUpload || _picking
         ? null
         : () => unawaited(_pick()),
-    icon: const DIcon(DIcons.paperclip, size: 18),
+    icon: const DIcon(DIcons.paperclip),
     variant: DButtonVariant.ghost,
     size: DButtonSize.small,
   );
@@ -3160,7 +3157,7 @@ class _Footer extends StatelessWidget {
                   key: const ValueKey('composer-discard'),
                   tooltip: 'Discard draft',
                   variant: DButtonVariant.ghost,
-                  icon: const DIcon(DIcons.trashCan, size: 18),
+                  icon: const DIcon(DIcons.trashCan),
                   onPressed: busy
                       ? null
                       : () => unawaited(
@@ -3203,7 +3200,6 @@ class _Footer extends StatelessWidget {
                               : composer.target.isNewTopic
                               ? DIcons.farPenToSquare
                               : DIcons.reply,
-                          size: 18,
                         ),
                       )
                     : DButton(

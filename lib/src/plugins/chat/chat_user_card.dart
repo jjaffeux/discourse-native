@@ -83,7 +83,7 @@ class _ChatUserCardButtonState extends State<ChatUserCardButton> {
         key: ValueKey<String>('user-card-chat-${widget.user.username}'),
         label: const Text('Chat'),
         onPressed: _open,
-        icon: const DIcon(DIcons.comment, size: 16),
+        icon: const DIcon(DIcons.comment),
         variant: DButtonVariant.primary,
         loading: _opening,
       ),

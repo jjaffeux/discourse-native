@@ -129,7 +129,7 @@ class _AiSummaryButton extends StatelessWidget {
         ),
       );
     },
-    icon: const DIcon(DiscourseAiIcons.sparkles, size: 15),
+    icon: const DIcon(DiscourseAiIcons.sparkles),
   );
 }
 
@@ -294,7 +294,7 @@ class _AiSummaryDialogState extends State<_AiSummaryDialog> {
           DButton(
             label: const Text('Regenerate'),
             onPressed: _loading ? null : () => _load(regenerate: true),
-            icon: const DIcon(DIcons.arrowsRotate, size: 14),
+            icon: const DIcon(DIcons.arrowsRotate),
           ),
         DButton(
           label: const Text('Close'),

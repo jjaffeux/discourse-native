@@ -14,7 +14,7 @@ void main() {
       const _TestApp(platform: TargetPlatform.macOS, child: _BasicMenubar()),
     );
 
-    expect(tester.getSize(find.byType(DMenubar)).height, 38);
+    expect(tester.getSize(find.byType(DMenubar)).height, 34);
     expect(find.text('New Tab'), findsNothing);
 
     await tester.tap(find.text('File'));

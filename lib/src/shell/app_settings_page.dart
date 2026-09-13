@@ -137,7 +137,7 @@ class _SettingsHeader extends StatelessWidget {
           DButton.iconOnly(
             key: const ValueKey('app-settings-close'),
             onPressed: () => Navigator.of(context).maybePop(),
-            icon: const DIcon(DIcons.xmark, size: 20),
+            icon: const DIcon(DIcons.xmark),
             tooltip: 'Close',
             semanticLabel: 'Close settings',
             variant: DButtonVariant.ghost,
@@ -186,7 +186,7 @@ class _TextSizeSetting extends StatelessWidget {
             DButton.iconOnly(
               key: const ValueKey('text-size-decrease'),
               onPressed: onDecrease,
-              icon: const DIcon(DIcons.minus, size: 16),
+              icon: const DIcon(DIcons.minus),
               tooltip: 'Decrease text size',
               semanticLabel: 'Decrease text size',
               size: DButtonSize.small,
@@ -214,7 +214,7 @@ class _TextSizeSetting extends StatelessWidget {
             DButton.iconOnly(
               key: const ValueKey('text-size-increase'),
               onPressed: onIncrease,
-              icon: const DIcon(DIcons.plus, size: 16),
+              icon: const DIcon(DIcons.plus),
               tooltip: 'Increase text size',
               semanticLabel: 'Increase text size',
               size: DButtonSize.small,

@@ -86,12 +86,11 @@ void main() {
     }
   }
 
-  testWidgets('reference text sizes retain compact surfaces', (tester) async {
-    for (final (size, height, font) in [
-      (DButtonSize.extraSmall, 24.0, 12.0),
-      (DButtonSize.small, 28.0, 12.8),
-      (DButtonSize.regular, 32.0, 14.0),
-      (DButtonSize.large, 36.0, 14.0),
+  testWidgets('Native text sizes retain compact surfaces', (tester) async {
+    for (final (size, height, font, icon) in [
+      (DButtonSize.small, 24.0, 12.0, 12.0),
+      (DButtonSize.regular, 28.0, 12.0, 14.0),
+      (DButtonSize.large, 32.0, 14.0, 16.0),
     ]) {
       await tester.pumpWidget(
         MaterialApp(
@@ -100,6 +99,7 @@ void main() {
             body: Center(
               child: DButton(
                 label: const Text('Action'),
+                icon: const Icon(Icons.add),
                 onPressed: _noop,
                 size: size,
               ),
@@ -107,8 +107,10 @@ void main() {
           ),
         ),
       );
+      await tester.pumpAndSettle();
       final rendered = find.byType(FilledButton);
       expect(tester.getSize(rendered).height, height);
+      expect(tester.getSize(find.byIcon(Icons.add)), Size.square(icon));
       expect(DButton.fontSizeFor(size), font);
       expect(
         tester

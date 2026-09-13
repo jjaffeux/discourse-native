@@ -488,7 +488,7 @@ class _CardContent extends StatelessWidget {
                   close();
                   unawaited(openExternalLink('$siteUrl${card.path}'));
                 },
-                icon: const DIcon(DIcons.upRightFromSquare, size: 16),
+                icon: const DIcon(DIcons.upRightFromSquare),
               ),
             );
             final actions = [...pluginActions, profileAction];

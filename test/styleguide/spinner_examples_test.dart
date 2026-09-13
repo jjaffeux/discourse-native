@@ -100,7 +100,7 @@ void main() {
         );
         final buttonRect = tester.getRect(finder);
         final spinnerRect = tester.getRect(spinner);
-        expect(buttonRect.height, 28, reason: label);
+        expect(buttonRect.height, 24, reason: label);
         expect(spinnerRect.size, const Size.square(16), reason: label);
         expect(spinnerRect.left - buttonRect.left, 7, reason: label);
         expect(

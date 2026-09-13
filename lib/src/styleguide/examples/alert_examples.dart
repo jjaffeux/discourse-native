@@ -11,7 +11,7 @@ final alertExamples = ComponentExamples(
   notes:
       'Base-nova Alert, Title, Description and Action. Reference and native review passed. '
       'The only Alert variants are normal and destructive; outline/xs belong to Button. '
-      'Actions use the completed DButton owner with extra-small reference geometry and native hit bounds. '
+      'Actions use the completed DButton owner with small control geometry and native hit bounds. '
       'Wide actions move below text at narrow widths or large text. '
       'Announcements use a platform live region without moving focus; static history can opt out. '
       'Paragraphs and links compose ordinary Flutter children; paragraph gaps are 16px. '
@@ -105,7 +105,7 @@ final alertExamples = ComponentExamples(
 DAlert(
   title: DAlertTitle(child: Text(enabled ? 'Dark mode enabled' : 'Dark mode is now available')),
   description: const DAlertDescription(child: Text('Enable it under your profile settings to get started.')),
-  action: DAlertAction(child: DButton(size: DButtonSize.extraSmall,
+  action: DAlertAction(child: DButton(size: DButtonSize.small,
     label: Text(enabled ? 'Disable' : 'Enable'),
     onPressed: () => setState(() => enabled = !enabled))),
 )''',
@@ -247,7 +247,7 @@ class _ActionExampleState extends State<_ActionExample> {
       ),
       action: DAlertAction(
         child: DButton(
-          size: DButtonSize.extraSmall,
+          size: DButtonSize.small,
           label: Text(enabled ? 'Disable' : 'Enable'),
           onPressed: () => setState(() => enabled = !enabled),
         ),

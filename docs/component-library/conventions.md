@@ -45,7 +45,10 @@ expanded state and activation.
 
 Use shared control geometry and paint from `foundation/control_style.dart`.
 Button-like controls must use the Button styleguide's shared `DControlSize`
-scale: `extraSmall` (24px), `small` (28px), `regular` (32px), and `large` (36px).
+scale: `small` (24px), `regular` (28px), and `large` (32px). Small and regular labels
+use 12px text with 16px leading; large labels use 14px with 20px leading.
+Extra-small controls have been removed; use small for compact actions. See
+[the compact sizing update](compact-control-sizing.md).
 Component size names are aliases of this enum. Do not introduce alternate
 height enums, control-height wrappers, or padding/constraint size overrides.
 The kit owns text-scaling growth and invisible accessible touch targets.
@@ -61,7 +64,7 @@ update its golden baselines only after visual review. See
 The app adopts **D — Contextual tints** through `DTokens.controls`: neutral
 outline surfaces, soft primary actions and accent notification states are
 derived at the `AppTheme` boundary from the current forum palette. Standard
-topic filters, header triggers and bottom actions use the regular 32px size
+topic filters, header triggers and bottom actions use the regular 28px size
 and 8px control radius. The other size presets remain available for compact
 toolbars. Keep focus and link colors independent of the soft action fill.
 Category identity uses the category's own color with the same control geometry.

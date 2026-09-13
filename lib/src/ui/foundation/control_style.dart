@@ -6,38 +6,38 @@ import 'package:flutter/material.dart';
 import '../../theme/discourse_typography.dart';
 import 'tokens.dart';
 
-enum DControlSize { extraSmall, small, regular, large }
+/// Control surfaces at 100% zoom: small 24px, regular 28px and large 32px.
+enum DControlSize { small, regular, large }
 
 /// Shared geometry and outlined surfaces for action and selection controls.
 abstract final class DControlStyle {
-  static const extraSmallHeight = 24.0;
-  static const smallHeight = 28.0;
-  static const regularHeight = 32.0;
-  static const largeHeight = 36.0;
+  static const smallHeight = 24.0;
+  static const regularHeight = 28.0;
+  static const largeHeight = 32.0;
 
   static const duration = Duration(milliseconds: 150);
   static const iconSize = 16.0;
   static const gap = 6.0;
   static double height(DControlSize size) => switch (size) {
-    DControlSize.extraSmall => extraSmallHeight,
     DControlSize.small => smallHeight,
     DControlSize.regular => regularHeight,
     DControlSize.large => largeHeight,
   };
   static double fontSize(DControlSize size) => switch (size) {
-    DControlSize.extraSmall => DiscourseTypography.xs,
-    DControlSize.small => DiscourseTypography.base * .8,
-    _ => DiscourseTypography.sm,
+    DControlSize.small || DControlSize.regular => DiscourseTypography.xs,
+    DControlSize.large => DiscourseTypography.sm,
   };
   static double lineHeight(DControlSize size) => switch (size) {
-    DControlSize.extraSmall => 16,
-    DControlSize.small => 22.4,
-    _ => 20,
+    DControlSize.small || DControlSize.regular => 16,
+    DControlSize.large => 20,
   };
   static double iconDimension(DControlSize size) => switch (size) {
-    DControlSize.extraSmall || DControlSize.small => 14,
-    _ => 16,
+    DControlSize.small => 12,
+    DControlSize.regular => 14,
+    DControlSize.large => iconSize,
   };
+  static double contentGap(DControlSize size) =>
+      size == DControlSize.large ? gap : 4;
 
   /// Text scaling expands every control consistently, including icon buttons.
   static double scaledHeight(DControlSize size, TextScaler scaler) => math.max(
@@ -48,8 +48,7 @@ abstract final class DControlStyle {
   );
 
   static double radius(DTokens tokens, DControlSize size) => switch (size) {
-    DControlSize.extraSmall => (tokens.controlRadius * .8).clamp(0, 10),
-    DControlSize.small => (tokens.controlRadius * .8).clamp(0, 12),
+    DControlSize.small => (tokens.controlRadius * .8).clamp(0, 10),
     _ => tokens.controlRadius,
   };
   static Color alpha(Color color, double factor) =>

@@ -8,7 +8,7 @@ final selectExamples = ComponentExamples(
   status: ComponentStatus.implemented,
   notes:
       'Source mapping: Base Nova SelectTrigger maps to a compact button-like '
-      'DSelect trigger with the shared 24/28/32/36px button scale and matching '
+      'DSelect trigger with the shared 24/28/32px button scale and matching '
       'text and icon metrics, input border, transparent/light background, dark input '
       'tint, exterior focus/invalid ring, disabled 50% opacity and selectable '
       'text disabled. SelectContent uses DPopover for live-theme overlay '
@@ -24,10 +24,9 @@ final selectExamples = ComponentExamples(
   examples: [
     StyleguideExample(
       title: 'Size',
-      description:
-          'The same extraSmall, small, regular and large scale as Button.',
+      description: 'The same small, regular and large scale as Button.',
       code:
-          'DSelect<String>(size: DControlSize.extraSmall, entries: entries, onChanged: select)',
+          'DSelect<String>(size: DControlSize.small, entries: entries, onChanged: select)',
       builder: (_) => Wrap(
         spacing: 16,
         runSpacing: 16,

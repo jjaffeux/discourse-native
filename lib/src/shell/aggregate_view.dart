@@ -342,7 +342,7 @@ class _AggregateInlineFilters extends StatelessWidget {
                   key: const ValueKey('aggregate-refresh-button'),
                   label: const Text('Refresh'),
                   loadingLabel: const Text('Refreshing…'),
-                  icon: const DIcon(DIcons.arrowsRotate, size: 16),
+                  icon: const DIcon(DIcons.arrowsRotate),
                   variant: DButtonVariant.outline,
                   loading:
                       controller.aggregate.state.loading ||

@@ -34,7 +34,7 @@ void main() {
         tester.getSize(
           find.descendant(of: button, matching: find.byType(Material)),
         ),
-        const Size.square(32),
+        const Size.square(28),
       );
       expect(
         tester.getSemantics(button),

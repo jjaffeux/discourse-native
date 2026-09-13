@@ -43,8 +43,8 @@ class TopicTaxonomyButton extends StatelessWidget {
             Expanded(
               child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
             ),
-            const SizedBox(width: 8),
-            const DIcon(DIcons.chevronDown, size: 16),
+            SizedBox(width: DControlStyle.contentGap(size)),
+            const DIcon(DIcons.chevronDown),
           ],
         ),
         icon: icon,

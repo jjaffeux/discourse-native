@@ -632,7 +632,7 @@ class _DrawerHeader extends StatelessWidget {
       tooltip: 'Open full-screen chat',
       onPressed: onFullPage,
       variant: DButtonVariant.ghost,
-      icon: const DIcon(DIcons.discourseExpand, size: 18),
+      icon: const DIcon(DIcons.discourseExpand),
     );
 
     return LayoutBuilder(
@@ -653,7 +653,7 @@ class _DrawerHeader extends StatelessWidget {
                     tooltip: 'Back',
                     onPressed: onBack,
                     variant: DButtonVariant.ghost,
-                    icon: const DIcon(DIcons.chevronLeft, size: 18),
+                    icon: const DIcon(DIcons.chevronLeft),
                   )
                 else
                   const SizedBox(width: 10),
@@ -697,7 +697,7 @@ class _DrawerHeader extends StatelessWidget {
                     variant: route.id == 'chat-search'
                         ? DButtonVariant.primary
                         : DButtonVariant.ghost,
-                    icon: const DIcon(DIcons.magnifyingGlass, size: 16),
+                    icon: const DIcon(DIcons.magnifyingGlass),
                   ),
                 if (overflowActions)
                   _DrawerHeaderOverflowMenu(
@@ -712,7 +712,7 @@ class _DrawerHeader extends StatelessWidget {
                     tooltip: 'Collapse Chat Drawer',
                     onPressed: onToggle,
                     variant: DButtonVariant.ghost,
-                    icon: const DIcon(DIcons.minus, size: 18),
+                    icon: const DIcon(DIcons.minus),
                   )
                 else
                   _CollapsedDrawerToggleButton(onPressed: onToggle),
@@ -722,7 +722,7 @@ class _DrawerHeader extends StatelessWidget {
                   tooltip: 'Close',
                   onPressed: onClose,
                   variant: DButtonVariant.ghost,
-                  icon: const DIcon(DIcons.xmark, size: 18),
+                  icon: const DIcon(DIcons.xmark),
                 ),
                 const SizedBox(width: 2),
               ],
@@ -819,7 +819,7 @@ class _CollapsedDrawerToggleButtonState
           onPressed: widget.onPressed,
           focusNode: _focus,
           variant: DButtonVariant.ghost,
-          icon: const DIcon(DIcons.arrowUp, size: 18),
+          icon: const DIcon(DIcons.arrowUp),
         ),
       ),
     ),
@@ -913,7 +913,7 @@ class _DrawerHeaderOverflowMenuState extends State<_DrawerHeaderOverflowMenu> {
       semanticLabel: 'More Chat actions',
       onPressed: _controller.isOpen ? _controller.close : _controller.open,
       variant: DButtonVariant.ghost,
-      icon: const DIcon(DIcons.ellipsis, size: 18),
+      icon: const DIcon(DIcons.ellipsis),
     ),
   );
 }
@@ -1109,7 +1109,7 @@ class _DrawerListAction extends StatelessWidget {
   Widget build(BuildContext context) => DButton(
     label: Text(label),
     tooltip: tooltip,
-    icon: DIcon(icon, size: 16),
+    icon: DIcon(icon),
     onPressed: onPressed,
     variant: DButtonVariant.outline,
     size: DButtonSize.small,

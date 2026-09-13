@@ -29,7 +29,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(
       tester.getCenter(find.text('Components')).dy,
-      greaterThan(tester.getCenter(find.text('Getting started')).dy + 30),
+      greaterThan(tester.getBottomLeft(find.text('Getting started')).dy),
     );
   });
 

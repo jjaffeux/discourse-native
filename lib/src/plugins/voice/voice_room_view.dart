@@ -381,7 +381,7 @@ class _VoiceRoomContentState extends State<VoiceRoomContent> {
                       meshPrivacyWarningEnabled:
                           widget.meshPrivacyWarningEnabled,
                     ),
-                    icon: const DIcon(DIcons.microphoneLines, size: 18),
+                    icon: const DIcon(DIcons.microphoneLines),
                     label: const Text('Join room'),
                     variant: DButtonVariant.primary,
                   )
@@ -947,7 +947,7 @@ class _CallControls extends StatelessWidget {
           ),
         DButton(
           onPressed: controller.leave,
-          icon: const DIcon(DIcons.phoneSlash, size: 18),
+          icon: const DIcon(DIcons.phoneSlash),
           label: const Text('Leave room'),
           variant: DButtonVariant.destructive,
         ),
@@ -1252,7 +1252,7 @@ class _VoiceInviteDialogState extends State<_VoiceInviteDialog> {
                             await _invite([_username.text]);
                             if (mounted) _username.clear();
                           },
-                    icon: const DIcon(DIcons.paperPlane, size: 16),
+                    icon: const DIcon(DIcons.paperPlane),
                     label: const Text('Send invite'),
                     variant: DButtonVariant.primary,
                     loading: _sending,
@@ -1327,7 +1327,7 @@ class _VoiceInviteDialogState extends State<_VoiceInviteDialog> {
                           );
                         }
                       },
-                      icon: const DIcon(DIcons.copy, size: 16),
+                      icon: const DIcon(DIcons.copy),
                       label: const Text('Copy'),
                     ),
                   ],
@@ -1525,7 +1525,7 @@ Future<void> _showMediaSettings(
                             }
                           }
                         },
-                  icon: const DIcon(DIcons.microphoneLines, size: 17),
+                  icon: const DIcon(DIcons.microphoneLines),
                   label: const Text('Test microphone'),
                   loading: testing,
                   loadingLabel: const Text('Testing…'),

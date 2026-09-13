@@ -522,7 +522,7 @@ class _SidebarPanelSwitchRow extends StatelessWidget {
           child: DButton(
             key: const ValueKey('sidebar-panel-switch-main'),
             label: const Text('Forum'),
-            icon: const DIcon(DIcons.shuffle, size: 16),
+            icon: const DIcon(DIcons.shuffle),
             onPressed: active!.panel.onClose,
             size: DButtonSize.regular,
           ),
@@ -533,7 +533,7 @@ class _SidebarPanelSwitchRow extends StatelessWidget {
             child: DButton(
               key: ValueKey('sidebar-panel-switch-${candidate.owner.value}'),
               label: Text(candidate.panel.label),
-              icon: DIcon(candidate.panel.icon, size: 16),
+              icon: DIcon(candidate.panel.icon),
               onPressed: candidate.panel.onOpen,
               size: DButtonSize.regular,
             ),

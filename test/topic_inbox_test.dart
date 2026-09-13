@@ -547,16 +547,16 @@ void main() {
         findsOneWidget,
       );
       final headerControls = [
-        (add, DButtonSize.small, 28.0),
+        (add, DButtonSize.small, 24.0),
         (
           find.byKey(const ValueKey('topic-close-reader')),
-          DButtonSize.extraSmall,
+          DButtonSize.small,
           24.0,
         ),
         (
           find.byKey(const ValueKey('topic-header-browse-category-22')),
           DButtonSize.small,
-          28.0,
+          24.0,
         ),
         (
           find.byWidgetPredicate(
@@ -564,7 +564,7 @@ void main() {
                 widget is DButton && widget.tooltip == 'Edit topic category',
           ),
           DButtonSize.small,
-          28.0,
+          24.0,
         ),
       ];
       for (final (control, size, height) in headerControls) {
@@ -2102,8 +2102,8 @@ void main() {
           final touch =
               Theme.of(tester.element(reply)).platform ==
               TargetPlatform.android;
-          expect(readerBar.height, touch ? 64 : 48);
-          expect(controlHeight, touch ? 48 : 32);
+          expect(readerBar.height, touch ? 64 : 44);
+          expect(controlHeight, touch ? 48 : 28);
           for (final key in [
             'topic-progress-button',
             'inbox-previous-topic',

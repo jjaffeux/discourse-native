@@ -165,7 +165,7 @@ class TopicShareButton extends StatelessWidget {
     return DButton.iconOnly(
       key: const ValueKey('topic-share-button'),
       onPressed: () => _share(context),
-      icon: const DIcon(DIcons.link, size: 18),
+      icon: const DIcon(DIcons.link),
       tooltip: 'Share topic',
       variant: DButtonVariant.ghost,
       size: DButtonSize.small,

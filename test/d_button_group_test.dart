@@ -484,13 +484,13 @@ void main() {
           DButton.iconOnly(
             icon: Icon(Icons.add),
             tooltip: 'Add',
-            size: DButtonSize.extraSmall,
+            size: DButtonSize.small,
             onPressed: _noop,
           ),
           DButton.iconOnly(
             icon: Icon(Icons.remove),
             tooltip: 'Remove',
-            size: DButtonSize.extraSmall,
+            size: DButtonSize.small,
             onPressed: _noop,
           ),
         ],

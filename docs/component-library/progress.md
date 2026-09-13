@@ -553,6 +553,7 @@ Status: merged. Task: 01a083ac-5fd5-78b1-9263-7e3218a878b6. Branch: codex/ui-but
 - Users search height follows touch targets; reorder arrows are outside CheckboxListTile semantics/height constraints, with authored40px pointer and48px touch targets.
 - Native AX correction: icon-only tooltip becomes default spoken label; UserSummary count label moves onto DButton to eliminate duplicate nested buttons.
 - Custom-color follow-up (2026-09-10): user authorized optional per-button backgroundColor and borderColor for category-tinted split controls. Existing Button/Group/Combobox owners compose the working example; see docs/component-library/button-custom-colors.md and customColorsFollowUp for its current verification status.
+- 2026-09-13: Normal controls are 28px with 12px labels. Use small 24px or large 32px; extra-small control APIs and usages were removed. See compact-control-sizing.md for typography, icons, migration and verification.
 
 **migrations**
 

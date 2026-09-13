@@ -82,10 +82,7 @@ class _GlobalSearchFilterPickerState extends State<_GlobalSearchFilterPicker> {
               key: widget.addOnly
                   ? null
                   : const ValueKey('global-search-filter-trigger'),
-              icon: DIcon(
-                widget.addOnly ? DIcons.plus : DIcons.filter,
-                size: 14,
-              ),
+              icon: DIcon(widget.addOnly ? DIcons.plus : DIcons.filter),
               tooltip: 'Add filter',
               variant: widget.addOnly
                   ? DButtonVariant.ghost
@@ -158,7 +155,7 @@ class _GlobalSearchFilterPickerState extends State<_GlobalSearchFilterPicker> {
                   part(operator, maxTextWidth: textBudget * .55),
                   DButtonGroupExpanded(child: part(value)),
                   DButton.iconOnly(
-                    icon: const DIcon(DIcons.xmark, size: 12),
+                    icon: const DIcon(DIcons.xmark),
                     tooltip: 'Remove ${definition.label} condition',
                     onPressed: () => widget.controller.removeCondition(
                       widget.conditionIndex!,
@@ -379,7 +376,7 @@ class _GlobalSearchConditionEditorState
               children: [
                 if (widget.onBack != null) ...[
                   DButton.iconOnly(
-                    icon: const DIcon(DIcons.chevronLeft, size: 14),
+                    icon: const DIcon(DIcons.chevronLeft),
                     tooltip: 'Back to filters',
                     onPressed: widget.onBack,
                     variant: DButtonVariant.ghost,

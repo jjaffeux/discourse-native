@@ -728,7 +728,7 @@ class _ThreadHeader extends StatelessWidget {
               DButton.iconOnly(
                 tooltip: 'Back',
                 onPressed: () => shell.returnToChannel(target.channelId),
-                icon: const DIcon(DIcons.arrowLeft, size: 20),
+                icon: const DIcon(DIcons.arrowLeft),
                 variant: DButtonVariant.ghost,
               )
             else
@@ -762,7 +762,7 @@ class _ThreadHeader extends StatelessWidget {
                     thread: thread!,
                   ),
                 ),
-                icon: const DIcon(DIcons.gear, size: 18),
+                icon: const DIcon(DIcons.gear),
                 variant: DButtonVariant.ghost,
               ),
             if (showFullPageClose &&
@@ -773,7 +773,7 @@ class _ThreadHeader extends StatelessWidget {
               DButton.iconOnly(
                 tooltip: 'Close thread',
                 onPressed: () => shell.returnToChannel(target.channelId),
-                icon: const DIcon(DIcons.xmark, size: 18),
+                icon: const DIcon(DIcons.xmark),
                 variant: DButtonVariant.ghost,
               ),
             const SizedBox(width: 4),
@@ -795,7 +795,7 @@ class _FullPageCloseButton extends StatelessWidget {
       key: const ValueKey('chat-close-full-page'),
       tooltip: 'Close full-screen chat',
       onPressed: () => unawaited(shell.openDrawerFromFullPage()),
-      icon: const DIcon(DIcons.discourseCompress, size: 18),
+      icon: const DIcon(DIcons.discourseCompress),
       variant: DButtonVariant.ghost,
     );
   }
@@ -918,7 +918,7 @@ class ChatThreadSettingsButton extends StatelessWidget {
               thread: thread!,
             ),
           ),
-          icon: const DIcon(DIcons.gear, size: 18),
+          icon: const DIcon(DIcons.gear),
           variant: DButtonVariant.ghost,
         );
       },

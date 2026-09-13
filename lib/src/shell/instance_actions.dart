@@ -126,7 +126,7 @@ class _InstanceActionsState extends State<InstanceActions> {
                           : () => Navigator.of(
                               sheetContext,
                             ).pop(_InstanceSheetAction.moveUp),
-                      icon: const DIcon(DIcons.arrowUp, size: 18),
+                      icon: const DIcon(DIcons.arrowUp),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -152,7 +152,7 @@ class _InstanceActionsState extends State<InstanceActions> {
               label: const Text('Remove forum'),
               onPressed: () =>
                   Navigator.of(sheetContext).pop(_InstanceSheetAction.remove),
-              icon: const DIcon(DIcons.trashCan, size: 18),
+              icon: const DIcon(DIcons.trashCan),
               variant: DButtonVariant.destructive,
             ),
           ],

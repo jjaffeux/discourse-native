@@ -11,7 +11,8 @@ final buttonExamples = ComponentExamples(
   description: 'Actions and links, with variants for emphasis and intent.',
   status: ComponentStatus.implemented,
   notes:
-      'The base-nova surfaces use 24, 28, 32 and 36px sizes. Touch targets '
+      'Native surfaces use small 24px, default 28px and large 32px sizes. '
+      'Small and default labels use 12px text; large labels use 14px. Touch targets '
       'expand invisibly to 48px. The app supplies colors and font. '
       'Its contextual control theme uses an 8px radius, neutral outlines, '
       'soft primary actions and active notification tints from the forum palette. '
@@ -45,11 +46,10 @@ final buttonExamples = ComponentExamples(
     ),
     StyleguideExample(
       title: 'Size',
-      description:
-          'Four text sizes and their corresponding square icon buttons.',
-      states: const ['Extra small', 'Small', 'Default', 'Large', 'Icon'],
+      description: 'Three sizes and their corresponding square icon buttons.',
+      states: const ['Small 24px', 'Default 28px', 'Large 32px', 'Icon'],
       code:
-          "DButton.iconOnly(icon: const Icon(Icons.north_east), tooltip: 'Submit', size: DButtonSize.extraSmall, variant: DButtonVariant.outline, onPressed: submit)",
+          "DButton.iconOnly(icon: const Icon(Icons.north_east), tooltip: 'Submit', size: DButtonSize.small, variant: DButtonVariant.outline, onPressed: submit)",
       builder: (_) => const _ButtonSizes(),
     ),
     StyleguideExample(
@@ -194,7 +194,7 @@ DButtonGroup(children: [
   DButton(
     label: Text(categoryName),
     variant: DButtonVariant.outline,
-    size: DButtonSize.extraSmall,
+    size: DButtonSize.small,
     backgroundColor: fill,
     borderColor: border,
     interactiveBackgroundColor: hover,
@@ -207,7 +207,7 @@ DButtonGroup(children: [
     tooltip: 'Browse $categoryName',
     isLink: true,
     variant: DButtonVariant.outline,
-    size: DButtonSize.extraSmall,
+    size: DButtonSize.small,
     backgroundColor: fill,
     borderColor: border,
     interactiveBackgroundColor: hover,
@@ -270,7 +270,7 @@ class _ButtonCustomColorsState extends State<_ButtonCustomColors> {
               icon: Icon(Icons.square_rounded, size: 12, color: color),
               semanticLabel: 'Edit $name',
               variant: DButtonVariant.outline,
-              size: DButtonSize.extraSmall,
+              size: DButtonSize.small,
               backgroundColor: fill,
               borderColor: border,
               interactiveBackgroundColor: hover,
@@ -303,7 +303,7 @@ class _ButtonCustomColorsState extends State<_ButtonCustomColors> {
           tooltip: 'Browse $name',
           isLink: true,
           variant: DButtonVariant.outline,
-          size: DButtonSize.extraSmall,
+          size: DButtonSize.small,
           backgroundColor: fill,
           borderColor: border,
           interactiveBackgroundColor: hover,
@@ -326,7 +326,7 @@ class _ButtonCustomColorsState extends State<_ButtonCustomColors> {
           DButton(
             label: const Text('Disabled'),
             variant: DButtonVariant.outline,
-            size: DButtonSize.extraSmall,
+            size: DButtonSize.small,
             backgroundColor: _colors['sales']!.withValues(alpha: .10),
             borderColor: _colors['sales']!.withValues(alpha: .25),
             onPressed: null,
@@ -415,7 +415,6 @@ class _ButtonSizes extends StatelessWidget {
             Flexible(
               child: DButton(
                 label: Text(switch (size) {
-                  DButtonSize.extraSmall => 'Extra Small',
                   DButtonSize.small => 'Small',
                   DButtonSize.regular => 'Default',
                   DButtonSize.large => 'Large',

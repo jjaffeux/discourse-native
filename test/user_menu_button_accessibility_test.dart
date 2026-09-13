@@ -53,7 +53,7 @@ void main() {
       await tester.pumpAndSettle();
 
       final button = find.byKey(UserMenuButton.bellKey);
-      expect(tester.getSize(button), const Size.square(36));
+      expect(tester.getSize(button), const Size.square(32));
       expect(find.byKey(UserMenuButton.unreadDotKey), findsOneWidget);
       expect(find.byTooltip('Notifications'), findsOneWidget);
       expect(find.byTooltip('Profile'), findsOneWidget);

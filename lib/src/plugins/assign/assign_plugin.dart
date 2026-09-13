@@ -456,7 +456,7 @@ final class AssignPlugin
             if (postAssignments.isNotEmpty)
               DButton(
                 key: const Key('assign-topic-header-details'),
-                icon: const DIcon(DIcons.userPlus, size: 14),
+                icon: const DIcon(DIcons.userPlus),
                 label: Text(
                   '${postAssignments.length} assigned post${postAssignments.length == 1 ? '' : 's'}',
                 ),
@@ -857,7 +857,7 @@ class _TopicAssignmentPropertyRow extends StatelessWidget {
                   Builder(
                     builder: (anchorContext) => DButton.iconOnly(
                       key: changeKey,
-                      icon: const DIcon(DIcons.pencil, size: 13),
+                      icon: const DIcon(DIcons.pencil),
                       tooltip: 'Change assignee',
                       semanticLabel: 'Change $actionTarget assignment',
                       variant: DButtonVariant.ghost,
@@ -871,7 +871,7 @@ class _TopicAssignmentPropertyRow extends StatelessWidget {
                   Builder(
                     builder: (anchorContext) => DButton.iconOnly(
                       key: removeKey,
-                      icon: const DIcon(DIcons.xmark, size: 13),
+                      icon: const DIcon(DIcons.xmark),
                       tooltip: 'Remove assignment',
                       semanticLabel: 'Remove $actionTarget assignment',
                       variant: DButtonVariant.destructive,

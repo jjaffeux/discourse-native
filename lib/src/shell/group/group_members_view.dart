@@ -306,7 +306,7 @@ class _MembersToolbar extends StatelessWidget {
             if (canManage)
               DButton(
                 key: const ValueKey('add-group-members'),
-                icon: const DIcon(DIcons.userPlus, size: 16),
+                icon: const DIcon(DIcons.userPlus),
                 label: const Text('Add members'),
                 loading: mutating,
                 onPressed: onAddMembers,
@@ -314,7 +314,7 @@ class _MembersToolbar extends StatelessWidget {
             if (canInvite)
               DButton(
                 key: const ValueKey('invite-group-members'),
-                icon: const DIcon(DIcons.paperPlane, size: 16),
+                icon: const DIcon(DIcons.paperPlane),
                 label: const Text('Invite'),
                 onPressed: onInviteMembers,
               ),
@@ -767,7 +767,7 @@ class _MemberActions extends StatelessWidget {
       builder: (context, openMenu) => DButton.iconOnly(
         key: ValueKey('manage-member-${member.username}'),
         size: DButtonSize.small,
-        icon: const DIcon(DIcons.wrench, size: 14),
+        icon: const DIcon(DIcons.wrench),
         tooltip: 'Manage @${member.username}',
         onPressed: openMenu,
       ),
@@ -1065,7 +1065,7 @@ class _InviteGroupSheetState extends State<_InviteGroupSheet> {
           const SizedBox(height: 8),
           DButton(
             key: const ValueKey('copy-group-invite'),
-            icon: const DIcon(DIcons.copy, size: 15),
+            icon: const DIcon(DIcons.copy),
             label: const Text('Copy invite link'),
             onPressed: () async {
               await Clipboard.setData(ClipboardData(text: link));
@@ -1090,7 +1090,7 @@ class _InviteGroupSheetState extends State<_InviteGroupSheet> {
           const SizedBox(height: 14),
           DButton(
             key: const ValueKey('create-group-invite'),
-            icon: const DIcon(DIcons.paperPlane, size: 15),
+            icon: const DIcon(DIcons.paperPlane),
             label: Text(controller.hasEmail ? 'Send invite' : 'Create link'),
             variant: DButtonVariant.primary,
             loading: controller.saving,

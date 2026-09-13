@@ -323,12 +323,12 @@ void main() {
   testWidgets('small radii scale proportionally with size-specific caps', (
     tester,
   ) async {
-    for (final (baseRadius, xsRadius, smRadius) in [
-      (0.0, 0.0, 0.0),
-      (4.0, 3.2, 3.2),
-      (10.0, 8.0, 8.0),
-      (14.0, 10.0, 11.2),
-      (20.0, 10.0, 12.0),
+    for (final (baseRadius, smRadius) in [
+      (0.0, 0.0),
+      (4.0, 3.2),
+      (10.0, 8.0),
+      (14.0, 10.0),
+      (20.0, 10.0),
     ]) {
       final base = _referenceTheme(AppTheme.light);
       final tokens = base.extension<DTokens>()!.copyWith(radius: baseRadius);
@@ -365,7 +365,6 @@ void main() {
                       .resolve({})!
                   as RoundedRectangleBorder;
           final expected = switch (size) {
-            DButtonSize.extraSmall => xsRadius,
             DButtonSize.small => smRadius,
             _ => baseRadius,
           };
@@ -378,45 +377,44 @@ void main() {
     }
   });
 
-  testWidgets(
-    'small leading and loading icon padding match rendered reference',
-    (tester) async {
+  testWidgets('small labels and leading loading icons use compact spacing', (
+    tester,
+  ) async {
+    await pump(
+      tester,
+      DButton(
+        label: const Text('Small'),
+        size: DButtonSize.small,
+        onPressed: () {},
+      ),
+    );
+    final smallStyle = tester
+        .widget<FilledButton>(find.byType(FilledButton))
+        .style!;
+    expect(smallStyle.textStyle!.resolve({})!.height, 16 / 12);
+    expect(tester.getSize(find.byType(FilledButton)).height, 24);
+    for (final position in DButtonIconPosition.values) {
       await pump(
         tester,
         DButton(
-          label: const Text('Small'),
-          size: DButtonSize.small,
+          label: const Text('Generate'),
+          loading: true,
+          loadingLabel: const Text('Generating'),
+          iconPosition: position,
           onPressed: () {},
         ),
       );
-      final smallStyle = tester
-          .widget<FilledButton>(find.byType(FilledButton))
-          .style!;
-      expect(smallStyle.textStyle!.resolve({})!.height, 22.4 / 12.8);
-      expect(tester.getSize(find.byType(FilledButton)).height, 28);
-      for (final position in DButtonIconPosition.values) {
-        await pump(
-          tester,
-          DButton(
-            label: const Text('Generate'),
-            loading: true,
-            loadingLabel: const Text('Generating'),
-            iconPosition: position,
-            onPressed: () {},
-          ),
-        );
-        final padding =
-            tester
-                    .widget<FilledButton>(find.byType(FilledButton))
-                    .style!
-                    .padding!
-                    .resolve({})!
-                as EdgeInsetsDirectional;
-        expect(padding.start, position == DButtonIconPosition.start ? 9 : 11);
-        expect(padding.end, position == DButtonIconPosition.end ? 9 : 11);
-      }
-    },
-  );
+      final padding =
+          tester
+                  .widget<FilledButton>(find.byType(FilledButton))
+                  .style!
+                  .padding!
+                  .resolve({})!
+              as EdgeInsetsDirectional;
+      expect(padding.start, position == DButtonIconPosition.start ? 7 : 11);
+      expect(padding.end, position == DButtonIconPosition.end ? 7 : 11);
+    }
+  });
 
   testWidgets('dark outline preserves input token alpha through its overlays', (
     tester,
@@ -482,7 +480,7 @@ void main() {
       final bounds = tester
           .getRect(find.byType(FilledButton))
           .shift(-tester.getTopLeft(find.byKey(boundary)));
-      expect(bounds, const Rect.fromLTWH(8, 8, 120, 32));
+      expect(bounds, const Rect.fromLTWH(8, 8, 120, 28));
       Future<Color> pixel(double x, double y) async {
         final color = await tester.runAsync(() async {
           final box =
@@ -817,10 +815,10 @@ void main() {
               matching: find.byType(Material),
             ),
           );
-          expect(surface.size, const Size.square(28));
+          expect(surface.size, const Size.square(24));
           expect(
             target.size,
-            Size.square(platform == TargetPlatform.macOS ? 28 : 48),
+            Size.square(platform == TargetPlatform.macOS ? 24 : 48),
           );
           expect(
             tester.getSemantics(find.byType(DButton)).rect.size,

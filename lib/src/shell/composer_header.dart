@@ -141,7 +141,6 @@ class ComposerHeader extends StatelessWidget {
                 size: DButtonSize.small,
                 icon: DIcon(
                   composer.whisper ? DIcons.farEyeSlash : DIcons.reply,
-                  size: 14,
                   color: color,
                 ),
                 label: Row(
@@ -258,7 +257,7 @@ class ComposerHeader extends StatelessWidget {
         DButton.iconOnly(
           key: const ValueKey('composer-restore'),
           onPressed: restore,
-          icon: const DIcon(DIcons.expand, size: 16),
+          icon: const DIcon(DIcons.expand),
           tooltip: 'Restore composer',
           variant: DButtonVariant.ghost,
           size: DButtonSize.small,
@@ -267,7 +266,7 @@ class ComposerHeader extends StatelessWidget {
         DButton.iconOnly(
           key: const ValueKey('composer-minimize'),
           onPressed: minimize,
-          icon: const Icon(Icons.remove, size: 18),
+          icon: const Icon(Icons.remove),
           tooltip: 'Minimize composer',
           variant: DButtonVariant.ghost,
           size: DButtonSize.small,
@@ -275,7 +274,7 @@ class ComposerHeader extends StatelessWidget {
       DButton.iconOnly(
         key: const ValueKey('composer-close'),
         onPressed: onClose,
-        icon: const DIcon(DIcons.xmark, size: 16),
+        icon: const DIcon(DIcons.xmark),
         tooltip: closeTooltip,
         variant: DButtonVariant.ghost,
         size: DButtonSize.small,

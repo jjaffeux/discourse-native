@@ -300,7 +300,7 @@ void main() {
                       tooltip: 'Retry',
                       onPressed: () => retried = true,
                       variant: DButtonVariant.ghost,
-                      size: DButtonSize.extraSmall,
+                      size: DButtonSize.small,
                     ),
                   ],
                 ),

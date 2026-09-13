@@ -1,5 +1,9 @@
 # Control consistency — 2026-09-11
 
+The [2026-09-13 compact sizing update](compact-control-sizing.md) supersedes
+the four-size geometry below. Current controls use small 24px, regular 28px
+and large 32px; extra-small has been removed.
+
 The user approved a shared visual contract for buttons, selects and menu
 triggers after comparing the topic feed filters and footer with the
 [Base UI dropdown reference](https://ui.shadcn.com/docs/components/base/dropdown-menu).
