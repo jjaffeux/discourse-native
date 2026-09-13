@@ -48,13 +48,13 @@ const _post = Post(
   username: 'author',
   cooked: '''
 <h2>Connect to your community</h2>
-<div class="d-wrap" data-wrap="placeholder" data-key="HOST" data-default="community.example" data-description="Your server">
-<p>Used in commands and <strong>documentation links</strong>.</p></div>
+<div class="d-wrap" data-wrap="placeholder" data-key="HOSTED_SITE_NAME" data-default="community.example" data-description="Your server">
+<p>From the above <strong>options</strong></p></div>
 <p><span class="d-wrap" data-wrap="placeholder" data-key="COUNTRY" data-default="FR" data-defaults="FR,DE,US,CA" data-description="Choose a country"></span></p>
-<p>Your server is <strong>=HOST=</strong>, in =COUNTRY=.</p>
-<pre><code class="lang-bash">ssh admin@=HOST=
-curl https://=HOST=/status</code></pre>
-<p><a href="https://=HOST=/docs">Read documentation for =HOST=</a></p>
+<p>Your server is <strong>=HOSTED_SITE_NAME=</strong>, in =COUNTRY=.</p>
+<pre><code class="lang-bash">ssh admin@=HOSTED_SITE_NAME=
+curl https://=HOSTED_SITE_NAME=/status</code></pre>
+<p><a href="https://=HOSTED_SITE_NAME=/docs">Read documentation for =HOSTED_SITE_NAME=</a></p>
 ''',
 );
 const _topic = PluginContainingTopic(id: 7, slug: 'example', archived: false);
