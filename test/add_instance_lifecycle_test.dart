@@ -11,6 +11,7 @@ import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'support/discover_sites.dart';
 import 'support/fakes.dart';
 
 void main() {
@@ -310,6 +311,7 @@ ShellController _controller(FakeInstanceStore store, FakeDiscourseApi api) =>
     ShellController(
       instanceStore: store,
       api: api,
+      discoverSites: emptyDiscoverSites(),
       authenticator: FakeAuthenticator(),
       drafts: FakeDraftStore(),
       trackers: FakeSiteTracker.reset(),
