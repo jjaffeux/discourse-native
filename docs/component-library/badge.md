@@ -59,6 +59,12 @@ on 2026-09-13. It uses a 16px minimum height, the same 12px font with 14px leadi
 badges retain the reference geometry. Both sizes grow with text scaling, wrap
 under finite constraints and preserve the 48px touch target for actions/links.
 
+Verification: 52 focused badge, styleguide, menu and migration tests passed;
+root static analysis was clean. The isolated macOS preview displayed the real
+user menu with Assign list (1) and Other (6), alongside the compact styleguide
+example. Inspected dark, light and plum palettes, 200% text, RTL, selected Assign
+list and the narrow icon rail. Native accessibility retained both unread labels.
+
 ## Composition and interaction
 
 - `DBadge(child: ...)` is static, has no focus or activation owner, and can be
