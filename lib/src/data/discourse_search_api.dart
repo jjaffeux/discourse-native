@@ -1,7 +1,12 @@
 part of 'discourse_api.dart';
 
 final class DiscourseSearchApi {
-  const DiscourseSearchApi(this._transport);
+  const DiscourseSearchApi(
+    this._transport, {
+    this.searchTimeout = const Duration(seconds: 30),
+  }) : assert(searchTimeout > Duration.zero);
+
+  final Duration searchTimeout;
 
   final DiscourseTransport _transport;
   static const int maximumSearchTermLength = maximumDiscourseSearchTermLength;
@@ -43,6 +48,7 @@ final class DiscourseSearchApi {
       siteUrl: siteUrl,
       apiKey: apiKey,
       clientId: clientId,
+      requestTimeout: searchTimeout,
     );
     return SearchResults.fromJson(body, siteUrl);
   }
@@ -458,11 +464,13 @@ final class DiscourseSearchApi {
     required String siteUrl,
     String? apiKey,
     String? clientId,
+    Duration? requestTimeout,
   }) => _transport.getObject(
     url,
     siteUrl: siteUrl,
     apiKey: apiKey,
     clientId: clientId,
+    requestTimeout: requestTimeout,
   );
 
   static void _validateHashtagOrder(List<String> order) {

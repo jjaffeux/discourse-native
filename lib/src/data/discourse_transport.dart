@@ -226,7 +226,10 @@ final class DiscourseTransport {
     String? apiKey,
     String? clientId,
     String? accept,
+    Duration? requestTimeout,
   }) async {
+    final effectiveTimeout = requestTimeout ?? timeout;
+    assert(effectiveTimeout > Duration.zero);
     late http.Response response;
     try {
       var current = url;
@@ -243,13 +246,13 @@ final class DiscourseTransport {
           () => sendBoundedHttpRequest(
             _client,
             request,
-            timeout: timeout,
+            timeout: effectiveTimeout,
             maxBodyBytes: _maxResponseBytes,
           ),
           coalesce: DiscourseGetRequestKey(
             requestUrl,
             headers: request.headers,
-            timeout: timeout,
+            timeout: effectiveTimeout,
             maxResponseBytes: _maxResponseBytes,
           ),
         );
@@ -302,12 +305,14 @@ final class DiscourseTransport {
     required String siteUrl,
     String? apiKey,
     String? clientId,
+    Duration? requestTimeout,
   }) async {
     final response = await get(
       url,
       siteUrl: siteUrl,
       apiKey: apiKey,
       clientId: clientId,
+      requestTimeout: requestTimeout,
     );
     try {
       final decoded = await decodeJsonHttpResponse(response);
