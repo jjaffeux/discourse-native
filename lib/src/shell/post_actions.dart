@@ -992,7 +992,7 @@ class PostActionsFooter extends StatelessWidget {
     final actions = scope?.actions
         .where((action) => action.placement == PostActionPlacement.trailing)
         .toList(growable: false);
-    if (scope == null || actions == null || actions.isEmpty) return child;
+    if (scope == null || actions == null || scope.actions.isEmpty) return child;
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.end,
@@ -1040,6 +1040,7 @@ class PostActionsFooter extends StatelessWidget {
                           );
                   },
                 ),
+              const PostMoreActionsButton(),
             ],
           ),
         ),

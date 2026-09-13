@@ -703,12 +703,7 @@ Widget _postActionsHost(
       child: const Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Row(
-            children: [
-              Expanded(child: Text('Post body')),
-              PostMoreActionsButton(),
-            ],
-          ),
+          Text('Post body'),
           PostActionsFooter(child: SizedBox.shrink()),
         ],
       ),
