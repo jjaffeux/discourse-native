@@ -198,6 +198,11 @@ class _TopicListNavigationControls extends StatelessWidget {
                 value: TopicListMode.newActivity,
                 child: Text('New'),
               ),
+              const DTabTrigger(
+                key: ValueKey('topic-list-unseen'),
+                value: TopicListMode.unseen,
+                child: Text('Unseen'),
+              ),
             ],
             const DTabTrigger(
               key: ValueKey('topic-list-top'),
