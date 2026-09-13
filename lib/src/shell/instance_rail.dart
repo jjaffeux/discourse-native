@@ -125,6 +125,7 @@ const double _railItemExtent = 44;
 const double _railControlExtent = 44;
 const double _railVisualSize = 32;
 const double _railIconSize = 16;
+const double _railFooterIconSize = 24;
 const double _railSelectedMarkerHeight = 28;
 const double _railHoveredMarkerHeight = 16;
 const double _railIdleMarkerHeight = 8;
@@ -978,7 +979,7 @@ class _RailFooter extends StatelessWidget {
               onTap: () => unawaited(showComponentStyleguide(context)),
               icon: Icon(
                 Icons.palette_outlined,
-                size: _railIconSize,
+                size: _railFooterIconSize,
                 color: Theme.of(context).shell.railForeground,
               ),
             ),
@@ -1023,6 +1024,7 @@ class _RailFooterButton extends StatelessWidget {
     tooltip: tooltip,
     semanticLabel: tooltip,
     variant: DButtonVariant.ghost,
+    size: DButtonSize.large,
     expanded: expanded,
     onPressed: onTap,
     icon: icon,
@@ -1043,7 +1045,7 @@ class _SettingsButton extends StatelessWidget {
       onTap: onTap,
       icon: DIcon(
         DIcons.gear,
-        size: _railIconSize,
+        size: _railFooterIconSize,
         color: theme.shell.railForeground,
       ),
     );
@@ -1095,7 +1097,7 @@ class _DiagnosticsButton extends StatelessWidget {
                 children: [
                   DIcon(
                     DIcons.bug,
-                    size: _railIconSize,
+                    size: _railFooterIconSize,
                     color: theme.shell.railForeground,
                   ),
                   if (unseen > 0)
