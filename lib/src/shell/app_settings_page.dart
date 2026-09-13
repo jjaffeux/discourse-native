@@ -4,10 +4,9 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
 import '../models/app_settings.dart';
-import '../theme/app_theme.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
-import 'shell_metrics.dart';
+import 'app_home_theme.dart';
 import 'shell_scope.dart';
 
 Future<void> showAppSettingsModal(BuildContext context) async {
@@ -15,25 +14,9 @@ Future<void> showAppSettingsModal(BuildContext context) async {
   if (!shell.openAppSettingsModal()) return;
 
   try {
-    await showDialog<void>(
+    await showDDialog<void>(
       context: context,
-      builder: (dialogContext) {
-        final neutralTheme =
-            MediaQuery.platformBrightnessOf(dialogContext) == Brightness.dark
-            ? AppTheme.dark
-            : AppTheme.light;
-
-        return Theme(
-          data: neutralTheme,
-          child: const Dialog(
-            key: ValueKey('app-settings-modal'),
-            insetPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 24),
-            clipBehavior: Clip.antiAlias,
-            constraints: BoxConstraints(maxWidth: 768, maxHeight: 720),
-            child: AppSettingsModal(),
-          ),
-        );
-      },
+      builder: (_, _) => const AppSettingsModal(),
     );
   } finally {
     shell.closeAppSettingsModal();
@@ -46,107 +29,114 @@ class AppSettingsModal extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final appSettings = ShellScope.identityOf(context).appSettings;
-
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        const _SettingsHeader(),
-        Flexible(
-          child: SingleChildScrollView(
-            key: const ValueKey('app-settings-scroll-view'),
-            padding: const EdgeInsets.fromLTRB(24, 28, 24, 48),
-            child: Align(
-              alignment: Alignment.topCenter,
-              child: ConstrainedBox(
-                key: const ValueKey('app-settings-form'),
-                constraints: const BoxConstraints(maxWidth: 720),
-                child: ListenableBuilder(
-                  listenable: appSettings,
-                  builder: (context, _) => Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      _ContentAlignmentSetting(
-                        alignment: appSettings.contentAlignment,
-                        onChanged: (alignment) => unawaited(
-                          appSettings.setContentAlignment(alignment),
-                        ),
-                      ),
-                      const SizedBox(height: 36),
-                      _TextSizeSetting(
-                        scale: appSettings.textScale,
-                        onDecrease: appSettings.textScale.index == 0
-                            ? null
-                            : () => unawaited(appSettings.decreaseTextScale()),
-                        onIncrease:
-                            appSettings.textScale.index ==
-                                AppTextScale.values.length - 1
-                            ? null
-                            : () => unawaited(appSettings.increaseTextScale()),
-                        onReset:
-                            appSettings.textScale == AppTextScale.percent100
-                            ? null
-                            : () => unawaited(appSettings.resetTextScale()),
-                      ),
-                      const SizedBox(height: 36),
-                      DSwitchTile(
-                        key: const ValueKey('disable-gif-animations-switch'),
-                        contentPadding: EdgeInsets.zero,
-                        title: const DLabel(
-                          child: Text('Disable GIF animations'),
-                        ),
-                        subtitle: const Text(
-                          'Pause GIFs by default in posts and chat messages.',
-                        ),
-                        value: appSettings.disableGifAnimations,
-                        onChanged: (disabled) => unawaited(
-                          appSettings.setDisableGifAnimations(disabled),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _SettingsHeader extends StatelessWidget {
-  const _SettingsHeader();
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return Container(
-      key: const ValueKey('app-settings-header'),
-      constraints: const BoxConstraints(minHeight: shellHeaderHeight),
-      padding: const EdgeInsets.symmetric(horizontal: 8),
-      decoration: BoxDecoration(
-        border: Border(bottom: BorderSide(color: theme.shell.divider)),
-      ),
-      child: Row(
-        children: [
-          const SizedBox(width: 16),
-          const Expanded(
-            child: DText('Settings', variant: DTextVariant.h4, headingLevel: 1),
-          ),
-          DButton.iconOnly(
+    return AppHomeTheme(
+      child: DDialogContent(
+        key: const ValueKey('app-settings-modal'),
+        maxWidth: 600,
+        semanticLabel: 'Settings',
+        spacing: DSpacing.xl,
+        closeButton: DDialogClose<void>(
+          builder: (_, close) => DButton.iconOnly(
             key: const ValueKey('app-settings-close'),
-            onPressed: () => Navigator.of(context).maybePop(),
+            onPressed: close,
             icon: const DIcon(DIcons.xmark),
             tooltip: 'Close',
             semanticLabel: 'Close settings',
+            size: DButtonSize.small,
             variant: DButtonVariant.ghost,
           ),
-          const SizedBox(width: 4),
+        ),
+        children: [
+          DDialogHeader(
+            key: const ValueKey('app-settings-header'),
+            children: [
+              DDialogTitle(
+                child: Semantics(
+                  headingLevel: 1,
+                  child: const Text('Settings'),
+                ),
+              ),
+              const DDialogDescription(
+                child: Text('Preferences for all your forums.'),
+              ),
+            ],
+          ),
+          ListenableBuilder(
+            listenable: appSettings,
+            builder: (context, _) => DFieldGroup(
+              key: const ValueKey('app-settings-form'),
+              children: [
+                _ContentAlignmentSetting(
+                  alignment: appSettings.contentAlignment,
+                  onChanged: (alignment) =>
+                      unawaited(appSettings.setContentAlignment(alignment)),
+                ),
+                const DFieldSeparator(),
+                _TextSizeSetting(
+                  scale: appSettings.textScale,
+                  onDecrease: appSettings.textScale.index == 0
+                      ? null
+                      : () => unawaited(appSettings.decreaseTextScale()),
+                  onIncrease:
+                      appSettings.textScale.index ==
+                          AppTextScale.values.length - 1
+                      ? null
+                      : () => unawaited(appSettings.increaseTextScale()),
+                  onReset: appSettings.textScale == AppTextScale.percent100
+                      ? null
+                      : () => unawaited(appSettings.resetTextScale()),
+                ),
+                const DFieldSeparator(),
+                DSwitchTile(
+                  key: const ValueKey('disable-gif-animations-switch'),
+                  contentPadding: EdgeInsets.zero,
+                  title: const DLabel(child: Text('Disable GIF animations')),
+                  subtitle: const DFieldDescription(
+                    child: Text(
+                      'Pause GIFs by default in posts and chat messages.',
+                    ),
+                  ),
+                  value: appSettings.disableGifAnimations,
+                  onChanged: (disabled) =>
+                      unawaited(appSettings.setDisableGifAnimations(disabled)),
+                ),
+              ],
+            ),
+          ),
+          const DFieldDescription(child: Text('Changes apply immediately.')),
         ],
       ),
     );
   }
+}
+
+class _SettingsField extends StatelessWidget {
+  const _SettingsField({
+    required this.title,
+    required this.description,
+    required this.control,
+  });
+
+  final String title;
+  final String description;
+  final Widget control;
+
+  @override
+  Widget build(BuildContext context) => DField(
+    orientation: MediaQuery.textScalerOf(context).scale(14) > 21
+        ? DFieldOrientation.vertical
+        : DFieldOrientation.responsive,
+    responsiveBreakpoint: 520,
+    children: [
+      DFieldContent(
+        children: [
+          DFieldTitle(child: Semantics(headingLevel: 2, child: Text(title))),
+          DFieldDescription(child: Text(description)),
+        ],
+      ),
+      control,
+    ],
+  );
 }
 
 class _TextSizeSetting extends StatelessWidget {
@@ -164,69 +154,91 @@ class _TextSizeSetting extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final percentage = (scale.factor * 100).round();
-
+    final platform = Theme.of(context).platform;
+    final desktop = switch (platform) {
+      TargetPlatform.macOS ||
+      TargetPlatform.windows ||
+      TargetPlatform.linux => true,
+      _ => false,
+    };
+    final modifier = platform == TargetPlatform.macOS ? '⌘' : 'Ctrl';
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const DText('Text size', variant: DTextVariant.large, headingLevel: 2),
-        const SizedBox(height: 6),
-        const DText(
-          'Applies across every forum. On desktop, use Command or Control '
-          'with + or −; use the same modifier with 0 to reset.',
-          variant: DTextVariant.muted,
-        ),
-        const SizedBox(height: 16),
-        Wrap(
-          crossAxisAlignment: WrapCrossAlignment.center,
-          spacing: 8,
-          runSpacing: 8,
-          children: [
-            DButton.iconOnly(
-              key: const ValueKey('text-size-decrease'),
-              onPressed: onDecrease,
-              icon: const DIcon(DIcons.minus),
-              tooltip: 'Decrease text size',
-              semanticLabel: 'Decrease text size',
-              size: DButtonSize.small,
-            ),
-            Semantics(
-              key: const ValueKey('text-size-value'),
-              container: true,
-              excludeSemantics: true,
-              label: 'Current text size',
-              value: '$percentage percent',
-              liveRegion: true,
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(minWidth: 64),
-                child: Center(
-                  widthFactor: 1,
-                  child: Text(
-                    '$percentage%',
-                    style: theme.textTheme.labelLarge?.copyWith(
-                      fontFeatures: const [FontFeature.tabularFigures()],
+        _SettingsField(
+          title: 'Text size',
+          description: 'Choose a comfortable reading size.',
+          control: Wrap(
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: DSpacing.sm,
+            runSpacing: DSpacing.sm,
+            children: [
+              DButtonGroup(
+                semanticLabel: 'Text size controls',
+                children: [
+                  DButton.iconOnly(
+                    key: const ValueKey('text-size-decrease'),
+                    onPressed: onDecrease,
+                    icon: const DIcon(DIcons.minus),
+                    tooltip: 'Decrease text size',
+                    semanticLabel: 'Decrease text size',
+                    variant: DButtonVariant.outline,
+                  ),
+                  DButtonGroupText(
+                    child: Semantics(
+                      key: const ValueKey('text-size-value'),
+                      container: true,
+                      excludeSemantics: true,
+                      label: 'Current text size',
+                      value: '$percentage percent',
+                      liveRegion: true,
+                      child: Text(
+                        '$percentage%',
+                        style: const TextStyle(
+                          fontFeatures: [FontFeature.tabularFigures()],
+                        ),
+                      ),
                     ),
                   ),
-                ),
+                  DButton.iconOnly(
+                    key: const ValueKey('text-size-increase'),
+                    onPressed: onIncrease,
+                    icon: const DIcon(DIcons.plus),
+                    tooltip: 'Increase text size',
+                    semanticLabel: 'Increase text size',
+                    variant: DButtonVariant.outline,
+                  ),
+                ],
               ),
-            ),
-            DButton.iconOnly(
-              key: const ValueKey('text-size-increase'),
-              onPressed: onIncrease,
-              icon: const DIcon(DIcons.plus),
-              tooltip: 'Increase text size',
-              semanticLabel: 'Increase text size',
-              size: DButtonSize.small,
-            ),
-            DButton(
-              key: const ValueKey('text-size-reset'),
-              label: const Text('Reset'),
-              onPressed: onReset,
-              size: DButtonSize.small,
-            ),
-          ],
+              DButton(
+                key: const ValueKey('text-size-reset'),
+                label: const Text('Reset'),
+                onPressed: onReset,
+                variant: DButtonVariant.ghost,
+              ),
+            ],
+          ),
         ),
+        if (desktop) ...[
+          const SizedBox(height: DSpacing.md),
+          DFieldDescription(
+            child: Wrap(
+              spacing: DSpacing.xs,
+              runSpacing: DSpacing.xs,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                const Text('Shortcuts:'),
+                DKbd('$modifier +'),
+                const Text('or'),
+                DKbd('$modifier −'),
+                const Text('to resize ·'),
+                DKbd('$modifier 0'),
+                const Text('to reset'),
+              ],
+            ),
+          ),
+        ],
       ],
     );
   }
@@ -242,48 +254,22 @@ class _ContentAlignmentSetting extends StatelessWidget {
   final ValueChanged<ContentAlignment> onChanged;
 
   @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        const DText(
-          'Content alignment',
-          variant: DTextVariant.large,
-          headingLevel: 2,
-        ),
-        const SizedBox(height: 20),
-        Semantics(
-          key: const ValueKey('content-alignment-control'),
-          container: true,
-          explicitChildNodes: true,
-          label: 'Content alignment options',
-          child: SizedBox(
-            width: double.infinity,
-            child: DToggleGroup<ContentAlignment>(
-              key: const ValueKey('content-alignment-segmented-button'),
-              items: const [
-                DToggleGroupItem(
-                  value: ContentAlignment.left,
-                  child: Text('Left'),
-                ),
-                DToggleGroupItem(
-                  value: ContentAlignment.center,
-                  child: Text('Center'),
-                ),
-                DToggleGroupItem(
-                  value: ContentAlignment.right,
-                  child: Text('Right'),
-                ),
-              ],
-              values: [alignment],
-              allowEmptySelection: false,
-              variant: DToggleVariant.outline,
-              spacing: 0,
-              onChanged: (selection) => onChanged(selection.single),
-            ),
-          ),
-        ),
+  Widget build(BuildContext context) => _SettingsField(
+    title: 'Content alignment',
+    description: 'Position forum content in your window.',
+    control: DToggleGroup<ContentAlignment>(
+      key: const ValueKey('content-alignment-segmented-button'),
+      semanticLabel: 'Content alignment options',
+      items: const [
+        DToggleGroupItem(value: ContentAlignment.left, child: Text('Left')),
+        DToggleGroupItem(value: ContentAlignment.center, child: Text('Center')),
+        DToggleGroupItem(value: ContentAlignment.right, child: Text('Right')),
       ],
-    );
-  }
+      values: [alignment],
+      allowEmptySelection: false,
+      variant: DToggleVariant.outline,
+      spacing: 0,
+      onChanged: (selection) => onChanged(selection.single),
+    ),
+  );
 }

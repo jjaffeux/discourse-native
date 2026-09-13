@@ -123,16 +123,7 @@ class _SwitchReviewAppState extends State<SwitchReviewApp> {
               const SizedBox(height: 12),
               DButton(
                 label: const Text('Settings — memory persistence'),
-                onPressed: () => showDialog<void>(
-                  context: context,
-                  builder: (_) => const Dialog(
-                    child: SizedBox(
-                      width: 720,
-                      height: 640,
-                      child: AppSettingsModal(),
-                    ),
-                  ),
-                ),
+                onPressed: () => showAppSettingsModal(context),
               ),
               const SizedBox(height: 12),
               DButton(
