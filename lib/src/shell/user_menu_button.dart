@@ -101,7 +101,6 @@ class _UserMenuButtonState extends State<UserMenuButton> {
       if (account.username == null) {
         return _SignedOutAccountActions(
           connecting: account.connecting,
-          size: widget.size,
           onSignUp: () => unawaited(_signUp(siteUrl)),
           onSignIn: () => unawaited(_connect()),
         );
@@ -281,75 +280,59 @@ class _AccountMenuPopover extends StatelessWidget {
 class _SignedOutAccountActions extends StatelessWidget {
   const _SignedOutAccountActions({
     required this.connecting,
-    required this.size,
     required this.onSignUp,
     required this.onSignIn,
   });
 
   final bool connecting;
-  final double size;
   final VoidCallback onSignUp;
   final VoidCallback onSignIn;
 
   @override
   Widget build(BuildContext context) {
-    final height = size + 6;
     if (MediaQuery.sizeOf(context).width < 900) {
       return Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          DTooltip(
-            message: 'Sign up',
-            labelTrigger: true,
-            child: IconButton.filled(
-              key: UserMenuButton.signUpKey,
-              onPressed: connecting ? null : onSignUp,
-              tooltip: '',
-              constraints: const BoxConstraints.tightFor(width: 44, height: 44),
-              icon: const DIcon(DIcons.userPlus, size: 16),
-            ),
+          DButton.iconOnly(
+            key: UserMenuButton.signUpKey,
+            onPressed: connecting ? null : onSignUp,
+            tooltip: 'Sign up',
+            size: DButtonSize.large,
+            icon: const DIcon(DIcons.userPlus),
           ),
           const SizedBox(width: 4),
-          DTooltip(
-            message: connecting ? 'Signing in…' : 'Sign in',
-            labelTrigger: true,
-            child: IconButton.filled(
-              key: UserMenuButton.signInKey,
-              onPressed: connecting ? null : onSignIn,
-              tooltip: '',
-              constraints: const BoxConstraints.tightFor(width: 44, height: 44),
-              icon: connecting
-                  ? const SizedBox.square(dimension: 16, child: DSpinner())
-                  : const DIcon(DIcons.user, size: 16),
-            ),
+          DButton.iconOnly(
+            key: UserMenuButton.signInKey,
+            onPressed: connecting ? null : onSignIn,
+            tooltip: 'Sign in',
+            size: DButtonSize.large,
+            icon: const DIcon(DIcons.user),
+            loading: connecting,
+            loadingSemanticLabel: 'Signing in…',
           ),
         ],
       );
     }
-    final style = FilledButton.styleFrom(
-      minimumSize: Size(0, height),
-      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-    );
-
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        FilledButton(
+        DButton(
           key: UserMenuButton.signUpKey,
           onPressed: connecting ? null : onSignUp,
-          style: style,
-          child: const Text('Sign up'),
+          size: DButtonSize.large,
+          label: const Text('Sign up'),
         ),
         const SizedBox(width: 8),
-        FilledButton.icon(
+        DButton(
           key: UserMenuButton.signInKey,
           onPressed: connecting ? null : onSignIn,
-          style: style,
-          icon: connecting
-              ? const SizedBox.square(dimension: 16, child: DSpinner())
-              : const DIcon(DIcons.user, size: 16),
-          label: Text(connecting ? 'Signing in…' : 'Sign in'),
+          size: DButtonSize.large,
+          icon: const DIcon(DIcons.user),
+          label: const Text('Sign in'),
+          loading: connecting,
+          loadingLabel: const Text('Signing in…'),
+          loadingSemanticLabel: 'Signing in…',
         ),
       ],
     );

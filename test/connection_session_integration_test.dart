@@ -68,20 +68,9 @@ void _registerConnectionSessionTests() {
       expect(find.byKey(UserMenuButton.avatarKey), findsNothing);
 
       final signUp = tester.getRect(find.byKey(UserMenuButton.signUpKey));
-      final signUpLabel = tester.getRect(find.text('Sign up'));
-      expect(signUpLabel.left - signUp.left, moreOrLessEquals(11.4));
-      expect(signUp.right - signUpLabel.right, moreOrLessEquals(11.4));
-
       final signIn = tester.getRect(find.byKey(UserMenuButton.signInKey));
-      final signInIcon = tester.getRect(
-        find.descendant(
-          of: find.byKey(UserMenuButton.signInKey),
-          matching: find.dIcon(DIcons.user),
-        ),
-      );
-      final signInLabel = tester.getRect(find.text('Sign in'));
-      expect(signInIcon.left - signIn.left, moreOrLessEquals(11.4));
-      expect(signIn.right - signInLabel.right, moreOrLessEquals(11.4));
+      expect(signUp.height, 48);
+      expect(signIn.height, 48);
     });
 
     testWidgets('aggregate hides forum account actions', (tester) async {
