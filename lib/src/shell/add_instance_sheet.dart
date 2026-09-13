@@ -10,6 +10,7 @@ import '../models/discourse_instance.dart';
 import '../theme/app_theme.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
+import 'app_home_theme.dart';
 import 'discover_site_suggestions.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';
@@ -36,7 +37,7 @@ Future<void> showAddInstanceSheet(
         context: context,
         showSwipeHandle: true,
         initialFocusNode: addressFocus,
-        builder: (context, controller) => _AddSiteTheme(
+        builder: (context, controller) => AppHomeTheme(
           child: DDrawerContent(
             semanticLabel: title,
             children: [
@@ -73,7 +74,7 @@ Future<void> showAddInstanceSheet(
     await showDDialog<void>(
       context: context,
       initialFocusNode: addressFocus,
-      builder: (context, controller) => _AddSiteTheme(
+      builder: (context, controller) => AppHomeTheme(
         child: DDialogContent(
           maxWidth: 600,
           semanticLabel: title,
@@ -86,25 +87,6 @@ Future<void> showAddInstanceSheet(
     );
   } finally {
     if (ownsSource) source.dispose();
-  }
-}
-
-class _AddSiteTheme extends StatelessWidget {
-  const _AddSiteTheme({required this.child});
-
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    // Home follows the system appearance, independently of the selected forum.
-    final homeTheme =
-        MediaQuery.platformBrightnessOf(context) == Brightness.dark
-        ? AppTheme.dark
-        : AppTheme.light;
-    return Theme(
-      data: homeTheme.copyWith(platform: Theme.of(context).platform),
-      child: child,
-    );
   }
 }
 

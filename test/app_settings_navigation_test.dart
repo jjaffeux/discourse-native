@@ -302,11 +302,11 @@ void main() {
 
       expect(
         tester
-            .widget<SegmentedButton<ContentAlignment>>(
+            .widget<DToggleGroup<ContentAlignment>>(
               find.byKey(const ValueKey('content-alignment-segmented-button')),
             )
-            .selected,
-        {ContentAlignment.right},
+            .values,
+        [ContentAlignment.right],
       );
       expect(controller.appSettings.contentAlignment, ContentAlignment.right);
 

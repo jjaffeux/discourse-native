@@ -5,8 +5,8 @@ import 'package:discourse_native/src/models/app_settings.dart';
 import 'package:discourse_native/src/shell/app_settings_page.dart';
 import 'package:discourse_native/src/shell/instance_rail.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
-import 'package:discourse_native/src/shell/shell_metrics.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
+import 'package:discourse_native/src/styleguide/styleguide_theme.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/material.dart';
@@ -26,13 +26,13 @@ void main() {
 
     await _pumpPage(tester, controller, size: const Size(1100, 700));
 
-    expect(
-      tester.getSize(find.byKey(const ValueKey('app-settings-header'))).height,
-      shellHeaderHeight,
-    );
+    expect(find.byType(DDialogContent), findsOneWidget);
+    expect(find.byType(Dialog), findsNothing);
+    expect(find.byType(DFieldGroup), findsOneWidget);
+    expect(find.byType(DButtonGroup), findsOneWidget);
     expect(
       tester.getSize(find.byKey(const ValueKey('app-settings-form'))).width,
-      720,
+      568,
     );
     expect(find.text('Settings'), findsOneWidget);
     expect(find.text('Content alignment'), findsOneWidget);
@@ -87,16 +87,11 @@ void main() {
     final controller = _controller();
     addTearDown(controller.dispose);
     await _pumpPage(tester, controller, scale: 2, size: const Size(800, 800));
-    final title = Theme.of(
-      tester.element(find.text('Settings')),
-    ).textTheme.titleLarge!;
+    final title = tester.getRect(find.text('Settings'));
     final header = tester.getRect(
       find.byKey(const ValueKey('app-settings-header')),
     );
-    expect(
-      header.height,
-      greaterThanOrEqualTo(title.fontSize! * title.height! * 2),
-    );
+    expect(header.height, greaterThanOrEqualTo(title.height));
     expect(tester.getSize(find.text('100%')).height, closeTo(40, 0.001));
     expect(tester.takeException(), isNull);
     await tester.tap(find.byKey(const ValueKey('app-settings-close')));
@@ -226,6 +221,79 @@ void main() {
     expect(controller.loadStatus, InstanceLoadStatus.loading);
     expect(find.byKey(const ValueKey('settings-rail-button')), findsOneWidget);
   });
+
+  testWidgets('Settings uses Home colors and responds to system appearance', (
+    tester,
+  ) async {
+    final controller = _controller();
+    addTearDown(controller.dispose);
+    tester.platformDispatcher.platformBrightnessTestValue = Brightness.light;
+    addTearDown(tester.platformDispatcher.clearPlatformBrightnessTestValue);
+    final siteTheme = StyleguideTheme.plum.resolve(AppTheme.light);
+    await _pumpPage(tester, controller, theme: siteTheme);
+    void expectHome(ThemeData expected) {
+      for (final finder in [
+        find.byType(DDialogContent),
+        find.byType(DToggleGroup<ContentAlignment>),
+        find.byType(DSwitchTile),
+        find.byKey(const ValueKey('text-size-increase')),
+      ]) {
+        final context = tester.element(finder);
+        expect(Theme.of(context).colorScheme, expected.colorScheme);
+        expect(
+          DTokens.of(context).surface,
+          expected.extension<DTokens>()!.surface,
+        );
+      }
+      expect(
+        Theme.of(tester.element(find.text('Open settings'))).colorScheme,
+        siteTheme.colorScheme,
+      );
+      expect(controller.rootMode, ShellRootMode.forum);
+    }
+
+    expectHome(AppTheme.light);
+    tester.platformDispatcher.platformBrightnessTestValue = Brightness.dark;
+    await tester.pumpAndSettle();
+    expectHome(AppTheme.dark);
+  });
+
+  testWidgets(
+    'narrow Settings supports large RTL text and reachable controls',
+    (tester) async {
+      final controller = _controller();
+      addTearDown(controller.dispose);
+      await _pumpPage(
+        tester,
+        controller,
+        size: const Size(360, 640),
+        scale: 2,
+        rtl: true,
+      );
+      expect(tester.takeException(), isNull);
+      await tester.ensureVisible(find.text('Left'));
+      await tester.tap(find.text('Left'));
+      await tester.pumpAndSettle();
+      expect(controller.appSettings.contentAlignment, ContentAlignment.left);
+      await tester.ensureVisible(
+        find.byKey(const ValueKey('text-size-increase')),
+      );
+      await tester.tap(find.byKey(const ValueKey('text-size-increase')));
+      await tester.pumpAndSettle();
+      expect(controller.appSettings.textScale, AppTextScale.percent110);
+      await tester.ensureVisible(find.text('Disable GIF animations'));
+      await tester.tap(find.text('Disable GIF animations'));
+      await tester.pumpAndSettle();
+      expect(controller.appSettings.disableGifAnimations, isTrue);
+      await tester.ensureVisible(
+        find.byKey(const ValueKey('app-settings-close')),
+      );
+      await tester.tap(find.byKey(const ValueKey('app-settings-close')));
+      await tester.pumpAndSettle();
+      expect(find.byType(AppSettingsModal), findsNothing);
+      expect(tester.takeException(), isNull);
+    },
+  );
 }
 
 ShellController _controller({AppSettingsPersistence? appSettingsPersistence}) =>
@@ -248,6 +316,8 @@ Future<void> _pumpPage(
   ShellController controller, {
   Size size = const Size(800, 600),
   double scale = 1,
+  ThemeData? theme,
+  bool rtl = false,
 }) async {
   tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1;
@@ -257,12 +327,15 @@ Future<void> _pumpPage(
     ShellScope(
       controller: controller,
       child: MaterialApp(
-        theme: AppTheme.light,
+        theme: theme ?? AppTheme.light,
         builder: (context, child) => MediaQuery(
           data: MediaQuery.of(
             context,
           ).copyWith(textScaler: TextScaler.linear(scale)),
-          child: child!,
+          child: Directionality(
+            textDirection: rtl ? TextDirection.rtl : TextDirection.ltr,
+            child: child!,
+          ),
         ),
         home: Builder(
           builder: (context) => Scaffold(
