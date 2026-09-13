@@ -1287,12 +1287,15 @@ class _Badge extends StatelessWidget {
   final int count;
 
   @override
-  Widget build(BuildContext context) => DBadge(
-    backgroundColor: Theme.of(context).colorScheme.error,
-    foregroundColor: Theme.of(context).colorScheme.onError,
-    semanticLabel: '$count unread',
-    child: Text(count > 99 ? '99+' : '$count'),
-  );
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).discourse;
+    return DBadge(
+      backgroundColor: colors.notificationIndicator,
+      foregroundColor: colors.notificationForeground,
+      semanticLabel: '$count unread',
+      child: Text(count > 99 ? '99+' : '$count'),
+    );
+  }
 }
 
 Future<void> showUserMenuSheet(

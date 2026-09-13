@@ -84,7 +84,7 @@ font underline placement is retained. No stock Material Chip is used.
 Migrated renderers preserve their domain adapters and existing callback owners:
 
 - `TopicUnreadBadge`: exact unread post count, singular/plural label and tooltip.
-- `user_menu.dart` `_Badge`: existing error/onError custom colors, 99+ visual cap,
+- `user_menu.dart` `_Badge`: core notification accent/foreground colors, 99+ visual cap,
   with the full count announced as unread; selection and feed permissions unchanged.
 - `user_card.dart`: staff/suspension labels retain caller colors; earned badge
   count uses outline with the existing certificate artwork. No award model changed.
