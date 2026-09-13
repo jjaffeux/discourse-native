@@ -1,19 +1,19 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 
-import '../../discourse_ui.dart';
 import '../data/site_lifecycle.dart';
 import '../models/discourse_instance.dart';
 import '../models/user_summary.dart';
-import '../theme/app_theme.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
+import '../theme/discourse_typography.dart';
 import 'avatar_image.dart';
 import 'category_icon.dart';
 import 'content_reading_lane.dart';
 import 'external_link.dart';
-import 'inline_action.dart';
 import 'relative_time.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';
@@ -121,9 +121,8 @@ class _UserSummaryViewState extends State<UserSummaryView> {
         }
 
         return _SummaryContent(
-          siteUrl: widget.siteUrl,
-          username: instance!.user!.username,
-          badgesEnabled: instance.config.badgesEnabled,
+          key: ValueKey((widget.siteUrl, instance!.user!.username)),
+          instance: instance,
           summary: summary,
           error: state.error,
           refreshing: state.loading,
@@ -134,297 +133,673 @@ class _UserSummaryViewState extends State<UserSummaryView> {
   }
 }
 
-class _SummaryContent extends StatelessWidget {
+enum _SummaryTab { highlights, connections, reading }
+
+class _SummaryContent extends StatefulWidget {
   const _SummaryContent({
-    required this.siteUrl,
-    required this.username,
-    required this.badgesEnabled,
+    super.key,
+    required this.instance,
     required this.summary,
     required this.error,
     required this.refreshing,
     required this.onRefresh,
   });
 
-  final String siteUrl;
-  final String username;
-  final bool badgesEnabled;
+  final DiscourseInstance instance;
   final UserSummary summary;
   final String? error;
   final bool refreshing;
   final Future<void> Function() onRefresh;
 
   @override
-  Widget build(BuildContext context) {
-    return ContentReadingLane(
-      basePadding: const EdgeInsets.fromLTRB(16, 18, 16, 36),
-      builder: (context, lane) => RefreshIndicator(
-        onRefresh: onRefresh,
-        child: ListView(
-          key: const PageStorageKey('user-summary-scroll'),
-          physics: const AlwaysScrollableScrollPhysics(),
-          padding: lane.padding,
-          children: [
-            Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 1200),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    if (error case final error?)
-                      _SummaryErrorBanner(
-                        error: error,
-                        refreshing: refreshing,
-                        onRetry: onRefresh,
-                      ),
-                    if (summary.canSeeSummaryStats) ...[
-                      _Stats(summary: summary),
-                      const SizedBox(height: 28),
-                    ],
-                    _PairedSections(
-                      left: _SummarySection(
-                        title: 'Top Replies',
-                        child: _TopicRows(
-                          emptyMessage: 'No replies yet.',
-                          rows: [
-                            for (final reply in summary.replies)
-                              _SummaryTopicRow(
-                                siteUrl: siteUrl,
-                                topic: reply.topic,
-                                postNumber: reply.postNumber,
-                                createdAt: reply.createdAt,
-                                likes: reply.likeCount,
-                              ),
-                          ],
-                        ),
-                      ),
-                      right: _SummarySection(
-                        title: 'Top Topics',
-                        child: _TopicRows(
-                          emptyMessage: 'No topics yet.',
-                          rows: [
-                            for (final topic in summary.topics)
-                              _SummaryTopicRow(
-                                siteUrl: siteUrl,
-                                topic: topic,
-                                createdAt: topic.createdAt,
-                                likes: topic.likeCount,
-                              ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 28),
-                    _PairedSections(
-                      left: _SummarySection(
-                        title: 'Top Links',
-                        child: _LinkRows(
-                          siteUrl: siteUrl,
-                          links: summary.links,
-                        ),
-                      ),
-                      right: _SummarySection(
-                        title: 'Most Replied To',
-                        child: _UserRows(
-                          siteUrl: siteUrl,
-                          users: summary.mostRepliedToUsers,
-                          emptyMessage: 'No replies yet.',
-                          icon: DIcons.reply,
-                          countLabel: 'replies',
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 28),
-                    _PairedSections(
-                      left: _SummarySection(
-                        title: 'Most Liked By',
-                        child: _UserRows(
-                          siteUrl: siteUrl,
-                          users: summary.mostLikedByUsers,
-                          emptyMessage: 'No likes yet.',
-                          icon: DIcons.heart,
-                          countLabel: 'likes',
-                        ),
-                      ),
-                      right: _SummarySection(
-                        title: 'Most Liked',
-                        child: _UserRows(
-                          siteUrl: siteUrl,
-                          users: summary.mostLikedUsers,
-                          emptyMessage: 'No likes yet.',
-                          icon: DIcons.heart,
-                          countLabel: 'likes',
-                        ),
-                      ),
-                    ),
-                    if (summary.topCategories.isNotEmpty) ...[
-                      const SizedBox(height: 28),
-                      _SummarySection(
-                        title: 'Top Categories',
-                        child: _CategoryRows(
-                          siteUrl: siteUrl,
-                          username: username,
-                          categories: summary.topCategories,
-                        ),
-                      ),
-                    ],
-                    if (badgesEnabled) ...[
-                      const SizedBox(height: 28),
-                      _SummarySection(
-                        title: 'Top Badges',
-                        child: _BadgeRows(badges: summary.badges),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+  State<_SummaryContent> createState() => _SummaryContentState();
 }
 
-class _Stats extends StatelessWidget {
-  const _Stats({required this.summary});
+class _SummaryContentState extends State<_SummaryContent> {
+  _SummaryTab _tab = _SummaryTab.highlights;
+  bool _restored = false;
 
-  final UserSummary summary;
+  Object get _storageId =>
+      ('user-summary-tab', widget.instance.url, widget.instance.user!.username);
 
   @override
-  Widget build(BuildContext context) {
-    final timeRead = summaryDuration(summary.timeRead);
-    final recentTimeRead = summaryDuration(summary.recentTimeRead);
-    return _SummarySection(
-      title: 'Stats',
-      child: Wrap(
-        spacing: 12,
-        runSpacing: 12,
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_restored) return;
+    _restored = true;
+    _tab =
+        PageStorage.maybeOf(context)?.readState(context, identifier: _storageId)
+            as _SummaryTab? ??
+        _SummaryTab.highlights;
+  }
+
+  void _selectTab(_SummaryTab? value) {
+    if (value == null || value == _tab) return;
+    setState(() => _tab = value);
+    PageStorage.maybeOf(
+      context,
+    )?.writeState(context, value, identifier: _storageId);
+  }
+
+  @override
+  Widget build(BuildContext context) => RefreshIndicator(
+    onRefresh: widget.onRefresh,
+    child: _SummaryLayout(
+      profile: _ProfileCard(instance: widget.instance, summary: widget.summary),
+      content: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _Stat(value: '${summary.daysVisited}', label: 'days visited'),
-          _Stat(
-            value: timeRead.short,
-            semanticValue: '${timeRead.long}, all time',
-            label: 'read time',
-          ),
-          if (summary.showRecentTimeRead)
-            _Stat(
-              value: recentTimeRead.short,
-              semanticValue: '${recentTimeRead.long}, in the last 60 days',
-              label: 'recent read time',
+          if (widget.error case final error?)
+            _SummaryErrorBanner(
+              error: error,
+              refreshing: widget.refreshing,
+              onRetry: widget.onRefresh,
             ),
-          _Stat(value: '${summary.topicsEntered}', label: 'topics viewed'),
-          _Stat(value: '${summary.postsReadCount}', label: 'posts read'),
-          _Stat(
-            value: '${summary.likesGiven}',
-            label: 'given',
-            icon: DIcons.heart,
-          ),
-          _Stat(
-            value: '${summary.likesReceived}',
-            label: 'received',
-            icon: DIcons.heart,
-          ),
-          if (summary.bookmarkCount > 0)
-            _Stat(
-              value: '${summary.bookmarkCount}',
-              label: summary.bookmarkCount == 1 ? 'bookmark' : 'bookmarks',
-              icon: DIcons.bookmark,
-            ),
-          _Stat(
-            value: '${summary.topicCount}',
-            label: summary.topicCount == 1 ? 'topic created' : 'topics created',
-          ),
-          _Stat(
-            value: '${summary.postCount}',
-            label: summary.postCount == 1 ? 'post created' : 'posts created',
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _Stat extends StatelessWidget {
-  const _Stat({
-    required this.value,
-    required this.label,
-    this.semanticValue,
-    this.icon,
-  });
-
-  final String value;
-  final String label;
-  final String? semanticValue;
-  final DIconData? icon;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Semantics(
-      container: true,
-      label: '$label: ${semanticValue ?? value}',
-      child: ExcludeSemantics(
-        child: Container(
-          constraints: const BoxConstraints(minWidth: 112),
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-          decoration: BoxDecoration(
-            color: theme.colorScheme.surfaceContainerLow,
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          DTabs<_SummaryTab>.controlled(
+            value: _tab,
+            onChanged: _selectTab,
             children: [
-              Row(
-                mainAxisSize: MainAxisSize.min,
+              const DTabList<_SummaryTab>(
+                variant: DTabListVariant.line,
                 children: [
-                  if (icon case final icon?) ...[
-                    DIcon(icon, size: 14, color: theme.colorScheme.primary),
-                    const SizedBox(width: 5),
-                  ],
-                  Text(
-                    value,
-                    style: theme.textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
+                  DTabTrigger(
+                    value: _SummaryTab.highlights,
+                    child: Text('Highlights'),
+                  ),
+                  DTabTrigger(
+                    value: _SummaryTab.connections,
+                    child: Text('Connections'),
+                  ),
+                  DTabTrigger(
+                    value: _SummaryTab.reading,
+                    child: Text('Reading'),
                   ),
                 ],
               ),
-              const SizedBox(height: 2),
-              Text(
-                label,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
+              const SizedBox(height: DSpacing.sm),
+              DTabPanel(
+                value: _SummaryTab.highlights,
+                child: _Highlights(
+                  instance: widget.instance,
+                  summary: widget.summary,
+                ),
+              ),
+              DTabPanel(
+                value: _SummaryTab.connections,
+                child: _Connections(
+                  siteUrl: widget.instance.url,
+                  summary: widget.summary,
+                ),
+              ),
+              DTabPanel(
+                value: _SummaryTab.reading,
+                child: _Reading(
+                  instance: widget.instance,
+                  summary: widget.summary,
                 ),
               ),
             ],
           ),
-        ),
+        ],
       ),
+    ),
+  );
+}
+
+// These are application compositions of Native components, not new kit owners.
+class _SummaryLayout extends StatelessWidget {
+  const _SummaryLayout({required this.profile, required this.content});
+
+  final Widget profile;
+  final Widget content;
+
+  @override
+  Widget build(BuildContext context) => ContentReadingLane(
+    widthLimit: 1136,
+    basePadding: const EdgeInsets.fromLTRB(16, 24, 16, 36),
+    builder: (context, lane) {
+      final width = ContentReadingLane.breakpointWidthOf(context, lane.width);
+      final wide =
+          width >= 760 && MediaQuery.textScalerOf(context).scale(14) <= 21;
+      if (!wide) {
+        return DScrollArea(
+          key: const PageStorageKey('user-summary-scroll'),
+          padding: lane.padding,
+          thumbVisibility: false,
+          physics: const AlwaysScrollableScrollPhysics(),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              profile,
+              const SizedBox(height: DSpacing.xl),
+              content,
+            ],
+          ),
+        );
+      }
+      return Padding(
+        padding: EdgeInsets.only(
+          left: lane.padding.left,
+          right: lane.padding.right,
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SizedBox(
+              width: width >= 1040 ? 248 : 208,
+              child: DScrollArea(
+                thumbVisibility: false,
+                padding: EdgeInsets.only(
+                  top: lane.padding.top,
+                  bottom: lane.padding.bottom,
+                  left: 1,
+                  right: 1,
+                ),
+                child: profile,
+              ),
+            ),
+            const SizedBox(width: DSpacing.xxl),
+            Expanded(
+              child: DScrollArea(
+                key: const PageStorageKey('user-summary-scroll'),
+                padding: EdgeInsets.only(
+                  top: lane.padding.top,
+                  bottom: lane.padding.bottom,
+                  left: 1,
+                  right: 1,
+                ),
+                thumbVisibility: false,
+                physics: const AlwaysScrollableScrollPhysics(),
+                child: content,
+              ),
+            ),
+          ],
+        ),
+      );
+    },
+  );
+}
+
+class _ProfileCard extends StatelessWidget {
+  const _ProfileCard({required this.instance, required this.summary});
+
+  final DiscourseInstance instance;
+  final UserSummary summary;
+
+  @override
+  Widget build(BuildContext context) {
+    final user = instance.user!;
+    final name = user.name?.trim();
+    final time = summaryDuration(summary.timeRead);
+    return DCard(
+      key: const ValueKey('user-summary-profile'),
+      spacing: DSpacing.xl,
+      children: [
+        DCardContent(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _SummaryAvatar(
+                username: user.username,
+                avatarUrl: user.avatarUrl,
+                size: DAvatarSize.lg,
+              ),
+              const SizedBox(height: DSpacing.lg),
+              DText(
+                name == null || name.isEmpty ? user.username : name,
+                variant: DTextVariant.h3,
+                headingLevel: 1,
+                style: const TextStyle(
+                  fontSize: DiscourseTypography.xxl,
+                  height: 32 / 24,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: DSpacing.xs),
+              _Caption('@${user.username}'),
+              const SizedBox(height: DSpacing.lg),
+              Row(
+                children: [
+                  const ExcludeSemantics(child: DIcon(DIcons.globe, size: 14)),
+                  const SizedBox(width: DSpacing.sm),
+                  Expanded(
+                    child: DText(
+                      instance.title,
+                      variant: DTextVariant.small,
+                      style: const TextStyle(fontSize: 12, height: 16 / 12),
+                    ),
+                  ),
+                ],
+              ),
+              if (summary.canSeeSummaryStats) ...[
+                const SizedBox(height: DSpacing.xl),
+                const DSeparator(),
+                _DetailStats(
+                  values: [
+                    (
+                      label: 'Days visited',
+                      value: _number(summary.daysVisited),
+                      semantics: null,
+                    ),
+                    (
+                      label: 'Time reading',
+                      value: time.short,
+                      semantics: 'read time: ${time.long}, all time',
+                    ),
+                    (
+                      label: 'Likes given',
+                      value: _number(summary.likesGiven),
+                      semantics: null,
+                    ),
+                    if (summary.bookmarkCount > 0)
+                      (
+                        label: 'Bookmarks',
+                        value: _number(summary.bookmarkCount),
+                        semantics: null,
+                      ),
+                  ],
+                ),
+              ],
+            ],
+          ),
+        ),
+      ],
     );
   }
 }
 
+class _Highlights extends StatelessWidget {
+  const _Highlights({required this.instance, required this.summary});
+  final DiscourseInstance instance;
+  final UserSummary summary;
+
+  @override
+  Widget build(BuildContext context) {
+    final hasBadges =
+        instance.config.badgesEnabled && summary.badges.isNotEmpty;
+    return _SectionStack(
+      children: [
+        if (summary.canSeeSummaryStats) _HeadlineStats(summary: summary),
+        if (summary.topics.isEmpty && summary.replies.isEmpty && !hasBadges)
+          const _EmptyCard(
+            title: 'Your story starts with a conversation.',
+            description:
+                'As you read, reply and connect with people, your highlights will appear here.',
+          )
+        else ...[
+          _PairedSections(
+            left: _SummarySection(
+              title: 'Top topics',
+              child: _TopicRows(
+                emptyMessage: 'No topics yet.',
+                rows: [
+                  for (final topic in summary.topics)
+                    _SummaryTopicRow(
+                      siteUrl: instance.url,
+                      topic: topic,
+                      createdAt: topic.createdAt,
+                      likes: topic.likeCount,
+                    ),
+                ],
+              ),
+            ),
+            right: _SummarySection(
+              title: 'Top replies',
+              description: 'Conversations you joined',
+              child: _TopicRows(
+                emptyMessage: 'No replies yet.',
+                rows: [
+                  for (final reply in summary.replies)
+                    _SummaryTopicRow(
+                      siteUrl: instance.url,
+                      topic: reply.topic,
+                      postNumber: reply.postNumber,
+                      createdAt: reply.createdAt,
+                      likes: reply.likeCount,
+                    ),
+                ],
+              ),
+            ),
+          ),
+          if (instance.config.badgesEnabled)
+            _SummarySection(
+              title: 'Your milestones',
+              description: 'Badges earned in the community',
+              child: _BadgeRows(badges: summary.badges),
+            ),
+        ],
+      ],
+    );
+  }
+}
+
+class _Connections extends StatelessWidget {
+  const _Connections({required this.siteUrl, required this.summary});
+  final String siteUrl;
+  final UserSummary summary;
+
+  @override
+  Widget build(BuildContext context) {
+    if (summary.mostRepliedToUsers.isEmpty &&
+        summary.mostLikedByUsers.isEmpty &&
+        summary.mostLikedUsers.isEmpty) {
+      return const _EmptyCard(
+        title: 'No connections yet.',
+        description:
+            'The people you reply to and exchange likes with will appear here.',
+      );
+    }
+    return _SectionStack(
+      children: [
+        _SummarySection(
+          title: 'Most replied to',
+          child: _UserRows(
+            siteUrl: siteUrl,
+            users: summary.mostRepliedToUsers,
+            emptyMessage: 'No replies yet.',
+            countLabel: 'replies',
+          ),
+        ),
+        _PairedSections(
+          left: _SummarySection(
+            title: 'Most liked by',
+            child: _UserRows(
+              siteUrl: siteUrl,
+              users: summary.mostLikedByUsers,
+              emptyMessage: 'No likes yet.',
+              countLabel: 'likes',
+            ),
+          ),
+          right: _SummarySection(
+            title: 'Most liked',
+            child: _UserRows(
+              siteUrl: siteUrl,
+              users: summary.mostLikedUsers,
+              emptyMessage: 'No likes yet.',
+              countLabel: 'likes',
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _Reading extends StatelessWidget {
+  const _Reading({required this.instance, required this.summary});
+  final DiscourseInstance instance;
+  final UserSummary summary;
+
+  @override
+  Widget build(BuildContext context) {
+    final time = summaryDuration(summary.timeRead);
+    final recent = summaryDuration(summary.recentTimeRead);
+    return _SectionStack(
+      children: [
+        if (summary.canSeeSummaryStats)
+          _SummarySection(
+            title: 'Time well spent',
+            description: 'Reading across the community',
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                DText(
+                  time.short,
+                  semanticsLabel: 'read time: ${time.long}, all time',
+                  style: const TextStyle(
+                    fontSize: DiscourseTypography.xxxl,
+                    height: 36 / 30,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: DSpacing.xs),
+                if (summary.showRecentTimeRead)
+                  _Caption(
+                    '${recent.short} in the last 60 days',
+                    semantics:
+                        'recent read time: ${recent.long}, in the last 60 days',
+                  )
+                else
+                  const _Caption('All-time reading'),
+                const SizedBox(height: DSpacing.sm),
+                _DetailStats(
+                  values: [
+                    (
+                      label: 'Topics viewed',
+                      value: _number(summary.topicsEntered),
+                      semantics: null,
+                    ),
+                    (
+                      label: 'Posts read',
+                      value: _number(summary.postsReadCount),
+                      semantics: null,
+                    ),
+                    if (summary.bookmarkCount > 0)
+                      (
+                        label: 'Bookmarks',
+                        value: _number(summary.bookmarkCount),
+                        semantics: null,
+                      ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        if (summary.topCategories.isNotEmpty)
+          _SummarySection(
+            title: 'Top categories',
+            child: _CategoryRows(
+              siteUrl: instance.url,
+              username: instance.user!.username,
+              categories: summary.topCategories,
+            ),
+          ),
+        _SummarySection(
+          title: 'Top links',
+          child: _LinkRows(siteUrl: instance.url, links: summary.links),
+        ),
+      ],
+    );
+  }
+}
+
+class _HeadlineStats extends StatelessWidget {
+  const _HeadlineStats({required this.summary});
+  final UserSummary summary;
+
+  @override
+  Widget build(BuildContext context) => DCard(
+    children: [
+      DCardContent(
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final stats = [
+              _Stat(
+                label: 'Likes received',
+                value: _number(summary.likesReceived),
+              ),
+              _Stat(
+                label: 'Replies written',
+                value: _number(summary.postCount),
+              ),
+              _Stat(
+                label: 'Topics started',
+                value: _number(summary.topicCount),
+              ),
+            ];
+            if (MediaQuery.textScalerOf(context).scale(12) > 18 ||
+                constraints.maxWidth < 240) {
+              return _SectionStack(children: stats);
+            }
+            return IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  for (var index = 0; index < stats.length; index++) ...[
+                    if (index > 0)
+                      const DSeparator(
+                        orientation: Axis.vertical,
+                        space: DSpacing.lg,
+                      ),
+                    Expanded(child: stats[index]),
+                  ],
+                ],
+              ),
+            );
+          },
+        ),
+      ),
+    ],
+  );
+}
+
+class _Stat extends StatelessWidget {
+  const _Stat({required this.label, required this.value});
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+    container: true,
+    label: '$label: $value',
+    child: ExcludeSemantics(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _Caption(label),
+          const SizedBox(height: DSpacing.sm),
+          DText(
+            value,
+            style: const TextStyle(
+              fontSize: DiscourseTypography.xxl,
+              height: 32 / 24,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
+typedef _DetailStat = ({String label, String value, String? semantics});
+
+class _DetailStats extends StatelessWidget {
+  const _DetailStats({required this.values});
+  final List<_DetailStat> values;
+
+  @override
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, constraints) {
+      final stacked =
+          constraints.maxWidth < 180 ||
+          (constraints.maxWidth < 400 &&
+              MediaQuery.textScalerOf(context).scale(12) > 18);
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          for (var index = 0; index < values.length; index++) ...[
+            if (index > 0) const DSeparator(),
+            Semantics(
+              container: true,
+              label:
+                  values[index].semantics ??
+                  '${values[index].label}: ${values[index].value}',
+              child: ExcludeSemantics(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: DSpacing.md),
+                  child: stacked
+                      ? Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _Caption(values[index].label),
+                            const SizedBox(height: DSpacing.xs),
+                            _value(values[index].value),
+                          ],
+                        )
+                      : Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(child: _Caption(values[index].label)),
+                            const SizedBox(width: DSpacing.sm),
+                            Expanded(
+                              child: _value(
+                                values[index].value,
+                                textAlign: TextAlign.end,
+                              ),
+                            ),
+                          ],
+                        ),
+                ),
+              ),
+            ),
+          ],
+        ],
+      );
+    },
+  );
+
+  Widget _value(String value, {TextAlign textAlign = TextAlign.start}) => DText(
+    value,
+    variant: DTextVariant.small,
+    textAlign: textAlign,
+    style: const TextStyle(fontSize: 12, height: 16 / 12),
+  );
+}
+
+class _Caption extends StatelessWidget {
+  const _Caption(this.text, {this.semantics});
+  final String text;
+  final String? semantics;
+
+  @override
+  Widget build(BuildContext context) {
+    final child = DText(
+      text,
+      variant: DTextVariant.muted,
+      semanticsLabel: semantics,
+      style: const TextStyle(fontSize: 12, height: 16 / 12),
+    );
+    return semantics == null ? child : Semantics(container: true, child: child);
+  }
+}
+
+class _SectionStack extends StatelessWidget {
+  const _SectionStack({required this.children});
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      for (var index = 0; index < children.length; index++) ...[
+        if (index > 0) const SizedBox(height: DSpacing.xl),
+        children[index],
+      ],
+    ],
+  );
+}
+
 class _PairedSections extends StatelessWidget {
   const _PairedSections({required this.left, required this.right});
-
   final Widget left;
   final Widget right;
 
   @override
   Widget build(BuildContext context) => LayoutBuilder(
     builder: (context, constraints) {
-      if (ContentReadingLane.breakpointWidthOf(context, constraints.maxWidth) <=
-          600) {
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [left, const SizedBox(height: 28), right],
-        );
+      final width = ContentReadingLane.breakpointWidthOf(
+        context,
+        constraints.maxWidth,
+      );
+      if (width < 680 || MediaQuery.textScalerOf(context).scale(14) > 21) {
+        return _SectionStack(children: [left, right]);
       }
       return Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Expanded(child: left),
-          const SizedBox(width: 28),
+          const SizedBox(width: DSpacing.xl),
           Expanded(child: right),
         ],
       );
@@ -433,41 +808,46 @@ class _PairedSections extends StatelessWidget {
 }
 
 class _SummarySection extends StatelessWidget {
-  const _SummarySection({required this.title, required this.child});
-
+  const _SummarySection({
+    required this.title,
+    this.description,
+    required this.child,
+  });
   final String title;
+  final String? description;
   final Widget child;
 
   @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Text(
-          title.toUpperCase(),
-          style: theme.textTheme.titleSmall?.copyWith(
-            fontWeight: FontWeight.w700,
-            letterSpacing: 0.7,
-          ),
-        ),
-        const SizedBox(height: 10),
-        child,
-      ],
-    );
-  }
+  Widget build(BuildContext context) => DCard(
+    children: [
+      DCardHeader(
+        title: DCardTitle(child: Text(title)),
+        description: description == null
+            ? null
+            : DCardDescription(child: Text(description!)),
+      ),
+      DCardContent(child: child),
+    ],
+  );
 }
 
 class _TopicRows extends StatelessWidget {
   const _TopicRows({required this.emptyMessage, required this.rows});
-
   final String emptyMessage;
   final List<Widget> rows;
 
   @override
   Widget build(BuildContext context) => rows.isEmpty
       ? _EmptySection(message: emptyMessage)
-      : Column(children: rows);
+      : DItemGroup(
+          spacing: 0,
+          children: [
+            for (var i = 0; i < rows.length; i++) ...[
+              if (i > 0) const DSeparator(),
+              rows[i],
+            ],
+          ],
+        );
 }
 
 class _SummaryTopicRow extends StatelessWidget {
@@ -478,7 +858,6 @@ class _SummaryTopicRow extends StatelessWidget {
     required this.likes,
     this.postNumber,
   });
-
   final String siteUrl;
   final UserSummaryTopic topic;
   final DateTime? createdAt;
@@ -487,71 +866,91 @@ class _SummaryTopicRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final date = createdAt == null ? null : relativeTime(createdAt!);
-    final details = [?date, if (likes > 0) '$likes likes'];
-    return Semantics(
-      button: true,
-      label: [
-        'Open ${topic.title}',
-        ?date,
-        if (likes > 0) '$likes likes',
-      ].join(', '),
-      child: ExcludeSemantics(
-        child: InkWell(
-          onTap: () => ShellScope.read(
-            context,
-          ).openSummaryTopic(topic, postNumber: postNumber),
-          borderRadius: BorderRadius.circular(6),
-          child: Container(
-            width: double.infinity,
-            margin: const EdgeInsets.only(bottom: 8),
-            padding: const EdgeInsets.fromLTRB(10, 8, 8, 8),
-            decoration: BoxDecoration(
-              border: Border(
-                left: BorderSide(color: theme.shell.divider, width: 2),
+    final category = ShellScope.read(
+      context,
+    ).categoryFor(topic.categoryId, siteUrl: siteUrl);
+    final label = [
+      'Open ${topic.title}',
+      ?date,
+      if (likes > 0) '$likes likes',
+    ].join(', ');
+    return DItem(
+      size: DItemSize.xs,
+      padding: const EdgeInsets.symmetric(vertical: DSpacing.lg),
+      semanticLabel: label,
+      onPressed: () => ShellScope.read(
+        context,
+      ).openSummaryTopic(topic, postNumber: postNumber),
+      children: [
+        DItemContent(
+          spacing: DSpacing.xs,
+          children: [
+            ExcludeSemantics(
+              child: DItemTitle(
+                maxLines: null,
+                child: TopicTitle(topic.title, siteUrl: siteUrl),
               ),
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (details.isNotEmpty) ...[
-                  Text(
-                    details.join(' · '),
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                  const SizedBox(height: 3),
-                ],
-                TopicTitle(
-                  topic.title,
-                  siteUrl: siteUrl,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: theme.colorScheme.primary,
+            if (category != null || date != null)
+              ExcludeSemantics(
+                child: DItemDescription(
+                  child: Wrap(
+                    spacing: DSpacing.sm,
+                    runSpacing: DSpacing.xs,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      if (category != null)
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            CategoryIcon(
+                              category: category,
+                              siteUrl: siteUrl,
+                              size: 12,
+                              squareSize: 8,
+                            ),
+                            const SizedBox(width: DSpacing.xs),
+                            Flexible(child: Text(category.name)),
+                          ],
+                        ),
+                      if (date != null) Text(date),
+                    ],
                   ),
                 ),
+              ),
+          ],
+        ),
+        if (likes > 0)
+          ExcludeSemantics(
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                DIcon(
+                  DIcons.heart,
+                  size: 12,
+                  color: DTokens.of(context).mutedForeground,
+                ),
+                const SizedBox(width: DSpacing.xs),
+                _Caption(_number(likes)),
               ],
             ),
           ),
-        ),
-      ),
+      ],
     );
   }
 }
 
 class _LinkRows extends StatelessWidget {
   const _LinkRows({required this.siteUrl, required this.links});
-
   final String siteUrl;
   final List<UserSummaryLink> links;
 
   @override
   Widget build(BuildContext context) => links.isEmpty
       ? const _EmptySection(message: 'No links yet.')
-      : Column(
+      : DItemGroup(
+          spacing: DSpacing.sm,
           children: [
             for (final link in links)
               _SummaryLinkRow(siteUrl: siteUrl, link: link),
@@ -561,60 +960,50 @@ class _LinkRows extends StatelessWidget {
 
 class _SummaryLinkRow extends StatelessWidget {
   const _SummaryLinkRow({required this.siteUrl, required this.link});
-
   final String siteUrl;
   final UserSummaryLink link;
 
   @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final externalLabel = _shortUrl(link.url);
-    return Container(
-      width: double.infinity,
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.fromLTRB(10, 7, 8, 8),
-      decoration: BoxDecoration(
-        border: Border(left: BorderSide(color: theme.shell.divider, width: 2)),
+  Widget build(BuildContext context) => DItem(
+    size: DItemSize.xs,
+    padding: const EdgeInsets.symmetric(vertical: DSpacing.sm),
+    semanticLabel:
+        'Open external link ${_shortUrl(link.url)}, ${link.clicks} clicks',
+    link: true,
+    onPressed: () => unawaited(openExternalLink(link.url)),
+    footer: DItemFooter(
+      child: Align(
+        alignment: AlignmentDirectional.centerStart,
+        child: DButton(
+          variant: DButtonVariant.link,
+          semanticLabel: 'Open ${link.topic.title}',
+          onPressed: () => ShellScope.read(
+            context,
+          ).openSummaryTopic(link.topic, postNumber: link.postNumber),
+          label: TopicTitle(link.topic.title, siteUrl: siteUrl, maxLines: 2),
+        ),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+    ),
+    children: [
+      const DItemMedia(
+        child: ExcludeSemantics(child: DIcon(DIcons.link, size: 14)),
+      ),
+      DItemContent(
         children: [
-          InlineAction.link(
-            onTap: () => unawaited(openExternalLink(link.url)),
-            semanticLabel:
-                'Open external link $externalLabel, ${link.clicks} clicks',
-            excludeChildSemantics: true,
-            child: Text(
-              externalLabel,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-                decoration: TextDecoration.underline,
-              ),
+          ExcludeSemantics(
+            child: DItemTitle(
+              maxLines: null,
+              child: Text(link.title ?? _shortUrl(link.url)),
             ),
           ),
-          const SizedBox(height: 4),
-          InlineAction.link(
-            onTap: () => ShellScope.read(
-              context,
-            ).openSummaryTopic(link.topic, postNumber: link.postNumber),
-            semanticLabel: 'Open ${link.topic.title}',
-            excludeChildSemantics: true,
-            child: TopicTitle(
-              link.topic.title,
-              siteUrl: siteUrl,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.primary,
-              ),
-            ),
+          ExcludeSemantics(
+            child: DItemDescription(child: Text(_shortUrl(link.url))),
           ),
         ],
       ),
-    );
-  }
+      ExcludeSemantics(child: _Caption('${_number(link.clicks)} clicks')),
+    ],
+  );
 }
 
 class _UserRows extends StatelessWidget {
@@ -622,118 +1011,81 @@ class _UserRows extends StatelessWidget {
     required this.siteUrl,
     required this.users,
     required this.emptyMessage,
-    required this.icon,
     required this.countLabel,
   });
-
   final String siteUrl;
   final List<UserSummaryUser> users;
   final String emptyMessage;
-  final DIconData icon;
   final String countLabel;
 
   @override
   Widget build(BuildContext context) => users.isEmpty
       ? _EmptySection(message: emptyMessage)
-      : Column(
+      : DItemGroup(
+          spacing: DSpacing.xs,
           children: [
             for (final user in users)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 6),
-                child: UserCardTarget(
-                  username: user.username,
-                  siteUrl: siteUrl,
-                  semanticLabel:
-                      'View profile for ${user.displayName}, '
-                      '${user.count} $countLabel',
-                  child: _SummaryUserRow(
-                    user: user,
-                    icon: icon,
-                    countLabel: countLabel,
-                  ),
+              UserCardTarget(
+                username: user.username,
+                siteUrl: siteUrl,
+                semanticLabel:
+                    'View profile for ${user.displayName}, ${user.count} $countLabel',
+                child: DItem(
+                  size: DItemSize.xs,
+                  padding: const EdgeInsets.symmetric(vertical: DSpacing.sm),
+                  children: [
+                    DItemMedia(
+                      child: _SummaryAvatar(
+                        username: user.username,
+                        avatarUrl: user.avatarUrl,
+                      ),
+                    ),
+                    DItemContent(
+                      children: [
+                        DItemTitle(
+                          maxLines: null,
+                          child: Text(user.displayName),
+                        ),
+                        if (user.name != null)
+                          DItemDescription(child: Text('@${user.username}')),
+                      ],
+                    ),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        DText(_number(user.count), variant: DTextVariant.small),
+                        _Caption(countLabel),
+                      ],
+                    ),
+                  ],
                 ),
               ),
           ],
         );
 }
 
-class _SummaryUserRow extends StatelessWidget {
-  const _SummaryUserRow({
-    required this.user,
-    required this.icon,
-    required this.countLabel,
+class _SummaryAvatar extends StatelessWidget {
+  const _SummaryAvatar({
+    required this.username,
+    this.avatarUrl,
+    this.size = DAvatarSize.standard,
   });
-
-  final UserSummaryUser user;
-  final DIconData icon;
-  final String countLabel;
+  final String username;
+  final String? avatarUrl;
+  final DAvatarSize size;
 
   @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final initial = user.username.characters.firstOrNull?.toUpperCase() ?? '?';
-    return Semantics(
-      label: '${user.displayName}, ${user.count} $countLabel',
-      child: ExcludeSemantics(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-          child: Row(
-            children: [
-              DAvatar.frame(
-                child: SizedBox.square(
-                  dimension: 36,
-                  child: AvatarImage(
-                    url: user.avatarUrl,
-                    size: 36,
-                    fallback: ColoredBox(
-                      color: theme.colorScheme.primaryContainer,
-                      child: Center(
-                        child: Text(
-                          initial,
-                          style: theme.textTheme.labelMedium?.copyWith(
-                            color: theme.colorScheme.onPrimaryContainer,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      user.displayName,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    if (user.name != null)
-                      Text(
-                        '@${user.username}',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-              DIcon(icon, size: 14, color: theme.colorScheme.onSurfaceVariant),
-              const SizedBox(width: 5),
-              Text('${user.count}', style: theme.textTheme.labelLarge),
-            ],
-          ),
-        ),
+  Widget build(BuildContext context) => DAvatar(
+    size: size,
+    decorative: true,
+    child: AvatarImage(
+      url: avatarUrl,
+      size: size.dimension,
+      fallback: DAvatarFallback(
+        child: Text(username.characters.firstOrNull?.toUpperCase() ?? '?'),
       ),
-    );
-  }
+    ),
+  );
 }
 
 class _CategoryRows extends StatelessWidget {
@@ -742,7 +1094,6 @@ class _CategoryRows extends StatelessWidget {
     required this.username,
     required this.categories,
   });
-
   final String siteUrl;
   final String username;
   final List<UserSummaryCategory> categories;
@@ -759,206 +1110,147 @@ class _CategoryRows extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Column(
-      children: [
-        Row(
-          children: [
-            const Expanded(child: SizedBox()),
-            SizedBox(
-              width: 76,
-              child: Text(
-                'Topics',
-                textAlign: TextAlign.center,
-                style: theme.textTheme.labelMedium,
-              ),
+  Widget build(BuildContext context) => DTable(
+    semanticLabel: 'Top categories',
+    columnWidths: const {
+      0: IntrinsicColumnWidth(flex: 1),
+      1: IntrinsicColumnWidth(),
+      2: IntrinsicColumnWidth(),
+    },
+    header: const DTableHeader(
+      rows: [
+        DTableRow(
+          cells: [
+            DTableHead(child: Text('Category')),
+            DTableHead(
+              alignment: AlignmentDirectional.centerEnd,
+              child: Text('Topics'),
             ),
-            SizedBox(
-              width: 76,
-              child: Text(
-                'Replies',
-                textAlign: TextAlign.center,
-                style: theme.textTheme.labelMedium,
-              ),
+            DTableHead(
+              alignment: AlignmentDirectional.centerEnd,
+              child: Text('Replies'),
             ),
           ],
         ),
+      ],
+    ),
+    body: DTableBody(
+      rows: [
         for (final category in categories)
-          Container(
-            constraints: const BoxConstraints(minHeight: 44),
-            decoration: BoxDecoration(
-              border: Border(bottom: BorderSide(color: theme.shell.divider)),
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Row(
-                    children: [
-                      CategoryIcon.presentation(
-                        key: ValueKey((
-                          'user-summary-category-icon',
-                          category.id,
-                        )),
-                        color: Color(category.colorValue),
-                        styleType: category.styleType,
-                        icon: category.icon,
-                        emoji: category.emoji,
-                        readRestricted: category.readRestricted,
-                        siteUrl: siteUrl,
-                        size: 14,
-                        squareSize: 10,
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          category.name,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
+          DTableRow(
+            cells: [
+              DTableCell(
+                softWrap: true,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    CategoryIcon.presentation(
+                      key: ValueKey((
+                        'user-summary-category-icon',
+                        category.id,
+                      )),
+                      color: Color(category.colorValue),
+                      styleType: category.styleType,
+                      icon: category.icon,
+                      emoji: category.emoji,
+                      readRestricted: category.readRestricted,
+                      siteUrl: siteUrl,
+                      size: 14,
+                      squareSize: 10,
+                    ),
+                    const SizedBox(width: DSpacing.sm),
+                    Flexible(child: Text(category.name)),
+                  ],
+                ),
+              ),
+              for (final topics in [true, false])
+                DTableCell(
+                  alignment: AlignmentDirectional.centerEnd,
+                  child:
+                      (topics ? category.topicCount : category.postCount) <= 0
+                      ? const Text('—')
+                      : DButton(
+                          variant: DButtonVariant.link,
+                          semanticLabel:
+                              'Search ${topics ? category.topicCount : category.postCount} ${topics ? 'topics' : 'replies'} by @$username in ${category.name}',
+                          onPressed: () =>
+                              _search(context, category, topics: topics),
+                          label: Text(
+                            _number(
+                              topics ? category.topicCount : category.postCount,
+                            ),
+                          ),
                         ),
-                      ),
-                    ],
-                  ),
                 ),
-                _CategoryCount(
-                  count: category.topicCount,
-                  semanticLabel:
-                      'Search ${category.topicCount} topics by @$username '
-                      'in ${category.name}',
-                  onTap: () => _search(context, category, topics: true),
-                ),
-                _CategoryCount(
-                  count: category.postCount,
-                  semanticLabel:
-                      'Search ${category.postCount} replies by @$username '
-                      'in ${category.name}',
-                  onTap: () => _search(context, category, topics: false),
-                ),
-              ],
-            ),
+            ],
           ),
       ],
-    );
-  }
-}
-
-class _CategoryCount extends StatelessWidget {
-  const _CategoryCount({
-    required this.count,
-    required this.semanticLabel,
-    required this.onTap,
-  });
-
-  final int count;
-  final String semanticLabel;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) => SizedBox(
-    width: 76,
-    child: count <= 0
-        ? const Text('—', textAlign: TextAlign.center)
-        : DButton(
-            variant: DButtonVariant.link,
-            semanticLabel: semanticLabel,
-            onPressed: onTap,
-            label: Text('$count'),
-          ),
+    ),
   );
 }
 
 class _BadgeRows extends StatelessWidget {
   const _BadgeRows({required this.badges});
-
   final List<UserSummaryBadge> badges;
 
   @override
-  Widget build(BuildContext context) {
-    if (badges.isEmpty) return const _EmptySection(message: 'No badges yet.');
-    final theme = Theme.of(context);
-    return Wrap(
-      spacing: 10,
-      runSpacing: 10,
-      children: [
-        for (final badge in badges)
-          Semantics(
-            container: true,
-            label:
-                '${badge.name}, earned ${badge.count} '
-                '${badge.count == 1 ? 'time' : 'times'}',
-            child: ExcludeSemantics(
-              child: Container(
-                constraints: const BoxConstraints(minWidth: 180, maxWidth: 320),
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: theme.colorScheme.surfaceContainerLow,
-                  border: Border.all(color: theme.shell.divider),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    DIcon(
+  Widget build(BuildContext context) => badges.isEmpty
+      ? const _EmptySection(message: 'No badges yet.')
+      : Wrap(
+          spacing: DSpacing.sm,
+          runSpacing: DSpacing.sm,
+          children: [
+            for (final badge in badges)
+              Semantics(
+                container: true,
+                child: DTooltip(
+                  message: badge.description ?? badge.name,
+                  focusable: true,
+                  child: DBadge(
+                    variant: DBadgeVariant.outline,
+                    semanticLabel:
+                        '${badge.name}, earned ${badge.count} ${badge.count == 1 ? 'time' : 'times'}',
+                    leading: DIcon(
                       DIcons.byName[badge.icon] ?? DIcons.certificate,
-                      size: 20,
-                      color: theme.colorScheme.primary,
                     ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            badge.name,
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                          if (badge.description case final description?) ...[
-                            const SizedBox(height: 3),
-                            Text(
-                              description,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                color: theme.colorScheme.onSurfaceVariant,
-                              ),
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-                    if (badge.count > 1) ...[
-                      const SizedBox(width: 8),
-                      Text(
-                        '×${badge.count}',
-                        style: theme.textTheme.labelLarge,
-                      ),
-                    ],
-                  ],
+                    trailing: badge.count > 1 ? Text('×${badge.count}') : null,
+                    child: Text(badge.name),
+                  ),
                 ),
               ),
-            ),
-          ),
+          ],
+        );
+}
+
+class _EmptyCard extends StatelessWidget {
+  const _EmptyCard({required this.title, required this.description});
+  final String title;
+  final String description;
+
+  @override
+  Widget build(BuildContext context) => DCard(
+    child: DEmpty(
+      children: [
+        DEmptyHeader(
+          children: [
+            const DEmptyMedia(child: DIcon(DIcons.comment, size: 32)),
+            DEmptyTitle(title, headingLevel: 2),
+            DEmptyDescription(description),
+          ],
+        ),
       ],
-    );
-  }
+    ),
+  );
 }
 
 class _EmptySection extends StatelessWidget {
   const _EmptySection({required this.message});
-
   final String message;
 
   @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: 8),
-    child: Text(
-      message,
-      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-        color: Theme.of(context).colorScheme.onSurfaceVariant,
-      ),
-    ),
+  Widget build(BuildContext context) => DEmpty(
+    padding: const EdgeInsets.symmetric(vertical: DSpacing.lg),
+    children: [DEmptyDescription(message)],
   );
 }
 
@@ -968,14 +1260,13 @@ class _SummaryErrorBanner extends StatelessWidget {
     required this.refreshing,
     required this.onRetry,
   });
-
   final String error;
   final bool refreshing;
   final Future<void> Function() onRetry;
 
   @override
   Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.only(bottom: 18),
+    padding: const EdgeInsets.only(bottom: DSpacing.xl),
     child: DAlert(
       variant: DAlertVariant.destructive,
       icon: const DIcon(DIcons.triangleExclamation),
@@ -1000,35 +1291,28 @@ class _SummaryState extends StatelessWidget {
     this.actionLabel,
     this.onAction,
   });
-
   final DIconData icon;
   final String title;
   final String? actionLabel;
   final Future<void> Function()? onAction;
 
   @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Center(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 420),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
+  Widget build(BuildContext context) => Center(
+    child: SingleChildScrollView(
+      child: DEmpty(
+        children: [
+          DEmptyHeader(
             children: [
-              DIcon(icon, size: 48, color: theme.colorScheme.primary),
-              const SizedBox(height: 16),
+              DEmptyMedia(child: DIcon(icon, size: 32)),
               Semantics(
                 liveRegion: icon == DIcons.triangleExclamation,
-                child: Text(
-                  title,
-                  textAlign: TextAlign.center,
-                  style: theme.textTheme.titleLarge,
-                ),
+                child: DEmptyTitle(title),
               ),
-              if (actionLabel case final label?) ...[
-                const SizedBox(height: 20),
+            ],
+          ),
+          if (actionLabel case final label?)
+            DEmptyContent(
+              children: [
                 DButton(
                   label: Text(label),
                   onPressed: onAction == null
@@ -1037,73 +1321,54 @@ class _SummaryState extends StatelessWidget {
                   variant: DButtonVariant.primary,
                 ),
               ],
-            ],
-          ),
-        ),
+            ),
+        ],
       ),
-    );
-  }
+    ),
+  );
 }
 
 class _SummaryLoadingSkeleton extends StatelessWidget {
   const _SummaryLoadingSkeleton({super.key});
 
   @override
-  Widget build(BuildContext context) => DSkeletonRegion(
+  Widget build(BuildContext context) => const DSkeletonRegion(
     expand: true,
     semanticsLabel: 'Loading summary',
-    child: ContentReadingLane(
-      basePadding: const EdgeInsets.fromLTRB(16, 18, 16, 36),
-      builder: (context, lane) => SingleChildScrollView(
-        padding: lane.padding,
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 1200),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+    child: _SummaryLayout(
+      profile: DCard(
+        spacing: DSpacing.xl,
+        children: [
+          DCardContent(
+            child: _SectionStack(
               children: [
-                const DSkeleton(width: 70, height: 11),
-                const SizedBox(height: 12),
-                Wrap(
-                  spacing: 12,
-                  runSpacing: 12,
-                  children: [
-                    for (var index = 0; index < 8; index++)
-                      const DSkeleton(
-                        width: 116,
-                        height: 62,
-                        borderRadius: BorderRadius.all(Radius.circular(8)),
-                      ),
-                  ],
+                Align(
+                  alignment: AlignmentDirectional.centerStart,
+                  child: DSkeleton.circle(diameter: 40),
                 ),
-                const SizedBox(height: 30),
-                const DSkeleton(width: 110, height: 11),
-                const SizedBox(height: 12),
-                for (final width in [0.72, 0.9, 0.61]) ...[
-                  FractionallySizedBox(
-                    widthFactor: width,
-                    child: const DSkeleton(height: 44),
-                  ),
-                  const SizedBox(height: 8),
-                ],
-                const SizedBox(height: 22),
-                const DSkeleton(width: 90, height: 11),
-                const SizedBox(height: 12),
-                for (final width in [0.86, 0.66]) ...[
-                  FractionallySizedBox(
-                    widthFactor: width,
-                    child: const DSkeleton(height: 52),
-                  ),
-                  const SizedBox(height: 8),
-                ],
+                DSkeleton(width: 140, height: 24),
+                DSkeleton(width: 100, height: 12),
+                DSkeleton(height: 180),
               ],
             ),
           ),
-        ),
+        ],
+      ),
+      content: _SectionStack(
+        children: [
+          DSkeleton(width: 240, height: 32),
+          DSkeleton(height: 110),
+          _PairedSections(
+            left: DSkeleton(height: 320),
+            right: DSkeleton(height: 320),
+          ),
+        ],
       ),
     ),
   );
 }
+
+String _number(int value) => NumberFormat.decimalPattern().format(value);
 
 typedef SummaryDuration = ({String short, String long});
 

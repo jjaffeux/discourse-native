@@ -1,0 +1,38 @@
+/* Derived from the saved dev.discourse.org appearance snapshot; no account data.
+   Metadata uses the existing primaryHigh role for readable small text. */
+ :root, [data-theme="light"] {
+  color-scheme: light;
+  --background: #ffffff;
+  --surface: #ffffff;
+  --muted: #f8f8f8;
+  --foreground: #222222;
+  --muted-foreground: #646464;
+  --accent: #0088cc;
+  --action: #d1f0ff;
+  --primary-low: #e9e9e9;
+  --primary-low-mid: #bdbdbd;
+  --border: color-mix(in srgb, var(--foreground) 12%, var(--background));
+  --control-border: color-mix(in srgb, var(--primary-low-mid) 30%, var(--background));
+  --control: color-mix(in srgb, var(--primary-low) 28%, var(--background));
+  --control-hover: color-mix(in srgb, var(--primary-low) 88%, var(--background));
+  --action-ink: color-mix(in srgb, var(--foreground) 52%, var(--accent));
+  --link: color-mix(in srgb, var(--foreground) 30%, var(--accent));
+}
+[data-theme="dark"] {
+  color-scheme: dark;
+  --background: #222222;
+  --surface: #282828;
+  --muted: #282828;
+  --foreground: #dddddd;
+  --muted-foreground: #a6a6a6;
+  --accent: #0f82af;
+  --action: #052d3d;
+  --primary-low: #313131;
+  --primary-low-mid: #7a7a7a;
+  --border: color-mix(in srgb, var(--foreground) 12%, var(--background));
+  --control-border: color-mix(in srgb, var(--primary-low-mid) 30%, var(--background));
+  --control: color-mix(in srgb, var(--primary-low) 28%, var(--background));
+  --control-hover: color-mix(in srgb, var(--primary-low) 88%, var(--background));
+  --action-ink: color-mix(in srgb, var(--foreground) 52%, var(--accent));
+  --link: color-mix(in srgb, var(--foreground) 30%, var(--accent));
+}
