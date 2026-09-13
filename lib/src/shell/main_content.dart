@@ -348,7 +348,7 @@ class _TopicInboxWorkspaceState extends State<_TopicInboxWorkspace> {
                 MediaQuery.textScalerOf(context).scale(DiscourseTypography.sm) /
                 DiscourseTypography.sm;
         final createAction = messages
-            ? MessageCreateButton(showLabel: showCreateLabel)
+            ? const MessageCreateButton(showLabel: true)
             : _TopicCreateAction(
                 controller: controller,
                 compact: true,

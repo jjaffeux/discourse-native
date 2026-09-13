@@ -394,7 +394,7 @@ void main() {
       tester.getRect(readerFooter).bottom,
     );
     expect(
-      find.descendant(of: listFooter, matching: find.byTooltip('New message')),
+      find.descendant(of: listFooter, matching: find.text('New message')),
       findsOneWidget,
     );
     expect(find.byKey(const ValueKey('topic-reply-button')), findsOneWidget);

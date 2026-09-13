@@ -112,8 +112,10 @@ class TopicListBottomBar extends StatelessWidget {
               top: BorderSide(color: Theme.of(context).shell.divider),
             ),
           ),
-          child: SizedBox(
-            height: topicBottomBarHeight(context),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              minHeight: topicBottomBarHeight(context),
+            ),
             child: Padding(
               padding: topicBottomBarPadding.add(
                 EdgeInsetsDirectional.only(end: trailingInset),
@@ -121,8 +123,15 @@ class TopicListBottomBar extends StatelessWidget {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.start,
                 children: [
-                  ?leading,
-                  const Spacer(),
+                  if (leading case final action?)
+                    Expanded(
+                      child: Align(
+                        alignment: AlignmentDirectional.centerStart,
+                        child: action,
+                      ),
+                    )
+                  else
+                    const Spacer(),
                   DButton.iconOnly(
                     key: const ValueKey('inbox-previous-topic'),
                     tooltip:

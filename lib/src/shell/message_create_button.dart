@@ -53,7 +53,7 @@ class MessageCreateButton extends StatelessWidget {
       final button = showLabel
           ? DButton(
               key: const ValueKey('new-message-button'),
-              label: const Text('New message'),
+              label: const Text('New message', softWrap: true, maxLines: 2),
               icon: const DIcon(DIcons.farPenToSquare),
               tooltip: 'New message',
               variant: DButtonVariant.primary,
