@@ -2867,7 +2867,7 @@ void _registerTopicReadingTests() {
 
       await tester.tap(find.byKey(const ValueKey('post-more-actions-2')));
       await tester.pumpAndSettle();
-      await tester.tap(find.widgetWithText(MenuItemButton, 'Share'));
+      await tester.tap(find.widgetWithText(DDropdownMenuItem, 'Share'));
       await tester.pumpAndSettle();
 
       expect(find.text('Share post #2'), findsOneWidget);

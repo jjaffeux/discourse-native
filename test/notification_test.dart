@@ -78,6 +78,15 @@ void main() {
   });
 
   group('core notification routes', () {
+    test('retains an explicit first post instead of resuming the topic', () {
+      expect(
+        resolveCoreNotification(
+          parse(CoreNotificationTypes.liked, topicId: 12, postNumber: 1),
+        ).path,
+        '/t/topic/12/1',
+      );
+    });
+
     test('a topic route comes only from stable envelope fields', () {
       final notification = parse(
         CoreNotificationTypes.replied,

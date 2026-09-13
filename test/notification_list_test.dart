@@ -2,6 +2,7 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/app.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/notification.dart';
+import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/shell/notification_list.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
@@ -15,11 +16,79 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/fakes.dart';
+import 'support/topic_post_list.dart';
 
 const _siteUrl = 'https://forum.example';
 const _rowKey = ValueKey('notification-row-1');
 
 void main() {
+  for (final postNumber in [1, 7]) {
+    for (final startingPoint in ['new topic', 'same topic', 'another topic']) {
+      testWidgets(
+        'clicking post $postNumber notification from $startingPoint reveals the post',
+        (tester) async {
+          final posts = [
+            for (var number = 1; number <= 30; number++)
+              Post(
+                id: number,
+                postNumber: number,
+                username: 'sam',
+                cooked: '<p>Notification target $number</p>' * 4,
+              ),
+          ];
+          final (controller, api) = await _pumpMenu(
+            tester,
+            postNumber: postNumber,
+            topics: {
+              42: (
+                detail: TopicDetail(
+                  id: 42,
+                  title: 'Notification topic',
+                  stream: [for (final post in posts) post.id],
+                  postsCount: posts.length,
+                  lastReadPostNumber: 23,
+                ),
+                posts: posts,
+              ),
+              43: topicPayload(id: 43, title: 'Another topic'),
+            },
+          );
+          if (startingPoint != 'new topic') {
+            await tester.tap(find.byKey(UserMenuButton.bellKey));
+            await tester.pumpAndSettle();
+            controller.openTopicUrl('$_siteUrl/t/notification-topic/42/20');
+            await tester.pumpAndSettle();
+            expect(controller.topicScrollPostNumber(42), 20);
+            controller.saveTopicScrollPost(42, 20, viewportOffset: -24);
+            if (startingPoint == 'another topic') {
+              controller.openTopicUrl('$_siteUrl/t/another-topic/43/1');
+              await tester.pumpAndSettle();
+            }
+            await tester.tap(find.byKey(UserMenuButton.bellKey));
+            await tester.pumpAndSettle();
+          }
+
+          await tester.tap(find.byKey(_rowKey));
+          await tester.pumpAndSettle();
+
+          final target = find.byKey(ValueKey(postNumber));
+          expect(target, findsOneWidget);
+          final viewport = tester.getRect(topicPostListFinder());
+          expect(tester.getRect(target).overlaps(viewport), isTrue);
+          expect(
+            tester.getTopLeft(target).dy,
+            greaterThanOrEqualTo(viewport.top),
+          );
+          expect(controller.topicScrollPostNumber(42), postNumber);
+          expect(api.markedRead, [1]);
+          expect(find.byType(UserMenuPanel), findsNothing);
+          expect(tester.takeException(), isNull);
+        },
+        variant: TargetPlatformVariant.only(TargetPlatform.macOS),
+      );
+    }
+  }
+
   for (final brightness in Brightness.values) {
     testWidgets(
       'read and unread rows switch hover immediately in ${brightness.name} mode',
@@ -207,6 +276,8 @@ Color _rowBackground(Finder row, Color backdrop) {
 Future<(ShellController, FakeDiscourseApi)> _pumpMenu(
   WidgetTester tester, {
   NotificationWireType type = CoreNotificationTypes.replied,
+  int postNumber = 7,
+  Map<int, TopicPayload> topics = const {},
 }) async {
   tester.view.physicalSize = const Size(1440, 900);
   tester.view.devicePixelRatio = 1;
@@ -217,7 +288,7 @@ Future<(ShellController, FakeDiscourseApi)> _pumpMenu(
     id: 1,
     typeId: NotificationTypeId(type.wireId),
     topicId: 42,
-    postNumber: 7,
+    postNumber: postNumber,
     slug: 'notification-topic',
     title: 'Notification topic',
     data: const {'display_username': 'sam'},
@@ -231,6 +302,7 @@ Future<(ShellController, FakeDiscourseApi)> _pumpMenu(
     reminderList: [notification],
     bookmarkList: const [],
     feeds: const {'/latest.json': []},
+    topics: topics,
   );
   await tester.pumpWidget(
     DiscourseApp(

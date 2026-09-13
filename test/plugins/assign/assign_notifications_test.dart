@@ -36,7 +36,7 @@ void main() {
     expect(resolved.presentation.actor, isNull);
     expect(resolved.presentation.phrase, 'Localized work list');
     expect(resolved.presentation.icon, DIcons.userPlus);
-    expect(resolved.path, '/t/work-list/12');
+    expect(resolved.path, '/t/work-list/12/1');
   });
 
   test('group post assignments name the group and post', () {

@@ -5084,6 +5084,7 @@ class ShellController extends FrameSafeNotifier
     int? postNumber,
     bool force = false,
     bool replace = false,
+    bool resetScrollPosition = false,
   }) {
     // A fast double tap on a row pushes the same topic twice — the fetch is
     // deduped below, but the second route still costs a back tap.
@@ -5097,6 +5098,20 @@ class ShellController extends FrameSafeNotifier
       title: title,
       postNumber: postNumber,
     );
+    // An explicit post destination supersedes the last reading position from
+    // an earlier visit to this topic in the same tab.
+    final tab = activeTab;
+    if (resetScrollPosition &&
+        tab != null &&
+        tab.anchors.containsKey(route.id)) {
+      _replaceActiveTab(
+        tab.copyWith(
+          anchors: Map<String, ForumTabAnchor>.of(tab.anchors)
+            ..remove(route.id),
+        ),
+        persist: false,
+      );
+    }
     if (replace) {
       replaceCurrentContent(route);
     } else {
@@ -5252,6 +5267,7 @@ class ShellController extends FrameSafeNotifier
       link.placeholderTitle,
       postNumber: link.postNumber,
       force: refresh,
+      resetScrollPosition: link.postNumber != null,
     );
     return true;
   }

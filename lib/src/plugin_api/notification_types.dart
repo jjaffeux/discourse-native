@@ -303,7 +303,7 @@ String? notificationTopicPath(DiscourseNotification notification) {
   final slug = notification.slug.isEmpty ? 'topic' : notification.slug;
   final path = '/t/$slug/$topicId';
   final postNumber = notification.postNumber;
-  return postNumber != null && postNumber > 1 ? '$path/$postNumber' : path;
+  return postNumber != null && postNumber > 0 ? '$path/$postNumber' : path;
 }
 
 ResolvedNotification? _decodeCoreNotification(
