@@ -1,3 +1,5 @@
+import 'dart:ui' as ui;
+
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
@@ -20,6 +22,63 @@ void main() {
           ),
         ),
       );
+
+  for (final orientation in Axis.values) {
+    for (final direction in TextDirection.values) {
+      testWidgets('active track reaches its origin: $orientation $direction', (
+        tester,
+      ) async {
+        await tester.pumpWidget(
+          host(
+            DSlider(
+              value: 66,
+              min: 1,
+              max: 85,
+              orientation: orientation,
+              onChanged: (_) {},
+            ),
+            direction: direction,
+          ),
+        );
+        final track = find
+            .descendant(
+              of: find.byType(DMultiSlider),
+              matching: find.byWidgetPredicate(
+                (widget) => widget is CustomPaint && widget.painter != null,
+              ),
+            )
+            .first;
+        final size = tester.getSize(track);
+        final recorder = ui.PictureRecorder();
+        tester
+            .widget<CustomPaint>(track)
+            .painter!
+            .paint(Canvas(recorder), size);
+        final picture = recorder.endRecording();
+        final image = picture.toImageSync(
+          size.width.ceil(),
+          size.height.ceil(),
+        );
+        final bytes = (await tester.runAsync(() => image.toByteData()))!;
+        final vertical = orientation == Axis.vertical;
+        final reversed = vertical || direction == TextDirection.rtl;
+        final extent = vertical ? size.height : size.width;
+        final origin = reversed ? extent.toInt() - 3 : 2;
+        final x = vertical ? 23 : origin;
+        final y = vertical ? origin : 23;
+        final offset = (y * image.width + x) * 4;
+        final color = Color.fromARGB(
+          bytes.getUint8(offset + 3),
+          bytes.getUint8(offset),
+          bytes.getUint8(offset + 1),
+          bytes.getUint8(offset + 2),
+        );
+        expect(color, DTokens.of(tester.element(track)).primary);
+        image.dispose();
+        picture.dispose();
+      });
+    }
+  }
 
   testWidgets('track jumps, captures drags outside bounds and commits once', (
     tester,
