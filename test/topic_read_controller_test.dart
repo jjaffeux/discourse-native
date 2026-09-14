@@ -112,6 +112,38 @@ void main() {
   tearDown(() => controller.dispose());
 
   group('local read projection', () {
+    test(
+      'list responses retain local progress and expose newer replies',
+      () async {
+        const siteUrl = 'https://one.example';
+        // Without credentials the observation stays local and retryable.
+        store.put(siteUrl, _topic());
+        await controller.mark(siteUrl, 1, 10, caughtUp: true);
+
+        final stale = controller.project(siteUrl, _topic(lastRead: 4));
+        expect(stale.lastReadPostNumber, 10);
+        expect(stale.hasUnread, isFalse);
+        final newer = controller.project(
+          siteUrl,
+          _topic(lastRead: 4, highest: 11),
+        );
+        expect(newer.lastReadPostNumber, 10);
+        expect(newer.hasUnread, isTrue);
+        final remoteProgress = _topic(lastRead: 12, highest: 13);
+        expect(
+          controller.project(siteUrl, remoteProgress),
+          same(remoteProgress),
+        );
+
+        controller.forget(siteUrl);
+        final anotherAccount = _topic(lastRead: 4);
+        expect(
+          controller.project(siteUrl, anotherAccount),
+          same(anotherAccount),
+        );
+      },
+    );
+
     test('ignores invalid coordinates without mutating shared state', () async {
       const siteUrl = 'https://one.example';
       credentials.keys[siteUrl] = 'key';

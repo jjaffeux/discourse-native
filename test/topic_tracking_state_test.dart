@@ -5,6 +5,42 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   test(
+    'local reading updates cached counts without losing tracking metadata',
+    () {
+      final tracking = TopicTrackingState([
+        const TrackedTopicState(
+          topicId: 1,
+          highestPostNumber: 10,
+          lastReadPostNumber: 4,
+          notificationLevel: 2,
+          categoryId: 5,
+          tagIds: {9},
+        ),
+      ]);
+      expect(tracking.newActivityCounts.newReplies, 1);
+      expect(
+        tracking.tagBadge(tagId: 9, unifiedNew: true, showCount: true),
+        const SidebarBadge.count(1),
+      );
+      expect(tracking.markRead(1, 8), isTrue);
+      expect(tracking.newActivityCounts.newReplies, 1);
+      expect(tracking.markRead(1, 10), isTrue);
+      expect(tracking.newActivityCounts.newReplies, 0);
+      expect(
+        tracking.tagBadge(tagId: 9, unifiedNew: true, showCount: true),
+        SidebarBadge.none,
+      );
+      expect(tracking.topic(1)!.categoryId, 5);
+      expect(tracking.topic(1)!.notificationLevel, 2);
+      expect(tracking.topic(1)!.highestPostNumber, 10);
+      expect(tracking.markRead(1, 8), isFalse);
+      expect(tracking.markRead(1, 10), isFalse);
+      expect(tracking.markRead(2, 10), isFalse);
+      expect(tracking.topics, hasLength(1));
+    },
+  );
+
+  test(
     'notification changes patch existing rows without creating read state',
     () {
       final tracking = TopicTrackingState.fromJson(const [

@@ -109,6 +109,7 @@ import 'site_url.dart';
 import 'topic_category_path.dart' as category_path;
 import 'topic_feed_controller.dart';
 import 'topic_read_controller.dart';
+import 'unread_topic_feed.dart';
 import 'update_controller.dart';
 import 'user_directory_controller.dart';
 import 'user_summary_controller.dart';
@@ -2571,11 +2572,31 @@ class ShellController extends FrameSafeNotifier
     return destinationId;
   }
 
+  final _unreadTopicFeed = UnreadTopicFeed();
+
+  bool get currentFeedIsUnread => switch (currentTopicListMode) {
+    TopicListMode.unread || TopicListMode.newReplies => true,
+    _ => false,
+  };
+
   TopicFeed? get currentFeed {
     final instance = currentInstance;
     final feedId = currentFeedId;
     if (instance == null || feedId == null) return null;
-    return topicFeeds.feedFor(instance.url, feedId);
+    final feed = topicFeeds.feedFor(instance.url, feedId);
+    if (feed == null || !currentFeedIsUnread) return feed;
+    return _unreadTopicFeed.project(
+      feed,
+      selectedTopicId: currentContent?.topicId,
+      isRead: (id) => UnreadTopicFeed.isRead(
+        topic: store.read<Topic>(instance.url, id),
+        tracking: _topicTrackingBySite[instance.url]?.topic(id),
+        localReadPostNumber: _topicReads.lastReadPostNumberFor(
+          instance.url,
+          id,
+        ),
+      ),
+    );
   }
 
   TopicListMode? get currentTopicListMode {
@@ -3803,6 +3824,13 @@ class ShellController extends FrameSafeNotifier
         in _topicTrackingPendingEvents[siteUrl] ?? const <Object?>[]) {
       snapshot.applyMessage(event);
     }
+    for (final topic in snapshot.topics.toList()) {
+      final position = _topicReads.lastReadPostNumberFor(
+        siteUrl,
+        topic.topicId,
+      );
+      if (position != null) snapshot.markRead(topic.topicId, position);
+    }
     for (final write in _topicNotificationWrites.values) {
       if (write.siteUrl == siteUrl &&
           !write.result.isCompleted &&
@@ -3835,6 +3863,12 @@ class ShellController extends FrameSafeNotifier
     // Read/highest updates still apply during a write, but their older level
     // must not replace the latest optimistic selection.
     final topicId = data is Map ? jsonIntOrNull(data['topic_id']) : null;
+    final localRead = topicId == null
+        ? null
+        : _topicReads.lastReadPostNumberFor(siteUrl, topicId);
+    if (localRead != null) {
+      changed = tracking.markRead(topicId!, localRead) || changed;
+    }
     final write = _topicNotificationWrites[_topicKey(siteUrl, topicId ?? 0)];
     if (write != null &&
         !write.result.isCompleted &&
@@ -6643,12 +6677,26 @@ class ShellController extends FrameSafeNotifier
     int postNumber, {
     required bool caughtUp,
   }) {
+    final lease = lifecycle.capture(siteUrl);
     final receipt = _topicReads.mark(
       siteUrl,
       topicId,
       postNumber,
       caughtUp: caughtUp,
     );
+    // The read controller publishes locally before its request completes.
+    // Update counts and visible queues from that same optimistic position.
+    final position = _topicReads.lastReadPostNumberFor(siteUrl, topicId);
+    if (!isDisposed && lease.isCurrent && position != null) {
+      if (_topicTrackingBySite[siteUrl]?.markRead(topicId, position) == true) {
+        _topicTrackingRevisions.update(
+          siteUrl,
+          (value) => value + 1,
+          ifAbsent: () => 1,
+        );
+      }
+      if (currentInstance?.url == siteUrl) _notifyTopicTrackingChanged();
+    }
     return receipt;
   }
 
@@ -9496,6 +9544,7 @@ class ShellController extends FrameSafeNotifier
     Topic incoming,
     int? versionAtDispatch,
   ) {
+    incoming = _topicReads.project(siteUrl, incoming);
     if (versionAtDispatch == null ||
         versionAtDispatch == _siteBookmarkVersion(siteUrl)) {
       return incoming;

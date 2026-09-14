@@ -1263,6 +1263,7 @@ class _TopicFeedSelectorState<T> extends State<_TopicFeedSelector<T>> {
     super.initState();
     _value = widget.select(widget.controller);
     widget.controller.topicFeeds.addListener(_select);
+    widget.controller.addListener(_select);
   }
 
   @override
@@ -1270,7 +1271,9 @@ class _TopicFeedSelectorState<T> extends State<_TopicFeedSelector<T>> {
     super.didUpdateWidget(oldWidget);
     if (!identical(oldWidget.controller, widget.controller)) {
       oldWidget.controller.topicFeeds.removeListener(_select);
+      oldWidget.controller.removeListener(_select);
       widget.controller.topicFeeds.addListener(_select);
+      widget.controller.addListener(_select);
     }
     _value = widget.select(widget.controller);
   }
@@ -1288,6 +1291,7 @@ class _TopicFeedSelectorState<T> extends State<_TopicFeedSelector<T>> {
   @override
   void dispose() {
     widget.controller.topicFeeds.removeListener(_select);
+    widget.controller.removeListener(_select);
     super.dispose();
   }
 }

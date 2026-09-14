@@ -41,6 +41,23 @@ final class TopicReadController {
 
   bool _disposed = false;
 
+  int? lastReadPostNumberFor(String siteUrl, int topicId) =>
+      _positions[(siteUrl, topicId)];
+
+  /// A stale list response must not roll back this session's read progress.
+  Topic project(String siteUrl, Topic incoming) {
+    final position = lastReadPostNumberFor(siteUrl, incoming.id);
+    if (position == null || position < (incoming.lastReadPostNumber ?? 0)) {
+      return incoming;
+    }
+    return _projectRead(
+      incoming,
+      position,
+      position,
+      caughtUp: !incoming.isNestedView && incoming.highestPostNumber > 0,
+    );
+  }
+
   Future<void> mark(
     String siteUrl,
     int topicId,
