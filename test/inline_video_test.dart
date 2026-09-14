@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import 'package:discourse_native/discourse_ui.dart'
-    show DSlider, DSpinner, DToaster;
+    show DButton, DSlider, DSpinner, DToaster;
 import 'package:discourse_native/src/data/api_credentials.dart';
 import 'package:discourse_native/src/data/http_transport.dart';
 import 'package:discourse_native/src/data/site_lifecycle.dart';
@@ -280,7 +280,7 @@ void main() {
       expect(downloader.shareOrigin?.isEmpty, isFalse);
       expect(
         tester
-            .widget<IconButton>(
+            .widget<DButton>(
               find.byKey(const ValueKey('inline-video-download')),
             )
             .onPressed,
@@ -303,7 +303,7 @@ void main() {
       );
       expect(
         tester
-            .widget<IconButton>(
+            .widget<DButton>(
               find.descendant(
                 of: find.byKey(const ValueKey('inline-video-fullscreen-view')),
                 matching: find.byKey(const ValueKey('inline-video-download')),

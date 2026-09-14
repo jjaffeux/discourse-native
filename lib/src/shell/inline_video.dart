@@ -13,6 +13,7 @@ import '../diagnostics/diagnostics_controller.dart';
 import '../foundation/uri_path.dart';
 import '../theme/d_icons.dart';
 import 'external_link.dart';
+import 'generated_video_poster.dart';
 import 'inline_video_playback.dart';
 import 'shell_scope.dart';
 import 'site_image.dart';
@@ -345,86 +346,80 @@ class _InlineVideoState extends State<InlineVideo> {
   }
 
   Widget _buildPoster(BuildContext context, Size size) {
-    final theme = Theme.of(context);
     final playLabel = 'Play video: ${widget.data.title}';
+    Widget generatedPoster() => GeneratedVideoPoster(
+      source: widget.data.source,
+      siteUrl: widget.siteUrl,
+      size: size,
+    );
 
     return Stack(
       fit: StackFit.expand,
       children: [
-        Semantics(
-          button: true,
-          label: playLabel,
-          onTap: _load,
-          child: ExcludeSemantics(
-            child: Material(
-              color: Colors.black,
-              child: InkWell(
-                onTap: _load,
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    if (widget.data.posterUrl case final poster?)
-                      SiteImage(
-                        url: poster,
-                        siteUrl: widget.siteUrl,
-                        fit: BoxFit.cover,
-                        coverDecodeSize: size,
-                        excludeFromSemantics: true,
-                        errorBuilder: (_, _, _) => const SizedBox.shrink(),
-                      ),
-                    const DecoratedBox(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          colors: [
-                            Color(0x11000000),
-                            Color(0x22000000),
-                            Color(0xDD000000),
-                          ],
-                          stops: [0, 0.5, 1],
-                        ),
-                      ),
-                    ),
-                    Center(
-                      child: Container(
-                        key: const ValueKey('inline-video-play'),
-                        width: 58,
-                        height: 58,
-                        decoration: const BoxDecoration(
-                          color: Color(0xDDFFFFFF),
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Center(
-                          child: DIcon(
-                            DIcons.play,
-                            size: 23,
-                            color: Colors.black,
-                          ),
-                        ),
-                      ),
-                    ),
-                    Positioned(
-                      left: 14,
-                      right: 58,
-                      bottom: 12,
-                      child: Text(
-                        widget.data.title,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.titleSmall?.copyWith(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w700,
-                          shadows: const [
-                            Shadow(color: Colors.black, blurRadius: 3),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
+        DImagePreview(
+          semanticLabel: playLabel,
+          onPressed: _load,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              ColoredBox(
+                color: Colors.black,
+                child: switch (widget.data.posterUrl) {
+                  final poster? => SiteImage(
+                    url: poster,
+                    siteUrl: widget.siteUrl,
+                    fit: BoxFit.cover,
+                    coverDecodeSize: size,
+                    excludeFromSemantics: true,
+                    errorBuilder: (_, _, _) => generatedPoster(),
+                  ),
+                  null => generatedPoster(),
+                },
+              ),
+              const DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Color(0x11000000),
+                      Color(0x22000000),
+                      Color(0xDD000000),
+                    ],
+                    stops: [0, 0.5, 1],
+                  ),
                 ),
               ),
-            ),
+              Positioned(
+                left: 14,
+                right: 58,
+                bottom: 12,
+                child: ExcludeSemantics(
+                  child: Text(
+                    widget.data.title,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w700,
+                      shadows: const [
+                        Shadow(color: Colors.black, blurRadius: 3),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              Center(
+                child: DButton.iconOnly(
+                  key: const ValueKey('inline-video-play'),
+                  onPressed: _load,
+                  tooltip: 'Play video',
+                  variant: DButtonVariant.secondary,
+                  size: DButtonSize.large,
+                  icon: const DIcon(DIcons.play),
+                ),
+              ),
+            ],
           ),
         ),
         _buildActions(context),

@@ -3,6 +3,7 @@ import FlutterMacOS
 import WebKit
 
 class MainFlutterWindow: NSWindow {
+  private let videoThumbnails = VideoThumbnailChannel()
   private var windowChannel: FlutterMethodChannel?
   private var youtubeScrollChannel: FlutterMethodChannel?
   private var launchScreen: LaunchScreenView?
@@ -42,6 +43,7 @@ class MainFlutterWindow: NSWindow {
     self.launchScreen = launchScreen
 
     RegisterGeneratedPlugins(registry: flutterViewController)
+    videoThumbnails.attach(to: flutterViewController.engine.binaryMessenger)
     MacOSPushNotifications.shared.attach(
       to: flutterViewController.engine.binaryMessenger
     )

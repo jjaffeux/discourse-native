@@ -8,13 +8,14 @@ let package = Package(
     .target(
       name: "DiscourseNativeSupport",
       path: ".",
-      exclude: ["Tests"],
-      sources: ["PushRegistrationCoordinator.swift"]
+      exclude: ["Tests", "VideoThumbnailChannel.swift"],
+      sources: ["PushRegistrationCoordinator.swift", "VideoThumbnailGenerator.swift"]
     ),
     .testTarget(
       name: "DiscourseNativeSupportTests",
       dependencies: ["DiscourseNativeSupport"],
-      path: "Tests"
+      path: "Tests",
+      resources: [.copy("Fixtures")]
     ),
   ]
 )
