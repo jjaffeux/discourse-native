@@ -6,11 +6,11 @@ import 'package:pasteboard/pasteboard.dart';
 import '../models/composer_upload.dart';
 import 'composer_upload_picker.dart';
 
-typedef ComposerClipboardImageReader =
+typedef ComposerClipboardFileReader =
     Future<List<ComposerUploadFile>> Function();
 
-/// Reads native clipboard images into the composer's retryable upload shape.
-Future<List<ComposerUploadFile>> readComposerClipboardImages() async {
+/// Reads native clipboard files or pixels into retryable uploads.
+Future<List<ComposerUploadFile>> readComposerClipboardFiles() async {
   // Finder publishes both a file URL and an NSImage representation when a user
   // copies an image file. AppKit may coerce that NSImage into the generic file
   // icon, so prefer the original file and its pixels whenever it is available.

@@ -110,7 +110,7 @@ void main() {
       });
       addTearDown(() => messenger.setMockMethodCallHandler(channel, null));
 
-      final files = await readComposerClipboardImages();
+      final files = await readComposerClipboardFiles();
 
       expect(files, hasLength(1));
       expect(files.single.name, 'pasted-image.png');
@@ -128,103 +128,122 @@ void main() {
       expect(calls, ['files', 'image']);
     });
 
-    testWidgets(
-      'copied image files use their pixels instead of the file icon',
-      (tester) async {
-        final directory = Directory.systemTemp.createTempSync(
-          'discourse-native-clipboard-',
-        );
-        addTearDown(() => directory.deleteSync(recursive: true));
-        final copiedImage = File('${directory.path}/copied screenshot.png');
-        copiedImage.writeAsBytesSync(const [4, 5, 6, 7]);
+    for (final name in ['copied screenshot.png', 'copied video.mp4']) {
+      testWidgets(
+        'clipboard file $name uses the original contents instead of the file icon',
+        (tester) async {
+          final directory = Directory.systemTemp.createTempSync(
+            'discourse-native-clipboard-',
+          );
+          addTearDown(() => directory.deleteSync(recursive: true));
+          final copiedFile = File('${directory.path}/$name');
+          copiedFile.writeAsBytesSync(const [4, 5, 6, 7]);
 
-        const channel = MethodChannel('pasteboard');
-        final messenger = tester.binding.defaultBinaryMessenger;
-        final calls = <String>[];
-        messenger.setMockMethodCallHandler(channel, (call) async {
-          calls.add(call.method);
-          return switch (call.method) {
-            'files' => <String>[copiedImage.path],
-            'image' => Uint8List.fromList(const [80, 78, 71]),
-            _ => fail('Unexpected pasteboard method: ${call.method}'),
-          };
-        });
-        addTearDown(() => messenger.setMockMethodCallHandler(channel, null));
+          const channel = MethodChannel('pasteboard');
+          final messenger = tester.binding.defaultBinaryMessenger;
+          final calls = <String>[];
+          messenger.setMockMethodCallHandler(channel, (call) async {
+            calls.add(call.method);
+            return switch (call.method) {
+              'files' => <String>[copiedFile.path],
+              'image' => Uint8List.fromList(const [80, 78, 71]),
+              _ => fail('Unexpected pasteboard method: ${call.method}'),
+            };
+          });
+          addTearDown(() => messenger.setMockMethodCallHandler(channel, null));
 
-        final files = await readComposerClipboardImages();
+          final files = await readComposerClipboardFiles();
 
-        expect(files, hasLength(1));
-        expect(files.single.name, 'copied screenshot.png');
-        final upload = await tester.runAsync(
-          () async => (
-            await files.single.length(),
-            await files.single.openRead().expand((chunk) => chunk).toList(),
-          ),
-        );
-        expect(upload?.$1, 4);
-        expect(upload?.$2, [4, 5, 6, 7]);
-        expect(calls, ['files']);
-      },
-    );
-
-    testWidgets('the paste shortcut uploads an image at the captured caret', (
-      tester,
-    ) async {
-      final clipboardResult = Completer<List<ComposerUploadFile>>();
-      final calls = <_PanelUploadCall>[];
-      var clipboardReads = 0;
-      final composer = ComposerController(
-        _target,
-        imageUploader: (file, {required onProgress, required abortTrigger}) {
-          final call = _PanelUploadCall(onProgress);
-          calls.add(call);
-          return call.result.future;
+          expect(files, hasLength(1));
+          expect(files.single.name, name);
+          final upload = await tester.runAsync(
+            () async => (
+              await files.single.length(),
+              await files.single.openRead().expand((chunk) => chunk).toList(),
+            ),
+          );
+          expect(upload?.$1, 4);
+          expect(upload?.$2, [4, 5, 6, 7]);
+          expect(calls, ['files']);
         },
       );
-      final shell = await _shell();
-      addTearDown(composer.dispose);
-      addTearDown(shell.dispose);
-      composer.text.value = const TextEditingValue(
-        text: 'BeforeAfter',
-        selection: TextSelection.collapsed(offset: 6),
-      );
-      await _pumpPanel(
-        tester,
-        shell,
-        composer,
-        readClipboardImages: () {
-          clipboardReads++;
-          return clipboardResult.future;
+    }
+
+    for (final extension in ['png', 'mp4']) {
+      testWidgets(
+        'the paste shortcut uploads $extension at the captured caret',
+        (tester) async {
+          final clipboardResult = Completer<List<ComposerUploadFile>>();
+          final calls = <_PanelUploadCall>[];
+          var clipboardReads = 0;
+          const config = SiteConfig(authorizedExtensions: ['png', 'mp4']);
+          final composer = ComposerController(
+            _target,
+            canUploadImage: (name) => config.canUploadImage(name, staff: false),
+            canUploadFile: (name) => config.canUploadFile(name, staff: false),
+            imageUploader:
+                (file, {required onProgress, required abortTrigger}) {
+                  final call = _PanelUploadCall(onProgress);
+                  calls.add(call);
+                  return call.result.future;
+                },
+          );
+          final shell = await _shell();
+          addTearDown(composer.dispose);
+          addTearDown(shell.dispose);
+          composer.text.value = const TextEditingValue(
+            text: 'BeforeAfter',
+            selection: TextSelection.collapsed(offset: 6),
+          );
+          await _pumpPanel(
+            tester,
+            shell,
+            composer,
+            readClipboardFiles: () {
+              clipboardReads++;
+              return clipboardResult.future;
+            },
+          );
+
+          await _pasteShortcut(tester);
+          expect(clipboardReads, 1);
+
+          // The native read is asynchronous. A later selection does not move the
+          // upload away from the caret where Paste was invoked.
+          composer.text.selection = const TextSelection.collapsed(offset: 11);
+          clipboardResult.complete([
+            ComposerUploadFile(
+              name: 'photo.$extension',
+              length: _file.length,
+              openRead: _file.openRead,
+            ),
+          ]);
+          await tester.pump();
+          expect(calls, hasLength(1));
+          expect(composer.notice, isNull);
+          expect(composer.uploads.single.file.name, 'photo.$extension');
+
+          calls.single.result.complete(
+            ComposerUploadResult(
+              id: 1,
+              originalFilename: 'photo.$extension',
+              shortUrl: 'upload://photo',
+              url: 'https://meta.discourse.org/uploads/photo.$extension',
+              thumbnailWidth: 640,
+              thumbnailHeight: 480,
+            ),
+          );
+          await tester.pump();
+
+          expect(
+            composer.text.text,
+            extension == 'png'
+                ? 'Before\n![photo|640x480](upload://photo)\nAfter'
+                : 'Before\n[photo.mp4](upload://photo)\nAfter',
+          );
         },
       );
-
-      await _pasteShortcut(tester);
-      expect(clipboardReads, 1);
-
-      // The native read is asynchronous. A later selection does not move the
-      // image away from the caret where Paste was invoked.
-      composer.text.selection = const TextSelection.collapsed(offset: 11);
-      clipboardResult.complete([_file]);
-      await tester.pump();
-      expect(calls, hasLength(1));
-
-      calls.single.result.complete(
-        const ComposerUploadResult(
-          id: 1,
-          originalFilename: 'photo.png',
-          shortUrl: 'upload://photo',
-          url: 'https://meta.discourse.org/uploads/photo.png',
-          thumbnailWidth: 640,
-          thumbnailHeight: 480,
-        ),
-      );
-      await tester.pump();
-
-      expect(
-        composer.text.text,
-        'Before\n![photo|640x480](upload://photo)\nAfter',
-      );
-    });
+    }
 
     testWidgets('a late clipboard read cannot paste into a new composer', (
       tester,
@@ -259,7 +278,7 @@ void main() {
         tester,
         shell,
         original,
-        readClipboardImages: () => clipboardResult.future,
+        readClipboardFiles: () => clipboardResult.future,
       );
 
       await _pasteShortcut(tester);
@@ -267,7 +286,7 @@ void main() {
         tester,
         shell,
         replacement,
-        readClipboardImages: () async => const [],
+        readClipboardFiles: () async => const [],
       );
       clipboardResult.complete(const []);
       await tester.pump();
@@ -306,7 +325,7 @@ void main() {
         tester,
         shell,
         composer,
-        readClipboardImages: () async => const [],
+        readClipboardFiles: () async => const [],
       );
 
       await _pasteShortcut(tester);
@@ -315,43 +334,111 @@ void main() {
       expect(composer.uploads, isEmpty);
     });
 
-    testWidgets('the context menu offers image paste without clipboard text', (
-      tester,
-    ) async {
-      final calls = <_PanelUploadCall>[];
-      final composer = ComposerController(
-        _target,
-        imageUploader: (file, {required onProgress, required abortTrigger}) {
-          final call = _PanelUploadCall(onProgress);
-          calls.add(call);
-          return call.result.future;
+    for (final extension in ['png', 'mp4']) {
+      testWidgets(
+        'the context menu offers $extension paste without clipboard text',
+        (tester) async {
+          final calls = <_PanelUploadCall>[];
+          const config = SiteConfig(authorizedExtensions: ['png', 'mp4']);
+          final composer = ComposerController(
+            _target,
+            canUploadImage: (name) => config.canUploadImage(name, staff: false),
+            canUploadFile: (name) => config.canUploadFile(name, staff: false),
+            imageUploader:
+                (file, {required onProgress, required abortTrigger}) {
+                  final call = _PanelUploadCall(onProgress);
+                  calls.add(call);
+                  return call.result.future;
+                },
+          );
+          final shell = await _shell();
+          addTearDown(composer.dispose);
+          addTearDown(shell.dispose);
+          await _pumpPanel(
+            tester,
+            shell,
+            composer,
+            readClipboardFiles: () async => [
+              ComposerUploadFile(
+                name: 'photo.$extension',
+                length: _file.length,
+                openRead: _file.openRead,
+              ),
+            ],
+          );
+
+          final textField = tester.widget<TextField>(
+            find.byType(TextField).last,
+          );
+          final editable = tester.state<EditableTextState>(
+            find.byType(EditableText).last,
+          );
+          final toolbar =
+              textField.contextMenuBuilder!(editable.context, editable)
+                  as AdaptiveTextSelectionToolbar;
+          final paste = toolbar.buttonItems!.singleWhere(
+            (item) => item.type == ContextMenuButtonType.paste,
+          );
+          paste.onPressed!();
+          await tester.pump();
+
+          expect(calls, hasLength(1));
+          expect(composer.notice, isNull);
+          expect(composer.uploads.single.file.name, 'photo.$extension');
         },
       );
-      final shell = await _shell();
-      addTearDown(composer.dispose);
-      addTearDown(shell.dispose);
-      await _pumpPanel(
-        tester,
-        shell,
-        composer,
-        readClipboardImages: () async => [_file],
-      );
+    }
 
-      final textField = tester.widget<TextField>(find.byType(TextField).last);
-      final editable = tester.state<EditableTextState>(
-        find.byType(EditableText).last,
-      );
-      final toolbar =
-          textField.contextMenuBuilder!(editable.context, editable)
-              as AdaptiveTextSelectionToolbar;
-      final paste = toolbar.buttonItems!.singleWhere(
-        (item) => item.type == ContextMenuButtonType.paste,
-      );
-      paste.onPressed!();
-      await tester.pump();
+    testWidgets(
+      'paste rejects files disallowed by the site without inserting text',
+      (tester) async {
+        const config = SiteConfig(authorizedExtensions: ['png']);
+        final composer = ComposerController(
+          _target,
+          canUploadImage: (name) => config.canUploadImage(name, staff: false),
+          canUploadFile: (name) => config.canUploadFile(name, staff: false),
+          imageUploader:
+              (_, {required onProgress, required abortTrigger}) async {
+                fail('Disallowed clipboard files must not be uploaded');
+              },
+        )..text.text = 'Draft';
+        final shell = await _shell();
+        addTearDown(composer.dispose);
+        addTearDown(shell.dispose);
+        final messenger = tester.binding.defaultBinaryMessenger;
+        messenger.setMockMethodCallHandler(SystemChannels.platform, (
+          call,
+        ) async {
+          return switch (call.method) {
+            'Clipboard.getData' => {'text': '/tmp/blocked.mp4'},
+            'Clipboard.hasStrings' => {'value': true},
+            _ => null,
+          };
+        });
+        addTearDown(
+          () =>
+              messenger.setMockMethodCallHandler(SystemChannels.platform, null),
+        );
+        await _pumpPanel(
+          tester,
+          shell,
+          composer,
+          readClipboardFiles: () async => [
+            ComposerUploadFile(
+              name: 'blocked.mp4',
+              length: _file.length,
+              openRead: _file.openRead,
+            ),
+          ],
+        );
 
-      expect(calls, hasLength(1));
-    });
+        await _pasteShortcut(tester);
+
+        expect(composer.notice, 'That file type is not allowed on this site.');
+        expect(composer.uploads, isEmpty);
+        expect(composer.text.text, 'Draft');
+      },
+    );
 
     testWidgets('the upload button picks images at the captured caret', (
       tester,
@@ -1723,8 +1810,7 @@ Future<void> _pumpPanel(
   ComposerController composer, {
   double? height,
   ComposerImagePicker pickImages = _cancelImagePick,
-  ComposerClipboardImageReader readClipboardImages =
-      readComposerClipboardImages,
+  ComposerClipboardFileReader readClipboardFiles = readComposerClipboardFiles,
 }) => tester.pumpWidget(
   MaterialApp(
     theme: AppTheme.dark,
@@ -1735,7 +1821,7 @@ Future<void> _pumpPanel(
           composer: composer,
           height: height ?? 500,
           pickImages: pickImages,
-          readClipboardImages: readClipboardImages,
+          readClipboardFiles: readClipboardFiles,
         ),
       ),
     ),

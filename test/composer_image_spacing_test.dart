@@ -181,7 +181,7 @@ Future<void> _pumpEditor(
           hintText: 'Write a reply',
           textStyle: const TextStyle(fontSize: 16, height: 1.5),
           hintStyle: null,
-          readClipboardImages: () async => [_file],
+          readClipboardFiles: () async => [_file],
         ),
       ),
     ),
