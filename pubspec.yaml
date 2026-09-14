@@ -44,6 +44,8 @@ dependencies:
   pasteboard: ^0.5.0
   pointycastle: ^4.0.0
   flutter_svg: ^2.3.0
+  # Decode server sidebar icons and their references to other sprite symbols.
+  xml: ^7.0.1
   flutter_widget_from_html_core: ^0.17.3
   # The YouTube player stays behind our own surface and only exists after the
   # user presses play. This is pinned because every supported platform crosses

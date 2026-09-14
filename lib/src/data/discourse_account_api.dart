@@ -1,10 +1,11 @@
 part of 'discourse_api.dart';
 
 final class DiscourseAccountApi {
-  const DiscourseAccountApi(this._transport, this._models);
+  DiscourseAccountApi(this._transport, this._models);
 
   final DiscourseTransport _transport;
   final DiscourseModelCodec _models;
+  late final _sidebarIcons = SidebarIconLoader(_transport, _models.icons);
   static const int maximumRecentNotifications = 60;
   static const int maximumUserMenuBookmarkRows = 20;
   static const int maximumUserActivityPageSize = UserActivityPage.maximumItems;
@@ -117,22 +118,11 @@ final class DiscourseAccountApi {
     );
 
     try {
-      final sections = <SidebarSection>[];
-      var index = 0;
       final values =
           body[authenticated
               ? 'sidebar_sections'
               : 'anonymous_sidebar_sections'];
-      for (final json in jsonObjects(values)) {
-        final section = SidebarSection.customFromJson(
-          json,
-          index: index,
-          icons: _models.icons,
-        );
-        if (section != null) sections.add(section);
-        index++;
-      }
-      return List.unmodifiable(sections);
+      return await _sidebarIcons.load(values, siteUrl);
     } catch (error, stackTrace) {
       throw SiteLookupException(
         SiteLookupFailure.unreachable,

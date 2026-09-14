@@ -296,6 +296,9 @@ void main() {
       () async {
         final api = DiscourseApi(
           client: MockClient((request) async {
+            if (request.url.path.startsWith('/svg-sprite/')) {
+              return http.Response('', 404);
+            }
             expect(request.url.path, '/sidebar_sections.json');
             expect(request.headers['User-Api-Key'], 'secret');
             return http.Response(
