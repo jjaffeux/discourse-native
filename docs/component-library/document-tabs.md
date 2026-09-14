@@ -42,3 +42,9 @@ Verification on September 14, 2026:
   the standalone example exposed separate selection and close buttons.
 - The supplied Codex screenshots are the visual reference. No authenticated
   forum data was used. Other platform checks are widget tests, not device runs.
+
+Follow-up: the user requested a transparent strip aligned after the forums rail.
+The desktop sheet host now insets the bar by the shell's actual rail width while
+keeping the sheet navigator's bounds unchanged. The shared bar no longer paints
+a background. Integration tests assert its left edge at all desktop breakpoints;
+pixel fixtures supply their own canvas beneath the transparent strip.

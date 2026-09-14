@@ -485,7 +485,14 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
                 child: Column(
                   children: [
                     const ShellTitleBar(),
-                    Expanded(child: DesktopTopicSheetHost(child: body)),
+                    Expanded(
+                      child: DesktopTopicSheetHost(
+                        tabsLeadingInset: layout.isCompact
+                            ? AdaptiveShell.compactRailWidth
+                            : AdaptiveShell.railWidth,
+                        child: body,
+                      ),
+                    ),
                   ],
                 ),
               ),

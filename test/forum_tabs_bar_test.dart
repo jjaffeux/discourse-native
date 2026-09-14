@@ -126,7 +126,7 @@ void main() {
       expect(tester.getSize(ordinary).width, ForumTabsBar.maximumTabWidth);
 
       final barDecoration = _decoration(tester, bar);
-      expect(barDecoration.color, theme.shell.sidebar);
+      expect(barDecoration.color, Colors.transparent);
 
       final barRect = tester.getRect(bar);
       final selectedRect = tester.getRect(selected);
@@ -1251,18 +1251,21 @@ Future<void> _pumpBar(
             children: [
               RepaintBoundary(
                 key: const ValueKey('forum-tabs-paint-boundary'),
-                child: ForumTabsBar(
-                  forumName: 'Discourse Meta',
-                  items: items,
-                  selectedId: selectedId,
-                  onAdd: addEnabled ? (onAdd ?? () {}) : null,
-                  onSelect: onSelect ?? (_) {},
-                  onClose: onClose ?? (_) {},
-                  onReorder: onReorder ?? (_, _) {},
-                  onCloseOthers: onCloseOthers ?? (_) {},
-                  recentlyClosedItems: recentlyClosedItems,
-                  onReopen: onReopen,
-                  onRename: onRename,
+                child: ColoredBox(
+                  color: (theme ?? AppTheme.light).shell.sidebar,
+                  child: ForumTabsBar(
+                    forumName: 'Discourse Meta',
+                    items: items,
+                    selectedId: selectedId,
+                    onAdd: addEnabled ? (onAdd ?? () {}) : null,
+                    onSelect: onSelect ?? (_) {},
+                    onClose: onClose ?? (_) {},
+                    onReorder: onReorder ?? (_, _) {},
+                    onCloseOthers: onCloseOthers ?? (_) {},
+                    recentlyClosedItems: recentlyClosedItems,
+                    onReopen: onReopen,
+                    onRename: onRename,
+                  ),
                 ),
               ),
             ],

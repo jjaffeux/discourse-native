@@ -162,13 +162,11 @@ class _ForumTabsBarState extends State<ForumTabsBar> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
     return Container(
       key: const ValueKey('forum-tabs-bar'),
       width: double.infinity,
       height: ForumTabsBar.heightFor(context),
-      decoration: BoxDecoration(color: theme.shell.sidebar),
+      decoration: const BoxDecoration(color: Colors.transparent),
       child: Padding(
         padding: const EdgeInsets.fromLTRB(4, 5, 5, 5),
         child: LayoutBuilder(
