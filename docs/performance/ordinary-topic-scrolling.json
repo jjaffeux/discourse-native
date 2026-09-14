@@ -1,6 +1,6 @@
 {
   "baselineSource": "9273026f",
-  "fixedSource": "codex/fix-topic-scroll-churn",
+  "fixedSource": "039e5280",
   "fixture": "SCROLL_MIXED=true; 114 rich replies; 20 initial posts; four alternating 120 x 80 pixel legs per pass",
   "notes": [
     "Two process launches per version; native macOS profile, Flutter 3.47.2, Skia Metal, 120 Hz, DPR 2, 1280 x 860.",
@@ -919,6 +919,176 @@
           "streamPostCount": 114
         }
       ]
+    }
+  ],
+  "integrationSource": "9058a837",
+  "integrationRuns": [
+    {
+      "run": "topic-scroll-mixed-integration-first-pass",
+      "generatedAtUtc": "2026-09-14T00:40:04.143604Z",
+      "summary": {
+        "eventCount": 5121,
+        "topicEventCount": 4619,
+        "frameCount": 502,
+        "slowBuildFrameCount": 0,
+        "slowRasterFrameCount": 5,
+        "displayRefreshRate": 120.0,
+        "slowFrameThresholdUs": 8333,
+        "maximumBuildUs": 7772,
+        "maximumRasterUs": 186975,
+        "maximumTotalSpanUs": 238603
+      },
+      "allFrames": {
+        "count": 502,
+        "overBudget": 5,
+        "slowBuilds": 0,
+        "slowRasters": 5,
+        "buildUs": {
+          "count": 502,
+          "total": 368021,
+          "p50": 529,
+          "p95": 1693,
+          "p99": 4912,
+          "max": 7772
+        },
+        "rasterUs": {
+          "count": 502,
+          "total": 1023541,
+          "p50": 1516,
+          "p95": 2443,
+          "p99": 6391,
+          "max": 186975
+        },
+        "vsyncOverheadUs": {
+          "count": 502,
+          "total": 121940,
+          "p50": 136,
+          "p95": 356,
+          "p99": 1860,
+          "max": 21647
+        },
+        "totalSpanUs": {
+          "count": 502,
+          "total": 1809370,
+          "p50": 2401,
+          "p95": 4753,
+          "p99": 19725,
+          "max": 238603
+        }
+      },
+      "viewportWorkUs": {
+        "count": 484,
+        "total": 29539,
+        "p50": 58,
+        "p95": 120,
+        "p99": 164,
+        "max": 225
+      },
+      "postLayoutUs": {
+        "count": 25,
+        "total": 19858,
+        "p50": 554,
+        "p95": 2206,
+        "p99": 2771,
+        "max": 2771
+      },
+      "activityCounts": {
+        "topic.capture.context": 1,
+        "scroll.notification": 2400,
+        "sliver.separator.built": 68,
+        "sliver.child.built": 31,
+        "sliver.post.attached": 17,
+        "post.layout": 25,
+        "sliver.layout.changed": 480,
+        "viewport.work": 484,
+        "viewport.inspected": 484,
+        "scroll.metricsChanged": 480,
+        "topic.progress.changed": 64,
+        "viewport.anchor.saved": 64,
+        "paging.newer.scheduled": 2,
+        "paging.newer.dispatched": 1,
+        "paging.newer.retryArmed": 1,
+        "topic.window.changed": 1,
+        "topic.view.built": 1,
+        "sliver.childIndex.resolved": 14,
+        "paging.newer.cancelled": 1
+      }
+    },
+    {
+      "run": "topic-scroll-mixed-integration-return-pass",
+      "generatedAtUtc": "2026-09-14T00:40:10.787286Z",
+      "summary": {
+        "eventCount": 5027,
+        "topicEventCount": 4523,
+        "frameCount": 504,
+        "slowBuildFrameCount": 0,
+        "slowRasterFrameCount": 0,
+        "displayRefreshRate": 120.0,
+        "slowFrameThresholdUs": 8333,
+        "maximumBuildUs": 2616,
+        "maximumRasterUs": 5454,
+        "maximumTotalSpanUs": 7348
+      },
+      "allFrames": {
+        "count": 504,
+        "overBudget": 0,
+        "slowBuilds": 0,
+        "slowRasters": 0,
+        "buildUs": {
+          "count": 504,
+          "total": 337672,
+          "p50": 560,
+          "p95": 1494,
+          "p99": 2268,
+          "max": 2616
+        },
+        "rasterUs": {
+          "count": 504,
+          "total": 850095,
+          "p50": 1653,
+          "p95": 2697,
+          "p99": 3290,
+          "max": 5454
+        },
+        "vsyncOverheadUs": {
+          "count": 504,
+          "total": 89809,
+          "p50": 147,
+          "p95": 436,
+          "p99": 659,
+          "max": 1222
+        },
+        "totalSpanUs": {
+          "count": 504,
+          "total": 1315575,
+          "p50": 2527,
+          "p95": 4187,
+          "p99": 4939,
+          "max": 7348
+        }
+      },
+      "viewportWorkUs": {
+        "count": 484,
+        "total": 35975,
+        "p50": 67,
+        "p95": 148,
+        "p99": 218,
+        "max": 455
+      },
+      "postLayoutUs": {
+        "count": 0
+      },
+      "activityCounts": {
+        "topic.capture.context": 1,
+        "scroll.notification": 2400,
+        "sliver.separator.built": 66,
+        "sliver.layout.changed": 480,
+        "viewport.work": 484,
+        "viewport.inspected": 484,
+        "scroll.metricsChanged": 480,
+        "topic.progress.changed": 64,
+        "viewport.anchor.saved": 64
+      }
     }
   ]
 }

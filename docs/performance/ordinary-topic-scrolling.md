@@ -97,3 +97,14 @@ where the current menu exposes the basic cursor. It was left unchanged.
 Native inspection covered the light-theme reader, wheel scrolling away and
 back, matching topic progress, and selecting returned text with the Copy quote
 toolbar. Dark theme and live invalidation were checked in widget tests.
+
+Integration with main at `2780e6d6` passed the same 362 selected tests, excluding
+the independently reproduced menu-cursor failure, and full-project analysis.
+A fresh native profile build of that integration (`9058a837`) retained the
+improvement: return-pass UI p99 was 2.27 ms, with no reply remounts and no UI or
+raster overruns across 504 frames. First-pass UI p99 was 4.91 ms; the existing
+first-use raster spikes remained.
+
+Restart an already-running debug app when applying this change. The stored
+reply widget changes from stateless to stateful, which requires a restart
+instead of relying on hot reload to preserve the old widget type.
