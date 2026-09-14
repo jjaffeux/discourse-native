@@ -518,29 +518,21 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
             child: panel,
           );
 
-          if (layout == ShellLayout.expanded) {
-            final docked = framedShell(
-              Row(
-                children: [
-                  Expanded(child: shell),
-                  if (showDiagnostics)
-                    resizablePanel(const ValueKey('diagnostics-docked-slot')),
-                ],
-              ),
-            );
-            return _withDiagnosticsBackHandling(
-              layout: layout,
-              open: showDiagnostics,
-              diagnostics: diagnostics,
-              child: docked,
-            );
-          }
-
+          final dockDiagnostics = layout == ShellLayout.expanded;
+          final reader = framedShell(
+            Row(
+              children: [
+                Expanded(child: shell),
+                if (showDiagnostics && dockDiagnostics)
+                  resizablePanel(const ValueKey('diagnostics-docked-slot')),
+              ],
+            ),
+          );
           final phoneWidth = constraints.maxWidth < 600;
           final overlay = Stack(
             children: [
-              Positioned.fill(child: framedShell(shell)),
-              if (showDiagnostics)
+              Positioned.fill(child: reader),
+              if (showDiagnostics && !dockDiagnostics)
                 Positioned.fill(
                   child: ModalBarrier(
                     key: const ValueKey('diagnostics-modal-barrier'),
@@ -549,7 +541,7 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
                     color: Colors.black.withValues(alpha: 0.32),
                   ),
                 ),
-              if (showDiagnostics)
+              if (showDiagnostics && !dockDiagnostics)
                 Positioned.fill(
                   child: Align(
                     alignment: AlignmentDirectional.centerEnd,
@@ -583,17 +575,15 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
     required DiagnosticsController diagnostics,
     required Widget child,
   }) {
-    // Compact already owns a PopScope for its sidebar/content hierarchy. It
-    // gives diagnostics first refusal itself so one Back event cannot both
-    // close the panel and navigate the underlying shell.
-    if (layout.isCompact) return child;
-    // Keep the reader below the same wrapper when the panel opens or closes.
-    // Inserting a PopScope only while open recreates the whole shell, including
-    // the topic's scroll controllers and already-rendered posts.
+    // Keep this wrapper stable when docking a composer changes the layout.
+    // Recreating the reader also reopens its sheet and takes focus from the
+    // composer. Compact's inner PopScope owns back handling in that layout.
     return PopScope(
-      canPop: !open,
+      canPop: layout.isCompact || !open,
       onPopInvokedWithResult: (didPop, result) {
-        if (!didPop && diagnostics.isPanelOpen) diagnostics.closePanel();
+        if (!layout.isCompact && !didPop && diagnostics.isPanelOpen) {
+          diagnostics.closePanel();
+        }
       },
       child: child,
     );
