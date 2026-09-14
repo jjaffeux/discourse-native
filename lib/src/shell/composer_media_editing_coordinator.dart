@@ -467,8 +467,8 @@ final class ComposerMediaEditingCoordinator extends FrameSafeNotifier
     composer.focus.requestFocus();
   }
 
-  Future<bool> pasteClipboardImages(
-    ComposerClipboardImageReader readClipboardImages,
+  Future<bool> pasteClipboardFiles(
+    ComposerClipboardFileReader readClipboardFiles,
   ) async {
     final composer = _composer;
     if (isDisposed || !composer.canUpload) {
@@ -482,12 +482,12 @@ final class ComposerMediaEditingCoordinator extends FrameSafeNotifier
 
     List<ComposerUploadFile> files;
     try {
-      files = await readClipboardImages();
+      files = await readClipboardFiles();
     } catch (error, stackTrace) {
       DiagnosticsSink.current.reportError(
         error,
         stackTrace,
-        operation: 'composer.readClipboardImages',
+        operation: 'composer.readClipboardFiles',
         source: 'platform',
         severity: DiagnosticSeverity.warning,
         handled: true,
@@ -498,7 +498,7 @@ final class ComposerMediaEditingCoordinator extends FrameSafeNotifier
     if (!_isCurrent(composer, lifecycle) || !composer.canUpload) return true;
     if (files.isEmpty) return false;
 
-    composer.addImages(files, offset);
+    composer.addFiles(files, offset);
     composer.focus.requestFocus();
     return true;
   }

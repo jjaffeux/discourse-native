@@ -120,7 +120,7 @@ void main() {
         addTearDown(replacement.dispose);
         addTearDown(coordinator.dispose);
 
-        final operation = coordinator.pasteClipboardImages(
+        final operation = coordinator.pasteClipboardFiles(
           () => clipboard.future,
         );
         coordinator.replaceComposer(replacement);

@@ -1474,16 +1474,17 @@ addresses do consult it; the site's `enable_markdown_linkify` gate controls
 both. Code, existing Markdown links and images, reference definitions, and
 HTML tag attributes remain raw.
 
-Image uploads enter one queue whether they came from a clipboard paste, a
-desktop drop or the toolbar's native multiple-file picker. Every adapter stops
-at `ComposerUploadFile`; site extension checks, batch limits, progress, retry
-and markdown insertion therefore cannot drift between the three entry points.
+Uploads enter one queue whether they came from a clipboard paste, a desktop
+drop or the toolbar's native multiple-image picker. Clipboard files and drops
+accept the site's allowed file types, including videos; the image picker stays
+image-only. Every adapter stops at `ComposerUploadFile`, sharing site extension
+checks, batch limits, progress, retry and markdown insertion.
 Flutter's clipboard surface only exposes text, so the paste adapter reads the
 copied file itself when one is available, then falls back to the native image
 representation for screenshots copied as pixels. That ordering matters on
 macOS, where asking AppKit to coerce a copied Finder file into an image can
 produce its generic PNG document icon instead of its contents. Ordinary text
-paste still falls through to the framework unchanged. Both image paste and the
+paste still falls through to the framework unchanged. Both file paste and the
 picker capture the current caret before crossing their asynchronous platform
 boundary, so a completed upload lands where the user asked for it even if focus
 or selection changed meanwhile.

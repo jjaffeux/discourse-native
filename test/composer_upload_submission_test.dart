@@ -228,7 +228,7 @@ void main() {
       final media = ComposerMediaEditingCoordinator(composer);
       addTearDown(media.dispose);
       final clipboard = Completer<List<ComposerUploadFile>>();
-      final pasting = media.pasteClipboardImages(() => clipboard.future);
+      final pasting = media.pasteClipboardFiles(() => clipboard.future);
 
       final submitting = shell.submitComposer();
       await tester.pump();
@@ -246,7 +246,7 @@ void main() {
       gate.completeError(_writeFailure);
       await submitting;
       expect(
-        await media.pasteClipboardImages(() async => [_file('retry.png')]),
+        await media.pasteClipboardFiles(() async => [_file('retry.png')]),
         isTrue,
       );
       await tester.pump();

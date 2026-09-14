@@ -71,7 +71,7 @@ class ComposerPanel extends StatelessWidget {
     this.placement = ComposerPlacement.right,
     this.onPlacementChanged,
     this.pickImages = pickComposerImages,
-    this.readClipboardImages = readComposerClipboardImages,
+    this.readClipboardFiles = readComposerClipboardFiles,
   });
 
   final ComposerController composer;
@@ -82,7 +82,7 @@ class ComposerPanel extends StatelessWidget {
   final ComposerPlacement placement;
   final ValueChanged<ComposerPlacement>? onPlacementChanged;
   final ComposerImagePicker pickImages;
-  final ComposerClipboardImageReader readClipboardImages;
+  final ComposerClipboardFileReader readClipboardFiles;
 
   @override
   Widget build(BuildContext context) {
@@ -319,8 +319,8 @@ class ComposerPanel extends StatelessWidget {
                                               composer: composer,
                                               showSelectionToolbar: false,
                                               pickImages: pickImages,
-                                              readClipboardImages:
-                                                  readClipboardImages,
+                                              readClipboardFiles:
+                                                  readClipboardFiles,
                                               onSuggestionAction:
                                                   ({
                                                     required context,
@@ -705,7 +705,7 @@ class ComposerEditor extends StatefulWidget {
     this.showSelectionToolbar = true,
     this.expands = true,
     this.pickImages = pickComposerImages,
-    this.readClipboardImages = readComposerClipboardImages,
+    this.readClipboardFiles = readComposerClipboardFiles,
     this.onSuggestionAction,
   });
 
@@ -719,7 +719,7 @@ class ComposerEditor extends StatefulWidget {
   /// Topic composers expose persistent Native formatting actions instead.
   final bool showSelectionToolbar;
   final ComposerImagePicker pickImages;
-  final ComposerClipboardImageReader readClipboardImages;
+  final ComposerClipboardFileReader readClipboardFiles;
 
   final bool expands;
   final ComposerSuggestionActionHandler? onSuggestionAction;
@@ -799,7 +799,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
       startingAt: (offset) =>
           widget.composer.text.renderedEmojiStartingAt(offset),
     );
-    _pasteAction = _ComposerPasteAction(_pasteClipboardImages);
+    _pasteAction = _ComposerPasteAction(_pasteClipboardFiles);
     widget.composer.text.imageScrollController = _scroll;
     _selectionOverlay.sync();
   }
@@ -858,13 +858,13 @@ class _ComposerEditorState extends State<ComposerEditor> {
     super.dispose();
   }
 
-  Future<bool> _pasteClipboardImages() async {
-    return _media.pasteClipboardImages(widget.readClipboardImages);
+  Future<bool> _pasteClipboardFiles() async {
+    return _media.pasteClipboardFiles(widget.readClipboardFiles);
   }
 
   Future<void> _pasteFromContextMenu(EditableTextState state) async {
     _blockquoteInputFormatter.reset();
-    if (await _pasteClipboardImages()) {
+    if (await _pasteClipboardFiles()) {
       if (state.mounted) state.hideToolbar();
       return;
     }
@@ -2090,9 +2090,9 @@ class _ComposerQuoteLineStartAction<T extends DirectionalCaretMovementIntent>
 }
 
 class _ComposerPasteAction extends Action<PasteTextIntent> {
-  _ComposerPasteAction(this._pasteImages);
+  _ComposerPasteAction(this._pasteFiles);
 
-  final Future<bool> Function() _pasteImages;
+  final Future<bool> Function() _pasteFiles;
 
   @override
   Object? invoke(PasteTextIntent intent) {
@@ -2104,7 +2104,7 @@ class _ComposerPasteAction extends Action<PasteTextIntent> {
     PasteTextIntent intent,
     Action<PasteTextIntent>? fallback,
   ) async {
-    if (await _pasteImages()) return null;
+    if (await _pasteFiles()) return null;
     return fallback?.invoke(intent);
   }
 
