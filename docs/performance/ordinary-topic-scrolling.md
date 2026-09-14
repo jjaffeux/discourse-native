@@ -1,5 +1,8 @@
 # Ordinary rich topic scrolling — September 14
 
+The [prepend follow-up](topic-prepend-scrolling.md) fixes temporary offscreen
+reply construction and active-drag displacement when earlier pages arrive.
+
 The new user capture exposed a gap in the earlier long-post work: 81 of 397
 frames exceeded the 8.33 ms UI budget, with a 108.40 ms maximum. No raster
 frame exceeded that budget. Most expensive posts contained only 1–5 KB of

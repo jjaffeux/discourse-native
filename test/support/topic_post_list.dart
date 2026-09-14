@@ -13,7 +13,7 @@ typedef TopicPostListHandle = ({
 Finder topicPostListFinder() => find.ancestor(
   of: find.descendant(
     of: find.byType(TopicView),
-    matching: find.byType(SuperSliverList),
+    matching: find.bySubtype<SuperSliverList>(),
   ),
   matching: find.byType(CustomScrollView),
 );
@@ -22,11 +22,14 @@ TopicPostListHandle topicPostList(WidgetTester tester) {
   final viewport = topicPostListFinder();
   final scroll = tester.widget<CustomScrollView>(viewport);
   final sliver = tester.widget<SuperSliverList>(
-    find.descendant(of: viewport, matching: find.byType(SuperSliverList)),
+    find.descendant(of: viewport, matching: find.bySubtype<SuperSliverList>()),
   );
   final padding = tester.widget<SliverPadding>(
     find.ancestor(
-      of: find.descendant(of: viewport, matching: find.byType(SuperSliverList)),
+      of: find.descendant(
+        of: viewport,
+        matching: find.bySubtype<SuperSliverList>(),
+      ),
       matching: find.byType(SliverPadding),
     ),
   );

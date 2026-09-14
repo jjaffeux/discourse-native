@@ -52,6 +52,7 @@ import 'topic_inbox_row.dart';
 import 'topic_list_view.dart';
 import 'topic_move_posts.dart';
 import 'topic_post_retention.dart';
+import 'topic_post_sliver.dart';
 import 'topic_progress.dart';
 import 'topic_tag_picker.dart';
 import 'topic_taxonomy_fields.dart';
@@ -1412,7 +1413,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     final current = change.currentPostIds;
     if (previous.isEmpty) return false;
     final inserted = current.indexOf(previous.first);
-    if (inserted < 0 || current.length != previous.length + inserted) {
+    if (inserted < 0 || current.length < previous.length + inserted) {
       return false;
     }
     for (var index = 0; index < previous.length; index++) {
@@ -1427,6 +1428,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     // with post IDs. Move the cached heights too, before updating the delegate;
     // invalidating them alone leaves old heights assigned to different posts.
     // Separated lists have two children per inserted post or loading header.
+    final previousTotalExtent = list.totalExtent;
     if (change.previousHasHeader && !change.hasHeader) {
       list
         ..removeItem(0)
@@ -1445,6 +1447,12 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
       // its predecessor is loaded. Other retained posts keep their neighbors.
       list.invalidateExtent(leading + inserted * 2);
       if (change.hasHeader) list.invalidateExtent(1);
+    }
+    final scroll = _scroll;
+    if (scroll != null && scroll.hasClients) {
+      // Move the viewport by the inserted estimates before layout. Unlike a
+      // post-frame jump, this correction preserves an active drag's activity.
+      scroll.position.correctBy(list.totalExtent - previousTotalExtent);
     }
     if (_isScrollCaptureRecording) {
       _recordTopicScrollEvent('sliver.extents.shifted', {
@@ -1943,7 +1951,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
         (showRecommendations && (!widget.showSidebar || !canPinSidebar)
             ? 1
             : 0);
-    final postList = SuperSliverList.separated(
+    final postList = TopicPostSliver(
       listController: _list,
       extentEstimation: TopicView._estimateChildExtent,
       delayPopulatingCacheArea: true,
@@ -1953,6 +1961,17 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
       // Keep existing post elements attached to their ids when a page is
       // inserted before them; separated lists address the expanded index.
       findChildIndexCallback: (key) {
+        if (key is ValueKey<(String, int)> &&
+            key.value.$1 == 'topic-post-separator') {
+          final postIndex = postIndexes[key.value.$2];
+          if (postIndex == null) return null;
+          final index = (postIndex + (showHeader ? 1 : 0)) * 2 - 1;
+          return index >= 0 ? index : null;
+        }
+        if (key is ValueKey<(String, int)> &&
+            key.value.$1 == 'topic-trailing-separator') {
+          return (postIds.length + (showHeader ? 1 : 0) + key.value.$2) * 2 - 1;
+        }
         if (key is! ValueKey<int>) return null;
         final postIndex = postIndexes[key.value];
         if (postIndex == null) return null;
@@ -1977,10 +1996,17 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
             'isDayBoundary': dayByPostIndex.containsKey(nextPostIndex),
           });
         }
-        if (dayByPostIndex.containsKey(nextPostIndex)) {
-          return const SizedBox.shrink();
-        }
-        return DSeparator(space: 1, color: theme.shell.divider);
+        return KeyedSubtree(
+          key: nextPostIndex < postIds.length
+              ? ValueKey(('topic-post-separator', postIds[nextPostIndex]))
+              : ValueKey((
+                  'topic-trailing-separator',
+                  nextPostIndex - postIds.length,
+                )),
+          child: dayByPostIndex.containsKey(nextPostIndex)
+              ? const SizedBox.shrink()
+              : DSeparator(space: 1, color: theme.shell.divider),
+        );
       },
       itemBuilder: (context, index) {
         if (showHeader && index == 0) {

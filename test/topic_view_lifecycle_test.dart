@@ -1521,7 +1521,7 @@ void main() {
                 .widget<ScrollView>(viewportFinder)
                 .controller!;
             final list = tester
-                .widget<SuperSliverList>(find.byType(SuperSliverList))
+                .widget<SuperSliverList>(find.bySubtype<SuperSliverList>())
                 .listController!;
             final measuredPost = list.extentForIndex(
               (80 - firstLoaded + 1) * 2,

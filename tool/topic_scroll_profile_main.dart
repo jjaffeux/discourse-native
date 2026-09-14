@@ -15,8 +15,12 @@ Future<void> main() async {
   final binding = WidgetsFlutterBinding.ensureInitialized();
   MacOSLaunchScreen.dismissAfterFirstFlutterFrame();
   const mixed = bool.fromEnvironment('SCROLL_MIXED');
-  final controller = mixed
-      ? await mixedTopicScrollController()
+  const prepend = bool.fromEnvironment('SCROLL_PREPEND');
+  final controller = mixed || prepend
+      ? await mixedTopicScrollController(
+          firstLoaded: prepend ? 95 : 1,
+          initialPostNumber: prepend ? 105 : null,
+        )
       : await topicScrollController();
   final diagnostics = DiagnosticsController.start(
     persistence: MemoryDiagnosticsPersistence(),
@@ -42,6 +46,16 @@ Future<void> main() async {
   binding.rootElement!.visitChildren(findList);
   final scroll = scrollable!.widget.controller!;
   final list = sliver!.listController!;
+  if (prepend) {
+    for (final offset in [6, 9, 12, 10]) {
+      list.jumpToItem(
+        index: (offset + 1) * 2,
+        scrollController: scroll,
+        alignment: 0,
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 300));
+    }
+  }
   final capture = diagnostics.topicScrollCapture;
   const label = String.fromEnvironment('SCROLL_LABEL', defaultValue: 'capture');
   for (final name in ['first-pass', 'return-pass']) {
@@ -51,7 +65,17 @@ Future<void> main() async {
     );
     // Repeated crossings exercise the async placeholder/settled-height cycle
     // as well as steady scrolling within a large rendered tree.
-    if (mixed) {
+    if (prepend) {
+      await controller.loadEarlierPosts();
+      await Future<void>.delayed(const Duration(milliseconds: 300));
+      for (final direction in [-1, 1]) {
+        for (var step = 0; step < 60; step++) {
+          scroll.position.pointerScroll(direction * 40);
+          await binding.endOfFrame;
+        }
+        await Future<void>.delayed(const Duration(milliseconds: 200));
+      }
+    } else if (mixed) {
       for (final direction in [1, -1, 1, -1]) {
         for (var step = 0; step < 120; step++) {
           scroll.position.pointerScroll(direction * 80);
