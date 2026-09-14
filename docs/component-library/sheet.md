@@ -67,14 +67,22 @@ inset margins. The sheet keeps its existing route and descendants while its
 width changes. The **Inset and expanding** styleguide example demonstrates
 this with retained input.
 
-`DesktopTopicSheetHost` owns the app adaptation below the window toolbar. It
-keeps the source page mounted, opens topics in a right inset sheet, and widens
-the sheet when composing. `ComposerDock` lays out the reader, resize divider
-and editor inside that surface for physical left, bottom and right placements.
-Minimizing restores reading width. Narrow desktop windows use the existing
-bottom-dock fallback and restore the preferred side when space permits.
+`DesktopTopicSheetHost` keeps the source page mounted and opens topics in a
+right inset sheet below the window toolbar. Following the user's revision,
+`ComposerDock` now owns the outer desktop layout. Physical left/right docking
+reduces the whole workspace width, including navigation; bottom docking reduces
+its height. The sheet adapts to the remaining workspace rather than widening for
+the editor. Closing the sheet leaves the composer available; minimizing or
+closing the composer restores workspace space. Narrow windows keep the existing
+bottom fallback and restore the preferred side when space permits. Mobile keeps
+its page-level composer.
 
-Verification: sheet and keyboard suites (72 tests), composer/navigation/chat
+The workspace is a separate semantics container so its modal sheet cannot hide
+the left-docked composer from accessibility. On macOS the left composer reserves
+the window-control strip. `ReaderContentBounds` reports the actual topic surface
+through docking and route animations, keeping chat overlays anchored correctly.
+
+Initial inset verification: sheet and keyboard suites (72 tests), composer/navigation/chat
 regressions, and static analysis of the root and full profile. macOS inspection
 used `tool/topic_sheet_review_main.dart` with local fixture data: reading,
 all three docks with retained text, minimize, light/dark, narrow desktop, and
@@ -82,6 +90,13 @@ the new Native styleguide example. One existing topic-inbox popover dismissal
 test fails identically at unchanged commit `93c76012`; it was verified separately
 and excluded from the remaining regression run. No Linux or spoken VoiceOver
 execution is claimed.
+
+The app-level revision is covered by desktop layout tests for all physical docks
+in LTR/RTL, independent sheet/composer dismissal, retained editor state, new-topic
+composition, narrow-window fallback, and reader bounds. The macOS fixture also
+exercises the composer outside the sheet using its real controls and editor,
+including light/dark and narrow layouts. The revision passed 118 relevant tests
+and static analysis of the root and full profile.
 
 ## Acceptance fixtures
 

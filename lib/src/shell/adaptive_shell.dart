@@ -29,6 +29,7 @@ import 'keyboard_navigation.dart';
 import 'keyboard_shortcuts_help.dart';
 import 'main_content.dart';
 import 'platform.dart';
+import 'reader_content_bounds.dart';
 import 'resizable_pane.dart';
 import 'shell_controller.dart';
 import 'shell_panel.dart';
@@ -389,8 +390,18 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
         },
       },
       child: ComposerPresentationHost(
-        topicSheets: !context.isTouch,
-        child: _buildShell(context),
+        child: context.isTouch
+            ? _buildShell(context)
+            : ComposerDock(
+                key: const ValueKey('app-composer-dock'),
+                appWorkspace: true,
+                child: LayoutBuilder(
+                  builder: (context, bounds) => MediaQuery(
+                    data: MediaQuery.of(context).copyWith(size: bounds.biggest),
+                    child: _buildShell(context),
+                  ),
+                ),
+              ),
       ),
     );
   }
@@ -867,8 +878,7 @@ class _CompactShell extends StatelessWidget {
                       pane: controller.mobilePane,
                       rootMode: controller.rootMode,
                     ),
-                    builder: (context, state, _) => ComposerDock(
-                      key: ComposerPresentationHost.dockKeyOf(context),
+                    builder: (context, state, _) => _PageComposerDock(
                       child: AnimatedSwitcher(
                         duration: const Duration(milliseconds: 220),
                         switchInCurve: Curves.easeOutCubic,
@@ -1003,10 +1013,7 @@ class _WideShell extends StatelessWidget {
                               child: const InstanceSidebar(),
                             ),
                             Expanded(
-                              child: ComposerDock(
-                                key: ComposerPresentationHost.dockKeyOf(
-                                  context,
-                                ),
+                              child: _PageComposerDock(
                                 child: MainContent(
                                   key: ComposerPresentationHost.contentKeyOf(
                                     context,
@@ -1025,6 +1032,28 @@ class _WideShell extends StatelessWidget {
           ],
         );
       },
+    );
+  }
+}
+
+/// Mobile keeps its page dock; desktop measures the page below the app dock.
+class _PageComposerDock extends StatelessWidget {
+  const _PageComposerDock({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    if (context.isTouch) {
+      return ComposerDock(
+        key: ComposerPresentationHost.dockKeyOf(context),
+        child: child,
+      );
+    }
+    return ShellSelector<bool>(
+      select: (shell) => shell.currentContent?.isTopic == true,
+      builder: (context, sheetOpen, _) =>
+          ReaderContentBounds(enabled: !sheetOpen, child: child),
     );
   }
 }
