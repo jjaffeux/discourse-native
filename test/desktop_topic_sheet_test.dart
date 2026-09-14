@@ -5,9 +5,12 @@ import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/shell/adaptive_shell.dart';
 import 'package:discourse_native/src/shell/composer_panel.dart';
+import 'package:discourse_native/src/shell/desktop_topic_sheet.dart';
+import 'package:discourse_native/src/shell/instance_rail.dart';
 import 'package:discourse_native/src/shell/list_boundary_shortcuts.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
+import 'package:discourse_native/src/shell/title_bar.dart';
 import 'package:discourse_native/src/shell/topic_list_view.dart';
 import 'package:discourse_native/src/shell/topic_view.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
@@ -60,73 +63,129 @@ void main() {
 
   for (final direction in TextDirection.values) {
     testWidgets(
-      'all physical docks stay inside the expanding sheet ($direction)',
+      'physical docks push the workspace and keep the sheet inside it ($direction)',
       (tester) async {
         final h = await _setup(tester, direction: direction);
-        h.shell.openTopicFromList(h.topics.first);
-        await tester.pumpAndSettle();
-        final readingWidth = tester.getSize(_sheet).width;
-        final listRect = tester.getRect(_list);
-        h.shell.openReply();
-        await tester.pumpAndSettle();
-        final editor = find.byType(ComposerEditor);
-        final editorState = tester.state(editor);
-        final composer = h.shell.visibleComposer!;
-        await tester.enterText(
-          find.descendant(of: editor, matching: find.byType(EditableText)),
-          'A draft inside the sheet',
-        );
-        composer.text.selection = const TextSelection(
-          baseOffset: 2,
-          extentOffset: 7,
-        );
-        final selection = composer.text.selection;
-        final topicState = tester.state(find.byType(TopicView));
-        expect(tester.getSize(_sheet).width, greaterThan(readingWidth));
-        for (final dock in ['left', 'bottom', 'right']) {
-          await tester.tap(find.byKey(const ValueKey('composer-options')));
+        final semantics = tester.ensureSemantics();
+        try {
+          h.shell.openTopicFromList(h.topics.first);
           await tester.pumpAndSettle();
-          await tester.tap(find.byTooltip('Dock $dock'));
+          final readingWidth = tester.getSize(_sheet).width;
+          final listRect = tester.getRect(_list);
+          final listElement = tester.element(find.byType(TopicListView));
+          final titleBar = find.byWidgetPredicate(
+            (widget) => widget is ShellTitleBar && widget.showControls,
+          );
+          final originalToolbar = tester.getRect(titleBar);
+          final originalRail = tester.getRect(find.byType(InstanceRail));
+          h.shell.openReply();
           await tester.pumpAndSettle();
-          final bounds = tester.getRect(_sheet);
-          final frame = tester.getRect(find.byType(ComposerPanel));
-          final reader = tester.getRect(find.byType(TopicView));
-          expect(bounds.contains(frame.topLeft), isTrue);
-          expect(frame.right, lessThanOrEqualTo(bounds.right + .01));
-          expect(frame.bottom, lessThanOrEqualTo(bounds.bottom + .01));
-          expect(frame.overlaps(reader), isFalse);
-          if (dock == 'left') {
-            expect(frame.right, lessThanOrEqualTo(reader.left));
+          final editor = find.byType(ComposerEditor);
+          final editorState = tester.state(editor);
+          final composer = h.shell.visibleComposer!;
+          await tester.enterText(
+            find.descendant(of: editor, matching: find.byType(EditableText)),
+            'An app-level draft',
+          );
+          composer.text.selection = const TextSelection(
+            baseOffset: 2,
+            extentOffset: 7,
+          );
+          final selection = composer.text.selection;
+          final topicState = tester.state(find.byType(TopicView));
+          expect(tester.getSize(_sheet).width, lessThan(readingWidth));
+          for (final dock in ['left', 'bottom', 'right']) {
+            await tester.tap(find.byKey(const ValueKey('composer-options')));
+            await tester.pumpAndSettle();
+            await tester.tap(find.byTooltip('Dock $dock'));
+            await tester.pumpAndSettle();
+            final bounds = tester.getRect(_sheet);
+            final workspace = tester.getRect(
+              find.byType(DesktopTopicSheetHost),
+            );
+            final frame = tester.getRect(find.byType(ComposerPanel));
+            final reader = tester.getRect(find.byType(TopicView));
+            final toolbar = tester.getRect(titleBar);
+            final rail = tester.getRect(find.byType(InstanceRail));
+            expect(find.bySemanticsLabel('Composer options'), findsOneWidget);
+            final editorInput = find.descendant(
+              of: editor,
+              matching: find.byType(EditableText),
+            );
+            expect(editorInput.hitTestable(), findsOneWidget);
+            expect(workspace.contains(bounds.topLeft), isTrue);
+            expect(bounds.right, lessThanOrEqualTo(workspace.right));
+            expect(bounds.bottom, lessThanOrEqualTo(workspace.bottom));
+            expect(workspace.overlaps(frame), isFalse);
+            expect(bounds.overlaps(frame), isFalse);
+            expect(frame.overlaps(reader), isFalse);
+            expect(h.shell.readerContentBounds, reader);
+            if (dock == 'left') {
+              expect(frame.right, lessThanOrEqualTo(workspace.left));
+              expect(toolbar.left, greaterThan(originalToolbar.left));
+              if (direction == TextDirection.ltr) {
+                expect(rail.left, greaterThan(originalRail.left));
+              }
+            }
+            if (dock == 'right') {
+              expect(frame.left, greaterThanOrEqualTo(workspace.right));
+              expect(toolbar.right, lessThan(originalToolbar.right));
+              if (direction == TextDirection.rtl) {
+                expect(rail.left, lessThan(originalRail.left));
+              }
+            }
+            if (dock == 'bottom') {
+              expect(frame.top, greaterThanOrEqualTo(workspace.bottom));
+              expect(frame.width, originalToolbar.width);
+              expect(rail.bottom, lessThan(originalRail.bottom));
+              expect(tester.getSize(_sheet).width, readingWidth);
+            } else {
+              expect(
+                frame.top,
+                originalToolbar.top +
+                    (dock == 'left' ? ShellTitleBar.height : 0),
+              );
+              expect(toolbar.width, lessThan(originalToolbar.width));
+            }
+            expect(tester.state(editor), same(editorState));
+            expect(tester.state(find.byType(TopicView)), same(topicState));
+            expect(composer.text.selection, selection);
+            expect(
+              tester.element(find.byType(TopicListView)),
+              same(listElement),
+            );
+            expect(tester.takeException(), isNull);
           }
-          if (dock == 'right') {
-            expect(frame.left, greaterThanOrEqualTo(reader.right));
-          }
-          if (dock == 'bottom') {
-            expect(frame.top, greaterThanOrEqualTo(reader.bottom));
-          }
+          await tester.tap(find.byKey(const ValueKey('composer-minimize')));
+          await tester.pumpAndSettle();
+          expect(tester.getSize(_sheet).width, readingWidth);
+          expect(
+            find.byKey(const ValueKey('composer-restore')),
+            findsOneWidget,
+          );
+          await tester.tap(find.byKey(const ValueKey('composer-restore')));
+          await tester.pumpAndSettle();
           expect(tester.state(editor), same(editorState));
-          expect(tester.state(find.byType(TopicView)), same(topicState));
+          h.shell.closeTopicSheet();
+          await tester.pumpAndSettle();
+          expect(find.byType(ComposerPanel), findsOneWidget);
+          expect(tester.state(editor), same(editorState));
+          expect(h.shell.visibleComposer, same(composer));
+          h.shell.openTopicFromList(h.topics.first);
+          await tester.pumpAndSettle();
+          expect(tester.state(editor), same(editorState));
+          expect(composer.raw, 'An app-level draft');
           expect(composer.text.selection, selection);
+          await tester.tap(find.byKey(const ValueKey('composer-close')));
+          await tester.pumpAndSettle();
+          expect(h.shell.visibleComposer, isNull);
+          expect(tester.getRect(titleBar), originalToolbar);
           expect(tester.getRect(_list), listRect);
+          expect(tester.getSize(_sheet).width, readingWidth);
           expect(tester.takeException(), isNull);
+        } finally {
+          semantics.dispose();
         }
-        await tester.tap(find.byKey(const ValueKey('composer-minimize')));
-        await tester.pumpAndSettle();
-        expect(tester.getSize(_sheet).width, readingWidth);
-        expect(find.byKey(const ValueKey('composer-restore')), findsOneWidget);
-        await tester.tap(find.byKey(const ValueKey('composer-restore')));
-        await tester.pumpAndSettle();
-        expect(tester.state(editor), same(editorState));
-        h.shell.closeTopicSheet();
-        await tester.pumpAndSettle();
-        expect(find.byType(ComposerPanel), findsNothing);
-        expect(h.shell.visibleComposer, same(composer));
-        h.shell.openTopicFromList(h.topics.first);
-        await tester.pumpAndSettle();
-        expect(tester.state(editor), same(editorState));
-        expect(composer.raw, 'A draft inside the sheet');
-        expect(composer.text.selection, selection);
-        expect(tester.takeException(), isNull);
       },
       variant: TargetPlatformVariant.only(TargetPlatform.macOS),
     );
@@ -150,7 +209,8 @@ void main() {
       var frame = tester.getRect(find.byType(ComposerPanel));
       var reader = tester.getRect(find.byType(TopicView));
       expect(frame.top, greaterThanOrEqualTo(reader.bottom));
-      expect(frame.width, closeTo(tester.getSize(_sheet).width, 1));
+      expect(frame.width, 650);
+      expect(frame.width, greaterThan(tester.getSize(_sheet).width));
       tester.view.physicalSize = const Size(1440, 900);
       await tester.pumpAndSettle();
       frame = tester.getRect(find.byType(ComposerPanel));
@@ -161,6 +221,26 @@ void main() {
     },
     variant: TargetPlatformVariant.only(TargetPlatform.macOS),
   );
+
+  testWidgets('new-topic composers push the app without opening a sheet', (
+    tester,
+  ) async {
+    final h = await _setup(tester);
+    final workspaceFinder = find.byType(DesktopTopicSheetHost);
+    final original = tester.getRect(workspaceFinder);
+    await h.shell.openNewTopic();
+    await tester.pumpAndSettle();
+    expect(_sheet, findsNothing);
+    expect(find.byType(ComposerPanel), findsOneWidget);
+    final workspace = tester.getRect(workspaceFinder);
+    final composer = tester.getRect(find.byType(ComposerPanel));
+    expect(workspace.width, lessThan(original.width));
+    expect(workspace.overlaps(composer), isFalse);
+    await tester.tap(find.byKey(const ValueKey('composer-close')));
+    await tester.pumpAndSettle();
+    expect(tester.getRect(workspaceFinder), original);
+    expect(tester.takeException(), isNull);
+  }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 
   testWidgets(
     'Escape dismisses a nested popup before closing the sheet from the reader',
@@ -303,7 +383,7 @@ Future<({ShellController shell, List<Topic> topics})> _setup(
   tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
-  const user = DiscourseUser(id: 1, username: 'reader');
+  const user = DiscourseUser(id: 1, username: 'reader', canCreateTopic: true);
   final topics = [
     for (var id = 1; id <= 40; id++)
       Topic(id: id, title: 'Conversation $id', slug: 'conversation-$id'),
@@ -311,6 +391,7 @@ Future<({ShellController shell, List<Topic> topics})> _setup(
   final api = FakeDiscourseApi(
     user: user,
     feeds: {'/latest.json': topics},
+    creatableFeedPaths: const {'/latest.json'},
     topics: {
       for (final topic in topics)
         topic.id: (

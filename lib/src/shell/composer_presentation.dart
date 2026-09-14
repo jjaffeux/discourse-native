@@ -14,6 +14,7 @@ import 'composer_presentation_controller.dart';
 import 'platform.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';
+import 'title_bar.dart';
 
 /// Retains each tab's editor while its dock placement or visibility changes.
 class ComposerPresentationHost extends StatefulWidget {
@@ -21,11 +22,9 @@ class ComposerPresentationHost extends StatefulWidget {
     super.key,
     required this.child,
     this.controller,
-    this.topicSheets = false,
   });
   final Widget child;
   final ComposerPresentationController? controller;
-  final bool topicSheets;
 
   // The key is stable for the host's lifetime; reading it must not subscribe
   // the shell layout to composer presentation updates.
@@ -37,12 +36,8 @@ class ComposerPresentationHost extends StatefulWidget {
   static Key dockKeyOf(BuildContext context) =>
       _ComposerPresentationScope.of(context)._dockKey;
 
-  /// Whether the current topic's sheet needs space for an expanded editor.
-  static bool sheetExpandedOf(BuildContext context) {
-    final owner = _ComposerPresentationScope.of(context);
-    final composer = owner._presentableComposer;
-    return composer != null && owner._entries[composer]?.minimized == false;
-  }
+  static Listenable layoutChangesOf(BuildContext context) =>
+      _ComposerPresentationScope.of(context)._presentation;
 
   @override
   State<ComposerPresentationHost> createState() =>
@@ -69,22 +64,11 @@ class _ComposerPresentationHostState extends State<ComposerPresentationHost> {
       widget.controller ?? ComposerPresentationController();
   ShellController? _shell;
 
-  ComposerController? get _presentableComposer {
-    final composer = _shell!.visibleComposer;
-    if (!widget.topicSheets || composer == null) return composer;
-    // A reply remains owned by its forum tab while its topic is closed.
-    // Keep the editor parked until that conversation is visible again.
-    if (!composer.target.createsTopic &&
-        composer.target.mode != ComposerMode.plugin &&
-        composer.target.topicId != _shell!.currentContent?.topicId) {
-      return null;
-    }
-    return composer;
-  }
+  ComposerController? get _presentableComposer => _shell!.visibleComposer;
 
   void _syncDocks() {
-    // Sheet routes mount after the shell builds. Park the editor until its dock
-    // is registered so moving between routes never disposes the editing state.
+    // Park the editor until its dock is mounted, preserving editing state
+    // across shell layout changes.
     if (_dockSyncScheduled) return;
     _dockSyncScheduled = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -170,19 +154,7 @@ class _ComposerPresentationHostState extends State<ComposerPresentationHost> {
     }
     _entries.removeWhere((composer, _) => !live.contains(composer));
     final current = _presentableComposer;
-    final topicSheet =
-        widget.topicSheets && _shell!.currentContent?.isTopic == true;
-    _activeDock = _docks
-        .where(
-          (dock) =>
-              dock.mounted &&
-              (topicSheet
-                  ? dock.widget.topicId == _shell!.currentContent?.topicId &&
-                        dock.widget.siteUrl == _shell!.currentInstance?.url &&
-                        dock.widget.tabId == _shell!.activeTabId
-                  : dock.widget.topicId == null),
-        )
-        .lastOrNull;
+    _activeDock = _docks.where((dock) => dock.mounted).lastOrNull;
     return _ComposerPresentationScope(
       owner: this,
       child: Stack(
@@ -231,19 +203,15 @@ class _ComposerPresentationScope extends InheritedWidget {
   bool updateShouldNotify(_ComposerPresentationScope oldWidget) => true;
 }
 
-/// Reserves space for the editor within its owning page or topic sheet.
+/// Reserves space for the editor alongside the desktop workspace or mobile page.
 class ComposerDock extends StatefulWidget {
   const ComposerDock({
     super.key,
     required this.child,
-    this.topicId,
-    this.siteUrl,
-    this.tabId,
+    this.appWorkspace = false,
   });
   final Widget child;
-  final int? topicId;
-  final String? siteUrl;
-  final String? tabId;
+  final bool appWorkspace;
   @override
   State<ComposerDock> createState() => _ComposerDockState();
 }
@@ -267,16 +235,6 @@ class _ComposerDockState extends State<ComposerDock> {
   }
 
   @override
-  void didUpdateWidget(ComposerDock oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.topicId != widget.topicId ||
-        oldWidget.siteUrl != widget.siteUrl ||
-        oldWidget.tabId != widget.tabId) {
-      _owner?._syncDocks();
-    }
-  }
-
-  @override
   void dispose() {
     _owner?._docks.remove(this);
     _owner?._syncDocks();
@@ -292,20 +250,22 @@ class _ComposerDockState extends State<ComposerDock> {
     final reader = KeyedSubtree(key: _readerKey, child: widget.child);
     Widget readerViewport({bool bottomDocked = false}) => SizedBox.expand(
       key: _readerViewportKey,
-      child: LayoutBuilder(
-        builder: (context, bounds) => DScrollArea(
-          thumbVisibility: false,
-          child: SizedBox(
-            height: bottomDocked
-                ? math.max(
-                    bounds.maxHeight,
-                    MediaQuery.textScalerOf(context).scale(320),
-                  )
-                : bounds.maxHeight,
-            child: reader,
-          ),
-        ),
-      ),
+      child: widget.appWorkspace
+          ? Semantics(container: true, explicitChildNodes: true, child: reader)
+          : LayoutBuilder(
+              builder: (context, bounds) => DScrollArea(
+                thumbVisibility: false,
+                child: SizedBox(
+                  height: bottomDocked
+                      ? math.max(
+                          bounds.maxHeight,
+                          MediaQuery.textScalerOf(context).scale(320),
+                        )
+                      : bounds.maxHeight,
+                  child: reader,
+                ),
+              ),
+            ),
     );
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final element = _readerViewportKey.currentContext;
@@ -313,6 +273,7 @@ class _ComposerDockState extends State<ComposerDock> {
           ? element.renderObject
           : null;
       if (mounted &&
+          !widget.appWorkspace &&
           identical(owner._activeDock, this) &&
           render is RenderBox &&
           render.attached &&
@@ -392,11 +353,24 @@ class _ComposerDockState extends State<ComposerDock> {
               color: Theme.of(context).shell.content,
               padding: EdgeInsets.only(top: dividerInset),
               child: LayoutBuilder(
-                builder: (context, bounds) => owner._surface(
-                  entry,
-                  placement: placement,
-                  mobile: mobile,
-                  size: bounds.biggest,
+                builder: (context, bounds) => Column(
+                  children: [
+                    // Native window controls stay at the physical top left.
+                    if (widget.appWorkspace &&
+                        placement == ComposerPlacement.left &&
+                        ShellTitleBar.isSupported)
+                      const ShellTitleBar(showControls: false),
+                    Expanded(
+                      child: LayoutBuilder(
+                        builder: (context, bounds) => owner._surface(
+                          entry,
+                          placement: placement,
+                          mobile: mobile,
+                          size: bounds.biggest,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),

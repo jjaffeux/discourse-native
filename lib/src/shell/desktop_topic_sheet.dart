@@ -7,9 +7,9 @@ import '../app_shortcuts.dart';
 import '../models/bookmark.dart';
 import '../models/content_route.dart';
 import '../plugin_api/plugin_scope.dart';
-import 'composer_presentation.dart';
 import 'keyboard_navigation.dart';
 import 'platform.dart';
+import 'reader_content_bounds.dart';
 import 'shell_scope.dart';
 import 'topic_list_bottom_bar.dart';
 import 'topic_sheet_scope.dart';
@@ -58,7 +58,6 @@ class _TopicSheetRouteHost extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final expanded = ComposerPresentationHost.sheetExpandedOf(context);
     return ShellSelector<_TopicSheetState>(
       select: (shell) {
         final site = shell.currentInstance;
@@ -94,10 +93,7 @@ class _TopicSheetRouteHost extends StatelessWidget {
         }
 
         final available = MediaQuery.sizeOf(context).width;
-        final readingWidth = math.min(840.0, math.max(480.0, available * .64));
-        final width = expanded
-            ? math.min(1380.0, math.max(readingWidth, available - 76))
-            : readingWidth;
+        final width = math.min(840.0, math.max(480.0, available * .64));
         return DSheet<void>(
           open: route != null,
           onOpenChanged: (details) {
@@ -114,7 +110,7 @@ class _TopicSheetRouteHost extends StatelessWidget {
             inset: true,
             animateSize: true,
             sidePanelWidth: width,
-            sidePanelMaxWidth: 1380,
+            sidePanelMaxWidth: 840,
             showCloseButton: false,
             scrollWholeSheet: false,
             semanticLabel: route?.title ?? 'Topic',
@@ -150,11 +146,7 @@ class _TopicSheetRouteHost extends StatelessWidget {
                                     fromKeyboard: true,
                                   ),
                             },
-                            child: ComposerDock(
-                              key: const ValueKey('topic-sheet-composer-dock'),
-                              topicId: route.topicId,
-                              siteUrl: state.siteUrl,
-                              tabId: state.tabId,
+                            child: ReaderContentBounds(
                               child: TopicView(
                                 key: ValueKey((
                                   state.siteUrl,

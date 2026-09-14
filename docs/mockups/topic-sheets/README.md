@@ -2,7 +2,9 @@
 
 Open `docs/topic-sheet-layouts.html` in a browser to compare three interactive
 HTML/CSS explorations. Design C has been selected and implemented in the desktop
-application, with left/bottom/right composer docking inside the sheet. See
+application. A later revision moves left/bottom/right composer docking to the
+app level: the workspace shrinks and the sheet fits inside it. These HTML files
+preserve the original design study with internal sheet docking. See
 `docs/component-library/sheet.md` for the Native adaptation and verification.
 
 - **A — Right-anchored:** a sheet covers the right part of the topic list.
