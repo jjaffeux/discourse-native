@@ -1,0 +1,924 @@
+{
+  "baselineSource": "9273026f",
+  "fixedSource": "codex/fix-topic-scroll-churn",
+  "fixture": "SCROLL_MIXED=true; 114 rich replies; 20 initial posts; four alternating 120 x 80 pixel legs per pass",
+  "notes": [
+    "Two process launches per version; native macOS profile, Flutter 3.47.2, Skia Metal, 120 Hz, DPR 2, 1280 x 860.",
+    "Baseline run 2 first pass was interrupted by window visibility and is not used for the first-pass comparison.",
+    "Synthetic HTML without network media; the user capture is debug mode and its timing is not directly comparable."
+  ],
+  "runs": [
+    {
+      "run": "baseline-1-first-pass",
+      "generatedAtUtc": "2026-09-14T00:25:51.079378Z",
+      "capture": {
+        "status": "stopped",
+        "startedAtUtc": "2026-09-14T00:25:44.991592Z",
+        "endedAtUtc": "2026-09-14T00:25:51.078407Z",
+        "durationUs": 6086815,
+        "stopReason": "manual",
+        "memoryOnly": true,
+        "maximumEvents": 12000,
+        "maximumDurationMs": 120000
+      },
+      "app": {
+        "version": "",
+        "buildChannel": "stable",
+        "buildMode": "profile",
+        "platform": "macOS"
+      },
+      "summary": {
+        "eventCount": 5322,
+        "topicEventCount": 4818,
+        "frameCount": 504,
+        "slowBuildFrameCount": 5,
+        "slowRasterFrameCount": 6,
+        "displayRefreshRate": 120.0,
+        "slowFrameThresholdUs": 8333,
+        "maximumBuildUs": 9443,
+        "maximumRasterUs": 217592,
+        "maximumTotalSpanUs": 236348
+      },
+      "allFrames": {
+        "count": 504,
+        "overBudget": 10,
+        "slowBuilds": 5,
+        "slowRasters": 6,
+        "buildUs": {
+          "count": 504,
+          "total": 546194,
+          "p50": 493,
+          "p95": 5326,
+          "p99": 8283,
+          "max": 9443
+        },
+        "rasterUs": {
+          "count": 504,
+          "total": 931411,
+          "p50": 1209,
+          "p95": 2571,
+          "p99": 16208,
+          "max": 217592
+        },
+        "vsyncOverheadUs": {
+          "count": 504,
+          "total": 158539,
+          "p50": 129,
+          "p95": 1163,
+          "p99": 4348,
+          "max": 9326
+        },
+        "totalSpanUs": {
+          "count": 504,
+          "total": 1940554,
+          "p50": 2211,
+          "p95": 8597,
+          "p99": 19987,
+          "max": 236348
+        }
+      },
+      "viewportWorkUs": {
+        "count": 484,
+        "total": 19641,
+        "p50": 33,
+        "p95": 86,
+        "p99": 153,
+        "max": 320
+      },
+      "postLayoutUs": {
+        "count": 82,
+        "total": 97070,
+        "p50": 974,
+        "p95": 3479,
+        "p99": 3685,
+        "max": 3685
+      },
+      "activityCounts": {
+        "topic.capture.context": 1,
+        "scroll.notification": 2400,
+        "sliver.separator.built": 68,
+        "sliver.child.built": 69,
+        "sliver.post.attached": 66,
+        "post.layout": 82,
+        "sliver.layout.changed": 480,
+        "viewport.work": 484,
+        "viewport.inspected": 484,
+        "scroll.metricsChanged": 480,
+        "topic.progress.changed": 64,
+        "viewport.anchor.saved": 64,
+        "sliver.post.detached": 66,
+        "paging.newer.scheduled": 2,
+        "paging.newer.dispatched": 1,
+        "paging.newer.retryArmed": 1,
+        "topic.window.changed": 1,
+        "topic.view.built": 1,
+        "sliver.childIndex.resolved": 3,
+        "paging.newer.cancelled": 1
+      },
+      "topics": [
+        {
+          "topicId": 7,
+          "viewportLogicalSize": {
+            "width": 1280.0,
+            "height": 860.0
+          },
+          "devicePixelRatio": 2.0,
+          "loadedPostCount": 20,
+          "streamPostCount": 114
+        }
+      ]
+    },
+    {
+      "run": "baseline-1-return-pass",
+      "generatedAtUtc": "2026-09-14T00:25:57.755076Z",
+      "capture": {
+        "status": "stopped",
+        "startedAtUtc": "2026-09-14T00:25:51.925871Z",
+        "endedAtUtc": "2026-09-14T00:25:57.754304Z",
+        "durationUs": 5828433,
+        "stopReason": "manual",
+        "memoryOnly": true,
+        "maximumEvents": 12000,
+        "maximumDurationMs": 120000
+      },
+      "app": {
+        "version": "",
+        "buildChannel": "stable",
+        "buildMode": "profile",
+        "platform": "macOS"
+      },
+      "summary": {
+        "eventCount": 5307,
+        "topicEventCount": 4803,
+        "frameCount": 504,
+        "slowBuildFrameCount": 3,
+        "slowRasterFrameCount": 0,
+        "displayRefreshRate": 120.0,
+        "slowFrameThresholdUs": 8333,
+        "maximumBuildUs": 10979,
+        "maximumRasterUs": 5082,
+        "maximumTotalSpanUs": 13226
+      },
+      "allFrames": {
+        "count": 504,
+        "overBudget": 3,
+        "slowBuilds": 3,
+        "slowRasters": 0,
+        "buildUs": {
+          "count": 504,
+          "total": 539256,
+          "p50": 519,
+          "p95": 5025,
+          "p99": 7550,
+          "max": 10979
+        },
+        "rasterUs": {
+          "count": 504,
+          "total": 638291,
+          "p50": 1152,
+          "p95": 2351,
+          "p99": 2902,
+          "max": 5082
+        },
+        "vsyncOverheadUs": {
+          "count": 504,
+          "total": 149631,
+          "p50": 138,
+          "p95": 1006,
+          "p99": 3396,
+          "max": 9028
+        },
+        "totalSpanUs": {
+          "count": 504,
+          "total": 1371311,
+          "p50": 2159,
+          "p95": 7526,
+          "p99": 10497,
+          "max": 13226
+        }
+      },
+      "viewportWorkUs": {
+        "count": 484,
+        "total": 20091,
+        "p50": 35,
+        "p95": 92,
+        "p99": 128,
+        "max": 310
+      },
+      "postLayoutUs": {
+        "count": 82,
+        "total": 93868,
+        "p50": 997,
+        "p95": 2824,
+        "p99": 4277,
+        "max": 4277
+      },
+      "activityCounts": {
+        "topic.capture.context": 1,
+        "scroll.notification": 2400,
+        "sliver.separator.built": 66,
+        "sliver.child.built": 66,
+        "sliver.post.attached": 66,
+        "post.layout": 82,
+        "sliver.layout.changed": 480,
+        "viewport.work": 484,
+        "viewport.inspected": 484,
+        "scroll.metricsChanged": 480,
+        "topic.progress.changed": 64,
+        "viewport.anchor.saved": 64,
+        "sliver.post.detached": 66
+      },
+      "topics": [
+        {
+          "topicId": 7,
+          "viewportLogicalSize": {
+            "width": 1280.0,
+            "height": 860.0
+          },
+          "devicePixelRatio": 2.0,
+          "loadedPostCount": 40,
+          "streamPostCount": 114
+        }
+      ]
+    },
+    {
+      "run": "baseline-2-first-pass",
+      "generatedAtUtc": "2026-09-14T00:32:29.709285Z",
+      "capture": {
+        "status": "stopped",
+        "startedAtUtc": "2026-09-14T00:31:35.069457Z",
+        "endedAtUtc": "2026-09-14T00:32:29.708849Z",
+        "durationUs": 54639392,
+        "stopReason": "manual",
+        "memoryOnly": true,
+        "maximumEvents": 12000,
+        "maximumDurationMs": 120000
+      },
+      "app": {
+        "version": "",
+        "buildChannel": "stable",
+        "buildMode": "profile",
+        "platform": "macOS"
+      },
+      "summary": {
+        "eventCount": 5323,
+        "topicEventCount": 4819,
+        "frameCount": 504,
+        "slowBuildFrameCount": 2,
+        "slowRasterFrameCount": 1,
+        "displayRefreshRate": 120.0,
+        "slowFrameThresholdUs": 8333,
+        "maximumBuildUs": 13017,
+        "maximumRasterUs": 8719,
+        "maximumTotalSpanUs": 13820
+      },
+      "allFrames": {
+        "count": 504,
+        "overBudget": 3,
+        "slowBuilds": 2,
+        "slowRasters": 1,
+        "buildUs": {
+          "count": 504,
+          "total": 536571,
+          "p50": 512,
+          "p95": 4703,
+          "p99": 7275,
+          "max": 13017
+        },
+        "rasterUs": {
+          "count": 504,
+          "total": 672784,
+          "p50": 1279,
+          "p95": 2309,
+          "p99": 3434,
+          "max": 8719
+        },
+        "vsyncOverheadUs": {
+          "count": 504,
+          "total": 122522,
+          "p50": 86,
+          "p95": 882,
+          "p99": 3684,
+          "max": 6530
+        },
+        "totalSpanUs": {
+          "count": 504,
+          "total": 1372508,
+          "p50": 2233,
+          "p95": 7059,
+          "p99": 9450,
+          "max": 13820
+        }
+      },
+      "viewportWorkUs": {
+        "count": 484,
+        "total": 20458,
+        "p50": 38,
+        "p95": 79,
+        "p99": 148,
+        "max": 225
+      },
+      "postLayoutUs": {
+        "count": 83,
+        "total": 98564,
+        "p50": 1113,
+        "p95": 2903,
+        "p99": 5316,
+        "max": 5316
+      },
+      "activityCounts": {
+        "topic.capture.context": 1,
+        "scroll.notification": 2400,
+        "post.layout": 83,
+        "sliver.separator.built": 68,
+        "sliver.child.built": 69,
+        "sliver.post.attached": 66,
+        "sliver.layout.changed": 480,
+        "viewport.work": 484,
+        "viewport.inspected": 484,
+        "scroll.metricsChanged": 480,
+        "topic.progress.changed": 64,
+        "viewport.anchor.saved": 64,
+        "sliver.post.detached": 66,
+        "paging.newer.scheduled": 2,
+        "paging.newer.dispatched": 1,
+        "paging.newer.retryArmed": 1,
+        "topic.window.changed": 1,
+        "topic.view.built": 1,
+        "sliver.childIndex.resolved": 3,
+        "paging.newer.cancelled": 1
+      },
+      "topics": [
+        {
+          "topicId": 7,
+          "viewportLogicalSize": {
+            "width": 1280.0,
+            "height": 860.0
+          },
+          "devicePixelRatio": 2.0,
+          "loadedPostCount": 20,
+          "streamPostCount": 114
+        }
+      ]
+    },
+    {
+      "run": "baseline-2-return-pass",
+      "generatedAtUtc": "2026-09-14T00:32:36.409400Z",
+      "capture": {
+        "status": "stopped",
+        "startedAtUtc": "2026-09-14T00:32:30.579121Z",
+        "endedAtUtc": "2026-09-14T00:32:36.409058Z",
+        "durationUs": 5829937,
+        "stopReason": "manual",
+        "memoryOnly": true,
+        "maximumEvents": 12000,
+        "maximumDurationMs": 120000
+      },
+      "app": {
+        "version": "",
+        "buildChannel": "stable",
+        "buildMode": "profile",
+        "platform": "macOS"
+      },
+      "summary": {
+        "eventCount": 5307,
+        "topicEventCount": 4803,
+        "frameCount": 504,
+        "slowBuildFrameCount": 3,
+        "slowRasterFrameCount": 0,
+        "displayRefreshRate": 120.0,
+        "slowFrameThresholdUs": 8333,
+        "maximumBuildUs": 9436,
+        "maximumRasterUs": 4711,
+        "maximumTotalSpanUs": 11209
+      },
+      "allFrames": {
+        "count": 504,
+        "overBudget": 3,
+        "slowBuilds": 3,
+        "slowRasters": 0,
+        "buildUs": {
+          "count": 504,
+          "total": 539448,
+          "p50": 533,
+          "p95": 5134,
+          "p99": 6773,
+          "max": 9436
+        },
+        "rasterUs": {
+          "count": 504,
+          "total": 641566,
+          "p50": 1276,
+          "p95": 2071,
+          "p99": 2625,
+          "max": 4711
+        },
+        "vsyncOverheadUs": {
+          "count": 504,
+          "total": 109016,
+          "p50": 86,
+          "p95": 837,
+          "p99": 2295,
+          "max": 5910
+        },
+        "totalSpanUs": {
+          "count": 504,
+          "total": 1329327,
+          "p50": 2177,
+          "p95": 6969,
+          "p99": 8628,
+          "max": 11209
+        }
+      },
+      "viewportWorkUs": {
+        "count": 484,
+        "total": 21358,
+        "p50": 38,
+        "p95": 84,
+        "p99": 137,
+        "max": 482
+      },
+      "postLayoutUs": {
+        "count": 82,
+        "total": 96981,
+        "p50": 1098,
+        "p95": 3092,
+        "p99": 3603,
+        "max": 3603
+      },
+      "activityCounts": {
+        "topic.capture.context": 1,
+        "scroll.notification": 2400,
+        "sliver.separator.built": 66,
+        "sliver.child.built": 66,
+        "sliver.post.attached": 66,
+        "post.layout": 82,
+        "sliver.layout.changed": 480,
+        "viewport.work": 484,
+        "viewport.inspected": 484,
+        "scroll.metricsChanged": 480,
+        "topic.progress.changed": 64,
+        "viewport.anchor.saved": 64,
+        "sliver.post.detached": 66
+      },
+      "topics": [
+        {
+          "topicId": 7,
+          "viewportLogicalSize": {
+            "width": 1280.0,
+            "height": 860.0
+          },
+          "devicePixelRatio": 2.0,
+          "loadedPostCount": 40,
+          "streamPostCount": 114
+        }
+      ]
+    },
+    {
+      "run": "fixed-1-first-pass",
+      "generatedAtUtc": "2026-09-14T00:29:40.619459Z",
+      "capture": {
+        "status": "stopped",
+        "startedAtUtc": "2026-09-14T00:29:34.522979Z",
+        "endedAtUtc": "2026-09-14T00:29:40.619123Z",
+        "durationUs": 6096144,
+        "stopReason": "manual",
+        "memoryOnly": true,
+        "maximumEvents": 12000,
+        "maximumDurationMs": 120000
+      },
+      "app": {
+        "version": "",
+        "buildChannel": "stable",
+        "buildMode": "profile",
+        "platform": "macOS"
+      },
+      "summary": {
+        "eventCount": 5120,
+        "topicEventCount": 4616,
+        "frameCount": 504,
+        "slowBuildFrameCount": 0,
+        "slowRasterFrameCount": 6,
+        "displayRefreshRate": 120.0,
+        "slowFrameThresholdUs": 8333,
+        "maximumBuildUs": 7522,
+        "maximumRasterUs": 235728,
+        "maximumTotalSpanUs": 246759
+      },
+      "allFrames": {
+        "count": 504,
+        "overBudget": 6,
+        "slowBuilds": 0,
+        "slowRasters": 6,
+        "buildUs": {
+          "count": 504,
+          "total": 362045,
+          "p50": 509,
+          "p95": 1880,
+          "p99": 4974,
+          "max": 7522
+        },
+        "rasterUs": {
+          "count": 504,
+          "total": 1097680,
+          "p50": 1437,
+          "p95": 2646,
+          "p99": 12249,
+          "max": 235728
+        },
+        "vsyncOverheadUs": {
+          "count": 504,
+          "total": 64240,
+          "p50": 92,
+          "p95": 293,
+          "p99": 626,
+          "max": 3075
+        },
+        "totalSpanUs": {
+          "count": 504,
+          "total": 1871335,
+          "p50": 2255,
+          "p95": 4617,
+          "p99": 24560,
+          "max": 246759
+        }
+      },
+      "viewportWorkUs": {
+        "count": 484,
+        "total": 31288,
+        "p50": 58,
+        "p95": 125,
+        "p99": 209,
+        "max": 506
+      },
+      "postLayoutUs": {
+        "count": 22,
+        "total": 20878,
+        "p50": 651,
+        "p95": 2339,
+        "p99": 3637,
+        "max": 3637
+      },
+      "activityCounts": {
+        "topic.capture.context": 1,
+        "scroll.notification": 2400,
+        "sliver.separator.built": 68,
+        "sliver.child.built": 31,
+        "sliver.post.attached": 17,
+        "post.layout": 22,
+        "sliver.layout.changed": 480,
+        "viewport.work": 484,
+        "viewport.inspected": 484,
+        "scroll.metricsChanged": 480,
+        "topic.progress.changed": 64,
+        "viewport.anchor.saved": 64,
+        "paging.newer.scheduled": 2,
+        "paging.newer.dispatched": 1,
+        "paging.newer.retryArmed": 1,
+        "topic.window.changed": 1,
+        "topic.view.built": 1,
+        "sliver.childIndex.resolved": 14,
+        "paging.newer.cancelled": 1
+      },
+      "topics": [
+        {
+          "topicId": 7,
+          "viewportLogicalSize": {
+            "width": 1280.0,
+            "height": 860.0
+          },
+          "devicePixelRatio": 2.0,
+          "loadedPostCount": 20,
+          "streamPostCount": 114
+        }
+      ]
+    },
+    {
+      "run": "fixed-1-return-pass",
+      "generatedAtUtc": "2026-09-14T00:29:47.260721Z",
+      "capture": {
+        "status": "stopped",
+        "startedAtUtc": "2026-09-14T00:29:41.459608Z",
+        "endedAtUtc": "2026-09-14T00:29:47.260315Z",
+        "durationUs": 5800707,
+        "stopReason": "manual",
+        "memoryOnly": true,
+        "maximumEvents": 12000,
+        "maximumDurationMs": 120000
+      },
+      "app": {
+        "version": "",
+        "buildChannel": "stable",
+        "buildMode": "profile",
+        "platform": "macOS"
+      },
+      "summary": {
+        "eventCount": 5027,
+        "topicEventCount": 4523,
+        "frameCount": 504,
+        "slowBuildFrameCount": 0,
+        "slowRasterFrameCount": 0,
+        "displayRefreshRate": 120.0,
+        "slowFrameThresholdUs": 8333,
+        "maximumBuildUs": 2734,
+        "maximumRasterUs": 3800,
+        "maximumTotalSpanUs": 7735
+      },
+      "allFrames": {
+        "count": 504,
+        "overBudget": 0,
+        "slowBuilds": 0,
+        "slowRasters": 0,
+        "buildUs": {
+          "count": 504,
+          "total": 326583,
+          "p50": 545,
+          "p95": 1522,
+          "p99": 2088,
+          "max": 2734
+        },
+        "rasterUs": {
+          "count": 504,
+          "total": 782323,
+          "p50": 1490,
+          "p95": 2423,
+          "p99": 2784,
+          "max": 3800
+        },
+        "vsyncOverheadUs": {
+          "count": 504,
+          "total": 70201,
+          "p50": 111,
+          "p95": 271,
+          "p99": 488,
+          "max": 6228
+        },
+        "totalSpanUs": {
+          "count": 504,
+          "total": 1215199,
+          "p50": 2289,
+          "p95": 3905,
+          "p99": 4613,
+          "max": 7735
+        }
+      },
+      "viewportWorkUs": {
+        "count": 484,
+        "total": 32214,
+        "p50": 60,
+        "p95": 127,
+        "p99": 170,
+        "max": 291
+      },
+      "postLayoutUs": {
+        "count": 0
+      },
+      "activityCounts": {
+        "topic.capture.context": 1,
+        "scroll.notification": 2400,
+        "sliver.separator.built": 66,
+        "sliver.layout.changed": 480,
+        "viewport.work": 484,
+        "viewport.inspected": 484,
+        "scroll.metricsChanged": 480,
+        "topic.progress.changed": 64,
+        "viewport.anchor.saved": 64
+      },
+      "topics": [
+        {
+          "topicId": 7,
+          "viewportLogicalSize": {
+            "width": 1280.0,
+            "height": 860.0
+          },
+          "devicePixelRatio": 2.0,
+          "loadedPostCount": 40,
+          "streamPostCount": 114
+        }
+      ]
+    },
+    {
+      "run": "fixed-2-first-pass",
+      "generatedAtUtc": "2026-09-14T00:33:49.209648Z",
+      "capture": {
+        "status": "stopped",
+        "startedAtUtc": "2026-09-14T00:33:42.242917Z",
+        "endedAtUtc": "2026-09-14T00:33:49.209002Z",
+        "durationUs": 6966085,
+        "stopReason": "manual",
+        "memoryOnly": true,
+        "maximumEvents": 12000,
+        "maximumDurationMs": 120000
+      },
+      "app": {
+        "version": "",
+        "buildChannel": "stable",
+        "buildMode": "profile",
+        "platform": "macOS"
+      },
+      "summary": {
+        "eventCount": 5121,
+        "topicEventCount": 4617,
+        "frameCount": 504,
+        "slowBuildFrameCount": 1,
+        "slowRasterFrameCount": 1,
+        "displayRefreshRate": 120.0,
+        "slowFrameThresholdUs": 8333,
+        "maximumBuildUs": 13058,
+        "maximumRasterUs": 14716,
+        "maximumTotalSpanUs": 27893
+      },
+      "allFrames": {
+        "count": 504,
+        "overBudget": 1,
+        "slowBuilds": 1,
+        "slowRasters": 1,
+        "buildUs": {
+          "count": 504,
+          "total": 392258,
+          "p50": 558,
+          "p95": 1671,
+          "p99": 5352,
+          "max": 13058
+        },
+        "rasterUs": {
+          "count": 504,
+          "total": 812480,
+          "p50": 1513,
+          "p95": 2599,
+          "p99": 3144,
+          "max": 14716
+        },
+        "vsyncOverheadUs": {
+          "count": 504,
+          "total": 107327,
+          "p50": 147,
+          "p95": 405,
+          "p99": 1908,
+          "max": 8584
+        },
+        "totalSpanUs": {
+          "count": 504,
+          "total": 1359739,
+          "p50": 2461,
+          "p95": 4288,
+          "p99": 8431,
+          "max": 27893
+        }
+      },
+      "viewportWorkUs": {
+        "count": 484,
+        "total": 30908,
+        "p50": 61,
+        "p95": 123,
+        "p99": 150,
+        "max": 198
+      },
+      "postLayoutUs": {
+        "count": 23,
+        "total": 27104,
+        "p50": 1105,
+        "p95": 2767,
+        "p99": 3000,
+        "max": 3000
+      },
+      "activityCounts": {
+        "topic.capture.context": 1,
+        "scroll.notification": 2400,
+        "post.layout": 23,
+        "sliver.separator.built": 68,
+        "sliver.child.built": 31,
+        "sliver.post.attached": 17,
+        "sliver.layout.changed": 480,
+        "viewport.work": 484,
+        "viewport.inspected": 484,
+        "scroll.metricsChanged": 480,
+        "topic.progress.changed": 64,
+        "viewport.anchor.saved": 64,
+        "paging.newer.scheduled": 2,
+        "paging.newer.dispatched": 1,
+        "paging.newer.retryArmed": 1,
+        "topic.window.changed": 1,
+        "topic.view.built": 1,
+        "sliver.childIndex.resolved": 14,
+        "paging.newer.cancelled": 1
+      },
+      "topics": [
+        {
+          "topicId": 7,
+          "viewportLogicalSize": {
+            "width": 1280.0,
+            "height": 860.0
+          },
+          "devicePixelRatio": 2.0,
+          "loadedPostCount": 20,
+          "streamPostCount": 114
+        }
+      ]
+    },
+    {
+      "run": "fixed-2-return-pass",
+      "generatedAtUtc": "2026-09-14T00:33:55.836834Z",
+      "capture": {
+        "status": "stopped",
+        "startedAtUtc": "2026-09-14T00:33:50.030914Z",
+        "endedAtUtc": "2026-09-14T00:33:55.836443Z",
+        "durationUs": 5805529,
+        "stopReason": "manual",
+        "memoryOnly": true,
+        "maximumEvents": 12000,
+        "maximumDurationMs": 120000
+      },
+      "app": {
+        "version": "",
+        "buildChannel": "stable",
+        "buildMode": "profile",
+        "platform": "macOS"
+      },
+      "summary": {
+        "eventCount": 5027,
+        "topicEventCount": 4523,
+        "frameCount": 504,
+        "slowBuildFrameCount": 0,
+        "slowRasterFrameCount": 0,
+        "displayRefreshRate": 120.0,
+        "slowFrameThresholdUs": 8333,
+        "maximumBuildUs": 3361,
+        "maximumRasterUs": 4254,
+        "maximumTotalSpanUs": 5782
+      },
+      "allFrames": {
+        "count": 504,
+        "overBudget": 0,
+        "slowBuilds": 0,
+        "slowRasters": 0,
+        "buildUs": {
+          "count": 504,
+          "total": 342960,
+          "p50": 556,
+          "p95": 1617,
+          "p99": 2337,
+          "max": 3361
+        },
+        "rasterUs": {
+          "count": 504,
+          "total": 945920,
+          "p50": 1828,
+          "p95": 2918,
+          "p99": 3387,
+          "max": 4254
+        },
+        "vsyncOverheadUs": {
+          "count": 504,
+          "total": 80281,
+          "p50": 126,
+          "p95": 370,
+          "p99": 702,
+          "max": 1812
+        },
+        "totalSpanUs": {
+          "count": 504,
+          "total": 1408750,
+          "p50": 2729,
+          "p95": 4529,
+          "p99": 5036,
+          "max": 5782
+        }
+      },
+      "viewportWorkUs": {
+        "count": 484,
+        "total": 42180,
+        "p50": 76,
+        "p95": 188,
+        "p99": 291,
+        "max": 596
+      },
+      "postLayoutUs": {
+        "count": 0
+      },
+      "activityCounts": {
+        "topic.capture.context": 1,
+        "scroll.notification": 2400,
+        "sliver.separator.built": 66,
+        "sliver.layout.changed": 480,
+        "viewport.work": 484,
+        "viewport.inspected": 484,
+        "scroll.metricsChanged": 480,
+        "topic.progress.changed": 64,
+        "viewport.anchor.saved": 64
+      },
+      "topics": [
+        {
+          "topicId": 7,
+          "viewportLogicalSize": {
+            "width": 1280.0,
+            "height": 860.0
+          },
+          "devicePixelRatio": 2.0,
+          "loadedPostCount": 40,
+          "streamPostCount": 114
+        }
+      ]
+    }
+  ]
+}

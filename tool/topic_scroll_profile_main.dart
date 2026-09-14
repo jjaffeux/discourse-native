@@ -8,12 +8,16 @@ import 'package:discourse_native/src/macos_launch_screen.dart';
 import 'package:flutter/widgets.dart';
 import 'package:super_sliver_list/super_sliver_list.dart';
 
+import '../test/support/mixed_topic_scroll_fixture.dart';
 import '../test/support/topic_scroll_fixture.dart';
 
 Future<void> main() async {
   final binding = WidgetsFlutterBinding.ensureInitialized();
   MacOSLaunchScreen.dismissAfterFirstFlutterFrame();
-  final controller = await topicScrollController();
+  const mixed = bool.fromEnvironment('SCROLL_MIXED');
+  final controller = mixed
+      ? await mixedTopicScrollController()
+      : await topicScrollController();
   final diagnostics = DiagnosticsController.start(
     persistence: MemoryDiagnosticsPersistence(),
   );
@@ -47,18 +51,28 @@ Future<void> main() async {
     );
     // Repeated crossings exercise the async placeholder/settled-height cycle
     // as well as steady scrolling within a large rendered tree.
-    for (final postIndex in [0, 19, 40, 19, 0, 19, 40, 19, 0]) {
-      list.jumpToItem(
-        index: postIndex * 2,
-        scrollController: scroll,
-        alignment: 0,
-      );
-      await binding.endOfFrame;
-      for (var step = 0; step < 30; step++) {
-        scroll.position.pointerScroll(40);
-        await binding.endOfFrame;
+    if (mixed) {
+      for (final direction in [1, -1, 1, -1]) {
+        for (var step = 0; step < 120; step++) {
+          scroll.position.pointerScroll(direction * 80);
+          await binding.endOfFrame;
+        }
+        await Future<void>.delayed(const Duration(milliseconds: 200));
       }
-      await Future<void>.delayed(const Duration(milliseconds: 200));
+    } else {
+      for (final postIndex in [0, 19, 40, 19, 0, 19, 40, 19, 0]) {
+        list.jumpToItem(
+          index: postIndex * 2,
+          scrollController: scroll,
+          alignment: 0,
+        );
+        await binding.endOfFrame;
+        for (var step = 0; step < 30; step++) {
+          scroll.position.pointerScroll(40);
+          await binding.endOfFrame;
+        }
+        await Future<void>.delayed(const Duration(milliseconds: 200));
+      }
     }
     await Future<void>.delayed(const Duration(seconds: 1));
     capture.stop();

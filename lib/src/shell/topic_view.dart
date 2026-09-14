@@ -1225,7 +1225,8 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
           '';
       _postRetention.retain(
         context,
-        CookedHtml.buildsAsynchronously(html) ? html.length : 0,
+        html.length,
+        large: CookedHtml.buildsAsynchronously(html),
       );
       _postRetention.touch(context);
     }
@@ -3680,7 +3681,8 @@ class _TopicPostItemState extends State<_TopicPostItem>
     final html = widget.post.value?.cooked ?? '';
     widget.retention.retain(
       context,
-      CookedHtml.buildsAsynchronously(html) ? html.length : 0,
+      html.length,
+      large: CookedHtml.buildsAsynchronously(html),
     );
   }
 
@@ -3900,7 +3902,7 @@ class _EarlierPostsRow extends StatelessWidget {
       : const SizedBox(height: 68);
 }
 
-class _StoredPost extends StatelessWidget {
+class _StoredPost extends StatefulWidget {
   const _StoredPost({
     required this.siteUrl,
     required this.topic,
@@ -3920,9 +3922,50 @@ class _StoredPost extends StatelessWidget {
   final ValueListenable<int?> keyboardSelection;
 
   @override
-  Widget build(BuildContext context) {
+  State<_StoredPost> createState() => _StoredPostState();
+
+  Object get contentKey => (
+    siteUrl,
+    topic,
+    postId,
+    summary,
+    summaryLoading,
+    readTimeWordCount,
+    keyboardSelection,
+  );
+}
+
+class _StoredPostState extends State<_StoredPost> {
+  Widget? _content;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _content = null;
+  }
+
+  @override
+  void didUpdateWidget(_StoredPost oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.contentKey != widget.contentKey) _content = null;
+  }
+
+  @override
+  Widget build(BuildContext context) => _content ??= _buildContent(context);
+
+  // Paging replaces the sliver delegate to expose new rows. The existing
+  // replies keep their content widgets, including HTML, selection and actions.
+  // Entity listeners and inherited theme/plugin dependencies still update them.
+  Widget _buildContent(BuildContext context) {
+    final siteUrl = widget.siteUrl;
+    final topic = widget.topic;
+    final postId = widget.postId;
+    final summary = widget.summary;
+    final summaryLoading = widget.summaryLoading;
+    final readTimeWordCount = widget.readTimeWordCount;
+    final keyboardSelection = widget.keyboardSelection;
     return ValueListenableBuilder<Post?>(
-      valueListenable: ShellScope.read(context).postRef(siteUrl, postId),
+      valueListenable: ShellScope.identityOf(context).postRef(siteUrl, postId),
       builder: (context, post, _) {
         // Gone for good — deleted outright rather than soft-deleted — in the
         // frame before the stream that named it is rewritten without it.
