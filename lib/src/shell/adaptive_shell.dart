@@ -122,9 +122,11 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
     // takes no focus leaves primary focus on a scope node.
     if (Navigator.of(context).canPop()) return false;
     final focusedContext = FocusManager.instance.primaryFocus?.context;
-    if (focusedContext != null &&
-        ModalRoute.of(focusedContext) is PopupRoute &&
-        TopicSheetScope.readerOf(focusedContext) == null) {
+    final focusedRoute = focusedContext == null
+        ? null
+        : ModalRoute.of(focusedContext);
+    if (focusedRoute is PopupRoute &&
+        focusedRoute.settings is! TopicSheetRouteSettings) {
       return false;
     }
 
@@ -360,14 +362,10 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
     return true;
   }
 
-  bool get _formControlHasFocus {
-    final focused = FocusManager.instance.primaryFocus?.context;
-    return !navigationShortcutsAllowed(
-      focused != null && TopicSheetScope.readerOf(focused) != null
-          ? focused
-          : context,
-    );
-  }
+  // App commands follow the active topic, including when focus is on a nested
+  // Navigator's scope. Editable controls still own their keyboard input.
+  bool get _formControlHasFocus =>
+      !navigationShortcutsAllowed(context, matchFocusRoute: false);
 
   @override
   Widget build(BuildContext context) {

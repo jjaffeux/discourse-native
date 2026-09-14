@@ -16,6 +16,7 @@ class ReadingFocusNode extends FocusNode {
 bool navigationShortcutsAllowed(
   BuildContext context, {
   bool activation = false,
+  bool matchFocusRoute = true,
 }) {
   final lifecycle = WidgetsBinding.instance.lifecycleState;
   if (lifecycle != null && lifecycle != AppLifecycleState.resumed) return false;
@@ -29,7 +30,9 @@ bool navigationShortcutsAllowed(
   final focusContext = focus?.context;
   if (focusContext == null) return true;
   final focusRoute = ModalRoute.of(focusContext);
-  if (focusRoute != null && !identical(focusRoute, ModalRoute.of(context))) {
+  if (matchFocusRoute &&
+      focusRoute != null &&
+      !identical(focusRoute, ModalRoute.of(context))) {
     return false;
   }
 

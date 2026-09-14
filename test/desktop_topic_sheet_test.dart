@@ -12,6 +12,7 @@ import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/title_bar.dart';
 import 'package:discourse_native/src/shell/topic_list_view.dart';
+import 'package:discourse_native/src/shell/topic_sheet_scope.dart';
 import 'package:discourse_native/src/shell/topic_view.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
@@ -26,6 +27,116 @@ final _list = find.byKey(const ValueKey('inbox-topic-list-pane'));
 
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
+
+  testWidgets('C creates a topic while the nested topic list owns focus', (
+    tester,
+  ) async {
+    final h = await _setup(tester);
+    tester
+        .widget<ListBoundaryShortcuts>(
+          find.descendant(
+            of: find.byType(TopicListView),
+            matching: find.byType(ListBoundaryShortcuts),
+          ),
+        )
+        .focusNode!
+        .requestFocus();
+    await tester.pump();
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyC);
+    await tester.pumpAndSettle();
+    expect(h.shell.visibleComposer?.target.createsTopic, isTrue);
+    expect(h.shell.visibleComposer?.focus.hasFocus, isTrue);
+  }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
+
+  for (final reply in [true, false]) {
+    testWidgets('${reply ? 'Shift+R' : 'C'} works from the sheet focus scope', (
+      tester,
+    ) async {
+      final h = await _setup(tester);
+      h.shell.openTopicFromList(h.topics.first);
+      await tester.pumpAndSettle();
+      // This is where focus can land after opening the sheet or closing a menu.
+      FocusScope.of(tester.element(find.byType(TopicView))).unfocus();
+      await tester.pump();
+      final focus = FocusManager.instance.primaryFocus!;
+      expect(focus, isA<FocusScopeNode>());
+      expect(
+        ModalRoute.of(focus.context!)?.settings.name,
+        'desktop-topic-sheet',
+      );
+      expect(TopicSheetScope.readerOf(focus.context!), isNull);
+      await _composeShortcut(tester, reply: reply);
+      await tester.pumpAndSettle();
+      expect(h.shell.visibleComposer, isNotNull);
+      expect(h.shell.visibleComposer!.target.createsTopic, !reply);
+      expect(h.shell.visibleComposer!.focus.hasFocus, isTrue);
+      final composer = h.shell.visibleComposer;
+      await _composeShortcut(tester, reply: false);
+      await _composeShortcut(tester, reply: true);
+      await tester.pumpAndSettle();
+      expect(h.shell.visibleComposer, same(composer));
+      await tester.tap(find.byKey(const ValueKey('composer-close')));
+      await tester.pumpAndSettle();
+      expect(h.shell.visibleComposer, isNull);
+      await _composeShortcut(tester, reply: reply);
+      await tester.pumpAndSettle();
+      expect(h.shell.visibleComposer?.target.createsTopic, !reply);
+      expect(h.shell.visibleComposer?.focus.hasFocus, isTrue);
+    }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
+  }
+
+  testWidgets(
+    'compose shortcuts leave search input alone above a topic sheet',
+    (tester) async {
+      final h = await _setup(tester);
+      h.shell.openTopicFromList(h.topics.first);
+      await tester.pumpAndSettle();
+      await tester.tap(find.byType(EditableText).first);
+      await tester.pumpAndSettle();
+      expect(
+        tester
+            .widget<EditableText>(find.byType(EditableText).first)
+            .focusNode
+            .hasFocus,
+        isTrue,
+      );
+      await _composeShortcut(tester, reply: false);
+      await _composeShortcut(tester, reply: true);
+      await tester.pumpAndSettle();
+      expect(h.shell.visibleComposer, isNull);
+      expect(_sheet, findsOneWidget);
+    },
+    variant: TargetPlatformVariant.only(TargetPlatform.macOS),
+  );
+
+  testWidgets('nested dialogs block compose shortcuts until dismissed', (
+    tester,
+  ) async {
+    final h = await _setup(tester);
+    h.shell.openTopicFromList(h.topics.first);
+    await tester.pumpAndSettle();
+    FocusScope.of(tester.element(find.byType(TopicView))).unfocus();
+    await tester.pump();
+    final dialog = showDDialog<void>(
+      context: tester.element(find.byType(TopicView)),
+      builder: (context, controller) => const DDialogContent(
+        children: [DDialogTitle(child: Text('Topic details'))],
+      ),
+    );
+    await tester.pumpAndSettle();
+    await _composeShortcut(tester, reply: false);
+    await _composeShortcut(tester, reply: true);
+    await tester.pumpAndSettle();
+    expect(h.shell.visibleComposer, isNull);
+    await tester.tap(find.byTooltip('Close'));
+    await tester.pumpAndSettle();
+    expect(find.text('Topic details'), findsNothing);
+    await dialog;
+    await _composeShortcut(tester, reply: true);
+    await tester.pumpAndSettle();
+    expect(h.shell.visibleComposer?.target.createsTopic, isFalse);
+    expect(h.shell.visibleComposer?.focus.hasFocus, isTrue);
+  }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 
   testWidgets(
     'topic sheets retain the full-width list and return to its scroll position',
@@ -71,6 +182,7 @@ void main() {
           h.shell.openTopicFromList(h.topics.first);
           await tester.pumpAndSettle();
           final readingWidth = tester.getSize(_sheet).width;
+          expect(readingWidth, 825);
           final listRect = tester.getRect(_list);
           final listElement = tester.element(find.byType(TopicListView));
           final titleBar = find.byWidgetPredicate(
@@ -93,13 +205,14 @@ void main() {
           );
           final selection = composer.text.selection;
           final topicState = tester.state(find.byType(TopicView));
-          expect(tester.getSize(_sheet).width, lessThan(readingWidth));
+          expect(tester.getSize(_sheet).width, readingWidth);
           for (final dock in ['left', 'bottom', 'right']) {
             await tester.tap(find.byKey(const ValueKey('composer-options')));
             await tester.pumpAndSettle();
             await tester.tap(find.byTooltip('Dock $dock'));
             await tester.pumpAndSettle();
             final bounds = tester.getRect(_sheet);
+            expect(bounds.width, 825);
             final workspace = tester.getRect(
               find.byType(DesktopTopicSheetHost),
             );
@@ -204,6 +317,11 @@ void main() {
       await tester.tap(find.byTooltip('Dock left'));
       await tester.pumpAndSettle();
       final editorState = tester.state(find.byType(ComposerEditor));
+      tester.view.physicalSize = const Size(900, 850);
+      await tester.pumpAndSettle();
+      final workspace = tester.getRect(find.byType(DesktopTopicSheetHost));
+      expect(workspace.width, lessThan(825));
+      expect(tester.getSize(_sheet).width, closeTo(workspace.width - 24, .01));
       tester.view.physicalSize = const Size(650, 850);
       await tester.pumpAndSettle();
       var frame = tester.getRect(find.byType(ComposerPanel));
@@ -211,11 +329,13 @@ void main() {
       expect(frame.top, greaterThanOrEqualTo(reader.bottom));
       expect(frame.width, 650);
       expect(frame.width, greaterThan(tester.getSize(_sheet).width));
+      expect(tester.getSize(_sheet).width, 626);
       tester.view.physicalSize = const Size(1440, 900);
       await tester.pumpAndSettle();
       frame = tester.getRect(find.byType(ComposerPanel));
       reader = tester.getRect(find.byType(TopicView));
       expect(frame.right, lessThanOrEqualTo(reader.left));
+      expect(tester.getSize(_sheet).width, 825);
       expect(tester.state(find.byType(ComposerEditor)), same(editorState));
       expect(tester.takeException(), isNull);
     },
@@ -373,6 +493,17 @@ void main() {
     expect(find.byType(TopicView), findsOneWidget);
     expect(tester.takeException(), isNull);
   }, variant: TargetPlatformVariant.only(TargetPlatform.iOS));
+}
+
+Future<void> _composeShortcut(
+  WidgetTester tester, {
+  required bool reply,
+}) async {
+  if (reply) await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+  await tester.sendKeyEvent(
+    reply ? LogicalKeyboardKey.keyR : LogicalKeyboardKey.keyC,
+  );
+  if (reply) await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
 }
 
 Future<({ShellController shell, List<Topic> topics})> _setup(
