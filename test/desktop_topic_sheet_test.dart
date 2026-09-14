@@ -574,7 +574,7 @@ void main() {
     variant: TargetPlatformVariant.only(TargetPlatform.macOS),
   );
 
-  testWidgets('clicking forum tabs retains each sheet editor and its draft', (
+  testWidgets('clicking forum tabs retains the forum editor and its draft', (
     tester,
   ) async {
     final h = await _setup(tester);
@@ -590,15 +590,11 @@ void main() {
     await tester.pumpAndSettle();
     expect(h.shell.activeTabId, isNot(firstTab));
     expect(_sheet, findsNothing);
-    expect(h.shell.visibleComposer, isNull);
+    expect(h.shell.visibleComposer, same(first));
     h.shell.openTopicFromList(h.topics[1]);
     await tester.pumpAndSettle();
-    h.shell.openReply();
-    await tester.pumpAndSettle();
     final secondTab = h.shell.activeTabId!;
-    final second = h.shell.visibleComposer!;
-    final secondEditor = tester.state(find.byType(ComposerEditor));
-    second.text.text = 'Second tab draft';
+    expect(h.shell.visibleComposer!.target.topicId, h.topics.first.id);
     await tester.tap(find.byKey(ValueKey('forum-tab-item-$firstTab')));
     await tester.pumpAndSettle();
     expect(h.shell.currentContent?.topicId, h.topics.first.id);
@@ -607,8 +603,8 @@ void main() {
     await tester.tap(find.byKey(ValueKey('forum-tab-item-$secondTab')));
     await tester.pumpAndSettle();
     expect(h.shell.currentContent?.topicId, h.topics[1].id);
-    expect(tester.state(find.byType(ComposerEditor)), same(secondEditor));
-    expect(h.shell.visibleComposer!.raw, 'Second tab draft');
+    expect(tester.state(find.byType(ComposerEditor)), same(firstEditor));
+    expect(h.shell.visibleComposer!.raw, 'First tab draft');
     await tester.pump(const Duration(seconds: 2));
     expect(tester.takeException(), isNull);
   }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));

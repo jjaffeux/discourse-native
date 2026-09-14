@@ -79,7 +79,10 @@ void main() {
             }
             if (replacement == 'forum') shell.selectInstance(0);
             if (replacement == 'tab') shell.selectTab(sourceTabId!);
-            if (replacement == 'forum' || replacement == 'tab') {
+            if (replacement == 'tab') {
+              expect(shell.visibleComposer, same(composer));
+            }
+            if (replacement == 'forum') {
               expect(shell.visibleComposer, isNull);
             }
           },
@@ -292,7 +295,7 @@ final class _Harness {
     } else {
       await tester.tap(find.byKey(ValueKey('post-more-actions-$postNumber')));
       await tester.pumpAndSettle();
-      await tester.tap(find.widgetWithText(MenuItemButton, 'Share'));
+      await tester.tap(find.text('Share'));
     }
     await tester.pumpAndSettle();
     expect(find.byKey(_replyKey), findsOneWidget);

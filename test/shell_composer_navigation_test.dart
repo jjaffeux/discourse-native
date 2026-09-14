@@ -103,13 +103,13 @@ void main() {
     expect(shell.visibleComposer, same(composer));
   });
 
-  test('hides the composer in another tab and restores it on return', () {
+  test('keeps the same composer visible across tabs', () {
     final sourceTabId = shell.activeTabId!;
     final composer = shell.visibleComposer!;
 
     shell.createTab();
 
-    expect(shell.visibleComposer, isNull);
+    expect(shell.visibleComposer, same(composer));
 
     shell.selectTab(sourceTabId);
 
@@ -128,34 +128,30 @@ void main() {
     expect(shell.visibleComposer, same(composer));
   });
 
-  test(
-    'retains each tab reply and its selection while another reply opens',
-    () async {
-      final firstTab = shell.activeTabId!;
-      final first = openReply(7);
-      await shell.finishComposerDraftRestore(first);
-      first.text.value = const TextEditingValue(
-        text: 'An unfinished first reply',
-        selection: TextSelection.collapsed(offset: 5),
-      );
+  test('retains the forum reply and selection across tabs', () async {
+    final firstTab = shell.activeTabId!;
+    final first = openReply(7);
+    await shell.finishComposerDraftRestore(first);
+    first.text.value = const TextEditingValue(
+      text: 'An unfinished first reply',
+      selection: TextSelection.collapsed(offset: 5),
+    );
 
-      shell.createTab();
-      final secondTab = shell.activeTabId!;
-      final second = openReply(8);
-      await shell.finishComposerDraftRestore(second);
-      second.text.text = 'A separate second reply';
+    shell.createTab();
+    final secondTab = shell.activeTabId!;
+    final second = openReply(7);
+    expect(second, same(first));
 
-      shell.selectTab(firstTab);
-      expect(shell.visibleComposer, same(first));
-      expect(first.raw, 'An unfinished first reply');
-      expect(first.text.selection, const TextSelection.collapsed(offset: 5));
-      expect(first.isCurrent, isTrue);
+    shell.selectTab(firstTab);
+    expect(shell.visibleComposer, same(first));
+    expect(first.raw, 'An unfinished first reply');
+    expect(first.text.selection, const TextSelection.collapsed(offset: 5));
+    expect(first.isCurrent, isTrue);
 
-      shell.selectTab(secondTab);
-      expect(shell.visibleComposer, same(second));
-      expect(second.raw, 'A separate second reply');
-    },
-  );
+    shell.selectTab(secondTab);
+    expect(shell.visibleComposer, same(second));
+    expect(second.raw, 'An unfinished first reply');
+  });
 
   test('opening a composer on another forum retains both drafts', () async {
     final first = shell.visibleComposer!;
@@ -174,41 +170,39 @@ void main() {
     expect(second.raw, 'A reply on the second forum');
   });
 
-  test('closing an inactive tab flushes only its composer', () async {
-    final firstTab = shell.activeTabId!;
-    final first = openReply(7);
-    await shell.finishComposerDraftRestore(first);
-    first.text.text = 'Save this before closing its tab';
-    shell.createTab();
-    final second = openReply(8);
-
-    shell.closeTab(firstTab);
-    await first.finishDraftSaves();
-
-    expect(first.isDisposed, isTrue);
-    expect(shell.visibleComposer, same(second));
-    expect(
-      ComposerDraft.decode(api.draftsSaved.single['data']! as String)?.reply,
-      'Save this before closing its tab',
-    );
-  });
+  test(
+    'closing the initiating and last tab preserves the forum composer',
+    () async {
+      final firstTab = shell.activeTabId!;
+      final first = openReply(7);
+      await shell.finishComposerDraftRestore(first);
+      first.text.text = 'Keep this forum draft';
+      shell.createTab();
+      shell.closeTab(firstTab);
+      expect(first.isDisposed, isFalse);
+      expect(shell.visibleComposer, same(first));
+      shell.closeTab(shell.activeTabId!);
+      expect(shell.visibleComposer, same(first));
+      expect(first.raw, 'Keep this forum draft');
+    },
+  );
 
   test('closing other tabs preserves composers on another forum', () async {
     final firstForumComposer = shell.visibleComposer!;
     shell.selectInstance(1);
-    final closed = openReply(7);
+    final kept = openReply(7);
     shell.createTab();
-    final kept = openReply(8);
+    expect(shell.visibleComposer, same(kept));
 
     shell.closeOtherTabs(shell.activeTabId!);
 
-    expect(closed.isDisposed, isTrue);
+    expect(kept.isDisposed, isFalse);
     expect(shell.visibleComposer, same(kept));
     shell.selectInstance(0);
     expect(shell.visibleComposer, same(firstForumComposer));
   });
 
-  test('a draft lookup completes in its inactive tab', () async {
+  test('a draft lookup completes after switching tabs', () async {
     final gate = Completer<void>();
     drafts.readGate = gate;
     addTearDown(() {
@@ -222,11 +216,11 @@ void main() {
     final firstTab = shell.activeTabId!;
     final first = openReply(7);
     shell.createTab();
-    final second = openReply(8);
+    expect(shell.visibleComposer, same(first));
 
     gate.complete();
     expect(await shell.finishComposerDraftRestore(first), isTrue);
-    expect(shell.visibleComposer, same(second));
+    expect(shell.visibleComposer, same(first));
     shell.selectTab(firstTab);
     expect(shell.visibleComposer?.raw, 'Restored in the background');
   });
@@ -267,7 +261,7 @@ void main() {
       expect(first.isDisposed, isTrue);
       expect(shell.visibleComposer, same(second));
       shell.selectTab(firstTab);
-      expect(shell.visibleComposer, isNull);
+      expect(shell.visibleComposer, same(second));
     },
   );
 
@@ -290,8 +284,42 @@ void main() {
       expect(shell.visibleComposer, same(second));
       expect(second.raw, 'Keep this second reply open');
       shell.selectTab(firstTab);
-      expect(shell.visibleComposer, isNull);
+      expect(shell.visibleComposer, same(second));
       expect(api.created.single['raw'], 'Submit this first reply');
+    },
+  );
+
+  test(
+    'switching tabs during a reply submission closes the forum composer',
+    () async {
+      final composer = openReply(7);
+      await shell.finishComposerDraftRestore(composer);
+      composer.text.text = 'Reply to the original topic';
+      final submission = shell.submitComposer();
+      shell.createTab();
+      expect(shell.visibleComposer, same(composer));
+      createPostGate.complete();
+      await submission;
+      expect(shell.visibleComposer, isNull);
+      expect(api.created.single['topicId'], 7);
+    },
+  );
+
+  test(
+    'explicitly replying to another topic replaces the forum composer and saves its draft',
+    () async {
+      final composer = openReply(7);
+      await shell.finishComposerDraftRestore(composer);
+      composer.text.text = 'Saved first reply';
+      shell.createTab();
+      final replacement = openReply(8);
+      await composer.finishDraftSaves();
+      expect(composer.isDisposed, isTrue);
+      expect(shell.liveComposers, [replacement]);
+      expect(
+        ComposerDraft.decode(api.draftsSaved.single['data']! as String)?.reply,
+        'Saved first reply',
+      );
     },
   );
 
@@ -316,16 +344,36 @@ void main() {
         'This new topic should open in the tab that submitted it.';
     final submission = shell.submitComposer();
     shell.createTab();
-    final second = openReply(8);
+    shell.pushContent(
+      ContentRoute.topic(topicId: 8, slug: 'topic-8', title: 'Topic 8'),
+    );
 
     await submission;
 
     expect(shell.currentContent?.topicId, 8);
-    expect(shell.visibleComposer, same(second));
+    expect(shell.visibleComposer, isNull);
     shell.selectTab(firstTab);
     expect(shell.currentContent?.topicId, 901);
     expect(shell.visibleComposer, isNull);
   });
+
+  test(
+    'a topic opened in one tab submits into the currently selected tab',
+    () async {
+      final openingTab = shell.activeTabId!;
+      final composer = shell.visibleComposer!;
+      await shell.finishComposerDraftRestore(composer);
+      composer.title.text = 'A forum topic';
+      composer.text.text = 'Created from the selected tab';
+      shell.createTab();
+      final submittingTab = shell.activeTabId!;
+      await shell.submitComposer();
+      expect(shell.activeTabId, submittingTab);
+      expect(shell.currentContent?.topicId, 901);
+      shell.selectTab(openingTab);
+      expect(shell.currentContent?.topicId, isNot(901));
+    },
+  );
 
   test('disconnecting a forum disposes all its retained composers', () async {
     final first = openReply(7);
@@ -341,11 +389,11 @@ void main() {
     expect(shell.visibleComposer, same(otherForum));
   });
 
-  test('disposing the shell preserves pending drafts in every tab', () async {
+  test('disposing the shell preserves pending drafts in every forum', () async {
     final first = openReply(7);
     await shell.finishComposerDraftRestore(first);
     first.text.text = 'First pending reply';
-    shell.createTab();
+    shell.selectInstance(1);
     final second = openReply(8);
     await shell.finishComposerDraftRestore(second);
     second.text.text = 'Second pending reply';
@@ -359,13 +407,15 @@ void main() {
       'First pending reply',
     );
     expect(
-      ComposerDraft.decode(await drafts.read(_firstSite, 'topic_8'))?.reply,
+      ComposerDraft.decode(
+        await drafts.read('https://two.example', 'topic_8'),
+      )?.reply,
       'Second pending reply',
     );
     expect(api.draftsSaved, isEmpty);
   });
 
-  testWidgets('switching between composed tabs renders their own editor text', (
+  testWidgets('switching tabs keeps the same forum editor text', (
     tester,
   ) async {
     await tester.binding.setSurfaceSize(const Size(1200, 800));
@@ -382,22 +432,18 @@ void main() {
 
     shell.createTab();
     final secondTab = shell.activeTabId!;
-    await shell.openNewTopic();
-    await shell.finishComposerDraftRestore(shell.visibleComposer!);
-    shell.visibleComposer!.text.text = 'Second editor text';
+
     await tester.pumpAndSettle();
 
     shell.selectTab(firstTab);
     await tester.pumpAndSettle();
     expect(find.byType(ComposerPanel), findsOneWidget);
     expect(find.text('First editor text'), findsOneWidget);
-    expect(find.text('Second editor text'), findsNothing);
 
     shell.selectTab(secondTab);
     await tester.pumpAndSettle();
     expect(find.byType(ComposerPanel), findsOneWidget);
-    expect(find.text('Second editor text'), findsOneWidget);
-    expect(find.text('First editor text'), findsNothing);
+    expect(find.text('First editor text'), findsOneWidget);
 
     await tester.pumpWidget(const SizedBox.shrink());
     disposeShell();
