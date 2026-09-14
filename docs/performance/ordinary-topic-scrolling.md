@@ -105,6 +105,10 @@ improvement: return-pass UI p99 was 2.27 ms, with no reply remounts and no UI or
 raster overruns across 504 frames. First-pass UI p99 was 4.91 ms; the existing
 first-use raster spikes remained.
 
+The final candidate based on main `b34e2c86` passed those 362 selected tests,
+formatting and full-project static analysis again. Its reply-rendering and
+retention code is unchanged from the native integration measurement.
+
 Restart an already-running debug app when applying this change. The stored
 reply widget changes from stateless to stateful, which requires a restart
 instead of relying on hot reload to preserve the old widget type.
