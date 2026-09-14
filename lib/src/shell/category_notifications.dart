@@ -69,6 +69,7 @@ class CategoryNotificationLevelButton extends StatelessWidget {
               key: ValueKey((controller, siteUrl, categoryId, lease.session)),
               semanticLabel: 'Category notifications',
               buttonKey: const ValueKey('category-notification-level-button'),
+              size: DButtonSize.regular,
               value: level,
               options: _options,
               onChanged: (selected) {
