@@ -188,3 +188,29 @@ After integrating the latest tab-strip alignment from main (`276548d5`), the
 application/keyboard integration run passed 70 tests with only the same three
 baseline tab-cursor failures. Root and full-profile static analysis remained clean. The tab-strip
 changes do not alter the inspected gutter, surface or button implementation.
+
+## Approved content alignment extension (2026-09-14)
+
+Desktop topic sheets follow the app's physical Left, Center and Right content
+alignment setting within the available tab workspace. `DSheetSide.center` is a
+full-height, width-constrained panel centered horizontally; it uses the same
+insets, backdrop, dismissal and reduced-motion behavior as the edge panels,
+with an upward entrance. The default Native Sheet side remains right.
+
+The navigation gutter remains inside the panel width: on the right for a left
+sheet, and on the left for centered and right sheets. The sheet surface retains
+its state when alignment changes move the gutter. Narrow workspaces clamp all
+three positions to the available width. Existing composer docking and mobile
+inline topic presentation are preserved.
+
+The **Centered reading panel** styleguide example demonstrates the new side.
+`tool/topic_sheet_review_main.dart` exposes all three alignment options with
+light/dark, narrow-window and centered-styleguide controls for local review.
+
+Verification: 59 focused Sheet, desktop topic-sheet and styleguide tests passed,
+including physical alignment in LTR/RTL, live changes with retained reader state,
+narrow layout, composer docking, navigation and mobile presentation. Root and
+full-profile static analysis passed. The isolated macOS debug fixture was built
+and visually checked for centered and left light-mode sheets, right dark-mode
+sheets, centered narrow layout, next-topic navigation, the centered Native
+styleguide example and Escape dismissal. No other native platforms were run.

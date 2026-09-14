@@ -519,7 +519,9 @@ void main() {
     expect(triggerFocus.hasFocus, isTrue);
   });
 
-  testWidgets('physical sides match base-nova edge geometry', (tester) async {
+  testWidgets('physical sides and centered panels match their geometry', (
+    tester,
+  ) async {
     tester.view.physicalSize = const Size(800, 600);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
@@ -530,12 +532,17 @@ void main() {
       DSheetSide.right,
       DSheetSide.bottom,
       DSheetSide.left,
+      DSheetSide.center,
     ]) {
       await tester.pumpWidget(_host(_sheet<void>(side: side)));
       await tester.tap(find.text('Open'));
       await tester.pumpAndSettle();
       final rect = tester.getRect(find.byType(DSheetContent));
       switch (side) {
+        case DSheetSide.center:
+          expect(rect.center.dx, 400);
+          expect(rect.width, 384);
+          expect(rect.height, 600);
         case DSheetSide.top:
           expect(rect.top, 0);
           expect(rect.width, 800);
