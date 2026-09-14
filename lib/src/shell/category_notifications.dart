@@ -12,10 +12,12 @@ class CategoryNotificationLevelButton extends StatelessWidget {
     super.key,
     required this.siteUrl,
     required this.categoryId,
+    this.showLabel = false,
   });
 
   final String siteUrl;
   final int categoryId;
+  final bool showLabel;
 
   static const _options = [
     DNotificationLevelOption(
@@ -71,6 +73,7 @@ class CategoryNotificationLevelButton extends StatelessWidget {
               buttonKey: const ValueKey('category-notification-level-button'),
               size: DButtonSize.regular,
               variant: DButtonVariant.outline,
+              showLabel: showLabel,
               value: level,
               options: _options,
               onChanged: (selected) {

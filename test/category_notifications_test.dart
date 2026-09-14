@@ -1,6 +1,8 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/data/discourse_api.dart';
+import 'package:discourse_native/src/models/app_settings.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/shell/main_content.dart';
@@ -71,12 +73,39 @@ void main() {
     );
     expect(notificationButtonRect.overlaps(newTopicButtonRect), isFalse);
 
+    final triggerLabel = find.descendant(
+      of: button,
+      matching: find.text('Normal'),
+    );
+    expect(triggerLabel, findsOneWidget);
+    tester.view.physicalSize = phone;
+    await tester.pumpAndSettle();
+    expect(triggerLabel, findsNothing);
+    expect(button, findsOneWidget);
+    expect(tester.takeException(), isNull);
+
+    tester.view.physicalSize = laptop;
+    await controller.appSettings.setTextScale(AppTextScale.percent200);
+    await tester.pumpAndSettle();
+    expect(triggerLabel, findsNothing);
+    expect(tester.takeException(), isNull);
+
+    await controller.appSettings.setTextScale(AppTextScale.percent100);
+    await tester.pumpAndSettle();
+    expect(triggerLabel, findsOneWidget);
+
     await tester.tap(button);
     await tester.pumpAndSettle();
     expect(find.text('Watching'), findsOneWidget);
     expect(find.text('Tracking'), findsOneWidget);
     expect(find.text('Watching First Post'), findsOneWidget);
-    expect(find.text('Normal'), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byType(DDropdownMenuContent),
+        matching: find.text('Normal'),
+      ),
+      findsOneWidget,
+    );
     expect(find.text('Muted'), findsOneWidget);
 
     await tester.tap(find.text('Watching First Post'));
