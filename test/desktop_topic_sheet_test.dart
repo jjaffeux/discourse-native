@@ -1,4 +1,5 @@
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/src/diagnostics/diagnostics.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/post.dart';
@@ -23,6 +24,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'support/fakes.dart';
+import 'support/topic_scroll_capture.dart';
 
 final _sheet = find.byKey(const ValueKey('desktop-topic-sheet'));
 final _list = find.byKey(const ValueKey('inbox-topic-list-pane'));
@@ -95,10 +97,12 @@ void main() {
       final button = find.byKey(
         const ValueKey(('post-footer-action', 1, 'Reply')),
       );
+      final readerState = tester.state(find.byType(TopicView));
       await tester.ensureVisible(button);
       await tester.pumpAndSettle();
       await tester.tap(button, kind: PointerDeviceKind.mouse);
       await tester.pumpAndSettle();
+      expect(tester.state(find.byType(TopicView)), same(readerState));
       expect(h.shell.visibleComposer!.focus.hasFocus, isTrue);
       // Updating the sheet route must not restore reader focus over the
       // composer after it has already received focus.
@@ -744,20 +748,30 @@ Future<({ShellController shell, List<Topic> topics})> _setup(
     updater: FakeUpdater(),
     updateStore: FakeUpdateStore(),
   );
+  final diagnostics = (await tester.runAsync(
+    () => DiagnosticsController.create(
+      persistence: MemoryDiagnosticsPersistence(),
+      topicScrollCapture: topicScrollCaptureWithoutVm(),
+    ),
+  ))!;
   addTearDown(() async {
     await tester.pumpWidget(const SizedBox.shrink());
     shell.dispose();
+    await tester.runAsync(diagnostics.close);
   });
   await shell.load();
   await shell.loadFeed('latest');
   await tester.pumpWidget(
-    ShellScope(
-      controller: shell,
-      child: MaterialApp(
-        theme: AppTheme.light,
-        home: DDirection(
-          textDirection: direction,
-          child: const AdaptiveShell(),
+    DiagnosticsScope(
+      controller: diagnostics,
+      child: ShellScope(
+        controller: shell,
+        child: MaterialApp(
+          theme: AppTheme.light,
+          home: DDirection(
+            textDirection: direction,
+            child: const AdaptiveShell(),
+          ),
         ),
       ),
     ),
