@@ -3,9 +3,13 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../theme/d_icon.dart';
+import '../../theme/d_icons.dart';
 import '../../theme/discourse_typography.dart';
 import '../foundation/control_style.dart';
 import '../foundation/tokens.dart';
+import 'd_button.dart';
+import 'd_kbd.dart';
 
 /// The visual treatment of a [DTabList].
 enum DTabListVariant { defaultStyle, line }
@@ -1001,5 +1005,161 @@ class _DTabPanelState<T> extends State<DTabPanel<T>> {
       );
     }
     return active ? panel : const SizedBox.shrink();
+  }
+}
+
+/// A controlled, closable document tab for application workspace strips.
+///
+/// Unlike content tabs, document tabs may be reordered or renamed by their host.
+/// The host owns routing and drag handling; this control owns the neutral pill,
+/// selection interaction and the separately focusable close action. Supply an
+/// [editor] while renaming to keep its field outside the selection gesture.
+class DDocumentTab extends StatefulWidget {
+  const DDocumentTab({
+    super.key,
+    required this.selected,
+    required this.child,
+    required this.onSelect,
+    required this.onClose,
+    required this.closeLabel,
+    this.closeShortcut,
+    this.onDoubleTap,
+    this.onTapDown,
+    this.onTapCancel,
+    this.editor,
+    this.dropTarget = false,
+    this.excludeSelectionSemantics = false,
+    this.surfaceKey,
+    this.pointerKey,
+    this.closeKey,
+  });
+
+  final bool selected;
+  final Widget child;
+  final VoidCallback onSelect;
+  final VoidCallback onClose;
+  final String closeLabel;
+  final DShortcut? closeShortcut;
+  final VoidCallback? onDoubleTap;
+  final GestureTapDownCallback? onTapDown;
+  final GestureTapCancelCallback? onTapCancel;
+  final Widget? editor;
+  final bool dropTarget;
+
+  /// Whether the host already supplies the tab selection semantics.
+  /// The close action always retains its own semantics.
+  final bool excludeSelectionSemantics;
+  final Key? surfaceKey;
+  final Key? pointerKey;
+  final Key? closeKey;
+
+  @override
+  State<DDocumentTab> createState() => _DDocumentTabState();
+}
+
+class _DDocumentTabState extends State<DDocumentTab> {
+  bool _hovered = false;
+  final _closeFocus = FocusNode();
+
+  @override
+  void dispose() {
+    _closeFocus.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final tokens = DTokens.of(context);
+    final foreground = widget.selected || _hovered
+        ? tokens.foreground
+        : tokens.mutedForeground;
+    final radius = BorderRadius.circular(tokens.controlRadius);
+    return MouseRegion(
+      key: widget.pointerKey,
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() => _hovered = false),
+      child: Container(
+        key: widget.surfaceKey,
+        height: DControlStyle.scaledHeight(
+          DControlSize.regular,
+          MediaQuery.textScalerOf(context),
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 4),
+        decoration: ShapeDecoration(
+          color: widget.selected || _hovered
+              ? tokens.foreground.withValues(alpha: .06)
+              : Colors.transparent,
+          shape: RoundedRectangleBorder(
+            borderRadius: radius,
+            side: widget.dropTarget
+                ? BorderSide(color: tokens.focusRing, width: 2)
+                : BorderSide.none,
+          ),
+        ),
+        child: IconTheme.merge(
+          data: IconThemeData(color: foreground),
+          child: DefaultTextStyle.merge(
+            style: TextStyle(
+              color: foreground,
+              fontSize: DControlStyle.fontSize(DControlSize.regular),
+              height:
+                  DControlStyle.lineHeight(DControlSize.regular) /
+                  DControlStyle.fontSize(DControlSize.regular),
+              fontWeight: FontWeight.w400,
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Expanded(
+                  child:
+                      widget.editor ??
+                      ExcludeSemantics(
+                        excluding: widget.excludeSelectionSemantics,
+                        child: Semantics(
+                          container: true,
+                          button: true,
+                          selected: widget.selected,
+                          child: InkWell(
+                            onTap: widget.onSelect,
+                            onTapDown: widget.onTapDown,
+                            onTapCancel: widget.onTapCancel,
+                            onDoubleTap: widget.onDoubleTap,
+                            hoverColor: Colors.transparent,
+                            borderRadius: radius,
+                            child: widget.child,
+                          ),
+                        ),
+                      ),
+                ),
+                ListenableBuilder(
+                  listenable: _closeFocus,
+                  builder: (context, _) => AnimatedOpacity(
+                    opacity: widget.selected || _hovered || _closeFocus.hasFocus
+                        ? 1
+                        : 0,
+                    alwaysIncludeSemantics: true,
+                    duration: DMotion.duration(context, DMotion.change),
+                    child: Center(
+                      widthFactor: 1,
+                      child: DButton.iconOnly(
+                        key: widget.closeKey,
+                        tooltip: widget.closeLabel,
+                        shortcut: widget.closeShortcut,
+                        focusNode: _closeFocus,
+                        size: DButtonSize.small,
+                        variant: DButtonVariant.ghost,
+                        icon: const DIcon(DIcons.xmark),
+                        onPressed: widget.onClose,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
