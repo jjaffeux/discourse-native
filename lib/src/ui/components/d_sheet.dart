@@ -47,6 +47,7 @@ class DSheet<T> extends StatelessWidget {
     this.initiallyOpen = false,
     this.onOpenChanged,
     this.useRootNavigator = false,
+    this.modal = true,
     this.dismissOnBarrier = true,
     this.dismissOnEscape = true,
     this.barrierLabel = 'Dismiss sheet',
@@ -62,6 +63,10 @@ class DSheet<T> extends StatelessWidget {
   final bool initiallyOpen;
   final ValueChanged<DSheetChangeDetails<T>>? onOpenChanged;
   final bool useRootNavigator;
+
+  /// Allows interaction with the exposed background without dismissing the
+  /// sheet when false. Modal sheets retain their dimmed, blurred backdrop.
+  final bool modal;
   final bool dismissOnBarrier;
   final bool dismissOnEscape;
   final String barrierLabel;
@@ -76,6 +81,7 @@ class DSheet<T> extends StatelessWidget {
     initiallyOpen: initiallyOpen,
     onOpenChanged: onOpenChanged,
     useRootNavigator: useRootNavigator,
+    modal: modal,
     dismissOnBarrier: dismissOnBarrier,
     dismissOnEscape: dismissOnEscape,
     barrierLabel: barrierLabel,
@@ -574,6 +580,7 @@ Future<T?> showDSheet<T>({
   bool inset = false,
   bool animateSize = false,
   bool useRootNavigator = false,
+  bool modal = true,
   bool dismissOnBarrier = true,
   bool dismissOnEscape = true,
   String barrierLabel = 'Dismiss sheet',
@@ -587,6 +594,7 @@ Future<T?> showDSheet<T>({
     context: context,
     builder: builder,
     useRootNavigator: useRootNavigator,
+    modal: modal,
     dismissOnBarrier: dismissOnBarrier,
     dismissOnEscape: dismissOnEscape,
     barrierLabel: barrierLabel,

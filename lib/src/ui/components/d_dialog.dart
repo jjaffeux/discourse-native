@@ -144,6 +144,7 @@ class DDialogPresentation {
     required this.barrierLabel,
     required this.dismissOnBarrier,
     required this.onBarrierDismiss,
+    this.modal = true,
   });
 
   final Widget content;
@@ -151,19 +152,22 @@ class DDialogPresentation {
   final String barrierLabel;
   final bool dismissOnBarrier;
   final VoidCallback onBarrierDismiss;
+  final bool modal;
 
   Widget buildBackdrop({
     Color color = const Color(0x1A000000),
     double blurSigma = 4,
-  }) => BackdropFilter(
-    filter: ImageFilter.blur(sigmaX: blurSigma, sigmaY: blurSigma),
-    child: ModalBarrier(
-      color: color,
-      dismissible: dismissOnBarrier,
-      onDismiss: onBarrierDismiss,
-      semanticsLabel: barrierLabel,
-    ),
-  );
+  }) => !modal
+      ? const SizedBox.shrink()
+      : BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: blurSigma, sigmaY: blurSigma),
+          child: ModalBarrier(
+            color: color,
+            dismissible: dismissOnBarrier,
+            onDismiss: onBarrierDismiss,
+            semanticsLabel: barrierLabel,
+          ),
+        );
 }
 
 /// Composes any trigger widget with the root dialog state.
@@ -190,6 +194,7 @@ class DDialog<T> extends StatefulWidget {
     this.initiallyOpen = false,
     this.onOpenChanged,
     this.useRootNavigator = false,
+    this.modal = true,
     this.dismissOnBarrier = true,
     this.dismissOnEscape = true,
     this.barrierLabel = 'Dismiss dialog',
@@ -210,6 +215,10 @@ class DDialog<T> extends StatefulWidget {
   final bool initiallyOpen;
   final ValueChanged<DDialogChangeDetails<T>>? onOpenChanged;
   final bool useRootNavigator;
+
+  /// When false, omits the backdrop and allows interaction outside the surface.
+  /// Outside clicks do not dismiss it, regardless of [dismissOnBarrier].
+  final bool modal;
   final bool dismissOnBarrier;
   final bool dismissOnEscape;
   final String barrierLabel;
@@ -363,7 +372,7 @@ class _DDialogState<T> extends State<DDialog<T>> {
             ),
           );
         }
-        if (route.wasCurrentWhenAuthorized) {
+        if (route.shouldRestoreFocus) {
           final target = widget.finalFocusNode ?? _previousFocus;
           if (target?.canRequestFocus ?? false) target!.requestFocus();
         }
@@ -376,6 +385,7 @@ class _DDialogState<T> extends State<DDialog<T>> {
   Widget build(BuildContext context) {
     final nextConfiguration = _DDialogConfiguration<T>(
       content: widget.content,
+      modal: widget.modal,
       barrierLabel: widget.barrierLabel,
       dismissOnBarrier: widget.dismissOnBarrier,
       dismissOnEscape: widget.dismissOnEscape,
@@ -429,6 +439,7 @@ class _DDialogRootScope extends InheritedWidget {
 class _DDialogConfiguration<T> {
   const _DDialogConfiguration({
     required this.content,
+    required this.modal,
     required this.barrierLabel,
     required this.dismissOnBarrier,
     required this.dismissOnEscape,
@@ -437,6 +448,7 @@ class _DDialogConfiguration<T> {
   });
 
   final Widget content;
+  final bool modal;
   final String barrierLabel;
   final bool dismissOnBarrier;
   final bool dismissOnEscape;
@@ -447,6 +459,7 @@ class _DDialogConfiguration<T> {
   bool operator ==(Object other) =>
       other is _DDialogConfiguration<T> &&
       identical(other.content, content) &&
+      other.modal == modal &&
       other.barrierLabel == barrierLabel &&
       other.dismissOnBarrier == dismissOnBarrier &&
       other.dismissOnEscape == dismissOnEscape &&
@@ -456,6 +469,7 @@ class _DDialogConfiguration<T> {
   @override
   int get hashCode => Object.hash(
     identityHashCode(content),
+    modal,
     barrierLabel,
     dismissOnBarrier,
     dismissOnEscape,
@@ -475,6 +489,7 @@ class _DDialogRoute<T> extends DOverlayRoute<T, _DDialogConfiguration<T>> {
     super.settings,
   }) : super(
          barrierLabelOf: (config) => config.barrierLabel,
+         modalOf: (config) => config.modal,
          onPopBlocked: () {
            if (configuration.value?.dismissOnEscape ?? false) {
              onDismissRequested(DDialogChangeReason.escape);
@@ -482,6 +497,7 @@ class _DDialogRoute<T> extends DOverlayRoute<T, _DDialogConfiguration<T>> {
          },
          pageBuilder: (context, config, animation) => _DDialogRoutePage<T>(
            content: config.content,
+           modal: config.modal,
            barrierLabel: config.barrierLabel,
            dismissOnBarrier: config.dismissOnBarrier,
            dismissOnEscape: config.dismissOnEscape,
@@ -495,12 +511,31 @@ class _DDialogRoute<T> extends DOverlayRoute<T, _DDialogConfiguration<T>> {
            animation: animation,
          ),
        );
+
+  bool? _restoreFocus;
+  bool get shouldRestoreFocus =>
+      wasCurrentWhenAuthorized && (_restoreFocus ?? false);
+
+  // The page sets initial focus itself. A non-modal route must not reclaim
+  // focus from background controls when the Navigator updates its routes.
+  @override
+  bool get requestFocus => modal;
+
+  @override
+  void authorizePop([T? result]) {
+    if (!isActive) return;
+    final focusContext = FocusManager.instance.primaryFocus?.context;
+    _restoreFocus ??=
+        modal || (focusContext != null && ModalRoute.of(focusContext) == this);
+    super.authorizePop(result);
+  }
 }
 
 class _DDialogRoutePage<T> extends StatefulWidget {
   const _DDialogRoutePage({
     super.key,
     required this.content,
+    required this.modal,
     required this.barrierLabel,
     required this.dismissOnBarrier,
     required this.dismissOnEscape,
@@ -513,6 +548,7 @@ class _DDialogRoutePage<T> extends StatefulWidget {
   });
 
   final Widget content;
+  final bool modal;
   final String barrierLabel;
   final bool dismissOnBarrier;
   final bool dismissOnEscape;
@@ -567,6 +603,7 @@ class _DDialogRoutePageState<T> extends State<_DDialogRoutePage<T>> {
     );
     final presentation = DDialogPresentation(
       content: focusedContent,
+      modal: widget.modal,
       animation: widget.animation,
       barrierLabel: widget.barrierLabel,
       dismissOnBarrier: widget.dismissOnBarrier,
@@ -958,6 +995,7 @@ Future<T?> showDDialog<T>({
   required BuildContext context,
   required DDialogContentBuilder<T> builder,
   bool useRootNavigator = false,
+  bool modal = true,
   bool dismissOnBarrier = true,
   bool dismissOnEscape = true,
   bool Function()? canDismiss,
@@ -975,6 +1013,7 @@ Future<T?> showDDialog<T>({
   );
   final configuration = ValueNotifier<_DDialogConfiguration<T>?>(
     _DDialogConfiguration<T>(
+      modal: modal,
       content: Builder(
         builder: (dialogContext) => builder(dialogContext, controller),
       ),
@@ -1029,7 +1068,7 @@ Future<T?> showDDialog<T>({
     controller.dispose();
     environment.dispose();
     configuration.dispose();
-    if (route.wasCurrentWhenAuthorized) {
+    if (route.shouldRestoreFocus) {
       final target = finalFocusNode ?? previousFocus;
       if (target?.canRequestFocus ?? false) target!.requestFocus();
     }

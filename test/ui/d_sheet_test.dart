@@ -83,6 +83,258 @@ Widget _sheet<T>({
 );
 
 void main() {
+  for (final imperative in [false, true]) {
+    testWidgets(
+      'non-modal ${imperative ? 'helper' : 'sheet'} allows background clicks, input and scrolling',
+      (tester) async {
+        final controller = DSheetController<String>();
+        final backgroundFocus = FocusNode();
+        final triggerFocus = FocusNode();
+        final scroll = ScrollController();
+        addTearDown(controller.dispose);
+        addTearDown(backgroundFocus.dispose);
+        addTearDown(triggerFocus.dispose);
+        addTearDown(scroll.dispose);
+        var clicks = 0;
+        String? result;
+        VoidCallback? closeSheet;
+        DSheetContent content() => DSheetContent(
+          children: [
+            const DSheetHeader(
+              children: [DSheetTitle(child: Text('Non-modal sheet'))],
+            ),
+            DSheetBody(child: DInput(semanticLabel: 'Sheet input')),
+            DSheetFooter(
+              children: [
+                DSheetClose<String>(
+                  result: 'done',
+                  builder: (_, close) =>
+                      DButton(onPressed: close, label: const Text('Done')),
+                ),
+              ],
+            ),
+          ],
+        );
+        Widget background(BuildContext context, VoidCallback open) => Align(
+          alignment: Alignment.topLeft,
+          child: SizedBox(
+            width: 300,
+            child: Column(
+              children: [
+                DButton(
+                  focusNode: triggerFocus,
+                  onPressed: open,
+                  label: const Text('Open'),
+                ),
+                DButton(
+                  onPressed: () => clicks++,
+                  label: const Text('Background action'),
+                ),
+                DInput(
+                  focusNode: backgroundFocus,
+                  semanticLabel: 'Background input',
+                ),
+                Expanded(
+                  child: ListView(
+                    controller: scroll,
+                    children: List.generate(
+                      50,
+                      (i) => SizedBox(height: 50, child: Text('Row $i')),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+        await tester.pumpWidget(
+          _host(
+            imperative
+                ? Builder(
+                    builder: (context) => background(context, () async {
+                      result = await showDSheet<String>(
+                        context: context,
+                        modal: false,
+                        builder: (_, helperController) {
+                          closeSheet = () => helperController.close('done');
+                          return content();
+                        },
+                      );
+                    }),
+                  )
+                : DSheet<String>(
+                    controller: controller,
+                    modal: false,
+                    onOpenChanged: (details) => result = details.result,
+                    trigger: DSheetTrigger(builder: background),
+                    content: content(),
+                  ),
+          ),
+        );
+        triggerFocus.requestFocus();
+        await tester.pump();
+        await tester.tap(find.text('Open'));
+        await tester.pumpAndSettle();
+        expect(find.byType(BackdropFilter), findsNothing);
+        expect(find.byType(ModalBarrier).hitTestable(), findsNothing);
+        final sheetEditor = find.descendant(
+          of: find.byType(DSheetContent),
+          matching: find.byType(EditableText),
+        );
+        await tester.enterText(sheetEditor, 'Retained draft');
+        await tester.tap(find.text('Background action'));
+        await tester.pumpAndSettle();
+        expect(clicks, 1);
+        expect(find.byType(DSheetContent), findsOneWidget);
+        final backgroundEditor = find.byWidgetPredicate(
+          (w) => w is EditableText && w.focusNode == backgroundFocus,
+        );
+        await tester.tap(backgroundEditor);
+        await tester.pumpAndSettle();
+        expect(backgroundFocus.hasFocus, isTrue);
+        await tester.enterText(backgroundEditor, 'Background still editable');
+        await tester.drag(find.byType(ListView), const Offset(0, -200));
+        await tester.pumpAndSettle();
+        expect(scroll.offset, greaterThan(0));
+        expect(find.text('Retained draft'), findsOneWidget);
+
+        // Closing from application state must preserve background focus.
+        if (imperative) {
+          closeSheet!();
+        } else {
+          controller.close('done');
+        }
+        await tester.pumpAndSettle();
+        expect(result, 'done');
+        expect(find.byType(DSheetContent), findsNothing);
+        expect(backgroundFocus.hasFocus, isTrue);
+
+        triggerFocus.requestFocus();
+        await tester.pump();
+        await tester.tap(find.text('Open'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Done'));
+        await tester.pumpAndSettle();
+        expect(triggerFocus.hasFocus, isTrue);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
+  testWidgets(
+    'modal dialogs above non-modal sheets still block the background',
+    (tester) async {
+      var clicks = 0;
+      await tester.pumpWidget(
+        _host(
+          DSheet<void>(
+            modal: false,
+            initiallyOpen: true,
+            trigger: DSheetTrigger(
+              builder: (_, _) => Align(
+                alignment: Alignment.topLeft,
+                child: DButton(
+                  onPressed: () => clicks++,
+                  label: const Text('Background action'),
+                ),
+              ),
+            ),
+            content: DSheetContent(
+              children: [
+                DSheetHeader(
+                  children: [
+                    DDialog<void>(
+                      dismissOnBarrier: false,
+                      trigger: DDialogTrigger(
+                        builder: (_, open) => DButton(
+                          onPressed: open,
+                          label: const Text('Open dialog'),
+                        ),
+                      ),
+                      content: const DDialogContent(
+                        children: [DDialogTitle(child: Text('Modal dialog'))],
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Open dialog'));
+      await tester.pumpAndSettle();
+      await tester.tapAt(tester.getCenter(find.text('Background action')));
+      await tester.pumpAndSettle();
+      expect(clicks, 0);
+      expect(find.byType(BackdropFilter), findsOneWidget);
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+      expect(find.text('Modal dialog'), findsNothing);
+      expect(find.byType(DSheetContent), findsOneWidget);
+      await tester.tap(find.text('Background action'));
+      await tester.pumpAndSettle();
+      expect(clicks, 1);
+      await tester.tap(find.text('Open dialog'));
+      await tester.pumpAndSettle();
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+      expect(find.byType(DSheetContent), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'modality changes update an open sheet without losing its input',
+    (tester) async {
+      final modal = ValueNotifier(true);
+      addTearDown(modal.dispose);
+      var clicks = 0;
+      await tester.pumpWidget(
+        _host(
+          ValueListenableBuilder<bool>(
+            valueListenable: modal,
+            builder: (_, value, _) => DSheet<void>(
+              modal: value,
+              initiallyOpen: true,
+              dismissOnBarrier: false,
+              trigger: DSheetTrigger(
+                builder: (_, _) => Align(
+                  alignment: Alignment.topLeft,
+                  child: DButton(
+                    onPressed: () => clicks++,
+                    label: const Text('Background action'),
+                  ),
+                ),
+              ),
+              content: DSheetContent(children: [DSheetBody(child: DInput())]),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(EditableText), 'Retained draft');
+      final editor = tester.state(find.byType(EditableText));
+      final point = tester.getCenter(find.text('Background action'));
+      for (final value in [true, false, true]) {
+        modal.value = value;
+        await tester.pumpAndSettle();
+        final previousClicks = clicks;
+        await tester.tapAt(point);
+        await tester.pumpAndSettle();
+        expect(clicks, value ? previousClicks : previousClicks + 1);
+        expect(
+          find.byType(BackdropFilter),
+          value ? findsOneWidget : findsNothing,
+        );
+        expect(tester.state(find.byType(EditableText)), same(editor));
+        expect(find.text('Retained draft'), findsOneWidget);
+      }
+    },
+  );
+
   for (final reducedMotion in [false, true]) {
     testWidgets(
       'inset sheet animates width and retains its editor (reduced motion: $reducedMotion)',
