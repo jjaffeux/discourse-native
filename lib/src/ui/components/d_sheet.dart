@@ -149,7 +149,7 @@ Widget _sheetPresentation(
     curve: const Interval(0, .75, curve: Curves.easeInOut),
     reverseCurve: const Interval(.25, 1, curve: Curves.easeInOut),
   );
-  Widget backdrop = presentation.buildBackdrop();
+  Widget backdrop = presentation.buildBackdrop(blurSigma: 2);
   if (!media.disableAnimations) {
     backdrop = FadeTransition(opacity: backdropCurve, child: backdrop);
   }
