@@ -380,14 +380,14 @@ final class AssignPlugin
         compactHeader: (anchorContext, showDetails) => DButton.iconOnly(
           key: const Key('assign-topic-header'),
           icon: direct == null
-              ? const DIcon(DIcons.userPlus, size: 16)
-              : AssignmentAssigneeAvatar(assignee: direct.assignee, size: 18),
+              ? const DIcon(DIcons.userPlus)
+              : AssignmentAssigneeAvatar(assignee: direct.assignee, size: 24),
           tooltip: direct != null
               ? 'Manage assignment to ${direct.assignee.displayName}'
               : canAssign
               ? 'Assign topic'
               : 'Manage assignments',
-          size: DButtonSize.small,
+          size: DButtonSize.large,
           variant: DButtonVariant.ghost,
           onPressed: direct != null || !canAssign
               ? showDetails
@@ -410,10 +410,10 @@ final class AssignPlugin
                 child: DButton(
                   key: const Key('assign-topic-header'),
                   icon: direct == null
-                      ? const DIcon(DIcons.userPlus, size: 14)
+                      ? const DIcon(DIcons.userPlus)
                       : AssignmentAssigneeAvatar(
                           assignee: direct.assignee,
-                          size: 18,
+                          size: 24,
                         ),
                   label: Row(
                     mainAxisSize: MainAxisSize.min,
@@ -429,14 +429,14 @@ final class AssignPlugin
                       ),
                       if (direct != null) ...[
                         const SizedBox(width: 6),
-                        const DIcon(DIcons.chevronDown, size: 10),
+                        const DIcon(DIcons.chevronDown),
                       ],
                     ],
                   ),
                   tooltip: direct == null
                       ? 'Assign topic'
                       : 'Manage assignment to ${direct.assignee.displayName}',
-                  size: DButtonSize.small,
+                  size: DButtonSize.large,
                   variant: DButtonVariant.outline,
                   onPressed: direct != null
                       ? showDetails
@@ -460,7 +460,7 @@ final class AssignPlugin
                   '${postAssignments.length} assigned post${postAssignments.length == 1 ? '' : 's'}',
                 ),
                 tooltip: 'Manage assignments',
-                size: DButtonSize.small,
+                size: DButtonSize.large,
                 variant: DButtonVariant.ghost,
                 onPressed: showDetails,
               ),
