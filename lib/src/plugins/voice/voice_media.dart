@@ -106,7 +106,16 @@ abstract interface class VoiceMediaSession implements Listenable {
   Future<void> setAudioPublishingAllowed(bool allowed);
   Future<void> setMuted(bool muted);
   Future<void> setDeafened(bool deafened);
-  Future<void> setCameraEnabled(bool enabled, {String? deviceId});
+
+  /// Enables or disables the camera while honoring [shouldContinue].
+  ///
+  /// Capture may outlive the call or a user's decision. Implementations recheck
+  /// before publishing and release a capture whose owner no longer wants it.
+  Future<void> setCameraEnabled(
+    bool enabled, {
+    String? deviceId,
+    bool Function()? shouldContinue,
+  });
   Future<void> setScreenShareEnabled(bool enabled);
   Future<void> setParticipantVolume(int participantId, double volume);
   Future<List<rtc.MediaDeviceInfo>> devices();
@@ -1825,10 +1834,25 @@ final class MeshVoiceMediaSession extends _VoiceMediaNotifier {
   }
 
   @override
-  Future<void> setCameraEnabled(bool enabled, {String? deviceId}) =>
-      _serialize(() => _setCameraEnabled(enabled, deviceId: deviceId));
+  Future<void> setCameraEnabled(
+    bool enabled, {
+    String? deviceId,
+    bool Function()? shouldContinue,
+  }) => _serialize(
+    () => _setCameraEnabled(
+      enabled,
+      deviceId: deviceId,
+      shouldContinue: shouldContinue,
+    ),
+  );
 
-  Future<void> _setCameraEnabled(bool enabled, {String? deviceId}) async {
+  Future<void> _setCameraEnabled(
+    bool enabled, {
+    String? deviceId,
+    bool Function()? shouldContinue,
+  }) async {
+    bool wanted() => !_closing && !disposed && (shouldContinue?.call() ?? true);
+    if (enabled && !wanted()) return;
     final existing = List<rtc.MediaStreamTrack>.of(
       _localStream?.getVideoTracks() ?? const <rtc.MediaStreamTrack>[],
     );
@@ -1856,12 +1880,33 @@ final class MeshVoiceMediaSession extends _VoiceMediaNotifier {
         'frameRate': {'ideal': frameRate},
       },
     });
+    if (!wanted()) {
+      await _disposeStreamBestEffort(stream);
+      return;
+    }
     final track = stream.getVideoTracks().first;
     _ownedLocalStreams.add(stream);
     final previousLocalStream = _localStream;
     try {
       await _attachLocalTrack(stream, track);
+      if (!wanted()) {
+        await _discardCapturedTrack(
+          stream,
+          track,
+          previousLocalStream: previousLocalStream,
+        );
+        return;
+      }
       await _setSourceTrack(_MeshSource.video, _publishedVideoTrack);
+      if (!wanted()) {
+        await _setSourceTrackBestEffort(_MeshSource.video, _screenVideoTrack);
+        await _discardCapturedTrack(
+          stream,
+          track,
+          previousLocalStream: previousLocalStream,
+        );
+        return;
+      }
     } catch (_) {
       await _discardCapturedTrack(
         stream,
@@ -2206,7 +2251,11 @@ final class LiveKitVoiceMediaSession extends _VoiceMediaNotifier {
     VoiceLiveKitRawStatsCollector? collectRawStats,
     VoiceMediaDeviceEnumerator? enumerateDevices,
     VoiceLiveKitRoomAdapter? roomAdapter,
+    Future<lk.LocalVideoTrack> Function(lk.CameraCaptureOptions)?
+    createCameraTrack,
   }) : _collectRawStats = collectRawStats ?? _collectLiveKitRawStats,
+       _createCameraTrack =
+           createCameraTrack ?? lk.LocalVideoTrack.createCameraTrack,
        _enumerateDevices =
            enumerateDevices ??
            (() => rtc.navigator.mediaDevices.enumerateDevices()) {
@@ -2286,6 +2335,10 @@ final class LiveKitVoiceMediaSession extends _VoiceMediaNotifier {
   final VoiceLiveKitRawStatsCollector _collectRawStats;
   final VoiceMediaDeviceEnumerator _enumerateDevices;
   late final VoiceLiveKitRoomAdapter _roomAdapter;
+  final Future<lk.LocalVideoTrack> Function(lk.CameraCaptureOptions)
+  _createCameraTrack;
+  Future<void> _cameraTail = Future<void>.value();
+  int _cameraRevision = 0;
   lk.Room get _room => _roomAdapter.room;
 
   static lk.RoomOptions _roomOptions(VoiceRoom room) => lk.RoomOptions(
@@ -2593,6 +2646,7 @@ final class LiveKitVoiceMediaSession extends _VoiceMediaNotifier {
   }
 
   Future<void> _reconnectOnce() async {
+    final cameraRevision = _cameraRevision;
     _recordDiagnostic(
       diagnostics,
       'livekit.credentials.refresh.started',
@@ -2615,8 +2669,14 @@ final class LiveKitVoiceMediaSession extends _VoiceMediaNotifier {
     // The rebuilt room subscribes everything again, so a reader who was
     // deafened before the drop would come back hearing the room.
     await _applyDeafened();
-    if (_cameraEnabled) {
-      await _publishCamera(true, deviceId: _cameraDeviceId);
+    if (_cameraEnabled && cameraRevision == _cameraRevision) {
+      await _setCameraEnabled(
+        true,
+        deviceId: _cameraDeviceId,
+        shouldContinue: () =>
+            !_reconnect.cancelled && cameraRevision == _cameraRevision,
+        revision: cameraRevision,
+      );
     }
   }
 
@@ -2962,24 +3022,86 @@ final class LiveKitVoiceMediaSession extends _VoiceMediaNotifier {
   }
 
   @override
-  Future<void> setCameraEnabled(bool enabled, {String? deviceId}) async {
-    await _publishCamera(enabled, deviceId: deviceId);
-    _cameraEnabled = enabled;
-    if (enabled) _cameraDeviceId = deviceId;
-    changed();
+  Future<void> setCameraEnabled(
+    bool enabled, {
+    String? deviceId,
+    bool Function()? shouldContinue,
+  }) => _setCameraEnabled(
+    enabled,
+    deviceId: deviceId,
+    shouldContinue: shouldContinue,
+    revision: ++_cameraRevision,
+  );
+
+  Future<void> _setCameraEnabled(
+    bool enabled, {
+    String? deviceId,
+    bool Function()? shouldContinue,
+    required int revision,
+  }) {
+    final operation = _cameraTail.then((_) async {
+      bool wanted() =>
+          !_closing &&
+          !disposed &&
+          revision == _cameraRevision &&
+          (shouldContinue?.call() ?? true);
+      if (_closing || disposed || (enabled && !wanted())) return;
+      final participant = _room.localParticipant;
+      if (enabled && shouldContinue != null && participant != null) {
+        // SDK's combined capture/publish call cannot cancel between the two.
+        // A remembered camera needs that boundary while OS consent is pending.
+        final previous = participant.getTrackPublicationBySource(
+          lk.TrackSource.camera,
+        );
+        if (previous != null) {
+          await participant.removePublishedTrack(previous.sid);
+        }
+        _cameraEnabled = false;
+        if (!wanted()) return;
+        final track = await _createCameraTrack(_cameraCaptureOptions(deviceId));
+        if (!wanted()) {
+          await track.stop();
+          return;
+        }
+        try {
+          final publication = await participant.publishVideoTrack(track);
+          if (!wanted()) {
+            await participant.removePublishedTrack(publication.sid);
+            return;
+          }
+        } catch (_) {
+          await track.stop();
+          rethrow;
+        }
+      } else {
+        await _publishCamera(enabled, deviceId: deviceId);
+      }
+      if (_closing || disposed) return;
+      _cameraEnabled = enabled;
+      if (enabled) _cameraDeviceId = deviceId;
+      changed();
+    });
+    _cameraTail = operation.then<void>(
+      (_) {},
+      onError: (Object _, StackTrace _) {},
+    );
+    return operation;
   }
+
+  lk.CameraCaptureOptions _cameraCaptureOptions(String? deviceId) =>
+      lk.CameraCaptureOptions(
+        deviceId: deviceId,
+        params: switch (join.room.maxQualityProfile) {
+          VoiceQualityProfile.standard => lk.VideoParametersPresets.h360_169,
+          VoiceQualityProfile.high => lk.VideoParametersPresets.h720_169,
+          VoiceQualityProfile.maximum => lk.VideoParametersPresets.h1080_169,
+        },
+      );
 
   Future<void> _publishCamera(bool enabled, {String? deviceId}) =>
       _room.localParticipant?.setCameraEnabled(
         enabled,
-        cameraCaptureOptions: lk.CameraCaptureOptions(
-          deviceId: deviceId,
-          params: switch (join.room.maxQualityProfile) {
-            VoiceQualityProfile.standard => lk.VideoParametersPresets.h360_169,
-            VoiceQualityProfile.high => lk.VideoParametersPresets.h720_169,
-            VoiceQualityProfile.maximum => lk.VideoParametersPresets.h1080_169,
-          },
-        ),
+        cameraCaptureOptions: _cameraCaptureOptions(deviceId),
       ) ??
       Future<void>.value();
 
@@ -3056,6 +3178,7 @@ final class LiveKitVoiceMediaSession extends _VoiceMediaNotifier {
 
     await clean(_roomAdapter.cancelListener);
     await clean(_roomAdapter.disconnect);
+    await _cameraTail;
     for (final connection in pendingConnections) {
       try {
         await connection;

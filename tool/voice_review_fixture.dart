@@ -34,6 +34,7 @@ class VoiceReviewFixture extends StatefulWidget {
     canManage: true,
     creatorId: 1,
     videoAllowed: true,
+    videoEnabled: true,
   );
 
   final VoiceRoom room;
@@ -67,6 +68,7 @@ class _VoiceReviewFixtureState extends State<VoiceReviewFixture> {
                 'creator_id': 1,
                 'can_manage': true,
                 'video_allowed': true,
+                'video_enabled': true,
                 'active_participants': [
                   {'id': 1, 'username': 'fixture', 'role': 'moderator'},
                 ],
@@ -349,7 +351,11 @@ final class _MediaSession extends ChangeNotifier implements VoiceMediaSession {
   @override
   Future<void> setAudioPublishingAllowed(bool allowed) async {}
   @override
-  Future<void> setCameraEnabled(bool enabled, {String? deviceId}) async {
+  Future<void> setCameraEnabled(
+    bool enabled, {
+    String? deviceId,
+    bool Function()? shouldContinue,
+  }) async {
     cameraChanges.add((enabled: enabled, deviceId: deviceId));
   }
 
@@ -447,6 +453,14 @@ final class _Preferences implements VoicePreferences {
     meshPrivacyAcknowledged = acknowledged;
   }
 
+  @override
+  Future<bool> readCameraEnabled(String siteUrl, int userId) async => false;
+  @override
+  Future<void> writeCameraEnabled(
+    String siteUrl,
+    int userId,
+    bool enabled,
+  ) async {}
   @override
   Future<bool?> readAutoStatusEnabled() async => autoStatusEnabled;
 
