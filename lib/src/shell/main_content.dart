@@ -339,6 +339,10 @@ class _TopicInboxWorkspaceState extends State<_TopicInboxWorkspace> {
         final listWidth = split
             ? _listWidth.effectiveWidth(maximum: maximumListWidth)
             : constraints.maxWidth;
+        final buttonFontSize = DButton.fontSizeFor(DButtonSize.regular);
+        final buttonTextScale =
+            MediaQuery.textScalerOf(context).scale(buttonFontSize) /
+            buttonFontSize;
         final showsUserMenu = !topicOpen && ShellTitleBar.columnsCarryUserMenu;
         final messages = sourceRoute.isMessages;
         final createAction = messages
@@ -518,6 +522,7 @@ class _TopicInboxWorkspaceState extends State<_TopicInboxWorkspace> {
                                 CategoryNotificationLevelButton(
                                   siteUrl: state.siteUrl!,
                                   categoryId: sourceRoute.categoryId!,
+                                  showLabel: listWidth >= 440 * buttonTextScale,
                                 ),
                               ],
                             ],
