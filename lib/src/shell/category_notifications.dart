@@ -70,6 +70,7 @@ class CategoryNotificationLevelButton extends StatelessWidget {
               semanticLabel: 'Category notifications',
               buttonKey: const ValueKey('category-notification-level-button'),
               size: DButtonSize.regular,
+              variant: DButtonVariant.outline,
               value: level,
               options: _options,
               onChanged: (selected) {
