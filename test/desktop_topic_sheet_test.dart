@@ -212,6 +212,22 @@ void main() {
     variant: TargetPlatformVariant.only(TargetPlatform.macOS),
   );
 
+  testWidgets('Shift R works after clicking the active topic tab', (
+    tester,
+  ) async {
+    final h = await _setup(tester);
+    h.shell.openTopicFromList(h.topics.first);
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(ValueKey('forum-tab-item-${h.shell.activeTabId}')),
+    );
+    await tester.pumpAndSettle();
+    await _composeShortcut(tester, reply: true);
+    await tester.pumpAndSettle();
+    expect(h.shell.visibleComposer, isNotNull);
+    expect(h.shell.visibleComposer!.focus.hasFocus, isTrue);
+  }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
+
   testWidgets('nested dialogs block compose shortcuts until dismissed', (
     tester,
   ) async {

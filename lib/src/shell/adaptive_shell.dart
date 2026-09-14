@@ -85,6 +85,7 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
   static const SidebarWidthStore _sidebarWidthStore = SidebarWidthStore();
   late final PanelWidthController _diagnosticsWidth;
   late final PanelWidthController _sidebarWidth;
+  VoidCallback? _cancelPendingReply;
 
   @override
   void initState() {
@@ -108,6 +109,7 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
 
   @override
   void dispose() {
+    _cancelPendingReply?.call();
     HardwareKeyboard.instance.removeHandler(_handleShortcut);
     _diagnosticsWidth.dispose();
     _sidebarWidth.dispose();
@@ -164,12 +166,18 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
     if (topicReplyShortcut.accepts(event, keyboard)) {
       if (controller.rootMode != ShellRootMode.forum ||
           controller.currentContent?.isTopic != true ||
-          !controller.canReplyHere ||
           _formControlHasFocus) {
         return false;
       }
-      controller.openReply();
-      return true;
+      if (controller.canReplyHere) {
+        controller.openReply();
+        return true;
+      }
+      if (controller.currentTopic == null && controller.currentTopicLoading) {
+        _replyWhenLoaded(controller);
+        return true;
+      }
+      return false;
     }
 
     if (topicBookmarkShortcut.accepts(event, keyboard)) {
@@ -268,6 +276,57 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
     }
     controller.selectInstance(forumIndex);
     return true;
+  }
+
+  void _replyWhenLoaded(ShellController controller) {
+    _cancelPendingReply?.call();
+    final route = controller.currentContent;
+    final site = controller.currentInstance?.url;
+    final tab = controller.activeTabId;
+    final composer = controller.visibleComposer;
+    late final VoidCallback listener;
+    void cancel() {
+      controller.removeListener(listener);
+      _cancelPendingReply = null;
+    }
+
+    bool stillCurrent() =>
+        mounted &&
+        controller.rootMode == ShellRootMode.forum &&
+        controller.currentContent?.id == route?.id &&
+        controller.currentInstance?.url == site &&
+        controller.activeTabId == tab &&
+        identical(controller.visibleComposer, composer);
+
+    listener = () {
+      if (!stillCurrent()) {
+        cancel();
+        return;
+      }
+      if (controller.currentTopicLoading) return;
+      cancel();
+      // Loading notifies listeners while the reader is rebuilding. Open the
+      // editor after that frame, only if the original topic still owns input.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!stillCurrent() ||
+            !controller.canReplyHere ||
+            Navigator.of(context).canPop() ||
+            _formControlHasFocus) {
+          return;
+        }
+        final focusedContext = FocusManager.instance.primaryFocus?.context;
+        final focusedRoute = focusedContext == null
+            ? null
+            : ModalRoute.of(focusedContext);
+        if (focusedRoute is PopupRoute &&
+            focusedRoute.settings is! TopicSheetRouteSettings) {
+          return;
+        }
+        controller.openReply();
+      });
+    };
+    _cancelPendingReply = cancel;
+    controller.addListener(listener);
   }
 
   bool _openTab(ShellController controller) {

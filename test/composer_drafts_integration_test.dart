@@ -139,6 +139,71 @@ void _registerTopicReplyTests() {
       expect(find.byType(ComposerPanel), findsNothing);
     });
 
+    for (final canReply in [true, false]) {
+      testWidgets(
+        'Shift R during topic loading respects permission $canReply',
+        (tester) async {
+          final gate = Completer<void>();
+          final api = FakeDiscourseApi(
+            feeds: {'/latest.json': listed},
+            topics: {7: detail(canCreatePost: canReply)},
+            topicGate: gate,
+          );
+          await pumpShell(
+            tester,
+            desktop,
+            api: api,
+            instances: connectedSites(),
+            authenticator: signedIn(),
+          );
+          await tester.tap(contentText('A real topic'));
+          await tester.pump();
+          await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+          expect(await tester.sendKeyEvent(LogicalKeyboardKey.keyR), isTrue);
+          await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+          expect(find.byType(ComposerPanel), findsNothing);
+          gate.complete();
+          await tester.pumpAndSettle();
+          expect(
+            find.byType(ComposerPanel),
+            canReply ? findsOneWidget : findsNothing,
+          );
+        },
+      );
+    }
+
+    testWidgets('leaving a loading topic cancels its pending reply', (
+      tester,
+    ) async {
+      final gate = Completer<void>();
+      final api = FakeDiscourseApi(
+        feeds: {'/latest.json': listed},
+        topics: {7: detail()},
+        topicGate: gate,
+      );
+      await pumpShell(
+        tester,
+        desktop,
+        api: api,
+        instances: connectedSites(),
+        authenticator: signedIn(),
+      );
+      await tester.tap(contentText('A real topic'));
+      await tester.pump();
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+      expect(await tester.sendKeyEvent(LogicalKeyboardKey.keyR), isTrue);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+      final shell = ShellScope.read(
+        tester.element(find.byType(MainContent).first),
+      );
+      shell.handleBack();
+      await tester.pump();
+      gate.complete();
+      await tester.pumpAndSettle();
+      expect(shell.visibleComposer, isNull);
+      expect(shell.currentContent?.isTopic, isNot(true));
+    });
+
     testWidgets('Shift R opens a topic reply only where replying is allowed', (
       tester,
     ) async {
