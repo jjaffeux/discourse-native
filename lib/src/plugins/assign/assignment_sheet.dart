@@ -7,7 +7,6 @@ import '../../data/discourse_api_contracts.dart';
 import '../../plugin_api/plugin_scope.dart';
 import '../../shell/avatar_image.dart';
 import '../../theme/app_theme.dart';
-import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
 import 'assign_services.dart';
 import 'assignment.dart';

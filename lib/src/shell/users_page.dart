@@ -9,7 +9,6 @@ import '../data/user_directory_column_width_store.dart';
 import '../diagnostics/diagnostics_scope.dart';
 import '../diagnostics/topic_scroll_capture.dart';
 import '../models/user_directory.dart';
-import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import '../utils/pagination.dart';
 import 'avatar_image.dart';

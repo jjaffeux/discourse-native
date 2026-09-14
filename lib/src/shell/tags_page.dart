@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 
 import '../models/sidebar_tag.dart';
 import '../models/tag_directory_feed.dart';
-import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'content_reading_lane.dart';
 import 'shell_scope.dart';

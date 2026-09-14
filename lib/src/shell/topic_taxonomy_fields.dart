@@ -2,7 +2,6 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
 import '../models/topic.dart';
-import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'category_icon.dart';
 import 'inline_action.dart';

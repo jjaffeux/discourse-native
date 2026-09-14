@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 
 import '../data/discover_sites.dart';
 import '../models/discover_site.dart';
-import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'external_link.dart';
 import 'shell_scope.dart';

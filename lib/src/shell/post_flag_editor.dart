@@ -5,7 +5,6 @@ import 'package:flutter/services.dart';
 
 import '../models/post.dart';
 import '../models/post_flag.dart';
-import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'cooked_html.dart';
 import 'platform.dart';

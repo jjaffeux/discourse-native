@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import '../models/composer_placement.dart';
 import '../plugin_api/plugin_registry.dart';
 import '../plugin_api/plugin_scope.dart';
-import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'composer_controller.dart';
 import 'shell_scope.dart';

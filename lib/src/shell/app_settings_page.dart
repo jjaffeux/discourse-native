@@ -4,7 +4,6 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
 import '../models/app_settings.dart';
-import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'app_home_theme.dart';
 import 'shell_scope.dart';

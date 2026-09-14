@@ -7,7 +7,6 @@ import 'package:flutter/material.dart';
 
 import '../models/post.dart';
 import '../models/topic.dart';
-import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'platform.dart';
 import 'topic_tag_picker.dart';

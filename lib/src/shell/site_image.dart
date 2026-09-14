@@ -10,7 +10,6 @@ import 'package:html/dom.dart' as dom;
 
 import '../data/site_image_repository.dart';
 import '../plugin_api/plugin_registry.dart';
-import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'image_decode.dart';
 import 'shell_scope.dart';

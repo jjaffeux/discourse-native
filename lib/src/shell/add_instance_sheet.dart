@@ -8,7 +8,6 @@ import '../data/discover_sites.dart';
 import '../diagnostics/diagnostics_controller.dart';
 import '../models/discourse_instance.dart';
 import '../theme/app_theme.dart';
-import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'app_home_theme.dart';
 import 'discover_site_suggestions.dart';

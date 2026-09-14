@@ -7,7 +7,6 @@ import 'package:html/dom.dart' as dom;
 
 import '../foundation/diagnostic_errors.dart';
 import '../theme/app_theme.dart';
-import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'cooked_dom.dart';
 import 'cooked_html.dart';

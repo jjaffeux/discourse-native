@@ -7,7 +7,6 @@ import 'package:flutter/services.dart';
 import '../../plugin_api/core_plugin_host.dart';
 import '../../shell/image_decode.dart';
 import '../../shell/shell_sheet.dart';
-import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
 import '../../utils/pagination.dart';
 import 'gif.dart';

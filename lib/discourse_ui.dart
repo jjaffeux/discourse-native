@@ -5,6 +5,7 @@ library;
 export 'src/shell/select.dart';
 export 'src/shell/topic_category_selector.dart';
 export 'src/shell/topic_tag_selector.dart';
+export 'src/theme/d_icon.dart';
 export 'src/ui/components/d_accordion.dart';
 export 'src/ui/components/d_alert.dart';
 export 'src/ui/components/d_alert_dialog.dart';

@@ -19,7 +19,6 @@ import 'package:discourse_native/src/shell/topic_progress.dart';
 import 'package:discourse_native/src/styleguide/examples/control_comparison_example.dart';
 import 'package:discourse_native/src/styleguide/styleguide_theme.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
-import 'package:discourse_native/src/theme/d_icon.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/material.dart';
 

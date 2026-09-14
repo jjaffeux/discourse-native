@@ -7,7 +7,6 @@ import 'package:flutter/services.dart';
 import '../models/topic.dart';
 import '../models/topic_filter.dart';
 import '../theme/app_theme.dart';
-import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'anchored_layout.dart';
 import 'category_icon.dart';

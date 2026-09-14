@@ -25,7 +25,6 @@ import '../../shell/emoji_picker.dart';
 import '../../shell/platform.dart';
 import '../../shell/site_emoji_text.dart';
 import '../../theme/app_theme.dart';
-import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
 import '../gifs/gifs_contract.dart';
 import 'chat_channel.dart';
