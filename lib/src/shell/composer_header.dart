@@ -138,7 +138,7 @@ class ComposerHeader extends StatelessWidget {
                     ? 'Whisper options'
                     : 'Reply options',
                 variant: DButtonVariant.ghost,
-                size: DButtonSize.small,
+                size: DButtonSize.large,
                 icon: DIcon(
                   composer.whisper ? DIcons.farEyeSlash : DIcons.reply,
                   color: color,
@@ -148,7 +148,7 @@ class ComposerHeader extends StatelessWidget {
                   children: [
                     Flexible(child: Text(label)),
                     const SizedBox(width: 6),
-                    const DIcon(DIcons.chevronDown, size: 10),
+                    const DIcon(DIcons.chevronDown),
                   ],
                 ),
               ),
