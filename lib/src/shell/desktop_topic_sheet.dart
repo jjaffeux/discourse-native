@@ -6,9 +6,11 @@ import '../models/bookmark.dart';
 import '../models/content_route.dart';
 import '../plugin_api/plugin_scope.dart';
 import '../theme/app_theme.dart';
+import 'forum_tabs_bar.dart';
 import 'keyboard_navigation.dart';
 import 'platform.dart';
 import 'reader_content_bounds.dart';
+import 'shell_controller.dart';
 import 'shell_scope.dart';
 import 'topic_list_bottom_bar.dart';
 import 'topic_sheet_scope.dart';
@@ -25,8 +27,8 @@ typedef _TopicSheetState = ({
   bool isConnected,
 });
 
-/// A local Navigator keeps the sheet below window chrome and retains the page
-/// underneath it, including while the desktop switches between shell widths.
+/// Tabs stay above the local Navigator so their sheets cannot cover tab controls.
+/// The selected tab supplies both the retained background and the reading route.
 class DesktopTopicSheetHost extends StatelessWidget {
   const DesktopTopicSheetHost({super.key, required this.child});
 
@@ -35,19 +37,39 @@ class DesktopTopicSheetHost extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (context.isTouch) return child;
-    return LayoutBuilder(
-      builder: (context, bounds) => MediaQuery(
-        data: MediaQuery.of(context).copyWith(size: bounds.biggest),
-        child: Navigator(
-          pages: [
-            MaterialPage<void>(
-              key: const ValueKey('desktop-topic-background'),
-              child: _TopicSheetRouteHost(child: child),
-            ),
-          ],
-          onDidRemovePage: (_) {},
+    return Column(
+      children: [
+        ShellSelector<bool>(
+          select: (shell) =>
+              shell.forumTabsEnabled &&
+              shell.rootMode == ShellRootMode.forum &&
+              shell.loadStatus == InstanceLoadStatus.ready &&
+              shell.hasInstances,
+          builder: (context, showTabs, _) =>
+              showTabs ? const CurrentForumTabsBar() : const SizedBox.shrink(),
         ),
-      ),
+        Expanded(
+          // Keep modal semantics inside the tab workspace, below the tab bar.
+          child: Semantics(
+            container: true,
+            explicitChildNodes: true,
+            child: LayoutBuilder(
+              builder: (context, bounds) => MediaQuery(
+                data: MediaQuery.of(context).copyWith(size: bounds.biggest),
+                child: Navigator(
+                  pages: [
+                    MaterialPage<void>(
+                      key: const ValueKey('desktop-topic-background'),
+                      child: _TopicSheetRouteHost(child: child),
+                    ),
+                  ],
+                  onDidRemovePage: (_) {},
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

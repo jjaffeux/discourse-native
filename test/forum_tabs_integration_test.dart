@@ -601,14 +601,12 @@ void main() {
       expect(controller.activeTabId, originalId);
       expect(_bar(tester).selectedId, originalId);
 
-      await tester.tap(
-        find.byKey(const ValueKey('forum-tabs-switcher-surface')),
-      );
+      await tester.tap(find.byKey(const ValueKey('forum-tabs-switcher')));
       await tester.pumpAndSettle();
       await tester.tap(
         find.descendant(
           of: find.byKey(ValueKey('forum-tabs-switcher-open-$originalId')),
-          matching: find.byType(IconButton),
+          matching: find.byType(DButton),
         ),
       );
       await tester.pumpAndSettle();
@@ -818,7 +816,8 @@ void main() {
 
       expect(_inSidebar(find.byType(ForumTabsBar)), findsNothing);
       expect(_inSidebar(find.text('OPEN')), findsNothing);
-      expect(_inMainContent(find.byType(ForumTabsBar)), findsOneWidget);
+      expect(_inMainContent(find.byType(ForumTabsBar)), findsNothing);
+      expect(find.byType(ForumTabsBar), findsOneWidget);
     }),
   );
 
@@ -828,7 +827,7 @@ void main() {
     TargetPlatform.windows,
   ]) {
     testWidgets(
-      '${platform.name} shows forum tabs in main content at every width',
+      '${platform.name} keeps forum tabs above the workspace at every width',
       (tester) => _withPlatform(platform, () async {
         for (final size in const [_compact, _medium, _expanded]) {
           await _pumpShell(
@@ -842,7 +841,7 @@ void main() {
 
           if (size == _compact) {
             expect(find.byType(MainContent), findsNothing);
-            expect(find.byType(ForumTabsBar), findsNothing);
+            expect(find.byType(ForumTabsBar), findsOneWidget);
 
             await tester.tap(_sidebarText('Topics'));
             await tester.pumpAndSettle();
@@ -851,7 +850,12 @@ void main() {
             expect(find.byType(MainContent), findsOneWidget);
           }
 
-          expect(_inMainContent(find.byType(ForumTabsBar)), findsOneWidget);
+          expect(_inMainContent(find.byType(ForumTabsBar)), findsNothing);
+          expect(find.byType(ForumTabsBar), findsOneWidget);
+          expect(
+            tester.getRect(find.byType(ForumTabsBar)).bottom,
+            lessThanOrEqualTo(tester.getRect(find.byType(MainContent)).top),
+          );
           expect(find.byType(CurrentForumTabsBar), findsOneWidget);
           expect(find.byKey(const ValueKey('forum-tabs-add')), findsOneWidget);
           expect(_bar(tester).items.single.title, 'Topics');
