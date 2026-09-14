@@ -284,6 +284,32 @@ void main() {
     expect(h.shell.visibleComposer!.focus.hasFocus, isTrue);
   }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 
+  testWidgets('opening a topic transfers focus from the background search', (
+    tester,
+  ) async {
+    final h = await _setup(tester);
+    h.shell.openTopicFromList(h.topics[1]);
+    await tester.pumpAndSettle();
+    final input = tester.widget<EditableText>(find.byType(EditableText).first);
+    input.focusNode.requestFocus();
+    await tester.pumpAndSettle();
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+    expect(input.focusNode.hasFocus, isTrue);
+    h.shell.openTopicFromList(h.topics.first);
+    await tester.pumpAndSettle();
+    expect(h.shell.canReplyHere, isTrue);
+    expect(input.focusNode.hasFocus, isFalse);
+    expect(
+      FocusManager.instance.primaryFocus?.context
+          ?.findAncestorWidgetOfExactType<TopicView>(),
+      isNotNull,
+    );
+    await _composeShortcut(tester, reply: true);
+    await tester.pumpAndSettle();
+    expect(h.shell.visibleComposer, isNotNull);
+  }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
+
   testWidgets('nested dialogs block compose shortcuts until dismissed', (
     tester,
   ) async {

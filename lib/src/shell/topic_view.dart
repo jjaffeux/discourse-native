@@ -211,6 +211,9 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
   late final TopicViewportCoordinator _viewport;
   int? _chatContextCurrentPostId;
   final ValueNotifier<int?> _keyboardPost = ValueNotifier(null);
+  final ReadingFocusNode _entryFocus = ReadingFocusNode(
+    debugLabel: 'topic reader',
+  );
   final ReadingFocusNode _keyboardFocus = ReadingFocusNode(
     debugLabel: 'Topic post cursor',
   );
@@ -468,6 +471,19 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || ModalRoute.of(context)?.isCurrent == false) return;
+      final shell = ShellScope.read(context);
+      if (shell.currentContent?.isTopic != true ||
+          (widget.route != null &&
+              shell.currentContent?.topicId != widget.route?.topicId) ||
+          shell.visibleComposer?.focus.hasFocus == true) {
+        return;
+      }
+      // Replacing a topic reuses the sheet route, so its initial focus does
+      // not run again. Give the new reader focus instead of retaining search.
+      _entryFocus.requestFocus();
+    });
     _viewport = TopicViewportCoordinator(
       postFrame: (callback) =>
           WidgetsBinding.instance.addPostFrameCallback((_) => callback()),
@@ -761,6 +777,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     _viewport.dispose();
     _keyboardPost.dispose();
     _keyboardFocus.dispose();
+    _entryFocus.dispose();
     super.dispose();
   }
 
@@ -1661,9 +1678,12 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
   }
 
   @override
-  Widget build(BuildContext context) => ShellSelector<TopicViewportSnapshot>(
-    select: TopicViewportSnapshot.from,
-    builder: (context, snapshot, child) => _build(context, snapshot, child),
+  Widget build(BuildContext context) => Focus(
+    focusNode: _entryFocus,
+    child: ShellSelector<TopicViewportSnapshot>(
+      select: TopicViewportSnapshot.from,
+      builder: (context, snapshot, child) => _build(context, snapshot, child),
+    ),
   );
 
   Widget _build(
