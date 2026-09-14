@@ -112,13 +112,17 @@ and static analysis of the root and full profile.
 
 ## Approved non-modal extension (2026-09-14)
 
-The user approved `modal: false` for desktop topic sheets so the exposed
-background remains clear and interactive. `DSheet` and `showDSheet` forward this
+The user approved a trial of `modal: false` for desktop topic sheets, then
+preferred the original blurred background. Desktop topic sheets again use the
+default modal presentation: the background is blurred, background scrolling is
+blocked, and an outside click dismisses the sheet without activating the
+underlying control. The wider 1000px sheet and app-level composer docking remain.
+
+The optional non-modal API remains available in the Native library for surfaces
+that need a clear, interactive background. `DSheet` and `showDSheet` forward this
 option to Dialog's shared route owner. It removes both the visual backdrop and
 the Navigator's pointer barrier. Clicking outside does not dismiss the sheet;
-background buttons, inputs and scrolling remain available. Opening another
-background topic updates the current tab's sheet. The composer stays at app
-level with its existing physical docking behavior.
+background buttons, inputs and scrolling remain available.
 
 Initial focus still enters the sheet. Close restores the supplied final focus
 node or previous focus only if focus still belongs to the sheet; a programmatic
