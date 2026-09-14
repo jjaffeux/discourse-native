@@ -116,7 +116,6 @@ class _TopicSheetRouteHost extends StatelessWidget {
         }
 
         return DSheet<void>(
-          modal: false,
           open: route != null,
           onOpenChanged: (details) {
             if (!details.open) close();

@@ -29,13 +29,13 @@ final _list = find.byKey(const ValueKey('inbox-topic-list-pane'));
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
-  testWidgets('background topics stay clickable and scrollable under a sheet', (
+  testWidgets('topic sheets blur the background and intercept outside clicks', (
     tester,
   ) async {
     final h = await _setup(tester, size: const Size(1800, 900));
     h.shell.openTopicFromList(h.topics.first);
     await tester.pumpAndSettle();
-    expect(find.byType(BackdropFilter), findsNothing);
+    expect(find.byType(BackdropFilter), findsOneWidget);
     final bounds = tester.getRect(_sheet);
     final list = find.byType(TopicListView);
     final row = find.descendant(
@@ -45,15 +45,6 @@ void main() {
     final rowBounds = tester.getRect(row);
     final point = Offset(rowBounds.left + 8, rowBounds.center.dy);
     expect(point.dx, lessThan(bounds.left));
-    await tester.tapAt(point);
-    await tester.pumpAndSettle();
-    expect(h.shell.currentContent?.topicId, 2);
-    expect(_sheet, findsOneWidget);
-    expect(tester.getRect(_sheet), bounds);
-    expect(
-      find.descendant(of: _sheet, matching: find.text('Conversation 2')),
-      findsOneWidget,
-    );
     final scroll = tester
         .state<ScrollableState>(
           find.descendant(of: list, matching: find.byType(Scrollable)),
@@ -62,13 +53,14 @@ void main() {
     final initialOffset = scroll.pixels;
     await tester.dragFrom(point + const Offset(0, 160), const Offset(0, -180));
     await tester.pumpAndSettle();
-    expect(scroll.pixels, greaterThan(initialOffset));
-    expect(h.shell.currentContent?.topicId, 2);
+    expect(scroll.pixels, initialOffset);
+    expect(h.shell.currentContent?.topicId, 1);
     expect(_sheet, findsOneWidget);
-    await _composeShortcut(tester, reply: true);
+    await tester.tapAt(point);
     await tester.pumpAndSettle();
-    expect(h.shell.visibleComposer?.target.topicId, 2);
-    expect(h.shell.visibleComposer?.focus.hasFocus, isTrue);
+    expect(_sheet, findsNothing);
+    expect(h.shell.currentContent?.topicId, isNull);
+    expect(scroll.pixels, initialOffset);
     expect(tester.takeException(), isNull);
   }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 
