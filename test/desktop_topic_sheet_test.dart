@@ -29,6 +29,49 @@ final _list = find.byKey(const ValueKey('inbox-topic-list-pane'));
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
+  testWidgets('background topics stay clickable and scrollable under a sheet', (
+    tester,
+  ) async {
+    final h = await _setup(tester, size: const Size(1800, 900));
+    h.shell.openTopicFromList(h.topics.first);
+    await tester.pumpAndSettle();
+    expect(find.byType(BackdropFilter), findsNothing);
+    final bounds = tester.getRect(_sheet);
+    final list = find.byType(TopicListView);
+    final row = find.descendant(
+      of: list,
+      matching: find.text('Conversation 2'),
+    );
+    final rowBounds = tester.getRect(row);
+    final point = Offset(rowBounds.left + 8, rowBounds.center.dy);
+    expect(point.dx, lessThan(bounds.left));
+    await tester.tapAt(point);
+    await tester.pumpAndSettle();
+    expect(h.shell.currentContent?.topicId, 2);
+    expect(_sheet, findsOneWidget);
+    expect(tester.getRect(_sheet), bounds);
+    expect(
+      find.descendant(of: _sheet, matching: find.text('Conversation 2')),
+      findsOneWidget,
+    );
+    final scroll = tester
+        .state<ScrollableState>(
+          find.descendant(of: list, matching: find.byType(Scrollable)),
+        )
+        .position;
+    final initialOffset = scroll.pixels;
+    await tester.dragFrom(point + const Offset(0, 160), const Offset(0, -180));
+    await tester.pumpAndSettle();
+    expect(scroll.pixels, greaterThan(initialOffset));
+    expect(h.shell.currentContent?.topicId, 2);
+    expect(_sheet, findsOneWidget);
+    await _composeShortcut(tester, reply: true);
+    await tester.pumpAndSettle();
+    expect(h.shell.visibleComposer?.target.topicId, 2);
+    expect(h.shell.visibleComposer?.focus.hasFocus, isTrue);
+    expect(tester.takeException(), isNull);
+  }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
+
   testWidgets('C creates a topic while the nested topic list owns focus', (
     tester,
   ) async {
@@ -183,7 +226,7 @@ void main() {
           h.shell.openTopicFromList(h.topics.first);
           await tester.pumpAndSettle();
           final readingWidth = tester.getSize(_sheet).width;
-          expect(readingWidth, 825);
+          expect(readingWidth, 1000);
           final listRect = tester.getRect(_list);
           final listElement = tester.element(find.byType(TopicListView));
           final titleBar = find.byWidgetPredicate(
@@ -206,14 +249,19 @@ void main() {
           );
           final selection = composer.text.selection;
           final topicState = tester.state(find.byType(TopicView));
-          expect(tester.getSize(_sheet).width, readingWidth);
+          expect(
+            tester.getSize(_sheet).width,
+            closeTo(
+              tester.getSize(find.byType(DesktopTopicSheetHost)).width - 24,
+              .01,
+            ),
+          );
           for (final dock in ['left', 'bottom', 'right']) {
             await tester.tap(find.byKey(const ValueKey('composer-options')));
             await tester.pumpAndSettle();
             await tester.tap(find.byTooltip('Dock $dock'));
             await tester.pumpAndSettle();
             final bounds = tester.getRect(_sheet);
-            expect(bounds.width, 825);
             final tabs = find.byType(ForumTabsBar);
             expect(bounds.top, greaterThan(tester.getRect(tabs).bottom));
             expect(
@@ -222,6 +270,10 @@ void main() {
             );
             final workspace = tester.getRect(
               find.byType(DesktopTopicSheetHost),
+            );
+            expect(
+              bounds.width,
+              closeTo((workspace.width - 24).clamp(0, readingWidth), .01),
             );
             final frame = tester.getRect(find.byType(ComposerPanel));
             final reader = tester.getRect(find.byType(TopicView));
@@ -327,7 +379,7 @@ void main() {
       tester.view.physicalSize = const Size(900, 850);
       await tester.pumpAndSettle();
       final workspace = tester.getRect(find.byType(DesktopTopicSheetHost));
-      expect(workspace.width, lessThan(825));
+      expect(workspace.width, lessThan(1000));
       expect(tester.getSize(_sheet).width, closeTo(workspace.width - 24, .01));
       tester.view.physicalSize = const Size(650, 850);
       await tester.pumpAndSettle();
@@ -342,7 +394,13 @@ void main() {
       frame = tester.getRect(find.byType(ComposerPanel));
       reader = tester.getRect(find.byType(TopicView));
       expect(frame.right, lessThanOrEqualTo(reader.left));
-      expect(tester.getSize(_sheet).width, 825);
+      expect(
+        tester.getSize(_sheet).width,
+        closeTo(
+          tester.getSize(find.byType(DesktopTopicSheetHost)).width - 24,
+          .01,
+        ),
+      );
       expect(tester.state(find.byType(ComposerEditor)), same(editorState));
       expect(tester.takeException(), isNull);
     },

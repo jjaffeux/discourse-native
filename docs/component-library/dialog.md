@@ -58,13 +58,20 @@ descendant context and returns the typed close result. Both APIs use the nearest
 Navigator unless `useRootNavigator` is explicitly set. Caller-scoped theme,
 media and direction changes remain live while the helper route is open.
 
-The route requests focus, loops traversal at both edges, optionally targets a
-borrowed initial focus node, and restores a borrowed final node or the previously
+By default the route requests focus, loops traversal at both edges, optionally
+targets a borrowed initial focus node, and restores a borrowed final node or the previously
 focused trigger. Background pointers and focus stay blocked. Barrier and Escape
 dismissal are independently configurable. Route removal detaches controllers
 without disposing borrowed objects. Dialog content is lazily mounted with its
 route. Nested calls use normal Navigator stacking rather than a second overlay
 owner.
+
+The approved non-modal Sheet extension also exposes `modal: false` on `DDialog`
+and `showDDialog`. This omits both backdrops and allows background interaction;
+outside clicks do not dismiss. Initial focus still enters the content, while
+closing only restores focus if it remains in that route. Custom presentations
+receive `DDialogPresentation.modal`, and `buildBackdrop()` respects the option.
+See [Sheet's non-modal behavior](sheet.md#approved-non-modal-extension-2026-09-14).
 
 No Form state is invented. Fields, validation, save/reset and async persistence
 remain with the caller. The frozen profile examples use the merged shared

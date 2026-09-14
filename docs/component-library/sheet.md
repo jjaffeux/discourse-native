@@ -72,7 +72,7 @@ right inset sheet below the window toolbar. Following the user's revision,
 `ComposerDock` now owns the outer desktop layout. Physical left/right docking
 reduces the whole workspace width, including navigation; bottom docking reduces
 its height. The sheet adapts to the remaining workspace rather than widening for
-the editor. Its ideal width is 825px: it covers more of the retained background
+the editor. Its ideal width is 1000px: it covers more of the retained background
 to reach that width, shrinking only when the workspace minus its insets is
 narrower. Closing the sheet leaves the composer available; minimizing or
 closing the composer restores workspace space. Narrow windows keep the existing
@@ -80,17 +80,17 @@ bottom fallback and restore the preferred side when space permits. Mobile keeps
 its page-level composer.
 
 The topic sheet uses the reading background across its header, body and footer,
-following the active app or forum palette.
+following the active app or forum palette. The text keeps the existing 825px
+reading lane inside the wider sheet.
 
-Desktop forum tabs sit above the sheet Navigator. Its backdrop and modal
-semantics stay below the tab row, so tab switching, creation, closing and the
-tab switcher remain available while reading or composing. Each selected tab
+Desktop forum tabs sit above the sheet Navigator, so tab switching, creation,
+closing and the tab switcher remain available while reading or composing. Each selected tab
 supplies its own topic and background route; switching restores its reading
 position and app-level composer draft. Closing a sheet returns only that tab to
 its underlying page.
 
-The workspace is a separate semantics container so its modal sheet cannot hide
-the left-docked composer from accessibility. On macOS the left composer reserves
+The workspace is a separate semantics container so nested modal surfaces cannot
+hide the left-docked composer from accessibility. On macOS the left composer reserves
 the window-control strip. `ReaderContentBounds` reports the actual topic surface
 through docking and route animations, keeping chat overlays anchored correctly.
 
@@ -109,6 +109,31 @@ composition, narrow-window fallback, and reader bounds. The macOS fixture also
 exercises the composer outside the sheet using its real controls and editor,
 including light/dark and narrow layouts. The revision passed 118 relevant tests
 and static analysis of the root and full profile.
+
+## Approved non-modal extension (2026-09-14)
+
+The user approved `modal: false` for desktop topic sheets so the exposed
+background remains clear and interactive. `DSheet` and `showDSheet` forward this
+option to Dialog's shared route owner. It removes both the visual backdrop and
+the Navigator's pointer barrier. Clicking outside does not dismiss the sheet;
+background buttons, inputs and scrolling remain available. Opening another
+background topic updates the current tab's sheet. The composer stays at app
+level with its existing physical docking behavior.
+
+Initial focus still enters the sheet. Close restores the supplied final focus
+node or previous focus only if focus still belongs to the sheet; a programmatic
+close after using a background input leaves that input focused. Escape from the
+sheet and explicit close actions retain their existing behavior. Nested dialogs
+remain modal, and their Escape closes only the top dialog. `modal` defaults to
+true, preserving existing sheets and dialogs. The **Non-modal** styleguide
+example demonstrates background clicks and independent retained inputs.
+
+Verification: 163 focused tests cover Sheet/Dialog/Drawer route behavior,
+background interaction, all physical composer docks, forum tabs, shortcuts, and
+the styleguide's narrow RTL examples. Root and full-profile static analysis passed. The local
+macOS fixture verified light/dark backgrounds, topic selection and list scrolling
+behind the sheet, sidebar navigation with a retained composer draft, and the
+non-modal example's background action, independent inputs and Escape dismissal.
 
 ## Acceptance fixtures
 

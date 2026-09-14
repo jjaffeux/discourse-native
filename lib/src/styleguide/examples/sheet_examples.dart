@@ -17,6 +17,21 @@ final sheetExamples = ComponentExamples(
       'points belong to Drawer.',
   examples: [
     StyleguideExample(
+      title: 'Non-modal',
+      description:
+          'Open the sheet, then click or type in the exposed background. Outside clicks leave it open; use Close or Escape from the sheet to dismiss it.',
+      code: '''DSheet<void>(
+  modal: false,
+  trigger: trigger,
+  content: DSheetContent(
+    inset: true,
+    children: [header, DSheetBody(child: editor)],
+  ),
+)''',
+      builder: (_) => const _NonModalSheet(),
+      states: const ['background interaction', 'retained input', 'focus'],
+    ),
+    StyleguideExample(
       title: 'Edit profile',
       description:
           'Frozen default right-side form with local Form validation and typed save.',
@@ -85,6 +100,64 @@ final sheetExamples = ComponentExamples(
     ),
   ],
 );
+
+class _NonModalSheet extends StatefulWidget {
+  const _NonModalSheet();
+
+  @override
+  State<_NonModalSheet> createState() => _NonModalSheetState();
+}
+
+class _NonModalSheetState extends State<_NonModalSheet> {
+  int _clicks = 0;
+
+  @override
+  Widget build(BuildContext context) => DSheet<void>(
+    modal: false,
+    trigger: DSheetTrigger(
+      builder: (_, open) => Align(
+        alignment: AlignmentDirectional.topStart,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 280),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            spacing: DSpacing.md,
+            children: [
+              DButton(
+                onPressed: open,
+                label: const Text('Open non-modal sheet'),
+              ),
+              DButton(
+                onPressed: () => setState(() => _clicks++),
+                variant: DButtonVariant.outline,
+                label: Text('Background clicks: $_clicks'),
+              ),
+              DInput(
+                semanticLabel: 'Background input',
+                hintText: 'Type here while the sheet is open',
+              ),
+            ],
+          ),
+        ),
+      ),
+    ),
+    content: DSheetContent(
+      inset: true,
+      children: [
+        const DSheetHeader(
+          children: [DSheetTitle(child: Text('Keep the background available'))],
+        ),
+        DSheetBody(
+          child: DInput(
+            semanticLabel: 'Sheet input',
+            hintText: 'This draft stays while you use the background',
+          ),
+        ),
+      ],
+    ),
+  );
+}
 
 class _ExpandingSheet extends StatefulWidget {
   const _ExpandingSheet();

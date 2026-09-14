@@ -16,7 +16,7 @@ import 'topic_list_bottom_bar.dart';
 import 'topic_sheet_scope.dart';
 import 'topic_view.dart';
 
-const _idealTopicSheetWidth = 825.0;
+const _idealTopicSheetWidth = 1000.0;
 
 typedef _TopicSheetState = ({
   String? siteUrl,
@@ -116,6 +116,7 @@ class _TopicSheetRouteHost extends StatelessWidget {
         }
 
         return DSheet<void>(
+          modal: false,
           open: route != null,
           onOpenChanged: (details) {
             if (!details.open) close();

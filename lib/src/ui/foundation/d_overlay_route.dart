@@ -47,7 +47,7 @@ typedef DOverlayPageBuilder<T, Configuration extends Object> =
       Animation<double> animation,
     );
 
-/// Shared authorized-pop and live-environment route owner for modal surfaces.
+/// Shared authorized-pop and live-environment route owner for overlays.
 ///
 /// Components retain their own visuals and interactions in [pageBuilder]. The
 /// route prevents uncoordinated system pops, reports them through
@@ -62,6 +62,7 @@ class DOverlayRoute<T, Configuration extends Object> extends PopupRoute<T> {
     required this.configuration,
     required this.pageBuilder,
     required this.barrierLabelOf,
+    this.modalOf,
     required this.onPopBlocked,
     required this.transitionDuration,
     required this.reverseTransitionDuration,
@@ -71,6 +72,7 @@ class DOverlayRoute<T, Configuration extends Object> extends PopupRoute<T> {
   final ValueListenable<Configuration?> configuration;
   final DOverlayPageBuilder<T, Configuration> pageBuilder;
   final String Function(Configuration configuration) barrierLabelOf;
+  final bool Function(Configuration configuration)? modalOf;
   final VoidCallback onPopBlocked;
 
   @override
@@ -83,6 +85,15 @@ class DOverlayRoute<T, Configuration extends Object> extends PopupRoute<T> {
 
   Configuration get currentConfiguration => configuration.value!;
   bool get wasCurrentWhenAuthorized => _wasCurrentWhenAuthorized;
+
+  bool get modal => modalOf?.call(currentConfiguration) ?? true;
+
+  @override
+  Widget buildModalBarrier() => ValueListenableBuilder<Configuration?>(
+    valueListenable: configuration,
+    builder: (context, config, _) =>
+        modal ? super.buildModalBarrier() : const SizedBox.shrink(),
+  );
 
   @override
   String get barrierLabel => barrierLabelOf(currentConfiguration);
