@@ -168,7 +168,7 @@ class TopicShareButton extends StatelessWidget {
       icon: const DIcon(DIcons.link),
       tooltip: 'Share topic',
       variant: DButtonVariant.ghost,
-      size: DButtonSize.small,
+      size: DButtonSize.large,
     );
   }
 }
@@ -452,7 +452,7 @@ class _TopicStatusButtonState extends State<TopicStatusButton> {
                   },
             loading: busy,
             variant: DButtonVariant.ghost,
-            size: DButtonSize.small,
+            size: DButtonSize.large,
             icon: const DIcon(DIcons.wrench),
           ),
         ),
