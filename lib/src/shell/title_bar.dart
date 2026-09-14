@@ -130,7 +130,12 @@ class ShellTitleBar extends StatelessWidget {
                     )
                   else
                     Row(
-                      children: [const SizedBox(width: 88), search, ...actions],
+                      children: [
+                        const SizedBox(width: 88),
+                        search,
+                        const SizedBox(width: 16),
+                        ...actions,
+                      ],
                     ),
               ],
             ),
