@@ -66,8 +66,70 @@ final sheetExamples = ComponentExamples(
       builder: (_) => const _ControlledSheet(),
       states: const ['controlled', 'typed result', 'dismissal policy'],
     ),
+    StyleguideExample(
+      title: 'Inset and expanding',
+      description:
+          'An opt-in floating sheet keeps its content mounted as its width changes. Reduced motion disables resizing animation.',
+      code: '''DSheet<void>(
+  trigger: trigger,
+  content: DSheetContent(
+    inset: true,
+    animateSize: true,
+    sidePanelWidth: expanded ? 700 : 400,
+    sidePanelMaxWidth: 900,
+    children: [header, DSheetBody(child: editor)],
+  ),
+)''',
+      builder: (_) => const _ExpandingSheet(),
+      states: const ['reading', 'expanded', 'retained input', 'reduced motion'],
+    ),
   ],
 );
+
+class _ExpandingSheet extends StatefulWidget {
+  const _ExpandingSheet();
+  @override
+  State<_ExpandingSheet> createState() => _ExpandingSheetState();
+}
+
+class _ExpandingSheetState extends State<_ExpandingSheet> {
+  bool _expanded = false;
+  @override
+  Widget build(BuildContext context) => DSheet<void>(
+    trigger: DSheetTrigger(
+      builder: (_, open) => DButton(
+        onPressed: open,
+        variant: DButtonVariant.outline,
+        label: const Text('Open expanding sheet'),
+      ),
+    ),
+    content: DSheetContent(
+      inset: true,
+      animateSize: true,
+      sidePanelWidth: _expanded ? 700 : 400,
+      sidePanelMaxWidth: 900,
+      children: [
+        const DSheetHeader(
+          children: [DSheetTitle(child: Text('Conversation'))],
+        ),
+        DSheetBody(
+          child: DInput(
+            semanticLabel: 'Retained draft',
+            hintText: 'Type, then change the sheet width…',
+          ),
+        ),
+        DSheetFooter(
+          children: [
+            DButton(
+              onPressed: () => setState(() => _expanded = !_expanded),
+              label: Text(_expanded ? 'Reading width' : 'Expand for reply'),
+            ),
+          ],
+        ),
+      ],
+    ),
+  );
+}
 
 const _profileCode = '''DSheet<String>(
   controller: controller,

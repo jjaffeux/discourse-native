@@ -107,48 +107,54 @@ void main() {
   });
 
   for (final menu in ['category', 'tag']) {
-    testWidgets('topic sequences resume after closing the $menu filter', (
-      tester,
-    ) async {
-      final setup = await _setup(tester);
-      setup.shell.openTopicFromList(setup.api.feeds['/latest.json']![19]);
-      await tester.pumpAndSettle();
-      final filter = find.byKey(ValueKey('topic-list-$menu-filter'));
-      final trigger = find.descendant(
-        of: filter,
-        matching: find.byType(DButton),
-      );
-      await tester.tap(trigger);
-      await tester.pumpAndSettle();
-      final input = find.descendant(
-        of: find.byType(DComboboxContent),
-        matching: find.byType(EditableText),
-      );
-      expect(tester.widget<EditableText>(input).focusNode.hasFocus, isTrue);
-      await tester.sendKeyEvent(LogicalKeyboardKey.keyG);
-      await tester.pump(const Duration(milliseconds: 150));
-      await tester.sendKeyEvent(LogicalKeyboardKey.keyJ);
-      await tester.pumpAndSettle();
-      expect(setup.shell.currentContent?.topicId, 20);
-      expect(_selectedPosts(tester), isEmpty);
-      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
-      await tester.pumpAndSettle();
-      expect(find.byType(DComboboxContent), findsNothing);
-      expect(
-        tester.widget<DButton>(trigger).focusNode!.hasPrimaryFocus,
-        isTrue,
-      );
-
-      for (final next in [true, false]) {
-        await _openAdjacent(tester, next: next);
-        final target = next ? 21 : 20;
-        expect(setup.shell.currentContent?.topicId, target);
-        _expectTopicVisible(tester, target);
-        expect(_selectedTopics(tester), [target]);
+    testWidgets(
+      'topic sequences work after closing the $menu filter and opening a sheet',
+      (tester) async {
+        final setup = await _setup(tester);
+        final filter = find.byKey(ValueKey('topic-list-$menu-filter'));
+        final trigger = find.descendant(
+          of: filter,
+          matching: find.byType(DButton),
+        );
+        await tester.tap(trigger);
+        await tester.pumpAndSettle();
+        final input = find.descendant(
+          of: find.byType(DComboboxContent),
+          matching: find.byType(EditableText),
+        );
+        expect(tester.widget<EditableText>(input).focusNode.hasFocus, isTrue);
+        await tester.sendKeyEvent(LogicalKeyboardKey.keyG);
+        await tester.pump(const Duration(milliseconds: 150));
+        await tester.sendKeyEvent(LogicalKeyboardKey.keyJ);
+        await tester.pumpAndSettle();
+        expect(setup.shell.currentContent?.isTopicList, isTrue);
         expect(_selectedPosts(tester), isEmpty);
-      }
-      expect(tester.takeException(), isNull);
-    }, variant: const TargetPlatformVariant({TargetPlatform.macOS}));
+        await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+        await tester.pumpAndSettle();
+        expect(find.byType(DComboboxContent), findsNothing);
+        expect(
+          tester.widget<DButton>(trigger).focusNode!.hasPrimaryFocus,
+          isTrue,
+        );
+
+        setup.shell.openTopicFromList(setup.api.feeds['/latest.json']![19]);
+        await tester.pumpAndSettle();
+
+        for (final next in [true, false]) {
+          await _openAdjacent(tester, next: next);
+          final target = next ? 21 : 20;
+          expect(setup.shell.currentContent?.topicId, target);
+          expect(
+            find.byKey(const ValueKey('desktop-topic-sheet')),
+            findsOneWidget,
+          );
+          expect(_selectedTopics(tester), [target]);
+          expect(_selectedPosts(tester), isEmpty);
+        }
+        expect(tester.takeException(), isNull);
+      },
+      variant: const TargetPlatformVariant({TargetPlatform.macOS}),
+    );
   }
 
   for (final size in [desktop, phone]) {

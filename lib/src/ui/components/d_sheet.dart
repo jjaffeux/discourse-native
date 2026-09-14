@@ -90,6 +90,8 @@ class DSheet<T> extends StatelessWidget {
       content.side,
       content.sidePanelMaxWidth,
       content.sidePanelWidth,
+      content.inset,
+      content.animateSize,
     ),
     trigger: DDialogTrigger(builder: trigger.builder),
     content: content,
@@ -97,15 +99,24 @@ class DSheet<T> extends StatelessWidget {
 }
 
 class _DSheetSideScope extends InheritedWidget {
-  const _DSheetSideScope({required this.side, required super.child});
+  const _DSheetSideScope({
+    required this.side,
+    required this.inset,
+    required super.child,
+  });
 
   final DSheetSide side;
+  final bool inset;
 
   static DSheetSide? maybeOf(BuildContext context) =>
       context.dependOnInheritedWidgetOfExactType<_DSheetSideScope>()?.side;
 
+  static bool? insetOf(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<_DSheetSideScope>()?.inset;
+
   @override
-  bool updateShouldNotify(_DSheetSideScope oldWidget) => side != oldWidget.side;
+  bool updateShouldNotify(_DSheetSideScope oldWidget) =>
+      side != oldWidget.side || inset != oldWidget.inset;
 }
 
 Widget _sheetPresentation(
@@ -114,6 +125,8 @@ Widget _sheetPresentation(
   DSheetSide requestedSide,
   double maxWidth,
   double? width,
+  bool inset,
+  bool animateSize,
 ) {
   final media = MediaQuery.of(context);
   final side = requestedSide.resolve(Directionality.of(context));
@@ -139,7 +152,11 @@ Widget _sheetPresentation(
     DSheetSide.left => const Offset(-40, 0),
     _ => throw StateError('Sheet side was not resolved.'),
   };
-  Widget popup = _DSheetSideScope(side: side, child: presentation.content);
+  Widget popup = _DSheetSideScope(
+    side: side,
+    inset: inset,
+    child: presentation.content,
+  );
   if (!media.disableAnimations) {
     popup = FadeTransition(
       opacity: popupCurve,
@@ -154,36 +171,38 @@ Widget _sheetPresentation(
     );
   }
 
-  final availableWidth = media.size.width;
-  final panelWidth = width == null
-      ? availableWidth < 640
-            ? availableWidth * .75
-            : (availableWidth * .75).clamp(0, maxWidth).toDouble()
-      : width.clamp(0, maxWidth).clamp(0, availableWidth).toDouble();
-  final positioned = switch (side) {
-    DSheetSide.top => Positioned(left: 0, top: 0, right: 0, child: popup),
-    DSheetSide.right => Positioned(
-      top: 0,
-      right: 0,
-      bottom: 0,
-      width: panelWidth,
-      child: popup,
-    ),
-    DSheetSide.bottom => Positioned(left: 0, right: 0, bottom: 0, child: popup),
-    DSheetSide.left => Positioned(
-      top: 0,
-      left: 0,
-      bottom: 0,
-      width: panelWidth,
-      child: popup,
-    ),
-    _ => throw StateError('Sheet side was not resolved.'),
-  };
-  return Stack(
-    children: [
-      Positioned.fill(child: backdrop),
-      positioned,
-    ],
+  return LayoutBuilder(
+    builder: (context, bounds) {
+      final margin = inset ? DSpacing.md : 0.0;
+      final availableWidth = (bounds.maxWidth - margin * 2).clamp(
+        0.0,
+        double.infinity,
+      );
+      final panelWidth = width == null
+          ? availableWidth < 640
+                ? availableWidth * .75
+                : (availableWidth * .75).clamp(0, maxWidth).toDouble()
+          : width.clamp(0, maxWidth).clamp(0, availableWidth).toDouble();
+      final horizontal = side.isHorizontal;
+      final positioned = AnimatedPositioned(
+        duration: animateSize
+            ? DMotion.duration(context, DMotion.change)
+            : Duration.zero,
+        curve: Curves.easeOutCubic,
+        left: side == DSheetSide.right ? null : margin,
+        right: side == DSheetSide.left ? null : margin,
+        top: side == DSheetSide.bottom ? null : margin,
+        bottom: side == DSheetSide.top ? null : margin,
+        width: horizontal ? panelWidth : null,
+        child: popup,
+      );
+      return Stack(
+        children: [
+          Positioned.fill(child: backdrop),
+          positioned,
+        ],
+      );
+    },
   );
 }
 
@@ -199,6 +218,8 @@ class DSheetContent extends StatelessWidget {
     this.semanticLabel,
     this.sidePanelMaxWidth = 384,
     this.sidePanelWidth,
+    this.inset = false,
+    this.animateSize = false,
     this.scrollWholeSheet,
     this.topBottomMaxHeightFactor,
   }) : assert(sidePanelMaxWidth > 0),
@@ -221,6 +242,14 @@ class DSheetContent extends StatelessWidget {
   /// Null preserves Sheet's responsive 75% width and 384px desktop cap.
   final double? sidePanelWidth;
 
+  /// Floats the surface inside the viewport with shared spacing and rounded
+  /// corners. The default retains the reference's fixed-edge presentation.
+  final bool inset;
+
+  /// Animates changes to the sheet's bounds without replacing its contents.
+  /// Reduced-motion preferences always make these changes immediate.
+  final bool animateSize;
+
   /// Overrides automatic whole-surface scrolling at large text sizes.
   ///
   /// Null preserves the default. Set false only when a composed child owns a
@@ -233,6 +262,7 @@ class DSheetContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tokens = DTokens.of(context);
+    final inset = _DSheetSideScope.insetOf(context) ?? this.inset;
     final resolved =
         _DSheetSideScope.maybeOf(context) ??
         side.resolve(Directionality.of(context));
@@ -262,15 +292,21 @@ class DSheetContent extends StatelessWidget {
     }
 
     final edgeBorder = BorderSide(color: tokens.border);
-    final border = switch (resolved) {
-      DSheetSide.top => Border(bottom: edgeBorder),
-      DSheetSide.right => Border(left: edgeBorder),
-      DSheetSide.bottom => Border(top: edgeBorder),
-      DSheetSide.left => Border(right: edgeBorder),
-      _ => throw StateError('Sheet side was not resolved.'),
-    };
+    final border = inset
+        ? Border.all(color: tokens.border)
+        : switch (resolved) {
+            DSheetSide.top => Border(bottom: edgeBorder),
+            DSheetSide.right => Border(left: edgeBorder),
+            DSheetSide.bottom => Border(top: edgeBorder),
+            DSheetSide.left => Border(right: edgeBorder),
+            _ => throw StateError('Sheet side was not resolved.'),
+          };
+    final radius = inset
+        ? BorderRadius.circular(tokens.radius * 1.4)
+        : BorderRadius.zero;
     Widget surface = DecoratedBox(
       decoration: BoxDecoration(
+        borderRadius: radius,
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: .1),
@@ -288,9 +324,11 @@ class DSheetContent extends StatelessWidget {
       ),
       child: DecoratedBox(
         position: DecorationPosition.foreground,
-        decoration: BoxDecoration(border: border),
+        decoration: BoxDecoration(border: border, borderRadius: radius),
         child: Material(
           animationDuration: Duration.zero,
+          borderRadius: radius,
+          clipBehavior: inset ? Clip.antiAlias : Clip.none,
           color: tokens.surface,
           textStyle: Theme.of(context).textTheme.bodyMedium?.copyWith(
             fontSize: DiscourseTypography.sm,
@@ -533,6 +571,8 @@ Future<T?> showDSheet<T>({
   DSheetSide side = DSheetSide.right,
   double sidePanelMaxWidth = 384,
   double? sidePanelWidth,
+  bool inset = false,
+  bool animateSize = false,
   bool useRootNavigator = false,
   bool dismissOnBarrier = true,
   bool dismissOnEscape = true,
@@ -559,6 +599,8 @@ Future<T?> showDSheet<T>({
       side,
       sidePanelMaxWidth,
       sidePanelWidth,
+      inset,
+      animateSize,
     ),
     transitionDuration: const Duration(milliseconds: 200),
     reverseTransitionDuration: const Duration(milliseconds: 200),

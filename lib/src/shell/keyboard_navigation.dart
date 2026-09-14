@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../app_shortcuts.dart';
+import 'topic_sheet_scope.dart';
 
 /// A pane focus target whose nested controls retain their own focus handling.
 class ReadingFocusNode extends FocusNode {
@@ -20,7 +21,8 @@ bool navigationShortcutsAllowed(
   if (lifecycle != null && lifecycle != AppLifecycleState.resumed) return false;
   if (!TickerMode.valuesOf(context).enabled ||
       ModalRoute.of(context)?.isCurrent == false ||
-      Navigator.maybeOf(context)?.canPop() == true) {
+      (Navigator.maybeOf(context)?.canPop() == true &&
+          TopicSheetScope.readerOf(context) == null)) {
     return false;
   }
   final focus = FocusManager.instance.primaryFocus;
