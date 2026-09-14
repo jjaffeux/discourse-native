@@ -1,6 +1,7 @@
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
+import '../../theme/d_icons.dart';
 import '../styleguide_example.dart';
 
 final tabsExamples = ComponentExamples(
@@ -12,6 +13,15 @@ final tabsExamples = ComponentExamples(
       'Pointer activation retains focus without an outline. Keyboard entry, arrow navigation, and Enter/Space activation show the focus ring by default. '
       'DTabPanel unmounts hidden content by default; maintainState retains it offstage without ticking or semantics. Focus in a disappearing panel returns to its trigger. Horizontal lists scroll at narrow widths and reveal keyboard-focused tabs. Touch platforms retain a 48px interaction height around the compact artwork. All colors, font family, radius and reduced motion update live from the preview.',
   examples: [
+    StyleguideExample(
+      title: 'Document tabs',
+      description:
+          'Workspace tabs use neutral rounded selection and hover surfaces. The selected tab keeps its close action visible; inactive tabs reveal it on hover or keyboard focus.',
+      states: const ['Selected', 'Hover', 'Close', 'Keyboard'],
+      code:
+          "DDocumentTab(selected: true, onSelect: select, onClose: close, closeLabel: 'Close Side chat', child: Text('Side chat'))",
+      builder: (_) => const _DocumentTabs(),
+    ),
     StyleguideExample(
       title: 'Card composition',
       description:
@@ -451,5 +461,79 @@ class _DynamicTabsState extends State<_DynamicTabs> {
         ),
       ],
     ),
+  );
+}
+
+class _DocumentTabs extends StatefulWidget {
+  const _DocumentTabs();
+
+  @override
+  State<_DocumentTabs> createState() => _DocumentTabsState();
+}
+
+class _DocumentTabsState extends State<_DocumentTabs> {
+  final _tabs = ['Review', 'Side chat'];
+  String? _selected = 'Side chat';
+
+  @override
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      SizedBox(
+        height:
+            28 +
+            (MediaQuery.textScalerOf(context).scale(12) - 12).clamp(
+                  0,
+                  double.infinity,
+                ) *
+                1.5,
+        child: Row(
+          children: [
+            for (final title in _tabs) ...[
+              Expanded(
+                child: DDocumentTab(
+                  selected: _selected == title,
+                  onSelect: () => setState(() => _selected = title),
+                  onClose: () => setState(() {
+                    _tabs.remove(title);
+                    if (_selected == title) _selected = _tabs.firstOrNull;
+                  }),
+                  closeLabel: 'Close $title',
+                  child: Padding(
+                    padding: const EdgeInsetsDirectional.only(start: 8),
+                    child: Row(
+                      children: [
+                        DIcon(
+                          title == 'Review'
+                              ? DIcons.layerGroup
+                              : DIcons.comment,
+                          size: 16,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(title, overflow: TextOverflow.ellipsis),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+            ],
+          ],
+        ),
+      ),
+      const SizedBox(height: 12),
+      DButton(
+        variant: DButtonVariant.ghost,
+        onPressed: () => setState(() {
+          _tabs
+            ..clear()
+            ..addAll(['Review', 'Side chat']);
+          _selected = 'Side chat';
+        }),
+        label: const Text('Reset tabs'),
+      ),
+    ],
   );
 }
