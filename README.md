@@ -2134,6 +2134,13 @@ call's own roster and ring state, and stops video the room no longer allows.
 The lightweight `hand_raise` and `ringing` events land at once rather than
 waiting for the roster that follows them.
 
+**Shared updates preserve user-specific room fields when omitted.** Management,
+invitation, membership, chat, and LiveKit configuration retain their held
+values until a payload supplies them. Authenticated room responses update
+the directory, linked room, and active call; explicit `false` and `null`
+revoke or clear values. Reads started before a completed join or room edit
+cannot overwrite that newer response.
+
 **A refused heartbeat unwinds the call.** The participant session lasts two
 presence TTLs; once the app has been cut off longer than that, every later
 heartbeat is refused, and a participant alone in a room has no roster

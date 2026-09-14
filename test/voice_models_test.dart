@@ -210,6 +210,108 @@ void main() {
     });
   });
 
+  group('room user fields', () {
+    Object userFields(VoiceRoom room) => (
+      room.canManage,
+      room.canInvite,
+      room.membership?.id,
+      room.chatAvailable,
+      room.chatChannelId,
+      room.chatIdleMinutes,
+      room.livekitEnabled,
+    );
+
+    test(
+      'preserves omitted fields through roster copies and repeated merges',
+      () {
+        final held = VoiceRoom.fromJson(fixture('room'));
+        final incoming = VoiceRoom.fromJson({
+          'id': held.id,
+          'name': 'Renamed room',
+        }).withParticipants(held.participants);
+        final merged = incoming.mergeUserFields(held);
+
+        expect(merged.name, 'Renamed room');
+        expect(merged.participants, held.participants);
+        expect(userFields(merged), userFields(held));
+        expect(userFields(incoming.mergeUserFields(merged)), userFields(held));
+      },
+    );
+
+    for (final value in [false, null]) {
+      test(
+        'accepts explicit $value permission revocations and nullable clears',
+        () {
+          final held = VoiceRoom.fromJson(fixture('room'));
+          final revoked = VoiceRoom.fromJson({
+            'id': held.id,
+            'can_manage': value,
+            'can_invite': value,
+            'membership': null,
+            'chat_available': value,
+            'chat_channel_id': null,
+            'chat_idle_minutes': null,
+            'livekit_enabled': value,
+          }).mergeUserFields(held);
+
+          expect(userFields(revoked), (
+            false,
+            false,
+            null,
+            false,
+            null,
+            null,
+            value,
+          ));
+          final shared = VoiceRoom.fromJson({'id': held.id});
+          expect(
+            userFields(shared.mergeUserFields(revoked)),
+            userFields(revoked),
+          );
+          expect(userFields(held.mergeUserFields(revoked)), userFields(held));
+        },
+      );
+    }
+
+    test(
+      'merges fields individually and treats explicit copy overrides as supplied',
+      () {
+        final held = VoiceRoom.fromJson(fixture('room'));
+        final partial = VoiceRoom.fromJson(
+          {'id': held.id, 'can_manage': false, 'membership': null},
+        ).copyWith(canInvite: false, chatChannelId: null).mergeUserFields(held);
+
+        expect(userFields(partial), (false, false, null, true, null, 15, true));
+        final cleared = held.copyWith(
+          canInvite: false,
+          membership: null,
+          chatChannelId: null,
+          chatIdleMinutes: null,
+          livekitEnabled: null,
+        );
+        expect(userFields(cleared), (
+          true,
+          false,
+          null,
+          true,
+          null,
+          null,
+          null,
+        ));
+        expect(userFields(held.copyWith()), userFields(held));
+      },
+    );
+
+    test('does not inherit permissions without a matching held room', () {
+      final incoming = VoiceRoom.fromJson(const {'id': 99});
+      expect(incoming.mergeUserFields(null).canInvite, isFalse);
+      expect(
+        incoming.mergeUserFields(VoiceRoom.fromJson(fixture('room'))).canManage,
+        isFalse,
+      );
+    });
+  });
+
   group('call room ringing', () {
     VoiceRoom callRoom({bool ephemeral = true}) =>
         VoiceRoom.fromJson({..._callRoomJson, 'ephemeral': ephemeral});
