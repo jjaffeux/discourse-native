@@ -16,6 +16,7 @@ import 'package:discourse_native/src/shell/topic_list_view.dart';
 import 'package:discourse_native/src/shell/topic_sheet_scope.dart';
 import 'package:discourse_native/src/shell/topic_view.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -83,6 +84,63 @@ void main() {
     expect(h.shell.visibleComposer?.target.createsTopic, isTrue);
     expect(h.shell.visibleComposer?.focus.hasFocus, isTrue);
   }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
+
+  for (final width in [1000.0, 1440.0]) {
+    testWidgets('clicking post Reply retains editor focus at width $width', (
+      tester,
+    ) async {
+      final h = await _setup(tester, size: Size(width, 900));
+      h.shell.openTopicFromList(h.topics.first);
+      await tester.pumpAndSettle();
+      final button = find.byKey(
+        const ValueKey(('post-footer-action', 1, 'Reply')),
+      );
+      await tester.ensureVisible(button);
+      await tester.pumpAndSettle();
+      await tester.tap(button, kind: PointerDeviceKind.mouse);
+      await tester.pumpAndSettle();
+      expect(h.shell.visibleComposer!.focus.hasFocus, isTrue);
+      // Updating the sheet route must not restore reader focus over the
+      // composer after it has already received focus.
+      ModalRoute.of(
+        tester.element(find.byType(TopicView)),
+      )!.changedInternalState();
+      await tester.pumpAndSettle();
+      expect(h.shell.visibleComposer!.focus.hasFocus, isTrue);
+      tester.view.physicalSize = Size(width + 20, 900);
+      await tester.pumpAndSettle();
+      expect(h.shell.visibleComposer!.focus.hasFocus, isTrue);
+      await tester.pump(const Duration(seconds: 2));
+      expect(h.shell.visibleComposer!.focus.hasFocus, isTrue);
+    }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
+
+    testWidgets('clicking New topic retains editor focus at width $width', (
+      tester,
+    ) async {
+      final h = await _setup(tester, size: Size(width, 900));
+      await tester.tap(find.byKey(const ValueKey('new-topic-button')).first);
+      await tester.pumpAndSettle();
+      expect(h.shell.visibleComposer!.focus.hasFocus, isTrue);
+      await tester.pump(const Duration(seconds: 2));
+      expect(h.shell.visibleComposer!.focus.hasFocus, isTrue);
+    }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
+
+    testWidgets('clicking Reply retains editor focus at width $width', (
+      tester,
+    ) async {
+      final h = await _setup(tester, size: Size(width, 900));
+      h.shell.openTopicFromList(h.topics.first);
+      await tester.pumpAndSettle();
+      final button = find.byKey(const ValueKey('topic-reply-button'));
+      await tester.ensureVisible(button);
+      await tester.pumpAndSettle();
+      await tester.tap(button);
+      await tester.pumpAndSettle();
+      expect(h.shell.visibleComposer!.focus.hasFocus, isTrue);
+      await tester.pump(const Duration(seconds: 2));
+      expect(h.shell.visibleComposer!.focus.hasFocus, isTrue);
+    }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
+  }
 
   for (final reply in [true, false]) {
     testWidgets('${reply ? 'Shift+R' : 'C'} works from the sheet focus scope', (

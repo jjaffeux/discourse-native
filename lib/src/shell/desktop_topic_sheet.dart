@@ -56,14 +56,19 @@ class DesktopTopicSheetHost extends StatelessWidget {
             child: LayoutBuilder(
               builder: (context, bounds) => MediaQuery(
                 data: MediaQuery.of(context).copyWith(size: bounds.biggest),
-                child: Navigator(
-                  pages: [
-                    MaterialPage<void>(
-                      key: const ValueKey('desktop-topic-background'),
-                      child: _TopicSheetRouteHost(child: child),
-                    ),
-                  ],
-                  onDidRemovePage: (_) {},
+                // Route updates may restore the navigator's current focus.
+                // Keep that restoration inside the reader when the composer
+                // or another workspace control owns focus.
+                child: FocusScope(
+                  child: Navigator(
+                    pages: [
+                      MaterialPage<void>(
+                        key: const ValueKey('desktop-topic-background'),
+                        child: _TopicSheetRouteHost(child: child),
+                      ),
+                    ],
+                    onDidRemovePage: (_) {},
+                  ),
                 ),
               ),
             ),
