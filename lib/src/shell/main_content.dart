@@ -389,13 +389,6 @@ class _TopicInboxWorkspaceState extends State<_TopicInboxWorkspace> {
               ),
             ),
             ...registry.contentHeaderActions(context, sourceRoute),
-            if (state.isConnected &&
-                state.siteUrl != null &&
-                sourceRoute.categoryId != null)
-              CategoryNotificationLevelButton(
-                siteUrl: state.siteUrl!,
-                categoryId: sourceRoute.categoryId!,
-              ),
           ],
         );
         // Account controls stay at the pane edge; title, tabs and actions
@@ -514,7 +507,21 @@ class _TopicInboxWorkspaceState extends State<_TopicInboxWorkspace> {
                           ),
                         ),
                         TopicListBottomBar(
-                          leading: createAction,
+                          leading: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Flexible(child: createAction),
+                              if (state.isConnected &&
+                                  state.siteUrl != null &&
+                                  sourceRoute.categoryId != null) ...[
+                                const SizedBox(width: DSpacing.sm),
+                                CategoryNotificationLevelButton(
+                                  siteUrl: state.siteUrl!,
+                                  categoryId: sourceRoute.categoryId!,
+                                ),
+                              ],
+                            ],
+                          ),
                           // The footer padding already clears the desktop handle.
                           trailingInset: split
                               ? DResizableHandle.resolveHitExtent(context, 8) -
