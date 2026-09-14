@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
+import '../../theme/d_icons.dart';
 import '../styleguide_example.dart';
 
 final sheetExamples = ComponentExamples(
@@ -16,6 +17,15 @@ final sheetExamples = ComponentExamples(
       'for native direction-aware layouts. Swipe handles, detents and snap '
       'points belong to Drawer.',
   examples: [
+    StyleguideExample(
+      title: 'Side accessory',
+      description:
+          'Centered navigation keeps a reserved gutter outside the sheet surface, including at the first and last item.',
+      code:
+          "DSheetContent(inset: true, sideAccessory: navigation, sideAccessoryWidth: 52, children: [body])",
+      builder: (_) => const _AccessorySheet(),
+      states: const ['navigation', 'disabled', 'focus', 'reserved space'],
+    ),
     StyleguideExample(
       title: 'Non-modal',
       description:
@@ -650,5 +660,62 @@ class _ControlledSheetState extends State<_ControlledSheet> {
       const SizedBox(height: 8),
       Text(_status),
     ],
+  );
+}
+
+class _AccessorySheet extends StatefulWidget {
+  const _AccessorySheet();
+
+  @override
+  State<_AccessorySheet> createState() => _AccessorySheetState();
+}
+
+class _AccessorySheetState extends State<_AccessorySheet> {
+  int _index = 0;
+
+  @override
+  Widget build(BuildContext context) => DSheet<void>(
+    trigger: DSheetTrigger(
+      builder: (context, open) =>
+          DButton(label: const Text('Open with navigation'), onPressed: open),
+    ),
+    content: DSheetContent(
+      inset: true,
+      sidePanelWidth: 500,
+      sidePanelMaxWidth: 500,
+      sideAccessory: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          DButton.iconOnly(
+            tooltip: 'Previous item',
+            variant: DButtonVariant.outline,
+            size: DButtonSize.regular,
+            icon: const RotatedBox(
+              quarterTurns: 2,
+              child: DIcon(DIcons.chevronDown),
+            ),
+            onPressed: _index == 0 ? null : () => setState(() => _index--),
+          ),
+          const SizedBox(height: DSpacing.xs),
+          DButton.iconOnly(
+            tooltip: 'Next item',
+            variant: DButtonVariant.outline,
+            size: DButtonSize.regular,
+            icon: const DIcon(DIcons.chevronDown),
+            onPressed: _index == 2 ? null : () => setState(() => _index++),
+          ),
+        ],
+      ),
+      children: [
+        DSheetHeader(
+          children: [DSheetTitle(child: Text('Item ${_index + 1} of 3'))],
+        ),
+        const DSheetBody(
+          child: Text(
+            'Move between items with the arrows beside this sheet. Both controls keep their place at either end.',
+          ),
+        ),
+      ],
+    ),
   );
 }

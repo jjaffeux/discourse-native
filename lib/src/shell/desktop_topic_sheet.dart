@@ -16,7 +16,8 @@ import 'topic_list_bottom_bar.dart';
 import 'topic_sheet_scope.dart';
 import 'topic_view.dart';
 
-const _idealTopicSheetWidth = 1000.0;
+const _topicNavigationGutter = 52.0;
+const _idealTopicSheetWidth = 1000.0 + _topicNavigationGutter;
 
 typedef _TopicSheetState = ({
   String? siteUrl,
@@ -145,6 +146,11 @@ class _TopicSheetRouteHost extends StatelessWidget {
             key: const ValueKey('desktop-topic-sheet'),
             inset: true,
             animateSize: true,
+            sideAccessoryWidth: _topicNavigationGutter,
+            sideAccessory: const TopicNavigationButtons(
+              key: ValueKey('topic-sheet-navigation'),
+              vertical: true,
+            ),
             // DSheet clamps to the workspace bounds, preserving its insets.
             sidePanelWidth: _idealTopicSheetWidth,
             sidePanelMaxWidth: _idealTopicSheetWidth,

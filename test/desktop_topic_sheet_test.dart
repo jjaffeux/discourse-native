@@ -32,6 +32,62 @@ final _list = find.byKey(const ValueKey('inbox-topic-list-pane'));
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
+  for (final direction in TextDirection.values) {
+    testWidgets('sheet arrows reserve a centered gutter ($direction)', (
+      tester,
+    ) async {
+      final h = await _setup(tester, direction: direction);
+      final previous = find.byKey(const ValueKey('inbox-previous-topic'));
+      final next = find.byKey(const ValueKey('inbox-next-topic'));
+      expect(previous, findsNothing);
+      expect(next, findsNothing);
+      h.shell.openTopicFromList(h.topics.first);
+      await tester.pumpAndSettle();
+      final navigation = find.byKey(const ValueKey('topic-sheet-navigation'));
+      final bounds = tester.getRect(_sheet);
+      final controls = tester.getRect(navigation);
+      final reader = tester.getRect(find.byType(TopicView));
+      expect(reader.left - bounds.left, 52);
+      expect(reader.width, 1000);
+      expect(controls.center.dx, bounds.left + 26);
+      expect(controls.center.dy, bounds.center.dy);
+      expect(
+        tester.getRect(previous).bottom,
+        lessThan(tester.getRect(next).top),
+      );
+      expect(previous.hitTestable(), findsOneWidget);
+      expect(next.hitTestable(), findsOneWidget);
+      expect(tester.widget<DButton>(previous).onPressed, isNull);
+      expect(tester.widget<DButton>(next).onPressed, isNotNull);
+      final footer = find.byKey(const ValueKey('topic-list-bottom-bar'));
+      expect(find.descendant(of: footer, matching: next), findsNothing);
+      await tester.tap(next);
+      await tester.pumpAndSettle();
+      expect(h.shell.currentContent?.topicId, 2);
+      expect(tester.getRect(navigation), controls);
+      expect(tester.widget<DButton>(previous).onPressed, isNotNull);
+      await tester.tap(previous);
+      await tester.pumpAndSettle();
+      expect(h.shell.currentContent?.topicId, 1);
+      h.shell.openTopicFromList(h.topics.last);
+      await tester.pumpAndSettle();
+      expect(tester.widget<DButton>(next).onPressed, isNull);
+      expect(tester.getRect(navigation), controls);
+      tester.view.physicalSize = const Size(650, 850);
+      await tester.pumpAndSettle();
+      expect(
+        tester.getRect(find.byType(TopicView)).left -
+            tester.getRect(_sheet).left,
+        52,
+      );
+      expect(next.hitTestable(), findsOneWidget);
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+      expect(_sheet, findsNothing);
+      expect(tester.takeException(), isNull);
+    }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
+  }
+
   testWidgets('topic sheets blur the background and intercept outside clicks', (
     tester,
   ) async {
@@ -301,7 +357,7 @@ void main() {
           h.shell.openTopicFromList(h.topics.first);
           await tester.pumpAndSettle();
           final readingWidth = tester.getSize(_sheet).width;
-          expect(readingWidth, 1000);
+          expect(readingWidth, 1052);
           final listRect = tester.getRect(_list);
           final listElement = tester.element(find.byType(TopicListView));
           final titleBar = find.byWidgetPredicate(

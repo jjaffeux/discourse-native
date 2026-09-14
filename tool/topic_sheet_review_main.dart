@@ -127,7 +127,8 @@ Future<void> main() async {
                       child: styleguide
                           ? sheetExamples.examples
                                 .firstWhere(
-                                  (example) => example.title == 'Non-modal',
+                                  (example) =>
+                                      example.title == 'Side accessory',
                                 )
                                 .builder(context)
                           : const AdaptiveShell(),
