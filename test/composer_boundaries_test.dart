@@ -12,6 +12,7 @@ import 'package:discourse_native/src/shell/composer_presentation.dart';
 import 'package:discourse_native/src/shell/composer_presentation_controller.dart';
 import 'package:discourse_native/src/shell/main_content.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
+import 'package:discourse_native/src/shell/shell_panel.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
@@ -27,6 +28,63 @@ const _captureKey = ValueKey('composer-boundary-capture');
 
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
+
+  for (final (theme, direction) in [
+    (AppTheme.light, TextDirection.ltr),
+    (AppTheme.dark, TextDirection.ltr),
+    (AppTheme.dark, TextDirection.rtl),
+  ]) {
+    testWidgets(
+      'app workspace paints one composer boundary in ${theme.brightness.name} ${direction.name}',
+      (tester) async {
+        await _pump(
+          tester,
+          theme: theme,
+          direction: direction,
+          messages: false,
+          fullShell: true,
+        );
+        for (final placement in const [
+          ComposerPlacement.left,
+          ComposerPlacement.right,
+          ComposerPlacement.bottom,
+        ]) {
+          await tester.tap(find.byKey(const ValueKey('composer-options')));
+          await tester.pumpAndSettle();
+          await tester.tap(find.byTooltip('Dock ${placement.name}'));
+          await tester.pumpAndSettle();
+          await _expectComposerBoundary(tester, theme, placement);
+        }
+        for (final action in ['composer-minimize', 'composer-close']) {
+          await tester.tap(find.byKey(ValueKey(action)));
+          await tester.pumpAndSettle();
+          final frame = tester.widget<DecoratedBox>(
+            find
+                .descendant(
+                  of: find.byType(ShellPanel),
+                  matching: find.byType(DecoratedBox),
+                )
+                .first,
+          );
+          expect(
+            (frame.decoration as BoxDecoration).border,
+            Border.all(color: theme.shell.divider),
+          );
+          if (action == 'composer-minimize') {
+            await tester.tap(find.byKey(const ValueKey('composer-restore')));
+            await tester.pumpAndSettle();
+            await _expectComposerBoundary(
+              tester,
+              theme,
+              ComposerPlacement.bottom,
+            );
+          }
+        }
+        expect(tester.takeException(), isNull);
+      },
+      variant: TargetPlatformVariant.only(TargetPlatform.macOS),
+    );
+  }
 
   for (final messages in [false, true]) {
     for (final (theme, direction) in [
@@ -172,6 +230,7 @@ Future<(ShellController, ComposerPresentationController)> _pump(
   required ThemeData theme,
   required TextDirection direction,
   required bool messages,
+  bool fullShell = false,
 }) async {
   tester.view.physicalSize = const Size(1500, 800);
   tester.view.devicePixelRatio = 1;
@@ -243,12 +302,14 @@ Future<(ShellController, ComposerPresentationController)> _pump(
             textDirection: direction,
             child: RepaintBoundary(
               key: _captureKey,
-              child: ComposerPresentationHost(
-                controller: presentation,
-                child: const ComposerDock(
-                  child: MainContent(layout: ShellLayout.expanded),
-                ),
-              ),
+              child: fullShell
+                  ? const AdaptiveShell()
+                  : ComposerPresentationHost(
+                      controller: presentation,
+                      child: const ComposerDock(
+                        child: MainContent(layout: ShellLayout.expanded),
+                      ),
+                    ),
             ),
           ),
         ),

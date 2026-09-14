@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../models/composer_placement.dart';
 import '../theme/app_theme.dart';
+import 'composer_presentation.dart';
 
 class ShellPanel extends StatelessWidget {
   const ShellPanel({super.key, required this.child});
@@ -14,6 +16,9 @@ class ShellPanel extends StatelessWidget {
     const borderRadius = BorderRadius.only(
       topLeft: Radius.circular(cornerRadius),
     );
+    final composerPlacement = ComposerDock.workspacePlacementOf(context);
+    final rtl = Directionality.of(context) == TextDirection.rtl;
+    final side = BorderSide(color: Theme.of(context).shell.divider);
 
     return Padding(
       padding: EdgeInsets.only(top: MediaQuery.paddingOf(context).top),
@@ -21,7 +26,20 @@ class ShellPanel extends StatelessWidget {
         position: DecorationPosition.foreground,
         decoration: BoxDecoration(
           borderRadius: borderRadius,
-          border: Border.all(color: Theme.of(context).shell.divider),
+          // The rail precedes this panel. Only its outer side or bottom can
+          // meet the app-level composer; the resize handle paints that seam.
+          border: Border(
+            top: side,
+            left: rtl && composerPlacement == ComposerPlacement.left
+                ? BorderSide.none
+                : side,
+            right: !rtl && composerPlacement == ComposerPlacement.right
+                ? BorderSide.none
+                : side,
+            bottom: composerPlacement == ComposerPlacement.bottom
+                ? BorderSide.none
+                : side,
+          ),
         ),
         child: ClipRRect(
           borderRadius: borderRadius,
