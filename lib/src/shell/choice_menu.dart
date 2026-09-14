@@ -4,7 +4,6 @@ import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
 
 import '../theme/app_theme.dart';
-import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'anchored_layout.dart';
 import 'curved_animation_builder.dart';

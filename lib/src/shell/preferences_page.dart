@@ -9,7 +9,6 @@ import '../models/discourse_instance.dart';
 import '../models/user_preferences.dart';
 import '../plugin_api/site_plugin_api.dart';
 import '../theme/app_theme.dart';
-import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'content_reading_lane.dart';
 import 'preferences_controller.dart';

@@ -1,6 +1,6 @@
 import 'dart:ui' as ui;
 
-import 'package:discourse_native/src/theme/d_icon.dart';
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:discourse_native/src/theme/d_native_icons.dart';
 import 'package:flutter/material.dart';
@@ -124,6 +124,102 @@ void main() {
       expect(DIcons.byName['d-unliked'], DIcons.farHeart);
       expect(DIcons.byName['topic.closed'], DIcons.lock);
       expect(DIcons.byName['notification.mentioned'], DIcons.at);
+    });
+
+    testWidgets('preserves SVG colors, palette changes and icon opacity', (
+      tester,
+    ) async {
+      const key = ValueKey('preserved-colors');
+      const icon = DIconData(
+        'palette-test',
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 60 10">'
+            '<path d="M0 0h10v10H0z"/>'
+            '<path d="M10 0h10v10H10z" fill="#ff6600"/>'
+            '<path d="M20 0h10v10H20z" fill="var(--secondary)"/>'
+            '<path d="M30 0h10v10H30z" fill="var(--tertiary)"/>'
+            '<path d="M40 0h10v10H40z" fill="var(--danger)"/>'
+            '<path d="M50 0h10v10H50z" fill="var(--custom-color, #123456)"/>'
+            '</svg>',
+        preserveColors: true,
+      );
+      for (final brightness in Brightness.values) {
+        final theme = ThemeData(brightness: brightness);
+        for (final opacity in [1.0, 0.5]) {
+          await tester.pumpWidget(
+            MaterialApp(
+              theme: theme,
+              home: IconTheme(
+                data: IconThemeData(
+                  color: const Color(0xFF00FF00),
+                  opacity: opacity,
+                ),
+                child: const Center(
+                  child: RepaintBoundary(
+                    key: key,
+                    child: DIcon(icon, size: 60),
+                  ),
+                ),
+              ),
+            ),
+          );
+          await tester.pumpAndSettle();
+          final boundary = tester.renderObject<RenderRepaintBoundary>(
+            find.byKey(key),
+          );
+          final samples = (await tester.runAsync(() async {
+            final image = await boundary.toImage();
+            try {
+              final bytes = (await image.toByteData(
+                format: ui.ImageByteFormat.rawStraightRgba,
+              ))!.buffer.asUint8List();
+              return [
+                for (var i = 0; i < 6; i++)
+                  bytes.sublist(
+                    (30 * image.width +
+                            (3.75 + (i * 10 + 5) * DIcon.glyphScale).floor()) *
+                        4,
+                    (30 * image.width +
+                                (3.75 + (i * 10 + 5) * DIcon.glyphScale)
+                                    .floor()) *
+                            4 +
+                        4,
+                  ),
+              ];
+            } finally {
+              image.dispose();
+            }
+          }))!;
+          final colors = [
+            const Color(0xFF00FF00),
+            const Color(0xFFFF6600),
+            theme.colorScheme.surface,
+            theme.colorScheme.primary,
+            theme.colorScheme.error,
+            const Color(0xFF123456),
+          ];
+          for (var i = 0; i < colors.length; i++) {
+            final color = colors[i];
+            final expected = [
+              (color.r * 255).round(),
+              (color.g * 255).round(),
+              (color.b * 255).round(),
+              (opacity * 255).round(),
+            ];
+            for (var channel = 0; channel < 4; channel++) {
+              expect(
+                samples[i][channel],
+                closeTo(expected[channel], 1),
+                reason:
+                    '$brightness opacity $opacity paint $i channel $channel',
+              );
+            }
+          }
+          expect(
+            tester.widget<SvgPicture>(find.byType(SvgPicture)).colorFilter,
+            isNull,
+          );
+        }
+      }
     });
 
     test('core catalog excludes optional plugin resources and aliases', () {

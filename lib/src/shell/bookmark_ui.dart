@@ -11,7 +11,6 @@ import '../models/bookmark_reminder.dart';
 import '../models/post.dart';
 import '../plugin_api/bookmark_host.dart';
 import '../plugin_api/plugin_scope.dart';
-import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'adaptive_dialog_action.dart';
 import 'shell_scope.dart';

@@ -6,7 +6,6 @@ import 'package:flutter/material.dart';
 import '../app_shortcuts.dart';
 import '../models/topic.dart';
 import '../theme/app_theme.dart';
-import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'keyboard_navigation.dart';
 import 'shell_controller.dart';

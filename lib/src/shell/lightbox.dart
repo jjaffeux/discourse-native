@@ -10,7 +10,6 @@ import 'package:photo_view/photo_view.dart';
 
 import '../foundation/diagnostic_errors.dart';
 import '../theme/app_theme.dart';
-import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'cooked_dom.dart';
 import 'image_decode.dart';

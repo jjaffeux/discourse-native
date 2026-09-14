@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import '../models/bookmark.dart';
 import '../models/notification.dart';
 import '../plugin_api/shell_extensions.dart';
-import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'account_activity_loader.dart';
 import 'external_link.dart';

@@ -38,6 +38,7 @@ import 'discourse_transport.dart';
 import 'http_transport.dart';
 import 'json_decode.dart';
 import 'plugin_transport.dart';
+import 'sidebar_icon_loader.dart';
 import 'site_message_bus_bootstrap.dart';
 
 export 'discourse_api_contracts.dart';

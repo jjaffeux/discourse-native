@@ -11,7 +11,6 @@ import '../data/http_transport.dart';
 import '../data/site_lifecycle.dart';
 import '../diagnostics/diagnostics_controller.dart';
 import '../foundation/uri_path.dart';
-import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'external_link.dart';
 import 'inline_video_playback.dart';

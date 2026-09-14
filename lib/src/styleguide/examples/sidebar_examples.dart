@@ -114,8 +114,67 @@ final sidebarExamples = ComponentExamples(
 ])''',
       builder: (_) => const _LazySidebarDemo(),
     ),
+    StyleguideExample(
+      title: 'Server icon colors',
+      description:
+          'Sidebar icons can retain custom colors and composite badge details. Select a row, then switch the preview palette to see currentColor and Discourse palette variables follow the theme.',
+      code:
+          '''DIcon(DIconData('server-icon', serverSvg, preserveColors: true))''',
+      builder: (_) => const _SidebarIconColorsDemo(),
+    ),
   ],
 );
+
+class _SidebarIconColorsDemo extends StatefulWidget {
+  const _SidebarIconColorsDemo();
+
+  @override
+  State<_SidebarIconColorsDemo> createState() => _SidebarIconColorsDemoState();
+}
+
+class _SidebarIconColorsDemoState extends State<_SidebarIconColorsDemo> {
+  int _selected = 0;
+  static const _icons = [
+    DIconData(
+      'foreground-example',
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">'
+          '<path d="M2 3h20v14H2zM6 20h12v2H6z"/></svg>',
+      preserveColors: true,
+    ),
+    DIconData(
+      'badge-example',
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">'
+          '<path d="M2 3h18v16H2z"/>'
+          '<circle cx="17" cy="17" r="7" fill="var(--secondary)"/>'
+          '<path d="M16 12h2v4h4v2h-4v4h-2v-4h-4v-2h4z"/></svg>',
+      preserveColors: true,
+    ),
+    DIconData(
+      'custom-color-example',
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">'
+          '<path d="M0 24L12 0L24 24Z"/>'
+          '<circle cx="12" cy="15" r="4" fill="#ff6600"/></svg>',
+      preserveColors: true,
+    ),
+  ];
+
+  @override
+  Widget build(BuildContext context) => DSidebarMenu(
+    children: [
+      for (final (index, label) in [
+        'Foreground',
+        'Composite badge',
+        'Custom colors',
+      ].indexed)
+        DSidebarMenuButton(
+          icon: DIcon(_icons[index]),
+          isActive: index == _selected,
+          onPressed: () => setState(() => _selected = index),
+          child: Text(label),
+        ),
+    ],
+  );
+}
 
 class _LazySidebarDemo extends StatefulWidget {
   const _LazySidebarDemo();

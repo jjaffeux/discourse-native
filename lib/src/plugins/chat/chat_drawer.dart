@@ -16,7 +16,6 @@ import '../../shell/site_emoji_text.dart';
 import '../../shell/title_bar.dart';
 import '../../shell/user_status.dart';
 import '../../theme/app_theme.dart';
-import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
 import 'chat_channel.dart';
 import 'chat_channel_actions.dart';

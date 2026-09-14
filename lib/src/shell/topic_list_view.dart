@@ -14,7 +14,6 @@ import '../models/topic.dart';
 import '../models/topic_feed.dart';
 import '../plugin_api/plugin_registry.dart';
 import '../plugin_api/plugin_scope.dart';
-import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import '../utils/pagination.dart';
 import 'avatar_image.dart';

@@ -8,7 +8,6 @@ import '../models/topic.dart';
 import '../models/user_activity.dart';
 import '../models/user_activity_feed.dart';
 import '../theme/app_theme.dart';
-import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import '../utils/pagination.dart';
 import 'account_activity_loader.dart';

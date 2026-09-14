@@ -15,7 +15,6 @@ import '../../shell/list_boundary_shortcuts.dart';
 import '../../shell/platform.dart';
 import '../../shell/stream_day_separator.dart';
 import '../../shell/time_gap.dart';
-import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
 import '../../utils/pagination.dart';
 import 'chat_channel.dart';

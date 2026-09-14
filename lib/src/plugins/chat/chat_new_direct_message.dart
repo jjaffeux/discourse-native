@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 
 import '../../data/discourse_api_contracts.dart';
 import '../../shell/avatar_image.dart';
-import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
 import 'chat_controller.dart';
 import 'chat_direct_message_search.dart';

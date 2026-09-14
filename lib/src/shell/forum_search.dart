@@ -8,7 +8,6 @@ import 'package:flutter/services.dart';
 
 import '../app_shortcuts.dart';
 import '../models/search_results.dart';
-import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'content_navigation_controls.dart';
 import 'global_search_controller.dart';

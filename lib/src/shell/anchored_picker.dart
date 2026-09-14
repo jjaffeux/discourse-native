@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../../discourse_ui.dart';
 import '../theme/app_theme.dart';
-import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'anchored_layout.dart';
 import 'platform.dart';

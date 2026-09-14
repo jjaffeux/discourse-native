@@ -7,7 +7,6 @@ import '../../plugin_api/plugin_scope.dart';
 import '../../shell/content_reading_lane.dart';
 import '../../shell/user_card.dart';
 import '../../shell/user_status.dart';
-import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
 import '../../utils/pagination.dart';
 import 'chat_channel.dart';

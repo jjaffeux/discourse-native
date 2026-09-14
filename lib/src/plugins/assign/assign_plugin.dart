@@ -9,7 +9,6 @@ import '../../models/topic.dart';
 import '../../plugin_api/plugin_scope.dart';
 import '../../plugin_api/site_plugin_api.dart';
 import '../../shell/post_action.dart';
-import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
 import 'assign_data.dart';
 import 'assign_group_data.dart';
