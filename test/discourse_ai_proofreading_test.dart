@@ -335,6 +335,32 @@ void main() {
     expect(composer.raw, 'The author kept typing.');
   });
 
+  test(
+    'does not proceed after a failed request from an expired session',
+    () async {
+      final gate = Completer<void>();
+      final api = _GatedProofreadingTransport(gate)
+        ..pluginWriteFailures['POST $aiProofreadingPath'] =
+            const WriteException(WriteFailure.unreachable, statusCode: 500);
+      final lifecycle = SiteLifecycle();
+      final controller = _controller(api: api, lifecycle: lifecycle);
+      final composer = ComposerController(_replyTarget);
+      addTearDown(controller.dispose);
+      addTearDown(composer.dispose);
+      composer.text.text = 'The original reply.';
+      controller.setEnabled(composer, true);
+
+      final preparation = controller.prepareComposerSubmit(composer);
+      await api.started.future;
+      lifecycle.invalidate(_siteUrl);
+      gate.complete();
+      final result = await preparation;
+
+      expect(result.failure?.failure, WriteFailure.conflict);
+      expect(composer.raw, 'The original reply.');
+    },
+  );
+
   testWidgets('narrow footer hides labels and preserves Proofread on resize', (
     tester,
   ) async {
@@ -527,32 +553,38 @@ void main() {
     expect(fixture.api.created.single['raw'], 'This is the polished reply.');
   });
 
-  testWidgets('proofreading failure keeps the original reply open', (
-    tester,
-  ) async {
-    final fixture = await _openReply(
-      proofreadingResponse: null,
-      proofreadingFailure: const WriteException(WriteFailure.unreachable),
-    );
-    addTearDown(fixture.shell.dispose);
-    await _pumpComposer(tester, fixture.shell);
-    await tester.pump();
-    final composer = fixture.shell.visibleComposer!;
-    composer.text.text = 'this stays local';
-    await tester.tap(find.byKey(const ValueKey('composer-proofread-control')));
-    await tester.pump();
+  for (final scenario in [
+    (
+      name: 'HTTP 500',
+      failure: const WriteException(WriteFailure.unreachable, statusCode: 500),
+    ),
+    (
+      name: 'connection failure',
+      failure: const WriteException(WriteFailure.unreachable),
+    ),
+    (name: 'invalid response', failure: null),
+  ]) {
+    testWidgets('proofreading ${scenario.name} posts the original reply', (
+      tester,
+    ) async {
+      final fixture = await _openReply(
+        proofreadingResponse: const {},
+        proofreadingFailure: scenario.failure,
+      );
+      addTearDown(fixture.shell.dispose);
+      await _pumpComposer(tester, fixture.shell);
+      await tester.pump();
+      fixture.shell.visibleComposer!.text.text = 'this is the original reply';
+      await tester.tap(
+        find.byKey(const ValueKey('composer-proofread-control')),
+      );
+      await tester.pump();
 
-    await fixture.shell.submitComposer();
-    await tester.pump();
+      await fixture.shell.submitComposer();
 
-    expect(fixture.shell.visibleComposer, same(composer));
-    expect(composer.raw, 'this stays local');
-    expect(composer.submitting, isFalse);
-    expect(
-      composer.error?.message,
-      "Couldn't proofread this post. Nothing was posted.",
-    );
-    expect(fixture.api.created, isEmpty);
-    composer.draftSettled();
-  });
+      expect(fixture.api.pluginWrites, hasLength(1));
+      expect(fixture.api.created.single['raw'], 'this is the original reply');
+      expect(fixture.shell.visibleComposer, isNull);
+    });
+  }
 }

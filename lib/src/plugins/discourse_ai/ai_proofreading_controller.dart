@@ -106,16 +106,13 @@ final class AiProofreadingController extends FrameSafeNotifier
       return PluginComposerSubmitPreparation.failed(failure);
     }
 
-    final String suggestion;
+    // Proofreading is optional; keep the original text if the request fails.
+    var suggestion = source;
     try {
       suggestion = await api.proofread(
         siteUrl: composer.siteUrl,
         apiKey: credential.apiKey!,
         text: source,
-      );
-    } on WriteException catch (error) {
-      return PluginComposerSubmitPreparation.failed(
-        _proofreadingFailure(error),
       );
     } catch (error, stackTrace) {
       diagnostics.reportError(
@@ -125,12 +122,6 @@ final class AiProofreadingController extends FrameSafeNotifier
         source: 'discourse-ai',
         handled: true,
         degraded: true,
-      );
-      return const PluginComposerSubmitPreparation.failed(
-        WriteException(
-          WriteFailure.unreachable,
-          errors: ["Couldn't proofread this post. Nothing was posted."],
-        ),
       );
     }
 
@@ -186,16 +177,4 @@ final class AiProofreadingController extends FrameSafeNotifier
     _siteLoads[siteUrl] = loading;
     return loading;
   }
-
-  static WriteException _proofreadingFailure(WriteException error) =>
-      WriteException(
-        error.failure,
-        errors: error.errors.isEmpty
-            ? const ["Couldn't proofread this post. Nothing was posted."]
-            : error.errors,
-        statusCode: error.statusCode,
-        retryAfter: error.retryAfter,
-        cause: error.cause,
-        causeStackTrace: error.causeStackTrace,
-      );
 }
