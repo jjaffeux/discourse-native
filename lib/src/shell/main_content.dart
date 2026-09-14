@@ -153,7 +153,9 @@ class _MainContentBody extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final forumTabsEnabled = ShellScope.read(context).forumTabsEnabled;
+    final forumTabsEnabled =
+        ShellScope.read(context).forumTabsEnabled &&
+        !TopicSheetScope.isBackground(context);
 
     final route = state.route;
     if (route == null) return ColoredBox(color: theme.shell.content);

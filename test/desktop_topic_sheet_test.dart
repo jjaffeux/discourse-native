@@ -6,6 +6,7 @@ import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/shell/adaptive_shell.dart';
 import 'package:discourse_native/src/shell/composer_panel.dart';
 import 'package:discourse_native/src/shell/desktop_topic_sheet.dart';
+import 'package:discourse_native/src/shell/forum_tabs_bar.dart';
 import 'package:discourse_native/src/shell/instance_rail.dart';
 import 'package:discourse_native/src/shell/list_boundary_shortcuts.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
@@ -213,6 +214,12 @@ void main() {
             await tester.pumpAndSettle();
             final bounds = tester.getRect(_sheet);
             expect(bounds.width, 825);
+            final tabs = find.byType(ForumTabsBar);
+            expect(bounds.top, greaterThan(tester.getRect(tabs).bottom));
+            expect(
+              find.byKey(const ValueKey('forum-tabs-add')).hitTestable(),
+              findsOneWidget,
+            );
             final workspace = tester.getRect(
               find.byType(DesktopTopicSheetHost),
             );
@@ -450,7 +457,7 @@ void main() {
     variant: TargetPlatformVariant.only(TargetPlatform.macOS),
   );
 
-  testWidgets('switching forum tabs retains each sheet editor and its draft', (
+  testWidgets('clicking forum tabs retains each sheet editor and its draft', (
     tester,
   ) async {
     final h = await _setup(tester);
@@ -462,7 +469,11 @@ void main() {
     final first = h.shell.visibleComposer!;
     final firstEditor = tester.state(find.byType(ComposerEditor));
     first.text.text = 'First tab draft';
-    h.shell.createTab();
+    await tester.tap(find.byKey(const ValueKey('forum-tabs-add')));
+    await tester.pumpAndSettle();
+    expect(h.shell.activeTabId, isNot(firstTab));
+    expect(_sheet, findsNothing);
+    expect(h.shell.visibleComposer, isNull);
     h.shell.openTopicFromList(h.topics[1]);
     await tester.pumpAndSettle();
     h.shell.openReply();
@@ -471,17 +482,67 @@ void main() {
     final second = h.shell.visibleComposer!;
     final secondEditor = tester.state(find.byType(ComposerEditor));
     second.text.text = 'Second tab draft';
-    h.shell.selectTab(firstTab);
+    await tester.tap(find.byKey(ValueKey('forum-tab-item-$firstTab')));
     await tester.pumpAndSettle();
+    expect(h.shell.currentContent?.topicId, h.topics.first.id);
     expect(tester.state(find.byType(ComposerEditor)), same(firstEditor));
     expect(h.shell.visibleComposer!.raw, 'First tab draft');
-    h.shell.selectTab(secondTab);
+    await tester.tap(find.byKey(ValueKey('forum-tab-item-$secondTab')));
     await tester.pumpAndSettle();
+    expect(h.shell.currentContent?.topicId, h.topics[1].id);
     expect(tester.state(find.byType(ComposerEditor)), same(secondEditor));
     expect(h.shell.visibleComposer!.raw, 'Second tab draft');
     await tester.pump(const Duration(seconds: 2));
     expect(tester.takeException(), isNull);
   }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
+
+  for (final width in [650.0, 1440.0]) {
+    testWidgets('tabs stay above the sheet and backdrop at width $width', (
+      tester,
+    ) async {
+      final h = await _setup(tester, size: Size(width, 900));
+      final semantics = tester.ensureSemantics();
+      try {
+        final firstTab = h.shell.activeTabId!;
+        h.shell.openTopicFromList(h.topics.first);
+        await tester.pumpAndSettle();
+        final tabs = find.byType(ForumTabsBar);
+        final add = find.byKey(const ValueKey('forum-tabs-add'));
+        expect(
+          tester.getRect(_sheet).top,
+          greaterThan(tester.getRect(tabs).bottom),
+        );
+        expect(add.hitTestable(), findsOneWidget);
+        expect(tester.getSemantics(add).label, 'Open a new tab');
+        await tester.drag(find.byType(TopicView), const Offset(0, -350));
+        await tester.pumpAndSettle();
+        final readingOffset = _readerScroll(tester).pixels;
+        expect(readingOffset, greaterThan(0));
+        await tester.tap(add);
+        await tester.pumpAndSettle();
+        final secondTab = h.shell.activeTabId!;
+        expect(secondTab, isNot(firstTab));
+        expect(_sheet, findsNothing);
+        h.shell.openTopicFromList(h.topics[1]);
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(ValueKey('forum-tab-item-$firstTab')));
+        await tester.pumpAndSettle();
+        expect(h.shell.currentContent?.topicId, h.topics.first.id);
+        expect(_readerScroll(tester).pixels, closeTo(readingOffset, 1));
+        await tester.tap(find.byKey(const ValueKey('topic-close-reader')));
+        await tester.pumpAndSettle();
+        expect(_sheet, findsNothing);
+        expect(h.shell.currentContent?.isTopicList, isTrue);
+        await tester.tap(find.byKey(ValueKey('forum-tab-item-$secondTab')));
+        await tester.pumpAndSettle();
+        expect(h.shell.currentContent?.topicId, h.topics[1].id);
+        expect(_sheet, findsOneWidget);
+        expect(tester.takeException(), isNull);
+      } finally {
+        semantics.dispose();
+      }
+    }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
+  }
 
   testWidgets('mobile keeps the existing inline topic presentation', (
     tester,
@@ -494,6 +555,19 @@ void main() {
     expect(tester.takeException(), isNull);
   }, variant: TargetPlatformVariant.only(TargetPlatform.iOS));
 }
+
+ScrollPosition _readerScroll(WidgetTester tester) => tester
+    .state<ScrollableState>(
+      find.descendant(
+        of: find.byType(TopicView),
+        matching: find.byWidgetPredicate(
+          (widget) =>
+              widget is Scrollable &&
+              widget.axisDirection == AxisDirection.down,
+        ),
+      ),
+    )
+    .position;
 
 Future<void> _composeShortcut(
   WidgetTester tester, {

@@ -82,6 +82,13 @@ its page-level composer.
 The topic sheet uses the reading background across its header, body and footer,
 following the active app or forum palette.
 
+Desktop forum tabs sit above the sheet Navigator. Its backdrop and modal
+semantics stay below the tab row, so tab switching, creation, closing and the
+tab switcher remain available while reading or composing. Each selected tab
+supplies its own topic and background route; switching restores its reading
+position and app-level composer draft. Closing a sheet returns only that tab to
+its underlying page.
+
 The workspace is a separate semantics container so its modal sheet cannot hide
 the left-docked composer from accessibility. On macOS the left composer reserves
 the window-control strip. `ReaderContentBounds` reports the actual topic surface
