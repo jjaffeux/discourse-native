@@ -19,6 +19,36 @@ import 'support/fakes.dart';
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
+  testWidgets('opening and revealing the composer focuses its editor', (
+    tester,
+  ) async {
+    final readerFocus = FocusNode();
+    addTearDown(readerFocus.dispose);
+    final harness = await _Harness.create(tester, readerFocus: readerFocus);
+    final composer = harness.shell.visibleComposer!;
+    expect(composer.focus.hasFocus, isTrue);
+
+    harness.shell.hideComposerForClose(composer);
+    await tester.pumpAndSettle();
+    readerFocus.requestFocus();
+    await tester.pump();
+    expect(readerFocus.hasFocus, isTrue);
+
+    harness.shell.restoreComposerAfterFailedClose(composer);
+    await tester.pumpAndSettle();
+    expect(composer.focus.hasFocus, isTrue);
+
+    readerFocus.requestFocus();
+    await tester.pump();
+    harness.presentation.resize(
+      placement: ComposerPlacement.right,
+      extent: 450,
+      topic: true,
+    );
+    await tester.pumpAndSettle();
+    expect(readerFocus.hasFocus, isTrue);
+  });
+
   test(
     'preferences restore dock sizes and ignore obsolete floating coordinates',
     () async {
@@ -329,6 +359,7 @@ class _Harness {
     Size size = const Size(1000, 700),
     TextDirection direction = TextDirection.ltr,
     double textScale = 1,
+    FocusNode? readerFocus,
   }) async {
     const user = DiscourseUser(id: 7, username: 'sam', canCreateTopic: true);
     final shell = ShellController(
@@ -371,9 +402,13 @@ class _Harness {
               child: ComposerPresentationHost(
                 controller: presentation,
                 child: ComposerDock(
-                  child: ListView(
-                    key: const ValueKey('reader-list'),
-                    children: [for (var i = 0; i < 100; i++) Text('Post $i')],
+                  child: Focus(
+                    focusNode: readerFocus,
+                    autofocus: readerFocus != null,
+                    child: ListView(
+                      key: const ValueKey('reader-list'),
+                      children: [for (var i = 0; i < 100; i++) Text('Post $i')],
+                    ),
                   ),
                 ),
               ),
