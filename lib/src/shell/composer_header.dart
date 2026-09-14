@@ -248,7 +248,7 @@ class ComposerHeader extends StatelessWidget {
               focusNode: trigger.focusNode,
               onPressed: trigger.toggle,
               variant: DButtonVariant.ghost,
-              size: DButtonSize.small,
+              size: DButtonSize.regular,
             ),
           ),
         ),
@@ -259,7 +259,7 @@ class ComposerHeader extends StatelessWidget {
           icon: const DIcon(DIcons.expand),
           tooltip: 'Restore composer',
           variant: DButtonVariant.ghost,
-          size: DButtonSize.small,
+          size: DButtonSize.regular,
         )
       else if (onMinimize case final minimize?)
         DButton.iconOnly(
@@ -268,7 +268,7 @@ class ComposerHeader extends StatelessWidget {
           icon: const Icon(Icons.remove),
           tooltip: 'Minimize composer',
           variant: DButtonVariant.ghost,
-          size: DButtonSize.small,
+          size: DButtonSize.regular,
         ),
       DButton.iconOnly(
         key: const ValueKey('composer-close'),
@@ -276,7 +276,7 @@ class ComposerHeader extends StatelessWidget {
         icon: const DIcon(DIcons.xmark),
         tooltip: closeTooltip,
         variant: DButtonVariant.ghost,
-        size: DButtonSize.small,
+        size: DButtonSize.regular,
       ),
     ];
     return SizedBox(
