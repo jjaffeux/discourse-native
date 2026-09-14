@@ -69,6 +69,64 @@ Widget _dialog<T>({
 );
 
 void main() {
+  for (final requestFocus in [true, false]) {
+    testWidgets('route updates honor Navigator.requestFocus=$requestFocus', (
+      tester,
+    ) async {
+      final editorFocus = FocusNode();
+      final dialogFocus = FocusNode();
+      addTearDown(editorFocus.dispose);
+      addTearDown(dialogFocus.dispose);
+      await tester.pumpWidget(
+        _host(
+          Row(
+            children: [
+              Expanded(
+                child: DInput(
+                  key: const ValueKey('workspace-input'),
+                  focusNode: editorFocus,
+                ),
+              ),
+              Expanded(
+                child: FocusScope(
+                  child: Navigator(
+                    requestFocus: requestFocus,
+                    onGenerateRoute: (_) => MaterialPageRoute<void>(
+                      builder: (_) => _dialog<void>(
+                        initialFocusNode: dialogFocus,
+                        body: [
+                          DInput(
+                            key: const ValueKey('dialog-input'),
+                            focusNode: dialogFocus,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+      await tester.tap(find.text('Open'));
+      await tester.pumpAndSettle();
+      expect(dialogFocus.hasFocus, isTrue);
+      editorFocus.requestFocus();
+      await tester.pump();
+      expect(editorFocus.hasFocus, isTrue);
+
+      for (final key in ['dialog-input', 'workspace-input']) {
+        ModalRoute.of(
+          tester.element(find.byKey(ValueKey(key))),
+        )!.changedInternalState();
+        await tester.pumpAndSettle();
+      }
+      expect(editorFocus.hasFocus, !requestFocus);
+      expect(dialogFocus.hasFocus, requestFocus);
+    });
+  }
+
   testWidgets('custom presentation keeps Dialog lifecycle and close scope', (
     tester,
   ) async {

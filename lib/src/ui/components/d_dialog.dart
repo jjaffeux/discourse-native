@@ -488,6 +488,7 @@ class _DDialogRoute<T> extends DOverlayRoute<T, _DDialogConfiguration<T>> {
     required super.reverseTransitionDuration,
     super.settings,
   }) : super(
+         requestFocus: null,
          barrierLabelOf: (config) => config.barrierLabel,
          modalOf: (config) => config.modal,
          onPopBlocked: () {
@@ -516,10 +517,10 @@ class _DDialogRoute<T> extends DOverlayRoute<T, _DDialogConfiguration<T>> {
   bool get shouldRestoreFocus =>
       wasCurrentWhenAuthorized && (_restoreFocus ?? false);
 
-  // The page sets initial focus itself. A non-modal route must not reclaim
-  // focus from background controls when the Navigator updates its routes.
+  // The page sets initial focus itself. Subsequent route updates must respect
+  // the navigator's focus policy, including workspaces with sibling editors.
   @override
-  bool get requestFocus => modal;
+  bool get requestFocus => modal && super.requestFocus;
 
   @override
   void authorizePop([T? result]) {

@@ -107,6 +107,11 @@ void main() {
       )!.changedInternalState();
       await tester.pumpAndSettle();
       expect(h.shell.visibleComposer!.focus.hasFocus, isTrue);
+      ModalRoute.of(
+        tester.element(find.byType(AdaptiveShell)),
+      )!.changedInternalState();
+      await tester.pumpAndSettle();
+      expect(h.shell.visibleComposer!.focus.hasFocus, isTrue);
       tester.view.physicalSize = Size(width + 20, 900);
       await tester.pumpAndSettle();
       expect(h.shell.visibleComposer!.focus.hasFocus, isTrue);

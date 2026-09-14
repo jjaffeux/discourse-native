@@ -61,6 +61,7 @@ class DesktopTopicSheetHost extends StatelessWidget {
                 // or another workspace control owns focus.
                 child: FocusScope(
                   child: Navigator(
+                    requestFocus: false,
                     pages: [
                       MaterialPage<void>(
                         key: const ValueKey('desktop-topic-background'),
