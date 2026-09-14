@@ -8,6 +8,8 @@ import 'fakes.dart';
 /// original long-paragraph benchmark. Pages arrive while the reader scrolls.
 Future<ShellController> mixedTopicScrollController({
   FakeDiscourseApi? api,
+  int firstLoaded = 1,
+  int? initialPostNumber,
 }) async {
   final posts = [
     for (var id = 1; id <= 114; id++)
@@ -40,7 +42,7 @@ Future<ShellController> mixedTopicScrollController({
   resolvedApi.topics[7] = topicPayload(
     id: 7,
     title: 'Ordinary rich topic scrolling',
-    posts: posts.take(20).toList(),
+    posts: posts.skip(firstLoaded - 1).take(20).toList(),
     stream: posts.map((post) => post.id).toList(),
     postsCount: posts.length,
   );
@@ -60,8 +62,13 @@ Future<ShellController> mixedTopicScrollController({
       topicId: 7,
       slug: 'ordinary-rich-topic',
       title: 'Ordinary rich topic scrolling',
+      postNumber: initialPostNumber,
     ),
   );
-  await controller.loadTopic(7, 'ordinary-rich-topic');
+  await controller.loadTopic(
+    7,
+    'ordinary-rich-topic',
+    postNumber: initialPostNumber,
+  );
   return controller;
 }
