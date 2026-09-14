@@ -2644,6 +2644,25 @@ class ShellController extends FrameSafeNotifier
     _notify();
   }
 
+  /// Returns from a desktop conversation to the page underneath its sheet.
+  void closeTopicSheet() {
+    final active = activeTab;
+    if (active == null || !active.currentContent.isTopic) return;
+    var tab = active;
+    while (tab.currentContent.isTopic && tab.canGoBack) {
+      tab = tab.goBack();
+    }
+    if (tab.currentContent.isTopic) {
+      tab = tab.copyWith(
+        contentStack: [ContentRoute.topicList(TopicListMode.latest)],
+      );
+    }
+    _replaceActiveTab(tab);
+    _syncTopicChannels();
+    _notify();
+    if (currentInstance case final instance?) _hydrateActiveTab(instance);
+  }
+
   ({int all, int topics, int replies}) get topicListNewCounts {
     final route = topicListContent ?? currentContent;
     final categoryId = route?.categoryId;

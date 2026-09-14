@@ -49,6 +49,7 @@ import 'topic_list_bottom_bar.dart';
 import 'topic_list_layout.dart';
 import 'topic_list_navigation.dart';
 import 'topic_list_view.dart';
+import 'topic_sheet_scope.dart';
 import 'topic_title.dart';
 import 'topic_view.dart';
 import 'user_activity.dart';
@@ -84,8 +85,10 @@ class _MainContentState extends State<MainContent> {
 
   @override
   Widget build(BuildContext context) {
+    final background = TopicSheetScope.isBackground(context);
     return ShellSelector<_MainContentSnapshot>(
-      select: _MainContentSnapshot.from,
+      select: (shell) =>
+          _MainContentSnapshot.from(shell, background: background),
       builder: (context, state, _) {
         final shell = ShellScope.read(context);
         final port = ShellGroupPagesPort(shell);
@@ -1465,47 +1468,52 @@ class _MainContentSnapshot {
     required this.groupAccountIdentity,
   });
 
-  factory _MainContentSnapshot.from(ShellController controller) =>
-      _MainContentSnapshot(
-        siteUrl: controller.currentInstance?.url,
-        activeTabId: controller.activeTabId,
-        route: controller.currentContent,
-        sourceRoute: controller.topicListContent,
-        canPop: controller.canPopContent,
-        canReply: controller.canReplyHere,
-        bookmarkBusy: switch ((
-          controller.currentInstance?.url,
-          controller.currentTopic,
-        )) {
-          (final siteUrl?, final topic?) => controller.bookmarkWriteInFlight(
-            siteUrl: siteUrl,
-            topicId: topic.id,
-            targetType: BookmarkTargetType.topic,
-            targetId: topic.id,
-          ),
-          _ => false,
-        },
-        isConnected: controller.currentInstance?.isConnected == true,
-        filterCategories: switch ((
-          controller.currentContent?.id,
-          controller.currentInstance?.url,
-        )) {
-          ('filter', final siteUrl?) => controller.filterCategoriesFor(siteUrl),
-          _ => const [],
-        },
-        categoryFeed: switch ((
-          controller.currentContent?.id,
-          controller.currentInstance?.url,
-        )) {
-          ('all-categories', final siteUrl?) => controller.categoryFeedFor(
-            siteUrl,
-          ),
-          _ => null,
-        },
-        groupAccountIdentity: _isGroupNamespace(controller.currentContent)
-            ? controller.currentAccountIdentity
-            : null,
-      );
+  factory _MainContentSnapshot.from(
+    ShellController controller, {
+    bool background = false,
+  }) {
+    final stack = controller.contentStack;
+    final route = background
+        ? stack.reversed.where((route) => !route.isTopic).firstOrNull ??
+              ContentRoute.topicList(TopicListMode.latest)
+        : controller.currentContent;
+    return _MainContentSnapshot(
+      siteUrl: controller.currentInstance?.url,
+      activeTabId: controller.activeTabId,
+      route: route,
+      sourceRoute: background
+          ? (route?.isTopicList == true ? route : null)
+          : controller.topicListContent,
+      canPop: background ? stack.indexOf(route!) > 0 : controller.canPopContent,
+      canReply: controller.canReplyHere,
+      bookmarkBusy: switch ((
+        controller.currentInstance?.url,
+        controller.currentTopic,
+      )) {
+        (final siteUrl?, final topic?) => controller.bookmarkWriteInFlight(
+          siteUrl: siteUrl,
+          topicId: topic.id,
+          targetType: BookmarkTargetType.topic,
+          targetId: topic.id,
+        ),
+        _ => false,
+      },
+      isConnected: controller.currentInstance?.isConnected == true,
+      filterCategories: switch ((route?.id, controller.currentInstance?.url)) {
+        ('filter', final siteUrl?) => controller.filterCategoriesFor(siteUrl),
+        _ => const [],
+      },
+      categoryFeed: switch ((route?.id, controller.currentInstance?.url)) {
+        ('all-categories', final siteUrl?) => controller.categoryFeedFor(
+          siteUrl,
+        ),
+        _ => null,
+      },
+      groupAccountIdentity: _isGroupNamespace(route)
+          ? controller.currentAccountIdentity
+          : null,
+    );
+  }
 
   final String? siteUrl;
   final String? activeTabId;

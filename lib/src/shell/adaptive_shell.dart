@@ -19,6 +19,7 @@ import '../theme/d_icons.dart';
 import 'aggregate_view.dart';
 import 'bookmark_ui.dart';
 import 'composer_presentation.dart';
+import 'desktop_topic_sheet.dart';
 import 'diagnostics_panel.dart';
 import 'empty_state.dart';
 import 'instance_actions.dart';
@@ -27,12 +28,14 @@ import 'instance_sidebar.dart';
 import 'keyboard_navigation.dart';
 import 'keyboard_shortcuts_help.dart';
 import 'main_content.dart';
+import 'platform.dart';
 import 'resizable_pane.dart';
 import 'shell_controller.dart';
 import 'shell_panel.dart';
 import 'shell_scope.dart';
 import 'shell_search_controller.dart';
 import 'title_bar.dart';
+import 'topic_sheet_scope.dart';
 
 enum ShellLayout {
   compact,
@@ -117,6 +120,12 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
     // to the modal. Focus alone cannot tell, because a modal whose content
     // takes no focus leaves primary focus on a scope node.
     if (Navigator.of(context).canPop()) return false;
+    final focusedContext = FocusManager.instance.primaryFocus?.context;
+    if (focusedContext != null &&
+        ModalRoute.of(focusedContext) is PopupRoute &&
+        TopicSheetScope.readerOf(focusedContext) == null) {
+      return false;
+    }
 
     final keyboard = HardwareKeyboard.instance;
     final controller = ShellScope.read(context);
@@ -350,7 +359,14 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
     return true;
   }
 
-  bool get _formControlHasFocus => !navigationShortcutsAllowed(context);
+  bool get _formControlHasFocus {
+    final focused = FocusManager.instance.primaryFocus?.context;
+    return !navigationShortcutsAllowed(
+      focused != null && TopicSheetScope.readerOf(focused) != null
+          ? focused
+          : context,
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -372,7 +388,10 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
           return true;
         },
       },
-      child: ComposerPresentationHost(child: _buildShell(context)),
+      child: ComposerPresentationHost(
+        topicSheets: !context.isTouch,
+        child: _buildShell(context),
+      ),
     );
   }
 
@@ -457,7 +476,7 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
                 child: Column(
                   children: [
                     const ShellTitleBar(),
-                    Expanded(child: body),
+                    Expanded(child: DesktopTopicSheetHost(child: body)),
                   ],
                 ),
               ),
@@ -849,6 +868,7 @@ class _CompactShell extends StatelessWidget {
                       rootMode: controller.rootMode,
                     ),
                     builder: (context, state, _) => ComposerDock(
+                      key: ComposerPresentationHost.dockKeyOf(context),
                       child: AnimatedSwitcher(
                         duration: const Duration(milliseconds: 220),
                         switchInCurve: Curves.easeOutCubic,
@@ -984,6 +1004,9 @@ class _WideShell extends StatelessWidget {
                             ),
                             Expanded(
                               child: ComposerDock(
+                                key: ComposerPresentationHost.dockKeyOf(
+                                  context,
+                                ),
                                 child: MainContent(
                                   key: ComposerPresentationHost.contentKeyOf(
                                     context,

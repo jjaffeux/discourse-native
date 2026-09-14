@@ -83,6 +83,74 @@ Widget _sheet<T>({
 );
 
 void main() {
+  for (final reducedMotion in [false, true]) {
+    testWidgets(
+      'inset sheet animates width and retains its editor (reduced motion: $reducedMotion)',
+      (tester) async {
+        tester.view.physicalSize = const Size(900, 700);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+        final width = ValueNotifier<double>(400);
+        addTearDown(width.dispose);
+        await tester.pumpWidget(
+          _host(
+            ValueListenableBuilder<double>(
+              valueListenable: width,
+              builder: (context, value, _) => DSheet<void>(
+                initiallyOpen: true,
+                trigger: DSheetTrigger(
+                  builder: (_, _) => const SizedBox.shrink(),
+                ),
+                content: DSheetContent(
+                  key: const ValueKey('inset-sheet'),
+                  inset: true,
+                  animateSize: true,
+                  sidePanelWidth: value,
+                  sidePanelMaxWidth: 900,
+                  children: [
+                    DSheetHeader(
+                      children: [DInput(semanticLabel: 'Retained input')],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            size: const Size(900, 700),
+            disableAnimations: reducedMotion,
+          ),
+        );
+        await tester.pumpAndSettle();
+        final sheet = find.byKey(const ValueKey('inset-sheet'));
+        final original = tester.getRect(sheet);
+        expect(original, const Rect.fromLTWH(488, 12, 400, 676));
+        await tester.enterText(
+          find.byType(EditableText),
+          'Retained through resizing',
+        );
+        final editor = tester.state(find.byType(EditableText));
+        width.value = 700;
+        await tester.pump();
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 80));
+        final intermediate = tester.getSize(sheet).width;
+        if (reducedMotion) {
+          expect(intermediate, 700);
+        } else {
+          expect(intermediate, greaterThan(400));
+          expect(intermediate, lessThan(700));
+        }
+        await tester.pumpAndSettle();
+        expect(tester.getRect(sheet), const Rect.fromLTWH(188, 12, 700, 676));
+        expect(tester.state(find.byType(EditableText)), same(editor));
+        expect(find.text('Retained through resizing'), findsOneWidget);
+        width.value = 1200;
+        await tester.pumpAndSettle();
+        expect(tester.getRect(sheet), const Rect.fromLTWH(12, 12, 876, 676));
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
   testWidgets('uncontrolled trigger and typed close restore focus', (
     tester,
   ) async {
@@ -494,6 +562,7 @@ void main() {
                   result = await showDSheet<String>(
                     context: context,
                     sidePanelWidth: 288,
+                    inset: true,
                     builder: (context, controller) => DSheetContent(
                       children: [
                         DSheetClose<String>(
@@ -517,6 +586,17 @@ void main() {
     await tester.tap(find.text('Helper'));
     await tester.pumpAndSettle();
     expect(tester.getSize(find.byType(DSheetContent)).width, 288);
+    expect(tester.getTopLeft(find.byType(DSheetContent)).dy, DSpacing.md);
+    final surface = tester.widget<Material>(
+      find
+          .descendant(
+            of: find.byType(DSheetContent),
+            matching: find.byType(Material),
+          )
+          .first,
+    );
+    expect(surface.borderRadius, isNot(BorderRadius.zero));
+    expect(surface.clipBehavior, Clip.antiAlias);
     await tester.tap(find.text('Return'));
     await tester.pumpAndSettle();
     expect(result, 'result');

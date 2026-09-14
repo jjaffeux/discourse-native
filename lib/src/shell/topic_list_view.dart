@@ -27,6 +27,7 @@ import 'shell_controller.dart';
 import 'shell_scope.dart';
 import 'topic_list_indicators.dart';
 import 'topic_list_layout.dart';
+import 'topic_sheet_scope.dart';
 import 'topic_title.dart';
 
 typedef _TopicListIdentity = (String?, String?, String?, String);
@@ -612,7 +613,7 @@ class _TopicListViewState extends State<TopicListView> {
     if (_readingTopicId != readingTopicId) {
       _readingTopicId = readingTopicId;
       if (readingTopicId == null) {
-        _revealCursor();
+        if (!TopicSheetScope.isBackground(context)) _revealCursor();
       } else if (feed.topicIds.contains(readingTopicId)) {
         _rememberTopic(readingTopicId);
       }

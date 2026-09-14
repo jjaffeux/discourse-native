@@ -53,6 +53,36 @@ drawer navigation remains a resizable/session-owned workspace rather than a
 transient Sheet. Specialized anchored popovers, destructive alerts, media and
 full-screen routes keep their corresponding owners.
 
+## Approved inset extension (2026-09-14)
+
+Desktop topic navigation adopts design C from the topic-sheet study. The user
+approved extending Native Sheet for this presentation. `DSheetContent.inset`
+adds a `DSpacing.md` margin on every side, a complete border, rounded corners
+and clipping. `animateSize` animates width changes with the shared 180ms change
+duration and respects reduced motion. Both options default to false, preserving
+the reference presentation. `showDSheet` exposes the same options.
+
+Widths clamp to the owning Navigator's actual layout bounds, including the
+inset margins. The sheet keeps its existing route and descendants while its
+width changes. The **Inset and expanding** styleguide example demonstrates
+this with retained input.
+
+`DesktopTopicSheetHost` owns the app adaptation below the window toolbar. It
+keeps the source page mounted, opens topics in a right inset sheet, and widens
+the sheet when composing. `ComposerDock` lays out the reader, resize divider
+and editor inside that surface for physical left, bottom and right placements.
+Minimizing restores reading width. Narrow desktop windows use the existing
+bottom-dock fallback and restore the preferred side when space permits.
+
+Verification: sheet and keyboard suites (72 tests), composer/navigation/chat
+regressions, and static analysis of the root and full profile. macOS inspection
+used `tool/topic_sheet_review_main.dart` with local fixture data: reading,
+all three docks with retained text, minimize, light/dark, narrow desktop, and
+the new Native styleguide example. One existing topic-inbox popover dismissal
+test fails identically at unchanged commit `93c76012`; it was verified separately
+and excluded from the remaining regression run. No Linux or spoken VoiceOver
+execution is claimed.
+
 ## Acceptance fixtures
 
 The independent reviewer must compare the actual default form, all four sides,

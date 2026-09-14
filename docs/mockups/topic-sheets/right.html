@@ -1,0 +1,305 @@
+<style>
+#topic-sheet-right {
+  --dn-bg: light-dark(#ffffff, #212429);
+  --dn-fg: light-dark(#25282d, #e5e7eb);
+  --dn-muted: light-dark(#68717e, #a7afbb);
+  --dn-sidebar: light-dark(#f1f3f5, #1a1c20);
+  --dn-rail: light-dark(#e3e6ea, #131417);
+  --dn-line: light-dark(#dbdfe4, #373c45);
+  --dn-hover: light-dark(#f6f8f9, #2a2e35);
+  --dn-blue: light-dark(#007ab8, #65c4ed);
+  --dn-tint: light-dark(#e5f2f9, #193f52);
+  --dn-orange: light-dark(#a65e27, #e3aa7c);
+  --dn-purple: light-dark(#7753a0, #c3a5e3);
+  --dn-shade: light-dark(#18243325, #00000065);
+  --dn-shadow: light-dark(#15233526, #00000070);
+  color: var(--dn-fg); font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  width: 100%; container-type: inline-size;
+}
+#topic-sheet-right * { box-sizing: border-box; }
+#topic-sheet-right [hidden] { display: none !important; }
+#topic-sheet-right button, #topic-sheet-right textarea { font: inherit; color: inherit; }
+#topic-sheet-right button { cursor: pointer; }
+#topic-sheet-right button:disabled { cursor: default; opacity: .5; }
+#topic-sheet-right .dn-window { height: 720px; position: relative; isolation: isolate; border: 1px solid var(--dn-line); border-radius: 12px; background: var(--dn-bg); overflow: hidden; }
+#topic-sheet-right .dn-chrome { height: 40px; display: flex; align-items: center; gap: 14px; padding: 0 16px; border-bottom: 1px solid var(--dn-line); background: var(--dn-sidebar); }
+#topic-sheet-right .dn-traffic { display: flex; gap: 7px; width: 64px; }
+#topic-sheet-right .dn-traffic span { width: 10px; height: 10px; border: 1px solid var(--dn-muted); border-radius: 50%; opacity: .55; }
+#topic-sheet-right .dn-window-title { flex: 1; text-align: center; font-size: 12px; font-weight: 500; }
+#topic-sheet-right .dn-chrome-end { width: 64px; display: flex; justify-content: end; }
+#topic-sheet-right .dn-icon { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
+#topic-sheet-right .dn-icon svg { width: 15px; height: 15px; }
+#topic-sheet-right .dn-base { height: calc(100% - 40px); display: grid; grid-template-columns: 48px 168px minmax(0, 1fr); }
+#topic-sheet-right .dn-rail { display: flex; align-items: center; flex-direction: column; gap: 12px; padding: 15px 6px; background: var(--dn-rail); }
+#topic-sheet-right .dn-site { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 10px; background: var(--dn-bg); font-size: 16px; font-weight: 500; }
+#topic-sheet-right .dn-site-active { background: var(--dn-blue); color: var(--dn-bg); }
+#topic-sheet-right .dn-rail-bottom { margin-top: auto; display: grid; gap: 18px; }
+#topic-sheet-right .dn-sidebar { padding: 16px 10px; background: var(--dn-sidebar); border-right: 1px solid var(--dn-line); }
+#topic-sheet-right .dn-community { padding: 0 9px 17px; font-weight: 500; display: flex; justify-content: space-between; align-items: center; }
+#topic-sheet-right .dn-nav-row { padding: 6px 9px; display: flex; align-items: center; gap: 9px; font-size: 12px; border-radius: 7px; }
+#topic-sheet-right .dn-nav-row.dn-active { background: var(--dn-tint); color: var(--dn-blue); font-weight: 500; }
+#topic-sheet-right .dn-count { margin-left: auto; font-size: 11px; color: var(--dn-muted); }
+#topic-sheet-right .dn-nav-label { color: var(--dn-muted); font-size: 11px; margin: 24px 9px 6px; }
+#topic-sheet-right .dn-category-dot { width: 7px; height: 7px; border-radius: 2px; background: var(--dn-orange); display: inline-block; flex-shrink: 0; }
+#topic-sheet-right .dn-category-dot.purple { background: var(--dn-purple); }
+#topic-sheet-right .dn-category-dot.blue { background: var(--dn-blue); }
+#topic-sheet-right .dn-list { position: relative; min-width: 0; padding: 21px 24px; }
+#topic-sheet-right .dn-list-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
+#topic-sheet-right h2 { margin: 0; font-size: 20px; line-height: 1.3; font-weight: 500; letter-spacing: -.4px; }
+#topic-sheet-right .dn-feeds { display: flex; gap: 14px; font-size: 12px; color: var(--dn-muted); }
+#topic-sheet-right .dn-feed-current { color: var(--dn-fg); font-weight: 500; }
+#topic-sheet-right .dn-filters { display: flex; gap: 6px; align-items: center; margin-bottom: 14px; }
+#topic-sheet-right .dn-chip { font-size: 11px; border: 1px solid var(--dn-line); border-radius: 7px; padding: 2px 7px; display: inline-flex; align-items: center; gap: 6px; }
+#topic-sheet-right .dn-filter-chip { height: 28px; font-size: 12px; border-radius: 8px; }
+#topic-sheet-right .dn-search { padding: 7px 10px; border: 1px solid var(--dn-line); border-radius: 8px; display: flex; gap: 8px; align-items: center; color: var(--dn-muted); font-size: 12px; }
+#topic-sheet-right .dn-topic-list { display: grid; gap: 8px; margin-top: 17px; }
+#topic-sheet-right .dn-topic-row { display: block; text-align: left; border: 1px solid var(--dn-line); background: var(--dn-bg); padding: 13px 14px; border-radius: 8px; width: 100%; }
+#topic-sheet-right .dn-topic-row:hover { background: var(--dn-hover); }
+#topic-sheet-right .dn-topic-row[aria-current=true] { border-color: var(--dn-blue); background: var(--dn-tint); }
+#topic-sheet-right .dn-topic-name { display: flex; gap: 14px; align-items: start; justify-content: space-between; font-size: 13px; font-weight: 500; }
+#topic-sheet-right .dn-time { color: var(--dn-muted); font-size: 11px; white-space: nowrap; font-weight: 400; }
+#topic-sheet-right .dn-excerpt { display: block; color: var(--dn-muted); font-size: 12px; margin: 4px 0 9px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#topic-sheet-right .dn-row-meta { display: flex; gap: 7px; align-items: center; color: var(--dn-muted); font-size: 11px; }
+#topic-sheet-right .dn-unread { background: var(--dn-blue); color: var(--dn-bg); border-radius: 10px; min-width: 17px; padding: 0 5px; text-align: center; }
+#topic-sheet-right .dn-list-footer { position: absolute; left: 24px; right: 24px; bottom: 15px; display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 11px; color: var(--dn-muted); }
+#topic-sheet-right .dn-btn { border: 1px solid var(--dn-line); border-radius: 8px; padding: 0 9px; height: 28px; background: var(--dn-bg); display: inline-flex; align-items: center; justify-content: center; gap: 6px; font-size: 12px; white-space: nowrap; }
+#topic-sheet-right .dn-btn:hover { background: var(--dn-hover); }
+#topic-sheet-right .dn-btn.dn-primary { background: var(--dn-tint); color: var(--dn-blue); border-color: transparent; font-weight: 500; }
+#topic-sheet-right .dn-btn.dn-ghost { background: transparent; border-color: transparent; }
+#topic-sheet-right .dn-btn.dn-ghost:hover { background: var(--dn-hover); }
+#topic-sheet-right .dn-btn.dn-icon-btn { width: 28px; padding: 0; }
+#topic-sheet-right .dn-backdrop { position: absolute; inset: 40px 0 0 216px; z-index: 2; border: 0; padding: 0; background: var(--dn-shade); opacity: .45; }
+#topic-sheet-right .dn-sheet { position: absolute; top: 40px; right: 0; bottom: 0; width: 60%; z-index: 3; background: var(--dn-bg); border-left: 1px solid var(--dn-line); border-radius: 12px 0 0 0; box-shadow: -12px 0 40px var(--dn-shadow); display: flex; flex-direction: column; min-width: 0; transition: width 220ms ease, right 220ms ease; }
+#topic-sheet-right .dn-window[data-direction=center] .dn-backdrop { left: 0; opacity: 1; }
+#topic-sheet-right .dn-window[data-direction=center] .dn-sheet { top: 57px; bottom: 17px; right: 5%; width: 90%; border: 1px solid var(--dn-line); border-radius: 12px; box-shadow: 0 18px 60px var(--dn-shadow); }
+#topic-sheet-right .dn-window[data-direction=expand] .dn-backdrop { left: 48px; opacity: .7; }
+#topic-sheet-right .dn-window[data-direction=expand] .dn-sheet { top: 52px; bottom: 12px; right: 12px; width: 64%; border: 1px solid var(--dn-line); border-radius: 12px; }
+#topic-sheet-right .dn-window[data-direction=expand][data-writing=true] .dn-sheet { width: calc(100% - 76px); }
+#topic-sheet-right .dn-sheet-top { min-height: 44px; display: flex; align-items: center; padding: 7px 12px; gap: 7px; border-bottom: 1px solid var(--dn-line); }
+#topic-sheet-right .dn-breadcrumb { min-width: 0; flex: 1; display: flex; align-items: center; gap: 7px; color: var(--dn-muted); font-size: 11px; }
+#topic-sheet-right .dn-breadcrumb span { white-space: nowrap; }
+#topic-sheet-right .dn-sheet-workspace { display: flex; flex: 1; min-height: 0; min-width: 0; }
+#topic-sheet-right .dn-reader { display: flex; flex: 1; flex-direction: column; min-width: 0; min-height: 0; }
+#topic-sheet-right .dn-topic-header { padding: 20px 26px 15px; }
+#topic-sheet-right .dn-topic-title { margin: 0 0 11px; font-size: 20px; line-height: 1.3; font-weight: 500; letter-spacing: -.35px; overflow-wrap: anywhere; }
+#topic-sheet-right .dn-taxonomy { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; color: var(--dn-muted); font-size: 11px; }
+#topic-sheet-right .dn-category { display: flex; align-items: center; gap: 5px; }
+#topic-sheet-right .dn-posts { padding: 0 26px; flex: 1; min-height: 0; }
+#topic-sheet-right .dn-post { display: grid; grid-template-columns: 28px minmax(0, 1fr); column-gap: 10px; padding: 15px 0; border-top: 1px solid var(--dn-line); font-size: 13px; }
+#topic-sheet-right .dn-avatar { width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; background: var(--dn-tint); color: var(--dn-blue); font-size: 12px; font-weight: 500; }
+#topic-sheet-right .dn-avatar.dn-warm { background: var(--dn-sidebar); color: var(--dn-orange); }
+#topic-sheet-right .dn-author { display: flex; gap: 8px; align-items: center; font-size: 12px; }
+#topic-sheet-right .dn-author strong { font-weight: 500; }
+#topic-sheet-right .dn-author .dn-time { margin-left: auto; }
+#topic-sheet-right .dn-post p { margin: 9px 0 0; }
+#topic-sheet-right .dn-post-actions { margin-top: 10px; display: flex; gap: 5px; justify-content: end; }
+#topic-sheet-right .dn-reading-footer { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 16px; border-top: 1px solid var(--dn-line); margin-top: auto; }
+#topic-sheet-right .dn-progress-label { display: flex; gap: 10px; align-items: center; font-size: 11px; color: var(--dn-muted); }
+#topic-sheet-right .dn-progress-track { display: block; width: 60px; height: 3px; background: var(--dn-sidebar); }
+#topic-sheet-right .dn-progress-track span { display: block; width: 17%; height: 100%; background: var(--dn-blue); }
+#topic-sheet-right .dn-composer { background: var(--dn-bg); display: flex; flex-direction: column; position: relative; min-height: 0; min-width: 0; }
+#topic-sheet-right .dn-window[data-dock=bottom] .dn-sheet-workspace { flex-direction: column; }
+#topic-sheet-right .dn-window[data-dock=bottom] .dn-composer { flex: 0 0 246px; border-top: 1px solid var(--dn-line); }
+#topic-sheet-right .dn-window[data-dock=right] .dn-composer, #topic-sheet-right .dn-window[data-dock=left] .dn-composer { flex: 0 0 360px; border-left: 1px solid var(--dn-line); }
+#topic-sheet-right .dn-window[data-dock=left] .dn-composer { order: -1; border-left: 0; border-right: 1px solid var(--dn-line); }
+#topic-sheet-right .dn-window[data-dock=bottom][data-writing=true] .dn-post-secondary { display: none; }
+#topic-sheet-right .dn-window[data-dock=bottom][data-writing=true] .dn-post-extra { display: none; }
+#topic-sheet-right .dn-composer-head { display: flex; align-items: center; gap: 5px; padding: 10px 12px 6px; }
+#topic-sheet-right .dn-composer-label { display: flex; align-items: center; gap: 7px; flex: 1; min-width: 0; font-size: 12px; font-weight: 500; }
+#topic-sheet-right .dn-composer-label span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#topic-sheet-right .dn-dock-anchor { position: relative; }
+#topic-sheet-right .dn-dock-menu { position: absolute; right: 0; top: 34px; width: 170px; z-index: 5; border: 1px solid var(--dn-line); border-radius: 8px; padding: 5px; background: var(--dn-bg); box-shadow: 0 5px 20px var(--dn-shadow); }
+#topic-sheet-right .dn-menu-label { color: var(--dn-muted); font-size: 11px; padding: 5px 7px; }
+#topic-sheet-right .dn-menu-choice { display: flex; gap: 9px; align-items: center; width: 100%; padding: 5px 7px; background: transparent; border: 0; border-radius: 5px; text-align: left; font-size: 12px; }
+#topic-sheet-right .dn-menu-choice:hover { background: var(--dn-hover); }
+#topic-sheet-right .dn-menu-choice[aria-pressed=true] { color: var(--dn-blue); background: var(--dn-tint); }
+#topic-sheet-right .dn-format { display: flex; gap: 14px; align-items: center; padding: 5px 18px 10px; color: var(--dn-muted); font-size: 13px; }
+#topic-sheet-right .dn-format-separator { height: 13px; width: 1px; background: var(--dn-line); }
+#topic-sheet-right .dn-editor { display: block; flex: 1; width: calc(100% - 32px); margin: 0 16px; padding: 10px 0; border: 0; border-top: 1px solid var(--dn-line); background: var(--dn-bg); resize: none; min-height: 80px; font-size: 13px; line-height: 1.6; }
+#topic-sheet-right .dn-editor::placeholder { color: var(--dn-muted); }
+#topic-sheet-right .dn-compose-footer { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 11px 16px; }
+#topic-sheet-right .dn-draft-status { color: var(--dn-muted); font-size: 11px; }
+#topic-sheet-right .dn-mini { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 7px 12px; border-top: 1px solid var(--dn-line); font-size: 12px; }
+#topic-sheet-right .dn-mini-copy { display: flex; gap: 8px; align-items: center; min-width: 0; }
+#topic-sheet-right .dn-mini-actions { display: flex; gap: 4px; }
+#topic-sheet-right .dn-toast { position: absolute; bottom: 14px; left: 50%; transform: translateX(-50%); border: 1px solid var(--dn-line); border-radius: 8px; padding: 9px 14px; background: var(--dn-bg); box-shadow: 0 5px 20px var(--dn-shadow); font-size: 12px; z-index: 6; }
+#topic-sheet-right .dn-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+@container (max-width: 700px) {
+  #topic-sheet-right .dn-base { grid-template-columns: 42px minmax(0, 1fr); }
+  #topic-sheet-right .dn-sidebar { display: none; }
+  #topic-sheet-right .dn-sheet, #topic-sheet-right .dn-window[data-direction=center] .dn-sheet, #topic-sheet-right .dn-window[data-direction=expand] .dn-sheet, #topic-sheet-right .dn-window[data-direction=expand][data-writing=true] .dn-sheet { top: 50px; right: 8px; bottom: 8px; width: calc(100% - 58px); border-radius: 10px; }
+  #topic-sheet-right .dn-backdrop { left: 42px !important; }
+  #topic-sheet-right .dn-list { padding: 18px 14px; }
+  #topic-sheet-right .dn-topic-header { padding: 18px 18px 12px; }
+  #topic-sheet-right .dn-posts { padding: 0 18px; }
+  #topic-sheet-right .dn-topic-title { font-size: 18px; }
+  #topic-sheet-right .dn-feeds { gap: 8px; }
+}
+@container (max-width: 440px) {
+  #topic-sheet-right .dn-window { height: 830px; }
+  #topic-sheet-right .dn-base { grid-template-columns: minmax(0, 1fr); }
+  #topic-sheet-right .dn-rail { display: none; }
+  #topic-sheet-right .dn-sheet, #topic-sheet-right .dn-window[data-direction=center] .dn-sheet, #topic-sheet-right .dn-window[data-direction=expand] .dn-sheet, #topic-sheet-right .dn-window[data-direction=expand][data-writing=true] .dn-sheet { width: calc(100% - 16px); }
+  #topic-sheet-right .dn-backdrop { left: 0 !important; }
+  #topic-sheet-right .dn-breadcrumb .dn-breadcrumb-parent, #topic-sheet-right .dn-breadcrumb-separator, #topic-sheet-right .dn-previous { display: none; }
+  #topic-sheet-right .dn-topic-header { padding: 16px 14px 12px; }
+  #topic-sheet-right .dn-posts { padding: 0 14px; }
+  #topic-sheet-right .dn-topic-title { font-size: 18px; }
+  #topic-sheet-right .dn-progress-track { display: none; }
+  #topic-sheet-right .dn-editor { font-size: 16px; }
+  #topic-sheet-right .dn-composer-head { padding-inline: 9px; }
+  #topic-sheet-right .dn-window[data-dock=bottom] .dn-composer { flex-basis: 275px; }
+}
+@media (prefers-reduced-motion: reduce) { #topic-sheet-right .dn-sheet { transition: none; } }
+@media (pointer: coarse) { #topic-sheet-right .dn-btn { min-height: 44px; height: auto; } #topic-sheet-right .dn-btn.dn-icon-btn { min-width: 44px; } #topic-sheet-right .dn-menu-choice { min-height: 44px; } }
+</style>
+<div id="topic-sheet-right" aria-label="A. Right-anchored topic sheet">
+ <div class="dn-window" data-direction="right" data-dock="bottom" data-writing="true">
+  <div class="dn-chrome" aria-hidden="true"><div class="dn-traffic"><span></span><span></span><span></span></div><div class="dn-window-title">Discourse Native</div><div class="dn-chrome-end"><i data-lucide="panel-left" class="dn-icon"></i></div></div>
+  <div class="dn-base">
+   <div class="dn-rail" aria-hidden="true"><span class="dn-site dn-site-active">d</span><span class="dn-site">M</span><span class="dn-site">S</span><i data-lucide="plus" class="dn-icon"></i><div class="dn-rail-bottom"><i data-lucide="palette" class="dn-icon"></i><span class="dn-avatar">J</span></div></div>
+   <aside class="dn-sidebar" aria-label="Forum navigation">
+    <div class="dn-community">Discourse Meta <i data-lucide="chevron-down" class="dn-icon" aria-hidden="true"></i></div>
+    <div class="dn-nav-row dn-active"><i data-lucide="messages-square" class="dn-icon" aria-hidden="true"></i> Topics <span class="dn-count">12</span></div>
+    <div class="dn-nav-row"><i data-lucide="inbox" class="dn-icon" aria-hidden="true"></i> My messages <span class="dn-count">3</span></div>
+    <div class="dn-nav-row"><i data-lucide="bookmark" class="dn-icon" aria-hidden="true"></i> Bookmarks</div>
+    <div class="dn-nav-row"><i data-lucide="pencil-line" class="dn-icon" aria-hidden="true"></i> Drafts <span class="dn-count dn-sidebar-drafts">1</span></div>
+    <div class="dn-nav-label">Categories</div>
+    <div class="dn-nav-row"><span class="dn-category-dot"></span> UX</div>
+    <div class="dn-nav-row"><span class="dn-category-dot purple"></span> Feature</div>
+    <div class="dn-nav-row"><span class="dn-category-dot blue"></span> Support</div>
+    <div class="dn-nav-row"><span class="dn-category-dot purple"></span> Dev</div>
+    <div class="dn-nav-label">Chat</div><div class="dn-nav-row"><span>#</span> general</div><div class="dn-nav-row"><span>#</span> design</div>
+   </aside>
+   <main class="dn-list" aria-label="Topics">
+    <div class="dn-list-heading"><h2>Topics</h2><div class="dn-feeds" aria-hidden="true"><span class="dn-feed-current">Latest</span><span>Unread 12</span><span>New</span></div></div>
+    <div class="dn-filters" aria-hidden="true"><span class="dn-chip dn-filter-chip"><span class="dn-category-dot"></span> UX <i data-lucide="chevron-down" class="dn-icon"></i></span><span class="dn-chip dn-filter-chip">design <i data-lucide="x" class="dn-icon"></i></span></div>
+    <div class="dn-search" aria-hidden="true"><i data-lucide="search" class="dn-icon"></i> Search in UX…</div>
+    <div class="dn-topic-list">
+     <button type="button" class="dn-topic-row" data-topic="0" aria-current="true"><span class="dn-topic-name"><span>A calmer way to move between conversations</span><span class="dn-time">4m</span></span><span class="dn-excerpt">Keep the list nearby, and give each conversation its own space.</span><span class="dn-row-meta"><span class="dn-chip">design</span><span class="dn-unread">4</span><span>24 replies · sam</span></span></button>
+     <button type="button" class="dn-topic-row" data-topic="1"><span class="dn-topic-name"><span>Making the topic list easier to scan</span><span class="dn-time">18m</span></span><span class="dn-excerpt">A little more hierarchy would help in busy categories.</span><span class="dn-row-meta"><span class="dn-chip">design</span><span class="dn-unread">2</span><span>12 replies · hannah</span></span></button>
+     <button type="button" class="dn-topic-row" data-topic="2"><span class="dn-topic-name"><span>Keyboard navigation between discussions</span><span class="dn-time">42m</span></span><span class="dn-excerpt">Picking up exactly where you left off should feel effortless.</span><span class="dn-row-meta"><span class="dn-chip">design</span><span>8 replies · robin</span></span></button>
+     <button type="button" class="dn-topic-row" data-topic="3"><span class="dn-topic-name"><span>Keeping category colors useful and subtle</span><span class="dn-time">1h</span></span><span class="dn-excerpt">Color should support the conversation and its context.</span><span class="dn-row-meta"><span class="dn-chip">design</span><span>19 replies · mei</span></span></button>
+     <button type="button" class="dn-topic-row" data-topic="4"><span class="dn-topic-name"><span>More breathing room in the mobile header</span><span class="dn-time">2h</span></span><span class="dn-excerpt">A few ideas to simplify the navigation on smaller screens.</span><span class="dn-row-meta"><span class="dn-chip">mobile</span><span>7 replies · jo</span></span></button>
+    </div>
+    <div class="dn-list-footer"><span>24 topics · Updated just now</span><button type="button" class="dn-btn dn-resume">Resume draft</button></div>
+   </main>
+  </div>
+  <button type="button" class="dn-backdrop" aria-label="Close topic sheet and keep draft"></button>
+  <section class="dn-sheet" role="dialog" aria-modal="true" aria-labelledby="topic-sheet-right-title">
+   <header class="dn-sheet-top"><div class="dn-breadcrumb"><span class="dn-breadcrumb-parent">Topics</span><span class="dn-breadcrumb-separator">/</span><span class="dn-category-dot" aria-hidden="true"></span><span>UX</span></div><button type="button" class="dn-btn dn-ghost dn-icon-btn dn-previous" aria-label="Previous topic"><i data-lucide="chevron-up" class="dn-icon" aria-hidden="true"></i></button><button type="button" class="dn-btn dn-ghost dn-icon-btn dn-next" aria-label="Next topic"><i data-lucide="chevron-down" class="dn-icon" aria-hidden="true"></i></button><button type="button" class="dn-btn dn-ghost dn-icon-btn dn-close-sheet" aria-label="Close topic sheet"><i data-lucide="x" class="dn-icon" aria-hidden="true"></i></button></header>
+   <div class="dn-sheet-workspace">
+    <div class="dn-reader">
+     <div class="dn-topic-header"><h3 id="topic-sheet-right-title" class="dn-topic-title">A calmer way to move between conversations</h3><div class="dn-taxonomy"><span class="dn-category"><span class="dn-category-dot" aria-hidden="true"></span> UX</span><span class="dn-chip">design</span><span>24 replies</span></div></div>
+     <div class="dn-posts">
+      <article class="dn-post"><span class="dn-avatar" aria-hidden="true">S</span><div><div class="dn-author"><strong>sam</strong><span class="dn-time">12 min ago</span></div><p class="dn-post-main">The topic list is my starting point. I’d like to open a discussion, reply, and return to the same place without rebuilding my context.</p><p class="dn-post-extra">A conversation can have its own space while the list stays right underneath it.</p><div class="dn-post-actions"><button type="button" class="dn-btn dn-ghost dn-like" aria-pressed="false" aria-label="Like this post"><i data-lucide="heart" class="dn-icon" aria-hidden="true"></i><span>8</span></button><button type="button" class="dn-btn dn-ghost dn-reply"><i data-lucide="reply" class="dn-icon" aria-hidden="true"></i>Reply</button></div></div></article>
+      <article class="dn-post dn-post-secondary"><span class="dn-avatar dn-warm" aria-hidden="true">H</span><div><div class="dn-author"><strong>hannah</strong><span class="dn-time">8 min ago</span></div><p>The reply editor should belong to the conversation too. If I close it for a moment, I want my draft to be there when I return.</p><div class="dn-post-actions"><button type="button" class="dn-btn dn-ghost dn-reply"><i data-lucide="reply" class="dn-icon" aria-hidden="true"></i>Reply</button></div></div></article>
+     </div>
+     <footer class="dn-reading-footer"><div class="dn-progress-label"><span>1 / 24</span><span class="dn-progress-track" aria-hidden="true"><span></span></span><span>Sep 14</span></div><button type="button" class="dn-btn dn-primary dn-reply"><i data-lucide="reply" class="dn-icon" aria-hidden="true"></i>Reply</button></footer>
+    </div>
+    <section class="dn-composer" aria-label="Reply composer docked inside the topic sheet">
+     <div class="dn-composer-head"><div class="dn-composer-label"><i data-lucide="reply" class="dn-icon" aria-hidden="true"></i><span>Reply to sam</span></div><div class="dn-dock-anchor"><button type="button" class="dn-btn dn-ghost dn-icon-btn dn-dock-trigger" aria-label="Composer docking options" aria-expanded="false"><i data-lucide="ellipsis" class="dn-icon" aria-hidden="true"></i></button><div class="dn-dock-menu" aria-label="Composer docking" hidden><div class="dn-menu-label">Dock side</div><button type="button" class="dn-menu-choice" data-placement="left" aria-pressed="false"><i data-lucide="panel-left" class="dn-icon" aria-hidden="true"></i>Left</button><button type="button" class="dn-menu-choice" data-placement="bottom" aria-pressed="true"><i data-lucide="panel-bottom" class="dn-icon" aria-hidden="true"></i>Bottom</button><button type="button" class="dn-menu-choice" data-placement="right" aria-pressed="false"><i data-lucide="panel-right" class="dn-icon" aria-hidden="true"></i>Right</button></div></div><button type="button" class="dn-btn dn-ghost dn-icon-btn dn-minimize" aria-label="Minimize composer"><i data-lucide="minus" class="dn-icon" aria-hidden="true"></i></button><button type="button" class="dn-btn dn-ghost dn-icon-btn dn-close-composer" aria-label="Save draft and close composer"><i data-lucide="x" class="dn-icon" aria-hidden="true"></i></button></div>
+     <div class="dn-format" aria-hidden="true"><strong>B</strong><em>I</em><i data-lucide="link" class="dn-icon"></i><i data-lucide="quote" class="dn-icon"></i><span class="dn-format-separator"></span><i data-lucide="list" class="dn-icon"></i><i data-lucide="code" class="dn-icon"></i><i data-lucide="image" class="dn-icon"></i><i data-lucide="smile" class="dn-icon"></i></div>
+     <textarea class="dn-editor" aria-label="Reply text" placeholder="Write your reply…">I like keeping the conversation and its reply together. Closing the sheet should take me back to the exact same spot in the list.</textarea>
+     <footer class="dn-compose-footer"><span class="dn-draft-status">Draft saved</span><button type="button" class="dn-btn dn-primary dn-send" aria-label="Preview sending a reply locally"><i data-lucide="send" class="dn-icon" aria-hidden="true"></i>Reply</button></footer>
+    </section>
+   </div>
+   <div class="dn-mini" hidden><span class="dn-mini-copy"><i data-lucide="pencil-line" class="dn-icon" aria-hidden="true"></i>Reply to sam <span class="dn-draft-status">· Draft saved</span></span><span class="dn-mini-actions"><button type="button" class="dn-btn dn-ghost dn-restore">Restore</button><button type="button" class="dn-btn dn-ghost dn-icon-btn dn-close-composer" aria-label="Save draft and close composer"><i data-lucide="x" class="dn-icon" aria-hidden="true"></i></button></span></div>
+  </section>
+  <div class="dn-toast" role="status" hidden></div>
+  <div class="dn-sr dn-status" role="status" aria-live="polite"></div>
+ </div>
+</div>
+<script>
+(() => {
+ const root = document.getElementById('topic-sheet-right');
+ const q = s => root.querySelector(s), qa = s => [...root.querySelectorAll(s)];
+ const win = q('.dn-window'), sheet = q('.dn-sheet'), editor = q('.dn-editor');
+ const state = { direction: 'right', dock: 'bottom', open: true, composer: true, minimized: false, topic: 0 };
+ const titles = qa('[data-topic]').map(el => el.querySelector('.dn-topic-name span').textContent);
+ const bodies = [
+  'The topic list is my starting point. I’d like to open a discussion, reply, and return to the same place without rebuilding my context.',
+  'When there are lots of conversations, a clear title and one line of context make it much easier to decide what to read next.',
+  'Moving between topics with a keyboard should preserve my place in the list. Closing a conversation should return focus to the row I opened.',
+  'Category colors are useful for recognition. I’d like the title and conversation to stay the most prominent parts of the page.',
+  'On a small screen, the conversation needs all the available room. The reply editor can move below it when there is no space at the side.'
+ ];
+ const drafts = new Map(state.composer ? [[0, editor.value]] : []);
+ if (!state.composer) editor.value = '';
+ let toastTimer;
+ function announce(text) { q('.dn-status').textContent = text; }
+ function save() { if (editor.value.trim()) drafts.set(state.topic, editor.value); else drafts.delete(state.topic); }
+ function toast(text) { clearTimeout(toastTimer); q('.dn-toast').textContent = text; q('.dn-toast').hidden = false; toastTimer = setTimeout(() => q('.dn-toast').hidden = true, 2400); }
+ function closeMenu() { q('.dn-dock-menu').hidden = true; q('.dn-dock-trigger').setAttribute('aria-expanded', 'false'); }
+ function effectiveDock() {
+  if (!state.open) return;
+  const dock = sheet.getBoundingClientRect().width < 681 ? 'bottom' : state.dock;
+  win.dataset.dock = dock;
+  qa('[data-placement]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.placement === state.dock)));
+ }
+ function render() {
+  win.dataset.direction = state.direction;
+  win.dataset.writing = String(state.composer && !state.minimized);
+  sheet.hidden = !state.open;
+  q('.dn-backdrop').hidden = !state.open;
+  q('.dn-base').inert = state.open;
+  q('.dn-composer').hidden = !state.composer || state.minimized;
+  q('.dn-mini').hidden = !state.composer || !state.minimized;
+  q('.dn-topic-title').textContent = titles[state.topic];
+  q('.dn-post-main').textContent = bodies[state.topic];
+  q('.dn-resume').hidden = drafts.size === 0;
+  q('.dn-sidebar-drafts').textContent = drafts.size || '';
+  q('.dn-previous').disabled = state.topic === 0;
+  q('.dn-next').disabled = state.topic === titles.length - 1;
+  q('.dn-send').disabled = !editor.value.trim();
+  qa('[data-topic]').forEach(b => b.setAttribute('aria-current', String(Number(b.dataset.topic) === state.topic)));
+  effectiveDock();
+ }
+ function openTopic(index, resume = false) {
+  save(); state.topic = index; editor.value = drafts.get(index) || '';
+  state.open = true; state.composer = resume; state.minimized = false;
+  closeMenu(); render(); q('.dn-close-sheet').focus({preventScroll: true});
+  announce('Opened ' + titles[index]);
+ }
+ function closeSheet() {
+  save(); state.open = false; closeMenu(); render();
+  q('[data-topic="' + state.topic + '"]').focus({preventScroll: true});
+  announce('Returned to topics. ' + (drafts.size ? 'Draft kept.' : ''));
+ }
+ function reply() { state.composer = true; state.minimized = false; render(); editor.focus({preventScroll: true}); }
+ qa('[data-topic]').forEach(b => b.addEventListener('click', () => openTopic(Number(b.dataset.topic))));
+ q('.dn-close-sheet').addEventListener('click', closeSheet);
+ q('.dn-backdrop').addEventListener('click', closeSheet);
+ q('.dn-previous').addEventListener('click', () => openTopic(Math.max(0, state.topic - 1)));
+ q('.dn-next').addEventListener('click', () => openTopic(Math.min(titles.length - 1, state.topic + 1)));
+ qa('.dn-reply').forEach(b => b.addEventListener('click', reply));
+ q('.dn-resume').addEventListener('click', () => { openTopic([...drafts.keys()][0], true); editor.focus({preventScroll: true}); });
+ q('.dn-restore').addEventListener('click', reply);
+ q('.dn-minimize').addEventListener('click', () => { save(); state.minimized = true; closeMenu(); render(); q('.dn-restore').focus({preventScroll: true}); });
+ qa('.dn-close-composer').forEach(b => b.addEventListener('click', () => { save(); state.composer = false; state.minimized = false; closeMenu(); render(); q('.dn-reading-footer .dn-reply').focus({preventScroll: true}); }));
+ q('.dn-dock-trigger').addEventListener('click', () => { const open = q('.dn-dock-menu').hidden; q('.dn-dock-menu').hidden = !open; q('.dn-dock-trigger').setAttribute('aria-expanded', String(open)); });
+ qa('[data-placement]').forEach(b => b.addEventListener('click', () => { state.dock = b.dataset.placement; closeMenu(); render(); editor.focus({preventScroll: true}); announce(win.dataset.dock !== state.dock ? 'Composer docked below while this sheet is narrow. Side preference kept.' : 'Composer docked ' + state.dock + ' inside the topic sheet.'); }));
+ editor.addEventListener('input', () => { save(); q('.dn-send').disabled = !editor.value.trim(); q('.dn-draft-status').textContent = 'Draft saved'; });
+ q('.dn-send').addEventListener('click', () => toast('Reply previewed · Nothing was posted'));
+ q('.dn-like').addEventListener('click', () => { const b = q('.dn-like'), liked = b.getAttribute('aria-pressed') !== 'true'; b.setAttribute('aria-pressed', String(liked)); b.querySelector('span').textContent = liked ? '9' : '8'; });
+ root.addEventListener('click', e => { if (!e.target.closest('.dn-dock-anchor')) closeMenu(); });
+ root.addEventListener('keydown', e => {
+  if (!state.open) return;
+  if (e.key === 'Escape') { e.preventDefault(); if (!q('.dn-dock-menu').hidden) { closeMenu(); q('.dn-dock-trigger').focus(); } else closeSheet(); }
+  if (e.key === 'Tab') {
+   const controls = [...sheet.querySelectorAll('button:not(:disabled), textarea')].filter(el => el.getClientRects().length);
+   const first = controls[0], last = controls.at(-1);
+   if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+   else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+  }
+ });
+ render();
+ new ResizeObserver(effectiveDock).observe(sheet);
+ if (globalThis.Tweak) {
+  const tweak = new Tweak({container: root, onChange: render});
+  tweak.addSelect(state, 'direction', {label: 'Sheet shape', options: [{label:'Right-anchored',value:'right'},{label:'Centered',value:'center'},{label:'Expands for reply',value:'expand'}]});
+  tweak.addSelect(state, 'dock', {label: 'Composer dock', options: ['left','bottom','right']});
+  tweak.addToggle(state, 'composer', {label: 'Composer open'});
+ }
+})();
+</script>
