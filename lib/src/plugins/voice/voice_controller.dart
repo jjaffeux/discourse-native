@@ -371,6 +371,8 @@ final class VoiceController extends ChangeNotifier {
   final Map<String, _VoiceChatAssociation> _chats = {};
   final Map<String, Object> _siteSessions = {};
   final Map<String, Object> _directoryRequests = {};
+  final Map<String, Map<int, int>> _roomResponseVersions = {};
+  int _roomRequestVersion = 0;
   final Map<String, Object> _chatRequests = {};
   final Map<String, _VoiceInviteRef> _pendingInviteRefs = {};
   final Map<String, int> _roomVideoWatchers = {};
@@ -881,13 +883,15 @@ final class VoiceController extends ChangeNotifier {
         ifCurrent: isCurrent,
       );
       if (credentials == null) return null;
-      final room = await api.room(
+      final requestVersion = ++_roomRequestVersion;
+      var room = await api.room(
         siteUrl: siteUrl,
         slug: slug,
         apiKey: credentials.apiKey,
         clientId: credentials.clientId,
       );
       if (!isCurrent()) return null;
+      room = _acceptRoomResponse(siteUrl, room, requestVersion);
       _rememberLinkedRoom(siteUrl, room);
       _syncSubscriptions(siteUrl);
       if (!isCurrent()) return null;
@@ -903,9 +907,11 @@ final class VoiceController extends ChangeNotifier {
   /// so its roster and signals arrive like any listed room's. Bounded: the
   /// oldest link goes first, but never the room of the active call.
   void _rememberLinkedRoom(String siteUrl, VoiceRoom room) {
+    final previous = this.room(siteUrl, room.id);
+    _refreshRoom(siteUrl, room);
     final linked = _linkedRooms[siteUrl] ??= {};
     linked.remove(room.id);
-    linked[room.id] = room;
+    linked[room.id] = _mergeRoom(previous, room);
     final call = _call;
     final protectedId = call?.siteUrl == siteUrl ? call?.room.id : null;
     for (final id in linked.keys.toList()) {
@@ -972,13 +978,37 @@ final class VoiceController extends ChangeNotifier {
     notifyListeners();
     if (!isCurrent()) return;
     try {
+      final requestVersion = ++_roomRequestVersion;
       final directory = await api.rooms(
         siteUrl: siteUrl,
         apiKey: credentials.apiKey,
         clientId: credentials.clientId,
       );
       if (!isCurrent()) return;
-      _directories[siteUrl] = directory;
+      final incomingRooms = [
+        for (final room in directory.rooms)
+          _acceptRoomResponse(siteUrl, room, requestVersion),
+      ];
+      final heldRooms = _heldRooms(siteUrl);
+      _directories[siteUrl] = VoiceDirectory(
+        rooms: List.unmodifiable([
+          for (final room in incomingRooms)
+            _mergeRoom(heldRooms[room.id], room),
+        ]),
+        canCreateRoom: directory.canCreateRoom,
+        messageBusLastId: directory.messageBusLastId,
+      );
+      for (final room in incomingRooms) {
+        final linked = _linkedRooms[siteUrl];
+        if (linked?[room.id] case final previous?) {
+          linked![room.id] = _mergeRoom(previous, room);
+        }
+        _refreshCallRoom(siteUrl, room);
+      }
+      final retainedIds = _heldRooms(siteUrl).keys.toSet();
+      _roomResponseVersions[siteUrl]?.removeWhere(
+        (id, _) => !retainedIds.contains(id),
+      );
       _pruneChatAssociations(siteUrl, {
         for (final room in directory.rooms) room.id,
       });
@@ -1177,15 +1207,29 @@ final class VoiceController extends ChangeNotifier {
     final index = rooms.indexWhere((room) => room.id == incoming.id);
     switch (data['type']) {
       case 'created':
-        if (index < 0) rooms.add(incoming);
       case 'updated':
         if (index < 0) {
-          rooms.add(incoming);
+          rooms.add(
+            _mergeRoom(
+              room(siteUrl, incoming.id),
+              incoming,
+              preserveRecording: true,
+            ),
+          );
         } else {
-          rooms[index] = _preservePrivilegedFields(rooms[index], incoming);
+          rooms[index] = _mergeRoom(
+            rooms[index],
+            incoming,
+            preserveRecording: true,
+          );
+        }
+        final linked = _linkedRooms[siteUrl];
+        if (linked?[incoming.id] case final previous?) {
+          linked![incoming.id] = _mergeRoom(previous, incoming);
         }
         _refreshCallRoom(siteUrl, incoming);
       case 'destroyed':
+        _roomResponseVersions[siteUrl]?.remove(incoming.id);
         rooms.removeWhere((room) => room.id == incoming.id);
         _linkedRooms[siteUrl]?.remove(incoming.id);
         _removeChatAssociation(siteUrl, incoming.id);
@@ -1211,10 +1255,46 @@ final class VoiceController extends ChangeNotifier {
     notifyListeners();
   }
 
-  static VoiceRoom _preservePrivilegedFields(
-    VoiceRoom held,
+  // Reads started before a completed join or edit must not undo that write.
+  // Concurrent reads use request order; successful writes advance it on receipt.
+  VoiceRoom _acceptRoomResponse(
+    String siteUrl,
     VoiceRoom incoming,
-  ) => incoming.copyWithPrivileged(held);
+    int requestVersion,
+  ) {
+    final versions = _roomResponseVersions.putIfAbsent(siteUrl, () => {});
+    if ((versions[incoming.id] ?? 0) > requestVersion) {
+      return _heldRooms(siteUrl)[incoming.id] ?? incoming;
+    }
+    versions[incoming.id] = requestVersion;
+    return incoming;
+  }
+
+  static VoiceRoom _mergeRoom(
+    VoiceRoom? held,
+    VoiceRoom incoming, {
+    bool preserveRecording = false,
+  }) => incoming
+      .mergeUserFields(held)
+      .copyWith(
+        messageBusLastId: _newerCursor(
+          held?.messageBusLastId,
+          incoming.messageBusLastId,
+        ),
+        recording: preserveRecording
+            ? incoming.recording ?? held?.recording
+            : incoming.recording,
+      );
+
+  void _refreshRoom(String siteUrl, VoiceRoom incoming) {
+    _updateRoom(
+      siteUrl,
+      incoming.id,
+      (held) => _mergeRoom(held, incoming),
+      updateCall: false,
+    );
+    _refreshCallRoom(siteUrl, incoming);
+  }
 
   /// A room edited while its call is up: the call keeps its own roster and
   /// ring state (the room channel is the authority for those) but takes the
@@ -1228,10 +1308,11 @@ final class VoiceController extends ChangeNotifier {
         call.room.id != incoming.id) {
       return;
     }
-    final room = _preservePrivilegedFields(call.room, incoming).copyWith(
-      participants: call.room.participants,
-      ringing: call.room.ringing,
-    );
+    final room = _mergeRoom(call.room, incoming, preserveRecording: true)
+        .copyWith(
+          participants: call.room.participants,
+          ringing: call.room.ringing,
+        );
     final userId = _userIdFor(siteUrl);
     final couldPublishAudio =
         userId == null ||
@@ -2069,9 +2150,13 @@ final class VoiceController extends ChangeNotifier {
         correlationId: correlationId,
         data: {'transport': media.transport.name},
       );
-      final initiallyMuted = !_canPublishAudio(
+      final joinedRoom = _mergeRoom(
+        this.room(siteUrl, room.id) ?? room,
         response.room,
-        response.room.participants,
+      );
+      final initiallyMuted = !_canPublishAudio(
+        joinedRoom,
+        joinedRoom.participants,
         userId,
       );
       await media.setMuted(initiallyMuted);
@@ -2102,13 +2187,24 @@ final class VoiceController extends ChangeNotifier {
           tellSystem: VoiceIncomingCallEndReason.answeredElsewhere,
         );
       }
+      final roomResponse = _acceptRoomResponse(
+        siteUrl,
+        response.room,
+        ++_roomRequestVersion,
+      );
       _call = VoiceCallSnapshot(
         siteUrl: siteUrl,
         siteName: siteName,
-        room: response.room,
+        room: _mergeRoom(this.room(siteUrl, room.id) ?? room, roomResponse),
         status: VoiceCallStatus.joining,
         media: media,
         muted: initiallyMuted,
+      );
+      _updateRoom(
+        siteUrl,
+        room.id,
+        (held) => _mergeRoom(held, roomResponse),
+        updateCall: false,
       );
       if (systemCall case final NativeVoiceSystemCall nativeSystemCall) {
         nativeSystemCall.associateDiagnostics(correlationId);
@@ -3602,7 +3698,7 @@ final class VoiceController extends ChangeNotifier {
     );
     if (credentials == null) return null;
     try {
-      final room = roomId == null
+      var room = roomId == null
           ? await api.createRoom(
               siteUrl: siteUrl,
               apiKey: credentials.apiKey,
@@ -3615,6 +3711,8 @@ final class VoiceController extends ChangeNotifier {
               draft: draft,
             );
       if (!isCurrent()) return null;
+      room = _acceptRoomResponse(siteUrl, room, ++_roomRequestVersion);
+      _refreshRoom(siteUrl, room);
       await ensureLoaded(siteUrl, force: true);
       return isCurrent() ? room : null;
     } catch (error, stackTrace) {
@@ -4436,6 +4534,7 @@ final class VoiceController extends ChangeNotifier {
     }
     _siteSessions.remove(siteUrl);
     _directoryRequests.remove(siteUrl);
+    _roomResponseVersions.remove(siteUrl);
     _chatRequests.removeWhere((key, _) => key.startsWith('$siteUrl#'));
     _pendingInviteRefs.remove(siteUrl);
     _directories.remove(siteUrl);
@@ -4850,22 +4949,4 @@ final class _VoiceLiveCursors {
   }
 
   void dropRoom(int roomId) => _rooms.remove(roomId);
-}
-
-extension on VoiceRoom {
-  /// A refreshed room, keeping whatever the held copy could see that this one
-  /// could not. A directory listing is answered to whoever asked for it, so a
-  /// room fetched anonymously omits the management and chat fields the joined
-  /// copy already carries, and a listing serialized before the held copy's
-  /// last room message carries an older channel cursor.
-  VoiceRoom copyWithPrivileged(VoiceRoom held) => copyWith(
-    messageBusLastId: _newerCursor(held.messageBusLastId, messageBusLastId),
-    canManage: canManage || held.canManage,
-    chatAvailable: chatAvailable || held.chatAvailable,
-    chatChannelId: chatChannelId ?? held.chatChannelId,
-    chatIdleMinutes: chatIdleMinutes ?? held.chatIdleMinutes,
-    livekitEnabled: livekitEnabled ?? held.livekitEnabled,
-    membership: membership ?? held.membership,
-    recording: recording ?? held.recording,
-  );
 }

@@ -2384,6 +2384,95 @@ void _directCallTests() {
 
 void _inviteTests() {
   group('invites', () {
+    testWidgets(
+      'keeps Invite after shared edits and follows authenticated revocations',
+      (tester) async {
+        final room = _room(
+          canInvite: true,
+          canManage: true,
+          participants: const [
+            VoiceParticipant(id: 1, username: 'sam', role: VoiceRole.moderator),
+          ],
+        );
+        final tracker = RecordingPluginLiveChannels();
+        final harness = _Harness(joinRoom: room, tracker: tracker);
+        addTearDown(harness.dispose);
+        final granted = _joinPayload(room)['room'] as Map<String, dynamic>;
+        harness.transport.responses['GET /voice/rooms.json'] = {
+          'rooms': [granted],
+        };
+        await harness.controller.ensureLoaded(_siteUrl);
+        await _join(harness, room);
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: VoiceRoomView(
+                roomId: room.id,
+                controller: harness.controller,
+                shell: _voiceShell(
+                  harness.controller,
+                  site: const PluginRouteSite(
+                    url: _siteUrl,
+                    title: 'Voice',
+                    isConnected: true,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+        expect(find.byTooltip('Invite people'), findsOneWidget);
+
+        final shared = Map<String, dynamic>.from(granted);
+        for (final key in [
+          'can_manage',
+          'can_invite',
+          'membership',
+          'chat_available',
+          'chat_channel_id',
+          'chat_idle_minutes',
+          'livekit_enabled',
+        ]) {
+          shared.remove(key);
+        }
+        shared['name'] = 'Renamed Lounge';
+        tracker.deliver('/voice/rooms/index', {
+          'type': 'updated',
+          'room': shared,
+        });
+        await tester.pumpAndSettle();
+        expect(find.byTooltip('Invite people'), findsOneWidget);
+        await tester.tap(find.byTooltip('Invite people'));
+        await tester.pumpAndSettle();
+        expect(find.text('Invite to Renamed Lounge'), findsOneWidget);
+        await tester.tap(find.widgetWithText(DButton, 'Done'));
+        await tester.pumpAndSettle();
+
+        harness.transport.responses['GET /voice/rooms.json'] = {
+          'rooms': [
+            {...granted, 'can_invite': false},
+          ],
+        };
+        await harness.controller.ensureLoaded(_siteUrl, force: true);
+        await tester.pumpAndSettle();
+        expect(find.byTooltip('Invite people'), findsNothing);
+        tracker.deliver('/voice/rooms/index', {
+          'type': 'updated',
+          'room': shared,
+        });
+        await tester.pumpAndSettle();
+        expect(find.byTooltip('Invite people'), findsNothing);
+
+        harness.transport.responses['GET /voice/rooms.json'] = {
+          'rooms': [granted],
+        };
+        await harness.controller.ensureLoaded(_siteUrl, force: true);
+        await tester.pumpAndSettle();
+        expect(find.byTooltip('Invite people'), findsOneWidget);
+        harness.dispose();
+      },
+    );
+
     testWidgets('the shell builds the invite link that credits the inviter', (
       tester,
     ) async {

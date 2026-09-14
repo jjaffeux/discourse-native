@@ -4925,6 +4925,251 @@ void main() {
     });
   });
 
+  group('room permission updates', () {
+    Map<String, dynamic> revokedRoom() => {
+      ...fixture('room'),
+      'can_manage': false,
+      'can_invite': false,
+      'membership': null,
+      'chat_available': false,
+      'chat_channel_id': null,
+      'chat_idle_minutes': null,
+      'livekit_enabled': false,
+    };
+
+    Object userFields(VoiceRoom room) => (
+      room.canManage,
+      room.canInvite,
+      room.membership?.id,
+      room.chatAvailable,
+      room.chatChannelId,
+      room.chatIdleMinutes,
+      room.livekitEnabled,
+    );
+
+    Future<void> loadAndJoin({bool listed = true}) async {
+      final rich = fixture('room');
+      transport.responses['GET /voice/rooms.json'] = {
+        'rooms': [if (listed) rich],
+      };
+      transport.responses['GET /voice/rooms/conf-room-1.json'] = {'room': rich};
+      transport.responses['POST /voice/rooms/7/join.json'] = {
+        ...fixture('join_mesh'),
+        'room': rich,
+      };
+      await controller.ensureLoaded(firstSite);
+      final room = await controller.resolveRoom(firstSite, 'conf-room-1');
+      await controller.join(siteUrl: firstSite, siteName: 'One', room: room!);
+    }
+
+    for (final type in ['updated', 'created']) {
+      test(
+        '$type broadcasts preserve directory and active-call permissions',
+        () async {
+          await loadAndJoin();
+          final call = controller.call!;
+          final expected = userFields(call.room);
+          for (var i = 0; i < 2; i++) {
+            firstTracker.deliver(
+              '/voice/rooms/index',
+              renamedRoomEvent(type: type),
+            );
+            expect(userFields(controller.room(firstSite, 7)!), expected);
+            expect(userFields(controller.call!.room), expected);
+            expect(controller.call!.room.name, 'Renamed Room');
+            expect(controller.call!.room.participants, call.room.participants);
+            expect(controller.call!.room.ringing, call.room.ringing);
+            expect(
+              controller.call!.room.messageBusLastId,
+              call.room.messageBusLastId,
+            );
+            expect(controller.call!.media, same(call.media));
+          }
+
+          firstTracker.deliver('/voice/rooms/index', {
+            'type': type,
+            'room': {'id': 99, 'name': 'New room'},
+          });
+          expect(controller.room(firstSite, 99)!.canInvite, isFalse);
+          expect(controller.room(firstSite, 99)!.canManage, isFalse);
+        },
+      );
+    }
+
+    test(
+      'authenticated directory responses revoke and restore every held permission',
+      () async {
+        await loadAndJoin();
+        await controller.ensureLoaded(secondSite);
+        final granted = userFields(controller.call!.room);
+        final roster = controller.call!.room.participants;
+        transport.responses['GET /voice/rooms.json'] = {
+          'rooms': [revokedRoom()],
+        };
+
+        await controller.ensureLoaded(firstSite, force: true);
+
+        const revoked = (false, false, null, false, null, null, false);
+        expect(userFields(controller.room(firstSite, 7)!), revoked);
+        expect(userFields(controller.call!.room), revoked);
+        expect(controller.call!.room.participants, roster);
+        expect(userFields(controller.room(secondSite, 7)!), granted);
+        firstTracker.deliver('/voice/rooms/index', renamedRoomEvent());
+        expect(userFields(controller.room(firstSite, 7)!), revoked);
+        expect(userFields(controller.call!.room), revoked);
+
+        transport.responses['GET /voice/rooms.json'] = {
+          'rooms': [fixture('room')],
+        };
+        await controller.ensureLoaded(firstSite, force: true);
+        expect(userFields(controller.room(firstSite, 7)!), granted);
+        expect(userFields(controller.call!.room), granted);
+      },
+    );
+
+    test(
+      'a delayed directory response cannot undo a newer room save',
+      () async {
+        final controlled = _ControlledVoiceTransport();
+        useTransport(controlled);
+        await loadAndJoin();
+        controlled.heldPluginPaths.add('/voice/rooms.json');
+        final loading = controller.ensureLoaded(firstSite, force: true);
+        await pumpEventQueue();
+        expect(controlled.pendingPluginGets, hasLength(1));
+        controlled.responses['PUT /voice/rooms/7.json'] = {
+          'room': {...revokedRoom(), 'name': 'Edited room'},
+        };
+        await controller.saveRoom(
+          siteUrl: firstSite,
+          roomId: 7,
+          draft: const VoiceRoomDraft(
+            name: 'Edited room',
+            isPublic: false,
+            type: VoiceRoomType.stage,
+          ),
+        );
+        controlled.pendingPluginGets.single.response.complete({
+          'rooms': [fixture('room')],
+        });
+        await loading;
+
+        const revoked = (false, false, null, false, null, null, false);
+        expect(userFields(controller.room(firstSite, 7)!), revoked);
+        expect(userFields(controller.call!.room), revoked);
+        expect(controller.room(firstSite, 7)!.name, 'Edited room');
+        expect(controller.call!.room.name, 'Edited room');
+      },
+    );
+
+    test(
+      'a directory read during a pending join cannot undo its grant',
+      () async {
+        final controlled = _ControlledVoiceTransport(
+          responses: {
+            'GET /voice/rooms.json': {
+              'rooms': [revokedRoom()],
+            },
+            'POST /voice/rooms/7/state.json': <String, dynamic>{},
+            'DELETE /voice/rooms/7/leave.json': <String, dynamic>{},
+          },
+        );
+        useTransport(controlled);
+        await controller.ensureLoaded(firstSite);
+        controlled.heldPluginWritePaths.add('/voice/rooms/7/join.json');
+        final joining = controller.join(
+          siteUrl: firstSite,
+          siteName: 'One',
+          room: controller.room(firstSite, 7)!,
+        );
+        await controlled.waitForPendingPluginWrites(1);
+        controlled.heldPluginPaths.add('/voice/rooms.json');
+        final loading = controller.ensureLoaded(firstSite, force: true);
+        await pumpEventQueue();
+        expect(controlled.pendingPluginGets, hasLength(1));
+        controlled.pendingPluginWrites.single.response.complete({
+          ...fixture('join_mesh'),
+          'room': fixture('room'),
+        });
+        await joining;
+        controlled.pendingPluginGets.single.response.complete({
+          'rooms': [revokedRoom()],
+        });
+        await loading;
+
+        final granted = userFields(VoiceRoom.fromJson(fixture('room')));
+        expect(userFields(controller.room(firstSite, 7)!), granted);
+        expect(userFields(controller.call!.room), granted);
+      },
+    );
+
+    test(
+      'a saved room refreshes permissions even if the directory reload fails',
+      () async {
+        await loadAndJoin();
+        transport.responses['PUT /voice/rooms/7.json'] = {
+          'room': revokedRoom(),
+        };
+        transport.failures['GET /voice/rooms.json'] = StateError('offline');
+
+        final saved = await controller.saveRoom(
+          siteUrl: firstSite,
+          roomId: 7,
+          draft: const VoiceRoomDraft(
+            name: 'Conf Room 1',
+            isPublic: false,
+            type: VoiceRoomType.stage,
+          ),
+        );
+
+        expect(saved, isNotNull);
+        const revoked = (false, false, null, false, null, null, false);
+        expect(userFields(controller.room(firstSite, 7)!), revoked);
+        expect(userFields(controller.call!.room), revoked);
+      },
+    );
+
+    test(
+      'a linked room response revokes permissions in the active call and retained link',
+      () async {
+        await loadAndJoin(listed: false);
+        transport.responses['GET /voice/rooms/conf-room-1.json'] = {
+          'room': revokedRoom(),
+        };
+        await controller.resolveRoom(firstSite, 'conf-room-1');
+
+        const revoked = (false, false, null, false, null, null, false);
+        expect(userFields(controller.call!.room), revoked);
+        await controller.leave();
+        expect(userFields(controller.room(firstSite, 7)!), revoked);
+      },
+    );
+
+    test(
+      'join revocations update the directory and remain revoked after broadcasts',
+      () async {
+        transport.responses['GET /voice/rooms.json'] = {
+          'rooms': [fixture('room')],
+        };
+        transport.responses['POST /voice/rooms/7/join.json'] = {
+          ...fixture('join_mesh'),
+          'room': revokedRoom(),
+        };
+        await controller.ensureLoaded(firstSite);
+        await controller.join(
+          siteUrl: firstSite,
+          siteName: 'One',
+          room: controller.room(firstSite, 7)!,
+        );
+        firstTracker.deliver('/voice/rooms/index', renamedRoomEvent());
+
+        const revoked = (false, false, null, false, null, null, false);
+        expect(userFields(controller.room(firstSite, 7)!), revoked);
+        expect(userFields(controller.call!.room), revoked);
+      },
+    );
+  });
+
   group('room updates during a call', () {
     Map<String, dynamic> openJoin({bool video = false}) {
       final payload = fixture('join_mesh');

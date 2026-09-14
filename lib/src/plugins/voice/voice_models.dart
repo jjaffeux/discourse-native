@@ -352,7 +352,23 @@ class VoiceRoom {
     this.canInvite = false,
     this.expectedTransport,
     this.ringing = const [],
+    this._omittedUserFields = const {},
   });
+
+  static const _userFields = {
+    'can_manage',
+    'can_invite',
+    'membership',
+    'chat_available',
+    'chat_channel_id',
+    'chat_idle_minutes',
+    'livekit_enabled',
+  };
+  static const _unchanged = Object();
+
+  // Shared broadcasts omit these fields. Keep that distinction through
+  // parsing and roster copies until the payload is merged with held state.
+  final Set<String> _omittedUserFields;
 
   factory VoiceRoom.fromJson(Map<String, dynamic> json) => VoiceRoom(
     id: jsonInt(json['id']),
@@ -384,7 +400,7 @@ class VoiceRoom {
     chatAvailable: json['chat_available'] == true,
     chatChannelId: jsonIntOrNull(json['chat_channel_id']),
     chatIdleMinutes: jsonIntOrNull(json['chat_idle_minutes']),
-    livekitEnabled: json.containsKey('livekit_enabled')
+    livekitEnabled: json['livekit_enabled'] != null
         ? json['livekit_enabled'] == true
         : null,
     maxQualityProfile: VoiceQualityProfile.parse(json['max_quality_profile']),
@@ -394,6 +410,9 @@ class VoiceRoom {
     recording: jsonObject(json['recording']).isEmpty
         ? null
         : VoiceRecording.fromJson(jsonObject(json['recording'])),
+    omittedUserFields: Set.unmodifiable(
+      _userFields.where((field) => !json.containsKey(field)),
+    ),
   );
 
   final int id;
@@ -446,11 +465,12 @@ class VoiceRoom {
     int? messageBusLastId,
     List<VoiceParticipant>? participants,
     bool? canManage,
+    bool? canInvite,
     bool? chatAvailable,
-    int? chatChannelId,
-    int? chatIdleMinutes,
-    bool? livekitEnabled,
-    VoiceMembership? membership,
+    Object? chatChannelId = _unchanged,
+    Object? chatIdleMinutes = _unchanged,
+    Object? livekitEnabled = _unchanged,
+    Object? membership = _unchanged,
     VoiceRecording? recording,
     bool clearRecording = false,
     List<VoiceRingingEntry>? ringing,
@@ -472,17 +492,65 @@ class VoiceRoom {
     videoEnabled: videoEnabled,
     videoAllowed: videoAllowed,
     chatAvailable: chatAvailable ?? this.chatAvailable,
-    chatChannelId: chatChannelId ?? this.chatChannelId,
-    chatIdleMinutes: chatIdleMinutes ?? this.chatIdleMinutes,
-    livekitEnabled: livekitEnabled ?? this.livekitEnabled,
+    chatChannelId: identical(chatChannelId, _unchanged)
+        ? this.chatChannelId
+        : chatChannelId as int?,
+    chatIdleMinutes: identical(chatIdleMinutes, _unchanged)
+        ? this.chatIdleMinutes
+        : chatIdleMinutes as int?,
+    livekitEnabled: identical(livekitEnabled, _unchanged)
+        ? this.livekitEnabled
+        : livekitEnabled as bool?,
     maxQualityProfile: maxQualityProfile,
-    membership: membership ?? this.membership,
+    membership: identical(membership, _unchanged)
+        ? this.membership
+        : membership as VoiceMembership?,
     recording: clearRecording ? null : (recording ?? this.recording),
     descriptionExcerpt: descriptionExcerpt,
-    canInvite: canInvite,
+    canInvite: canInvite ?? this.canInvite,
     expectedTransport: expectedTransport,
     ringing: ringing ?? this.ringing,
+    omittedUserFields: Set.unmodifiable(
+      _omittedUserFields.difference({
+        if (canManage != null) 'can_manage',
+        if (canInvite != null) 'can_invite',
+        if (chatAvailable != null) 'chat_available',
+        if (!identical(chatChannelId, _unchanged)) 'chat_channel_id',
+        if (!identical(chatIdleMinutes, _unchanged)) 'chat_idle_minutes',
+        if (!identical(livekitEnabled, _unchanged)) 'livekit_enabled',
+        if (!identical(membership, _unchanged)) 'membership',
+      }),
+    ),
   );
+
+  /// Preserves only user-specific fields omitted from this payload. Supplied
+  /// false and null values are authoritative, including permission revocations.
+  VoiceRoom mergeUserFields(VoiceRoom? held) {
+    if (held == null || held.id != id) return this;
+    return copyWith(
+      canManage: _omittedUserFields.contains('can_manage')
+          ? held.canManage
+          : canManage,
+      canInvite: _omittedUserFields.contains('can_invite')
+          ? held.canInvite
+          : canInvite,
+      membership: _omittedUserFields.contains('membership')
+          ? held.membership
+          : membership,
+      chatAvailable: _omittedUserFields.contains('chat_available')
+          ? held.chatAvailable
+          : chatAvailable,
+      chatChannelId: _omittedUserFields.contains('chat_channel_id')
+          ? held.chatChannelId
+          : chatChannelId,
+      chatIdleMinutes: _omittedUserFields.contains('chat_idle_minutes')
+          ? held.chatIdleMinutes
+          : chatIdleMinutes,
+      livekitEnabled: _omittedUserFields.contains('livekit_enabled')
+          ? held.livekitEnabled
+          : livekitEnabled,
+    );
+  }
 
   VoiceRoom withParticipants(List<VoiceParticipant> value) =>
       copyWith(participants: canonicalVoiceParticipants(value));
