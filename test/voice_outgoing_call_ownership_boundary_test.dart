@@ -485,6 +485,14 @@ final class _Preferences implements VoicePreferences {
   Future<VoiceDevicePreferences> readDevices() async =>
       const VoiceDevicePreferences();
   @override
+  Future<bool> readCameraEnabled(String siteUrl, int userId) async => false;
+  @override
+  Future<void> writeCameraEnabled(
+    String siteUrl,
+    int userId,
+    bool enabled,
+  ) async {}
+  @override
   Future<bool?> readAutoStatusEnabled() async => null;
   @override
   Future<double?> readParticipantVolume(
@@ -561,7 +569,11 @@ final class _MediaSession extends ChangeNotifier implements VoiceMediaSession {
   @override
   Future<void> setAudioPublishingAllowed(bool allowed) async {}
   @override
-  Future<void> setCameraEnabled(bool enabled, {String? deviceId}) async {}
+  Future<void> setCameraEnabled(
+    bool enabled, {
+    String? deviceId,
+    bool Function()? shouldContinue,
+  }) async {}
   @override
   Future<void> setDeafened(bool deafened) async {}
   @override

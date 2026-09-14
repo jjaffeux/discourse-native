@@ -416,7 +416,11 @@ final class _MediaSession extends ChangeNotifier implements VoiceMediaSession {
   @override
   Future<void> setAudioPublishingAllowed(bool allowed) async {}
   @override
-  Future<void> setCameraEnabled(bool enabled, {String? deviceId}) async {}
+  Future<void> setCameraEnabled(
+    bool enabled, {
+    String? deviceId,
+    bool Function()? shouldContinue,
+  }) async {}
   @override
   Future<void> setDeafened(bool enabled) async {}
   @override

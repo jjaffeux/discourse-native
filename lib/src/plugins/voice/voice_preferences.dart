@@ -27,6 +27,11 @@ abstract interface class VoicePreferences {
 
   Future<void> writePushToTalk(bool enabled);
 
+  /// Reads whether this account explicitly opted into camera auto-start.
+  Future<bool> readCameraEnabled(String siteUrl, int userId);
+
+  Future<void> writeCameraEnabled(String siteUrl, int userId, bool enabled);
+
   /// Whether this device has accepted the peer-to-peer IP exposure warning
   /// ("don't show this again"). Per device, like the web client's.
   Future<bool> readMeshPrivacyAcknowledged();
@@ -149,6 +154,23 @@ final class SharedPreferencesVoicePreferences implements VoicePreferences {
     () => _persistence.writeBool(_pushToTalkKey, enabled),
     'push-to-talk preference',
   );
+
+  @override
+  Future<bool> readCameraEnabled(String siteUrl, int userId) async =>
+      await _readBool(_cameraEnabledKey(siteUrl, userId)) ?? false;
+
+  @override
+  Future<void> writeCameraEnabled(String siteUrl, int userId, bool enabled) {
+    final key = _cameraEnabledKey(siteUrl, userId);
+    return _write(
+      key,
+      () => _persistence.writeBool(key, enabled),
+      'camera preference',
+    );
+  }
+
+  static String _cameraEnabledKey(String siteUrl, int userId) =>
+      'voice.camera-enabled.${Uri.encodeComponent(siteUrl)}.$userId';
 
   @override
   Future<bool> readMeshPrivacyAcknowledged() async =>
