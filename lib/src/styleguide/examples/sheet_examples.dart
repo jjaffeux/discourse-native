@@ -18,6 +18,29 @@ final sheetExamples = ComponentExamples(
       'points belong to Drawer.',
   examples: [
     StyleguideExample(
+      title: 'Centered reading panel',
+      description: 'A full-height inset panel centered within its workspace.',
+      code:
+          'DSheetContent(side: DSheetSide.center, inset: true, children: [body])',
+      builder: (_) => DSheet<void>(
+        trigger: DSheetTrigger(
+          builder: (context, open) => _trigger('Open centered sheet', open),
+        ),
+        content: const DSheetContent(
+          side: DSheetSide.center,
+          inset: true,
+          children: [
+            DSheetHeader(
+              children: [DSheetTitle(child: Text('Centered reader'))],
+            ),
+            DSheetBody(
+              child: Text('The panel stays centered as the workspace changes.'),
+            ),
+          ],
+        ),
+      ),
+    ),
+    StyleguideExample(
       title: 'Side accessory',
       description:
           'Centered navigation keeps a reserved gutter outside the sheet surface, including at the first and last item.',

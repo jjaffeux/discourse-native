@@ -5,8 +5,8 @@ import '../foundation/tokens.dart';
 import 'd_button.dart';
 import 'd_dialog.dart';
 
-/// The four documented physical edges plus direction-aware conveniences.
-enum DSheetSide { top, right, bottom, left, start, end }
+/// Physical edges, direction-aware conveniences, and a centered reading panel.
+enum DSheetSide { top, right, bottom, left, start, end, center }
 
 extension on DSheetSide {
   DSheetSide resolve(TextDirection direction) => switch (this) {
@@ -17,7 +17,10 @@ extension on DSheetSide {
     _ => this,
   };
 
-  bool get isHorizontal => this == DSheetSide.left || this == DSheetSide.right;
+  bool get isHorizontal =>
+      this == DSheetSide.left ||
+      this == DSheetSide.right ||
+      this == DSheetSide.center;
 }
 
 typedef DSheetController<T> = DDialogController<T>;
@@ -152,6 +155,7 @@ Widget _sheetPresentation(
   }
 
   final beginOffset = switch (side) {
+    DSheetSide.center => const Offset(0, 40),
     DSheetSide.top => const Offset(0, -40),
     DSheetSide.right => const Offset(40, 0),
     DSheetSide.bottom => const Offset(0, 40),
@@ -195,8 +199,14 @@ Widget _sheetPresentation(
             ? DMotion.duration(context, DMotion.change)
             : Duration.zero,
         curve: Curves.easeOutCubic,
-        left: side == DSheetSide.right ? null : margin,
-        right: side == DSheetSide.left ? null : margin,
+        left: side == DSheetSide.center
+            ? (bounds.maxWidth - panelWidth) / 2
+            : side == DSheetSide.right
+            ? null
+            : margin,
+        right: side == DSheetSide.left || side == DSheetSide.center
+            ? null
+            : margin,
         top: side == DSheetSide.bottom ? null : margin,
         bottom: side == DSheetSide.top ? null : margin,
         width: horizontal ? panelWidth : null,
@@ -318,6 +328,7 @@ class DSheetContent extends StatelessWidget {
     final border = inset
         ? Border.all(color: tokens.border)
         : switch (resolved) {
+            DSheetSide.center => Border.all(color: tokens.border),
             DSheetSide.top => Border(bottom: edgeBorder),
             DSheetSide.right => Border(left: edgeBorder),
             DSheetSide.bottom => Border(top: edgeBorder),
@@ -424,8 +435,9 @@ class DSheetContent extends StatelessWidget {
         textDirection: TextDirection.ltr,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          if (resolved == DSheetSide.right) gutter,
-          Expanded(child: surface),
+          if (resolved == DSheetSide.right || resolved == DSheetSide.center)
+            gutter,
+          Expanded(key: const ValueKey('sheet-surface'), child: surface),
           if (resolved == DSheetSide.left) gutter,
         ],
       );

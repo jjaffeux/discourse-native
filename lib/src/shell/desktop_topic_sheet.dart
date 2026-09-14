@@ -2,10 +2,12 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
 import '../app_shortcuts.dart';
+import '../models/app_settings.dart';
 import '../models/bookmark.dart';
 import '../models/content_route.dart';
 import '../plugin_api/plugin_scope.dart';
 import '../theme/app_theme.dart';
+import 'content_reading_lane.dart';
 import 'forum_tabs_bar.dart';
 import 'keyboard_navigation.dart';
 import 'platform.dart';
@@ -144,6 +146,11 @@ class _TopicSheetRouteHost extends StatelessWidget {
           ),
           content: DSheetContent(
             key: const ValueKey('desktop-topic-sheet'),
+            side: switch (ContentAlignmentScope.of(context)) {
+              ContentAlignment.left => DSheetSide.left,
+              ContentAlignment.center => DSheetSide.center,
+              ContentAlignment.right => DSheetSide.right,
+            },
             inset: true,
             animateSize: true,
             sideAccessoryWidth: _topicNavigationGutter,

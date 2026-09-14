@@ -1,10 +1,16 @@
 // Local data only; mounts the production topic sheet and Native styleguide example.
+import 'dart:async';
+
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/src/data/app_settings_store.dart';
 import 'package:discourse_native/src/macos_launch_screen.dart';
+import 'package:discourse_native/src/models/app_settings.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/shell/adaptive_shell.dart';
+import 'package:discourse_native/src/shell/app_settings_controller.dart';
+import 'package:discourse_native/src/shell/content_reading_lane.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/styleguide/examples/sheet_examples.dart';
@@ -80,62 +86,92 @@ Future<void> main() async {
   await shell.load();
   await shell.loadFeed('latest');
   shell.openTopicFromList(topics.first);
+  final settings = AppSettingsController(
+    store: AppSettingsStore(persistence: MemoryAppSettingsPersistence()),
+  );
   var dark = false;
   var narrow = false;
   var styleguide = false;
   runApp(
-    ShellScope(
-      controller: shell,
-      child: StatefulBuilder(
-        builder: (context, setState) => MaterialApp(
-          debugShowCheckedModeBanner: false,
-          theme: AppTheme.light,
-          darkTheme: AppTheme.dark,
-          themeMode: dark ? ThemeMode.dark : ThemeMode.light,
-          builder: (context, child) =>
-              DFocusHighlight(child: DToaster(child: child!)),
-          home: Scaffold(
-            body: Column(
-              children: [
-                Padding(
-                  padding: const EdgeInsets.all(8),
-                  child: Wrap(
-                    spacing: 8,
-                    children: [
-                      DButton(
-                        label: Text(dark ? 'Light' : 'Dark'),
-                        onPressed: () => setState(() => dark = !dark),
-                      ),
-                      DButton(
-                        label: Text(narrow ? 'Wide window' : 'Narrow window'),
-                        onPressed: () => setState(() => narrow = !narrow),
-                      ),
-                      DButton(
-                        label: Text(
-                          styleguide ? 'Application' : 'Sheet styleguide',
+    ContentAlignmentScope(
+      controller: settings,
+      child: ShellScope(
+        controller: shell,
+        child: StatefulBuilder(
+          builder: (context, setState) => MaterialApp(
+            debugShowCheckedModeBanner: false,
+            theme: AppTheme.light,
+            darkTheme: AppTheme.dark,
+            themeMode: dark ? ThemeMode.dark : ThemeMode.light,
+            builder: (context, child) =>
+                DFocusHighlight(child: DToaster(child: child!)),
+            home: Scaffold(
+              body: Column(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.all(8),
+                    child: Wrap(
+                      spacing: 8,
+                      children: [
+                        DToggleGroup<ContentAlignment>(
+                          values: [settings.contentAlignment],
+                          allowEmptySelection: false,
+                          onChanged: (values) => setState(() {
+                            unawaited(
+                              settings.setContentAlignment(values.single),
+                            );
+                          }),
+                          items: const [
+                            DToggleGroupItem(
+                              value: ContentAlignment.left,
+                              child: Text('Left'),
+                            ),
+                            DToggleGroupItem(
+                              value: ContentAlignment.center,
+                              child: Text('Center'),
+                            ),
+                            DToggleGroupItem(
+                              value: ContentAlignment.right,
+                              child: Text('Right'),
+                            ),
+                          ],
                         ),
-                        onPressed: () =>
-                            setState(() => styleguide = !styleguide),
-                      ),
-                    ],
-                  ),
-                ),
-                Expanded(
-                  child: Center(
-                    child: SizedBox(
-                      width: narrow ? 650 : double.infinity,
-                      child: styleguide
-                          ? sheetExamples.examples
-                                .firstWhere(
-                                  (example) =>
-                                      example.title == 'Side accessory',
-                                )
-                                .builder(context)
-                          : const AdaptiveShell(),
+                        DButton(
+                          label: Text(dark ? 'Light' : 'Dark'),
+                          onPressed: () => setState(() => dark = !dark),
+                        ),
+                        DButton(
+                          label: Text(narrow ? 'Wide window' : 'Narrow window'),
+                          onPressed: () => setState(() => narrow = !narrow),
+                        ),
+                        DButton(
+                          label: Text(
+                            styleguide ? 'Application' : 'Sheet styleguide',
+                          ),
+                          onPressed: () =>
+                              setState(() => styleguide = !styleguide),
+                        ),
+                      ],
                     ),
                   ),
-                ),
-              ],
+                  Expanded(
+                    child: Center(
+                      child: SizedBox(
+                        width: narrow ? 650 : double.infinity,
+                        child: styleguide
+                            ? sheetExamples.examples
+                                  .firstWhere(
+                                    (example) =>
+                                        example.title ==
+                                        'Centered reading panel',
+                                  )
+                                  .builder(context)
+                            : const AdaptiveShell(),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),

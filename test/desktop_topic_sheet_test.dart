@@ -1,11 +1,15 @@
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/src/data/app_settings_store.dart';
 import 'package:discourse_native/src/diagnostics/diagnostics.dart';
+import 'package:discourse_native/src/models/app_settings.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/shell/adaptive_shell.dart';
+import 'package:discourse_native/src/shell/app_settings_controller.dart';
 import 'package:discourse_native/src/shell/composer_panel.dart';
+import 'package:discourse_native/src/shell/content_reading_lane.dart';
 import 'package:discourse_native/src/shell/desktop_topic_sheet.dart';
 import 'package:discourse_native/src/shell/forum_tabs_bar.dart';
 import 'package:discourse_native/src/shell/instance_rail.dart';
@@ -88,6 +92,62 @@ void main() {
     }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
   }
 
+  for (final direction in TextDirection.values) {
+    for (final alignment in ContentAlignment.values) {
+      testWidgets('topic sheet follows $alignment in $direction', (
+        tester,
+      ) async {
+        final settings = AppSettingsController(
+          store: AppSettingsStore(persistence: MemoryAppSettingsPersistence()),
+        );
+        addTearDown(settings.dispose);
+        await settings.setContentAlignment(alignment);
+        final h = await _setup(
+          tester,
+          size: const Size(1800, 900),
+          direction: direction,
+          settings: settings,
+        );
+        h.shell.openTopicFromList(h.topics.first);
+        await tester.pumpAndSettle();
+        final state = tester.state(find.byType(TopicView));
+        void check(ContentAlignment current) {
+          final workspace = tester.getRect(find.byType(DesktopTopicSheetHost));
+          final sheet = tester.getRect(_sheet);
+          switch (current) {
+            case ContentAlignment.left:
+              expect(sheet.left, closeTo(workspace.left + 12, .01));
+            case ContentAlignment.center:
+              expect(sheet.center.dx, closeTo(workspace.center.dx, .01));
+            case ContentAlignment.right:
+              expect(sheet.right, closeTo(workspace.right - 12, .01));
+          }
+          expect(
+            find.byKey(const ValueKey('inbox-next-topic')).hitTestable(),
+            findsOneWidget,
+          );
+          expect(tester.state(find.byType(TopicView)), same(state));
+          expect(tester.takeException(), isNull);
+        }
+
+        check(alignment);
+        for (final next in ContentAlignment.values) {
+          await settings.setContentAlignment(next);
+          await tester.pumpAndSettle();
+          check(next);
+        }
+        tester.view.physicalSize = const Size(650, 900);
+        await tester.pumpAndSettle();
+        for (final next in ContentAlignment.values) {
+          await settings.setContentAlignment(next);
+          await tester.pumpAndSettle();
+          check(next);
+          expect(tester.getSize(_sheet).width, 626);
+        }
+      }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
+    }
+  }
+
   testWidgets('topic sheets blur the background and intercept outside clicks', (
     tester,
   ) async {
@@ -102,7 +162,7 @@ void main() {
       matching: find.text('Conversation 2'),
     );
     final rowBounds = tester.getRect(row);
-    final point = Offset(rowBounds.left + 8, rowBounds.center.dy);
+    final point = Offset(bounds.left - 8, rowBounds.center.dy);
     expect(point.dx, lessThan(bounds.left));
     final scroll = tester
         .state<ScrollableState>(
@@ -362,7 +422,10 @@ void main() {
       expect(tester.getRect(_list), listRect);
       expect(tester.element(find.byType(TopicListView)), same(listElement));
       expect(scroll.pixels, offset);
-      expect(tester.getRect(_sheet).left, greaterThan(listRect.left));
+      expect(
+        tester.getRect(_sheet).center.dx,
+        tester.getRect(find.byType(DesktopTopicSheetHost)).center.dx,
+      );
       await tester.tap(find.byKey(const ValueKey('topic-close-reader')));
       await tester.pumpAndSettle();
       expect(_sheet, findsNothing);
@@ -795,6 +858,7 @@ Future<({ShellController shell, List<Topic> topics})> _setup(
   WidgetTester tester, {
   Size size = const Size(1440, 900),
   TextDirection direction = TextDirection.ltr,
+  AppSettingsController? settings,
 }) async {
   tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1;
@@ -864,7 +928,12 @@ Future<({ShellController shell, List<Topic> topics})> _setup(
           theme: AppTheme.light,
           home: DDirection(
             textDirection: direction,
-            child: const AdaptiveShell(),
+            child: settings == null
+                ? const AdaptiveShell()
+                : ContentAlignmentScope(
+                    controller: settings,
+                    child: const AdaptiveShell(),
+                  ),
           ),
         ),
       ),
