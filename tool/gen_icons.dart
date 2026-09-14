@@ -13,6 +13,10 @@ const List<(String, String)> _spriteFiles = [
 const String _output = 'lib/src/theme/d_icons.dart';
 const String _manifest = 'tool/icons.txt';
 
+// The AI account badge has fixed background and lettering colors upstream.
+// https://github.com/discourse/discourse/pull/43314
+const _preserveColors = {'discourse-ai'};
+
 void main(List<String> args) {
   final root = _discourseRoot(args);
   stdout.writeln('Reading sprites from $root');
@@ -181,7 +185,11 @@ String _render(
     buffer
       ..writeln('  static const DIconData ${_identifier(name)} = DIconData(')
       ..writeln("    '$name',")
-      ..writeln("    '${_svg(viewBox, inner)}',")
+      ..writeln("    '${_svg(viewBox, inner)}',");
+    if (_preserveColors.contains(name)) {
+      buffer.writeln('    preserveColors: true,');
+    }
+    buffer
       ..writeln('  );')
       ..writeln();
   }

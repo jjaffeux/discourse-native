@@ -1,7 +1,8 @@
+import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/src/models/group.dart';
 import 'package:discourse_native/src/shell/avatar_image.dart';
 import 'package:discourse_native/src/shell/group_flair.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
-import 'package:discourse_native/src/theme/d_icon.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -10,6 +11,7 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
 import 'support/media_pipeline.dart';
+import 'support/pixel_samples.dart';
 
 void main() {
   Widget subject(GroupFlairBadge flair, {bool dark = false}) => MaterialApp(
@@ -24,7 +26,7 @@ void main() {
         await tester.pumpWidget(
           subject(
             const GroupFlairBadge(
-              url: 'discourse-ai',
+              url: 'star',
               color: '#fff',
               backgroundColor: '0088cc',
             ),
@@ -37,7 +39,7 @@ void main() {
           const Size.square(24),
         );
         final icon = tester.widget<DIcon>(find.byType(DIcon));
-        expect(icon.icon, DIcons.discourseAi);
+        expect(icon.icon, DIcons.star);
         expect(icon.color, Colors.white);
         final container = tester.widget<Container>(
           find.descendant(
@@ -50,6 +52,65 @@ void main() {
           const Color(0xff0088cc),
         );
         expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
+  for (final groupHeader in [false, true]) {
+    testWidgets(
+      'AI ${groupHeader ? 'group header' : 'avatar badge'} preserves artwork and forum surround',
+      (tester) async {
+        const key = ValueKey('ai-flair');
+        for (final theme in [AppTheme.light, AppTheme.dark]) {
+          for (final background in <String?>[null, '0088cc']) {
+            await tester.pumpWidget(
+              MaterialApp(
+                theme: theme,
+                home: Center(
+                  child: RepaintBoundary(
+                    key: key,
+                    child: groupHeader
+                        ? GroupFlair(
+                            siteUrl: 'https://meta.example',
+                            group: Group(
+                              id: 12,
+                              name: 'discourse_ai_users',
+                              flairIcon: 'discourse-ai',
+                              flairColor: 'ff0000',
+                              flairBackgroundColor: background,
+                            ),
+                            size: 38,
+                          )
+                        : GroupFlairBadge(
+                            url: 'discourse-ai',
+                            color: 'ff0000',
+                            backgroundColor: background,
+                            size: 18,
+                            iconSize: 18,
+                            borderRadius: background == null ? 0 : 9,
+                          ),
+                  ),
+                ),
+              ),
+            );
+            await tester.pumpAndSettle();
+
+            final origin = tester.getTopLeft(find.byKey(key));
+            final icon = tester.getRect(find.byType(SvgPicture)).shift(-origin);
+            final colors = await samplePixels(tester, find.byKey(key), [
+              icon.topLeft + Offset(icon.width / 2, icon.height * 100 / 512),
+              icon.topLeft +
+                  Offset(icon.width * 344 / 512, icon.height * 176 / 512),
+              Offset((groupHeader ? 38 : 18) / 2, 0.5),
+            ]);
+            expect(colors, [
+              const Color(0xFF333333),
+              Colors.white,
+              background == null ? Colors.transparent : const Color(0xFF0088CC),
+            ]);
+            expect(tester.takeException(), isNull);
+          }
+        }
       },
     );
   }
