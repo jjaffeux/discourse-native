@@ -2545,7 +2545,7 @@ class _FormattingToolbar extends StatelessWidget {
                 tooltip: label,
                 shortcut: DShortcut(_formattingShortcut(key)),
                 variant: DButtonVariant.ghost,
-                size: DButtonSize.small,
+                size: DButtonSize.regular,
                 icon: DIcon(icon),
                 onPressed: composer.isEditing && !composer.loadingBody
                     ? () {
@@ -2559,7 +2559,7 @@ class _FormattingToolbar extends StatelessWidget {
               tooltip: 'Link',
               shortcut: DShortcut(_formattingShortcut(LogicalKeyboardKey.keyL)),
               variant: DButtonVariant.ghost,
-              size: DButtonSize.small,
+              size: DButtonSize.regular,
               icon: const DIcon(DIcons.link),
               onPressed: composer.isEditing && !composer.loadingBody
                   ? () => unawaited(
