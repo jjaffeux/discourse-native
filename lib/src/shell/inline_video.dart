@@ -358,6 +358,7 @@ class _InlineVideoState extends State<InlineVideo> {
       children: [
         DImagePreview(
           semanticLabel: playLabel,
+          filename: widget.data.title,
           onPressed: _load,
           child: Stack(
             fit: StackFit.expand,
@@ -375,39 +376,6 @@ class _InlineVideoState extends State<InlineVideo> {
                   ),
                   null => generatedPoster(),
                 },
-              ),
-              const DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      Color(0x11000000),
-                      Color(0x22000000),
-                      Color(0xDD000000),
-                    ],
-                    stops: [0, 0.5, 1],
-                  ),
-                ),
-              ),
-              Positioned(
-                left: 14,
-                right: 58,
-                bottom: 12,
-                child: ExcludeSemantics(
-                  child: Text(
-                    widget.data.title,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w700,
-                      shadows: const [
-                        Shadow(color: Colors.black, blurRadius: 3),
-                      ],
-                    ),
-                  ),
-                ),
               ),
               Center(
                 child: DButton.iconOnly(

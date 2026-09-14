@@ -201,7 +201,7 @@ void main() {
     try {
       await tester.pumpWidget(
         MaterialApp(
-          theme: AppTheme.dark,
+          theme: AppTheme.dark.copyWith(platform: TargetPlatform.macOS),
           home: const Scaffold(
             body: Align(
               alignment: Alignment.topLeft,
@@ -227,6 +227,19 @@ void main() {
       expect(find.bySemanticsLabel('Play video: demo.mp4'), findsOneWidget);
       expect(find.byTooltip('Download video'), findsOneWidget);
       expect(find.text('demo.mp4'), findsOneWidget);
+      final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      await mouse.addPointer(location: const Offset(-1, -1));
+      addTearDown(mouse.removePointer);
+      await mouse.moveTo(
+        tester.getTopLeft(find.byType(DImagePreview)) + const Offset(20, 20),
+      );
+      await tester.pumpAndSettle();
+      final metadataBar = find.ancestor(
+        of: find.text('demo.mp4'),
+        matching: find.byType(AnimatedOpacity),
+      );
+      expect(metadataBar, findsOneWidget);
+      expect(tester.widget<AnimatedOpacity>(metadataBar).opacity, .9);
       expect(find.bySemanticsLabel(RegExp(r'^Open attachment:')), findsNothing);
     } finally {
       semantics.dispose();
