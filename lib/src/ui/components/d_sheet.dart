@@ -226,9 +226,16 @@ class DSheetContent extends StatelessWidget {
     this.sidePanelWidth,
     this.inset = false,
     this.animateSize = false,
+    this.sideAccessory,
+    this.sideAccessoryWidth = 52,
     this.scrollWholeSheet,
     this.topBottomMaxHeightFactor,
-  }) : assert(sidePanelMaxWidth > 0),
+  }) : assert(sideAccessoryWidth > 0),
+       assert(
+         sideAccessory == null ||
+             (side != DSheetSide.top && side != DSheetSide.bottom),
+       ),
+       assert(sidePanelMaxWidth > 0),
        assert(sidePanelWidth == null || sidePanelWidth > 0),
        assert(
          topBottomMaxHeightFactor == null ||
@@ -255,6 +262,16 @@ class DSheetContent extends StatelessWidget {
   /// Animates changes to the sheet's bounds without replacing its contents.
   /// Reduced-motion preferences always make these changes immediate.
   final bool animateSize;
+
+  /// Optional controls beside the surface, on the inward-facing edge.
+  ///
+  /// Supported on side sheets only. The gutter is inside the panel width and
+  /// shares its route, focus scope and motion, but stays outside its decoration.
+  final Widget? sideAccessory;
+
+  /// Space reserved for [sideAccessory], including its horizontal breathing room.
+  /// Both this gutter and the surface must fit inside [sidePanelWidth].
+  final double sideAccessoryWidth;
 
   /// Overrides automatic whole-surface scrolling at large text sizes.
   ///
@@ -396,6 +413,21 @@ class DSheetContent extends StatelessWidget {
           maxHeight: MediaQuery.sizeOf(context).height * maxHeightFactor,
         ),
         child: surface,
+      );
+    }
+    if (sideAccessory case final accessory?) {
+      final gutter = SizedBox(
+        width: sideAccessoryWidth,
+        child: Center(child: accessory),
+      );
+      surface = Row(
+        textDirection: TextDirection.ltr,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (resolved == DSheetSide.right) gutter,
+          Expanded(child: surface),
+          if (resolved == DSheetSide.left) gutter,
+        ],
       );
     }
     return Semantics(

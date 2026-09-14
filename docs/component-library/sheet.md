@@ -149,3 +149,42 @@ Escape, outside dismissal and restoration; typed close results; live theme
 changes; safe-area and keyboard-inset behavior. Browser and macOS checks must
 record exact inspected source. No iOS, Linux or spoken VoiceOver claim is made
 without execution.
+
+## Approved side accessory (2026-09-14)
+
+The user selected topic-navigation design A and approved a Native Sheet
+extension. `DSheetContent.sideAccessory` reserves an optional gutter on the
+inward-facing edge of a left/right sheet. `sideAccessoryWidth` defaults to 52px
+and is included in the total panel width. The gutter shares the sheet's route,
+focus scope, semantics and animation while remaining outside the painted,
+clipped surface. Physical placement stays consistent in RTL; start/end sheets
+resolve through their existing directional mapping. With no accessory, existing
+sheet layout is unchanged.
+
+Desktop topic sheets request 1052px overall: the existing 1000px reader plus the
+52px gutter. Narrow and composer-reduced workspaces retain the gutter and shrink
+the reader. Two centered Native outline icon buttons use up/down chevrons,
+regular size and independent disabled states. Topic-sheet backgrounds omit the
+old footer arrows; page presentations retain their existing navigation.
+Navigation reuses the current source-feed, pagination and shortcut behavior.
+The **Side accessory** styleguide example demonstrates navigation and boundary
+states using the public API.
+
+Verification: 50 Sheet/application widget tests and 31 Dialog/styleguide/control
+checks pass, including the new gutter behavior, RTL, disabled boundaries,
+narrow layout and focus. Static analysis is clean. The broader keyboard/topic/
+message regression run passed 142 tests with four existing failures reproduced
+on unchanged main at `f9a78e34`: both platform variants of "each tab restores its
+own list cursor", the Linux "a pending page cannot move the cursor in another
+tab", and "header details stay live and dismiss on post navigation".
+
+The isolated macOS fixture was built and launched from this implementation.
+Native inspection covered light/dark, 650px workspace, the right-docked composer,
+previous/next clicks, first-topic disabled state, and G-J after clicking a
+chevron. The new styleguide example was opened and navigated to its last item.
+No iOS device, Linux device, or spoken VoiceOver verification is claimed.
+
+After integrating the latest tab-strip alignment from main (`276548d5`), the
+application/keyboard integration run passed 70 tests with only the same three
+baseline tab-cursor failures. Root and full-profile static analysis remained clean. The tab-strip
+changes do not alter the inspected gutter, surface or button implementation.

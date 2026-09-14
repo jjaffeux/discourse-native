@@ -83,6 +83,73 @@ Widget _sheet<T>({
 );
 
 void main() {
+  for (final side in [DSheetSide.left, DSheetSide.right]) {
+    for (final direction in TextDirection.values) {
+      testWidgets(
+        'side accessory belongs to sheet focus and physical edge ($side, $direction)',
+        (tester) async {
+          var clicks = 0;
+          final focus = FocusNode();
+          addTearDown(focus.dispose);
+          await tester.pumpWidget(
+            _host(
+              direction: direction,
+              DSheet<void>(
+                initialFocusNode: focus,
+                trigger: DSheetTrigger(
+                  builder: (context, open) =>
+                      DButton(label: const Text('Open'), onPressed: open),
+                ),
+                content: DSheetContent(
+                  key: const ValueKey('accessory-sheet'),
+                  side: side,
+                  inset: true,
+                  sidePanelWidth: 700,
+                  sidePanelMaxWidth: 700,
+                  sideAccessory: DButton(
+                    key: const ValueKey('accessory'),
+                    focusNode: focus,
+                    label: const Text('Go'),
+                    onPressed: () => clicks++,
+                  ),
+                  children: const [
+                    Expanded(child: SizedBox(key: ValueKey('surface'))),
+                  ],
+                ),
+              ),
+            ),
+          );
+          await tester.tap(find.text('Open'));
+          await tester.pumpAndSettle();
+          final sheet = tester.getRect(
+            find.byKey(const ValueKey('accessory-sheet')),
+          );
+          final surface = tester.getRect(find.byKey(const ValueKey('surface')));
+          final accessory = find.byKey(const ValueKey('accessory'));
+          final button = tester.getRect(accessory);
+          expect(sheet.width - surface.width, 52);
+          expect(button.center.dy, sheet.center.dy);
+          expect(
+            button.center.dx,
+            side == DSheetSide.right ? sheet.left + 26 : sheet.right - 26,
+          );
+          expect(focus.hasFocus, isTrue);
+          await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+          await tester.pumpAndSettle();
+          expect(clicks, 1);
+          await tester.tap(accessory);
+          await tester.pumpAndSettle();
+          expect(clicks, 2);
+          expect(find.byKey(const ValueKey('accessory-sheet')), findsOneWidget);
+          await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+          await tester.pumpAndSettle();
+          expect(find.byKey(const ValueKey('accessory-sheet')), findsNothing);
+          expect(tester.takeException(), isNull);
+        },
+      );
+    }
+  }
+
   for (final imperative in [false, true]) {
     testWidgets(
       'non-modal ${imperative ? 'helper' : 'sheet'} allows background clicks, input and scrolling',

@@ -11,6 +11,7 @@ import 'keyboard_navigation.dart';
 import 'shell_controller.dart';
 import 'shell_metrics.dart';
 import 'shell_scope.dart';
+import 'topic_sheet_scope.dart';
 
 typedef _AdjacentTopics = ({int? previous, int? next, bool more, bool busy});
 
@@ -98,81 +99,100 @@ class TopicListBottomBar extends StatelessWidget {
   final double trailingInset;
 
   @override
+  Widget build(BuildContext context) => ColoredBox(
+    key: const ValueKey('topic-list-bottom-bar'),
+    color: Theme.of(context).shell.content,
+    child: DecoratedBox(
+      decoration: BoxDecoration(
+        border: Border(top: BorderSide(color: Theme.of(context).shell.divider)),
+      ),
+      child: ConstrainedBox(
+        constraints: BoxConstraints(minHeight: topicBottomBarHeight(context)),
+        child: Padding(
+          padding: topicBottomBarPadding.add(
+            EdgeInsetsDirectional.only(end: trailingInset),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.start,
+            children: [
+              if (leading case final action?)
+                Expanded(
+                  child: Align(
+                    alignment: AlignmentDirectional.centerStart,
+                    child: action,
+                  ),
+                )
+              else
+                const Spacer(),
+              if (!TopicSheetScope.isBackground(context))
+                const TopicNavigationButtons(),
+            ],
+          ),
+        ),
+      ),
+    ),
+  );
+}
+
+/// Shared adjacent-topic actions for sheet and page presentations.
+class TopicNavigationButtons extends StatelessWidget {
+  const TopicNavigationButtons({super.key, this.vertical = false});
+
+  final bool vertical;
+
+  @override
   Widget build(BuildContext context) => ListenableBuilder(
     listenable: ShellScope.identityOf(context).topicFeeds,
     builder: (context, _) => ShellSelector<_AdjacentTopics>(
       select: _adjacentTopics,
-      builder: (context, state, _) => ColoredBox(
-        key: const ValueKey('topic-list-bottom-bar'),
-        color: Theme.of(context).shell.content,
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            border: Border(
-              top: BorderSide(color: Theme.of(context).shell.divider),
+      builder: (context, state, _) => Flex(
+        direction: vertical ? Axis.vertical : Axis.horizontal,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          DButton.iconOnly(
+            key: const ValueKey('inbox-previous-topic'),
+            tooltip:
+                ShellScope.read(context).topicListContent?.isMessages == true
+                ? 'Previous message'
+                : 'Previous topic',
+            shortcut: DShortcut.sequence(
+              ReadingCommand.openPreviousTopic.prefix!,
+              ReadingCommand.openPreviousTopic.shortcuts.cast(),
             ),
+            icon: vertical
+                ? const RotatedBox(
+                    quarterTurns: 2,
+                    child: DIcon(DIcons.chevronDown),
+                  )
+                : const DIcon(DIcons.chevronLeft),
+            onPressed: state.previous == null
+                ? null
+                : () => openAdjacentTopic(context, next: false),
+            variant: vertical ? DButtonVariant.outline : DButtonVariant.ghost,
+            size: DButtonSize.regular,
           ),
-          child: ConstrainedBox(
-            constraints: BoxConstraints(
-              minHeight: topicBottomBarHeight(context),
-            ),
-            child: Padding(
-              padding: topicBottomBarPadding.add(
-                EdgeInsetsDirectional.only(end: trailingInset),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.start,
-                children: [
-                  if (leading case final action?)
-                    Expanded(
-                      child: Align(
-                        alignment: AlignmentDirectional.centerStart,
-                        child: action,
-                      ),
-                    )
-                  else
-                    const Spacer(),
-                  DButton.iconOnly(
-                    key: const ValueKey('inbox-previous-topic'),
-                    tooltip:
-                        ShellScope.read(context).topicListContent?.isMessages ==
-                            true
-                        ? 'Previous message'
-                        : 'Previous topic',
-                    shortcut: DShortcut.sequence(
-                      ReadingCommand.openPreviousTopic.prefix!,
-                      ReadingCommand.openPreviousTopic.shortcuts.cast(),
-                    ),
-                    icon: const DIcon(DIcons.chevronLeft),
-                    onPressed: state.previous == null
-                        ? null
-                        : () => openAdjacentTopic(context, next: false),
-                    variant: DButtonVariant.ghost,
-                    size: DButtonSize.regular,
-                  ),
-                  const SizedBox(width: DSpacing.xs),
-                  DButton.iconOnly(
-                    key: const ValueKey('inbox-next-topic'),
-                    tooltip:
-                        ShellScope.read(context).topicListContent?.isMessages ==
-                            true
-                        ? 'Next message'
-                        : 'Next topic',
-                    shortcut: DShortcut.sequence(
-                      ReadingCommand.openNextTopic.prefix!,
-                      ReadingCommand.openNextTopic.shortcuts.cast(),
-                    ),
-                    icon: const DIcon(DIcons.chevronRight),
-                    onPressed: state.next == null && (!state.more || state.busy)
-                        ? null
-                        : () => openAdjacentTopic(context, next: true),
-                    variant: DButtonVariant.ghost,
-                    size: DButtonSize.regular,
-                  ),
-                ],
-              ),
-            ),
+          SizedBox(
+            width: vertical ? 0 : DSpacing.xs,
+            height: vertical ? DSpacing.xs : 0,
           ),
-        ),
+          DButton.iconOnly(
+            key: const ValueKey('inbox-next-topic'),
+            tooltip:
+                ShellScope.read(context).topicListContent?.isMessages == true
+                ? 'Next message'
+                : 'Next topic',
+            shortcut: DShortcut.sequence(
+              ReadingCommand.openNextTopic.prefix!,
+              ReadingCommand.openNextTopic.shortcuts.cast(),
+            ),
+            icon: DIcon(vertical ? DIcons.chevronDown : DIcons.chevronRight),
+            onPressed: state.next == null && (!state.more || state.busy)
+                ? null
+                : () => openAdjacentTopic(context, next: true),
+            variant: vertical ? DButtonVariant.outline : DButtonVariant.ghost,
+            size: DButtonSize.regular,
+          ),
+        ],
       ),
     ),
   );
