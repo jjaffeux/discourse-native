@@ -212,8 +212,29 @@ class ComposerDock extends StatefulWidget {
   });
   final Widget child;
   final bool appWorkspace;
+
+  /// The edge of the app workspace whose border is owned by the resize handle.
+  /// Null when there is no expanded app-level composer.
+  static ComposerPlacement? workspacePlacementOf(BuildContext context) =>
+      context
+          .dependOnInheritedWidgetOfExactType<_ComposerWorkspaceScope>()
+          ?.placement;
+
   @override
   State<ComposerDock> createState() => _ComposerDockState();
+}
+
+class _ComposerWorkspaceScope extends InheritedWidget {
+  const _ComposerWorkspaceScope({
+    required this.placement,
+    required super.child,
+  });
+
+  final ComposerPlacement? placement;
+
+  @override
+  bool updateShouldNotify(_ComposerWorkspaceScope oldWidget) =>
+      placement != oldWidget.placement;
 }
 
 class _ComposerDockState extends State<ComposerDock> {
@@ -265,10 +286,20 @@ class _ComposerDockState extends State<ComposerDock> {
       }
     }
     final reader = KeyedSubtree(key: _readerKey, child: widget.child);
-    Widget readerViewport({bool bottomDocked = false}) => SizedBox.expand(
+    Widget readerViewport({
+      bool bottomDocked = false,
+      ComposerPlacement? workspacePlacement,
+    }) => SizedBox.expand(
       key: _readerViewportKey,
       child: widget.appWorkspace
-          ? Semantics(container: true, explicitChildNodes: true, child: reader)
+          ? _ComposerWorkspaceScope(
+              placement: workspacePlacement,
+              child: Semantics(
+                container: true,
+                explicitChildNodes: true,
+                child: reader,
+              ),
+            )
           : LayoutBuilder(
               builder: (context, bounds) => DScrollArea(
                 thumbVisibility: false,
@@ -357,7 +388,10 @@ class _ComposerDockState extends State<ComposerDock> {
           minSize: DResizableSize.pixels(readerMin),
           child: DDirection(
             textDirection: DDirection.of(context),
-            child: readerViewport(bottomDocked: !side),
+            child: readerViewport(
+              bottomDocked: !side,
+              workspacePlacement: placement,
+            ),
           ),
         );
         final direction = DDirection.of(context);
