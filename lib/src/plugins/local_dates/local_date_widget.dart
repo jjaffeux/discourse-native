@@ -11,7 +11,6 @@ import '../../shell/anchored_layout.dart';
 import '../../shell/platform.dart';
 import '../../shell/shell_sheet.dart';
 import '../../theme/app_theme.dart';
-import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
 import 'local_date.dart';
 import 'local_dates_services.dart';

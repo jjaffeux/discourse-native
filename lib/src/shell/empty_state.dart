@@ -2,7 +2,6 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
 import '../theme/app_theme.dart';
-import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'add_instance_sheet.dart';
 

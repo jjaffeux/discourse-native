@@ -6,7 +6,6 @@ import '../../../discourse_ui.dart';
 import '../../plugin_api/plugin_scope.dart';
 import '../../shell/choice_menu.dart';
 import '../../shell/content_reading_lane.dart';
-import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
 import '../../utils/pagination.dart';
 import 'chat_message_tile.dart';

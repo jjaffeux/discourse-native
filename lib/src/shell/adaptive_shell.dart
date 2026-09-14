@@ -15,7 +15,6 @@ import '../diagnostics/diagnostics_scope.dart';
 import '../models/bookmark.dart';
 import '../plugin_api/plugin_scope.dart';
 import '../theme/app_theme.dart';
-import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'aggregate_view.dart';
 import 'bookmark_ui.dart';

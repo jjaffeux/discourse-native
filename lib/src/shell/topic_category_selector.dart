@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 
 import '../foundation/latest_wins_queued_lookup_controller.dart';
 import '../models/topic.dart';
-import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'category_icon.dart';
 import 'topic_taxonomy_button.dart';

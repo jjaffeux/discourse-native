@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 
 import '../models/category_feed.dart';
 import '../models/topic.dart';
-import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import '../utils/pagination.dart';
 import 'category_icon.dart';

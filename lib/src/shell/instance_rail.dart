@@ -14,7 +14,6 @@ import '../models/site_appearance.dart';
 import '../styleguide/styleguide_page.dart';
 import '../theme/app_theme.dart';
 import '../theme/color_contrast.dart';
-import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'add_instance_sheet.dart';
 import 'app_settings_page.dart';

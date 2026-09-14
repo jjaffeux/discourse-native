@@ -4,7 +4,6 @@ import 'package:html/dom.dart' as dom;
 import '../../../../../discourse_ui.dart';
 
 import '../../../../foundation/diagnostic_errors.dart';
-import '../../../../theme/d_icon.dart';
 import '../../../../theme/d_icons.dart';
 import '../../../cooked_dom.dart';
 import '../../../image_decode.dart';

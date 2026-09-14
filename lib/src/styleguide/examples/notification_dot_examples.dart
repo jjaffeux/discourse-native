@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 
 import '../../shell/header_notification_button.dart';
 import '../../theme/app_theme.dart';
-import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
 import '../styleguide_example.dart';
 

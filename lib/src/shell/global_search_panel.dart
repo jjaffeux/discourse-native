@@ -4,7 +4,6 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/theme/discourse_typography.dart';
 import 'package:flutter/material.dart';
 
-import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'avatar_image.dart';
 import 'category_icon.dart';

@@ -12,7 +12,6 @@ import '../../shell/hover_panel.dart';
 import '../../shell/reaction_presentation.dart';
 import '../../shell/shell_sheet.dart';
 import '../../theme/app_theme.dart';
-import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
 import 'reaction.dart';
 import 'reactions_controller.dart';

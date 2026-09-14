@@ -5,7 +5,6 @@ import 'package:discourse_native/src/shell/image_download.dart';
 import 'package:discourse_native/src/shell/lightbox.dart';
 import 'package:discourse_native/src/shell/site_image.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
-import 'package:discourse_native/src/theme/d_icon.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';

@@ -12,7 +12,6 @@ import '../models/forum_workspace.dart';
 import '../models/sidebar.dart';
 import '../plugin_api/plugin_scope.dart';
 import '../theme/app_theme.dart';
-import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'avatar_image.dart';
 import 'emoji.dart';

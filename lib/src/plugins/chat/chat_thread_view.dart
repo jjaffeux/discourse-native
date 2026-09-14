@@ -10,7 +10,6 @@ import '../../shell/shell_metrics.dart';
 import '../../shell/title_bar.dart';
 import '../../shell/user_menu_button.dart';
 import '../../theme/app_theme.dart';
-import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
 import '../../theme/d_native_icons.dart';
 import 'chat_channel_star_button.dart';

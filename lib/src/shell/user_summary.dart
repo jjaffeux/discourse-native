@@ -7,7 +7,6 @@ import 'package:intl/intl.dart' hide TextDirection;
 import '../data/site_lifecycle.dart';
 import '../models/discourse_instance.dart';
 import '../models/user_summary.dart';
-import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import '../theme/discourse_typography.dart';
 import 'avatar_image.dart';

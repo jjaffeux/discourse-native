@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 
 import '../models/user_status.dart';
 import '../theme/app_theme.dart';
-import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'external_link.dart';
 import 'header_notification_button.dart';

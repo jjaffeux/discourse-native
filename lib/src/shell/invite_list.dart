@@ -7,7 +7,6 @@ import '../../discourse_ui.dart';
 import '../data/invites_api.dart';
 import '../models/discourse_instance.dart';
 import '../models/invite.dart';
-import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'external_link.dart';
 import 'invite_editor.dart';

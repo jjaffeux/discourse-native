@@ -6,7 +6,6 @@ import 'package:flutter/material.dart';
 import '../models/discourse_instance.dart';
 import '../models/topic.dart';
 import '../theme/app_theme.dart';
-import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import '../utils/pagination.dart';
 import 'aggregate_branding.dart';

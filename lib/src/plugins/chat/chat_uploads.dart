@@ -12,7 +12,6 @@ import '../../shell/open_link.dart';
 import '../../shell/site_image.dart';
 import '../../shell/site_url.dart';
 import '../../theme/app_theme.dart';
-import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
 import 'chat_message.dart';
 

@@ -7,7 +7,6 @@ import '../../plugin_api/plugin_scope.dart';
 import '../../shell/adaptive_shell.dart';
 import '../../shell/header_notification_button.dart';
 import '../../theme/app_theme.dart';
-import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
 import 'chat_controller.dart';
 import 'chat_notification_counter.dart';

@@ -19,7 +19,6 @@ import 'package:webview_all/webview_all.dart';
 
 import '../diagnostics/diagnostics_controller.dart';
 import '../foundation/uri_path.dart';
-import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'external_link.dart';
 import 'media_webview.dart';

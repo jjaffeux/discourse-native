@@ -8,7 +8,6 @@ import 'package:html/parser.dart' as html_parser;
 import '../models/post.dart';
 import '../models/post_revision.dart';
 import '../theme/app_theme.dart';
-import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'cooked_html.dart';
 import 'relative_time.dart';

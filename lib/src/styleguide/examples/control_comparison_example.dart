@@ -1,7 +1,6 @@
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
-import '../../theme/d_icon.dart';
 import '../../theme/d_native_icons.dart';
 
 /// Side-by-side acceptance surface for control styles and interactions.

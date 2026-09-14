@@ -3,7 +3,6 @@ import 'package:flutter/semantics.dart';
 
 import '../../discourse_ui.dart';
 import '../models/discourse_instance.dart';
-import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'adaptive_dialog_action.dart';
 import 'platform.dart';

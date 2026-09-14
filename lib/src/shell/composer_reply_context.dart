@@ -7,7 +7,6 @@ import 'package:html/parser.dart' as html;
 
 import '../models/post.dart';
 import '../theme/app_theme.dart';
-import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'avatar_image.dart';
 import 'composer_controller.dart';
