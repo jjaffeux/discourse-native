@@ -525,6 +525,7 @@ class _SidebarPanelSwitchRow extends StatelessWidget {
             key: const ValueKey('sidebar-panel-switch-main'),
             label: const Text('Forum'),
             icon: const DIcon(DIcons.shuffle),
+            variant: DButtonVariant.outline,
             onPressed: canSwitch
                 ? () => controller.switchSidebarPanel(active!.panel.onClose)
                 : null,
@@ -538,6 +539,7 @@ class _SidebarPanelSwitchRow extends StatelessWidget {
               key: ValueKey('sidebar-panel-switch-${candidate.owner.value}'),
               label: Text(candidate.panel.label),
               icon: DIcon(candidate.panel.icon),
+              variant: DButtonVariant.outline,
               onPressed: canSwitch
                   ? () => controller.switchSidebarPanel(candidate.panel.onOpen)
                   : null,
