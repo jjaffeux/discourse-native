@@ -16,7 +16,7 @@ import 'shell_controller.dart';
 import 'shell_scope.dart';
 import 'title_bar.dart';
 
-/// Retains each tab's editor while its dock placement or visibility changes.
+/// Retains each forum's editor while its dock placement or visibility changes.
 class ComposerPresentationHost extends StatefulWidget {
   const ComposerPresentationHost({
     super.key,

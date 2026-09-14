@@ -158,7 +158,7 @@ void main() {
     },
   );
 
-  testWidgets('backgrounding preserves composers in retained tabs and forums', (
+  testWidgets('backgrounding preserves one composer per forum across tabs', (
     tester,
   ) async {
     final drafts = FakeDraftStore();
@@ -170,31 +170,28 @@ void main() {
     first.text.text = 'First tab';
     expect(shell.canCreateTab, isTrue);
     shell.createTab();
-    final second = await _openReply(shell, topicId: 8);
-    expect(second, isNot(same(first)));
-    second.text.text = 'Second tab';
+    expect(shell.visibleComposer, same(first));
     shell.selectInstance(1);
     final otherForum = await _openReply(shell);
     otherForum.text.text = 'Other forum';
     shell.createTab();
-    expect(shell.visibleComposer, isNull);
+    expect(shell.visibleComposer, same(otherForum));
 
     _lifecycle(tester).didChangeAppLifecycleState(AppLifecycleState.hidden);
     await tester.pump();
 
     expect(_localReply(drafts), 'First tab');
-    expect(_localReply(drafts, topicId: 8), 'Second tab');
     expect(
       ComposerDraft.decode(
         drafts.saved['https://team.discourse.org::topic_7'],
       )?.reply,
       'Other forum',
     );
-    expect(api.draftsSaved, hasLength(3));
+    expect(api.draftsSaved, hasLength(2));
     await tester.pumpWidget(const SizedBox.shrink());
   }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
-  testWidgets('a retained in-flight composer cannot reclaim a shared draft', (
+  testWidgets('tab switching preserves newer edits during an in-flight save', (
     tester,
   ) async {
     final gate = Completer<void>();
@@ -208,14 +205,12 @@ void main() {
     expect(shell.canCreateTab, isTrue);
     shell.createTab();
     final second = await _openReply(shell);
-    expect(second, isNot(same(first)));
+    expect(second, same(first));
     second.text.text = 'Older retained writer';
     final savingSecond = second.flushDraft();
     await tester.pump();
     expect(api.draftsSaved, hasLength(1));
 
-    // The first composer is visited first by the background hook. Re-saving
-    // the second's in-flight-only snapshot would overwrite this newer text.
     first.text.text = 'Latest pending writer';
     _lifecycle(tester).didChangeAppLifecycleState(AppLifecycleState.hidden);
     await tester.pump();
@@ -245,7 +240,7 @@ void main() {
     expect(shell.canCreateTab, isTrue);
     shell.createTab();
     final second = await _openReply(shell);
-    expect(second, isNot(same(first)));
+    expect(second, same(first));
     second.text.text = 'Older remote revision';
     final savingSecond = second.flushDraft();
     await tester.pump();

@@ -6931,42 +6931,41 @@ class ShellController extends FrameSafeNotifier
     }
   }
 
-  final Map<({String siteUrl, String? tabId}), ComposerController> _composers =
-      {};
+  final Map<String, ComposerController> _composers = {};
+  // Creation results belong to the submitting tab, even if navigation changes
+  // while the request or its reconciliation is in flight.
+  final Expando<String> _composerSubmissionTabs = Expando();
 
-  // Commands target the selected tab; async continuations use _ownsComposer
-  // to stay attached to the tab that started them.
+  // Commands target the selected forum; async continuations keep the exact
+  // composer that started them even if the user changes forums or drafts.
   ComposerController? get _composer {
     final instance = currentInstance;
     if (instance == null) return null;
-    return _composers[(siteUrl: instance.url, tabId: activeTabId)];
+    return _composers[instance.url];
   }
 
   void _setComposer(ComposerController composer) {
     final target = composer.target;
-    _composers[(siteUrl: target.siteUrl, tabId: target.tabId)] = composer;
+    _composers[target.siteUrl] = composer;
   }
 
   bool _ownsComposer(ComposerController? composer) {
     if (composer == null) return false;
     final target = composer.target;
-    return identical(
-      _composers[(siteUrl: target.siteUrl, tabId: target.tabId)],
-      composer,
-    );
+    return identical(_composers[target.siteUrl], composer);
   }
 
   void _removeComposer(ComposerController composer) {
     if (!_ownsComposer(composer)) return;
     final target = composer.target;
-    _composers.remove((siteUrl: target.siteUrl, tabId: target.tabId));
+    _composers.remove(target.siteUrl);
     _composerDrafts.detach(composer);
   }
 
   Iterable<ComposerController> _composersForSite(String siteUrl) =>
       _composers.values.where((composer) => composer.target.siteUrl == siteUrl);
 
-  /// Sessions remain owned by their existing forum tab.
+  /// Each forum retains one active composer independently of its tabs.
   Iterable<ComposerController> get liveComposers =>
       List.unmodifiable(_composers.values);
 
@@ -7032,9 +7031,6 @@ class ShellController extends FrameSafeNotifier
       return null;
     }
     if (composer.target.siteUrl != instance.url) return null;
-    if (composer.target.tabId case final tabId?) {
-      if (tabId != activeTabId) return null;
-    }
     return composer;
   }
 
@@ -7522,7 +7518,6 @@ class ShellController extends FrameSafeNotifier
         composer != null &&
         composer.target.isNewTopic &&
         composer.target.siteUrl == siteUrl &&
-        composer.target.tabId == tabId &&
         composer.target.originFeedId == feedId;
     if (!reusable) {
       if (!_replaceComposer()) return OpenComposerResult.unavailable;
@@ -7711,8 +7706,7 @@ class ShellController extends FrameSafeNotifier
         !existing.closing &&
         !existing.target.isEdit &&
         existing.target.topicId == topicId &&
-        existing.target.siteUrl == instance.url &&
-        existing.target.tabId == activeTabId) {
+        existing.target.siteUrl == instance.url) {
       existing.retarget(
         replyToPostNumber: replyToPostNumber,
         replyToUsername: replyToUsername,
@@ -7753,6 +7747,7 @@ class ShellController extends FrameSafeNotifier
   }
 
   Future<void> openQuote(Post post, String quote) async {
+    final sourceTabId = activeTabId;
     final instance = currentInstance;
     final route = currentContent;
     final topicId = route?.topicId;
@@ -7770,8 +7765,7 @@ class ShellController extends FrameSafeNotifier
         !composer.target.createsTopic &&
         !composer.target.isPlugin &&
         composer.target.topicId == topicId &&
-        composer.target.siteUrl == instance.url &&
-        composer.target.tabId == activeTabId;
+        composer.target.siteUrl == instance.url;
 
     if (!reusesOpenReply) {
       openReply(
@@ -7796,7 +7790,7 @@ class ShellController extends FrameSafeNotifier
         !_ownsComposer(composer) ||
         currentInstance?.url != instance.url ||
         currentContent?.topicId != topicId ||
-        activeTabId != composer.target.tabId) {
+        activeTabId != sourceTabId) {
       return;
     }
     if (!composer.insertBlock(expectedValue: composer.value, markdown: quote)) {
@@ -10823,6 +10817,10 @@ class ShellController extends FrameSafeNotifier
     // is out would otherwise post what was written in public as a whisper.
     final whisper = composer.whisper;
     final lease = lifecycle.capture(target.siteUrl);
+    if (target.createsTopic) {
+      _composerSubmissionTabs[composer] =
+          _forumWorkspaces[target.siteUrl]?.activeTabId;
+    }
 
     if (target.isEdit) {
       return _submitEdit(composer, target, composer.raw, lease);
@@ -11552,12 +11550,16 @@ class ShellController extends FrameSafeNotifier
     _closeSubmittedComposer(composer);
     if (!wasRetained) return;
     final origin = target.originFeedId;
-    if (currentInstance?.url == target.siteUrl && activeTabId == target.tabId) {
+    final workspace = _forumWorkspaces[target.siteUrl];
+    final submittedTabId = _composerSubmissionTabs[composer];
+    final tabId =
+        workspace?.tabById(submittedTabId ?? '')?.id ?? workspace?.activeTabId;
+    if (currentInstance?.url == target.siteUrl && activeTabId == tabId) {
       _openTopic(topicId, slug, title);
       if (origin != null && target.isNewTopic) {
         unawaited(loadFeed(origin, force: true));
       }
-    } else if (target.tabId case final tabId?) {
+    } else if (tabId != null) {
       final tab = _forumWorkspaces[target.siteUrl]?.tabById(tabId);
       if (tab != null) {
         _replaceTab(
@@ -13571,11 +13573,6 @@ class ShellController extends FrameSafeNotifier
     final index = workspace.tabs.indexWhere((tab) => tab.id == id);
     if (index < 0) return;
 
-    if (_composers[(siteUrl: instance.url, tabId: id)] case final composer?) {
-      if (composer.discarding) return;
-      closeComposer(composer: composer);
-    }
-
     final closedActive = workspace.activeTabId == id;
     _rememberClosedForumTab(
       siteUrl: workspace.siteUrl,
@@ -13667,14 +13664,6 @@ class ShellController extends FrameSafeNotifier
     }
     final kept = workspace.tabById(id);
     if (kept == null) return;
-
-    final closingComposers = _composersForSite(
-      instance.url,
-    ).where((composer) => composer.target.tabId != id).toList();
-    if (closingComposers.any((composer) => composer.discarding)) return;
-    for (final composer in closingComposers) {
-      closeComposer(composer: composer);
-    }
 
     // Remembered right to left so that reopening restores the leftmost tab
     // first, and every reopen lands at the position it left.

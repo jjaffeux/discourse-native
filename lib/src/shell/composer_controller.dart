@@ -165,6 +165,8 @@ class ComposerTarget {
        _draftKey = null;
 
   final String siteUrl;
+
+  /// The initiating tab, retained as source metadata rather than ownership.
   final String? tabId;
   final int topicId;
   final String slug;
