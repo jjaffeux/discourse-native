@@ -221,6 +221,7 @@ class _ComposerDockState extends State<ComposerDock> {
   final _readerViewportKey = GlobalKey();
   double? _resizeProposal;
   _ComposerPresentationHostState? _owner;
+  ComposerController? _visibleComposer;
 
   @override
   void didChangeDependencies() {
@@ -247,6 +248,22 @@ class _ComposerDockState extends State<ComposerDock> {
     final active = identical(owner._activeDock, this);
     final composer = active ? owner._presentableComposer : null;
     final entry = owner._entries[composer];
+    if (!identical(_visibleComposer, composer)) {
+      _visibleComposer = composer;
+      if (composer != null && entry != null && !entry.minimized) {
+        // Autofocus may already have run while the retained editor was parked
+        // offstage. Request focus after its visible dock has been laid out.
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted &&
+              identical(owner._activeDock, this) &&
+              identical(owner._presentableComposer, composer) &&
+              !composer.isDisposed &&
+              !entry.minimized) {
+            composer.focus.requestFocus();
+          }
+        });
+      }
+    }
     final reader = KeyedSubtree(key: _readerKey, child: widget.child);
     Widget readerViewport({bool bottomDocked = false}) => SizedBox.expand(
       key: _readerViewportKey,
