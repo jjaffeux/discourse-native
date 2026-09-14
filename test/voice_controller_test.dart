@@ -213,6 +213,9 @@ final class FakeVoiceMediaSession extends ChangeNotifier
   final List<String> audioInputSelections = [];
   final List<String> audioOutputSelections = [];
   Object? cameraFailure;
+  Future<void> Function(bool)? onSetCamera;
+  void Function(bool)? afterSetCamera;
+  final List<bool> cameraRequests = [];
   Completer<void>? muteGate;
   String? selectedAudioInput;
   String? selectedAudioOutput;
@@ -276,9 +279,17 @@ final class FakeVoiceMediaSession extends ChangeNotifier
   }
 
   @override
-  Future<void> setCameraEnabled(bool enabled, {String? deviceId}) async {
+  Future<void> setCameraEnabled(
+    bool enabled, {
+    String? deviceId,
+    bool Function()? shouldContinue,
+  }) async {
+    cameraRequests.add(enabled);
+    await onSetCamera?.call(enabled);
     if (cameraFailure case final failure?) throw failure;
+    if (enabled && shouldContinue?.call() == false) return;
     camera = enabled;
+    afterSetCamera?.call(enabled);
     if (deviceId != null) selectedCamera = deviceId;
   }
 
@@ -324,9 +335,31 @@ final class FakeVoicePreferences implements VoicePreferences {
   Completer<void>? deviceWriteGate;
   final List<String> writes = [];
   final Map<(String, int, int), double> volumes = {};
+  final Map<(String, int), bool> cameraEnabled = {};
+  Future<bool> Function(String, int)? onReadCamera;
+  Future<void> Function(bool)? onWriteCamera;
+  Future<VoiceDevicePreferences> Function()? onReadDevices;
 
   @override
-  Future<VoiceDevicePreferences> readDevices() async => devices;
+  Future<bool> readCameraEnabled(String siteUrl, int userId) async =>
+      onReadCamera != null
+      ? await onReadCamera!(siteUrl, userId)
+      : cameraEnabled[(siteUrl, userId)] ?? false;
+
+  @override
+  Future<void> writeCameraEnabled(
+    String siteUrl,
+    int userId,
+    bool enabled,
+  ) async {
+    await onWriteCamera?.call(enabled);
+    if (rejectWrites) throw StateError('camera preference write rejected');
+    cameraEnabled[(siteUrl, userId)] = enabled;
+  }
+
+  @override
+  Future<VoiceDevicePreferences> readDevices() async =>
+      onReadDevices == null ? devices : await onReadDevices!();
 
   @override
   Future<double?> readParticipantVolume(
@@ -817,6 +850,8 @@ void main() {
   void useTransport(
     RecordingPluginTransport value, {
     VoiceCapabilityResolver? capabilityEnabledFor,
+    VoiceUserIdLookup? userIdFor,
+    int Function(String)? videoMaxPublishersFor,
     FakeChatConversationCapability? conversations,
     Duration heartbeatInterval = const Duration(days: 1),
   }) {
@@ -834,7 +869,8 @@ void main() {
           : siteUrl == secondSite
           ? secondTracker
           : null,
-      userIdFor: (_) => 1,
+      userIdFor: userIdFor ?? (_) => 1,
+      videoMaxPublishersFor: videoMaxPublishersFor,
       capabilityEnabledFor: capabilityEnabledFor,
       onCallSiteChanged: () {},
       mediaFactory: mediaFactory,
@@ -1795,6 +1831,12 @@ void main() {
         const inputId = 'private-input-device';
         const outputId = 'private-output-device';
         const cameraId = 'private-camera-device';
+        final cameraRoom = fixture('join_mesh');
+        (cameraRoom['room'] as Map<String, dynamic>).addAll({
+          'video_enabled': true,
+          'video_allowed': true,
+        });
+        transport.responses['POST /voice/rooms/7/join.json'] = cameraRoom;
         await controller.ensureLoaded(firstSite);
         await controller.join(
           siteUrl: firstSite,
@@ -3468,6 +3510,12 @@ void main() {
     test(
       'keeps a local media setting while roster-state persistence is rate limited',
       () async {
+        final cameraRoom = fixture('join_mesh');
+        (cameraRoom['room'] as Map<String, dynamic>).addAll({
+          'video_enabled': true,
+          'video_allowed': true,
+        });
+        transport.responses['POST /voice/rooms/7/join.json'] = cameraRoom;
         await controller.ensureLoaded(firstSite);
         await controller.join(
           siteUrl: firstSite,
@@ -3563,6 +3611,715 @@ void main() {
             .where((write) => write.path.endsWith('/state.json'))
             .toList();
         expect(stateWrites.last.body['screen'], isFalse);
+      },
+    );
+  });
+
+  group('remembered camera', () {
+    void watch() => controller.watchRoomVideo(siteUrl: firstSite, roomId: 7);
+    void hide() =>
+        controller.stopWatchingRoomVideo(siteUrl: firstSite, roomId: 7);
+
+    Future<void> joinRoom({String siteUrl = firstSite}) async {
+      await controller.ensureLoaded(siteUrl);
+      await controller.join(
+        siteUrl: siteUrl,
+        siteName: 'Test site',
+        room: controller.room(siteUrl, 7)!,
+      );
+    }
+
+    setUp(() {
+      final payload = fixture('join_mesh');
+      (payload['room'] as Map<String, dynamic>).addAll({
+        'video_enabled': true,
+        'video_allowed': true,
+      });
+      transport.responses['POST /voice/rooms/7/join.json'] = payload;
+    });
+
+    test(
+      'starts with audio only until the account explicitly enables its camera',
+      () async {
+        watch();
+        await joinRoom();
+        await pumpEventQueue();
+        expect(mediaFactory.sessions.single.cameraRequests, isEmpty);
+
+        await controller.setCameraEnabled(true);
+        expect(preferences.cameraEnabled, {(firstSite, 1): true});
+
+        await controller.leave();
+        await joinRoom();
+        await pumpEventQueue();
+        expect(mediaFactory.sessions.last.camera, isTrue);
+        expect(controller.call?.cameraEnabled, isTrue);
+        expect(transport.writes.last.body['video'], isTrue);
+      },
+    );
+
+    test(
+      'restores the selected device only when the connected room becomes visible',
+      () async {
+        preferences.cameraEnabled[(firstSite, 1)] = true;
+        preferences.devices = const VoiceDevicePreferences(
+          cameraDeviceId: 'saved-camera',
+        );
+        useTransport(transport);
+        await joinRoom();
+        await pumpEventQueue();
+        final media = mediaFactory.sessions.single;
+        expect(media.cameraRequests, isEmpty);
+
+        watch();
+        await pumpEventQueue();
+        expect(media.cameraRequests, [true]);
+        expect(media.selectedCamera, 'saved-camera');
+        expect(controller.call?.cameraEnabled, isTrue);
+      },
+    );
+
+    test(
+      'a late device read does not replace a newly selected camera',
+      () async {
+        final devices = Completer<VoiceDevicePreferences>();
+        preferences.onReadDevices = () => devices.future;
+        preferences.cameraEnabled[(firstSite, 1)] = true;
+        addTearDown(() {
+          if (!devices.isCompleted) {
+            devices.complete(const VoiceDevicePreferences());
+          }
+        });
+        useTransport(transport);
+        await joinRoom();
+        watch();
+        await controller.selectCamera('new-camera');
+
+        devices.complete(
+          const VoiceDevicePreferences(cameraDeviceId: 'old-camera'),
+        );
+        await pumpEventQueue();
+
+        expect(controller.cameraDeviceId, 'new-camera');
+        expect(mediaFactory.sessions.single.selectedCamera, 'new-camera');
+        expect(mediaFactory.sessions.single.cameraRequests, [true]);
+      },
+    );
+
+    test(
+      'retries with the newly selected device after cancelling an old capture',
+      () async {
+        preferences.cameraEnabled[(firstSite, 1)] = true;
+        await joinRoom();
+        final media = mediaFactory.sessions.single;
+        final capturing = Completer<void>();
+        final captured = Completer<void>();
+        media.onSetCamera = (_) async {
+          media.onSetCamera = null;
+          capturing.complete();
+          await captured.future;
+        };
+        addTearDown(() {
+          if (!captured.isCompleted) captured.complete();
+        });
+        watch();
+        await capturing.future;
+        final switching = controller.selectCamera('new-camera');
+
+        captured.complete();
+        await switching;
+        await pumpEventQueue();
+
+        expect(media.cameraRequests, [true, false, false, true]);
+        expect(media.selectedCamera, 'new-camera');
+        expect(controller.call?.cameraEnabled, isTrue);
+      },
+    );
+
+    for (final action in ['manual start', 'device switch']) {
+      for (final revoked in [
+        'video forbidden',
+        'video disabled',
+        'speaking role',
+        'publisher limit',
+      ]) {
+        test('cancels $action when $revoked changes during capture', () async {
+          if (revoked == 'speaking role') {
+            final room =
+                transport.responses['POST /voice/rooms/7/join.json']!['room']
+                    as Map<String, dynamic>;
+            room['room_type'] = 'stage';
+            room['active_participants'] = [
+              {'id': 1, 'username': 'sam', 'role': 'speaker'},
+            ];
+          }
+          var maxPublishers = 8;
+          useTransport(transport, videoMaxPublishersFor: (_) => maxPublishers);
+          await joinRoom();
+          watch();
+          final media = mediaFactory.sessions.single;
+          if (action == 'device switch') {
+            await controller.setCameraEnabled(true);
+          }
+          final capturing = Completer<void>();
+          final captured = Completer<void>();
+          media.onSetCamera = (enabled) async {
+            if (!enabled) return;
+            capturing.complete();
+            await captured.future;
+          };
+          addTearDown(() {
+            if (!captured.isCompleted) captured.complete();
+          });
+          final operation = action == 'device switch'
+              ? controller.selectCamera('new-camera')
+              : controller.setCameraEnabled(true);
+          await capturing.future;
+          switch (revoked) {
+            case 'video forbidden':
+            case 'video disabled':
+              firstTracker.deliver('/voice/rooms/index', {
+                'type': 'updated',
+                'room': {
+                  ...(transport
+                          .responses['POST /voice/rooms/7/join.json']!['room']
+                      as Map<String, dynamic>),
+                  if (revoked == 'video forbidden') 'video_allowed': false,
+                  if (revoked == 'video disabled') 'video_enabled': false,
+                },
+              });
+            case 'speaking role':
+              firstTracker.deliver('/voice/rooms/7', {
+                'type': 'participants',
+                'participants': [
+                  {'id': 1, 'username': 'sam', 'role': 'participant'},
+                ],
+              });
+            case 'publisher limit':
+              maxPublishers = 0;
+          }
+          captured.complete();
+          await operation;
+          expect(media.camera, isFalse);
+          expect(controller.call?.cameraEnabled, isFalse);
+          expect(controller.cameraStarting, isFalse);
+          expect(
+            preferences.cameraEnabled[(firstSite, 1)],
+            action == 'device switch' ? isTrue : isNull,
+          );
+        });
+      }
+    }
+
+    for (final cancel in [false, true]) {
+      test(
+        'a device selected during first manual capture ${cancel ? 'can be cancelled' : 'retains camera-on intent'}',
+        () async {
+          await joinRoom();
+          watch();
+          final media = mediaFactory.sessions.single;
+          final capturing = Completer<void>();
+          final captured = Completer<void>();
+          media.onSetCamera = (enabled) async {
+            if (!enabled) return;
+            media.onSetCamera = null;
+            capturing.complete();
+            await captured.future;
+          };
+          addTearDown(() {
+            if (!captured.isCompleted) captured.complete();
+          });
+          final enabling = controller.setCameraEnabled(true);
+          await capturing.future;
+          final switching = controller.selectCamera('new-camera');
+          expect(controller.cameraStarting, isTrue);
+          final cancelling = cancel
+              ? controller.setCameraEnabled(false)
+              : Future<void>.value();
+          captured.complete();
+          await Future.wait([enabling, switching, cancelling]);
+          expect(media.camera, !cancel);
+          expect(controller.call?.cameraEnabled, !cancel);
+          expect(preferences.cameraEnabled[(firstSite, 1)], !cancel);
+          if (!cancel) expect(media.selectedCamera, 'new-camera');
+          expect(controller.cameraStarting, isFalse);
+        },
+      );
+    }
+
+    test(
+      'camera off stops capture before an earlier preference write completes',
+      () async {
+        await joinRoom();
+        final started = Completer<void>();
+        final saved = Completer<void>();
+        preferences.onWriteCamera = (enabled) async {
+          if (enabled) {
+            started.complete();
+            await saved.future;
+          }
+        };
+        addTearDown(() {
+          if (!saved.isCompleted) saved.complete();
+        });
+        final enabling = controller.setCameraEnabled(true);
+        await started.future;
+        final media = mediaFactory.sessions.single;
+        final stopped = Completer<void>();
+        media.afterSetCamera = (enabled) {
+          if (!enabled && !stopped.isCompleted) stopped.complete();
+        };
+        final disabling = controller.setCameraEnabled(false);
+        await stopped.future;
+        expect(media.camera, isFalse);
+        expect(saved.isCompleted, isFalse);
+        saved.complete();
+        await Future.wait([enabling, disabling]);
+        expect(controller.call?.cameraEnabled, isFalse);
+      },
+    );
+
+    test('keeps another site and account audio only', () async {
+      preferences.cameraEnabled[(firstSite, 1)] = true;
+      var userId = 2;
+      useTransport(transport, userIdFor: (_) => userId);
+      watch();
+      await joinRoom();
+      await pumpEventQueue();
+      expect(mediaFactory.sessions.last.cameraRequests, isEmpty);
+
+      await controller.leave();
+      userId = 1;
+      controller.watchRoomVideo(siteUrl: secondSite, roomId: 7);
+      await joinRoom(siteUrl: secondSite);
+      await pumpEventQueue();
+      expect(mediaFactory.sessions.last.cameraRequests, isEmpty);
+    });
+
+    test(
+      'a cancelled device switch reports camera off and can restore when shown',
+      () async {
+        await joinRoom();
+        watch();
+        await controller.setCameraEnabled(true);
+        final media = mediaFactory.sessions.single;
+        final capturing = Completer<void>();
+        final captured = Completer<void>();
+        media.onSetCamera = (enabled) async {
+          if (!enabled) return;
+          media.onSetCamera = null;
+          capturing.complete();
+          await captured.future;
+        };
+        addTearDown(() {
+          if (!captured.isCompleted) captured.complete();
+        });
+        final switching = controller.selectCamera('new-camera');
+        await capturing.future;
+        hide();
+        captured.complete();
+        await switching;
+
+        expect(media.camera, isFalse);
+        expect(controller.call?.cameraEnabled, isFalse);
+        watch();
+        await pumpEventQueue();
+        expect(media.selectedCamera, 'new-camera');
+        expect(controller.call?.cameraEnabled, isTrue);
+      },
+    );
+
+    test(
+      'explicit off cancels a pending preference read and survives rejoining',
+      () async {
+        final reading = Completer<bool>();
+        final started = Completer<void>();
+        preferences.onReadCamera = (_, _) {
+          started.complete();
+          return reading.future;
+        };
+        addTearDown(() {
+          if (!reading.isCompleted) reading.complete(false);
+        });
+        await joinRoom();
+        watch();
+        await started.future;
+
+        await controller.setCameraEnabled(false);
+        reading.complete(true);
+        await pumpEventQueue();
+        expect(mediaFactory.sessions.single.cameraRequests, [false]);
+        expect(preferences.cameraEnabled[(firstSite, 1)], isFalse);
+
+        await controller.leave();
+        await joinRoom();
+        await pumpEventQueue();
+        expect(mediaFactory.sessions.last.cameraRequests, isEmpty);
+      },
+    );
+
+    for (final invalidation in [
+      'camera off',
+      'hidden',
+      'background',
+      'leave',
+      'account changed',
+      'screen sharing',
+      'video forbidden',
+      'publisher limit',
+    ]) {
+      test('does not publish a pending capture after $invalidation', () async {
+        preferences.cameraEnabled[(firstSite, 1)] = true;
+        var userId = 1;
+        var maxPublishers = 6;
+        useTransport(
+          transport,
+          userIdFor: (_) => userId,
+          videoMaxPublishersFor: (_) => maxPublishers,
+        );
+        await joinRoom();
+        final media = mediaFactory.sessions.single;
+        final capturing = Completer<void>();
+        final captured = Completer<void>();
+        media.onSetCamera = (enabled) async {
+          if (!enabled) return;
+          capturing.complete();
+          await captured.future;
+        };
+        addTearDown(() {
+          if (!captured.isCompleted) captured.complete();
+        });
+        watch();
+        await capturing.future;
+
+        Future<void>? turningOff;
+        switch (invalidation) {
+          case 'camera off':
+            turningOff = controller.setCameraEnabled(false);
+          case 'hidden':
+            hide();
+          case 'background':
+            controller.setForeground(false);
+          case 'leave':
+            await controller.leave();
+          case 'account changed':
+            userId = 2;
+          case 'screen sharing':
+            await controller.setScreenSharing(true);
+          case 'video forbidden':
+            firstTracker.deliver('/voice/rooms/index', {
+              'type': 'updated',
+              'room': {
+                ...(transport
+                        .responses['POST /voice/rooms/7/join.json']!['room']
+                    as Map<String, dynamic>),
+                'video_allowed': false,
+              },
+            });
+          case 'publisher limit':
+            maxPublishers = 0;
+        }
+        captured.complete();
+        await turningOff;
+        await pumpEventQueue();
+
+        expect(media.camera, isFalse);
+        expect(controller.call?.cameraEnabled, isNot(true));
+        expect(
+          transport.writes.where(
+            (write) =>
+                write.path.endsWith('/state.json') &&
+                write.body['video'] == true,
+          ),
+          isEmpty,
+        );
+      });
+    }
+
+    test(
+      'coalesces watches and retries when a pending capture is hidden then shown',
+      () async {
+        preferences.cameraEnabled[(firstSite, 1)] = true;
+        await joinRoom();
+        final media = mediaFactory.sessions.single;
+        final capturing = Completer<void>();
+        final captured = Completer<void>();
+        media.onSetCamera = (_) async {
+          media.onSetCamera = null;
+          capturing.complete();
+          await captured.future;
+        };
+        addTearDown(() {
+          if (!captured.isCompleted) captured.complete();
+        });
+        watch();
+        watch();
+        await capturing.future;
+        expect(media.cameraRequests, [true]);
+        hide();
+        hide();
+        watch();
+
+        captured.complete();
+        await pumpEventQueue();
+        expect(media.cameraRequests, [true, false, true]);
+        expect(controller.call?.cameraEnabled, isTrue);
+      },
+    );
+
+    for (final reason in [
+      'video disabled',
+      'video forbidden',
+      'stage listener',
+      'publisher limit',
+    ]) {
+      test('does not start the camera when blocked by $reason', () async {
+        preferences.cameraEnabled[(firstSite, 1)] = true;
+        final room =
+            transport.responses['POST /voice/rooms/7/join.json']!['room']
+                as Map<String, dynamic>;
+        switch (reason) {
+          case 'video disabled':
+            room['video_enabled'] = false;
+          case 'video forbidden':
+            room['video_allowed'] = false;
+          case 'stage listener':
+            room['room_type'] = 'stage';
+          case 'publisher limit':
+            room['active_participants'] = [
+              {'id': 1, 'username': 'sam', 'role': 'participant'},
+              {
+                'id': 2,
+                'username': 'other',
+                'role': 'participant',
+                'is_screen_sharing': true,
+              },
+            ];
+            useTransport(transport, videoMaxPublishersFor: (_) => 1);
+        }
+        watch();
+        await joinRoom();
+        await pumpEventQueue();
+        expect(mediaFactory.sessions.single.cameraRequests, isEmpty);
+        expect(controller.call?.status, VoiceCallStatus.connected);
+      });
+    }
+
+    test(
+      'defers restoration until the app returns to the foreground',
+      () async {
+        preferences.cameraEnabled[(firstSite, 1)] = true;
+        controller.setForeground(false);
+        watch();
+        await joinRoom();
+        await pumpEventQueue();
+        expect(mediaFactory.sessions.single.cameraRequests, isEmpty);
+
+        controller.setForeground(true);
+        await pumpEventQueue();
+        expect(controller.call?.cameraEnabled, isTrue);
+      },
+    );
+
+    for (final ending in ['user', 'system']) {
+      test(
+        'restores the preference when screen sharing ends by $ending',
+        () async {
+          preferences.cameraEnabled[(firstSite, 1)] = true;
+          await joinRoom();
+          final media = mediaFactory.sessions.single;
+          await controller.setScreenSharing(true);
+          watch();
+          await pumpEventQueue();
+          expect(media.cameraRequests, isEmpty);
+
+          if (ending == 'user') {
+            await controller.setScreenSharing(false);
+          } else {
+            media.screen = false;
+            media.notifyListeners();
+          }
+          await pumpEventQueue();
+          expect(controller.call?.screenSharing, isFalse);
+          expect(controller.call?.cameraEnabled, isTrue);
+          expect(media.cameraRequests, [true]);
+        },
+      );
+    }
+
+    for (final automatic in [false, true]) {
+      test(
+        'releases a ${automatic ? 'restored' : 'manual'} camera invalidated as capture completes',
+        () async {
+          preferences.cameraEnabled[(firstSite, 1)] = automatic;
+          await joinRoom();
+          final media = mediaFactory.sessions.single;
+          media.afterSetCamera = (enabled) {
+            if (enabled) hide();
+          };
+          watch();
+          if (!automatic) await controller.setCameraEnabled(true);
+          await pumpEventQueue();
+
+          expect(media.cameraRequests, [true, false]);
+          expect(media.camera, isFalse);
+          expect(controller.call?.cameraEnabled, isFalse);
+          expect(controller.cameraStarting, isFalse);
+        },
+      );
+
+      test(
+        'camera off does not wait for the ${automatic ? 'automatic' : 'manual'} enable state write',
+        () async {
+          preferences.cameraEnabled[(firstSite, 1)] = automatic;
+          final controlled = _ControlledVoiceTransport(
+            responses: transport.responses,
+          );
+          useTransport(controlled);
+          await joinRoom();
+          final media = mediaFactory.sessions.single;
+          controlled.heldPluginWritePaths.add('/voice/rooms/7/state.json');
+          addTearDown(() {
+            controlled.heldPluginWritePaths.clear();
+            for (final write in controlled.pendingPluginWrites) {
+              if (!write.response.isCompleted) write.response.complete({});
+            }
+          });
+          Future<void>? enabling;
+          if (automatic) {
+            watch();
+          } else {
+            enabling = controller.setCameraEnabled(true);
+          }
+          await controlled.waitForPendingPluginWrites(1);
+          await pumpEventQueue();
+          expect(controller.call?.cameraEnabled, isTrue);
+          final disabled = Completer<void>();
+          controller.addListener(() {
+            if (controller.call?.cameraEnabled == false &&
+                !disabled.isCompleted) {
+              disabled.complete();
+            }
+          });
+
+          final disabling = controller.setCameraEnabled(false);
+          await disabled.future;
+
+          expect(media.camera, isFalse);
+          expect(preferences.cameraEnabled[(firstSite, 1)], isFalse);
+          expect(
+            controlled.pendingPluginWrites.single.response.isCompleted,
+            isFalse,
+          );
+          controlled.heldPluginWritePaths.clear();
+          controlled.pendingPluginWrites.single.response.complete({});
+          await enabling;
+          await disabling;
+        },
+      );
+    }
+
+    test(
+      'finishes turning the camera off when the app backgrounds during the stop',
+      () async {
+        await joinRoom();
+        await controller.setCameraEnabled(true);
+        final media = mediaFactory.sessions.single;
+        final stopping = Completer<void>();
+        final stopped = Completer<void>();
+        media.onSetCamera = (_) async {
+          stopping.complete();
+          await stopped.future;
+        };
+        addTearDown(() {
+          if (!stopped.isCompleted) stopped.complete();
+        });
+
+        final disabling = controller.setCameraEnabled(false);
+        await stopping.future;
+        controller.setForeground(false);
+        stopped.complete();
+        await disabling;
+
+        expect(media.camera, isFalse);
+        expect(controller.call?.cameraEnabled, isFalse);
+        expect(preferences.cameraEnabled[(firstSite, 1)], isFalse);
+      },
+    );
+
+    test('restores after reconnecting cancels an unfinished capture', () async {
+      preferences.cameraEnabled[(firstSite, 1)] = true;
+      await joinRoom();
+      final media = mediaFactory.sessions.single;
+      final capturing = Completer<void>();
+      final captured = Completer<void>();
+      media.onSetCamera = (_) async {
+        media.onSetCamera = null;
+        capturing.complete();
+        await captured.future;
+      };
+      addTearDown(() {
+        if (!captured.isCompleted) captured.complete();
+      });
+      watch();
+      await capturing.future;
+      media.connectionState = VoiceMediaConnectionState.reconnecting;
+      media.notifyListeners();
+      captured.complete();
+      await pumpEventQueue();
+      expect(media.camera, isFalse);
+
+      media.connectionState = VoiceMediaConnectionState.connected;
+      media.notifyListeners();
+      await pumpEventQueue();
+      expect(media.cameraRequests, [true, false, true]);
+      expect(controller.call?.cameraEnabled, isTrue);
+    });
+
+    test(
+      'a preference read failure leaves the camera off and the call usable',
+      () async {
+        preferences.onReadCamera = (_, _) async =>
+            throw StateError('unavailable');
+        watch();
+        await joinRoom();
+        await pumpEventQueue();
+
+        expect(mediaFactory.sessions.single.cameraRequests, isEmpty);
+        expect(controller.call?.status, VoiceCallStatus.connected);
+        expect(controller.call?.error, isNull);
+      },
+    );
+
+    test(
+      'automatic capture failure leaves the audio call usable without an error',
+      () async {
+        preferences.cameraEnabled[(firstSite, 1)] = true;
+        mediaFactory.nextCameraFailure = StateError('permission denied');
+        watch();
+        await joinRoom();
+        await pumpEventQueue();
+
+        expect(mediaFactory.sessions.single.cameraRequests, [true]);
+        expect(controller.call?.status, VoiceCallStatus.connected);
+        expect(controller.call?.cameraEnabled, isFalse);
+        expect(controller.call?.error, isNull);
+        expect(preferences.cameraEnabled[(firstSite, 1)], isTrue);
+      },
+    );
+
+    test(
+      'a failed explicit camera enable does not opt the account in',
+      () async {
+        await joinRoom();
+        mediaFactory.sessions.single.cameraFailure = StateError(
+          'permission denied',
+        );
+        await controller.setCameraEnabled(true);
+
+        expect(preferences.cameraEnabled, isEmpty);
+        expect(controller.call?.cameraEnabled, isFalse);
+        expect(controller.call?.error, 'The media setting was not applied.');
       },
     );
   });

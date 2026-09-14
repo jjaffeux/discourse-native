@@ -56,6 +56,7 @@ class VoiceRoomView extends StatelessWidget {
 typedef _VoiceRoomPresentation = ({
   VoiceRoom? room,
   VoiceCallSnapshot? call,
+  bool cameraStarting,
   int? currentUserId,
   bool recordingEnabled,
   bool meshPrivacyWarningEnabled,
@@ -113,6 +114,7 @@ class _VoiceRoomControllerViewState extends State<_VoiceRoomControllerView> {
       return (
         room: null,
         call: null,
+        cameraStarting: false,
         currentUserId: widget.shell.currentUserIdFor(widget.siteUrl),
         recordingEnabled: false,
         meshPrivacyWarningEnabled: widget.shell.meshPrivacyWarningEnabledFor(
@@ -133,6 +135,7 @@ class _VoiceRoomControllerViewState extends State<_VoiceRoomControllerView> {
     return (
       room: room,
       call: call,
+      cameraStarting: call != null && widget.controller.cameraStarting,
       currentUserId: widget.shell.currentUserIdFor(widget.siteUrl),
       recordingEnabled:
           call != null &&
@@ -836,6 +839,7 @@ class _CallControls extends StatelessWidget {
         role == VoiceRole.moderator ||
         role == VoiceRole.speaker;
     final canPublishVideo = canPublish && call.room.videoAllowed;
+    final cameraOn = call.cameraEnabled || controller.cameraStarting;
     final canShare = (Platform.isMacOS || Platform.isLinux) && canPublishVideo;
     return Wrap(
       alignment: WrapAlignment.center,
@@ -858,10 +862,10 @@ class _CallControls extends StatelessWidget {
         ),
         if (canPublishVideo)
           VoiceToolbarControl(
-            label: call.cameraEnabled ? 'Camera off' : 'Camera on',
-            icon: call.cameraEnabled ? DIcons.videoSlash : DIcons.video,
-            selected: call.cameraEnabled,
-            onPressed: () => controller.setCameraEnabled(!call.cameraEnabled),
+            label: cameraOn ? 'Camera off' : 'Camera on',
+            icon: cameraOn ? DIcons.videoSlash : DIcons.video,
+            selected: cameraOn,
+            onPressed: () => controller.setCameraEnabled(!cameraOn),
           ),
         if (canShare)
           VoiceToolbarControl(

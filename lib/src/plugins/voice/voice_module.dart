@@ -73,6 +73,8 @@ final class VoiceModule implements PluginModule {
           idleThresholdsFor: (siteUrl) => voiceIdleThresholds(
             siteState.siteConfigFor(siteUrl).voiceSettings,
           ),
+          videoMaxPublishersFor: (siteUrl) =>
+              siteState.siteConfigFor(siteUrl).voiceSettings.videoMaxPublishers,
           siteNameFor: (siteUrl) => host.sites
               .where((site) => site.url == siteUrl)
               .firstOrNull

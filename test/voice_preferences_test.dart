@@ -4,6 +4,71 @@ import 'package:discourse_native/src/plugins/voice/voice_preferences.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test(
+    'camera preference defaults off and belongs to a site and account',
+    () async {
+      final persistence = _MemoryPersistence();
+      final preferences = SharedPreferencesVoicePreferences(
+        persistence: persistence,
+      );
+      const site = 'https://meta.discourse.org';
+      expect(await preferences.readCameraEnabled(site, 1), isFalse);
+
+      await preferences.writeCameraEnabled(site, 1, true);
+      final replacement = SharedPreferencesVoicePreferences(
+        persistence: persistence,
+      );
+
+      expect(await replacement.readCameraEnabled(site, 1), isTrue);
+      expect(await replacement.readCameraEnabled(site, 2), isFalse);
+      expect(
+        await replacement.readCameraEnabled('https://other.example.com', 1),
+        isFalse,
+      );
+
+      await replacement.writeCameraEnabled(site, 1, false);
+      expect(await preferences.readCameraEnabled(site, 1), isFalse);
+    },
+  );
+
+  test('a rejected camera preference write reports failure', () async {
+    final preferences = SharedPreferencesVoicePreferences(
+      persistence: _ControlledPersistence(acceptBoolWrites: false),
+    );
+
+    await expectLater(
+      preferences.writeCameraEnabled('https://meta.discourse.org', 1, true),
+      throwsStateError,
+    );
+  });
+
+  test(
+    'camera off persists last across a delayed on write and replacement reads',
+    () async {
+      final persistence = _ControlledPersistence(holdBoolWrite: true);
+      final preferences = SharedPreferencesVoicePreferences(
+        persistence: persistence,
+      );
+      final replacement = SharedPreferencesVoicePreferences(
+        persistence: persistence,
+      );
+      const site = 'https://meta.discourse.org';
+      addTearDown(() {
+        if (!persistence.finishFirstBoolWrite.isCompleted) {
+          persistence.finishFirstBoolWrite.complete();
+        }
+      });
+      final enabling = preferences.writeCameraEnabled(site, 1, true);
+      await persistence.firstBoolWriteStarted.future;
+      final disabling = replacement.writeCameraEnabled(site, 1, false);
+      final reading = preferences.readCameraEnabled(site, 1);
+      persistence.finishFirstBoolWrite.complete();
+      await Future.wait([enabling, disabling]);
+      expect(await reading, isFalse);
+      expect(persistence.boolWriteValues, [true, false]);
+    },
+  );
+
   test('replacement device writes persist the latest request', () async {
     final persistence = _ControlledPersistence();
     addTearDown(() {
@@ -146,7 +211,15 @@ final class _FailingReadPersistence implements VoicePreferencesPersistence {
 }
 
 final class _ControlledPersistence implements VoicePreferencesPersistence {
-  _ControlledPersistence({this.acceptBoolWrites = true});
+  _ControlledPersistence({
+    this.acceptBoolWrites = true,
+    this.holdBoolWrite = false,
+  });
+
+  final bool holdBoolWrite;
+  final firstBoolWriteStarted = Completer<void>();
+  final finishFirstBoolWrite = Completer<void>();
+  final boolWriteValues = <bool>[];
 
   final bool acceptBoolWrites;
   final Completer<void> firstStringWriteStarted = Completer<void>();
@@ -184,6 +257,12 @@ final class _ControlledPersistence implements VoicePreferencesPersistence {
 
   @override
   Future<bool> writeBool(String key, bool value) async {
+    boolWriteValues.add(value);
+    if (holdBoolWrite && boolWriteValues.length == 1) {
+      firstBoolWriteStarted.complete();
+      await finishFirstBoolWrite.future;
+    }
+
     if (!acceptBoolWrites) return false;
     boolValue = value;
     return true;
