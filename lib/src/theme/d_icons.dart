@@ -396,7 +396,8 @@ abstract final class DIcons {
 
   static const DIconData discourseAi = DIconData(
     'discourse-ai',
-    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="currentColor"><path fill-rule="evenodd" d="M96 32h320c35.35 0 64 28.65 64 64v320c0 35.35-28.65 64-64 64H96c-35.35 0-64-28.65-64-64V96c0-35.35 28.65-64 64-64Zm16 328 68-208h56l68 208h-52l-14-48h-61l-14 48h-51Zm78-92h35l-17-60-18 60Zm130-116h80v44h-16v120h16v44h-80v-44h16V196h-16v-44Z"/></svg>',
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="currentColor"><path fill="#333" d="M96 32h320c35.35 0 64 28.65 64 64v320c0 35.35-28.65 64-64 64H96c-35.35 0-64-28.65-64-64V96c0-35.35 28.65-64 64-64Z"/><path fill="#fff" fill-rule="evenodd" d="M112 360l68-208h56l68 208h-52l-14-48h-61l-14 48h-51Zm78-92h35l-17-60-18 60Zm130-116h80v44h-16v120h16v44h-80v-44h16V196h-16v-44Z"/></svg>',
+    preserveColors: true,
   );
 
   static const DIconData robot = DIconData(

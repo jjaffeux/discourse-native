@@ -9,6 +9,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/finders.dart';
+import 'support/pixel_samples.dart';
 
 void main() {
   group('DIcon', () {
@@ -124,6 +125,46 @@ void main() {
       expect(DIcons.byName['d-unliked'], DIcons.farHeart);
       expect(DIcons.byName['topic.closed'], DIcons.lock);
       expect(DIcons.byName['notification.mentioned'], DIcons.at);
+    });
+
+    testWidgets('AI badge keeps its fixed artwork across theme changes', (
+      tester,
+    ) async {
+      const key = ValueKey('ai-icon');
+      for (final brightness in Brightness.values) {
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: ThemeData(brightness: brightness),
+            home: const Center(
+              child: RepaintBoundary(
+                key: key,
+                child: DIcon(
+                  DIcons.discourseAi,
+                  size: 128,
+                  color: Color(0xFFFF0000),
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        final colors = await samplePixels(tester, find.byKey(key), const [
+          Offset(64, 30), // Background above the lettering.
+          Offset(83, 46), // Top bar of the I.
+          Offset.zero, // Outside the rounded artwork.
+        ]);
+        expect(colors, const [
+          Color(0xFF333333),
+          Colors.white,
+          Colors.transparent,
+        ]);
+        expect(DIcons.discourseAi.preserveColors, isTrue);
+        expect(
+          tester.widget<SvgPicture>(find.byType(SvgPicture)).colorFilter,
+          isNull,
+        );
+      }
     });
 
     testWidgets('preserves SVG colors, palette changes and icon opacity', (
