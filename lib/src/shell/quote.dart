@@ -114,7 +114,7 @@ class QuoteBlock extends StatelessWidget {
           CookedHtml(
             html: data.bodyHtml,
             siteUrl: siteUrl,
-            textStyle: theme.textTheme.bodyMedium?.copyWith(
+            textStyle: theme.textTheme.bodyLarge?.copyWith(
               height: DiscourseTypography.lineHeightCooked,
             ),
           ),
