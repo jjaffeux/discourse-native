@@ -1,5 +1,3 @@
-import 'dart:math' as math;
-
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
@@ -7,6 +5,7 @@ import '../app_shortcuts.dart';
 import '../models/bookmark.dart';
 import '../models/content_route.dart';
 import '../plugin_api/plugin_scope.dart';
+import '../theme/app_theme.dart';
 import 'keyboard_navigation.dart';
 import 'platform.dart';
 import 'reader_content_bounds.dart';
@@ -14,6 +13,8 @@ import 'shell_scope.dart';
 import 'topic_list_bottom_bar.dart';
 import 'topic_sheet_scope.dart';
 import 'topic_view.dart';
+
+const _idealTopicSheetWidth = 825.0;
 
 typedef _TopicSheetState = ({
   String? siteUrl,
@@ -92,15 +93,13 @@ class _TopicSheetRouteHost extends StatelessWidget {
           }
         }
 
-        final available = MediaQuery.sizeOf(context).width;
-        final width = math.min(840.0, math.max(480.0, available * .64));
         return DSheet<void>(
           open: route != null,
           onOpenChanged: (details) {
             if (!details.open) close();
           },
           barrierLabel: 'Close topic sheet',
-          routeSettings: const RouteSettings(name: 'desktop-topic-sheet'),
+          routeSettings: const TopicSheetRouteSettings(),
           trigger: DSheetTrigger(
             builder: (context, _) =>
                 TopicSheetScope(background: true, child: child),
@@ -109,8 +108,9 @@ class _TopicSheetRouteHost extends StatelessWidget {
             key: const ValueKey('desktop-topic-sheet'),
             inset: true,
             animateSize: true,
-            sidePanelWidth: width,
-            sidePanelMaxWidth: 840,
+            // DSheet clamps to the workspace bounds, preserving its insets.
+            sidePanelWidth: _idealTopicSheetWidth,
+            sidePanelMaxWidth: _idealTopicSheetWidth,
             showCloseButton: false,
             scrollWholeSheet: false,
             semanticLabel: route?.title ?? 'Topic',
@@ -147,19 +147,22 @@ class _TopicSheetRouteHost extends StatelessWidget {
                                   ),
                             },
                             child: ReaderContentBounds(
-                              child: TopicView(
-                                key: ValueKey((
-                                  state.siteUrl,
-                                  state.tabId,
-                                  route.topicId,
-                                )),
-                                inbox: true,
-                                route: route,
-                                canReturnToSidebar: false,
-                                canReply: state.canReply,
-                                bookmarkBusy: state.bookmarkBusy,
-                                isConnected: state.isConnected,
-                                registry: PluginScope.of(context).registry,
+                              child: ColoredBox(
+                                color: Theme.of(readerContext).shell.content,
+                                child: TopicView(
+                                  key: ValueKey((
+                                    state.siteUrl,
+                                    state.tabId,
+                                    route.topicId,
+                                  )),
+                                  inbox: true,
+                                  route: route,
+                                  canReturnToSidebar: false,
+                                  canReply: state.canReply,
+                                  bookmarkBusy: state.bookmarkBusy,
+                                  isConnected: state.isConnected,
+                                  registry: PluginScope.of(context).registry,
+                                ),
                               ),
                             ),
                           ),

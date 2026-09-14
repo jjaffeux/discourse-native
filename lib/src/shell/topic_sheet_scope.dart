@@ -1,5 +1,10 @@
 import 'package:flutter/widgets.dart';
 
+/// Identifies the reading route even when focus is above its content scope.
+class TopicSheetRouteSettings extends RouteSettings {
+  const TopicSheetRouteSettings() : super(name: 'desktop-topic-sheet');
+}
+
 /// Identifies the retained background and the reading route of a topic sheet.
 class TopicSheetScope extends InheritedWidget {
   const TopicSheetScope({

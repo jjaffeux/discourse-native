@@ -72,10 +72,15 @@ right inset sheet below the window toolbar. Following the user's revision,
 `ComposerDock` now owns the outer desktop layout. Physical left/right docking
 reduces the whole workspace width, including navigation; bottom docking reduces
 its height. The sheet adapts to the remaining workspace rather than widening for
-the editor. Closing the sheet leaves the composer available; minimizing or
+the editor. Its ideal width is 825px: it covers more of the retained background
+to reach that width, shrinking only when the workspace minus its insets is
+narrower. Closing the sheet leaves the composer available; minimizing or
 closing the composer restores workspace space. Narrow windows keep the existing
 bottom fallback and restore the preferred side when space permits. Mobile keeps
 its page-level composer.
+
+The topic sheet uses the reading background across its header, body and footer,
+following the active app or forum palette.
 
 The workspace is a separate semantics container so its modal sheet cannot hide
 the left-docked composer from accessibility. On macOS the left composer reserves
