@@ -32,6 +32,34 @@ import 'support/fakes.dart';
 void main() {
   final sites = [instance('one.example'), instance('two.example')];
 
+  testWidgets('scroll separator spans the pane only away from the top', (
+    tester,
+  ) async {
+    final api = _ControlledPagingApi();
+    final controller = await _controlledShell(api, sites.first);
+    addTearDown(controller.dispose);
+    api.requests.single.response.complete(TopicList(topics: _topics(1, 40)));
+    await tester.pumpWidget(_LiveTestList(controller: controller));
+    await tester.pumpAndSettle();
+
+    final separator = find.byKey(const ValueKey('topic-list-scroll-separator'));
+    expect(separator, findsNothing);
+    final scroll = tester
+        .state<ScrollableState>(find.byType(Scrollable))
+        .position;
+    scroll.jumpTo(100);
+    await tester.pumpAndSettle();
+
+    expect(separator, findsOneWidget);
+    expect(
+      tester.getSize(separator).width,
+      tester.getSize(find.byType(TopicListView)).width,
+    );
+    scroll.jumpTo(scroll.minScrollExtent);
+    await tester.pumpAndSettle();
+    expect(separator, findsNothing);
+  });
+
   testWidgets(
     'incoming button keeps its label while loading and reveals updates',
     (tester) async {
