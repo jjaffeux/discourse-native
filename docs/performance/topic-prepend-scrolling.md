@@ -1,5 +1,8 @@
 # Topic prepend scrolling — September 14
 
+The [viewport-edge follow-up](topic-edge-prepend-scrolling.md) covers page
+arrivals while the earlier-page loading header is still attached.
+
 The supplied 16.6-second debug capture contained 134 UI frames over the
 8.33 ms budget out of 1,160 frames, with a 224.95 ms maximum. No raster frame
 exceeded the budget. Four of its five worst UI frames coincided with earlier
