@@ -24,6 +24,7 @@ import '../data/site_image_repository.dart';
 import '../data/site_lifecycle.dart';
 import '../data/site_message_bus_bootstrap.dart';
 import '../data/site_tracker.dart';
+import '../data/site_video_thumbnail_repository.dart';
 import '../data/store.dart';
 import '../data/topic_sidebar_store.dart';
 import '../data/update_store.dart';
@@ -277,6 +278,7 @@ class ShellController extends FrameSafeNotifier
     SiteLifecycle? lifecycle,
     DateTime Function()? clock,
     SiteImageRepository? siteImages,
+    SiteVideoThumbnailRepository? videoThumbnails,
     this._discoverSites,
     this.trackers = SiteTracker.new,
     Updater updater = const UnsupportedUpdater(),
@@ -307,6 +309,7 @@ class ShellController extends FrameSafeNotifier
        lifecycle = lifecycle ?? SiteLifecycle(),
        _clock = clock ?? DateTime.now,
        _providedSiteImages = siteImages,
+       _providedVideoThumbnails = videoThumbnails,
        _rootMode = initialRootMode,
        _ownsPlugins = plugins == null,
        _pluginDiagnosticsReporter =
@@ -368,6 +371,7 @@ class ShellController extends FrameSafeNotifier
         },
       );
   final SiteImageRepository? _providedSiteImages;
+  final SiteVideoThumbnailRepository? _providedVideoThumbnails;
   final InstalledPlugins plugins;
   final bool _ownsPlugins;
   final PluginDiagnosticsReporter _pluginDiagnosticsReporter;
@@ -385,6 +389,13 @@ class ShellController extends FrameSafeNotifier
   late final SiteImageRepository siteImages =
       _providedSiteImages ??
       SiteImageRepository(credentials: authenticator, lifecycle: lifecycle);
+
+  late final SiteVideoThumbnailRepository videoThumbnails =
+      _providedVideoThumbnails ??
+      SiteVideoThumbnailRepository(
+        credentials: authenticator,
+        lifecycle: lifecycle,
+      );
 
   late final PluginSession _pluginSession = plugins.openSession(
     PluginHostBindings(<PluginHostPort<Object>>[
@@ -12635,6 +12646,7 @@ class ShellController extends FrameSafeNotifier
   void _forgetSiteState(String siteUrl, {bool invalidateLifecycle = true}) {
     if (invalidateLifecycle) lifecycle.invalidate(siteUrl);
     siteImages.forget(siteUrl);
+    videoThumbnails.forget(siteUrl);
     _removeWorkspace(siteUrl);
     search.forget(siteUrl);
     _composerDrafts.forgetSite(siteUrl);
@@ -14074,6 +14086,7 @@ class ShellController extends FrameSafeNotifier
     aggregate.dispose();
     appSettings.dispose();
     siteImages.dispose();
+    videoThumbnails.dispose();
     final closePluginSession = _pluginSession.close();
     _backgroundRetention.close();
     _observePluginLifecycle(closePluginSession, 'plugins.session.close');

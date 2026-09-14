@@ -2565,6 +2565,19 @@ Starting another uploaded video pauses the previous one, and hidden players
 cannot take that ownership. These players follow their list item's lifecycle
 rather than being kept alive after an offscreen item is released.
 
+Uploaded video previews prefer the supplied poster image. If it is missing or
+fails to load, macOS and iOS extract a still with AVFoundation, without creating
+a player or starting playback. The shared topic/chat preview uses the Native
+image-preview and button components. Generated JPEGs are limited to 1024 pixels
+per side and reused from an account-scoped memory cache (64 entries / 8 MiB).
+At most two extractions run concurrently; leaving the widget tree or hiding a
+pane releases its request, and the last consumer cancels pending native work.
+Native extraction times out after ten seconds, failures retry after a short
+cooldown on a subsequent request, and disconnect clears that site's thumbnails.
+Thumbnail requests use the same credential-safe video URL resolver as playback.
+Linux continues to display supplied posters and the play action when none is
+available.
+
 The parsers never mutate the DOM they are handed; a body remainder is
 serialized back to a string. The document belongs to the caller's `HtmlWidget`.
 

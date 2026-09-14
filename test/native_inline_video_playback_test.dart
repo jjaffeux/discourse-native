@@ -1,6 +1,7 @@
 import 'dart:async';
 
-import 'package:discourse_native/discourse_ui.dart' show DSlider, DSpinner;
+import 'package:discourse_native/discourse_ui.dart'
+    show DButton, DSlider, DSpinner;
 import 'package:discourse_native/src/shell/inline_video.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -601,13 +602,9 @@ void main() {
   });
 }
 
-IconButton _button(WidgetTester tester, String tooltip) =>
-    tester.widget<IconButton>(
-      find.descendant(
-        of: find.byTooltip(tooltip),
-        matching: find.byType(IconButton),
-      ),
-    );
+DButton _button(WidgetTester tester, String tooltip) => tester.widget<DButton>(
+  find.ancestor(of: find.byTooltip(tooltip), matching: find.byType(DButton)),
+);
 
 Widget _app({WidgetBuilder? actionsBuilder}) => MaterialApp(
   home: Scaffold(

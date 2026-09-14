@@ -5,6 +5,7 @@ import UserNotifications
 @main
 @objc class AppDelegate: FlutterAppDelegate, FlutterImplicitEngineDelegate {
   private let pushNotifications = IOSPushNotifications()
+  private let videoThumbnails = VideoThumbnailChannel()
 
   override func application(
     _ application: UIApplication,
@@ -16,6 +17,11 @@ import UserNotifications
 
   func didInitializeImplicitFlutterEngine(_ engineBridge: FlutterImplicitEngineBridge) {
     GeneratedPluginRegistrant.register(with: engineBridge.pluginRegistry)
+    if let registrar = engineBridge.pluginRegistry.registrar(
+      forPlugin: "NativeVideoThumbnails"
+    ) {
+      videoThumbnails.attach(to: registrar.messenger())
+    }
     if let registrar = engineBridge.pluginRegistry.registrar(
       forPlugin: "NativePushRegistration"
     ) {

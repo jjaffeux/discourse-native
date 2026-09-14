@@ -22,6 +22,8 @@
 
 /* Begin PBXBuildFile section */
 		D15C0A5E0000000000000002 /* PushRegistrationCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = D15C0A5E0000000000000001 /* PushRegistrationCoordinator.swift */; };
+		D15C71A10000000000000004 /* VideoThumbnailChannel.swift in Sources */ = {isa = PBXBuildFile; fileRef = D15C71A10000000000000003 /* VideoThumbnailChannel.swift */; };
+		D15C71A10000000000000002 /* VideoThumbnailGenerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = D15C71A10000000000000001 /* VideoThumbnailGenerator.swift */; };
 		331C80D8294CF71000263BE5 /* RunnerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 331C80D7294CF71000263BE5 /* RunnerTests.swift */; };
 		335BBD1B22A9A15E00E9071D /* GeneratedPluginRegistrant.swift in Sources */ = {isa = PBXBuildFile; fileRef = 335BBD1A22A9A15E00E9071D /* GeneratedPluginRegistrant.swift */; };
 		33CC10F12044A3C60003C045 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 33CC10F02044A3C60003C045 /* AppDelegate.swift */; };
@@ -63,6 +65,8 @@
 
 /* Begin PBXFileReference section */
 		D15C0A5E0000000000000001 /* PushRegistrationCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = PushRegistrationCoordinator.swift; path = "../darwin/PushRegistrationCoordinator.swift"; sourceTree = SOURCE_ROOT; };
+		D15C71A10000000000000003 /* VideoThumbnailChannel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = VideoThumbnailChannel.swift; path = "../darwin/VideoThumbnailChannel.swift"; sourceTree = SOURCE_ROOT; };
+		D15C71A10000000000000001 /* VideoThumbnailGenerator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = VideoThumbnailGenerator.swift; path = "../darwin/VideoThumbnailGenerator.swift"; sourceTree = SOURCE_ROOT; };
 		331C80D5294CF71000263BE5 /* RunnerTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = RunnerTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		331C80D7294CF71000263BE5 /* RunnerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunnerTests.swift; sourceTree = "<group>"; };
 		333000ED22D3DE5D00554162 /* Warnings.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Warnings.xcconfig; sourceTree = "<group>"; };
@@ -169,6 +173,8 @@
 			children = (
 				33CC10F02044A3C60003C045 /* AppDelegate.swift */,
 				D15C0A5E0000000000000001 /* PushRegistrationCoordinator.swift */,
+				D15C71A10000000000000003 /* VideoThumbnailChannel.swift */,
+				D15C71A10000000000000001 /* VideoThumbnailGenerator.swift */,
 				33CC11122044BFA00003C045 /* MainFlutterWindow.swift */,
 				33E51913231747F40026EE4D /* DebugProfile.entitlements */,
 				33E51914231749380026EE4D /* Release.entitlements */,
@@ -355,6 +361,8 @@
 				33CC11132044BFA00003C045 /* MainFlutterWindow.swift in Sources */,
 				33CC10F12044A3C60003C045 /* AppDelegate.swift in Sources */,
 				D15C0A5E0000000000000002 /* PushRegistrationCoordinator.swift in Sources */,
+				D15C71A10000000000000004 /* VideoThumbnailChannel.swift in Sources */,
+				D15C71A10000000000000002 /* VideoThumbnailGenerator.swift in Sources */,
 				335BBD1B22A9A15E00E9071D /* GeneratedPluginRegistrant.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
