@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -71,7 +72,10 @@ class ShellTitleBar extends StatelessWidget {
             ),
           if (showControls)
             Padding(
-              padding: const EdgeInsets.only(right: 8),
+              padding: const EdgeInsets.only(
+                left: DSpacing.sm,
+                right: DSpacing.sm,
+              ),
               child: UserMenuButton(size: 26, ringColor: surface),
             ),
         ];

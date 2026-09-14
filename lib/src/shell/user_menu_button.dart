@@ -119,6 +119,7 @@ class _UserMenuButtonState extends State<UserMenuButton> {
               : theme.discourse.notificationIndicator;
           return Row(
             mainAxisSize: MainAxisSize.min,
+            spacing: DSpacing.sm,
             children: [
               _AccountMenuPopover(
                 view: UserMenuView.notifications,
