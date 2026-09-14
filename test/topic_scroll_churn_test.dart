@@ -4,6 +4,7 @@ import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/shell/cooked_html.dart';
 import 'package:discourse_native/src/shell/post_actions.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -13,6 +14,119 @@ import 'support/topic_post_list.dart';
 import 'support/topic_scroll_fixture.dart';
 
 void main() {
+  for (final inbox in [true, false]) {
+    for (final overscroll in [0.0, 800.0]) {
+      testWidgets(
+        'prepend at top keeps replies lazy (inbox: $inbox, pull: $overscroll)',
+        (tester) async {
+          tester.view.physicalSize = const Size(1629, 997);
+          tester.view.devicePixelRatio = 1;
+          addTearDown(tester.view.reset);
+          final gate = Completer<void>();
+          final controller = await mixedTopicScrollController(
+            api: FakeDiscourseApi(postGate: gate, topics: {}, postsById: {}),
+            firstLoaded: 61,
+            initialPostNumber: 71,
+          );
+          addTearDown(controller.dispose);
+          await tester.pumpWidget(
+            TopicScrollFixture(controller: controller, inbox: inbox),
+          );
+          await tester.pump(const Duration(milliseconds: 100));
+          final list = topicPostList(tester);
+          // Warm retained replies, then expose the earlier-page header. Avoid
+          // settling the loading indicator while the page request is gated.
+          for (final offset in [15, 10, 5, 0]) {
+            list.listController!.jumpToItem(
+              index: (offset + 1) * 2,
+              scrollController: list.controller!,
+              alignment: 0,
+            );
+            await tester.pump(const Duration(milliseconds: 100));
+          }
+          final drag = list.controller!.position.drag(
+            DragStartDetails(
+              globalPosition: tester.getCenter(topicPostListFinder()),
+            ),
+            () {},
+          );
+          drag.update(
+            DragUpdateDetails(
+              globalPosition: tester.getCenter(topicPostListFinder()),
+              delta: Offset(0, overscroll + 20),
+              primaryDelta: overscroll + 20,
+            ),
+          );
+          await tester.pump();
+          if (overscroll > 0) {
+            drag.update(
+              DragUpdateDetails(
+                globalPosition: tester.getCenter(topicPostListFinder()),
+                delta: Offset(0, overscroll),
+                primaryDelta: overscroll,
+              ),
+            );
+            await tester.pump();
+            if (defaultTargetPlatform == TargetPlatform.macOS) {
+              expect(list.controller!.position.pixels, lessThan(0));
+            }
+          }
+          final anchor = find.byKey(const ValueKey(61));
+          final top = anchor.evaluate().isEmpty
+              ? null
+              : tester.getTopLeft(anchor).dy;
+          final originals = tester
+              .elementList(find.byType(CookedHtml, skipOffstage: false))
+              .toSet();
+          expect(originals, isNotEmpty);
+          final newReplies = <Element>{};
+          final previous = debugOnRebuildDirtyWidget;
+          debugOnRebuildDirtyWidget = (element, builtOnce) {
+            previous?.call(element, builtOnce);
+            if (element.widget case CookedHtml(post: final post?)) {
+              if (post.id < 61) newReplies.add(element);
+            }
+          };
+          addTearDown(() => debugOnRebuildDirtyWidget = previous);
+          final loading = controller.loadEarlierPosts();
+          await tester.pump();
+          gate.complete();
+          await loading;
+          await tester.pump(const Duration(milliseconds: 100));
+          expect(controller.currentPostIds.first, 41);
+          if (top != null) {
+            expect(tester.getTopLeft(anchor).dy, closeTo(top, 1));
+          }
+          expect(
+            newReplies.where((element) => !element.mounted),
+            isEmpty,
+            reason: 'Earlier replies must not be constructed and discarded',
+          );
+          expect(originals.every((element) => element.mounted), isTrue);
+          expect(list.controller!.position.activity, isA<DragScrollActivity>());
+          drag.update(
+            DragUpdateDetails(
+              globalPosition: tester.getCenter(topicPostListFinder()),
+              delta: const Offset(0, -60),
+              primaryDelta: -60,
+            ),
+          );
+          await tester.pump();
+          if (top != null) {
+            expect(tester.getTopLeft(anchor).dy, lessThan(top - 50));
+          }
+          drag.end(DragEndDetails(primaryVelocity: 0));
+          await tester.pumpAndSettle();
+          expect(tester.takeException(), isNull);
+        },
+        variant: const TargetPlatformVariant({
+          TargetPlatform.android,
+          TargetPlatform.macOS,
+        }),
+      );
+    }
+  }
+
   for (final firstLoaded in [21, 61]) {
     for (final inbox in [true, false]) {
       for (final dragging in [false, true]) {

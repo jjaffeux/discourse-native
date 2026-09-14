@@ -58,7 +58,37 @@ class _TopicPostRenderSliver extends RenderSuperSliverList {
         return;
       }
     }
+    if (_didRebuild) {
+      _didRebuild = false;
+      _discardOffscreenPrefixBeforeGap();
+    }
     super.performLayout();
+  }
+
+  bool _didRebuild = false;
+
+  void _discardOffscreenPrefixBeforeGap() {
+    // The earlier-page header stays at index zero while old replies move.
+    // The package fills gaps between attached children before discarding
+    // offscreen ones, so remove that prefix before it can build the new page.
+    final cacheStart = constraints.scrollOffset + constraints.cacheOrigin;
+    var prefixLength = 0;
+    int? previousIndex;
+    for (var child = firstChild; child != null; child = childAfter(child)) {
+      final index = indexOf(child);
+      if (previousIndex != null && index != previousIndex + 1) {
+        collectGarbage(prefixLength, 0);
+        return;
+      }
+      final offset = childScrollOffset(child);
+      if (offset == null ||
+          !child.hasSize ||
+          offset + paintExtentOf(child) >= cacheStart) {
+        return;
+      }
+      prefixLength++;
+      previousIndex = index;
+    }
   }
 }
 
@@ -72,6 +102,8 @@ class _TopicPostSliverElement extends SuperSliverMultiBoxAdaptorElement {
     // clears offsets on moved children and copies offsets by their old index;
     // restore them from the shifted table instead. This lets the render sliver
     // start at the existing rows without constructing their vacated slots.
+    final renderObject = this.renderObject as _TopicPostRenderSliver;
+    renderObject._didRebuild = true;
     renderObject.visitChildren((child) {
       final data = child.parentData! as SliverMultiBoxAdaptorParentData;
       if (data.index! < extentManager.numberOfItems) {
