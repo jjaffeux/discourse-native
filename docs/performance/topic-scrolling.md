@@ -1,5 +1,9 @@
 # Long-post topic scrolling
 
+The [September 14 ordinary-reply follow-up](ordinary-topic-scrolling.md)
+addresses repeated construction of smaller rich replies and paging rebuilds
+that the original long-post fixture did not cover.
+
 The supplied September 13 debug capture showed UI stalls rather than raster
 pressure: 56 of 134 topic-active frames exceeded 8.33 ms, UI p95 was 74.15 ms,
 and raster p95 was 2.32 ms. The largest posts repeatedly appeared in layout

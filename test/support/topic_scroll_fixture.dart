@@ -62,20 +62,19 @@ class TopicScrollFixture extends StatelessWidget {
   const TopicScrollFixture({
     super.key,
     required this.controller,
-    required this.diagnostics,
+    this.diagnostics,
     this.inbox = true,
     this.dark = false,
   });
 
   final ShellController controller;
-  final DiagnosticsController diagnostics;
+  final DiagnosticsController? diagnostics;
   final bool inbox;
   final bool dark;
 
   @override
-  Widget build(BuildContext context) => DiagnosticsScope(
-    controller: diagnostics,
-    child: ShellScope(
+  Widget build(BuildContext context) {
+    final app = ShellScope(
       controller: controller,
       child: MaterialApp(
         theme: dark ? AppTheme.dark : AppTheme.light,
@@ -83,6 +82,10 @@ class TopicScrollFixture extends StatelessWidget {
           body: TopicView(inbox: inbox, route: controller.currentContent),
         ),
       ),
-    ),
-  );
+    );
+    final diagnostics = this.diagnostics;
+    return diagnostics == null
+        ? app
+        : DiagnosticsScope(controller: diagnostics, child: app);
+  }
 }

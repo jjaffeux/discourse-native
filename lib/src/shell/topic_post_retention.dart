@@ -1,29 +1,44 @@
 import '../foundation/frame_safe_notifier.dart';
 
-/// Bounds the long post trees kept alive by a topic's existing lazy sliver.
+/// Bounds recently viewed post trees kept alive by the topic's lazy sliver.
 ///
 /// HTML length is a cost proxy, not a measurement of retained heap bytes.
-/// Ordinary rows and posts exceeding the whole budget remain recyclable.
+/// Large posts have an additional row limit; a post exceeding the whole budget
+/// remains recyclable. Small replies benefit from reuse on direction changes too.
 final class TopicPostRetention extends FrameSafeNotifier {
-  TopicPostRetention({this.maxPosts = 3, this.maxCharacters = 256 * 1024});
+  TopicPostRetention({
+    this.maxPosts = 24,
+    this.maxLargePosts = 3,
+    this.maxCharacters = 256 * 1024,
+  }) : assert(maxLargePosts >= 0);
 
   final int maxPosts;
+  final int maxLargePosts;
   final int maxCharacters;
-  final Map<Object, int> _entries = {};
+  final Map<Object, ({int characters, bool large})> _entries = {};
   int _characters = 0;
+  int _largePosts = 0;
 
   bool contains(Object owner) => _entries.containsKey(owner);
 
-  void retain(Object owner, int characters) {
-    if (isDisposed || _entries[owner] == characters) return;
+  void retain(Object owner, int characters, {bool large = false}) {
+    final entry = (characters: characters, large: large);
+    if (isDisposed || _entries[owner] == entry) return;
     final wasRetained = contains(owner);
     release(owner);
-    if (characters <= 0 || characters > maxCharacters || maxPosts <= 0) {
+    if (characters <= 0 ||
+        characters > maxCharacters ||
+        maxPosts <= 0 ||
+        (large && maxLargePosts <= 0)) {
       if (wasRetained) notifySafely();
       return;
     }
-    _entries[owner] = characters;
+    _entries[owner] = entry;
     _characters += characters;
+    if (large) _largePosts++;
+    while (_largePosts > maxLargePosts) {
+      release(_entries.entries.firstWhere((entry) => entry.value.large).key);
+    }
     while (_entries.length > maxPosts || _characters > maxCharacters) {
       release(_entries.keys.first);
     }
@@ -33,17 +48,21 @@ final class TopicPostRetention extends FrameSafeNotifier {
   }
 
   void touch(Object owner) {
-    final characters = _entries.remove(owner);
-    if (characters != null) _entries[owner] = characters;
+    final entry = _entries.remove(owner);
+    if (entry != null) _entries[owner] = entry;
   }
 
   void release(Object owner) {
-    _characters -= _entries.remove(owner) ?? 0;
+    final entry = _entries.remove(owner);
+    if (entry == null) return;
+    _characters -= entry.characters;
+    if (entry.large) _largePosts--;
   }
 
   void clear() {
     _entries.clear();
     _characters = 0;
+    _largePosts = 0;
     notifySafely();
   }
 }
