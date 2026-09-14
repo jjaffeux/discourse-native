@@ -26,6 +26,21 @@ final class TopicTrackingState {
 
   Iterable<TrackedTopicState> get topics => _topics.values;
 
+  TrackedTopicState? topic(int topicId) => _topics[topicId];
+
+  bool markRead(int topicId, int postNumber) {
+    final held = _topics[topicId];
+    if (held == null || postNumber <= (held.lastReadPostNumber ?? 0)) {
+      return false;
+    }
+    _topics[topicId] = held.copyWith(
+      lastReadPostNumber: postNumber,
+      isSeen: true,
+    );
+    _invalidateCounts();
+    return true;
+  }
+
   /// Selected for every mounted topic list on every shell notification, so
   /// the pass over the tracked topics is made once per change, not per read.
   ({int newTopics, int newReplies})? _newActivityCounts;
@@ -150,12 +165,14 @@ final class TopicTrackingState {
 
   bool applyMessage(Object? value) {
     final changed = _applyMessage(value);
-    if (changed) {
-      _topicsByCategory = null;
-      _topicsByTag = null;
-      _newActivityCounts = null;
-    }
+    if (changed) _invalidateCounts();
     return changed;
+  }
+
+  void _invalidateCounts() {
+    _topicsByCategory = null;
+    _topicsByTag = null;
+    _newActivityCounts = null;
   }
 
   bool _applyMessage(Object? value) {

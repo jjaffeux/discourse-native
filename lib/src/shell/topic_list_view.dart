@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/theme/discourse_typography.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:super_sliver_list/super_sliver_list.dart';
 
 import '../app_shortcuts.dart';
@@ -68,6 +69,102 @@ class _TopicListViewState extends State<TopicListView> {
   (TopicScrollCaptureController, int, _TopicListIdentity?)? _captureContext;
 
   bool get _recording => _scrollCapture?.isRecording == true;
+
+  @override
+  void didUpdateWidget(TopicListView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final controller = _controller;
+    final identity = _feedIdentity;
+    final list = _list;
+    final scroll = _scroll;
+    if (controller == null ||
+        identity == null ||
+        !_isCurrent(controller, identity) ||
+        !controller.currentFeedIsUnread ||
+        list?.isAttached != true ||
+        scroll?.hasClients != true) {
+      return;
+    }
+    final previous = oldWidget.feed.topicIds;
+    final next = widget.feed.topicIds;
+    final remaining = next.toSet();
+    if (next.isEmpty || !previous.any((id) => !remaining.contains(id))) return;
+    final range = list!.visibleRange;
+    if (range == null) return;
+    final visible = [
+      for (
+        var i = range.$1 ~/ 2;
+        i <= range.$2 ~/ 2 && i < previous.length;
+        i++
+      )
+        if (remaining.contains(previous[i])) previous[i],
+    ];
+    final selected = controller.currentContent?.topicId;
+    final anchor = visible.contains(selected) ? selected : visible.firstOrNull;
+    if (anchor == null) return;
+    final anchorBox = _renderedRow(previous.indexOf(anchor));
+    if (anchorBox == null) return;
+    final top = anchorBox.localToGlobal(Offset.zero).dy;
+    final readingTopicId = controller.currentContent?.topicId;
+    void restore({bool correct = true}) {
+      if (!_isCurrent(controller, identity) ||
+          !identical(widget.feed.topicIds, next) ||
+          controller.currentContent?.topicId != readingTopicId ||
+          !identical(_list, list) ||
+          !list.isAttached ||
+          !scroll!.hasClients) {
+        return;
+      }
+      final box = _renderedRow(next.indexOf(anchor));
+      if (box == null) {
+        list.jumpToItem(
+          index: next.indexOf(anchor) * 2,
+          scrollController: scroll,
+          alignment: 0,
+        );
+      } else {
+        final target = scroll.offset + box.localToGlobal(Offset.zero).dy - top;
+        if (!target.isFinite) return;
+        scroll.jumpTo(
+          target.clamp(
+            scroll.position.minScrollExtent,
+            scroll.position.maxScrollExtent,
+          ),
+        );
+      }
+      if (correct) {
+        WidgetsBinding.instance.addPostFrameCallback(
+          (_) => restore(correct: false),
+        );
+        WidgetsBinding.instance.scheduleFrame();
+      }
+    }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) => restore());
+  }
+
+  RenderBox? _renderedRow(int topicIndex) {
+    RenderBox? result;
+    void visit(RenderObject object) {
+      if (result != null) return;
+      if (object is RenderSliverMultiBoxAdaptor) {
+        var child = object.firstChild;
+        while (child != null) {
+          if (object.indexOf(child) == topicIndex * 2 && child.hasSize) {
+            result = child;
+            return;
+          }
+          child = object.childAfter(child);
+        }
+        return;
+      }
+      object.visitChildren(visit);
+    }
+
+    final root = context.findRenderObject();
+    if (root != null) visit(root);
+    return result;
+  }
 
   @override
   void didChangeDependencies() {
@@ -479,14 +576,26 @@ class _TopicListViewState extends State<TopicListView> {
         icon: DIcons.triangleExclamation,
         text: error,
         actionLabel: 'Retry',
-        onAction: () => unawaited(controller.loadFeed(destination)),
+        onAction: () => unawaited(
+          feed.pageError
+              ? controller.loadMoreFeed(destination)
+              : controller.loadFeed(destination),
+        ),
       );
+    }
+    if (feed.isEmpty && feed.hasMore) {
+      _syncControllers(feedIdentity);
+      _scheduleLoadMore(controller, destination, feedIdentity, feed);
+      // A filtered page can be empty while later pages still contain replies.
+      return _TopicListLoadingSkeleton(destination: destination);
     }
     if (feed.isEmpty) {
       return _Message(
         icon: DIcons.inbox,
         text: controller.topicListContent?.topicListSearch.isNotEmpty == true
             ? 'No topics found. Try another search or change the filters.'
+            : controller.currentFeedIsUnread
+            ? "You're all caught up."
             : 'Nothing here yet.',
       );
     }
@@ -601,6 +710,12 @@ class _TopicListViewState extends State<TopicListView> {
                     itemCount:
                         feed.topicIds.length +
                         (feed.loadingMore || feed.pageError ? 1 : 0),
+                    findChildIndexCallback: (key) {
+                      if (key is! ValueKey<int>) return null;
+                      final index = feed.topicIds.indexOf(key.value);
+                      // The separated delegate addresses topics and gaps.
+                      return index < 0 ? null : index * 2;
+                    },
                     separatorBuilder: (context, _) => const SizedBox(height: 8),
                     itemBuilder: (context, index) {
                       if (_recording) {
