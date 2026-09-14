@@ -348,6 +348,88 @@ void _registerTopicReadingTests() {
       },
     );
 
+    for (final (openReader, useShortcut) in [
+      (false, false),
+      (true, false),
+      (true, true),
+    ]) {
+      testWidgets(
+        '${useShortcut ? 'C' : 'sidebar New Topic'} prefills the list subcategory '
+        '${openReader ? 'beside an open topic' : 'without list creation permission'}',
+        (tester) async {
+          const user = DiscourseUser(
+            id: 7,
+            username: 'joffreyj',
+            canCreateTopic: true,
+          );
+          const parent = TopicCategory(
+            id: 4,
+            name: 'Discourse Native App',
+            color: '553388',
+            slug: 'discourse-native-app',
+          );
+          const category = TopicCategory(
+            id: 5,
+            name: 'Features',
+            color: '0088CC',
+            slug: 'features',
+            parentCategoryId: 4,
+          );
+          const categoryPath = '/c/discourse-native-app/features/5.json';
+          final api = FakeDiscourseApi(
+            user: user,
+            feeds: {'/latest.json': latest, categoryPath: latest},
+            creatableFeedPaths: openReader ? {categoryPath} : {},
+            categoryList: const [parent, category],
+          );
+          final authenticator = FakeAuthenticator()
+            ..keys['https://meta.discourse.org'] = 'meta-key';
+          await pumpShell(
+            tester,
+            desktop,
+            instances: [instance('meta.discourse.org').copyWith(user: user)],
+            api: api,
+            authenticator: authenticator,
+          );
+          final shell = ShellScope.read(
+            tester.element(find.byType(MainContent)),
+          );
+          shell.selectTopicListCategory(category);
+          await tester.pumpAndSettle();
+          if (openReader) {
+            shell.openTopicFromList(latest.first);
+            await tester.pumpAndSettle();
+          }
+          expect(shell.topicListContent?.categoryId, category.id);
+          expect(shell.currentContent?.isTopic, openReader);
+          expect(shell.canCreateTopicHere, isFalse);
+
+          if (useShortcut) {
+            await tester.sendKeyEvent(LogicalKeyboardKey.keyC);
+          } else {
+            await tester.tap(sidebarDestination('New Topic'));
+          }
+          await tester.pumpAndSettle();
+
+          expect(shell.visibleComposer?.categoryId, category.id);
+          expect(
+            find.descendant(
+              of: find.byKey(const ValueKey('composer-category')),
+              matching: find.text(parent.name),
+            ),
+            findsOneWidget,
+          );
+          expect(
+            find.descendant(
+              of: find.byKey(const ValueKey('composer-subcategory')),
+              matching: find.text(category.name),
+            ),
+            findsOneWidget,
+          );
+        },
+      );
+    }
+
     const inbox = '/topics/private-messages/joffreyj.json';
 
     testWidgets(

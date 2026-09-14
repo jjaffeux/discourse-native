@@ -7146,8 +7146,11 @@ class ShellController extends FrameSafeNotifier
     sourceRoute: topicListContent,
   );
 
-  Future<void> openNewTopicFromSidebar() =>
-      _openNewTopic(permitted: canCreateTopicFromSidebar, revealContent: true);
+  Future<void> openNewTopicFromSidebar() => _openNewTopic(
+    permitted: canCreateTopicFromSidebar,
+    revealContent: true,
+    sourceRoute: topicListContent,
+  );
 
   Future<void> _openNewTopic({
     required bool permitted,
