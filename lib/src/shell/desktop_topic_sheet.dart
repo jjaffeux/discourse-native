@@ -30,9 +30,14 @@ typedef _TopicSheetState = ({
 /// Tabs stay above the local Navigator so their sheets cannot cover tab controls.
 /// The selected tab supplies both the retained background and the reading route.
 class DesktopTopicSheetHost extends StatelessWidget {
-  const DesktopTopicSheetHost({super.key, required this.child});
+  const DesktopTopicSheetHost({
+    super.key,
+    required this.child,
+    this.tabsLeadingInset = 0,
+  });
 
   final Widget child;
+  final double tabsLeadingInset;
 
   @override
   Widget build(BuildContext context) {
@@ -45,8 +50,12 @@ class DesktopTopicSheetHost extends StatelessWidget {
               shell.rootMode == ShellRootMode.forum &&
               shell.loadStatus == InstanceLoadStatus.ready &&
               shell.hasInstances,
-          builder: (context, showTabs, _) =>
-              showTabs ? const CurrentForumTabsBar() : const SizedBox.shrink(),
+          builder: (context, showTabs, _) => showTabs
+              ? Padding(
+                  padding: EdgeInsetsDirectional.only(start: tabsLeadingInset),
+                  child: const CurrentForumTabsBar(),
+                )
+              : const SizedBox.shrink(),
         ),
         Expanded(
           // Keep modal semantics inside the tab workspace, below the tab bar.

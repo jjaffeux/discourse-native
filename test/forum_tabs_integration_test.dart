@@ -8,6 +8,7 @@ import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/forum_workspace.dart';
 import 'package:discourse_native/src/models/topic.dart';
+import 'package:discourse_native/src/shell/adaptive_shell.dart';
 import 'package:discourse_native/src/shell/forum_search.dart';
 import 'package:discourse_native/src/shell/forum_tabs_bar.dart';
 import 'package:discourse_native/src/shell/instance_sidebar.dart';
@@ -855,6 +856,12 @@ void main() {
           expect(
             tester.getRect(find.byType(ForumTabsBar)).bottom,
             lessThanOrEqualTo(tester.getRect(find.byType(MainContent)).top),
+          );
+          expect(
+            tester.getRect(find.byType(ForumTabsBar)).left,
+            size == _compact
+                ? AdaptiveShell.compactRailWidth
+                : AdaptiveShell.railWidth,
           );
           expect(find.byType(CurrentForumTabsBar), findsOneWidget);
           expect(find.byKey(const ValueKey('forum-tabs-add')), findsOneWidget);
