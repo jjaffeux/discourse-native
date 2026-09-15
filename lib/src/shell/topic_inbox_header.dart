@@ -102,7 +102,54 @@ class _TopicInboxHeaderState extends State<TopicInboxHeader> {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => ShellSelector<TopicCategory?>(
+    select: (controller) {
+      final topic = widget.topic;
+      final siteUrl = widget.siteUrl;
+      if (topic == null || siteUrl == null || topic.privateMessage) return null;
+      final category = controller.categoryFor(
+        topic.categoryId,
+        siteUrl: siteUrl,
+      );
+      return category?.styleType == 'icon' ||
+              (category?.styleType == 'emoji' &&
+                  category?.emoji?.isNotEmpty == true)
+          ? category
+          : null;
+    },
+    builder: (context, category, _) {
+      final content = _buildHeader(context, category == null ? 0 : 72);
+      if (category == null) return content;
+      return Stack(
+        children: [
+          content,
+          Positioned(
+            top: 8,
+            left: 0,
+            right: 0,
+            child: IgnorePointer(
+              child: ExcludeSemantics(
+                child: _TopicHeaderReadingLane(
+                  child: Align(
+                    alignment: AlignmentDirectional.centerStart,
+                    child: CategoryIcon(
+                      key: const ValueKey('topic-header-category-artwork'),
+                      category: category,
+                      siteUrl: widget.siteUrl,
+                      size: 56,
+                      showLock: false,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      );
+    },
+  );
+
+  Widget _buildHeader(BuildContext context, double artworkIndent) {
     final topic = widget.topic;
     final siteUrl = widget.siteUrl;
     final hasTopic = topic != null && siteUrl != null;
@@ -112,7 +159,10 @@ class _TopicInboxHeaderState extends State<TopicInboxHeader> {
             color: Theme.of(context).shell.content,
             child: _TopicHeaderReadingLane(
               child: Padding(
-                padding: const EdgeInsets.only(bottom: DSpacing.sm),
+                padding: EdgeInsetsDirectional.only(
+                  start: artworkIndent,
+                  bottom: DSpacing.sm,
+                ),
                 child: _TopicHeaderTaxonomy(
                   siteUrl: siteUrl,
                   topic: topic,
@@ -130,7 +180,10 @@ class _TopicInboxHeaderState extends State<TopicInboxHeader> {
             ),
           )
         : const SizedBox.shrink();
-    final toolbar = _TopicHeaderToolbar(header: widget);
+    final toolbar = _TopicHeaderToolbar(
+      header: widget,
+      artworkIndent: artworkIndent,
+    );
     final bodyBuilder = widget.bodyBuilder;
     if (bodyBuilder == null) {
       return Column(
@@ -187,9 +240,10 @@ class _TopicHeaderReadingLane extends StatelessWidget {
 }
 
 class _TopicHeaderToolbar extends StatelessWidget {
-  const _TopicHeaderToolbar({required this.header});
+  const _TopicHeaderToolbar({required this.header, this.artworkIndent = 0});
 
   final TopicInboxHeader header;
+  final double artworkIndent;
 
   @override
   Widget build(BuildContext context) => LayoutBuilder(
@@ -206,7 +260,7 @@ class _TopicHeaderToolbar extends StatelessWidget {
           constraints: const BoxConstraints(minHeight: shellHeaderHeight),
           child: Padding(
             padding: EdgeInsetsDirectional.only(
-              start: lane.padding.left + 16,
+              start: lane.padding.left + 16 + artworkIndent,
               end: 12,
               top: 8,
               bottom: 8,
