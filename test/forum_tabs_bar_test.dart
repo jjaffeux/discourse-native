@@ -200,7 +200,7 @@ void main() {
       final secondTab = find.byKey(const ValueKey('forum-tab-item-chat-2'));
       expect(
         tester.getRect(secondTab).left - tester.getRect(firstTab).right,
-        8,
+        4,
       );
       expect(
         find.byKey(const ValueKey('forum-tab-divider-topic-1')),

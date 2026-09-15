@@ -111,7 +111,7 @@ class ForumTabsBar extends StatefulWidget {
 }
 
 class _ForumTabsBarState extends State<ForumTabsBar> {
-  static const _tabGap = 8.0;
+  static const _tabGap = 4.0;
   static const _switcherGap = 4.0;
 
   final Map<String, GlobalKey> _itemKeys = {};
