@@ -11,6 +11,7 @@ import '../plugin_api/site_plugin_api.dart';
 import '../theme/app_theme.dart';
 import '../theme/d_icons.dart';
 import '../theme/d_native_icons.dart';
+import 'adaptive_dialog_action.dart';
 import 'anchored_picker.dart';
 import 'category_icon.dart';
 import 'platform.dart';
@@ -19,6 +20,7 @@ import 'title_bar.dart';
 import 'topic_actions.dart';
 import 'topic_header_editor.dart';
 import 'topic_header_tags.dart';
+import 'topic_parent_destination.dart';
 import 'topic_title.dart';
 import 'user_menu_button.dart';
 
@@ -58,8 +60,73 @@ class TopicInboxHeader extends StatefulWidget {
 class _TopicInboxHeaderState extends State<TopicInboxHeader> {
   TopicHeaderField? _field;
   Object? _owner;
+  TopicHeaderDraftState _draft = (dirty: false, saving: false);
+  bool _confirmingReturn = false;
 
-  void _edit(TopicHeaderField field) => setState(() => _field = field);
+  void _edit(TopicHeaderField? field) => setState(() {
+    if (_field == field) return;
+    _field = field;
+    _draft = (dirty: false, saving: false);
+  });
+
+  Future<void> _returnToParent(TopicParentDestination destination) async {
+    if (_draft.saving || _confirmingReturn) return;
+    final shell = ShellScope.read(context);
+    final siteUrl = widget.siteUrl;
+    if (siteUrl == null) return;
+    final lease = shell.lifecycle.capture(siteUrl);
+    final tabId = shell.activeTabId;
+    final topicId = widget.route?.topicId ?? widget.topic?.id;
+    final field = _field;
+    bool ownsReturn() {
+      if (!mounted ||
+          !lease.isCurrent ||
+          !identical(shell, ShellScope.read(context)) ||
+          shell.currentInstance?.url != siteUrl ||
+          shell.activeTabId != tabId ||
+          shell.currentContent?.topicId != topicId ||
+          _field != field) {
+        return false;
+      }
+      final current = topicParentDestination(
+        shell,
+        siteUrl: siteUrl,
+        topic: widget.topic,
+      );
+      return current.route.id == destination.route.id &&
+          current.route.feedPath == destination.route.feedPath;
+    }
+
+    if (!ownsReturn()) return;
+    if (_draft.dirty) {
+      setState(() => _confirmingReturn = true);
+      final discard = await showDiscourseAlertDialog<bool>(
+        context: context,
+        title: const Text('Discard header changes?'),
+        description: Text(
+          'Your changes have not been saved. Return to ${destination.label}?',
+        ),
+        size: DAlertDialogSize.small,
+        cancelLabel: const Text(
+          'Keep editing',
+          maxLines: 3,
+          textAlign: TextAlign.center,
+        ),
+        actionLabel: const Text(
+          'Discard & return',
+          maxLines: 3,
+          textAlign: TextAlign.center,
+        ),
+        cancelKey: const ValueKey('topic-parent-keep-editing'),
+        actionKey: const ValueKey('topic-parent-discard'),
+        cancelResult: false,
+        actionResult: true,
+      );
+      if (mounted) setState(() => _confirmingReturn = false);
+      if (discard != true || !ownsReturn()) return;
+    }
+    shell.closeTopic(fallback: destination.route);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -73,6 +140,9 @@ class _TopicInboxHeaderState extends State<TopicInboxHeader> {
         shell.activeTabId,
         shell.topicListContent?.id,
         shell.topicListContent?.feedPath,
+        shell.contentStack.reversed
+            .where((route) => !route.isTopic)
+            .firstOrNull,
       ),
       builder: (context, _, _) {
         final shell = ShellScope.read(context);
@@ -85,6 +155,7 @@ class _TopicInboxHeaderState extends State<TopicInboxHeader> {
         if (_owner != owner) {
           _owner = owner;
           _field = null;
+          _draft = (dirty: false, saving: false);
         }
         final editable =
             topic != null &&
@@ -109,7 +180,8 @@ class _TopicInboxHeaderState extends State<TopicInboxHeader> {
                   siteUrl: siteUrl,
                   topic: topic,
                   field: _field!,
-                  onClose: () => setState(() => _field = null),
+                  onClose: () => _edit(null),
+                  onDraftChanged: (draft) => setState(() => _draft = draft),
                 ),
             ],
           ),
@@ -207,6 +279,42 @@ class _TopicInboxHeaderState extends State<TopicInboxHeader> {
                   : null,
             )
           : const SizedBox.shrink();
+      final parent = topicParentDestination(
+        shell,
+        siteUrl: siteUrl,
+        topic: topic,
+      );
+      final contextRail = Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        spacing: DSpacing.xs,
+        children: [
+          if (!widget.keepTopicListOpen)
+            DButton(
+              key: const ValueKey('topic-header-parent'),
+              icon: RotatedBox(
+                quarterTurns: Directionality.of(context) == TextDirection.rtl
+                    ? 2
+                    : 0,
+                child: const DIcon(DIcons.arrowLeft),
+              ),
+              label: Text(
+                parent.label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              tooltip: parent.description,
+              semanticLabel: parent.description,
+              variant: DButtonVariant.ghost,
+              size: DButtonSize.small,
+              foregroundColor: DTokens.of(context).mutedForeground,
+              onPressed: _draft.saving || _confirmingReturn || siteUrl == null
+                  ? null
+                  : () => unawaited(_returnToParent(parent)),
+            ),
+          if (topic != null) categoryControl,
+        ],
+      );
       final actions = Wrap(
         key: const ValueKey('topic-header-common-actions'),
         spacing: DSpacing.xs,
@@ -323,7 +431,7 @@ class _TopicInboxHeaderState extends State<TopicInboxHeader> {
           children: [
             // The ledger rail is a full-height part of the header, rather than
             // a category button with an oversized painted surface.
-            if (topic != null)
+            if (topic != null || !widget.keepTopicListOpen)
               PositionedDirectional(
                 start: 0,
                 top: 0,
@@ -341,7 +449,7 @@ class _TopicInboxHeaderState extends State<TopicInboxHeader> {
               ),
             Row(
               children: [
-                if (topic != null)
+                if (topic != null || !widget.keepTopicListOpen)
                   SizedBox(
                     width: categoryWidth,
                     child: Padding(
@@ -349,20 +457,8 @@ class _TopicInboxHeaderState extends State<TopicInboxHeader> {
                         horizontal: DSpacing.sm,
                         vertical: DSpacing.md,
                       ),
-                      child: Row(
-                        children: [
-                          if (!widget.keepTopicListOpen)
-                            TopicCloseButton(
-                              canReturnToSidebar: widget.canReturnToSidebar,
-                            ),
-                          Expanded(child: categoryControl),
-                        ],
-                      ),
+                      child: contextRail,
                     ),
-                  )
-                else if (!widget.keepTopicListOpen)
-                  TopicCloseButton(
-                    canReturnToSidebar: widget.canReturnToSidebar,
                   ),
                 Expanded(
                   child: Padding(
@@ -394,17 +490,7 @@ class _TopicInboxHeaderState extends State<TopicInboxHeader> {
                   constraints: BoxConstraints(
                     maxWidth: (constraints.maxWidth - 24) / 2,
                   ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      if (!widget.keepTopicListOpen)
-                        TopicCloseButton(
-                          canReturnToSidebar: widget.canReturnToSidebar,
-                        ),
-                      Flexible(child: categoryControl),
-                    ],
-                  ),
+                  child: contextRail,
                 ),
                 actions,
               ],

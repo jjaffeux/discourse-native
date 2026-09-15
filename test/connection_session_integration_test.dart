@@ -978,7 +978,7 @@ void _registerConnectionSessionTests() {
           reactionPost(const [Reaction(id: 'clap', count: 1)]),
         ],
       );
-      await tester.tap(find.byTooltip('Collapse topic'));
+      await tester.tap(find.byKey(const ValueKey('topic-header-parent')));
       await tester.pumpAndSettle();
       await openNotifications(tester);
       await tester.tap(find.textContaining('david reacted to your post in'));

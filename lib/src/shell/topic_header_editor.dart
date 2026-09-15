@@ -10,6 +10,8 @@ import 'shell_scope.dart';
 
 enum TopicHeaderField { title, category, tags }
 
+typedef TopicHeaderDraftState = ({bool dirty, bool saving});
+
 /// One explicit draft beneath the reading context. The header keys this lane
 /// by topic, account and field, so a retired write cannot close a newer draft.
 class TopicHeaderEditor extends StatefulWidget {
@@ -19,12 +21,14 @@ class TopicHeaderEditor extends StatefulWidget {
     required this.topic,
     required this.field,
     required this.onClose,
+    this.onDraftChanged,
   });
 
   final String siteUrl;
   final TopicDetail topic;
   final TopicHeaderField field;
   final VoidCallback onClose;
+  final ValueChanged<TopicHeaderDraftState>? onDraftChanged;
 
   @override
   State<TopicHeaderEditor> createState() => _TopicHeaderEditorState();
@@ -36,10 +40,30 @@ class _TopicHeaderEditorState extends State<TopicHeaderEditor> {
   late final _tagCategoryId = widget.topic.categoryId;
   late int? _categoryId = widget.topic.categoryId;
   late List<TopicTag> _tags = List.of(widget.topic.tags);
+  late final TopicDetail _initialTopic;
+  TopicHeaderDraftState _lastDraftState = (dirty: false, saving: false);
   TopicComposerCapabilities? _capabilities;
   bool _preparing = false;
   bool _saving = false;
   String? _error;
+
+  void _reportDraft() {
+    final dirty = switch (widget.field) {
+      TopicHeaderField.title => _title.text != _initialTopic.title,
+      TopicHeaderField.category => _categoryId != _initialTopic.categoryId,
+      TopicHeaderField.tags =>
+        _tags.length != _initialTopic.tags.length ||
+            _tags.any(
+              (tag) => !_initialTopic.tags.any(
+                (initial) => initial.name == tag.name,
+              ),
+            ),
+    };
+    final state = (dirty: dirty, saving: _saving);
+    if (state == _lastDraftState) return;
+    _lastDraftState = state;
+    widget.onDraftChanged?.call(state);
+  }
 
   bool get _allowed => switch (widget.field) {
     TopicHeaderField.title => widget.topic.canEdit,
@@ -51,6 +75,8 @@ class _TopicHeaderEditorState extends State<TopicHeaderEditor> {
   @override
   void initState() {
     super.initState();
+    _initialTopic = widget.topic;
+    _title.addListener(_reportDraft);
     if (widget.field == TopicHeaderField.title) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) _titleFocus.requestFocus();
@@ -107,6 +133,7 @@ class _TopicHeaderEditorState extends State<TopicHeaderEditor> {
       _saving = true;
       _error = null;
     });
+    _reportDraft();
     final error = await switch (widget.field) {
       TopicHeaderField.title => shell.saveTopicTitle(
         siteUrl: widget.siteUrl,
@@ -136,6 +163,7 @@ class _TopicHeaderEditorState extends State<TopicHeaderEditor> {
         _saving = false;
         _error = error;
       });
+      _reportDraft();
       if (widget.field == TopicHeaderField.title) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted) _titleFocus.requestFocus();
@@ -194,7 +222,10 @@ class _TopicHeaderEditorState extends State<TopicHeaderEditor> {
           ),
           onSelected: !_allowed || _saving
               ? null
-              : (category) => setState(() => _categoryId = category?.id),
+              : (category) {
+                  setState(() => _categoryId = category?.id);
+                  _reportDraft();
+                },
         ),
       ),
       TopicHeaderField.tags =>
@@ -218,7 +249,10 @@ class _TopicHeaderEditorState extends State<TopicHeaderEditor> {
                 ),
                 onChanged: !_allowed || _saving
                     ? null
-                    : (tags) => setState(() => _tags = tags),
+                    : (tags) {
+                        setState(() => _tags = tags);
+                        _reportDraft();
+                      },
               ),
     };
     final cancel = DButton(
