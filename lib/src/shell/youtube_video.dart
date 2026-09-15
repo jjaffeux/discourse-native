@@ -16,6 +16,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:html/dom.dart' as dom;
 import 'package:webview_all/webview_all.dart';
+import 'package:webview_all_wkwebview/webview_all_wkwebview.dart';
 
 import '../diagnostics/diagnostics_controller.dart';
 import '../foundation/uri_path.dart';
@@ -779,6 +780,15 @@ class _YoutubePlayerSurfaceState extends State<YoutubePlayerSurface> {
       ),
     );
     if (!_isCurrent(controller, generation)) return;
+    if (controller.platform case final WebKitWebViewController webKit
+        when defaultTargetPlatform == TargetPlatform.macOS) {
+      // WKWebView disables the Fullscreen API by default. Enable it before
+      // YouTube detects player capabilities while loading the iframe.
+      await const MethodChannel(
+        'org.discourse.native/window',
+      ).invokeMethod<void>('enableYoutubeFullscreen', webKit.webViewIdentifier);
+      if (!_isCurrent(controller, generation)) return;
+    }
     await controller.loadHtmlString(
       buildYoutubeEmbedHtml(data, forumOrigin: forumOrigin),
       baseUrl: documentBase.toString(),
