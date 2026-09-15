@@ -64,6 +64,9 @@ class TopicInboxHeader extends StatefulWidget {
 
 class _TopicInboxHeaderState extends State<TopicInboxHeader> {
   final _taxonomyKey = GlobalKey();
+  final _toolbarBoxKey = GlobalKey();
+  final _taxonomyBoxKey = GlobalKey();
+  final _artworkExtent = FrameSafeValueNotifier(0.0);
   final _pinnedExtent = FrameSafeValueNotifier(0.0);
   bool _updateScheduled = false;
 
@@ -89,6 +92,11 @@ class _TopicInboxHeaderState extends State<TopicInboxHeader> {
   }
 
   void _updatePinnedExtent() {
+    final toolbarBox = _toolbarBoxKey.currentContext?.findRenderObject();
+    final taxonomyBox = _taxonomyBoxKey.currentContext?.findRenderObject();
+    if (toolbarBox is RenderBox && taxonomyBox is RenderBox) {
+      _artworkExtent.value = toolbarBox.size.height + taxonomyBox.size.height;
+    }
     final taxonomy = _taxonomyKey.currentContext?.findRenderObject();
     if (taxonomy is RenderSliver) {
       _pinnedExtent.value = taxonomy.geometry?.maxScrollObstructionExtent ?? 0;
@@ -98,6 +106,7 @@ class _TopicInboxHeaderState extends State<TopicInboxHeader> {
   @override
   void dispose() {
     _pinnedExtent.dispose();
+    _artworkExtent.dispose();
     super.dispose();
   }
 
@@ -118,26 +127,44 @@ class _TopicInboxHeaderState extends State<TopicInboxHeader> {
           : null;
     },
     builder: (context, category, _) {
-      final content = _buildHeader(context, category == null ? 0 : 72);
+      _updateAfterLayout();
+      final content = NotificationListener<SizeChangedLayoutNotification>(
+        onNotification: (_) {
+          _updateAfterLayout();
+          return false;
+        },
+        child: _buildHeader(context, category == null ? 0 : 52),
+      );
       if (category == null) return content;
       return Stack(
         children: [
           content,
-          Positioned(
-            top: 8,
-            left: 0,
-            right: 0,
-            child: IgnorePointer(
-              child: ExcludeSemantics(
-                child: _TopicHeaderReadingLane(
-                  child: Align(
-                    alignment: AlignmentDirectional.centerStart,
-                    child: CategoryIcon(
-                      key: const ValueKey('topic-header-category-artwork'),
-                      category: category,
-                      siteUrl: widget.siteUrl,
-                      size: 56,
-                      showLock: false,
+          ValueListenableBuilder<double>(
+            valueListenable: _artworkExtent,
+            builder: (context, extent, _) => Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              height: extent,
+              child: IgnorePointer(
+                child: ExcludeSemantics(
+                  child: _TopicHeaderReadingLane(
+                    child: Align(
+                      alignment: AlignmentDirectional.centerStart,
+                      child: SizedBox(
+                        width: 40,
+                        child: Center(
+                          child: CategoryIcon(
+                            key: const ValueKey(
+                              'topic-header-category-artwork',
+                            ),
+                            category: category,
+                            siteUrl: widget.siteUrl,
+                            size: 28,
+                            showLock: false,
+                          ),
+                        ),
+                      ),
                     ),
                   ),
                 ),
@@ -156,6 +183,7 @@ class _TopicInboxHeaderState extends State<TopicInboxHeader> {
     final showActivity = hasTopic && !widget.hasEarlierPosts;
     final taxonomy = hasTopic
         ? ColoredBox(
+            key: _taxonomyBoxKey,
             color: Theme.of(context).shell.content,
             child: _TopicHeaderReadingLane(
               child: Padding(
@@ -180,16 +208,17 @@ class _TopicInboxHeaderState extends State<TopicInboxHeader> {
             ),
           )
         : const SizedBox.shrink();
-    final toolbar = _TopicHeaderToolbar(
-      header: widget,
-      artworkIndent: artworkIndent,
+    final toolbar = SizeChangedLayoutNotifier(
+      key: _toolbarBoxKey,
+      child: _TopicHeaderToolbar(header: widget, artworkIndent: artworkIndent),
     );
+    final measuredTaxonomy = SizeChangedLayoutNotifier(child: taxonomy);
     final bodyBuilder = widget.bodyBuilder;
     if (bodyBuilder == null) {
       return Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [toolbar, taxonomy, if (showActivity) activity],
+        children: [toolbar, measuredTaxonomy, if (showActivity) activity],
       );
     }
     return Column(
@@ -209,7 +238,7 @@ class _TopicInboxHeaderState extends State<TopicInboxHeader> {
                     _updateAfterLayout();
                     return PinnedHeaderSliver(
                       key: _taxonomyKey,
-                      child: taxonomy,
+                      child: measuredTaxonomy,
                     );
                   },
                 ),
