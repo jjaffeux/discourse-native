@@ -289,18 +289,24 @@ class _TopicHeaderToolbar extends StatelessWidget {
           key: const ValueKey('topic-content-header'),
           constraints: const BoxConstraints(minHeight: shellHeaderHeight),
           child: Padding(
-            padding: EdgeInsetsDirectional.only(
-              start: lane.padding.left + 16 + artworkIndent,
-              end: 12,
-              top: 8,
-              bottom: 8,
-            ),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             child: Row(
               children: [
                 if (!header.keepTopicListOpen)
-                  TopicCloseButton(
-                    canReturnToSidebar: header.canReturnToSidebar,
-                  ),
+                  ConstrainedBox(
+                    constraints: BoxConstraints(
+                      minWidth: lane.padding.left + 4 + artworkIndent,
+                    ),
+                    child: Align(
+                      alignment: AlignmentDirectional.centerStart,
+                      widthFactor: 1,
+                      child: TopicCloseButton(
+                        canReturnToSidebar: header.canReturnToSidebar,
+                      ),
+                    ),
+                  )
+                else
+                  SizedBox(width: lane.padding.left + 4 + artworkIndent),
                 Expanded(
                   child: Padding(
                     padding: const EdgeInsetsDirectional.only(end: 8),
