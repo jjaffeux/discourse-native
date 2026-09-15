@@ -25,11 +25,7 @@ import 'support/topic_scroll_capture.dart';
 
 final _reader = find.byType(TopicView);
 final _allLists = find.byType(TopicListView, skipOffstage: false);
-final _back = find.byWidgetPredicate(
-  (widget) =>
-      widget.key == const ValueKey('topic-close-reader') ||
-      widget.key == const ValueKey('topic-header-parent'),
-);
+final _back = find.byKey(const ValueKey('topic-page-back'));
 
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
@@ -171,7 +167,7 @@ void main() {
       h.shell.openTopicFromList(h.topics.first);
       await tester.pumpAndSettle();
       expect(_readerScroll(tester).pixels, closeTo(readingOffset, 1));
-      h.shell.openTopicFromList(h.topics[1]);
+      await tester.tap(find.byKey(const ValueKey('inbox-next-topic')));
       await tester.pumpAndSettle();
       await tester.tap(_back);
       await tester.pumpAndSettle();
@@ -182,7 +178,7 @@ void main() {
   );
 
   testWidgets(
-    'changing topics keeps the reply draft attached to its original destination',
+    'topic switcher searches the source list and keeps the draft destination',
     (tester) async {
       final h = await _setup(tester);
       h.shell.openTopicFromList(h.topics.first);
@@ -193,7 +189,16 @@ void main() {
       composer.text.text = 'My reply to the first topic';
       await tester.pump(const Duration(seconds: 2));
       final editorState = tester.state(find.byType(ComposerEditor));
-      h.shell.openTopicFromList(h.topics[11]);
+      await tester.tap(find.byKey(const ValueKey('topic-switcher-trigger')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey(('switch-topic', 2))), findsOneWidget);
+      final input = find.descendant(
+        of: find.byType(DComboboxInput<int>),
+        matching: find.byType(EditableText),
+      );
+      await tester.enterText(input, 'Conversation 12');
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey(('switch-topic', 12))));
       await tester.pumpAndSettle();
       expect(h.shell.currentContent?.topicId, 12);
       expect(h.shell.visibleComposer, same(composer));
@@ -209,25 +214,24 @@ void main() {
     variant: TargetPlatformVariant.only(TargetPlatform.macOS),
   );
 
-  testWidgets(
-    'the compact reader omits topic switching and U returns to the list',
-    (tester) async {
-      final h = await _setup(tester);
-      h.shell.openTopicFromList(h.topics.first);
-      await tester.pumpAndSettle();
-      expect(
-        find.byKey(const ValueKey('topic-switcher-trigger')),
-        findsNothing,
-      );
-      expect(find.byKey(const ValueKey('topic-page-navigation')), findsNothing);
-      await tester.tap(_reader, warnIfMissed: false);
-      await tester.sendKeyEvent(LogicalKeyboardKey.keyU);
-      await tester.pumpAndSettle();
-      expect(h.shell.currentContent?.isTopicList, isTrue);
-      expect(tester.takeException(), isNull);
-    },
-    variant: TargetPlatformVariant.only(TargetPlatform.macOS),
-  );
+  testWidgets('Escape dismisses the switcher and U returns to the list', (
+    tester,
+  ) async {
+    final h = await _setup(tester);
+    h.shell.openTopicFromList(h.topics.first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('topic-switcher-trigger')));
+    await tester.pumpAndSettle();
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+    expect(h.shell.currentContent?.topicId, 1);
+    expect(find.byType(DComboboxInput<int>), findsNothing);
+    await tester.tap(_reader, warnIfMissed: false);
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyU);
+    await tester.pumpAndSettle();
+    expect(h.shell.currentContent?.isTopicList, isTrue);
+    expect(tester.takeException(), isNull);
+  }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 
   testWidgets(
     'responsive docking retains editor and reader while rail stays visible',
@@ -422,10 +426,16 @@ void main() {
 }
 
 ScrollPosition _readerScroll(WidgetTester tester) => tester
-    .widget<CustomScrollView>(
-      find.descendant(of: _reader, matching: find.byType(CustomScrollView)),
+    .state<ScrollableState>(
+      find.descendant(
+        of: find.byType(TopicView),
+        matching: find.byWidgetPredicate(
+          (widget) =>
+              widget is Scrollable &&
+              widget.axisDirection == AxisDirection.down,
+        ),
+      ),
     )
-    .controller!
     .position;
 
 Future<void> _composeShortcut(

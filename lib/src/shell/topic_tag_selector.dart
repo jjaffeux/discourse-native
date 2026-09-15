@@ -28,7 +28,6 @@ class TopicTagSelector extends StatefulWidget {
     this.keyPrefix = 'tag-selector',
     this.size = DButtonSize.regular,
     this.valueKey,
-    this.showChips = false,
   });
 
   final List<TopicTag> selectedTags;
@@ -43,9 +42,6 @@ class TopicTagSelector extends StatefulWidget {
   final String keyPrefix;
   final DButtonSize size;
   final Key? valueKey;
-
-  /// Uses Native Combobox's token editor instead of the taxonomy button.
-  final bool showChips;
 
   @override
   State<TopicTagSelector> createState() => _TopicTagSelectorState();
@@ -229,48 +225,38 @@ class _TopicTagSelectorState extends State<TopicTagSelector> {
       for (final tag in visibleResults.where((tag) => !_selected(tag)))
         tagOption(tag),
     ];
-    final Widget anchor = widget.showChips && widget.multiple
-        ? DComboboxChips<TopicTag>(
-            key: widget.valueKey,
-            input: DComboboxChipsInput<TopicTag>(
-              key: ValueKey('$prefix-query'),
-              placeholder: 'Add tag…',
-              autofocus: true,
-            ),
-          )
-        : DComboboxTrigger<TopicTag>(
-            builder: (context, trigger) => TopicTaxonomyButton(
-              buttonKey: widget.valueKey,
-              size: widget.size,
-              label: label,
-              icon: const DIcon(DIcons.tag, size: 14),
-              semanticLabel:
-                  widget.semanticLabel ??
-                  (selected.isEmpty
-                      ? widget.placeholder
-                      : 'Tags: ${selected.map((tag) => tag.name).join(', ')}'),
-              onPressed: widget.onChanged == null ? null : trigger.toggle,
-              focusNode: trigger.focusNode,
-              expanded: trigger.open,
-              maximumWidth: 210,
-            ),
-          );
+    final anchor = DComboboxTrigger<TopicTag>(
+      builder: (context, trigger) => TopicTaxonomyButton(
+        buttonKey: widget.valueKey,
+        size: widget.size,
+        label: label,
+        icon: const DIcon(DIcons.tag, size: 14),
+        semanticLabel:
+            widget.semanticLabel ??
+            (selected.isEmpty
+                ? widget.placeholder
+                : 'Tags: ${selected.map((tag) => tag.name).join(', ')}'),
+        onPressed: widget.onChanged == null ? null : trigger.toggle,
+        focusNode: trigger.focusNode,
+        expanded: trigger.open,
+        maximumWidth: 210,
+      ),
+    );
     final content = DComboboxContent(
       key: ValueKey('$prefix-popover'),
       semanticLabel: 'Tags',
       width: 280,
       children: [
-        if (!widget.showChips || !widget.multiple)
-          Padding(
-            padding: const EdgeInsets.all(4),
-            child: DComboboxInput<TopicTag>(
-              key: ValueKey('$prefix-query'),
-              placeholder: 'Search tags…',
-              semanticLabel: 'Search tags',
-              registerAsAnchor: false,
-              showTrigger: false,
-            ),
+        Padding(
+          padding: const EdgeInsets.all(4),
+          child: DComboboxInput<TopicTag>(
+            key: ValueKey('$prefix-query'),
+            placeholder: 'Search tags…',
+            semanticLabel: 'Search tags',
+            registerAsAnchor: false,
+            showTrigger: false,
           ),
+        ),
         DComboboxList<TopicTag>(
           itemBuilder: (context, option) => Row(
             children: [
@@ -331,7 +317,7 @@ class _TopicTagSelectorState extends State<TopicTagSelector> {
         onOpenChanged: _openChanged,
         onValuesChanged: (tags, _) {
           final clear = tags.contains(_all) && selected.isNotEmpty;
-          if (_loading && !clear && tags.any((tag) => !_selected(tag))) return;
+          if (_loading && !clear) return;
           widget.onChanged?.call(
             clear ? const [] : tags.where((tag) => tag != _all).toList(),
           );

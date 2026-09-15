@@ -2653,12 +2653,25 @@ void _registerTopicReadingTests() {
         await tester.tap(contentText('A real topic'));
         await tester.pumpAndSettle();
 
+        final editor = find.byType(InlineTopicTitleEditor);
         final field = find.byKey(const ValueKey('topic-header-title-field'));
-        expect(field, findsNothing);
-        await tester.tap(find.byKey(const ValueKey('topic-header-title')));
-        await tester.pumpAndSettle();
+        expect(editor, findsOneWidget);
+        expect(field, findsOneWidget);
+        expect(
+          tester
+              .widget<MouseRegion>(
+                find.byKey(const ValueKey('topic-header-title-pointer')),
+              )
+              .cursor,
+          SystemMouseCursors.text,
+        );
+
+        final editorRect = tester.getRect(editor);
+        await tester.tapAt(Offset(editorRect.left + 1, editorRect.center.dy));
+        await tester.pump();
         var textField = tester.widget<DInput>(field);
         expect(textField.focusNode?.hasFocus, isTrue);
+        expect(textField.controller?.selection.baseOffset, 0);
 
         await tester.enterText(field, '  Renamed topic  ');
         await tester.testTextInput.receiveAction(TextInputAction.done);
@@ -2677,19 +2690,17 @@ void _registerTopicReadingTests() {
         expect(shell.currentTopic?.tags, tags);
         expect(shell.currentContent?.title, 'Renamed topic');
         expect(find.byType(ComposerPanel), findsNothing);
-        expect(field, findsNothing);
+        textField = tester.widget<DInput>(field);
+        expect(textField.focusNode?.hasFocus, isFalse);
 
-        await tester.tap(find.byKey(const ValueKey('topic-header-title')));
-        await tester.pumpAndSettle();
-        expect(tester.widget<DInput>(field).controller?.text, 'Renamed topic');
+        await tester.tap(field);
         await tester.enterText(field, ' Renamed topic ');
         await tester.testTextInput.receiveAction(TextInputAction.done);
         await tester.pumpAndSettle();
         expect(api.topicsUpdated, hasLength(1));
-        expect(field, findsNothing);
+        expect(tester.widget<DInput>(field).controller?.text, 'Renamed topic');
 
-        await tester.tap(find.byKey(const ValueKey('topic-header-title')));
-        await tester.pumpAndSettle();
+        await tester.tap(field);
         await tester.enterText(field, '');
         await tester.testTextInput.receiveAction(TextInputAction.done);
         await tester.pumpAndSettle();
@@ -2714,11 +2725,8 @@ void _registerTopicReadingTests() {
         await tester.tap(find.text('A real topic'));
         await tester.pumpAndSettle();
 
-        final scrollbar = find.ancestor(
-          of: find.descendant(
-            of: find.byType(TopicView),
-            matching: find.byType(CustomScrollView),
-          ),
+        final scrollbar = find.descendant(
+          of: find.byType(TopicView),
           matching: find.byType(DScrollBar),
         );
         expect(scrollbar, findsOneWidget);
@@ -2728,7 +2736,7 @@ void _registerTopicReadingTests() {
       }
     });
 
-    testWidgets('groups sharing and administrative actions in the topic menu', (
+    testWidgets('promotes sharing and overflows administrative actions', (
       tester,
     ) async {
       const reader = DiscourseUser(id: 1, username: 'reader');
@@ -2768,6 +2776,7 @@ void _registerTopicReadingTests() {
       await tester.pumpAndSettle();
 
       for (final tooltip in [
+        'Share topic',
         'Bookmark this topic',
         'More topic actions',
         'Reply to this topic',
@@ -2791,7 +2800,7 @@ void _registerTopicReadingTests() {
       await tester.tap(find.byTooltip('More topic actions'));
       await tester.pumpAndSettle();
 
-      expect(find.text('Share topic'), findsOneWidget);
+      expect(find.text('Share topic'), findsNothing);
       expect(find.text('Flag topic'), findsOneWidget);
       expect(find.text('Unpin topic'), findsOneWidget);
       expect(find.text('Close topic'), findsOneWidget);
@@ -2876,8 +2885,6 @@ void _registerTopicReadingTests() {
         authenticator: authenticator,
       );
       await tester.tap(contentText('A real topic'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.byTooltip('More topic actions'));
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('topic-share-button')));
       await tester.pumpAndSettle();
@@ -3619,13 +3626,11 @@ void _registerTopicReadingTests() {
       await tester.tap(contentText('A real topic'));
       await tester.pumpAndSettle();
 
+      expect(find.byKey(const ValueKey('topic-share-button')), findsOneWidget);
       final more = tester.widget<DButton>(
         find.byKey(const ValueKey('topic-status-button')),
       );
-      expect(more.onPressed, isNotNull);
-      await tester.tap(find.byKey(const ValueKey('topic-status-button')));
-      await tester.pumpAndSettle();
-      expect(find.byKey(const ValueKey('topic-share-button')), findsOneWidget);
+      expect(more.onPressed, isNull);
       expect(find.text('Close topic'), findsNothing);
       expect(find.text('Archive topic'), findsNothing);
       expect(find.text('Delete topic'), findsNothing);

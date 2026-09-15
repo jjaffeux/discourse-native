@@ -45,6 +45,12 @@ void main() {
     expect(
       actual,
       {
+        // Category identity uses the same tint on both halves of the control.
+        'lib/src/shell/topic_inbox_header.dart': {
+          'backgroundColor': 2,
+          'borderColor': 2,
+          'interactiveBackgroundColor': 2,
+        },
         // A saved bookmark combines the kit's selected fill with its outline
         // variant so the joined group keeps a continuous perimeter and divider.
         'lib/src/shell/topic_actions.dart': {

@@ -179,17 +179,11 @@ class TopicStatusButton extends StatefulWidget {
     required this.siteUrl,
     required this.topic,
     this.topicFlags = const [],
-    this.compact = false,
-    this.includeContextActions = false,
-    this.route,
   });
 
   final String siteUrl;
   final TopicDetail topic;
   final List<PostFlagType> topicFlags;
-  final bool compact;
-  final bool includeContextActions;
-  final ContentRoute? route;
 
   @override
   State<TopicStatusButton> createState() => _TopicStatusButtonState();
@@ -353,33 +347,6 @@ class TopicStatusButton extends StatefulWidget {
     }
 
     return [
-      if (includeContextActions) ...[
-        DDropdownMenuItem(
-          key: const ValueKey('topic-share-button'),
-          leading: const DIcon(DIcons.link),
-          onPressed: () {
-            if (!ownsController() || !lease.isCurrent) return;
-            TopicShareButton(
-              siteUrl: siteUrl,
-              topic: topic,
-              route: route,
-            )._share(context);
-          },
-          child: const Text('Share topic'),
-        ),
-        if (!topic.privateMessage)
-          if (controller.categoryFor(topic.categoryId, siteUrl: siteUrl)
-              case final category?)
-            DDropdownMenuItem(
-              leading: const DIcon(DIcons.folderOpen),
-              onPressed: () {
-                if (!ownsController() || !lease.isCurrent) return;
-                controller.openCategory(category, siteUrl: siteUrl);
-              },
-              child: Text('Browse ${category.name}'),
-            ),
-        const DDropdownMenuSeparator(),
-      ],
       if (topicFlags.isNotEmpty)
         DDropdownMenuItem(
           onPressed: () => select(_TopicCommand.flag),

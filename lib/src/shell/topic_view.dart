@@ -2215,27 +2215,23 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
                     children: [
                       Positioned.fill(child: buildPostStream(openingSlivers)),
                       _buildFloatingDayOverlay(readingLane.padding),
-                      // The fixed Ledger header already owns this boundary.
-                      if (!widget.inbox)
-                        Positioned(
-                          top: pinnedExtent,
-                          left: 0,
-                          right: 0,
-                          child: ListenableBuilder(
-                            listenable: _scroll!,
-                            builder: (context, _) =>
-                                snapshot.hasEarlier ||
-                                    (_scroll!.hasClients &&
-                                        _scroll!
-                                            .position
-                                            .hasContentDimensions &&
-                                        _scroll!.position.extentBefore > 0)
-                                ? const DSeparator(
-                                    key: ValueKey('topic-scroll-separator'),
-                                  )
-                                : const SizedBox.shrink(),
-                          ),
+                      Positioned(
+                        top: pinnedExtent,
+                        left: 0,
+                        right: 0,
+                        child: ListenableBuilder(
+                          listenable: _scroll!,
+                          builder: (context, _) =>
+                              snapshot.hasEarlier ||
+                                  (_scroll!.hasClients &&
+                                      _scroll!.position.hasContentDimensions &&
+                                      _scroll!.position.extentBefore > 0)
+                              ? const DSeparator(
+                                  key: ValueKey('topic-scroll-separator'),
+                                )
+                              : const SizedBox.shrink(),
                         ),
+                      ),
                     ],
                   ),
                 ),
@@ -2913,28 +2909,24 @@ class _TopicViewHeader extends StatelessWidget {
                               title: title,
                             ),
                           )
-                        : Semantics(
-                            container: true,
-                            header: true,
-                            child: DTooltip(
-                              message: title,
-                              child: siteUrl == null
-                                  ? Text(
-                                      title,
-                                      key: const ValueKey('topic-header-title'),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: titleStyle,
-                                    )
-                                  : TopicTitle(
-                                      title,
-                                      key: const ValueKey('topic-header-title'),
-                                      siteUrl: siteUrl,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: titleStyle,
-                                    ),
-                            ),
+                        : DTooltip(
+                            message: title,
+                            child: siteUrl == null
+                                ? Text(
+                                    title,
+                                    key: const ValueKey('topic-header-title'),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: titleStyle,
+                                  )
+                                : TopicTitle(
+                                    title,
+                                    key: const ValueKey('topic-header-title'),
+                                    siteUrl: siteUrl,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: titleStyle,
+                                  ),
                           ),
                   ),
                   if (topic != null && siteUrl != null) ...[
