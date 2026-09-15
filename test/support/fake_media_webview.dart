@@ -68,6 +68,11 @@ final class FakeMediaWebViewController extends PlatformWebViewController {
   }
 
   @override
+  Future<void> removeJavaScriptChannel(String name) async {
+    channels.remove(name);
+  }
+
+  @override
   Future<void> runJavaScript(String javaScript) async {
     scripts.add(javaScript);
   }

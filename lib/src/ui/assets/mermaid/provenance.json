@@ -1,0 +1,8 @@
+{
+  "package": "mermaid",
+  "version": "11.15.0",
+  "tarball": "https://registry.npmjs.org/mermaid/-/mermaid-11.15.0.tgz",
+  "integrity": "sha512-pTMbcf3rWdtLiYGpmoTjHEpeY8seiy6sR+9nD7LOs8KfUbHE4lOUAprTRqRAcWSQ6MQpdX+YEsxShtGsINtPtw==",
+  "bundleSha256": "70137e77bb273bb2ef972b86e8b0400cca8be53cb25bfc45911a186dc98665de",
+  "discourseCompatibilityCommit": "b5d31a95e442d754df9300688afaa111e9e333dd"
+}

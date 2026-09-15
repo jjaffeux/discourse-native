@@ -1,0 +1,117 @@
+[
+  {
+    "name": "flowchart",
+    "source": "flowchart TD\nA[Write] --> B{Ready?}\nB -->|Yes| C[Share]\nB -->|No| A",
+    "expected": "rendered"
+  },
+  {
+    "name": "sequence",
+    "source": "sequenceDiagram\nAlice->>Bob: Hello!\nBob-->>Alice: Hi!",
+    "expected": "rendered"
+  },
+  {
+    "name": "gantt",
+    "source": "gantt\n dateFormat YYYY-MM-DD\n section Work\n Design :a1, 2026-09-01, 5d\n Build :after a1, 8d",
+    "expected": "rendered"
+  },
+  {
+    "name": "class",
+    "source": "classDiagram\nAnimal <|-- Duck\nAnimal : +int age\nDuck : +swim()",
+    "expected": "rendered"
+  },
+  {
+    "name": "state",
+    "source": "stateDiagram-v2\n[*] --> Draft\nDraft --> Published\nPublished --> [*]",
+    "expected": "rendered"
+  },
+  {
+    "name": "er",
+    "source": "erDiagram\nUSER ||--o{ POST : writes\nUSER { int id }\nPOST { int id }",
+    "expected": "rendered"
+  },
+  {
+    "name": "pie",
+    "source": "pie title Community\n\"Readers\" : 70\n\"Writers\" : 30",
+    "expected": "rendered"
+  },
+  {
+    "name": "mindmap",
+    "source": "mindmap\n root((Community))\n  Read\n  Discuss\n  Share",
+    "expected": "rendered"
+  },
+  {
+    "name": "timeline",
+    "source": "timeline\n title Project\n 2025 : Idea\n 2026 : Launch",
+    "expected": "rendered"
+  },
+  {
+    "name": "git",
+    "source": "gitGraph\ncommit\nbranch feature\ncheckout feature\ncommit\ncheckout main\nmerge feature",
+    "expected": "rendered"
+  },
+  {
+    "name": "journey",
+    "source": "journey\n title A visit\n section Forum\n Read: 5: Alice\n Reply: 4: Alice",
+    "expected": "rendered"
+  },
+  {
+    "name": "markdown-unicode",
+    "source": "flowchart LR\nA[\"`**Bold** and *italic*`\"] --> B[\"Unicode: café 日本語\"]",
+    "expected": "rendered"
+  },
+  {
+    "name": "block",
+    "source": "block-beta\ncolumns 2\na[\"First\"] b[\"Second\"]\na --> b",
+    "expected": "rendered"
+  },
+  {
+    "name": "architecture",
+    "source": "architecture-beta\nservice db(database)[Database]\nservice server(server)[Server]\ndb:R -- L:server",
+    "expected": "rendered"
+  },
+  {
+    "name": "wardley",
+    "source": "wardley-beta\ntitle Forum\nanchor User [0.95, 0.5]\ncomponent API [0.7, 0.6]\nUser -> API",
+    "expected": "rendered"
+  },
+  {
+    "name": "sankey",
+    "source": "sankey-beta\nSource,Target,10",
+    "expected": "rendered"
+  },
+  {
+    "name": "xy",
+    "source": "xychart-beta\nx-axis [Jan, Feb, Mar]\ny-axis \"Posts\" 0 --> 100\nbar [20, 40, 80]",
+    "expected": "rendered"
+  },
+  {
+    "name": "packet",
+    "source": "packet-beta\n0-15: \"Header\"\n16-31: \"Body\"",
+    "expected": "rendered"
+  },
+  {
+    "name": "kanban",
+    "source": "kanban\n todo[To do]\n  task[Write documentation]\n done[Done]\n  ready[Build]",
+    "expected": "rendered"
+  },
+  {
+    "name": "frontmatter-security",
+    "source": "---\nconfig:\n  securityLevel: loose\n  htmlLabels: true\n  flowchart:\n    htmlLabels: true\n---\nflowchart TD\nA[\"<script>window.mermaidInjected=true</script>Safe\"] --> B",
+    "expected": "rendered"
+  },
+  {
+    "name": "invalid",
+    "source": "flowchart\nA -",
+    "expected": "error"
+  },
+  {
+    "name": "c4",
+    "expected": "rendered",
+    "source": "C4Context\nPerson(user, \"User\")\nSystem(forum, \"Forum\")\nRel(user, forum, \"Uses\")"
+  },
+  {
+    "name": "requirement",
+    "expected": "rendered",
+    "source": "requirementDiagram\nrequirement feature {\nid: 1\ntext: Native diagrams\nrisk: low\nverifymethod: test\n}\nelement renderer {\ntype: software\n}\nrenderer - satisfies -> feature"
+  }
+]
