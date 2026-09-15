@@ -354,7 +354,6 @@ class TopicStatusButton extends StatefulWidget {
 
     return [
       if (includeContextActions) ...[
-        DDropdownMenuLabel(child: Text('${topic.replyCount} replies')),
         DDropdownMenuItem(
           key: const ValueKey('topic-share-button'),
           leading: const DIcon(DIcons.link),
@@ -487,7 +486,7 @@ class _TopicStatusButtonState extends State<TopicStatusButton> {
             loading: busy,
             variant: DButtonVariant.ghost,
             size: widget.compact ? DButtonSize.small : DButtonSize.large,
-            icon: DIcon(widget.compact ? DIcons.ellipsis : DIcons.wrench),
+            icon: const DIcon(DIcons.wrench),
           ),
         ),
       ),
