@@ -64,9 +64,6 @@ class TopicInboxHeader extends StatefulWidget {
 
 class _TopicInboxHeaderState extends State<TopicInboxHeader> {
   final _taxonomyKey = GlobalKey();
-  final _toolbarBoxKey = GlobalKey();
-  final _taxonomyBoxKey = GlobalKey();
-  final _artworkExtent = FrameSafeValueNotifier(0.0);
   final _pinnedExtent = FrameSafeValueNotifier(0.0);
   bool _updateScheduled = false;
 
@@ -92,11 +89,6 @@ class _TopicInboxHeaderState extends State<TopicInboxHeader> {
   }
 
   void _updatePinnedExtent() {
-    final toolbarBox = _toolbarBoxKey.currentContext?.findRenderObject();
-    final taxonomyBox = _taxonomyBoxKey.currentContext?.findRenderObject();
-    if (toolbarBox is RenderBox && taxonomyBox is RenderBox) {
-      _artworkExtent.value = toolbarBox.size.height + taxonomyBox.size.height;
-    }
     final taxonomy = _taxonomyKey.currentContext?.findRenderObject();
     if (taxonomy is RenderSliver) {
       _pinnedExtent.value = taxonomy.geometry?.maxScrollObstructionExtent ?? 0;
@@ -106,91 +98,21 @@ class _TopicInboxHeaderState extends State<TopicInboxHeader> {
   @override
   void dispose() {
     _pinnedExtent.dispose();
-    _artworkExtent.dispose();
     super.dispose();
   }
 
   @override
-  Widget build(BuildContext context) => ShellSelector<TopicCategory?>(
-    select: (controller) {
-      final topic = widget.topic;
-      final siteUrl = widget.siteUrl;
-      if (topic == null || siteUrl == null || topic.privateMessage) return null;
-      final category = controller.categoryFor(
-        topic.categoryId,
-        siteUrl: siteUrl,
-      );
-      return category?.styleType == 'icon' ||
-              (category?.styleType == 'emoji' &&
-                  category?.emoji?.isNotEmpty == true)
-          ? category
-          : null;
-    },
-    builder: (context, category, _) {
-      _updateAfterLayout();
-      final content = NotificationListener<SizeChangedLayoutNotification>(
-        onNotification: (_) {
-          _updateAfterLayout();
-          return false;
-        },
-        child: _buildHeader(context, category == null ? 0 : 52),
-      );
-      if (category == null) return content;
-      return Stack(
-        children: [
-          content,
-          ValueListenableBuilder<double>(
-            valueListenable: _artworkExtent,
-            builder: (context, extent, _) => Positioned(
-              top: 0,
-              left: 0,
-              right: 0,
-              height: extent,
-              child: IgnorePointer(
-                child: ExcludeSemantics(
-                  child: _TopicHeaderReadingLane(
-                    child: Align(
-                      alignment: AlignmentDirectional.centerStart,
-                      child: SizedBox(
-                        width: 40,
-                        child: Center(
-                          child: CategoryIcon(
-                            key: const ValueKey(
-                              'topic-header-category-artwork',
-                            ),
-                            category: category,
-                            siteUrl: widget.siteUrl,
-                            size: 28,
-                            showLock: false,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ],
-      );
-    },
-  );
-
-  Widget _buildHeader(BuildContext context, double artworkIndent) {
+  Widget build(BuildContext context) {
     final topic = widget.topic;
     final siteUrl = widget.siteUrl;
     final hasTopic = topic != null && siteUrl != null;
     final showActivity = hasTopic && !widget.hasEarlierPosts;
     final taxonomy = hasTopic
         ? ColoredBox(
-            key: _taxonomyBoxKey,
             color: Theme.of(context).shell.content,
             child: _TopicHeaderReadingLane(
               child: Padding(
-                padding: EdgeInsetsDirectional.only(
-                  start: artworkIndent,
-                  bottom: DSpacing.sm,
-                ),
+                padding: const EdgeInsets.only(bottom: DSpacing.sm),
                 child: _TopicHeaderTaxonomy(
                   siteUrl: siteUrl,
                   topic: topic,
@@ -208,17 +130,13 @@ class _TopicInboxHeaderState extends State<TopicInboxHeader> {
             ),
           )
         : const SizedBox.shrink();
-    final toolbar = SizeChangedLayoutNotifier(
-      key: _toolbarBoxKey,
-      child: _TopicHeaderToolbar(header: widget, artworkIndent: artworkIndent),
-    );
-    final measuredTaxonomy = SizeChangedLayoutNotifier(child: taxonomy);
+    final toolbar = _TopicHeaderToolbar(header: widget);
     final bodyBuilder = widget.bodyBuilder;
     if (bodyBuilder == null) {
       return Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [toolbar, measuredTaxonomy, if (showActivity) activity],
+        children: [toolbar, taxonomy, if (showActivity) activity],
       );
     }
     return Column(
@@ -238,7 +156,7 @@ class _TopicInboxHeaderState extends State<TopicInboxHeader> {
                     _updateAfterLayout();
                     return PinnedHeaderSliver(
                       key: _taxonomyKey,
-                      child: measuredTaxonomy,
+                      child: taxonomy,
                     );
                   },
                 ),
@@ -269,10 +187,9 @@ class _TopicHeaderReadingLane extends StatelessWidget {
 }
 
 class _TopicHeaderToolbar extends StatelessWidget {
-  const _TopicHeaderToolbar({required this.header, this.artworkIndent = 0});
+  const _TopicHeaderToolbar({required this.header});
 
   final TopicInboxHeader header;
-  final double artworkIndent;
 
   @override
   Widget build(BuildContext context) => LayoutBuilder(
@@ -289,7 +206,7 @@ class _TopicHeaderToolbar extends StatelessWidget {
           constraints: const BoxConstraints(minHeight: shellHeaderHeight),
           child: Padding(
             padding: EdgeInsetsDirectional.only(
-              start: lane.padding.left + 16 + artworkIndent,
+              start: lane.padding.left + 16,
               end: 12,
               top: 8,
               bottom: 8,
