@@ -35,6 +35,7 @@ import 'message_create_button.dart';
 import 'message_inbox_page.dart';
 import 'message_inbox_title.dart';
 import 'open_link.dart';
+import 'platform.dart';
 import 'preferences_page.dart';
 import 'resizable_pane.dart';
 import 'shell_controller.dart';
@@ -332,11 +333,15 @@ class _TopicInboxWorkspaceState extends State<_TopicInboxWorkspace> {
         final registry = widget.registry;
         final theme = Theme.of(context);
         final topicOpen = state.route!.isTopic;
-        final split = topicOpen && constraints.maxWidth >= 880;
-        final maximumListWidth = (constraints.maxWidth - 520).clamp(
-          304.0,
-          480.0,
-        );
+        final minimumTopicWidth = context.isTouch ? 520.0 : 825.0;
+        final split =
+            topicOpen &&
+            constraints.maxWidth >=
+                (context.isTouch
+                    ? 880
+                    : _listWidth.minimumWidth + minimumTopicWidth);
+        final maximumListWidth = (constraints.maxWidth - minimumTopicWidth)
+            .clamp(304.0, 480.0);
         final listWidth = split
             ? _listWidth.effectiveWidth(maximum: maximumListWidth)
             : constraints.maxWidth;

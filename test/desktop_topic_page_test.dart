@@ -30,6 +30,47 @@ final _back = find.byKey(const ValueKey('topic-page-back'));
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
+  testWidgets(
+    'list visibility reserves 825 pixels for the topic after composer sizing',
+    (tester) async {
+      final h = await _setup(tester, size: const Size(1800, 900));
+      final chrome = 1800 - tester.getSize(find.byType(TopicListView)).width;
+      final listState = tester.state(_allLists);
+      h.shell.openTopicFromList(h.topics.first);
+      await tester.pumpAndSettle();
+      final readerState = tester.state(_reader);
+      await tester.drag(
+        find.byKey(const ValueKey('inbox-list-resize-handle')),
+        const Offset(120, 0),
+      );
+      await tester.pumpAndSettle();
+      final preferredWidth = tester.getSize(find.byType(TopicListView)).width;
+      tester.view.physicalSize = Size(chrome + 304 + 825, 900);
+      await tester.pumpAndSettle();
+      expect(find.byType(TopicListView), findsOneWidget);
+      expect(tester.getSize(_reader).width, closeTo(825, 0.01));
+      tester.view.physicalSize = Size(chrome + 304 + 824, 900);
+      await tester.pumpAndSettle();
+      expect(find.byType(TopicListView), findsNothing);
+      expect(tester.state(_allLists), same(listState));
+      expect(tester.state(_reader), same(readerState));
+
+      tester.view.physicalSize = const Size(1800, 900);
+      await tester.pumpAndSettle();
+      expect(tester.getSize(find.byType(TopicListView)).width, preferredWidth);
+      h.shell.openReply();
+      await tester.pumpAndSettle();
+      expect(find.byType(TopicListView), findsNothing);
+      tester.view.physicalSize = const Size(2400, 900);
+      await tester.pumpAndSettle();
+      expect(find.byType(TopicListView), findsOneWidget);
+      expect(tester.getSize(_reader).width, greaterThanOrEqualTo(825));
+      expect(tester.state(_reader), same(readerState));
+      expect(tester.takeException(), isNull);
+    },
+    variant: TargetPlatformVariant.only(TargetPlatform.macOS),
+  );
+
   for (final direction in TextDirection.values) {
     testWidgets('topic keeps a reduced list beside the reader ($direction)', (
       tester,
@@ -56,7 +97,7 @@ void main() {
       } else {
         expect(reader.right, lessThanOrEqualTo(reducedList.left));
       }
-      expect(reader.width, greaterThanOrEqualTo(520));
+      expect(reader.width, greaterThanOrEqualTo(825));
       await tester.drag(
         find.byKey(const ValueKey('inbox-list-resize-handle')),
         Offset(direction == TextDirection.ltr ? 60 : -60, 0),
