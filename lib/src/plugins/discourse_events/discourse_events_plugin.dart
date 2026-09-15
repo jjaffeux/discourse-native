@@ -5,7 +5,6 @@ import 'package:html/dom.dart' as dom;
 import 'package:intl/intl.dart';
 
 import '../../models/content_route.dart';
-import '../../models/post.dart';
 import '../../models/sidebar.dart';
 import '../../models/topic.dart';
 import '../../plugin_api/plugin_scope.dart';
@@ -198,8 +197,7 @@ final class EventTopicPlugin
     implements
         SitePlugin,
         TopicRecordPlugin<EventTopicData>,
-        TopicListMetadataPlugin,
-        TopicPropertiesPlugin {
+        TopicListMetadataPlugin {
   const EventTopicPlugin();
   @override
   String get name => 'discourse-events';
@@ -243,19 +241,4 @@ final class EventTopicPlugin
     String siteUrl,
     Topic topic,
   ) => [?_date(context, siteUrl, topic.plugins.get(eventTopicKey))];
-  @override
-  List<TopicPropertySection> topicProperties(
-    BuildContext context,
-    String siteUrl,
-    TopicDetail topic,
-  ) => [
-    if (_date(context, siteUrl, topic.plugins.get(eventTopicKey))
-        case final widget?)
-      TopicPropertySection(
-        label: 'Event',
-        values: [widget],
-        header: (context, showDetails) =>
-            InkWell(onTap: showDetails, child: widget),
-      ),
-  ];
 }
