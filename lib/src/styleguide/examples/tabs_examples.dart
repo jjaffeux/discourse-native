@@ -16,7 +16,7 @@ final tabsExamples = ComponentExamples(
     StyleguideExample(
       title: 'Document tabs',
       description:
-          'Workspace tabs use neutral rounded selection and hover surfaces. The selected tab keeps its close action visible; inactive tabs reveal it on hover or keyboard focus.',
+          'Workspace tabs compose Native buttons for selection and closing, with a shared neutral rounded surface. The selected tab keeps its close action visible; inactive tabs reveal it on hover or keyboard focus.',
       states: const ['Selected', 'Hover', 'Close', 'Keyboard'],
       code:
           "DDocumentTab(selected: true, onSelect: select, onClose: close, closeLabel: 'Close Side chat', child: Text('Side chat'))",
@@ -499,22 +499,17 @@ class _DocumentTabsState extends State<_DocumentTabs> {
                     if (_selected == title) _selected = _tabs.firstOrNull;
                   }),
                   closeLabel: 'Close $title',
-                  child: Padding(
-                    padding: const EdgeInsetsDirectional.only(start: 8),
-                    child: Row(
-                      children: [
-                        DIcon(
-                          title == 'Review'
-                              ? DIcons.layerGroup
-                              : DIcons.comment,
-                          size: 16,
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(title, overflow: TextOverflow.ellipsis),
-                        ),
-                      ],
-                    ),
+                  child: Row(
+                    children: [
+                      DIcon(
+                        title == 'Review' ? DIcons.layerGroup : DIcons.comment,
+                        size: 16,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(title, overflow: TextOverflow.ellipsis),
+                      ),
+                    ],
                   ),
                 ),
               ),

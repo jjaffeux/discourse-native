@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:flutter/gestures.dart' show kPrimaryButton;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -1059,10 +1060,19 @@ class DDocumentTab extends StatefulWidget {
 
 class _DDocumentTabState extends State<DDocumentTab> {
   bool _hovered = false;
+  late final _selectionFocus = FocusNode(
+    onKeyEvent: (_, event) {
+      // A drag or double click can consume the button's pointer activation.
+      // Keyboard activation must not inherit the host's pointer-down selection.
+      if (event is KeyDownEvent) widget.onTapCancel?.call();
+      return KeyEventResult.ignored;
+    },
+  );
   final _closeFocus = FocusNode();
 
   @override
   void dispose() {
+    _selectionFocus.dispose();
     _closeFocus.dispose();
     super.dispose();
   }
@@ -1116,18 +1126,38 @@ class _DDocumentTabState extends State<DDocumentTab> {
                       widget.editor ??
                       ExcludeSemantics(
                         excluding: widget.excludeSelectionSemantics,
-                        child: Semantics(
-                          container: true,
-                          button: true,
-                          selected: widget.selected,
-                          child: InkWell(
-                            onTap: widget.onSelect,
-                            onTapDown: widget.onTapDown,
-                            onTapCancel: widget.onTapCancel,
-                            onDoubleTap: widget.onDoubleTap,
-                            hoverColor: Colors.transparent,
-                            borderRadius: radius,
-                            child: widget.child,
+                        child: MergeSemantics(
+                          child: Semantics(
+                            selected: widget.selected,
+                            child: GestureDetector(
+                              onDoubleTap: widget.onDoubleTap,
+                              excludeFromSemantics: true,
+                              child: Listener(
+                                onPointerDown: (event) {
+                                  if (event.buttons != kPrimaryButton) return;
+                                  widget.onTapDown?.call(
+                                    TapDownDetails(
+                                      globalPosition: event.position,
+                                      localPosition: event.localPosition,
+                                      kind: event.kind,
+                                    ),
+                                  );
+                                },
+                                onPointerCancel: (_) =>
+                                    widget.onTapCancel?.call(),
+                                child: DButton(
+                                  onPressed: widget.onSelect,
+                                  focusNode: _selectionFocus,
+                                  variant: DButtonVariant.ghost,
+                                  alignment: AlignmentDirectional.centerStart,
+                                  backgroundColor: Colors.transparent,
+                                  interactiveBackgroundColor:
+                                      Colors.transparent,
+                                  foregroundColor: foreground,
+                                  label: widget.child,
+                                ),
+                              ),
+                            ),
                           ),
                         ),
                       ),

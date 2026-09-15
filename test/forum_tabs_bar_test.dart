@@ -256,6 +256,32 @@ void main() {
   });
 
   group('pointer and editing interactions', () {
+    testWidgets('keyboard activation still works after a tab drag', (
+      tester,
+    ) async {
+      final selected = <String>[];
+      await _pumpBar(
+        tester,
+        items: const [first, second],
+        selectedId: first.id,
+        onSelect: selected.add,
+      );
+      await tester.drag(find.text(second.title), const Offset(-40, 0));
+      await tester.pumpAndSettle();
+      selected.clear();
+      final button = find
+          .descendant(
+            of: find.byKey(const ValueKey('forum-tab-item-chat-2')),
+            matching: find.byType(DButton),
+          )
+          .first;
+      tester.widget<DButton>(button).focusNode!.requestFocus();
+      await tester.pump();
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pumpAndSettle();
+      expect(selected, [second.id]);
+    });
+
     testWidgets('delegate add, selection, and distinct close actions by ID', (
       tester,
     ) async {

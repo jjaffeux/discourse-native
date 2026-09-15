@@ -88,7 +88,7 @@ class ForumTabsBar extends StatefulWidget {
 
   static const double _tabContentInset = 4;
 
-  static const double minimumTabWidth = 112 + 2 * _tabContentInset;
+  static const double minimumTabWidth = 128 + 2 * _tabContentInset;
 
   static const double maximumTabWidth = 216 + 2 * _tabContentInset;
 
@@ -917,23 +917,20 @@ class _ForumTabDragFeedback extends StatelessWidget {
           onSelect: () {},
           onClose: () {},
           closeLabel: 'Close ${item.title}',
-          child: Padding(
-            padding: const EdgeInsetsDirectional.only(start: 9),
-            child: Row(
-              children: [
-                if (item.icon case final icon?) ...[
-                  DIcon(icon, size: 15, color: item.iconColor),
-                  const SizedBox(width: 7),
-                ],
-                Expanded(
-                  child: Text(
-                    item.title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
+          child: Row(
+            children: [
+              if (item.icon case final icon?) ...[
+                DIcon(icon, size: 15, color: item.iconColor),
+                const SizedBox(width: 7),
               ],
-            ),
+              Expanded(
+                child: Text(
+                  item.title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
           ),
         ),
       ),
@@ -1151,8 +1148,8 @@ class _ForumTabState extends State<_ForumTab> {
   }) {
     final badge = widget.item.badge;
     if (!badge.isVisible) return false;
-    // Select padding consumes 9px. A prefix and its gap consume another 22px.
-    final leadingWidth = hasPrefix ? 31 : 9;
+    // DButton has already applied selection padding to these constraints.
+    final leadingWidth = hasPrefix ? 22 : 0;
     if (badge.dot) return selectWidth >= leadingWidth + _dotGap + 8;
     final painter = TextPainter(
       text: TextSpan(
@@ -1196,66 +1193,63 @@ class _ForumTabState extends State<_ForumTab> {
         style: labelStyle,
       ),
     };
-    return Padding(
-      padding: const EdgeInsets.only(left: 9),
-      child: Row(
-        children: [
-          if (prefix != null) ...[
-            SizedBox.square(dimension: 15, child: Center(child: prefix)),
-            const SizedBox(width: 7),
-          ],
-          Expanded(
-            child: _renaming
-                ? Focus(
-                    onKeyEvent: _handleRenameKey,
-                    child: TextField(
-                      key: ValueKey('forum-tab-rename-${widget.item.id}'),
-                      controller: _renameController,
-                      focusNode: _renameFocusNode,
-                      maxLines: 1,
-                      textInputAction: TextInputAction.done,
-                      style: labelStyle,
-                      decoration: InputDecoration(
-                        isDense: true,
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 5,
-                          vertical: 5,
-                        ),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                      ),
-                      onSubmitted: _submitRename,
-                      onTapOutside: (_) => _finishRenaming(),
-                    ),
-                  )
-                : Row(
-                    children: [
-                      Flexible(child: label),
-                      if (widget.item.labelSuffixBuilder case final builder?)
-                        builder(context, 13),
-                      if (widget.item.badge.dot &&
-                          _badgeFits(
-                            context,
-                            constraints.maxWidth,
-                            hasPrefix: prefix != null,
-                          )) ...[
-                        const SizedBox(width: _dotGap),
-                        _badge(context),
-                      ],
-                    ],
-                  ),
-          ),
-          if (!_renaming &&
-              !widget.item.badge.dot &&
-              _badgeFits(
-                context,
-                constraints.maxWidth,
-                hasPrefix: prefix != null,
-              ))
-            _badge(context),
+    return Row(
+      children: [
+        if (prefix != null) ...[
+          SizedBox.square(dimension: 15, child: Center(child: prefix)),
+          const SizedBox(width: 7),
         ],
-      ),
+        Expanded(
+          child: _renaming
+              ? Focus(
+                  onKeyEvent: _handleRenameKey,
+                  child: TextField(
+                    key: ValueKey('forum-tab-rename-${widget.item.id}'),
+                    controller: _renameController,
+                    focusNode: _renameFocusNode,
+                    maxLines: 1,
+                    textInputAction: TextInputAction.done,
+                    style: labelStyle,
+                    decoration: InputDecoration(
+                      isDense: true,
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 5,
+                        vertical: 5,
+                      ),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                    ),
+                    onSubmitted: _submitRename,
+                    onTapOutside: (_) => _finishRenaming(),
+                  ),
+                )
+              : Row(
+                  children: [
+                    Flexible(child: label),
+                    if (widget.item.labelSuffixBuilder case final builder?)
+                      builder(context, 13),
+                    if (widget.item.badge.dot &&
+                        _badgeFits(
+                          context,
+                          constraints.maxWidth,
+                          hasPrefix: prefix != null,
+                        )) ...[
+                      const SizedBox(width: _dotGap),
+                      _badge(context),
+                    ],
+                  ],
+                ),
+        ),
+        if (!_renaming &&
+            !widget.item.badge.dot &&
+            _badgeFits(
+              context,
+              constraints.maxWidth,
+              hasPrefix: prefix != null,
+            ))
+          _badge(context),
+      ],
     );
   }
 
