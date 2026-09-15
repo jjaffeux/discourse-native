@@ -436,7 +436,7 @@ final class AssignPlugin
                   tooltip: direct == null
                       ? 'Assign topic'
                       : 'Manage assignment to ${direct.assignee.displayName}',
-                  size: DButtonSize.large,
+                  size: DButtonSize.regular,
                   variant: DButtonVariant.outline,
                   onPressed: direct != null
                       ? showDetails
