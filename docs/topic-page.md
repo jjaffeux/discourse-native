@@ -49,3 +49,9 @@ verified the four-column workspace, source-list search, draft destination and
 return action, bottom docking on narrow windows, and the sidebar popover's
 placement beside the visible rail. Mobile behavior is covered by widget tests;
 no new physical-device verification was performed for this change.
+
+Integration with main `6be726ee` preserves the newer sidebar spacing and
+category-scoped search. Search, shell navigation, sidebar sizing, and desktop
+topic-page regressions pass. Linux topic pages keep a visible search field;
+widening a window dismisses navigation while retaining its anchor through the
+closing animation and preserving the saved sidebar width.

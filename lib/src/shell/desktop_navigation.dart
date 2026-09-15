@@ -93,25 +93,30 @@ class _DesktopNavigationState extends State<DesktopNavigation> {
           Expanded(
             child: Column(
               children: [
-                if (widget.compact)
-                  Align(
-                    alignment: AlignmentDirectional.centerStart,
-                    child: Padding(
-                      padding: const EdgeInsets.all(DSpacing.xs),
-                      child: DPopoverTrigger(
-                        builder: (context, trigger) => DButton(
-                          key: const ValueKey('desktop-navigation-trigger'),
-                          label: const Text('Navigation'),
-                          icon: const DIcon(DIcons.list),
-                          variant: DButtonVariant.ghost,
-                          expanded: trigger.open,
-                          hasPopup: true,
-                          focusNode: trigger.focusNode,
-                          onPressed: trigger.toggle,
+                Offstage(
+                  offstage: !widget.compact,
+                  child: ExcludeFocus(
+                    excluding: !widget.compact,
+                    child: Align(
+                      alignment: AlignmentDirectional.centerStart,
+                      child: Padding(
+                        padding: const EdgeInsets.all(DSpacing.xs),
+                        child: DPopoverTrigger(
+                          builder: (context, trigger) => DButton(
+                            key: const ValueKey('desktop-navigation-trigger'),
+                            label: const Text('Navigation'),
+                            icon: const DIcon(DIcons.list),
+                            variant: DButtonVariant.ghost,
+                            expanded: trigger.open,
+                            hasPopup: true,
+                            focusNode: trigger.focusNode,
+                            onPressed: trigger.toggle,
+                          ),
                         ),
                       ),
                     ),
                   ),
+                ),
                 Expanded(child: widget.child),
               ],
             ),

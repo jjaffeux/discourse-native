@@ -5,8 +5,10 @@ import 'package:flutter/material.dart';
 
 import '../models/topic.dart';
 import '../theme/d_icons.dart';
+import 'forum_search.dart';
 import 'platform.dart';
 import 'shell_scope.dart';
+import 'title_bar.dart';
 import 'topic_list_bottom_bar.dart';
 
 /// A conversation occupies the list's workspace, with its source one step away.
@@ -20,6 +22,11 @@ class DesktopTopicPage extends StatelessWidget {
     if (context.isTouch) return child;
     return Column(
       children: [
+        if (!ShellTitleBar.isSupported)
+          const Padding(
+            padding: EdgeInsets.fromLTRB(12, 8, 12, 0),
+            child: ForumSearch(dense: true),
+          ),
         const _TopicPageNavigation(),
         Expanded(child: child),
       ],
