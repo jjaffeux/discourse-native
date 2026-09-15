@@ -89,6 +89,12 @@ void main() {
         final controller = await _controller(store: FakeInstanceStore([site]));
         await controller.appSettings.setTextScale(AppTextScale.percent200);
         await _pumpShell(tester, controller, size);
+        if (size.width < 1100) {
+          await tester.tap(
+            find.byKey(const ValueKey('desktop-navigation-trigger')),
+          );
+          await tester.pumpAndSettle();
+        }
 
         final topics = find.descendant(
           of: find.byType(InstanceSidebar),
@@ -259,7 +265,7 @@ void main() {
   ) async {
     final semantics = tester.ensureSemantics();
     final controller = await _controller();
-    await _pumpShell(tester, controller, const Size(1000, 800));
+    await _pumpShell(tester, controller, const Size(1200, 800));
 
     final handle = find.byKey(const ValueKey('sidebar-resize-handle'));
     expect(tester.getSize(handle).width, 16);
@@ -301,7 +307,7 @@ void main() {
     semantics.dispose();
   }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 
-  testWidgets('narrow windows constrain rather than replace the preference', (
+  testWidgets('narrow navigation preserves the permanent sidebar preference', (
     tester,
   ) async {
     SharedPreferences.setMockInitialValues({
@@ -310,7 +316,10 @@ void main() {
     final controller = await _controller();
     await _pumpShell(tester, controller, const Size(768, 800));
 
-    expect(_sidebarWidth(tester), 400);
+    expect(find.byType(InstanceSidebar), findsNothing);
+    await tester.tap(find.byKey(const ValueKey('desktop-navigation-trigger')));
+    await tester.pumpAndSettle();
+    expect(_sidebarWidth(tester), 288);
     expect(
       (await SharedPreferences.getInstance()).getDouble(
         SidebarWidthStore.storageKey,

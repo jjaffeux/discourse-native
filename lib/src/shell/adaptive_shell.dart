@@ -19,7 +19,7 @@ import '../theme/d_icons.dart';
 import 'aggregate_view.dart';
 import 'bookmark_ui.dart';
 import 'composer_presentation.dart';
-import 'desktop_topic_sheet.dart';
+import 'desktop_navigation.dart';
 import 'diagnostics_panel.dart';
 import 'empty_state.dart';
 import 'instance_actions.dart';
@@ -36,7 +36,6 @@ import 'shell_panel.dart';
 import 'shell_scope.dart';
 import 'shell_search_controller.dart';
 import 'title_bar.dart';
-import 'topic_sheet_scope.dart';
 
 enum ShellLayout {
   compact,
@@ -127,8 +126,7 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
     final focusedRoute = focusedContext == null
         ? null
         : ModalRoute.of(focusedContext);
-    if (focusedRoute is PopupRoute &&
-        focusedRoute.settings is! TopicSheetRouteSettings) {
+    if (focusedRoute is PopupRoute) {
       return false;
     }
 
@@ -318,8 +316,7 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
         final focusedRoute = focusedContext == null
             ? null
             : ModalRoute.of(focusedContext);
-        if (focusedRoute is PopupRoute &&
-            focusedRoute.settings is! TopicSheetRouteSettings) {
+        if (focusedRoute is PopupRoute) {
           return;
         }
         controller.openReply();
@@ -446,20 +443,7 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
           return true;
         },
       },
-      child: ComposerPresentationHost(
-        child: context.isTouch
-            ? _buildShell(context)
-            : ComposerDock(
-                key: const ValueKey('app-composer-dock'),
-                appWorkspace: true,
-                child: LayoutBuilder(
-                  builder: (context, bounds) => MediaQuery(
-                    data: MediaQuery.of(context).copyWith(size: bounds.biggest),
-                    child: _buildShell(context),
-                  ),
-                ),
-              ),
-      ),
+      child: ComposerPresentationHost(child: _buildShell(context)),
     );
   }
 
@@ -534,7 +518,7 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
       body: LayoutBuilder(
         builder: (context, constraints) {
           final layout = ShellLayout.forWidth(constraints.maxWidth);
-          final shell = layout.isCompact
+          final shell = layout.isCompact && context.isTouch
               ? const _CompactShell()
               : _WideShell(layout: layout, sidebarWidth: _sidebarWidth);
 
@@ -544,14 +528,7 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
                 child: Column(
                   children: [
                     const ShellTitleBar(),
-                    Expanded(
-                      child: DesktopTopicSheetHost(
-                        tabsLeadingInset: layout.isCompact
-                            ? AdaptiveShell.compactRailWidth
-                            : AdaptiveShell.railWidth,
-                        child: body,
-                      ),
-                    ),
+                    Expanded(child: body),
                   ],
                 ),
               ),
@@ -1055,9 +1032,11 @@ class _WideShell extends StatelessWidget {
                             when state.hasInstances &&
                                 state.rootMode == ShellRootMode.aggregate =>
                           const AggregateView(),
-                        InstanceLoadStatus.ready when state.hasInstances => Row(
-                          children: [
-                            ResizablePane(
+                        InstanceLoadStatus.ready when state.hasInstances =>
+                          DesktopNavigation(
+                            compact:
+                                !context.isTouch && constraints.maxWidth < 1100,
+                            sidebar: ResizablePane(
                               controller: sidebarWidth,
                               edge: ResizablePaneEdge.trailing,
                               resizeKey: 'sidebar',
@@ -1066,18 +1045,17 @@ class _WideShell extends StatelessWidget {
                               dividerWidth: 1,
                               child: const InstanceSidebar(),
                             ),
-                            Expanded(
-                              child: _PageComposerDock(
-                                child: MainContent(
-                                  key: ComposerPresentationHost.contentKeyOf(
-                                    context,
-                                  ),
-                                  layout: layout,
+                            child: _PageComposerDock(
+                              child: MainContent(
+                                key: ComposerPresentationHost.contentKeyOf(
+                                  context,
                                 ),
+                                layout: context.isTouch
+                                    ? layout
+                                    : ShellLayout.expanded,
                               ),
                             ),
-                          ],
-                        ),
+                          ),
                         InstanceLoadStatus.ready => const EmptyState(),
                       },
                     ),
@@ -1090,26 +1068,18 @@ class _WideShell extends StatelessWidget {
   }
 }
 
-/// Mobile keeps its page dock; desktop measures the page below the app dock.
+/// Dock inside the content workspace so community navigation keeps its space.
 class _PageComposerDock extends StatelessWidget {
   const _PageComposerDock({required this.child});
 
   final Widget child;
 
   @override
-  Widget build(BuildContext context) {
-    if (context.isTouch) {
-      return ComposerDock(
-        key: ComposerPresentationHost.dockKeyOf(context),
-        child: child,
-      );
-    }
-    return ShellSelector<bool>(
-      select: (shell) => shell.currentContent?.isTopic == true,
-      builder: (context, sheetOpen, _) =>
-          ReaderContentBounds(enabled: !sheetOpen, child: child),
-    );
-  }
+  Widget build(BuildContext context) => ComposerDock(
+    key: ComposerPresentationHost.dockKeyOf(context),
+    appWorkspace: !context.isTouch,
+    child: context.isTouch ? child : ReaderContentBounds(child: child),
+  );
 }
 
 class _ShellLoadProgress extends StatelessWidget {

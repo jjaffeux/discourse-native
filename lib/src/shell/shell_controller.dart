@@ -2644,8 +2644,8 @@ class ShellController extends FrameSafeNotifier
     _notify();
   }
 
-  /// Returns from a desktop conversation to the page underneath its sheet.
-  void closeTopicSheet() {
+  /// Returns from a conversation to its source, including direct topic links.
+  void closeTopic() {
     final active = activeTab;
     if (active == null || !active.currentContent.isTopic) return;
     var tab = active;

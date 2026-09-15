@@ -21,6 +21,7 @@ import 'categories_page.dart';
 import 'category_icon.dart';
 import 'category_notifications.dart';
 import 'content_reading_lane.dart';
+import 'desktop_topic_page.dart';
 import 'draft_list.dart';
 import 'forum_search.dart';
 import 'forum_tabs_bar.dart';
@@ -34,6 +35,7 @@ import 'message_create_button.dart';
 import 'message_inbox_page.dart';
 import 'message_inbox_title.dart';
 import 'open_link.dart';
+import 'platform.dart';
 import 'preferences_page.dart';
 import 'resizable_pane.dart';
 import 'shell_controller.dart';
@@ -49,7 +51,6 @@ import 'topic_list_bottom_bar.dart';
 import 'topic_list_layout.dart';
 import 'topic_list_navigation.dart';
 import 'topic_list_view.dart';
-import 'topic_sheet_scope.dart';
 import 'topic_title.dart';
 import 'topic_view.dart';
 import 'user_activity.dart';
@@ -85,10 +86,8 @@ class _MainContentState extends State<MainContent> {
 
   @override
   Widget build(BuildContext context) {
-    final background = TopicSheetScope.isBackground(context);
     return ShellSelector<_MainContentSnapshot>(
-      select: (shell) =>
-          _MainContentSnapshot.from(shell, background: background),
+      select: (shell) => _MainContentSnapshot.from(shell),
       builder: (context, state, _) {
         final shell = ShellScope.read(context);
         final port = ShellGroupPagesPort(shell);
@@ -153,9 +152,7 @@ class _MainContentBody extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final forumTabsEnabled =
-        ShellScope.read(context).forumTabsEnabled &&
-        !TopicSheetScope.isBackground(context);
+    final forumTabsEnabled = ShellScope.read(context).forumTabsEnabled;
 
     final route = state.route;
     if (route == null) return ColoredBox(color: theme.shell.content);
@@ -336,7 +333,8 @@ class _TopicInboxWorkspaceState extends State<_TopicInboxWorkspace> {
         final registry = widget.registry;
         final theme = Theme.of(context);
         final topicOpen = state.route!.isTopic;
-        final split = topicOpen && constraints.maxWidth >= 880;
+        final split =
+            context.isTouch && topicOpen && constraints.maxWidth >= 880;
         final maximumListWidth = (constraints.maxWidth - 520).clamp(
           304.0,
           480.0,
@@ -489,56 +487,63 @@ class _TopicInboxWorkspaceState extends State<_TopicInboxWorkspace> {
                 dividerWidth: 1,
                 child: Offstage(
                   offstage: topicOpen && !split,
-                  child: TickerMode(
-                    enabled: !topicOpen || split,
-                    child: Column(
-                      children: [
-                        if (!ShellTitleBar.isSupported)
-                          const ContentReadingLaneBox(
-                            widthLimit: topicListContentWidth,
-                            child: Padding(
-                              padding: EdgeInsets.fromLTRB(
-                                topicListHorizontalPadding,
-                                0,
-                                topicListHorizontalPadding,
-                                8,
+                  child: ExcludeFocus(
+                    excluding: topicOpen && !split,
+                    child: TickerMode(
+                      enabled: !topicOpen || split,
+                      child: Column(
+                        children: [
+                          if (!ShellTitleBar.isSupported)
+                            const ContentReadingLaneBox(
+                              widthLimit: topicListContentWidth,
+                              child: Padding(
+                                padding: EdgeInsets.fromLTRB(
+                                  topicListHorizontalPadding,
+                                  0,
+                                  topicListHorizontalPadding,
+                                  8,
+                                ),
+                                child: ForumSearch(dense: true),
                               ),
-                              child: ForumSearch(dense: true),
+                            ),
+                          Expanded(
+                            child: _FeedBackedContent(
+                              route: sourceRoute,
+                              siteUrl: state.siteUrl,
+                              inbox: true,
+                              keepTopicOpen: split,
+                              topicListHeadingBuilder: buildHeading,
                             ),
                           ),
-                        Expanded(
-                          child: _FeedBackedContent(
-                            route: sourceRoute,
-                            siteUrl: state.siteUrl,
-                            inbox: true,
-                            keepTopicOpen: split,
-                            topicListHeadingBuilder: buildHeading,
-                          ),
-                        ),
-                        TopicListBottomBar(
-                          leading: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Flexible(child: createAction),
-                              if (state.isConnected &&
-                                  state.siteUrl != null &&
-                                  sourceRoute.categoryId != null) ...[
-                                const SizedBox(width: DSpacing.sm),
-                                CategoryNotificationLevelButton(
-                                  siteUrl: state.siteUrl!,
-                                  categoryId: sourceRoute.categoryId!,
-                                  showLabel: listWidth >= 440 * buttonTextScale,
-                                ),
+                          TopicListBottomBar(
+                            leading: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Flexible(child: createAction),
+                                if (state.isConnected &&
+                                    state.siteUrl != null &&
+                                    sourceRoute.categoryId != null) ...[
+                                  const SizedBox(width: DSpacing.sm),
+                                  CategoryNotificationLevelButton(
+                                    siteUrl: state.siteUrl!,
+                                    categoryId: sourceRoute.categoryId!,
+                                    showLabel:
+                                        listWidth >= 440 * buttonTextScale,
+                                  ),
+                                ],
                               ],
-                            ],
+                            ),
+                            // The footer padding already clears the desktop handle.
+                            trailingInset: split
+                                ? DResizableHandle.resolveHitExtent(
+                                        context,
+                                        8,
+                                      ) -
+                                      topicBottomBarPadding.horizontal / 2
+                                : 0,
                           ),
-                          // The footer padding already clears the desktop handle.
-                          trailingInset: split
-                              ? DResizableHandle.resolveHitExtent(context, 8) -
-                                    topicBottomBarPadding.horizontal / 2
-                              : 0,
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
                 ),
@@ -551,16 +556,18 @@ class _TopicInboxWorkspaceState extends State<_TopicInboxWorkspace> {
                 end: 0,
                 top: 0,
                 bottom: 0,
-                child: TopicView(
-                  key: ValueKey(state.route!.topicId),
-                  inbox: true,
-                  keepTopicListOpen: split,
-                  route: state.route!,
-                  canReturnToSidebar: layout.isCompact,
-                  canReply: state.canReply,
-                  bookmarkBusy: state.bookmarkBusy,
-                  isConnected: state.isConnected,
-                  registry: registry,
+                child: DesktopTopicPage(
+                  child: TopicView(
+                    key: ValueKey(state.route!.topicId),
+                    inbox: true,
+                    keepTopicListOpen: split,
+                    route: state.route!,
+                    canReturnToSidebar: layout.isCompact,
+                    canReply: state.canReply,
+                    bookmarkBusy: state.bookmarkBusy,
+                    isConnected: state.isConnected,
+                    registry: registry,
+                  ),
                 ),
               ),
           ],
@@ -652,14 +659,16 @@ class _ContentViewport extends StatelessWidget {
       );
     }
     if (route.isTopic) {
-      return TopicView(
-        inbox: true,
-        canReturnToSidebar: layout.isCompact,
-        route: route,
-        canReply: canReply,
-        bookmarkBusy: bookmarkBusy,
-        isConnected: isConnected,
-        registry: registry,
+      return DesktopTopicPage(
+        child: TopicView(
+          inbox: true,
+          canReturnToSidebar: layout.isCompact,
+          route: route,
+          canReply: canReply,
+          bookmarkBusy: bookmarkBusy,
+          isConnected: isConnected,
+          registry: registry,
+        ),
       );
     }
     if (pluginContent case final content?) return content;
@@ -1470,23 +1479,14 @@ class _MainContentSnapshot {
     required this.groupAccountIdentity,
   });
 
-  factory _MainContentSnapshot.from(
-    ShellController controller, {
-    bool background = false,
-  }) {
-    final stack = controller.contentStack;
-    final route = background
-        ? stack.reversed.where((route) => !route.isTopic).firstOrNull ??
-              ContentRoute.topicList(TopicListMode.latest)
-        : controller.currentContent;
+  factory _MainContentSnapshot.from(ShellController controller) {
+    final route = controller.currentContent;
     return _MainContentSnapshot(
       siteUrl: controller.currentInstance?.url,
       activeTabId: controller.activeTabId,
       route: route,
-      sourceRoute: background
-          ? (route?.isTopicList == true ? route : null)
-          : controller.topicListContent,
-      canPop: background ? stack.indexOf(route!) > 0 : controller.canPopContent,
+      sourceRoute: controller.topicListContent,
+      canPop: controller.canPopContent,
       canReply: controller.canReplyHere,
       bookmarkBusy: switch ((
         controller.currentInstance?.url,

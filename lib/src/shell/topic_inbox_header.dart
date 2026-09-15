@@ -26,7 +26,6 @@ import 'title_bar.dart';
 import 'topic_actions.dart';
 import 'topic_category_picker.dart';
 import 'topic_header_tags.dart';
-import 'topic_sheet_scope.dart';
 import 'topic_title.dart';
 import 'user_menu_button.dart';
 
@@ -224,7 +223,7 @@ class _TopicHeaderToolbar extends StatelessWidget {
                   header: header,
                   width: constraints.maxWidth,
                 ),
-                if (!header.keepTopicListOpen)
+                if (context.isTouch && !header.keepTopicListOpen)
                   TopicCloseButton(
                     canReturnToSidebar: header.canReturnToSidebar,
                   ),
@@ -336,25 +335,13 @@ class TopicCloseButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) => DButton.iconOnly(
     key: const ValueKey('topic-close-reader'),
-    icon: DIcon(
-      TopicSheetScope.readerOf(context) != null
-          ? DIcons.xmark
-          : DNativeIcons.closeTopicPane,
-      size: 20,
-    ),
-    tooltip: TopicSheetScope.readerOf(context) != null
-        ? 'Close topic sheet'
-        : ShellScope.read(context).topicListContent?.isMessages == true
+    icon: const DIcon(DNativeIcons.closeTopicPane, size: 20),
+    tooltip: ShellScope.read(context).topicListContent?.isMessages == true
         ? 'Collapse message'
         : 'Collapse topic',
     variant: DButtonVariant.ghost,
     size: DButtonSize.small,
     onPressed: () {
-      final sheet = TopicSheetScope.readerOf(context);
-      if (sheet != null) {
-        sheet.onClose?.call();
-        return;
-      }
       final controller = ShellScope.read(context);
       if (controller.topicListContent != null) {
         controller.closeTopicListReader();
@@ -858,6 +845,18 @@ class _TopicPropertyPopover extends StatefulWidget {
 
 class _TopicPropertyPopoverState extends State<_TopicPropertyPopover> {
   final _controller = DPopoverController();
+
+  @override
+  void didUpdateWidget(_TopicPropertyPopover oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.siteUrl != widget.siteUrl ||
+        oldWidget.topicId != widget.topicId ||
+        oldWidget.navigationRevision != widget.navigationRevision) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _controller.close();
+      });
+    }
+  }
 
   Widget _trigger(
     BuildContext context,

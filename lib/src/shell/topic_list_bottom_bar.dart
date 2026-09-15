@@ -11,7 +11,6 @@ import 'keyboard_navigation.dart';
 import 'shell_controller.dart';
 import 'shell_metrics.dart';
 import 'shell_scope.dart';
-import 'topic_sheet_scope.dart';
 
 typedef _AdjacentTopics = ({int? previous, int? next, bool more, bool busy});
 
@@ -124,8 +123,7 @@ class TopicListBottomBar extends StatelessWidget {
                 )
               else
                 const Spacer(),
-              if (!TopicSheetScope.isBackground(context))
-                const TopicNavigationButtons(),
+              const TopicNavigationButtons(),
             ],
           ),
         ),
@@ -134,7 +132,7 @@ class TopicListBottomBar extends StatelessWidget {
   );
 }
 
-/// Shared adjacent-topic actions for sheet and page presentations.
+/// Adjacent-topic actions following the current source list.
 class TopicNavigationButtons extends StatelessWidget {
   const TopicNavigationButtons({super.key, this.vertical = false});
 
