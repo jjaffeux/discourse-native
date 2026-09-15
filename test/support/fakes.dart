@@ -563,7 +563,6 @@ class FakeDiscourseApi
     this.cards = const {},
     this.creation,
     this.writeFailure,
-    this.updateTopicGate,
     this.presenceGate,
     this.permanentDeletionAllowed = true,
     this.permanentDeletionReason,
@@ -879,7 +878,6 @@ class FakeDiscourseApi
   final PostCreation? creation;
 
   final WriteException? writeFailure;
-  final Completer<void>? updateTopicGate;
 
   final Completer<void>? presenceGate;
   final bool permanentDeletionAllowed;
@@ -2332,7 +2330,6 @@ class FakeDiscourseApi
       'tags': ?tags?.toList(),
       'originalTags': ?originalTags?.toList(),
     });
-    if (updateTopicGate case final gate?) await gate.future;
     final failure = writeFailure;
     if (failure != null) throw failure;
   }

@@ -145,7 +145,7 @@ void main() {
           final target = next ? 21 : 20;
           expect(setup.shell.currentContent?.topicId, target);
           expect(
-            find.byKey(const ValueKey('topic-content-header')),
+            find.byKey(const ValueKey('topic-page-navigation')),
             findsOneWidget,
           );
           expect(_selectedTopics(tester), [target]);

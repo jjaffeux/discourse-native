@@ -34,10 +34,6 @@ void main() {
 
       await tester.tap(find.byTooltip('Edit topic category'));
       await tester.pumpAndSettle();
-      await tester.tap(
-        find.byKey(const ValueKey('topic-header-category-field')),
-      );
-      await tester.pumpAndSettle(const Duration(milliseconds: 800));
       await tester.enterText(
         find.byKey(const ValueKey('topic-category-picker-query')),
         'todo',
@@ -45,25 +41,15 @@ void main() {
       await tester.pumpAndSettle();
       await tester.sendKeyEvent(LogicalKeyboardKey.enter);
       await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const ValueKey('topic-header-save')));
-      await tester.pumpAndSettle();
       expect(shell.currentTopic!.categoryId, 4);
 
-      for (final label in ['Reset topic', 'Light']) {
+      for (final label in ['Reset topic', 'Light', 'Results: ready']) {
         await tester.tap(find.text(label));
         await tester.pumpAndSettle();
       }
-      await tester.tap(find.byTooltip('Edit topic category'));
+      await tester.tap(find.byTooltip('Edit topic subcategory'));
       await tester.pumpAndSettle();
-      await tester.tap(
-        find.byKey(const ValueKey('topic-header-category-field')),
-      );
-      await tester.pumpAndSettle(const Duration(milliseconds: 800));
-      await tester.tap(
-        find.byKey(const ValueKey(('topic-category-picker-option', 1))),
-      );
-      await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const ValueKey('topic-header-save')));
+      await tester.tap(find.text('Remove subcategory'));
       await tester.pumpAndSettle();
       expect(shell.currentTopic!.categoryId, 1);
 
@@ -74,10 +60,6 @@ void main() {
       }
       await tester.tap(find.byTooltip('Edit topic category'));
       await tester.pumpAndSettle();
-      await tester.tap(
-        find.byKey(const ValueKey('topic-header-category-field')),
-      );
-      await tester.pumpAndSettle(const Duration(milliseconds: 800));
       expect(find.byType(DComboboxContent), findsOneWidget);
       expect(tester.takeException(), isNull);
       await tester.sendKeyEvent(LogicalKeyboardKey.escape);
