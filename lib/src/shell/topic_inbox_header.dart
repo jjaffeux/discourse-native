@@ -130,7 +130,10 @@ class _TopicInboxHeaderState extends State<TopicInboxHeader> {
                 constraints: BoxConstraints(
                   maxHeight: constraints.maxHeight * .6,
                 ),
-                child: DScrollArea(child: contextHeader),
+                child: DScrollArea(
+                  borderRadius: BorderRadius.zero,
+                  child: contextHeader,
+                ),
               ),
               Expanded(child: reader),
             ],
