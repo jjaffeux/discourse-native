@@ -1499,18 +1499,17 @@ void main() {
     expect(parent.top, greaterThan(title.bottom));
     expect(summary.left, closeTo(title.left, 1));
     expect(summary.top, greaterThan(parent.bottom));
-    expect(
-      properties.center.dy,
-      closeTo(
-        tester
-            .getCenter(
-              find.byKey(const ValueKey('topic-header-common-actions')),
-            )
-            .dy,
-        1,
-      ),
+    expect(properties.center.dy, closeTo(tag.center.dy, 1));
+    final separator = tester.getRect(
+      find
+          .descendant(
+            of: find.byKey(const ValueKey('topic-header-taxonomy')),
+            matching: find.byType(DSeparator),
+          )
+          .last,
     );
-    expect(properties.right, greaterThan(title.right - 32));
+    expect(separator.left, greaterThanOrEqualTo(editTagRect.right));
+    expect(separator.right, lessThan(properties.left));
     expect(
       tester.getRect(find.byType(CookedHtml).first).left,
       closeTo(title.left, 1),

@@ -195,6 +195,7 @@ class _TopicInboxHeaderState extends State<TopicInboxHeader> {
                   siteUrl: siteUrl,
                   topic: topic,
                   keepTopicListOpen: widget.keepTopicListOpen,
+                  registry: widget.registry,
                 ),
               ),
             ),
@@ -375,13 +376,6 @@ class _TopicHeaderActions extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       spacing: DSpacing.sm,
       children: [
-        if (topic != null && siteUrl != null)
-          _TopicHeaderProperties(
-            siteUrl: siteUrl,
-            topic: topic,
-            registry: header.registry,
-            compact: width < 620,
-          ),
         Row(
           key: const ValueKey('topic-header-common-actions'),
           mainAxisSize: MainAxisSize.min,
@@ -567,10 +561,12 @@ class _TopicHeaderTaxonomy extends StatelessWidget {
     required this.siteUrl,
     required this.topic,
     required this.keepTopicListOpen,
+    required this.registry,
   });
   final String siteUrl;
   final TopicDetail topic;
   final bool keepTopicListOpen;
+  final PluginRegistry registry;
 
   @override
   Widget build(BuildContext context) => ShellSelector<Object>(
@@ -661,6 +657,13 @@ class _TopicHeaderTaxonomy extends StatelessWidget {
                   ),
                 ),
               ],
+              _TopicHeaderProperties(
+                siteUrl: siteUrl,
+                topic: topic,
+                registry: registry,
+                compact: constraints.maxWidth < 620,
+                showSeparator: hasCategories || hasTags,
+              ),
             ],
           );
         },
@@ -860,11 +863,13 @@ class _TopicHeaderProperties extends StatelessWidget {
     required this.topic,
     required this.registry,
     this.compact = false,
+    this.showSeparator = false,
   });
   final String siteUrl;
   final TopicDetail topic;
   final PluginRegistry registry;
   final bool compact;
+  final bool showSeparator;
 
   @override
   Widget build(BuildContext context) {
@@ -885,7 +890,7 @@ class _TopicHeaderProperties extends StatelessWidget {
             ).topicNavigationRevision,
           ),
       ];
-      return compact
+      final content = compact
           ? Row(mainAxisSize: MainAxisSize.min, children: children)
           : Wrap(
               alignment: WrapAlignment.end,
@@ -893,6 +898,14 @@ class _TopicHeaderProperties extends StatelessWidget {
               runSpacing: 6,
               children: children,
             );
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (showSeparator)
+            const DSeparator(orientation: Axis.vertical, length: 20, space: 17),
+          content,
+        ],
+      );
     }
 
     final rebuildOn = registry.topicPropertiesRebuildOn(
