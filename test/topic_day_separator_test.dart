@@ -184,7 +184,7 @@ void main() {
         );
         final firstPost = find.byKey(const ValueKey('topic-post-highlight-1'));
         expect(
-          tester.getRect(firstPost).top - tester.getRect(activity).bottom,
+          tester.getRect(firstPost).top - tester.getRect(header).bottom,
           lessThanOrEqualTo(scale == 1 ? 32 : 48),
           reason: 'the opening should not reserve a full day-boundary gap',
         );
