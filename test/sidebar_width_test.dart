@@ -190,7 +190,7 @@ void main() {
     expect(longHeaderRect.height, greaterThan(shortHeaderRect.height));
     expect(longTitleRect.top, greaterThanOrEqualTo(longHeaderRect.top));
     expect(longTitleRect.bottom, lessThanOrEqualTo(longHeaderRect.bottom));
-    expect(shortHeaderRect.top, longHeaderRect.bottom + 1);
+    expect(shortHeaderRect.top, longHeaderRect.bottom + 6);
     expect(
       longTitleRect.top - longHeaderRect.top,
       closeTo(shortTitleRect.top - shortHeaderRect.top, 0.25),

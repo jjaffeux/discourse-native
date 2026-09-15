@@ -961,7 +961,7 @@ void _registerShellNavigationTests() {
         .first;
     expect(
       tester.getRect(projectsHeader).top - tester.getRect(moreTile).bottom,
-      closeTo(18, 0.01),
+      closeTo(23, 0.01),
     );
     final roadmapTile = find
         .ancestor(
@@ -977,7 +977,7 @@ void _registerShellNavigationTests() {
         .first;
     expect(
       tester.getRect(categoriesHeader).top - tester.getRect(roadmapTile).bottom,
-      closeTo(1, 0.01),
+      closeTo(6, 0.01),
     );
     expect(
       tester.getSize(projectsHeader).height,
@@ -989,7 +989,7 @@ void _registerShellNavigationTests() {
       matching: find.byType(DSeparator),
     );
     expect(separator, findsOneWidget);
-    expect(tester.getRect(separator).top, tester.getRect(moreTile).bottom + 9);
+    expect(tester.getRect(separator).top, tester.getRect(moreTile).bottom + 14);
     final sectionStyle = DefaultTextStyle.of(
       tester.element(find.text('Projects')),
     );
@@ -1986,10 +1986,10 @@ void _registerShellNavigationTests() {
     expect(tester.widget<DSidebarMenuButton>(selectedRow).isActive, isTrue);
     final selectedRect = tester.getRect(selectedRow);
     final hoveredRect = tester.getRect(inkWell);
-    expect(hoveredRect.top - selectedRect.bottom, closeTo(1, 0.01));
+    expect(hoveredRect.top - selectedRect.bottom, closeTo(6, 0.01));
 
     await gesture.moveTo(
-      Offset(selectedRect.center.dx, selectedRect.bottom + 0.5),
+      Offset(selectedRect.center.dx, selectedRect.bottom + 3),
     );
     await tester.pumpAndSettle();
     expect(background(), isNull);
