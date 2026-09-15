@@ -223,7 +223,7 @@ class _TopicHeaderToolbar extends StatelessWidget {
                   header: header,
                   width: constraints.maxWidth,
                 ),
-                if (context.isTouch && !header.keepTopicListOpen)
+                if (!header.keepTopicListOpen)
                   TopicCloseButton(
                     canReturnToSidebar: header.canReturnToSidebar,
                   ),
