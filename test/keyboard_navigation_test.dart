@@ -108,7 +108,7 @@ void main() {
 
   for (final menu in ['category', 'tag']) {
     testWidgets(
-      'topic sequences work after closing the $menu filter and opening a sheet',
+      'topic sequences work after closing the $menu filter and opening a topic page',
       (tester) async {
         final setup = await _setup(tester);
         final filter = find.byKey(ValueKey('topic-list-$menu-filter'));
@@ -145,10 +145,10 @@ void main() {
           final target = next ? 21 : 20;
           expect(setup.shell.currentContent?.topicId, target);
           expect(
-            find.byKey(const ValueKey('desktop-topic-sheet')),
+            find.byKey(const ValueKey('topic-page-navigation')),
             findsOneWidget,
           );
-          expect(_selectedTopics(tester), [target]);
+          expect(_selectedTopics(tester), isEmpty);
           expect(_selectedPosts(tester), isEmpty);
         }
         expect(tester.takeException(), isNull);

@@ -31,7 +31,11 @@ class ComposerPresentationController extends ChangeNotifier {
   ComposerPlacement effectivePlacement({
     required bool mobile,
     required double width,
-  }) => mobile || (_preference.placement.isSide && width < sideBreakpoint)
+    double minimumReaderWidth = readerMinimum,
+  }) =>
+      mobile ||
+          (_preference.placement.isSide &&
+              width < sideMinimum + minimumReaderWidth + 1)
       ? ComposerPlacement.bottom
       : _preference.placement;
 

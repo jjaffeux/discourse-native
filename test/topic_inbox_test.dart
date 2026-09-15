@@ -333,7 +333,13 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(shell.topicListContent?.categoryId, _child.id);
-      expect(shell.currentContent?.topicId, setup.rows.first.id);
+      expect(
+        shell.currentContent?.topicId,
+        Theme.of(tester.element(find.byType(MainContent))).platform ==
+                TargetPlatform.macOS
+            ? isNull
+            : setup.rows.first.id,
+      );
       expect(setup.api.topicsUpdated, isEmpty);
       expect(tester.takeException(), isNull);
     },
@@ -861,7 +867,7 @@ void main() {
         final taxonomy = find.byKey(const ValueKey('topic-header-taxonomy'));
         final before = tester.getRect(taxonomy);
         final close = tester.getRect(
-          find.byKey(const ValueKey('topic-close-reader')),
+          find.byKey(const ValueKey('topic-header-common-actions')),
         );
         expect(before.left, closeTo(title.left, 1));
         expect(before.top, greaterThan(title.bottom));
@@ -872,7 +878,9 @@ void main() {
         expect(after.width, before.width);
         expect(after.top, before.top);
         expect(
-          tester.getRect(find.byKey(const ValueKey('topic-close-reader'))),
+          tester.getRect(
+            find.byKey(const ValueKey('topic-header-common-actions')),
+          ),
           close,
         );
         expect(_compactHeader, findsOneWidget);
@@ -1493,7 +1501,11 @@ void main() {
     expect(
       properties.center.dy,
       closeTo(
-        tester.getCenter(find.byKey(const ValueKey('topic-close-reader'))).dy,
+        tester
+            .getCenter(
+              find.byKey(const ValueKey('topic-header-common-actions')),
+            )
+            .dy,
         1,
       ),
     );
@@ -2081,7 +2093,10 @@ void main() {
         tester.platformDispatcher.textScaleFactorTestValue = scale;
         await tester.pumpAndSettle();
         final listBar = tester.getRect(
-          find.byKey(const ValueKey('topic-list-bottom-bar')),
+          find.byKey(
+            const ValueKey('topic-list-bottom-bar'),
+            skipOffstage: false,
+          ),
         );
         final readerBar = tester.getRect(
           find.byKey(const ValueKey('topic-bottom-bar')),
@@ -2099,8 +2114,8 @@ void main() {
           expect(controlHeight, touch ? 48 : 28);
           for (final key in [
             'topic-progress-button',
-            'inbox-previous-topic',
-            'inbox-next-topic',
+            if (touch) 'inbox-previous-topic',
+            if (touch) 'inbox-next-topic',
           ]) {
             final control = find.byKey(ValueKey(key));
             expect(tester.getSize(control).height, controlHeight);
@@ -2290,7 +2305,7 @@ void main() {
     );
   }
 
-  testWidgets('topic arrows hover independently and footer margins match', (
+  testWidgets('topic arrows hover independently and navigation margins match', (
     tester,
   ) async {
     final setup = await _setup(tester, canCreateTopic: true);
@@ -2315,15 +2330,13 @@ void main() {
       );
       expect(buttonSurface(tester, of: other).color, Colors.transparent);
     }
-    final footer = tester.getRect(
-      find.byKey(const ValueKey('topic-list-bottom-bar')),
+    final navigation = tester.getRect(
+      find.byKey(const ValueKey('topic-page-navigation')),
     );
-    final create = tester.getRect(
-      find.byKey(const ValueKey('new-topic-button')),
-    );
+    final back = tester.getRect(find.byKey(const ValueKey('topic-page-back')));
     expect(
-      footer.right - tester.getRect(next).right,
-      create.left - footer.left,
+      navigation.right - tester.getRect(next).right,
+      back.left - navigation.left,
     );
   }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 

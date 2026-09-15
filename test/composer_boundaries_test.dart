@@ -111,17 +111,11 @@ void main() {
             presentation.dock(ComposerPlacement.right);
             shell.openTopicFromList(_topic);
             await tester.pumpAndSettle();
-            final list = tester.getRect(
-              find.byKey(const ValueKey('inbox-topic-list-pane')),
-            );
-            await _expectLine(
-              tester,
-              theme,
-              axis: Axis.vertical,
-              position: direction == TextDirection.ltr
-                  ? list.right - 1
-                  : list.left,
-              samples: [list.top + 8, list.top + 180, list.bottom - 80],
+            // The desktop list is retained offstage; only the composer
+            // contributes a visible boundary beside the reader.
+            expect(
+              find.byKey(const ValueKey('inbox-list-resize-handle')),
+              findsNothing,
             );
             await _expectComposerBoundary(
               tester,
@@ -129,7 +123,7 @@ void main() {
               ComposerPlacement.right,
             );
 
-            // The list's divider disappears when only the topic reader fits.
+            // Narrowing keeps the same single composer boundary.
             tester.view.physicalSize = const Size(1100, 800);
             await tester.pumpAndSettle();
             expect(

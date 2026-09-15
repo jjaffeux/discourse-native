@@ -14,7 +14,6 @@ import 'composer_presentation_controller.dart';
 import 'platform.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';
-import 'title_bar.dart';
 
 /// Retains each forum's editor while its dock placement or visibility changes.
 class ComposerPresentationHost extends StatefulWidget {
@@ -338,6 +337,9 @@ class _ComposerDockState extends State<ComposerDock> {
         final placement = owner._presentation.effectivePlacement(
           mobile: mobile,
           width: constraints.maxWidth,
+          minimumReaderWidth: widget.appWorkspace
+              ? 480
+              : ComposerPresentationController.readerMinimum,
         );
         final minimized = entry.minimized;
         if (minimized) {
@@ -365,7 +367,9 @@ class _ComposerDockState extends State<ComposerDock> {
         final preference = owner._presentation.preference;
         final extent = side ? constraints.maxWidth : constraints.maxHeight;
         final readerMin = side
-            ? ComposerPresentationController.readerMinimum
+            ? (widget.appWorkspace
+                  ? 480.0
+                  : ComposerPresentationController.readerMinimum)
             : math.min(96.0, math.max(0.0, extent - 241));
         final composerMin = side
             ? ComposerPresentationController.sideMinimum
@@ -406,11 +410,6 @@ class _ComposerDockState extends State<ComposerDock> {
               child: LayoutBuilder(
                 builder: (context, bounds) => Column(
                   children: [
-                    // Native window controls stay at the physical top left.
-                    if (widget.appWorkspace &&
-                        placement == ComposerPlacement.left &&
-                        ShellTitleBar.isSupported)
-                      const ShellTitleBar(showControls: false),
                     Expanded(
                       child: LayoutBuilder(
                         builder: (context, bounds) => owner._surface(
