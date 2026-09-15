@@ -8,12 +8,12 @@ final scrollAreaExamples = ComponentExamples(
   status: ComponentStatus.implemented,
   description: 'Native scrolling with compact, themed draggable scrollbars.',
   notes:
-      'Browser reference, widget exports and the isolated macOS fixture were reviewed. Controllers are borrowed when supplied. DScrollBar decorates an existing viewport without replacing virtualization or restoration. Tab into an overflowing area, then use arrows, Page Up/Down, Home/End or Space/Shift+Space. Thumb artwork adapts to its surface with at least 3:1 contrast and a 1px container inset. Supply backgroundColor for a custom surface.',
+      'Browser reference, widget exports and the isolated macOS fixture were reviewed. Controllers are borrowed when supplied. DScrollBar decorates an existing viewport without replacing virtualization or restoration. Tab into an overflowing area, then use arrows, Page Up/Down, Home/End or Space/Shift+Space. Thumb artwork adapts to its surface with at least 3:1 contrast and a 2px container inset. Supply backgroundColor for a custom surface.',
   examples: [
     StyleguideExample(
       title: 'Surface contrast',
       description:
-          'Thumb colors follow the supplied surface, with 1px of clear space at the container edge. Switch palettes to compare content, panel and popup backgrounds.',
+          'Thumb colors follow the supplied surface, with 2px of clear space at the container edge. Switch palettes to compare content, panel and popup backgrounds.',
       code: 'DScrollArea(backgroundColor: surface, child: content)',
       builder: (context) {
         final tokens = DTokens.of(context);
