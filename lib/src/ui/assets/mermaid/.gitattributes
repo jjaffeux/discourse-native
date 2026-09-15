@@ -1,0 +1,2 @@
+# Preserve the verified upstream bundle, including whitespace in its strings.
+*.min.js -whitespace linguist-vendored

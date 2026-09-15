@@ -24,6 +24,7 @@ void main() {
       'discourse-local-dates',
       'discourse-github',
       'discourse-lazy-videos',
+      'discourse-mermaid',
       'discourse-placeholder',
       'discourse-reactions',
       'poll',
