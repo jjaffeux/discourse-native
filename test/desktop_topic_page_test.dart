@@ -25,7 +25,11 @@ import 'support/topic_scroll_capture.dart';
 
 final _reader = find.byType(TopicView);
 final _allLists = find.byType(TopicListView, skipOffstage: false);
-final _back = find.byKey(const ValueKey('topic-close-reader'));
+final _back = find.byWidgetPredicate(
+  (widget) =>
+      widget.key == const ValueKey('topic-close-reader') ||
+      widget.key == const ValueKey('topic-header-parent'),
+);
 
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));

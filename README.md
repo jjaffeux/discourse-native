@@ -1009,6 +1009,14 @@ or many tags, it can scroll independently within 60% of the reader height so
 all context remains accessible and posts retain space. Tags never collapse
 into a count or an overflow picker.
 
+When the source list is hidden, a quiet return link sits above the category
+inside the rail. It names the originating list and restores its filters and
+reading position, even after the topic moves to another category. Matching
+category lists use **Topics** to avoid repeating the category underneath;
+hover and accessibility labels retain the full destination. Direct topic
+links fall back to the topic's category, **Messages** for private messages,
+or **Latest**. The return link disappears when the source list is visible.
+
 Clicking the title, category chevron, or tag plus opens that field’s draft
 beneath the reading context, according to server permissions. There is no separate Edit
 topic button or command chooser. Empty tags use the same compact plus control
@@ -1029,13 +1037,14 @@ Escape cancels the draft after any picker closes. Tag drafts use removable
 Native Combobox tokens and category-scoped search. Changes stay local until
 saved, errors retain the draft for retry, and changing topic or account retires
 it. Private messages show **Message** and omit category editing.
+Returning with an unfinished header edit offers **Keep editing** or
+**Discard & return**. The return action waits while a save is in progress.
 
-Header tags open their tag routes; middle-click opens a background app tab.
 The compact three-dot menu contains sharing, category browsing, reply count
 and permission-dependent moderation actions. The header has no topic switcher,
-list position counter or redundant Topics link. Collapse appears in the reader
-only when its source list is hidden; the visible source list keeps its own
-collapse control and adjacent-topic navigation. Keyboard navigation is retained.
+list position counter or redundant Topics link. The visible source list keeps
+its own collapse control and adjacent-topic navigation. Keyboard navigation is
+retained.
 
 Plugin properties can supply a compact `TopicPropertySection.header` builder;
 other properties remain available through a labelled details popover. The

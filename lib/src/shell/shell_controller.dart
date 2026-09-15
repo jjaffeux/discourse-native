@@ -2645,7 +2645,7 @@ class ShellController extends FrameSafeNotifier
   }
 
   /// Returns from a conversation to its source, including direct topic links.
-  void closeTopic() {
+  void closeTopic({ContentRoute? fallback}) {
     final active = activeTab;
     if (active == null || !active.currentContent.isTopic) return;
     var tab = active;
@@ -2654,7 +2654,10 @@ class ShellController extends FrameSafeNotifier
     }
     if (tab.currentContent.isTopic) {
       tab = tab.copyWith(
-        contentStack: [ContentRoute.topicList(TopicListMode.latest)],
+        contentStack: [
+          fallback ?? ContentRoute.topicList(TopicListMode.latest),
+        ],
+        forwardStack: [tab.currentContent],
       );
     }
     _replaceActiveTab(tab);
