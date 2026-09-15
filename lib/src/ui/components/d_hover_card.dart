@@ -348,6 +348,7 @@ class _DHoverCardState extends State<DHoverCard>
   Timer? _closeTimer;
   Offset? _pointer;
   bool _open = false;
+  bool _active = true;
   bool _initialized = false;
   bool _syncScheduled = false;
   bool _triggerHovered = false;
@@ -535,6 +536,7 @@ class _DHoverCardState extends State<DHoverCard>
   }
 
   Rect? _globalRect(BuildContext? target) {
+    if (!_active) return null;
     final box = target?.findRenderObject();
     if (box is! RenderBox || !box.attached || !box.hasSize) return null;
     return MatrixUtils.transformRect(
@@ -597,7 +599,7 @@ class _DHoverCardState extends State<DHoverCard>
   }
 
   void _globalPointer(PointerEvent event) {
-    if (!mounted) return;
+    if (!mounted || !_active) return;
     if (event is PointerHoverEvent || event is PointerMoveEvent) {
       _pointer = event.position;
       if (_open && !_triggerHovered && !_contentHovered) {
@@ -750,6 +752,20 @@ class _DHoverCardState extends State<DHoverCard>
       overlayChildBuilder: _overlay,
       child: trigger,
     );
+  }
+
+  @override
+  void deactivate() {
+    // mounted stays true until disposal, but render objects are unavailable.
+    _active = false;
+    _cancelTimers();
+    super.deactivate();
+  }
+
+  @override
+  void activate() {
+    super.activate();
+    _active = true;
   }
 
   @override

@@ -6,6 +6,59 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  testWidgets(
+    'ignores global pointer events while inactive and resumes after reparenting',
+    (tester) async {
+      final cardKey = GlobalKey();
+      final controller = DHoverCardController();
+      addTearDown(controller.dispose);
+      final card = DHoverCard(
+        key: cardKey,
+        controller: controller,
+        trigger: DHoverCardTrigger(
+          builder: (context, state) => DButton(
+            focusNode: state.focusNode,
+            onPressed: () {},
+            label: const Text('Reparented destination'),
+          ),
+        ),
+        content: const DHoverCardContent(child: Text('Reparented preview')),
+      );
+      Widget layout(bool moved) => _app(
+        Row(
+          children: [
+            Expanded(child: moved ? const SizedBox.shrink() : card),
+            Expanded(
+              child: Builder(
+                builder: (context) {
+                  if (!moved) return const SizedBox.shrink();
+                  // The first sibling has deactivated the card, but it is still mounted.
+                  expect(cardKey.currentContext!.mounted, isTrue);
+                  GestureBinding.instance.pointerRouter.route(
+                    const PointerDownEvent(position: Offset(4, 4)),
+                  );
+                  return card;
+                },
+              ),
+            ),
+          ],
+        ),
+      );
+
+      await tester.pumpWidget(layout(false));
+      await tester.pumpWidget(layout(true));
+      expect(tester.takeException(), isNull);
+
+      controller.open();
+      await tester.pumpAndSettle();
+      expect(find.text('Reparented preview'), findsOneWidget);
+      await tester.tapAt(const Offset(4, 4));
+      await tester.pumpAndSettle();
+      expect(controller.isOpen, isFalse);
+      expect(find.text('Reparented preview'), findsNothing);
+    },
+  );
+
   testWidgets('mouse uses the opening and closing delays', (tester) async {
     await tester.pumpWidget(_app(const _Card()));
     final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
