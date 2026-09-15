@@ -1,7 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:webview_platform_interface/webview_platform_interface.dart';
 
-enum MediaWebViewConfigurationStage { javaScript, background, navigation }
+enum MediaWebViewConfigurationStage {
+  javaScript,
+  background,
+  navigation,
+  userScript,
+}
 
 final class FakeMediaWebViewPlatform extends WebViewPlatform {
   final controllers = <FakeMediaWebViewController>[];
@@ -37,6 +42,7 @@ final class FakeMediaWebViewController extends PlatformWebViewController {
   final documents = <({String html, String? baseUrl})>[];
   final channels = <String, JavaScriptChannelParams>{};
   final scripts = <String>[];
+  final userScripts = <WebViewUserScript>[];
   FakeMediaNavigationDelegate? delegate;
 
   Future<void> _configure(MediaWebViewConfigurationStage stage) async {
@@ -75,6 +81,18 @@ final class FakeMediaWebViewController extends PlatformWebViewController {
   @override
   Future<void> runJavaScript(String javaScript) async {
     scripts.add(javaScript);
+  }
+
+  @override
+  Future<bool> isUserScriptInjectionSupported(
+    WebViewUserScriptInjectionTime injectionTime,
+  ) async => injectionTime == WebViewUserScriptInjectionTime.documentStart;
+
+  @override
+  Future<String> addUserScript(WebViewUserScript userScript) async {
+    userScripts.add(userScript);
+    await _configure(MediaWebViewConfigurationStage.userScript);
+    return 'script-${userScripts.length}';
   }
 
   @override

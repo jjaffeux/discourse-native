@@ -74,7 +74,7 @@ void main() {
       expect(controller.operations, admitted);
       expect(controller.documents, isEmpty);
       expect(tester.takeException(), isNull);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 
     testWidgets('replacing the player during ${stage.name} retires old setup', (
       tester,
@@ -105,8 +105,31 @@ void main() {
       expect(oldController.documents, isEmpty);
       expect(find.byType(YoutubePlayerSurface), findsOneWidget);
       expect(tester.takeException(), isNull);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
   }
+
+  testWidgets(
+    'macOS registers hover support inside the iframe before loading',
+    (tester) async {
+      final gate = Completer<void>();
+      platform.nextGate = (
+        MediaWebViewConfigurationStage.userScript,
+        gate.future,
+      );
+      await tester.pumpWidget(_player());
+      final controller = platform.controllers.single;
+
+      expect(controller.documents, isEmpty);
+      final script = controller.userScripts.single;
+      expect(script.forMainFrameOnly, isFalse);
+      expect(script.source, youtubePlayerHoverScript);
+
+      gate.complete();
+      await tester.pump();
+      expect(controller.documents.single.html, contains('/embed/first_video'));
+    },
+    variant: TargetPlatformVariant.only(TargetPlatform.macOS),
+  );
 
   for (final replace in [false, true]) {
     testWidgets(
