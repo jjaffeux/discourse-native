@@ -918,7 +918,7 @@ void main() {
   ]) {
     for (final privateMessage in [false, true]) {
       testWidgets(
-        'header tags navigate with editing $canEditTags, private messages $privateMessage, and new tab $newTab',
+        'header tags open from the menu or middle click with editing $canEditTags, private messages $privateMessage, and new tab $newTab',
         (tester) async {
           final setup = await _setup(
             tester,
@@ -934,9 +934,17 @@ void main() {
           await tester.tap(
             find.byKey(const ValueKey(('topic-header-tag', 'community'))),
             kind: PointerDeviceKind.mouse,
-            buttons: newTab ? kMiddleMouseButton : kPrimaryMouseButton,
+            buttons: newTab ? kMiddleMouseButton : kSecondaryMouseButton,
           );
           await tester.pumpAndSettle();
+          if (!newTab) {
+            await tester.tap(
+              find.byKey(
+                const ValueKey(('topic-header-tag-open', 'community')),
+              ),
+            );
+            await tester.pumpAndSettle();
+          }
 
           final path = privateMessage
               ? '/topics/private-messages-tags/sam/community.json'
@@ -961,6 +969,154 @@ void main() {
         },
       );
     }
+  }
+
+  for (final canEditTags in [true, false]) {
+    testWidgets('primary tag click respects edit permission $canEditTags', (
+      tester,
+    ) async {
+      final setup = await _setup(tester, canEditTags: canEditTags);
+      setup.controller.openTopicFromList(setup.rows.first);
+      await tester.pumpAndSettle();
+      final reader = tester.state(find.byType(TopicView));
+      final routes = [...setup.api.feedPaths];
+      await tester.tap(
+        find.byKey(const ValueKey(('topic-header-tag', 'community'))),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const ValueKey('topic-header-tag-field')),
+        canEditTags ? findsOneWidget : findsNothing,
+      );
+      expect(
+        find.byType(DContextMenuContent),
+        canEditTags ? findsNothing : findsOneWidget,
+      );
+      expect(setup.controller.currentContent?.topicId, 1);
+      expect(tester.state(find.byType(TopicView)), same(reader));
+      expect(setup.api.feedPaths, routes);
+      expect(setup.api.topicTagsUpdated, isEmpty);
+      expect(tester.takeException(), isNull);
+    });
+  }
+
+  testWidgets('tag filter adds to the source list and preserves the reader', (
+    tester,
+  ) async {
+    final setup = await _setup(tester);
+    final shell = setup.controller;
+    shell.openTopicFromList(setup.rows.first);
+    shell.selectTopicListCategory(_child, keepTopicOpen: true);
+    shell.selectTopicListTags(['mobile'], keepTopicOpen: true);
+    await shell.selectTopicListMode(
+      TopicListMode.topWeekly,
+      keepTopicOpen: true,
+    );
+    shell.searchTopicList('welcome', keepTopicOpen: true);
+    await tester.pumpAndSettle();
+    final reader = tester.state(find.byType(TopicView));
+    _readerScroll(tester).jumpTo(200);
+    await tester.pumpAndSettle();
+    final originalQuery = Uri.parse(shell.topicListContent!.feedPath!);
+
+    for (var attempt = 0; attempt < 2; attempt++) {
+      await tester.tap(
+        find.byKey(const ValueKey(('topic-header-tag', 'community'))),
+        kind: PointerDeviceKind.mouse,
+        buttons: kSecondaryMouseButton,
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(const ValueKey(('topic-header-tag-filter', 'community'))),
+      );
+      await tester.pumpAndSettle();
+      expect(shell.currentContent?.topicId, 1);
+      expect(shell.topicListContent?.categoryId, _child.id);
+      expect(shell.topicListContent?.tagNames, ['community', 'mobile']);
+      expect(shell.currentTopicListMode, TopicListMode.topWeekly);
+      final filtered = Uri.parse(shell.topicListContent!.feedPath!);
+      for (final entry in originalQuery.queryParameters.entries) {
+        if (entry.key != 'tags[]') {
+          expect(filtered.queryParameters[entry.key], entry.value);
+        }
+      }
+      expect(tester.state(find.byType(TopicView)), same(reader));
+      expect(_readerScroll(tester).offset, closeTo(200, 1));
+      expect(find.byType(DContextMenuContent), findsNothing);
+    }
+    expect(setup.api.topicTagsUpdated, isEmpty);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('private message tags do not filter a public topic list', (
+    tester,
+  ) async {
+    final setup = await _setup(tester, privateMessage: true);
+    setup.controller.openTopicFromList(setup.rows.first);
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const ValueKey(('topic-header-tag', 'community'))),
+      kind: PointerDeviceKind.mouse,
+      buttons: kSecondaryMouseButton,
+    );
+    await tester.pumpAndSettle();
+    final filter = tester.widget<DContextMenuItem>(
+      find.byKey(const ValueKey(('topic-header-tag-filter', 'community'))),
+    );
+    expect(filter.onPressed, isNull);
+    expect(find.text('Open'), findsOneWidget);
+    expect(find.text('Open in new tab'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  for (final change in ['topic', 'tab', 'list']) {
+    testWidgets('tag menu refuses a replaced $change before the next frame', (
+      tester,
+    ) async {
+      final setup = await _setup(tester);
+      final shell = setup.controller;
+      shell.openTopicFromList(setup.rows.first);
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(const ValueKey(('topic-header-tag', 'community'))),
+        kind: PointerDeviceKind.mouse,
+        buttons: kSecondaryMouseButton,
+      );
+      await tester.pumpAndSettle();
+      final filter = tester
+          .widget<DContextMenuItem>(
+            find.byKey(
+              const ValueKey(('topic-header-tag-filter', 'community')),
+            ),
+          )
+          .onPressed!;
+      final open = tester
+          .widget<DContextMenuItem>(
+            find.byKey(
+              const ValueKey(('topic-header-tag-open-new-tab', 'community')),
+            ),
+          )
+          .onPressed!;
+      switch (change) {
+        case 'topic':
+          shell.openTopicFromList(setup.rows[1]);
+        case 'tab':
+          shell.createTab();
+        case 'list':
+          shell.selectTopicListTags(['mobile'], keepTopicOpen: true);
+      }
+      final route = shell.currentContent;
+      final list = shell.topicListContent;
+      final tabCount = shell.tabsForCurrentForum.length;
+      filter();
+      open();
+      await tester.pumpAndSettle();
+      expect(shell.currentContent, route);
+      expect(shell.topicListContent, list);
+      expect(shell.tabsForCurrentForum, hasLength(tabCount));
+      expect(find.byType(DContextMenuContent), findsNothing);
+      expect(tester.takeException(), isNull);
+    });
   }
 
   testWidgets(

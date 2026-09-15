@@ -1013,6 +1013,12 @@ Clicking the title, category, or tag plus opens that field’s draft beneath the
 reading context, according to server permissions. There is no separate Edit
 topic button or command chooser. Empty tags use the same compact plus control
 with an accessible **Add tag** label.
+Clicking a tag opens the tag editor; middle-click opens its topic list in a
+background tab. Right-click, long press or Shift+F10 shows **Open**, **Open in
+new tab**, and **Use as filter**. Filtering adds the tag to the source topic
+list’s existing category, tags, period and search, keeping the reader open.
+The filter action is disabled without a filterable topic list and for private
+message tags. Without tag-edit permission, clicking a tag opens its action menu.
 Each field has explicit **Save** and **Cancel** actions. Enter saves a title;
 Escape cancels the draft after any picker closes. Tag drafts use removable
 Native Combobox tokens and category-scoped search. Changes stay local until

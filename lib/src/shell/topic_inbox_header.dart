@@ -70,6 +70,9 @@ class _TopicInboxHeaderState extends State<TopicInboxHeader> {
         shell,
         siteUrl == null ? null : shell.lifecycle.capture(siteUrl).session,
         siteUrl == null ? null : shell.presentationTokenFor(siteUrl),
+        shell.activeTabId,
+        shell.topicListContent?.id,
+        shell.topicListContent?.feedPath,
       ),
       builder: (context, _, _) {
         final shell = ShellScope.read(context);
@@ -148,6 +151,18 @@ class _TopicInboxHeaderState extends State<TopicInboxHeader> {
       final topic = widget.topic;
       final siteUrl = widget.siteUrl;
       final shell = ShellScope.read(context);
+      final tabId = shell.activeTabId;
+      final sourceList = shell.topicListContent;
+      final lease = siteUrl == null ? null : shell.lifecycle.capture(siteUrl);
+      bool ownsTagAction() =>
+          mounted &&
+          lease?.isCurrent == true &&
+          identical(ShellScope.read(context), shell) &&
+          shell.currentInstance?.url == siteUrl &&
+          shell.activeTabId == tabId &&
+          shell.currentContent?.topicId == topic?.id &&
+          shell.topicListContent?.id == sourceList?.id &&
+          shell.topicListContent?.feedPath == sourceList?.feedPath;
       final scale = MediaQuery.textScalerOf(context).scale(12) / 12;
       final wide = constraints.maxWidth >= 540 * scale;
       final categoryWidth = constraints.maxWidth >= 760 * scale ? 160.0 : 140.0;
@@ -210,18 +225,41 @@ class _TopicInboxHeaderState extends State<TopicInboxHeader> {
                 runSpacing: DSpacing.xs,
                 crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
-                  TopicHeaderTags(
-                    key: const ValueKey('topic-header-tags'),
-                    siteUrl: siteUrl,
-                    topic: topic,
-                    onEdit: () => _edit(TopicHeaderField.tags),
-                    onTagNavigate: (tag, {newTab = false}) =>
-                        shell.openTopicTag(
-                          tag,
-                          siteUrl: siteUrl,
-                          privateMessage: topic.privateMessage,
-                          newTab: newTab,
-                        ),
+                  KeyedSubtree(
+                    key: ValueKey((
+                      _owner,
+                      tabId,
+                      sourceList?.id,
+                      sourceList?.feedPath,
+                    )),
+                    child: TopicHeaderTags(
+                      key: const ValueKey('topic-header-tags'),
+                      siteUrl: siteUrl,
+                      topic: topic,
+                      onEdit: () => _edit(TopicHeaderField.tags),
+                      onTagNavigate: (tag, {newTab = false}) {
+                        if (!ownsTagAction()) return;
+                        unawaited(
+                          shell.openTopicTag(
+                            tag,
+                            siteUrl: siteUrl,
+                            privateMessage: topic.privateMessage,
+                            newTab: newTab,
+                          ),
+                        );
+                      },
+                      onTagFilter:
+                          !topic.privateMessage &&
+                              sourceList?.isTopicListFilter == true
+                          ? (tag) {
+                              if (!ownsTagAction()) return;
+                              shell.selectTopicListTags([
+                                ...sourceList!.tagNames,
+                                tag.name,
+                              ], keepTopicOpen: true);
+                            }
+                          : null,
+                    ),
                   ),
                   if (topic.closed)
                     const DBadge(
