@@ -108,6 +108,7 @@ void main() {
           }
 
           if (!messages) {
+            tester.view.physicalSize = const Size(2400, 800);
             presentation.dock(ComposerPlacement.right);
             shell.openTopicFromList(_topic);
             await tester.pumpAndSettle();

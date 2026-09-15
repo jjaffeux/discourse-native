@@ -1,9 +1,12 @@
 # Desktop topic workspace
 
 Opening a topic keeps a reduced, resizable topic list beside the reader when
-the content workspace is at least 880 logical pixels wide. The list uses its
-current width between 304 and 480 pixels, leaving at least 520 for the reader.
-In narrower workspaces, the topic replaces the list.
+the reader can remain at least 825 logical pixels wide. The list uses its
+current width between 304 and 480 pixels, shrinking as needed to preserve the
+reader minimum. Below 1129 pixels of available content width, the topic
+replaces the list. This uses the space left after navigation and composer
+sizing, rather than the full window width. Touch layouts retain their existing
+split threshold.
 
 ## Navigation and retained state
 
