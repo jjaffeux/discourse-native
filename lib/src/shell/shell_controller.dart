@@ -4957,18 +4957,17 @@ class ShellController extends FrameSafeNotifier
     postNumber: topic.firstUnreadPostNumber,
   );
 
-  void openCategory(TopicCategory category, {String? siteUrl}) {
+  void openCategory(
+    TopicCategory category, {
+    String? siteUrl,
+    bool newTab = false,
+  }) {
     final targetSiteUrl = siteUrl ?? currentInstance?.url;
     if (targetSiteUrl == null) return;
     final index = _instances.indexWhere(
       (instance) => instance.url == targetSiteUrl,
     );
     if (index < 0) return;
-    if (index != _instanceIndex || _rootMode != ShellRootMode.forum) {
-      selectInstance(index);
-    }
-    if (currentInstance?.url != targetSiteUrl) return;
-
     store.put(targetSiteUrl, category);
     final categories = _categoriesBySite[targetSiteUrl] ?? const [];
     final byId = <int, TopicCategory>{
@@ -4978,6 +4977,14 @@ class ShellController extends FrameSafeNotifier
     final route = ContentRoute.fromDestination(
       buildCategoryDestination(category, categoriesById: byId),
     );
+    if (newTab && forumTabsEnabled) {
+      openContentInNewTab(route, siteUrl: targetSiteUrl);
+      return;
+    }
+    if (index != _instanceIndex || _rootMode != ShellRootMode.forum) {
+      selectInstance(index);
+    }
+    if (currentInstance?.url != targetSiteUrl) return;
     if (currentContent?.id == route.id) {
       showPluginContent();
       return;

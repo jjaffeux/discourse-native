@@ -154,7 +154,7 @@ class _TopicInboxHeaderState extends State<TopicInboxHeader> {
       final tabId = shell.activeTabId;
       final sourceList = shell.topicListContent;
       final lease = siteUrl == null ? null : shell.lifecycle.capture(siteUrl);
-      bool ownsTagAction() =>
+      bool ownsTaxonomyAction() =>
           mounted &&
           lease?.isCurrent == true &&
           identical(ShellScope.read(context), shell) &&
@@ -163,6 +163,12 @@ class _TopicInboxHeaderState extends State<TopicInboxHeader> {
           shell.currentContent?.topicId == topic?.id &&
           shell.topicListContent?.id == sourceList?.id &&
           shell.topicListContent?.feedPath == sourceList?.feedPath;
+      final taxonomyOwner = (
+        _owner,
+        tabId,
+        sourceList?.id,
+        sourceList?.feedPath,
+      );
       final scale = MediaQuery.textScalerOf(context).scale(12) / 12;
       final wide = constraints.maxWidth >= 540 * scale;
       final categoryWidth = constraints.maxWidth >= 760 * scale ? 160.0 : 140.0;
@@ -171,10 +177,31 @@ class _TopicInboxHeaderState extends State<TopicInboxHeader> {
           : shell.categoryFor(topic?.categoryId, siteUrl: siteUrl);
       final categoryControl = topic != null && siteUrl != null
           ? _LedgerCategory(
+              key: ValueKey((taxonomyOwner, topic.categoryId)),
               siteUrl: siteUrl,
               topic: topic,
               category: category,
               showMarker: !wide,
+              onOpen: category == null
+                  ? null
+                  : ({newTab = false}) {
+                      if (!ownsTaxonomyAction()) return;
+                      shell.openCategory(
+                        category,
+                        siteUrl: siteUrl,
+                        newTab: newTab,
+                      );
+                    },
+              onFilter:
+                  category != null && sourceList?.isTopicListFilter == true
+                  ? () {
+                      if (!ownsTaxonomyAction()) return;
+                      shell.selectTopicListCategory(
+                        category,
+                        keepTopicOpen: true,
+                      );
+                    }
+                  : null,
               onEdit: topic.canEdit
                   ? () => _edit(TopicHeaderField.category)
                   : null,
@@ -226,19 +253,14 @@ class _TopicInboxHeaderState extends State<TopicInboxHeader> {
                 crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
                   KeyedSubtree(
-                    key: ValueKey((
-                      _owner,
-                      tabId,
-                      sourceList?.id,
-                      sourceList?.feedPath,
-                    )),
+                    key: ValueKey(taxonomyOwner),
                     child: TopicHeaderTags(
                       key: const ValueKey('topic-header-tags'),
                       siteUrl: siteUrl,
                       topic: topic,
                       onEdit: () => _edit(TopicHeaderField.tags),
                       onTagNavigate: (tag, {newTab = false}) {
-                        if (!ownsTagAction()) return;
+                        if (!ownsTaxonomyAction()) return;
                         unawaited(
                           shell.openTopicTag(
                             tag,
@@ -252,7 +274,7 @@ class _TopicInboxHeaderState extends State<TopicInboxHeader> {
                           !topic.privateMessage &&
                               sourceList?.isTopicListFilter == true
                           ? (tag) {
-                              if (!ownsTagAction()) return;
+                              if (!ownsTaxonomyAction()) return;
                               shell.selectTopicListTags([
                                 ...sourceList!.tagNames,
                                 tag.name,
@@ -443,16 +465,21 @@ class _LedgerTitle extends StatelessWidget {
 
 class _LedgerCategory extends StatelessWidget {
   const _LedgerCategory({
+    super.key,
     required this.siteUrl,
     required this.topic,
     required this.category,
     required this.showMarker,
+    this.onOpen,
+    this.onFilter,
     this.onEdit,
   });
   final String siteUrl;
   final TopicDetail topic;
   final TopicCategory? category;
   final bool showMarker;
+  final void Function({bool newTab})? onOpen;
+  final VoidCallback? onFilter;
   final VoidCallback? onEdit;
 
   @override
@@ -506,22 +533,69 @@ class _LedgerCategory extends StatelessWidget {
         ),
       ],
     );
+    final open = DButton(
+      key: const ValueKey('topic-header-category-open'),
+      label: label,
+      tooltip: category == null ? 'Edit topic category' : 'Open $path',
+      variant: DButtonVariant.ghost,
+      size: DButtonSize.small,
+      onPressed: category == null ? onEdit : onOpen,
+    );
+    final control = category == null
+        ? open
+        : DContextMenu(
+            content: DContextMenuContent(
+              semanticLabel: 'Actions for category $path',
+              children: [
+                DContextMenuItem(
+                  key: const ValueKey('topic-header-category-menu-open'),
+                  onPressed: onOpen,
+                  child: const Text('Open'),
+                ),
+                DContextMenuItem(
+                  key: const ValueKey('topic-header-category-menu-new-tab'),
+                  onPressed: onOpen == null
+                      ? null
+                      : () => onOpen!(newTab: true),
+                  child: const Text('Open in new tab'),
+                ),
+                DContextMenuItem(
+                  key: const ValueKey('topic-header-category-menu-filter'),
+                  onPressed: onFilter,
+                  child: const Text('Use as filter'),
+                ),
+              ],
+            ),
+            child: DContextMenuTrigger(
+              focusable: false,
+              child: GestureDetector(
+                onTertiaryTapUp: onOpen == null
+                    ? null
+                    : (_) => onOpen!(newTab: true),
+                child: FocusTraversalGroup(
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Flexible(child: open),
+                      if (onEdit != null)
+                        DButton.iconOnly(
+                          key: const ValueKey('topic-header-edit-category'),
+                          icon: const DIcon(DIcons.chevronDown),
+                          tooltip: 'Edit topic category',
+                          variant: DButtonVariant.ghost,
+                          size: DButtonSize.small,
+                          onPressed: onEdit,
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          );
     return Align(
       key: const ValueKey('topic-header-category'),
       alignment: AlignmentDirectional.centerStart,
-      child: DButton(
-        label: label,
-        icon: onEdit == null ? null : const DIcon(DIcons.chevronDown),
-        iconPosition: DButtonIconPosition.end,
-        tooltip: onEdit == null ? 'Browse $path' : 'Edit topic category',
-        variant: DButtonVariant.ghost,
-        size: DButtonSize.small,
-        onPressed:
-            onEdit ??
-            (category == null
-                ? null
-                : () => shell.openCategory(category!, siteUrl: siteUrl)),
-      ),
+      child: control,
     );
   }
 }
