@@ -127,7 +127,7 @@ final class _SidebarPanelSnapshot {
 
 const String _newTopicDestinationId = 'new-topic';
 const String _moreDestinationId = 'sidebar-more-destinations';
-const double _sidebarRowGap = 6;
+const double _sidebarRowGap = 2;
 
 const SidebarDestination _newTopicDestination = SidebarDestination(
   id: _newTopicDestinationId,
