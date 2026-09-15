@@ -334,7 +334,7 @@ class _ForumSearchState extends State<ForumSearch> {
             controller: _text,
             focusNode: _focus,
             semanticLabel: 'Search this forum',
-            hintText: 'Search everywhere',
+            hintText: 'Search this forum',
             autocorrect: false,
             enableSuggestions: false,
             textInputAction: TextInputAction.search,
