@@ -1,17 +1,20 @@
-# Desktop topic workspace — design A
+# Desktop topic workspace
 
-Opening a topic replaces its topic list in the main workspace. With a side
-composer open, the four columns are the rail, sidebar, topic, and composer.
-The topic is a page, with no sheet backdrop or extra list column.
+Opening a topic keeps a reduced, resizable topic list beside the reader when
+the content workspace is at least 880 logical pixels wide. The list uses its
+current width between 304 and 480 pixels, leaving at least 520 for the reader.
+In narrower workspaces, the topic replaces the list.
 
 ## Navigation and retained state
 
-- **Topics / Messages** returns to the source list. The list stays mounted
-  offstage, preserving its filters and exact scroll position.
+- **Topics / Messages** returns to the full-width source list. The list stays
+  mounted, preserving its filters and scroll position; it is offstage only
+  when the workspace cannot fit both panes.
 - **Switch topic** opens the existing Native combobox. It starts with all
   loaded topics and searches those titles. **Load more topics** fetches the
   next source-list page when available.
-- Previous/next buttons and the existing keyboard sequences navigate the same
+- Previous/next buttons appear in the list footer while the list is visible,
+  and in the reader navigation on narrower workspaces. The keyboard sequences navigate the same
   source list. Each topic keeps its reading position. The existing **U**
   shortcut returns to the list; Escape dismisses an open picker.
 - Navigating while writing preserves the draft and its original destination.
@@ -43,15 +46,12 @@ windows, RTL, and touch behavior. The isolated
 `tool/topic_page_review_main.dart` fixture supports native macOS inspection
 with fake topics and separate preferences.
 
-Root static analysis and the macOS fixture build pass. The focused topic,
-keyboard, composer, draft, boundary, and tab suites pass. Native macOS review
-verified the four-column workspace, source-list search, draft destination and
-return action, bottom docking on narrow windows, and the sidebar popover's
-placement beside the visible rail. Mobile behavior is covered by widget tests;
-no new physical-device verification was performed for this change.
+Restoring the desktop split view passed root static analysis and 150 focused
+widget tests across the topic page, topic inbox, keyboard navigation, and
+composer boundary suites. Coverage includes dragging the list divider in LTR
+and RTL, retaining both pane states across narrow/wide transitions, highlighting
+the selected topic, and showing one set of previous/next buttons.
 
-Integration with main `6be726ee` preserves the newer sidebar spacing and
-category-scoped search. Search, shell navigation, sidebar sizing, and desktop
-topic-page regressions pass. Linux topic pages keep a visible search field;
-widening a window dismisses navigation while retaining its anchor through the
-closing animation and preserving the saved sidebar width.
+The macOS fixture build passed. Native inspection verified the reduced list,
+switching topics by clicking a list row, the narrow reader fallback, and the
+list returning when widened. Mobile behavior has widget coverage only.

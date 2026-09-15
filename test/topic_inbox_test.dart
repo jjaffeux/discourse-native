@@ -333,13 +333,7 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(shell.topicListContent?.categoryId, _child.id);
-      expect(
-        shell.currentContent?.topicId,
-        Theme.of(tester.element(find.byType(MainContent))).platform ==
-                TargetPlatform.macOS
-            ? isNull
-            : setup.rows.first.id,
-      );
+      expect(shell.currentContent?.topicId, setup.rows.first.id);
       expect(setup.api.topicsUpdated, isEmpty);
       expect(tester.takeException(), isNull);
     },
@@ -2305,40 +2299,39 @@ void main() {
     );
   }
 
-  testWidgets('topic arrows hover independently and navigation margins match', (
-    tester,
-  ) async {
-    final setup = await _setup(tester, canCreateTopic: true);
-    setup.controller.openTopicFromList(setup.rows[1]);
-    await tester.pumpAndSettle();
-    final previous = find.byKey(const ValueKey('inbox-previous-topic'));
-    final next = find.byKey(const ValueKey('inbox-next-topic'));
-    expect(
-      tester.getRect(next).left - tester.getRect(previous).right,
-      DSpacing.xs,
-    );
-    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
-    await mouse.addPointer(location: Offset.zero);
-    addTearDown(mouse.removePointer);
-    for (final hovered in [previous, next]) {
-      await mouse.moveTo(tester.getCenter(hovered));
+  testWidgets(
+    'topic arrows hover independently inside the reduced list footer',
+    (tester) async {
+      final setup = await _setup(tester, canCreateTopic: true);
+      setup.controller.openTopicFromList(setup.rows[1]);
       await tester.pumpAndSettle();
-      final other = hovered == previous ? next : previous;
+      final previous = find.byKey(const ValueKey('inbox-previous-topic'));
+      final next = find.byKey(const ValueKey('inbox-next-topic'));
       expect(
-        buttonSurface(tester, of: hovered).color,
-        isNot(Colors.transparent),
+        tester.getRect(next).left - tester.getRect(previous).right,
+        DSpacing.xs,
       );
-      expect(buttonSurface(tester, of: other).color, Colors.transparent);
-    }
-    final navigation = tester.getRect(
-      find.byKey(const ValueKey('topic-page-navigation')),
-    );
-    final back = tester.getRect(find.byKey(const ValueKey('topic-page-back')));
-    expect(
-      navigation.right - tester.getRect(next).right,
-      back.left - navigation.left,
-    );
-  }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
+      final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      await mouse.addPointer(location: Offset.zero);
+      addTearDown(mouse.removePointer);
+      for (final hovered in [previous, next]) {
+        await mouse.moveTo(tester.getCenter(hovered));
+        await tester.pumpAndSettle();
+        final other = hovered == previous ? next : previous;
+        expect(
+          buttonSurface(tester, of: hovered).color,
+          isNot(Colors.transparent),
+        );
+        expect(buttonSurface(tester, of: other).color, Colors.transparent);
+      }
+      final footer = tester.getRect(
+        find.byKey(const ValueKey('topic-list-bottom-bar')),
+      );
+      expect(footer.contains(tester.getCenter(previous)), isTrue);
+      expect(footer.contains(tester.getCenter(next)), isTrue);
+    },
+    variant: TargetPlatformVariant.only(TargetPlatform.macOS),
+  );
 
   testWidgets(
     'resizing and topic arrows retain the source list and reader state',
