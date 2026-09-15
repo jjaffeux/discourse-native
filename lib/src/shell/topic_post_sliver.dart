@@ -44,13 +44,32 @@ class _TopicPostRenderSliver extends RenderSuperSliverList {
   });
 
   double? _precedingExtent;
+  bool _resizing = false;
+
+  @override
+  double? childScrollOffset(RenderObject child) {
+    final offset = super.childScrollOffset(child);
+    final data = child.parentData! as SliverMultiBoxAdaptorParentData;
+    if (offset == null && _resizing && data.keptAlive) {
+      // A width change can move the previously visible row into keep-alive
+      // storage while SuperSliverList still uses it as its resize anchor.
+      // Its layout offset was cleared; the retained extent table owns its
+      // current position, including the rows measured during this pass.
+      final manager = (childManager as _TopicPostSliverElement).extentManager;
+      final index = data.index;
+      if (index != null && index < manager.numberOfItems) {
+        return manager.offsetForIndex(index);
+      }
+    }
+    return offset;
+  }
 
   @override
   void performLayout() {
     final previous = _precedingExtent;
     _precedingExtent = constraints.precedingScrollExtent;
-    // Loading the first page reveals the inbox activity summary above this
-    // sliver. Correct during layout so an ongoing drag keeps its position too.
+    // Preserve the row anchor if an opening sliver changes its extent,
+    // including while a drag is still in progress.
     if (previous != null && constraints.scrollOffset > 0) {
       final delta = constraints.precedingScrollExtent - previous;
       if (delta.abs() > precisionErrorTolerance) {
@@ -62,7 +81,14 @@ class _TopicPostRenderSliver extends RenderSuperSliverList {
       _didRebuild = false;
       _discardOffscreenPrefixBeforeGap();
     }
-    super.performLayout();
+    _resizing =
+        previousConstraints != null &&
+        previousConstraints!.crossAxisExtent != constraints.crossAxisExtent;
+    try {
+      super.performLayout();
+    } finally {
+      _resizing = false;
+    }
   }
 
   bool _didRebuild = false;

@@ -2,9 +2,7 @@ import 'dart:async';
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart';
 
-import '../foundation/frame_safe_notifier.dart';
 import '../models/content_route.dart';
 import '../models/post.dart';
 import '../models/topic.dart';
@@ -14,23 +12,18 @@ import '../theme/app_theme.dart';
 import '../theme/d_icons.dart';
 import '../theme/d_native_icons.dart';
 import 'anchored_picker.dart';
-import 'avatar_image.dart';
 import 'category_icon.dart';
-import 'content_reading_lane.dart';
-import 'open_link.dart';
 import 'platform.dart';
-import 'relative_time.dart';
-import 'shell_metrics.dart';
 import 'shell_scope.dart';
 import 'title_bar.dart';
 import 'topic_actions.dart';
-import 'topic_category_picker.dart';
+import 'topic_header_editor.dart';
 import 'topic_header_tags.dart';
 import 'topic_title.dart';
 import 'user_menu_button.dart';
 
-/// Fixed topic title and actions with taxonomy in the post viewport.
-/// [bodyBuilder] inserts the supplied slivers before the virtualized post list.
+/// Ledger context stays above the post viewport, including while editing.
+/// The body owns its scrolling and receives no header obstruction.
 class TopicInboxHeader extends StatefulWidget {
   const TopicInboxHeader({
     super.key,
@@ -63,266 +56,406 @@ class TopicInboxHeader extends StatefulWidget {
 }
 
 class _TopicInboxHeaderState extends State<TopicInboxHeader> {
-  final _taxonomyKey = GlobalKey();
-  final _pinnedExtent = FrameSafeValueNotifier(0.0);
-  bool _updateScheduled = false;
+  bool _editing = false;
+  TopicHeaderField? _field;
+  Object? _owner;
 
-  @override
-  void initState() {
-    super.initState();
-    _updateAfterLayout();
-  }
-
-  @override
-  void didUpdateWidget(TopicInboxHeader oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    _updateAfterLayout();
-  }
-
-  void _updateAfterLayout() {
-    if (_updateScheduled) return;
-    _updateScheduled = true;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _updateScheduled = false;
-      if (mounted) _updatePinnedExtent();
-    });
-  }
-
-  void _updatePinnedExtent() {
-    final taxonomy = _taxonomyKey.currentContext?.findRenderObject();
-    if (taxonomy is RenderSliver) {
-      _pinnedExtent.value = taxonomy.geometry?.maxScrollObstructionExtent ?? 0;
-    }
-  }
-
-  @override
-  void dispose() {
-    _pinnedExtent.dispose();
-    super.dispose();
-  }
+  void _edit([TopicHeaderField? field]) => setState(() {
+    _editing = true;
+    _field = field;
+  });
 
   @override
   Widget build(BuildContext context) {
-    final topic = widget.topic;
     final siteUrl = widget.siteUrl;
-    final hasTopic = topic != null && siteUrl != null;
-    final showActivity = hasTopic && !widget.hasEarlierPosts;
-    final taxonomy = hasTopic
-        ? ColoredBox(
+    final topic = widget.topic;
+    return ShellSelector<Object>(
+      select: (shell) => (
+        shell,
+        siteUrl == null ? null : shell.lifecycle.capture(siteUrl).session,
+        siteUrl == null ? null : shell.presentationTokenFor(siteUrl),
+      ),
+      builder: (context, _, _) {
+        final shell = ShellScope.read(context);
+        final owner = (
+          shell,
+          siteUrl,
+          topic?.id,
+          siteUrl == null ? null : shell.lifecycle.capture(siteUrl).session,
+        );
+        if (_owner != owner) {
+          _owner = owner;
+          _editing = false;
+          _field = null;
+        }
+        final editable =
+            topic != null &&
+            siteUrl != null &&
+            (topic.canEdit || topic.canEditTags);
+        final header = DecoratedBox(
+          key: const ValueKey('topic-content-header'),
+          decoration: BoxDecoration(
             color: Theme.of(context).shell.content,
-            child: _TopicHeaderReadingLane(
-              child: Padding(
-                padding: const EdgeInsets.only(bottom: DSpacing.sm),
-                child: _TopicHeaderTaxonomy(
+            border: Border(
+              bottom: BorderSide(color: DTokens.of(context).border),
+            ),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _ledger(context),
+              if (_editing && editable)
+                TopicHeaderEditor(
+                  key: ValueKey((owner, _field)),
                   siteUrl: siteUrl,
                   topic: topic,
-                  keepTopicListOpen: widget.keepTopicListOpen,
+                  field: _field,
+                  onSelect: _edit,
+                  onClose: () => setState(() => _editing = false),
                 ),
-              ),
-            ),
-          )
-        : const SizedBox.shrink();
-    final activity = hasTopic
-        ? _TopicHeaderReadingLane(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 4),
-              child: _TopicActivitySummary(siteUrl: siteUrl, topic: topic),
-            ),
-          )
-        : const SizedBox.shrink();
-    final toolbar = _TopicHeaderToolbar(header: widget);
-    final bodyBuilder = widget.bodyBuilder;
-    if (bodyBuilder == null) {
-      return Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [toolbar, taxonomy, if (showActivity) activity],
-      );
-    }
-    return Column(
-      children: [
-        toolbar,
-        Expanded(
-          child: NotificationListener<ScrollMetricsNotification>(
-            onNotification: (_) {
-              _updateAfterLayout();
-              return false;
-            },
-            child: ValueListenableBuilder<double>(
-              valueListenable: _pinnedExtent,
-              builder: (context, pinnedExtent, _) => bodyBuilder([
-                SliverLayoutBuilder(
-                  builder: (context, constraints) {
-                    _updateAfterLayout();
-                    return PinnedHeaderSliver(
-                      key: _taxonomyKey,
-                      child: taxonomy,
-                    );
-                  },
-                ),
-                SliverToBoxAdapter(
-                  child: showActivity ? activity : const SizedBox.shrink(),
-                ),
-              ], pinnedExtent),
-            ),
+            ],
           ),
-        ),
-      ],
+        );
+        final body = widget.bodyBuilder;
+        final contextHeader = Semantics(
+          container: true,
+          explicitChildNodes: true,
+          child: header,
+        );
+        if (body == null) return contextHeader;
+        final reader = body(const [], 0);
+        return LayoutBuilder(
+          builder: (context, constraints) => Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Large text, a keyboard, or unusually many tags can exhaust a
+              // short window. Keep the complete header reachable while still
+              // reserving a reading viewport; normal headers keep their height.
+              ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxHeight: constraints.maxHeight * .6,
+                ),
+                child: DScrollArea(child: contextHeader),
+              ),
+              Expanded(child: reader),
+            ],
+          ),
+        );
+      },
     );
   }
-}
 
-class _TopicHeaderReadingLane extends StatelessWidget {
-  const _TopicHeaderReadingLane({required this.child});
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) => ContentReadingLaneBox(
-    padding: const EdgeInsets.symmetric(horizontal: 12),
-    child: Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: child,
-    ),
-  );
-}
-
-class _TopicHeaderToolbar extends StatelessWidget {
-  const _TopicHeaderToolbar({required this.header});
-
-  final TopicInboxHeader header;
-
-  @override
-  Widget build(BuildContext context) => LayoutBuilder(
+  Widget _ledger(BuildContext context) => LayoutBuilder(
     builder: (context, constraints) {
-      final lane = ContentReadingLane.geometryFor(
-        context,
-        availableWidth: constraints.maxWidth,
-        basePadding: const EdgeInsets.symmetric(horizontal: 12),
+      final topic = widget.topic;
+      final siteUrl = widget.siteUrl;
+      final shell = ShellScope.read(context);
+      final scale = MediaQuery.textScalerOf(context).scale(12) / 12;
+      final wide = constraints.maxWidth >= 680 * scale;
+      final category = siteUrl == null || topic?.privateMessage == true
+          ? null
+          : shell.categoryFor(topic?.categoryId, siteUrl: siteUrl);
+      final categoryControl = topic != null && siteUrl != null
+          ? _LedgerCategory(
+              siteUrl: siteUrl,
+              topic: topic,
+              category: category,
+              onEdit: topic.canEdit
+                  ? () => _edit(TopicHeaderField.category)
+                  : null,
+            )
+          : const SizedBox.shrink();
+      final actions = Wrap(
+        key: const ValueKey('topic-header-common-actions'),
+        spacing: DSpacing.xs,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        alignment: WrapAlignment.end,
+        children: [
+          if (topic != null && siteUrl != null) ...[
+            _TopicHeaderProperties(
+              siteUrl: siteUrl,
+              topic: topic,
+              registry: widget.registry,
+              compact: true,
+            ),
+            if (topic.canEdit || topic.canEditTags)
+              DButton.iconOnly(
+                key: const ValueKey('topic-header-edit'),
+                icon: const Icon(Icons.keyboard_command_key),
+                tooltip: 'Edit topic',
+                variant: DButtonVariant.ghost,
+                size: DButtonSize.small,
+                onPressed: () =>
+                    _editing ? setState(() => _editing = false) : _edit(),
+              ),
+            TopicStatusButton(
+              siteUrl: siteUrl,
+              topic: topic,
+              topicFlags: shell.availableTopicFlagTypes(siteUrl, topic),
+              compact: true,
+              includeContextActions: true,
+              route: widget.route,
+            ),
+          ],
+          if (ShellTitleBar.columnsCarryUserMenu) const UserMenuButton(),
+        ],
       );
-      return ColoredBox(
-        color: Theme.of(context).shell.content,
-        child: ConstrainedBox(
-          key: const ValueKey('topic-content-header'),
-          constraints: const BoxConstraints(minHeight: shellHeaderHeight),
-          child: Padding(
-            padding: EdgeInsetsDirectional.only(
-              start: lane.padding.left + 16,
-              end: 12,
-              top: 8,
-              bottom: 8,
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsetsDirectional.only(end: 8),
-                    child: _TopicHeaderTitle(header: header),
-                  ),
-                ),
-                _TopicHeaderActions(
-                  header: header,
-                  width: constraints.maxWidth,
-                ),
-                if (context.isTouch && !header.keepTopicListOpen)
-                  TopicCloseButton(
-                    canReturnToSidebar: header.canReturnToSidebar,
-                  ),
-              ],
-            ),
+      final identity = Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _LedgerTitle(
+            title: widget.title,
+            siteUrl: siteUrl,
+            onEdit: topic?.canEdit == true && siteUrl != null
+                ? () => _edit(TopicHeaderField.title)
+                : null,
           ),
-        ),
+          if (topic != null && siteUrl != null)
+            Padding(
+              padding: const EdgeInsetsDirectional.only(start: DSpacing.xs),
+              child: Wrap(
+                key: const ValueKey('topic-header-taxonomy'),
+                spacing: DSpacing.xs,
+                runSpacing: DSpacing.xs,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  TopicHeaderTags(
+                    key: const ValueKey('topic-header-tags'),
+                    siteUrl: siteUrl,
+                    topic: topic,
+                    onEdit: () => _edit(TopicHeaderField.tags),
+                    onTagNavigate: (tag, {newTab = false}) =>
+                        shell.openTopicTag(
+                          tag,
+                          siteUrl: siteUrl,
+                          privateMessage: topic.privateMessage,
+                          newTab: newTab,
+                        ),
+                  ),
+                  if (topic.closed)
+                    const DBadge(
+                      key: ValueKey('topic-header-closed'),
+                      variant: DBadgeVariant.secondary,
+                      leading: DIcon(DIcons.lock),
+                      child: Text('Closed'),
+                    ),
+                  if (topic.archived)
+                    const DBadge(
+                      variant: DBadgeVariant.secondary,
+                      child: Text('Archived'),
+                    ),
+                  if (!topic.visible)
+                    const DBadge(
+                      variant: DBadgeVariant.secondary,
+                      child: Text('Unlisted'),
+                    ),
+                  if (topic.pinned)
+                    const DBadge(
+                      variant: DBadgeVariant.secondary,
+                      child: Text('Pinned'),
+                    ),
+                  if (topic.deletedAt != null)
+                    const DBadge(
+                      variant: DBadgeVariant.destructive,
+                      child: Text('Deleted'),
+                    ),
+                ],
+              ),
+            ),
+        ],
+      );
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        child: wide
+            ? Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (!widget.keepTopicListOpen)
+                    TopicCloseButton(
+                      canReturnToSidebar: widget.canReturnToSidebar,
+                    ),
+                  if (topic != null) ...[
+                    SizedBox(width: 160, child: categoryControl),
+                    const SizedBox(width: 16),
+                  ],
+                  Expanded(child: identity),
+                  const SizedBox(width: 8),
+                  actions,
+                ],
+              )
+            : Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Wrap(
+                    alignment: WrapAlignment.spaceBetween,
+                    spacing: DSpacing.sm,
+                    runSpacing: DSpacing.xs,
+                    children: [
+                      ConstrainedBox(
+                        constraints: BoxConstraints(
+                          maxWidth: (constraints.maxWidth - 24) / 2,
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            if (!widget.keepTopicListOpen)
+                              TopicCloseButton(
+                                canReturnToSidebar: widget.canReturnToSidebar,
+                              ),
+                            Flexible(child: categoryControl),
+                          ],
+                        ),
+                      ),
+                      actions,
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  identity,
+                ],
+              ),
       );
     },
   );
 }
 
-class _TopicHeaderTitle extends StatelessWidget {
-  const _TopicHeaderTitle({required this.header});
-  final TopicInboxHeader header;
+class _LedgerTitle extends StatelessWidget {
+  const _LedgerTitle({required this.title, required this.siteUrl, this.onEdit});
+  final String title;
+  final String? siteUrl;
+  final VoidCallback? onEdit;
 
   @override
   Widget build(BuildContext context) {
-    final topic = header.topic;
-    final siteUrl = header.siteUrl;
     final style = Theme.of(
       context,
     ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600);
-    if (topic?.canEdit == true && siteUrl != null) {
-      return InlineTopicTitleEditor(
-        key: ValueKey(('topic-header-title', siteUrl, topic!.id)),
-        title: header.title,
-        siteUrl: siteUrl,
-        style: style,
-        maxLines: 3,
-        onSave: (value) => ShellScope.read(
-          context,
-        ).saveTopicTitle(siteUrl: siteUrl, topicId: topic.id, title: value),
-      );
-    }
-    final title = siteUrl == null
+    final label = siteUrl == null
         ? Text(
-            header.title,
+            title,
+            style: style,
             maxLines: 3,
             overflow: TextOverflow.ellipsis,
-            style: style,
           )
         : TopicTitle(
-            header.title,
+            title,
             key: const ValueKey('topic-header-compact-title'),
-            siteUrl: siteUrl,
+            siteUrl: siteUrl!,
+            style: style,
             maxLines: 3,
             overflow: TextOverflow.ellipsis,
-            style: style,
           );
-    return DTooltip(message: header.title, child: title);
+    return onEdit == null
+        ? Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            child: DTooltip(message: title, child: label),
+          )
+        : Align(
+            alignment: AlignmentDirectional.centerStart,
+            child: DButton(
+              key: const ValueKey('topic-header-title'),
+              label: label,
+              tooltip: 'Rename topic',
+              variant: DButtonVariant.ghost,
+              size: DButtonSize.small,
+              onPressed: onEdit,
+            ),
+          );
   }
 }
 
-class _TopicHeaderActions extends StatelessWidget {
-  const _TopicHeaderActions({required this.header, required this.width});
-
-  final TopicInboxHeader header;
-  final double width;
+class _LedgerCategory extends StatelessWidget {
+  const _LedgerCategory({
+    required this.siteUrl,
+    required this.topic,
+    required this.category,
+    this.onEdit,
+  });
+  final String siteUrl;
+  final TopicDetail topic;
+  final TopicCategory? category;
+  final VoidCallback? onEdit;
 
   @override
   Widget build(BuildContext context) {
-    final topic = header.topic;
-    final siteUrl = header.siteUrl;
-    return Row(
+    if (topic.privateMessage) {
+      return const DBadge(
+        variant: DBadgeVariant.ghost,
+        leading: DIcon(DIcons.envelope),
+        child: Text('Message'),
+      );
+    }
+    final shell = ShellScope.read(context);
+    final parent = shell.categoryFor(
+      category?.parentCategoryId,
+      siteUrl: siteUrl,
+    );
+    final color = category == null
+        ? DTokens.of(context).border
+        : Color(category!.colorValue);
+    final path = category == null
+        ? 'Category'
+        : shell.topicCategoryPathLabel(category!, siteUrl: siteUrl);
+    final label = Column(
       mainAxisSize: MainAxisSize.min,
-      spacing: DSpacing.sm,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (topic != null && siteUrl != null)
-          _TopicHeaderProperties(
-            siteUrl: siteUrl,
-            topic: topic,
-            registry: header.registry,
-            compact: width < 620,
+        if (parent != null)
+          Text(
+            parent.name,
+            softWrap: true,
+            maxLines: 20,
+            style: TextStyle(color: DTokens.of(context).mutedForeground),
           ),
         Row(
-          key: const ValueKey('topic-header-common-actions'),
           mainAxisSize: MainAxisSize.min,
-          spacing: DSpacing.sm,
           children: [
-            if (topic != null && siteUrl != null) ...[
-              TopicStatusButton(
+            if (category != null) ...[
+              CategoryIcon(
+                category: category!,
                 siteUrl: siteUrl,
-                topic: topic,
-                topicFlags: ShellScope.read(
-                  context,
-                ).availableTopicFlagTypes(siteUrl, topic),
+                size: 12,
+                squareSize: 8,
               ),
-              if (width >= 440)
-                TopicShareButton(
-                  siteUrl: siteUrl,
-                  topic: topic,
-                  route: header.route,
-                ),
+              const SizedBox(width: 6),
             ],
-            if (ShellTitleBar.columnsCarryUserMenu) const UserMenuButton(),
+            Flexible(
+              child: Text(
+                category?.name ?? 'Set category',
+                softWrap: true,
+                maxLines: 20,
+              ),
+            ),
           ],
         ),
       ],
+    );
+    return DecoratedBox(
+      key: const ValueKey('topic-header-category'),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: .06),
+        border: BorderDirectional(start: BorderSide(color: color, width: 3)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        child: Align(
+          alignment: AlignmentDirectional.centerStart,
+          child: DButton(
+            label: label,
+            tooltip: onEdit == null ? 'Browse $path' : 'Edit topic category',
+            variant: DButtonVariant.ghost,
+            size: DButtonSize.small,
+            onPressed:
+                onEdit ??
+                (category == null
+                    ? null
+                    : () => shell.openCategory(category!, siteUrl: siteUrl)),
+          ),
+        ),
+      ),
     );
   }
 }
@@ -350,420 +483,6 @@ class TopicCloseButton extends StatelessWidget {
       }
     },
   );
-}
-
-bool _showTopicSubcategory({
-  required TopicDetail topic,
-  required TopicCategory? category,
-  required TopicCategory? parent,
-  required Iterable<TopicCategory> categories,
-}) {
-  final root = parent ?? category;
-  return !topic.privateMessage &&
-      (parent != null ||
-          (root != null &&
-              topic.canEdit &&
-              categories.any(
-                (item) =>
-                    item.parentCategoryId == root.id && item.canCreateTopic,
-              )));
-}
-
-class _TopicActivitySummary extends StatelessWidget {
-  const _TopicActivitySummary({required this.siteUrl, required this.topic});
-  final String siteUrl;
-  final TopicDetail topic;
-
-  @override
-  Widget build(BuildContext context) => ValueListenableBuilder<Topic?>(
-    valueListenable: ShellScope.read(context).topicRef(siteUrl, topic.id),
-    builder: (context, row, _) {
-      final theme = Theme.of(context);
-      final participants = topic.participants.take(3).toList();
-      final style = theme.textTheme.labelSmall?.copyWith(
-        color: theme.colorScheme.onSurfaceVariant,
-      );
-      return Wrap(
-        key: const ValueKey('topic-header-activity'),
-        spacing: 8,
-        runSpacing: 4,
-        crossAxisAlignment: WrapCrossAlignment.center,
-        children: [
-          if (topic.closed)
-            Semantics(
-              key: const ValueKey('topic-header-closed'),
-              label: 'Topic closed',
-              excludeSemantics: true,
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  color: theme.shell.panel,
-                  border: Border.all(color: theme.shell.divider),
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 6,
-                    vertical: 3,
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      DIcon(
-                        DIcons.lock,
-                        size: 12,
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                      const SizedBox(width: 4),
-                      Flexible(
-                        child: Text(
-                          'Closed',
-                          style: style?.copyWith(fontWeight: FontWeight.w600),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          if (participants.isNotEmpty)
-            SizedBox(
-              width: 20 + (participants.length - 1) * 15,
-              height: 20,
-              child: Stack(
-                children: [
-                  for (var i = 0; i < participants.length; i++)
-                    Positioned(
-                      left: i * 15,
-                      child: DTooltip(
-                        message: participants[i].displayName,
-                        child: DAvatar.frame(
-                          child: AvatarImage(
-                            url: participants[i].avatarUrl,
-                            size: 20,
-                            fallback: Container(
-                              width: 20,
-                              height: 20,
-                              color: theme.shell.hover,
-                              alignment: Alignment.center,
-                              child: Text(
-                                participants[i].username.isEmpty
-                                    ? '?'
-                                    : participants[i].username.characters.first
-                                          .toUpperCase(),
-                                style: style?.copyWith(
-                                  fontSize: DiscourseTypography.xs,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-            ),
-          Text(
-            '${topic.replyCount} ${topic.replyCount == 1 ? 'reply' : 'replies'}',
-            style: style,
-          ),
-          if (row?.bumpedAt case final activity?) ...[
-            Text('·', style: style),
-            Text(switch (relativeTime(activity)) {
-              'now' => 'Last activity just now',
-              final age => 'Last activity $age ago',
-            }, style: style),
-          ],
-        ],
-      );
-    },
-  );
-}
-
-class _TopicHeaderTaxonomy extends StatelessWidget {
-  const _TopicHeaderTaxonomy({
-    required this.siteUrl,
-    required this.topic,
-    required this.keepTopicListOpen,
-  });
-  final String siteUrl;
-  final TopicDetail topic;
-  final bool keepTopicListOpen;
-
-  @override
-  Widget build(BuildContext context) => ShellSelector<Object>(
-    select: (controller) => controller.presentationTokenFor(siteUrl),
-    builder: (context, _, _) {
-      final shell = ShellScope.read(context);
-      final category = shell.categoryFor(topic.categoryId, siteUrl: siteUrl);
-      final parent = shell.categoryFor(
-        category?.parentCategoryId,
-        siteUrl: siteUrl,
-      );
-      final root = parent ?? category;
-      final hasCategories = !topic.privateMessage;
-      final hasSubcategory = _showTopicSubcategory(
-        topic: topic,
-        category: category,
-        parent: parent,
-        categories: shell.filterCategoriesFor(siteUrl),
-      );
-      final hasTags = topic.tags.isNotEmpty || topic.canEditTags;
-      return LayoutBuilder(
-        builder: (context, constraints) {
-          final categoryWidth =
-              (constraints.maxWidth * (hasSubcategory ? .28 : .42)).clamp(
-                56.0,
-                200.0,
-              );
-          // Reserve room for category artwork, the privacy lock, and saving.
-          // Add the browse button and roomier padding only when each chip fits.
-          final scale = MediaQuery.textScalerOf(context).scale(12) / 12;
-          final compressed = categoryWidth < 140 * scale;
-          final showBrowse =
-              categoryWidth >= (context.isTouch ? 152 : 104) * scale;
-          return Row(
-            key: const ValueKey('topic-header-taxonomy'),
-            children: [
-              if (hasCategories) ...[
-                ConstrainedBox(
-                  constraints: BoxConstraints(maxWidth: categoryWidth),
-                  child: _TopicCategoryControl(
-                    key: const ValueKey('topic-header-parent-category'),
-                    siteUrl: siteUrl,
-                    topic: topic,
-                    category: root,
-                    subcategory: false,
-                    keepTopicListOpen: keepTopicListOpen,
-                    compressed: compressed,
-                    showBrowseButton: showBrowse,
-                  ),
-                ),
-                if (hasSubcategory) ...[
-                  const SizedBox(width: 7),
-                  ConstrainedBox(
-                    constraints: BoxConstraints(maxWidth: categoryWidth),
-                    child: _TopicCategoryControl(
-                      key: const ValueKey('topic-header-category'),
-                      siteUrl: siteUrl,
-                      topic: topic,
-                      category: parent == null ? null : category,
-                      subcategory: true,
-                      parentCategoryId: root?.id,
-                      keepTopicListOpen: keepTopicListOpen,
-                      compressed: compressed,
-                      showBrowseButton: showBrowse,
-                    ),
-                  ),
-                ],
-              ],
-              if (hasTags) ...[
-                if (hasCategories) const SizedBox(width: 8),
-                Flexible(
-                  child: TopicHeaderTags(
-                    key: const ValueKey('topic-header-tags'),
-                    siteUrl: siteUrl,
-                    topic: topic,
-                    onTagNavigate: (tag, {newTab = false}) =>
-                        shell.openTopicTag(
-                          tag,
-                          siteUrl: siteUrl,
-                          privateMessage: topic.privateMessage,
-                          newTab: newTab,
-                        ),
-                  ),
-                ),
-              ],
-            ],
-          );
-        },
-      );
-    },
-  );
-}
-
-class _TopicCategoryControl extends StatelessWidget {
-  const _TopicCategoryControl({
-    super.key,
-    required this.siteUrl,
-    required this.topic,
-    required this.category,
-    required this.subcategory,
-    required this.keepTopicListOpen,
-    required this.compressed,
-    this.parentCategoryId,
-    this.showBrowseButton = true,
-  });
-
-  final String siteUrl;
-  final TopicDetail topic;
-  final TopicCategory? category;
-  final bool subcategory;
-  final int? parentCategoryId;
-  final bool keepTopicListOpen;
-  final bool compressed;
-  final bool showBrowseButton;
-
-  @override
-  Widget build(BuildContext context) {
-    final shell = ShellScope.read(context);
-    final value = category;
-    final uncategorized = shell.siteConfigFor(siteUrl).allowUncategorizedTopics
-        ? shell
-              .filterCategoriesFor(siteUrl)
-              .where((item) => item.isUncategorized)
-              .firstOrNull
-        : null;
-    return TopicCategoryMenuAnchor(
-      siteUrl: siteUrl,
-      topicId: topic.id,
-      categoryId: topic.categoryId,
-      selectedCategoryId: value?.id,
-      enabled: topic.canEdit,
-      rootOnly: !subcategory,
-      parentCategoryId: subcategory ? parentCategoryId : null,
-      removeCategoryId: subcategory ? parentCategoryId : uncategorized?.id,
-      removeLabel: subcategory ? 'Remove subcategory' : 'Move to Uncategorized',
-      builder: (context, edit, saving, trigger) {
-        final browse = value == null
-            ? null
-            : () => shell.browseTopicCategory(
-                value,
-                keepTopicOpen: keepTopicListOpen,
-              );
-        final browseOnly = !showBrowseButton && !topic.canEdit;
-        return _CategoryChip(
-          category: value,
-          siteUrl: siteUrl,
-          label: value?.name ?? (subcategory ? '+ Subcategory' : '+ Category'),
-          edit: browseOnly ? browse : edit,
-          primaryIsLink: browseOnly,
-          saving: saving,
-          focusNode: trigger.focusNode,
-          expanded: trigger.open,
-          compact: compressed,
-          editLabel: browseOnly
-              ? 'Browse ${value?.name}'
-              : subcategory
-              ? 'Edit topic subcategory'
-              : 'Edit topic category',
-          navigate: showBrowseButton ? browse : null,
-        );
-      },
-    );
-  }
-}
-
-class _CategoryChip extends StatelessWidget {
-  const _CategoryChip({
-    required this.category,
-    required this.siteUrl,
-    required this.label,
-    required this.editLabel,
-    required this.edit,
-    required this.navigate,
-    required this.saving,
-    required this.focusNode,
-    required this.expanded,
-    this.compact = false,
-    this.primaryIsLink = false,
-  });
-  final TopicCategory? category;
-  final String siteUrl;
-  final String label;
-  final String editLabel;
-  final VoidCallback? edit;
-  final VoidCallback? navigate;
-  final bool saving;
-  final FocusNode focusNode;
-  final bool expanded;
-  final bool compact;
-  final bool primaryIsLink;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final color = category == null
-        ? theme.colorScheme.onSurfaceVariant
-        : Color(category!.colorValue);
-    final tokens = DTokens.of(context);
-    final fill = category == null
-        ? tokens.controls?.outline.background
-        : Color.lerp(tokens.background, color, .18);
-    final border = category == null
-        ? tokens.controls?.outline.border
-        : Color.lerp(tokens.background, color, .38);
-    final hover = category == null
-        ? tokens.controls?.outline.hover
-        : Color.lerp(tokens.background, color, .30);
-    return IntrinsicWidth(
-      child: DButtonGroup(
-        semanticLabel: label,
-        mainAxisSize: MainAxisSize.max,
-        children: [
-          DButtonGroupExpanded(
-            child: DButton(
-              onPressed: edit,
-              focusNode: focusNode,
-              expanded: expanded,
-              hasPopup: !primaryIsLink && edit != null,
-              isLink: primaryIsLink,
-              tooltip: edit == null ? label : editLabel,
-              semanticLabel: edit == null ? label : '$editLabel: $label',
-              variant: DButtonVariant.outline,
-              size: DButtonSize.small,
-              backgroundColor: fill,
-              borderColor: border,
-              interactiveBackgroundColor: hover,
-              loading: saving,
-              loadingSemanticLabel: 'Saving category',
-              label: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (category != null) ...[
-                    CategoryIcon(
-                      category: category!,
-                      siteUrl: siteUrl,
-                      size: DControlStyle.iconDimension(DControlSize.small),
-                    ),
-                    SizedBox(width: compact ? 2 : 6),
-                  ],
-                  Flexible(
-                    child: Text(
-                      label,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                  if (!compact && edit != null && category != null) ...[
-                    const SizedBox(width: 5),
-                    const DIcon(DIcons.chevronDown),
-                  ],
-                ],
-              ),
-            ),
-          ),
-          if (navigate != null)
-            LinkTarget(
-              url: '/c/${category!.id}',
-              title: category!.name,
-              siteUrl: siteUrl,
-              child: DButton.iconOnly(
-                key: ValueKey('topic-header-browse-category-${category!.id}'),
-                icon: const DIcon(DIcons.upRightFromSquare),
-                tooltip: 'Browse ${category!.name}',
-                isLink: true,
-                onPressed: navigate,
-                variant: DButtonVariant.outline,
-                size: DButtonSize.small,
-                backgroundColor: fill,
-                borderColor: border,
-                interactiveBackgroundColor: hover,
-              ),
-            ),
-        ],
-      ),
-    );
-  }
 }
 
 class _TopicHeaderProperties extends StatelessWidget {

@@ -956,11 +956,10 @@ failure itself never starts a retry loop.
 Reply totals in lists and topic summaries use `posts_count - 1`, like the web
 client, rather than the API's directed-reply counter. Sparse records without
 a post count retain their supplied reply count.
-Assignment shares the activity/reply line, and a tag overflow hint reveals
-additional tags. The reader
-shares one text alignment for taxonomy, title, posts, and compact recommendations,
-with participants and assignment controls below the title. Bookmark and
-notification controls sit beside Reply in the footer.
+Assignment shares the activity/reply line in topic lists, and a tag overflow
+hint reveals additional list tags. The reader uses a compact Ledger header
+with assignment controls beside its title. Bookmark and notification controls
+sit beside Reply in the footer.
 Suggested and related rows use a soft, borderless hover fill, inset from their
 separators and padded around the content without shifting its alignment.
 The fill fades over 120 ms (immediately with reduced motion); keyboard focus
@@ -1002,29 +1001,29 @@ period preserves the selected filters, and filtering beside a reader leaves
 that topic open. Selections apply immediately, without duplicate filter chips
 or a confirmation footer. The heading does not show a count of loaded rows.
 
-The topic header puts the title first in both expanded and compact modes, between
-the collapse control and topic actions. Category, subcategory, and tags share the
-next line; activity and assignment appear below them when expanded. Clicking the
-title edits it inline, expanding the header when necessary. Clicking a category
-edits it when the server grants permission;
-separate arrows browse the parent or subcategory. Header tags open their tag
-routes, and a pencil opens the tag editor for adding or removing tags. Removing a
-subcategory moves the topic to its parent. Moving to Uncategorized is offered
-only when the site allows it. Editing a title keeps its text in place, adds a
-rounded blue edit frame, and displays “Enter to save · Esc to cancel” below.
-The frame and hint disappear after saving or cancelling.
-The taxonomy stays on one line: up to three tags fit beside the categories,
-with the remaining tags accessible through a searchable overflow picker.
-Tag rows have space between them and separate arrows to open their routes
-without changing the selection. Readers without editing permission can still
-find and open every tag through the overflow picker.
-Middle-clicking header tags, dropdown tag rows or their open buttons, and
-category browse arrows opens the destination in a background app tab.
-Topic actions open from the wrench icon in the reader header.
-The title and taxonomy align with the reading lane, with a minimum left inset
-to clear the collapse control in narrow readers. Compact mode keeps the same
-row order while reducing the title size and hiding activity. Header content
-transitions smoothly while the toolbar controls stay mounted and interactive.
+The Ledger header keeps the category path, title and every tag above the post
+viewport while reading. Wide readers place a restrained category block beside
+the title and wrapping tags; narrow readers place the category above them.
+The header uses its natural height. In unusually short windows with large text
+or many tags, it can scroll independently within 60% of the reader height so
+all context remains accessible and posts retain space. Tags never collapse
+into a count or an overflow picker.
+
+Clicking the title, category, or tag pencil opens a single draft beneath the
+unchanged reading context. The command button offers **Rename title**,
+**Change category**, and **Edit tags**, according to server permissions.
+Each field has explicit **Save** and **Cancel** actions. Enter saves a title;
+Escape cancels the draft after any picker closes. Tag drafts use removable
+Native Combobox tokens and category-scoped search. Changes stay local until
+saved, errors retain the draft for retry, and changing topic or account retires
+it. Private messages show **Message** and omit category editing.
+
+Header tags open their tag routes; middle-click opens a background app tab.
+The compact three-dot menu contains sharing, category browsing, reply count
+and permission-dependent moderation actions. The header has no topic switcher,
+list position counter or redundant Topics link. Collapse appears in the reader
+only when its source list is hidden; the visible source list keeps its own
+collapse control and adjacent-topic navigation. Keyboard navigation is retained.
 
 Plugin properties can supply a compact `TopicPropertySection.header` builder;
 other properties remain available through a labelled details popover. The

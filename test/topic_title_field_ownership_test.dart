@@ -116,11 +116,7 @@ void main() {
         final reader = tester.state(find.byType(TopicView));
         final header = tester.state(find.byType(TopicInboxHeader));
         final field = find.byKey(const ValueKey('topic-header-title-field'));
-        expect(
-          tester.getTopLeft(field).dx,
-          tester.getTopLeft(find.byTooltip('Edit topic category')).dx,
-        );
-        await tester.tap(field);
+        await tester.tap(find.byKey(const ValueKey('topic-header-title')));
         await tester.pumpAndSettle();
         await tester.enterText(field, _renamed);
         await tester.sendKeyEvent(LogicalKeyboardKey.enter);
@@ -130,11 +126,18 @@ void main() {
         expect(server.topic['title'], _row.title);
 
         await tester.tap(find.byTooltip('Edit topic category'));
+        await tester.pumpAndSettle();
+        await tester.tap(
+          find.byKey(const ValueKey('topic-header-category-field')),
+        );
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 400));
         await tester.tap(
           find.byKey(const ValueKey(('topic-category-picker-option', 22))),
         );
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 400));
+        await tester.tap(find.byKey(const ValueKey('topic-header-save')));
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 400));
         expect(server.requests, hasLength(2));
@@ -148,14 +151,10 @@ void main() {
           );
           await tester.pump();
           await tester.pump(const Duration(milliseconds: 400));
-          await tester.tap(
-            find.byKey(
-              const ValueKey(('topic-tag-picker-option', 'community')),
-            ),
-          );
+          await tester.tap(find.bySemanticsLabel('Remove community'));
           await tester.pump();
           await tester.pump(const Duration(milliseconds: 400));
-          await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+          await tester.tap(find.byKey(const ValueKey('topic-header-save')));
           await tester.pump();
           await tester.pump(const Duration(milliseconds: 400));
         }

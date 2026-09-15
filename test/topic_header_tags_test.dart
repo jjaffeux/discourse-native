@@ -17,18 +17,20 @@ void main() {
             home: MediaQuery(
               data: const MediaQueryData(textScaler: TextScaler.linear(2)),
               child: Scaffold(
-                body: Align(
-                  alignment: Alignment.topLeft,
-                  child: SizedBox(
-                    width: width,
-                    child: TopicHeaderTags(
-                      siteUrl: 'https://meta.example',
-                      onTagNavigate: (_, {newTab = false}) {},
-                      topic: TopicDetail(
-                        id: 1,
-                        title: 'No tags',
-                        stream: const [],
-                        canEditTags: canEditTags,
+                body: SingleChildScrollView(
+                  child: Align(
+                    alignment: Alignment.topLeft,
+                    child: SizedBox(
+                      width: width,
+                      child: TopicHeaderTags(
+                        siteUrl: 'https://meta.example',
+                        onTagNavigate: (_, {newTab = false}) {},
+                        topic: TopicDetail(
+                          id: 1,
+                          title: 'No tags',
+                          stream: const [],
+                          canEditTags: canEditTags,
+                        ),
                       ),
                     ),
                   ),
@@ -70,19 +72,21 @@ void main() {
             home: MediaQuery(
               data: MediaQueryData(textScaler: TextScaler.linear(scale)),
               child: Scaffold(
-                body: Align(
-                  alignment: Alignment.topLeft,
-                  child: SizedBox(
-                    width: width,
-                    child: TopicHeaderTags(
-                      siteUrl: 'https://meta.example',
-                      onTagNavigate: (_, {newTab = false}) {},
-                      topic: TopicDetail(
-                        id: 1,
-                        title: 'Many tags',
-                        stream: const [],
-                        tags: tags,
-                        canEditTags: true,
+                body: SingleChildScrollView(
+                  child: Align(
+                    alignment: Alignment.topLeft,
+                    child: SizedBox(
+                      width: width,
+                      child: TopicHeaderTags(
+                        siteUrl: 'https://meta.example',
+                        onTagNavigate: (_, {newTab = false}) {},
+                        topic: TopicDetail(
+                          id: 1,
+                          title: 'Many tags',
+                          stream: const [],
+                          tags: tags,
+                          canEditTags: true,
+                        ),
                       ),
                     ),
                   ),
@@ -92,27 +96,17 @@ void main() {
           ),
         );
         await tester.pumpAndSettle();
-        final strip = find.byType(TopicHeaderTags);
-        final overflow = find.byKey(const ValueKey('topic-header-more-tags'));
-        expect(overflow, findsOneWidget);
-        expect(tester.getRect(overflow).right, lessThanOrEqualTo(width));
-        expect(tester.getSize(strip).height, lessThan(50));
-        final visible = tags
-            .where(
-              (tag) => find
-                  .byKey(ValueKey(('topic-header-tag', tag.name)))
-                  .evaluate()
-                  .isNotEmpty,
-            )
-            .toList();
-        expect(visible.length, lessThanOrEqualTo(3));
-        for (final tag in visible) {
-          expect(
-            tester
-                .getCenter(find.byKey(ValueKey(('topic-header-tag', tag.name))))
-                .dy,
-            closeTo(tester.getCenter(overflow).dy, 1),
+        expect(
+          find.byKey(const ValueKey('topic-header-more-tags')),
+          findsNothing,
+        );
+        for (final tag in tags) {
+          final tagFinder = find.byKey(
+            ValueKey(('topic-header-tag', tag.name)),
           );
+          expect(tagFinder, findsOneWidget);
+          expect(tester.getRect(tagFinder).right, lessThanOrEqualTo(width));
+          expect(tester.getRect(tagFinder).left, greaterThanOrEqualTo(0));
         }
         expect(
           tester.takeException(),
