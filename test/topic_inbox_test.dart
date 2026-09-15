@@ -910,6 +910,208 @@ void main() {
     }
   });
 
+  for (final canEdit in [true, false]) {
+    for (final action in ['click', 'middle', 'menu-open', 'menu-new-tab']) {
+      testWidgets(
+        'category $action opens topics with edit permission $canEdit',
+        (tester) async {
+          final setup = await _setup(tester, canEditTopic: canEdit);
+          final shell = setup.controller;
+          shell.openTopicFromList(setup.rows.first);
+          await tester.pumpAndSettle();
+          final originalTab = shell.activeTab;
+          final reader = tester.state(find.byType(TopicView));
+          await tester.tap(
+            find.byKey(const ValueKey('topic-header-category-open')),
+            kind: PointerDeviceKind.mouse,
+            buttons: action == 'click'
+                ? kPrimaryMouseButton
+                : action == 'middle'
+                ? kMiddleMouseButton
+                : kSecondaryMouseButton,
+          );
+          await tester.pumpAndSettle();
+          if (action.startsWith('menu-')) {
+            expect(find.text('Open'), findsOneWidget);
+            expect(find.text('Open in new tab'), findsOneWidget);
+            expect(find.text('Use as filter'), findsOneWidget);
+            await tester.tap(
+              find.byKey(ValueKey('topic-header-category-$action')),
+            );
+            await tester.pumpAndSettle();
+          }
+          const path = '/c/design/onboarding/22.json';
+          if (action == 'middle' || action == 'menu-new-tab') {
+            expect(shell.activeTab, originalTab);
+            expect(shell.tabsForCurrentForum, hasLength(2));
+            expect(
+              shell.tabsForCurrentForum.last.currentContent.feedPath,
+              path,
+            );
+            expect(tester.state(find.byType(TopicView)), same(reader));
+          } else {
+            expect(shell.currentContent?.feedPath, path);
+            expect(setup.api.feedPaths, contains(path));
+            expect(shell.tabsForCurrentForum, hasLength(1));
+          }
+          expect(
+            find.byKey(const ValueKey('topic-header-editor')),
+            findsNothing,
+          );
+          expect(setup.api.topicsUpdated, isEmpty);
+          expect(tester.takeException(), isNull);
+        },
+      );
+    }
+  }
+
+  testWidgets('category filter preserves tags, search, period and the reader', (
+    tester,
+  ) async {
+    final setup = await _setup(tester);
+    final shell = setup.controller;
+    shell.openTopicFromList(setup.rows.first);
+    shell.selectTopicListCategory(_parent, keepTopicOpen: true);
+    shell.selectTopicListTags(['community', 'mobile'], keepTopicOpen: true);
+    await shell.selectTopicListMode(
+      TopicListMode.topWeekly,
+      keepTopicOpen: true,
+    );
+    shell.searchTopicList('welcome', keepTopicOpen: true);
+    await tester.pumpAndSettle();
+    final reader = tester.state(find.byType(TopicView));
+    _readerScroll(tester).jumpTo(200);
+    await tester.pumpAndSettle();
+    final originalQuery = Uri.parse(shell.topicListContent!.feedPath!);
+    for (var attempt = 0; attempt < 2; attempt++) {
+      await tester.tap(
+        find.byKey(const ValueKey('topic-header-category-open')),
+        kind: PointerDeviceKind.mouse,
+        buttons: kSecondaryMouseButton,
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(const ValueKey('topic-header-category-menu-filter')),
+      );
+      await tester.pumpAndSettle();
+      expect(shell.currentContent?.topicId, 1);
+      expect(shell.topicListContent?.categoryId, _child.id);
+      expect(shell.topicListContent?.tagNames, ['community', 'mobile']);
+      expect(shell.currentTopicListMode, TopicListMode.topWeekly);
+      final filtered = Uri.parse(shell.topicListContent!.feedPath!);
+      for (final entry in originalQuery.queryParametersAll.entries) {
+        if (entry.key != 'category') {
+          expect(filtered.queryParametersAll[entry.key], entry.value);
+        }
+      }
+      expect(tester.state(find.byType(TopicView)), same(reader));
+      expect(_readerScroll(tester).offset, closeTo(200, 1));
+      expect(find.byType(DContextMenuContent), findsNothing);
+    }
+    expect(setup.api.topicsUpdated, isEmpty);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('category keyboard menu restores focus beside its edit control', (
+    tester,
+  ) async {
+    final setup = await _setup(tester);
+    final shell = setup.controller;
+    shell.openTopicFromList(setup.rows.first);
+    await tester.pumpAndSettle();
+    await tester.pumpWidget(
+      ShellScope(
+        controller: shell,
+        child: MaterialApp(
+          theme: AppTheme.dark,
+          home: Scaffold(
+            body: TopicInboxHeader(
+              title: shell.currentTopic!.title,
+              siteUrl: shell.currentInstance!.url,
+              topic: shell.currentTopic,
+              canReturnToSidebar: true,
+              keepTopicListOpen: true,
+              registry: PluginRegistry.empty,
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    FocusNode controlFocus(String key) => Focus.of(
+      tester.element(
+        find
+            .descendant(
+              of: find.byKey(ValueKey(key)),
+              matching: key == 'topic-header-category-open'
+                  ? find.text('Onboarding')
+                  : find.byType(DIcon),
+            )
+            .last,
+      ),
+    );
+    controlFocus('topic-header-category-open').requestFocus();
+    await tester.pump();
+    expect(controlFocus('topic-header-category-open').hasPrimaryFocus, isTrue);
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.f10);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+    await tester.pumpAndSettle();
+    expect(find.byType(DContextMenuContent), findsOneWidget);
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+    expect(controlFocus('topic-header-category-open').hasPrimaryFocus, isTrue);
+    await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+    await tester.pump();
+    expect(controlFocus('topic-header-edit-category').hasPrimaryFocus, isTrue);
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const ValueKey('topic-header-category-field')),
+      findsOneWidget,
+    );
+    expect(shell.currentContent?.topicId, 1);
+    expect(setup.api.topicsUpdated, isEmpty);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('category filter is disabled without a filterable source list', (
+    tester,
+  ) async {
+    final setup = await _setup(tester);
+    final shell = setup.controller;
+    shell.openTopicFromList(setup.rows.first);
+    final topicRoute = shell.currentContent!;
+    // A directory, followed by a direct topic, has no filterable source feed.
+    shell.replaceCurrentContent(
+      ContentRoute(
+        id: 'categories',
+        title: 'Categories',
+        icon: topicRoute.icon,
+      ),
+    );
+    shell.pushContent(topicRoute);
+    await tester.pumpAndSettle();
+    expect(shell.topicListContent?.isTopicListFilter, isNot(true));
+    await tester.tap(
+      find.byKey(const ValueKey('topic-header-category-open')),
+      kind: PointerDeviceKind.mouse,
+      buttons: kSecondaryMouseButton,
+    );
+    await tester.pumpAndSettle();
+    expect(
+      tester
+          .widget<DContextMenuItem>(
+            find.byKey(const ValueKey('topic-header-category-menu-filter')),
+          )
+          .onPressed,
+      isNull,
+    );
+    expect(find.text('Open'), findsOneWidget);
+    expect(find.text('Open in new tab'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   for (final (canEditTags, newTab) in [
     (true, false),
     (true, true),
@@ -1069,54 +1271,68 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  for (final change in ['topic', 'tab', 'list']) {
-    testWidgets('tag menu refuses a replaced $change before the next frame', (
-      tester,
-    ) async {
-      final setup = await _setup(tester);
-      final shell = setup.controller;
-      shell.openTopicFromList(setup.rows.first);
-      await tester.pumpAndSettle();
-      await tester.tap(
-        find.byKey(const ValueKey(('topic-header-tag', 'community'))),
-        kind: PointerDeviceKind.mouse,
-        buttons: kSecondaryMouseButton,
+  for (final taxonomy in ['tag', 'category']) {
+    for (final change in ['topic', 'tab', 'list']) {
+      testWidgets(
+        '$taxonomy menu refuses a replaced $change before the next frame',
+        (tester) async {
+          final setup = await _setup(tester);
+          final shell = setup.controller;
+          shell.openTopicFromList(setup.rows.first);
+          await tester.pumpAndSettle();
+          await tester.tap(
+            find.byKey(
+              taxonomy == 'tag'
+                  ? const ValueKey(('topic-header-tag', 'community'))
+                  : const ValueKey('topic-header-category-open'),
+            ),
+            kind: PointerDeviceKind.mouse,
+            buttons: kSecondaryMouseButton,
+          );
+          await tester.pumpAndSettle();
+          final filter = tester
+              .widget<DContextMenuItem>(
+                find.byKey(
+                  taxonomy == 'tag'
+                      ? const ValueKey(('topic-header-tag-filter', 'community'))
+                      : const ValueKey('topic-header-category-menu-filter'),
+                ),
+              )
+              .onPressed!;
+          final open = tester
+              .widget<DContextMenuItem>(
+                find.byKey(
+                  taxonomy == 'tag'
+                      ? const ValueKey((
+                          'topic-header-tag-open-new-tab',
+                          'community',
+                        ))
+                      : const ValueKey('topic-header-category-menu-new-tab'),
+                ),
+              )
+              .onPressed!;
+          switch (change) {
+            case 'topic':
+              shell.openTopicFromList(setup.rows[1]);
+            case 'tab':
+              shell.createTab();
+            case 'list':
+              shell.selectTopicListTags(['mobile'], keepTopicOpen: true);
+          }
+          final route = shell.currentContent;
+          final list = shell.topicListContent;
+          final tabCount = shell.tabsForCurrentForum.length;
+          filter();
+          open();
+          await tester.pumpAndSettle();
+          expect(shell.currentContent, route);
+          expect(shell.topicListContent, list);
+          expect(shell.tabsForCurrentForum, hasLength(tabCount));
+          expect(find.byType(DContextMenuContent), findsNothing);
+          expect(tester.takeException(), isNull);
+        },
       );
-      await tester.pumpAndSettle();
-      final filter = tester
-          .widget<DContextMenuItem>(
-            find.byKey(
-              const ValueKey(('topic-header-tag-filter', 'community')),
-            ),
-          )
-          .onPressed!;
-      final open = tester
-          .widget<DContextMenuItem>(
-            find.byKey(
-              const ValueKey(('topic-header-tag-open-new-tab', 'community')),
-            ),
-          )
-          .onPressed!;
-      switch (change) {
-        case 'topic':
-          shell.openTopicFromList(setup.rows[1]);
-        case 'tab':
-          shell.createTab();
-        case 'list':
-          shell.selectTopicListTags(['mobile'], keepTopicOpen: true);
-      }
-      final route = shell.currentContent;
-      final list = shell.topicListContent;
-      final tabCount = shell.tabsForCurrentForum.length;
-      filter();
-      open();
-      await tester.pumpAndSettle();
-      expect(shell.currentContent, route);
-      expect(shell.topicListContent, list);
-      expect(shell.tabsForCurrentForum, hasLength(tabCount));
-      expect(find.byType(DContextMenuContent), findsNothing);
-      expect(tester.takeException(), isNull);
-    });
+    }
   }
 
   testWidgets(

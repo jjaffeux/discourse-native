@@ -1009,8 +1009,8 @@ or many tags, it can scroll independently within 60% of the reader height so
 all context remains accessible and posts retain space. Tags never collapse
 into a count or an overflow picker.
 
-Clicking the title, category, or tag plus opens that field’s draft beneath the
-reading context, according to server permissions. There is no separate Edit
+Clicking the title, category chevron, or tag plus opens that field’s draft
+beneath the reading context, according to server permissions. There is no separate Edit
 topic button or command chooser. Empty tags use the same compact plus control
 with an accessible **Add tag** label.
 Clicking a tag opens the tag editor; middle-click opens its topic list in a
@@ -1019,6 +1019,11 @@ new tab**, and **Use as filter**. Filtering adds the tag to the source topic
 list’s existing category, tags, period and search, keeping the reader open.
 The filter action is disabled without a filterable topic list and for private
 message tags. Without tag-edit permission, clicking a tag opens its action menu.
+Clicking the category name opens its topics; middle-click opens them in a
+background tab. Its context menu offers the same three actions as tags.
+**Use as filter** replaces the source list’s category while retaining its tags,
+period, search and open reader. The separate chevron still edits the topic’s
+category and is shown only with edit permission.
 Each field has explicit **Save** and **Cancel** actions. Enter saves a title;
 Escape cancels the draft after any picker closes. Tag drafts use removable
 Native Combobox tokens and category-scoped search. Changes stay local until
