@@ -387,7 +387,7 @@ final class AssignPlugin
               : canAssign
               ? 'Assign topic'
               : 'Manage assignments',
-          size: DButtonSize.large,
+          size: DButtonSize.regular,
           variant: DButtonVariant.ghost,
           onPressed: direct != null || !canAssign
               ? showDetails

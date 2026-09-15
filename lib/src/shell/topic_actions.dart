@@ -485,7 +485,7 @@ class _TopicStatusButtonState extends State<TopicStatusButton> {
                   },
             loading: busy,
             variant: DButtonVariant.ghost,
-            size: widget.compact ? DButtonSize.small : DButtonSize.large,
+            size: DButtonSize.regular,
             icon: const DIcon(DIcons.wrench),
           ),
         ),
