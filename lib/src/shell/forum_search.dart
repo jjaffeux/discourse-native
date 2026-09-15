@@ -182,12 +182,18 @@ class _ForumSearchState extends State<ForumSearch> {
           (route?.isTopic == true || route?.isTopicList == true
               ? GlobalSearchContext(
                   scope: GlobalSearchScope.forum,
-                  condition: route?.topicId == null
-                      ? null
-                      : GlobalSearchCondition(
+                  condition: route?.topicId != null
+                      ? GlobalSearchCondition(
                           filterId: 'topicId',
                           value: ['${route!.topicId}'],
-                        ),
+                        )
+                      : route?.categoryId != null
+                      ? GlobalSearchCondition(
+                          filterId: 'category',
+                          operator: 'any',
+                          value: ['${route!.categoryId}'],
+                        )
+                      : null,
                 )
               : null);
       if (mode != SearchFocusMode.contextual || openingContext == null) {

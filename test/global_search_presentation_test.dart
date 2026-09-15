@@ -177,6 +177,65 @@ void main() {
     );
   }
 
+  for (final keyboard in [false, true]) {
+    _testPresentation(
+      '${keyboard ? 'contextual shortcut' : 'click'} search from a category topic list',
+      (tester) async {
+        final api = GlobalSearchFixtureApi();
+        final shell = await _pumpSearch(tester, api: api);
+        for (final categoryId in [1, 2]) {
+          shell.replaceCurrentContent(
+            ContentRoute.filteredTopicList(
+              TopicListMode.latest,
+              categoryId: categoryId,
+            ),
+          );
+          await tester.pumpAndSettle();
+          if (keyboard) {
+            await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
+            await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+            await tester.sendKeyEvent(LogicalKeyboardKey.keyF);
+            await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+            await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
+          } else {
+            await tester.tap(find.byKey(ForumSearch.inputKey));
+          }
+          await tester.pumpAndSettle();
+          expect(
+            shell.globalSearch.scope,
+            keyboard ? GlobalSearchScope.forum : GlobalSearchScope.all,
+          );
+          expect(
+            shell.globalSearch.conditions.map(
+              (condition) => condition.filterId,
+            ),
+            keyboard ? ['category'] : <String>[],
+          );
+          expect(
+            shell.globalSearch.conditions.map((condition) => condition.text),
+            keyboard ? ['$categoryId'] : <String>[],
+          );
+          await tester.enterText(find.byKey(ForumSearch.inputKey), 'design');
+          await _finishSearch(tester);
+          expect(
+            api.requests
+                .lastWhere(
+                  (r) =>
+                      r.uri.path ==
+                      (keyboard ? '/search.json' : '/search/query.json'),
+                )
+                .uri
+                .queryParameters[keyboard ? 'q' : 'term'],
+            keyboard ? 'design category:$categoryId' : 'design',
+          );
+          await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+          await tester.pumpAndSettle();
+        }
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
   _testPresentation(
     'slash opens global search on a topic list and leaves typing to the editor',
     (tester) async {
