@@ -1,6 +1,7 @@
 import 'dart:ui' as ui;
 
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -13,6 +14,81 @@ void main() {
       body: Center(child: SizedBox(width: 200, height: 180, child: child)),
     ),
   );
+  testWidgets('automatic desktop scrollbars retain a clear side gap on hover', (
+    tester,
+  ) async {
+    final controller = ScrollController();
+    addTearDown(controller.dispose);
+    final boundaryKey = GlobalKey();
+    for (final theme in [AppTheme.light, AppTheme.dark]) {
+      for (final direction in TextDirection.values) {
+        final background = theme.extension<DTokens>()!.background;
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: theme.copyWith(platform: TargetPlatform.macOS),
+            home: Directionality(
+              textDirection: direction,
+              child: Center(
+                child: SizedBox(
+                  width: 200,
+                  height: 180,
+                  child: RepaintBoundary(
+                    key: boundaryKey,
+                    child: ColoredBox(
+                      color: background,
+                      child: ListView(
+                        controller: controller,
+                        children: const [SizedBox(height: 2000)],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(find.byType(Scrollbar), findsOneWidget);
+        final rect = tester.getRect(find.byKey(boundaryKey));
+        final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+        await mouse.addPointer(
+          location: Offset(
+            direction == TextDirection.ltr ? rect.right - 3 : rect.left + 3,
+            rect.top + 10,
+          ),
+        );
+        controller.jumpTo(controller.offset == 0 ? 10 : 0);
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 250));
+        final pixels = await tester.runAsync(() async {
+          final image =
+              await (boundaryKey.currentContext!.findRenderObject()!
+                      as RenderRepaintBoundary)
+                  .toImage(pixelRatio: 2);
+          final bytes = (await image.toByteData(
+            format: ui.ImageByteFormat.rawRgba,
+          ))!;
+          final x = direction == TextDirection.ltr ? image.width - 1 : 0;
+          final inside = direction == TextDirection.ltr ? image.width - 6 : 5;
+          final result = [
+            bytes.getUint32((20 * image.width + x) * 4),
+            bytes.getUint32((20 * image.width + inside) * 4),
+          ];
+          image.dispose();
+          return result;
+        });
+        final rgba = ((background.toARGB32() & 0xffffff) << 8) | 0xff;
+        expect(pixels![0], rgba, reason: 'The outermost pixel stays clear');
+        expect(
+          pixels[1],
+          isNot(rgba),
+          reason: 'The automatic thumb is visible',
+        );
+        await mouse.removePointer();
+      }
+    }
+  });
+
   testWidgets(
     'default thumbs follow live theme changes and honor custom colors',
     (tester) async {

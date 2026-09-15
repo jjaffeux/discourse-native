@@ -27,3 +27,7 @@ Verification:
 
 This deliberately increases the original reference's faint border-token thumb
 contrast in response to the requested visibility improvement.
+
+Follow-up: automatic Material scrollbars also have a pixel regression test at
+2x rendering scale, in light/dark themes and LTR/RTL while hovered. Their outer
+edge stays clear and their thumb remains visible. All 13 Scroll Area tests pass.
