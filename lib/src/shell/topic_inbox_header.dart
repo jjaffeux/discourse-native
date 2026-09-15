@@ -557,7 +557,12 @@ class _TopicHeaderTaxonomy extends StatelessWidget {
                 ],
               ],
               if (hasTags) ...[
-                if (hasCategories) const SizedBox(width: 8),
+                if (hasCategories)
+                  const DSeparator(
+                    orientation: Axis.vertical,
+                    length: 20,
+                    space: 17,
+                  ),
                 Flexible(
                   child: TopicHeaderTags(
                     key: const ValueKey('topic-header-tags'),
