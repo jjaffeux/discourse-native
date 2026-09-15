@@ -90,7 +90,7 @@ class ForumTabsBar extends StatefulWidget {
 
   static const double minimumTabWidth = 128 + 2 * _tabContentInset;
 
-  static const double maximumTabWidth = 216 + 2 * _tabContentInset;
+  static const double maximumTabWidth = 152 + 2 * _tabContentInset;
 
   static const double closeTargetWidth = 24;
 

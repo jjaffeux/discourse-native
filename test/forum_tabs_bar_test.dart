@@ -891,10 +891,15 @@ void main() {
       final title = tester.widget<Text>(titleFinder);
       final titleContext = tester.element(titleFinder);
       final titlePainter = TextPainter(
-        text: TextSpan(text: item.title, style: title.style),
+        text: TextSpan(
+          text: item.title,
+          style: DefaultTextStyle.of(titleContext).style.merge(title.style),
+        ),
         textDirection: Directionality.of(titleContext),
         textScaler: MediaQuery.textScalerOf(titleContext),
-      )..layout();
+        maxLines: 1,
+        ellipsis: '\u2026',
+      )..layout(maxWidth: tester.getSize(titleFinder).width);
       final titleEnd = tester.getTopLeft(titleFinder).dx + titlePainter.width;
       final dot = tester.getRect(
         find.byKey(const ValueKey('forum-tab-badge-chat-2')),
