@@ -296,6 +296,10 @@ class _TopicHeaderToolbar extends StatelessWidget {
             ),
             child: Row(
               children: [
+                if (!header.keepTopicListOpen)
+                  TopicCloseButton(
+                    canReturnToSidebar: header.canReturnToSidebar,
+                  ),
                 Expanded(
                   child: Padding(
                     padding: const EdgeInsetsDirectional.only(end: 8),
@@ -306,10 +310,6 @@ class _TopicHeaderToolbar extends StatelessWidget {
                   header: header,
                   width: constraints.maxWidth,
                 ),
-                if (!header.keepTopicListOpen)
-                  TopicCloseButton(
-                    canReturnToSidebar: header.canReturnToSidebar,
-                  ),
               ],
             ),
           ),
