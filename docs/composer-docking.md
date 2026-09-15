@@ -11,7 +11,8 @@ scope.
   state. The popup contains only placement choices. Save/close, minimize, and
   restore remain in the header; closing an unsaved edit retains its confirmation.
 - Desktop defaults to the right at 420 logical pixels. Side docking keeps a
-  360-pixel composer and 320-pixel reader minimum. If they cannot fit, the
+  360-pixel composer and 480-pixel desktop page minimum (320 in the generic
+  dock and touch layouts). If they cannot fit, the
   composer temporarily moves to the bottom and restores the preferred side
   and width when space returns.
 - Docking occupies the content area and leaves the rail and sidebar available.

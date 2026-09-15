@@ -34,8 +34,11 @@ class ComposerHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) =>
-      ShellSelector<({bool whisperer, int pluginState})>(
+      ShellSelector<({bool whisperer, int pluginState, bool atDestination})>(
         select: (shell) => (
+          atDestination:
+              shell.currentInstance?.url == composer.target.siteUrl &&
+              shell.currentContent?.topicId == composer.target.topicId,
           whisperer:
               shell.currentUserFor(composer.target.siteUrl)?.whisperer == true,
           pluginState: Object.hash(
@@ -43,10 +46,15 @@ class ComposerHeader extends StatelessWidget {
             shell.freshCurrentUserFor(composer.target.siteUrl),
           ),
         ),
-        builder: (context, state, _) => _buildHeader(context, state.whisperer),
+        builder: (context, state, _) =>
+            _buildHeader(context, state.whisperer, state.atDestination),
       );
 
-  Widget _buildHeader(BuildContext context, bool whisperer) {
+  Widget _buildHeader(
+    BuildContext context,
+    bool whisperer,
+    bool atDestination,
+  ) {
     final theme = Theme.of(context);
     final target = composer.target;
     final modeLabel = switch (target.mode) {
@@ -175,6 +183,19 @@ class ComposerHeader extends StatelessWidget {
           );
 
     final controls = [
+      if (!atDestination && !target.createsTopic && target.topicId > 0)
+        DButton.iconOnly(
+          key: const ValueKey('composer-return-to-topic'),
+          tooltip: 'Return to ${target.topicTitle}',
+          icon: const DIcon(DIcons.arrowLeft),
+          variant: DButtonVariant.ghost,
+          onPressed: () => ShellScope.read(context).openTopicPost(
+            siteUrl: target.siteUrl,
+            topicId: target.topicId,
+            postNumber:
+                target.replyToPostNumber ?? target.editingPostNumber ?? 1,
+          ),
+        ),
       ...pluginControls,
       if (!minimized && onPlacementChanged != null)
         DPopover(

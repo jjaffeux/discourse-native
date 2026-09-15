@@ -22,12 +22,12 @@ import 'content_reading_lane.dart';
 import 'keyboard_navigation.dart';
 import 'list_boundary_shortcuts.dart';
 import 'open_link.dart';
+import 'platform.dart';
 import 'relative_time.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';
 import 'topic_list_indicators.dart';
 import 'topic_list_layout.dart';
-import 'topic_sheet_scope.dart';
 import 'topic_title.dart';
 
 typedef _TopicListIdentity = (String?, String?, String?, String);
@@ -613,7 +613,7 @@ class _TopicListViewState extends State<TopicListView> {
     if (_readingTopicId != readingTopicId) {
       _readingTopicId = readingTopicId;
       if (readingTopicId == null) {
-        if (!TopicSheetScope.isBackground(context)) _revealCursor();
+        if (context.isTouch) _revealCursor();
       } else if (feed.topicIds.contains(readingTopicId)) {
         _rememberTopic(readingTopicId);
       }

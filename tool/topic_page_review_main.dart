@@ -1,4 +1,4 @@
-// Local data only; mounts the production topic sheet and Native styleguide example.
+// Local data only; mounts the production topic page and Native styleguide example.
 import 'dart:async';
 
 import 'package:discourse_native/discourse_ui.dart';
@@ -13,7 +13,7 @@ import 'package:discourse_native/src/shell/app_settings_controller.dart';
 import 'package:discourse_native/src/shell/content_reading_lane.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
-import 'package:discourse_native/src/styleguide/examples/sheet_examples.dart';
+import 'package:discourse_native/src/styleguide/examples/combobox_examples.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -22,7 +22,7 @@ import '../test/support/fakes.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  SharedPreferences.setPrefix('topic_sheet_review.');
+  SharedPreferences.setPrefix('topic_page_review.');
   const user = DiscourseUser(id: 7, username: 'reviewer', canCreateTopic: true);
   final titles = [
     'A calmer way to move between conversations',
@@ -43,7 +43,7 @@ Future<void> main() async {
   final shell = ShellController(
     instanceStore: FakeInstanceStore([
       instance(
-        'topic-sheet.invalid',
+        'topic-page.invalid',
         title: 'Discourse Meta',
       ).copyWith(user: user),
     ]),
@@ -68,7 +68,7 @@ Future<void> main() async {
                   postNumber: i,
                   username: i.isOdd ? 'sam' : 'hannah',
                   cooked: i.isOdd
-                      ? '<p>The topic list is my starting point. I would like to open a discussion, reply, and return to the same place without rebuilding my context.</p><p>A conversation can have its own space while the list stays underneath it.</p>'
+                      ? '<p>The topic list is my starting point. I would like to open a discussion, reply, and return to the same place without rebuilding my context.</p><p>A conversation can have its own space while the list stays one step away.</p>'
                       : '<p>The reply editor should belong to the conversation too. If I close it for a moment, I want my draft to be there when I return.</p>',
                 ),
             ],
@@ -76,7 +76,7 @@ Future<void> main() async {
       },
     ),
     authenticator: FakeAuthenticator()
-      ..keys['https://topic-sheet.invalid'] = 'local-fixture',
+      ..keys['https://topic-page.invalid'] = 'local-fixture',
     drafts: FakeDraftStore(),
     forumTabs: FakeForumTabStore(),
     trackers: FakeSiteTracker.reset(),
@@ -146,7 +146,7 @@ Future<void> main() async {
                         ),
                         DButton(
                           label: Text(
-                            styleguide ? 'Application' : 'Sheet styleguide',
+                            styleguide ? 'Application' : 'Combobox styleguide',
                           ),
                           onPressed: () =>
                               setState(() => styleguide = !styleguide),
@@ -159,11 +159,9 @@ Future<void> main() async {
                       child: SizedBox(
                         width: narrow ? 650 : double.infinity,
                         child: styleguide
-                            ? sheetExamples.examples
+                            ? comboboxExamples.examples
                                   .firstWhere(
-                                    (example) =>
-                                        example.title ==
-                                        'Centered reading panel',
+                                    (example) => example.title == 'Popup',
                                   )
                                   .builder(context)
                             : const AdaptiveShell(),
