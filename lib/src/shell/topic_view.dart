@@ -2909,24 +2909,28 @@ class _TopicViewHeader extends StatelessWidget {
                               title: title,
                             ),
                           )
-                        : DTooltip(
-                            message: title,
-                            child: siteUrl == null
-                                ? Text(
-                                    title,
-                                    key: const ValueKey('topic-header-title'),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: titleStyle,
-                                  )
-                                : TopicTitle(
-                                    title,
-                                    key: const ValueKey('topic-header-title'),
-                                    siteUrl: siteUrl,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: titleStyle,
-                                  ),
+                        : Semantics(
+                            container: true,
+                            header: true,
+                            child: DTooltip(
+                              message: title,
+                              child: siteUrl == null
+                                  ? Text(
+                                      title,
+                                      key: const ValueKey('topic-header-title'),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: titleStyle,
+                                    )
+                                  : TopicTitle(
+                                      title,
+                                      key: const ValueKey('topic-header-title'),
+                                      siteUrl: siteUrl,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: titleStyle,
+                                    ),
+                            ),
                           ),
                   ),
                   if (topic != null && siteUrl != null) ...[

@@ -93,6 +93,7 @@ class _StreamDaySeparatorState extends State<StreamDaySeparator> {
     if (widget.onTap case final onTap?) {
       final actionLabel = 'Go to start of $label';
       date = Semantics(
+        container: true,
         button: true,
         label: actionLabel,
         onTap: onTap,

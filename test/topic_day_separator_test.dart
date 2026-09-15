@@ -174,13 +174,13 @@ void main() {
             .controller!;
         scroll.jumpTo(0);
         await tester.pumpAndSettle();
-        final activity = find.byKey(const ValueKey('topic-header-activity'));
+        final header = find.byKey(const ValueKey('topic-content-header'));
         final date = find.byKey(ValueKey(('topic-day', day)));
         final floating = find.byKey(ValueKey(('topic-floating-day', day)));
         expect(floating, findsNothing);
         expect(
           tester.getRect(date).top,
-          greaterThan(tester.getRect(activity).bottom),
+          greaterThanOrEqualTo(tester.getRect(header).bottom),
         );
         final firstPost = find.byKey(const ValueKey('topic-post-highlight-1'));
         expect(
@@ -188,19 +188,14 @@ void main() {
           lessThanOrEqualTo(scale == 1 ? 32 : 48),
           reason: 'the opening should not reserve a full day-boundary gap',
         );
-        final taxonomy = find.byKey(const ValueKey('topic-header-taxonomy'));
-        final pinAt =
-            tester.getRect(date).top - tester.getRect(taxonomy).bottom - 8;
+        final pinAt = tester.getRect(date).top - tester.getRect(header).bottom;
         scroll.jumpTo(pinAt - 1);
         await tester.pumpAndSettle();
         expect(floating, findsNothing);
         scroll.jumpTo(pinAt + 1);
         await tester.pumpAndSettle();
         expect(floating, findsOneWidget);
-        expect(
-          tester.getRect(floating).top,
-          tester.getRect(taxonomy).bottom + 8,
-        );
+        expect(tester.getRect(floating).top, tester.getRect(header).bottom);
         scroll.jumpTo(0);
         await tester.pumpAndSettle();
         expect(floating, findsNothing);
@@ -503,11 +498,10 @@ void main() {
         closeTo(
           inbox
               ? tester
-                        .getBottomLeft(
-                          find.byKey(const ValueKey('topic-header-taxonomy')),
-                        )
-                        .dy +
-                    8
+                    .getBottomLeft(
+                      find.byKey(const ValueKey('topic-content-header')),
+                    )
+                    .dy
               : tester.getTopLeft(viewport).dy,
           0.1,
         ),
@@ -608,12 +602,9 @@ Future<List<int>> _headerPixels(WidgetTester tester, Key captureKey) async {
   final boundary = tester.renderObject<RenderRepaintBoundary>(
     find.byKey(captureKey),
   );
-  final taxonomy = find.byKey(const ValueKey('topic-header-taxonomy'));
-  final headerBottom = taxonomy.evaluate().isEmpty
-      ? tester
-            .getBottomLeft(find.byKey(const ValueKey('topic-content-header')))
-            .dy
-      : tester.getBottomLeft(taxonomy).dy + 8;
+  final headerBottom = tester
+      .getBottomLeft(find.byKey(const ValueKey('topic-content-header')))
+      .dy;
   final headerHeight =
       (headerBottom - tester.getTopLeft(find.byKey(captureKey)).dy).floor();
   return (await tester.runAsync(() async {
