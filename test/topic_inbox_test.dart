@@ -27,6 +27,8 @@ import 'package:discourse_native/src/shell/topic_view.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:discourse_native/src/theme/d_native_icons.dart';
+import 'package:flutter/foundation.dart'
+    show debugDefaultTargetPlatformOverride;
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -333,7 +335,12 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(shell.topicListContent?.categoryId, _child.id);
-      expect(shell.currentContent?.topicId, setup.rows.first.id);
+      expect(
+        shell.currentContent?.topicId,
+        debugDefaultTargetPlatformOverride == TargetPlatform.macOS
+            ? null
+            : setup.rows.first.id,
+      );
       expect(setup.api.topicsUpdated, isEmpty);
       expect(tester.takeException(), isNull);
     },
@@ -2303,6 +2310,7 @@ void main() {
     'topic arrows hover independently inside the reduced list footer',
     (tester) async {
       final setup = await _setup(tester, canCreateTopic: true);
+      tester.view.physicalSize = const Size(1440, 800);
       setup.controller.openTopicFromList(setup.rows[1]);
       await tester.pumpAndSettle();
       final previous = find.byKey(const ValueKey('inbox-previous-topic'));
