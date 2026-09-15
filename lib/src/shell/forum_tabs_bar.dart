@@ -167,122 +167,136 @@ class _ForumTabsBarState extends State<ForumTabsBar> {
       width: double.infinity,
       height: ForumTabsBar.heightFor(context),
       decoration: const BoxDecoration(color: Colors.transparent),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(4, 5, 5, 5),
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            if (_lastViewportWidth != constraints.maxWidth) {
-              _lastViewportWidth = constraints.maxWidth;
-              _scheduleRevealSelected();
-            }
-            const switcherWidth = ForumTabsBar.minimumActionTarget;
-            const addWidth = ForumTabsBar.minimumActionTarget;
-            const newTabGap = 4.0;
-            final tabViewportWidth = math.max(
-              0.0,
-              constraints.maxWidth -
-                  switcherWidth -
-                  _switcherGap -
-                  addWidth -
-                  newTabGap,
-            );
-            final gapsWidth = math.max(0, widget.items.length - 1) * _tabGap;
-            final equalShare = widget.items.isEmpty
-                ? 70.0
-                : (tabViewportWidth - gapsWidth) / widget.items.length;
-            final tabWidth = equalShare.clamp(
-              ForumTabsBar.minimumTabWidth,
-              ForumTabsBar.maximumTabWidth,
-            );
+      child: Stack(
+        children: [
+          Positioned.fill(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(4, 5, 5, 5),
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  if (_lastViewportWidth != constraints.maxWidth) {
+                    _lastViewportWidth = constraints.maxWidth;
+                    _scheduleRevealSelected();
+                  }
+                  const switcherWidth = ForumTabsBar.minimumActionTarget;
+                  const addWidth = ForumTabsBar.minimumActionTarget;
+                  const newTabGap = 4.0;
+                  final tabViewportWidth = math.max(
+                    0.0,
+                    constraints.maxWidth -
+                        switcherWidth -
+                        _switcherGap -
+                        addWidth -
+                        newTabGap,
+                  );
+                  final gapsWidth =
+                      math.max(0, widget.items.length - 1) * _tabGap;
+                  final equalShare = widget.items.isEmpty
+                      ? 70.0
+                      : (tabViewportWidth - gapsWidth) / widget.items.length;
+                  final tabWidth = equalShare.clamp(
+                    ForumTabsBar.minimumTabWidth,
+                    ForumTabsBar.maximumTabWidth,
+                  );
 
-            return Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                _ForumTabSwitcher(
-                  forumName: widget.forumName,
-                  items: widget.items,
-                  selectedId: widget.selectedId,
-                  recentlyClosedItems: widget.recentlyClosedItems,
-                  onSelect: widget.onSelect,
-                  onClose: widget.onClose,
-                  onReopen: widget.onReopen,
-                ),
-                const SizedBox(width: _switcherGap),
-                Expanded(
-                  child: ClipRect(
-                    child: SingleChildScrollView(
-                      key: const ValueKey('forum-tabs-scroll'),
-                      scrollDirection: Axis.horizontal,
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Semantics(
-                            role: SemanticsRole.tabBar,
-                            container: true,
-                            explicitChildNodes: true,
-                            label: 'Open tabs in ${widget.forumName}',
+                  return Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      _ForumTabSwitcher(
+                        forumName: widget.forumName,
+                        items: widget.items,
+                        selectedId: widget.selectedId,
+                        recentlyClosedItems: widget.recentlyClosedItems,
+                        onSelect: widget.onSelect,
+                        onClose: widget.onClose,
+                        onReopen: widget.onReopen,
+                      ),
+                      const SizedBox(width: _switcherGap),
+                      Expanded(
+                        child: ClipRect(
+                          child: SingleChildScrollView(
+                            key: const ValueKey('forum-tabs-scroll'),
+                            scrollDirection: Axis.horizontal,
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                for (
-                                  var index = 0;
-                                  index < widget.items.length;
-                                  index++
-                                ) ...[
-                                  SizedBox(
-                                    key: _itemKeys.putIfAbsent(
-                                      widget.items[index].id,
-                                      GlobalKey.new,
-                                    ),
-                                    width: tabWidth,
-                                    child: _ReorderableForumTab(
-                                      item: widget.items[index],
-                                      index: index,
-                                      itemCount: widget.items.length,
-                                      width: tabWidth,
-                                      selected:
-                                          widget.items[index].id ==
-                                          widget.selectedId,
-                                      onSelect: () => widget.onSelect(
-                                        widget.items[index].id,
-                                      ),
-                                      onClose: () => widget.onClose(
-                                        widget.items[index].id,
-                                      ),
-                                      onReorder: widget.onReorder,
-                                      onCloseOthers: widget.items.length == 1
-                                          ? null
-                                          : () => widget.onCloseOthers(
+                                Semantics(
+                                  role: SemanticsRole.tabBar,
+                                  container: true,
+                                  explicitChildNodes: true,
+                                  label: 'Open tabs in ${widget.forumName}',
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      for (
+                                        var index = 0;
+                                        index < widget.items.length;
+                                        index++
+                                      ) ...[
+                                        SizedBox(
+                                          key: _itemKeys.putIfAbsent(
+                                            widget.items[index].id,
+                                            GlobalKey.new,
+                                          ),
+                                          width: tabWidth,
+                                          child: _ReorderableForumTab(
+                                            item: widget.items[index],
+                                            index: index,
+                                            itemCount: widget.items.length,
+                                            width: tabWidth,
+                                            selected:
+                                                widget.items[index].id ==
+                                                widget.selectedId,
+                                            onSelect: () => widget.onSelect(
                                               widget.items[index].id,
                                             ),
-                                      onRename: widget.onRename == null
-                                          ? null
-                                          : (title) => widget.onRename!(
+                                            onClose: () => widget.onClose(
                                               widget.items[index].id,
-                                              title,
                                             ),
-                                    ),
+                                            onReorder: widget.onReorder,
+                                            onCloseOthers:
+                                                widget.items.length == 1
+                                                ? null
+                                                : () => widget.onCloseOthers(
+                                                    widget.items[index].id,
+                                                  ),
+                                            onRename: widget.onRename == null
+                                                ? null
+                                                : (title) => widget.onRename!(
+                                                    widget.items[index].id,
+                                                    title,
+                                                  ),
+                                          ),
+                                        ),
+                                        if (index != widget.items.length - 1)
+                                          const SizedBox(width: _tabGap),
+                                      ],
+                                    ],
                                   ),
-                                  if (index != widget.items.length - 1)
-                                    const SizedBox(width: _tabGap),
-                                ],
+                                ),
+                                const SizedBox(width: newTabGap),
+                                SizedBox(
+                                  key: _addKey,
+                                  child: _NewTabButton(onPressed: widget.onAdd),
+                                ),
                               ],
                             ),
                           ),
-                          const SizedBox(width: newTabGap),
-                          SizedBox(
-                            key: _addKey,
-                            child: _NewTabButton(onPressed: widget.onAdd),
-                          ),
-                        ],
+                        ),
                       ),
-                    ),
-                  ),
-                ),
-              ],
-            );
-          },
-        ),
+                    ],
+                  );
+                },
+              ),
+            ),
+          ),
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: DSeparator(color: Theme.of(context).shell.divider),
+          ),
+        ],
       ),
     );
   }
