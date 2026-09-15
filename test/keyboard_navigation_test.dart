@@ -148,7 +148,7 @@ void main() {
             find.byKey(const ValueKey('topic-page-navigation')),
             findsOneWidget,
           );
-          expect(_selectedTopics(tester), isEmpty);
+          expect(_selectedTopics(tester), [target]);
           expect(_selectedPosts(tester), isEmpty);
         }
         expect(tester.takeException(), isNull);

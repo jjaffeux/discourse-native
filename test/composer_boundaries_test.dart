@@ -111,11 +111,10 @@ void main() {
             presentation.dock(ComposerPlacement.right);
             shell.openTopicFromList(_topic);
             await tester.pumpAndSettle();
-            // The desktop list is retained offstage; only the composer
-            // contributes a visible boundary beside the reader.
+            // A wide workspace keeps the list divider beside the reader.
             expect(
               find.byKey(const ValueKey('inbox-list-resize-handle')),
-              findsNothing,
+              findsOneWidget,
             );
             await _expectComposerBoundary(
               tester,

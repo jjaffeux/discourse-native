@@ -31,54 +31,76 @@ void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
   for (final direction in TextDirection.values) {
-    testWidgets(
-      'topic replaces the list without covering navigation ($direction)',
-      (tester) async {
-        final h = await _setup(
-          tester,
-          direction: direction,
-          size: const Size(1800, 900),
-        );
-        final listElement = tester.element(_allLists);
-        final listRect = tester.getRect(find.byType(TopicListView));
-        h.shell.openTopicFromList(h.topics.first);
-        await tester.pumpAndSettle();
-        expect(_reader, findsOneWidget);
-        expect(find.byType(BackdropFilter), findsNothing);
-        expect(find.byType(TopicListView), findsNothing);
-        expect(tester.element(_allLists), same(listElement));
-        final reader = tester.getRect(_reader);
-        expect(reader.left, closeTo(listRect.left, 1));
-        expect(reader.width, closeTo(listRect.width, 1));
-        expect(find.byType(InstanceRail).hitTestable(), findsOneWidget);
-        expect(find.byType(InstanceSidebar).hitTestable(), findsOneWidget);
-        expect(Navigator.of(tester.element(_reader)).canPop(), isFalse);
-        final previous = find.byKey(const ValueKey('inbox-previous-topic'));
-        final next = find.byKey(const ValueKey('inbox-next-topic'));
-        expect(tester.getCenter(previous).dy, tester.getCenter(next).dy);
-        expect(tester.widget<DButton>(previous).onPressed, isNull);
-        await tester.tap(next);
-        await tester.pumpAndSettle();
-        expect(h.shell.currentContent?.topicId, 2);
-        expect(h.shell.contentStack, hasLength(2));
-        await tester.tap(previous);
-        await tester.pumpAndSettle();
-        expect(h.shell.currentContent?.topicId, 1);
-        await tester.tap(_back);
-        await tester.pumpAndSettle();
-        expect(_reader, findsNothing);
-        expect(find.byType(TopicListView), findsOneWidget);
-        expect(tester.element(_allLists), same(listElement));
-        expect(tester.takeException(), isNull);
-      },
-      variant: TargetPlatformVariant.only(TargetPlatform.macOS),
-    );
+    testWidgets('topic keeps a reduced list beside the reader ($direction)', (
+      tester,
+    ) async {
+      final h = await _setup(
+        tester,
+        direction: direction,
+        size: const Size(1800, 900),
+      );
+      final listElement = tester.element(_allLists);
+      final listRect = tester.getRect(find.byType(TopicListView));
+      h.shell.openTopicFromList(h.topics.first);
+      await tester.pumpAndSettle();
+      expect(_reader, findsOneWidget);
+      expect(find.byType(BackdropFilter), findsNothing);
+      expect(find.byType(TopicListView), findsOneWidget);
+      expect(tester.element(_allLists), same(listElement));
+      final reader = tester.getRect(_reader);
+      final reducedList = tester.getRect(find.byType(TopicListView));
+      expect(reducedList.width, lessThan(listRect.width));
+      expect(reducedList.width, inInclusiveRange(304, 480));
+      if (direction == TextDirection.ltr) {
+        expect(reader.left, greaterThanOrEqualTo(reducedList.right));
+      } else {
+        expect(reader.right, lessThanOrEqualTo(reducedList.left));
+      }
+      expect(reader.width, greaterThanOrEqualTo(520));
+      await tester.drag(
+        find.byKey(const ValueKey('inbox-list-resize-handle')),
+        Offset(direction == TextDirection.ltr ? 60 : -60, 0),
+      );
+      await tester.pumpAndSettle();
+      final resizedWidth = tester.getSize(find.byType(TopicListView)).width;
+      expect(resizedWidth, greaterThan(reducedList.width));
+      final topicState = tester.state(_reader);
+      tester.view.physicalSize = const Size(800, 900);
+      await tester.pumpAndSettle();
+      expect(find.byType(TopicListView), findsNothing);
+      expect(tester.element(_allLists), same(listElement));
+      expect(tester.state(_reader), same(topicState));
+      tester.view.physicalSize = const Size(1800, 900);
+      await tester.pumpAndSettle();
+      expect(tester.getSize(find.byType(TopicListView)).width, resizedWidth);
+      expect(tester.state(_reader), same(topicState));
+      expect(find.byType(InstanceRail).hitTestable(), findsOneWidget);
+      expect(find.byType(InstanceSidebar).hitTestable(), findsOneWidget);
+      expect(Navigator.of(tester.element(_reader)).canPop(), isFalse);
+      final previous = find.byKey(const ValueKey('inbox-previous-topic'));
+      final next = find.byKey(const ValueKey('inbox-next-topic'));
+      expect(tester.getCenter(previous).dy, tester.getCenter(next).dy);
+      expect(tester.widget<DButton>(previous).onPressed, isNull);
+      await tester.tap(next);
+      await tester.pumpAndSettle();
+      expect(h.shell.currentContent?.topicId, 2);
+      expect(h.shell.contentStack, hasLength(2));
+      await tester.tap(previous);
+      await tester.pumpAndSettle();
+      expect(h.shell.currentContent?.topicId, 1);
+      await tester.tap(_back);
+      await tester.pumpAndSettle();
+      expect(_reader, findsNothing);
+      expect(find.byType(TopicListView), findsOneWidget);
+      expect(tester.element(_allLists), same(listElement));
+      expect(tester.takeException(), isNull);
+    }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
   }
 
   testWidgets(
-    'return restores the exact list scroll and the topic reading position',
+    'narrow page restores exact list scroll and topic reading position',
     (tester) async {
-      final h = await _setup(tester);
+      final h = await _setup(tester, size: const Size(800, 900));
       await tester.drag(find.byType(TopicListView), const Offset(0, -420));
       await tester.pumpAndSettle();
       final listPosition = tester
@@ -274,7 +296,10 @@ void main() {
       expect(tester.getRect(find.byType(InstanceSidebar)), sidebar);
       expect(tester.getRect(find.byType(ShellTitleBar)), titlebar);
       expect(h.shell.visibleComposer!.focus.hasFocus, isTrue);
-      expect(find.byType(TopicListView), findsNothing);
+      expect(
+        find.byType(TopicListView),
+        dock == 'bottom' ? findsOneWidget : findsNothing,
+      );
       expect(tester.takeException(), isNull);
     }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
   }

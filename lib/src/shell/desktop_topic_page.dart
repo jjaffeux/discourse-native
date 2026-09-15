@@ -11,23 +11,28 @@ import 'shell_scope.dart';
 import 'title_bar.dart';
 import 'topic_list_bottom_bar.dart';
 
-/// A conversation occupies the list's workspace, with its source one step away.
+/// A conversation page with navigation back to its source list.
 class DesktopTopicPage extends StatelessWidget {
-  const DesktopTopicPage({super.key, required this.child});
+  const DesktopTopicPage({
+    super.key,
+    required this.child,
+    this.sourceListVisible = false,
+  });
 
   final Widget child;
+  final bool sourceListVisible;
 
   @override
   Widget build(BuildContext context) {
     if (context.isTouch) return child;
     return Column(
       children: [
-        if (!ShellTitleBar.isSupported)
+        if (!sourceListVisible && !ShellTitleBar.isSupported)
           const Padding(
             padding: EdgeInsets.fromLTRB(12, 8, 12, 0),
             child: ForumSearch(dense: true),
           ),
-        const _TopicPageNavigation(),
+        _TopicPageNavigation(sourceListVisible: sourceListVisible),
         Expanded(child: child),
       ],
     );
@@ -35,7 +40,9 @@ class DesktopTopicPage extends StatelessWidget {
 }
 
 class _TopicPageNavigation extends StatefulWidget {
-  const _TopicPageNavigation();
+  const _TopicPageNavigation({required this.sourceListVisible});
+
+  final bool sourceListVisible;
 
   @override
   State<_TopicPageNavigation> createState() => _TopicPageNavigationState();
@@ -189,7 +196,8 @@ class _TopicPageNavigationState extends State<_TopicPageNavigation> {
                           style: Theme.of(context).textTheme.bodySmall,
                         ),
                       ),
-                    const TopicNavigationButtons(),
+                    if (!widget.sourceListVisible)
+                      const TopicNavigationButtons(),
                   ] else
                     const Spacer(),
                 ],
