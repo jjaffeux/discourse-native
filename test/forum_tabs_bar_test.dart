@@ -164,7 +164,7 @@ void main() {
       expect(addRect.left, ordinaryRect.right + 4);
       expect(addRect.center.dy, barRect.center.dy);
 
-      // Rounded tabs float above the sheet, including at their bottom corners.
+      // Rounded tabs float above the surface; a divider bounds the tab bar.
       await _expectTabPixels(tester, [
         (
           Offset(selectedRect.center.dx, selectedRect.bottom - 1),
@@ -176,7 +176,7 @@ void main() {
         ),
         (
           Offset(selectedRect.center.dx, barRect.bottom - 1),
-          theme.shell.sidebar,
+          theme.shell.divider,
         ),
         (ordinaryRect.topLeft + const Offset(1, 1), theme.shell.sidebar),
       ]);
