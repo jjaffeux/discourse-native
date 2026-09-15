@@ -1061,7 +1061,7 @@ void main() {
 
     group('scroll attachment lifecycle', () {
       for (final inbox in [false, true]) {
-        testWidgets('topic scroll separator follows position (inbox: $inbox)', (
+        testWidgets('one topic border while scrolling (inbox: $inbox)', (
           tester,
         ) async {
           final site = instance('meta.example');
@@ -1088,12 +1088,16 @@ void main() {
           final scroll = topicPostList(tester).controller!;
           scroll.jumpTo(100);
           await tester.pumpAndSettle();
-          expect(separator, findsOneWidget);
-          final viewport = topicPostListFinder();
-          expect(
-            tester.getSize(separator).width,
-            tester.getSize(viewport).width,
-          );
+          if (inbox) {
+            expect(separator, findsNothing);
+          } else {
+            expect(separator, findsOneWidget);
+            final viewport = topicPostListFinder();
+            expect(
+              tester.getSize(separator).width,
+              tester.getSize(viewport).width,
+            );
+          }
           scroll.jumpTo(scroll.position.minScrollExtent);
           await tester.pumpAndSettle();
           expect(separator, findsNothing);
