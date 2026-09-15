@@ -10,19 +10,16 @@ split threshold.
 
 ## Navigation and retained state
 
-- **Topics / Messages** returns to the full-width source list. The list stays
-  mounted, preserving its filters and scroll position; it is offstage only
-  when the workspace cannot fit both panes.
-- **Switch topic** opens the existing Native combobox. It starts with all
-  loaded topics and searches those titles. **Load more topics** fetches the
-  next source-list page when available.
-- Previous/next buttons appear in the list footer while the list is visible,
-  and in the reader navigation on narrower workspaces. The keyboard sequences navigate the same
-  source list. Each topic keeps its reading position. The existing **U**
-  shortcut returns to the list; Escape dismisses an open picker.
+- The existing collapse control returns to the full-width source list. It sits
+  in the topic header when the list is hidden, or beside the visible list heading.
+  The list stays mounted, preserving its filters and scroll position.
+- The header has no separate navigation row, Switch topic dropdown, or topic
+  position counter. Previous/next buttons remain in the visible list footer;
+  keyboard sequences navigate the same source list at every width. Each topic
+  keeps its reading position, and **U** returns to the list.
 - Navigating while writing preserves the draft and its original destination.
   A return-to-topic action appears in the composer when reading another topic.
-- Direct topic links receive a Back action and keep the existing navigation
+- Direct topic links use the header collapse control and keep the existing navigation
   fallback when there is no source list.
 
 ## Window size
@@ -39,12 +36,12 @@ Touch layouts retain their existing split-view and bottom-composer behavior.
 
 ## Implementation and verification
 
-`DesktopTopicPage` composes Native buttons and combobox controls;
+`DesktopTopicPage` supplies search when desktop window chrome cannot carry it;
 `DesktopNavigation` composes the Native popover and existing sidebar.
 The old desktop sheet host and sheet navigation scope are removed.
 
 Widget coverage includes list/reader restoration, topic switching, draft
-ownership, keyboard and popup focus, tabs, all three dock positions, narrow
+ownership, keyboard and picker focus, tabs, all three dock positions, narrow
 windows, RTL, and touch behavior. The isolated
 `tool/topic_page_review_main.dart` fixture supports native macOS inspection
 with fake topics and separate preferences.

@@ -25,7 +25,7 @@ import 'support/topic_scroll_capture.dart';
 
 final _reader = find.byType(TopicView);
 final _allLists = find.byType(TopicListView, skipOffstage: false);
-final _back = find.byKey(const ValueKey('topic-page-back'));
+final _back = find.byKey(const ValueKey('topic-close-reader'));
 
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
@@ -167,7 +167,7 @@ void main() {
       h.shell.openTopicFromList(h.topics.first);
       await tester.pumpAndSettle();
       expect(_readerScroll(tester).pixels, closeTo(readingOffset, 1));
-      await tester.tap(find.byKey(const ValueKey('inbox-next-topic')));
+      h.shell.openTopicFromList(h.topics[1]);
       await tester.pumpAndSettle();
       await tester.tap(_back);
       await tester.pumpAndSettle();
@@ -177,55 +177,38 @@ void main() {
     variant: TargetPlatformVariant.only(TargetPlatform.macOS),
   );
 
-  testWidgets(
-    'topic switcher searches the source list and keeps the draft destination',
-    (tester) async {
-      final h = await _setup(tester);
-      h.shell.openTopicFromList(h.topics.first);
-      await tester.pumpAndSettle();
-      h.shell.openReply();
-      await tester.pumpAndSettle();
-      final composer = h.shell.visibleComposer!;
-      composer.text.text = 'My reply to the first topic';
-      await tester.pump(const Duration(seconds: 2));
-      final editorState = tester.state(find.byType(ComposerEditor));
-      await tester.tap(find.byKey(const ValueKey('topic-switcher-trigger')));
-      await tester.pumpAndSettle();
-      expect(find.byKey(const ValueKey(('switch-topic', 2))), findsOneWidget);
-      final input = find.descendant(
-        of: find.byType(DComboboxInput<int>),
-        matching: find.byType(EditableText),
-      );
-      await tester.enterText(input, 'Conversation 12');
-      await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const ValueKey(('switch-topic', 12))));
-      await tester.pumpAndSettle();
-      expect(h.shell.currentContent?.topicId, 12);
-      expect(h.shell.visibleComposer, same(composer));
-      expect(composer.target.topicId, 1);
-      expect(composer.raw, 'My reply to the first topic');
-      expect(tester.state(find.byType(ComposerEditor)), same(editorState));
-      await tester.tap(find.byKey(const ValueKey('composer-return-to-topic')));
-      await tester.pumpAndSettle();
-      expect(h.shell.currentContent?.topicId, 1);
-      expect(composer.raw, 'My reply to the first topic');
-      expect(tester.takeException(), isNull);
-    },
-    variant: TargetPlatformVariant.only(TargetPlatform.macOS),
-  );
+  testWidgets('changing topics keeps the draft destination', (tester) async {
+    final h = await _setup(tester);
+    h.shell.openTopicFromList(h.topics.first);
+    await tester.pumpAndSettle();
+    h.shell.openReply();
+    await tester.pumpAndSettle();
+    final composer = h.shell.visibleComposer!;
+    composer.text.text = 'My reply to the first topic';
+    await tester.pump(const Duration(seconds: 2));
+    final editorState = tester.state(find.byType(ComposerEditor));
+    h.shell.openTopicFromList(h.topics[11]);
+    await tester.pumpAndSettle();
+    expect(h.shell.currentContent?.topicId, 12);
+    expect(h.shell.visibleComposer, same(composer));
+    expect(composer.target.topicId, 1);
+    expect(composer.raw, 'My reply to the first topic');
+    expect(tester.state(find.byType(ComposerEditor)), same(editorState));
+    await tester.tap(find.byKey(const ValueKey('composer-return-to-topic')));
+    await tester.pumpAndSettle();
+    expect(h.shell.currentContent?.topicId, 1);
+    expect(composer.raw, 'My reply to the first topic');
+    expect(tester.takeException(), isNull);
+  }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 
-  testWidgets('Escape dismisses the switcher and U returns to the list', (
+  testWidgets('the earlier header has no switcher and U returns to the list', (
     tester,
   ) async {
     final h = await _setup(tester);
     h.shell.openTopicFromList(h.topics.first);
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('topic-switcher-trigger')));
-    await tester.pumpAndSettle();
-    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
-    await tester.pumpAndSettle();
-    expect(h.shell.currentContent?.topicId, 1);
-    expect(find.byType(DComboboxInput<int>), findsNothing);
+    expect(find.byKey(const ValueKey('topic-page-navigation')), findsNothing);
+    expect(find.byKey(const ValueKey('topic-switcher-trigger')), findsNothing);
     await tester.tap(_reader, warnIfMissed: false);
     await tester.sendKeyEvent(LogicalKeyboardKey.keyU);
     await tester.pumpAndSettle();
