@@ -100,7 +100,7 @@ class DScrollThumb {
   static const double defaultThickness = 4;
 
   /// Clear space between the thumb and its container, in logical pixels.
-  static const double containerInset = 1;
+  static const double containerInset = 2;
 
   /// A subdued thumb with at least 3:1 contrast against an opaque surface.
   /// Translucent surfaces should be composited over their backdrop by callers.

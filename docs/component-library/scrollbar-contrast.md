@@ -8,7 +8,7 @@ container uses another surface; this does not paint a background itself.
 Code blocks, Select, Command and dropdown menus supply their own surface.
 Explicit `DScrollThumb.color` overrides remain supported.
 
-The kit and application scrollbar theme share a 1 logical pixel inset on both
+The kit and application scrollbar theme share a 2 logical pixel inset on both
 axes and retain the existing 4px thumb width. Theme changes recompute the color
 without replacing the scroll position. Hidden scrollbars remain hidden.
 

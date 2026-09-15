@@ -68,7 +68,7 @@ void main() {
           final bytes = (await image.toByteData(
             format: ui.ImageByteFormat.rawRgba,
           ))!;
-          final x = direction == TextDirection.ltr ? image.width - 1 : 0;
+          final x = direction == TextDirection.ltr ? image.width - 4 : 3;
           final inside = direction == TextDirection.ltr ? image.width - 6 : 5;
           final result = [
             bytes.getUint32((20 * image.width + x) * 4),
@@ -78,7 +78,11 @@ void main() {
           return result;
         });
         final rgba = ((background.toARGB32() & 0xffffff) << 8) | 0xff;
-        expect(pixels![0], rgba, reason: 'The outermost pixel stays clear');
+        expect(
+          pixels![0],
+          rgba,
+          reason: 'The full 2px inset stays clear at 2x scale',
+        );
         expect(
           pixels[1],
           isNot(rgba),
@@ -139,7 +143,7 @@ void main() {
     },
   );
 
-  testWidgets('thumbs contrast with changing surfaces and keep a 1px inset', (
+  testWidgets('thumbs contrast with changing surfaces and keep a 2px inset', (
     tester,
   ) async {
     final controller = ScrollController();
@@ -189,12 +193,12 @@ void main() {
           final bytes = (await image.toByteData(
             format: ui.ImageByteFormat.rawRgba,
           ))!;
-          final x = direction == TextDirection.ltr ? image.width - 1 : 0;
+          final x = direction == TextDirection.ltr ? image.width - 2 : 1;
           final insetX = direction == TextDirection.ltr ? image.width - 3 : 2;
           final result = [
             bytes.getUint32((20 * image.width + x) * 4),
             bytes.getUint32((20 * image.width + insetX) * 4),
-            bytes.getUint32(((image.height - 1) * image.width + 100) * 4),
+            bytes.getUint32(((image.height - 2) * image.width + 100) * 4),
           ];
           image.dispose();
           return result;
