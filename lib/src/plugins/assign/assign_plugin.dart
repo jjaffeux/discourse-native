@@ -381,13 +381,13 @@ final class AssignPlugin
           key: const Key('assign-topic-header'),
           icon: direct == null
               ? const DIcon(DIcons.userPlus)
-              : AssignmentAssigneeAvatar(assignee: direct.assignee, size: 24),
+              : AssignmentAssigneeAvatar(assignee: direct.assignee, size: 16),
           tooltip: direct != null
               ? 'Manage assignment to ${direct.assignee.displayName}'
               : canAssign
               ? 'Assign topic'
               : 'Manage assignments',
-          size: DButtonSize.regular,
+          size: DButtonSize.small,
           variant: DButtonVariant.ghost,
           onPressed: direct != null || !canAssign
               ? showDetails
@@ -413,7 +413,7 @@ final class AssignPlugin
                       ? const DIcon(DIcons.userPlus)
                       : AssignmentAssigneeAvatar(
                           assignee: direct.assignee,
-                          size: 24,
+                          size: 16,
                         ),
                   label: Row(
                     mainAxisSize: MainAxisSize.min,
@@ -436,7 +436,7 @@ final class AssignPlugin
                   tooltip: direct == null
                       ? 'Assign topic'
                       : 'Manage assignment to ${direct.assignee.displayName}',
-                  size: DButtonSize.regular,
+                  size: DButtonSize.small,
                   variant: DButtonVariant.outline,
                   onPressed: direct != null
                       ? showDetails
