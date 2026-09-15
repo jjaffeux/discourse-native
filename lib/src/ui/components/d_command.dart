@@ -774,6 +774,7 @@ class _DCommandListState<T> extends State<DCommandList<T>> {
           child: ConstrainedBox(
             constraints: BoxConstraints(maxHeight: widget.maxHeight),
             child: DScrollBar(
+              backgroundColor: DTokens.of(context).surface,
               controller: _scroll,
               thumbVisibility: false,
               child: SingleChildScrollView(

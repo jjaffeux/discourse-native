@@ -793,8 +793,16 @@ abstract final class AppTheme {
         thickness: 1,
         space: 1,
       ),
-      scrollbarTheme: const ScrollbarThemeData(
-        thickness: WidgetStatePropertyAll(DScrollThumb.defaultThickness),
+      scrollbarTheme: ScrollbarThemeData(
+        thickness: const WidgetStatePropertyAll(DScrollThumb.defaultThickness),
+        crossAxisMargin: DScrollThumb.containerInset,
+        mainAxisMargin: DScrollThumb.containerInset,
+        thumbColor: WidgetStatePropertyAll(
+          DScrollThumb.colorOn(
+            shell.content,
+            foreground: resolvedColorScheme.onSurface,
+          ),
+        ),
       ),
       cardTheme: CardThemeData(
         shape: RoundedRectangleBorder(
