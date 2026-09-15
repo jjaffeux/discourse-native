@@ -1,6 +1,7 @@
 import Cocoa
 import FlutterMacOS
 import WebKit
+import webview_all_wkwebview
 
 class MainFlutterWindow: NSWindow {
   private let videoThumbnails = VideoThumbnailChannel()
@@ -135,6 +136,22 @@ class MainFlutterWindow: NSWindow {
         return
       }
       switch call.method {
+      case "enableYoutubeFullscreen":
+        guard let identifier = call.arguments as? Int64,
+          let registry = self.contentViewController as? FlutterViewController,
+          let webView = WebviewAllWKWebViewExternalAPI.webView(
+            forIdentifier: identifier, withPluginRegistry: registry
+          )
+        else {
+          result(FlutterError(
+            code: "player_unavailable",
+            message: "The YouTube player is no longer available.",
+            details: nil
+          ))
+          return
+        }
+        enableYoutubeFullscreen(webView)
+        result(nil)
       case "toggleMaximized":
         toggleWindowZoom(self)
         result(nil)
@@ -147,6 +164,12 @@ class MainFlutterWindow: NSWindow {
       }
     }
     windowChannel = channel
+  }
+}
+
+func enableYoutubeFullscreen(_ webView: WKWebView) {
+  if #available(macOS 12.3, *) {
+    webView.configuration.preferences.isElementFullscreenEnabled = true
   }
 }
 

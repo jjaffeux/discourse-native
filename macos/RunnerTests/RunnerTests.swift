@@ -1,9 +1,26 @@
 import Cocoa
 import UserNotifications
+import WebKit
 import XCTest
 @testable import Discourse
 
 class RunnerTests: XCTestCase {
+  @MainActor
+  func testYoutubePlayerEnablesFullscreenBeforeLoading() async throws {
+    guard #available(macOS 12.3, *) else {
+      throw XCTSkip("The Fullscreen API requires macOS 12.3 or later")
+    }
+    let webView = WKWebView()
+    XCTAssertFalse(webView.configuration.preferences.isElementFullscreenEnabled)
+
+    enableYoutubeFullscreen(webView)
+
+    let fullscreenEnabled = try await webView.evaluateJavaScript(
+      "Boolean(document.fullscreenEnabled || document.webkitFullscreenEnabled)"
+    )
+    XCTAssertEqual(fullscreenEnabled as? Bool, true)
+  }
+
   func testPushTokenUsesAPNsHexEncoding() {
     XCTAssertEqual(pushTokenHex(Data([0x00, 0x0f, 0xa5, 0xff])), "000fa5ff")
   }
