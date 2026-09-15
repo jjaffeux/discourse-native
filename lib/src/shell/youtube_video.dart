@@ -780,13 +780,24 @@ class _YoutubePlayerSurfaceState extends State<YoutubePlayerSurface> {
       ),
     );
     if (!_isCurrent(controller, generation)) return;
-    if (controller.platform case final WebKitWebViewController webKit
-        when defaultTargetPlatform == TargetPlatform.macOS) {
-      // WKWebView disables the Fullscreen API by default. Enable it before
-      // YouTube detects player capabilities while loading the iframe.
-      await const MethodChannel(
-        'org.discourse.native/window',
-      ).invokeMethod<void>('enableYoutubeFullscreen', webKit.webViewIdentifier);
+    if (defaultTargetPlatform == TargetPlatform.macOS) {
+      if (controller.platform case final WebKitWebViewController webKit) {
+        // WKWebView disables the Fullscreen API by default. Enable it before
+        // YouTube detects player capabilities while loading the iframe.
+        await const MethodChannel(
+          'org.discourse.native/window',
+        ).invokeMethod<void>(
+          'enableYoutubeFullscreen',
+          webKit.webViewIdentifier,
+        );
+        if (!_isCurrent(controller, generation)) return;
+      }
+      await controller.addUserScript(
+        const WebViewUserScript(
+          source: youtubePlayerHoverScript,
+          forMainFrameOnly: false,
+        ),
+      );
       if (!_isCurrent(controller, generation)) return;
     }
     await controller.loadHtmlString(
@@ -844,6 +855,33 @@ class _YoutubePlayerSurfaceState extends State<YoutubePlayerSurface> {
     );
   }
 }
+
+// YouTube's embedded controls receive mouse events but do not paint hover
+// feedback. Style those controls inside the iframe without changing their
+// layout or replacing YouTube's interactions.
+const youtubePlayerHoverScript = '''
+(() => {
+  if (location.hostname !== 'www.youtube.com' ||
+      !location.pathname.startsWith('/embed/')) return;
+  document.addEventListener('DOMContentLoaded', () => {
+    const style = document.createElement('style');
+    style.textContent = `
+      @media (hover: hover) and (pointer: fine) {
+        .player-controls-top-right button,
+        .fullscreen-icon {
+          cursor: pointer;
+          border-radius: 50%;
+        }
+        .player-controls-top-right button:hover,
+        .fullscreen-icon:hover {
+          background-color: rgba(255, 255, 255, 0.18);
+        }
+      }
+    `;
+    document.head.appendChild(style);
+  }, { once: true });
+})();
+''';
 
 const Set<Factory<OneSequenceGestureRecognizer>>
 youtubePlayerGestureRecognizers = mediaPlayerGestureRecognizers;
