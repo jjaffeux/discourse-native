@@ -6,7 +6,6 @@ import 'package:flutter/services.dart';
 
 import '../models/post.dart';
 import '../models/topic.dart';
-import '../theme/d_icons.dart';
 import 'shell_scope.dart';
 
 enum TopicHeaderField { title, category, tags }
@@ -19,14 +18,12 @@ class TopicHeaderEditor extends StatefulWidget {
     required this.siteUrl,
     required this.topic,
     required this.field,
-    required this.onSelect,
     required this.onClose,
   });
 
   final String siteUrl;
   final TopicDetail topic;
-  final TopicHeaderField? field;
-  final ValueChanged<TopicHeaderField> onSelect;
+  final TopicHeaderField field;
   final VoidCallback onClose;
 
   @override
@@ -49,7 +46,6 @@ class _TopicHeaderEditorState extends State<TopicHeaderEditor> {
     TopicHeaderField.category =>
       widget.topic.canEdit && !widget.topic.privateMessage,
     TopicHeaderField.tags => widget.topic.canEditTags,
-    null => true,
   };
 
   @override
@@ -86,7 +82,6 @@ class _TopicHeaderEditorState extends State<TopicHeaderEditor> {
   Future<void> _save() async {
     if (_saving ||
         !_allowed ||
-        widget.field == null ||
         widget.field == TopicHeaderField.category && _categoryId == null) {
       return;
     }
@@ -112,7 +107,7 @@ class _TopicHeaderEditorState extends State<TopicHeaderEditor> {
       _saving = true;
       _error = null;
     });
-    final error = await switch (widget.field!) {
+    final error = await switch (widget.field) {
       TopicHeaderField.title => shell.saveTopicTitle(
         siteUrl: widget.siteUrl,
         topicId: widget.topic.id,
@@ -225,7 +220,6 @@ class _TopicHeaderEditorState extends State<TopicHeaderEditor> {
                     ? null
                     : (tags) => setState(() => _tags = tags),
               ),
-      null => const SizedBox.shrink(),
     };
     final cancel = DButton(
       key: const ValueKey('topic-header-cancel'),
@@ -239,7 +233,7 @@ class _TopicHeaderEditorState extends State<TopicHeaderEditor> {
       label: const Text('Save'),
       size: DButtonSize.small,
       loading: _saving,
-      loadingSemanticLabel: 'Saving ${field?.name}',
+      loadingSemanticLabel: 'Saving ${field.name}',
       onPressed:
           !_allowed ||
               _saving ||
@@ -270,47 +264,7 @@ class _TopicHeaderEditorState extends State<TopicHeaderEditor> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              if (field == null)
-                Wrap(
-                  spacing: DSpacing.sm,
-                  runSpacing: DSpacing.xs,
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  children: [
-                    if (widget.topic.canEdit) ...[
-                      DButton(
-                        key: const ValueKey('topic-header-command-title'),
-                        label: const Text('Rename title'),
-                        icon: const DIcon(DIcons.pencil),
-                        variant: DButtonVariant.ghost,
-                        size: DButtonSize.small,
-                        autofocus: true,
-                        onPressed: () =>
-                            widget.onSelect(TopicHeaderField.title),
-                      ),
-                      if (!widget.topic.privateMessage)
-                        DButton(
-                          key: const ValueKey('topic-header-command-category'),
-                          label: const Text('Change category'),
-                          icon: const DIcon(DIcons.folder),
-                          variant: DButtonVariant.ghost,
-                          size: DButtonSize.small,
-                          onPressed: () =>
-                              widget.onSelect(TopicHeaderField.category),
-                        ),
-                    ],
-                    if (widget.topic.canEditTags)
-                      DButton(
-                        key: const ValueKey('topic-header-command-tags'),
-                        label: const Text('Edit tags'),
-                        icon: const DIcon(DIcons.tag),
-                        variant: DButtonVariant.ghost,
-                        size: DButtonSize.small,
-                        onPressed: () => widget.onSelect(TopicHeaderField.tags),
-                      ),
-                    cancel,
-                  ],
-                )
-              else if (!_allowed) ...[
+              if (!_allowed) ...[
                 const DFieldError(
                   child: Text('This field can no longer be edited.'),
                 ),
