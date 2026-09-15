@@ -2215,23 +2215,27 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
                     children: [
                       Positioned.fill(child: buildPostStream(openingSlivers)),
                       _buildFloatingDayOverlay(readingLane.padding),
-                      Positioned(
-                        top: pinnedExtent,
-                        left: 0,
-                        right: 0,
-                        child: ListenableBuilder(
-                          listenable: _scroll!,
-                          builder: (context, _) =>
-                              snapshot.hasEarlier ||
-                                  (_scroll!.hasClients &&
-                                      _scroll!.position.hasContentDimensions &&
-                                      _scroll!.position.extentBefore > 0)
-                              ? const DSeparator(
-                                  key: ValueKey('topic-scroll-separator'),
-                                )
-                              : const SizedBox.shrink(),
+                      // The fixed Ledger header already owns this boundary.
+                      if (!widget.inbox)
+                        Positioned(
+                          top: pinnedExtent,
+                          left: 0,
+                          right: 0,
+                          child: ListenableBuilder(
+                            listenable: _scroll!,
+                            builder: (context, _) =>
+                                snapshot.hasEarlier ||
+                                    (_scroll!.hasClients &&
+                                        _scroll!
+                                            .position
+                                            .hasContentDimensions &&
+                                        _scroll!.position.extentBefore > 0)
+                                ? const DSeparator(
+                                    key: ValueKey('topic-scroll-separator'),
+                                  )
+                                : const SizedBox.shrink(),
+                          ),
                         ),
-                      ),
                     ],
                   ),
                 ),
