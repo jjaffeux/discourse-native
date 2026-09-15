@@ -17,6 +17,7 @@ class DScrollBar extends StatelessWidget {
     this.showScrollbar = true,
     this.thumbVisibility = true,
     this.thumb = const DScrollThumb(),
+    this.backgroundColor,
     this.cornerExtent = 0,
     this.notificationDepth = 0,
   });
@@ -36,6 +37,9 @@ class DScrollBar extends StatelessWidget {
   final bool thumbVisibility;
   final DScrollThumb thumb;
 
+  /// Painted container surface. Defaults to the current theme background.
+  final Color? backgroundColor;
+
   /// Space reserved for the perpendicular scrollbar in a two-axis viewport.
   final double cornerExtent;
 
@@ -51,15 +55,19 @@ class DScrollBar extends StatelessWidget {
       thumbVisibility: showScrollbar && thumbVisibility,
       interactive: showScrollbar,
       thickness: thumb.thickness,
-      crossAxisMargin: 1,
-      mainAxisMargin: 1,
+      crossAxisMargin: DScrollThumb.containerInset,
+      mainAxisMargin: DScrollThumb.containerInset,
       padding: axis == Axis.vertical
           ? EdgeInsets.only(bottom: cornerExtent)
           : EdgeInsetsDirectional.only(end: cornerExtent),
       radius: thumb.radius,
       minThumbLength: thumb.minLength,
       thumbColor: showScrollbar
-          ? thumb.color ?? DTokens.of(context).border
+          ? thumb.color ??
+                DScrollThumb.colorOn(
+                  backgroundColor ?? DTokens.of(context).background,
+                  foreground: DTokens.of(context).foreground,
+                )
           : Colors.transparent,
       fadeDuration: MediaQuery.disableAnimationsOf(context)
           ? Duration.zero
@@ -78,7 +86,7 @@ class DScrollBar extends StatelessWidget {
 }
 
 /// Painter configuration for the draggable thumb; RawScrollbar remains the
-/// sole gesture and paint owner. Null color reads the current theme border.
+/// sole gesture and paint owner. Null color adapts to the container surface.
 @immutable
 class DScrollThumb {
   const DScrollThumb({
@@ -90,6 +98,31 @@ class DScrollThumb {
 
   /// Shared width in logical pixels for UI kit and native app scrollbars.
   static const double defaultThickness = 4;
+
+  /// Clear space between the thumb and its container, in logical pixels.
+  static const double containerInset = 1;
+
+  /// A subdued thumb with at least 3:1 contrast against an opaque surface.
+  /// Translucent surfaces should be composited over their backdrop by callers.
+  static Color colorOn(Color background, {required Color foreground}) {
+    double contrast(Color color) {
+      final a = color.computeLuminance();
+      final b = background.computeLuminance();
+      return a > b ? (a + .05) / (b + .05) : (b + .05) / (a + .05);
+    }
+
+    var target = Color.alphaBlend(foreground, background);
+    if (contrast(target) < 3) {
+      target = contrast(Colors.black) > contrast(Colors.white)
+          ? Colors.black
+          : Colors.white;
+    }
+    for (var step = 55; step < 100; step += 5) {
+      final candidate = Color.lerp(background, target, step / 100)!;
+      if (contrast(candidate) >= 3) return candidate;
+    }
+    return target;
+  }
 
   final Color? color;
   final double thickness;
@@ -150,6 +183,7 @@ class DScrollArea extends StatefulWidget {
     this.showScrollbar = true,
     this.thumbVisibility = true,
     this.borderRadius,
+    this.backgroundColor,
     this.corner = const DScrollCorner(),
     this.physics,
   }) : assert(horizontalController == null || axes == DScrollAxes.both),
@@ -178,6 +212,9 @@ class DScrollArea extends StatefulWidget {
   /// Keeps shown thumbs visible at rest; false enables native fading.
   final bool thumbVisibility;
   final BorderRadius? borderRadius;
+
+  /// Painted container surface used to choose contrasting scrollbar thumbs.
+  final Color? backgroundColor;
   final Widget corner;
   final ScrollPhysics? physics;
 
@@ -281,6 +318,7 @@ class _DScrollAreaState extends State<DScrollArea> {
           : Axis.vertical,
       showScrollbar: widget.showScrollbar,
       thumbVisibility: widget.thumbVisibility,
+      backgroundColor: widget.backgroundColor,
       cornerExtent: showCorner ? 10 : 0,
       child: content,
     );
@@ -291,6 +329,7 @@ class _DScrollAreaState extends State<DScrollArea> {
         notificationDepth: 1,
         showScrollbar: widget.showScrollbar,
         thumbVisibility: widget.thumbVisibility,
+        backgroundColor: widget.backgroundColor,
         cornerExtent: showCorner ? 10 : 0,
         child: content,
       );

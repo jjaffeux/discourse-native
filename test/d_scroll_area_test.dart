@@ -14,6 +14,128 @@ void main() {
     ),
   );
   testWidgets(
+    'default thumbs follow live theme changes and honor custom colors',
+    (tester) async {
+      final controller = ScrollController();
+      addTearDown(controller.dispose);
+      final colors = <Color>[];
+      for (final brightness in Brightness.values) {
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: ThemeData(brightness: brightness),
+            home: SizedBox(
+              height: 180,
+              child: DScrollBar(
+                controller: controller,
+                child: ListView(
+                  controller: controller,
+                  children: const [SizedBox(height: 2000)],
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        colors.add(
+          tester.widget<RawScrollbar>(find.byType(RawScrollbar)).thumbColor!,
+        );
+        controller.jumpTo(100);
+      }
+      expect(colors[0], isNot(colors[1]));
+      expect(controller.offset, 100);
+      await tester.pumpWidget(
+        host(
+          DScrollBar(
+            controller: controller,
+            thumb: const DScrollThumb(color: Colors.red),
+            child: ListView(
+              controller: controller,
+              children: const [SizedBox(height: 2000)],
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        tester.widget<RawScrollbar>(find.byType(RawScrollbar)).thumbColor,
+        Colors.red,
+      );
+    },
+  );
+
+  testWidgets('thumbs contrast with changing surfaces and keep a 1px inset', (
+    tester,
+  ) async {
+    final controller = ScrollController();
+    addTearDown(controller.dispose);
+    final boundaryKey = GlobalKey();
+    for (final direction in TextDirection.values) {
+      for (final background in [
+        Colors.white,
+        Colors.black,
+        const Color(0xff777777),
+        const Color(0xff173852),
+      ]) {
+        await tester.pumpWidget(
+          host(
+            Directionality(
+              textDirection: direction,
+              child: RepaintBoundary(
+                key: boundaryKey,
+                child: ColoredBox(
+                  color: background,
+                  child: DScrollArea(
+                    controller: controller,
+                    axes: DScrollAxes.both,
+                    backgroundColor: background,
+                    child: const SizedBox(width: 1000, height: 1000),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        for (final bar in tester.widgetList<RawScrollbar>(
+          find.byType(RawScrollbar),
+        )) {
+          final thumb = bar.thumbColor!;
+          final a = thumb.computeLuminance();
+          final b = background.computeLuminance();
+          final ratio = a > b ? (a + .05) / (b + .05) : (b + .05) / (a + .05);
+          expect(ratio, greaterThanOrEqualTo(3));
+        }
+        final pixels = await tester.runAsync(() async {
+          final image =
+              await (boundaryKey.currentContext!.findRenderObject()!
+                      as RenderRepaintBoundary)
+                  .toImage();
+          final bytes = (await image.toByteData(
+            format: ui.ImageByteFormat.rawRgba,
+          ))!;
+          final x = direction == TextDirection.ltr ? image.width - 1 : 0;
+          final insetX = direction == TextDirection.ltr ? image.width - 3 : 2;
+          final result = [
+            bytes.getUint32((20 * image.width + x) * 4),
+            bytes.getUint32((20 * image.width + insetX) * 4),
+            bytes.getUint32(((image.height - 1) * image.width + 100) * 4),
+          ];
+          image.dispose();
+          return result;
+        });
+        final rgba = ((background.toARGB32() & 0xffffff) << 8) | 0xff;
+        expect(pixels![0], rgba, reason: 'Clear space at the vertical edge');
+        expect(
+          pixels[1],
+          isNot(rgba),
+          reason: 'Visible thumb inside the inset',
+        );
+        expect(pixels[2], rgba, reason: 'Clear space at the bottom edge');
+      }
+    }
+  });
+
+  testWidgets(
     'hidden scrollbars preserve touch, keyboard and position when shown again',
     (tester) async {
       final controller = ScrollController();

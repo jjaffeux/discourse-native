@@ -1294,6 +1294,7 @@ class _DSelectBodyState<T> extends State<_DSelectBody<T>> {
     final list = Focus(
       onKeyEvent: (_, event) => _popupKey(event),
       child: DScrollArea(
+        backgroundColor: DTokens.of(context).surface,
         controller: _scroll,
         thumbVisibility: false,
         child: Column(

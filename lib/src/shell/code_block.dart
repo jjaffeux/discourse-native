@@ -396,6 +396,7 @@ class _CodeBlockState extends State<CodeBlock> {
           // scrollbar stays up whenever there is somewhere to scroll.
           LayoutBuilder(
             builder: (context, constraints) => DScrollBar(
+              backgroundColor: theme.code.blockBackground,
               axis: Axis.horizontal,
               controller: _horizontal,
               thumbVisibility: true,

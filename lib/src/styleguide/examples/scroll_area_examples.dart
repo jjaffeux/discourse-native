@@ -8,8 +8,49 @@ final scrollAreaExamples = ComponentExamples(
   status: ComponentStatus.implemented,
   description: 'Native scrolling with compact, themed draggable scrollbars.',
   notes:
-      'Browser reference, widget exports and the isolated macOS fixture were reviewed. Controllers are borrowed when supplied. DScrollBar decorates an existing viewport without replacing virtualization or restoration. Tab into an overflowing area, then use arrows, Page Up/Down, Home/End or Space/Shift+Space. Thumb artwork uses the live border token.',
+      'Browser reference, widget exports and the isolated macOS fixture were reviewed. Controllers are borrowed when supplied. DScrollBar decorates an existing viewport without replacing virtualization or restoration. Tab into an overflowing area, then use arrows, Page Up/Down, Home/End or Space/Shift+Space. Thumb artwork adapts to its surface with at least 3:1 contrast and a 1px container inset. Supply backgroundColor for a custom surface.',
   examples: [
+    StyleguideExample(
+      title: 'Surface contrast',
+      description:
+          'Thumb colors follow the supplied surface, with 1px of clear space at the container edge. Switch palettes to compare content, panel and popup backgrounds.',
+      code: 'DScrollArea(backgroundColor: surface, child: content)',
+      builder: (context) {
+        final tokens = DTokens.of(context);
+        return Row(
+          children: [
+            for (final surface in [
+              tokens.background,
+              tokens.muted,
+              tokens.surface,
+            ])
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.all(4),
+                  child: ColoredBox(
+                    color: surface,
+                    child: SizedBox(
+                      height: 160,
+                      child: DScrollArea(
+                        backgroundColor: surface,
+                        child: Column(
+                          children: [
+                            for (var i = 1; i <= 20; i++)
+                              Padding(
+                                padding: const EdgeInsets.all(8),
+                                child: Text('Row $i'),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        );
+      },
+    ),
     StyleguideExample(
       title: 'Tags',
       description:
