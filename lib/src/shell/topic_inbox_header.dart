@@ -56,14 +56,10 @@ class TopicInboxHeader extends StatefulWidget {
 }
 
 class _TopicInboxHeaderState extends State<TopicInboxHeader> {
-  bool _editing = false;
   TopicHeaderField? _field;
   Object? _owner;
 
-  void _edit([TopicHeaderField? field]) => setState(() {
-    _editing = true;
-    _field = field;
-  });
+  void _edit(TopicHeaderField field) => setState(() => _field = field);
 
   @override
   Widget build(BuildContext context) {
@@ -85,7 +81,6 @@ class _TopicInboxHeaderState extends State<TopicInboxHeader> {
         );
         if (_owner != owner) {
           _owner = owner;
-          _editing = false;
           _field = null;
         }
         final editable =
@@ -105,14 +100,13 @@ class _TopicInboxHeaderState extends State<TopicInboxHeader> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               _ledger(context),
-              if (_editing && editable)
+              if (_field != null && editable)
                 TopicHeaderEditor(
                   key: ValueKey((owner, _field)),
                   siteUrl: siteUrl,
                   topic: topic,
-                  field: _field,
-                  onSelect: _edit,
-                  onClose: () => setState(() => _editing = false),
+                  field: _field!,
+                  onClose: () => setState(() => _field = null),
                 ),
             ],
           ),
@@ -152,7 +146,8 @@ class _TopicInboxHeaderState extends State<TopicInboxHeader> {
       final siteUrl = widget.siteUrl;
       final shell = ShellScope.read(context);
       final scale = MediaQuery.textScalerOf(context).scale(12) / 12;
-      final wide = constraints.maxWidth >= 680 * scale;
+      final wide = constraints.maxWidth >= 540 * scale;
+      final categoryWidth = constraints.maxWidth >= 760 * scale ? 160.0 : 140.0;
       final category = siteUrl == null || topic?.privateMessage == true
           ? null
           : shell.categoryFor(topic?.categoryId, siteUrl: siteUrl);
@@ -161,6 +156,7 @@ class _TopicInboxHeaderState extends State<TopicInboxHeader> {
               siteUrl: siteUrl,
               topic: topic,
               category: category,
+              showMarker: !wide,
               onEdit: topic.canEdit
                   ? () => _edit(TopicHeaderField.category)
                   : null,
@@ -179,16 +175,6 @@ class _TopicInboxHeaderState extends State<TopicInboxHeader> {
               registry: widget.registry,
               compact: true,
             ),
-            if (topic.canEdit || topic.canEditTags)
-              DButton.iconOnly(
-                key: const ValueKey('topic-header-edit'),
-                icon: const Icon(Icons.keyboard_command_key),
-                tooltip: 'Edit topic',
-                variant: DButtonVariant.ghost,
-                size: DButtonSize.small,
-                onPressed: () =>
-                    _editing ? setState(() => _editing = false) : _edit(),
-              ),
             TopicStatusButton(
               siteUrl: siteUrl,
               topic: topic,
@@ -214,7 +200,7 @@ class _TopicInboxHeaderState extends State<TopicInboxHeader> {
           ),
           if (topic != null && siteUrl != null)
             Padding(
-              padding: const EdgeInsetsDirectional.only(start: DSpacing.xs),
+              padding: const EdgeInsets.only(top: DSpacing.xs),
               child: Wrap(
                 key: const ValueKey('topic-header-taxonomy'),
                 spacing: DSpacing.xs,
@@ -266,57 +252,104 @@ class _TopicInboxHeaderState extends State<TopicInboxHeader> {
             ),
         ],
       );
+      if (wide) {
+        final color = category == null
+            ? DTokens.of(context).border
+            : Color(category.colorValue);
+        return Stack(
+          children: [
+            // The ledger rail is a full-height part of the header, rather than
+            // a category button with an oversized painted surface.
+            if (topic != null)
+              PositionedDirectional(
+                start: 0,
+                top: 0,
+                bottom: 0,
+                width: categoryWidth,
+                child: DecoratedBox(
+                  key: const ValueKey('topic-header-category-rail'),
+                  decoration: BoxDecoration(
+                    color: color.withValues(alpha: .05),
+                    border: BorderDirectional(
+                      start: BorderSide(color: color, width: 3),
+                    ),
+                  ),
+                ),
+              ),
+            Row(
+              children: [
+                if (topic != null)
+                  SizedBox(
+                    width: categoryWidth,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: DSpacing.sm,
+                        vertical: DSpacing.md,
+                      ),
+                      child: Row(
+                        children: [
+                          if (!widget.keepTopicListOpen)
+                            TopicCloseButton(
+                              canReturnToSidebar: widget.canReturnToSidebar,
+                            ),
+                          Expanded(child: categoryControl),
+                        ],
+                      ),
+                    ),
+                  )
+                else if (!widget.keepTopicListOpen)
+                  TopicCloseButton(
+                    canReturnToSidebar: widget.canReturnToSidebar,
+                  ),
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: identity,
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsetsDirectional.only(end: 12),
+                  child: actions,
+                ),
+              ],
+            ),
+          ],
+        );
+      }
       return Padding(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        child: wide
-            ? Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (!widget.keepTopicListOpen)
-                    TopicCloseButton(
-                      canReturnToSidebar: widget.canReturnToSidebar,
-                    ),
-                  if (topic != null) ...[
-                    SizedBox(width: 160, child: categoryControl),
-                    const SizedBox(width: 16),
-                  ],
-                  Expanded(child: identity),
-                  const SizedBox(width: 8),
-                  actions,
-                ],
-              )
-            : Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Wrap(
-                    alignment: WrapAlignment.spaceBetween,
-                    spacing: DSpacing.sm,
-                    runSpacing: DSpacing.xs,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Wrap(
+              alignment: WrapAlignment.spaceBetween,
+              spacing: DSpacing.sm,
+              runSpacing: DSpacing.xs,
+              children: [
+                ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxWidth: (constraints.maxWidth - 24) / 2,
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      ConstrainedBox(
-                        constraints: BoxConstraints(
-                          maxWidth: (constraints.maxWidth - 24) / 2,
+                      if (!widget.keepTopicListOpen)
+                        TopicCloseButton(
+                          canReturnToSidebar: widget.canReturnToSidebar,
                         ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            if (!widget.keepTopicListOpen)
-                              TopicCloseButton(
-                                canReturnToSidebar: widget.canReturnToSidebar,
-                              ),
-                            Flexible(child: categoryControl),
-                          ],
-                        ),
-                      ),
-                      actions,
+                      Flexible(child: categoryControl),
                     ],
                   ),
-                  const SizedBox(height: 4),
-                  identity,
-                ],
-              ),
+                ),
+                actions,
+              ],
+            ),
+            const SizedBox(height: DSpacing.xs),
+            identity,
+          ],
+        ),
       );
     },
   );
@@ -332,12 +365,12 @@ class _LedgerTitle extends StatelessWidget {
   Widget build(BuildContext context) {
     final style = Theme.of(
       context,
-    ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600);
+    ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600);
     final label = siteUrl == null
         ? Text(
             title,
             style: style,
-            maxLines: 3,
+            maxLines: 2,
             overflow: TextOverflow.ellipsis,
           )
         : TopicTitle(
@@ -345,7 +378,7 @@ class _LedgerTitle extends StatelessWidget {
             key: const ValueKey('topic-header-compact-title'),
             siteUrl: siteUrl!,
             style: style,
-            maxLines: 3,
+            maxLines: 2,
             overflow: TextOverflow.ellipsis,
           );
     return onEdit == null
@@ -372,11 +405,13 @@ class _LedgerCategory extends StatelessWidget {
     required this.siteUrl,
     required this.topic,
     required this.category,
+    required this.showMarker,
     this.onEdit,
   });
   final String siteUrl;
   final TopicDetail topic;
   final TopicCategory? category;
+  final bool showMarker;
   final VoidCallback? onEdit;
 
   @override
@@ -393,9 +428,6 @@ class _LedgerCategory extends StatelessWidget {
       category?.parentCategoryId,
       siteUrl: siteUrl,
     );
-    final color = category == null
-        ? DTokens.of(context).border
-        : Color(category!.colorValue);
     final path = category == null
         ? 'Category'
         : shell.topicCategoryPathLabel(category!, siteUrl: siteUrl);
@@ -413,7 +445,7 @@ class _LedgerCategory extends StatelessWidget {
         Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            if (category != null) ...[
+            if (category != null && showMarker) ...[
               CategoryIcon(
                 category: category!,
                 siteUrl: siteUrl,
@@ -433,28 +465,21 @@ class _LedgerCategory extends StatelessWidget {
         ),
       ],
     );
-    return DecoratedBox(
+    return Align(
       key: const ValueKey('topic-header-category'),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: .06),
-        border: BorderDirectional(start: BorderSide(color: color, width: 3)),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 4),
-        child: Align(
-          alignment: AlignmentDirectional.centerStart,
-          child: DButton(
-            label: label,
-            tooltip: onEdit == null ? 'Browse $path' : 'Edit topic category',
-            variant: DButtonVariant.ghost,
-            size: DButtonSize.small,
-            onPressed:
-                onEdit ??
-                (category == null
-                    ? null
-                    : () => shell.openCategory(category!, siteUrl: siteUrl)),
-          ),
-        ),
+      alignment: AlignmentDirectional.centerStart,
+      child: DButton(
+        label: label,
+        icon: onEdit == null ? null : const DIcon(DIcons.chevronDown),
+        iconPosition: DButtonIconPosition.end,
+        tooltip: onEdit == null ? 'Browse $path' : 'Edit topic category',
+        variant: DButtonVariant.ghost,
+        size: DButtonSize.small,
+        onPressed:
+            onEdit ??
+            (category == null
+                ? null
+                : () => shell.openCategory(category!, siteUrl: siteUrl)),
       ),
     );
   }

@@ -1002,16 +1002,17 @@ that topic open. Selections apply immediately, without duplicate filter chips
 or a confirmation footer. The heading does not show a count of loaded rows.
 
 The Ledger header keeps the category path, title and every tag above the post
-viewport while reading. Wide readers place a restrained category block beside
-the title and wrapping tags; narrow readers place the category above them.
+viewport while reading. Wide readers use a full-height category rail beside
+a 16px title and quiet, wrapping tags; narrow readers place the category above them.
 The header uses its natural height. In unusually short windows with large text
 or many tags, it can scroll independently within 60% of the reader height so
 all context remains accessible and posts retain space. Tags never collapse
 into a count or an overflow picker.
 
-Clicking the title, category, or tag pencil opens a single draft beneath the
-unchanged reading context. The command button offers **Rename title**,
-**Change category**, and **Edit tags**, according to server permissions.
+Clicking the title, category, or tag plus opens that field’s draft beneath the
+reading context, according to server permissions. There is no separate Edit
+topic button or command chooser. Empty tags use the same compact plus control
+with an accessible **Add tag** label.
 Each field has explicit **Save** and **Cancel** actions. Enter saves a title;
 Escape cancels the draft after any picker closes. Tag drafts use removable
 Native Combobox tokens and category-scoped search. Changes stay local until

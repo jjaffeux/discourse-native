@@ -113,6 +113,29 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('Ledger category rail fills the header beside quiet metadata', (
+    tester,
+  ) async {
+    final setup = await _setup(tester, tags: const []);
+    setup.controller.openTopicFromList(setup.rows.first);
+    await tester.pumpAndSettle();
+    final header = tester.getRect(
+      find.byKey(const ValueKey('topic-content-header')),
+    );
+    final rail = tester.getRect(
+      find.byKey(const ValueKey('topic-header-category-rail')),
+    );
+    expect(rail.left, header.left);
+    expect(rail.top, header.top);
+    expect(rail.bottom, closeTo(header.bottom, 1));
+    expect(rail.width, lessThanOrEqualTo(160));
+    expect(tester.widget<TopicTitle>(_compactHeader).style?.fontSize, 16);
+    expect(find.byKey(const ValueKey('topic-header-edit')), findsNothing);
+    expect(find.text('Add tag'), findsNothing);
+    expect(find.byTooltip('Add tag'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('ledger context stays fixed and preserves the scrolling reader', (
     tester,
   ) async {
@@ -252,7 +275,7 @@ void main() {
               find.byKey(const ValueKey('topic-header-category')),
             );
             final title = tester.getRect(_compactHeader);
-            if (width < 680 * scale) {
+            if (width < 540 * scale) {
               expect(category.bottom, lessThanOrEqualTo(title.top));
             } else if (direction == TextDirection.ltr) {
               expect(category.right, lessThan(title.left));
@@ -324,11 +347,7 @@ void main() {
         setup.controller.openTopicFromList(setup.rows.first);
         await tester.pumpAndSettle();
         final reader = tester.state(find.byType(TopicView));
-        await tester.tap(find.byKey(const ValueKey('topic-header-edit')));
-        await tester.pumpAndSettle();
-        await tester.tap(
-          find.byKey(const ValueKey('topic-header-command-title')),
-        );
+        await tester.tap(find.byKey(const ValueKey('topic-header-title')));
         await tester.pumpAndSettle();
         final field = find.byKey(const ValueKey('topic-header-title-field'));
         await tester.enterText(field, 'A clearer topic title');
@@ -488,7 +507,7 @@ void main() {
     (true, true),
   ]) {
     testWidgets(
-      'command permissions remain independent: title $canEdit, tags $canEditTags',
+      'direct edit permissions remain independent: title $canEdit, tags $canEditTags',
       (tester) async {
         final setup = await _setup(
           tester,
@@ -497,23 +516,26 @@ void main() {
         );
         setup.controller.openTopicFromList(setup.rows.first);
         await tester.pumpAndSettle();
-        final edit = find.byKey(const ValueKey('topic-header-edit'));
-        expect(edit, canEdit || canEditTags ? findsOneWidget : findsNothing);
-        if (canEdit || canEditTags) {
-          await tester.tap(edit);
+        expect(find.byKey(const ValueKey('topic-header-edit')), findsNothing);
+        expect(
+          find.byKey(const ValueKey('topic-header-title')),
+          canEdit ? findsOneWidget : findsNothing,
+        );
+        expect(
+          find.byTooltip('Edit topic category'),
+          canEdit ? findsOneWidget : findsNothing,
+        );
+        final editTags = find.byKey(const ValueKey('topic-header-edit-tags'));
+        expect(editTags, canEditTags ? findsOneWidget : findsNothing);
+        if (canEditTags) {
+          await tester.tap(editTags);
           await tester.pumpAndSettle();
           expect(
-            find.byKey(const ValueKey('topic-header-command-title')),
-            canEdit ? findsOneWidget : findsNothing,
+            find.byKey(const ValueKey('topic-header-tag-field')),
+            findsOneWidget,
           );
-          expect(
-            find.byKey(const ValueKey('topic-header-command-category')),
-            canEdit ? findsOneWidget : findsNothing,
-          );
-          expect(
-            find.byKey(const ValueKey('topic-header-command-tags')),
-            canEditTags ? findsOneWidget : findsNothing,
-          );
+          await tester.tap(find.byKey(const ValueKey('topic-header-cancel')));
+          await tester.pumpAndSettle();
         }
         expect(
           find
@@ -526,25 +548,27 @@ void main() {
     );
   }
 
-  testWidgets('a private message has tags and no category command', (
-    tester,
-  ) async {
-    final setup = await _setup(tester, privateMessage: true);
-    setup.controller.openTopicFromList(setup.rows.first);
-    await tester.pumpAndSettle();
-    expect(find.byKey(const ValueKey('topic-header-category')), findsNothing);
-    await tester.tap(find.byKey(const ValueKey('topic-header-edit')));
-    await tester.pumpAndSettle();
-    expect(
-      find.byKey(const ValueKey('topic-header-command-category')),
-      findsNothing,
-    );
-    expect(
-      find.byKey(const ValueKey('topic-header-command-tags')),
-      findsOneWidget,
-    );
-    expect(tester.takeException(), isNull);
-  });
+  testWidgets(
+    'a private message has direct tag editing and no category control',
+    (tester) async {
+      final setup = await _setup(tester, privateMessage: true);
+      setup.controller.openTopicFromList(setup.rows.first);
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('topic-header-category')), findsNothing);
+      expect(find.byKey(const ValueKey('topic-header-edit')), findsNothing);
+      await tester.tap(find.byKey(const ValueKey('topic-header-edit-tags')));
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const ValueKey('topic-header-category-field')),
+        findsNothing,
+      );
+      expect(
+        find.byKey(const ValueKey('topic-header-tag-field')),
+        findsOneWidget,
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   testWidgets(
     'closed status remains visible through scroll and moderation changes',

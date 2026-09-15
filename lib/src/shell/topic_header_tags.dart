@@ -47,33 +47,22 @@ class TopicHeaderTags extends StatelessWidget {
           child: DBadge.link(
             key: ValueKey(('topic-header-tag', tag.name)),
             variant: DBadgeVariant.ghost,
+            foregroundColor: DTokens.of(context).mutedForeground,
             semanticLabel: 'Browse tag ${tag.name}',
             onPressed: () => onTagNavigate(tag),
             child: Text('#${tag.name}'),
           ),
         ),
       if (topic.canEditTags)
-        if (topic.tags.isEmpty)
-          DButton(
-            key: const ValueKey('topic-header-edit-tags'),
-            label: const Text('Add tag'),
-            icon: const DIcon(DIcons.tag),
-            tooltip: 'Add tag',
-            variant: DButtonVariant.ghost,
-            size: DButtonSize.small,
-            loading: saving,
-            onPressed: edit,
-          )
-        else
-          DButton.iconOnly(
-            key: const ValueKey('topic-header-edit-tags'),
-            icon: const DIcon(DIcons.pencil),
-            tooltip: 'Edit tags',
-            variant: DButtonVariant.ghost,
-            size: DButtonSize.small,
-            loading: saving,
-            onPressed: edit,
-          ),
+        DButton.iconOnly(
+          key: const ValueKey('topic-header-edit-tags'),
+          icon: DIcon(DIcons.plus, color: DTokens.of(context).mutedForeground),
+          tooltip: topic.tags.isEmpty ? 'Add tag' : 'Edit tags',
+          variant: DButtonVariant.ghost,
+          size: DButtonSize.small,
+          loading: saving,
+          onPressed: edit,
+        ),
     ],
   );
 }
