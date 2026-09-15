@@ -4194,6 +4194,18 @@ class ShellController extends FrameSafeNotifier
 
     final feed = draftList.feedFor(siteUrl);
     if (!feed.loaded && !feed.loading) return;
+    // The server can publish the count before the delete response arrives.
+    // Keep the existing rows when local deletions already explain the change.
+    final total = feed.totalCount;
+    final pendingDeletes = feed.drafts
+        .where((draft) => draftList.deleting(siteUrl, draft.key))
+        .length;
+    if (total != null &&
+        count <= total &&
+        count >= total - pendingDeletes &&
+        (count < total || count < user.draftCount)) {
+      return;
+    }
     draftList.invalidateTotalCount(siteUrl);
     unawaited(draftList.load(current, refresh: true));
   }

@@ -938,6 +938,57 @@ void main() {
       expect(find.byType(ComposerPanel), findsNothing);
     });
 
+    for (final beforeResponse in [true, false]) {
+      testWidgets(
+        'removes only the draft when its count arrives ${beforeResponse ? 'before' : 'after'} the response',
+        (tester) async {
+          final gate = Completer<void>();
+          final fixture = await _pump(
+            tester,
+            draftDeleteGate: gate,
+            draftCount: 2,
+            userDrafts: [
+              _draft,
+              UserDraft(key: 'new_topic_other', sequence: 1, data: _draft.data),
+            ],
+          );
+          await tester.tap(
+            find.descendant(
+              of: find.byType(InstanceSidebar),
+              matching: find.text('Drafts'),
+            ),
+          );
+          await tester.pumpAndSettle();
+          await tester.tap(find.byTooltip('Remove draft').first);
+          await tester.pumpAndSettle();
+          await tester.tap(find.text('Remove'));
+          await tester.pump();
+          if (!beforeResponse) {
+            gate.complete();
+            await tester.pumpAndSettle();
+          }
+          FakeSiteTracker.built.single.deliverPluginMessage(
+            '/user-drafts/7',
+            const {'draft_count': 1},
+          );
+          await tester.pump();
+          expect(fixture.api.userDraftRequests, hasLength(1));
+          if (beforeResponse) gate.complete();
+          await tester.pumpAndSettle();
+          expect(find.byTooltip('Remove draft'), findsOneWidget);
+          expect(fixture.api.userDraftRequests, hasLength(1));
+          final shell = ShellScope.read(
+            tester.element(find.byType(DraftListView)),
+          );
+          expect(shell.draftCountFor(_siteUrl), 1);
+          expect(
+            shell.draftList.feedFor(_siteUrl).drafts.single.key,
+            'new_topic_other',
+          );
+        },
+      );
+    }
+
     testWidgets('removes a draft from the page and server count', (
       tester,
     ) async {
@@ -971,6 +1022,7 @@ Future<_Fixture> _pump(
   int draftCount = 1,
   List<UserDraft> userDrafts = const [_draft],
   Completer<void>? userDraftGate,
+  Completer<void>? draftDeleteGate,
 }) async {
   installTestMediaPipeline(
     client: MockClient((_) async => http.Response('', 404)),
@@ -986,6 +1038,7 @@ Future<_Fixture> _pump(
     totals: const NotificationTotals(),
     userDraftList: userDrafts,
     userDraftGate: userDraftGate,
+    draftDeleteGate: draftDeleteGate,
     categoryList: const [
       TopicCategory(id: 5, name: 'Support', color: '0088CC'),
     ],
