@@ -886,7 +886,7 @@ void _registerTopicReplyTests() {
       await openTopic(tester, api);
       await tester.tap(find.byTooltip('Reply to this topic'));
       await tester.pumpAndSettle();
-      await tester.tap(find.byTooltip('Save and close'));
+      await tester.tap(find.byKey(const ValueKey('composer-cancel')));
       await tester.pumpAndSettle();
 
       expect(find.byType(ComposerPanel), findsNothing);
@@ -1438,14 +1438,14 @@ void _registerComposerAndDraftTests() {
       ]);
     });
 
-    testWidgets('save and close removes an empty reply draft', (tester) async {
+    testWidgets('Cancel removes an empty reply draft', (tester) async {
       final api = FakeDiscourseApi(
         feeds: {'/latest.json': listed},
         topics: {7: detail()},
       );
 
       await openComposer(tester, api);
-      await tester.tap(find.byTooltip('Save and close'));
+      await tester.tap(find.byKey(const ValueKey('composer-cancel')));
       await tester.pumpAndSettle();
 
       expect(
@@ -1464,7 +1464,7 @@ void _registerComposerAndDraftTests() {
 
     for (final empty in [false, true]) {
       testWidgets(
-        'save and close hides the dock while ${empty ? 'deletion' : 'saving'} is pending',
+        'Cancel hides the dock while ${empty ? 'deletion' : 'saving'} is pending',
         (tester) async {
           final gate = Completer<void>();
           addTearDown(() {
@@ -1486,7 +1486,7 @@ void _registerComposerAndDraftTests() {
             await tester.enterText(_composerField, 'Keep my reply safe');
           }
 
-          await tester.tap(find.byTooltip('Save and close'));
+          await tester.tap(find.byKey(const ValueKey('composer-cancel')));
           await tester.pump();
 
           expect(find.byType(ComposerPanel), findsNothing);
@@ -1533,7 +1533,7 @@ void _registerComposerAndDraftTests() {
         final shell = ShellScope.read(tester.element(find.byType(MainContent)));
         final closing = shell.visibleComposer!;
         await tester.enterText(_composerField, 'The earlier reply');
-        await tester.tap(find.byTooltip('Save and close'));
+        await tester.tap(find.byKey(const ValueKey('composer-cancel')));
         await tester.pump();
 
         await tester.tap(find.byTooltip('Reply to this topic'));
@@ -1572,7 +1572,7 @@ void _registerComposerAndDraftTests() {
       await tester.enterText(_composerField, 'Keep the exact editor');
       final editor = tester.state(find.byType(ComposerEditor));
 
-      await tester.tap(find.byTooltip('Save and close'));
+      await tester.tap(find.byKey(const ValueKey('composer-cancel')));
       await tester.pump();
       expect(find.byType(ComposerPanel), findsNothing);
       gate.complete();
@@ -1587,7 +1587,7 @@ void _registerComposerAndDraftTests() {
         findsOneWidget,
       );
 
-      await tester.tap(find.byTooltip('Save and close'));
+      await tester.tap(find.byKey(const ValueKey('composer-cancel')));
       await tester.pumpAndSettle();
       expect(composer.isDisposed, isTrue);
       expect(
@@ -1599,7 +1599,7 @@ void _registerComposerAndDraftTests() {
     });
 
     testWidgets(
-      'save and close retains the hidden editor until restoration is safely saved',
+      'Cancel retains the hidden editor until restoration is safely saved',
       (tester) async {
         final drafts = _GatedDraftReadStore();
         addTearDown(() {
@@ -1619,7 +1619,7 @@ void _registerComposerAndDraftTests() {
 
         await openComposer(tester, api, drafts: drafts);
         expect(drafts.started.isCompleted, isTrue);
-        await tester.tap(find.byTooltip('Save and close'));
+        await tester.tap(find.byKey(const ValueKey('composer-cancel')));
         await tester.pump();
 
         expect(find.byType(ComposerPanel), findsNothing);
@@ -1654,12 +1654,12 @@ void _registerComposerAndDraftTests() {
       final shell = ShellScope.read(tester.element(find.byType(MainContent)));
       expect(shell.visibleComposer?.text.text, isEmpty);
 
-      await tester.tap(find.byTooltip('Save and close'));
+      await tester.tap(find.byKey(const ValueKey('composer-cancel')));
       await tester.pumpAndSettle();
       expect(find.byType(ComposerPanel), findsOneWidget);
       expect(api.userDraftsDeleted, isEmpty);
 
-      await tester.tap(find.byTooltip('Save and close'));
+      await tester.tap(find.byKey(const ValueKey('composer-cancel')));
       await tester.pumpAndSettle();
       expect(find.byType(ComposerPanel), findsNothing);
       expect(api.userDraftsDeleted, isEmpty);
@@ -1687,7 +1687,7 @@ void _registerComposerAndDraftTests() {
       final shell = ShellScope.read(tester.element(find.byType(MainContent)));
       expect(shell.visibleComposer?.text.text, isEmpty);
 
-      await tester.tap(find.byTooltip('Save and close'));
+      await tester.tap(find.byKey(const ValueKey('composer-cancel')));
       await tester.pumpAndSettle();
 
       expect(find.byType(ComposerPanel), findsOneWidget);
@@ -1704,7 +1704,7 @@ void _registerComposerAndDraftTests() {
         reply: 'Recovered legacy draft',
       ).encode();
       await prefs.setString(storageKey, recovered);
-      await tester.tap(find.byTooltip('Save and close'));
+      await tester.tap(find.byKey(const ValueKey('composer-cancel')));
       await tester.pumpAndSettle();
 
       expect(tester.takeException(), isNull);
@@ -1751,7 +1751,7 @@ void _registerComposerAndDraftTests() {
 
       await shell.openNewTopic();
       await tester.pumpAndSettle();
-      await tester.tap(find.byTooltip('Save and close'));
+      await tester.tap(find.byKey(const ValueKey('composer-cancel')));
       await tester.pumpAndSettle();
 
       expect(find.byType(ComposerPanel), findsOneWidget);
@@ -1762,7 +1762,7 @@ void _registerComposerAndDraftTests() {
       expect(api.userDraftsDeleted, isEmpty);
 
       api.draftRestoreFailure = null;
-      await tester.tap(find.byTooltip('Save and close'));
+      await tester.tap(find.byKey(const ValueKey('composer-cancel')));
       await tester.pumpAndSettle();
 
       expect(find.byType(ComposerPanel), findsNothing);
@@ -1813,7 +1813,7 @@ void _registerComposerAndDraftTests() {
 
       expect(shell.visibleComposer?.text.text, isEmpty);
       expect(shell.visibleComposer?.hasUnappliedDraft, isTrue);
-      await tester.tap(find.byTooltip('Save and close'));
+      await tester.tap(find.byKey(const ValueKey('composer-cancel')));
       await tester.pumpAndSettle();
 
       expect(find.byType(ComposerPanel), findsNothing);
@@ -2291,7 +2291,7 @@ void _registerComposerAndDraftTests() {
       for (var attempt = 0; attempt < 2; attempt++) {
         await tester.tap(find.byTooltip('Reply to this topic'));
         await tester.pumpAndSettle();
-        await tester.tap(find.byTooltip('Save and close'));
+        await tester.tap(find.byKey(const ValueKey('composer-cancel')));
         await tester.pumpAndSettle();
       }
 
@@ -2704,7 +2704,7 @@ void _registerComposerAndDraftTests() {
       await tester.enterText(_composerField, 'Come back to this');
       await settleDraft(tester);
 
-      await tester.tap(find.byTooltip('Save and close'));
+      await tester.tap(find.byKey(const ValueKey('composer-cancel')));
       await tester.pumpAndSettle();
       expect(find.byType(ComposerPanel), findsNothing);
 
