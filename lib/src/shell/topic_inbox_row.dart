@@ -39,9 +39,9 @@ class TopicInboxRow extends StatelessWidget {
     builder: (context, category, _) {
       final theme = Theme.of(context);
       final muted = theme.colorScheme.onSurfaceVariant;
-      final metadata =
-          (PluginScope.maybeOf(context)?.registry ?? PluginRegistry.empty)
-              .topicListMetadata(context, siteUrl, topic);
+      final registry =
+          PluginScope.maybeOf(context)?.registry ?? PluginRegistry.empty;
+      final metadata = registry.topicListMetadata(context, siteUrl, topic);
       final smallStyle = theme.textTheme.labelSmall?.copyWith(color: muted);
       final metadataStyle = theme.textTheme.bodyMedium?.copyWith(color: muted);
       final titleStyle = theme.textTheme.titleSmall?.copyWith(
@@ -100,91 +100,96 @@ class TopicInboxRow extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            if (topic.showNewTopicDot ||
-                                topic.showNewRepliesDot)
-                              Padding(
-                                padding: EdgeInsets.only(
-                                  top:
-                                      (titleLineHeight - 8).clamp(
-                                        0,
-                                        double.infinity,
-                                      ) /
-                                      2,
-                                  right: 6,
-                                ),
-                                child: TopicStateDot(
-                                  key: ValueKey(
-                                    topic.showNewTopicDot
-                                        ? 'new-topic-dot'
-                                        : 'new-replies-dot',
+                        registry.decorateTopicListTitle(
+                          context,
+                          siteUrl,
+                          topic,
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              if (topic.showNewTopicDot ||
+                                  topic.showNewRepliesDot)
+                                Padding(
+                                  padding: EdgeInsets.only(
+                                    top:
+                                        (titleLineHeight - 8).clamp(
+                                          0,
+                                          double.infinity,
+                                        ) /
+                                        2,
+                                    right: 6,
                                   ),
-                                  label: topic.showNewTopicDot
-                                      ? 'New topic'
-                                      : 'Topic has new replies',
-                                ),
-                              ),
-                            if (topic.closed ||
-                                topic.pinned ||
-                                topic.bookmarked)
-                              Padding(
-                                padding: const EdgeInsets.only(
-                                  top: 4,
-                                  right: 5,
-                                ),
-                                child: DIcon(
-                                  topic.closed
-                                      ? DIcons.lock
-                                      : topic.pinned
-                                      ? DIcons.thumbtack
-                                      : DIcons.bookmark,
-                                  size: 14,
-                                  color: muted,
-                                ),
-                              ),
-                            Expanded(
-                              child: Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Flexible(
-                                    child: TopicTitle(
-                                      topic.title,
-                                      siteUrl: siteUrl,
-                                      maxLines: 2,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: titleStyle,
+                                  child: TopicStateDot(
+                                    key: ValueKey(
+                                      topic.showNewTopicDot
+                                          ? 'new-topic-dot'
+                                          : 'new-replies-dot',
                                     ),
+                                    label: topic.showNewTopicDot
+                                        ? 'New topic'
+                                        : 'Topic has new replies',
                                   ),
-                                  if (topic.showUnreadCount)
-                                    Padding(
-                                      padding: const EdgeInsets.only(
-                                        left: 8,
-                                        top: 2,
+                                ),
+                              if (topic.closed ||
+                                  topic.pinned ||
+                                  topic.bookmarked)
+                                Padding(
+                                  padding: const EdgeInsets.only(
+                                    top: 4,
+                                    right: 5,
+                                  ),
+                                  child: DIcon(
+                                    topic.closed
+                                        ? DIcons.lock
+                                        : topic.pinned
+                                        ? DIcons.thumbtack
+                                        : DIcons.bookmark,
+                                    size: 14,
+                                    color: muted,
+                                  ),
+                                ),
+                              Expanded(
+                                child: Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Flexible(
+                                      child: TopicTitle(
+                                        topic.title,
+                                        siteUrl: siteUrl,
+                                        maxLines: 2,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: titleStyle,
                                       ),
-                                      child: TopicUnreadBadge(
-                                        key: ValueKey(
-                                          'inbox-row-unread-${topic.id}',
+                                    ),
+                                    if (topic.showUnreadCount)
+                                      Padding(
+                                        padding: const EdgeInsets.only(
+                                          left: 8,
+                                          top: 2,
                                         ),
-                                        count: topic.unreadCount,
+                                        child: TopicUnreadBadge(
+                                          key: ValueKey(
+                                            'inbox-row-unread-${topic.id}',
+                                          ),
+                                          count: topic.unreadCount,
+                                        ),
                                       ),
-                                    ),
-                                ],
-                              ),
-                            ),
-                            if (!recommendation && age != null) ...[
-                              const SizedBox(width: 10),
-                              Padding(
-                                padding: const EdgeInsets.only(top: 2),
-                                child: Text(
-                                  age,
-                                  key: ValueKey('inbox-row-time-${topic.id}'),
-                                  style: smallStyle,
+                                  ],
                                 ),
                               ),
+                              if (!recommendation && age != null) ...[
+                                const SizedBox(width: 10),
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 2),
+                                  child: Text(
+                                    age,
+                                    key: ValueKey('inbox-row-time-${topic.id}'),
+                                    style: smallStyle,
+                                  ),
+                                ),
+                              ],
                             ],
-                          ],
+                          ),
                         ),
                         if (category != null || topic.tags.isNotEmpty) ...[
                           const SizedBox(height: 6),

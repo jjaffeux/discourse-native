@@ -9,10 +9,14 @@ import 'package:discourse_native/src/models/sidebar_tag.dart';
 import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/models/topic_tracking_state.dart';
+import 'package:discourse_native/src/plugin_api/plugin_data.dart';
 import 'package:discourse_native/src/plugin_api/plugin_registry.dart';
 import 'package:discourse_native/src/plugin_api/plugin_runtime.dart';
 import 'package:discourse_native/src/plugins/assign/assign_module.dart';
 import 'package:discourse_native/src/plugins/assign/assign_plugin.dart';
+import 'package:discourse_native/src/plugins/discourse_events/discourse_events_module.dart';
+import 'package:discourse_native/src/plugins/discourse_events/discourse_events_plugin.dart';
+import 'package:discourse_native/src/plugins/discourse_events/event_data.dart';
 import 'package:discourse_native/src/shell/adaptive_shell.dart';
 import 'package:discourse_native/src/shell/app_settings_page.dart';
 import 'package:discourse_native/src/shell/main_content.dart';
@@ -24,17 +28,29 @@ import 'package:flutter/material.dart';
 
 import '../test/support/fakes.dart';
 
-// Offline review of Card/Compact settings, real list rows, and assignments.
+// Offline review of Card/Compact settings, event stamps, and assignments.
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  const user = DiscourseUser(id: 7, username: 'sam', unifiedNewEnabled: true);
-  final site = instance(
-    'list-modes-review.invalid',
-  ).copyWith(user: user, config: const SiteConfig(taggingEnabled: true));
+  const user = DiscourseUser(
+    id: 7,
+    username: 'sam',
+    unifiedNewEnabled: true,
+    timezone: 'Europe/Paris',
+  );
+  final site = instance('list-modes-review.invalid').copyWith(
+    user: user,
+    config: SiteConfig(
+      taggingEnabled: true,
+      plugins: PluginData.none.withValue(
+        eventSettingsKey,
+        const EventSettings(enabled: true),
+      ),
+    ),
+  );
   final rows = [
     Topic(
       id: 1,
-      title: 'What would make your everyday Discourse experience better?',
+      title: 'Sales Stage Cross Functional',
       slug: 'everyday-experience',
       categoryId: 1,
       postsCount: 25,
@@ -42,24 +58,31 @@ Future<void> main() async {
       unreadPosts: 4,
       tags: const [TopicTag(name: 'design')],
       excerpt:
-          'A little more hierarchy helps separate a conversation from its metadata.',
-      plugins: const PluginRegistry([AssignPlugin()]).readTopic(const {
-        'assigned_to_user': {'username': 'joffrey'},
-        'indirectly_assigned_to': {
-          '108': {
-            'post_number': 8,
-            'assigned_to': {'name': 'design'},
-          },
-        },
-      }, site.url),
+          'Align on sales stages, handoffs, and our shared priorities for the next quarter.',
+      plugins: const PluginRegistry([AssignPlugin(), EventTopicPlugin()])
+          .readTopic(const {
+            'event_starts_at': '2026-10-14T20:00:00+02:00',
+            'event_ends_at': '2026-10-14T21:00:00+02:00',
+            'event_timezone': 'Europe/Paris',
+            'assigned_to_user': {'username': 'joffrey'},
+            'indirectly_assigned_to': {
+              '108': {
+                'post_number': 8,
+                'assigned_to': {'name': 'design'},
+              },
+            },
+          }, site.url),
     ),
     Topic(
       id: 2,
-      title: 'A simpler way to browse topics on smaller screens',
+      title: 'Community planning day',
       slug: 'smaller-screens',
-      plugins: const PluginRegistry([AssignPlugin()]).readTopic(const {
-        'assigned_to_group': {'name': 'design'},
-      }, site.url),
+      plugins: const PluginRegistry([AssignPlugin(), EventTopicPlugin()])
+          .readTopic(const {
+            'event_starts_at': '2026-10-16',
+            'event_all_day': true,
+            'assigned_to_group': {'name': 'design'},
+          }, site.url),
       categoryId: 2,
       postsCount: 19,
       lastPosterUsername: 'hannah',
@@ -69,18 +92,23 @@ Future<void> main() async {
         TopicTag(name: 'mobile'),
       ],
       excerpt:
-          'The category selector and navigation compete for space on smaller screens.',
+          'An all-day gathering to plan what comes next for our community.',
     ),
-    const Topic(
+    Topic(
       id: 3,
-      title: 'Share what you have been building this week',
+      title: 'Team offsite: product and design',
+      plugins: const PluginRegistry([EventTopicPlugin()]).readTopic(const {
+        'event_starts_at': '2026-10-22T09:00:00+02:00',
+        'event_ends_at': '2026-10-23T17:00:00+02:00',
+        'event_timezone': 'Europe/Paris',
+      }, site.url),
       slug: 'building-this-week',
       categoryId: 1,
       postsCount: 43,
       lastPosterUsername: 'mei',
       lastReadPostNumber: 43,
       highestPostNumber: 43,
-      excerpt: 'Share your work and see what the community has been building.',
+      excerpt: 'Two days together to shape the next chapter of the product.',
     ),
     const Topic(
       id: 4,
@@ -97,7 +125,9 @@ Future<void> main() async {
     appSettingsStore: AppSettingsStore(
       persistence: MemoryAppSettingsPersistence(topicListMode: 'compact'),
     ),
-    plugins: PluginInstaller.install(const PluginManifest([assignModule])),
+    plugins: PluginInstaller.install(
+      const PluginManifest([assignModule, discourseEventsModule]),
+    ),
     instanceStore: FakeInstanceStore([site]),
     api: FakeDiscourseApi(
       user: user,

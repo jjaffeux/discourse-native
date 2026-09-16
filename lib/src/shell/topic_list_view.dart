@@ -1412,9 +1412,9 @@ class _TopicRowBody extends StatelessWidget {
       height: titleLineHeight,
       child: Center(child: DIcon(icon, size: 14, semanticLabel: label)),
     );
-    final pluginMetadata =
-        (PluginScope.maybeOf(context)?.registry ?? PluginRegistry.empty)
-            .topicListMetadata(context, siteUrl, topic);
+    final registry =
+        PluginScope.maybeOf(context)?.registry ?? PluginRegistry.empty;
+    final pluginMetadata = registry.topicListMetadata(context, siteUrl, topic);
 
     final muted = theme.colorScheme.onSurfaceVariant;
     final titleColor = topicListTitleColor(theme, visited: topic.visited);
@@ -1462,74 +1462,79 @@ class _TopicRowBody extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Expanded(
-                        child: DItemTitle(
-                          maxLines: 2,
-                          child: Row(
-                            spacing: 6,
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              if (topic.closed)
-                                statusIcon(DIcons.lock, 'Closed'),
-                              if (topic.pinned)
-                                statusIcon(DIcons.thumbtack, 'Pinned'),
-                              if (topic.bookmarked)
-                                statusIcon(DIcons.bookmark, 'Bookmarked'),
-                              Flexible(
-                                child: TopicTitle(
-                                  topic.title,
-                                  siteUrl: siteUrl,
-                                  overflow:
-                                      MediaQuery.textScalerOf(
-                                            context,
-                                          ).scale(14) >
-                                          21
-                                      ? TextOverflow.clip
-                                      : TextOverflow.ellipsis,
-                                  maxLines:
-                                      MediaQuery.textScalerOf(
-                                            context,
-                                          ).scale(14) >
-                                          21
-                                      ? null
-                                      : 2,
-                                  trailing: [
-                                    for (final marker in <Widget>[
-                                      if (topic.showNewTopicDot)
-                                        const TopicStateDot(
-                                          key: ValueKey('new-topic-dot'),
-                                          label: 'New topic',
-                                        )
-                                      else if (topic.showNewRepliesDot)
-                                        const TopicStateDot(
-                                          key: ValueKey('new-replies-dot'),
-                                          label: 'Topic has new replies',
-                                        ),
-                                      if (topic.showUnreadCount)
-                                        TopicUnreadBadge(
-                                          key: ValueKey(
-                                            'inbox-row-unread-${topic.id}',
+                        child: registry.decorateTopicListTitle(
+                          context,
+                          siteUrl,
+                          topic,
+                          DItemTitle(
+                            maxLines: 2,
+                            child: Row(
+                              spacing: 6,
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                if (topic.closed)
+                                  statusIcon(DIcons.lock, 'Closed'),
+                                if (topic.pinned)
+                                  statusIcon(DIcons.thumbtack, 'Pinned'),
+                                if (topic.bookmarked)
+                                  statusIcon(DIcons.bookmark, 'Bookmarked'),
+                                Flexible(
+                                  child: TopicTitle(
+                                    topic.title,
+                                    siteUrl: siteUrl,
+                                    overflow:
+                                        MediaQuery.textScalerOf(
+                                              context,
+                                            ).scale(14) >
+                                            21
+                                        ? TextOverflow.clip
+                                        : TextOverflow.ellipsis,
+                                    maxLines:
+                                        MediaQuery.textScalerOf(
+                                              context,
+                                            ).scale(14) >
+                                            21
+                                        ? null
+                                        : 2,
+                                    trailing: [
+                                      for (final marker in <Widget>[
+                                        if (topic.showNewTopicDot)
+                                          const TopicStateDot(
+                                            key: ValueKey('new-topic-dot'),
+                                            label: 'New topic',
+                                          )
+                                        else if (topic.showNewRepliesDot)
+                                          const TopicStateDot(
+                                            key: ValueKey('new-replies-dot'),
+                                            label: 'Topic has new replies',
                                           ),
-                                          count: topic.unreadCount,
-                                        ),
-                                    ])
-                                      Padding(
-                                        padding:
-                                            const EdgeInsetsDirectional.only(
-                                              start: 6,
+                                        if (topic.showUnreadCount)
+                                          TopicUnreadBadge(
+                                            key: ValueKey(
+                                              'inbox-row-unread-${topic.id}',
                                             ),
-                                        child: marker,
-                                      ),
-                                  ],
+                                            count: topic.unreadCount,
+                                          ),
+                                      ])
+                                        Padding(
+                                          padding:
+                                              const EdgeInsetsDirectional.only(
+                                                start: 6,
+                                              ),
+                                          child: marker,
+                                        ),
+                                    ],
 
-                                  style: effectiveTitleStyle?.copyWith(
-                                    color: titleColor,
-                                    fontWeight: topic.visited
-                                        ? FontWeight.w400
-                                        : FontWeight.w600,
+                                    style: effectiveTitleStyle?.copyWith(
+                                      color: titleColor,
+                                      fontWeight: topic.visited
+                                          ? FontWeight.w400
+                                          : FontWeight.w600,
+                                    ),
                                   ),
                                 ),
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
                         ),
                       ),

@@ -78,10 +78,7 @@ final class EventTestPorts {
       siteState: PluginSiteStateHost(
         currentUserFor: (_) => user,
         siteConfigFor: (_) => SiteConfig(
-          plugins: PluginData.none.withValue(
-            eventSettingsKey,
-            const EventSettings(enabled: true),
-          ),
+          plugins: PluginData.none.withValue(eventSettingsKey, settings),
         ),
       ),
       accounts: EventTestConnection(),
@@ -94,6 +91,7 @@ final class EventTestPorts {
       zones: zones,
     );
   }
+  EventSettings settings = const EventSettings(enabled: true);
   final RecordingPluginTransport transport;
   DiscourseUser? user = const DiscourseUser(
     username: 'lee',

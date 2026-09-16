@@ -2,13 +2,19 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/data/app_settings_store.dart';
 import 'package:discourse_native/src/models/app_settings.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
+import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/models/topic.dart';
+import 'package:discourse_native/src/plugin_api/plugin_data.dart';
 import 'package:discourse_native/src/plugin_api/plugin_registry.dart';
 import 'package:discourse_native/src/plugin_api/plugin_runtime.dart';
 import 'package:discourse_native/src/plugins/assign/assign_module.dart';
 import 'package:discourse_native/src/plugins/assign/assign_plugin.dart';
+import 'package:discourse_native/src/plugins/discourse_events/discourse_events_module.dart';
+import 'package:discourse_native/src/plugins/discourse_events/discourse_events_plugin.dart';
+import 'package:discourse_native/src/plugins/discourse_events/event_data.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
+import 'package:discourse_native/src/shell/topic_inbox_row.dart';
 import 'package:discourse_native/src/shell/topic_list_view.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
@@ -19,6 +25,64 @@ import 'package:super_sliver_list/super_sliver_list.dart';
 import 'support/fakes.dart';
 
 void main() {
+  for (final mode in TopicListDisplayMode.values) {
+    testWidgets('$mode keeps event stamps and assignments together', (
+      tester,
+    ) async {
+      final shell = await _setup(tester, mode: mode, enableEvents: true);
+      expect(
+        find.byKey(const ValueKey('event-calendar-stamp')),
+        findsOneWidget,
+      );
+      expect(find.text('joffrey'), findsOneWidget);
+      expect(
+        find.textContaining(RegExp(r'^Event · .* · 20:00$')),
+        findsOneWidget,
+      );
+      await tester.tap(find.byKey(const ValueKey('event-schedule-trigger')));
+      await tester.pumpAndSettle();
+      expect(find.text('Event schedule').hitTestable(), findsOneWidget);
+      expect(find.text('Europe/Paris'), findsOneWidget);
+      expect(shell.currentContent?.topicId, isNull);
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.text('Topic 1: a conversation about improving our community'),
+      );
+      await tester.pumpAndSettle();
+      expect(shell.currentContent?.topicId, 1);
+      expect(tester.takeException(), isNull);
+    });
+  }
+
+  testWidgets('Inbox recommendations retain the event stamp', (tester) async {
+    final shell = await _setup(tester, enableEvents: true);
+    final site = shell.currentInstance!.url;
+    await tester.pumpWidget(
+      ShellScope(
+        controller: shell,
+        child: MaterialApp(
+          theme: AppTheme.light,
+          home: Scaffold(
+            body: TopicInboxRow(
+              topic: shell.store.read<Topic>(site, 1)!,
+              siteUrl: site,
+              recommendation: true,
+              onTap: () {},
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('14'), findsOneWidget);
+    expect(
+      find.textContaining(RegExp(r'^Event · .* · 20:00$')),
+      findsOneWidget,
+    );
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets(
     'switching list style preserves the lazy viewport and visible topic',
     (tester) async {
@@ -183,15 +247,24 @@ Future<ShellController> _setup(
   WidgetTester tester, {
   double width = 1200,
   bool enableAssignments = true,
+  bool enableEvents = false,
   double scale = 1,
   TextDirection direction = TextDirection.ltr,
   TopicListDisplayMode mode = TopicListDisplayMode.compact,
 }) async {
   await tester.binding.setSurfaceSize(Size(width, 700));
   addTearDown(() => tester.binding.setSurfaceSize(null));
-  const user = DiscourseUser(id: 7, username: 'sam');
-  final site = instance('compact.example').copyWith(user: user);
-  const registry = PluginRegistry([AssignPlugin()]);
+  const user = DiscourseUser(id: 7, username: 'sam', timezone: 'Europe/Paris');
+  final site = instance('compact.example').copyWith(
+    user: user,
+    config: SiteConfig(
+      plugins: PluginData.none.withValue(
+        eventSettingsKey,
+        const EventSettings(enabled: true),
+      ),
+    ),
+  );
+  const registry = PluginRegistry([AssignPlugin(), EventTopicPlugin()]);
   final rows = [
     for (var id = 1; id <= 60; id++)
       Topic(
@@ -209,8 +282,13 @@ Future<ShellController> _setup(
           TopicTag(name: 'mobile'),
         ],
         excerpt: 'Excerpt $id',
-        plugins: registry.readTopic(
-          !enableAssignments
+        plugins: registry.readTopic({
+          if (enableEvents && id == 1) ...{
+            'event_starts_at': '2026-10-14T20:00:00+02:00',
+            'event_ends_at': '2026-10-14T21:00:00+02:00',
+            'event_timezone': 'Europe/Paris',
+          },
+          ...(!enableAssignments
               ? const {}
               : id == 1
               ? const {
@@ -223,12 +301,13 @@ Future<ShellController> _setup(
                     },
                   },
                 }
-              : const {'can_assign': false},
-          site.url,
-        ),
+              : const {'can_assign': false}),
+        }, site.url),
       ),
   ];
-  final plugins = PluginInstaller.install(const PluginManifest([assignModule]));
+  final plugins = PluginInstaller.install(
+    const PluginManifest([assignModule, discourseEventsModule]),
+  );
   final shell = ShellController(
     plugins: plugins,
     instanceStore: FakeInstanceStore([site]),

@@ -1205,6 +1205,25 @@ final class PluginRegistry
 
   bool isSmallAction(Post post) => smallAction(post) != null;
 
+  Widget decorateTopicListTitle(
+    BuildContext context,
+    String siteUrl,
+    Topic topic,
+    Widget title,
+  ) {
+    var result = title;
+    for (final plugin in plugins.whereType<TopicListTitlePlugin>()) {
+      final decoration = plugin.decorateTopicListTitle(
+        _uiContext(context, plugin),
+        siteUrl,
+        topic,
+        result,
+      );
+      if (decoration != null) result = _owned(plugin, decoration);
+    }
+    return result;
+  }
+
   List<Widget> topicListMetadata(
     BuildContext context,
     String siteUrl,

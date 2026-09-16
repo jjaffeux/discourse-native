@@ -334,6 +334,18 @@ class PluginSmallAction {
   final String phrase;
 }
 
+/// Decorates the shared title in card, compact, and Inbox topic rows.
+abstract interface class TopicListTitlePlugin {
+  /// Return null to leave the title unchanged. A decoration must include
+  /// [title] exactly once and preserve its topic activation behavior.
+  Widget? decorateTopicListTitle(
+    BuildContext context,
+    String siteUrl,
+    Topic topic,
+    Widget title,
+  );
+}
+
 abstract interface class TopicListMetadataPlugin {
   List<Widget> topicListMetadata(
     BuildContext context,
