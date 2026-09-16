@@ -86,6 +86,10 @@ For a repeatable local-data run of the production list, use
 `flutter run --profile -d macos -t tool/topic_list_scroll_profile_main.dart`.
 It prints reports and saves JSON for steady scrolling, fast scrolling, and the
 return trip in the application's temporary directory.
+The fixture defaults to compact rows with events and assignments. Use
+`--dart-define=LIST_MODE=card`, `--dart-define=LIST_EVENTS=false`, or
+`--dart-define=LIST_ASSIGNMENTS=false` to isolate those costs. See the
+[compact-list measurements](docs/performance/compact-topic-list-scrolling.md).
 
 ### Diagnosing forum switching
 

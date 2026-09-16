@@ -249,8 +249,9 @@ class _TopicListViewState extends State<TopicListView> {
     _scroll = ScrollController();
     _list = ListController();
     _keyboardMoveToken = null;
-    final saved = PageStorage.maybeOf(context)
-        ?.readState(context, identifier: ('topic-list-keyboard', feedIdentity));
+    final saved = PageStorage.maybeOf(
+      context,
+    )?.readState(context, identifier: ('topic-list-keyboard', feedIdentity));
     _cursor = ValueNotifier(saved is _TopicListCursor ? saved : null);
   }
 
@@ -1385,8 +1386,9 @@ class _TopicRowBody extends StatelessWidget {
     final theme = Theme.of(context);
     final effectiveTitleStyle = titleStyle ?? theme.textTheme.titleSmall;
     final titleLineHeight =
-        MediaQuery.textScalerOf(context)
-            .scale(effectiveTitleStyle?.fontSize ?? DiscourseTypography.sm) *
+        MediaQuery.textScalerOf(
+          context,
+        ).scale(effectiveTitleStyle?.fontSize ?? DiscourseTypography.sm) *
         (effectiveTitleStyle?.height ?? 1.5);
     Widget statusIcon(DIconData icon, String label) => SizedBox(
       height: titleLineHeight,
@@ -1463,14 +1465,16 @@ class _TopicRowBody extends StatelessWidget {
                                     topic.title,
                                     siteUrl: siteUrl,
                                     overflow:
-                                        MediaQuery.textScalerOf(context)
-                                                .scale(14) >
+                                        MediaQuery.textScalerOf(
+                                              context,
+                                            ).scale(14) >
                                             21
                                         ? TextOverflow.clip
                                         : TextOverflow.ellipsis,
                                     maxLines:
-                                        MediaQuery.textScalerOf(context)
-                                                .scale(14) >
+                                        MediaQuery.textScalerOf(
+                                              context,
+                                            ).scale(14) >
                                             21
                                         ? null
                                         : 2,

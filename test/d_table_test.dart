@@ -31,6 +31,10 @@ void main() {
     expect(find.byType(AnimatedContainer), findsOneWidget);
     final first = find.text('Title');
     final last = find.text('Metadata');
+    expect(
+      tester.getSize(find.byType(AnimatedContainer)).height,
+      tester.getSize(find.byType(DTableCell).first).height,
+    );
     final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
     await mouse.addPointer(location: const Offset(1, 1));
     addTearDown(mouse.removePointer);
