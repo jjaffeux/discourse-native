@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:html/dom.dart' as dom;
-import 'package:intl/intl.dart';
 
 import '../../models/content_route.dart';
 import '../../models/sidebar.dart';
@@ -18,7 +17,7 @@ import 'event_data.dart';
 import 'event_directory.dart';
 import 'event_navigation.dart';
 import 'event_notifications.dart';
-import 'event_time.dart';
+import 'event_topic_title.dart';
 
 final class DiscourseEventsPlugin
     implements
@@ -197,7 +196,7 @@ final class EventTopicPlugin
     implements
         SitePlugin,
         TopicRecordPlugin<EventTopicData>,
-        TopicListMetadataPlugin {
+        TopicListTitlePlugin {
   const EventTopicPlugin();
   @override
   String get name => 'discourse-events';
@@ -207,38 +206,22 @@ final class EventTopicPlugin
   EventTopicData? readTopic(Map<String, dynamic> json, String siteUrl) =>
       EventTopicData.decode(json);
 
-  Widget? _date(BuildContext context, String site, EventTopicData? event) {
-    if (event == null) return null;
-    final controller = PluginUiScope.maybe(context, eventControllerKey);
-    if (controller == null || !controller.settings(site).displayTopicDate) {
-      return null;
-    }
-    return ListenableBuilder(
-      listenable: controller,
-      builder: (_, _) {
-        final date = eventDate(
-          event.startsAt,
-          zones: controller.zones,
-          timezone: event.timezone,
-          allDay: event.allDay,
-          showLocalTime: event.showLocalTime,
-          accountTimezone: controller.accountTimezone(site),
-        );
-        return date == null
-            ? const SizedBox.shrink()
-            : Text(
-                event.allDay
-                    ? DateFormat.yMMMd().format(date)
-                    : DateFormat.yMMMd().add_Hm().format(date),
-              );
-      },
-    );
-  }
-
   @override
-  List<Widget> topicListMetadata(
+  Widget? decorateTopicListTitle(
     BuildContext context,
     String siteUrl,
     Topic topic,
-  ) => [?_date(context, siteUrl, topic.plugins.get(eventTopicKey))];
+    Widget title,
+  ) {
+    final event = topic.plugins.get(eventTopicKey);
+    final controller = PluginUiScope.maybe(context, eventControllerKey);
+    if (event == null || controller == null) return null;
+    return EventTopicTitle(
+      site: siteUrl,
+      topicTitle: topic.title,
+      event: event,
+      controller: controller,
+      child: title,
+    );
+  }
 }

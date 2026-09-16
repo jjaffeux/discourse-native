@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Event dates · Three topic-list treatments</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="mockup.js" defer></script>
+  </head>
+  <body>
+    <svg class="symbols" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <symbol id="calendar" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 11h18M8 15h2m4 0h2m-8 3h2"/></symbol>
+      <symbol id="sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1 1m12 12 1 1M5 19l1-1M18 6l1-1"/></symbol>
+      <symbol id="moon" viewBox="0 0 24 24"><path d="M20 14A9 9 0 0 1 10 3a9 9 0 1 0 10 11Z"/></symbol>
+      <symbol id="arrow" viewBox="0 0 24 24"><path d="M5 12h14m-5-5 5 5-5 5"/></symbol>
+      <symbol id="close" viewBox="0 0 24 24"><path d="m6 6 12 12M6 18 18 6"/></symbol>
+      <symbol id="group" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M3 20v-2a6 6 0 0 1 12 0v2M16 5a3 3 0 0 1 0 6m2 3a5 5 0 0 1 3 4v2"/></symbol>
+    </svg>
+
+    <header class="study-bar">
+      <a class="study-brand" href="../" aria-label="Back to topic-list mockups"><span class="study-brand__mark">d<span>•</span></span><span>Discourse Native<span class="study-brand__section">Topic list / Event dates</span></span></a>
+      <div class="study-tools">
+        <div class="segmented" aria-label="Topic list mode">
+          <button type="button" data-mode="compact" aria-pressed="true">Compact</button>
+          <button type="button" data-mode="card" aria-pressed="false">Card</button>
+        </div>
+        <button type="button" class="control" id="width-toggle" aria-pressed="false">Narrow</button>
+        <button type="button" class="control" id="theme-toggle"><svg class="icon" aria-hidden="true"><use href="#sun"/></svg><span>Light</span></button>
+      </div>
+    </header>
+
+    <main class="study" id="study" data-mode="compact" data-focus="all" data-narrow="false">
+      <div class="study-intro">
+        <div><p class="eyebrow">THREE DIRECTIONS</p><h1>An event date should look like one.</h1><p class="intro-copy">Smaller than the title. Clearly marked as an event. Full details one click away.</p></div>
+        <span class="fixture-note">Sample dates · Europe/Paris · 2026</span>
+      </div>
+      <nav class="view-switcher" aria-label="Compare event date treatments">
+        <button type="button" data-focus="all" aria-pressed="true">Compare all</button>
+        <button type="button" data-focus="inline" aria-pressed="false"><span>A</span> Inline</button>
+        <button type="button" data-focus="badge" aria-pressed="false"><span>B</span> Badge</button>
+        <button type="button" data-focus="stamp" aria-pressed="false"><span>C</span> Calendar stamp</button>
+      </nav>
+      <div class="proposals" id="proposals"></div>
+      <p class="study-hint">Click a date for the full schedule and timezone. Click a topic or assignment count to preview its details.</p>
+    </main>
+
+    <dialog class="details" id="details" aria-labelledby="details-title" aria-describedby="details-context">
+      <button type="button" class="control details__close" id="close-details" aria-label="Close event details"><svg class="icon" aria-hidden="true"><use href="#close"/></svg></button>
+      <p class="eyebrow" id="details-context"></p><h2 id="details-title"></h2>
+      <div id="details-body"></div>
+      <button type="button" class="control details__done" id="done-details">Back to topics</button>
+    </dialog>
+  </body>
+</html>

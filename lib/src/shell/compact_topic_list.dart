@@ -186,7 +186,12 @@ class _CompactTopicRow extends StatelessWidget {
                                     crossAxisAlignment:
                                         CrossAxisAlignment.start,
                                     children: [
-                                      _CompactTopicTitle(row: row),
+                                      registry.decorateTopicListTitle(
+                                        context,
+                                        row.siteUrl,
+                                        topic,
+                                        _CompactTopicTitle(row: row),
+                                      ),
                                       if (row.forum != null ||
                                           (!layout.category &&
                                               row.category != null) ||
