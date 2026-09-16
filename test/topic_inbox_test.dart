@@ -75,7 +75,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('collapse action belongs to the open topic list header', (
+  testWidgets('reader back action follows topic list visibility', (
     tester,
   ) async {
     final setup = await _setup(tester);
@@ -114,9 +114,34 @@ void main() {
       findsOneWidget,
     );
     expect(close.hitTestable(), findsOneWidget);
+    expect(find.byTooltip('Back to topic list'), findsOneWidget);
+    expect(find.byTooltip('Collapse topic'), findsNothing);
+    expect(
+      (tester.widget<DButton>(close).icon! as DIcon).icon,
+      DIcons.arrowLeft,
+    );
+    expect(
+      tester.getRect(close).right,
+      lessThan(tester.getRect(_compactHeader).left),
+    );
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('topic-header-common-actions')),
+        matching: close,
+      ),
+      findsNothing,
+    );
+    await tester.tap(close);
+    await tester.pumpAndSettle();
+    expect(find.byType(TopicView), findsNothing);
+    expect(find.byType(TopicListView), findsOneWidget);
+    setup.controller.openTopicFromList(setup.rows.first);
+    await tester.pumpAndSettle();
     tester.view.physicalSize = const Size(1200, 800);
     await tester.pumpAndSettle();
     expect(find.descendant(of: listPane, matching: close), findsOneWidget);
+    expect(find.byTooltip('Collapse topic'), findsOneWidget);
+    expect((tester.widget<DButton>(close).icon! as DIcon).icon, DIcons.xmark);
     await tester.tap(close);
     await tester.pumpAndSettle();
     expect(close, findsNothing);
@@ -2608,7 +2633,7 @@ void main() {
       );
       expect(tester.getSize(find.byType(TopicView)).width, 600);
 
-      await tester.tap(find.byTooltip('Collapse topic'));
+      await tester.tap(find.byTooltip('Back to topic list'));
       await tester.pumpAndSettle();
       expect(shell.currentContent?.isTopic, isFalse);
       expect(tester.state(listFinder), same(listState));

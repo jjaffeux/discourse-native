@@ -500,7 +500,7 @@ void main() {
     variant: TargetPlatformVariant.only(TargetPlatform.macOS),
   );
 
-  testWidgets('narrow message reader collapses back to its retained list', (
+  testWidgets('narrow message reader goes back to its retained list', (
     tester,
   ) async {
     final setup = await _pumpInbox(tester, width: 390);
@@ -509,7 +509,7 @@ void main() {
     expect(find.byType(TopicListView), findsNothing);
     expect(find.byType(TopicListView, skipOffstage: false), findsOneWidget);
     expect(find.byKey(const ValueKey('topic-bottom-bar')), findsOneWidget);
-    await tester.tap(find.byTooltip('Collapse message'));
+    await tester.tap(find.byTooltip('Back to message list'));
     await tester.pumpAndSettle();
     expect(find.byType(TopicListView), findsOneWidget);
     expect(setup.controller.currentContent, ContentRoute.messages());
