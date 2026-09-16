@@ -87,7 +87,7 @@ User-approved extensions outside the frozen upstream catalogue.
 | Component | Status | Task | Branch | Merge |
 | --- | --- | --- | --- | --- |
 | notification-dot | merged | 01a09b55-9a1f-7f50-b2ec-5f4c3d890ad4 | codex/ui-notification-dot | 083805d7bd19dd7063b1b3ff06dc19e35fa2a210 |
-| pull-to-refresh | implemented | 01a0a781-68a3-78c0-ba92-8f49991192d3 | codex/topic-list-pull-to-refresh | — |
+| pull-to-refresh | merged | 01a0a781-68a3-78c0-ba92-8f49991192d3 | codex/topic-list-pull-to-refresh | cd76cc139a12360e1744d0249ac5dde6f3c9806f |
 
 ## Decisions and evidence
 
@@ -3590,7 +3590,7 @@ Status: merged. Task: 01a09b55-9a1f-7f50-b2ec-5f4c3d890ad4. Branch: codex/ui-not
 
 ### pull-to-refresh
 
-Status: implemented. Task: 01a0a781-68a3-78c0-ba92-8f49991192d3. Branch: codex/topic-list-pull-to-refresh.
+Status: merged. Task: 01a0a781-68a3-78c0-ba92-8f49991192d3. Branch: codex/topic-list-pull-to-refresh.
 
 **acceptanceCriteria**
 
@@ -3617,11 +3617,12 @@ Status: implemented. Task: 01a0a781-68a3-78c0-ba92-8f49991192d3. Branch: codex/t
 - Built and launched an isolated offline macOS fixture using the production TopicListView and styleguide examples. Reviewed 390px light and 740px dark panes; drag reveals the Native spinner, completion replaces rows, a failed request retains rows with Retry, and another pull recovers. Short-list styleguide drag increments its refresh count. Fixture enables mouse drags for desktop inspection and uses iOS theme/physics. Confirmed empty-list pull shows loading and returns to the empty state; a widget assertion also verifies that the empty content remains centered.
 - The isolated review bundle uses an alternate bundle identifier and ad-hoc signing with only sandbox, JIT, get-task-allow and client/server debug-network entitlements; read-back verified. No production app provisioning changed.
 - Follow-up: a macOS PointerPanZoom trackpad test using the default ScrollBehavior passes: pulling arms the control, ending the gesture starts one request, and completion clears the indicator. The running app was confirmed to use the main checkout, which does not contain this unmerged implementation.
+- User requested integration on 2026-09-16. Merged --no-ff into main from /Users/joffreyjaffeux/Code/discourse-native under the main-checkout lease. The combined main candidate passed all 115 focused tests and flutter analyze --no-pub; the pre-existing pubspec.lock change was preserved byte-for-byte.
 
 **limitations**
 
 - No physical iOS device or simulator testing; iOS/Android gestures exercised in widget tests and desktop fixture.
-- Five broader styleguide-page failures reproduce on the unchanged baseline. Changes are local and unmerged.
+- Five broader styleguide-page failures reproduce on the unchanged baseline. No remote push performed.
 
 ### Final audit
 
