@@ -421,11 +421,15 @@ class _DSidebarState extends State<DSidebar> {
 }
 
 class DSidebarHeader extends StatelessWidget {
-  const DSidebarHeader({super.key, required this.child});
+  const DSidebarHeader({
+    super.key,
+    required this.child,
+    this.padding = const EdgeInsets.all(8),
+  });
   final Widget child;
+  final EdgeInsetsGeometry padding;
   @override
-  Widget build(BuildContext context) =>
-      Padding(padding: const EdgeInsets.all(8), child: child);
+  Widget build(BuildContext context) => Padding(padding: padding, child: child);
 }
 
 class DSidebarFooter extends DSidebarHeader {
@@ -494,8 +498,13 @@ class _SidebarSliverContentState extends State<_SidebarSliverContent> {
 }
 
 class DSidebarGroup extends StatelessWidget {
-  const DSidebarGroup({super.key, required this.child, this.label, this.action})
-    : _sliver = false;
+  const DSidebarGroup({
+    super.key,
+    required this.child,
+    this.label,
+    this.action,
+    this.padding = const EdgeInsets.all(8),
+  }) : _sliver = false;
 
   /// Keeps the group label eager while its content can build rows lazily.
   const DSidebarGroup.sliver({
@@ -503,11 +512,13 @@ class DSidebarGroup extends StatelessWidget {
     required Widget sliver,
     this.label,
     this.action,
+    this.padding = const EdgeInsets.all(8),
   }) : child = sliver,
        _sliver = true;
 
   final Widget child;
   final Widget? label, action;
+  final EdgeInsetsGeometry padding;
   final bool _sliver;
   @override
   Widget build(BuildContext context) {
@@ -521,7 +532,7 @@ class DSidebarGroup extends StatelessWidget {
         : null;
     if (_sliver) {
       return SliverPadding(
-        padding: const EdgeInsets.all(8),
+        padding: padding,
         sliver: SliverMainAxisGroup(
           slivers: [
             if (header != null) SliverToBoxAdapter(child: header),
@@ -531,7 +542,7 @@ class DSidebarGroup extends StatelessWidget {
       );
     }
     return Padding(
-      padding: const EdgeInsets.all(8),
+      padding: padding,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [?header, child],
@@ -936,7 +947,8 @@ class _RenderSidebarTrailingInset extends RenderShiftedBox {
 }
 
 /// An accessible navigation action; null [onPressed] disables it. Height is a
-/// minimum: native text scaling can grow rows. The default matches h-8 (32px).
+/// minimum: native text scaling can grow rows. Expanded rows whose artwork fills
+/// the preset row height retain 8px vertical padding around their rich content.
 class DSidebarMenuButton extends StatefulWidget {
   const DSidebarMenuButton({
     super.key,
@@ -1040,6 +1052,12 @@ class _DSidebarMenuButtonState extends State<DSidebarMenuButton> {
     final active = widget.isActive || (enabled && (hover || pressed));
     final collapsedLarge =
         iconOnly && widget.size == DSidebarMenuButtonSize.large;
+    final verticalPadding =
+        !iconOnly &&
+            widget.icon != null &&
+            widget.iconSize >= DControlStyle.height(widget.size)
+        ? 8.0
+        : 1.0;
     Widget result = Semantics(
       container: true,
       button: true,
@@ -1082,8 +1100,8 @@ class _DSidebarMenuButtonState extends State<DSidebarMenuButton> {
                   padding: EdgeInsetsDirectional.only(
                     start: collapsedLarge ? 0 : 8,
                     end: collapsedLarge ? 0 : 8,
-                    top: 1,
-                    bottom: 1,
+                    top: verticalPadding,
+                    bottom: verticalPadding,
                   ),
                   decoration: BoxDecoration(
                     color: active

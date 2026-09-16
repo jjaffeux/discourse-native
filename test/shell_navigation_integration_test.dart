@@ -1926,7 +1926,7 @@ void _registerShellNavigationTests() {
     final header = tester.getRect(
       find.byKey(const ValueKey('forum-identity-header')),
     );
-    expect(tile.top - header.bottom, closeTo(16, 0.01));
+    expect(tile.top - header.bottom, closeTo(2, 0.01));
     expect(tile.left - sidebar.left, closeTo(8, 0.01));
     expect(sidebar.right - tile.right, closeTo(8, 0.01));
     expect(tile.height, closeTo(48, 0.01));
@@ -1986,10 +1986,10 @@ void _registerShellNavigationTests() {
     expect(tester.widget<DSidebarMenuButton>(selectedRow).isActive, isTrue);
     final selectedRect = tester.getRect(selectedRow);
     final hoveredRect = tester.getRect(inkWell);
-    expect(hoveredRect.top - selectedRect.bottom, closeTo(6, 0.01));
+    expect(hoveredRect.top - selectedRect.bottom, closeTo(2, 0.01));
 
     await gesture.moveTo(
-      Offset(selectedRect.center.dx, selectedRect.bottom + 3),
+      Offset(selectedRect.center.dx, selectedRect.bottom + 1),
     );
     await tester.pumpAndSettle();
     expect(background(), isNull);
