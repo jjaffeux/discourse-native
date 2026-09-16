@@ -2743,7 +2743,7 @@ class _ComposerToolbarOverflowState extends State<_ComposerToolbarOverflow> {
     final textDirection = DDirection.of(context);
 
     return Stack(
-      alignment: AlignmentDirectional.centerStart,
+      alignment: AlignmentDirectional.centerEnd,
       children: [
         SingleChildScrollView(
           key: const ValueKey('composer-toolbar-scroll'),
@@ -3114,24 +3114,6 @@ class _Footer extends StatelessWidget {
           compact: compact,
           child: Row(
             children: [
-              if (toolbar != null) Expanded(child: toolbar) else const Spacer(),
-              if (composer.canSaveDraft && composer.hasSavedDraft) ...[
-                DButton.iconOnly(
-                  key: const ValueKey('composer-discard'),
-                  tooltip: 'Discard draft',
-                  variant: DButtonVariant.transparentBackground,
-                  icon: const DIcon(DIcons.trashCan),
-                  onPressed: busy
-                      ? null
-                      : () => unawaited(
-                          requestComposerDiscard(
-                            context: context,
-                            composer: composer,
-                          ),
-                        ),
-                ),
-                const SizedBox(width: 8),
-              ],
               Theme(
                 data: composer.whisper
                     ? theme.copyWith(
@@ -3182,6 +3164,25 @@ class _Footer extends StatelessWidget {
                   padding: const EdgeInsetsDirectional.only(start: 8),
                   child: control,
                 ),
+              if (composer.canSaveDraft && composer.hasSavedDraft) ...[
+                const SizedBox(width: 8),
+                DButton.iconOnly(
+                  key: const ValueKey('composer-discard'),
+                  tooltip: 'Discard draft',
+                  variant: DButtonVariant.transparentBackground,
+                  icon: const DIcon(DIcons.trashCan),
+                  onPressed: busy
+                      ? null
+                      : () => unawaited(
+                          requestComposerDiscard(
+                            context: context,
+                            composer: composer,
+                          ),
+                        ),
+                ),
+              ],
+              const SizedBox(width: 8),
+              if (toolbar != null) Expanded(child: toolbar) else const Spacer(),
             ],
           ),
         );
@@ -3195,7 +3196,7 @@ class _Footer extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           if (statusMessage != null) ...[
-            Align(alignment: Alignment.centerRight, child: status),
+            Align(alignment: AlignmentDirectional.centerStart, child: status),
             const SizedBox(height: 4),
           ],
           ConstrainedBox(

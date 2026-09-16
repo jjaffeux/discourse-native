@@ -639,7 +639,9 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('left aligns the toolbar when all tools fit', (tester) async {
+    testWidgets('places Create on the left and writing tools on the right', (
+      tester,
+    ) async {
       final composer = ComposerController(
         _newTopicTarget,
         imageUploader:
@@ -657,7 +659,12 @@ void main() {
         find.byKey(const ValueKey('composer-toolbar-scroll')),
       );
 
-      expect(toolbar.left, closeTo(panel.left + 8, 1));
+      final submit = tester.getRect(
+        find.byKey(const ValueKey('composer-submit')),
+      );
+      expect(submit.left, closeTo(panel.left + 8, 1));
+      expect(toolbar.right, closeTo(panel.right - 14, 1));
+      expect(toolbar.left, greaterThan(submit.right));
       expect(tester.takeException(), isNull);
     });
 
