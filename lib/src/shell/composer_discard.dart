@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
-import 'adaptive_dialog_action.dart';
+import '../theme/d_icons.dart';
 import 'composer_controller.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';
@@ -92,13 +92,14 @@ Future<void> requestComposerDiscard({
   if (!composer.beginDiscardPrompt()) return;
   final revision = composer.draftRevision;
   try {
-    await showDiscourseDialog<void>(
+    await showDDialog<void>(
       context: context,
-      barrierDismissible: true,
-      builder: (dialogContext) => _DiscardComposerDialog(
+      canDismiss: () => !composer.discarding || composer.isDisposed,
+      builder: (dialogContext, dialog) => _DiscardComposerDialog(
         composer: composer,
         controller: shell,
         confirmedRevision: revision,
+        onClose: dialog.close,
       ),
     );
   } finally {
@@ -125,11 +126,13 @@ class _DiscardComposerDialog extends StatefulWidget {
     required this.composer,
     required this.controller,
     required this.confirmedRevision,
+    required this.onClose,
   });
 
   final ComposerController composer;
   final ShellController controller;
   final int confirmedRevision;
+  final VoidCallback onClose;
 
   @override
   State<_DiscardComposerDialog> createState() => _DiscardComposerDialogState();
@@ -137,7 +140,6 @@ class _DiscardComposerDialog extends StatefulWidget {
 
 class _DiscardComposerDialogState extends State<_DiscardComposerDialog> {
   bool _discarding = false;
-  bool _allowPop = false;
   String? _error;
 
   Future<void> _discard() async {
@@ -171,62 +173,54 @@ class _DiscardComposerDialogState extends State<_DiscardComposerDialog> {
   }
 
   void _closeDialog() {
-    if (_allowPop || (_discarding && !widget.composer.isDisposed)) return;
-    setState(() => _allowPop = true);
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) Navigator.of(context).pop();
-    });
+    if (_discarding && !widget.composer.isDisposed) return;
+    widget.onClose();
   }
 
   @override
   Widget build(BuildContext context) {
     final editing = widget.composer.target.isEdit;
-    final theme = Theme.of(context);
-    return PopScope(
-      canPop: _allowPop,
-      onPopInvokedWithResult: (didPop, result) {
-        if (!didPop && !_discarding) _closeDialog();
-      },
-      child: DiscourseAlertDialog(
-        key: const ValueKey('composer-discard-dialog'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
+    final message = editing
+        ? 'Do you want to discard your changes?'
+        : 'Do you want to discard your post?';
+    return DDialogContent(
+      key: const ValueKey('composer-discard-dialog'),
+      semanticLabel: message,
+      showCloseButton: false,
+      children: [
+        DDialogHeader(
           children: [
-            Semantics(
-              header: true,
-              child: Text(
-                editing
-                    ? 'Do you want to discard your changes?'
-                    : 'Do you want to discard your post?',
-              ),
-            ),
-            if (_error case final error?) ...[
-              const SizedBox(height: 12),
+            DDialogTitle(child: Text(message)),
+            if (_error case final error?)
               Semantics(
                 liveRegion: true,
                 child: Text(
                   error,
-                  style: TextStyle(color: theme.colorScheme.error),
+                  style: TextStyle(color: DTokens.of(context).destructive),
                 ),
               ),
-            ],
           ],
         ),
-        actions: [
-          AdaptiveDialogAction(
-            key: const ValueKey('composer-confirm-discard'),
-            kind: AdaptiveDialogActionKind.destructive,
-            onPressed: _discarding ? null : () => unawaited(_discard()),
-            child: Text(editing ? 'Discard changes' : 'Discard'),
-          ),
-          AdaptiveDialogAction(
-            key: const ValueKey('composer-cancel-discard'),
-            onPressed: _discarding ? null : _closeDialog,
-            child: const Text('Cancel'),
-          ),
-        ],
-      ),
+        DDialogFooter(
+          wideAlignment: WrapAlignment.start,
+          children: [
+            DButton(
+              key: const ValueKey('composer-confirm-discard'),
+              variant: DButtonVariant.destructive,
+              onPressed: _discarding ? null : () => unawaited(_discard()),
+              loading: _discarding,
+              icon: const DIcon(DIcons.trashCan),
+              label: Text(editing ? 'Discard changes' : 'Discard'),
+            ),
+            DButton(
+              key: const ValueKey('composer-cancel-discard'),
+              variant: DButtonVariant.transparentBackground,
+              onPressed: _discarding ? null : _closeDialog,
+              label: const Text('Cancel'),
+            ),
+          ],
+        ),
+      ],
     );
   }
 }

@@ -45,11 +45,15 @@ void main() {
   _registerComposerAndDraftTests();
 }
 
-// Exercise discard preservation directly; the dock menu only changes placement.
 Future<void> _requestDiscard(WidgetTester tester) async {
+  await tester.tap(find.byKey(const ValueKey('composer-cancel')));
+  await tester.pump();
+}
+
+Future<void> _saveAndClose(WidgetTester tester) async {
   final panel = find.byType(ComposerPanel);
   unawaited(
-    requestComposerDiscard(
+    closeComposerFromPanel(
       context: tester.element(panel),
       composer: tester.widget<ComposerPanel>(panel).composer,
     ),
@@ -886,7 +890,7 @@ void _registerTopicReplyTests() {
       await openTopic(tester, api);
       await tester.tap(find.byTooltip('Reply to this topic'));
       await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const ValueKey('composer-cancel')));
+      await _saveAndClose(tester);
       await tester.pumpAndSettle();
 
       expect(find.byType(ComposerPanel), findsNothing);
@@ -1445,7 +1449,7 @@ void _registerComposerAndDraftTests() {
       );
 
       await openComposer(tester, api);
-      await tester.tap(find.byKey(const ValueKey('composer-cancel')));
+      await _requestDiscard(tester);
       await tester.pumpAndSettle();
 
       expect(
@@ -1464,7 +1468,7 @@ void _registerComposerAndDraftTests() {
 
     for (final empty in [false, true]) {
       testWidgets(
-        'Cancel hides the dock while ${empty ? 'deletion' : 'saving'} is pending',
+        'save and close hides the dock while ${empty ? 'deletion' : 'saving'} is pending',
         (tester) async {
           final gate = Completer<void>();
           addTearDown(() {
@@ -1486,7 +1490,7 @@ void _registerComposerAndDraftTests() {
             await tester.enterText(_composerField, 'Keep my reply safe');
           }
 
-          await tester.tap(find.byKey(const ValueKey('composer-cancel')));
+          await _saveAndClose(tester);
           await tester.pump();
 
           expect(find.byType(ComposerPanel), findsNothing);
@@ -1533,7 +1537,7 @@ void _registerComposerAndDraftTests() {
         final shell = ShellScope.read(tester.element(find.byType(MainContent)));
         final closing = shell.visibleComposer!;
         await tester.enterText(_composerField, 'The earlier reply');
-        await tester.tap(find.byKey(const ValueKey('composer-cancel')));
+        await _saveAndClose(tester);
         await tester.pump();
 
         await tester.tap(find.byTooltip('Reply to this topic'));
@@ -1572,7 +1576,7 @@ void _registerComposerAndDraftTests() {
       await tester.enterText(_composerField, 'Keep the exact editor');
       final editor = tester.state(find.byType(ComposerEditor));
 
-      await tester.tap(find.byKey(const ValueKey('composer-cancel')));
+      await _saveAndClose(tester);
       await tester.pump();
       expect(find.byType(ComposerPanel), findsNothing);
       gate.complete();
@@ -1587,7 +1591,7 @@ void _registerComposerAndDraftTests() {
         findsOneWidget,
       );
 
-      await tester.tap(find.byKey(const ValueKey('composer-cancel')));
+      await _saveAndClose(tester);
       await tester.pumpAndSettle();
       expect(composer.isDisposed, isTrue);
       expect(
@@ -1599,7 +1603,7 @@ void _registerComposerAndDraftTests() {
     });
 
     testWidgets(
-      'Cancel retains the hidden editor until restoration is safely saved',
+      'save and close retains the hidden editor until restoration is safely saved',
       (tester) async {
         final drafts = _GatedDraftReadStore();
         addTearDown(() {
@@ -1619,7 +1623,7 @@ void _registerComposerAndDraftTests() {
 
         await openComposer(tester, api, drafts: drafts);
         expect(drafts.started.isCompleted, isTrue);
-        await tester.tap(find.byKey(const ValueKey('composer-cancel')));
+        await _saveAndClose(tester);
         await tester.pump();
 
         expect(find.byType(ComposerPanel), findsNothing);
@@ -1654,12 +1658,12 @@ void _registerComposerAndDraftTests() {
       final shell = ShellScope.read(tester.element(find.byType(MainContent)));
       expect(shell.visibleComposer?.text.text, isEmpty);
 
-      await tester.tap(find.byKey(const ValueKey('composer-cancel')));
+      await _saveAndClose(tester);
       await tester.pumpAndSettle();
       expect(find.byType(ComposerPanel), findsOneWidget);
       expect(api.userDraftsDeleted, isEmpty);
 
-      await tester.tap(find.byKey(const ValueKey('composer-cancel')));
+      await _saveAndClose(tester);
       await tester.pumpAndSettle();
       expect(find.byType(ComposerPanel), findsNothing);
       expect(api.userDraftsDeleted, isEmpty);
@@ -1687,7 +1691,7 @@ void _registerComposerAndDraftTests() {
       final shell = ShellScope.read(tester.element(find.byType(MainContent)));
       expect(shell.visibleComposer?.text.text, isEmpty);
 
-      await tester.tap(find.byKey(const ValueKey('composer-cancel')));
+      await _saveAndClose(tester);
       await tester.pumpAndSettle();
 
       expect(find.byType(ComposerPanel), findsOneWidget);
@@ -1704,7 +1708,7 @@ void _registerComposerAndDraftTests() {
         reply: 'Recovered legacy draft',
       ).encode();
       await prefs.setString(storageKey, recovered);
-      await tester.tap(find.byKey(const ValueKey('composer-cancel')));
+      await _saveAndClose(tester);
       await tester.pumpAndSettle();
 
       expect(tester.takeException(), isNull);
@@ -1751,7 +1755,7 @@ void _registerComposerAndDraftTests() {
 
       await shell.openNewTopic();
       await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const ValueKey('composer-cancel')));
+      await _saveAndClose(tester);
       await tester.pumpAndSettle();
 
       expect(find.byType(ComposerPanel), findsOneWidget);
@@ -1762,7 +1766,7 @@ void _registerComposerAndDraftTests() {
       expect(api.userDraftsDeleted, isEmpty);
 
       api.draftRestoreFailure = null;
-      await tester.tap(find.byKey(const ValueKey('composer-cancel')));
+      await _saveAndClose(tester);
       await tester.pumpAndSettle();
 
       expect(find.byType(ComposerPanel), findsNothing);
@@ -1813,7 +1817,7 @@ void _registerComposerAndDraftTests() {
 
       expect(shell.visibleComposer?.text.text, isEmpty);
       expect(shell.visibleComposer?.hasUnappliedDraft, isTrue);
-      await tester.tap(find.byKey(const ValueKey('composer-cancel')));
+      await _saveAndClose(tester);
       await tester.pumpAndSettle();
 
       expect(find.byType(ComposerPanel), findsNothing);
@@ -2157,7 +2161,50 @@ void _registerComposerAndDraftTests() {
       expect(api.draftsSaved.single['data'], contains('"categoryId":99'));
     });
 
-    testWidgets('discard confirmation can keep or remove a changed reply', (
+    for (final escape in [false, true]) {
+      testWidgets(
+        'Cancel pauses draft autosave until ${escape ? 'Escape' : 'Cancel'} dismisses confirmation',
+        (tester) async {
+          final api = FakeDiscourseApi(
+            feeds: {'/latest.json': listed},
+            topics: {7: detail()},
+          );
+          await openComposer(tester, api);
+          await tester.enterText(_composerField, 'Keep this unfinished reply');
+          await _requestDiscard(tester);
+          await tester.pumpAndSettle();
+          await tester.pump(ComposerController.draftDebounce);
+          expect(api.draftsSaved, isEmpty);
+          expect(api.userDraftsDeleted, isEmpty);
+          expect(
+            find.text('Do you want to discard your post?'),
+            findsOneWidget,
+          );
+
+          if (escape) {
+            await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+          } else {
+            await tester.tap(
+              find.byKey(const ValueKey('composer-cancel-discard')),
+            );
+          }
+          await tester.pumpAndSettle();
+          expect(
+            find.byKey(const ValueKey('composer-discard-dialog')),
+            findsNothing,
+          );
+          expect(find.text('Keep this unfinished reply'), findsOneWidget);
+          await settleDraft(tester);
+          expect(
+            api.draftsSaved.single['data'],
+            contains('Keep this unfinished reply'),
+          );
+          expect(api.userDraftsDeleted, isEmpty);
+        },
+      );
+    }
+
+    testWidgets('Cancel confirmation can keep or remove a saved reply', (
       tester,
     ) async {
       final drafts = FakeDraftStore();
@@ -2291,7 +2338,7 @@ void _registerComposerAndDraftTests() {
       for (var attempt = 0; attempt < 2; attempt++) {
         await tester.tap(find.byTooltip('Reply to this topic'));
         await tester.pumpAndSettle();
-        await tester.tap(find.byKey(const ValueKey('composer-cancel')));
+        await _saveAndClose(tester);
         await tester.pumpAndSettle();
       }
 
@@ -2704,7 +2751,7 @@ void _registerComposerAndDraftTests() {
       await tester.enterText(_composerField, 'Come back to this');
       await settleDraft(tester);
 
-      await tester.tap(find.byKey(const ValueKey('composer-cancel')));
+      await _saveAndClose(tester);
       await tester.pumpAndSettle();
       expect(find.byType(ComposerPanel), findsNothing);
 
