@@ -734,8 +734,8 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
                 key: ValueKey('chat-message-react-${widget.message.id}'),
                 tooltip: 'Add reaction',
                 icon: const DIcon(DIcons.farFaceSmile),
-                size: DButtonSize.small,
-                variant: DButtonVariant.ghost,
+                size: DButtonSize.regular,
+                variant: DButtonVariant.transparentBackground,
                 onPressed: !enabled || _reactionPickerOpening
                     ? null
                     : () => unawaited(_pickReaction(anchorContext)),
