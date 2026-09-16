@@ -328,8 +328,96 @@ class ComposerHeader extends StatelessWidget {
                       child: heading,
                     ),
             ),
+            if (composer.canSaveDraft && !target.isEdit)
+              Flexible(child: _DraftStatus(composer: composer)),
             ...controls,
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _DraftStatus extends StatelessWidget {
+  const _DraftStatus({required this.composer});
+
+  final ComposerController composer;
+
+  @override
+  Widget build(BuildContext context) {
+    final failing =
+        composer.localDraftFailed ||
+        composer.draftsGaveUp ||
+        composer.draftStatus == DraftStatus.failing;
+    final saving =
+        !failing &&
+        (composer.draftPending || composer.draftStatus == DraftStatus.saving);
+    final (label, description) = switch (composer) {
+      _ when composer.localDraftFailed => (
+        'Not saved',
+        "Couldn't save this draft on this device.",
+      ),
+      _ when failing => (
+        'Device only',
+        'Not saved on the site — kept on this device only.',
+      ),
+      _ when saving => ('Saving…', 'Saving draft…'),
+      _ when composer.draftStatus == DraftStatus.saved => (
+        'Saved',
+        'Draft saved on the site',
+      ),
+      _ => (null, null),
+    };
+    if (label == null) return const SizedBox.shrink();
+
+    final tokens = DTokens.of(context);
+    final color = failing ? tokens.destructive : tokens.mutedForeground;
+    final style = Theme.of(
+      context,
+    ).textTheme.labelSmall?.copyWith(color: color);
+    final textScaler = MediaQuery.textScalerOf(context);
+    final showLabel =
+        textScaler.scale(style?.fontSize ?? 12) * (style?.height ?? 1) <=
+        ComposerHeader.height;
+    return Padding(
+      padding: const EdgeInsetsDirectional.only(start: 8, end: 8),
+      child: Semantics(
+        key: const ValueKey('composer-draft-status'),
+        container: true,
+        liveRegion: true,
+        excludeSemantics: true,
+        label: description,
+        child: DTooltip(
+          message: description!,
+          excludeFromSemantics: true,
+          child: SizedBox(
+            // Reserve the same label space across save states, including zoom.
+            width: showLabel ? 20 + textScaler.scale(72) : 14,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                if (saving)
+                  DSpinner(size: 14, color: color, semanticLabel: null)
+                else
+                  DIcon(
+                    failing ? DIcons.triangleExclamation : DIcons.check,
+                    size: 14,
+                    color: color,
+                  ),
+                if (showLabel) ...[
+                  const SizedBox(width: 6),
+                  Flexible(
+                    child: Text(
+                      label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: style,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
         ),
       ),
     );
