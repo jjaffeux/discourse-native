@@ -17,7 +17,7 @@ import 'user_card.dart';
 class ReactionPills extends Padding {
   ReactionPills({super.key, required List<Widget> children})
     : super(
-        padding: const EdgeInsets.only(top: 10),
+        padding: const EdgeInsets.only(top: DSpacing.xs),
         child: Align(
           alignment: Alignment.centerLeft,
           child: Wrap(spacing: 6, runSpacing: 6, children: children),
