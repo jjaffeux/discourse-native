@@ -53,6 +53,43 @@ void main() {
     ),
   );
 
+  testWidgets(
+    'compact bubbles reduce height while preserving width and centering',
+    (tester) async {
+      await tester.pumpWidget(
+        host(
+          const Column(
+            children: [
+              DBubble(
+                children: [
+                  DBubbleContent(
+                    key: ValueKey('regular'),
+                    child: Text('Message'),
+                  ),
+                ],
+              ),
+              DBubble(
+                children: [
+                  DBubbleContent(
+                    key: ValueKey('compact'),
+                    compact: true,
+                    child: Text('Message'),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      );
+      final regular = tester.getRect(find.byKey(const ValueKey('regular')));
+      final compact = tester.getRect(find.byKey(const ValueKey('compact')));
+      final text = tester.getRect(find.text('Message').last);
+      expect(compact.width, regular.width);
+      expect(compact.height, regular.height - 8);
+      expect(text.center.dy, closeTo(compact.center.dy, .01));
+    },
+  );
+
   testWidgets('matches content geometry, width, alignment and group spacing', (
     tester,
   ) async {

@@ -295,13 +295,18 @@ void main() {
               await tester.pump();
               expect(reaction.hitTestable(), findsOneWidget);
               final control = tester.getRect(trigger);
-              expect(bubble.contains(control.center), isTrue);
               expect(
-                direction == TextDirection.ltr
-                    ? control.center.dx > bubble.center.dx
-                    : control.center.dx < bubble.center.dx,
+                onRight
+                    ? control.right <= bubble.left
+                    : control.left >= bubble.right,
                 isTrue,
               );
+              expect(control.center.dy, closeTo(bubble.center.dy, .01));
+              expect(reactionRect.center.dy, closeTo(bubble.center.dy, .01));
+              if (!group) {
+                final row = tester.getRect(find.byKey(_bodyKey));
+                expect(row.center.dy, closeTo(bubble.center.dy, .01));
+              }
               await tester.tap(trigger);
               await tester.pumpAndSettle();
               expect(find.byType(DDropdownMenuContent), findsOneWidget);
@@ -482,6 +487,8 @@ void main() {
         final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
         await mouse.addPointer(location: const Offset(40, 40));
         addTearDown(mouse.removePointer);
+        await Scrollable.ensureVisible(tester.element(trigger), alignment: .5);
+        await tester.pumpAndSettle();
         await mouse.moveTo(tester.getCenter(trigger));
         await tester.pump();
         Color background() => tester
@@ -503,7 +510,7 @@ void main() {
         final scroll = tester
             .state<ScrollableState>(find.byType(Scrollable).first)
             .position;
-        scroll.jumpTo(20);
+        scroll.jumpTo(scroll.pixels + 20);
         await tester.pumpAndSettle();
         expect(find.byType(DDropdownMenuContent), findsNothing);
         expect(triggerOpacity(tester), 0);
