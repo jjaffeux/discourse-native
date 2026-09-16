@@ -55,8 +55,13 @@ void main() {
           tester.getRect(_header).right - 8,
         );
 
+        // The indicator must rotate before the debounce starts a save request.
+        expect(composer.draftStatus, DraftStatus.clean);
+        await _expectSpinnerToRotate(tester);
         final pending = composer.flushDraft();
         await tester.pump();
+        expect(composer.draftStatus, DraftStatus.saving);
+        await _expectSpinnerToRotate(tester);
         saved.complete(1);
         await pending;
         await tester.pump();
@@ -93,6 +98,7 @@ void main() {
         composer.text.text = 'A newer draft with another keystroke';
         await tester.pump();
         expect(changes, 1);
+        await _expectSpinnerToRotate(tester);
         final nextSave = composer.flushDraft();
         saved.complete(2);
         await nextSave;
@@ -246,6 +252,16 @@ void main() {
       expect(_status, findsNothing);
     }
   });
+}
+
+Future<void> _expectSpinnerToRotate(WidgetTester tester) async {
+  final rotation = tester.widget<RotationTransition>(
+    find.descendant(of: _status, matching: find.byType(RotationTransition)),
+  );
+  await tester.pump();
+  final before = rotation.turns.value;
+  await tester.pump(const Duration(milliseconds: 250));
+  expect(rotation.turns.value, isNot(before));
 }
 
 Future<void> _pump(
