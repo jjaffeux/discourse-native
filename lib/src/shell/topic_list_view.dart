@@ -15,7 +15,6 @@ import '../models/topic.dart';
 import '../models/topic_feed.dart';
 import '../plugin_api/plugin_registry.dart';
 import '../plugin_api/plugin_scope.dart';
-import '../plugin_api/site_plugin_api.dart';
 import '../theme/d_icons.dart';
 import '../utils/pagination.dart';
 import 'avatar_image.dart';
@@ -693,21 +692,9 @@ class _TopicListViewState extends State<TopicListView> {
       }
     }
 
-    final siteUrl = controller.currentInstance?.url;
-    final columns = _compact && siteUrl != null
-        ? (PluginScope.maybeOf(context)?.registry ?? PluginRegistry.empty)
-              .topicListColumns(siteUrl)
-              .where(
-                (column) => feed.topicIds.any((id) {
-                  final topic = controller.store.read<Topic>(siteUrl, id);
-                  return topic != null && column.appliesTo(topic);
-                }),
-              )
-              .toList(growable: false)
-        : const <TopicListColumn>[];
     return Column(
       children: [
-        if (_compact) _CompactTopicListHeader(columns: columns),
+        if (_compact) const _CompactTopicListHeader(),
         if (feed.error case final error? when !feed.pageError)
           _FeedErrorBanner(
             key: const ValueKey('topic-feed-refresh-error'),
@@ -861,7 +848,6 @@ class _TopicListViewState extends State<TopicListView> {
                               topicId: topicId,
                               inbox: widget.inbox,
                               compact: _compact,
-                              columns: columns,
                               onOpen: _openRow,
                               hiddenCategoryId:
                                   controller.topicListContent?.categoryId,
@@ -1165,11 +1151,9 @@ class _TopicRow extends StatelessWidget {
     required this.onOpen,
     this.inbox = false,
     required this.compact,
-    required this.columns,
   });
 
   final bool compact;
-  final List<TopicListColumn> columns;
   final int topicId;
   final int? hiddenCategoryId;
   final bool inbox;
@@ -1207,7 +1191,6 @@ class _TopicRow extends StatelessWidget {
                   builder: (context, categoryPresentation, _) => _TopicRowBody(
                     topic: topic,
                     compact: compact,
-                    columns: columns,
                     category: categoryPresentation.category,
                     parentCategory: categoryPresentation.parent,
                     showCategoryBreadcrumb: true,
@@ -1365,11 +1348,9 @@ class _TopicRowBody extends StatelessWidget {
     this.contentPadding,
     this.outerPadding,
     this.compact,
-    this.columns,
   });
 
   final bool? compact;
-  final List<TopicListColumn>? columns;
   final Topic topic;
   final TopicCategory? category;
   final TopicCategory? parentCategory;

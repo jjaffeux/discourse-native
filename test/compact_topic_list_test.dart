@@ -18,6 +18,7 @@ import 'package:discourse_native/src/shell/topic_inbox_row.dart';
 import 'package:discourse_native/src/shell/topic_list_view.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:super_sliver_list/super_sliver_list.dart';
@@ -131,6 +132,100 @@ void main() {
     },
   );
 
+  testWidgets('sparse assignments sit beside tags without reserving a column', (
+    tester,
+  ) async {
+    await _setup(tester);
+    final header = find.byKey(const ValueKey('compact-topic-list-header'));
+    expect(
+      find.descendant(of: header, matching: find.text('Assigned to')),
+      findsNothing,
+    );
+    expect(
+      find.descendant(of: header, matching: find.byType(DTableHead)),
+      findsNWidgets(4),
+    );
+    final assigned = find.byKey(const ValueKey('topic-compact-1'));
+    final unassigned = find.byKey(const ValueKey('topic-compact-2'));
+    expect(
+      find.descendant(of: assigned, matching: find.text('Assigned to')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: unassigned, matching: find.text('Assigned to')),
+      findsNothing,
+    );
+    expect(find.bySemanticsLabel('Assigned to: none'), findsNothing);
+    final tag = find.descendant(of: assigned, matching: find.text('mobile'));
+    final person = find.text('joffrey');
+    expect(tester.getCenter(person).dy, closeTo(tester.getCenter(tag).dy, 2));
+    expect(tester.getRect(person).left, greaterThan(tester.getRect(tag).right));
+    expect(tester.takeException(), isNull);
+  });
+
+  for (final (width, scale, direction, dark) in [
+    (1200.0, 1.0, TextDirection.ltr, false),
+    (390.0, 1.0, TextDirection.ltr, true),
+    (320.0, 2.0, TextDirection.rtl, false),
+  ]) {
+    testWidgets(
+      'full names and post assignments wrap at $width/$scale/$direction',
+      (tester) async {
+        final shell = await _setup(
+          tester,
+          width: width,
+          scale: scale,
+          direction: direction,
+          dark: dark,
+        );
+        final site = shell.currentInstance!.url;
+        final topic = shell.store.read<Topic>(site, 1)!;
+        const name = 'Finance operations and customer success';
+        shell.store.put(
+          site,
+          topic.copyWith(
+            tags: const [],
+            plugins: const PluginRegistry([AssignPlugin()]).readTopic(const {
+              'can_assign': false,
+              'indirectly_assigned_to': {
+                '108': {
+                  'post_number': 22,
+                  'assigned_to': {
+                    'name': 'finance-operations',
+                    'full_name': name,
+                  },
+                },
+                '109': {
+                  'post_number': 26,
+                  'assigned_to': {
+                    'username': 'michael',
+                    'name': 'Michael Fitz-Payne',
+                  },
+                },
+              },
+            }, site),
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(find.text(name), findsOneWidget);
+        expect(find.text('#22'), findsOneWidget);
+        expect(find.text('+1'), findsOneWidget);
+        final text = tester.renderObject<RenderParagraph>(find.text(name));
+        expect(text.didExceedMaxLines, isFalse);
+        expect(tester.takeException(), isNull);
+        final disclosure = find.bySemanticsLabel(
+          'Open topic to view all 2 assignments',
+        );
+        await tester.ensureVisible(disclosure);
+        await tester.pumpAndSettle();
+        await tester.tap(disclosure);
+        await tester.pumpAndSettle();
+        expect(shell.currentContent?.topicId, 1);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
   testWidgets('compact assignment disclosure opens the owning topic', (
     tester,
   ) async {
@@ -160,7 +255,7 @@ void main() {
       'compact rows retain metadata at width $width scale $scale $direction',
       (tester) async {
         await _setup(tester, width: width, scale: scale, direction: direction);
-        expect(find.text('Assigned to '), findsWidgets);
+        expect(find.text('Assigned to'), findsOneWidget);
         expect(find.text('joffrey'), findsOneWidget);
         expect(find.text('Excerpt 1'), findsNothing);
         expect(find.byKey(const ValueKey('topic-compact-1')), findsOneWidget);
@@ -169,7 +264,9 @@ void main() {
     );
   }
 
-  testWidgets('assignment columns require serializer evidence', (tester) async {
+  testWidgets('assignment metadata requires serializer evidence', (
+    tester,
+  ) async {
     await _setup(tester, enableAssignments: false);
     expect(find.text('Assigned to'), findsNothing);
     expect(find.text('Assigned to '), findsNothing);
@@ -177,7 +274,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('compact assignment cells update with their topic record', (
+  testWidgets('compact assignment metadata updates with its topic record', (
     tester,
   ) async {
     final shell = await _setup(tester);
@@ -201,6 +298,32 @@ void main() {
       find.bySemanticsLabel('Open topic to view all 2 assignments'),
       findsNothing,
     );
+    shell.store.put(
+      siteUrl,
+      topic.copyWith(
+        plugins: const PluginRegistry([
+          AssignPlugin(),
+        ]).readTopic(const {'can_assign': false}, siteUrl),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Assigned to'), findsNothing);
+    expect(find.text('support'), findsNothing);
+    final second = shell.store.read<Topic>(siteUrl, 2)!;
+    shell.store.put(
+      siteUrl,
+      second.copyWith(
+        plugins: const PluginRegistry([AssignPlugin()]).readTopic(const {
+          'assigned_to_user': {
+            'username': 'michael',
+            'name': 'Michael Fitz-Payne',
+          },
+        }, siteUrl),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Assigned to'), findsOneWidget);
+    expect(find.text('Michael Fitz-Payne'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -248,6 +371,7 @@ Future<ShellController> _setup(
   double width = 1200,
   bool enableAssignments = true,
   bool enableEvents = false,
+  bool dark = false,
   double scale = 1,
   TextDirection direction = TextDirection.ltr,
   TopicListDisplayMode mode = TopicListDisplayMode.compact,
@@ -338,7 +462,7 @@ Future<ShellController> _setup(
     ShellScope(
       controller: shell,
       child: MaterialApp(
-        theme: AppTheme.light,
+        theme: dark ? AppTheme.dark : AppTheme.light,
         home: MediaQuery(
           data: MediaQueryData(textScaler: TextScaler.linear(scale)),
           child: Directionality(

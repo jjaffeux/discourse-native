@@ -50,6 +50,7 @@ Future<void> main() async {
   final rows = [
     Topic(
       id: 1,
+      bumpedAt: DateTime.now().subtract(const Duration(minutes: 1 * 6)),
       title: 'Sales Stage Cross Functional',
       slug: 'everyday-experience',
       categoryId: 1,
@@ -64,7 +65,10 @@ Future<void> main() async {
             'event_starts_at': '2026-10-14T20:00:00+02:00',
             'event_ends_at': '2026-10-14T21:00:00+02:00',
             'event_timezone': 'Europe/Paris',
-            'assigned_to_user': {'username': 'joffrey'},
+            'assigned_to_user': {
+              'username': 'michael',
+              'name': 'Michael Fitz-Payne',
+            },
             'indirectly_assigned_to': {
               '108': {
                 'post_number': 8,
@@ -75,13 +79,26 @@ Future<void> main() async {
     ),
     Topic(
       id: 2,
+      bumpedAt: DateTime.now().subtract(const Duration(minutes: 2 * 6)),
       title: 'Community planning day',
       slug: 'smaller-screens',
       plugins: const PluginRegistry([AssignPlugin(), EventTopicPlugin()])
           .readTopic(const {
             'event_starts_at': '2026-10-16',
             'event_all_day': true,
-            'assigned_to_group': {'name': 'design'},
+            'indirectly_assigned_to': {
+              '122': {
+                'post_number': 22,
+                'assigned_to': {
+                  'name': 'finance-operations',
+                  'full_name': 'Finance operations and customer success',
+                },
+              },
+              '126': {
+                'post_number': 26,
+                'assigned_to': {'username': 'taylor', 'name': 'Taylor Henry'},
+              },
+            },
           }, site.url),
       categoryId: 2,
       postsCount: 19,
@@ -96,6 +113,7 @@ Future<void> main() async {
     ),
     Topic(
       id: 3,
+      bumpedAt: DateTime.now().subtract(const Duration(minutes: 3 * 6)),
       title: 'Team offsite: product and design',
       plugins: const PluginRegistry([EventTopicPlugin()]).readTopic(const {
         'event_starts_at': '2026-10-22T09:00:00+02:00',
@@ -110,8 +128,9 @@ Future<void> main() async {
       highestPostNumber: 43,
       excerpt: 'Two days together to shape the next chapter of the product.',
     ),
-    const Topic(
+    Topic(
       id: 4,
+      bumpedAt: DateTime.now().subtract(const Duration(minutes: 4 * 6)),
       title: 'Category permissions for growing communities',
       slug: 'category-permissions',
       categoryId: 3,
@@ -120,6 +139,22 @@ Future<void> main() async {
       lastReadPostNumber: 8,
       highestPostNumber: 8,
     ),
+    for (final (id, title) in [
+      (5, 'A simpler way to handle customer handoffs'),
+      (6, 'Notes from this week’s product sync'),
+      (7, 'What should we cover in the next community call?'),
+      (8, 'Share something useful you learned this week'),
+      (9, 'Documentation updates for the next release'),
+    ])
+      Topic(
+        id: id,
+        bumpedAt: DateTime.now().subtract(Duration(minutes: id * 6)),
+        title: title,
+        slug: 'topic-$id',
+        categoryId: 1,
+        postsCount: id + 1,
+        tags: const [TopicTag(name: 'feedback')],
+      ),
   ];
   final shell = ShellController(
     appSettingsStore: AppSettingsStore(

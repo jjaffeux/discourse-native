@@ -5,31 +5,18 @@ part of 'topic_list_view.dart';
 const _compactItemInset = 11.0;
 
 class _CompactTopicLayout {
-  _CompactTopicLayout(
-    BuildContext context,
-    double width,
-    List<TopicListColumn> columns,
-  ) {
+  _CompactTopicLayout(BuildContext context, double width) {
     final scale = MediaQuery.textScalerOf(context).scale(14) / 14;
     final effective = width / scale;
     category = effective >= 560;
     activity = effective >= 300;
     avatar = category;
-    pluginColumns = effective >= 850 ? columns : const [];
     widths = {
       0: const FlexColumnWidth(),
       if (category) 1: FixedColumnWidth(136 * scale),
-      for (var i = 0; i < pluginColumns.length; i++)
-        (category ? 2 : 1) + i: FixedColumnWidth(
-          pluginColumns[i].width * scale,
-        ),
       if (activity) ...{
-        (category ? 2 : 1) + pluginColumns.length: FixedColumnWidth(
-          (category ? 66 : 52) * scale,
-        ),
-        (category ? 3 : 2) + pluginColumns.length: FixedColumnWidth(
-          (avatar ? 96 : 52) * scale,
-        ),
+        (category ? 2 : 1): FixedColumnWidth((category ? 66 : 52) * scale),
+        (category ? 3 : 2): FixedColumnWidth((avatar ? 96 : 52) * scale),
       },
     };
   }
@@ -37,13 +24,11 @@ class _CompactTopicLayout {
   late final bool category;
   late final bool activity;
   late final bool avatar;
-  late final List<TopicListColumn> pluginColumns;
   late final Map<int, TableColumnWidth> widths;
 }
 
 class _CompactTopicListHeader extends StatelessWidget {
-  const _CompactTopicListHeader({required this.columns});
-  final List<TopicListColumn> columns;
+  const _CompactTopicListHeader();
 
   @override
   Widget build(BuildContext context) => ContentReadingLaneBox(
@@ -53,11 +38,7 @@ class _CompactTopicListHeader extends StatelessWidget {
     ),
     child: LayoutBuilder(
       builder: (context, constraints) {
-        final layout = _CompactTopicLayout(
-          context,
-          constraints.maxWidth,
-          columns,
-        );
+        final layout = _CompactTopicLayout(context, constraints.maxWidth);
         final style = Theme.of(context).textTheme.labelSmall?.copyWith(
           color: DTokens.of(context).mutedForeground,
         );
@@ -78,8 +59,6 @@ class _CompactTopicListHeader extends StatelessWidget {
                 cells: [
                   heading('Topic'),
                   if (layout.category) heading('Category'),
-                  for (final column in layout.pluginColumns)
-                    heading(column.label),
                   if (layout.activity) ...[
                     heading('Replies', end: true),
                     heading('Activity', end: true),
@@ -104,7 +83,12 @@ class _CompactTopicRow extends StatelessWidget {
     final topic = row.topic;
     final registry =
         PluginScope.maybeOf(context)?.registry ?? PluginRegistry.empty;
-    final columns = registry.topicListColumns(row.siteUrl);
+    final inlineMetadata = registry.compactTopicListMetadata(
+      context,
+      row.siteUrl,
+      topic,
+      row.onTap,
+    );
     final metadata = registry.topicListMetadata(
       context,
       row.siteUrl,
@@ -149,7 +133,6 @@ class _CompactTopicRow extends StatelessWidget {
                       final layout = _CompactTopicLayout(
                         context,
                         constraints.maxWidth,
-                        row.columns ?? const [],
                       );
                       final style = Theme.of(context).textTheme.labelSmall;
                       final muted = DTokens.of(context).mutedForeground;
@@ -195,44 +178,15 @@ class _CompactTopicRow extends StatelessWidget {
                                       if (row.forum != null ||
                                           (!layout.category &&
                                               row.category != null) ||
-                                          topic.tags.isNotEmpty) ...[
+                                          topic.tags.isNotEmpty ||
+                                          inlineMetadata.isNotEmpty) ...[
                                         const SizedBox(height: DSpacing.xs),
-                                        _taxonomy(
+                                        _metadataLine(
                                           context,
                                           category: !layout.category,
+                                          inlineMetadata: inlineMetadata,
                                         ),
                                       ],
-                                      for (final column in columns.where(
-                                        (column) => !layout.pluginColumns.any(
-                                          (shown) => shown.id == column.id,
-                                        ),
-                                      ))
-                                        if (column.builder(
-                                              context,
-                                              topic,
-                                              row.onTap,
-                                            )
-                                            case final child?)
-                                          Padding(
-                                            padding: const EdgeInsets.only(
-                                              top: DSpacing.xs,
-                                            ),
-                                            child: Wrap(
-                                              spacing: DSpacing.xs,
-                                              runSpacing: DSpacing.xs,
-                                              crossAxisAlignment:
-                                                  WrapCrossAlignment.center,
-                                              children: [
-                                                Text(
-                                                  '${column.label} ',
-                                                  style: TextStyle(
-                                                    color: muted,
-                                                  ),
-                                                ),
-                                                child,
-                                              ],
-                                            ),
-                                          ),
                                       if (!layout.activity)
                                         Padding(
                                           padding: const EdgeInsets.only(
@@ -251,11 +205,6 @@ class _CompactTopicRow extends StatelessWidget {
                                     row.category == null
                                         ? empty('No category')
                                         : _category(context),
-                                  ),
-                                for (final column in layout.pluginColumns)
-                                  cell(
-                                    column.builder(context, topic, row.onTap) ??
-                                        empty('${column.label}: none'),
                                   ),
                                 if (layout.activity) ...[
                                   cell(
@@ -339,7 +288,11 @@ class _CompactTopicRow extends StatelessWidget {
     )?.openCategory(category, siteUrl: row.siteUrl),
   );
 
-  Widget _taxonomy(BuildContext context, {required bool category}) {
+  Widget _metadataLine(
+    BuildContext context, {
+    required bool category,
+    required List<Widget> inlineMetadata,
+  }) {
     final controller = ShellScope.maybeRead(context);
     return Wrap(
       spacing: DSpacing.xs,
@@ -365,6 +318,7 @@ class _CompactTopicRow extends StatelessWidget {
           ),
         if (row.topic.tags.length > 2)
           _TopicTagOverflow(tags: row.topic.tags.skip(2).toList()),
+        ...inlineMetadata,
       ],
     );
   }
