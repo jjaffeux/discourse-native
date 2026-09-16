@@ -2808,7 +2808,7 @@ class _ComposerToolbarScrollButton extends StatelessWidget {
         onPressed: onPressed,
         icon: DIcon(pointsRight ? DIcons.chevronRight : DIcons.chevronLeft),
         variant: DButtonVariant.ghost,
-        size: DButtonSize.small,
+        size: DButtonSize.regular,
       ),
     );
   }
