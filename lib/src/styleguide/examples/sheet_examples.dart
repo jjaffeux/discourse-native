@@ -19,17 +19,19 @@ final sheetExamples = ComponentExamples(
   examples: [
     StyleguideExample(
       title: 'Centered reading panel',
-      description: 'A full-height inset panel centered within its workspace.',
+      description:
+          'A full-height inset panel using the page background, centered within its workspace.',
       code:
-          'DSheetContent(side: DSheetSide.center, inset: true, children: [body])',
-      builder: (_) => DSheet<void>(
+          'DSheetContent(backgroundColor: DTokens.of(context).background, side: DSheetSide.center, inset: true, children: [body])',
+      builder: (context) => DSheet<void>(
         trigger: DSheetTrigger(
           builder: (context, open) => _trigger('Open centered sheet', open),
         ),
-        content: const DSheetContent(
+        content: DSheetContent(
+          backgroundColor: DTokens.of(context).background,
           side: DSheetSide.center,
           inset: true,
-          children: [
+          children: const [
             DSheetHeader(
               children: [DSheetTitle(child: Text('Centered reader'))],
             ),

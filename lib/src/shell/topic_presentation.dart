@@ -207,6 +207,7 @@ class _TopicReaderPresentationState extends State<TopicReaderPresentation> {
       barrierLabel: 'Close topic',
       content: DSheetContent(
         key: const ValueKey('topic-sheet'),
+        backgroundColor: DTokens.of(context).background,
         side: DSheetSide.center,
         inset: true,
         sidePanelMaxWidth: workspace.width,

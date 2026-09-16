@@ -177,7 +177,11 @@ void main() {
   }
 
   testWidgets('topic view switching retains reader and editor', (tester) async {
-    final h = await _setup(tester, size: const Size(2400, 1000));
+    final h = await _setup(
+      tester,
+      size: const Size(2400, 1000),
+      theme: AppTheme.dark,
+    );
     h.shell.openTopicFromList(h.topics.first);
     await tester.pumpAndSettle();
     final readerState = tester.state(_reader);
@@ -218,6 +222,17 @@ void main() {
         find.byKey(const ValueKey('topic-sheet')),
         mode == TopicPresentation.sheet ? findsOneWidget : findsNothing,
       );
+      if (mode == TopicPresentation.sheet) {
+        final surface = tester.widget<Material>(
+          find
+              .descendant(
+                of: find.byKey(const ValueKey('topic-sheet')),
+                matching: find.byType(Material),
+              )
+              .first,
+        );
+        expect(surface.color, Theme.of(tester.element(_reader)).shell.content);
+      }
       expect(await const TopicPresentationStore().read(), mode);
       expect(tester.takeException(), isNull);
     }
@@ -825,6 +840,7 @@ Future<({ShellController shell, List<Topic> topics})> _setup(
   Size size = const Size(1440, 900),
   TextDirection direction = TextDirection.ltr,
   AppSettingsController? settings,
+  ThemeData? theme,
 }) async {
   tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1;
@@ -891,7 +907,7 @@ Future<({ShellController shell, List<Topic> topics})> _setup(
       child: ShellScope(
         controller: shell,
         child: MaterialApp(
-          theme: AppTheme.light,
+          theme: theme ?? AppTheme.light,
           builder: (context, child) => DFocusHighlight(child: child!),
           home: DDirection(
             textDirection: direction,
