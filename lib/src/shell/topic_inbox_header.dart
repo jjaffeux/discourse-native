@@ -224,7 +224,29 @@ class _TopicHeaderToolbar extends StatelessWidget {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                SizedBox(width: lane.padding.left + 4),
+                if (!header.keepTopicListOpen &&
+                    !TopicReaderPresentation.isSheetOf(context))
+                  ConstrainedBox(
+                    constraints: firstLineConstraints.copyWith(
+                      minWidth: lane.padding.left + 4,
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsetsDirectional.only(
+                        end: DSpacing.sm,
+                      ),
+                      child: Align(
+                        alignment: AlignmentDirectional.centerStart,
+                        widthFactor: 1,
+                        heightFactor: 1,
+                        child: TopicCloseButton(
+                          canReturnToSidebar: header.canReturnToSidebar,
+                          backToList: true,
+                        ),
+                      ),
+                    ),
+                  )
+                else
+                  SizedBox(width: lane.padding.left + 4),
                 Expanded(
                   child: Padding(
                     padding: const EdgeInsetsDirectional.only(end: 8),
@@ -328,7 +350,8 @@ class _TopicHeaderActions extends StatelessWidget {
         ],
         if (ShellTitleBar.columnsCarryUserMenu) const UserMenuButton(),
         const TopicPresentationButton(),
-        if (!header.keepTopicListOpen)
+        if (!header.keepTopicListOpen &&
+            TopicReaderPresentation.isSheetOf(context))
           TopicCloseButton(canReturnToSidebar: header.canReturnToSidebar),
       ],
     );
@@ -336,30 +359,39 @@ class _TopicHeaderActions extends StatelessWidget {
 }
 
 class TopicCloseButton extends StatelessWidget {
-  const TopicCloseButton({super.key, required this.canReturnToSidebar});
+  const TopicCloseButton({
+    super.key,
+    required this.canReturnToSidebar,
+    this.backToList = false,
+  });
 
   final bool canReturnToSidebar;
+  final bool backToList;
 
   @override
-  Widget build(BuildContext context) => DButton.iconOnly(
-    key: const ValueKey('topic-close-reader'),
-    icon: const DIcon(DIcons.xmark),
-    tooltip: ShellScope.read(context).topicListContent?.isMessages == true
-        ? 'Collapse message'
-        : 'Collapse topic',
-    variant: DButtonVariant.transparentBackground,
-    size: DButtonSize.regular,
-    onPressed: () {
-      final controller = ShellScope.read(context);
-      if (TopicReaderPresentation.isSheetOf(context)) {
-        controller.closeTopic();
-      } else if (controller.topicListContent != null) {
-        controller.closeTopicListReader();
-      } else {
-        controller.handleBack(canReturnToSidebar: canReturnToSidebar);
-      }
-    },
-  );
+  Widget build(BuildContext context) {
+    final content =
+        ShellScope.read(context).topicListContent?.isMessages == true
+        ? 'message'
+        : 'topic';
+    return DButton.iconOnly(
+      key: const ValueKey('topic-close-reader'),
+      icon: DIcon(backToList ? DIcons.arrowLeft : DIcons.xmark),
+      tooltip: backToList ? 'Back to $content list' : 'Collapse $content',
+      variant: DButtonVariant.transparentBackground,
+      size: DButtonSize.regular,
+      onPressed: () {
+        final controller = ShellScope.read(context);
+        if (TopicReaderPresentation.isSheetOf(context)) {
+          controller.closeTopic();
+        } else if (controller.topicListContent != null) {
+          controller.closeTopicListReader();
+        } else {
+          controller.handleBack(canReturnToSidebar: canReturnToSidebar);
+        }
+      },
+    );
+  }
 }
 
 bool _showTopicSubcategory({
