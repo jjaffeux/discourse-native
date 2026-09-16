@@ -254,6 +254,9 @@ void main() {
       expect(tester.takeException(), isNull);
       await tester.tap(find.byKey(const ValueKey('composer-minimize')));
       await tester.pumpAndSettle();
+      expect(find.byTooltip('Save and close'), findsNothing);
+      await tester.tap(find.byKey(const ValueKey('composer-restore')));
+      await tester.pumpAndSettle();
       await tester.tap(find.byTooltip('Save and close'));
       await tester.pumpAndSettle();
       expect(composer.isDisposed, isTrue);

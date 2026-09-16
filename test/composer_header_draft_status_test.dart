@@ -74,6 +74,13 @@ void main() {
           isTrue,
         );
 
+        await _pump(tester, shell, composer, minimized: true);
+        expect(_status, findsNothing);
+        expect(find.byKey(const ValueKey('composer-close')), findsNothing);
+        await _pump(tester, shell, composer, placement: placement);
+        expect(find.text('Saved'), findsOneWidget);
+        expect(find.byKey(const ValueKey('composer-close')), findsOneWidget);
+
         saved = Completer<int?>();
         var changes = 0;
         composer.addListener(() => changes++);
@@ -134,11 +141,8 @@ void main() {
       expect(find.text('Saved'), findsNothing);
 
       await _pump(tester, shell, composer, minimized: true);
-      expect(tester.getSemantics(_status).label, detail);
-      expect(
-        find.descendant(of: _status, matching: find.byType(DIcon)),
-        findsOneWidget,
-      );
+      expect(_status, findsNothing);
+      expect(find.byKey(const ValueKey('composer-close')), findsNothing);
       expect(find.text(detail), findsNothing);
 
       await _pump(tester, shell, composer);
