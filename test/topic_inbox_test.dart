@@ -556,8 +556,8 @@ void main() {
         (add, DButtonSize.small, 24.0),
         (
           find.byKey(const ValueKey('topic-close-reader')),
-          DButtonSize.small,
-          24.0,
+          DButtonSize.regular,
+          28.0,
         ),
         (
           find.byKey(const ValueKey('topic-header-browse-category-22')),

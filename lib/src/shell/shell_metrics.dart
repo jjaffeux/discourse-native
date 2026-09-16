@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'platform.dart';
 
 const double shellHeaderHeight = 52;
+const double readerHeaderHeight = 44;
 const topicBottomBarPadding = EdgeInsets.all(8);
 
 double topicBottomBarControlHeight(BuildContext context) {
