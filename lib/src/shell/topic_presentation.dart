@@ -76,13 +76,19 @@ class TopicWorkspace extends StatelessWidget {
               children: [
                 if (shell.forumTabsEnabled) const CurrentForumTabsBar(),
                 Expanded(
-                  child: Navigator(
-                    onGenerateRoute: (_) => PageRouteBuilder<void>(
-                      settings: const ReadingRouteSettings(
-                        name: 'topic-workspace',
+                  // Keep nested route semantics inside the workspace when
+                  // editor selection overlays appear in the root overlay.
+                  child: Semantics(
+                    container: true,
+                    explicitChildNodes: true,
+                    child: Navigator(
+                      onGenerateRoute: (_) => PageRouteBuilder<void>(
+                        settings: const ReadingRouteSettings(
+                          name: 'topic-workspace',
+                        ),
+                        pageBuilder: (context, _, _) =>
+                            const _TopicWorkspacePage(),
                       ),
-                      pageBuilder: (context, _, _) =>
-                          const _TopicWorkspacePage(),
                     ),
                   ),
                 ),
@@ -179,6 +185,10 @@ class _TopicReaderPresentationState extends State<TopicReaderPresentation> {
     if (workspace == null) return widget.child;
     if (!workspace.sheet && _outletReady) _closing = true;
     final inSheet = workspace.sheet && _outletReady && !_closing;
+    // Mount a new reader at its final constraints. Existing readers remain
+    // available for the GlobalKey handoff when changing presentation.
+    final awaitingSheet =
+        workspace.sheet && !_outletReady && _readerKey.currentContext == null;
     final shell = ShellScope.read(context);
     final topicId = shell.currentContent?.topicId;
     return DSheet<void>(
@@ -211,7 +221,8 @@ class _TopicReaderPresentationState extends State<TopicReaderPresentation> {
         children: [Expanded(child: _SheetReaderOutlet(owner: this))],
       ),
       trigger: DSheetTrigger(
-        builder: (context, _) => inSheet ? const SizedBox.expand() : _reader,
+        builder: (context, _) =>
+            inSheet || awaitingSheet ? const SizedBox.expand() : _reader,
       ),
     );
   }

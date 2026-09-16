@@ -498,66 +498,57 @@ class _TopicInboxWorkspaceState extends State<_TopicInboxWorkspace> {
                 // The resize handle owns the list/reader boundary. When the
                 // list fills the reader, the shell or composer owns its edge.
                 dividerWidth: 1,
-                child: Offstage(
-                  offstage: topicOpen && !split && !sheet,
-                  child: ExcludeFocus(
-                    excluding: topicOpen && !split && !sheet,
-                    child: TickerMode(
-                      enabled: !topicOpen || split || sheet,
-                      child: Column(
-                        children: [
-                          if (!ShellTitleBar.isSupported)
-                            const ContentReadingLaneBox(
-                              widthLimit: topicListContentWidth,
-                              child: Padding(
-                                padding: EdgeInsets.fromLTRB(
-                                  topicListHorizontalPadding,
-                                  0,
-                                  topicListHorizontalPadding,
-                                  8,
-                                ),
-                                child: ForumSearch(dense: true),
-                              ),
+                child: _RetainedTopicListPane(
+                  key: ValueKey((state.siteUrl, sourceRoute.id)),
+                  hidden: topicOpen && !split && !sheet,
+                  child: Column(
+                    children: [
+                      if (!ShellTitleBar.isSupported)
+                        const ContentReadingLaneBox(
+                          widthLimit: topicListContentWidth,
+                          child: Padding(
+                            padding: EdgeInsets.fromLTRB(
+                              topicListHorizontalPadding,
+                              0,
+                              topicListHorizontalPadding,
+                              8,
                             ),
-                          Expanded(
-                            child: _FeedBackedContent(
-                              route: sourceRoute,
-                              siteUrl: state.siteUrl,
-                              inbox: true,
-                              keepTopicOpen: split,
-                              topicListHeadingBuilder: buildHeading,
-                            ),
+                            child: ForumSearch(dense: true),
                           ),
-                          TopicListBottomBar(
-                            leading: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Flexible(child: createAction),
-                                if (state.isConnected &&
-                                    state.siteUrl != null &&
-                                    sourceRoute.categoryId != null) ...[
-                                  const SizedBox(width: DSpacing.sm),
-                                  CategoryNotificationLevelButton(
-                                    siteUrl: state.siteUrl!,
-                                    categoryId: sourceRoute.categoryId!,
-                                    showLabel:
-                                        listWidth >= 440 * buttonTextScale,
-                                  ),
-                                ],
-                              ],
-                            ),
-                            // The footer padding already clears the desktop handle.
-                            trailingInset: split
-                                ? DResizableHandle.resolveHitExtent(
-                                        context,
-                                        8,
-                                      ) -
-                                      topicBottomBarPadding.horizontal / 2
-                                : 0,
-                          ),
-                        ],
+                        ),
+                      Expanded(
+                        child: _FeedBackedContent(
+                          route: sourceRoute,
+                          siteUrl: state.siteUrl,
+                          inbox: true,
+                          keepTopicOpen: split,
+                          topicListHeadingBuilder: buildHeading,
+                        ),
                       ),
-                    ),
+                      TopicListBottomBar(
+                        leading: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Flexible(child: createAction),
+                            if (state.isConnected &&
+                                state.siteUrl != null &&
+                                sourceRoute.categoryId != null) ...[
+                              const SizedBox(width: DSpacing.sm),
+                              CategoryNotificationLevelButton(
+                                siteUrl: state.siteUrl!,
+                                categoryId: sourceRoute.categoryId!,
+                                showLabel: listWidth >= 440 * buttonTextScale,
+                              ),
+                            ],
+                          ],
+                        ),
+                        // The footer padding already clears the desktop handle.
+                        trailingInset: split
+                            ? DResizableHandle.resolveHitExtent(context, 8) -
+                                  topicBottomBarPadding.horizontal / 2
+                            : 0,
+                      ),
+                    ],
                   ),
                 ),
               ),
@@ -590,6 +581,62 @@ class _TopicInboxWorkspaceState extends State<_TopicInboxWorkspace> {
         );
       },
     ),
+  );
+}
+
+/// Retains the hidden source list without reflowing it when the editor opens.
+class _RetainedTopicListPane extends StatefulWidget {
+  const _RetainedTopicListPane({
+    super.key,
+    required this.hidden,
+    required this.child,
+  });
+
+  final bool hidden;
+  final Widget child;
+
+  @override
+  State<_RetainedTopicListPane> createState() => _RetainedTopicListPaneState();
+}
+
+class _RetainedTopicListPaneState extends State<_RetainedTopicListPane> {
+  Size? _visibleSize;
+  Widget? _visibleChild;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    Theme.of(context);
+    MediaQuery.textScalerOf(context);
+    DDirection.of(context);
+    _visibleChild = null;
+  }
+
+  @override
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, constraints) {
+      if (!widget.hidden || _visibleChild == null) {
+        _visibleSize = constraints.biggest;
+        _visibleChild = widget.child;
+      }
+      return Offstage(
+        offstage: widget.hidden,
+        child: ExcludeFocus(
+          excluding: widget.hidden,
+          child: TickerMode(
+            enabled: !widget.hidden,
+            child: OverflowBox(
+              alignment: Alignment.topLeft,
+              minWidth: _visibleSize!.width,
+              maxWidth: _visibleSize!.width,
+              minHeight: _visibleSize!.height,
+              maxHeight: _visibleSize!.height,
+              child: _visibleChild,
+            ),
+          ),
+        ),
+      );
+    },
   );
 }
 

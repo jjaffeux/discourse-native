@@ -2,8 +2,10 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
+import '../diagnostics/surface_opening_trace.dart';
 import '../models/composer_placement.dart';
 import '../theme/app_theme.dart';
 import 'composer_controller.dart';
@@ -81,6 +83,8 @@ class _ComposerPresentationHostState extends State<ComposerPresentationHost> {
   late final _presentation =
       widget.controller ?? ComposerPresentationController();
   ShellController? _shell;
+  List<ComposerController> _knownComposers = const [];
+  ComposerController? _knownVisibleComposer;
 
   ComposerController? get _presentableComposer => _shell!.visibleComposer;
 
@@ -107,8 +111,22 @@ class _ComposerPresentationHostState extends State<ComposerPresentationHost> {
     super.didChangeDependencies();
     final shell = ShellScope.read(context);
     if (identical(shell, _shell)) return;
-    _shell?.removeListener(_changed);
-    _shell = shell..addListener(_changed);
+    _shell?.removeListener(_shellChanged);
+    _shell = shell..addListener(_shellChanged);
+    _knownComposers = shell.liveComposers.toList();
+    _knownVisibleComposer = shell.visibleComposer;
+  }
+
+  void _shellChanged() {
+    final composers = _shell!.liveComposers.toList();
+    final visible = _shell!.visibleComposer;
+    if (listEquals(composers, _knownComposers) &&
+        identical(visible, _knownVisibleComposer)) {
+      return;
+    }
+    _knownComposers = composers;
+    _knownVisibleComposer = visible;
+    _changed();
   }
 
   void _changed() {
@@ -206,7 +224,7 @@ class _ComposerPresentationHostState extends State<ComposerPresentationHost> {
 
   @override
   void dispose() {
-    _shell?.removeListener(_changed);
+    _shell?.removeListener(_shellChanged);
     _presentation.removeListener(_changed);
     if (widget.controller == null) _presentation.dispose();
     super.dispose();
@@ -319,29 +337,31 @@ class _ComposerDockState extends State<ComposerDock> {
       ComposerPlacement? workspacePlacement,
     }) => SizedBox.expand(
       key: _readerViewportKey,
-      child: widget.appWorkspace
-          ? _ComposerWorkspaceScope(
-              placement: workspacePlacement,
-              child: Semantics(
-                container: true,
-                explicitChildNodes: true,
-                child: reader,
-              ),
-            )
-          : LayoutBuilder(
-              builder: (context, bounds) => DScrollArea(
-                thumbVisibility: false,
-                child: SizedBox(
-                  height: bottomDocked
-                      ? math.max(
-                          bounds.maxHeight,
-                          MediaQuery.textScalerOf(context).scale(320),
-                        )
-                      : bounds.maxHeight,
+      child: RepaintBoundary(
+        child: widget.appWorkspace
+            ? _ComposerWorkspaceScope(
+                placement: workspacePlacement,
+                child: Semantics(
+                  container: true,
+                  explicitChildNodes: true,
                   child: reader,
                 ),
+              )
+            : LayoutBuilder(
+                builder: (context, bounds) => DScrollArea(
+                  thumbVisibility: false,
+                  child: SizedBox(
+                    height: bottomDocked
+                        ? math.max(
+                            bounds.maxHeight,
+                            MediaQuery.textScalerOf(context).scale(320),
+                          )
+                        : bounds.maxHeight,
+                    child: reader,
+                  ),
+                ),
               ),
-            ),
+      ),
     );
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final element = _readerViewportKey.currentContext;
@@ -359,7 +379,15 @@ class _ComposerDockState extends State<ComposerDock> {
         );
       }
     });
-    if (entry == null) return readerViewport();
+    if (entry != null) {
+      SurfaceOpeningTrace.afterFrame(
+        'composer.visibleFrame',
+        isCurrent: () =>
+            mounted &&
+            identical(owner._activeDock, this) &&
+            identical(owner._presentableComposer, composer),
+      );
+    }
     final mobile = context.isTouch;
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -370,6 +398,26 @@ class _ComposerDockState extends State<ComposerDock> {
               ? 480
               : ComposerPresentationController.readerMinimum,
         );
+        if (entry == null) {
+          // Keep the reader in the same panel ancestry when the editor opens.
+          // Reparenting it invalidates inherited dependencies in every post.
+          return DDirection(
+            textDirection: TextDirection.ltr,
+            child: DResizablePanelGroup(
+              key: const ValueKey('composer-dock'),
+              orientation: placement.isSide ? Axis.horizontal : Axis.vertical,
+              children: [
+                DResizablePanel(
+                  id: 'reader',
+                  child: DDirection(
+                    textDirection: DDirection.of(context),
+                    child: readerViewport(),
+                  ),
+                ),
+              ],
+            ),
+          );
+        }
         final minimized = entry.minimized;
         if (minimized) {
           return Column(
