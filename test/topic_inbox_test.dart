@@ -62,6 +62,11 @@ void main() {
     setup.controller.openTopicFromList(setup.rows.first);
     await tester.pumpAndSettle();
     expect(card(setup.rows.first.id).selected, isTrue);
+    expect(
+      card(setup.rows.first.id).selectionStyle,
+      DItemSelectionStyle.outline,
+    );
+    expect(card(setup.rows.first.id).showSelectionIndicator, isFalse);
     expect(card(setup.rows[1].id).selected, isFalse);
     setup.controller.openTopicFromList(setup.rows[1]);
     await tester.pumpAndSettle();

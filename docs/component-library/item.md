@@ -181,3 +181,28 @@ subsequently completed browser/native inspection through the repository's
 serialized desktop lease, without an admin-policy retry or workaround. The
 accepted Dropdown composition passed its focused selection, semantics,
 dismissal and trigger-focus-restoration regression in the final candidate.
+
+## Topic selection outline — 2026-09-16
+
+`DItemSelectionStyle.outline` is the user-approved A treatment for topic rows:
+a 2px theme-accent border on the normal surface, with a faint neutral hover.
+The foreground border preserves content geometry when selection moves. Topic
+rows use it for the open topic and the keyboard cursor; unread title and badge
+styling remain independent. The existing tinted selection remains the default
+for other Item consumers. The interactive **Outline selection** styleguide
+example demonstrates the new option.
+
+Verification: Item, styleguide examples, keyboard navigation, topic inbox, and
+interactive-row highlight tests pass, including immediate selection movement,
+unchanged content bounds, hover, light/dark themes, and narrow RTL examples.
+Root `flutter analyze --no-pub`, formatting, and `git diff --check` pass.
+The installed Flutter 3.47.4 was used; the repository's Flutter pin and lockfiles
+were not changed.
+
+Native macOS review used an isolated build of
+`tool/topics_inbox_review_main.dart`. Inspected keyboard-selected production
+topic rows in light and dark themes and at 390px with 200% text, including
+independent unread dots/counts. Inspected and clicked both rows in the new Item
+styleguide example, then changed its preview from dark to light. Open-reader
+selection was verified by widget tests; the offline native fixture has no topic
+detail responses. iOS/Linux were not run on devices.

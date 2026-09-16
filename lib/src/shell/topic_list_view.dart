@@ -1297,9 +1297,10 @@ class _TopicRowBody extends StatelessWidget {
           child: DItem(
             padding: contentPadding,
             key: ValueKey('topic-card-${topic.id}'),
-            selected: selected,
+            selected: selected || keyboardSelected,
+            selectionStyle: DItemSelectionStyle.outline,
             showSelectionIndicator: false,
-            variant: keyboardSelected ? DItemVariant.muted : itemVariant,
+            variant: itemVariant,
             onPressed: onTap,
             link: true,
             footer: pluginMetadata.isEmpty

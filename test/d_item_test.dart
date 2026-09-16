@@ -1,6 +1,7 @@
 import 'dart:ui' as ui;
 
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
@@ -52,6 +53,104 @@ Widget sample(DItemSize size) => DItem(
 );
 
 void main() {
+  testWidgets(
+    'outline selection moves immediately without tint or layout shift',
+    (tester) async {
+      final strategy = FocusManager.instance.highlightStrategy;
+      FocusManager.instance.highlightStrategy =
+          FocusHighlightStrategy.alwaysTraditional;
+      addTearDown(() => FocusManager.instance.highlightStrategy = strategy);
+      final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      addTearDown(mouse.removePointer);
+      await mouse.addPointer(location: const Offset(700, 500));
+      for (final brightness in Brightness.values) {
+        final theme = ThemeData(brightness: brightness);
+        final tokens = DTokens.fromTheme(theme);
+        var selected = 0;
+        await tester.pumpWidget(
+          host(
+            StatefulBuilder(
+              builder: (context, setState) => DItemGroup(
+                children: [
+                  for (var i = 0; i < 2; i++)
+                    DItem(
+                      key: ValueKey(i),
+                      selected: i == selected,
+                      selectionStyle: DItemSelectionStyle.outline,
+                      showSelectionIndicator: false,
+                      variant: DItemVariant.outline,
+                      onPressed: () => setState(() => selected = i),
+                      children: [
+                        DItemContent(
+                          children: [DItemTitle(child: Text('Topic $i'))],
+                        ),
+                      ],
+                    ),
+                ],
+              ),
+            ),
+            theme: theme,
+          ),
+        );
+        await tester.pumpAndSettle();
+        Container surface(int i) => tester.widget<Container>(
+          find.descendant(
+            of: find.byKey(ValueKey(i)),
+            matching: find.byWidgetPredicate(
+              (widget) =>
+                  widget is Container && widget.decoration is BoxDecoration,
+            ),
+          ),
+        );
+        final positions = [
+          for (var i = 0; i < 2; i++) tester.getRect(find.text('Topic $i')),
+        ];
+        expect(
+          (surface(0).decoration! as BoxDecoration).color,
+          Colors.transparent,
+        );
+        expect(
+          (surface(0).foregroundDecoration! as BoxDecoration).border,
+          Border.all(color: tokens.primary, width: 2),
+        );
+        await tester.tap(find.text('Topic 1'));
+        await tester.pump();
+        for (final duration in [
+          Duration.zero,
+          const Duration(milliseconds: 40),
+        ]) {
+          await tester.pump(duration);
+          expect(surface(0).foregroundDecoration, isNull);
+          expect(
+            (surface(1).foregroundDecoration! as BoxDecoration).border,
+            Border.all(color: tokens.primary, width: 2),
+          );
+          for (var i = 0; i < 2; i++) {
+            expect(
+              (surface(i).decoration! as BoxDecoration).color,
+              Colors.transparent,
+            );
+            expect(tester.getRect(find.text('Topic $i')), positions[i]);
+          }
+        }
+        await mouse.moveTo(tester.getCenter(find.text('Topic 1')));
+        await tester.pump();
+        expect(
+          (surface(1).decoration! as BoxDecoration).color,
+          tokens.foreground.withValues(alpha: .03),
+        );
+        expect(surface(1).foregroundDecoration, isNotNull);
+        await mouse.moveTo(const Offset(700, 500));
+        await tester.pump();
+        expect(
+          (surface(1).decoration! as BoxDecoration).color,
+          Colors.transparent,
+        );
+        await tester.pumpWidget(const SizedBox());
+      }
+    },
+  );
+
   testWidgets(
     'controlled selection adds and removes its indicator and semantics',
     (tester) async {

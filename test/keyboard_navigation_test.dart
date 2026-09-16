@@ -478,7 +478,11 @@ void main() {
         final setup = await _setup(tester);
         if (openWithKeyboard) {
           await _moveTopic(tester, next: true);
-          expect(_topicItem(tester, 1).variant, DItemVariant.muted);
+          expect(_topicItem(tester, 1).selected, isTrue);
+          expect(
+            _topicItem(tester, 1).selectionStyle,
+            DItemSelectionStyle.outline,
+          );
           await tester.sendKeyEvent(LogicalKeyboardKey.enter);
         } else {
           await tester.tap(find.text('Keyboard topic 1'));
@@ -492,13 +496,18 @@ void main() {
         await tester.pumpAndSettle();
         expect(setup.shell.currentContent?.topicId, 1);
         expect(_topicItem(tester, 1).selected, isTrue);
-        expect(_topicItem(tester, 2).selected, isFalse);
-        expect(_topicItem(tester, 2).variant, DItemVariant.muted);
+        expect(_topicItem(tester, 2).selected, isTrue);
+        expect(_topicItem(tester, 2).variant, DItemVariant.outline);
+        expect(
+          _topicItem(tester, 2).selectionStyle,
+          DItemSelectionStyle.outline,
+        );
         expect(_selectedTopics(tester), [2]);
 
         await _moveTopic(tester, next: false);
         expect(_topicItem(tester, 1).selected, isTrue);
-        expect(_topicItem(tester, 1).variant, DItemVariant.muted);
+        expect(_topicItem(tester, 1).variant, DItemVariant.outline);
+        expect(_topicItem(tester, 2).selected, isFalse);
         expect(_selectedTopics(tester), [1]);
         expect(tester.takeException(), isNull);
       },
