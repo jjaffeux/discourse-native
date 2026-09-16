@@ -352,7 +352,7 @@ class TopicCloseButton extends StatelessWidget {
     onPressed: () {
       final controller = ShellScope.read(context);
       if (TopicReaderPresentation.isSheetOf(context)) {
-        controller.closeTopic();
+        Navigator.of(context).maybePop();
       } else if (controller.topicListContent != null) {
         controller.closeTopicListReader();
       } else {

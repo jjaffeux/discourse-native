@@ -38,12 +38,26 @@ class ComposerPresentationHost extends StatefulWidget {
   static Listenable layoutChangesOf(BuildContext context) =>
       _ComposerPresentationScope.of(context)._presentation;
 
+  /// Lets the dock finish its exit before the caller retires the editor.
+  /// Standalone composer hosts have no dock transition to await.
+  static Future<void> closeAnimationOf(
+    BuildContext context,
+    ComposerController composer,
+  ) {
+    final owner = context
+        .getInheritedWidgetOfExactType<_ComposerPresentationScope>()
+        ?.owner;
+    return owner?._closeAnimation(composer) ?? Future<void>.value();
+  }
+
   /// Reader width if the editor were docked in the outer desktop workspace.
   /// Used to reserve room for a side composer within a topic sheet.
   static double readerWidthOf(BuildContext context, double width) {
     final owner = _ComposerPresentationScope.of(context);
     final entry = owner._entries[owner._presentableComposer];
-    if (entry == null || entry.minimized) return width;
+    if (entry == null || entry.minimized || entry.closeAnimation != null) {
+      return width;
+    }
     final placement = owner._presentation.effectivePlacement(
       mobile: false,
       width: width,
@@ -69,6 +83,8 @@ class _ComposerEntry {
   bool minimized = false;
   bool moving = false;
   Size size = const Size(420, 380);
+  ComposerPlacement placement = ComposerPlacement.right;
+  Completer<void>? closeAnimation;
 }
 
 class _ComposerPresentationHostState extends State<ComposerPresentationHost> {
@@ -81,8 +97,36 @@ class _ComposerPresentationHostState extends State<ComposerPresentationHost> {
   late final _presentation =
       widget.controller ?? ComposerPresentationController();
   ShellController? _shell;
+  _ComposerEntry? _closingEntry;
 
-  ComposerController? get _presentableComposer => _shell!.visibleComposer;
+  ComposerController? get _presentableComposer =>
+      _shell!.visibleComposer ??
+      (_shell!.forumActive &&
+              _shell!.currentInstance?.url ==
+                  _closingEntry?.composer.target.siteUrl
+          ? _closingEntry?.composer
+          : null);
+
+  Future<void> _closeAnimation(ComposerController composer) {
+    final entry = _entries[composer];
+    if (entry == null || composer.isDisposed || _activeDock == null) {
+      return Future<void>.value();
+    }
+    if (entry.closeAnimation case final animation?) return animation.future;
+    if (_closingEntry case final previous?) _finishClose(previous);
+    final animation = entry.closeAnimation = Completer<void>();
+    setState(() => _closingEntry = entry);
+    return animation.future;
+  }
+
+  void _finishClose(_ComposerEntry entry) {
+    final animation = entry.closeAnimation;
+    if (animation == null) return;
+    entry.closeAnimation = null;
+    if (identical(_closingEntry, entry)) _closingEntry = null;
+    if (!animation.isCompleted) animation.complete();
+    if (mounted) setState(() {});
+  }
 
   void _syncDocks() {
     // Park the editor until its dock is mounted, preserving editing state
@@ -144,6 +188,7 @@ class _ComposerPresentationHostState extends State<ComposerPresentationHost> {
     required Size size,
   }) {
     if (!entry.minimized) entry.size = size;
+    entry.placement = placement;
     return _ComposerSurface(
       key: entry.surfaceKey,
       entry: entry,
@@ -173,8 +218,18 @@ class _ComposerPresentationHostState extends State<ComposerPresentationHost> {
     _entries.removeWhere((composer, _) => !live.contains(composer));
     final current = _presentableComposer;
     _activeDock = _docks
-        .where((dock) => dock.mounted && dock.widget.enabled)
+        .where((dock) => dock.mounted && dock._available)
         .lastOrNull;
+    if (_closingEntry case final entry?) {
+      if (_activeDock == null ||
+          current != entry.composer ||
+          entry.composer.isDisposed ||
+          !_entries.containsKey(entry.composer)) {
+        WidgetsBinding.instance.addPostFrameCallback(
+          (_) => _finishClose(entry),
+        );
+      }
+    }
     return _ComposerPresentationScope(
       owner: this,
       child: Stack(
@@ -206,6 +261,10 @@ class _ComposerPresentationHostState extends State<ComposerPresentationHost> {
 
   @override
   void dispose() {
+    for (final entry in _entries.values) {
+      final animation = entry.closeAnimation;
+      if (animation != null && !animation.isCompleted) animation.complete();
+    }
     _shell?.removeListener(_changed);
     _presentation.removeListener(_changed);
     if (widget.controller == null) _presentation.dispose();
@@ -265,6 +324,14 @@ class _ComposerDockState extends State<ComposerDock> {
   double? _resizeProposal;
   _ComposerPresentationHostState? _owner;
   ComposerController? _visibleComposer;
+  ModalRoute<dynamic>? _route;
+
+  // A dismissed route is about to lose its subtree. Reparent its retained
+  // editor during this frame, before Navigator disposes the outgoing dock.
+  bool get _available =>
+      widget.enabled &&
+      !(_route?.isActive == false &&
+          _route?.animation?.status == AnimationStatus.dismissed);
 
   @override
   void didUpdateWidget(ComposerDock oldWidget) {
@@ -275,6 +342,7 @@ class _ComposerDockState extends State<ComposerDock> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    _route = ModalRoute.of(context);
     final owner = _ComposerPresentationScope.of(context);
     if (identical(owner, _owner)) return;
     _owner?._docks.remove(this);
@@ -363,20 +431,33 @@ class _ComposerDockState extends State<ComposerDock> {
     final mobile = context.isTouch;
     return LayoutBuilder(
       builder: (context, constraints) {
-        final placement = owner._presentation.effectivePlacement(
-          mobile: mobile,
-          width: constraints.maxWidth,
-          minimumReaderWidth: widget.appWorkspace
-              ? 480
-              : ComposerPresentationController.readerMinimum,
-        );
+        final closing = entry.closeAnimation != null;
+        final placement = closing
+            ? entry.placement
+            : owner._presentation.effectivePlacement(
+                mobile: mobile,
+                width: constraints.maxWidth,
+                minimumReaderWidth: widget.appWorkspace
+                    ? 480
+                    : ComposerPresentationController.readerMinimum,
+              );
         final minimized = entry.minimized;
         if (minimized) {
-          return Column(
+          return DResizablePanelGroup(
+            orientation: Axis.vertical,
+            closingPanel: closing ? 'composer' : null,
+            onPanelClosed: () => owner._finishClose(entry),
+            layout: {
+              'reader': DResizableSize.pixels(
+                math.max(0, constraints.maxHeight - ComposerHeader.height - 1),
+              ),
+              'composer': const DResizableSize.pixels(ComposerHeader.height),
+            },
             children: [
-              Expanded(child: readerViewport()),
-              SizedBox(
-                height: ComposerHeader.height,
+              DResizablePanel(id: 'reader', child: readerViewport()),
+              const DResizableHandle(disabled: true, dividerThickness: 0),
+              DResizablePanel(
+                id: 'composer',
                 child: owner._surface(
                   entry,
                   placement: placement,
@@ -460,11 +541,14 @@ class _ComposerDockState extends State<ComposerDock> {
           child: DResizablePanelGroup(
             key: const ValueKey('composer-dock'),
             orientation: side ? Axis.horizontal : Axis.vertical,
+            closingPanel: closing ? 'composer' : null,
+            onPanelClosed: () => owner._finishClose(entry),
             layout: {
               'composer': DResizableSize.pixels(size),
               'reader': DResizableSize.pixels(math.max(0, extent - size - 1)),
             },
             onLayoutChange: (layout) {
+              if (closing) return;
               final proposal = layout['composer']!;
               if ((proposal - size).abs() < .01) return;
               _resizeProposal = proposal;
@@ -476,6 +560,7 @@ class _ComposerDockState extends State<ComposerDock> {
               );
             },
             onLayoutChanged: (layout) {
+              if (closing) return;
               if (_resizeProposal == null) return;
               final proposal = _resizeProposal!;
               _resizeProposal = null;
@@ -529,7 +614,7 @@ class _ComposerSurface extends StatelessWidget {
     return Material(
       color: Theme.of(context).shell.content,
       child: AbsorbPointer(
-        absorbing: entry.moving,
+        absorbing: entry.moving || entry.composer.closing,
         child: Stack(
           children: [
             ExcludeFocus(

@@ -20,6 +20,15 @@ final resizableExamples = ComponentExamples(
       'Infeasible minima are clipped and excess maximum space stays empty; switch '
       'responsive modes before that point. Layout is not a Form input.',
   examples: [
+    StyleguideExample(
+      title: 'Closing a panel',
+      description:
+          'Close the editor to fade its content and release its space in 160ms. Reduced motion completes immediately.',
+      code:
+          "DResizablePanelGroup(closingPanel: closing ? 'editor' : null, onPanelClosed: removeEditor, children: panels)",
+      states: const ['Closing', 'Retained content size', 'Reduced motion'],
+      builder: (_) => const _ClosingPanelExample(),
+    ),
     for (final variant in ['Horizontal', 'Vertical', 'Handle', 'Nested'])
       StyleguideExample(
         title: variant,
@@ -64,6 +73,68 @@ final resizableExamples = ComponentExamples(
     ),
   ],
 );
+
+class _ClosingPanelExample extends StatefulWidget {
+  const _ClosingPanelExample();
+
+  @override
+  State<_ClosingPanelExample> createState() => _ClosingPanelExampleState();
+}
+
+class _ClosingPanelExampleState extends State<_ClosingPanelExample> {
+  bool _visible = true;
+  bool _closing = false;
+
+  @override
+  Widget build(BuildContext context) => SizedBox(
+    height: 260,
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      spacing: DSpacing.md,
+      children: [
+        DButton(
+          label: Text(_visible ? 'Close editor' : 'Restore editor'),
+          onPressed: _closing
+              ? null
+              : () => setState(() {
+                  if (_visible) {
+                    _closing = true;
+                  } else {
+                    _visible = true;
+                  }
+                }),
+        ),
+        Expanded(
+          child: DResizablePanelGroup(
+            closingPanel: _closing ? 'editor' : null,
+            onPanelClosed: () => setState(() {
+              _visible = false;
+              _closing = false;
+            }),
+            children: [
+              const DResizablePanel(id: 'reader', child: _Label('Reader')),
+              if (_visible) ...[
+                const DResizableHandle(),
+                DResizablePanel(
+                  id: 'editor',
+                  defaultSize: const DResizableSize.percent(45),
+                  child: Padding(
+                    padding: const EdgeInsets.all(DSpacing.md),
+                    child: DTextarea(
+                      semanticLabel: 'Example editor',
+                      hintText: 'Draft',
+                      maxLines: 3,
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ],
+    ),
+  );
+}
 
 class _Label extends StatelessWidget {
   const _Label(this.text);
