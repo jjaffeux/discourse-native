@@ -1,6 +1,7 @@
 import 'dart:async';
 
-import 'package:discourse_native/discourse_ui.dart' show DSwitch;
+import 'package:discourse_native/discourse_ui.dart'
+    show DDropdownMenuCheckboxItem;
 import 'package:discourse_native/src/data/discourse_api_contracts.dart';
 import 'package:discourse_native/src/data/site_lifecycle.dart';
 import 'package:discourse_native/src/models/content_route.dart';
@@ -21,8 +22,8 @@ import 'package:discourse_native/src/shell/composer_panel.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
-import 'package:discourse_native/src/theme/d_icon.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/fakes.dart';
@@ -146,6 +147,7 @@ Future<({ShellController shell, FakeDiscourseApi api})> _openReply({
     'suggestions': ['This is the polished reply.'],
   },
   WriteException? proofreadingFailure,
+  SiteConfig? config,
 }) async {
   final api = FakeDiscourseApi(
     user: _allowedUser,
@@ -153,7 +155,7 @@ Future<({ShellController shell, FakeDiscourseApi api})> _openReply({
     topics: {
       7: topicPayload(id: 7, title: 'Native writing', canCreatePost: true),
     },
-    siteConfigs: {_siteUrl: _enabledConfig},
+    siteConfigs: {_siteUrl: config ?? _enabledConfig},
     pluginResponses: proofreadingResponse == null
         ? const {}
         : {'POST $aiProofreadingPath': proofreadingResponse},
@@ -205,6 +207,11 @@ Future<void> _pumpComposer(
     ),
   ),
 );
+
+Future<void> _openOptions(WidgetTester tester) async {
+  await tester.tap(find.byKey(const ValueKey('composer-options')));
+  await tester.pumpAndSettle();
+}
 
 void main() {
   test('decodes the AI settings and assistant permission conservatively', () {
@@ -361,7 +368,7 @@ void main() {
     },
   );
 
-  testWidgets('narrow footer hides labels and preserves Proofread on resize', (
+  testWidgets('More follows Insert and keeps Proofread labeled on resize', (
     tester,
   ) async {
     tester.view.physicalSize = const Size(360, 640);
@@ -372,106 +379,62 @@ void main() {
     await _pumpComposer(tester, fixture.shell);
     await tester.pump();
 
+    final more = find.byKey(const ValueKey('composer-options'));
+    final insert = find.byKey(const ValueKey('composer-insert'));
     final control = find.byKey(const ValueKey('composer-proofread-control'));
-    expect(control, findsOneWidget);
-    expect(
-      tester.getRect(control).top,
-      greaterThan(tester.getRect(find.byType(ComposerEditor)).bottom),
-    );
-    expect(
-      find.descendant(of: control, matching: find.text('Proofread')),
-      findsNothing,
-    );
-    expect(
-      find.descendant(of: control, matching: find.byType(DIcon)),
-      findsNothing,
-    );
     final submit = find.byKey(const ValueKey('composer-submit'));
-    final footer = find.byKey(const ValueKey('composer-toolbar-scroll'));
+    expect(more, findsOneWidget);
+    expect(control, findsNothing);
     expect(
-      find.descendant(of: submit, matching: find.text('Reply')),
-      findsNothing,
+      tester.getRect(more).left,
+      greaterThanOrEqualTo(tester.getRect(insert).right),
     );
-    expect(
-      tester.getCenter(control).dy,
-      closeTo(tester.getCenter(footer).dy, 1),
-    );
-    expect(
-      tester.getCenter(submit).dy,
-      closeTo(tester.getCenter(footer).dy, 1),
-    );
+    expect(tester.getCenter(more).dy, closeTo(tester.getCenter(submit).dy, 1));
     final semantics = tester.ensureSemantics();
     try {
-      expect(
-        tester
-            .getSemantics(
-              find.byKey(const ValueKey('composer-proofread-toggle')),
-            )
-            .label,
-        'Proofread',
-      );
-      expect(tester.getSemantics(submit).label, 'Reply');
+      expect(tester.getSemantics(more).label, 'More');
+
+      await _openOptions(tester);
+      expect(find.text('Proofread'), findsOneWidget);
+      expect(tester.getSemantics(control).label, 'Proofread');
     } finally {
       semantics.dispose();
     }
-    expect(
-      tester
-          .widget<DSwitch>(
-            find.byKey(const ValueKey('composer-proofread-switch')),
-          )
-          .value,
-      isFalse,
-    );
-
+    expect(tester.widget<DDropdownMenuCheckboxItem>(control).checked, isFalse);
+    expect(tester.getRect(control).right, lessThanOrEqualTo(360));
     await tester.tap(control);
     await tester.pump();
+    expect(tester.widget<DDropdownMenuCheckboxItem>(control).checked, isTrue);
 
-    expect(
-      tester
-          .widget<DSwitch>(
-            find.byKey(const ValueKey('composer-proofread-switch')),
-          )
-          .value,
-      isTrue,
-    );
-
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+    expect(control, findsNothing);
     tester.view.physicalSize = const Size(800, 640);
-    await tester.pump();
+    await tester.pumpAndSettle();
+    await _openOptions(tester);
     expect(find.text('Proofread'), findsOneWidget);
-    expect(
-      find.descendant(of: submit, matching: find.text('Reply')),
-      findsOneWidget,
-    );
-    expect(
-      tester
-          .widget<DSwitch>(
-            find.byKey(const ValueKey('composer-proofread-switch')),
-          )
-          .value,
-      isTrue,
-    );
+    expect(tester.widget<DDropdownMenuCheckboxItem>(control).checked, isTrue);
 
     tester.view.physicalSize = const Size(360, 640);
+    await tester.pumpAndSettle();
+    expect(find.text('Proofread'), findsOneWidget);
+    expect(tester.getRect(control).right, lessThanOrEqualTo(360));
+    await tester.sendKeyEvent(LogicalKeyboardKey.space);
     await tester.pump();
-    expect(find.text('Proofread'), findsNothing);
-    expect(
-      tester.getCenter(control).dy,
-      closeTo(tester.getCenter(submit).dy, 1),
-    );
-    await tester.tap(control);
-    await tester.pump();
-    expect(
-      tester
-          .widget<DSwitch>(
-            find.byKey(const ValueKey('composer-proofread-switch')),
-          )
-          .value,
-      isFalse,
-    );
+    expect(tester.widget<DDropdownMenuCheckboxItem>(control).checked, isFalse);
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('new-topic footer includes the same Proofread switch', (
+  testWidgets('hides More when proofreading is unavailable', (tester) async {
+    final fixture = await _openReply(config: const SiteConfig());
+    addTearDown(fixture.shell.dispose);
+    await _pumpComposer(tester, fixture.shell);
+    await tester.pump();
+
+    expect(find.byKey(const ValueKey('composer-options')), findsNothing);
+  });
+
+  testWidgets('new-topic More menu includes the Proofread toggle', (
     tester,
   ) async {
     final fixture = await _openReply();
@@ -483,19 +446,21 @@ void main() {
     await tester.pump();
 
     expect(find.text('New topic'), findsOneWidget);
+    await _openOptions(tester);
     expect(
       find.byKey(const ValueKey('composer-proofread-control')),
       findsOneWidget,
     );
   });
 
-  testWidgets('minimized composer hides the Proofread switch', (tester) async {
+  testWidgets('minimized composer hides More', (tester) async {
     final fixture = await _openReply();
     addTearDown(fixture.shell.dispose);
 
     await _pumpComposer(tester, fixture.shell, minimized: true);
     await tester.pump();
 
+    expect(find.byKey(const ValueKey('composer-options')), findsNothing);
     expect(
       find.byKey(const ValueKey('composer-proofread-control')),
       findsNothing,
@@ -508,6 +473,7 @@ void main() {
     final first = await _openReply();
     await _pumpComposer(tester, first.shell);
     await tester.pump();
+    await _openOptions(tester);
     await tester.tap(find.byKey(const ValueKey('composer-proofread-control')));
     await tester.pump();
 
@@ -525,13 +491,14 @@ void main() {
     await _pumpComposer(tester, second.shell);
     await tester.runAsync(pumpEventQueue);
     await tester.pump();
+    await _openOptions(tester);
 
     expect(
       tester
-          .widget<DSwitch>(
-            find.byKey(const ValueKey('composer-proofread-switch')),
+          .widget<DDropdownMenuCheckboxItem>(
+            find.byKey(const ValueKey('composer-proofread-control')),
           )
-          .value,
+          .checked,
       isTrue,
     );
   });
@@ -544,6 +511,7 @@ void main() {
     await _pumpComposer(tester, fixture.shell);
     await tester.pump();
     fixture.shell.visibleComposer!.text.text = 'this is the reply';
+    await _openOptions(tester);
     await tester.tap(find.byKey(const ValueKey('composer-proofread-control')));
     await tester.pump();
 
@@ -575,6 +543,7 @@ void main() {
       await _pumpComposer(tester, fixture.shell);
       await tester.pump();
       fixture.shell.visibleComposer!.text.text = 'this is the original reply';
+      await _openOptions(tester);
       await tester.tap(
         find.byKey(const ValueKey('composer-proofread-control')),
       );

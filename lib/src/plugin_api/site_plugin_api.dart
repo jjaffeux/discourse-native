@@ -446,6 +446,11 @@ abstract interface class ComposerToolbarPlugin {
   );
 }
 
+/// Adds Native dropdown menu items to the composer's More menu.
+abstract interface class ComposerOptionsPlugin {
+  List<Widget> composerOptions(BuildContext context, ComposerEditorHost editor);
+}
+
 /// Adds compact controls beside the title of a topic composer.
 abstract interface class ComposerHeaderPlugin {
   List<Widget> composerHeader(BuildContext context, ComposerEditorHost editor);
