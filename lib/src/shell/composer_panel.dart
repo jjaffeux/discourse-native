@@ -2667,7 +2667,7 @@ class _Toolbar extends StatelessWidget {
                 variant: DButtonVariant.transparentBackground,
                 size: DButtonSize.large,
                 onPressed: composer.isEditing ? trigger.toggle : null,
-                icon: const DIcon(DIcons.circlePlus),
+                icon: const DIcon(DIcons.plus),
               ),
             ),
           ),
