@@ -1351,7 +1351,11 @@ class _RailItemState extends State<_RailItem> {
         if (widget.selected) theme.shell.railForeground,
       ],
     );
-    final badgeBackground = palette?.success ?? theme.discourse.success;
+    final badgeBackground = Color.lerp(
+      palette?.success ?? theme.discourse.success,
+      railSurface,
+      0.2,
+    )!;
     final badgeForeground = contrastSafeForeground(
       background: badgeBackground,
       backdrop: railSurface,
@@ -1407,15 +1411,27 @@ class _RailItemState extends State<_RailItem> {
                       ),
                       if (widget.badgeCount > 0)
                         Positioned(
-                          right: -2,
-                          bottom: -2,
-                          child: _CountBadge(
-                            key: ValueKey(
-                              'instance-rail-badge-${widget.instance.url}',
+                          right: -1.5,
+                          bottom: -1.5,
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(
+                              maxWidth: _railVisualSize + 4,
                             ),
-                            count: widget.badgeCount,
-                            background: badgeBackground,
-                            foreground: badgeForeground,
+                            child: DBadge.overlay(
+                              key: ValueKey(
+                                'instance-rail-badge-${widget.instance.url}',
+                              ),
+                              backgroundColor: badgeBackground,
+                              foregroundColor: badgeForeground,
+                              ringColor: railSurface,
+                              semanticLabel:
+                                  '${widget.badgeCount} unread notifications',
+                              child: Text(
+                                widget.badgeCount > 999
+                                    ? '999+'
+                                    : '${widget.badgeCount}',
+                              ),
+                            ),
                           ),
                         ),
                     ],

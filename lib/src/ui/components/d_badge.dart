@@ -47,6 +47,35 @@ class DBadge extends StatefulWidget {
     this.liveRegion = false,
     this.invalid = false,
   }) : _interaction = _BadgeInteraction.none,
+       _overlay = false,
+       ringColor = null,
+       onPressed = null,
+       focusNode = null,
+       autofocus = false,
+       url = null;
+
+  /// A non-interactive count pill for overlaying small icons. Uses 10/12px
+  /// tabular type, a 14px minimum diameter, 3px horizontal insets and an outer
+  /// 1.5px surface-colored ring. It grows with the text scale and label width.
+  /// Finite parent widths fit the pill down to keep its full count visible.
+  /// The caller owns positioning, visibility, count formatting and semantics.
+  const DBadge.overlay({
+    super.key,
+    required this.child,
+    this.backgroundColor,
+    this.foregroundColor,
+    this.ringColor,
+    this.semanticLabel,
+    this.semanticValue,
+    this.liveRegion = false,
+  }) : _interaction = _BadgeInteraction.none,
+       _overlay = true,
+       variant = DBadgeVariant.primary,
+       size = DBadgeSize.compact,
+       leading = null,
+       trailing = null,
+       borderColor = null,
+       invalid = false,
        onPressed = null,
        focusNode = null,
        autofocus = false,
@@ -70,6 +99,8 @@ class DBadge extends StatefulWidget {
     this.focusNode,
     this.autofocus = false,
   }) : _interaction = _BadgeInteraction.action,
+       _overlay = false,
+       ringColor = null,
        url = null;
 
   /// A native link. [onPressed] opens the caller-owned route or URL. [url]
@@ -92,7 +123,9 @@ class DBadge extends StatefulWidget {
     this.invalid = false,
     this.focusNode,
     this.autofocus = false,
-  }) : _interaction = _BadgeInteraction.link;
+  }) : _interaction = _BadgeInteraction.link,
+       _overlay = false,
+       ringColor = null;
 
   final Widget child;
   final DBadgeVariant variant;
@@ -102,6 +135,9 @@ class DBadge extends StatefulWidget {
   final Color? backgroundColor;
   final Color? foregroundColor;
   final Color? borderColor;
+
+  /// Surrounding surface for [DBadge.overlay]; defaults to the theme background.
+  final Color? ringColor;
   final String? semanticLabel;
   final String? semanticValue;
   final bool liveRegion;
@@ -111,6 +147,7 @@ class DBadge extends StatefulWidget {
   final bool autofocus;
   final Uri? url;
   final _BadgeInteraction _interaction;
+  final bool _overlay;
 
   @override
   State<DBadge> createState() => _DBadgeState();
@@ -154,6 +191,7 @@ class _DBadgeState extends State<DBadge> {
   Widget build(BuildContext context) {
     final tokens = DTokens.of(context);
     final compact = widget.size == DBadgeSize.compact;
+    final overlay = widget._overlay;
     final dark = Theme.of(context).brightness == Brightness.dark;
     final active = _enabled && (_hovered || _pressed);
     final actionHover = active && _interactive;
@@ -187,7 +225,7 @@ class _DBadgeState extends State<DBadge> {
     final destructiveRing =
         widget.invalid || widget.variant == DBadgeVariant.destructive;
     final ringColor = destructiveRing ? tokens.destructive : tokens.focusRing;
-    final radius = BorderRadius.circular(tokens.radius * 2.6);
+    final radius = BorderRadius.circular(overlay ? 999 : tokens.radius * 2.6);
     final border = widget.invalid
         ? tokens.destructive
         : focus
@@ -200,36 +238,48 @@ class _DBadgeState extends State<DBadge> {
       duration: DMotion.duration(context, const Duration(milliseconds: 150)),
       curve: _transitionCurve,
       clipBehavior: Clip.antiAlias,
-      constraints: BoxConstraints(minHeight: compact ? 16 : 20),
+      constraints: BoxConstraints(
+        minWidth: overlay ? 14 : 0,
+        minHeight: overlay ? 14 : (compact ? 16 : 20),
+      ),
       decoration: BoxDecoration(
         color: widget.backgroundColor ?? baseBackground,
-        border: Border.all(color: border),
+        border: overlay ? null : Border.all(color: border),
         borderRadius: radius,
       ),
       foregroundDecoration: _BadgeRing(
         radius: radius,
-        width: focus ? 3 : 0,
-        color: ringColor.withValues(
-          alpha: destructiveRing ? (dark ? .4 : .2) : .5,
-        ),
+        width: overlay ? 1.5 : (focus ? 3 : 0),
+        color: overlay
+            ? widget.ringColor ?? tokens.background
+            : ringColor.withValues(
+                alpha: destructiveRing ? (dark ? .4 : .2) : .5,
+              ),
       ),
       // Compact counts keep 12px type with 14px leading inside a 1px border.
-      padding: EdgeInsetsDirectional.fromSTEB(
-        compact ? 4 : (widget.leading == null ? 8 : 6),
-        compact ? 0 : 1,
-        compact ? 4 : (widget.trailing == null ? 8 : 6),
-        compact ? 0 : 1,
-      ),
+      padding: overlay
+          ? const EdgeInsets.symmetric(horizontal: 3, vertical: 1)
+          : EdgeInsetsDirectional.fromSTEB(
+              compact ? 4 : (widget.leading == null ? 8 : 6),
+              compact ? 0 : 1,
+              compact ? 4 : (widget.trailing == null ? 8 : 6),
+              compact ? 0 : 1,
+            ),
       child: IconTheme.merge(
         data: IconThemeData(size: 12, color: foreground),
         child: DefaultTextStyle(
           style: (Theme.of(context).textTheme.bodySmall ?? const TextStyle())
               .copyWith(
-                fontSize: DiscourseTypography.xs,
-                height: compact
+                fontSize: overlay ? 10 : DiscourseTypography.xs,
+                height: overlay
+                    ? 1.2
+                    : compact
                     ? 14 / DiscourseTypography.xs
                     : DiscourseTypography.lineHeightCaption,
-                fontWeight: FontWeight.w500,
+                fontWeight: overlay ? FontWeight.w600 : FontWeight.w500,
+                fontFeatures: overlay
+                    ? const [FontFeature.tabularFigures()]
+                    : null,
                 letterSpacing: 0,
                 color: foreground,
                 decoration: widget.variant == DBadgeVariant.link && active
@@ -239,6 +289,9 @@ class _DBadgeState extends State<DBadge> {
               ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: overlay
+                ? MainAxisAlignment.center
+                : MainAxisAlignment.start,
             children: [
               if (widget.leading case final leading?) ...[
                 _artwork(leading),
@@ -254,6 +307,9 @@ class _DBadgeState extends State<DBadge> {
         ),
       ),
     );
+    if (overlay) {
+      visual = FittedBox(fit: BoxFit.scaleDown, child: visual);
+    }
     visual = Opacity(opacity: _enabled ? 1 : .5, child: visual);
     if (_interactive &&
         switch (Theme.of(context).platform) {
@@ -284,7 +340,7 @@ class _DBadgeState extends State<DBadge> {
           : SemanticsValidationResult.none,
       excludeSemantics: widget.semanticLabel != null,
       onTap: _interactive && _enabled ? _activate : null,
-      child: visual,
+      child: overlay ? IgnorePointer(child: visual) : visual,
     );
     if (!_interactive) {
       if (!_tracksHover) return semantics;
