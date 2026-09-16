@@ -3,13 +3,17 @@ import 'package:csslib/visitor.dart' as css;
 
 import '../external/csslib.dart';
 
-/// Reuses parsed default declarations within one body while giving each element
+/// Reuses parsed default declarations while giving each element
 /// its own mutable syntax tree for custom build operations.
 class DefaultStylesCache {
+  DefaultStylesCache({DefaultStylesCache? shared}) : _shared = shared;
+
+  final DefaultStylesCache? _shared;
   final _templates = <String, List<css.Declaration>>{};
 
   List<css.Declaration> parse(String styles) {
-    final existing = _templates[styles];
+    final shared = _shared?._templates;
+    final existing = shared?[styles] ?? _templates[styles];
     if (existing != null) {
       return existing.map(_clone).toList();
     }
@@ -25,7 +29,11 @@ class DefaultStylesCache {
                 d.dartStyle is css.WidthExpression ||
                 d.dartStyle is css.HeightExpression) &&
             _canClone(d.expression))) {
-      _templates[styles] = declarations;
+      // Keep the original body-local reuse when the shared pool is full. A
+      // previous site's unusual defaults must not crowd out later bodies.
+      final templates =
+          shared != null && shared.length < 64 ? shared : _templates;
+      templates[styles] = declarations;
       return declarations.map(_clone).toList();
     }
     return declarations;
