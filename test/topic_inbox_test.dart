@@ -1601,7 +1601,7 @@ void main() {
   }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 
   testWidgets(
-    'header closed status updates from topic actions without moving the title',
+    'closing a topic places a lock before its title aligned with the content',
     (tester) async {
       final setup = await _setup(tester, canCloseTopic: true);
       final shell = setup.controller;
@@ -1609,34 +1609,44 @@ void main() {
       await tester.pumpAndSettle();
       await _scrollReaderToTop(tester);
       final title = find.byKey(const ValueKey('topic-header-title-field'));
-      final badge = find.byKey(const ValueKey('topic-header-closed'));
+      final lock = find.byKey(const ValueKey('topic-header-closed'));
       final titleRect = tester.getRect(title);
-      expect(badge, findsNothing);
+      expect(lock, findsNothing);
 
       await tester.tap(find.byKey(const ValueKey('topic-status-button')));
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('topic-status-closed')));
       await tester.pumpAndSettle();
       expect(shell.currentTopic?.closed, isTrue);
-      expect(find.text('Closed'), findsOneWidget);
-      expect(badge, findsOneWidget);
-      expect(tester.getRect(title), titleRect);
-      expect(tester.getRect(badge).top, greaterThan(titleRect.bottom));
+      expect(find.text('Closed'), findsNothing);
+      expect(lock, findsOneWidget);
+      expect(tester.widget<DIcon>(lock).icon, DIcons.lock);
+      final lockRect = tester.getRect(lock);
+      final closedTitleRect = tester.getRect(title);
+      expect(lockRect.left, titleRect.left);
+      expect(closedTitleRect.left, lockRect.right + DSpacing.sm);
+      expect(closedTitleRect.top, titleRect.top);
+      expect(closedTitleRect.right, titleRect.right);
       expect(
-        tester.getRect(badge).left,
+        lockRect.left,
         tester
             .getRect(find.byKey(const ValueKey('topic-header-activity')))
             .left,
+      );
+      expect(
+        lockRect.left,
+        closeTo(tester.getRect(find.byType(CookedHtml).first).left, 1),
+      );
+      expect(
+        lockRect.left,
+        closeTo(tester.getRect(find.byTooltip('Edit topic category')).left, 1),
       );
 
       await tester.tap(title);
       await tester.pump();
       final frame = find.byKey(const ValueKey('topic-header-title-field'));
       expect(tester.widget<DInput>(frame).focusNode!.hasFocus, isTrue);
-      expect(
-        tester.getRect(badge).top,
-        greaterThan(tester.getRect(frame).bottom),
-      );
+      expect(tester.getRect(lock).right, lessThan(tester.getRect(frame).left));
       await tester.sendKeyEvent(LogicalKeyboardKey.escape);
       await tester.pumpAndSettle();
 
@@ -1646,7 +1656,7 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('topic-status-closed')));
       await tester.pumpAndSettle();
       expect(shell.currentTopic?.closed, isFalse);
-      expect(badge, findsNothing);
+      expect(lock, findsNothing);
       expect(tester.getRect(title), titleRect);
       expect(setup.api.topicStatusesUpdated, const [
         (topicId: 1, status: TopicStatusProperty.closed, enabled: true),
@@ -1697,13 +1707,21 @@ void main() {
               ),
             );
             await tester.pumpAndSettle();
-            final badge = find.byKey(const ValueKey('topic-header-closed'));
-            expect(find.text('Closed'), findsOneWidget);
+            final lock = find.byKey(const ValueKey('topic-header-closed'));
+            expect(find.text('Closed'), findsNothing);
             expect(find.bySemanticsLabel('Topic closed'), findsOneWidget);
             expect(find.byType(InlineTopicTitleEditor), findsNothing);
-            final rect = tester.getRect(badge);
+            final rect = tester.getRect(lock);
+            final title = tester.getRect(
+              find.byKey(const ValueKey('topic-header-compact-title')),
+            );
             expect(rect.left, greaterThanOrEqualTo(0));
             expect(rect.right, lessThan(width));
+            expect(title.left, rect.right + DSpacing.sm);
+            expect(rect.top, greaterThanOrEqualTo(title.top));
+            final style = theme.textTheme.titleMedium!;
+            final firstLineHeight = style.fontSize! * 2 * style.height!;
+            expect(rect.center.dy, closeTo(title.top + firstLineHeight / 2, 1));
             expect(tester.takeException(), isNull);
           }
         }
