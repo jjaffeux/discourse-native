@@ -21,6 +21,9 @@ final _regExpSpaces = RegExp('$_asciiWhitespace+', unicode: true);
 
 final _logger = Logger('fwfh.CoreBuildTree');
 final _rootElement = dom.Element.tag('root');
+// Default CSS is keyed by its complete text and cloned for each element. Share
+// the bounded parser cache across bodies, never their widgets or build trees.
+final _defaultStyles = DefaultStylesCache();
 
 class CoreBuildTree extends BuildTree {
   final WidgetFactory wf;
@@ -42,7 +45,8 @@ class CoreBuildTree extends BuildTree {
     DefaultStylesCache? defaultStylesCache,
   })  : _parent = parent,
         _parentOps = parentOps,
-        _defaultStylesCache = defaultStylesCache ?? DefaultStylesCache();
+        _defaultStylesCache =
+            defaultStylesCache ?? DefaultStylesCache(shared: _defaultStyles);
 
   factory CoreBuildTree.root({
     required InheritanceResolvers inheritanceResolvers,
