@@ -65,6 +65,95 @@ const _unseenTopic = Topic(
 );
 
 void main() {
+  test(
+    'fresh settings select the first feed before requesting topics',
+    () async {
+      final gate = Completer<void>();
+      final setup = await _controller(
+        remoteConfig: const SiteConfig(defaultHomepage: 'hot'),
+        siteConfigGate: gate,
+      );
+      addTearDown(setup.controller.dispose);
+      expect(setup.api.feedPaths, isEmpty);
+      gate.complete();
+      await Future<void>.delayed(Duration.zero);
+      expect(setup.controller.currentTopicListMode, TopicListMode.popular);
+      expect(setup.api.feedPaths, ['/hot.json']);
+    },
+  );
+
+  test(
+    'late homepage settings preserve an explicit filter selection',
+    () async {
+      final gate = Completer<void>();
+      final setup = await _controller(
+        remoteConfig: const SiteConfig(defaultHomepage: 'hot'),
+        siteConfigGate: gate,
+      );
+      addTearDown(setup.controller.dispose);
+      await setup.controller.selectTopicListMode(TopicListMode.topWeekly);
+      gate.complete();
+      await Future<void>.delayed(Duration.zero);
+      expect(setup.controller.currentTopicListMode, TopicListMode.topWeekly);
+      expect(setup.api.feedPaths, isNot(contains('/hot.json')));
+    },
+  );
+
+  test('homepage uses top menu fallback and anonymous visibility', () {
+    expect(
+      ContentRoute.homepage(
+        const SiteConfig(topMenu: ['hot', 'latest']),
+        connected: true,
+      ).feedPath,
+      '/hot.json',
+    );
+    expect(
+      ContentRoute.homepage(
+        const SiteConfig(defaultHomepage: 'new', topMenu: ['new', 'top']),
+        connected: false,
+      ).feedPath,
+      '/top.json?period=yearly',
+    );
+    expect(
+      ContentRoute.homepage(
+        const SiteConfig(defaultHomepage: 'categories'),
+        connected: false,
+      ).id,
+      'all-categories',
+    );
+    expect(
+      ContentRoute.homepage(
+        const SiteConfig(defaultHomepage: 'plugin-page'),
+        connected: true,
+      ).id,
+      'latest',
+    );
+  });
+
+  test(
+    'initial topics and Topics navigation use the configured homepage',
+    () async {
+      final setup = await _controller(
+        config: const SiteConfig(
+          defaultHomepage: 'top',
+          topPageDefaultPeriod: 'weekly',
+        ),
+      );
+      addTearDown(setup.controller.dispose);
+      expect(setup.controller.currentTopicListMode, TopicListMode.topWeekly);
+      await Future<void>.delayed(Duration.zero);
+      expect(setup.api.feedPaths, contains('/top.json?period=weekly'));
+      expect(setup.api.feedPaths, isNot(contains('/latest.json')));
+      await setup.controller.selectTopicListMode(TopicListMode.latest);
+      expect(setup.controller.currentTopicListMode, TopicListMode.latest);
+      setup.controller.selectDestination(
+        setup.controller.currentInstance!.defaultDestination,
+      );
+      await Future<void>.delayed(Duration.zero);
+      expect(setup.controller.currentTopicListMode, TopicListMode.topWeekly);
+    },
+  );
+
   testWidgets(
     'restored list search is removed before category, tag and feed changes',
     (tester) async {
@@ -2061,6 +2150,8 @@ Text _tabText(WidgetTester tester, String key) => tester.widget<Text>(
 Future<({ShellController controller, FakeDiscourseApi api})> _controller({
   DiscourseUser? user = _user,
   SiteConfig config = const SiteConfig.unknown(),
+  SiteConfig? remoteConfig,
+  Completer<void>? siteConfigGate,
   Completer<void>? trackingStateGate,
   TopicTrackingState? trackingState,
   List<TopicCategory> categoryList = const [],
@@ -2082,6 +2173,8 @@ Future<({ShellController controller, FakeDiscourseApi api})> _controller({
   final authenticator = FakeAuthenticator();
   if (user != null) authenticator.keys[site.url] = 'api-key';
   final api = FakeDiscourseApi(
+    siteConfigGate: siteConfigGate,
+    siteConfigs: {site.url: ?remoteConfig},
     creatableFeedPaths: canCreateTopics ? const {'/latest.json'} : const {},
     user: user,
     totals: totals,

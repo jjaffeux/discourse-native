@@ -1405,12 +1405,22 @@ class ShellController extends FrameSafeNotifier
     return id;
   }
 
+  final Set<String> _pendingHomepageTabs = {};
+
+  ContentRoute _homepageFor(DiscourseInstance instance) =>
+      ContentRoute.homepage(
+        siteConfigFor(instance.url),
+        connected: instance.isConnected,
+      );
+
   ForumTab _newDefaultTab(DiscourseInstance instance) {
     final destination = instance.defaultDestination;
+    final id = _nextTabId();
+    _pendingHomepageTabs.add(id);
     return ForumTab(
-      id: _nextTabId(),
+      id: id,
       rootDestinationId: destination.id,
-      contentStack: [ContentRoute.fromDestination(destination)],
+      contentStack: [_homepageFor(instance)],
     );
   }
 
@@ -1530,6 +1540,7 @@ class ShellController extends FrameSafeNotifier
   }
 
   void _replaceActiveTab(ForumTab replacement, {bool persist = true}) {
+    _pendingHomepageTabs.remove(replacement.id);
     final siteUrl = currentInstance?.url;
     if (siteUrl != null) {
       _replaceTab(siteUrl, replacement, persist: persist);
@@ -12916,7 +12927,34 @@ class ShellController extends FrameSafeNotifier
     if (canRead && hydrateActiveTab) _hydrateActiveTab(instance);
   }
 
+  Future<void> _hydrateHomepage(
+    DiscourseInstance instance,
+    ForumTab initialTab,
+  ) async {
+    await _presentation.ensureConfig(instance.url);
+    if (isDisposed ||
+        currentInstance?.url != instance.url ||
+        !_pendingHomepageTabs.contains(initialTab.id) ||
+        !identical(activeTab, initialTab)) {
+      return;
+    }
+    _pendingHomepageTabs.remove(initialTab.id);
+    _replaceActiveTab(
+      initialTab.navigate(
+        rootDestinationId: initialTab.rootDestinationId,
+        contentStack: [_homepageFor(instance)],
+      ),
+    );
+    _notify();
+    _hydrateActiveTab(instance);
+  }
+
   void _hydrateActiveTab(DiscourseInstance instance) {
+    final initialTab = activeTab;
+    if (initialTab != null && _pendingHomepageTabs.contains(initialTab.id)) {
+      unawaited(_hydrateHomepage(instance, initialTab));
+      return;
+    }
     _rewriteContentRoutes(
       instance.url,
       (route) => route.resolveCategoryLink(filterCategoriesFor(instance.url)),
@@ -12925,13 +12963,17 @@ class ShellController extends FrameSafeNotifier
     if (tab == null || currentInstance?.url != instance.url) return;
 
     final root = tab.contentStack.first;
-    unawaited(
-      loadFeed(
-        root.feedPath == null && !root.isMessages
-            ? tab.rootDestinationId
-            : root.id,
-      ),
-    );
+    if (root.id == 'all-categories') {
+      unawaited(loadCategories(instance.url));
+    } else {
+      unawaited(
+        loadFeed(
+          root.feedPath == null && !root.isMessages
+              ? tab.rootDestinationId
+              : root.id,
+        ),
+      );
+    }
     final source = topicListContent;
     if (source != null && source.id != root.id) {
       unawaited(loadFeed(source.id));
@@ -13168,7 +13210,9 @@ class ShellController extends FrameSafeNotifier
     final refresh =
         destination.id == tab.rootDestinationId && tab.contentStack.length <= 1;
 
-    final content = destination.id == 'groups'
+    final content = destination.id == 'latest'
+        ? _homepageFor(instance)
+        : destination.id == 'groups'
         ? ContentRoute.group(const GroupRoute.directory())
         : destination.id == 'badges'
         ? ContentRoute.badges(
@@ -13192,7 +13236,11 @@ class ShellController extends FrameSafeNotifier
     } else if (destination.id == 'all-tags') {
       if (refresh) unawaited(loadTags(instance.url, force: true));
     } else {
-      unawaited(loadFeed(destination.id, force: refresh));
+      if (content.id == 'all-categories') {
+        unawaited(loadCategories(instance.url, force: refresh));
+      } else {
+        unawaited(loadFeed(content.id, force: refresh));
+      }
     }
   }
 
