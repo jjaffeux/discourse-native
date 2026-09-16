@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/app.dart';
 import 'package:discourse_native/src/data/app_settings_store.dart';
+import 'package:discourse_native/src/diagnostics/surface_opening_trace.dart';
 import 'package:discourse_native/src/models/app_settings.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
@@ -205,6 +206,8 @@ void main() {
         AnimationStyle.noAnimation,
       );
       expect(_activeTheme(tester).colorScheme.primary, first.base?.tertiary);
+      final firstLight = _materialApp(tester).theme;
+      final firstDark = _materialApp(tester).darkTheme;
 
       controller.selectInstance(1);
       await tester.pump();
@@ -213,6 +216,8 @@ void main() {
       controller.selectInstance(0);
       await tester.pump();
       expect(_activeTheme(tester).colorScheme.primary, first.base?.tertiary);
+      expect(_materialApp(tester).theme, same(firstLight));
+      expect(_materialApp(tester).darkTheme, same(firstDark));
     });
 
     testWidgets('clears account-derived data on disconnect', (tester) async {
@@ -245,6 +250,47 @@ void main() {
   });
 
   group('active theme selection', () {
+    testWidgets('equal palettes reuse themes and rapid switches trace once', (
+      tester,
+    ) async {
+      final first = siteAppearance(alternateAccent: const Color(0xFF80CED7));
+      final second = SiteAppearance.fromJson(first.toJson());
+      expect(second, first);
+      expect(identical(second, first), isFalse);
+      await _pumpApp(
+        tester,
+        store: FakeInstanceStore([
+          instance('a.example').copyWith(appearance: first),
+          instance('b.example').copyWith(appearance: second),
+        ]),
+        api: FakeDiscourseApi(),
+      );
+      final light = _materialApp(tester).theme;
+      final dark = _materialApp(tester).darkTheme;
+      final controller = _controller(tester);
+      controller.selectInstance(1);
+      await tester.pump();
+      expect(_materialApp(tester).theme, same(light));
+      expect(_materialApp(tester).darkTheme, same(dark));
+
+      final events = <String>[];
+      SurfaceOpeningTrace.observer = (name, _) => events.add(name);
+      addTearDown(() => SurfaceOpeningTrace.observer = null);
+      controller.selectInstance(0);
+      controller.selectInstance(1);
+      controller.selectInstance(0);
+      expect(events.where((event) => event == 'forum.frame'), isEmpty);
+      await tester.pump();
+      expect(events.where((event) => event == 'forum.frame'), hasLength(1));
+      expect(controller.currentInstance?.url, siteA);
+
+      events.clear();
+      controller.selectInstance(1);
+      controller.selectAggregate();
+      await tester.pump();
+      expect(events.where((event) => event == 'forum.frame'), isEmpty);
+    });
+
     testWidgets('appearance changes the app and open Settings immediately', (
       tester,
     ) async {

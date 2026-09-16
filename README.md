@@ -87,6 +87,15 @@ For a repeatable local-data run of the production list, use
 It prints reports and saves JSON for steady scrolling, fast scrolling, and the
 return trip in the application's temporary directory.
 
+### Diagnosing forum switching
+
+For repeatable forum-switch timing, run
+`flutter run --profile -d macos -t tool/forum_switch_profile_main.dart`.
+This uses two local fixture forums in the production app, records cold and
+cached switches (including open topics), and exports frame timings and
+content-free milestones. See [forum switching](docs/performance/forum-switching.md)
+for tracing real forums, CPU sampling, and the measured theme-cache improvement.
+
 ## Connecting a site
 
 The dashed `+` at the end of the rail's scrolling forum list resolves whatever
