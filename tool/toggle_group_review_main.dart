@@ -250,6 +250,7 @@ class _ComposerReview extends StatelessWidget {
         child: ComposerPanel(
           composer: composer,
           height: 620,
+          pickFiles: _cancelImagePick,
           pickImages: _cancelImagePick,
           readClipboardFiles: _cancelImagePick,
         ),

@@ -70,6 +70,7 @@ class ComposerPanel extends StatelessWidget {
     this.onRestore,
     this.placement = ComposerPlacement.right,
     this.onPlacementChanged,
+    this.pickFiles = pickComposerFiles,
     this.pickImages = pickComposerImages,
     this.readClipboardFiles = readComposerClipboardFiles,
   });
@@ -81,6 +82,7 @@ class ComposerPanel extends StatelessWidget {
   final VoidCallback? onRestore;
   final ComposerPlacement placement;
   final ValueChanged<ComposerPlacement>? onPlacementChanged;
+  final ComposerFilePicker pickFiles;
   final ComposerImagePicker pickImages;
   final ComposerClipboardFileReader readClipboardFiles;
 
@@ -409,7 +411,7 @@ class ComposerPanel extends StatelessWidget {
                       _Footer(
                         composer: composer,
                         sideDocked: placement.isSide,
-                        pickImages: pickImages,
+                        pickFiles: pickFiles,
                         message:
                             error?.message ??
                             notice ??
@@ -2586,10 +2588,10 @@ class _FormattingToolbar extends StatelessWidget {
 }
 
 class _Toolbar extends StatelessWidget {
-  const _Toolbar({required this.composer, required this.pickImages});
+  const _Toolbar({required this.composer, required this.pickFiles});
 
   final ComposerController composer;
-  final ComposerImagePicker pickImages;
+  final ComposerFilePicker pickFiles;
 
   @override
   Widget build(BuildContext context) => ShellSelector<int>(
@@ -2615,7 +2617,7 @@ class _Toolbar extends StatelessWidget {
     return _ComposerToolbarOverflow(
       children: [
         if (uploadsEnabled)
-          _ComposerUploadButton(composer: composer, pickImages: pickImages),
+          _ComposerUploadButton(composer: composer, pickFiles: pickFiles),
         if (emojiEnabled)
           EmojiPickerAnchor(
             child: Builder(
@@ -2848,11 +2850,11 @@ class _ComposerToolbarScrollButton extends StatelessWidget {
 class _ComposerUploadButton extends StatefulWidget {
   const _ComposerUploadButton({
     required this.composer,
-    required this.pickImages,
+    required this.pickFiles,
   });
 
   final ComposerController composer;
-  final ComposerImagePicker pickImages;
+  final ComposerFilePicker pickFiles;
 
   @override
   State<_ComposerUploadButton> createState() => _ComposerUploadButtonState();
@@ -2870,18 +2872,18 @@ class _ComposerUploadButtonState extends State<_ComposerUploadButton> {
         : composer.text.text.length;
     setState(() => _picking = true);
     try {
-      final files = await widget.pickImages();
+      final files = await widget.pickFiles();
       if (!mounted ||
           !identical(widget.composer, composer) ||
           !composer.canUpload) {
         return;
       }
-      composer.addImages(files, offset);
+      composer.addFiles(files, offset);
     } catch (error, stackTrace) {
       DiagnosticsSink.current.reportError(
         error,
         stackTrace,
-        operation: 'composer.pickImages',
+        operation: 'composer.pickFiles',
         source: 'platform',
         severity: DiagnosticSeverity.warning,
         handled: true,
@@ -2890,7 +2892,7 @@ class _ComposerUploadButtonState extends State<_ComposerUploadButton> {
       if (mounted &&
           identical(widget.composer, composer) &&
           composer.canUpload) {
-        composer.showNotice("Couldn't open the image picker.");
+        composer.showNotice("Couldn't open the file picker.");
       }
     } finally {
       if (mounted) {
@@ -2905,7 +2907,7 @@ class _ComposerUploadButtonState extends State<_ComposerUploadButton> {
   @override
   Widget build(BuildContext context) => DButton.iconOnly(
     key: const ValueKey('composer-upload'),
-    tooltip: 'Upload images',
+    tooltip: 'Upload',
     onPressed: !widget.composer.canUpload || _picking
         ? null
         : () => unawaited(_pick()),
@@ -3070,7 +3072,7 @@ class _Footer extends StatelessWidget {
   const _Footer({
     required this.composer,
     required this.sideDocked,
-    required this.pickImages,
+    required this.pickFiles,
     required this.message,
     required this.isError,
     required this.busy,
@@ -3080,7 +3082,7 @@ class _Footer extends StatelessWidget {
 
   final ComposerController composer;
   final bool sideDocked;
-  final ComposerImagePicker pickImages;
+  final ComposerFilePicker pickFiles;
   final String? message;
   final bool isError;
   final bool busy;
@@ -3122,7 +3124,7 @@ class _Footer extends StatelessWidget {
           );
     final toolbar = composer.target.isTaxonomyEdit
         ? null
-        : _Toolbar(composer: composer, pickImages: pickImages);
+        : _Toolbar(composer: composer, pickFiles: pickFiles);
     final controls = LayoutBuilder(
       builder: (context, constraints) {
         final compact =
