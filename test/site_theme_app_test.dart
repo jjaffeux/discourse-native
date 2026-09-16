@@ -10,13 +10,16 @@ import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/notification_totals.dart';
 import 'package:discourse_native/src/models/site_appearance.dart';
 import 'package:discourse_native/src/shell/adaptive_shell.dart';
+import 'package:discourse_native/src/shell/app_settings_page.dart';
 import 'package:discourse_native/src/shell/avatar_image.dart';
 import 'package:discourse_native/src/shell/instance_rail.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:discourse_native/src/theme/color_contrast.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -28,6 +31,47 @@ import 'support/site_appearance_fixtures.dart';
 void main() {
   const siteA = 'https://a.example';
   const siteB = 'https://b.example';
+
+  testWidgets('Escape closes Settings after changing appearance', (
+    tester,
+  ) async {
+    await _pumpApp(
+      tester,
+      store: FakeInstanceStore(),
+      api: FakeDiscourseApi(),
+      appSettingsStore: AppSettingsStore(
+        persistence: MemoryAppSettingsPersistence(),
+      ),
+    );
+    final controller = _controller(tester);
+    await tester.tap(find.byKey(const ValueKey('settings-rail-button')));
+    await tester.pumpAndSettle();
+
+    await tester.tap(
+      find.byKey(const ValueKey('appearance-theme-select')),
+      kind: PointerDeviceKind.mouse,
+    );
+    await tester.pumpAndSettle();
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape, character: '\x1b');
+    await tester.pumpAndSettle();
+    expect(find.byType(DPopoverContent), findsNothing);
+    expect(find.byType(AppSettingsModal), findsOneWidget);
+
+    await tester.tap(
+      find.byKey(const ValueKey('appearance-theme-select')),
+      kind: PointerDeviceKind.mouse,
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Dark').last, kind: PointerDeviceKind.mouse);
+    await tester.pumpAndSettle();
+    expect(controller.appSettings.themeMode, AppThemeMode.dark);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape, character: '\x1b');
+    await tester.pumpAndSettle();
+
+    expect(find.byType(AppSettingsModal), findsNothing);
+    expect(controller.appSettingsModalOpen, isFalse);
+  }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 
   testWidgets('hydrates an injected app-wide settings store on startup', (
     tester,
