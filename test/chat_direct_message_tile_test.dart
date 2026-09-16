@@ -484,6 +484,20 @@ void main() {
         addTearDown(mouse.removePointer);
         await mouse.moveTo(tester.getCenter(trigger));
         await tester.pump();
+        Color background() => tester
+            .widget<ColoredBox>(
+              find
+                  .descendant(
+                    of: find.byType(DMessageSurface),
+                    matching: find.byType(ColoredBox),
+                  )
+                  .first,
+            )
+            .color;
+        final hoverTint = DTokens.of(
+          tester.element(find.byType(DMessageSurface)),
+        ).foreground.withValues(alpha: .03);
+        expect(background(), hoverTint);
         await tester.tap(trigger);
         await tester.pumpAndSettle();
         final scroll = tester
@@ -493,9 +507,11 @@ void main() {
         await tester.pumpAndSettle();
         expect(find.byType(DDropdownMenuContent), findsNothing);
         expect(triggerOpacity(tester), 0);
+        expect(background(), Colors.transparent);
         await mouse.moveBy(const Offset(1, 0));
         await tester.pumpAndSettle();
         expect(triggerOpacity(tester), 1);
+        expect(background(), hoverTint);
       },
     );
   });
