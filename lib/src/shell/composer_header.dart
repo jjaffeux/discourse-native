@@ -423,12 +423,7 @@ class _DraftStatus extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
                 if (saving)
-                  DSpinner(
-                    size: 14,
-                    color: color,
-                    semanticLabel: null,
-                    animating: composer.draftStatus == DraftStatus.saving,
-                  )
+                  DSpinner(size: 14, color: color, semanticLabel: null)
                 else
                   DIcon(
                     failing ? DIcons.triangleExclamation : DIcons.check,
