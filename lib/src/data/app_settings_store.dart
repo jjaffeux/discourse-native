@@ -20,11 +20,28 @@ abstract interface class AppSettingsPersistence {
   Future<String?> readThemeMode();
 
   Future<bool> writeThemeMode(String value);
+
+  Future<String?> readTopicListMode();
+
+  Future<bool> writeTopicListMode(String value);
 }
 
 final class SharedPreferencesAppSettingsPersistence
     implements AppSettingsPersistence {
   const SharedPreferencesAppSettingsPersistence();
+
+  @override
+  Future<String?> readTopicListMode() async =>
+      (await SharedPreferences.getInstance()).getString(
+        AppSettingsStore.topicListModeKey,
+      );
+
+  @override
+  Future<bool> writeTopicListMode(String value) async =>
+      (await SharedPreferences.getInstance()).setString(
+        AppSettingsStore.topicListModeKey,
+        value,
+      );
 
   @override
   Future<String?> readContentAlignment() async =>
@@ -85,12 +102,23 @@ final class MemoryAppSettingsPersistence implements AppSettingsPersistence {
     this.disableGifAnimations,
     this.textScale,
     this.themeMode,
+    this.topicListMode,
   });
 
   String? contentAlignment;
   bool? disableGifAnimations;
   String? textScale;
   String? themeMode;
+  String? topicListMode;
+
+  @override
+  Future<String?> readTopicListMode() async => topicListMode;
+
+  @override
+  Future<bool> writeTopicListMode(String value) async {
+    topicListMode = value;
+    return true;
+  }
 
   @override
   Future<String?> readContentAlignment() async => contentAlignment;
@@ -139,6 +167,7 @@ final class AppSettingsStore {
       'discourse_native.disable_gif_animations';
   static const String textScaleKey = 'discourse_native.text_scale';
   static const String themeModeKey = 'discourse_native.theme_mode';
+  static const String topicListModeKey = 'discourse_native.topic_list_mode';
   static const String _operationKey = 'discourse_native.app_settings';
   static const AppSettingsPersistence _defaultPersistence =
       SharedPreferencesAppSettingsPersistence();
@@ -150,13 +179,15 @@ final class AppSettingsStore {
   bool? _sessionDisableGifAnimations;
   AppTextScale? _sessionTextScale;
   AppThemeMode? _sessionThemeMode;
+  TopicListDisplayMode? _sessionTopicListMode;
   AppSettings? _lastReadSettings;
 
   bool get _hasSessionChanges =>
       _sessionContentAlignment != null ||
       _sessionDisableGifAnimations != null ||
       _sessionTextScale != null ||
-      _sessionThemeMode != null;
+      _sessionThemeMode != null ||
+      _sessionTopicListMode != null;
 
   Future<AppSettings> read() async {
     final known = _lastReadSettings;
@@ -166,7 +197,8 @@ final class AppSettingsStore {
     if (_sessionContentAlignment != null &&
         _sessionDisableGifAnimations != null &&
         _sessionTextScale != null &&
-        _sessionThemeMode != null) {
+        _sessionThemeMode != null &&
+        _sessionTopicListMode != null) {
       return _withSessionSettings(AppSettings.defaults);
     }
     final persisted = await _operations.read(
@@ -188,6 +220,7 @@ final class AppSettingsStore {
     disableGifAnimations: _sessionDisableGifAnimations,
     textScale: _sessionTextScale,
     themeMode: _sessionThemeMode,
+    topicListMode: _sessionTopicListMode,
   );
 
   Future<AppSettings> _read() async {
@@ -195,6 +228,7 @@ final class AppSettingsStore {
     var disableGifAnimations = false;
     var textScale = AppTextScale.percent100;
     var themeMode = AppThemeMode.system;
+    var topicListMode = TopicListDisplayMode.card;
     try {
       final stored = await _persistence.readContentAlignment();
       contentAlignment = _contentAlignmentByName(stored);
@@ -230,11 +264,21 @@ final class AppSettingsStore {
     } catch (error, stackTrace) {
       reportStorageFailure(error, stackTrace, 'appSettings.readThemeMode');
     }
+    try {
+      final stored = await _persistence.readTopicListMode();
+      topicListMode = TopicListDisplayMode.values.firstWhere(
+        (mode) => mode.name == stored,
+        orElse: () => TopicListDisplayMode.card,
+      );
+    } catch (error, stackTrace) {
+      reportStorageFailure(error, stackTrace, 'appSettings.readTopicListMode');
+    }
     return AppSettings(
       contentAlignment: contentAlignment,
       disableGifAnimations: disableGifAnimations,
       textScale: textScale,
       themeMode: themeMode,
+      topicListMode: topicListMode,
     );
   }
 
@@ -243,6 +287,7 @@ final class AppSettingsStore {
     disableGifAnimations: settings.disableGifAnimations,
     textScale: settings.textScale,
     themeMode: settings.themeMode,
+    topicListMode: settings.topicListMode,
   );
 
   /// Saves explicit choices without replacing preferences still being read.
@@ -252,12 +297,14 @@ final class AppSettingsStore {
     bool? disableGifAnimations,
     AppTextScale? textScale,
     AppThemeMode? themeMode,
+    TopicListDisplayMode? topicListMode,
   }) {
     _sessionContentAlignment = contentAlignment ?? _sessionContentAlignment;
     _sessionDisableGifAnimations =
         disableGifAnimations ?? _sessionDisableGifAnimations;
     _sessionTextScale = textScale ?? _sessionTextScale;
     _sessionThemeMode = themeMode ?? _sessionThemeMode;
+    _sessionTopicListMode = topicListMode ?? _sessionTopicListMode;
     return _operations.write<void>(
       owner: _persistence,
       key: _operationKey,
@@ -266,6 +313,7 @@ final class AppSettingsStore {
         disableGifAnimations: disableGifAnimations,
         textScale: textScale,
         themeMode: themeMode,
+        topicListMode: topicListMode,
       ),
     );
   }
@@ -275,6 +323,7 @@ final class AppSettingsStore {
     bool? disableGifAnimations,
     AppTextScale? textScale,
     AppThemeMode? themeMode,
+    TopicListDisplayMode? topicListMode,
   }) async {
     try {
       if (contentAlignment != null &&
@@ -315,6 +364,14 @@ final class AppSettingsStore {
       }
     } catch (error, stackTrace) {
       reportStorageFailure(error, stackTrace, 'appSettings.writeThemeMode');
+    }
+    try {
+      if (topicListMode != null &&
+          !await _persistence.writeTopicListMode(topicListMode.name)) {
+        throw StateError('Could not persist the topic list mode.');
+      }
+    } catch (error, stackTrace) {
+      reportStorageFailure(error, stackTrace, 'appSettings.writeTopicListMode');
     }
   }
 }

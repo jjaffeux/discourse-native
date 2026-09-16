@@ -7,6 +7,22 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
+  test(
+    'topic list mode defaults to cards and survives a fresh store',
+    () async {
+      final persistence = MemoryAppSettingsPersistence(
+        topicListMode: 'unknown',
+      );
+      final store = AppSettingsStore(persistence: persistence);
+      expect((await store.read()).topicListMode, TopicListDisplayMode.card);
+      await store.update(topicListMode: TopicListDisplayMode.compact);
+      expect(
+        (await AppSettingsStore(persistence: persistence).read()).topicListMode,
+        TopicListDisplayMode.compact,
+      );
+    },
+  );
+
   TestWidgetsFlutterBinding.ensureInitialized();
 
   setUp(() => SharedPreferences.setMockInitialValues({}));
@@ -20,6 +36,7 @@ void main() {
       AppSettingsStore.contentAlignmentKey: 'justify',
       AppSettingsStore.textScaleKey: 'percent137',
       AppSettingsStore.themeModeKey: 'sepia',
+      AppSettingsStore.topicListModeKey: 'table',
     });
     expect(await platformStore.read(), AppSettings.defaults);
   });
@@ -94,6 +111,20 @@ void main() {
         mode.name,
       );
       expect(await AppSettingsStore().read(), AppSettings(themeMode: mode));
+    }
+  });
+
+  test('restores every topic list mode in a fresh store', () async {
+    for (final mode in TopicListDisplayMode.values) {
+      await AppSettingsStore().update(topicListMode: mode);
+
+      expect(
+        (await SharedPreferences.getInstance()).getString(
+          AppSettingsStore.topicListModeKey,
+        ),
+        mode.name,
+      );
+      expect(await AppSettingsStore().read(), AppSettings(topicListMode: mode));
     }
   });
 
@@ -393,6 +424,7 @@ final class _ControlledAppSettingsPersistence
   bool? disableGifAnimations;
   String? textScale;
   String? themeMode;
+  String? topicListMode;
   final Completer<void>? firstWriteGate;
   bool failReads;
   final bool failTextScaleRead;
@@ -460,6 +492,20 @@ final class _ControlledAppSettingsPersistence
     if (throwWrites) throw StateError('preferences unavailable');
     if (!acceptWrites) return false;
     textScale = value;
+    return true;
+  }
+
+  @override
+  Future<String?> readTopicListMode() async {
+    if (failReads) throw StateError('preferences unavailable');
+    return topicListMode;
+  }
+
+  @override
+  Future<bool> writeTopicListMode(String value) async {
+    if (throwWrites) throw StateError('preferences unavailable');
+    if (!acceptWrites) return false;
+    topicListMode = value;
     return true;
   }
 

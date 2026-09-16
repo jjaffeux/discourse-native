@@ -20,6 +20,7 @@ import 'assigned_group_view.dart';
 import 'assignment.dart';
 import 'assignment_controller.dart';
 import 'assignment_sheet.dart';
+import 'assignment_topic_list.dart';
 
 export 'assign_data.dart';
 
@@ -37,6 +38,7 @@ final class AssignPlugin
         TopicRecordPlugin<Assignments>,
         PostDecorationPlugin,
         TopicListMetadataPlugin,
+        TopicListColumnPlugin,
         TopicPropertiesPlugin,
         TopicPropertiesRebuildPlugin,
         PostMenuPlugin,
@@ -234,6 +236,22 @@ final class AssignPlugin
         ),
     ];
   }
+
+  @override
+  TopicListColumn topicListColumn(String siteUrl) => TopicListColumn(
+    id: 'assigned-to',
+    label: 'Assigned to',
+    width: 158,
+    appliesTo: (topic) => topic.plugins.get(assignmentsDataKey) != null,
+    builder: (context, topic, onOpen) {
+      final assignments = topic.plugins.get(assignmentsDataKey);
+      if (assignments == null || !assignments.hasAssignments) return null;
+      return AssignmentTopicListSummary(
+        assignments: assignments,
+        onOpen: onOpen,
+      );
+    },
+  );
 
   @override
   List<TopicPropertySection> topicProperties(

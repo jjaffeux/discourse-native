@@ -559,6 +559,12 @@ installation and apply across every forum. The current forum workspace or
 Aggregate view stays mounted behind the modal, and closing it reveals the exact
 same root, pane, tab, route, and scroll position.
 
+**Topic list** switches between **Card** (the default, with previews) and
+**Compact** (a denser table). It applies immediately to forum lists, Aggregate
+rows, and topic recommendations, and persists across restarts under
+`discourse_native.topic_list_mode`. Switching preserves the mounted list and
+its visible topic. The setting is local to the app and shared across forums.
+
 The first app setting is **Content alignment**. On native macOS, Linux, and
 Windows, primary scrolling content uses a reading lane no wider than 825
 logical pixels at 100% text size. The limit scales with the app's Text size so
@@ -643,17 +649,24 @@ topic action drops its label when the available content width is tight. On macOS
 the window title bar carries forum search, so the list does not repeat a page
 heading. Category and nested routes keep their contextual headers and actions.
 
-The list and its controls share a 1120px lane at normal text size. Wide lists
-label the people, replies, views, and activity columns; narrow lists move
-metadata beneath the title. Unread dots occupy a consistent leading gutter.
-Titles can wrap to two lines, with consistent row spacing across discovery
-views.
-Hover feedback uses a subtle rounded surface inset from the row separators,
-without changing row spacing or the clickable area. Keyboard focus has an
-outline on that same surface.
-Narrow inbox rows use the selected row's rounded outline for hover, with a
-neutral border and fill. Their one-line previews resolve standard and custom
-emoji through the forum's catalog, like topic titles.
+The list and its controls share a 1120px lane at normal text size. Card mode
+keeps the existing outlined rows and excerpts. Compact mode uses aligned Topic,
+Category, Replies, and Activity columns, with an Assigned to column when the
+forum exposes assignment data. Narrow layouts move category and assignment
+metadata below the title; at large text sizes, reply counts and activity also
+move inline. User and group assignments retain their topic or post targets;
+`+N` opens the topic to view all assignments. Other plugin metadata remains
+visible below the row.
+
+Both modes keep the same lazy feed, pagination, keyboard navigation, source-list
+selection, and read-state updates. Compact titles wrap to two lines at ordinary
+text sizes and grow with larger text. Read titles are subdued; unread/new,
+pinned, closed, and bookmark indicators remain available. Row interaction uses
+the Native Item component's hover, focus, and selected outline. No separate
+sorting or local filtering is introduced by the compact table.
+
+The [design study](docs/mockups/topic-list-modes/README.md) includes the original
+HTML/CSS mockups and an offline native review entrypoint.
 
 `latest`, `new`, `unread`, `top` and `messages` all share one envelope
 (`topic_list.topics` plus a `users` array), so they go through a single

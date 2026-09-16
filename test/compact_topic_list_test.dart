@@ -1,0 +1,281 @@
+import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/src/data/app_settings_store.dart';
+import 'package:discourse_native/src/models/app_settings.dart';
+import 'package:discourse_native/src/models/discourse_user.dart';
+import 'package:discourse_native/src/models/topic.dart';
+import 'package:discourse_native/src/plugin_api/plugin_registry.dart';
+import 'package:discourse_native/src/plugin_api/plugin_runtime.dart';
+import 'package:discourse_native/src/plugins/assign/assign_module.dart';
+import 'package:discourse_native/src/plugins/assign/assign_plugin.dart';
+import 'package:discourse_native/src/shell/shell_controller.dart';
+import 'package:discourse_native/src/shell/shell_scope.dart';
+import 'package:discourse_native/src/shell/topic_list_view.dart';
+import 'package:discourse_native/src/theme/app_theme.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:super_sliver_list/super_sliver_list.dart';
+
+import 'support/fakes.dart';
+
+void main() {
+  testWidgets(
+    'switching list style preserves the lazy viewport and visible topic',
+    (tester) async {
+      final shell = await _setup(tester, mode: TopicListDisplayMode.card);
+      final list = find.byType(SuperListView);
+      final scroll = tester.widget<SuperListView>(list).controller!;
+      await tester.drag(list, const Offset(0, -700));
+      await tester.pumpAndSettle();
+      final visible =
+          find
+                  .byType(DItem)
+                  .evaluate()
+                  .where((element) {
+                    final bounds = tester.getRect(
+                      find.byWidget(element.widget),
+                    );
+                    return bounds.top >= 0 && bounds.bottom < 680;
+                  })
+                  .first
+                  .widget
+                  .key
+              as ValueKey<String>;
+      final id = visible.value.split('-').last;
+
+      await shell.appSettings.setTopicListMode(TopicListDisplayMode.compact);
+      await tester.pumpAndSettle();
+      expect(tester.widget<SuperListView>(list).controller, same(scroll));
+      expect(
+        find.byKey(ValueKey('topic-compact-$id')).hitTestable(),
+        findsOneWidget,
+      );
+      expect(find.byKey(const ValueKey('topic-compact-60')), findsNothing);
+      expect(
+        find.byKey(const ValueKey('compact-topic-list-header')),
+        findsOneWidget,
+      );
+
+      await shell.appSettings.setTopicListMode(TopicListDisplayMode.card);
+      await tester.pumpAndSettle();
+      expect(tester.widget<SuperListView>(list).controller, same(scroll));
+      expect(
+        find.byKey(ValueKey('topic-card-$id')).hitTestable(),
+        findsOneWidget,
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets('compact assignment disclosure opens the owning topic', (
+    tester,
+  ) async {
+    final shell = await _setup(tester);
+    expect(find.text('Assigned to'), findsOneWidget);
+    expect(find.text('Excerpt 1'), findsNothing);
+    expect(find.text('joffrey'), findsOneWidget);
+    final disclosure = find.bySemanticsLabel(
+      'Open topic to view all 2 assignments',
+    );
+    expect(disclosure, findsOneWidget);
+    await tester.tap(disclosure);
+    await tester.pumpAndSettle();
+    expect(shell.currentContent?.topicId, 1);
+    await tester.tap(find.byKey(const ValueKey('topic-compact-2')));
+    await tester.pumpAndSettle();
+    expect(shell.currentContent?.topicId, 2);
+    expect(tester.takeException(), isNull);
+  });
+
+  for (final (width, scale, direction) in [
+    (390.0, 1.0, TextDirection.ltr),
+    (320.0, 2.0, TextDirection.rtl),
+    (780.0, 1.0, TextDirection.rtl),
+  ]) {
+    testWidgets(
+      'compact rows retain metadata at width $width scale $scale $direction',
+      (tester) async {
+        await _setup(tester, width: width, scale: scale, direction: direction);
+        expect(find.text('Assigned to '), findsWidgets);
+        expect(find.text('joffrey'), findsOneWidget);
+        expect(find.text('Excerpt 1'), findsNothing);
+        expect(find.byKey(const ValueKey('topic-compact-1')), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
+  testWidgets('assignment columns require serializer evidence', (tester) async {
+    await _setup(tester, enableAssignments: false);
+    expect(find.text('Assigned to'), findsNothing);
+    expect(find.text('Assigned to '), findsNothing);
+    expect(find.byKey(const ValueKey('topic-compact-1')), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('compact assignment cells update with their topic record', (
+    tester,
+  ) async {
+    final shell = await _setup(tester);
+    final siteUrl = shell.currentInstance!.url;
+    final topic = shell.store.read<Topic>(siteUrl, 1)!;
+    shell.store.put(
+      siteUrl,
+      topic.copyWith(
+        plugins: const PluginRegistry([AssignPlugin()]).readTopic(const {
+          'assigned_to_group': {'name': 'support'},
+        }, siteUrl),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('joffrey'), findsNothing);
+    expect(
+      find.bySemanticsLabel('topic assigned to support, group @support'),
+      findsOneWidget,
+    );
+    expect(
+      find.bySemanticsLabel('Open topic to view all 2 assignments'),
+      findsNothing,
+    );
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('compact keyboard navigation opens the selected topic', (
+    tester,
+  ) async {
+    final shell = await _setup(tester);
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyJ);
+    await tester.pumpAndSettle();
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyJ);
+    await tester.pumpAndSettle();
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pumpAndSettle();
+    expect(shell.currentContent?.topicId, 2);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('standalone topic rows follow the same display preference', (
+    tester,
+  ) async {
+    final shell = await _setup(tester, mode: TopicListDisplayMode.card);
+    final topic = shell.store.read<Topic>(shell.currentInstance!.url, 1)!;
+    await tester.pumpWidget(
+      ShellScope(
+        controller: shell,
+        child: MaterialApp(
+          theme: AppTheme.light,
+          home: Scaffold(
+            body: TopicListRow(topic: topic, onTap: () {}),
+          ),
+        ),
+      ),
+    );
+    expect(find.text('Excerpt 1'), findsOneWidget);
+    await shell.appSettings.setTopicListMode(TopicListDisplayMode.compact);
+    await tester.pumpAndSettle();
+    expect(find.text('Excerpt 1'), findsNothing);
+    expect(find.text('joffrey'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+}
+
+Future<ShellController> _setup(
+  WidgetTester tester, {
+  double width = 1200,
+  bool enableAssignments = true,
+  double scale = 1,
+  TextDirection direction = TextDirection.ltr,
+  TopicListDisplayMode mode = TopicListDisplayMode.compact,
+}) async {
+  await tester.binding.setSurfaceSize(Size(width, 700));
+  addTearDown(() => tester.binding.setSurfaceSize(null));
+  const user = DiscourseUser(id: 7, username: 'sam');
+  final site = instance('compact.example').copyWith(user: user);
+  const registry = PluginRegistry([AssignPlugin()]);
+  final rows = [
+    for (var id = 1; id <= 60; id++)
+      Topic(
+        id: id,
+        title: 'Topic $id: a conversation about improving our community',
+        slug: 'topic-$id',
+        categoryId: 1,
+        postsCount: 25,
+        replyCount: 24,
+        unreadPosts: id == 1 ? 4 : 0,
+        lastPosterUsername: 'sam',
+        bumpedAt: DateTime.now().subtract(Duration(minutes: id)),
+        tags: const [
+          TopicTag(name: 'design'),
+          TopicTag(name: 'mobile'),
+        ],
+        excerpt: 'Excerpt $id',
+        plugins: registry.readTopic(
+          !enableAssignments
+              ? const {}
+              : id == 1
+              ? const {
+                  'can_assign': false,
+                  'assigned_to_user': {'username': 'joffrey'},
+                  'indirectly_assigned_to': {
+                    '108': {
+                      'post_number': 8,
+                      'assigned_to': {'name': 'design'},
+                    },
+                  },
+                }
+              : const {'can_assign': false},
+          site.url,
+        ),
+      ),
+  ];
+  final plugins = PluginInstaller.install(const PluginManifest([assignModule]));
+  final shell = ShellController(
+    plugins: plugins,
+    instanceStore: FakeInstanceStore([site]),
+    api: FakeDiscourseApi(
+      user: user,
+      feeds: {'/latest.json': rows},
+      categoryList: const [
+        TopicCategory(id: 1, name: 'Community', color: 'A787CB'),
+      ],
+    ),
+    authenticator: FakeAuthenticator()..keys[site.url] = 'key',
+    drafts: FakeDraftStore(),
+    forumTabs: FakeForumTabStore(),
+    trackers: FakeSiteTracker.reset(),
+    updater: FakeUpdater(),
+    updateStore: FakeUpdateStore(),
+    appSettingsStore: AppSettingsStore(
+      persistence: MemoryAppSettingsPersistence(topicListMode: mode.name),
+    ),
+  );
+  addTearDown(() async {
+    shell.dispose();
+    await plugins.close();
+  });
+  await shell.load();
+  await shell.loadFeed('latest');
+  await tester.pumpWidget(
+    ShellScope(
+      controller: shell,
+      child: MaterialApp(
+        theme: AppTheme.light,
+        home: MediaQuery(
+          data: MediaQueryData(textScaler: TextScaler.linear(scale)),
+          child: Directionality(
+            textDirection: direction,
+            child: Scaffold(
+              body: ListenableBuilder(
+                listenable: shell,
+                builder: (_, _) =>
+                    TopicListView(feed: shell.currentFeed!, inbox: true),
+              ),
+            ),
+          ),
+        ),
+      ),
+    ),
+  );
+  await tester.pumpAndSettle();
+  return shell;
+}

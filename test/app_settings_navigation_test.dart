@@ -474,6 +474,13 @@ final class _GatedAppSettingsPersistence implements AppSettingsPersistence {
   Future<String?> readTextScale() => _delegate.readTextScale();
 
   @override
+  Future<String?> readTopicListMode() => _delegate.readTopicListMode();
+
+  @override
+  Future<bool> writeTopicListMode(String value) =>
+      _delegate.writeTopicListMode(value);
+
+  @override
   Future<String?> readThemeMode() => _delegate.readThemeMode();
 
   @override
