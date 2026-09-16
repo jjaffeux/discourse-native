@@ -12967,13 +12967,18 @@ class ShellController extends FrameSafeNotifier
     }
   }
 
+  int _forumSwitchTraceGeneration = 0;
+
   @override
   void selectInstance(int index) {
     assert(index >= 0 && index < _instances.length);
+    SurfaceOpeningTrace.mark('forum.select');
+    final traceGeneration = ++_forumSwitchTraceGeneration;
     _rootMode = ShellRootMode.forum;
     if (index != _instanceIndex) {
       _instanceIndex = index;
       _restoreInstanceWorkspace();
+      SurfaceOpeningTrace.mark('forum.workspaceRestored');
       final selected = currentInstance;
       if (selected != null && selected.isConnected) {
         unawaited(
@@ -12986,6 +12991,15 @@ class ShellController extends FrameSafeNotifier
     }
     _mobilePane = MobilePane.sidebar;
     _notify();
+    SurfaceOpeningTrace.mark('forum.notified');
+    SurfaceOpeningTrace.afterFrame(
+      'forum.frame',
+      isCurrent: () =>
+          !isDisposed &&
+          _rootMode == ShellRootMode.forum &&
+          _instanceIndex == index &&
+          traceGeneration == _forumSwitchTraceGeneration,
+    );
   }
 
   void selectAggregate() {

@@ -3,7 +3,8 @@ import 'dart:collection';
 import 'dart:ui' show PointerDeviceKind;
 
 import 'package:discourse_native/discourse_ui.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart'
+    show TargetPlatform, defaultTargetPlatform, kIsWeb;
 import 'package:flutter/gestures.dart'
     show PointerDownEvent, kBackMouseButton, kForwardMouseButton;
 import 'package:flutter/material.dart';
@@ -20,6 +21,8 @@ import 'data/site_tracker.dart';
 import 'data/update_store.dart';
 import 'data/updater.dart';
 import 'diagnostics/diagnostics.dart';
+import 'diagnostics/surface_opening_trace.dart';
+import 'foundation/bounded_lru_cache.dart';
 import 'foundation/timezone_environment.dart';
 import 'models/app_settings.dart';
 import 'models/site_appearance.dart';
@@ -100,6 +103,30 @@ class _DiscourseAppState extends State<DiscourseApp>
   final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
 
   static const _maximumPendingNotificationUrls = 16;
+
+  // Theme construction includes Material's seed-color calculation. Keep recent
+  // immutable palettes across forum switches, while bounding retained themes
+  // when appearances change or forums are removed. Platform affects ThemeData
+  // defaults, including typography and tap targets.
+  final _themes =
+      BoundedLruCache<
+        (ResolvedSitePalette?, Brightness, TargetPlatform),
+        ThemeData
+      >(32);
+
+  ThemeData _themeFor(SiteAppearance? appearance, Brightness brightness) {
+    final palette = appearance?.paletteForBrightness(brightness);
+    final key = (palette, brightness, defaultTargetPlatform);
+    final cached = _themes.read(key);
+    if (cached != null) return cached;
+    final theme = palette != null
+        ? AppTheme.fromPalette(palette)
+        : brightness == Brightness.dark
+        ? AppTheme.dark
+        : AppTheme.light;
+    _themes.put(key, theme);
+    return theme;
+  }
 
   ShellController _createController() => ShellController(
     instanceStore: _store,
@@ -490,18 +517,13 @@ class _DiscourseAppState extends State<DiscourseApp>
         child: ShellSelector<_AppThemeSelection>(
           select: _AppThemeSelection.from,
           builder: (context, selection, _) {
-            ThemeData themeFor(Brightness brightness) {
-              final palette = selection.appearance?.paletteForBrightness(
-                brightness,
-              );
-              if (palette != null) return AppTheme.fromPalette(palette);
-              return brightness == Brightness.dark
-                  ? AppTheme.dark
-                  : AppTheme.light;
-            }
-
-            final lightTheme = themeFor(Brightness.light);
-            final darkTheme = themeFor(Brightness.dark);
+            SurfaceOpeningTrace.mark('forum.theme.start');
+            final lightTheme = _themeFor(
+              selection.appearance,
+              Brightness.light,
+            );
+            final darkTheme = _themeFor(selection.appearance, Brightness.dark);
+            SurfaceOpeningTrace.mark('forum.theme.end');
             return ListenableBuilder(
               listenable: _controller.appSettings,
               builder: (context, _) => _materialApp(
