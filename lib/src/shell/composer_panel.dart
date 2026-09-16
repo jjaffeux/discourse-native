@@ -2676,6 +2676,7 @@ class _Toolbar extends StatelessWidget {
             content: DDropdownMenuContent(
               semanticLabel: 'Composer options',
               side: DPopoverSide.top,
+              align: DPopoverAlign.end,
               children: options,
             ),
             child: DDropdownMenuTrigger(
