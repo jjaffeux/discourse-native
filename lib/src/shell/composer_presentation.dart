@@ -9,7 +9,6 @@ import '../diagnostics/surface_opening_trace.dart';
 import '../models/composer_placement.dart';
 import '../theme/app_theme.dart';
 import 'composer_controller.dart';
-import 'composer_discard.dart';
 import 'composer_header.dart';
 import 'composer_panel.dart';
 import 'composer_presentation_controller.dart';
@@ -606,15 +605,6 @@ class _ComposerSurface extends StatelessWidget {
                 child: ComposerHeader(
                   composer: composer,
                   minimized: true,
-                  closeTooltip: composer.canSaveDraft
-                      ? 'Save and close'
-                      : 'Close composer',
-                  onClose: () => unawaited(
-                    closeComposerFromPanel(
-                      context: context,
-                      composer: composer,
-                    ),
-                  ),
                   onRestore: onRestore,
                 ),
               ),

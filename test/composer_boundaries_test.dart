@@ -55,7 +55,7 @@ void main() {
           await tester.pumpAndSettle();
           await _expectComposerBoundary(tester, theme, placement);
         }
-        for (final action in ['composer-minimize', 'composer-close']) {
+        for (final action in ['composer-minimize', 'composer-cancel']) {
           await tester.tap(find.byKey(ValueKey(action)));
           await tester.pumpAndSettle();
           final frame = tester.widget<DecoratedBox>(

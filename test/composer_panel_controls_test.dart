@@ -574,6 +574,17 @@ void main() {
         );
 
         final submit = find.byKey(const ValueKey('composer-submit'));
+        final cancel = find.widgetWithText(DButton, 'Cancel');
+        expect(cancel.hitTestable(), findsOneWidget);
+        expect(
+          tester.getRect(cancel).left,
+          greaterThan(tester.getRect(submit).right),
+        );
+        expect(
+          tester.getCenter(cancel).dy,
+          closeTo(tester.getCenter(submit).dy, 1),
+        );
+        expect(find.byKey(const ValueKey('composer-close')), findsNothing);
         expect(
           find.descendant(
             of: submit,
@@ -639,7 +650,7 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('places Create on the left and writing tools on the right', (
+    testWidgets('places Create and Cancel on the left and tools on the right', (
       tester,
     ) async {
       final composer = ComposerController(
@@ -662,9 +673,14 @@ void main() {
       final submit = tester.getRect(
         find.byKey(const ValueKey('composer-submit')),
       );
+      final cancel = tester.getRect(
+        find.byKey(const ValueKey('composer-cancel')),
+      );
       expect(submit.left, closeTo(panel.left + 8, 1));
+      expect(cancel.left, closeTo(submit.right + 8, 1));
+      expect(cancel.center.dy, closeTo(submit.center.dy, 1));
       expect(toolbar.right, closeTo(panel.right - 14, 1));
-      expect(toolbar.left, greaterThan(submit.right));
+      expect(toolbar.left, greaterThan(cancel.right));
       expect(tester.takeException(), isNull);
     });
 
