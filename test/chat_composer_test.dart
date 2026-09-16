@@ -285,6 +285,33 @@ void main() {
   });
 
   group('draft editing, layout, and uploads', () {
+    testWidgets('compact quotes continue and exit without sending', (
+      tester,
+    ) async {
+      final fixture = await _fixture(pages: const {});
+      addTearDown(fixture.shell.dispose);
+      await tester.pumpWidget(
+        _ComposerVisibilityView(shell: fixture.shell, visible: true),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.enterText(_composerField(), '>test');
+      await tester.pump();
+      expect(_text(tester), '>test');
+      expect(find.byType(ComposerBlockquoteMarker), findsOneWidget);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pump();
+      expect(_text(tester), '>test\n> ');
+      expect(find.byType(ComposerBlockquoteMarker), findsNWidgets(2));
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pump();
+      expect(_text(tester), '>test\n');
+      expect(find.byType(ComposerBlockquoteMarker), findsOneWidget);
+      expect(fixture.api.chatMessagesSent, isEmpty);
+    });
+
     testWidgets('line-start commands skip the hidden quote prefix', (
       tester,
     ) async {

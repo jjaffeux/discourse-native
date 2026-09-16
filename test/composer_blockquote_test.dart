@@ -54,6 +54,8 @@ void main() {
       ('>| words', '> |words'),
       ('> words\n|> next', '> words|\n> next'),
       ('> words\n>| next', '> words|\n> next'),
+      ('>words\n>|next', '>words|\n>next'),
+      ('>|words', '>|words'),
     ]) {
       test('left from $before', () {
         expect(
@@ -71,6 +73,8 @@ void main() {
       ('Before|\n> words', 'Before\n> |words'),
       ('|> words', '> |words'),
       ('>| words', '> |words'),
+      ('>words|\n>next', '>words\n>|next'),
+      ('|>words', '>|words'),
     ]) {
       test('right from $before', () {
         expect(
@@ -133,6 +137,8 @@ void main() {
       ('> words\n> |', '> words\n|> ', '> words\n> |'),
       ('> words|', '|> words', '> |words'),
       ('  > > words|', '|  > > words', '  > > |words'),
+      ('>words|', '|>words', '>|words'),
+      ('>words\n>next|', '>words\n|>next', '>words\n>|next'),
       ('> one two three|', '> one |two three', '> one |two three'),
       ('Before\nPlain|', 'Before\n|Plain', 'Before\n|Plain'),
       ('```\n> literal|\n```', '```\n|> literal\n```', '```\n|> literal\n```'),
@@ -204,6 +210,10 @@ void main() {
       ('> words\n> \n> |', '> words\n> |'),
       ('> > nested\n> > |', '> > nested|'),
       ('>> nested\n>> |', '>> nested|'),
+      ('>words\n>|continued', '>words|continued'),
+      ('>words\n> |', '>words|'),
+      ('  >>|words', '|words'),
+      ('>|words', '|words'),
       ('  > words\n  > |', '  > words|'),
       ('> words\n>\t|', '> words|'),
       ('> |', '|'),
@@ -258,6 +268,10 @@ void main() {
   group('quote continuation', () {
     for (final (before, after) in [
       ('> words|', '> words\n> |'),
+      ('>words|', '>words\n> |'),
+      ('>one|two', '>one\n> |two'),
+      ('>>nested|', '>>nested\n>> |'),
+      ('  > >nested|', '  > >nested\n  > > |'),
       ('Before\n> words|', 'Before\n> words\n> |'),
       ('> one |two', '> one \n> |two'),
       ('> > nested|', '> > nested\n> > |'),
@@ -287,6 +301,12 @@ void main() {
       final first = enter(_value('> words|'));
       expect(first, _value('> words\n> |'));
       expect(enter(first), _value('> words\n|'));
+    });
+
+    test('continues and exits a quote without a space after its marker', () {
+      final first = enter(_value('>words|'));
+      expect(first, _value('>words\n> |'));
+      expect(enter(first), _value('>words\n|'));
     });
 
     test('Shift+Enter always continues, including on empty quote lines', () {

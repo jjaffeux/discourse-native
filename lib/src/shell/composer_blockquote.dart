@@ -8,7 +8,11 @@ import '../theme/app_theme.dart';
 import 'markdown_highlight.dart';
 import 'quote_panel.dart';
 
-final _prefix = RegExp(r'^ {0,3}>+(?:[ \t]>+)*[ \t]', multiLine: true);
+// A quote's body can follow > directly. Keep a lone > visible while typing.
+final _prefix = RegExp(
+  r'^ {0,3}>+(?:[ \t]>+)*(?:[ \t]|(?=[^>\s]))',
+  multiLine: true,
+);
 
 List<TextRange> composerBlockquotePrefixes(
   String source, {
@@ -370,7 +374,10 @@ class ComposerBlockquoteInputFormatter extends TextInputFormatter {
         );
       }
 
-      final prefix = range.textInside(oldValue.text);
+      final sourcePrefix = range.textInside(oldValue.text);
+      final prefix = sourcePrefix.endsWith('>')
+          ? '$sourcePrefix '
+          : sourcePrefix;
       final result = TextEditingValue(
         text: newValue.text.replaceRange(caret + 1, caret + 1, prefix),
         selection: TextSelection.collapsed(offset: caret + 1 + prefix.length),

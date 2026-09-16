@@ -168,6 +168,49 @@ void main() {
       await tester.pump();
       expect(find.byType(ComposerBlockquoteMarker), findsOneWidget);
     });
+
+    testWidgets('projects compact quotes without changing source offsets', (
+      tester,
+    ) async {
+      await pumpField(tester, '');
+      for (final prefix in ['>', '>>', '> >', '   >']) {
+        final source = '${prefix}test';
+        await tester.enterText(find.byType(TextField), source);
+        await tester.pump();
+        expect(find.byType(ComposerBlockquoteMarker), findsOneWidget);
+        expect(controller.text, source);
+        expect(painted(tester).toPlainText().length, source.length);
+        final render = editable(tester).renderEditable;
+        final marker = tester.getRect(find.byType(ComposerBlockquoteMarker));
+        for (var offset = prefix.length; offset <= source.length; offset++) {
+          final rect = render.getLocalRectForCaret(
+            TextPosition(offset: offset),
+          );
+          final caret = render.localToGlobal(rect.center);
+          expect(caret.dx, greaterThanOrEqualTo(marker.right));
+          expect(render.getPositionForPoint(caret).offset, offset);
+        }
+      }
+
+      await tester.enterText(
+        find.byType(TextField),
+        'a >test\n\\>escaped\n    >code\n```\n>fenced\n```\n`>inline`',
+      );
+      await tester.pump();
+      expect(find.byType(ComposerBlockquoteMarker), findsNothing);
+
+      controller.value = const TextEditingValue(
+        text: '>test',
+        selection: TextSelection.collapsed(offset: 5),
+        composing: TextRange(start: 0, end: 5),
+      );
+      await tester.pump();
+      expect(find.byType(ComposerBlockquoteMarker), findsNothing);
+      expect(painted(tester).toPlainText(), '>test');
+      controller.clearComposing();
+      await tester.pump();
+      expect(find.byType(ComposerBlockquoteMarker), findsOneWidget);
+    });
   });
 
   testWidgets('a tap lands on the character under it', (tester) async {

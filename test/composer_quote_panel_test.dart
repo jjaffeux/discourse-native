@@ -35,6 +35,31 @@ const _longQuote =
 
 void main() {
   group('quote editing', () {
+    testWidgets('compact quotes render, continue, and exit in topic drafts', (
+      tester,
+    ) async {
+      final composer = ComposerController(_target);
+      final shell = await _shell();
+      addTearDown(composer.dispose);
+      addTearDown(shell.dispose);
+      await _pumpPanel(tester, shell, composer);
+
+      await tester.enterText(find.byType(TextField), '>test');
+      await tester.pump();
+      expect(composer.raw, '>test');
+      expect(find.byType(ComposerBlockquoteMarker), findsOneWidget);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pump();
+      expect(composer.text.text, '>test\n> ');
+      expect(find.byType(ComposerBlockquoteMarker), findsNWidgets(2));
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pump();
+      expect(composer.text.text, '>test\n');
+      expect(find.byType(ComposerBlockquoteMarker), findsOneWidget);
+    });
+
     for (final reversed in [false, true]) {
       for (final (label, replacement) in [
         ('a bracket', '['),

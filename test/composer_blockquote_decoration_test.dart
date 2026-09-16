@@ -152,6 +152,12 @@ void main() {
     for (final source in [
       '> ',
       '> testdazdzada',
+      '>test',
+      '>t',
+      '>>nested',
+      '> >nested',
+      '   >indented',
+      '>${'quoted text ' * 5}\n>continued',
       '> ${'quoted text ' * 5}\n> continued',
     ]) {
       await tester.enterText(find.byType(TextField), source);
