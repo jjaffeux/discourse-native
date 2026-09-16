@@ -173,6 +173,7 @@ class DBubbleContent extends StatefulWidget {
   const DBubbleContent({
     super.key,
     required this.child,
+    this.compact = false,
     this.action,
     this.onPressed,
     this.disabled = false,
@@ -190,6 +191,10 @@ class DBubbleContent extends StatefulWidget {
        assert(!selected || action != null);
 
   final Widget child;
+
+  /// Uses 4px vertical padding instead of 8px for compact conversations.
+  /// Horizontal padding remains 12px; ghost bubbles remain unpadded.
+  final bool compact;
   final DBubbleContentAction? action;
   final VoidCallback? onPressed;
   final bool disabled;
@@ -342,7 +347,10 @@ class _DBubbleContentState extends State<DBubbleContent> {
       clipBehavior: Clip.antiAlias,
       padding: ghost
           ? EdgeInsets.zero
-          : const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          : EdgeInsets.symmetric(
+              horizontal: 12,
+              vertical: widget.compact ? 4 : 8,
+            ),
       decoration: BoxDecoration(
         color: style.background,
         borderRadius: radius,

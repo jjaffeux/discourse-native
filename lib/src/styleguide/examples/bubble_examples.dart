@@ -23,6 +23,20 @@ final bubbleExamples = ComponentExamples(
       'example state.',
   examples: [
     StyleguideExample(
+      title: 'Compact conversation',
+      description:
+          'DM bubbles use 4px vertical padding and retain 12px horizontal padding.',
+      states: const ['Compact'],
+      code: '''DBubble(children: const [
+  DBubbleContent(compact: true, child: Text('A compact message')),
+])''',
+      builder: (_) => const DBubble(
+        children: [
+          DBubbleContent(compact: true, child: Text('A compact message')),
+        ],
+      ),
+    ),
+    StyleguideExample(
       title: 'Composition',
       description:
           'The frozen conversation demo combines end-aligned primary bubbles, a muted group and descriptive reactions.',

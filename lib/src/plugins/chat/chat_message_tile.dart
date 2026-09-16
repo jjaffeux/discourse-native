@@ -1610,6 +1610,7 @@ class _Tile extends StatelessWidget {
         message.delivery != ChatMessageDelivery.sent;
 
     final bubbleContent = DBubbleContent(
+      compact: true,
       child: Builder(
         builder: (context) {
           final style = DefaultTextStyle.of(context).style;
@@ -1625,32 +1626,23 @@ class _Tile extends StatelessWidget {
               ),
             )!,
           );
-          return messageActions == null
-              ? body
-              : Row(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  spacing: DSpacing.xs,
-                  children: [
-                    Flexible(child: body),
-                    messageActions,
-                  ],
-                );
+          return body;
         },
       ),
     );
 
+    final verticalGap = !context.isTouch && followsReactions
+        ? DSpacing.xs
+        : chained
+        ? DSpacing.sm
+        : DSpacing.lg;
     return Padding(
       key: ValueKey('chat-message-${message.id}'),
       padding: EdgeInsetsDirectional.fromSTEB(
         DSpacing.lg,
-        !context.isTouch && followsReactions
-            ? DSpacing.xs
-            : chained
-            ? DSpacing.sm
-            : DSpacing.lg,
+        verticalGap / 2,
         DSpacing.lg,
-        0,
+        verticalGap / 2,
       ),
       child: DMessage(
         align: outgoing ? DMessageAlign.end : DMessageAlign.start,
@@ -1724,16 +1716,22 @@ class _Tile extends StatelessWidget {
                       ? DBubbleVariant.primary
                       : DBubbleVariant.muted,
                   children: [
-                    if (messageReaction == null)
+                    if (messageReaction == null && messageActions == null)
                       bubbleContent
                     else
                       Row(
                         mainAxisSize: MainAxisSize.min,
                         spacing: DSpacing.sm,
                         children: [
-                          if (outgoing) messageReaction,
+                          if (outgoing && messageActions != null)
+                            messageActions,
+                          if (outgoing && messageReaction != null)
+                            messageReaction,
                           Flexible(child: bubbleContent),
-                          if (!outgoing) messageReaction,
+                          if (!outgoing && messageReaction != null)
+                            messageReaction,
+                          if (!outgoing && messageActions != null)
+                            messageActions,
                         ],
                       ),
                   ],
