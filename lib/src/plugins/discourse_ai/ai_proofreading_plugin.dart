@@ -1,5 +1,5 @@
 import 'package:discourse_native/discourse_ui.dart';
-import 'package:flutter/material.dart';
+import 'package:flutter/widgets.dart';
 
 import '../../plugin_api/plugin_scope.dart';
 import '../../plugin_api/site_plugin_api.dart';
@@ -12,7 +12,7 @@ final class AiProofreadingPlugin
         SitePlugin,
         SiteSettingsPlugin<DiscourseAiSettings>,
         CurrentUserPlugin<DiscourseAiCurrentUser>,
-        ComposerFooterPlugin {
+        ComposerOptionsPlugin {
   const AiProofreadingPlugin();
 
   @override
@@ -39,7 +39,10 @@ final class AiProofreadingPlugin
   ) => DiscourseAiCurrentUser.fromWire(json);
 
   @override
-  List<Widget> composerFooter(BuildContext context, ComposerEditorHost editor) {
+  List<Widget> composerOptions(
+    BuildContext context,
+    ComposerEditorHost editor,
+  ) {
     final controller = PluginUiScope.maybe(
       context,
       aiProofreadingControllerService,
@@ -59,59 +62,15 @@ class _ProofreadToggle extends StatelessWidget {
   Widget build(BuildContext context) => ListenableBuilder(
     listenable: controller,
     builder: (context, _) {
-      final theme = Theme.of(context);
       final enabled = controller.isEnabled(composer);
       final interactive = composer.isEditing && !composer.loadingBody;
-      final compact = ComposerFooterLayout.isCompactOf(context);
-      return DTooltip(
-        message: 'Proofread automatically before posting',
-        child: Semantics(
-          key: const ValueKey('composer-proofread-toggle'),
-          button: true,
-          enabled: interactive,
-          toggled: enabled,
-          label: 'Proofread',
-          excludeSemantics: true,
-          child: InkWell(
-            key: const ValueKey('composer-proofread-control'),
-            borderRadius: BorderRadius.circular(18),
-            onTap: interactive
-                ? () => controller.setEnabled(composer, !enabled)
-                : null,
-            child: Padding(
-              padding: const EdgeInsets.only(left: 8, right: 2),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (!compact) ...[
-                    Text(
-                      'Proofread',
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                    const SizedBox(width: 4),
-                  ],
-                  ExcludeSemantics(
-                    child: ExcludeFocus(
-                      child: IgnorePointer(
-                        child: DSwitch(
-                          key: const ValueKey('composer-proofread-switch'),
-                          size: DSwitchSize.small,
-                          value: enabled,
-                          onChanged: interactive
-                              ? (value) =>
-                                    controller.setEnabled(composer, value)
-                              : null,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
+      return DDropdownMenuCheckboxItem(
+        key: const ValueKey('composer-proofread-control'),
+        checked: enabled,
+        onChanged: interactive
+            ? (value) => controller.setEnabled(composer, value)
+            : null,
+        child: const Text('Proofread'),
       );
     },
   );
