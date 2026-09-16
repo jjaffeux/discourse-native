@@ -584,7 +584,10 @@ void main() {
           tester.getCenter(cancel).dy,
           closeTo(tester.getCenter(submit).dy, 1),
         );
-        expect(find.byKey(const ValueKey('composer-close')), findsNothing);
+        expect(
+          find.byKey(const ValueKey('composer-close')).hitTestable(),
+          findsOneWidget,
+        );
         expect(
           find.descendant(
             of: submit,
