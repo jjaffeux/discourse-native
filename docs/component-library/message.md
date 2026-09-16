@@ -32,6 +32,14 @@ with its actions, scrolling suppression, and open menus. The surface adds no
 click action or focus target. The **Message hover** styleguide example shows
 adjacent rows with this native adaptation.
 
+Hover verification (2026-09-16): all 113 focused Message, styleguide, channel,
+direct-message and chat-scroll tests passed, along with root static analysis.
+The isolated macOS fixture was inspected in light at 640px and dark at 360px:
+styleguide rows, ordinary/chained channel messages, group DMs and one-to-one DMs
+showed the tint across the complete row and cleared the previous row when the
+pointer moved. Scroll suppression is covered by widget tests. No mobile-device
+run was performed.
+
 `DMessage` is deliberately presentational. It does not assign a chat/article role or merge descendants. Callers may add a semantic label or whole-row live region only when that accurately describes the entire changing row. `DMessageStatus` supplies localizable pending, delivered, read, failed and deleted presentation; delivery and retry work remain caller-owned.
 
 Bubble owns its own maximum width and internal alignment in Flutter. Callers use matching `DMessageAlign.end` and `DBubbleAlign.end`; this preserves a clear dependency boundary instead of Message reconstructing Bubble. `DMessageContent` automatically aligns other content-sized children. `flushMetadata`, content spacing/alignment, avatar alignment, minimum extent and footer shift are narrow application-adapter extensions. Their defaults exactly follow base-nova.
