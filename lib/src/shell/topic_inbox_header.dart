@@ -203,7 +203,7 @@ class _TopicHeaderToolbar extends StatelessWidget {
           math.max(
             context.isTouch ? DSpacing.touchTarget : 0,
             DControlStyle.scaledHeight(
-              DControlSize.large,
+              DControlSize.regular,
               MediaQuery.textScalerOf(context),
             ),
           ),
@@ -240,19 +240,9 @@ class _TopicHeaderToolbar extends StatelessWidget {
                 ),
                 ConstrainedBox(
                   constraints: firstLineConstraints,
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      _TopicHeaderActions(
-                        header: header,
-                        width: constraints.maxWidth,
-                      ),
-                      const TopicPresentationButton(),
-                      if (!header.keepTopicListOpen)
-                        TopicCloseButton(
-                          canReturnToSidebar: header.canReturnToSidebar,
-                        ),
-                    ],
+                  child: _TopicHeaderActions(
+                    header: header,
+                    width: constraints.maxWidth,
                   ),
                 ),
               ],
@@ -317,32 +307,29 @@ class _TopicHeaderActions extends StatelessWidget {
     final topic = header.topic;
     final siteUrl = header.siteUrl;
     return Row(
+      key: const ValueKey('topic-header-common-actions'),
       mainAxisSize: MainAxisSize.min,
       spacing: DSpacing.xs,
       children: [
-        Row(
-          key: const ValueKey('topic-header-common-actions'),
-          mainAxisSize: MainAxisSize.min,
-          spacing: DSpacing.xs,
-          children: [
-            if (topic != null && siteUrl != null) ...[
-              TopicStatusButton(
-                siteUrl: siteUrl,
-                topic: topic,
-                topicFlags: ShellScope.read(
-                  context,
-                ).availableTopicFlagTypes(siteUrl, topic),
-              ),
-              if (width >= 440)
-                TopicShareButton(
-                  siteUrl: siteUrl,
-                  topic: topic,
-                  route: header.route,
-                ),
-            ],
-            if (ShellTitleBar.columnsCarryUserMenu) const UserMenuButton(),
-          ],
-        ),
+        if (topic != null && siteUrl != null) ...[
+          TopicStatusButton(
+            siteUrl: siteUrl,
+            topic: topic,
+            topicFlags: ShellScope.read(
+              context,
+            ).availableTopicFlagTypes(siteUrl, topic),
+          ),
+          if (width >= 440)
+            TopicShareButton(
+              siteUrl: siteUrl,
+              topic: topic,
+              route: header.route,
+            ),
+        ],
+        if (ShellTitleBar.columnsCarryUserMenu) const UserMenuButton(),
+        const TopicPresentationButton(),
+        if (!header.keepTopicListOpen)
+          TopicCloseButton(canReturnToSidebar: header.canReturnToSidebar),
       ],
     );
   }

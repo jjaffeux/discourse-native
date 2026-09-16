@@ -331,7 +331,7 @@ class TopicPresentationButton extends StatelessWidget {
           tooltip: 'Topic view',
           semanticLabel: 'Topic view',
           variant: DButtonVariant.ghost,
-          size: DButtonSize.small,
+          size: DButtonSize.regular,
           focusNode: trigger.focusNode,
           expanded: trigger.open,
           hasPopup: true,
@@ -341,8 +341,6 @@ class TopicPresentationButton extends StatelessWidget {
     );
   }
 
-  static Widget _viewIcon(bool sheet) => Icon(
-    sheet ? Icons.web_asset_outlined : Icons.view_sidebar_outlined,
-    size: 18,
-  );
+  static Widget _viewIcon(bool sheet) =>
+      Icon(sheet ? Icons.web_asset_outlined : Icons.view_sidebar_outlined);
 }
