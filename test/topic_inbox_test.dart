@@ -141,7 +141,10 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.descendant(of: listPane, matching: close), findsOneWidget);
     expect(find.byTooltip('Collapse topic'), findsOneWidget);
-    expect((tester.widget<DButton>(close).icon! as DIcon).icon, DIcons.xmark);
+    expect(
+      (tester.widget<DButton>(close).icon! as DIcon).icon,
+      DNativeIcons.closeTopicPane,
+    );
     await tester.tap(close);
     await tester.pumpAndSettle();
     expect(close, findsNothing);
