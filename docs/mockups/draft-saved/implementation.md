@@ -6,9 +6,9 @@ or moving the editor. The Native `DIcon`, `DSpinner`, and `DTooltip` components
 provide the indicator and its details; no UI kit API changed.
 
 - Successful site saves show a muted check and **Saved**.
-- New edits show **Saving…** immediately; the spinner animates during the
-  actual save request. Debouncing or a discard dialog that pauses autosave
-  does not leave an endlessly animated indicator.
+- New edits show **Saving…** immediately; the spinner animates throughout
+  the pending autosave delay and the actual save request, respecting the
+  system's reduced-motion preference.
 - Site-only failures show **Device only**, while failed local persistence shows
   **Not saved**. Existing detailed footer messages remain visible.
 - Minimized composers retain the status icon, full tooltip, and accessible
@@ -28,6 +28,14 @@ Coverage includes stable editor geometry, immediate invalidation of the saved
 label, persistent failure states, minimized status, header-control alignment,
 320px RTL headers at 100–300% text, and live-region semantics.
 The final narrow-label refinement also passed all 22 header and docking tests.
+
+The spinner follow-up adds frame-by-frame rotation checks before the first
+request, while the request is pending, and after editing a saved draft. Those
+checks reproduce the stationary-spinner bug before the fix and pass afterward
+in both dock placements. All 159 focused tests pass again; dialog tests now
+wait for dialog transitions instead of waiting for a pending spinner to settle.
+An isolated macOS build also confirms changing spinner positions across frames
+in light and dark themes, followed by the Saved check when the request completes.
 
 Focused Dart analysis passes without diagnostics. The macOS debug review build
 passes. Commands used the locally installed Flutter 3.47.4 / Dart 3.13.3; the

@@ -159,16 +159,21 @@ void main() {
       composer.text.text = 'A saved topic draft with edits';
       await tester.pump();
       await tester.tap(cancel);
-      await tester.pumpAndSettle();
+      // Autosave stays pending while the prompt is open; its spinner keeps
+      // animating, so wait for the dialog rather than all scheduled frames.
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
       expect(
         find.byKey(const ValueKey('composer-discard-dialog')),
         findsOneWidget,
       );
       await tester.tap(find.byKey(const ValueKey('composer-cancel-discard')));
-      await tester.pumpAndSettle();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
       expect(composer.raw, 'A saved topic draft with edits');
       await tester.tap(cancel);
-      await tester.pumpAndSettle();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
       await tester.tap(find.byKey(const ValueKey('composer-confirm-discard')));
       await tester.pumpAndSettle();
       expect(harness.shell.visibleComposer, isNull);
@@ -253,7 +258,7 @@ void main() {
       expect(composer.raw, 'First draft');
       expect(tester.takeException(), isNull);
       await tester.tap(find.byKey(const ValueKey('composer-minimize')));
-      await tester.pumpAndSettle();
+      await tester.pump();
       await tester.tap(find.byTooltip('Save and close'));
       await tester.pumpAndSettle();
       expect(composer.isDisposed, isTrue);
