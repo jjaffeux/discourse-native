@@ -6,6 +6,68 @@ import 'package:discourse_native/src/shell/app_settings_controller.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  for (final mode in AppThemeMode.values) {
+    test('choosing $mode during hydration preserves saved fields', () async {
+      final readGate = Completer<void>();
+      final persistence = _ControlledAppSettingsPersistence(
+        contentAlignment: 'left',
+        disableGifAnimations: true,
+        textScale: AppTextScale.percent175.name,
+        themeMode: 'dark',
+        readGate: readGate,
+      );
+      final controller = _controller(persistence);
+      final loading = controller.load();
+      await persistence.readStarted.future;
+
+      final saving = controller.setThemeMode(mode);
+      expect(controller.themeMode, mode);
+      readGate.complete();
+      await Future.wait([loading, saving]);
+
+      await _expectSettings(
+        controller,
+        persistence,
+        AppSettings(
+          contentAlignment: ContentAlignment.left,
+          disableGifAnimations: true,
+          textScale: AppTextScale.percent175,
+          themeMode: mode,
+        ),
+      );
+    });
+  }
+
+  test(
+    'rapid theme changes persist in order and skip repeated choices',
+    () async {
+      final persistence = _ControlledAppSettingsPersistence(
+        firstWriteGate: Completer<void>(),
+      );
+      final controller = _controller(persistence);
+      await controller.load();
+      final dark = controller.setThemeMode(AppThemeMode.dark);
+      await persistence.firstWriteStarted.future;
+      final light = controller.setThemeMode(AppThemeMode.light);
+      final system = controller.setThemeMode(AppThemeMode.system);
+      await controller.setThemeMode(AppThemeMode.system);
+      expect(controller.themeMode, AppThemeMode.system);
+      persistence.firstWriteGate!.complete();
+      await Future.wait([dark, light, system]);
+      expect(persistence.attemptedThemeModeWrites, ['dark', 'light', 'system']);
+      expect(persistence.themeMode, 'system');
+    },
+  );
+
+  test('failed theme writes retain the session choice', () async {
+    final persistence = _ControlledAppSettingsPersistence(acceptWrites: false);
+    final controller = _controller(persistence);
+    await controller.load();
+    await controller.setThemeMode(AppThemeMode.dark);
+    expect(controller.themeMode, AppThemeMode.dark);
+    expect((await controller.store.read()).themeMode, AppThemeMode.dark);
+  });
+
   test('loads once and exposes the stored settings', () async {
     final persistence = _ControlledAppSettingsPersistence(
       contentAlignment: 'left',
@@ -649,6 +711,7 @@ final class _ControlledAppSettingsPersistence
     this.contentAlignment,
     this.disableGifAnimations,
     this.textScale,
+    this.themeMode,
     this.readGate,
     this.firstWriteGate,
     this.acceptWrites = true,
@@ -657,6 +720,7 @@ final class _ControlledAppSettingsPersistence
   String? contentAlignment;
   bool? disableGifAnimations;
   String? textScale;
+  String? themeMode;
   final Completer<void>? readGate;
   final Completer<void>? firstWriteGate;
   final bool acceptWrites;
@@ -665,6 +729,7 @@ final class _ControlledAppSettingsPersistence
   final List<String> attemptedWrites = [];
   final List<bool> attemptedGifAnimationWrites = [];
   final List<String> attemptedTextScaleWrites = [];
+  final List<String> attemptedThemeModeWrites = [];
   int readCount = 0;
 
   @override
@@ -681,6 +746,9 @@ final class _ControlledAppSettingsPersistence
 
   @override
   Future<String?> readTextScale() async => textScale;
+
+  @override
+  Future<String?> readThemeMode() async => themeMode;
 
   @override
   Future<bool> writeContentAlignment(String value) async {
@@ -706,6 +774,15 @@ final class _ControlledAppSettingsPersistence
     await _waitForFirstWrite();
     if (!acceptWrites) return false;
     textScale = value;
+    return true;
+  }
+
+  @override
+  Future<bool> writeThemeMode(String value) async {
+    attemptedThemeModeWrites.add(value);
+    await _waitForFirstWrite();
+    if (!acceptWrites) return false;
+    themeMode = value;
     return true;
   }
 

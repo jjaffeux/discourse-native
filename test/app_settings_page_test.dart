@@ -35,6 +35,8 @@ void main() {
       568,
     );
     expect(find.text('Settings'), findsOneWidget);
+    expect(find.text('Appearance'), findsOneWidget);
+    expect(find.text('System'), findsOneWidget);
     expect(find.text('Content alignment'), findsOneWidget);
     expect(find.text('Text size'), findsOneWidget);
     expect(find.text('100%'), findsOneWidget);
@@ -112,6 +114,7 @@ void main() {
       expect(find.bySemanticsLabel('Close settings'), findsOneWidget);
       for (final (label, level) in [
         ('Settings', 1),
+        ('Appearance', 2),
         ('Content alignment', 2),
         ('Text size', 2),
       ]) {
@@ -234,6 +237,7 @@ void main() {
     void expectHome(ThemeData expected) {
       for (final finder in [
         find.byType(DDialogContent),
+        find.byType(DSelect<AppThemeMode>),
         find.byType(DToggleGroup<ContentAlignment>),
         find.byType(DSwitchTile),
         find.byKey(const ValueKey('text-size-increase')),
@@ -256,6 +260,19 @@ void main() {
     tester.platformDispatcher.platformBrightnessTestValue = Brightness.dark;
     await tester.pumpAndSettle();
     expectHome(AppTheme.dark);
+
+    for (final (label, mode, theme) in [
+      ('Light', AppThemeMode.light, AppTheme.light),
+      ('Dark', AppThemeMode.dark, AppTheme.dark),
+      ('System', AppThemeMode.system, AppTheme.dark),
+    ]) {
+      await tester.tap(find.byKey(const ValueKey('appearance-theme-select')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(label).last);
+      await tester.pumpAndSettle();
+      expect(controller.appSettings.themeMode, mode);
+      expectHome(theme);
+    }
   });
 
   testWidgets(
@@ -271,6 +288,11 @@ void main() {
         rtl: true,
       );
       expect(tester.takeException(), isNull);
+      await tester.tap(find.byKey(const ValueKey('appearance-theme-select')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Dark').last);
+      await tester.pumpAndSettle();
+      expect(controller.appSettings.themeMode, AppThemeMode.dark);
       await tester.ensureVisible(find.text('Left'));
       await tester.tap(find.text('Left'));
       await tester.pumpAndSettle();

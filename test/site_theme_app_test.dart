@@ -35,6 +35,7 @@ void main() {
       persistence: MemoryAppSettingsPersistence(
         contentAlignment: 'right',
         textScale: AppTextScale.percent125.name,
+        themeMode: AppThemeMode.dark.name,
       ),
     );
 
@@ -50,6 +51,8 @@ void main() {
       ContentAlignment.right,
     );
     expect(_controller(tester).appSettings.textScale, AppTextScale.percent125);
+    expect(_materialApp(tester).themeMode, ThemeMode.dark);
+    expect(_activeTheme(tester).brightness, Brightness.dark);
     expect(
       MediaQuery.textScalerOf(
         tester.element(find.byType(AdaptiveShell)),
@@ -197,6 +200,115 @@ void main() {
   });
 
   group('active theme selection', () {
+    testWidgets('appearance changes the app and open Settings immediately', (
+      tester,
+    ) async {
+      tester.platformDispatcher.platformBrightnessTestValue = Brightness.light;
+      addTearDown(tester.platformDispatcher.clearPlatformBrightnessTestValue);
+      final appearance = siteAppearance(
+        alternateAccent: const Color(0xFF80CED7),
+        mode: SiteAppearanceMode.alternate,
+      );
+      await _pumpApp(
+        tester,
+        store: FakeInstanceStore([
+          const DiscourseInstance(
+            url: siteA,
+            title: 'A',
+          ).copyWith(appearance: appearance),
+        ]),
+        api: FakeDiscourseApi(),
+      );
+      expect(_activeTheme(tester).brightness, Brightness.light);
+      await tester.tap(find.byKey(const ValueKey('settings-rail-button')));
+      await tester.pumpAndSettle();
+
+      for (final (label, brightness) in [
+        ('Dark', Brightness.dark),
+        ('Light', Brightness.light),
+        ('System', Brightness.light),
+      ]) {
+        await tester.tap(find.byKey(const ValueKey('appearance-theme-select')));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text(label).last);
+        await tester.pumpAndSettle();
+        expect(_activeTheme(tester).brightness, brightness);
+        expect(
+          _railAvatarBackground(tester, host: 'a.example'),
+          appearance.paletteForBrightness(brightness)!.tertiary,
+        );
+        expect(
+          Theme.of(tester.element(find.text('Appearance'))).brightness,
+          brightness,
+        );
+      }
+
+      tester.platformDispatcher.platformBrightnessTestValue = Brightness.dark;
+      await tester.pumpAndSettle();
+      expect(
+        _activeTheme(tester).colorScheme.primary,
+        appearance.alternate!.tertiary,
+      );
+      expect(
+        Theme.of(tester.element(find.text('Appearance'))).brightness,
+        Brightness.dark,
+      );
+      await tester.tap(find.byKey(const ValueKey('appearance-theme-select')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Light').last);
+      await tester.pumpAndSettle();
+      expect(_activeTheme(tester).brightness, Brightness.light);
+      await tester.tap(find.byKey(const ValueKey('app-settings-close')));
+      await tester.pumpAndSettle();
+      _controller(tester).selectAggregate();
+      await tester.pump();
+      expect(_activeTheme(tester).brightness, Brightness.light);
+      expect(_materialApp(tester).themeMode, ThemeMode.light);
+    });
+
+    testWidgets('matches palette brightness and supplies missing variants', (
+      tester,
+    ) async {
+      final darkPalette = sitePalette(
+        brightness: Brightness.dark,
+        background: const Color(0xFF181A1F),
+        foreground: const Color(0xFFE8E9EB),
+      );
+      await _pumpApp(
+        tester,
+        store: FakeInstanceStore([
+          const DiscourseInstance(
+            url: siteA,
+            title: 'Dark only',
+          ).copyWith(appearance: SiteAppearance(base: darkPalette)),
+          const DiscourseInstance(
+            url: siteB,
+            title: 'Light only',
+          ).copyWith(appearance: SiteAppearance(alternate: sitePalette())),
+        ]),
+        api: FakeDiscourseApi(),
+      );
+      final controller = _controller(tester);
+      await controller.appSettings.setThemeMode(AppThemeMode.light);
+      await tester.pump();
+      expect(_activeTheme(tester).colorScheme, AppTheme.light.colorScheme);
+      await controller.appSettings.setThemeMode(AppThemeMode.dark);
+      await tester.pump();
+      expect(
+        _activeTheme(tester).colorScheme,
+        AppTheme.fromPalette(darkPalette).colorScheme,
+      );
+      controller.selectInstance(1);
+      await tester.pump();
+      expect(_activeTheme(tester).colorScheme, AppTheme.dark.colorScheme);
+      await controller.appSettings.setThemeMode(AppThemeMode.light);
+      await tester.pump();
+      expect(
+        _activeTheme(tester).colorScheme,
+        AppTheme.fromPalette(sitePalette()).colorScheme,
+      );
+    });
+
     testWidgets('uses the neutral app palette inside Settings', (tester) async {
       final forumAppearance = siteAppearance(
         accent: const Color(0xFFAA2200),
@@ -217,7 +329,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(controller.rootMode, ShellRootMode.forum);
-      expect(_materialApp(tester).themeMode, ThemeMode.dark);
+      expect(_materialApp(tester).themeMode, ThemeMode.system);
       expect(
         Theme.of(
           tester.element(find.byKey(const ValueKey('app-settings-form'))),
@@ -228,7 +340,7 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('app-settings-close')));
       await tester.pumpAndSettle();
 
-      expect(_materialApp(tester).themeMode, ThemeMode.dark);
+      expect(_materialApp(tester).themeMode, ThemeMode.system);
       expect(
         _materialApp(tester).theme?.colorScheme.primary,
         forumAppearance.base?.tertiary,
@@ -250,7 +362,7 @@ void main() {
 
       await _pumpApp(tester, store: store, api: FakeDiscourseApi());
       final controller = _controller(tester);
-      expect(_materialApp(tester).themeMode, ThemeMode.dark);
+      expect(_materialApp(tester).themeMode, ThemeMode.system);
       expect(
         _materialApp(tester).theme?.colorScheme.primary,
         forumAppearance.base?.tertiary,
@@ -272,14 +384,14 @@ void main() {
       controller.selectInstance(0);
       await tester.pump();
 
-      expect(_materialApp(tester).themeMode, ThemeMode.dark);
+      expect(_materialApp(tester).themeMode, ThemeMode.system);
       expect(
         _materialApp(tester).theme?.colorScheme.primary,
         forumAppearance.base?.tertiary,
       );
     });
 
-    testWidgets('uses the forced alternate palette in navigator overlays', (
+    testWidgets('uses the app dark preference in navigator overlays', (
       tester,
     ) async {
       final appearance = siteAppearance(
@@ -296,7 +408,10 @@ void main() {
 
       await _pumpApp(tester, store: store, api: FakeDiscourseApi());
 
-      expect(_materialApp(tester).themeMode, ThemeMode.dark);
+      expect(_materialApp(tester).themeMode, ThemeMode.system);
+      await _controller(tester).appSettings.setThemeMode(AppThemeMode.dark);
+      await tester.pump();
+      expect(_activeTheme(tester).brightness, Brightness.dark);
       Color? overlayPrimary;
       unawaited(
         showDialog<void>(

@@ -1263,10 +1263,7 @@ class _RailDragFeedback extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final palette = _activePalette(
-      appearance,
-      MediaQuery.platformBrightnessOf(context),
-    );
+    final palette = _activePalette(appearance, theme.brightness);
     final accent = palette?.tertiary ?? instance.accentColor;
     final background = selected
         ? accent
@@ -1334,10 +1331,7 @@ class _RailItemState extends State<_RailItem> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final palette = _activePalette(
-      widget.appearance,
-      MediaQuery.platformBrightnessOf(context),
-    );
+    final palette = _activePalette(widget.appearance, theme.brightness);
     final accent = palette?.tertiary ?? widget.instance.accentColor;
     final avatarBackground = widget.selected
         ? accent
@@ -1568,17 +1562,12 @@ class _InstanceIcon extends StatelessWidget {
 
 ResolvedSitePalette? _activePalette(
   SiteAppearance? appearance,
-  Brightness platformBrightness,
+  Brightness brightness,
 ) {
   if (appearance == null) return null;
-  return switch (appearance.mode) {
-    SiteAppearanceMode.base => appearance.base ?? appearance.alternate,
-    SiteAppearanceMode.alternate => appearance.alternate ?? appearance.base,
-    SiteAppearanceMode.followSystem =>
-      platformBrightness == Brightness.dark
-          ? appearance.alternate ?? appearance.base
-          : appearance.base ?? appearance.alternate,
-  };
+  return appearance.paletteForBrightness(brightness) ??
+      appearance.base ??
+      appearance.alternate;
 }
 
 class _AddInstanceButton extends StatelessWidget {
