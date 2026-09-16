@@ -16,7 +16,6 @@ import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/models/user_draft.dart';
 import 'package:discourse_native/src/shell/composer_autocomplete.dart';
 import 'package:discourse_native/src/shell/composer_controller.dart';
-import 'package:discourse_native/src/shell/composer_discard.dart';
 import 'package:discourse_native/src/shell/composer_panel.dart';
 import 'package:discourse_native/src/shell/emoji.dart';
 import 'package:discourse_native/src/shell/hashtag.dart';
@@ -51,13 +50,7 @@ Future<void> _requestDiscard(WidgetTester tester) async {
 }
 
 Future<void> _saveAndClose(WidgetTester tester) async {
-  final panel = find.byType(ComposerPanel);
-  unawaited(
-    closeComposerFromPanel(
-      context: tester.element(panel),
-      composer: tester.widget<ComposerPanel>(panel).composer,
-    ),
-  );
+  await tester.tap(find.byTooltip('Save and close'));
   await tester.pump();
 }
 
