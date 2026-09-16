@@ -2605,6 +2605,7 @@ class _Toolbar extends StatelessWidget {
     final registry =
         PluginScope.maybeOf(context)?.registry ?? PluginRegistry.empty;
     final actions = registry.composerToolbar(context, composer);
+    final options = registry.composerOptions(context, composer);
     final emojiEnabled =
         !composer.target.isTaxonomyEdit &&
         ShellScope.read(
@@ -2667,6 +2668,27 @@ class _Toolbar extends StatelessWidget {
                 size: DButtonSize.large,
                 onPressed: composer.isEditing ? trigger.toggle : null,
                 icon: const DIcon(DIcons.circlePlus),
+              ),
+            ),
+          ),
+        if (options.isNotEmpty)
+          DDropdownMenu(
+            content: DDropdownMenuContent(
+              semanticLabel: 'Composer options',
+              side: DPopoverSide.top,
+              children: options,
+            ),
+            child: DDropdownMenuTrigger(
+              builder: (context, trigger) => DButton.iconOnly(
+                key: const ValueKey('composer-options'),
+                tooltip: 'More',
+                hasPopup: true,
+                expanded: trigger.open,
+                focusNode: trigger.focusNode,
+                variant: DButtonVariant.transparentBackground,
+                size: DButtonSize.large,
+                onPressed: composer.isEditing ? trigger.toggle : null,
+                icon: const DIcon(DIcons.ellipsis),
               ),
             ),
           ),
