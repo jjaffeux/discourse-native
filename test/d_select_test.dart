@@ -446,6 +446,52 @@ void main() {
     expect(value, 'grapes');
   });
 
+  testWidgets('native control characters reach ancestor shortcuts', (
+    tester,
+  ) async {
+    final handled = <LogicalKeyboardKey>[];
+    final changes = <String?>[];
+    final controls = {
+      LogicalKeyboardKey.escape: '\x1b',
+      LogicalKeyboardKey.backspace: '\x08',
+      LogicalKeyboardKey.delete: '\x7f',
+    };
+    await _mount(
+      tester,
+      CallbackShortcuts(
+        bindings: {
+          for (final key in controls.keys)
+            SingleActivator(key): () => handled.add(key),
+        },
+        child: DSelect<String>(
+          autofocus: true,
+          initialValue: 'apple',
+          entries: const [
+            DSelectOption(value: 'apple', label: 'Apple', child: Text('Apple')),
+            DSelectOption(
+              value: 'banana',
+              label: 'Banana',
+              child: Text('Banana'),
+            ),
+          ],
+          onChanged: changes.add,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    for (final entry in controls.entries) {
+      await tester.sendKeyEvent(entry.key, character: entry.value);
+    }
+    expect(handled, controls.keys.toList());
+    expect(changes, isEmpty);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyB, character: 'b');
+    await tester.pumpAndSettle();
+    expect(changes, ['banana']);
+    expect(find.byType(DPopoverContent), findsNothing);
+  });
+
   testWidgets('space remains part of an active popup typeahead query', (
     tester,
   ) async {
