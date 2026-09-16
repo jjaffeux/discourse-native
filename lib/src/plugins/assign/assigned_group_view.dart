@@ -132,6 +132,7 @@ class _AssignedGroupViewState extends State<AssignedGroupView> {
     return ListenableBuilder(
       listenable: presentation,
       builder: (context, _) => AssignedGroupPresentationView(
+        key: ObjectKey(presentation),
         siteUrl: widget.siteUrl,
         state: presentation.state,
         onRefresh: () => presentation.load(refresh: true),
@@ -243,7 +244,8 @@ class AssignedGroupPresentationView extends StatelessWidget {
   }) {
     final feed = state.feed;
     final topics = state.topics;
-    return RefreshIndicator(
+    return DPullToRefresh(
+      key: ValueKey((siteUrl, state.groupName, state.filter, state.query)),
       onRefresh: onRefresh,
       child: CustomScrollView(
         key: PageStorageKey(

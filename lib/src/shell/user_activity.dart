@@ -1,8 +1,8 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
-import '../../discourse_ui.dart';
 import '../models/discourse_instance.dart';
 import '../models/topic.dart';
 import '../models/user_activity.dart';
@@ -76,26 +76,32 @@ class _UserActivityBody extends StatelessWidget {
     }
 
     final feed = controller.accountActivity.userActivityFor(siteUrl);
+    return DPullToRefresh(
+      key: ValueKey((controller, siteUrl, instance!.user!.username)),
+      onRefresh: _refresh,
+      child: _body(feed),
+    );
+  }
+
+  Widget _body(UserActivityFeed feed) {
     if (feed.error case final error? when feed.items.isEmpty) {
       return _ActivityState(
         icon: DIcons.triangleExclamation,
         title: error,
         actionLabel: 'Try again',
         onAction: _refresh,
-        onRefresh: _refresh,
       );
     }
     if (!feed.loaded && feed.items.isEmpty) {
       return const _ActivityLoadingSkeleton();
     }
     if (feed.isEmpty) {
-      return _ActivityState(
+      return const _ActivityState(
         icon: DIcons.list,
         title: 'No activity yet',
         body:
             'Topics you create and replies you post will appear here. '
             'Likes, bookmarks, reads, and drafts have their own lists.',
-        onRefresh: _refresh,
       );
     }
 
@@ -135,61 +141,57 @@ class _ActivityList extends StatelessWidget {
     final hasFooter = feed.loading || feed.error != null;
     return ContentReadingLane(
       basePadding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-      builder: (context, lane) => RefreshIndicator(
-        onRefresh: onRefresh,
-        child: NotificationListener<ScrollNotification>(
-          onNotification: (notification) {
-            if (_nearEnd(notification)) unawaited(onLoadMore());
-            return false;
-          },
-          child: ListView.separated(
-            key: const PageStorageKey('user-activity-list'),
-            physics: const AlwaysScrollableScrollPhysics(),
-            padding: lane.padding,
-            itemCount: feed.items.length + (hasFooter ? 1 : 0),
-            separatorBuilder: (context, index) => index < feed.items.length - 1
-                ? Center(
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 1000),
-                      child: const DSeparator(space: 1),
-                    ),
-                  )
-                : const SizedBox.shrink(),
-            itemBuilder: (context, index) {
-              if (index < feed.items.length) {
-                final item = feed.items[index];
-                return Center(
+      builder: (context, lane) => NotificationListener<ScrollNotification>(
+        onNotification: (notification) {
+          if (_nearEnd(notification)) unawaited(onLoadMore());
+          return false;
+        },
+        child: ListView.separated(
+          key: const PageStorageKey('user-activity-list'),
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: lane.padding,
+          itemCount: feed.items.length + (hasFooter ? 1 : 0),
+          separatorBuilder: (context, index) => index < feed.items.length - 1
+              ? Center(
                   child: ConstrainedBox(
                     constraints: const BoxConstraints(maxWidth: 1000),
-                    child: UserActivityRow(
-                      siteUrl: siteUrl,
-                      item: item,
-                      category: feed.categoryFor(item.categoryId),
-                      onTap: () => onOpen(item),
-                    ),
+                    child: const DSeparator(space: 1),
                   ),
-                );
-              }
-              if (feed.error case final error?) {
-                return _LoadMoreError(
-                  message: error,
-                  onRetry: () => unawaited(
-                    feed.retryFromStart ? onRefresh() : onLoadMore(),
-                  ),
-                );
-              }
-              return Semantics(
-                liveRegion: true,
-                label: 'Loading more activity',
-                child: const Padding(
-                  padding: EdgeInsets.all(20),
-                  child: Center(
-                    child: SizedBox.square(dimension: 22, child: DSpinner()),
+                )
+              : const SizedBox.shrink(),
+          itemBuilder: (context, index) {
+            if (index < feed.items.length) {
+              final item = feed.items[index];
+              return Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 1000),
+                  child: UserActivityRow(
+                    siteUrl: siteUrl,
+                    item: item,
+                    category: feed.categoryFor(item.categoryId),
+                    onTap: () => onOpen(item),
                   ),
                 ),
               );
-            },
-          ),
+            }
+            if (feed.error case final error?) {
+              return _LoadMoreError(
+                message: error,
+                onRetry: () =>
+                    unawaited(feed.retryFromStart ? onRefresh() : onLoadMore()),
+              );
+            }
+            return Semantics(
+              liveRegion: true,
+              label: 'Loading more activity',
+              child: const Padding(
+                padding: EdgeInsets.all(20),
+                child: Center(
+                  child: SizedBox.square(dimension: 22, child: DSpinner()),
+                ),
+              ),
+            );
+          },
         ),
       ),
     );
@@ -466,7 +468,6 @@ class _ActivityState extends StatelessWidget {
     this.body,
     this.actionLabel,
     this.onAction,
-    this.onRefresh,
   });
 
   final DIconData icon;
@@ -474,52 +475,46 @@ class _ActivityState extends StatelessWidget {
   final String? body;
   final String? actionLabel;
   final Future<void> Function()? onAction;
-  final Future<void> Function()? onRefresh;
 
   @override
   Widget build(BuildContext context) {
-    final content = Semantics(
-      container: true,
-      liveRegion: true,
-      child: Center(
-        child: SingleChildScrollView(
-          child: DEmpty(
-            children: [
-              DEmptyHeader(
+    return LayoutBuilder(
+      builder: (context, constraints) => SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        child: ConstrainedBox(
+          constraints: BoxConstraints(minHeight: constraints.maxHeight),
+          child: Semantics(
+            container: true,
+            liveRegion: true,
+            child: Center(
+              child: DEmpty(
                 children: [
-                  DEmptyMedia(
-                    variant: DEmptyMediaVariant.icon,
-                    child: DIcon(icon),
+                  DEmptyHeader(
+                    children: [
+                      DEmptyMedia(
+                        variant: DEmptyMediaVariant.icon,
+                        child: DIcon(icon),
+                      ),
+                      DEmptyTitle(title),
+                      if (body case final body?) DEmptyDescription(body),
+                    ],
                   ),
-                  DEmptyTitle(title),
-                  if (body case final body?) DEmptyDescription(body),
+                  if (actionLabel case final label?)
+                    DEmptyContent(
+                      children: [
+                        DButton(
+                          label: Text(label),
+                          onPressed: onAction == null
+                              ? null
+                              : () => unawaited(onAction!()),
+                          variant: DButtonVariant.primary,
+                        ),
+                      ],
+                    ),
                 ],
               ),
-              if (actionLabel case final label?)
-                DEmptyContent(
-                  children: [
-                    DButton(
-                      label: Text(label),
-                      onPressed: onAction == null
-                          ? null
-                          : () => unawaited(onAction!()),
-                      variant: DButtonVariant.primary,
-                    ),
-                  ],
-                ),
-            ],
+            ),
           ),
-        ),
-      ),
-    );
-    final onRefresh = this.onRefresh;
-    if (onRefresh == null) return content;
-    return RefreshIndicator(
-      onRefresh: onRefresh,
-      child: LayoutBuilder(
-        builder: (context, constraints) => ListView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          children: [SizedBox(height: constraints.maxHeight, child: content)],
         ),
       ),
     );

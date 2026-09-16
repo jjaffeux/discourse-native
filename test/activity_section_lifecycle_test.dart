@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/data/instance_store.dart';
 import 'package:discourse_native/src/models/bookmark.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
@@ -23,6 +24,57 @@ import 'support/fakes.dart';
 const _siteUrl = 'https://meta.example';
 
 void main() {
+  for (final empty in [false, true]) {
+    testWidgets('pull refreshes activity and recovers errors, empty: $empty', (
+      tester,
+    ) async {
+      const topic = UserActivityItem(
+        actionType: UserActivityItem.topicActionType,
+        topicId: 42,
+        postNumber: 1,
+        title: 'An activity topic',
+        slug: 'activity',
+        username: 'reader',
+        excerpt: '',
+      );
+      final api = _RecordingActivityApi(activityItems: empty ? [] : [topic]);
+      final controller = await _controller(api);
+      addTearDown(controller.dispose);
+      await tester.pumpWidget(
+        _section(controller, const UserActivityView(siteUrl: _siteUrl)),
+      );
+      await tester.pumpAndSettle();
+      final refresh = find.byType(DPullToRefresh);
+      final refreshState = tester.state(refresh);
+      api.activityResponse = Completer<UserActivityPage>();
+      await tester.drag(refresh, const Offset(0, 500));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(api.userActivitySites, [_siteUrl, _siteUrl]);
+      expect(find.bySemanticsLabel('Refreshing'), findsOneWidget);
+      api.activityResponse!.completeError(Exception('offline'));
+      await tester.pumpAndSettle();
+      expect(tester.state(refresh), same(refreshState));
+      expect(
+        controller.accountActivity.userActivityFor(_siteUrl).error,
+        isNotNull,
+      );
+      if (!empty) expect(find.text(topic.title), findsOneWidget);
+      api.activityResponse = Completer<UserActivityPage>();
+      await tester.drag(refresh, const Offset(0, 500));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(api.userActivitySites, [_siteUrl, _siteUrl, _siteUrl]);
+      api.activityResponse!.complete(
+        const UserActivityPage(items: [topic], rawItemCount: 1),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text(topic.title), findsOneWidget);
+      expect(find.bySemanticsLabel('Refreshing'), findsNothing);
+      expect(tester.takeException(), isNull);
+    });
+  }
+
   for (final activity in _Activity.values) {
     group(activity.label, () {
       testWidgets('loads again when the shell controller changes', (
@@ -196,8 +248,9 @@ enum _Activity {
 }
 
 final class _RecordingActivityApi extends FakeDiscourseApi {
-  _RecordingActivityApi()
+  _RecordingActivityApi({List<UserActivityItem> activityItems = const []})
     : super(
+        userActivityItems: activityItems,
         notificationList: const [],
         replyNotificationList: const [],
         otherNotificationList: const [],
@@ -212,6 +265,7 @@ final class _RecordingActivityApi extends FakeDiscourseApi {
   final List<String> chatSites = [];
   final List<String> bookmarkSites = [];
   final List<String> userActivitySites = [];
+  Completer<UserActivityPage>? activityResponse;
   final Map<String, DiscourseUser> currentUsers = {};
 
   @override
@@ -281,6 +335,7 @@ final class _RecordingActivityApi extends FakeDiscourseApi {
     String? clientId,
   }) {
     userActivitySites.add(siteUrl);
+    if (activityResponse case final response?) return response.future;
     return super.userActivity(
       siteUrl: siteUrl,
       apiKey: apiKey,

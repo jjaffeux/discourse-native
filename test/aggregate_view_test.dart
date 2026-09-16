@@ -40,6 +40,40 @@ const _filterOptions = [
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
+  for (final empty in [false, true]) {
+    testWidgets(
+      'pull refreshes ${empty ? 'empty' : 'short'} aggregate topics',
+      (tester) async {
+        final fixture = await _pumpMixedAggregateView(tester, empty: empty);
+        await tester.tap(
+          find.byKey(const ValueKey('aggregate-filter-collapse')),
+        );
+        await tester.pumpAndSettle();
+        final api = fixture.api;
+        final before = api.feedPaths.length;
+        final response = Completer<void>();
+        api.feedGates[_defaultAggregatePath] = response;
+        final refresh = find.byType(DPullToRefresh);
+        await tester.drag(refresh, const Offset(0, 500));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 300));
+        expect(api.feedPaths.length, before + 2);
+        expect(find.bySemanticsLabel('Refreshing'), findsOneWidget);
+        await tester.drag(refresh, const Offset(0, 500));
+        await tester.pump(const Duration(milliseconds: 300));
+        expect(api.feedPaths.length, before + 2);
+        api.feeds[_defaultAggregatePath] = const [
+          Topic(id: 99, title: 'Refreshed aggregate topic', slug: 'refreshed'),
+        ];
+        response.complete();
+        await tester.pumpAndSettle();
+        expect(find.text('Refreshed aggregate topic'), findsNWidgets(2));
+        expect(find.bySemanticsLabel('Refreshing'), findsNothing);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
   testWidgets('renders Discourse emoji aliases in cross-forum topic titles', (
     tester,
   ) async {
@@ -418,7 +452,7 @@ void main() {
 }
 
 Future<({List<String> forumUrls, FakeDiscourseApi api})>
-_pumpMixedAggregateView(WidgetTester tester) async {
+_pumpMixedAggregateView(WidgetTester tester, {bool empty = false}) async {
   SharedPreferences.setMockInitialValues({});
   tester.view.physicalSize = const Size(1000, 800);
   tester.view.devicePixelRatio = 1;
@@ -449,16 +483,18 @@ _pumpMixedAggregateView(WidgetTester tester) async {
         _firstFilterPath,
         _secondFilterPath,
       ])
-        path: [
-          Topic(
-            id: 42,
-            title: 'Fresh cross-forum topic',
-            slug: 'fresh-topic',
-            categoryId: 1,
-            seen: false,
-            bumpedAt: DateTime.utc(2026, 1, 1),
-          ),
-        ],
+        path: empty
+            ? []
+            : [
+                Topic(
+                  id: 42,
+                  title: 'Fresh cross-forum topic',
+                  slug: 'fresh-topic',
+                  categoryId: 1,
+                  seen: false,
+                  bumpedAt: DateTime.utc(2026, 1, 1),
+                ),
+              ],
     },
     filterOptionsByPath: const {
       _defaultAggregatePath: _filterOptions,
