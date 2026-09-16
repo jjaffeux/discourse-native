@@ -177,10 +177,6 @@ class ComposerPanel extends StatelessWidget {
                     ComposerHeader(
                       composer: composer,
                       minimized: minimized,
-                      onClose: close,
-                      closeTooltip: composer.canSaveDraft
-                          ? 'Save and close'
-                          : 'Close composer',
                       onMinimize: minimized ? null : onMinimize,
                       onRestore: minimized ? onRestore : null,
                       placement: placement,
@@ -408,6 +404,7 @@ class ComposerPanel extends StatelessWidget {
                     if (!minimized)
                       _Footer(
                         composer: composer,
+                        onCancel: close,
                         sideDocked: placement.isSide,
                         pickImages: pickImages,
                         message:
@@ -3069,6 +3066,7 @@ class _ComposerUploadThumbnail extends StatelessWidget {
 class _Footer extends StatelessWidget {
   const _Footer({
     required this.composer,
+    required this.onCancel,
     required this.sideDocked,
     required this.pickImages,
     required this.message,
@@ -3079,6 +3077,7 @@ class _Footer extends StatelessWidget {
   });
 
   final ComposerController composer;
+  final VoidCallback onCancel;
   final bool sideDocked;
   final ComposerImagePicker pickImages;
   final String? message;
@@ -3127,7 +3126,7 @@ class _Footer extends StatelessWidget {
       builder: (context, constraints) {
         final compact =
             constraints.maxWidth <
-            (300 + pluginControls.length * 120) *
+            (380 + pluginControls.length * 120) *
                 MediaQuery.textScalerOf(context).scale(14) /
                 14;
         final compactCreate =
@@ -3181,6 +3180,13 @@ class _Footer extends StatelessWidget {
                             : null,
                         label: Text(compactCreate ? 'Create' : label),
                       ),
+              ),
+              const SizedBox(width: 8),
+              DButton(
+                key: const ValueKey('composer-cancel'),
+                onPressed: onCancel,
+                variant: DButtonVariant.transparentBackground,
+                label: const Text('Cancel'),
               ),
               for (final control in pluginControls)
                 Padding(

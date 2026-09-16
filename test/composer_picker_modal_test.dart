@@ -228,7 +228,7 @@ void main() {
     expect(categoryBounds.height, greaterThanOrEqualTo(44));
     expect(tagsBounds.height, greaterThanOrEqualTo(44));
     for (final action in [
-      find.byKey(const ValueKey('composer-close')),
+      find.byKey(const ValueKey('composer-cancel')),
       find.byTooltip('Create topic'),
     ]) {
       expect(action.hitTestable(), findsOneWidget);

@@ -138,7 +138,7 @@ void _registerTopicReadingTests() {
       final categoryRequestCount = api.categoryRequests.length;
       final capabilityRequestCount = api.topicComposerCapabilityRequests.length;
 
-      await tester.tap(find.byTooltip('Save and close'));
+      await tester.tap(find.byKey(const ValueKey('composer-cancel')));
       await tester.pumpAndSettle();
       expect(find.byType(ComposerPanel), findsNothing);
 
@@ -564,7 +564,7 @@ void _registerTopicReadingTests() {
       expect(shell.currentContent?.isMessages, isTrue);
       expect(shell.visibleComposer?.target.isNewTopic, isTrue);
 
-      await tester.tap(find.byTooltip('Save and close'));
+      await tester.tap(find.byKey(const ValueKey('composer-cancel')));
       await tester.pumpAndSettle();
       shell.selectAggregate();
       await tester.pumpAndSettle();
@@ -685,7 +685,7 @@ void _registerTopicReadingTests() {
                 : [_FailingNewTopicMetadataApi.category],
           );
 
-          await tester.tap(find.byTooltip('Save and close'));
+          await tester.tap(find.byKey(const ValueKey('composer-cancel')));
           await tester.pumpAndSettle();
           api.failCapabilities = false;
           api.failCategoryLoad = false;
