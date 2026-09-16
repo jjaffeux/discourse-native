@@ -7,6 +7,7 @@ import 'badge_route.dart';
 import 'group_route.dart';
 import 'list_link.dart';
 import 'sidebar.dart';
+import 'site_config.dart';
 import 'topic.dart';
 
 enum TopPeriod {
@@ -302,6 +303,35 @@ class ContentRoute {
       icon: DIcons.layerGroup,
       feedPath: uri.toString(),
     );
+  }
+
+  factory ContentRoute.homepage(SiteConfig config, {required bool connected}) {
+    const anonymous = {'latest', 'top', 'categories', 'hot'};
+    var homepage = config.defaultHomepage.isNotEmpty
+        ? config.defaultHomepage
+        : config.topMenu.firstOrNull ?? 'latest';
+    if (!connected && !anonymous.contains(homepage)) {
+      homepage =
+          config.topMenu.where(anonymous.contains).firstOrNull ?? 'latest';
+    }
+    if (homepage == 'categories') {
+      return const ContentRoute(
+        id: 'all-categories',
+        title: 'Categories',
+        icon: DIcons.layerGroup,
+      );
+    }
+    final mode = switch (homepage) {
+      'hot' => TopicListMode.popular,
+      'top' => TopicListMode.top(
+        TopPeriod.fromQueryValue(config.topPageDefaultPeriod),
+      ),
+      'new' => TopicListMode.newActivity,
+      'unread' => TopicListMode.unread,
+      'unseen' => TopicListMode.unseen,
+      _ => TopicListMode.latest,
+    };
+    return ContentRoute.topicList(mode);
   }
 
   ContentRoute.fromDestination(SidebarDestination destination)

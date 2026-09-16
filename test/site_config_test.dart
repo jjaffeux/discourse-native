@@ -118,6 +118,19 @@ Map<String, dynamic> settings({
 };
 
 void main() {
+  test('homepage settings survive storage and plugin replacement', () {
+    final config = SiteConfig.fromSettings(const {
+      'default_homepage': 'top',
+      'top_menu': 'hot|latest|categories',
+    });
+    expect(config.defaultHomepage, 'top');
+    expect(config.topMenu, ['hot', 'latest', 'categories']);
+    expect(SiteConfig.fromJson(config.toJson()), config);
+    expect(config.withPlugins(config.plugins), config);
+    expect(SiteConfig.fromJson(const {}).defaultHomepage, isEmpty);
+    expect(SiteConfig.fromJson(const {}).topMenu.first, 'latest');
+  });
+
   group('fromSettings', () {
     test('reads the emoji set the site draws with', () {
       expect(

@@ -32,6 +32,8 @@ class SiteConfig {
     this.fixedCategoryPositions = false,
     this.allowUncategorizedTopics = false,
     this.defaultNavigationMenuCategoryIds = const [],
+    this.defaultHomepage = '',
+    this.topMenu = const ['latest', 'new', 'unread', 'hot', 'categories'],
     this.topPageDefaultPeriod = defaultTopPagePeriod,
     this.badgesEnabled = true,
     this.allowUsernameInShareLinks = true,
@@ -160,6 +162,14 @@ class SiteConfig {
       defaultNavigationMenuCategoryIds: _categoryIds(
         json['default_navigation_menu_categories'],
       ),
+      defaultHomepage: jsonText(json['default_homepage'])?.trim() ?? '',
+      topMenu: _stringList(json['top_menu'], const [
+        'latest',
+        'new',
+        'unread',
+        'hot',
+        'categories',
+      ]),
       topPageDefaultPeriod: _topPagePeriod(json['top_page_default_timeframe']),
       badgesEnabled: json['enable_badges'] != false,
       allowUsernameInShareLinks: json['allow_username_in_share_links'] != false,
@@ -231,6 +241,14 @@ class SiteConfig {
     defaultNavigationMenuCategoryIds: _categoryIds(
       json['defaultNavigationMenuCategoryIds'],
     ),
+    defaultHomepage: jsonText(json['defaultHomepage']) ?? '',
+    topMenu: _stringList(json['topMenu'], const [
+      'latest',
+      'new',
+      'unread',
+      'hot',
+      'categories',
+    ]),
     topPageDefaultPeriod: _topPagePeriod(json['topPageDefaultPeriod']),
     badgesEnabled: json['badgesEnabled'] != false,
     allowUsernameInShareLinks: json['allowUsernameInShareLinks'] != false,
@@ -282,6 +300,8 @@ class SiteConfig {
       'fixedCategoryPositions': fixedCategoryPositions,
       'allowUncategorizedTopics': allowUncategorizedTopics,
       'defaultNavigationMenuCategoryIds': defaultNavigationMenuCategoryIds,
+      'defaultHomepage': defaultHomepage,
+      'topMenu': topMenu,
       'topPageDefaultPeriod': topPageDefaultPeriod,
       'badgesEnabled': badgesEnabled,
       'allowUsernameInShareLinks': allowUsernameInShareLinks,
@@ -335,6 +355,8 @@ class SiteConfig {
   final bool fixedCategoryPositions;
   final bool allowUncategorizedTopics;
   final List<int> defaultNavigationMenuCategoryIds;
+  final String defaultHomepage;
+  final List<String> topMenu;
   final String topPageDefaultPeriod;
 
   final bool badgesEnabled;
@@ -434,6 +456,8 @@ class SiteConfig {
     fixedCategoryPositions: fixedCategoryPositions,
     allowUncategorizedTopics: allowUncategorizedTopics,
     defaultNavigationMenuCategoryIds: defaultNavigationMenuCategoryIds,
+    defaultHomepage: defaultHomepage,
+    topMenu: topMenu,
     topPageDefaultPeriod: topPageDefaultPeriod,
     badgesEnabled: badgesEnabled,
     allowUsernameInShareLinks: allowUsernameInShareLinks,
@@ -482,6 +506,8 @@ class SiteConfig {
         other.defaultNavigationMenuCategoryIds,
         defaultNavigationMenuCategoryIds,
       ) &&
+      other.defaultHomepage == defaultHomepage &&
+      listEquals(other.topMenu, topMenu) &&
       other.topPageDefaultPeriod == topPageDefaultPeriod &&
       other.badgesEnabled == badgesEnabled &&
       other.allowUsernameInShareLinks == allowUsernameInShareLinks &&
@@ -523,6 +549,8 @@ class SiteConfig {
     fixedCategoryPositions,
     allowUncategorizedTopics,
     Object.hashAll(defaultNavigationMenuCategoryIds),
+    defaultHomepage,
+    Object.hashAll(topMenu),
     topPageDefaultPeriod,
     badgesEnabled,
     allowUsernameInShareLinks,
