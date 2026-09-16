@@ -381,14 +381,14 @@ class SiteConfig {
       isImageFilename(filename) && canUploadFile(filename, staff: staff);
 
   bool canUploadFile(String filename, {required bool staff}) {
-    final dot = filename.lastIndexOf('.');
-    if (dot < 0 || dot == filename.length - 1) return false;
-    final extension = filename.substring(dot + 1).toLowerCase();
+    final normalized = filename.toLowerCase();
     final permitted = [
       ...authorizedExtensions,
       if (staff) ...authorizedExtensionsForStaff,
     ];
-    return permitted.contains('*') || permitted.contains(extension);
+    return permitted.any(
+      (extension) => extension == '*' || normalized.endsWith('.$extension'),
+    );
   }
 
   /// Mirrors `Emoji.url_for`; custom uploads must be resolved before fallback.
@@ -550,7 +550,10 @@ class SiteConfig {
     };
     return List.unmodifiable(
       values
-          .map((value) => value.trim().toLowerCase().replaceFirst('.', ''))
+          .map(
+            (value) =>
+                value.trim().toLowerCase().replaceFirst(RegExp(r'^\.'), ''),
+          )
           .where((value) => value.isNotEmpty),
     );
   }

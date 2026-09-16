@@ -301,7 +301,7 @@ Future<ShellController> _openComposer(
 Future<void> _pumpPanel(
   WidgetTester tester,
   ShellController shell,
-  ComposerImagePicker pickImages,
+  ComposerFilePicker pickFiles,
 ) => tester.pumpWidget(
   MaterialApp(
     theme: AppTheme.dark,
@@ -312,7 +312,7 @@ Future<void> _pumpPanel(
           listenable: shell,
           builder: (context, _) {
             if (shell.visibleComposer case final composer?) {
-              return ComposerPanel(composer: composer, pickImages: pickImages);
+              return ComposerPanel(composer: composer, pickFiles: pickFiles);
             }
             return const SizedBox.shrink();
           },

@@ -39,6 +39,7 @@ import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/site_image.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
+import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
@@ -1617,7 +1618,7 @@ void main() {
 
         expect(find.byType(DDropdownMenuContent), findsOneWidget);
         expect(tester.widget<DButton>(add).expanded, isTrue);
-        expect(find.text('Upload images'), findsOneWidget);
+        expect(find.text('Upload'), findsOneWidget);
         expect(find.text('Insert GIF'), findsOneWidget);
         expect(
           find.byKey(const ValueKey('chat-composer-upload')),
@@ -1640,17 +1641,13 @@ void main() {
         pages: {FakeDiscourseApi.chatMessagesKey(9): _emptyPage},
       );
       addTearDown(fixture.shell.dispose);
-      Future<List<ComposerUploadFile>> pickImages() async {
+      Future<List<ComposerUploadFile>> pickFiles() async {
         pickerCalls++;
         return const [];
       }
 
       await tester.pumpWidget(
-        _ComposerView(
-          shell: fixture.shell,
-          channelId: 9,
-          pickImages: pickImages,
-        ),
+        _ComposerView(shell: fixture.shell, channelId: 9, pickFiles: pickFiles),
       );
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('chat-composer-add')));
@@ -1665,7 +1662,7 @@ void main() {
         _ComposerView(
           shell: fixture.shell,
           channelId: 10,
-          pickImages: pickImages,
+          pickFiles: pickFiles,
         ),
       );
       await tester.pumpAndSettle();
@@ -1682,7 +1679,86 @@ void main() {
       expect(_field(tester).focusNode!.hasFocus, isTrue);
     });
 
-    testWidgets('opens the image picker from the add menu', (tester) async {
+    for (final (name, staff, allowed) in [
+      ('notes.pdf', false, true),
+      ('video.mp4', false, true),
+      ('audio.mp3', false, true),
+      ('archive.tar.gz', false, true),
+      ('data.custom', false, true),
+      ('staff.zip', false, false),
+      ('staff.zip', true, true),
+      ('blocked.exe', true, false),
+    ]) {
+      testWidgets('chat Upload selects $name (staff: $staff)', (tester) async {
+        final fixture = await _fixture(
+          pages: {FakeDiscourseApi.chatMessagesKey(9): _emptyPage},
+          sessionUser: DiscourseUser(id: 7, username: 'author', staff: staff),
+          config: const SiteConfig(
+            authorizedExtensions: [
+              'png',
+              'pdf',
+              'mp4',
+              'mp3',
+              'tar.gz',
+              'custom',
+            ],
+            authorizedExtensionsForStaff: ['zip'],
+          ),
+          composerUploadResult: ComposerUploadResult(
+            id: 73,
+            originalFilename: name,
+            shortUrl: 'upload://$name',
+            url: 'https://chat.example/uploads/$name',
+          ),
+        );
+        addTearDown(fixture.shell.dispose);
+        await tester.pumpWidget(
+          _ComposerView(
+            shell: fixture.shell,
+            channelId: 9,
+            pickFiles: () async => [
+              ComposerUploadFile(
+                name: name,
+                length: () async => 3,
+                openRead: () => Stream.value([1, 2, 3]),
+              ),
+            ],
+          ),
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const ValueKey('chat-composer-add')));
+        await tester.pumpAndSettle();
+        final action = find.byKey(const ValueKey('chat-composer-upload'));
+        expect(find.text('Upload'), findsOneWidget);
+        expect(
+          (tester.widget<DDropdownMenuItem>(action).leading! as DIcon).icon,
+          DIcons.paperclip,
+        );
+        await tester.tap(action);
+        await tester.pumpAndSettle();
+
+        if (!allowed) {
+          expect(fixture.api.composerUploads, isEmpty);
+          expect(
+            find.text('That file type is not allowed on this site.'),
+            findsOneWidget,
+          );
+          return;
+        }
+        expect(fixture.api.composerUploads.single.filename, name);
+        expect(
+          fixture.api.composerUploads.single.uploadType,
+          ChatPlugin.messageUploadType,
+        );
+        expect(find.text(name), findsOneWidget);
+        await tester.tap(find.byKey(const ValueKey('chat-composer-send')));
+        await tester.pumpAndSettle();
+        expect(fixture.api.chatMessagesSent.single.uploadIds, [73]);
+        expect(fixture.api.chatMessagesSent.single.message, isEmpty);
+      });
+    }
+
+    testWidgets('opens the file picker from the add menu', (tester) async {
       var pickerCalls = 0;
       final fixture = await _fixture(
         pages: {FakeDiscourseApi.chatMessagesKey(9): _emptyPage},
@@ -1692,7 +1768,7 @@ void main() {
         _ComposerView(
           shell: fixture.shell,
           channelId: 9,
-          pickImages: () async {
+          pickFiles: () async {
             pickerCalls++;
             return const [];
           },
@@ -1709,7 +1785,7 @@ void main() {
       expect(_field(tester).focusNode!.hasFocus, isTrue);
     });
 
-    testWidgets('reports image picker failures through the Chat session', (
+    testWidgets('reports file picker failures through the Chat session', (
       tester,
     ) async {
       final diagnostics = _RecordingDiagnosticsSink();
@@ -1722,7 +1798,7 @@ void main() {
         _ComposerView(
           shell: fixture.shell,
           channelId: 9,
-          pickImages: () => throw PlatformException(code: 'picker-failed'),
+          pickFiles: () => throw PlatformException(code: 'picker-failed'),
         ),
       );
       await tester.pumpAndSettle();
@@ -1732,10 +1808,10 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('chat-composer-upload')));
       await tester.pumpAndSettle();
 
-      expect(find.text("Couldn't open the image picker."), findsOneWidget);
+      expect(find.text("Couldn't open the file picker."), findsOneWidget);
       expect(diagnostics.errors, [
         (
-          operation: 'chatComposer.pickImages',
+          operation: 'chatComposer.pickFiles',
           source: 'platform',
           severity: DiagnosticSeverity.warning,
           handled: true,
@@ -2512,12 +2588,12 @@ final class _ComposerView extends StatelessWidget {
   const _ComposerView({
     required this.shell,
     required this.channelId,
-    this.pickImages = pickComposerImages,
+    this.pickFiles = pickComposerFiles,
   });
 
   final ShellController shell;
   final int channelId;
-  final ComposerImagePicker pickImages;
+  final ComposerFilePicker pickFiles;
 
   @override
   Widget build(BuildContext context) => ShellScope(
@@ -2530,7 +2606,7 @@ final class _ComposerView extends StatelessWidget {
           body: ChatComposer(
             siteUrl: _site,
             channelId: channelId,
-            pickImages: pickImages,
+            pickFiles: pickFiles,
           ),
         ),
       ),

@@ -3,7 +3,15 @@ import 'package:file_selector/file_selector.dart' as selector;
 import '../models/composer_upload.dart';
 import '../models/site_config.dart';
 
-typedef ComposerImagePicker = Future<List<ComposerUploadFile>> Function();
+typedef ComposerFilePicker = Future<List<ComposerUploadFile>> Function();
+typedef ComposerImagePicker = ComposerFilePicker;
+
+Future<List<ComposerUploadFile>> pickComposerFiles() async {
+  // Let the site/user validator decide which files are allowed. Native type
+  // filters cannot describe every extension an instance may authorize.
+  final files = await selector.openFiles(confirmButtonText: 'Upload');
+  return composerUploadFilesFromSelection(files);
+}
 
 Future<List<ComposerUploadFile>> pickComposerImages() async {
   final files = await selector.openFiles(
