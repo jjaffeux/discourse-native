@@ -215,7 +215,8 @@ class AggregateViewState extends State<AggregateView> {
                 Expanded(
                   child: ContentReadingLane(
                     basePadding: const EdgeInsets.fromLTRB(16, 24, 16, 24),
-                    builder: (context, lane) => RefreshIndicator.adaptive(
+                    builder: (context, lane) => DPullToRefresh(
+                      key: ValueKey(('aggregate-refresh', controller, tabId)),
                       onRefresh: controller.refreshAggregate,
                       child: CustomScrollView(
                         physics: const AlwaysScrollableScrollPhysics(),

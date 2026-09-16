@@ -133,36 +133,48 @@ class _DraftListViewState extends State<DraftListView> {
 
         final feed = controller.draftList.feedFor(widget.siteUrl);
         if (!feed.loading && !feed.loaded) _scheduleRequest();
-        if (!feed.loaded && feed.drafts.isEmpty) {
-          return const _DraftListLoadingSkeleton(
-            key: ValueKey('draft-list-loading-skeleton'),
-          );
-        }
-        if (feed.isEmpty) {
-          return const _DraftState(
-            icon: DIcons.pencil,
-            title: 'No drafts yet',
-            body: 'Replies and topics you start writing will appear here.',
-          );
-        }
-        if (feed.error != null && feed.drafts.isEmpty) {
-          return _DraftState(
-            icon: DIcons.triangleExclamation,
-            title: feed.error!,
-            actionLabel: 'Try again',
-            onAction: _refresh,
-          );
-        }
-
-        return _Drafts(
-          siteUrl: widget.siteUrl,
-          feed: feed,
-          controller: controller,
+        return DPullToRefresh(
+          key: ValueKey((controller, widget.siteUrl, instance!.user!.username)),
           onRefresh: _refresh,
-          onRemove: _remove,
-          instance: instance!,
+          child: _body(controller, instance, feed),
         );
       },
+    );
+  }
+
+  Widget _body(
+    ShellController controller,
+    DiscourseInstance instance,
+    DraftFeed feed,
+  ) {
+    if (!feed.loaded && feed.drafts.isEmpty) {
+      return const _DraftListLoadingSkeleton(
+        key: ValueKey('draft-list-loading-skeleton'),
+      );
+    }
+    if (feed.isEmpty) {
+      return const _DraftState(
+        icon: DIcons.pencil,
+        title: 'No drafts yet',
+        body: 'Replies and topics you start writing will appear here.',
+      );
+    }
+    if (feed.error != null && feed.drafts.isEmpty) {
+      return _DraftState(
+        icon: DIcons.triangleExclamation,
+        title: feed.error!,
+        actionLabel: 'Try again',
+        onAction: _refresh,
+      );
+    }
+
+    return _Drafts(
+      siteUrl: widget.siteUrl,
+      feed: feed,
+      controller: controller,
+      onRefresh: _refresh,
+      onRemove: _remove,
+      instance: instance,
     );
   }
 }
@@ -352,90 +364,87 @@ class _Drafts extends StatelessWidget {
   Widget build(BuildContext context) {
     return ContentReadingLane(
       basePadding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-      builder: (context, lane) => RefreshIndicator(
-        onRefresh: onRefresh,
-        child: CustomScrollView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          slivers: [
-            SliverPadding(
-              padding: lane.padding,
-              sliver: SliverMainAxisGroup(
-                slivers: [
-                  if (feed.error case final error?)
-                    SliverToBoxAdapter(
-                      child: Padding(
-                        padding: const EdgeInsets.only(bottom: 12),
-                        child: DAlert(
-                          variant: DAlertVariant.destructive,
-                          icon: const DIcon(DIcons.triangleExclamation),
-                          description: DAlertDescription(child: Text(error)),
-                          action: DAlertAction(
-                            child: DButton(
-                              label: const Text('Retry'),
-                              onPressed: () => unawaited(onRefresh()),
-                              variant: DButtonVariant.link,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  SliverList.builder(
-                    itemCount: feed.drafts.length,
-                    itemBuilder: (context, index) {
-                      final draft = feed.drafts[index];
-                      return Center(
-                        key: ValueKey(draft.key),
-                        child: ConstrainedBox(
-                          constraints: const BoxConstraints(maxWidth: 1200),
-                          child: Column(
-                            children: [
-                              _DraftRow(
-                                siteUrl: siteUrl,
-                                draft: draft,
-                                deleting: controller.draftList.deleting(
-                                  siteUrl,
-                                  draft.key,
-                                ),
-                                onResume: draft.canResume
-                                    ? () => unawaited(
-                                        controller.resumeDraft(siteUrl, draft),
-                                      )
-                                    : null,
-                                onOpenForum: () => unawaited(
-                                  openExternalLink(
-                                    '$siteUrl/u/'
-                                    '${Uri.encodeComponent(instance.user!.username)}'
-                                    '/activity/drafts',
-                                  ),
-                                ),
-                                onRemove: () => onRemove(draft),
-                              ),
-                              const DSeparator(space: 1),
-                            ],
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                  if (feed.hasMore)
-                    SliverToBoxAdapter(
-                      child: Center(
-                        child: Padding(
-                          padding: const EdgeInsets.only(top: 16),
+      builder: (context, lane) => CustomScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        slivers: [
+          SliverPadding(
+            padding: lane.padding,
+            sliver: SliverMainAxisGroup(
+              slivers: [
+                if (feed.error case final error?)
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: DAlert(
+                        variant: DAlertVariant.destructive,
+                        icon: const DIcon(DIcons.triangleExclamation),
+                        description: DAlertDescription(child: Text(error)),
+                        action: DAlertAction(
                           child: DButton(
-                            label: const Text('Load more'),
-                            onPressed: () =>
-                                unawaited(controller.draftList.load(instance)),
-                            loading: feed.loading,
+                            label: const Text('Retry'),
+                            onPressed: () => unawaited(onRefresh()),
+                            variant: DButtonVariant.link,
                           ),
                         ),
                       ),
                     ),
-                ],
-              ),
+                  ),
+                SliverList.builder(
+                  itemCount: feed.drafts.length,
+                  itemBuilder: (context, index) {
+                    final draft = feed.drafts[index];
+                    return Center(
+                      key: ValueKey(draft.key),
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 1200),
+                        child: Column(
+                          children: [
+                            _DraftRow(
+                              siteUrl: siteUrl,
+                              draft: draft,
+                              deleting: controller.draftList.deleting(
+                                siteUrl,
+                                draft.key,
+                              ),
+                              onResume: draft.canResume
+                                  ? () => unawaited(
+                                      controller.resumeDraft(siteUrl, draft),
+                                    )
+                                  : null,
+                              onOpenForum: () => unawaited(
+                                openExternalLink(
+                                  '$siteUrl/u/'
+                                  '${Uri.encodeComponent(instance.user!.username)}'
+                                  '/activity/drafts',
+                                ),
+                              ),
+                              onRemove: () => onRemove(draft),
+                            ),
+                            const DSeparator(space: 1),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+                if (feed.hasMore)
+                  SliverToBoxAdapter(
+                    child: Center(
+                      child: Padding(
+                        padding: const EdgeInsets.only(top: 16),
+                        child: DButton(
+                          label: const Text('Load more'),
+                          onPressed: () =>
+                              unawaited(controller.draftList.load(instance)),
+                          loading: feed.loading,
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -656,30 +665,39 @@ class _DraftState extends StatelessWidget {
   final Future<void> Function()? onAction;
 
   @override
-  Widget build(BuildContext context) => Center(
-    child: SingleChildScrollView(
-      child: DEmpty(
-        children: [
-          DEmptyHeader(
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, constraints) => SingleChildScrollView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      child: ConstrainedBox(
+        constraints: BoxConstraints(minHeight: constraints.maxHeight),
+        child: Center(
+          child: DEmpty(
             children: [
-              DEmptyMedia(variant: DEmptyMediaVariant.icon, child: DIcon(icon)),
-              DEmptyTitle(title),
-              if (body case final body?) DEmptyDescription(body),
+              DEmptyHeader(
+                children: [
+                  DEmptyMedia(
+                    variant: DEmptyMediaVariant.icon,
+                    child: DIcon(icon),
+                  ),
+                  DEmptyTitle(title),
+                  if (body case final body?) DEmptyDescription(body),
+                ],
+              ),
+              if (actionLabel case final label?)
+                DEmptyContent(
+                  children: [
+                    DButton(
+                      label: Text(label),
+                      onPressed: onAction == null
+                          ? null
+                          : () => unawaited(onAction!()),
+                      variant: DButtonVariant.primary,
+                    ),
+                  ],
+                ),
             ],
           ),
-          if (actionLabel case final label?)
-            DEmptyContent(
-              children: [
-                DButton(
-                  label: Text(label),
-                  onPressed: onAction == null
-                      ? null
-                      : () => unawaited(onAction!()),
-                  variant: DButtonVariant.primary,
-                ),
-              ],
-            ),
-        ],
+        ),
       ),
     ),
   );

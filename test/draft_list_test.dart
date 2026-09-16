@@ -38,6 +38,7 @@ import 'package:flutter/material.dart'
         Scaffold,
         Scrollable,
         MouseRegion,
+        Offset,
         Size,
         TextScaler,
         ValueKey,
@@ -67,6 +68,39 @@ const _draft = UserDraft(
 
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
+
+  for (final empty in [false, true]) {
+    testWidgets('pull refreshes drafts and recovers errors, empty: $empty', (
+      tester,
+    ) async {
+      final api = _RefreshDraftsApi(empty ? [] : [_draft]);
+      final fixture = await _pumpList(tester, api: api);
+      final refresh = find.byType(DPullToRefresh);
+      final refreshState = tester.state(refresh);
+      api.response = Completer<UserDraftPage>();
+      await tester.drag(refresh, const Offset(0, 450));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(api.userDraftRequests, hasLength(2));
+      expect(find.bySemanticsLabel('Refreshing'), findsOneWidget);
+      api.response!.completeError(Exception('offline'));
+      await tester.pumpAndSettle();
+      expect(tester.state(refresh), same(refreshState));
+      expect(fixture.controller.draftList.feedFor(_siteUrl).error, isNotNull);
+      api.response = Completer<UserDraftPage>();
+      await tester.drag(refresh, const Offset(0, 450));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(api.userDraftRequests, hasLength(3));
+      api.response!.complete(
+        const UserDraftPage(drafts: [_draft], rawItemCount: 1),
+      );
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('new_topic')), findsOneWidget);
+      expect(find.bySemanticsLabel('Refreshing'), findsNothing);
+      expect(tester.takeException(), isNull);
+    });
+  }
 
   group('topic creation controls', () {
     testWidgets('show the core label, icon, colors, and shortcut when wide', (
@@ -1151,6 +1185,38 @@ Future<({ShellController controller, FakeDiscourseApi api})> _pumpList(
   );
   await tester.pumpAndSettle();
   return (controller: controller, api: api);
+}
+
+class _RefreshDraftsApi extends FakeDiscourseApi {
+  _RefreshDraftsApi(List<UserDraft> drafts)
+    : super(
+        user: const DiscourseUser(id: 7, username: 'reader'),
+        userDraftList: drafts,
+        feeds: const {'/latest.json': []},
+      );
+
+  Completer<UserDraftPage>? response;
+
+  @override
+  Future<UserDraftPage> userDrafts({
+    required String siteUrl,
+    required String apiKey,
+    String? clientId,
+    int offset = 0,
+    int limit = 30,
+  }) {
+    if (response case final response?) {
+      userDraftRequests.add((siteUrl: siteUrl, offset: offset, limit: limit));
+      return response.future;
+    }
+    return super.userDrafts(
+      siteUrl: siteUrl,
+      apiKey: apiKey,
+      clientId: clientId,
+      offset: offset,
+      limit: limit,
+    );
+  }
 }
 
 class _ApiBackedDrafts extends FakeDiscourseApi {
