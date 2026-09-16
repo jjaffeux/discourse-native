@@ -417,10 +417,16 @@ class _TopicInboxWorkspaceState extends State<_TopicInboxWorkspace> {
             ContentReadingLane(
               widthLimit: topicListContentWidth,
               builder: (context, lane) => ConstrainedBox(
-                constraints: const BoxConstraints(minHeight: shellHeaderHeight),
+                constraints: BoxConstraints(
+                  minHeight: sourceRoute.isTopicListFilter
+                      ? 0
+                      : shellHeaderHeight,
+                ),
                 child: Padding(
-                  // Match the sidebar account header's baseline.
-                  padding: EdgeInsets.only(bottom: showsUserMenu ? 1 : 0),
+                  padding: sourceRoute.isTopicListFilter
+                      ? const EdgeInsets.symmetric(vertical: DSpacing.sm)
+                      // Match the sidebar account header's baseline.
+                      : EdgeInsets.only(bottom: showsUserMenu ? 1 : 0),
                   child: Row(
                     children: [
                       Expanded(

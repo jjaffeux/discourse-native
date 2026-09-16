@@ -365,7 +365,10 @@ class _TopicListNavigationControls extends StatelessWidget {
               if (contextual != null || showsFilters)
                 inset(
                   Padding(
-                    padding: const EdgeInsets.only(top: 8, bottom: 8),
+                    padding: EdgeInsets.only(
+                      top: heading != null && wide ? 0 : DSpacing.sm,
+                      bottom: DSpacing.sm,
+                    ),
                     child: Builder(
                       builder: (filterContext) {
                         final lease = state.siteUrl == null
