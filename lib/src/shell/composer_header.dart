@@ -14,6 +14,8 @@ class ComposerHeader extends StatelessWidget {
     super.key,
     required this.composer,
     required this.minimized,
+    required this.onClose,
+    required this.closeTooltip,
     this.onMinimize,
     this.onRestore,
     this.placement = ComposerPlacement.right,
@@ -24,6 +26,8 @@ class ComposerHeader extends StatelessWidget {
 
   final ComposerController composer;
   final bool minimized;
+  final VoidCallback onClose;
+  final String closeTooltip;
   final VoidCallback? onMinimize;
   final VoidCallback? onRestore;
   final ComposerPlacement placement;
@@ -312,6 +316,14 @@ class ComposerHeader extends StatelessWidget {
           variant: DButtonVariant.transparentBackground,
           size: DButtonSize.regular,
         ),
+      DButton.iconOnly(
+        key: const ValueKey('composer-close'),
+        onPressed: onClose,
+        icon: const DIcon(DIcons.xmark),
+        tooltip: closeTooltip,
+        variant: DButtonVariant.transparentBackground,
+        size: DButtonSize.regular,
+      ),
     ];
     return SizedBox(
       key: const ValueKey('composer-header'),

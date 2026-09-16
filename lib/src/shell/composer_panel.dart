@@ -179,6 +179,10 @@ class ComposerPanel extends StatelessWidget {
                     ComposerHeader(
                       composer: composer,
                       minimized: minimized,
+                      onClose: close,
+                      closeTooltip: composer.canSaveDraft
+                          ? 'Save and close'
+                          : 'Close composer',
                       onMinimize: minimized ? null : onMinimize,
                       onRestore: minimized ? onRestore : null,
                       placement: placement,

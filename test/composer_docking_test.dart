@@ -250,8 +250,19 @@ void main() {
       await tester.pump();
       expect(composer.raw, 'First draft');
       expect(tester.takeException(), isNull);
-      await tester.pump(const Duration(seconds: 3));
+      await tester.tap(find.byKey(const ValueKey('composer-minimize')));
       await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('Save and close'));
+      await tester.pumpAndSettle();
+      expect(composer.isDisposed, isTrue);
+      expect(harness.shell.visibleComposer, isNull);
+      final api = harness.shell.api.composerPersistence as FakeDiscourseApi;
+      expect(
+        ComposerDraft.decode(api.draftsSaved.last['data']! as String)?.reply,
+        'First draft',
+      );
+      expect(api.userDraftsDeleted, isEmpty);
+      expect(tester.takeException(), isNull);
     },
   );
 
