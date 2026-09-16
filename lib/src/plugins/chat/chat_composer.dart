@@ -1071,7 +1071,7 @@ class _ChatComposerState extends State<ChatComposer> {
           DInputGroupAddon(
             alignment: DInputGroupAddonAlignment.blockEnd,
             child: Row(
-              spacing: DSpacing.sm,
+              spacing: DSpacing.xs,
               children: [
                 ValueListenableBuilder<SiteConfig>(
                   valueListenable: host.siteConfigListenableFor(
