@@ -25,6 +25,7 @@ import 'chat_message.dart';
 import 'chat_message_tile.dart';
 import 'chat_pinned_bar.dart';
 import 'chat_route.dart';
+import 'chat_scroll_layout_observer.dart';
 import 'chat_services.dart';
 import 'chat_shell_service.dart';
 import 'chat_stream.dart';
@@ -1161,6 +1162,12 @@ class _StreamState extends State<ChatMessageStream>
   Map<int, double>? _dayExtentSums;
 
   void _noteExtentsChanged() {
+    // The virtualizer notifies on every scroll layout, even when its children
+    // reuse their sizes. Only actual row layouts invalidate the prefix sums.
+    _scheduleLook();
+  }
+
+  void _invalidateDayExtents() {
     _dayExtentSums = null;
     _scheduleLook();
   }
@@ -1178,6 +1185,7 @@ class _StreamState extends State<ChatMessageStream>
 
     var sums = _dayExtentSums;
     if (sums == null) {
+      final started = _recording ? developer.Timeline.now : null;
       sums = <int, double>{};
       final dayRows = {for (final entry in days) entry.row};
       var extentThroughRow = 0.0;
@@ -1186,6 +1194,12 @@ class _StreamState extends State<ChatMessageStream>
         if (dayRows.contains(row)) sums[row] = extentThroughRow;
       }
       _dayExtentSums = sums;
+      if (started != null) {
+        _recordScrollEvent('chat.dayExtents.scanned', {
+          'rows': days.first.row + 1,
+          'durationUs': developer.Timeline.now - started,
+        });
+      }
     }
     final fromBottom =
         _scroll.position.viewportDimension -
@@ -1300,6 +1314,11 @@ class _StreamState extends State<ChatMessageStream>
         'messageCount': widget.stream.messageIds.length,
         'rowCount': widget.items.length,
         'thread': widget.target.threadId != null,
+        'directMessage':
+            _chat?.channel(widget.siteUrl, widget.channelId)?.isDirectMessage ??
+            false,
+        'group':
+            _chat?.channel(widget.siteUrl, widget.channelId)?.isGroup ?? false,
         if (_scroll.hasClients)
           'viewportExtent': _scroll.position.viewportDimension,
         'devicePixelRatio': View.of(context).devicePixelRatio,
@@ -1428,7 +1447,7 @@ class _StreamState extends State<ChatMessageStream>
                   _scheduleOlderPage(chat, siteUrl, channelId, stream);
                 }
 
-                return switch (_itemAt(row)) {
+                final child = switch (_itemAt(row)) {
                   ChatStreamMessage(:final id, :final chained) => ConstrainedBox(
                     // Reserve hover overflow only when the live-edge row is short.
                     constraints: BoxConstraints(
@@ -1505,6 +1524,12 @@ class _StreamState extends State<ChatMessageStream>
                   ChatStreamNewDivider() => const _NewDivider(),
                   null => const SizedBox.shrink(),
                 };
+                return ChatScrollLayoutObserver(
+                  capture: _scrollCapture,
+                  index: row,
+                  onLayout: _invalidateDayExtents,
+                  child: child,
+                );
               },
             ),
             ValueListenableBuilder(

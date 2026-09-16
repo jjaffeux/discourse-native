@@ -12,7 +12,20 @@ import '../test/support/chat_scroll_fixture.dart';
 Future<void> main() async {
   final binding = WidgetsFlutterBinding.ensureInitialized();
   MacOSLaunchScreen.dismissAfterFirstFlutterFrame();
-  final controller = await chatScrollController();
+  final controller = await chatScrollController(
+    count: int.parse(
+      _option(
+        'SCROLL_MESSAGES',
+        const String.fromEnvironment('SCROLL_MESSAGES', defaultValue: '500'),
+      ),
+    ),
+    directMessage:
+        _option('SCROLL_DM', const String.fromEnvironment('SCROLL_DM')) ==
+        'true',
+    group:
+        _option('SCROLL_GROUP', const String.fromEnvironment('SCROLL_GROUP')) ==
+        'true',
+  );
   final diagnostics = DiagnosticsController.start(
     persistence: MemoryDiagnosticsPersistence(),
   );
@@ -20,11 +33,15 @@ Future<void> main() async {
     ChatScrollFixture(
       controller: controller,
       diagnostics: diagnostics,
-      width: const int.fromEnvironment(
-        'SCROLL_WIDTH',
-        defaultValue: 800,
-      ).toDouble(),
-      dark: const bool.fromEnvironment('SCROLL_DARK'),
+      width: double.parse(
+        _option(
+          'SCROLL_WIDTH',
+          const String.fromEnvironment('SCROLL_WIDTH', defaultValue: '800'),
+        ),
+      ),
+      dark:
+          _option('SCROLL_DARK', const String.fromEnvironment('SCROLL_DARK')) ==
+          'true',
     ),
   );
   await Future<void>.delayed(const Duration(seconds: 3));
@@ -42,7 +59,10 @@ Future<void> main() async {
   binding.rootElement!.visitChildren(findScrollable);
   final position = scrollable!.position;
   final capture = diagnostics.topicScrollCapture;
-  const label = String.fromEnvironment('SCROLL_LABEL', defaultValue: 'capture');
+  final label = _option(
+    'SCROLL_LABEL',
+    const String.fromEnvironment('SCROLL_LABEL', defaultValue: 'capture'),
+  );
   for (final (name, delta, steps) in [
     ('steady', 10.0, 360),
     ('fast', 1200.0, 12),
@@ -67,3 +87,7 @@ Future<void> main() async {
   }
   stdout.writeln('CHAT_SCROLL_PROFILE complete');
 }
+
+// Runtime overrides let the same native build compare all fixture layouts.
+String _option(String name, String fallback) =>
+    Platform.environment[name] ?? fallback;

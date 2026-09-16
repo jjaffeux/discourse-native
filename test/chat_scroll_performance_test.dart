@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/diagnostics/diagnostics.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel_view.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message_tile.dart';
@@ -12,8 +13,18 @@ import 'support/topic_scroll_capture.dart';
 
 void main() {
   final layouts = ValueVariant({
-    (width: 800.0, dark: false),
-    (width: 360.0, dark: true),
+    for (final directMessage in [false, true])
+      for (final group in directMessage ? [false, true] : [false])
+        for (final layout in [
+          (width: 800.0, dark: false),
+          (width: 360.0, dark: true),
+        ])
+          (
+            width: layout.width,
+            dark: layout.dark,
+            directMessage: directMessage,
+            group: group,
+          ),
   });
   testWidgets('scrolling updates chat chrome without rebuilding held messages', (
     tester,
@@ -21,7 +32,10 @@ void main() {
     tester.view.physicalSize = const Size(900, 700);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
-    final controller = await chatScrollController();
+    final controller = await chatScrollController(
+      directMessage: layouts.currentValue!.directMessage,
+      group: layouts.currentValue!.group,
+    );
     final capture = topicScrollCaptureWithoutVm();
     final diagnostics = DiagnosticsController.start(
       persistence: MemoryDiagnosticsPersistence(),
@@ -38,6 +52,10 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
+    expect(
+      find.byType(DBubble),
+      layouts.currentValue!.directMessage ? findsWidgets : findsNothing,
+    );
     final scrollable = find.descendant(
       of: find.byType(ChatMessageStream),
       matching: find.byWidgetPredicate(
@@ -117,6 +135,17 @@ void main() {
       expect(counts['chat.capture.context'], 1);
       expect(counts['chat.scroll.notification'], greaterThan(0));
       expect(counts['chat.stream.built'] ?? 0, 0);
+      expect(counts['chat.row.layout'], greaterThan(0));
+      // Moving already measured rows must reuse the floating-date prefix sums.
+      expect(counts['chat.dayExtents.scanned'] ?? 0, lessThan(100));
+      final context = capture.events.singleWhere(
+        (event) => event.name == 'chat.capture.context',
+      );
+      expect(
+        context.data['directMessage'],
+        layouts.currentValue!.directMessage,
+      );
+      expect(context.data['group'], layouts.currentValue!.group);
       expect(tester.takeException(), isNull);
     } finally {
       capture.stop();

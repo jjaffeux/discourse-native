@@ -50,6 +50,14 @@ void main() {
     capture.recordTopicEvent('chat.scroll.notification', {'durationUs': 15});
     capture.recordTopicEvent('chat.viewport.work', {'durationUs': 20});
     capture.recordTopicEvent('chat.row.built', {'index': 10});
+    capture.recordTopicEvent('chat.row.layout', {
+      'index': 10,
+      'durationUs': 30,
+    });
+    capture.recordTopicEvent('chat.dayExtents.scanned', {
+      'rows': 500,
+      'durationUs': 5,
+    });
     capture.stop();
 
     final report =
@@ -58,10 +66,14 @@ void main() {
     expect(analysis['chatContextCount'], 1);
     expect((analysis['chatScrollWorkUs']! as Map)['total'], 15);
     expect((analysis['chatViewportWorkUs']! as Map)['total'], 20);
+    expect((analysis['chatRowLayoutUs']! as Map)['total'], 30);
+    expect((analysis['chatDayExtentWorkUs']! as Map)['total'], 5);
     expect((analysis['activityCounts']! as Map)['chat.row.built'], 1);
     final compact = await capture.buildPerformanceReport();
     expect(compact, contains('500 loaded messages'));
     expect(compact, contains('Chat viewport bookkeeping'));
+    expect(compact, contains('Chat row layout'));
+    expect(compact, contains('Chat date extent scans'));
     expect(compact, isNot(contains('No topic context was recorded')));
   });
 
