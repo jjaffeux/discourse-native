@@ -150,6 +150,48 @@ void main() {
     );
   }
 
+  testWidgets('macOS command-zero resets text size on a French keyboard', (
+    tester,
+  ) async {
+    final persistence = MemoryAppSettingsPersistence(
+      textScale: AppTextScale.percent150.name,
+    );
+    final controller = _controller(persistence: persistence);
+    addTearDown(controller.dispose);
+    await controller.load();
+    const childKey = ValueKey('scaled-child');
+
+    await tester.pumpWidget(
+      MaterialApp(
+        builder: (context, child) =>
+            AppTextScaleRegion(controller: controller, child: child!),
+        home: const SizedBox(key: childKey),
+      ),
+    );
+    expect(
+      MediaQuery.textScalerOf(tester.element(find.byKey(childKey))).scale(16),
+      moreOrLessEquals(24),
+    );
+
+    expect(
+      await _pressShortcut(
+        tester,
+        modifier: LogicalKeyboardKey.metaLeft,
+        key: LogicalKeyboardKey.digit0,
+        character: 'à',
+      ),
+      isTrue,
+    );
+    await tester.pump();
+
+    expect(controller.textScale, AppTextScale.percent100);
+    expect(persistence.textScale, AppTextScale.percent100.name);
+    expect(
+      MediaQuery.textScalerOf(tester.element(find.byKey(childKey))).scale(16),
+      moreOrLessEquals(16),
+    );
+  }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
+
   testWidgets('zoom shortcuts work above focused fields and modal routes', (
     tester,
   ) async {
