@@ -106,7 +106,7 @@ void main() {
     await _pumpEditor(tester, composer);
     composer.addImages([_file, _file], 6);
     uploads.first.complete(_result);
-    await tester.pumpAndSettle();
+    await tester.pump();
     await _type(tester, composer, 'Caption');
     uploads.last.complete(_result);
     await tester.pumpAndSettle();
@@ -197,7 +197,7 @@ Future<void> _pasteImage(WidgetTester tester) async {
   await tester.sendKeyDownEvent(modifier);
   await tester.sendKeyEvent(LogicalKeyboardKey.keyV);
   await tester.sendKeyUpEvent(modifier);
-  await tester.pumpAndSettle();
+  await tester.pump();
 }
 
 Future<void> _type(
@@ -218,7 +218,7 @@ Future<void> _type(
       ),
     ),
   );
-  await tester.pumpAndSettle();
+  await tester.pump();
 }
 
 final _file = ComposerUploadFile(

@@ -24,6 +24,7 @@ import 'composer_marks.dart';
 import 'composer_pills.dart';
 import 'composer_quotes.dart';
 import 'composer_triggers.dart';
+import 'composer_upload_placeholder.dart';
 import 'markdown_editing_controller.dart';
 import 'markdown_highlight.dart';
 
@@ -335,7 +336,7 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
          pills: pills,
          pluginHashtagPresentation: pluginHashtagPresentation,
          formatQuoteContents: formatQuoteContents,
-         syntaxPolicies: syntaxPolicies,
+         syntaxPolicies: [...syntaxPolicies],
          resolveUploadUrls: resolveUploadUrls,
          enableMarkdownLinkify: enableMarkdownLinkify,
          markdownLinkifyTlds: markdownLinkifyTlds,
@@ -357,6 +358,9 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
        _originalTags = List.unmodifiable(_target.initialTags),
        _whisper = _target.replyingToWhisper,
        _minimumRequiredTags = minimumRequiredTags {
+    if (!_target.isPlugin) {
+      text.syntaxPolicies.add(ComposerUploadPlaceholderPolicy(this));
+    }
     text.addListener(_onTextChanged);
     title.addListener(_onMetadataChanged);
     _recomputeCanSubmit();
@@ -735,6 +739,52 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
   final Map<int, _PendingComposerUpload> _pendingUploads = {};
   int _nextUploadId = 0;
   int _nextUploadBatch = 0;
+  final Map<int, String> _uploadPlaceholders = {};
+  bool _updatingUploadPlaceholders = false;
+
+  Map<int, String> get uploadPlaceholders =>
+      Map.unmodifiable(_uploadPlaceholders);
+
+  String _withoutUploadPlaceholders(String source) {
+    for (final marker in _uploadPlaceholders.values) {
+      source = source.replaceAll('$marker\n', '').replaceAll(marker, '');
+    }
+    return source;
+  }
+
+  void _replaceUploadPlaceholder(
+    int id,
+    String replacement, {
+    bool removeLine = false,
+  }) {
+    final marker = _uploadPlaceholders[id];
+    if (marker == null) return;
+    final start = text.text.indexOf(marker);
+    if (start < 0) return;
+    var end = start + marker.length;
+    if (removeLine && end < text.text.length && text.text[end] == '\n') end++;
+    final old = text.value;
+    int move(int offset) => offset <= start
+        ? offset
+        : offset < end
+        ? start + replacement.length
+        : offset + replacement.length - (end - start);
+    _updatingUploadPlaceholders = true;
+    try {
+      text.value = old.copyWith(
+        text: old.text.replaceRange(start, end, replacement),
+        selection: old.selection.isValid
+            ? TextSelection(
+                baseOffset: move(old.selection.baseOffset),
+                extentOffset: move(old.selection.extentOffset),
+              )
+            : old.selection,
+        composing: TextRange.empty,
+      );
+    } finally {
+      _updatingUploadPlaceholders = false;
+    }
+  }
 
   List<ComposerUploadItem> get uploads => List.unmodifiable(_uploads);
   List<ComposerUploadResult> get completedUploads => List.unmodifiable(
@@ -870,6 +920,7 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
         ? _ComposerUploadDestination.newGallery
         : _ComposerUploadDestination.standalone;
     final anchor = (gallery?.contentEnd ?? offset).clamp(0, text.text.length);
+    final added = <int>[];
     for (var order = 0; order < valid.length; order++) {
       final id = _nextUploadId++;
       final file = valid[order];
@@ -890,6 +941,30 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
           status: ComposerUploadStatus.uploading,
         ),
       );
+      added.add(id);
+      if (!_target.isPlugin) {
+        _uploadPlaceholders[id] =
+            '\uFFFCupload-${identityHashCode(this)}-$id\uFFFC';
+      }
+    }
+    if (!_target.isPlugin) {
+      final at = gallery?.end ?? anchor;
+      final markers = added.map((id) => _uploadPlaceholders[id]!).join('\n');
+      _updatingUploadPlaceholders = true;
+      try {
+        _insertAt(at, _imageBlockInsertion(text.text, at, markers));
+      } finally {
+        _updatingUploadPlaceholders = false;
+      }
+      for (final id in added) {
+        if (gallery == null) {
+          _pendingUploads[id]!.anchor = text.text.indexOf(
+            _uploadPlaceholders[id]!,
+          );
+        }
+      }
+    }
+    for (final id in added) {
       _startUpload(id);
     }
     _recomputeCanSubmit();
@@ -922,11 +997,28 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
     _notify();
   }
 
-  void cancelUpload(int id) {
-    final pending = _pendingUploads.remove(id);
-    if (pending != null && !pending.abort.isCompleted) pending.abort.complete();
-    _uploads.removeWhere((upload) => upload.id == id);
-    if (pending != null) _flushReadyUploads(pending.batch);
+  void cancelUpload(int id) => _cancelUploads([id]);
+
+  void _cancelUploads(Iterable<int> ids) {
+    final cancelled = ids.toList();
+    final batches = <int>{};
+    // Retire the whole selection before flushing peers. A later completed
+    // upload must not be inserted while its own deleted slot is still waiting
+    // to be cancelled.
+    for (final id in cancelled) {
+      final pending = _pendingUploads.remove(id);
+      if (pending != null) {
+        batches.add(pending.batch);
+        if (!pending.abort.isCompleted) pending.abort.complete();
+      }
+      _uploads.removeWhere((upload) => upload.id == id);
+    }
+    for (final id in cancelled) {
+      _replaceUploadPlaceholder(id, '', removeLine: true);
+    }
+    for (final batch in batches) {
+      _flushReadyUploads(batch);
+    }
     _recomputeCanSubmit();
     _notify();
   }
@@ -1012,6 +1104,25 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
         continue;
       }
 
+      final markdown = uploadFileMarkdown(result);
+      final markerSelection = text.selection;
+      final marker = _uploadPlaceholders[first.key];
+      final markerStart = marker == null ? -1 : text.text.indexOf(marker);
+      if (markerStart >= 0) {
+        if (first.value.destination == _ComposerUploadDestination.standalone) {
+          // The slot itself owns ordering and both selection boundaries.
+          // Replacing it atomically keeps a caret before the upload before
+          // the finished image, even when completion races with typing.
+          _pendingUploads.remove(first.key);
+          _uploads.removeWhere((upload) => upload.id == first.key);
+          _replaceUploadPlaceholder(first.key, markdown);
+          continue;
+        }
+        final newGallery =
+            first.value.destination == _ComposerUploadDestination.newGallery;
+        _replaceUploadPlaceholder(first.key, '', removeLine: !newGallery);
+        if (newGallery) first.value.anchor = markerStart;
+      }
       final earlierFailed = waiting
           .where(
             (entry) =>
@@ -1020,7 +1131,6 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
           .map((entry) => entry.value)
           .toList();
       var insertionOffset = first.value.anchor;
-      final markdown = uploadFileMarkdown(result);
       var destination = first.value.destination;
       if (destination == _ComposerUploadDestination.newGallery &&
           _isInsideUnprojectedGridLikeBlock(insertionOffset)) {
@@ -1086,6 +1196,19 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
       _pendingUploads.remove(first.key);
       _uploads.removeWhere((upload) => upload.id == first.key);
       _insertAt(insertionOffset, insertion);
+      if (markerStart >= 0 &&
+          markerStart == insertionOffset &&
+          markerSelection.isValid) {
+        final current = text.selection;
+        text.selection = current.copyWith(
+          baseOffset: markerSelection.baseOffset == markerStart
+              ? insertionOffset
+              : current.baseOffset,
+          extentOffset: markerSelection.extentOffset == markerStart
+              ? insertionOffset
+              : current.extentOffset,
+        );
+      }
 
       // A later request is allowed to finish first, but it must not steal the
       // document slot reserved by an older request. Generic anchor movement
@@ -2107,7 +2230,7 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
   Duration get typingDuration => _typing.elapsed;
   Duration get openDuration => _now().difference(_openedAt);
 
-  String get raw => text.text.trim();
+  String get raw => _withoutUploadPlaceholders(text.text).trim();
 
   int draftSequence = 0;
 
@@ -2136,7 +2259,7 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
   bool get draftPersistencePending => draftPending || _draftSaveTask != null;
 
   ComposerDraft get draft => ComposerDraft(
-    reply: text.text,
+    reply: _withoutUploadPlaceholders(text.text),
     action: _target.isPrivateMessage
         ? ComposerDraft.privateMessageAction
         : _target.isNewTopic
@@ -2593,10 +2716,29 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
     if (!_replacingDocument) autocomplete.update(text.value);
 
     if (text.text == _lastText) return;
+    // Let EditableText finish applying its exact undo value before removing
+    // slots whose requests have already settled. No stale token is saved.
+    if (!_updatingUploadPlaceholders && !_target.isPlugin) {
+      scheduleMicrotask(() {
+        if (_disposed) return;
+        for (final entry in _uploadPlaceholders.entries) {
+          if (!_pendingUploads.containsKey(entry.key)) {
+            _replaceUploadPlaceholder(entry.key, '', removeLine: true);
+          }
+        }
+      });
+    }
     final wasDraftPending = draftPending;
     final couldSubmit = _canSubmit;
     _moveUploadAnchors(_lastText, text.text);
     _lastText = text.text;
+    if (!_updatingUploadPlaceholders) {
+      final removed = _pendingUploads.keys.where((id) {
+        final marker = _uploadPlaceholders[id];
+        return marker != null && !text.text.contains(marker);
+      }).toList();
+      if (removed.isNotEmpty) _cancelUploads(removed);
+    }
     _draftRevision++;
 
     if (!_replacingDocument) {

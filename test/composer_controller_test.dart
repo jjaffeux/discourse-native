@@ -987,7 +987,7 @@ void main() {
       calls[2].complete(_result('two'));
       calls[1].complete(video);
       await tester.pump();
-      expect(composer.text.text, isEmpty);
+      expect(composer.raw, isEmpty);
       calls[0].complete(_result('one'));
       await tester.pump();
       expect(
@@ -1051,9 +1051,11 @@ void main() {
             selection: TextSelection.collapsed(offset: 6),
           );
           composer.addImages([_file('one.png')], 6);
+          final end = composer.text.text.length;
+          final start = composer.text.text.indexOf('After') - 1;
           composer.text.selection = TextSelection(
-            baseOffset: reversed ? 12 : 6,
-            extentOffset: reversed ? 6 : 12,
+            baseOffset: reversed ? end : start,
+            extentOffset: reversed ? start : end,
           );
           calls.single.complete(_result('one'));
           await tester.pump();
@@ -1081,7 +1083,7 @@ void main() {
           );
           composer.addImages([_file('one.png')], 6);
           composer.text.selection = TextSelection.collapsed(
-            offset: atEnd ? 12 : 0,
+            offset: atEnd ? composer.text.text.length : 0,
           );
           calls.single.complete(_result('one'));
           await tester.pump();
@@ -1120,7 +1122,7 @@ void main() {
       calls[2].complete(_result('three'));
       calls[1].complete(_result('two'));
       await tester.pump();
-      expect(composer.text.text, 'beforeAFTER');
+      expect(composer.raw, 'before\nAFTER');
 
       calls[0].complete(_result('one'));
       await tester.pump();
@@ -1826,7 +1828,9 @@ void main() {
       addTearDown(composer.dispose);
 
       composer.addImages([_file('one.png')], 0);
-      composer.addImages([_file('two.png')], 0);
+      composer.addImages([
+        _file('two.png'),
+      ], composer.text.selection.extentOffset);
       calls[1].complete(_result('two'));
       await tester.pump();
       expect(composer.text.imageBlocks.single.url, 'upload://two');
@@ -1851,8 +1855,10 @@ void main() {
       composer.text.text = 'tail';
 
       composer.addImages([_file('one.png')], 0);
-      composer.text.text = 'prefix tail';
-      composer.addImages([_file('two.png')], 'prefix '.length);
+      composer.text.text = 'prefix ${composer.text.text}';
+      composer.addImages([
+        _file('two.png'),
+      ], composer.text.text.indexOf('tail'));
       calls[1].complete(_result('two'));
       await tester.pump();
       calls[0].complete(_result('one'));
@@ -1884,7 +1890,7 @@ void main() {
         _file('four.png'),
         _file('five.png'),
         _file('six.png'),
-      ], 0);
+      ], composer.text.selection.extentOffset);
       for (var index = 3; index < 6; index++) {
         calls[index].complete(_result(['four', 'five', 'six'][index - 3]));
       }
@@ -1954,7 +1960,9 @@ void main() {
       addTearDown(composer.dispose);
 
       composer.addImages([_file('one.png')], 0);
-      composer.addImages([_file('two.png')], 0);
+      composer.addImages([
+        _file('two.png'),
+      ], composer.text.selection.extentOffset);
       calls[0].fail(const ComposerUploadException('Retry one.'));
       calls[1].complete(_result('two'));
       await tester.pump();
@@ -1980,7 +1988,9 @@ void main() {
       addTearDown(composer.dispose);
 
       composer.addImages([_file('one.png')], 0);
-      composer.addImages([_file('two.png')], 0);
+      composer.addImages([
+        _file('two.png'),
+      ], composer.text.selection.extentOffset);
       calls[0].fail(const ComposerUploadException('Remove one.'));
       calls[1].complete(_result('two'));
       await tester.pump();
@@ -2046,13 +2056,13 @@ void main() {
         ]);
         expect(composer.canSubmit, isFalse);
 
-        composer.text.value = const TextEditingValue(
-          text: 'lefttypedRIGHT',
-          selection: TextSelection.collapsed(offset: 9),
+        composer.text.value = TextEditingValue(
+          text: composer.text.text.replaceRange(4, 4, 'typed'),
+          selection: const TextSelection.collapsed(offset: 9),
         );
         calls[1].complete(_result('two'));
         await tester.pump();
-        expect(composer.raw, 'lefttypedRIGHT');
+        expect(composer.raw, 'lefttyped\nRIGHT');
 
         calls[0].complete(_result('one'));
         await tester.pump();
@@ -2204,7 +2214,7 @@ void main() {
         expect(composer.uploads, hasLength(1));
         expect(composer.uploads.single.status, ComposerUploadStatus.failed);
         expect(composer.canSubmit, isTrue);
-        expect(composer.text.text, 'body\n![two|640x480](upload://two)\n');
+        expect(composer.raw, 'body\n![two|640x480](upload://two)');
 
         composer.retryUpload(composer.uploads.single.id);
         calls.last.complete(_result('one'));
@@ -2285,7 +2295,7 @@ void main() {
       composer.addImages([_file('one.png'), _file('two.png')], 0);
       calls[1].complete(_result('two'));
       await tester.pump();
-      expect(composer.text.text, isEmpty);
+      expect(composer.raw, isEmpty);
 
       composer.cancelUpload(composer.uploads.first.id);
       await tester.pump();

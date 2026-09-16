@@ -1,0 +1,340 @@
+import 'dart:async';
+
+import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/src/models/composer_upload.dart';
+import 'package:discourse_native/src/shell/composer_controller.dart';
+import 'package:discourse_native/src/shell/composer_image.dart';
+import 'package:discourse_native/src/shell/composer_panel.dart';
+import 'package:discourse_native/src/theme/app_theme.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_test/flutter_test.dart';
+
+void main() {
+  for (final dark in [false, true]) {
+    testWidgets(
+      'upload occupies its slot while typing around it (${dark ? 'dark' : 'light'})',
+      (tester) async {
+        final upload = Completer<ComposerUploadResult>();
+        late void Function(double) progress;
+        final composer = ComposerController(
+          _target,
+          imageUploader: (file, {required onProgress, required abortTrigger}) {
+            progress = onProgress;
+            return upload.future;
+          },
+        );
+        addTearDown(composer.dispose);
+        composer.text.value = const TextEditingValue(
+          text: 'Before\nAfter',
+          selection: TextSelection.collapsed(offset: 6),
+        );
+        await _pump(tester, composer, dark: dark);
+        composer.addImages([_file], 6);
+        await tester.pump();
+        final attachment = find.byType(DAttachment);
+        expect(attachment, findsOneWidget);
+        expect(
+          find.descendant(of: find.byType(EditableText), matching: attachment),
+          findsOneWidget,
+        );
+        expect(find.byType(ComposerUploadQueue), findsNothing);
+        progress(.42);
+        await tester.pump();
+        expect(find.text('Uploading · 42%'), findsOneWidget);
+
+        await _type(tester, composer, 'Caption ');
+        composer.text.selection = const TextSelection.collapsed(offset: 0);
+        await _type(tester, composer, 'Intro ');
+        final render = tester
+            .state<EditableTextState>(find.byType(EditableText))
+            .renderEditable;
+        final after = render.localToGlobal(
+          render
+              .getLocalRectForCaret(
+                TextPosition(offset: composer.text.text.indexOf('Caption')),
+              )
+              .topLeft,
+        );
+        expect(
+          after.dy,
+          greaterThanOrEqualTo(tester.getRect(attachment).bottom),
+        );
+        expect(composer.raw, 'Intro Before\nCaption After');
+        expect(composer.draft.reply, isNot(contains('upload-')));
+        upload.complete(_result);
+        await tester.pumpAndSettle();
+        expect(attachment, findsNothing);
+        expect(find.byType(ComposerImagePreview), findsOneWidget);
+        expect(
+          composer.raw,
+          'Intro Before\n![photo|100x100](upload://photo)\nCaption After',
+        );
+        expect(composer.text.selection.extentOffset, 6);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
+  testWidgets('completion preserves a caret immediately before the slot', (
+    tester,
+  ) async {
+    final request = Completer<ComposerUploadResult>();
+    final composer = ComposerController(
+      _target,
+      imageUploader: (file, {required onProgress, required abortTrigger}) =>
+          request.future,
+    );
+    addTearDown(composer.dispose);
+    await _pump(tester, composer);
+    composer.addImages([_file], 0);
+    await tester.pump();
+    composer.text.selection = const TextSelection.collapsed(offset: 0);
+    request.complete(_result);
+    await tester.pumpAndSettle();
+    expect(composer.text.selection, const TextSelection.collapsed(offset: 0));
+    await _type(tester, composer, 'Before\n');
+    expect(composer.raw, 'Before\n![photo|100x100](upload://photo)');
+  });
+
+  testWidgets('a new gallery preserves a caret before its pending slots', (
+    tester,
+  ) async {
+    final request = Completer<ComposerUploadResult>();
+    final composer = ComposerController(
+      _target,
+      imageUploader: (file, {required onProgress, required abortTrigger}) =>
+          request.future,
+    );
+    addTearDown(composer.dispose);
+    await _pump(tester, composer);
+    composer.addImages([_file, _file, _file], 0);
+    await tester.pump();
+    composer.text.selection = const TextSelection.collapsed(offset: 0);
+    request.complete(_result);
+    await tester.pumpAndSettle();
+    expect(composer.text.selection, const TextSelection.collapsed(offset: 0));
+    expect(composer.text.galleryBlocks.single.images, hasLength(3));
+  });
+
+  testWidgets('cancel targets the clicked row in a batch', (tester) async {
+    final aborted = <String>[];
+    final composer = ComposerController(
+      _target,
+      imageUploader: (file, {required onProgress, required abortTrigger}) {
+        unawaited(abortTrigger.then((_) => aborted.add(file.name)));
+        return Completer<ComposerUploadResult>().future;
+      },
+    );
+    addTearDown(composer.dispose);
+    await _pump(tester, composer);
+    composer.addImages([
+      _file,
+      ComposerUploadFile(
+        name: 'second.png',
+        length: _file.length,
+        openRead: _file.openRead,
+      ),
+    ], 0);
+    await tester.pump();
+    final first = composer.uploads.first.id;
+    final cancel = find.descendant(
+      of: find.byKey(ValueKey('composer-inline-upload-$first')),
+      matching: find.byTooltip('Cancel upload'),
+    );
+    await tester.tap(cancel);
+    await tester.pump();
+    expect(aborted, ['photo.png']);
+    expect(composer.uploads.single.file.name, 'second.png');
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('failure retries in place and cancel removes the slot', (
+    tester,
+  ) async {
+    final requests = <Completer<ComposerUploadResult>>[];
+    var aborted = false;
+    final composer = ComposerController(
+      _target,
+      imageUploader: (file, {required onProgress, required abortTrigger}) {
+        final result = Completer<ComposerUploadResult>();
+        requests.add(result);
+        unawaited(abortTrigger.then((_) => aborted = true));
+        return result.future;
+      },
+    );
+    addTearDown(composer.dispose);
+    await _pump(tester, composer);
+    composer.addImages([_file], 0);
+    await tester.pump();
+    await _type(tester, composer, 'Keep typing');
+    requests.first.completeError(
+      const ComposerUploadException('Please try again.'),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Please try again.'), findsOneWidget);
+    await tester.tap(find.byTooltip('Retry upload'));
+    await tester.pump();
+    expect(requests, hasLength(2));
+    expect(find.text('Retrying · 0%'), findsOneWidget);
+    await tester.tap(find.byTooltip('Cancel upload'));
+    await tester.pumpAndSettle();
+    expect(aborted, isTrue);
+    expect(composer.raw, 'Keep typing');
+    expect(find.byType(DAttachment), findsNothing);
+    requests.last.complete(_result);
+    await tester.pumpAndSettle();
+    expect(composer.raw, 'Keep typing');
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+    'deleting a selected placeholder aborts it without deleting prose',
+    (tester) async {
+      var aborted = false;
+      final composer = ComposerController(
+        _target,
+        imageUploader: (file, {required onProgress, required abortTrigger}) {
+          unawaited(abortTrigger.then((_) => aborted = true));
+          return Completer<ComposerUploadResult>().future;
+        },
+      );
+      addTearDown(composer.dispose);
+      await _pump(tester, composer);
+      composer.addImages([_file], 0);
+      await tester.pump();
+      await _type(tester, composer, 'Keep');
+      final marker = composer.uploadPlaceholders.values.single;
+      composer.text.selection = TextSelection(
+        baseOffset: 0,
+        extentOffset: marker.length,
+      );
+      await _type(tester, composer, '');
+      expect(aborted, isTrue);
+      expect(composer.raw, 'Keep');
+      expect(find.byType(DAttachment), findsNothing);
+    },
+  );
+
+  testWidgets('deleting a batch cannot flush a deleted ready upload', (
+    tester,
+  ) async {
+    final requests = <Completer<ComposerUploadResult>>[];
+    final composer = ComposerController(
+      _target,
+      imageUploader: (file, {required onProgress, required abortTrigger}) {
+        final result = Completer<ComposerUploadResult>();
+        requests.add(result);
+        return result.future;
+      },
+    );
+    addTearDown(composer.dispose);
+    await _pump(tester, composer);
+    composer.addImages([_file, _file], 0);
+    requests.last.complete(_result);
+    await tester.pump();
+    composer.text.selection = TextSelection(
+      baseOffset: 0,
+      extentOffset: composer.text.text.length,
+    );
+    await _type(tester, composer, 'Replacement');
+    expect(composer.raw, 'Replacement');
+    expect(composer.uploads, isEmpty);
+    requests.first.complete(_result);
+    await tester.pump();
+    expect(composer.raw, 'Replacement');
+  });
+
+  testWidgets('undo after completion cannot resurrect an orphan upload', (
+    tester,
+  ) async {
+    final request = Completer<ComposerUploadResult>();
+    final composer = ComposerController(
+      _target,
+      imageUploader: (file, {required onProgress, required abortTrigger}) =>
+          request.future,
+    );
+    addTearDown(composer.dispose);
+    await _pump(tester, composer);
+    composer.addImages([_file], 0);
+    await tester.pump(const Duration(seconds: 1));
+    await _type(tester, composer, 'Caption');
+    await tester.pump(const Duration(seconds: 1));
+    request.complete(_result);
+    await tester.pumpAndSettle();
+    await tester.pump(const Duration(seconds: 1));
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyZ);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+    await tester.pumpAndSettle();
+    expect(composer.text.text, isNot(contains('upload-')));
+    expect(composer.uploads, isEmpty);
+    expect(tester.takeException(), isNull);
+  });
+}
+
+Future<void> _pump(
+  WidgetTester tester,
+  ComposerController composer, {
+  bool dark = false,
+}) async {
+  await tester.pumpWidget(
+    MaterialApp(
+      theme: dark ? AppTheme.dark : AppTheme.light,
+      home: Scaffold(
+        body: Padding(
+          padding: const EdgeInsets.all(16),
+          child: ComposerEditor(
+            composer: composer,
+            hintText: 'Write a reply',
+            textStyle: const TextStyle(fontSize: 16, height: 1.5),
+            hintStyle: null,
+          ),
+        ),
+      ),
+    ),
+  );
+  await tester.pumpAndSettle();
+  await tester.showKeyboard(find.byType(EditableText));
+}
+
+Future<void> _type(
+  WidgetTester tester,
+  ComposerController composer,
+  String insertion,
+) async {
+  final value = composer.text.value;
+  tester.testTextInput.updateEditingValue(
+    TextEditingValue(
+      text: value.text.replaceRange(
+        value.selection.start,
+        value.selection.end,
+        insertion,
+      ),
+      selection: TextSelection.collapsed(
+        offset: value.selection.start + insertion.length,
+      ),
+    ),
+  );
+  await tester.pump();
+}
+
+const _target = ComposerTarget(
+  siteUrl: 'https://example.test',
+  topicId: 1,
+  slug: 'test',
+  topicTitle: 'Test',
+);
+final _file = ComposerUploadFile(
+  name: 'photo.png',
+  length: () async => 3,
+  openRead: () => Stream.value([1, 2, 3]),
+);
+const _result = ComposerUploadResult(
+  id: 1,
+  originalFilename: 'photo.png',
+  shortUrl: 'upload://photo',
+  url: 'https://example.test/photo.png',
+  width: 100,
+  height: 100,
+);
