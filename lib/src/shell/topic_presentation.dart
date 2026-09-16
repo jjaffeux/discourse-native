@@ -156,7 +156,6 @@ class _TopicReaderPresentationState extends State<TopicReaderPresentation> {
   final _changes = ValueNotifier(0);
   bool _outletReady = false;
   bool _closing = false;
-  VoidCallback? _afterDismiss;
 
   Widget get _reader => KeyedSubtree(key: _readerKey, child: widget.child);
 
@@ -179,38 +178,27 @@ class _TopicReaderPresentationState extends State<TopicReaderPresentation> {
     final workspace = _TopicWorkspaceScope.of(context);
     if (workspace == null) return widget.child;
     if (!workspace.sheet && _outletReady) _closing = true;
-    final inSheet =
-        workspace.sheet && _outletReady && (!_closing || _afterDismiss != null);
+    final inSheet = workspace.sheet && _outletReady && !_closing;
     final shell = ShellScope.read(context);
+    final topicId = shell.currentContent?.topicId;
     return DSheet<void>(
       routeSettings: const ReadingRouteSettings(name: 'topic-sheet'),
       // A reversing route still owns its outlet. Wait for its disposal before
       // reopening if the presentation changes again during dismissal.
       open: workspace.sheet && !_closing,
       onOpenChanged: (details) {
-        if (details.open || !mounted || _closing || !workspace.sheet) return;
-        final route = shell.currentContent;
-        final siteUrl = shell.currentInstance?.url;
-        final tabId = shell.activeTabId;
-        // Navigation removes this presentation owner. Keep the live reader in
-        // its route until Sheet has painted the complete exit transition.
-        _afterDismiss = () {
-          if (TopicReaderPresentation.isSheetOf(context) &&
-              shell.currentInstance?.url == siteUrl &&
-              shell.activeTabId == tabId &&
-              identical(shell.currentContent, route)) {
-            shell.closeTopic();
-          }
-        };
-        _closing = true;
-        _refresh();
+        if (!details.open &&
+            mounted &&
+            TopicReaderPresentation.isSheetOf(context) &&
+            shell.currentContent?.topicId == topicId) {
+          shell.closeTopic();
+        }
       },
       barrierLabel: 'Close topic',
       content: DSheetContent(
         key: const ValueKey('topic-sheet'),
         side: DSheetSide.center,
         inset: true,
-        animateSize: true,
         sidePanelMaxWidth: workspace.width,
         sidePanelWidth:
             TopicPresentationController.minimumReaderWidth +
@@ -244,25 +232,6 @@ class _SheetReaderOutlet extends StatefulWidget {
 }
 
 class _SheetReaderOutletState extends State<_SheetReaderOutlet> {
-  Animation<double>? _animation;
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    final animation = ModalRoute.of(context)?.animation;
-    if (identical(animation, _animation)) return;
-    _animation?.removeStatusListener(_animationChanged);
-    _animation = animation?..addStatusListener(_animationChanged);
-  }
-
-  void _animationChanged(AnimationStatus status) {
-    if (status != AnimationStatus.dismissed) return;
-    final owner = widget.owner;
-    final afterDismiss = owner._afterDismiss;
-    owner._afterDismiss = null;
-    afterDismiss?.call();
-  }
-
   @override
   void initState() {
     super.initState();
@@ -275,17 +244,11 @@ class _SheetReaderOutletState extends State<_SheetReaderOutlet> {
 
   @override
   void dispose() {
-    _animation?.removeStatusListener(_animationChanged);
     widget.owner._outletReady = false;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final owner = widget.owner;
-      if (!owner.mounted) return;
-      final afterDismiss = owner._afterDismiss;
-      owner._afterDismiss = null;
-      afterDismiss?.call();
-      owner._closing = false;
-      owner._refresh();
-    });
+    widget.owner._closing = false;
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => widget.owner._refresh(),
+    );
     super.dispose();
   }
 
@@ -294,8 +257,7 @@ class _SheetReaderOutletState extends State<_SheetReaderOutlet> {
     listenable: widget.owner._changes,
     builder: (context, _) {
       final active =
-          TopicReaderPresentation.isSheetOf(context) &&
-          (!widget.owner._closing || widget.owner._afterDismiss != null);
+          TopicReaderPresentation.isSheetOf(context) && !widget.owner._closing;
       return ComposerDock(
         appWorkspace: true,
         enabled: active,
@@ -303,24 +265,14 @@ class _SheetReaderOutletState extends State<_SheetReaderOutlet> {
           enabled: active,
           child: ReadingShortcuts(
             commands: {
-              ReadingCommand.back: () {
-                unawaited(Navigator.of(context).maybePop());
-                return true;
-              },
               ReadingCommand.openNextTopic: () =>
                   openAdjacentTopic(context, next: true, fromKeyboard: true),
               ReadingCommand.openPreviousTopic: () =>
                   openAdjacentTopic(context, next: false, fromKeyboard: true),
             },
-            child: IgnorePointer(
-              ignoring: widget.owner._closing,
-              child: ExcludeFocus(
-                excluding: widget.owner._closing,
-                child: active && widget.owner._outletReady
-                    ? widget.owner._reader
-                    : const SizedBox.expand(),
-              ),
-            ),
+            child: active && widget.owner._outletReady
+                ? widget.owner._reader
+                : const SizedBox.expand(),
           ),
         ),
       );

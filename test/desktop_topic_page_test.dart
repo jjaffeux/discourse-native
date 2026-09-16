@@ -33,110 +33,6 @@ final _back = find.byKey(const ValueKey('topic-close-reader'));
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
-  testWidgets(
-    'closing a side composer shrinks its sheet and retains the reader',
-    (tester) async {
-      await const TopicPresentationStore().write(TopicPresentation.sheet);
-      final h = await _setup(tester, size: const Size(1800, 900));
-      h.shell.openTopicFromList(h.topics.first);
-      await tester.pumpAndSettle();
-      h.shell.openReply();
-      await tester.pumpAndSettle();
-      final readerState = tester.state(_reader);
-      final sheet = find.byKey(const ValueKey('topic-sheet'));
-      final initialWidth = tester.getSize(sheet).width;
-      await tester.tap(find.byKey(const ValueKey('composer-close')));
-      await tester.pump();
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 80));
-      expect(tester.getSize(sheet).width, lessThan(initialWidth));
-      expect(tester.state(_reader), same(readerState));
-      expect(find.byType(ComposerEditor), findsOneWidget);
-      await tester.pumpAndSettle();
-      expect(find.byType(ComposerEditor), findsNothing);
-      expect(tester.state(_reader), same(readerState));
-      expect(h.shell.currentContent?.topicId, 1);
-      expect(tester.takeException(), isNull);
-    },
-    variant: TargetPlatformVariant.only(TargetPlatform.macOS),
-  );
-
-  for (final dismissal in ['button', 'Escape', 'back shortcut', 'backdrop']) {
-    testWidgets('topic sheet retains its reader through $dismissal dismissal', (
-      tester,
-    ) async {
-      await const TopicPresentationStore().write(TopicPresentation.sheet);
-      final h = await _setup(tester);
-      h.shell.openTopicFromList(h.topics.first);
-      await tester.pumpAndSettle();
-      final readerState = tester.state(_reader);
-      final initialRect = tester.getRect(_reader);
-      switch (dismissal) {
-        case 'button':
-          await tester.tap(_back);
-        case 'Escape':
-          await tester.sendKeyEvent(LogicalKeyboardKey.escape);
-        case 'back shortcut':
-          await tester.tap(_reader, warnIfMissed: false);
-          await tester.sendKeyEvent(LogicalKeyboardKey.keyU);
-        case 'backdrop':
-          final sheet = tester.getRect(
-            find.byKey(const ValueKey('topic-sheet')),
-          );
-          await tester.tapAt(Offset(sheet.left - 4, sheet.center.dy));
-      }
-      await tester.pump();
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 60));
-      expect(tester.state(_reader), same(readerState));
-      expect(h.shell.currentContent?.topicId, 1);
-      expect(tester.getRect(_reader).top, greaterThan(initialRect.top));
-      expect(_back.hitTestable(), findsNothing);
-      await tester.pumpAndSettle();
-      expect(h.shell.currentContent?.isTopicList, isTrue);
-      expect(_reader, findsNothing);
-      expect(find.byKey(const ValueKey('topic-sheet')), findsNothing);
-      expect(tester.takeException(), isNull);
-    }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
-  }
-
-  testWidgets('closing sheet does not close a newly selected topic', (
-    tester,
-  ) async {
-    await const TopicPresentationStore().write(TopicPresentation.sheet);
-    final h = await _setup(tester);
-    h.shell.openTopicFromList(h.topics.first);
-    await tester.pumpAndSettle();
-    await tester.tap(_back);
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 60));
-    h.shell.openTopicFromList(h.topics[1]);
-    await tester.pumpAndSettle();
-    expect(h.shell.currentContent?.topicId, 2);
-    expect(find.byKey(const ValueKey('topic-sheet')), findsOneWidget);
-    expect(_reader, findsOneWidget);
-    expect(tester.takeException(), isNull);
-  }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
-
-  testWidgets(
-    'topic sheet closes without motion when animations are disabled',
-    (tester) async {
-      await const TopicPresentationStore().write(TopicPresentation.sheet);
-      final h = await _setup(tester, disableAnimations: true);
-      h.shell.openTopicFromList(h.topics.first);
-      await tester.pumpAndSettle();
-      await tester.tap(_back);
-      // Drain route configuration and removal without advancing animation time.
-      for (var frame = 0; frame < 6; frame++) {
-        await tester.pump();
-      }
-      expect(h.shell.currentContent?.isTopicList, isTrue);
-      expect(find.byKey(const ValueKey('topic-sheet')), findsNothing);
-      expect(tester.takeException(), isNull);
-    },
-    variant: TargetPlatformVariant.only(TargetPlatform.macOS),
-  );
-
   testWidgets('topic view switching retains reader and editor', (tester) async {
     final h = await _setup(tester, size: const Size(2400, 1000));
     h.shell.openTopicFromList(h.topics.first);
@@ -786,7 +682,6 @@ Future<({ShellController shell, List<Topic> topics})> _setup(
   Size size = const Size(1440, 900),
   TextDirection direction = TextDirection.ltr,
   AppSettingsController? settings,
-  bool disableAnimations = false,
 }) async {
   tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1;
@@ -854,12 +749,7 @@ Future<({ShellController shell, List<Topic> topics})> _setup(
         controller: shell,
         child: MaterialApp(
           theme: AppTheme.light,
-          builder: (context, child) => MediaQuery(
-            data: MediaQuery.of(
-              context,
-            ).copyWith(disableAnimations: disableAnimations),
-            child: DFocusHighlight(child: child!),
-          ),
+          builder: (context, child) => DFocusHighlight(child: child!),
           home: DDirection(
             textDirection: direction,
             child: settings == null

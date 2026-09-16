@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 
 import 'adaptive_dialog_action.dart';
 import 'composer_controller.dart';
-import 'composer_presentation.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';
 
@@ -23,11 +22,9 @@ Future<void> closeComposerFromPanel({
   if (composer.canSaveDraft) {
     if (!shell.hideComposerForClose(composer)) return;
     try {
-      await ComposerPresentationHost.closeAnimationOf(context, composer);
       // Paint the closed dock before restoration, encoding or network work.
       // The presentation host retains this editor until persistence is safe.
       await WidgetsBinding.instance.endOfFrame;
-      if (composer.isDisposed) return;
       if (!await shell.prepareComposerForClose(composer)) {
         if (context.mounted) {
           DToast.show(
@@ -51,7 +48,7 @@ Future<void> closeComposerFromPanel({
   }
   if (!context.mounted) return;
   if (!composer.hasChanges && !composer.metadataChanged) {
-    await _closeUnchangedComposer(context, composer, shell);
+    shell.closeComposer(composer: composer);
     return;
   }
 
@@ -83,11 +80,11 @@ Future<void> requestComposerDiscard({
     return;
   }
   if (composer.hasUnappliedDraft && !composer.hasChanges) {
-    await _closeUnchangedComposer(context, composer, shell);
+    shell.closeComposer(composer: composer);
     return;
   }
   if (!composer.hasChanges && !composer.metadataChanged) {
-    final error = await _discardAfterClosing(context, composer, shell);
+    final error = await shell.discardComposer(composer);
     if (error != null && context.mounted) _showDiscardError(context, error);
     return;
   }
@@ -100,56 +97,12 @@ Future<void> requestComposerDiscard({
       barrierDismissible: true,
       builder: (dialogContext) => _DiscardComposerDialog(
         composer: composer,
-        onDiscard: () => _discardAfterClosing(context, composer, shell),
+        controller: shell,
         confirmedRevision: revision,
       ),
     );
   } finally {
     composer.finishDiscardPrompt();
-  }
-}
-
-Future<void> _closeUnchangedComposer(
-  BuildContext context,
-  ComposerController composer,
-  ShellController shell,
-) async {
-  if (!shell.hideComposerForClose(composer)) return;
-  final revision = composer.draftRevision;
-  await ComposerPresentationHost.closeAnimationOf(context, composer);
-  if (composer.isDisposed) return;
-  if (_hasPendingOperation(composer) || composer.draftRevision != revision) {
-    shell.restoreComposerAfterFailedClose(composer);
-    if (context.mounted) {
-      _showDiscardError(
-        context,
-        'This draft changed while closing. Review it and try again.',
-      );
-    }
-    return;
-  }
-  shell.closeComposer(composer: composer);
-}
-
-Future<String?> _discardAfterClosing(
-  BuildContext context,
-  ComposerController composer,
-  ShellController shell,
-) async {
-  if (!shell.hideComposerForClose(composer)) return _pendingOperationMessage;
-  final revision = composer.draftRevision;
-  try {
-    if (context.mounted) {
-      await ComposerPresentationHost.closeAnimationOf(context, composer);
-    }
-    if (composer.isDisposed) return null;
-    if (_hasPendingOperation(composer)) return _pendingOperationMessage;
-    if (composer.draftRevision != revision) {
-      return 'This draft changed while closing. Review it and try again.';
-    }
-    return await shell.discardComposer(composer);
-  } finally {
-    shell.restoreComposerAfterFailedClose(composer);
   }
 }
 
@@ -170,12 +123,12 @@ void _showDiscardError(BuildContext context, String error) {
 class _DiscardComposerDialog extends StatefulWidget {
   const _DiscardComposerDialog({
     required this.composer,
-    required this.onDiscard,
+    required this.controller,
     required this.confirmedRevision,
   });
 
   final ComposerController composer;
-  final Future<String?> Function() onDiscard;
+  final ShellController controller;
   final int confirmedRevision;
 
   @override
@@ -205,7 +158,7 @@ class _DiscardComposerDialogState extends State<_DiscardComposerDialog> {
       _discarding = true;
       _error = null;
     });
-    final error = await widget.onDiscard();
+    final error = await widget.controller.discardComposer(widget.composer);
     if (!mounted) return;
     if (error == null) {
       _closeDialog();
