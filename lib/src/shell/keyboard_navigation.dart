@@ -12,6 +12,12 @@ class ReadingFocusNode extends FocusNode {
   ReadingFocusNode({super.debugLabel}) : super(skipTraversal: true);
 }
 
+/// Application reading surfaces may live in a nested navigator or topic sheet.
+/// Other popup routes still own their keyboard input exclusively.
+class ReadingRouteSettings extends RouteSettings {
+  const ReadingRouteSettings({required super.name});
+}
+
 bool navigationShortcutsAllowed(
   BuildContext context, {
   bool activation = false,
@@ -19,9 +25,11 @@ bool navigationShortcutsAllowed(
 }) {
   final lifecycle = WidgetsBinding.instance.lifecycleState;
   if (lifecycle != null && lifecycle != AppLifecycleState.resumed) return false;
+  final route = ModalRoute.of(context);
   if (!TickerMode.valuesOf(context).enabled ||
-      ModalRoute.of(context)?.isCurrent == false ||
-      Navigator.maybeOf(context)?.canPop() == true) {
+      route?.isCurrent == false ||
+      (Navigator.maybeOf(context)?.canPop() == true &&
+          route?.settings is! ReadingRouteSettings)) {
     return false;
   }
   final focus = FocusManager.instance.primaryFocus;
@@ -30,7 +38,8 @@ bool navigationShortcutsAllowed(
   final focusRoute = ModalRoute.of(focusContext);
   if (matchFocusRoute &&
       focusRoute != null &&
-      !identical(focusRoute, ModalRoute.of(context))) {
+      !identical(focusRoute, route) &&
+      focusRoute.settings is! ReadingRouteSettings) {
     return false;
   }
 

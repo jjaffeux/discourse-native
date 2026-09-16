@@ -38,6 +38,25 @@ class ComposerPresentationHost extends StatefulWidget {
   static Listenable layoutChangesOf(BuildContext context) =>
       _ComposerPresentationScope.of(context)._presentation;
 
+  /// Reader width if the editor were docked in the outer desktop workspace.
+  /// Computing this before opening a topic sheet avoids layout feedback loops.
+  static double readerWidthOf(BuildContext context, double width) {
+    final owner = _ComposerPresentationScope.of(context);
+    final entry = owner._entries[owner._presentableComposer];
+    if (entry == null || entry.minimized) return width;
+    final placement = owner._presentation.effectivePlacement(
+      mobile: false,
+      width: width,
+      minimumReaderWidth: 480,
+    );
+    if (!placement.isSide) return width;
+    final editorWidth = owner._presentation.preference.sideWidth.clamp(
+      ComposerPresentationController.sideMinimum,
+      math.max(ComposerPresentationController.sideMinimum, width - 481),
+    );
+    return width - editorWidth - 1;
+  }
+
   @override
   State<ComposerPresentationHost> createState() =>
       _ComposerPresentationHostState();
@@ -153,7 +172,9 @@ class _ComposerPresentationHostState extends State<ComposerPresentationHost> {
     }
     _entries.removeWhere((composer, _) => !live.contains(composer));
     final current = _presentableComposer;
-    _activeDock = _docks.where((dock) => dock.mounted).lastOrNull;
+    _activeDock = _docks
+        .where((dock) => dock.mounted && dock.widget.enabled)
+        .lastOrNull;
     return _ComposerPresentationScope(
       owner: this,
       child: Stack(
@@ -208,9 +229,11 @@ class ComposerDock extends StatefulWidget {
     super.key,
     required this.child,
     this.appWorkspace = false,
+    this.enabled = true,
   });
   final Widget child;
   final bool appWorkspace;
+  final bool enabled;
 
   /// The edge of the app workspace whose border is owned by the resize handle.
   /// Null when there is no expanded app-level composer.
@@ -242,6 +265,12 @@ class _ComposerDockState extends State<ComposerDock> {
   double? _resizeProposal;
   _ComposerPresentationHostState? _owner;
   ComposerController? _visibleComposer;
+
+  @override
+  void didUpdateWidget(ComposerDock oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.enabled != widget.enabled) _owner?._syncDocks();
+  }
 
   @override
   void didChangeDependencies() {
