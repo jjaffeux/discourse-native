@@ -154,6 +154,12 @@ void main() {
         }
         controller.handleBack();
         expect(controller.currentContent?.isMessages, isTrue);
+        expect(controller.handleBack(canReturnToSidebar: false), isTrue);
+        expect(controller.currentContent?.id, 'latest');
+        expect(controller.handleForward(), isTrue);
+        expect(controller.currentContent?.isMessages, isTrue);
+        expect(controller.handleForward(), isTrue);
+        expect(controller.currentContent?.topicId, 42);
       });
     }
   }

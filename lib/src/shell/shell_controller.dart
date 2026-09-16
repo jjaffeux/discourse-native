@@ -1219,7 +1219,7 @@ class ShellController extends FrameSafeNotifier
   List<ContentRoute> get contentStack => activeTab?.contentStack ?? const [];
   @override
   ContentRoute? get currentContent => activeTab?.currentContent;
-  bool get canPopContent => (activeTab?.contentStack.length ?? 0) > 1;
+  bool get canPopContent => activeTab?.canGoBack ?? false;
   bool get canForwardContent => activeTab?.canGoForward ?? false;
 
   Future<void>? Function()? _contentRefresher;
@@ -2635,12 +2635,12 @@ class ShellController extends FrameSafeNotifier
 
   void closeTopicListReader() {
     final active = activeTab;
-    if (active == null || topicListContent == null) return;
-    var tab = active;
-    while (tab.currentContent.isTopic && tab.canGoBack) {
-      tab = tab.goBack();
+    if (active == null ||
+        topicListContent == null ||
+        !active.currentContent.isTopic) {
+      return;
     }
-    _replaceActiveTab(tab);
+    _replaceActiveTab(_closeTopicRoute(active));
     _syncTopicChannels();
     _notify();
   }
@@ -2649,19 +2649,22 @@ class ShellController extends FrameSafeNotifier
   void closeTopic() {
     final active = activeTab;
     if (active == null || !active.currentContent.isTopic) return;
-    var tab = active;
-    while (tab.currentContent.isTopic && tab.canGoBack) {
-      tab = tab.goBack();
-    }
-    if (tab.currentContent.isTopic) {
-      tab = tab.copyWith(
-        contentStack: [ContentRoute.topicList(TopicListMode.latest)],
-      );
-    }
-    _replaceActiveTab(tab);
+    _replaceActiveTab(_closeTopicRoute(active));
     _syncTopicChannels();
     _notify();
     if (currentInstance case final instance?) _hydrateActiveTab(instance);
+  }
+
+  ForumTab _closeTopicRoute(ForumTab tab) {
+    final parentIndex = tab.contentStack.lastIndexWhere(
+      (route) => !route.isTopic,
+    );
+    return tab.navigate(
+      rootDestinationId: parentIndex < 0 ? 'latest' : tab.rootDestinationId,
+      contentStack: parentIndex < 0
+          ? [ContentRoute.topicList(TopicListMode.latest)]
+          : tab.contentStack.take(parentIndex + 1).toList(),
+    );
   }
 
   ({int all, int topics, int replies}) get topicListNewCounts {
@@ -5821,7 +5824,19 @@ class ShellController extends FrameSafeNotifier
               tab.copyWith(
                 rootDestinationId: messages.id,
                 contentStack: [messages, tab.currentContent],
-                forwardStack: const [],
+                // A PM discovered after loading still returns to its inbox,
+                // while retaining visits before it and any forward history.
+                backHistory: [
+                  ...tab.backHistory.skip(
+                    tab.backHistory.length == ForumTab.maximumHistoryEntries
+                        ? 1
+                        : 0,
+                  ),
+                  ForumTabLocation(
+                    rootDestinationId: messages.id,
+                    contentStack: [messages],
+                  ),
+                ],
               )
             else
               candidate,
@@ -5885,25 +5900,9 @@ class ShellController extends FrameSafeNotifier
     var changed = false;
     final tabs = <ForumTab>[];
     for (final tab in workspace.tabs) {
-      var tabChanged = false;
-      List<ContentRoute> rewriteRoutes(List<ContentRoute> source) {
-        final routes = <ContentRoute>[];
-        for (final route in source) {
-          final updated = rewrite(route);
-          routes.add(updated);
-          tabChanged = tabChanged || !identical(updated, route);
-        }
-        return routes;
-      }
-
-      final routes = rewriteRoutes(tab.contentStack);
-      final forwardRoutes = rewriteRoutes(tab.forwardStack);
-      changed = changed || tabChanged;
-      tabs.add(
-        tabChanged
-            ? tab.copyWith(contentStack: routes, forwardStack: forwardRoutes)
-            : tab,
-      );
+      final updated = tab.rewriteRoutes(rewrite);
+      changed = changed || !identical(updated, tab);
+      tabs.add(updated);
     }
     if (changed) _putWorkspace(workspace.copyWith(tabs: tabs));
   }
@@ -13164,11 +13163,7 @@ class ShellController extends FrameSafeNotifier
           )
         : ContentRoute.fromDestination(destination);
     _replaceActiveTab(
-      tab.copyWith(
-        rootDestinationId: destination.id,
-        contentStack: [content],
-        forwardStack: const [],
-      ),
+      tab.navigate(rootDestinationId: destination.id, contentStack: [content]),
     );
     _mobilePane = MobilePane.content;
     _syncTopicChannels();
@@ -13337,7 +13332,7 @@ class ShellController extends FrameSafeNotifier
         sourceIndex >= 0 &&
         tab.contentStack[sourceIndex].isTopicList;
     _replaceActiveTab(
-      tab.copyWith(
+      tab.navigate(
         rootDestinationId: route.isMessages ? 'messages' : 'latest',
         contentStack: retainReader
             ? [
@@ -13346,7 +13341,6 @@ class ShellController extends FrameSafeNotifier
                 ...tab.contentStack.skip(sourceIndex + 1),
               ]
             : [route],
-        forwardStack: const [],
       ),
     );
   }
@@ -13450,7 +13444,8 @@ class ShellController extends FrameSafeNotifier
       id: id,
       rootDestinationId: tab.rootDestinationId,
       contentStack: tab.contentStack,
-      forwardStack: tab.forwardStack,
+      backHistory: tab.backHistory,
+      forwardHistory: tab.forwardHistory,
       anchors: tab.anchors,
     );
 
@@ -13818,7 +13813,8 @@ class ShellController extends FrameSafeNotifier
           ? tab.copyWith(
               rootDestinationId: route.id,
               contentStack: [route],
-              forwardStack: const [],
+              backHistory: const [],
+              forwardHistory: const [],
             )
           : tab.push(route),
     );
@@ -13838,9 +13834,10 @@ class ShellController extends FrameSafeNotifier
           ? tab.copyWith(
               rootDestinationId: route.id,
               contentStack: [route],
-              forwardStack: const [],
+              backHistory: const [],
+              forwardHistory: const [],
             )
-          : tab.copyWith(
+          : tab.navigate(
               contentStack: [
                 ...tab.contentStack.take(tab.contentStack.length - 1),
                 route,

@@ -440,42 +440,42 @@ void main() {
       expect(restored.activeTab.contentStack.last.id, 'topic-69');
     });
 
-    test('bounds combined restored back and forward history', () {
-      final restored = ForumTab.tryFromJson({
-        'id': 'bounded-history',
-        'root_destination_id': 'latest',
-        'content_stack': [
-          _routeJson(id: 'latest', title: 'Topics'),
-          for (var route = 1; route <= 3; route++)
-            _routeJson(id: 'past-$route', title: 'Past $route'),
-        ],
-        'forward_content_stack': [
-          for (
-            var route = 1;
-            route <= ForumTab.maximumContentRoutes + 5;
-            route++
-          )
-            _routeJson(id: 'future-$route', title: 'Future $route'),
-        ],
-      });
+    test(
+      'bounds restored forward history independently of the current stack',
+      () {
+        final restored = ForumTab.tryFromJson({
+          'id': 'bounded-history',
+          'root_destination_id': 'latest',
+          'content_stack': [
+            _routeJson(id: 'latest', title: 'Topics'),
+            for (var route = 1; route <= 3; route++)
+              _routeJson(id: 'past-$route', title: 'Past $route'),
+          ],
+          'forward_content_stack': [
+            for (
+              var route = 1;
+              route <= ForumTab.maximumContentRoutes + 5;
+              route++
+            )
+              _routeJson(id: 'future-$route', title: 'Future $route'),
+          ],
+        });
 
-      expect(restored, isNotNull);
-      expect(
-        restored!.contentStack.length + restored.forwardStack.length,
-        ForumTab.maximumContentRoutes,
-      );
-      expect(restored.contentStack.map((route) => route.id), [
-        'latest',
-        'past-1',
-        'past-2',
-        'past-3',
-      ]);
-      expect(restored.forwardStack.first.id, 'future-10');
-      expect(restored.forwardStack.last.id, 'future-69');
-    });
+        expect(restored, isNotNull);
+        expect(restored!.forwardHistory.length, ForumTab.maximumHistoryEntries);
+        expect(restored.contentStack.map((route) => route.id), [
+          'latest',
+          'past-1',
+          'past-2',
+          'past-3',
+        ]);
+        expect(restored.forwardStack.first.id, 'future-20');
+        expect(restored.forwardStack.last.id, 'future-69');
+      },
+    );
 
     test(
-      'rejects an in-memory tab whose combined history exceeds its bound',
+      'rejects an in-memory tab whose forward history exceeds its bound',
       () {
         expect(
           () => ForumTab(

@@ -2,6 +2,7 @@ import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/forum_workspace.dart';
 import 'package:discourse_native/src/models/sidebar.dart';
+import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -173,6 +174,100 @@ void main() {
     });
 
     group('forum-scoped navigation', () {
+      test('list selections retain 50 topics in each direction', () {
+        for (var id = 1; id <= 60; id++) {
+          controller.openTopicFromList(
+            Topic(id: id, slug: 'topic-$id', title: 'Topic $id'),
+          );
+        }
+        expect(controller.contentStack, hasLength(2));
+        for (var id = 59; id >= 10; id--) {
+          expect(controller.handleBack(canReturnToSidebar: false), isTrue);
+          expect(controller.currentContent?.topicId, id);
+          expect(controller.topicListContent?.id, 'latest');
+        }
+        expect(controller.canPopContent, isFalse);
+        expect(controller.handleBack(canReturnToSidebar: false), isFalse);
+        for (var id = 11; id <= 60; id++) {
+          expect(controller.handleForward(), isTrue);
+          expect(controller.currentContent?.topicId, id);
+        }
+        expect(controller.canForwardContent, isFalse);
+      });
+
+      test(
+        'sidebar and filter visits restore their navigation context',
+        () async {
+          controller.openTopicFromList(
+            const Topic(id: 101, slug: 'first', title: 'First'),
+          );
+          controller.selectDestination(_destination(forums[0], 'filter'));
+          controller.selectDestination(_destination(forums[0], 'latest'));
+          await controller.selectTopicListMode(TopicListMode.topYearly);
+
+          expect(controller.handleBack(canReturnToSidebar: false), isTrue);
+          expect(controller.currentTopicListMode, TopicListMode.latest);
+          expect(controller.handleBack(canReturnToSidebar: false), isTrue);
+          expect(controller.destinationId, 'filter');
+          expect(controller.currentContent?.id, 'filter');
+          expect(controller.handleBack(canReturnToSidebar: false), isTrue);
+          expect(controller.destinationId, 'latest');
+          expect(controller.currentContent?.topicId, 101);
+          expect(controller.handleForward(), isTrue);
+          expect(controller.destinationId, 'filter');
+          expect(controller.handleForward(), isTrue);
+          expect(controller.currentTopicListMode, TopicListMode.latest);
+          expect(controller.handleForward(), isTrue);
+          expect(controller.currentTopicListMode, TopicListMode.topYearly);
+        },
+      );
+
+      test('reselecting a destination refreshes without losing Forward', () {
+        controller.selectDestination(_destination(forums[0], 'filter'));
+        controller.handleBack(canReturnToSidebar: false);
+        final tab = controller.activeTab;
+        controller.selectDestination(_destination(forums[0], 'latest'));
+        expect(controller.activeTab, tab);
+        expect(controller.handleForward(), isTrue);
+        expect(controller.currentContent?.id, 'filter');
+      });
+
+      test('replacing a reader after Back clears Forward', () {
+        for (var id = 1; id <= 3; id++) {
+          controller.openTopicFromList(
+            Topic(id: id, slug: 'topic-$id', title: 'Topic $id'),
+          );
+        }
+        controller.handleBack(canReturnToSidebar: false);
+        controller.openTopicFromList(
+          const Topic(id: 4, slug: 'fourth', title: 'Fourth'),
+        );
+        expect(controller.canForwardContent, isFalse);
+        controller.handleBack(canReturnToSidebar: false);
+        expect(controller.currentContent?.topicId, 2);
+      });
+
+      test(
+        'closing a reader retains its current list after history expires',
+        () async {
+          for (var id = 1; id <= 60; id++) {
+            controller.openTopicFromList(
+              Topic(id: id, slug: 'topic-$id', title: 'Topic $id'),
+            );
+          }
+          await controller.selectTopicListMode(
+            TopicListMode.topYearly,
+            keepTopicOpen: true,
+          );
+          controller.closeTopicListReader();
+          expect(controller.currentContent?.isTopic, isFalse);
+          expect(controller.currentTopicListMode, TopicListMode.topYearly);
+          controller.handleBack(canReturnToSidebar: false);
+          expect(controller.currentContent?.topicId, 60);
+          expect(controller.currentTopicListMode, TopicListMode.topYearly);
+        },
+      );
+
       test('bounds content history while preserving its root', () {
         for (var id = 1; id <= ForumTab.maximumContentRoutes + 5; id++) {
           controller.pushContent(_topic(id, 'Topic $id'));
