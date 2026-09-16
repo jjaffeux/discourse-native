@@ -27,6 +27,8 @@ identically with the unchanged `3c4c422a` source. New regression coverage checks
 full-width eager header paint, lazy header colors, live palettes, header/cell
 alignment in both directions, explicit padding and state-preserving variant
 changes.
+After integration with main at `bb90b9a4`, all 50 focused table, cooked-table
+and styleguide tests passed again, and root analysis remained clean.
 
 The macOS debug fixture mounted the actual `CookedHtml` post renderer and the
 actual Soft header styleguide example. Native review covered the screenshot's
