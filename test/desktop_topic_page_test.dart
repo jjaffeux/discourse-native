@@ -149,6 +149,7 @@ void main() {
     testWidgets(
       'resizing during sheet dismissal keeps the reader and editor (composing: $composing)',
       (tester) async {
+        await const TopicPresentationStore().write(TopicPresentation.sheet);
         final h = await _setup(tester, size: const Size(800, 900));
         h.shell.openTopicFromList(h.topics.first);
         await tester.pumpAndSettle();
@@ -160,13 +161,19 @@ void main() {
         final editorState = composing
             ? tester.state(find.byType(ComposerEditor))
             : null;
+        await tester.tap(find.byKey(const ValueKey('topic-view-options')));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byTooltip('Dock right'));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 50));
         tester.view.physicalSize = const Size(2600, 900);
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 50));
         tester.view.physicalSize = const Size(800, 900);
         await tester.pumpAndSettle();
         expect(h.shell.currentContent?.topicId, 1);
-        expect(find.byKey(const ValueKey('topic-sheet')), findsOneWidget);
+        expect(find.byKey(const ValueKey('topic-sheet')), findsNothing);
+        expect(find.byType(TopicListView).hitTestable(), findsNothing);
         expect(tester.state(_reader), same(readerState));
         if (composing) {
           expect(tester.state(find.byType(ComposerEditor)), same(editorState));
@@ -177,26 +184,48 @@ void main() {
     );
   }
 
-  testWidgets('narrow sheet restores docking without saving the fallback', (
+  testWidgets('dock right stays inline across narrow and wide windows', (
     tester,
   ) async {
     final h = await _setup(tester, size: const Size(800, 900));
     h.shell.openTopicFromList(h.topics.first);
     await tester.pumpAndSettle();
     final readerState = tester.state(_reader);
-    expect(find.byKey(const ValueKey('topic-sheet')), findsOneWidget);
+    final listState = tester.state(_allLists);
+    expect(find.byKey(const ValueKey('topic-sheet')), findsNothing);
+    expect(find.byType(TopicListView).hitTestable(), findsNothing);
+    expect(tester.getRect(_reader).right, 800);
+    expect(
+      tester.getRect(_reader).left,
+      tester.getRect(find.byType(InstanceRail)).right,
+    );
     final preferences = await SharedPreferences.getInstance();
     expect(preferences.getString(TopicPresentationStore.storageKey), isNull);
     await tester.tap(find.byKey(const ValueKey('topic-view-options')));
     await tester.pumpAndSettle();
-    await tester.tap(find.byTooltip('Dock right'));
+    await tester.tap(find.byTooltip('Sheet'));
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('topic-sheet')), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('topic-view-options')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Dock right'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('topic-sheet')), findsNothing);
+    expect(find.byType(TopicListView).hitTestable(), findsNothing);
     tester.view.physicalSize = const Size(1800, 900);
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('topic-sheet')), findsNothing);
     expect(find.byType(TopicListView).hitTestable(), findsOneWidget);
+    expect(
+      tester.getRect(_reader).left,
+      greaterThanOrEqualTo(tester.getRect(find.byType(TopicListView)).right),
+    );
+    tester.view.physicalSize = const Size(800, 900);
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('topic-sheet')), findsNothing);
+    expect(find.byType(TopicListView).hitTestable(), findsNothing);
     expect(tester.state(_reader), same(readerState));
+    expect(tester.state(_allLists), same(listState));
     expect(
       await const TopicPresentationStore().read(),
       TopicPresentation.docked,
@@ -499,7 +528,7 @@ void main() {
         tester.getRect(find.byType(InstanceSidebar).hitTestable()).left,
         greaterThanOrEqualTo(tester.getRect(find.byType(InstanceRail)).right),
       );
-      expect(find.byKey(const ValueKey('topic-sheet')), findsOneWidget);
+      expect(find.byKey(const ValueKey('topic-sheet')), findsNothing);
       await tester.sendKeyEvent(LogicalKeyboardKey.escape);
       await tester.pumpAndSettle();
       expect(h.shell.currentContent?.topicId, 1);

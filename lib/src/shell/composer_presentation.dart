@@ -39,7 +39,7 @@ class ComposerPresentationHost extends StatefulWidget {
       _ComposerPresentationScope.of(context)._presentation;
 
   /// Reader width if the editor were docked in the outer desktop workspace.
-  /// Computing this before opening a topic sheet avoids layout feedback loops.
+  /// Used to reserve room for a side composer within a topic sheet.
   static double readerWidthOf(BuildContext context, double width) {
     final owner = _ComposerPresentationScope.of(context);
     final entry = owner._entries[owner._presentableComposer];

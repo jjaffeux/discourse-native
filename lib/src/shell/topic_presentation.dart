@@ -59,7 +59,7 @@ class TopicWorkspace extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final preference = _PreferenceScope.of(context);
+    final controller = _PreferenceScope.of(context);
     final shell = ShellScope.of(context);
     return ListenableBuilder(
       listenable: ComposerPresentationHost.layoutChangesOf(context),
@@ -67,14 +67,7 @@ class TopicWorkspace extends StatelessWidget {
         builder: (context, bounds) {
           final sheet =
               shell.currentContent?.isTopic == true &&
-              preference.effective(
-                    readerWidth: ComposerPresentationHost.readerWidthOf(
-                      context,
-                      bounds.maxWidth,
-                    ),
-                    hasSourceList: shell.topicListContent != null,
-                  ) ==
-                  TopicPresentation.sheet;
+              controller.preference == TopicPresentation.sheet;
           return _TopicWorkspaceScope(
             sheet: sheet,
             width: bounds.maxWidth,
@@ -191,7 +184,7 @@ class _TopicReaderPresentationState extends State<TopicReaderPresentation> {
     return DSheet<void>(
       routeSettings: const ReadingRouteSettings(name: 'topic-sheet'),
       // A reversing route still owns its outlet. Wait for its disposal before
-      // reopening, including when a resize crosses the breakpoint again.
+      // reopening if the presentation changes again during dismissal.
       open: workspace.sheet && !_closing,
       onOpenChanged: (details) {
         if (!details.open &&
@@ -335,9 +328,7 @@ class TopicPresentationButton extends StatelessWidget {
         builder: (context, trigger) => DButton.iconOnly(
           key: const ValueKey('topic-view-options'),
           icon: _viewIcon(sheet),
-          tooltip: sheet && controller.preference == TopicPresentation.docked
-              ? 'Topic view (sheet while the window is narrow)'
-              : 'Topic view',
+          tooltip: 'Topic view',
           semanticLabel: 'Topic view',
           variant: DButtonVariant.ghost,
           size: DButtonSize.small,
