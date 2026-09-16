@@ -17,6 +17,7 @@ import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/topic_inbox_row.dart';
 import 'package:discourse_native/src/shell/topic_list_view.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
@@ -26,6 +27,69 @@ import 'package:super_sliver_list/super_sliver_list.dart';
 import 'support/fakes.dart';
 
 void main() {
+  for (final (width, scale, direction) in [
+    (1200.0, 1.0, TextDirection.ltr),
+    (780.0, 1.0, TextDirection.ltr),
+    (390.0, 1.0, TextDirection.ltr),
+    (320.0, 2.0, TextDirection.rtl),
+  ]) {
+    testWidgets('category names stay on one line at $width/$scale/$direction', (
+      tester,
+    ) async {
+      await _setup(
+        tester,
+        width: width,
+        scale: scale,
+        direction: direction,
+        nestedCategories: true,
+      );
+      final row = find.byKey(const ValueKey('topic-compact-1'));
+      Finder within(Finder finder) =>
+          find.descendant(of: row, matching: finder);
+      final parent = within(find.text('Discourse Native App'));
+      final child = within(find.text('Features'));
+      for (final label in [parent, child]) {
+        expect(tester.getSize(label).height, closeTo(20 * scale, .01));
+      }
+      final chevron = within(
+        find.byKey(const ValueKey(('topic-row-category-chevron', 1, 2))),
+      );
+      expect(
+        tester.getCenter(chevron).dy,
+        closeTo(tester.getCenter(child).dy, .01),
+      );
+      expect(
+        within(find.bySemanticsLabel('Parent category: Discourse Native App')),
+        findsOneWidget,
+      );
+      expect(
+        within(find.bySemanticsLabel('Category: Features')),
+        findsOneWidget,
+      );
+      if (width == 780) {
+        expect(
+          tester.renderObject<RenderParagraph>(parent).didExceedMaxLines,
+          isTrue,
+        );
+        final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+        addTearDown(mouse.removePointer);
+        final labelsBeforeHover = find
+            .text('Discourse Native App')
+            .evaluate()
+            .length;
+        await mouse.addPointer(location: Offset.zero);
+        await mouse.moveTo(tester.getCenter(parent));
+        await tester.pump(const Duration(milliseconds: 300));
+        await tester.pumpAndSettle();
+        expect(
+          find.text('Discourse Native App'),
+          findsNWidgets(labelsBeforeHover + 1),
+        );
+      }
+      expect(tester.takeException(), isNull);
+    });
+  }
+
   for (final mode in TopicListDisplayMode.values) {
     testWidgets('$mode keeps event stamps and assignments together', (
       tester,
@@ -371,6 +435,7 @@ Future<ShellController> _setup(
   double width = 1200,
   bool enableAssignments = true,
   bool enableEvents = false,
+  bool nestedCategories = false,
   bool dark = false,
   double scale = 1,
   TextDirection direction = TextDirection.ltr,
@@ -395,7 +460,7 @@ Future<ShellController> _setup(
         id: id,
         title: 'Topic $id: a conversation about improving our community',
         slug: 'topic-$id',
-        categoryId: 1,
+        categoryId: nestedCategories ? 2 : 1,
         postsCount: 25,
         replyCount: 24,
         unreadPosts: id == 1 ? 4 : 0,
@@ -438,9 +503,27 @@ Future<ShellController> _setup(
     api: FakeDiscourseApi(
       user: user,
       feeds: {'/latest.json': rows},
-      categoryList: const [
-        TopicCategory(id: 1, name: 'Community', color: 'A787CB'),
-      ],
+      categoryList: nestedCategories
+          ? const [
+              TopicCategory(
+                id: 1,
+                name: 'Discourse Native App',
+                color: 'A787CB',
+                styleType: 'icon',
+                icon: 'folder',
+                readRestricted: true,
+              ),
+              TopicCategory(
+                id: 2,
+                parentCategoryId: 1,
+                name: 'Features',
+                color: '53A7C5',
+                styleType: 'icon',
+                icon: 'lightbulb',
+                readRestricted: true,
+              ),
+            ]
+          : const [TopicCategory(id: 1, name: 'Community', color: 'A787CB')],
     ),
     authenticator: FakeAuthenticator()..keys[site.url] = 'key',
     drafts: FakeDraftStore(),
