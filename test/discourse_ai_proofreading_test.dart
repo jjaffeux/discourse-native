@@ -502,6 +502,13 @@ void main() {
         tester.getRect(submit).right,
         lessThan(tester.getRect(proofread).left),
       );
+      final panel = tester.getRect(find.byType(ComposerPanel));
+      final toolbar = tester.getRect(
+        find.byKey(const ValueKey('composer-toolbar-scroll')),
+      );
+      expect(tester.getRect(submit).left, closeTo(panel.left + 8, 1));
+      expect(toolbar.right, closeTo(panel.right - 14, 1));
+      expect(toolbar.left, greaterThan(tester.getRect(proofread).right));
       expect(tester.takeException(), isNull);
     }
   });
