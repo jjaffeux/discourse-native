@@ -111,6 +111,8 @@ class DResizablePanelGroup extends StatefulWidget {
     this.onLayoutChange,
     this.onLayoutChanged,
     this.disabled = false,
+    this.closingPanel,
+    this.onPanelClosed,
   });
   final List<Widget> children;
   final Axis orientation;
@@ -118,11 +120,61 @@ class DResizablePanelGroup extends StatefulWidget {
   final Map<String, DResizableSize>? layout;
   final ValueChanged<DResizableLayout>? onLayoutChange, onLayoutChanged;
   final bool disabled;
+
+  /// Fades and collapses this panel over 160ms, retaining its content size.
+  /// Its neighbor receives the released space. Resizing is suspended until
+  /// the caller removes the panel or clears this value. Reduced motion skips
+  /// the transition. Layout callbacks retain the configured sizes.
+  final String? closingPanel;
+
+  /// Called once after the closing transition, outside the build phase.
+  final VoidCallback? onPanelClosed;
   @override
   State<DResizablePanelGroup> createState() => _DResizablePanelGroupState();
 }
 
-class _DResizablePanelGroupState extends State<DResizablePanelGroup> {
+class _DResizablePanelGroupState extends State<DResizablePanelGroup>
+    with SingleTickerProviderStateMixin {
+  late final _close =
+      AnimationController(
+          vsync: this,
+          duration: const Duration(milliseconds: 160),
+        )
+        ..addStatusListener(_closeStatusChanged)
+        ..addListener(_closeTick);
+  Map<String, double>? _closingSizes;
+  double _closingExtent = 0;
+  int _closeRevision = 0;
+
+  void _closeTick() => setState(() {});
+
+  void _closeStatusChanged(AnimationStatus status) {
+    if (status != AnimationStatus.completed) return;
+    final panel = widget.closingPanel;
+    final revision = _closeRevision;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted &&
+          panel != null &&
+          revision == _closeRevision &&
+          widget.closingPanel == panel &&
+          _close.isCompleted) {
+        widget.onPanelClosed?.call();
+      }
+    });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _close.duration = DMotion.duration(
+      context,
+      const Duration(milliseconds: 160),
+    );
+    if (_close.duration == Duration.zero && widget.closingPanel != null) {
+      _close.value = 1;
+    }
+  }
+
   Map<String, double> _sizes = {};
   final Map<String, double> _expanded = {};
   double _extent = 0;
@@ -146,11 +198,25 @@ class _DResizablePanelGroupState extends State<DResizablePanelGroup> {
   void initState() {
     super.initState();
     _attach();
+    if (widget.closingPanel != null) _close.forward();
   }
 
   @override
   void didUpdateWidget(DResizablePanelGroup oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (oldWidget.closingPanel != widget.closingPanel) {
+      _closeRevision++;
+      _closingSizes = _sizes.isEmpty ? null : Map.of(_sizes);
+      _closingExtent = _extent;
+      _dragOrigin = null;
+      _dragTotal = 0;
+      if (widget.closingPanel == null) {
+        _close.reset();
+        _closingSizes = null;
+      } else {
+        _close.forward(from: 0);
+      }
+    }
     if (oldWidget.orientation != widget.orientation ||
         !listEquals(
           oldWidget.children
@@ -172,6 +238,7 @@ class _DResizablePanelGroupState extends State<DResizablePanelGroup> {
 
   @override
   void dispose() {
+    _close.dispose();
     if (widget.controller?._owner == this) widget.controller?._owner = null;
     super.dispose();
   }
@@ -283,6 +350,7 @@ class _DResizablePanelGroupState extends State<DResizablePanelGroup> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _reportScheduled = false;
       if (!mounted ||
+          widget.closingPanel != null ||
           (mapEquals(_reported, _sizes) && _reportedExtent == _extent)) {
         return;
       }
@@ -291,7 +359,7 @@ class _DResizablePanelGroupState extends State<DResizablePanelGroup> {
   }
 
   void _setLayout(Map<String, DResizableSize> values) {
-    if (widget.disabled) return;
+    if (widget.disabled || widget.closingPanel != null) return;
     for (final id in values.keys) {
       _panel(id);
     }
@@ -330,7 +398,7 @@ class _DResizablePanelGroupState extends State<DResizablePanelGroup> {
     final ps = _panels;
     final index = ps.indexWhere((p) => p.id == id);
     final p = _panel(id);
-    if (widget.disabled || p.disabled) return;
+    if (widget.disabled || p.disabled || widget.closingPanel != null) return;
     final others = [...ps.skip(index + 1), ...ps.take(index).toList().reversed];
     _publish(
       _transfer([p], others, _clamp(p, size.resolve(_extent)) - _sizes[id]!),
@@ -512,11 +580,43 @@ class _DResizablePanelGroupState extends State<DResizablePanelGroup> {
         }
       }
       _sizes = _fit(requested);
-      _scheduleReport();
+      final closingIndex = ps.indexWhere((p) => p.id == widget.closingPanel);
+      if (widget.closingPanel != null && closingIndex < 0) {
+        throw FlutterError('The closing panel must belong to the group.');
+      }
+      if (closingIndex >= 0 &&
+          _closingSizes != null &&
+          setEquals(_closingSizes!.keys.toSet(), _sizes.keys.toSet())) {
+        _sizes = Map.of(_closingSizes!);
+      }
+      if (closingIndex < 0) _scheduleReport();
       _expanded.removeWhere((id, _) => !ps.any((p) => p.id == id));
       final children = <Widget>[];
       var position = 0.0;
       final rtl = horizontal && DDirection.of(context) == TextDirection.rtl;
+      final progress = Curves.easeInOutCubic.transform(_close.value);
+      final closingHandle = closingIndex == ps.length - 1
+          ? closingIndex - 1
+          : closingIndex;
+      final neighbor = closingIndex == ps.length - 1
+          ? closingIndex - 1
+          : closingIndex + 1;
+      final paintedSizes = Map.of(_sizes);
+      if (closingIndex >= 0) {
+        final id = ps[closingIndex].id;
+        final released = _sizes[id]! * progress;
+        paintedSizes[id] = _sizes[id]! - released;
+        if (neighbor >= 0 && neighbor < ps.length) {
+          final neighborId = ps[neighbor].id;
+          paintedSizes[neighborId] = math.max(
+            0,
+            paintedSizes[neighborId]! +
+                released +
+                progress +
+                (_closingSizes == null ? 0 : _extent - _closingExtent),
+          );
+        }
+      }
       Widget positioned(Widget child, double start, double extent) => horizontal
           ? Positioned(
               key: child.key,
@@ -537,15 +637,46 @@ class _DResizablePanelGroupState extends State<DResizablePanelGroup> {
             );
       final handles = <Widget>[];
       for (var i = 0; i < ps.length; i++) {
-        final p = ps[i], size = _sizes[ps[i].id]!;
+        final p = ps[i], size = paintedSizes[ps[i].id]!;
+        final closing = closingIndex == i;
         children.add(
           positioned(
             KeyedSubtree(
               key: ValueKey(p.id),
               child: ClipRect(
                 child: ExcludeFocus(
-                  excluding: size == 0,
-                  child: ExcludeSemantics(excluding: size == 0, child: p),
+                  excluding: closing || size == 0,
+                  child: ExcludeSemantics(
+                    excluding: closing || size == 0,
+                    child: IgnorePointer(
+                      ignoring: closing,
+                      child: Opacity(
+                        opacity: closing ? 1 - progress : 1,
+                        child: OverflowBox(
+                          alignment: closing && i == 0
+                              ? (horizontal
+                                    ? (rtl
+                                          ? Alignment.centerLeft
+                                          : Alignment.centerRight)
+                                    : Alignment.bottomCenter)
+                              : Alignment.topLeft,
+                          minWidth: horizontal
+                              ? (closing ? _sizes[p.id]! : size)
+                              : null,
+                          maxWidth: horizontal
+                              ? (closing ? _sizes[p.id]! : size)
+                              : null,
+                          minHeight: horizontal
+                              ? null
+                              : (closing ? _sizes[p.id]! : size),
+                          maxHeight: horizontal
+                              ? null
+                              : (closing ? _sizes[p.id]! : size),
+                          child: p,
+                        ),
+                      ),
+                    ),
+                  ),
                 ),
               ),
             ),
@@ -594,7 +725,10 @@ class _DResizablePanelGroupState extends State<DResizablePanelGroup> {
                 _transfer(before, after, _keyboardDelta(i, -h.keyboardStep)),
               ),
               disabled:
-                  widget.disabled || h.disabled || handleMax - handleMin < .001,
+                  widget.closingPanel != null ||
+                  widget.disabled ||
+                  h.disabled ||
+                  handleMax - handleMin < .001,
               onDelta: (d) => _drag(handleIndex, d),
               onKeyboardDelta: (d) => _drag(handleIndex, d, keyboard: true),
               onCommit: () {
@@ -609,13 +743,18 @@ class _DResizablePanelGroupState extends State<DResizablePanelGroup> {
                 p.id,
                 p.defaultSize ?? DResizableSize.percent(100 / ps.length),
               ),
-              child: h,
+              child: Opacity(
+                opacity: i == closingHandle && closingIndex >= 0
+                    ? 1 - progress
+                    : 1,
+                child: h,
+              ),
             ),
             handleStart,
             hit,
           ),
         );
-        position += 1;
+        position += i == closingHandle && closingIndex >= 0 ? 1 - progress : 1;
       }
       return ClipRect(child: Stack(children: [...children, ...handles]));
     },

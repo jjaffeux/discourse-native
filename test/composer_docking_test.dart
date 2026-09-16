@@ -1,5 +1,6 @@
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/data/composer_layout_store.dart';
+import 'package:discourse_native/src/data/discourse_api.dart';
 import 'package:discourse_native/src/models/composer_draft.dart';
 import 'package:discourse_native/src/models/composer_placement.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
@@ -18,6 +19,118 @@ import 'support/fakes.dart';
 
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
+
+  testWidgets(
+    'a failed save restores the same editor after its close animation',
+    (tester) async {
+      final h = await _Harness.create(
+        tester,
+        drafts: _FailingDraftStore(),
+        draftFailure: const WriteException(WriteFailure.unreachable),
+      );
+      final composer = h.shell.visibleComposer!;
+      final editorState = tester.state(find.byType(ComposerEditor));
+      composer.text.text = 'Keep this unsaved draft';
+      await tester.pump();
+      await tester.tap(find.byKey(const ValueKey('composer-close')));
+      await tester.pumpAndSettle();
+      expect(h.shell.visibleComposer, same(composer));
+      expect(tester.state(find.byType(ComposerEditor)), same(editorState));
+      expect(composer.raw, 'Keep this unsaved draft');
+      expect(composer.closing, isFalse);
+      expect(composer.focus.hasFocus, isTrue);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'replacing a composer during its exit leaves the new editor open',
+    (tester) async {
+      final h = await _Harness.create(tester);
+      final original = h.shell.visibleComposer!;
+      await tester.tap(find.byKey(const ValueKey('composer-close')));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 60));
+      await h.shell.openNewTopicFromSidebar();
+      await tester.pumpAndSettle();
+      expect(original.isDisposed, isTrue);
+      expect(h.shell.visibleComposer, isNotNull);
+      expect(h.shell.visibleComposer, isNot(same(original)));
+      expect(h.shell.visibleComposer!.closing, isFalse);
+      expect(find.byType(ComposerEditor), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  for (final placement in ComposerPlacement.values) {
+    testWidgets(
+      'closing $placement fades the editor while its reader expands',
+      (tester) async {
+        final h = await _Harness.create(tester);
+        h.presentation.dock(placement);
+        await tester.pumpAndSettle();
+        final composer = h.shell.visibleComposer!;
+        final editor = find.byType(ComposerEditor);
+        final editorState = tester.state(editor);
+        final editorSize = tester.getSize(editor);
+        final reader = find.byKey(const ValueKey('reader-list'));
+        final readerSize = tester.getSize(reader);
+        await tester.tap(find.byKey(const ValueKey('composer-close')));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 80));
+        expect(composer.isDisposed, isFalse);
+        expect(tester.state(editor), same(editorState));
+        expect(tester.getSize(editor), editorSize);
+        expect(
+          find.byKey(const ValueKey('composer-close')).hitTestable(),
+          findsNothing,
+        );
+        expect(
+          placement.isSide
+              ? tester.getSize(reader).width
+              : tester.getSize(reader).height,
+          greaterThan(placement.isSide ? readerSize.width : readerSize.height),
+        );
+        await tester.pump(const Duration(milliseconds: 80));
+        await tester.pumpAndSettle();
+        expect(h.shell.visibleComposer, isNull);
+        expect(editor, findsNothing);
+        expect(tester.getSize(reader), const Size(1000, 700));
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
+  testWidgets('minimized composer closes with a short collapse', (
+    tester,
+  ) async {
+    final h = await _Harness.create(tester);
+    await tester.tap(find.byKey(const ValueKey('composer-minimize')));
+    await tester.pumpAndSettle();
+    final composer = h.shell.visibleComposer!;
+    await tester.tap(find.byKey(const ValueKey('composer-close')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 80));
+    expect(composer.isDisposed, isFalse);
+    expect(find.byKey(const ValueKey('composer-restore')), findsOneWidget);
+    await tester.pumpAndSettle();
+    expect(h.shell.visibleComposer, isNull);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+    'reduced motion closes the composer without waiting for animation',
+    (tester) async {
+      final h = await _Harness.create(tester, disableAnimations: true);
+      await tester.tap(find.byKey(const ValueKey('composer-close')));
+      for (var frame = 0; frame < 8; frame++) {
+        await tester.pump();
+      }
+      expect(find.byType(ComposerEditor), findsNothing);
+      expect(h.shell.visibleComposer, isNull);
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   testWidgets('opening and revealing the composer focuses its editor', (
     tester,
@@ -360,6 +473,9 @@ class _Harness {
     TextDirection direction = TextDirection.ltr,
     double textScale = 1,
     FocusNode? readerFocus,
+    bool disableAnimations = false,
+    FakeDraftStore? drafts,
+    WriteException? draftFailure,
   }) async {
     const user = DiscourseUser(id: 7, username: 'sam', canCreateTopic: true);
     final shell = ShellController(
@@ -367,13 +483,14 @@ class _Harness {
         instance('meta.discourse.org').copyWith(user: user),
       ]),
       api: FakeDiscourseApi(
+        draftFailure: draftFailure,
         user: user,
         feeds: const {'/latest.json': []},
         creatableFeedPaths: const {'/latest.json'},
       ),
       authenticator: FakeAuthenticator()
         ..keys['https://meta.discourse.org'] = 'key',
-      drafts: FakeDraftStore(),
+      drafts: drafts ?? FakeDraftStore(),
       trackers: FakeSiteTracker.reset(),
       updateStore: FakeUpdateStore(),
     );
@@ -391,9 +508,10 @@ class _Harness {
             platform: mobile ? TargetPlatform.iOS : TargetPlatform.linux,
           ),
           builder: (context, child) => MediaQuery(
-            data: MediaQuery.of(
-              context,
-            ).copyWith(textScaler: TextScaler.linear(textScale)),
+            data: MediaQuery.of(context).copyWith(
+              textScaler: TextScaler.linear(textScale),
+              disableAnimations: disableAnimations,
+            ),
             child: DToaster(child: child!),
           ),
           home: Scaffold(
@@ -420,5 +538,17 @@ class _Harness {
     await shell.openNewTopicFromSidebar();
     await tester.pumpAndSettle();
     return _Harness(shell, presentation);
+  }
+}
+
+class _FailingDraftStore extends FakeDraftStore {
+  @override
+  Future<void> write(
+    String siteUrl,
+    String draftKey,
+    String data, {
+    bool Function()? ifCurrent,
+  }) async {
+    throw StateError('Local storage unavailable');
   }
 }

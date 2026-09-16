@@ -11,6 +11,8 @@ Widget host(
   double width = 602,
   Map<String, DResizableSize>? layout,
   ValueChanged<DResizableLayout>? onChange,
+  String? closingPanel,
+  VoidCallback? onPanelClosed,
 }) => MaterialApp(
   home: Directionality(
     textDirection: direction,
@@ -23,6 +25,8 @@ Widget host(
           orientation: axis,
           layout: layout,
           onLayoutChange: onChange,
+          closingPanel: closingPanel,
+          onPanelClosed: onPanelClosed,
           children:
               children ??
               const [
@@ -57,6 +61,89 @@ Widget host(
 );
 
 void main() {
+  for (final axis in Axis.values) {
+    testWidgets(
+      '$axis close retains content size, releases space and completes once',
+      (tester) async {
+        final controller = DResizableController();
+        addTearDown(controller.dispose);
+        var completions = 0;
+        Widget build({String? closingPanel}) => host(
+          controller,
+          axis: axis,
+          closingPanel: closingPanel,
+          onPanelClosed: () => completions++,
+          children: const [
+            DResizablePanel(
+              id: 'a',
+              child: SizedBox.expand(key: ValueKey('a-content')),
+            ),
+            DResizableHandle(),
+            DResizablePanel(
+              id: 'b',
+              child: SizedBox.expand(key: ValueKey('b-content')),
+            ),
+          ],
+        );
+        final first = find.byKey(const ValueKey('a-content'));
+        final second = find.byKey(const ValueKey('b-content'));
+        await tester.pumpWidget(build());
+        final firstSize = tester.getSize(first);
+        final secondSize = tester.getSize(second);
+        final layout = Map.of(controller.layout);
+        await tester.pumpWidget(build(closingPanel: 'b'));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 80));
+        expect(tester.getSize(second), secondSize);
+        expect(second.hitTestable(), findsNothing);
+        expect(
+          axis == Axis.horizontal
+              ? tester.getSize(first).width
+              : tester.getSize(first).height,
+          greaterThan(
+            axis == Axis.horizontal ? firstSize.width : firstSize.height,
+          ),
+        );
+        controller.resize('a', const DResizableSize.pixels(10));
+        expect(controller.layout, layout);
+        expect(completions, 0);
+        await tester.pump(const Duration(milliseconds: 100));
+        expect(completions, 1);
+        expect(tester.getSize(first), const Size(602, 300));
+        await tester.pump();
+        expect(completions, 1);
+        await tester.pumpWidget(build());
+        expect(tester.getSize(first), firstSize);
+        expect(tester.getSize(second), secondSize);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
+  testWidgets(
+    'cancelling close preserves the panel without calling completion',
+    (tester) async {
+      final controller = DResizableController();
+      addTearDown(controller.dispose);
+      var completed = false;
+      await tester.pumpWidget(host(controller));
+      final layout = Map.of(controller.layout);
+      await tester.pumpWidget(
+        host(
+          controller,
+          closingPanel: 'b',
+          onPanelClosed: () => completed = true,
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 60));
+      await tester.pumpWidget(host(controller));
+      await tester.pump(const Duration(milliseconds: 200));
+      expect(completed, isFalse);
+      expect(controller.layout, layout);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   for (final direction in TextDirection.values) {
     testWidgets(
       'iOS $direction keeps collapsed-edge drag and semantics target inside its group',
