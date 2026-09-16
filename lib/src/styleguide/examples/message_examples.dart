@@ -16,6 +16,44 @@ final messageExamples = ComponentExamples(
       'All seven compositions use accepted shared owners and passed independent source, official rendered-reference and native macOS review. Exact build provenance and platform limits are recorded in the Message review evidence.',
   examples: [
     StyleguideExample(
+      title: 'Message hover',
+      description:
+          'Hover either row for a faint theme-aware background across its padding. Message actions remain independent.',
+      states: const ['Rest', 'Hover'],
+      code: '''DMessageSurface(
+  child: Padding(
+    padding: EdgeInsets.all(DSpacing.lg),
+    child: DMessage(children: [
+      DMessageContent(children: [Text('Hover this message.')]),
+    ]),
+  ),
+)''',
+      builder: (_) => const Column(
+        children: [
+          DMessageSurface(
+            child: Padding(
+              padding: EdgeInsets.all(DSpacing.lg),
+              child: DMessage(
+                children: [
+                  DMessageContent(children: [Text('Hover this message.')]),
+                ],
+              ),
+            ),
+          ),
+          DMessageSurface(
+            child: Padding(
+              padding: EdgeInsets.all(DSpacing.lg),
+              child: DMessage(
+                children: [
+                  DMessageContent(children: [Text('Then hover this reply.')]),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    ),
+    StyleguideExample(
       title: 'Overview and composition',
       description:
           'The frozen conversation composition with sender/receiver alignment, delivery metadata, a same-sender bubble group, reactions, and typing status.',

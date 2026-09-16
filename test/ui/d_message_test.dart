@@ -1,4 +1,5 @@
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -65,6 +66,70 @@ void main() {
         ],
       ),
     ],
+  );
+
+  testWidgets(
+    'hover surface follows the pointer and live palette immediately',
+    (tester) async {
+      final rows = Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          for (final text in ['First message', 'Second message'])
+            DMessageSurface(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: DMessage(
+                  children: [
+                    DMessageContent(children: [Text(text)]),
+                  ],
+                ),
+              ),
+            ),
+        ],
+      );
+      Color background(int index) => tester
+          .widget<ColoredBox>(
+            find
+                .descendant(
+                  of: find.byType(DMessageSurface).at(index),
+                  matching: find.byType(ColoredBox),
+                )
+                .first,
+          )
+          .color;
+      final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      await mouse.addPointer(location: const Offset(600, 500));
+      addTearDown(mouse.removePointer);
+      await tester.pumpWidget(host(rows));
+      final bounds = tester.getRect(find.byType(DMessageSurface).first);
+      expect(background(0), Colors.transparent);
+
+      // The padding is part of the hover target, not just the message text.
+      await mouse.moveTo(bounds.topLeft + const Offset(1, 1));
+      await tester.pump();
+      final lightTint = DTokens.of(
+        tester.element(find.byType(DMessageSurface).first),
+      ).foreground.withValues(alpha: .03);
+      expect(background(0), lightTint);
+      expect(background(1), Colors.transparent);
+      expect(tester.getRect(find.byType(DMessageSurface).first), bounds);
+
+      await tester.pumpWidget(host(rows, theme: ThemeData.dark()));
+      await tester.pumpAndSettle();
+      final darkTint = DTokens.of(
+        tester.element(find.byType(DMessageSurface).first),
+      ).foreground.withValues(alpha: .03);
+      expect(darkTint, isNot(lightTint));
+      expect(background(0), darkTint);
+
+      await mouse.moveTo(tester.getCenter(find.byType(DMessageSurface).last));
+      await tester.pump();
+      expect(background(0), Colors.transparent);
+      expect(background(1), darkTint);
+      await mouse.moveTo(const Offset(600, 500));
+      await tester.pump();
+      expect(background(1), Colors.transparent);
+    },
   );
 
   testWidgets('matches row alignment, 8px gap, and footer avatar anchoring', (
