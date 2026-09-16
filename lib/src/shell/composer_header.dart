@@ -213,7 +213,7 @@ class ComposerHeader extends StatelessWidget {
                     values: [placement],
                     allowEmptySelection: false,
                     spacing: 1,
-                    size: DToggleSize.small,
+                    size: DToggleSize.regular,
                     onChanged: (values) {
                       closeMenu();
                       onPlacementChanged!(values.single);
