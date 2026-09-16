@@ -406,7 +406,13 @@ class ComposerPanel extends StatelessWidget {
                     if (!minimized)
                       _Footer(
                         composer: composer,
-                        onCancel: close,
+                        onCancel: () => unawaited(
+                          requestComposerDiscard(
+                            context: context,
+                            composer: composer,
+                            controller: controller,
+                          ),
+                        ),
                         sideDocked: placement.isSide,
                         pickFiles: pickFiles,
                         message:
