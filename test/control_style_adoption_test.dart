@@ -5,7 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'support/control_adoption.dart';
 
 void main() {
-  test('application and kit compositions use only reference button variants', () {
+  test('application and kit compositions use approved button variants', () {
     final legacy = RegExp(
       r'\bDButtonVariant\.(standard|danger|success|flat|flatClose|transparent|transparentPrimary|transparentDanger|transparentSuccess)\b',
     );
@@ -25,7 +25,7 @@ void main() {
       offenders,
       isEmpty,
       reason:
-          'Choose primary, outline, secondary, ghost, destructive or link. Legacy enum names are SDK aliases only.',
+          'Choose primary, outline, secondary, ghost, destructive, link or transparentBackground. Legacy enum names are SDK aliases only.',
     );
   });
 

@@ -6,6 +6,15 @@ below describe the original upstream implementation.
 
 Current shared control styling and application adoption: [2026-09-11 follow-up](control-consistency.md).
 
+The Native `DButtonVariant.transparentBackground` extension keeps its fill
+transparent in resting, hover, focus, pressed and expanded states. Its resting
+foreground blends 35% toward `foreground` from `mutedForeground`; hover, focus
+and expanded states use `foreground`. Icons and text inherit the same color.
+Keyboard focus rings, disabled/loading behavior and standard sizes are preserved.
+Use it for topic header and composer toolbar actions. The **Transparent background**
+styleguide example demonstrates text, icon, expanded and disabled buttons.
+The legacy `transparent` alias still resolves to `ghost` and retains its hover fill.
+
 Task: `01a083ac-5fd5-78b1-9263-7e3218a878b6`, branch `codex/ui-button`,
 base `2e894b5e`. Button owner implementation and native review are complete;
 coordinator integration review remains. See [native evidence](button-native-review.md).

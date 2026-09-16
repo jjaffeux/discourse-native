@@ -167,7 +167,7 @@ class TopicShareButton extends StatelessWidget {
       onPressed: () => _share(context),
       icon: const DIcon(DIcons.link),
       tooltip: 'Share topic',
-      variant: DButtonVariant.ghost,
+      variant: DButtonVariant.transparentBackground,
       size: DButtonSize.regular,
     );
   }
@@ -451,7 +451,7 @@ class _TopicStatusButtonState extends State<TopicStatusButton> {
                     state.toggle();
                   },
             loading: busy,
-            variant: DButtonVariant.ghost,
+            variant: DButtonVariant.transparentBackground,
             size: DButtonSize.regular,
             icon: const DIcon(DIcons.wrench),
           ),

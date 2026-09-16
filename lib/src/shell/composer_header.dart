@@ -145,11 +145,10 @@ class ComposerHeader extends StatelessWidget {
                 semanticLabel: composer.whisper
                     ? 'Whisper options'
                     : 'Reply options',
-                variant: DButtonVariant.ghost,
+                variant: DButtonVariant.transparentBackground,
                 size: DButtonSize.large,
                 icon: DIcon(
                   composer.whisper ? DIcons.farEyeSlash : DIcons.reply,
-                  color: color,
                 ),
                 label: Row(
                   mainAxisSize: MainAxisSize.min,
@@ -189,7 +188,7 @@ class ComposerHeader extends StatelessWidget {
           key: const ValueKey('composer-return-to-topic'),
           tooltip: 'Return to ${target.topicTitle}',
           icon: const DIcon(DIcons.arrowLeft),
-          variant: DButtonVariant.ghost,
+          variant: DButtonVariant.transparentBackground,
           onPressed: () => ShellScope.read(context).openTopicPost(
             siteUrl: target.siteUrl,
             topicId: target.topicId,
@@ -269,7 +268,7 @@ class ComposerHeader extends StatelessWidget {
               expanded: trigger.open,
               focusNode: trigger.focusNode,
               onPressed: trigger.toggle,
-              variant: DButtonVariant.ghost,
+              variant: DButtonVariant.transparentBackground,
               size: DButtonSize.regular,
             ),
           ),
@@ -280,7 +279,7 @@ class ComposerHeader extends StatelessWidget {
           onPressed: restore,
           icon: const DIcon(DIcons.expand),
           tooltip: 'Restore composer',
-          variant: DButtonVariant.ghost,
+          variant: DButtonVariant.transparentBackground,
           size: DButtonSize.regular,
         )
       else if (onMinimize case final minimize?)
@@ -289,7 +288,7 @@ class ComposerHeader extends StatelessWidget {
           onPressed: minimize,
           icon: const Icon(Icons.remove),
           tooltip: 'Minimize composer',
-          variant: DButtonVariant.ghost,
+          variant: DButtonVariant.transparentBackground,
           size: DButtonSize.regular,
         ),
       DButton.iconOnly(
@@ -297,7 +296,7 @@ class ComposerHeader extends StatelessWidget {
         onPressed: onClose,
         icon: const DIcon(DIcons.xmark),
         tooltip: closeTooltip,
-        variant: DButtonVariant.ghost,
+        variant: DButtonVariant.transparentBackground,
         size: DButtonSize.regular,
       ),
     ];

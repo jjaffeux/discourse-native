@@ -2544,7 +2544,7 @@ class _FormattingToolbar extends StatelessWidget {
                 key: ValueKey('composer-format-${mark.name}'),
                 tooltip: label,
                 shortcut: DShortcut(_formattingShortcut(key)),
-                variant: DButtonVariant.ghost,
+                variant: DButtonVariant.transparentBackground,
                 size: DButtonSize.regular,
                 icon: DIcon(icon),
                 onPressed: composer.isEditing && !composer.loadingBody
@@ -2558,7 +2558,7 @@ class _FormattingToolbar extends StatelessWidget {
               key: const ValueKey('composer-format-link'),
               tooltip: 'Link',
               shortcut: DShortcut(_formattingShortcut(LogicalKeyboardKey.keyL)),
-              variant: DButtonVariant.ghost,
+              variant: DButtonVariant.transparentBackground,
               size: DButtonSize.regular,
               icon: const DIcon(DIcons.link),
               onPressed: composer.isEditing && !composer.loadingBody
@@ -2613,7 +2613,7 @@ class _Toolbar extends StatelessWidget {
               builder: (buttonContext) => DButton.iconOnly(
                 key: const ValueKey('composer-emoji-picker'),
                 tooltip: 'Add emoji',
-                variant: DButtonVariant.ghost,
+                variant: DButtonVariant.transparentBackground,
                 size: DButtonSize.large,
                 onPressed: !composer.isEditing
                     ? null
@@ -2655,7 +2655,7 @@ class _Toolbar extends StatelessWidget {
                 hasPopup: true,
                 expanded: trigger.open,
                 focusNode: trigger.focusNode,
-                variant: DButtonVariant.ghost,
+                variant: DButtonVariant.transparentBackground,
                 size: DButtonSize.large,
                 onPressed: composer.isEditing ? trigger.toggle : null,
                 icon: const DIcon(DIcons.circlePlus),
@@ -2807,7 +2807,7 @@ class _ComposerToolbarScrollButton extends StatelessWidget {
             : 'Show previous composer tools',
         onPressed: onPressed,
         icon: DIcon(pointsRight ? DIcons.chevronRight : DIcons.chevronLeft),
-        variant: DButtonVariant.ghost,
+        variant: DButtonVariant.transparentBackground,
         size: DButtonSize.regular,
       ),
     );
@@ -2879,7 +2879,7 @@ class _ComposerUploadButtonState extends State<_ComposerUploadButton> {
         ? null
         : () => unawaited(_pick()),
     icon: const DIcon(DIcons.paperclip),
-    variant: DButtonVariant.ghost,
+    variant: DButtonVariant.transparentBackground,
     size: DButtonSize.large,
   );
 }
@@ -3114,7 +3114,7 @@ class _Footer extends StatelessWidget {
                 DButton.iconOnly(
                   key: const ValueKey('composer-discard'),
                   tooltip: 'Discard draft',
-                  variant: DButtonVariant.ghost,
+                  variant: DButtonVariant.transparentBackground,
                   icon: const DIcon(DIcons.trashCan),
                   onPressed: busy
                       ? null
