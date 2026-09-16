@@ -1038,6 +1038,8 @@ class _DSelectBodyState<T> extends State<_DSelectBody<T>> {
         : event.character;
     if (character == null ||
         character.length != 1 ||
+        character.codeUnitAt(0) < 0x20 ||
+        character.codeUnitAt(0) == 0x7f ||
         (character.trim().isEmpty && (!recent || _typeahead.isEmpty))) {
       return false;
     }
