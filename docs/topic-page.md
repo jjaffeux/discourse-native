@@ -11,10 +11,9 @@ reader and does not show the chooser.
 Docking keeps a reduced, resizable source list beside the reader. The list uses
 its current width between 304 and 480 logical pixels, shrinking as needed to
 preserve an 825-pixel reader. Below 1129 pixels of available reader workspace,
-a docked topic temporarily opens as a sheet. Available space is calculated after
-navigation and the preferred composer placement; opening a sheet does not feed
-its larger background viewport back into that calculation. Widening restores
-docking without overwriting the saved choice.
+the source list is hidden and the topic fills the inline content area. Widening
+restores the list beside it. Dock right always stays inline, including while
+resizing or composing; only explicitly choosing Sheet opens a topic sheet.
 
 A sheet is centered above the browsing workspace, with an inset supplied by the
 Native Sheet component. Its width follows the existing reading lane and expands
@@ -50,12 +49,12 @@ split-view and bottom-composer behavior.
 
 ## Implementation
 
-`TopicPresentationController` separates the saved preference from the effective
-presentation. `TopicWorkspace` supplies a local Navigator below the forum tabs.
+`TopicPresentationController` persists the selected presentation.
+`TopicWorkspace` supplies a local Navigator below the forum tabs.
 `TopicReaderPresentation` retains the reader until its sheet outlet is mounted,
 then moves the same keyed subtree between that outlet and the inline workspace.
-A new sheet waits for a closing outlet to finish dismissing if the window
-crosses the split threshold again during the transition.
+A new sheet waits for a closing outlet to finish dismissing if the presentation
+changes again during the transition.
 The existing composer host retains the editor through the corresponding dock
 handoff. Explicit reading-route settings allow navigation shortcuts inside the
 workspace and sheet while other popup routes continue to block them.
@@ -69,8 +68,9 @@ was added or extended.
 The final focused run passed 89 desktop, preference, composer and keyboard
 tests. Coverage includes repeated view switching, reader and
 editor identity, selection and scroll retention, restart preferences, stale
-preference loads, responsive fallback and interrupted transitions, direct links, Escape and nested-dialog
-behavior, source navigation, tabs, composer docking, RTL and mobile behavior.
+preference loads, inline narrow layouts and interrupted transitions, direct
+links, Escape and nested-dialog behavior, source navigation, tabs, composer
+docking, RTL and mobile behavior.
 
 The broader composer, keyboard, navigation, topic-inbox, plugin-chrome and
 shell-panel run passed 229 tests. Its 27 forum-tab integration failures were
@@ -87,3 +87,7 @@ keeping the draft. The review app was quit afterward. The subsequent direct-link
 close fallback and interrupted-dismissal guard have widget coverage; the inspected source-list close behavior is
 unchanged. No live forum data was modified. Mobile behavior has widget coverage
 only; Linux and Windows were not inspected on devices.
+
+The subsequent correction keeping Dock right inline at narrow widths passed
+the 89 focused tests and root static analysis. Native inspection was not
+repeated for that correction.

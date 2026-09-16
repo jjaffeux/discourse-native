@@ -9,8 +9,6 @@ class TopicPresentationController extends ChangeNotifier {
   TopicPresentationController({this.store = const TopicPresentationStore()});
 
   static const minimumReaderWidth = 825.0;
-  static const minimumListWidth = 304.0;
-  static const splitMinimum = minimumReaderWidth + minimumListWidth;
 
   final TopicPresentationStore store;
   TopicPresentation _preference = TopicPresentation.docked;
@@ -26,15 +24,6 @@ class TopicPresentationController extends ChangeNotifier {
     _preference = value;
     notifyListeners();
   }
-
-  TopicPresentation effective({
-    required double readerWidth,
-    required bool hasSourceList,
-  }) =>
-      _preference == TopicPresentation.sheet ||
-          (hasSourceList && readerWidth < splitMinimum)
-      ? TopicPresentation.sheet
-      : TopicPresentation.docked;
 
   void select(TopicPresentation value) {
     _revision++;

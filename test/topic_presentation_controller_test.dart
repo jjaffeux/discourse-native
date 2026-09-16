@@ -10,45 +10,18 @@ import 'package:shared_preferences/shared_preferences.dart';
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
-  test('narrow fallback preserves docking and restores it at the boundary', () {
-    final controller = TopicPresentationController();
-    addTearDown(controller.dispose);
-    expect(controller.preference, TopicPresentation.docked);
-    expect(
-      controller.effective(readerWidth: 1128, hasSourceList: true),
-      TopicPresentation.sheet,
-    );
-    expect(controller.preference, TopicPresentation.docked);
-    expect(
-      controller.effective(readerWidth: 1129, hasSourceList: true),
-      TopicPresentation.docked,
-    );
-    expect(
-      controller.effective(readerWidth: 700, hasSourceList: false),
-      TopicPresentation.docked,
-    );
-  });
-
-  test(
-    'explicit sheet preference survives a new controller and wide windows',
-    () async {
+  for (final mode in TopicPresentation.values) {
+    test('explicit $mode preference survives a new controller', () async {
       final controller = TopicPresentationController();
       addTearDown(controller.dispose);
       controller.select(TopicPresentation.sheet);
+      controller.select(mode);
       final restored = TopicPresentationController();
       addTearDown(restored.dispose);
       await restored.load();
-      expect(restored.preference, TopicPresentation.sheet);
-      expect(
-        restored.effective(readerWidth: 2000, hasSourceList: true),
-        TopicPresentation.sheet,
-      );
-      expect(
-        restored.effective(readerWidth: 2000, hasSourceList: false),
-        TopicPresentation.sheet,
-      );
-    },
-  );
+      expect(restored.preference, mode);
+    });
+  }
 
   test('invalid stored mode uses the docking default', () async {
     SharedPreferences.setMockInitialValues({
