@@ -48,7 +48,7 @@ void main() {
     expect(again.last.important, isTrue);
   });
 
-  test('does not share cached defaults between bodies', () {
+  test('explicitly separate cache instances remain independent', () {
     final first = DefaultStylesCache().parse('display: block');
     final second = DefaultStylesCache().parse('display: block');
     expect(first.first.span, isNot(same(second.first.span)));
@@ -69,6 +69,22 @@ void main() {
     final large = largeCache.parse(longStyle);
     expect(
         largeCache.parse(longStyle).first.span, isNot(same(large.first.span)));
+  });
+
+  test('shares templates but preserves local reuse when the pool is full', () {
+    final shared = DefaultStylesCache();
+    final firstBody = DefaultStylesCache(shared: shared);
+    final first = firstBody.parse('width: 0px');
+    for (var i = 1; i < 64; i++) {
+      firstBody.parse('width: ${i}px');
+    }
+    final secondBody = DefaultStylesCache(shared: shared);
+    expect(secondBody.parse('width: 0px').first.span, same(first.first.span));
+    final local = secondBody.parse('width: 64px');
+    expect(secondBody.parse('width: 64px').first.span, same(local.first.span));
+    final thirdBody = DefaultStylesCache(shared: shared);
+    expect(thirdBody.parse('width: 64px').first.span,
+        isNot(same(local.first.span)));
   });
 
   test('keeps complex expressions and legacy declarations on parser path', () {

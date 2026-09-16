@@ -10,18 +10,21 @@ The published archive is the baseline. Every local difference is listed below.
 
 ## Repeated default styles
 
-An HTML body's build trees share a bounded cache of parsed default CSS, keyed
-by the complete ordered output of each default-style callback. Callbacks still
-run for every element, preserving attribute-dependent defaults and plugin
-behavior. The cache ends with that body's trees; it does not store widgets,
-contexts, or cross-body theme state.
+HTML build trees share a bounded, isolate-local cache of parsed default CSS,
+keyed by the complete ordered output of each default-style callback. Callbacks
+still run for every element, preserving attribute-dependent defaults and plugin
+behavior. Sharing the parser templates across bodies avoids reparsing the same
+defaults as chat rows enter the viewport. The cache stores CSS syntax only, not
+widgets, contexts, build trees, or resolved theme state.
 
 Each lookup returns independent declarations, expressions, identifiers and
 Dart-style metadata. Only simple literals with faithfully cloneable metadata
 are cached. Complex functions, legacy declarations and other expression forms
 retain the upstream parser path. The cache admits at most 64 style strings of
 at most 4,096 characters each. Existing entries are not evicted while a body is
-being built. Inline and custom CSS parsing, conversion order and mounting are
+being built. When the shared pool fills, each body retains its original bounded
+local cache for additional styles; earlier bodies cannot crowd out local reuse.
+Inline and custom CSS parsing, conversion order and mounting are
 unchanged.
 
 Files:
