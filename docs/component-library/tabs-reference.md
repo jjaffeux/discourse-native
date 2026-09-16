@@ -248,3 +248,43 @@ verification; narrow/RTL/scaled geometry is covered by widget tests. The
 fixture's permitted debug entitlements were read back; it and the reference
 browser tab were closed. Final touch-only changes were verified with iOS
 widget-test overrides, not a device run.
+
+## Topic feed pill variant — September 16, 2026
+
+The user supplied a topic-navigation screenshot and authorized adding
+`DTabListVariant.pill` to the Native kit. Its transparent list uses 4px gaps,
+muted inactive labels, semibold text, and a rounded selected fill at 8% semantic
+foreground opacity. The shared control size and radius own the geometry;
+selection paints immediately without a border, shadow or underline.
+
+The topic-feed row uses the regular 28px preset and displays its existing New
+count inline, without parentheses. Feed ordering, visibility, count calculation,
+and the contextual New segments retain their existing behavior. The Tabs
+styleguide includes an interactive Pill example matching the reference labels.
+Keyboard navigation, touch targets, text scaling, RTL and horizontal overflow
+remain owned by `DTabs`.
+
+The production surface and styleguide can be inspected with the offline fixture:
+
+```sh
+flutter run -d macos --no-pub -t tool/topic_list_modes_review_main.dart
+```
+
+Verification:
+
+- Root `flutter analyze --no-pub` passes, including the integration candidate
+  based on `eea38056`. Formatting and `git diff --check` pass.
+- 87 focused tests pass across Tabs, Document Tab, topic navigation, Tabs
+  examples and control adoption. They cover immediate selection paint in both
+  themes, keyboard focus, routes and counts, and narrow 200% RTL examples.
+  The existing `feed select retains keyboard focus across routes (stacked:
+  true)` failure also reproduces with the original topic-navigation source;
+  it was excluded from the subsequent 87-test run.
+- The offline macOS fixture built and ran in an isolated ad-hoc-signed bundle.
+  Native inspection covered production topic tabs in light/dark, wide/390px,
+  and 200% RTL, including New selection and its contextual segments. The actual
+  dark Pill styleguide example accepted pointer selection and Right/Return
+  activation with a visible keyboard focus ring. The app was quit afterward.
+- Flutter-rendered light/dark reference strips used the system SFNS font and
+  a 280×60 logical-pixel canvas at 2× pixel ratio. Mobile targets remain covered
+  by widget tests; no mobile-device run was performed.
