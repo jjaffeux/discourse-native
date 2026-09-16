@@ -248,3 +248,25 @@ verification; narrow/RTL/scaled geometry is covered by widget tests. The
 fixture's permitted debug entitlements were read back; it and the reference
 browser tab were closed. Final touch-only changes were verified with iOS
 widget-test overrides, not a device run.
+
+## Topic feed pill variant — September 16, 2026
+
+The user supplied a topic-navigation screenshot and authorized adding
+`DTabListVariant.pill` to the Native kit. Its transparent list uses 4px gaps,
+muted inactive labels, semibold text, and a rounded selected fill at 8% semantic
+foreground opacity. The shared control size and radius own the geometry;
+selection paints immediately without a border, shadow or underline.
+
+The topic-feed row uses the regular 28px preset and displays its existing New
+count inline, without parentheses. Feed ordering, visibility, count calculation,
+and the contextual New segments retain their existing behavior. The Tabs
+styleguide includes an interactive Pill example matching the reference labels.
+Keyboard navigation, touch targets, text scaling, RTL and horizontal overflow
+remain owned by `DTabs`.
+
+The production surface and styleguide can be inspected with the offline fixture:
+
+```sh
+flutter run -d macos --no-pub -t tool/topic_list_modes_review_main.dart
+```
+

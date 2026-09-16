@@ -74,6 +74,71 @@ void main() {
     ],
   );
 
+  for (final theme in [AppTheme.light, AppTheme.dark]) {
+    testWidgets('${theme.brightness.name} pill selection moves immediately', (
+      tester,
+    ) async {
+      await mount(
+        tester,
+        const DTabs<String>(
+          initialValue: 'latest',
+          children: [
+            DTabList<String>(
+              variant: DTabListVariant.pill,
+              children: [
+                DTabTrigger(value: 'latest', child: Text('Latest')),
+                DTabTrigger(value: 'new', child: Text('New 3')),
+              ],
+            ),
+          ],
+        ),
+        theme: theme,
+      );
+      await tester.pumpAndSettle();
+      final latest = find.byType(DTabTrigger<String>).first;
+      final newTopics = find.byType(DTabTrigger<String>).last;
+      final tokens = DTokens.of(tester.element(latest));
+      BoxDecoration decoration(Finder trigger) =>
+          tester
+                  .widget<DecoratedBox>(
+                    find.descendant(
+                      of: trigger,
+                      matching: find.byType(DecoratedBox),
+                    ),
+                  )
+                  .decoration
+              as BoxDecoration;
+      void expectSelected(Finder trigger) {
+        final painted = decoration(trigger);
+        expect(painted.color, tokens.foreground.withValues(alpha: .08));
+        expect(
+          painted.borderRadius,
+          BorderRadius.circular(tokens.controlRadius),
+        );
+        expect(painted.border!.top.color, Colors.transparent);
+        expect(painted.boxShadow, isNull);
+      }
+
+      expectSelected(latest);
+      expect(decoration(newTopics).color, Colors.transparent);
+      expect(tester.getSize(latest).height, DControlStyle.regularHeight);
+      expect(tester.getRect(newTopics).left - tester.getRect(latest).right, 4);
+      expect(
+        DefaultTextStyle.of(tester.element(find.text('New 3'))).style.color,
+        tokens.mutedForeground,
+      );
+
+      await tester.tap(newTopics);
+      await tester.pump();
+      expectSelected(newTopics);
+      expect(decoration(latest).color, Colors.transparent);
+      await tester.pump(const Duration(milliseconds: 75));
+      expectSelected(newTopics);
+      expect(decoration(latest).color, Colors.transparent);
+      expect(tester.takeException(), isNull);
+    });
+  }
+
   testWidgets('touch backgrounds retain their inset with enlarged text', (
     tester,
   ) async {

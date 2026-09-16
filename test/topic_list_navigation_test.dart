@@ -982,17 +982,17 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(controller.topicListNewCounts, (all: 4, topics: 3, replies: 1));
-    expect(_tabText(tester, 'topic-list-new').data, 'New (4)');
+    expect(_tabText(tester, 'topic-list-new').data, 'New 4');
 
     controller.selectTopicListCategory(parent);
     await tester.pumpAndSettle();
     expect(controller.topicListNewCounts, (all: 3, topics: 2, replies: 1));
-    expect(_tabText(tester, 'topic-list-new').data, 'New (3)');
+    expect(_tabText(tester, 'topic-list-new').data, 'New 3');
 
     controller.selectTopicListTags(['bug-fixes']);
     await tester.pumpAndSettle();
     expect(controller.topicListNewCounts, (all: 2, topics: 1, replies: 1));
-    expect(_tabText(tester, 'topic-list-new').data, 'New (2)');
+    expect(_tabText(tester, 'topic-list-new').data, 'New 2');
     expect(_tabText(tester, 'topic-list-new-all').data, 'All');
     expect(_tabText(tester, 'topic-list-new-topics').data, 'Topics');
     expect(
@@ -1014,7 +1014,7 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('topic-list-new-replies')));
     await tester.pumpAndSettle();
     expect(controller.topicListNewCounts, (all: 2, topics: 1, replies: 1));
-    expect(_tabText(tester, 'topic-list-new').data, 'New (2)');
+    expect(_tabText(tester, 'topic-list-new').data, 'New 2');
     expect(controller.sidebarBadgeFor('latest').count, 4);
 
     FakeSiteTracker.built.single.deliverTopicTracking(const {
@@ -1025,7 +1025,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(_tabText(tester, 'topic-list-new-replies').data, 'Replies');
     expect(controller.sidebarBadgeFor('latest').count, 3);
-    expect(_tabText(tester, 'topic-list-new').data, 'New (1)');
+    expect(_tabText(tester, 'topic-list-new').data, 'New 1');
 
     controller.selectTopicListTags(['Bug Fixes', 'urgent']);
     await tester.pumpAndSettle();
@@ -1077,7 +1077,7 @@ void main() {
     expect(find.text('1059'), findsNothing);
     expect(find.byKey(const ValueKey('topic-list-unread')), findsOneWidget);
     expect(find.text('Unread (5)'), findsNothing);
-    expect(_tabText(tester, 'topic-list-new').data, 'New (1059)');
+    expect(_tabText(tester, 'topic-list-new').data, 'New 1059');
     expect(find.text('Top'), findsOneWidget);
     expect(find.text('Trending'), findsOneWidget);
     expect(find.text('Latest topic'), findsOneWidget);
@@ -1222,6 +1222,14 @@ void main() {
         await pump(1);
         final tabs = tester.getRect(
           find.byKey(const ValueKey('topic-list-feed-tabs')),
+        );
+        expect(
+          tester
+              .widget<DTabList<TopicListMode>>(
+                find.byKey(const ValueKey('topic-list-feed-tabs')),
+              )
+              .variant,
+          DTabListVariant.pill,
         );
         final segments = find.byKey(const ValueKey('topic-list-new-segments'));
         final segmentRect = tester.getRect(segments);
@@ -2136,7 +2144,7 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    expect(_tabText(tester, 'topic-list-new').data, 'New (1054)');
+    expect(_tabText(tester, 'topic-list-new').data, 'New 1054');
     expect(controller.newActivityCount, 1054);
     expect(controller.sidebarBadgeFor('latest').count, 5);
 

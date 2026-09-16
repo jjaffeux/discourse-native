@@ -13,7 +13,13 @@ import 'd_button.dart';
 import 'd_kbd.dart';
 
 /// The visual treatment of a [DTabList].
-enum DTabListVariant { defaultStyle, line }
+enum DTabListVariant {
+  defaultStyle,
+  line,
+
+  /// A transparent list with a rounded neutral fill on the selected trigger.
+  pill,
+}
 
 /// Why a tabs root changed its active value.
 enum DTabChangeReason { user, initial, disabled, missing, controller }
@@ -473,7 +479,7 @@ class DTabList<T> extends StatelessWidget {
             : CrossAxisAlignment.stretch,
         children: [
           for (var i = 0; i < children.length; i++) ...[
-            if (i > 0 && variant == DTabListVariant.line)
+            if (i > 0 && variant != DTabListVariant.defaultStyle)
               SizedBox(
                 width: root.orientation == Axis.horizontal ? 4 : 0,
                 height: root.orientation == Axis.vertical ? 4 : 0,
@@ -704,34 +710,45 @@ class _DTabTriggerState<T> extends State<DTabTrigger<T>> {
         originalSkip || !root.state.isTabStop(this) || !enabled;
     final dark = Theme.of(context).brightness == Brightness.dark;
     final line = list.variant == DTabListVariant.line;
-    final radius = tokens.radius * .8;
-    final selectedBackground = dark
+    final pill = list.variant == DTabListVariant.pill;
+    final radius = pill
+        ? DControlStyle.radius(tokens, size)
+        : tokens.radius * .8;
+    final selectedBackground = pill
+        ? tokens.foreground.withValues(alpha: .08)
+        : dark
         ? tokens.colors.outlineVariant.withValues(
             alpha: tokens.colors.outlineVariant.a * .3,
           )
         : tokens.background;
     final foreground = selected || _hovered
         ? tokens.foreground
+        : pill
+        ? tokens.mutedForeground
         : tokens.foreground.withValues(alpha: .6);
 
     final surface = AnimatedContainer(
-      duration: DMotion.duration(context, DMotion.change),
+      duration: pill
+          ? Duration.zero
+          : DMotion.duration(context, DMotion.change),
       curve: Curves.easeOut,
       constraints: BoxConstraints(
         minHeight:
             DControlStyle.scaledHeight(size, MediaQuery.textScalerOf(context)) -
-            7,
+            (pill ? 0 : 7),
       ),
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+      padding: pill
+          ? const EdgeInsets.symmetric(horizontal: 10, vertical: 2)
+          : const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
       decoration: BoxDecoration(
         color: selected && !line ? selectedBackground : Colors.transparent,
         borderRadius: BorderRadius.circular(radius),
         border: Border.all(
-          color: selected && !line && dark
+          color: selected && !line && !pill && dark
               ? tokens.colors.outlineVariant
               : Colors.transparent,
         ),
-        boxShadow: selected && !line
+        boxShadow: selected && !line && !pill
             ? const [
                 BoxShadow(
                   color: Color(0x1A000000),
@@ -748,7 +765,7 @@ class _DTabTriggerState<T> extends State<DTabTrigger<T>> {
           color: foreground,
           fontSize: DControlStyle.fontSize(size),
           height: DControlStyle.lineHeight(size) / DControlStyle.fontSize(size),
-          fontWeight: FontWeight.w500,
+          fontWeight: pill ? FontWeight.w600 : FontWeight.w500,
           letterSpacing: 0,
         ),
         child: IconTheme.merge(
