@@ -179,8 +179,7 @@ class _TopicListNavigationControls extends StatelessWidget {
       children: [
         DTabList<TopicListMode>(
           key: const ValueKey('topic-list-feed-tabs'),
-          size: DControlSize.small,
-          variant: DTabListVariant.line,
+          variant: DTabListVariant.pill,
           children: [
             const DTabTrigger(
               key: ValueKey('topic-list-latest'),
@@ -197,7 +196,7 @@ class _TopicListNavigationControls extends StatelessWidget {
                 key: const ValueKey('topic-list-new'),
                 value: TopicListMode.newActivity,
                 child: Text(
-                  state.allCount > 0 ? 'New (${state.allCount})' : 'New',
+                  state.allCount > 0 ? 'New ${state.allCount}' : 'New',
                 ),
               ),
               const DTabTrigger(
