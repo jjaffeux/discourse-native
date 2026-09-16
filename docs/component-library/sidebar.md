@@ -10,6 +10,31 @@ scope remains the 2026-09-08 Sidebar row.
 - Decoded source SHA256: `d08ce0624ed0a9a5ecb35698dadd11fe12ca87dd7dc78e02e7c5d9b7b5485a70`
 - Upstream license: reference/LICENSE.shadcn.md.
 
+## Forum identity spacing — 2026-09-16
+
+Expanded menu buttons whose artwork fills their preset row height use 8px
+vertical padding. This gives the forum logo and two-line label breathing room
+inside the hover surface. Ordinary navigation icons and collapsed icon rows
+keep their compact geometry.
+
+The production forum header uses no bottom padding, and the first navigation
+group uses 2px top padding. The resulting 2px gap before Topics replaces the
+previous 16px gap, balancing the identity button's additional 14px of padding
+on desktop. Header and group padding remain 8px by default for other consumers.
+
+Verification: static analysis and 52 focused Sidebar, styleguide, control-adoption
+and shell-navigation checks passed. The existing navigation hover test's stale
+6px row-gap expectation was corrected to the existing 2px gap after reproducing
+the failure on starting main `bdec7bae`.
+
+Inspected the production sidebar in an isolated macOS build of
+`tool/sidebar_review_main.dart`: light and dark palettes, the dark hover surface,
+menu activation by pointer and Return, Escape dismissal, and 200% text at the
+208px sidebar width. Also inspected the Sidebar styleguide's application example.
+The reviewed kernel SHA-256 is
+`3ddbac740e8dad5676a0eef199f5367d5ae01705d87362bf13aa9f631785f69d`.
+Mobile coverage came from widget tests, not a device run.
+
 ## Geometry and behavior mapping
 
 | Reference | Flutter |
@@ -20,10 +45,10 @@ scope remains the 2026-09-08 Sidebar row.
 | offcanvas / icon / none | Zero inline width / icon width / always inline; mobile modal for collapsible modes |
 | physical left/right | Physical panel side; directional text, padding and submenu border |
 | 200ms transition | Linear desktop width; mobile presentation uses the accepted Sheet transition; zero with reduced motion |
-| header/footer p-2 | 8px fixed slots; callers compose multiple children with 8px gap |
+| header/footer p-2 | 8px fixed slots by default; header padding is configurable for adjacent content |
 | content flex-1 overflow | Expanded slot with independent DSidebarContent scroll owner; scrollbar artwork and drag targets are hidden |
 | sidebar background | Muted semantic panel token; caller override remains available |
-| group p-2; label h-8 px-2 | 8px group padding,32px label minimum,8px horizontal inset |
+| group p-2; label h-8 px-2 | 8px group padding by default, configurable for box and sliver groups;32px label minimum,8px horizontal inset |
 | label text-xs/medium/70% | 12px,16px leading,500 weight,foreground70% |
 | default h-8 / sm h-7 / lg h-12 | 32/28/48px minimum rows; optional height30 for docs |
 | menu text-sm / sm text-xs | 14px/20px leading or12px/16px; selected500 |

@@ -295,6 +295,7 @@ class _SidebarPanelBody extends StatelessWidget {
         children: [
           if (showUserMenu) const _SidebarUserHeader(),
           DSidebarHeader(
+            padding: const EdgeInsets.fromLTRB(8, 8, 8, 0),
             child: _ForumIdentityHeader(
               siteUrl: sidebar.siteUrl!,
               name: sidebar.name!,
@@ -317,6 +318,7 @@ class _SidebarPanelBody extends StatelessWidget {
             child: DSidebarContent.slivers(
               slivers: [
                 DSidebarGroup.sliver(
+                  padding: const EdgeInsets.fromLTRB(8, 2, 8, 8),
                   sliver: SliverMainAxisGroup(
                     slivers: [
                       if (showCoreSections)
