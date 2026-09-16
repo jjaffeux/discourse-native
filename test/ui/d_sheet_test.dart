@@ -39,6 +39,7 @@ Widget _sheet<T>({
   FocusNode? initialFocusNode,
   FocusNode? finalFocusNode,
   bool showCloseButton = true,
+  Color? backgroundColor,
 }) => DSheet<T>(
   controller: controller,
   open: open,
@@ -55,6 +56,7 @@ Widget _sheet<T>({
     ),
   ),
   content: DSheetContent(
+    backgroundColor: backgroundColor,
     side: side,
     showCloseButton: showCloseButton,
     semanticLabel: 'Example sheet',
@@ -761,53 +763,75 @@ void main() {
     expect(find.text('Example sheet'), findsNothing);
   });
 
-  testWidgets('live theme and direction update an open sheet', (tester) async {
-    var dark = false;
-    var direction = TextDirection.ltr;
-    late StateSetter update;
-    await tester.pumpWidget(
-      StatefulBuilder(
-        builder: (context, setState) {
-          update = setState;
-          final scheme = ColorScheme.fromSeed(
-            seedColor: dark ? Colors.purple : Colors.orange,
-            brightness: dark ? Brightness.dark : Brightness.light,
-          );
-          return _host(
-            _sheet<void>(side: DSheetSide.end),
-            direction: direction,
-            theme: ThemeData(colorScheme: scheme),
-          );
-        },
-      ),
+  for (final pageBackground in [false, true]) {
+    testWidgets(
+      'live theme and direction update an open sheet (page background: $pageBackground)',
+      (tester) async {
+        var dark = false;
+        var direction = TextDirection.ltr;
+        late StateSetter update;
+        await tester.pumpWidget(
+          StatefulBuilder(
+            builder: (context, setState) {
+              update = setState;
+              final scheme = ColorScheme.fromSeed(
+                seedColor: dark ? Colors.purple : Colors.orange,
+                brightness: dark ? Brightness.dark : Brightness.light,
+              );
+              return _host(
+                Builder(
+                  builder: (context) => _sheet<void>(
+                    side: DSheetSide.end,
+                    backgroundColor: pageBackground
+                        ? DTokens.of(context).background
+                        : null,
+                  ),
+                ),
+                direction: direction,
+                theme: ThemeData(colorScheme: scheme),
+              );
+            },
+          ),
+        );
+        await tester.tap(find.text('Open'));
+        await tester.pumpAndSettle();
+        final before = tester.widget<Material>(
+          find
+              .descendant(
+                of: find.byType(DSheetContent),
+                matching: find.byType(Material),
+              )
+              .first,
+        );
+        expect(tester.getRect(find.byType(DSheetContent)).right, 800);
+        var tokens = DTokens.of(tester.element(find.byType(DSheetContent)));
+        expect(
+          before.color,
+          pageBackground ? tokens.background : tokens.surface,
+        );
+        update(() {
+          dark = true;
+          direction = TextDirection.rtl;
+        });
+        await tester.pumpAndSettle();
+        final after = tester.widget<Material>(
+          find
+              .descendant(
+                of: find.byType(DSheetContent),
+                matching: find.byType(Material),
+              )
+              .first,
+        );
+        expect(after.color, isNot(before.color));
+        tokens = DTokens.of(tester.element(find.byType(DSheetContent)));
+        expect(
+          after.color,
+          pageBackground ? tokens.background : tokens.surface,
+        );
+        expect(tester.getRect(find.byType(DSheetContent)).left, 0);
+      },
     );
-    await tester.tap(find.text('Open'));
-    await tester.pumpAndSettle();
-    final before = tester.widget<Material>(
-      find
-          .descendant(
-            of: find.byType(DSheetContent),
-            matching: find.byType(Material),
-          )
-          .first,
-    );
-    expect(tester.getRect(find.byType(DSheetContent)).right, 800);
-    update(() {
-      dark = true;
-      direction = TextDirection.rtl;
-    });
-    await tester.pumpAndSettle();
-    final after = tester.widget<Material>(
-      find
-          .descendant(
-            of: find.byType(DSheetContent),
-            matching: find.byType(Material),
-          )
-          .first,
-    );
-    expect(after.color, isNot(before.color));
-    expect(tester.getRect(find.byType(DSheetContent)).left, 0);
-  });
+  }
 
   testWidgets('narrow 200 percent text and keyboard insets remain bounded', (
     tester,

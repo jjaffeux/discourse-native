@@ -232,6 +232,7 @@ class DSheetContent extends StatelessWidget {
     this.closeButton,
     this.closeSemanticLabel = 'Close',
     this.semanticLabel,
+    this.backgroundColor,
     this.sidePanelMaxWidth = 384,
     this.sidePanelWidth,
     this.inset = false,
@@ -258,6 +259,10 @@ class DSheetContent extends StatelessWidget {
   final Widget? closeButton;
   final String closeSemanticLabel;
   final String? semanticLabel;
+
+  /// Overrides the surface fill. Defaults to [DTokens.surface].
+  final Color? backgroundColor;
+
   final double sidePanelMaxWidth;
 
   /// An exact side-panel width, clamped to [sidePanelMaxWidth] and the viewport.
@@ -363,7 +368,7 @@ class DSheetContent extends StatelessWidget {
           animationDuration: Duration.zero,
           borderRadius: radius,
           clipBehavior: inset ? Clip.antiAlias : Clip.none,
-          color: tokens.surface,
+          color: backgroundColor ?? tokens.surface,
           textStyle: Theme.of(context).textTheme.bodyMedium?.copyWith(
             fontSize: DiscourseTypography.sm,
             height: 20 / 14,

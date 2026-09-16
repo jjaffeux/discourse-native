@@ -2,6 +2,11 @@
 
 Frozen reference date: 2026-09-08.
 
+`DSheetContent.backgroundColor` optionally overrides the surface fill. The
+default remains `DTokens.surface`. Desktop topic sheets and the **Centered
+reading panel** example use `DTokens.background` to match the regular page,
+including when the forum palette changes.
+
 ## Primary sources
 
 - Official Markdown: `https://ui.shadcn.com/docs/components/base/sheet.md`, SHA-256 `d5b0e4ef28a6fa9de830479fab61e6c8d6b8b05698dc6c109b710c4a0112d9d3`.
