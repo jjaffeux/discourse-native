@@ -267,7 +267,6 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
   TopicViewportListenable get _viewportState => _viewport;
   DateTime? get _floatingDay => _viewportState.floatingDay;
   double get _floatingDayOffset => _viewportState.floatingDayOffset;
-  double _headerObstruction = 0;
 
   int? get _progressPosition => _viewportState.progressPosition;
   TopicViewportSnapshot? get _laidOutSnapshot => _viewport.laidOutSnapshot;
@@ -953,8 +952,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     }
 
     double? topOf(_TopicDayStart start) {
-      // getOffsetToReveal already accounts for the pinned taxonomy. This is
-      // the distance to its lower edge, not to the full viewport's top.
+      // The viewport starts below the fixed topic header.
       return _postViewportOffset(snapshot.postIds[start.postIndex]);
     }
 
@@ -1178,17 +1176,14 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     }
 
     final scrollPosition = _scroll!.position;
-    final contextEyeline = math.max(
-      _headerObstruction,
-      topicContextEyeline(
-        viewportExtent: scrollPosition.viewportDimension,
-        scrollOffset: scrollPosition.pixels,
-        maxScrollExtent: scrollPosition.maxScrollExtent,
-        postStreamBottom: snapshot.hasMore || snapshot.postIds.isEmpty
-            ? null
-            : _postViewportBounds(snapshot.postIds.last)?.bottom,
-        hasMore: snapshot.hasMore,
-      ),
+    final contextEyeline = topicContextEyeline(
+      viewportExtent: scrollPosition.viewportDimension,
+      scrollOffset: scrollPosition.pixels,
+      maxScrollExtent: scrollPosition.maxScrollExtent,
+      postStreamBottom: snapshot.hasMore || snapshot.postIds.isEmpty
+          ? null
+          : _postViewportBounds(snapshot.postIds.last)?.bottom,
+      hasMore: snapshot.hasMore,
     );
     TopicViewportSeenPost? contextPost;
     for (var childIndex = range.$1; childIndex <= range.$2; childIndex++) {
@@ -1701,7 +1696,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
   Widget _buildFloatingDayOverlay(EdgeInsets readingLanePadding) => Positioned(
     left: readingLanePadding.left,
     right: readingLanePadding.right,
-    top: _headerObstruction,
+    top: 0,
     child: ListenableBuilder(
       listenable: _viewportState.floatingDayOverlayListenable,
       builder: (context, child) {
@@ -2224,8 +2219,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
       );
     }
 
-    Widget buildBody(List<Widget> openingSlivers, double pinnedExtent) {
-      _headerObstruction = pinnedExtent;
+    Widget buildBody(List<Widget> openingSlivers) {
       return Stack(
         children: [
           Positioned.fill(
@@ -2242,7 +2236,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
                       Positioned.fill(child: buildPostStream(openingSlivers)),
                       _buildFloatingDayOverlay(readingLane.padding),
                       Positioned(
-                        top: pinnedExtent,
+                        top: 0,
                         left: 0,
                         right: 0,
                         child: ListenableBuilder(
@@ -2334,7 +2328,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
                           ? null
                           : () => _toggleSidebar(canPinSidebar: canPinSidebar),
                     ),
-                    Expanded(child: buildBody(const [], 0)),
+                    Expanded(child: buildBody(const [])),
                   ],
                 ),
         ),

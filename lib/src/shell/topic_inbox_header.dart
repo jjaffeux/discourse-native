@@ -3,9 +3,7 @@ import 'dart:math' as math;
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart';
 
-import '../foundation/frame_safe_notifier.dart';
 import '../models/content_route.dart';
 import '../models/post.dart';
 import '../models/topic.dart';
@@ -31,9 +29,9 @@ import 'topic_presentation.dart';
 import 'topic_title.dart';
 import 'user_menu_button.dart';
 
-/// Fixed topic title and actions with taxonomy in the post viewport.
-/// [bodyBuilder] inserts the supplied slivers before the virtualized post list.
-class TopicInboxHeader extends StatefulWidget {
+/// Fixed topic title, actions and taxonomy above the post viewport.
+/// [bodyBuilder] inserts the activity sliver before the virtualized post list.
+class TopicInboxHeader extends StatelessWidget {
   const TopicInboxHeader({
     super.key,
     required this.title,
@@ -57,58 +55,14 @@ class TopicInboxHeader extends StatefulWidget {
   final TopicDetail? topic;
   final ScrollController? scrollController;
   final bool hasEarlierPosts;
-  final Widget Function(List<Widget> openingSlivers, double pinnedExtent)?
-  bodyBuilder;
-
-  @override
-  State<TopicInboxHeader> createState() => _TopicInboxHeaderState();
-}
-
-class _TopicInboxHeaderState extends State<TopicInboxHeader> {
-  final _taxonomyKey = GlobalKey();
-  final _pinnedExtent = FrameSafeValueNotifier(0.0);
-  bool _updateScheduled = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _updateAfterLayout();
-  }
-
-  @override
-  void didUpdateWidget(TopicInboxHeader oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    _updateAfterLayout();
-  }
-
-  void _updateAfterLayout() {
-    if (_updateScheduled) return;
-    _updateScheduled = true;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _updateScheduled = false;
-      if (mounted) _updatePinnedExtent();
-    });
-  }
-
-  void _updatePinnedExtent() {
-    final taxonomy = _taxonomyKey.currentContext?.findRenderObject();
-    if (taxonomy is RenderSliver) {
-      _pinnedExtent.value = taxonomy.geometry?.maxScrollObstructionExtent ?? 0;
-    }
-  }
-
-  @override
-  void dispose() {
-    _pinnedExtent.dispose();
-    super.dispose();
-  }
+  final Widget Function(List<Widget> openingSlivers)? bodyBuilder;
 
   @override
   Widget build(BuildContext context) {
-    final topic = widget.topic;
-    final siteUrl = widget.siteUrl;
+    final topic = this.topic;
+    final siteUrl = this.siteUrl;
     final hasTopic = topic != null && siteUrl != null;
-    final showActivity = hasTopic && !widget.hasEarlierPosts;
+    final showActivity = hasTopic && !hasEarlierPosts;
     final taxonomy = hasTopic
         ? ColoredBox(
             color: Theme.of(context).shell.content,
@@ -118,8 +72,8 @@ class _TopicInboxHeaderState extends State<TopicInboxHeader> {
                 child: _TopicHeaderTaxonomy(
                   siteUrl: siteUrl,
                   topic: topic,
-                  keepTopicListOpen: widget.keepTopicListOpen,
-                  registry: widget.registry,
+                  keepTopicListOpen: keepTopicListOpen,
+                  registry: registry,
                 ),
               ),
             ),
@@ -133,8 +87,8 @@ class _TopicInboxHeaderState extends State<TopicInboxHeader> {
             ),
           )
         : const SizedBox.shrink();
-    final toolbar = _TopicHeaderToolbar(header: widget);
-    final bodyBuilder = widget.bodyBuilder;
+    final toolbar = _TopicHeaderToolbar(header: this);
+    final bodyBuilder = this.bodyBuilder;
     if (bodyBuilder == null) {
       return Column(
         mainAxisSize: MainAxisSize.min,
@@ -145,30 +99,13 @@ class _TopicInboxHeaderState extends State<TopicInboxHeader> {
     return Column(
       children: [
         toolbar,
+        taxonomy,
         Expanded(
-          child: NotificationListener<ScrollMetricsNotification>(
-            onNotification: (_) {
-              _updateAfterLayout();
-              return false;
-            },
-            child: ValueListenableBuilder<double>(
-              valueListenable: _pinnedExtent,
-              builder: (context, pinnedExtent, _) => bodyBuilder([
-                SliverLayoutBuilder(
-                  builder: (context, constraints) {
-                    _updateAfterLayout();
-                    return PinnedHeaderSliver(
-                      key: _taxonomyKey,
-                      child: taxonomy,
-                    );
-                  },
-                ),
-                SliverToBoxAdapter(
-                  child: showActivity ? activity : const SizedBox.shrink(),
-                ),
-              ], pinnedExtent),
+          child: bodyBuilder([
+            SliverToBoxAdapter(
+              child: showActivity ? activity : const SizedBox.shrink(),
             ),
-          ),
+          ]),
         ),
       ],
     );

@@ -9,7 +9,8 @@ Direction 02 is implemented in `lib/src/shell/topic_inbox_header.dart` and
 `lib/src/shell/topic_view.dart`. Following the 2026-09-13 review, a single 18px
 topic title stays in the toolbar from the top, replacing the category breadcrumb
 and duplicate opening title. Long titles wrap to at most three lines without
-changing size on scroll. The original category/tag controls pin beneath it.
+changing size on scroll. The original category/tag controls stay fixed beneath it,
+outside the post viewport, so the scrollbar starts below the complete header.
 Assignment and topic
 actions remain available throughout. The post viewport does not resize on
 scroll or reopen after a small upward gesture.
@@ -21,9 +22,20 @@ saves retain the draft. A save triggered by leaving the field preserves focus
 on the next control. No Native component API was added or changed.
 
 The post stream retains its virtualized list controller, measured heights and
-post identities. Pinned controls are accounted for in reading progress,
-indexed jumps and floating dates. The offline native fixture is
+post identities. Reading progress, indexed jumps and floating dates use the
+viewport below the fixed header. The offline native fixture is
 `tool/topic_header_handoff_review_main.dart`.
+
+The 2026-09-16 scrollbar follow-up moves taxonomy out of the scrolling slivers
+and removes the pinned-header measurement and obstruction offsets. The regression
+checks viewport and scrollbar bounds, fixed header geometry, wheel events over
+the header, and scrollbar dragging. Static analysis and the debug macOS build
+passed; 204 tests passed across the inbox, day separator, visible context and
+topic reading suites. Four topic reading failures (list pull/refetch, action
+hover, summarized replies and hidden replies) also reproduce on unchanged
+`ec9ec0c0`. Font-loaded fixture renders were inspected in dark desktop and light
+390px/200% text layouts. Native interaction review was unavailable because the
+shared desktop was in use by another task.
 
 Validation on 2026-09-12: clean `dart analyze`, successful debug macOS build,
 and 165 passing focused header, title, viewport, lifecycle, date and
