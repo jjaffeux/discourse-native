@@ -625,6 +625,47 @@ void main() {
     expect(find.text('(edited)'), findsOneWidget);
   });
 
+  for (final width in [240.0, 720.0]) {
+    for (final direction in TextDirection.values) {
+      testWidgets(
+        'pending DM keeps its bubble size after confirmation at $width in $direction',
+        (tester) async {
+          final controller = await _controller(
+            const ChatMessage(
+              id: 7,
+              channelId: 9,
+              stagedId: 'pending-7',
+              cooked: '',
+              author: ChatMessageAuthor(id: 1, username: 'user1'),
+              optimisticRaw: 'azdz adzaldzlkjzalk',
+              canonicalReceived: false,
+              delivery: ChatMessageDelivery.sending,
+            ),
+          );
+          await tester.pumpWidget(
+            _tile(
+              controller,
+              width: width,
+              direction: direction,
+              theme: AppTheme.dark.copyWith(platform: TargetPlatform.macOS),
+            ),
+          );
+          await tester.pumpAndSettle();
+          final pending = tester.getRect(find.byType(DBubbleContent));
+          controller.chatRecords.put(
+            _site,
+            _message(cooked: '<p>azdz adzaldzlkjzalk</p>'),
+          );
+          await tester.pumpAndSettle();
+          final confirmed = tester.getRect(find.byType(DBubbleContent));
+          expect(confirmed.width, closeTo(pending.width, .01));
+          expect(confirmed.height, closeTo(pending.height, .01));
+          expect(confirmed.right, closeTo(pending.right, .01));
+        },
+      );
+    }
+  }
+
   for (final projected in [false, true]) {
     testWidgets(
       'pending ${projected ? 'preview' : 'fallback'} becomes canonical without changing sides',
