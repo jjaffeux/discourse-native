@@ -1,5 +1,6 @@
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/diagnostics/diagnostics.dart';
+import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/plugin_api/plugin_scope.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel_view.dart';
@@ -16,11 +17,16 @@ import 'fakes.dart';
 
 const chatScrollSite = 'https://scroll.example';
 
-Future<ShellController> chatScrollController({int count = 500}) async {
+Future<ShellController> chatScrollController({
+  int count = 500,
+  bool directMessage = false,
+  bool group = false,
+}) async {
   final controller = ShellController(
     plugins: installedPlugins,
     instanceStore: FakeInstanceStore([instance('scroll.example')]),
     api: FakeDiscourseApi(
+      user: const DiscourseUser(id: 1, username: 'reader1'),
       chatMessagesByKey: {
         '9': (
           messages: [
@@ -66,7 +72,10 @@ Future<ShellController> chatScrollController({int count = 500}) async {
     ChatChannel(
       id: 9,
       title: 'Scroll profiling',
-      kind: ChatChannelKind.category,
+      kind: directMessage
+          ? ChatChannelKind.directMessage
+          : ChatChannelKind.category,
+      isGroup: group,
       membership: ChatMembership(following: true, lastReadMessageId: count),
     ),
   );
