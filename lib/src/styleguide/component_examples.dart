@@ -47,6 +47,7 @@ import 'examples/notification_level_menu_examples.dart';
 import 'examples/pagination_examples.dart';
 import 'examples/popover_examples.dart';
 import 'examples/progress_examples.dart';
+import 'examples/pull_to_refresh_examples.dart';
 import 'examples/questionnaire_examples.dart';
 import 'examples/radio_group_examples.dart';
 import 'examples/resizable_examples.dart';
@@ -72,6 +73,7 @@ import 'styleguide_example.dart';
 
 /// Each component task replaces its baseline or adds its own example file.
 final componentExamples = <String, ComponentExamples>{
+  'pull-to-refresh': pullToRefreshExamples,
   'mermaid': mermaidExamples,
   'image-preview': imagePreviewExamples,
   'message-inbox-menu': messageInboxMenuExamples,

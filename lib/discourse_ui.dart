@@ -54,6 +54,7 @@ export 'src/ui/components/d_notification_level_menu.dart';
 export 'src/ui/components/d_pagination.dart';
 export 'src/ui/components/d_popover.dart';
 export 'src/ui/components/d_progress.dart';
+export 'src/ui/components/d_pull_to_refresh.dart';
 export 'src/ui/components/d_questionnaire.dart';
 export 'src/ui/components/d_radio_group.dart';
 export 'src/ui/components/d_resizable.dart';

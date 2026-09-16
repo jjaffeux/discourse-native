@@ -549,7 +549,19 @@ class _TopicListViewState extends State<TopicListView> {
             onTap: () => _showIncoming(controller, destination, feedIdentity),
           ),
         if (widget.showHeader) const TopicListHeader(),
-        Expanded(child: _body(controller, destination, feedIdentity)),
+        Expanded(
+          child: DPullToRefresh(
+            key: ValueKey(('topic-list-refresh', controller, feedIdentity)),
+            onRefresh: () async {
+              if (!identical(_controller, controller) ||
+                  !_isCurrent(controller, feedIdentity)) {
+                return;
+              }
+              await controller.loadFeed(destination, force: true);
+            },
+            child: _body(controller, destination, feedIdentity),
+          ),
+        ),
       ],
     );
   }
@@ -560,6 +572,7 @@ class _TopicListViewState extends State<TopicListView> {
     _TopicListIdentity feedIdentity,
   ) {
     final feed = widget.feed;
+    _syncControllers(feedIdentity);
 
     if (feed.loading && feed.topicIds.isEmpty) {
       return ContentReadingLaneBox(
@@ -584,7 +597,6 @@ class _TopicListViewState extends State<TopicListView> {
       );
     }
     if (feed.isEmpty && feed.hasMore) {
-      _syncControllers(feedIdentity);
       _scheduleLoadMore(controller, destination, feedIdentity, feed);
       // A filtered page can be empty while later pages still contain replies.
       return _TopicListLoadingSkeleton(destination: destination);
@@ -600,7 +612,6 @@ class _TopicListViewState extends State<TopicListView> {
       );
     }
 
-    _syncControllers(feedIdentity);
     _restore(controller, destination, feedIdentity);
     if (_recording) {
       _recordScrollEvent('topicList.view.built', {
@@ -707,6 +718,7 @@ class _TopicListViewState extends State<TopicListView> {
                         // scrollable has to be a new one rather than re-attached
                         // to a different controller.
                         key: ValueKey(feedIdentity),
+                        physics: const AlwaysScrollableScrollPhysics(),
                         controller: _scroll,
                         listController: _list,
                         // During a fast fling, build the visible rows first. The
@@ -1668,28 +1680,37 @@ class _Message extends StatelessWidget {
   final VoidCallback? onAction;
 
   @override
-  Widget build(BuildContext context) => Center(
-    child: SingleChildScrollView(
-      child: DEmpty(
-        children: [
-          DEmptyHeader(
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, constraints) => SingleChildScrollView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      child: ConstrainedBox(
+        constraints: BoxConstraints(minHeight: constraints.maxHeight),
+        child: Center(
+          child: DEmpty(
             children: [
-              DEmptyMedia(variant: DEmptyMediaVariant.icon, child: DIcon(icon)),
-              DEmptyTitle(text),
+              DEmptyHeader(
+                children: [
+                  DEmptyMedia(
+                    variant: DEmptyMediaVariant.icon,
+                    child: DIcon(icon),
+                  ),
+                  DEmptyTitle(text),
+                ],
+              ),
+              if (actionLabel case final label?)
+                DEmptyContent(
+                  children: [
+                    DButton(
+                      key: const ValueKey('topic-feed-initial-retry'),
+                      label: Text(label),
+                      onPressed: onAction,
+                      variant: DButtonVariant.link,
+                    ),
+                  ],
+                ),
             ],
           ),
-          if (actionLabel case final label?)
-            DEmptyContent(
-              children: [
-                DButton(
-                  key: const ValueKey('topic-feed-initial-retry'),
-                  label: Text(label),
-                  onPressed: onAction,
-                  variant: DButtonVariant.link,
-                ),
-              ],
-            ),
-        ],
+        ),
       ),
     ),
   );
