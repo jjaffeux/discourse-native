@@ -137,25 +137,3 @@ close and minimize controls remain available. The isolated review app was closed
 Linux builds and live Linux/physical mobile checks were not run on this macOS
 host. Widget tests with platform overrides are not device verification. The
 focused suite is used instead of the entire repository test suite.
-## Closing motion
-
-The header close action lets Native Resizable fade and collapse the dock in
-160ms before retiring its editor. The closing editor retains its layout size,
-cannot receive input, and remains available for draft persistence. A failed
-save restores the retained editor. Reduced motion skips the animation. Topic
-sheets narrow alongside a closing side composer; closing the topic itself keeps
-the reader mounted through the sheet's 200ms exit before navigating back.
-
-Verified on 2026-09-16 with 166 focused widget tests covering both transitions,
-Native Resizable and Sheet, draft close/discard safety, editor retention,
-replacement during exit, reduced motion, and downstream resizable consumers.
-The macOS local-data composer fixture was built and launched with an isolated
-bundle identity. Native checks covered right, bottom and minimized composer
-close, topic close buttons and Escape, light/dark palettes, and normal/narrow
-windows. The Resizable styleguide's close example was also exercised. Timing
-and intermediate geometry were checked with the widget test clock; native
-checks verified rendering and completed interactions. The final textarea
-example uses a bounded three-line input, verified across themes and large text
-in widget tests. iOS behavior was exercised through widget platform overrides,
-not an iOS device. Analysis and builds used the installed Flutter 3.47.4 SDK;
-the repository's 3.47.2 pin and dependency lockfile were not changed.

@@ -22,15 +22,6 @@ Radius evidence: official https://ui.shadcn.com/docs/theming uses
 
 ## Public API and constraint policy
 
-The native `closingPanel` option releases a panel and its adjoining divider over
-160ms with an eased collapse and fade. The closing content keeps its original
-layout size, so editors do not reflow during exit. Its neighbor receives the
-space; the group also accommodates a shrinking outer sheet. Resizing and layout
-reports pause during closing. `onPanelClosed` runs once after the final frame;
-the caller then removes the panel. Clearing `closingPanel` cancels the exit and
-restores the configured layout. Reduced motion completes without a timed wait.
-The **Closing a panel** styleguide example demonstrates this lifecycle.
-
 `DResizablePanelGroup`, `DResizablePanel`, `DResizableHandle`,
 `DResizableController`, `DResizableSize`, and `DResizablePanelSize` are exported
 from `discourse_ui.dart`. The component has one rendering/interaction owner in
