@@ -248,6 +248,18 @@ void main() {
             .height,
         greaterThan(shellHeaderHeight),
       );
+      final toolbarTop = tester
+          .getTopLeft(find.byKey(const ValueKey('topic-content-header')))
+          .dy;
+      for (final action in [
+        find.byKey(const ValueKey('topic-status-button')),
+        find.byType(TopicShareButton),
+      ]) {
+        expect(
+          tester.getCenter(action).dy,
+          closeTo(toolbarTop + 4 + DSpacing.touchTarget / 2, 1),
+        );
+      }
       final controls = [
         for (final finder in [
           find.byKey(const ValueKey('topic-close-reader')),
@@ -998,7 +1010,10 @@ void main() {
         for (final key in ['topic-status-button']) {
           expect(
             tester.getCenter(find.byKey(ValueKey(key))).dy,
-            closeTo(tester.getCenter(title).dy, 1),
+            closeTo(
+              tester.getRect(header).top + 4 + DSpacing.touchTarget / 2,
+              1,
+            ),
           );
         }
         expect(
