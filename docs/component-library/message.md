@@ -24,6 +24,14 @@ Frozen on 2026-09-08 from `https://ui.shadcn.com/docs/components/base/message.md
 
 CSS pixels map to Flutter logical pixels at 100% with the captured 16px root. Typography keeps the host family while using explicit reference size, leading, weight and zero tracking. Colors come from live `DTokens`; Message itself paints no surface. It therefore updates immediately for light, dark, custom palette, font and radius changes through its composed owners.
 
+`DMessageSurface` optionally wraps a complete message and its outer padding with
+an immediate hover background using the live foreground token at 3% opacity.
+It tracks pointer entry/exit by default; callers can supply `hovered` to reuse
+their existing hover owner. Chat does this to keep the highlight synchronized
+with its actions, scrolling suppression, and open menus. The surface adds no
+click action or focus target. The **Message hover** styleguide example shows
+adjacent rows with this native adaptation.
+
 `DMessage` is deliberately presentational. It does not assign a chat/article role or merge descendants. Callers may add a semantic label or whole-row live region only when that accurately describes the entire changing row. `DMessageStatus` supplies localizable pending, delivered, read, failed and deleted presentation; delivery and retry work remain caller-owned.
 
 Bubble owns its own maximum width and internal alignment in Flutter. Callers use matching `DMessageAlign.end` and `DBubbleAlign.end`; this preserves a clear dependency boundary instead of Message reconstructing Bubble. `DMessageContent` automatically aligns other content-sized children. `flushMetadata`, content spacing/alignment, avatar alignment, minimum extent and footer shift are narrow application-adapter extensions. Their defaults exactly follow base-nova.
