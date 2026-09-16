@@ -5,6 +5,7 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../models/chat_channel_list_preferences.dart';
 import '../../models/content_route.dart';
 import '../../models/sidebar.dart';
 import '../../plugin_api/plugin_scope.dart';
@@ -19,6 +20,7 @@ import '../../theme/app_theme.dart';
 import '../../theme/d_icons.dart';
 import 'chat_channel.dart';
 import 'chat_channel_actions.dart';
+import 'chat_channel_list_actions.dart';
 import 'chat_controller.dart';
 import 'chat_drawer_preferences_store.dart';
 import 'chat_new_direct_message.dart';
@@ -964,17 +966,24 @@ class ChatDrawerChannelsView extends StatelessWidget {
     return ListenableBuilder(
       listenable: chat,
       builder: (context, _) {
-        final channels = switch (kind) {
-          ChatDrawerChannelListKind.channels =>
-            chat.activitySortedPublicChannels(siteUrl),
-          ChatDrawerChannelListKind.starred =>
-            chat.activitySortedStarredChannels(siteUrl),
+        final section = switch (kind) {
+          ChatDrawerChannelListKind.channels => ChatChannelListSection.channels,
+          ChatDrawerChannelListKind.starred => ChatChannelListSection.starred,
           ChatDrawerChannelListKind.directMessages =>
-            chat
-                .activitySortedDirectChannels(siteUrl)
-                .take(50)
-                .toList(growable: false),
+            ChatChannelListSection.directMessages,
         };
+        final channels = chat.channelList(
+          siteUrl,
+          section,
+          sidebar: false,
+          activeChannelId: shell.visibleChannelId,
+        );
+        final filtered =
+            !chat.channelListPreferences.bypassed(siteUrl, section) &&
+            chat.channelListPreferences
+                    .preferencesFor(siteUrl)
+                    .filterFor(section) !=
+                ChatChannelListFilter.all;
         final action = switch (kind) {
           ChatDrawerChannelListKind.channels
               when chat
@@ -1046,6 +1055,11 @@ class ChatDrawerChannelsView extends StatelessWidget {
                         ],
                       ),
                     ),
+                    ChatChannelListActions(
+                      controller: chat.channelListPreferences,
+                      siteUrl: siteUrl,
+                      section: section,
+                    ),
                     if (action != null) ...[const SizedBox(width: 8), action],
                   ],
                 ),
@@ -1056,14 +1070,19 @@ class ChatDrawerChannelsView extends StatelessWidget {
                   ? Center(
                       child: Padding(
                         padding: const EdgeInsets.all(24),
-                        child: Text(switch (kind) {
-                          ChatDrawerChannelListKind.channels =>
-                            'You have not joined any channels yet.',
-                          ChatDrawerChannelListKind.starred =>
-                            'You have no starred channels.',
-                          ChatDrawerChannelListKind.directMessages =>
-                            'You have no direct messages yet.',
-                        }, textAlign: TextAlign.center),
+                        child: Text(
+                          filtered
+                              ? 'No channels match this filter.'
+                              : switch (kind) {
+                                  ChatDrawerChannelListKind.channels =>
+                                    'You have not joined any channels yet.',
+                                  ChatDrawerChannelListKind.starred =>
+                                    'You have no starred channels.',
+                                  ChatDrawerChannelListKind.directMessages =>
+                                    'You have no direct messages yet.',
+                                },
+                          textAlign: TextAlign.center,
+                        ),
                       ),
                     )
                   : ListView.builder(

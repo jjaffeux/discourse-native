@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 
 import 'bookmark.dart';
+import 'chat_channel_list_preferences.dart';
 import 'json.dart';
 
 enum PreferenceSection { profile, notifications, tracking, interface, chat }
@@ -39,6 +40,7 @@ final class UserPreferences {
     this.bookmarkAutoDeletePreference =
         BookmarkAutoDeletePreference.clearReminder,
     this.chatSeparateSidebarMode = ChatSeparateSidebarPreference.siteDefault,
+    this.channelListPreferences = const ChatChannelListPreferences(),
     this.canEdit = false,
     this.canChangeTrackingPreferences = false,
   });
@@ -89,6 +91,10 @@ final class UserPreferences {
         options['chat_separate_sidebar_mode'],
         fallback.chatSeparateSidebarMode,
       ),
+      channelListPreferences: ChatChannelListPreferences.read(
+        options,
+        fallback: fallback.channelListPreferences,
+      ),
       canEdit: _boolean(json, 'can_edit', fallback.canEdit),
       canChangeTrackingPreferences: _boolean(
         json,
@@ -125,6 +131,8 @@ final class UserPreferences {
 
   final BookmarkAutoDeletePreference bookmarkAutoDeletePreference;
   final ChatSeparateSidebarPreference chatSeparateSidebarMode;
+
+  final ChatChannelListPreferences channelListPreferences;
 
   final bool canEdit;
   final bool canChangeTrackingPreferences;
@@ -182,6 +190,7 @@ final class UserPreferences {
     int? notificationLevelWhenReplying,
     BookmarkAutoDeletePreference? bookmarkAutoDeletePreference,
     ChatSeparateSidebarPreference? chatSeparateSidebarMode,
+    ChatChannelListPreferences? channelListPreferences,
     bool? canEdit,
     bool? canChangeTrackingPreferences,
   }) => UserPreferences(
@@ -200,6 +209,8 @@ final class UserPreferences {
         bookmarkAutoDeletePreference ?? this.bookmarkAutoDeletePreference,
     chatSeparateSidebarMode:
         chatSeparateSidebarMode ?? this.chatSeparateSidebarMode,
+    channelListPreferences:
+        channelListPreferences ?? this.channelListPreferences,
     canEdit: canEdit ?? this.canEdit,
     canChangeTrackingPreferences:
         canChangeTrackingPreferences ?? this.canChangeTrackingPreferences,
@@ -219,6 +230,7 @@ final class UserPreferences {
               notificationLevelWhenReplying &&
           other.bookmarkAutoDeletePreference == bookmarkAutoDeletePreference &&
           other.chatSeparateSidebarMode == chatSeparateSidebarMode &&
+          other.channelListPreferences == channelListPreferences &&
           other.canEdit == canEdit &&
           other.canChangeTrackingPreferences == canChangeTrackingPreferences;
 
@@ -233,6 +245,7 @@ final class UserPreferences {
     notificationLevelWhenReplying,
     bookmarkAutoDeletePreference,
     chatSeparateSidebarMode,
+    channelListPreferences,
     canEdit,
     canChangeTrackingPreferences,
   );

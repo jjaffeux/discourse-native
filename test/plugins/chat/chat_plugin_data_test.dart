@@ -1,3 +1,4 @@
+import 'package:discourse_native/src/models/chat_channel_list_preferences.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/plugin_api/discourse_model_codec.dart';
@@ -11,6 +12,35 @@ import 'package:flutter_test/flutter_test.dart';
 const _registry = PluginRegistry([ChatPlugin()]);
 
 void main() {
+  test(
+    'channel-list options survive warm storage without inventing server capabilities',
+    () {
+      final options = {
+        'chat_channel_list_filter': 'active',
+        'chat_channel_list_filter_starred': 'mentions',
+        'chat_channel_list_filter_dms': 'unread',
+        'chat_channel_list_sort': 'recent_activity',
+        'chat_channel_list_sort_starred': 'alphabetical',
+        'chat_channel_list_sort_dms': 'priority',
+      };
+      final value = ChatCurrentUser.fromCurrentUser({'user_option': options});
+      final restored = ChatCurrentUser.fromStored(
+        Map<String, dynamic>.from(value.toStored()),
+      );
+      expect(restored, value);
+      expect(restored.hashCode, value.hashCode);
+      expect(restored.channelListPreferences.wireValues, options);
+      final legacy = ChatCurrentUser.fromStored(const {});
+      for (final section in ChatChannelListSection.values) {
+        expect(legacy.channelListPreferences.supportsSection(section), isFalse);
+      }
+      expect(
+        value.withChannelListPreferences(const ChatChannelListPreferences()),
+        isNot(value),
+      );
+    },
+  );
+
   group('Chat wire decoding', () {
     test('decodes site-settings keys into typed data', () {
       final config = SiteConfig.fromSettings(const {

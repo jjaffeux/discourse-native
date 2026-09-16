@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:html/dom.dart' as dom;
 
 import '../../app_shortcuts.dart';
+import '../../models/chat_channel_list_preferences.dart';
 import '../../models/composer_upload.dart';
 import '../../models/content_route.dart';
 import '../../models/forum_workspace.dart';
@@ -20,6 +21,7 @@ import 'chat_browse_channels_view.dart';
 import 'chat_channel.dart';
 import 'chat_channel_actions.dart';
 import 'chat_channel_info_view.dart';
+import 'chat_channel_list_actions.dart';
 import 'chat_channel_star_button.dart';
 import 'chat_channel_threads_view.dart';
 import 'chat_channel_view.dart';
@@ -249,9 +251,31 @@ class ChatPlugin
     if (siteUrl == null) return const [];
     final chat = PluginUiScope.require(context, chatControllerService);
 
-    final starred = chat.starredChannels(siteUrl);
-    final public = chat.unstarredPublicChannels(siteUrl);
-    final direct = chat.unstarredDirectChannels(siteUrl);
+    final starred = chat.channelList(
+      siteUrl,
+      ChatChannelListSection.starred,
+      activeChannelId: shell.visibleChannelId,
+    );
+    final public = chat.channelList(
+      siteUrl,
+      ChatChannelListSection.channels,
+      activeChannelId: shell.visibleChannelId,
+    );
+    final direct = chat.channelList(
+      siteUrl,
+      ChatChannelListSection.directMessages,
+      activeChannelId: shell.visibleChannelId,
+    );
+    Widget actions(ChatChannelListSection section) => ChatChannelListActions(
+      controller: chat.channelListPreferences,
+      siteUrl: siteUrl,
+      section: section,
+      showFilterToggle: switch (section) {
+        ChatChannelListSection.channels => public.isEmpty,
+        ChatChannelListSection.starred => starred.isEmpty,
+        ChatChannelListSection.directMessages => direct.isEmpty,
+      },
+    );
     final settings = chat.siteConfigFor(siteUrl).chatSettings;
     final chatAvailable = shell.chatAvailable(siteUrl);
     final authenticatedChatAvailable =
@@ -292,10 +316,12 @@ class ChatPlugin
           collapsible: false,
           destinations: navigationDestinations,
         ),
-      if (authenticatedChatAvailable && starred.isNotEmpty)
+      if (authenticatedChatAvailable &&
+          chat.starredChannels(siteUrl).isNotEmpty)
         SidebarSection(
           id: 'chat-starred-channels',
           title: 'Starred channels',
+          headerActionsBuilder: (_) => actions(ChatChannelListSection.starred),
           destinations: [
             for (final channel in starred)
               destination(
@@ -305,10 +331,12 @@ class ChatPlugin
               ),
           ],
         ),
-      if (publicChannelsEnabled && public.isNotEmpty)
+      if (publicChannelsEnabled &&
+          chat.unstarredPublicChannels(siteUrl).isNotEmpty)
         SidebarSection(
           id: 'chat',
           title: 'Chat',
+          headerActionsBuilder: (_) => actions(ChatChannelListSection.channels),
           destinations: [
             for (final channel in public)
               destination(
@@ -320,10 +348,13 @@ class ChatPlugin
         ),
       if (authenticatedChatAvailable &&
           chat.channelsLoaded(siteUrl) &&
-          (direct.isNotEmpty || canCreateDirectMessage))
+          (chat.unstarredDirectChannels(siteUrl).isNotEmpty ||
+              canCreateDirectMessage))
         SidebarSection(
           id: 'direct-messages',
           title: 'Direct messages',
+          headerActionsBuilder: (_) =>
+              actions(ChatChannelListSection.directMessages),
           actionIcon: canCreateDirectMessage ? DIcons.plus : null,
           actionLabel: canCreateDirectMessage ? 'Start a direct message' : null,
           actionShortcut: canCreateDirectMessage

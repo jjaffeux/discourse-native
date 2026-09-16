@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 
+import '../../models/chat_channel_list_preferences.dart';
 import '../../models/discourse_user.dart';
 import '../../models/json.dart';
 import '../../models/site_config.dart';
@@ -213,6 +214,7 @@ final class ChatCurrentUser {
     this.separateSidebarMode = ChatSeparateSidebarMode.siteDefault,
     this.lastChannelId,
     this.ignoredUsernames = const [],
+    this.channelListPreferences = const ChatChannelListPreferences(),
   });
 
   factory ChatCurrentUser.fromCurrentUser(Map<String, dynamic> json) {
@@ -230,6 +232,7 @@ final class ChatCurrentUser {
       ),
       lastChannelId: jsonIntOrNull(customFields['last_chat_channel_id']),
       ignoredUsernames: _usernames(json['ignored_users']),
+      channelListPreferences: ChatChannelListPreferences.read(userOption),
     );
   }
 
@@ -255,6 +258,9 @@ final class ChatCurrentUser {
         ),
         lastChannelId: jsonIntOrNull(json['lastChannelId']),
         ignoredUsernames: _usernames(json['ignoredUsernames']),
+        channelListPreferences: ChatChannelListPreferences.read(
+          jsonObjectFields(json['channelListPreferences']) ?? const {},
+        ),
       );
 
   final bool? hasChatEnabled;
@@ -265,6 +271,20 @@ final class ChatCurrentUser {
   final int? lastChannelId;
 
   final List<String> ignoredUsernames;
+  final ChatChannelListPreferences channelListPreferences;
+
+  ChatCurrentUser withChannelListPreferences(
+    ChatChannelListPreferences value,
+  ) => ChatCurrentUser(
+    hasChatEnabled: hasChatEnabled,
+    canChat: canChat,
+    canDirectMessage: canDirectMessage,
+    headerIndicatorPreference: headerIndicatorPreference,
+    separateSidebarMode: separateSidebarMode,
+    lastChannelId: lastChannelId,
+    ignoredUsernames: ignoredUsernames,
+    channelListPreferences: value,
+  );
 
   Map<String, Object?> toStored() => {
     'hasChatEnabled': hasChatEnabled,
@@ -274,6 +294,8 @@ final class ChatCurrentUser {
     'separateSidebarMode': separateSidebarMode.wireName,
     'lastChannelId': lastChannelId,
     'ignoredUsernames': ignoredUsernames,
+    if (channelListPreferences.wireValues.isNotEmpty)
+      'channelListPreferences': channelListPreferences.wireValues,
   };
 
   @override
@@ -284,6 +306,7 @@ final class ChatCurrentUser {
       other.canDirectMessage == canDirectMessage &&
       other.headerIndicatorPreference == headerIndicatorPreference &&
       other.separateSidebarMode == separateSidebarMode &&
+      other.channelListPreferences == channelListPreferences &&
       other.lastChannelId == lastChannelId &&
       listEquals(other.ignoredUsernames, ignoredUsernames);
 
@@ -296,6 +319,7 @@ final class ChatCurrentUser {
     separateSidebarMode,
     lastChannelId,
     Object.hashAll(ignoredUsernames),
+    channelListPreferences,
   );
 }
 
@@ -380,6 +404,8 @@ final class ChatCurrentUserPersistenceCodec
           decoded?.separateSidebarMode ?? ChatSeparateSidebarMode.siteDefault,
       lastChannelId: decoded?.lastChannelId,
       ignoredUsernames: _usernames(record['ignoredUsernames']),
+      channelListPreferences:
+          decoded?.channelListPreferences ?? const ChatChannelListPreferences(),
     );
   }
 

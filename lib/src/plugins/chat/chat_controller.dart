@@ -11,6 +11,7 @@ import '../../data/store.dart';
 import '../../diagnostics/diagnostics_controller.dart';
 import '../../foundation/frame_safe_notifier.dart';
 import '../../models/bookmark.dart';
+import '../../models/chat_channel_list_preferences.dart';
 import '../../models/composer_upload.dart';
 import '../../models/discourse_user.dart';
 import '../../models/json.dart';
@@ -20,6 +21,8 @@ import '../../plugin_api/core_plugin_host.dart';
 import '../../plugin_api/live_channels.dart';
 import 'chat_api.dart';
 import 'chat_channel.dart';
+import 'chat_channel_list.dart';
+import 'chat_channel_list_controller.dart';
 import 'chat_channel_refresh.dart';
 import 'chat_direct_message_search.dart';
 import 'chat_live_sync_coordinator.dart';
@@ -365,6 +368,7 @@ class ChatController extends FrameSafeNotifier {
     required this.api,
     required PluginRequestHost requests,
     required Store store,
+    PluginUserOptionsHost? userOptionsHost,
     DiscourseUser? Function(String siteUrl)? currentUserFor,
     SiteConfig Function(String siteUrl)? siteConfigFor,
     ChatPreviewEngine? previewEngine,
@@ -390,6 +394,11 @@ class ChatController extends FrameSafeNotifier {
        _siteConfigFor = siteConfigFor ?? _unknownSiteConfig,
        _previewEngine = previewEngine ?? ChatPreviewEngine(),
        _clock = clock ?? DateTime.now {
+    channelListPreferences = ChatChannelListController(
+      requests: requests,
+      currentUserFor: _currentUserFor,
+      host: userOptionsHost,
+    )..addListener(notifySafely);
     final sendHost = ChatSendCoordinatorHost(
       isDisposed: () => isDisposed,
       canSend: canSendMessageTo,
@@ -704,6 +713,54 @@ class ChatController extends FrameSafeNotifier {
   /// never sent after disconnect, disposal, or generation replacement.
   bool _requestIsCurrent(PluginSiteLease lease, bool Function() ownsRequest) =>
       !isDisposed && lease.isCurrent && ownsRequest();
+
+  late final ChatChannelListController channelListPreferences;
+
+  List<ChatChannel> channelList(
+    String siteUrl,
+    ChatChannelListSection section, {
+    bool sidebar = true,
+    int? activeChannelId,
+  }) {
+    final preferences = channelListPreferences.preferencesFor(siteUrl);
+    if (!preferences.supportsSection(section)) {
+      return switch ((section, sidebar)) {
+        (ChatChannelListSection.channels, true) => unstarredPublicChannels(
+          siteUrl,
+        ),
+        (ChatChannelListSection.channels, false) =>
+          activitySortedPublicChannels(siteUrl),
+        (ChatChannelListSection.starred, true) => starredChannels(siteUrl),
+        (ChatChannelListSection.starred, false) =>
+          activitySortedStarredChannels(siteUrl),
+        (ChatChannelListSection.directMessages, true) =>
+          unstarredDirectChannels(siteUrl),
+        (ChatChannelListSection.directMessages, false) =>
+          activitySortedDirectChannels(siteUrl).take(50).toList(),
+      };
+    }
+    final source = switch (section) {
+      ChatChannelListSection.channels => publicChannels(
+        siteUrl,
+      ).where((channel) => !sidebar || !channel.membership.starred),
+      ChatChannelListSection.starred => starredChannels(siteUrl),
+      ChatChannelListSection.directMessages => directChannels(
+        siteUrl,
+      ).where((channel) => !sidebar || !channel.membership.starred),
+    };
+    return projectChatChannelList(
+      source,
+      section: section,
+      filter: channelListPreferences.bypassed(siteUrl, section)
+          ? ChatChannelListFilter.all
+          : preferences.filterFor(section),
+      sort: preferences.sortFor(section),
+      now: _clock(),
+      activeChannelId: activeChannelId,
+      limit: section == ChatChannelListSection.directMessages ? 50 : null,
+      retainActiveAtLimit: sidebar,
+    );
+  }
 
   List<ChatChannel> publicChannels(String siteUrl) =>
       _resolve(siteUrl, _publicIds[siteUrl]);
@@ -5989,6 +6046,7 @@ class ChatController extends FrameSafeNotifier {
   }
 
   void forget(String siteUrl) {
+    channelListPreferences.forget(siteUrl);
     _channelRefreshes.remove(siteUrl);
     _liveSync.forget(siteUrl);
     _releaseMessagePinsForSite(siteUrl);
@@ -6100,6 +6158,7 @@ class ChatController extends FrameSafeNotifier {
 
   @override
   void dispose() {
+    channelListPreferences.dispose();
     _channelRefreshes.clear();
     _liveSync.dispose();
     for (final pins in _messagePins.values) {

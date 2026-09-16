@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:discourse_native/src/data/discourse_api.dart';
 import 'package:discourse_native/src/models/bookmark.dart';
+import 'package:discourse_native/src/models/chat_channel_list_preferences.dart';
 import 'package:discourse_native/src/models/composer_draft.dart';
 import 'package:discourse_native/src/models/composer_upload.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
@@ -67,6 +68,59 @@ MockClient discourseServing({
 
 void main() {
   group('user preferences', () {
+    test(
+      'sends each channel-list option alone through the existing user endpoint',
+      () async {
+        final sent = <http.Request>[];
+        final api = DiscourseApi(
+          client: MockClient((request) async {
+            sent.add(request);
+            return http.Response(
+              jsonEncode({'success': 'OK', 'user': <String, Object?>{}}),
+              200,
+            );
+          }),
+        );
+        final values = <String, String>{
+          for (final section in ChatChannelListSection.values) ...{
+            section.filterField: 'mentions',
+            section.sortField: 'recent_activity',
+          },
+        };
+        for (final entry in values.entries) {
+          final fallback = UserPreferences(
+            username: 'Reader',
+            channelListPreferences: ChatChannelListPreferences.read({
+              entry.key: entry.value,
+            }),
+          );
+          final result = await api.updateUserPreferences(
+            siteUrl: 'https://forum.example/community',
+            apiKey: 'key',
+            clientId: 'client',
+            username: 'Reader',
+            fallback: fallback,
+            values: {entry.key: entry.value},
+          );
+          expect(result, fallback);
+        }
+        expect(
+          sent.map((request) => (request.method, request.url.path)),
+          List.filled(6, ('PUT', '/community/u/reader.json')),
+        );
+        expect(sent.map((request) => jsonDecode(request.body)), [
+          for (final entry in values.entries) {entry.key: entry.value},
+        ]);
+        expect(sent.map((request) => request.headers['User-Api-Key']).toSet(), {
+          'key',
+        });
+        expect(
+          sent.map((request) => request.headers['User-Api-Client-Id']).toSet(),
+          {'client'},
+        );
+      },
+    );
+
     test('loads the full user serializer for the encoded username', () async {
       late http.Request sent;
       final api = DiscourseApi(

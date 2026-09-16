@@ -128,6 +128,7 @@ class SidebarSection {
     this.actionLabel,
     this.actionShortcut,
     this.onAction,
+    this.headerActionsBuilder,
   }) : assert(showHeader || !collapsible);
 
   /// Core's hidden `max_sidebar_section_links` setting is 50 and is enforced
@@ -206,4 +207,7 @@ class SidebarSection {
   final String? actionLabel;
   final SingleActivator? actionShortcut;
   final VoidCallback? onAction;
+
+  /// App-owned Native controls composed into the sidebar action slot.
+  final WidgetBuilder? headerActionsBuilder;
 }

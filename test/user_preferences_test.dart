@@ -1,8 +1,55 @@
 import 'package:discourse_native/src/models/bookmark.dart';
+import 'package:discourse_native/src/models/chat_channel_list_preferences.dart';
 import 'package:discourse_native/src/models/user_preferences.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test(
+    'channel-list wire values round trip independently and preserve absence',
+    () {
+      for (final section in ChatChannelListSection.values) {
+        for (final filter in ChatChannelListFilter.values) {
+          for (final sort in ChatChannelListSort.values) {
+            final fields = {
+              section.filterField: filter.wireValue,
+              section.sortField: sort.wireValue,
+            };
+            final value = UserPreferences.fromJson({'user_option': fields});
+            expect(value.channelListPreferences.wireValues, fields);
+            expect(value.channelListPreferences.filterFor(section), filter);
+            expect(value.channelListPreferences.sortFor(section), sort);
+            expect(UserPreferences.fromJson(const {}, fallback: value), value);
+            expect(value.copyWith().hashCode, value.hashCode);
+          }
+        }
+      }
+      final missing = UserPreferences.fromJson(const {});
+      expect(missing.channelListPreferences.wireValues, isEmpty);
+      final unknown = UserPreferences.fromJson({
+        'user_option': {
+          for (final section in ChatChannelListSection.values) ...{
+            section.filterField: ['invalid'],
+            section.sortField: 999,
+          },
+        },
+      }).channelListPreferences;
+      expect(unknown.wireValues, {
+        for (final section in ChatChannelListSection.values) ...{
+          section.filterField: 'all',
+          section.sortField: 'alphabetical',
+        },
+      });
+      expect(
+        UserPreferences.fromJson(
+          const {
+            'user_option': {'chat_channel_list_sort_dms': 'priority'},
+          },
+        ).channelListPreferences.sortFor(ChatChannelListSection.directMessages),
+        ChatChannelListSort.priority,
+      );
+    },
+  );
+
   test('reads identity, permissions, and nested user-option fields', () {
     final preferences = UserPreferences.fromJson(const {
       'username': 'sam',

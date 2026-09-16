@@ -1021,19 +1021,27 @@ class _SectionHeader extends StatelessWidget {
         ? DIcons.chevronLeft
         : DIcons.chevronRight;
     return DSidebarMenuItem(
-      action: section.onAction == null
-          ? null
-          : DTooltip(
-              message: section.actionLabel ?? section.title,
-              shortcut: section.actionShortcut == null
-                  ? null
-                  : DShortcut(section.actionShortcut!),
-              child: DSidebarMenuAction(
-                semanticLabel: section.actionLabel ?? section.title,
-                onPressed: section.onAction,
-                child: DIcon(section.actionIcon ?? DIcons.plus, size: 16),
-              ),
-            ),
+      action: section.headerActionsBuilder != null || section.onAction != null
+          ? Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (section.headerActionsBuilder != null)
+                  section.headerActionsBuilder!(context),
+                if (section.onAction != null)
+                  DTooltip(
+                    message: section.actionLabel ?? section.title,
+                    shortcut: section.actionShortcut == null
+                        ? null
+                        : DShortcut(section.actionShortcut!),
+                    child: DSidebarMenuAction(
+                      semanticLabel: section.actionLabel ?? section.title,
+                      onPressed: section.onAction,
+                      child: DIcon(section.actionIcon ?? DIcons.plus, size: 16),
+                    ),
+                  ),
+              ],
+            )
+          : null,
       child: section.collapsible
           ? DSidebarMenuButton(
               size: DSidebarMenuButtonSize.large,
