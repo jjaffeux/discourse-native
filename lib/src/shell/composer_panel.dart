@@ -36,6 +36,7 @@ import 'composer_media_editing_coordinator.dart';
 import 'composer_quotes.dart';
 import 'composer_reply_context.dart';
 import 'composer_suggestions.dart';
+import 'composer_table.dart';
 import 'composer_tag_removal_notice.dart';
 import 'composer_upload_attachment.dart';
 import 'composer_upload_picker.dart';
@@ -965,7 +966,15 @@ class _ComposerEditorState extends State<ComposerEditor> {
     });
   }
 
-  Widget _field() => MouseRegion(
+  Widget _field() => Semantics(
+    container: true,
+    explicitChildNodes: true,
+    label: 'Composer editor',
+    traversalParentIdentifier: widget.composer,
+    child: _textField(),
+  );
+
+  Widget _textField() => MouseRegion(
     onHover: (event) => _updateEditorHover(event.position),
     onExit: (_) => _updateEditorHover(null),
     child: Listener(
@@ -1163,6 +1172,10 @@ class _ComposerEditorState extends State<ComposerEditor> {
         _pointerDownQuote == null && image == null && gallery == null
         ? widget.composer.text.collapsedSyntaxAtGlobalPosition(position)
         : null;
+    if (_pointerDownSyntax?.projection is ComposerInteractiveSyntaxProjection) {
+      _clearPointerDownPill();
+      return;
+    }
     final hasDirectHit =
         _pointerDownQuote != null ||
         image != null ||
@@ -1315,6 +1328,9 @@ class _ComposerEditorState extends State<ComposerEditor> {
 
   Future<void> _editSyntax(ComposerSyntaxOccurrence syntax) async {
     if (!widget.composer.isEditing) return;
+    if (syntax.projection is ComposerInteractiveSyntaxProjection) {
+      _clearKeyboardPillSelection();
+    }
     final text = widget.composer.text;
     if (!_stillContains(text.text, syntax.start, syntax.end, syntax.source)) {
       return;
@@ -1354,6 +1370,8 @@ class _ComposerEditorState extends State<ComposerEditor> {
   }
 
   KeyEventResult _onEditorKeyEvent(FocusNode _, KeyEvent event) {
+    // Embedded cell editors own their selection, deletion and text shortcuts.
+    if (!widget.composer.focus.hasPrimaryFocus) return KeyEventResult.ignored;
     if (!widget.composer.isEditing) return KeyEventResult.ignored;
     final keyboard = HardwareKeyboard.instance;
     final isEnter =
@@ -2650,13 +2668,20 @@ class _Toolbar extends StatelessWidget {
               ),
             ),
           ),
-        if (actions.isNotEmpty)
+        if (!composer.target.isPlugin || actions.isNotEmpty)
           DDropdownMenu(
             content: DDropdownMenuContent(
               semanticLabel: 'Insert',
               side: DPopoverSide.top,
               width: 240,
               children: [
+                if (!composer.target.isPlugin)
+                  DDropdownMenuItem(
+                    onPressed: composer.isEditing
+                        ? () => insertComposerTable(composer)
+                        : null,
+                    child: const Text('Table'),
+                  ),
                 for (final action in actions)
                   DDropdownMenuItem(
                     onPressed: composer.isEditing ? action.onInvoke : null,

@@ -1,0 +1,135 @@
+import 'package:discourse_native/src/shell/composer_tables.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_test/flutter_test.dart';
+
+void main() {
+  ComposerTableBlock parse(String source) => parseComposerTables(source).single;
+
+  test(
+    'edits only the selected cell and retains offsets, whitespace and CRLF',
+    () {
+      const source =
+          'Before\r\n\r\n | Name | Cost | \r\n | :--- | ---: |\r\n | **Tea**  |  12 |\r\n\r\nAfter';
+      final table = parse(source);
+      expect(table.start, 10);
+      expect(table.columnCount, 2);
+      expect(table.rowCount, 1);
+      expect(table.cell(1, 0), '**Tea**');
+      expect(
+        source.replaceRange(table.start, table.end, table.editCell(1, 1, '30')),
+        source.replaceFirst('12', '30'),
+      );
+    },
+  );
+
+  test(
+    'escaped pipes and code cells survive column movement with alignment',
+    () {
+      final table = parse(
+        r'| A | B |'
+        '\n'
+        '| :--- | ---: |'
+        '\n'
+        r'| `a\|b` | **two** |',
+      );
+      expect(table.columnCount, 2);
+      final moved = parse(table.moveColumn(0, 1));
+      expect(moved.cell(0, 0), 'B');
+      expect(moved.cell(1, 1), r'`a\|b`');
+      expect(moved.source, contains('| ---: | :--- |'));
+      expect(parse(moved.moveColumn(1, 0)).source, table.source);
+    },
+  );
+
+  test(
+    'inserts and moves rows without moving the header or changing cell source',
+    () {
+      const source = '| A | B |\n| --- | --- |\n| **one** | 1 |\n| two | 2 |';
+      final moved = parse(parse(source).moveRow(1, 0));
+      expect(moved.cell(0, 0), 'A');
+      expect(moved.cell(1, 0), 'two');
+      expect(moved.cell(2, 0), '**one**');
+      final inserted = parse(moved.insertRow(1));
+      expect(inserted.rowCount, 3);
+      expect(inserted.cell(2, 0), '');
+      expect(inserted.cell(3, 0), '**one**');
+      expect(parse(inserted.removeRow(1)).source, moved.source);
+    },
+  );
+
+  test(
+    'inserts and removes columns across header, delimiter and every row',
+    () {
+      final table = parse('A | B\n:--- | ---:\nx | y');
+      final inserted = parse(table.insertColumn(1));
+      expect(inserted.columnCount, 3);
+      expect(inserted.cell(0, 1), '');
+      expect(inserted.cell(1, 2), 'y');
+      final removed = parse(inserted.removeColumn(0));
+      expect(removed.columnCount, 2);
+      expect(removed.cell(0, 1), 'B');
+      expect(removed.source, contains('---:'));
+      final only = parse(removed.removeColumn(0));
+      expect(only.removeColumn(0), only.source);
+    },
+  );
+
+  test(
+    'new cell pipes, newlines and trailing slashes remain a valid table',
+    () {
+      final table = parse('| A | B |\n| --- | --- |\n|  |  |');
+      final changed = parse(table.editCell(1, 0, 'one | two\nthree\\'));
+      expect(changed.columnCount, 2);
+      expect(changed.cell(1, 0), r'one \| two<br>three\\');
+      expect(changed.cell(1, 1), '');
+    },
+  );
+
+  test(
+    'leaves malformed, ragged, code, list, quote and HTML tables untouched',
+    () {
+      for (final source in [
+        '| A | B |\n| --- |\n| x | y |',
+        '| A | B |\n| --- | --- |\n| x | y | z |',
+        '```md\n| A | B |\n| --- | --- |\n| x | y |\n```',
+        '    | A | B |\n    | --- | --- |\n    | x | y |',
+        '> | A | B |\n> | --- | --- |\n> | x | y |',
+        '- A | B\n- --- | ---\n- x | y',
+        '<table><tr><td>A</td></tr></table>',
+      ]) {
+        expect(parseComposerTables(source), isEmpty, reason: source);
+      }
+    },
+  );
+
+  test('supports header-only, single-column and multiple tables', () {
+    expect(parse('| A |\n| --- |').rowCount, 0);
+    const source = '| A |\n| --- |\n\ntext\n\n| B |\n| --- |\n| x |';
+    expect(parseComposerTables(source).map((table) => table.rowCount), [0, 1]);
+  });
+
+  test(
+    'atomic formatter allows complete replacement but rejects partial edits',
+    () {
+      const source = 'Before\n\n| A | B |\n| --- | --- |\n| x | y |\n\nAfter';
+      final table = parse(source);
+      final old = TextEditingValue(
+        text: source,
+        selection: TextSelection(
+          baseOffset: table.start,
+          extentOffset: table.end,
+        ),
+      );
+      const formatter = ComposerTableInputFormatter();
+      final partial = TextEditingValue(text: source.replaceFirst('x', 'z'));
+      final caret = old.copyWith(
+        selection: TextSelection.collapsed(offset: table.end),
+      );
+      expect(formatter.formatEditUpdate(caret, partial), caret);
+      final deleted = TextEditingValue(
+        text: source.replaceRange(table.start, table.end, ''),
+      );
+      expect(formatter.formatEditUpdate(old, deleted), deleted);
+    },
+  );
+}

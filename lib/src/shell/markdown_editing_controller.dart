@@ -487,11 +487,29 @@ class MarkdownEditingController extends TextEditingController {
       for (final policy in syntaxPolicies)
         for (final projection in policy.parse(source))
           ComposerSyntaxOccurrence(policy, projection),
-    ]..sort((a, b) => a.start.compareTo(b.start));
+    ];
+    blocks.sort((a, b) {
+      final position = a.start.compareTo(b.start);
+      return position != 0 ? position : b.end.compareTo(a.end);
+    });
+    // An embedded editor owns the complete block, including links and other
+    // recognized syntax inside its cells. Do not expose those as separate
+    // keyboard or pointer targets behind the table.
+    int? interactiveEnd;
+    blocks.removeWhere((block) {
+      if (interactiveEnd != null && block.start < interactiveEnd!) return true;
+      interactiveEnd = block.projection is ComposerInteractiveSyntaxProjection
+          ? block.end
+          : null;
+      return false;
+    });
     final live = {for (final block in blocks) _syntaxKey(block): block};
     final held = {for (final block in _syntaxBlocks) _syntaxKey(block): block};
     _syntaxPillKeys.removeWhere(
-      (key, _) => !_sameProjection(held[key], live[key]),
+      (key, _) =>
+          !_sameProjection(held[key], live[key]) &&
+          !(held[key]?.projection is ComposerInteractiveSyntaxProjection &&
+              live[key]?.projection is ComposerInteractiveSyntaxProjection),
     );
     _syntaxScanned = source;
     return _syntaxBlocks = blocks;
@@ -1048,7 +1066,11 @@ class MarkdownEditingController extends TextEditingController {
           gallery.end,
           () => _buildGallerySpans(gallery, base, unresolvedImages),
         ),
-    ]..sort((a, b) => a.start.compareTo(b.start));
+    ];
+    projections.sort((a, b) {
+      final position = a.start.compareTo(b.start);
+      return position != 0 ? position : b.end.compareTo(a.end);
+    });
 
     var sourceOffset = 0;
     for (final projection in projections) {
