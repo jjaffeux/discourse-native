@@ -19,6 +19,9 @@ import 'd_table.dart';
 
 enum DDataTableSortDirection { ascending, descending }
 
+/// The default reference table or the softer presentation for authored content.
+enum DDataTableVariant { standard, softHeader }
+
 enum DDataTableOperationMode {
   /// Filtering, sorting and pagination are derived from the complete [DDataTable.data].
   local,
@@ -204,8 +207,8 @@ class DDataTableColumn<T> {
     this.maxWidth = 800,
     this.alignment = AlignmentDirectional.centerStart,
     this.headerAlignment = AlignmentDirectional.centerStart,
-    this.padding = const EdgeInsets.all(8),
-    this.headerPadding = const EdgeInsets.symmetric(horizontal: 8),
+    this._padding,
+    this._headerPadding,
   }) : assert(id != ''),
        assert(minWidth > 0),
        assert(maxWidth >= minWidth);
@@ -227,8 +230,14 @@ class DDataTableColumn<T> {
   final double maxWidth;
   final AlignmentGeometry alignment;
   final AlignmentGeometry headerAlignment;
-  final EdgeInsetsGeometry padding;
-  final EdgeInsetsGeometry headerPadding;
+  final EdgeInsetsGeometry? _padding;
+  final EdgeInsetsGeometry? _headerPadding;
+
+  /// Explicit cell spacing, or the standard variant's default when omitted.
+  /// Omitted spacing follows the table's variant when rendered.
+  EdgeInsetsGeometry get padding => _padding ?? const EdgeInsets.all(8);
+  EdgeInsetsGeometry get headerPadding =>
+      _headerPadding ?? const EdgeInsets.symmetric(horizontal: 8);
 
   bool get sortable => compare != null;
   bool get filterable => filter != null || filterText != null;
@@ -309,6 +318,7 @@ class DDataTable<T> extends StatefulWidget {
     required this.data,
     required this.columns,
     required this.rowId,
+    this.variant = DDataTableVariant.standard,
     this.controller,
     this.state,
     this.onStateChanged,
@@ -344,6 +354,7 @@ class DDataTable<T> extends StatefulWidget {
   final List<T> data;
   final List<DDataTableColumn<T>> columns;
   final DDataTableRowId<T> rowId;
+  final DDataTableVariant variant;
   final DDataTableController? controller;
   final DDataTableState? state;
   final ValueChanged<DDataTableState>? onStateChanged;
@@ -379,6 +390,7 @@ class DDataTable<T> extends StatefulWidget {
 }
 
 class _DDataTableState<T> extends State<DDataTable<T>> {
+  bool get _softHeader => widget.variant == DDataTableVariant.softHeader;
   late DDataTableState _ownedState = _defaultState();
   bool _normalizationScheduled = false;
   final Map<String, double> _resizedWidths = {};
@@ -556,6 +568,19 @@ class _DDataTableState<T> extends State<DDataTable<T>> {
   @override
   Widget build(BuildContext context) {
     final tokens = DTokens.of(context);
+    final frameColor = _softHeader
+        ? Color.alphaBlend(
+            tokens.foreground.withValues(alpha: .14),
+            tokens.background,
+          )
+        : tokens.border;
+    final separatorColor = _softHeader
+        ? Color.alphaBlend(
+            tokens.foreground.withValues(alpha: .08),
+            tokens.background,
+          )
+        : tokens.border;
+    final radius = _softHeader ? tokens.controlRadius : tokens.radius * .8;
     final sourceState = _sourceState;
     final state = _normalized(sourceState);
     if (state != sourceState) _scheduleNormalization(state);
@@ -601,13 +626,23 @@ class _DDataTableState<T> extends State<DDataTable<T>> {
           }
         : const <Key, int>{};
     final table = ClipRRect(
-      borderRadius: BorderRadius.circular(tokens.radius * .8),
+      borderRadius: BorderRadius.circular(radius),
       child: DecoratedBox(
+        position: _softHeader
+            ? DecorationPosition.foreground
+            : DecorationPosition.background,
         decoration: BoxDecoration(
-          border: Border.all(color: tokens.border),
-          borderRadius: BorderRadius.circular(tokens.radius * .8),
+          border: Border.all(color: frameColor),
+          borderRadius: BorderRadius.circular(radius),
         ),
         child: DTable(
+          headerBackgroundColor: _softHeader
+              ? Color.alphaBlend(
+                  tokens.foreground.withValues(alpha: .045),
+                  tokens.background,
+                )
+              : null,
+          borderColor: separatorColor,
           semanticLabel: widget.semanticLabel,
           rowBuilder: widget.virtualized && view.pageRows.isNotEmpty
               ? (context, index) => _row(
@@ -711,7 +746,15 @@ class _DDataTableState<T> extends State<DDataTable<T>> {
                                     : null,
                               ),
                             ) ??
-                            Text(column.label),
+                            Text(
+                              column.label,
+                              style: _softHeader
+                                  ? TextStyle(
+                                      fontSize: DiscourseTypography.xs,
+                                      color: tokens.mutedForeground,
+                                    )
+                                  : null,
+                            ),
                       ),
                     ),
                 ],
@@ -754,12 +797,16 @@ class _DDataTableState<T> extends State<DDataTable<T>> {
         ),
       ),
     );
+    final styledTable = _DataTableVariantScope(
+      variant: widget.variant,
+      child: table,
+    );
     final footerBuilder = widget.footerBuilder;
-    if (footerBuilder == null) return table;
+    if (footerBuilder == null) return styledTable;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        if (widget.virtualized) Expanded(child: table) else table,
+        if (widget.virtualized) Expanded(child: styledTable) else styledTable,
         footerBuilder(context, view.metrics),
       ],
     );
@@ -778,7 +825,14 @@ class _DDataTableState<T> extends State<DDataTable<T>> {
   }
 
   Widget _resizableHeader(DDataTableColumn<T> column, Widget child) {
-    final padded = Padding(padding: column.headerPadding, child: child);
+    final padded = Padding(
+      padding:
+          column._headerPadding ??
+          (_softHeader
+              ? const EdgeInsets.symmetric(horizontal: 14)
+              : column.headerPadding),
+      child: child,
+    );
     if (!column.resizable) return padded;
     return SizedBox(
       width: double.infinity,
@@ -859,7 +913,12 @@ class _DDataTableState<T> extends State<DDataTable<T>> {
         for (final column in columns)
           DTableCell(
             alignment: column.alignment,
-            padding: column.padding,
+            padding:
+                column._padding ??
+                (_softHeader
+                    ? const EdgeInsets.symmetric(horizontal: 14, vertical: 11)
+                    : column.padding),
+            textStyle: _softHeader ? const TextStyle(height: 1.5) : null,
             child: column.cellBuilder(context, cell),
           ),
       ],
@@ -890,7 +949,20 @@ class DDataTableColumnHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (onSortChanged == null && onHide == null) return Text(title);
+    final softHeader =
+        _DataTableVariantScope.of(context) == DDataTableVariant.softHeader;
+    if (onSortChanged == null && onHide == null) {
+      return Text(
+        title,
+        style: softHeader
+            ? TextStyle(
+                fontSize: DiscourseTypography.xs,
+                color: DTokens.of(context).mutedForeground,
+              )
+            : null,
+      );
+    }
+    final iconSize = softHeader ? 12.0 : 16.0;
     return DDropdownMenu(
       content: DDropdownMenuContent(
         semanticLabel: '$title column options',
@@ -923,15 +995,24 @@ class DDataTableColumnHeader extends StatelessWidget {
       child: DDropdownMenuTrigger(
         builder: (context, trigger) => Transform.translate(
           offset: Offset(
-            Directionality.of(context) == TextDirection.rtl ? 12 : -12,
+            (Directionality.of(context) == TextDirection.rtl ? 1 : -1) *
+                (softHeader ? 9 : 12),
             0,
           ),
           child: DButton(
             label: Text(title),
+            foregroundColor: softHeader
+                ? DTokens.of(context).mutedForeground
+                : null,
             icon: switch (sortDirection) {
-              DDataTableSortDirection.ascending => const DIcon(DIcons.arrowUp),
-              DDataTableSortDirection.descending => const _DownArrowIcon(),
-              null => const _SortIcon(),
+              DDataTableSortDirection.ascending => DIcon(
+                DIcons.arrowUp,
+                size: iconSize,
+              ),
+              DDataTableSortDirection.descending => _DownArrowIcon(
+                size: iconSize,
+              ),
+              null => _SortIcon(size: iconSize),
             },
             iconPosition: DButtonIconPosition.end,
             variant: DButtonVariant.ghost,
@@ -1255,33 +1336,51 @@ class DDataTablePagination extends StatelessWidget {
 }
 
 class _DownArrowIcon extends StatelessWidget {
-  const _DownArrowIcon();
+  const _DownArrowIcon({this.size = 16});
+  final double size;
 
   @override
   Widget build(BuildContext context) => Transform.rotate(
     angle: math.pi,
-    child: const DIcon(DIcons.arrowUp, size: 16),
+    child: DIcon(DIcons.arrowUp, size: size),
   );
 }
 
 class _SortIcon extends StatelessWidget {
-  const _SortIcon();
+  const _SortIcon({this.size = 16});
+  final double size;
 
   @override
   Widget build(BuildContext context) => SizedBox.square(
-    dimension: 16,
+    dimension: size,
     child: Stack(
       alignment: Alignment.center,
       children: [
-        const Positioned(top: 0, child: DIcon(DIcons.arrowUp, size: 10)),
+        Positioned(top: 0, child: DIcon(DIcons.arrowUp, size: size * .625)),
         Positioned(
           bottom: 0,
           child: Transform.rotate(
             angle: math.pi,
-            child: const DIcon(DIcons.arrowUp, size: 10),
+            child: DIcon(DIcons.arrowUp, size: size * .625),
           ),
         ),
       ],
     ),
   );
+}
+
+class _DataTableVariantScope extends InheritedWidget {
+  const _DataTableVariantScope({required this.variant, required super.child});
+
+  final DDataTableVariant variant;
+
+  static DDataTableVariant of(BuildContext context) =>
+      context
+          .dependOnInheritedWidgetOfExactType<_DataTableVariantScope>()
+          ?.variant ??
+      DDataTableVariant.standard;
+
+  @override
+  bool updateShouldNotify(_DataTableVariantScope oldWidget) =>
+      variant != oldWidget.variant;
 }

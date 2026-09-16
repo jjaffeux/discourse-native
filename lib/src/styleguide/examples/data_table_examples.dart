@@ -4,13 +4,38 @@ import 'package:flutter/material.dart';
 import '../styleguide_example.dart';
 
 final dataTableExamples = ComponentExamples(
-  topLevelExampleIndex: 2,
+  topLevelExampleIndex: 3,
   status: ComponentStatus.implemented,
   description:
       'A typed, headless-friendly table with sorting, filtering, visibility, stable selection, row actions, and local or server-controlled state.',
   notes:
       'Ports the frozen Base UI/base-nova Data Table guide without bringing a web TanStack dependency into Flutter. Columns define stable IDs, typed cell formatting and optional compare/filter functions; rows define stable IDs separately from their display order. DTable remains the semantic presentation owner while Checkbox, Input, Dropdown Menu, Button, Badge, Pagination and Select retain their independent interactions. Accepted shared owners are integrated. Independent rendered-reference and macOS review covers the documented compositions, keyboard actions, live palettes, RTL, reduced motion and narrow large-text layouts; exact evidence and platform limits are recorded in the component documentation.',
   examples: [
+    StyleguideExample(
+      title: 'Soft header',
+      description:
+          'A shaded header, fine separators and roomier cells for tables in posts. First-column emphasis belongs to the content.',
+      code: '''DDataTable<String>(
+  variant: DDataTableVariant.softHeader,
+  data: ['Gabriel', 'Jenny', 'Bas'],
+  rowId: (name) => name,
+  columns: [
+    DDataTableColumn(
+      id: 'name',
+      label: 'Who?',
+      compare: (a, b) => a.compareTo(b),
+      headerBuilder: (_, header) => DDataTableColumnHeader(
+        title: header.column.label,
+        sortDirection: header.sortDirection,
+        onSortChanged: header.onSortChanged,
+      ),
+      cellBuilder: (_, cell) => Text(cell.row),
+    ),
+  ],
+)''',
+      builder: (_) => const DataTableSoftHeaderExample(),
+      states: const ['sorting', 'resize', 'large text', 'horizontal overflow'],
+    ),
     StyleguideExample(
       title: 'Resizable virtual directory',
       description:
@@ -63,6 +88,51 @@ final dataTableExamples = ComponentExamples(
     ),
   ],
 );
+
+class DataTableSoftHeaderExample extends StatelessWidget {
+  const DataTableSoftHeaderExample({super.key});
+
+  @override
+  Widget build(BuildContext context) =>
+      DDataTable<({String name, String note})>(
+        variant: DDataTableVariant.softHeader,
+        data: const [
+          (name: 'Gabriel', note: 'Near the station'),
+          (name: 'Jenny', note: 'Arriving Wednesday morning'),
+          (
+            name: 'Bas',
+            note: 'Staying at the hotel until the 24th, then taking the train',
+          ),
+        ],
+        rowId: (row) => row.name,
+        columns: [
+          DDataTableColumn(
+            id: 'name',
+            label: 'Who?',
+            resizable: true,
+            width: const FixedColumnWidth(150),
+            alignment: AlignmentDirectional.topStart,
+            compare: (a, b) => a.name.compareTo(b.name),
+            headerBuilder: (_, header) => DDataTableColumnHeader(
+              title: header.column.label,
+              sortDirection: header.sortDirection,
+              onSortChanged: header.onSortChanged,
+            ),
+            cellBuilder: (_, cell) => Text(
+              cell.row.name,
+              style: const TextStyle(fontWeight: FontWeight.w600),
+            ),
+          ),
+          DDataTableColumn(
+            id: 'notes',
+            label: 'Notes',
+            resizable: true,
+            width: const FixedColumnWidth(310),
+            cellBuilder: (_, cell) => Text(cell.row.note, softWrap: true),
+          ),
+        ],
+      );
+}
 
 enum _PaymentStatus { pending, processing, success, failed }
 
