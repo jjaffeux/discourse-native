@@ -5,6 +5,7 @@ import 'dart:io';
 
 import 'package:discourse_native/src/diagnostics/diagnostics.dart';
 import 'package:discourse_native/src/macos_launch_screen.dart';
+import 'package:discourse_native/src/models/app_settings.dart';
 import 'package:flutter/widgets.dart';
 
 import '../test/support/topic_list_scroll_fixture.dart';
@@ -12,7 +13,18 @@ import '../test/support/topic_list_scroll_fixture.dart';
 Future<void> main() async {
   final binding = WidgetsFlutterBinding.ensureInitialized();
   MacOSLaunchScreen.dismissAfterFirstFlutterFrame();
-  final controller = await topicListScrollController(count: 1000);
+  const mode = String.fromEnvironment('LIST_MODE', defaultValue: 'compact');
+  const events = bool.fromEnvironment('LIST_EVENTS', defaultValue: true);
+  const assignments = bool.fromEnvironment(
+    'LIST_ASSIGNMENTS',
+    defaultValue: true,
+  );
+  final controller = await topicListScrollController(
+    count: 1000,
+    mode: TopicListDisplayMode.values.byName(mode),
+    events: events,
+    assignments: assignments,
+  );
   final diagnostics = DiagnosticsController.start(
     persistence: MemoryDiagnosticsPersistence(),
   );
@@ -32,7 +44,8 @@ Future<void> main() async {
   ScrollableState? scrollable;
   void findScrollable(Element element) {
     if (element is StatefulElement && element.state is ScrollableState) {
-      scrollable ??= element.state as ScrollableState;
+      final candidate = element.state as ScrollableState;
+      if (candidate.position.axis == Axis.vertical) scrollable ??= candidate;
     }
     element.visitChildren(findScrollable);
   }
@@ -40,6 +53,9 @@ Future<void> main() async {
   (listKey.currentContext! as Element).visitChildren(findScrollable);
   final position = scrollable!.position;
   final capture = diagnostics.topicScrollCapture;
+  stdout.writeln(
+    'TOPIC_LIST_PROFILE mode=$mode events=$events assignments=$assignments',
+  );
   for (final (name, delta, steps) in [
     ('steady', 40.0, 180),
     ('fast', 1200.0, 40),
@@ -57,7 +73,13 @@ Future<void> main() async {
     await Future<void>.delayed(const Duration(seconds: 1));
     capture.stop();
     final report = await capture.buildJsonReport();
-    final file = File('${Directory.systemTemp.path}/topic-list-$name.json');
+    const label = String.fromEnvironment(
+      'PROFILE_LABEL',
+      defaultValue: 'local',
+    );
+    final file = File(
+      '${Directory.systemTemp.path}/topic-list-$label-$name.json',
+    );
     await file.writeAsString(report);
     stdout.writeln('TOPIC_LIST_PROFILE $name ${file.path}');
     stdout.writeln(await capture.buildPerformanceReport());

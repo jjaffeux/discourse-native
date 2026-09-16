@@ -186,6 +186,7 @@ class _TopicListViewState extends State<TopicListView> {
       capture.recordTopicEvent('topicList.capture.context', {
         'topicCount': widget.feed.topicIds.length,
         'inbox': widget.inbox,
+        'mode': _mode.name,
         if (_scroll?.hasClients == true)
           'viewportExtent': _scroll!.position.viewportDimension,
         'devicePixelRatio': View.of(context).devicePixelRatio,

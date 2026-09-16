@@ -106,8 +106,15 @@ class _DTableState extends State<DTable> {
     ];
     final headerCount = widget.header?.rows.length ?? 0;
     final footerStart = headerCount + widget.body.rows.length;
-    final singleFragment =
-        widget._fragment && rows.length == 1 && widget.caption == null;
+    // Flex columns fill the row, so one background can replace per-cell
+    // hover/animation owners without painting unused space beside fixed cells.
+    final singleRow =
+        rows.length == 1 &&
+        widget.caption == null &&
+        (widget._fragment ||
+            widget.columnWidths.values.any(
+              (width) => width is FlexColumnWidth,
+            ));
     final columns = rows.fold<int>(
       0,
       (count, row) =>
@@ -134,107 +141,98 @@ class _DTableState extends State<DTable> {
             widget.minimumWidth,
             constraints.hasBoundedWidth ? constraints.maxWidth : 0.0,
           );
-          final content = Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Semantics(
-                container: true,
-                explicitChildNodes: true,
-                label: widget.semanticLabel,
-                child: _TableLayout(
-                  fragment: widget._fragment,
-                  rowIndex: widget._rowIndex,
-                  rows: rows,
-                  columns: columns,
-                  minimumWidth: width,
-                  columnWidths: widget.columnWidths,
-                  direction: Directionality.of(context),
-                  borders: [
-                    for (var r = 0; r < rows.length; r++)
-                      r < headerCount ||
-                          r < footerStart - 1 ||
-                          (r >= footerStart && r < rows.length - 1),
-                  ],
-                  footerStart: footerStart < rows.length ? footerStart : -1,
-                  border: widget.borderColor ?? tokens.border,
-                  headerCount: headerCount,
-                  headerBackgroundColor: widget.headerBackgroundColor,
-                  hasCaption: widget.caption != null,
-                  children: [
-                    for (var r = 0; r < rows.length; r++)
-                      for (var c = 0; c < rows[r].cells.length; c++)
-                        Semantics(
-                          key:
-                              rows[r].cells[c].key == null &&
-                                  rows[r].key == null
-                              ? null
-                              : ValueKey((
-                                  rows[r].key ?? r,
-                                  rows[r].cells[c].key ?? c,
-                                )),
-                          container: true,
-                          sortKey: OrdinalSortKey((r * columns + c).toDouble()),
-                          role: widget._fragment
-                              ? SemanticsRole.none
-                              : rows[r].cells[c] is DTableHead
-                              ? SemanticsRole.columnHeader
-                              : SemanticsRole.cell,
-                          header: rows[r].cells[c] is DTableHead,
-                          child: singleFragment
-                              ? rows[r].cells[c]
-                              : MouseRegion(
-                                  onEnter: (_) => _hovered.value = r,
-                                  onExit: (_) {
-                                    if (_hovered.value == r) {
-                                      _hovered.value = null;
-                                    }
-                                  },
-                                  child: ValueListenableBuilder<int?>(
-                                    valueListenable: _hovered,
-                                    child: DefaultTextStyle.merge(
-                                      style: TextStyle(
-                                        fontWeight: r >= footerStart
-                                            ? FontWeight.w500
-                                            : FontWeight.w400,
-                                      ),
-                                      child: rows[r].cells[c],
-                                    ),
-                                    builder: (context, hovered, child) =>
-                                        AnimatedContainer(
-                                          duration: DMotion.duration(
-                                            context,
-                                            const Duration(milliseconds: 150),
-                                          ),
-                                          curve: Curves.easeInOut,
-                                          color: rows[r].selected
-                                              ? tokens.muted
-                                              : r < headerCount &&
-                                                    widget.headerBackgroundColor !=
-                                                        null
-                                              ? widget.headerBackgroundColor
-                                              : (hovered == r ||
-                                                    rows[r].expanded ||
-                                                    r >= footerStart)
-                                              ? tokens.muted.withValues(
-                                                  alpha: tokens.muted.a * .5,
-                                                )
-                                              : tokens.muted.withValues(
-                                                  alpha: 0,
-                                                ),
-                                          child: child,
-                                        ),
+          Widget content = Semantics(
+            container: true,
+            explicitChildNodes: true,
+            label: widget.semanticLabel,
+            child: _TableLayout(
+              fragment: widget._fragment,
+              rowIndex: widget._rowIndex,
+              rows: rows,
+              columns: columns,
+              minimumWidth: width,
+              columnWidths: widget.columnWidths,
+              direction: Directionality.of(context),
+              borders: [
+                for (var r = 0; r < rows.length; r++)
+                  r < headerCount ||
+                      r < footerStart - 1 ||
+                      (r >= footerStart && r < rows.length - 1),
+              ],
+              footerStart: footerStart < rows.length ? footerStart : -1,
+              border: widget.borderColor ?? tokens.border,
+              headerCount: headerCount,
+              headerBackgroundColor: widget.headerBackgroundColor,
+              hasCaption: widget.caption != null,
+              children: [
+                for (var r = 0; r < rows.length; r++)
+                  for (var c = 0; c < rows[r].cells.length; c++)
+                    Semantics(
+                      key: rows[r].cells[c].key == null && rows[r].key == null
+                          ? null
+                          : ValueKey((
+                              rows[r].key ?? r,
+                              rows[r].cells[c].key ?? c,
+                            )),
+                      container: true,
+                      sortKey: OrdinalSortKey((r * columns + c).toDouble()),
+                      role: widget._fragment
+                          ? SemanticsRole.none
+                          : rows[r].cells[c] is DTableHead
+                          ? SemanticsRole.columnHeader
+                          : SemanticsRole.cell,
+                      header: rows[r].cells[c] is DTableHead,
+                      child: singleRow
+                          ? rows[r].cells[c]
+                          : MouseRegion(
+                              onEnter: (_) => _hovered.value = r,
+                              onExit: (_) {
+                                if (_hovered.value == r) {
+                                  _hovered.value = null;
+                                }
+                              },
+                              child: ValueListenableBuilder<int?>(
+                                valueListenable: _hovered,
+                                child: DefaultTextStyle.merge(
+                                  style: TextStyle(
+                                    fontWeight: r >= footerStart
+                                        ? FontWeight.w500
+                                        : FontWeight.w400,
                                   ),
+                                  child: rows[r].cells[c],
                                 ),
-                        ),
-                    ?widget.caption,
-                  ],
-                ),
-              ),
-            ],
+                                builder: (context, hovered, child) =>
+                                    AnimatedContainer(
+                                      duration: DMotion.duration(
+                                        context,
+                                        const Duration(milliseconds: 150),
+                                      ),
+                                      curve: Curves.easeInOut,
+                                      color: rows[r].selected
+                                          ? tokens.muted
+                                          : r < headerCount &&
+                                                widget.headerBackgroundColor !=
+                                                    null
+                                          ? widget.headerBackgroundColor
+                                          : (hovered == r ||
+                                                rows[r].expanded ||
+                                                r >= footerStart)
+                                          ? tokens.muted.withValues(
+                                              alpha: tokens.muted.a * .5,
+                                            )
+                                          : tokens.muted.withValues(alpha: 0),
+                                      child: child,
+                                    ),
+                              ),
+                            ),
+                    ),
+                ?widget.caption,
+              ],
+            ),
           );
-          if (singleFragment) {
+          if (singleRow) {
             final row = rows.single;
-            return MouseRegion(
+            content = MouseRegion(
               onEnter: (_) => _hovered.value = 0,
               onExit: (_) => _hovered.value = null,
               child: ValueListenableBuilder<int?>(
@@ -265,7 +263,35 @@ class _DTableState extends State<DTable> {
               ),
             );
           }
+          // Keep the shared background on the row, even when the surrounding
+          // table is given spare vertical space by its parent.
+          content = Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [content],
+          );
           if (widget._fragment) return content;
+          // Explicit fixed/flex columns cannot overflow when their fixed
+          // widths fit. Avoid a Scrollable (and its focus, gesture, viewport,
+          // and semantics owners) for every compact topic-list row.
+          final fits =
+              constraints.hasBoundedWidth &&
+              widget.minimumWidth <= constraints.maxWidth &&
+              List.generate(
+                columns,
+                (column) => widget.columnWidths[column],
+              ).every(
+                (policy) =>
+                    policy is FixedColumnWidth || policy is FlexColumnWidth,
+              ) &&
+              rows.every(
+                (row) => row.cells.every((cell) => cell.columnSpan == 1),
+              ) &&
+              widget.columnWidths.values.whereType<FixedColumnWidth>().fold(
+                    0.0,
+                    (total, policy) => total + policy.value,
+                  ) <=
+                  constraints.maxWidth;
+          if (fits && widget.controller == null) return content;
           return SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             controller: widget.controller,
