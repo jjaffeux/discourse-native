@@ -13,6 +13,8 @@ enum DItemVariant { standard, outline, muted }
 
 enum DItemSize { standard, sm, xs }
 
+enum DItemSelectionStyle { tinted, outline }
+
 enum DItemMediaVariant { standard, icon, avatar, image }
 
 /// A content row, optionally an action or link. Editable fields keep their own
@@ -33,6 +35,7 @@ class DItem extends StatefulWidget {
     this.link = false,
     this.enabled = true,
     this.selected = false,
+    this.selectionStyle = DItemSelectionStyle.tinted,
     this.showSelectionIndicator = true,
     this.focusNode,
     this.autofocus = false,
@@ -51,11 +54,15 @@ class DItem extends StatefulWidget {
   final bool link;
   final bool enabled;
 
-  /// Highlights the current item with an accent border, tint and checkmark.
+  /// Highlights the current item using [selectionStyle] and a checkmark.
   /// The caller owns selection changes; activation only calls [onPressed].
   final bool selected;
 
-  /// Shows a checkmark when selected. Border, tint and semantics are retained
+  /// Outline selection keeps the normal surface and paints a 2px accent border
+  /// without moving the content. Hover uses a faint neutral tint.
+  final DItemSelectionStyle selectionStyle;
+
+  /// Shows a checkmark when selected. Selection styling and semantics remain
   /// when false.
   final bool showSelectionIndicator;
 
@@ -107,10 +114,14 @@ class _DItemState extends State<DItem> {
           child.children.any((c) => c is DItemDescription),
     );
     final focus = _active && _focusVisible;
-    final background = widget.selected
+    final outlineSelection =
+        widget.selectionStyle == DItemSelectionStyle.outline;
+    final background = widget.selected && !outlineSelection
         ? tokens.primary.withValues(alpha: .12)
         : _active && _hover
-        ? tokens.muted
+        ? outlineSelection
+              ? tokens.foreground.withValues(alpha: .03)
+              : tokens.muted
         : widget.variant == DItemVariant.muted
         ? tokens.muted.withValues(alpha: tokens.muted.a * .5)
         : Colors.transparent;
@@ -138,6 +149,12 @@ class _DItemState extends State<DItem> {
           ),
           child: interactiveRowSurface(
             constraints: BoxConstraints(minHeight: touch && _active ? 48 : 0),
+            foregroundDecoration: widget.selected && outlineSelection
+                ? BoxDecoration(
+                    borderRadius: tokens.borderRadius,
+                    border: Border.all(color: tokens.primary, width: 2),
+                  )
+                : null,
             decoration: BoxDecoration(
               color: background,
               borderRadius: tokens.borderRadius,

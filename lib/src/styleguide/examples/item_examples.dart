@@ -20,6 +20,15 @@ final itemExamples = ComponentExamples(
       'Dropdown Menu primitives with actual passive xs Items.',
   examples: [
     StyleguideExample(
+      title: 'Outline selection',
+      description:
+          'Topic selection uses a 2px accent outline, the normal background, '
+          'and a faint neutral hover. Selecting a row does not move its content.',
+      code:
+          "DItem(selected: true, selectionStyle: DItemSelectionStyle.outline, showSelectionIndicator: false, variant: DItemVariant.outline, onPressed: () {}, children: [DItemContent(children: [DItemTitle(child: Text('Current topic'))])])",
+      builder: (_) => const _OutlineSelectionExample(),
+    ),
+    StyleguideExample(
       title: 'Selected',
       description:
           'Caller-controlled selection uses an accent border, tint and checkmark.',
@@ -69,6 +78,38 @@ final itemExamples = ComponentExamples(
       ),
   ],
 );
+
+class _OutlineSelectionExample extends StatefulWidget {
+  const _OutlineSelectionExample();
+
+  @override
+  State<_OutlineSelectionExample> createState() =>
+      _OutlineSelectionExampleState();
+}
+
+class _OutlineSelectionExampleState extends State<_OutlineSelectionExample> {
+  int selected = 0;
+
+  @override
+  Widget build(BuildContext context) => DItemGroup(
+    children: [
+      for (final (index, title) in [
+        'SailPoint: Migration Process Flow',
+        'Moving heavy query workload to accessible SQL replica',
+      ].indexed)
+        DItem(
+          selected: index == selected,
+          selectionStyle: DItemSelectionStyle.outline,
+          showSelectionIndicator: false,
+          variant: DItemVariant.outline,
+          onPressed: () => setState(() => selected = index),
+          children: [
+            DItemContent(children: [DItemTitle(child: Text(title))]),
+          ],
+        ),
+    ],
+  );
+}
 
 const _descriptions = {
   'Basic':
