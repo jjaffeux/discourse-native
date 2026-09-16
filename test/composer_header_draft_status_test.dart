@@ -50,6 +50,12 @@ void main() {
         expect(find.text('Saving draft…'), findsNothing);
         expect(tester.getRect(find.byType(ComposerEditor)), editor);
         final statusBounds = tester.getRect(_status);
+        expect(
+          tester
+              .getTopRight(find.byKey(const ValueKey('composer-minimize')))
+              .dx,
+          tester.getRect(_header).right - 8,
+        );
 
         final pending = composer.flushDraft();
         await tester.pump();
@@ -130,7 +136,11 @@ void main() {
       expect(find.text('Saved'), findsNothing);
 
       await _pump(tester, shell, composer, minimized: true);
-      expect(find.text(label), findsOneWidget);
+      expect(tester.getSemantics(_status).label, detail);
+      expect(
+        find.descendant(of: _status, matching: find.byType(DIcon)),
+        findsOneWidget,
+      );
       expect(find.text(detail), findsNothing);
 
       await _pump(tester, shell, composer);

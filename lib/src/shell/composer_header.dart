@@ -321,15 +321,31 @@ class ComposerHeader extends StatelessWidget {
         child: Row(
           children: [
             Expanded(
-              child: minimized
-                  ? heading
-                  : Align(
-                      alignment: AlignmentDirectional.centerStart,
-                      child: heading,
+              child: LayoutBuilder(
+                builder: (context, constraints) => Row(
+                  children: [
+                    Expanded(
+                      child: minimized
+                          ? heading
+                          : Align(
+                              alignment: AlignmentDirectional.centerStart,
+                              child: heading,
+                            ),
                     ),
+                    if (composer.canSaveDraft && !target.isEdit)
+                      ConstrainedBox(
+                        constraints: BoxConstraints(
+                          maxWidth: constraints.maxWidth / 2,
+                        ),
+                        child: _DraftStatus(
+                          composer: composer,
+                          compact: minimized,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
             ),
-            if (composer.canSaveDraft && !target.isEdit)
-              Flexible(child: _DraftStatus(composer: composer)),
             ...controls,
           ],
         ),
@@ -339,9 +355,10 @@ class ComposerHeader extends StatelessWidget {
 }
 
 class _DraftStatus extends StatelessWidget {
-  const _DraftStatus({required this.composer});
+  const _DraftStatus({required this.composer, required this.compact});
 
   final ComposerController composer;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
@@ -377,8 +394,9 @@ class _DraftStatus extends StatelessWidget {
     ).textTheme.labelSmall?.copyWith(color: color);
     final textScaler = MediaQuery.textScalerOf(context);
     final showLabel =
+        !compact &&
         textScaler.scale(style?.fontSize ?? 12) * (style?.height ?? 1) <=
-        ComposerHeader.height;
+            ComposerHeader.height;
     return Padding(
       padding: const EdgeInsetsDirectional.only(start: 8, end: 8),
       child: Semantics(
@@ -397,7 +415,12 @@ class _DraftStatus extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
                 if (saving)
-                  DSpinner(size: 14, color: color, semanticLabel: null)
+                  DSpinner(
+                    size: 14,
+                    color: color,
+                    semanticLabel: null,
+                    animating: composer.draftStatus == DraftStatus.saving,
+                  )
                 else
                   DIcon(
                     failing ? DIcons.triangleExclamation : DIcons.check,
