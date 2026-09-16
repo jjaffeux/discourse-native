@@ -497,13 +497,14 @@ void main() {
   });
 
   group('instance rail presentation', () {
-    testWidgets('uses each forum success color for notification badges', (
+    testWidgets('all rail badges follow the current window theme', (
       tester,
     ) async {
-      const firstSuccess = Color(0xFF167A34);
-      const secondSuccess = Color(0xFF008A5A);
-      final first = _appearanceWithSuccess(firstSuccess);
-      final second = _appearanceWithSuccess(secondSuccess);
+      final first = _appearanceWithSuccess(const Color(0xFF004400));
+      final second = _appearanceWithSuccess(
+        const Color(0xFF002255),
+        background: const Color(0xFFFFF3E0),
+      );
       const user = DiscourseUser(id: 7, username: 'sam');
       final store = FakeInstanceStore([
         const DiscourseInstance(
@@ -529,22 +530,45 @@ void main() {
         ),
         authenticator: authenticator,
       );
-      _controller(tester).selectInstance(1);
-      await tester.pumpAndSettle();
+      final controller = _controller(tester);
+      final seenColors = <Color>{};
+      for (final mode in [AppThemeMode.light, AppThemeMode.dark]) {
+        await controller.appSettings.setThemeMode(mode);
+        for (final index in [1, 0]) {
+          controller.selectInstance(index);
+          await tester.pumpAndSettle();
 
-      final theme = _activeTheme(tester);
-      final railSurface = Color.alphaBlend(
-        theme.shell.rail,
-        opaqueColorOnCanvas(theme.scaffoldBackgroundColor, theme.brightness),
-      );
-      expect(
-        _railBadgeBackground(tester, host: 'a.example'),
-        Color.lerp(firstSuccess, railSurface, 0.2),
-      );
-      expect(
-        _railBadgeBackground(tester, host: 'b.example'),
-        Color.lerp(secondSuccess, railSurface, 0.2),
-      );
+          final theme = _activeTheme(tester);
+          final railSurface = Color.alphaBlend(
+            theme.shell.rail,
+            opaqueColorOnCanvas(
+              theme.scaffoldBackgroundColor,
+              theme.brightness,
+            ),
+          );
+          final background = Color.lerp(
+            theme.discourse.success,
+            railSurface,
+            0.2,
+          )!;
+          final foreground = contrastSafeForeground(
+            background: background,
+            backdrop: railSurface,
+            preferred: [
+              theme.discourse.notificationForeground,
+              theme.colorScheme.surface,
+            ],
+          );
+          seenColors.add(background);
+          for (final host in ['a.example', 'b.example']) {
+            final badge = _railBadge(tester, host: host);
+            expect(badge.backgroundColor, background);
+            expect(badge.foregroundColor, foreground);
+            expect(badge.ringColor, railSurface);
+          }
+        }
+      }
+      expect(seenColors.length, greaterThan(1));
     });
 
     testWidgets('updates a non-current item when its appearance arrives late', (
@@ -703,20 +727,24 @@ Finder _railItem({required String host}) => find.descendant(
   matching: find.byType(DTooltip),
 );
 
-SiteAppearance _appearanceWithSuccess(Color success) {
-  final json = sitePalette().toJson()..['success'] = success.toARGB32();
+SiteAppearance _appearanceWithSuccess(
+  Color success, {
+  Color background = Colors.white,
+}) {
+  final json = sitePalette(background: background).toJson()
+    ..['success'] = success.toARGB32();
   return SiteAppearance(
     base: ResolvedSitePalette.fromJson(json),
     mode: SiteAppearanceMode.base,
   );
 }
 
-Color _railBadgeBackground(WidgetTester tester, {required String host}) {
+DBadge _railBadge(WidgetTester tester, {required String host}) {
   final badge = find.byKey(
     ValueKey<String>('instance-rail-badge-https://$host'),
   );
   expect(badge, findsOneWidget);
-  return tester.widget<DBadge>(badge).backgroundColor!;
+  return tester.widget<DBadge>(badge);
 }
 
 Color _railAvatarBackground(WidgetTester tester, {required String host}) {

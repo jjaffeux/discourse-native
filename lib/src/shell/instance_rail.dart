@@ -1352,7 +1352,7 @@ class _RailItemState extends State<_RailItem> {
       ],
     );
     final badgeBackground = Color.lerp(
-      palette?.success ?? theme.discourse.success,
+      theme.discourse.success,
       railSurface,
       0.2,
     )!;
@@ -1360,9 +1360,12 @@ class _RailItemState extends State<_RailItem> {
       background: badgeBackground,
       backdrop: railSurface,
       // Core draws high-priority notification counts with `--secondary` on
-      // `--success`. Preserve that pairing when the forum's palette keeps it
-      // readable, then fall back safely for custom colour schemes.
-      preferred: [palette?.secondary, theme.colorScheme.surface],
+      // `--success`. Resolve both from the window theme so every rail badge
+      // shares the same colors, including badges for inactive forums.
+      preferred: [
+        theme.discourse.notificationForeground,
+        theme.colorScheme.surface,
+      ],
     );
     final indicatorHeight = widget.selected
         ? _railSelectedMarkerHeight
