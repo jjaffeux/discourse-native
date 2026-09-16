@@ -1008,6 +1008,24 @@ void main() {
         await mouse.moveTo(tester.getCenter(find.byKey(_messageTileKey)));
         await tester.pump();
         expect(find.byTooltip('More message actions'), findsOneWidget);
+        Color background() => tester
+            .widget<ColoredBox>(
+              find
+                  .descendant(
+                    of: find.byType(DMessageSurface),
+                    matching: find.byType(ColoredBox),
+                  )
+                  .first,
+            )
+            .color;
+        final hoverTint = DTokens.of(
+          tester.element(find.byType(DMessageSurface)),
+        ).foreground.withValues(alpha: .03);
+        expect(background(), hoverTint);
+        expect(
+          tester.getRect(find.byType(DMessageSurface)),
+          tester.getRect(find.byKey(_messageTileKey)),
+        );
 
         // An idle overshoot starts its bounce while the viewport lays out its
         // new dimensions, before any scroll pixels are reported to listeners.
@@ -1019,12 +1037,17 @@ void main() {
         expect(tester.takeException(), isNull);
         await tester.pump();
         expect(find.byTooltip('More message actions'), findsNothing);
+        expect(background(), Colors.transparent);
 
         await tester.pumpAndSettle();
         expect(find.byTooltip('More message actions'), findsNothing);
         await mouse.moveBy(const Offset(0, 1));
         await tester.pump();
         expect(find.byTooltip('More message actions'), findsOneWidget);
+        expect(background(), hoverTint);
+        await mouse.moveTo(const Offset(700, 500));
+        await tester.pump();
+        expect(background(), Colors.transparent);
       },
     );
 

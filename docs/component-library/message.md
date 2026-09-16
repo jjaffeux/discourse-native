@@ -24,6 +24,22 @@ Frozen on 2026-09-08 from `https://ui.shadcn.com/docs/components/base/message.md
 
 CSS pixels map to Flutter logical pixels at 100% with the captured 16px root. Typography keeps the host family while using explicit reference size, leading, weight and zero tracking. Colors come from live `DTokens`; Message itself paints no surface. It therefore updates immediately for light, dark, custom palette, font and radius changes through its composed owners.
 
+`DMessageSurface` optionally wraps a complete message and its outer padding with
+an immediate hover background using the live foreground token at 3% opacity.
+It tracks pointer entry/exit by default; callers can supply `hovered` to reuse
+their existing hover owner. Chat does this to keep the highlight synchronized
+with its actions, scrolling suppression, and open menus. The surface adds no
+click action or focus target. The **Message hover** styleguide example shows
+adjacent rows with this native adaptation.
+
+Hover verification (2026-09-16): all 113 focused Message, styleguide, channel,
+direct-message and chat-scroll tests passed, along with root static analysis.
+The isolated macOS fixture was inspected in light at 640px and dark at 360px:
+styleguide rows, ordinary/chained channel messages, group DMs and one-to-one DMs
+showed the tint across the complete row and cleared the previous row when the
+pointer moved. Scroll suppression is covered by widget tests. No mobile-device
+run was performed.
+
 `DMessage` is deliberately presentational. It does not assign a chat/article role or merge descendants. Callers may add a semantic label or whole-row live region only when that accurately describes the entire changing row. `DMessageStatus` supplies localizable pending, delivered, read, failed and deleted presentation; delivery and retry work remain caller-owned.
 
 Bubble owns its own maximum width and internal alignment in Flutter. Callers use matching `DMessageAlign.end` and `DBubbleAlign.end`; this preserves a clear dependency boundary instead of Message reconstructing Bubble. `DMessageContent` automatically aligns other content-sized children. `flushMetadata`, content spacing/alignment, avatar alignment, minimum extent and footer shift are narrow application-adapter extensions. Their defaults exactly follow base-nova.

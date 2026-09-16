@@ -103,6 +103,43 @@ class DMessage extends StatelessWidget {
   }
 }
 
+/// An optional, subtle hover surface around a complete message composition.
+///
+/// Wrap outer padding as well as [DMessage] to highlight the entire message row.
+/// Descendant actions keep their own pointer, focus, and semantics behavior.
+class DMessageSurface extends StatefulWidget {
+  const DMessageSurface({super.key, required this.child, this.hovered});
+
+  final Widget child;
+
+  /// Overrides pointer tracking when the caller already owns hover state, such
+  /// as a chat row that suppresses hover during scrolling or retains a menu.
+  final bool? hovered;
+
+  @override
+  State<DMessageSurface> createState() => _DMessageSurfaceState();
+}
+
+class _DMessageSurfaceState extends State<DMessageSurface> {
+  bool _hovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final surface = ColoredBox(
+      color: (widget.hovered ?? _hovered)
+          ? DTokens.of(context).foreground.withValues(alpha: .03)
+          : Colors.transparent,
+      child: widget.child,
+    );
+    if (widget.hovered != null) return surface;
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() => _hovered = false),
+      child: surface,
+    );
+  }
+}
+
 /// Stacks consecutive message rows from one sender with an 8px gap.
 class DMessageGroup extends StatelessWidget {
   const DMessageGroup({super.key, required this.children});

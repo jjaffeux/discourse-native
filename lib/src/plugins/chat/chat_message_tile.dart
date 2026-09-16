@@ -148,24 +148,26 @@ class ChatMessageTile extends StatelessWidget {
           directMessageReaction: directMessageReaction,
         );
         if (selecting) {
-          return Semantics(
-            selected: selected,
-            label: 'Select chat message ${message.id}',
-            child: Row(
-              children: [
-                SizedBox(
-                  width: 52,
-                  child: DCheckbox(
-                    key: ValueKey('chat-message-selector-${message.id}'),
-                    semanticLabel: 'Select message ${message.id}',
-                    value: selected,
-                    onChanged: onSelectedChanged == null
-                        ? null
-                        : (value) => onSelectedChanged!(value ?? false),
+          return DMessageSurface(
+            child: Semantics(
+              selected: selected,
+              label: 'Select chat message ${message.id}',
+              child: Row(
+                children: [
+                  SizedBox(
+                    width: 52,
+                    child: DCheckbox(
+                      key: ValueKey('chat-message-selector-${message.id}'),
+                      semanticLabel: 'Select message ${message.id}',
+                      value: selected,
+                      onChanged: onSelectedChanged == null
+                          ? null
+                          : (value) => onSelectedChanged!(value ?? false),
+                    ),
                   ),
-                ),
-                Expanded(child: tile()),
-              ],
+                  Expanded(child: tile()),
+                ],
+              ),
             ),
           );
         }
@@ -221,7 +223,7 @@ class ChatMessageTile extends StatelessWidget {
                 onSelect: onSelect,
                 childBuilder: tile,
               )
-            : tile();
+            : DMessageSurface(child: tile());
       },
     );
   }
@@ -1006,7 +1008,7 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
         CustomSemanticsAction(label: bookmarkLabel): () =>
             unawaited(_bookmark()),
     };
-    return Shortcuts(
+    final result = Shortcuts(
       shortcuts: const {
         SingleActivator(LogicalKeyboardKey.f10, shift: true):
             _OpenChatMessageActionsIntent(),
@@ -1298,6 +1300,7 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
         ),
       ),
     );
+    return DMessageSurface(hovered: _hovered, child: result);
   }
 }
 
