@@ -86,6 +86,7 @@ Future<void> main() async {
     stdout.writeln(await capture.buildPerformanceReport());
   }
   stdout.writeln('CHAT_SCROLL_PROFILE complete');
+  if (_option('SCROLL_EXIT', 'false') == 'true') exit(0);
 }
 
 // Runtime overrides let the same native build compare all fixture layouts.

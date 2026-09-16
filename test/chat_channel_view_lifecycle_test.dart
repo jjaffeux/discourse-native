@@ -99,7 +99,8 @@ void main() {
         );
         expect(
           tester.getTopLeft(next).dy - tester.getBottomLeft(current).dy,
-          closeTo(8, .01),
+          // Each row now centers its bubble between half of its own gap.
+          closeTo(id == 1 ? (DSpacing.lg + DSpacing.sm) / 2 : DSpacing.sm, .01),
         );
       }
     });
@@ -183,7 +184,10 @@ void main() {
               matching: find.byType(DMessage),
             ),
           );
-          expect(nextRow.top - reactions.bottom, closeTo(4, .01));
+          expect(
+            nextRow.top - reactions.bottom,
+            closeTo((DSpacing.lg + DSpacing.xs) / 2, .01),
+          );
         }
       });
     }
