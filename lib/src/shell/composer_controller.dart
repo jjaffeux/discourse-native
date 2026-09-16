@@ -23,6 +23,7 @@ import 'composer_images.dart';
 import 'composer_marks.dart';
 import 'composer_pills.dart';
 import 'composer_quotes.dart';
+import 'composer_table.dart';
 import 'composer_triggers.dart';
 import 'composer_upload_placeholder.dart';
 import 'markdown_editing_controller.dart';
@@ -360,6 +361,7 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
        _minimumRequiredTags = minimumRequiredTags {
     if (!_target.isPlugin) {
       text.syntaxPolicies.add(ComposerUploadPlaceholderPolicy(this));
+      text.syntaxPolicies.add(ComposerTablePolicy(this));
     }
     text.addListener(_onTextChanged);
     title.addListener(_onMetadataChanged);

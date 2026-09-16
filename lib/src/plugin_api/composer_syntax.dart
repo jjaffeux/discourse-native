@@ -155,6 +155,12 @@ abstract interface class ComposerSyntaxProjection {
   FutureOr<void> remove(BuildContext context, ComposerEditorHost editor);
 }
 
+/// A block whose Native controls own pointer interaction and nested editing.
+/// Its widget identity survives source updates at the same document position,
+/// so cell focus, selection and IME composition survive its own edits.
+abstract interface class ComposerInteractiveSyntaxProjection
+    implements ComposerSyntaxProjection {}
+
 /// The least authority a plugin needs to inspect and safely edit one composer.
 abstract interface class ComposerEditorHost {
   String get siteUrl;
