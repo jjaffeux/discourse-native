@@ -82,7 +82,32 @@ class ComposerHeader extends StatelessWidget {
         ? const <Widget>[]
         : registry.composerHeader(context, composer);
 
-    final heading = canToggleWhisper
+    final heading = minimized
+        ? DButton(
+            key: const ValueKey('composer-restore'),
+            onPressed: onRestore,
+            semanticLabel: 'Resume editing: $label',
+            tooltip: 'Restore composer',
+            variant: DButtonVariant.primary,
+            size: DButtonSize.large,
+            icon: DIcon(composer.whisper ? DIcons.farEyeSlash : DIcons.pen),
+            label: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                const Text('Resume editing'),
+                const SizedBox(width: 8),
+                const DIcon(DIcons.expand),
+              ],
+            ),
+          )
+        : canToggleWhisper
         ? DDropdownMenu(
             content: DDropdownMenuContent(
               semanticLabel: 'Reply visibility',
@@ -269,10 +294,10 @@ class ComposerHeader extends StatelessWidget {
             ),
           ),
         ),
-      if (onRestore case final restore?)
+      if (!minimized && onRestore != null)
         DButton.iconOnly(
           key: const ValueKey('composer-restore'),
-          onPressed: restore,
+          onPressed: onRestore,
           icon: const DIcon(DIcons.expand),
           tooltip: 'Restore composer',
           variant: DButtonVariant.transparentBackground,
@@ -296,10 +321,12 @@ class ComposerHeader extends StatelessWidget {
         child: Row(
           children: [
             Expanded(
-              child: Align(
-                alignment: AlignmentDirectional.centerStart,
-                child: heading,
-              ),
+              child: minimized
+                  ? heading
+                  : Align(
+                      alignment: AlignmentDirectional.centerStart,
+                      child: heading,
+                    ),
             ),
             ...controls,
           ],
