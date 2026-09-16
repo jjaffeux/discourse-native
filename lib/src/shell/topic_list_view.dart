@@ -1689,27 +1689,36 @@ class _CategoryBreadcrumb extends StatelessWidget {
                 ),
               ),
             ),
-            DBreadcrumbSeparator(
-              key: ValueKey((
-                'topic-row-category-chevron',
-                parent.id,
-                category.id,
-              )),
-            ),
           ],
           DBreadcrumbItem(
-            child: LinkTarget(
-              url: '/c/${category.id}',
-              title: category.name,
-              siteUrl: siteUrl,
-              child: _CategoryBadge(
-                key: ValueKey(('topic-row-category', category.id)),
-                category: category,
-                siteUrl: siteUrl,
-                label: category.name,
-                semanticLabel: 'Category: ${category.name}',
-                onTap: () => onOpen(category),
-              ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              spacing: 1.5,
+              children: [
+                if (parent != null)
+                  DBreadcrumbSeparator(
+                    key: ValueKey((
+                      'topic-row-category-chevron',
+                      parent.id,
+                      category.id,
+                    )),
+                  ),
+                Flexible(
+                  child: LinkTarget(
+                    url: '/c/${category.id}',
+                    title: category.name,
+                    siteUrl: siteUrl,
+                    child: _CategoryBadge(
+                      key: ValueKey(('topic-row-category', category.id)),
+                      category: category,
+                      siteUrl: siteUrl,
+                      label: category.name,
+                      semanticLabel: 'Category: ${category.name}',
+                      onTap: () => onOpen(category),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -1734,22 +1743,32 @@ class _CategoryBadge extends StatelessWidget {
   final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) => DBreadcrumbLink(
-    onPressed: onTap,
-    semanticLabel: semanticLabel,
-    child: Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        CategoryIcon(
-          key: ValueKey(('topic-row-category-swatch', category.id)),
-          category: category,
-          siteUrl: siteUrl,
-          size: 13,
-          squareSize: 9,
-        ),
-        const SizedBox(width: 5),
-        Flexible(child: Text(label)),
-      ],
+  Widget build(BuildContext context) => DTooltip(
+    message: label,
+    child: DBreadcrumbLink(
+      onPressed: onTap,
+      semanticLabel: semanticLabel,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          CategoryIcon(
+            key: ValueKey(('topic-row-category-swatch', category.id)),
+            category: category,
+            siteUrl: siteUrl,
+            size: 13,
+            squareSize: 9,
+          ),
+          const SizedBox(width: 5),
+          Flexible(
+            child: Text(
+              label,
+              maxLines: 1,
+              softWrap: false,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
+      ),
     ),
   );
 }

@@ -42,6 +42,12 @@ This folder retains the original HTML/CSS design artifact. The later
 column in production; [calendar stamps](event-dates/README.md) distinguish event
 dates from activity.
 
+Category paths use a responsive column in Compact mode. Each category name
+stays on one line, with an ellipsis and a full-name Native tooltip when space is
+limited. Paths wrap between categories, keeping the chevron with its child.
+The shared breadcrumb also preserves this behavior in Card mode. The native
+fixture includes the private `Discourse Native App > Features` path.
+
 Component mapping:
 
 | Surface | Existing Native component |
@@ -94,3 +100,12 @@ Validation used Flutter 3.47.4 / Dart 3.13.3 from the installed SDK; the project
 assignment, plugin and Aggregate tests cover the implementation. The existing
 `feed select retains keyboard focus across routes (stacked: true)` test fails
 identically on the unchanged starting commit `e0463c02` and this branch.
+
+Category layout update: all 20 compact-list tests, three control-adoption checks,
+and the existing parent/child category navigation test pass. Coverage includes
+single-line labels at 1200px, 780px, 390px, and 320px with 200% text in RTL,
+plus full-name tooltip display. Full static analysis and the macOS debug build
+also pass. Native macOS review confirmed the complete private parent/child path
+on one line in wide light/dark Compact mode, clean wrapping between categories
+in a 390px dark pane and at 200% text in RTL, and intact breadcrumbs in narrow
+light Card mode. No iOS/Android device review was performed.

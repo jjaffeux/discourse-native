@@ -13,7 +13,10 @@ class _CompactTopicLayout {
     avatar = category;
     widths = {
       0: const FlexColumnWidth(),
-      if (category) 1: FixedColumnWidth(136 * scale),
+      // Let ordinary parent/child paths share a line without taking over
+      // the topic column in narrower panes.
+      if (category)
+        1: FixedColumnWidth((effective * .3).clamp(180, 320) * scale),
       if (activity) ...{
         (category ? 2 : 1): FixedColumnWidth((category ? 66 : 52) * scale),
         (category ? 3 : 2): FixedColumnWidth((avatar ? 96 : 52) * scale),
