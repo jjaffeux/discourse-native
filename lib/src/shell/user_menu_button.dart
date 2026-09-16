@@ -238,7 +238,9 @@ class _AccountMenuPopover extends StatelessWidget {
         icon: ExcludeSemantics(child: icon),
         tooltip: connecting ? 'Connecting…' : tooltip,
         semanticLabel: semanticLabel,
-        variant: DButtonVariant.ghost,
+        variant: view == UserMenuView.notifications
+            ? DButtonVariant.transparentBackground
+            : DButtonVariant.ghost,
         size: DButtonSize.large,
         hasPopup: true,
         expanded: trigger.open,

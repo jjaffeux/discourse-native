@@ -66,7 +66,10 @@ void main() {
       expect(tester.widget(dot), isA<DNotificationDot>());
       expect(tester.getSize(dot), const Size.square(12));
       expect(find.byTooltip('Chat, unread messages'), findsOneWidget);
-      expect(tester.widget<DButton>(button).variant, DButtonVariant.ghost);
+      expect(
+        tester.widget<DButton>(button).variant,
+        DButtonVariant.transparentBackground,
+      );
       expect(tester.getSize(button), const Size.square(48));
       expect(
         tester.getSize(
