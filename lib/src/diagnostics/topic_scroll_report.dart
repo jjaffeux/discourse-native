@@ -20,6 +20,8 @@ String encodeTopicScrollReport(
   final listScrollDurations = <int>[];
   final chatScrollDurations = <int>[];
   final chatViewportDurations = <int>[];
+  final chatRowLayoutDurations = <int>[];
+  final chatDayExtentDurations = <int>[];
   final layoutDurations = <int>[];
   final cpuProfile = _map(report['cpuProfile']);
   final cpuByFrame = {
@@ -62,6 +64,12 @@ String encodeTopicScrollReport(
     if (name == 'chat.viewport.work') {
       chatViewportDurations.add(_int(data['durationUs']));
     }
+    if (name == 'chat.row.layout') {
+      chatRowLayoutDurations.add(_int(data['durationUs']));
+    }
+    if (name == 'chat.dayExtents.scanned') {
+      chatDayExtentDurations.add(_int(data['durationUs']));
+    }
     if (name == 'topicList.scroll.notification') {
       listScrollDurations.add(_int(data['durationUs']));
     }
@@ -98,6 +106,8 @@ String encodeTopicScrollReport(
     'topicListScrollWorkUs': _distribution(listScrollDurations),
     'chatScrollWorkUs': _distribution(chatScrollDurations),
     'chatViewportWorkUs': _distribution(chatViewportDurations),
+    'chatRowLayoutUs': _distribution(chatRowLayoutDurations),
+    'chatDayExtentWorkUs': _distribution(chatDayExtentDurations),
     'postLayoutUs': _distribution(layoutDurations),
     'activityCounts': activity,
     'topicContextCount': contexts.length,
@@ -133,7 +143,13 @@ String encodeTopicScrollReport(
           ...frame,
           'topicActivity': _activityCounts(byFrame[frame['frameNumber']] ?? []),
           'measuredWorkUs': {
-            for (final name in ['post.layout', 'viewport.work'])
+            for (final name in [
+              'post.layout',
+              'viewport.work',
+              'chat.row.layout',
+              'chat.viewport.work',
+              'chat.dayExtents.scanned',
+            ])
               name: (byFrame[frame['frameNumber']] ?? [])
                   .where((event) => event['name'] == name)
                   .fold<int>(
@@ -322,10 +338,19 @@ String _formatReport(Map<String, Object?> report) {
       ..writeln(
         'Chat viewport bookkeeping: '
         '${_timingLine(_map(analysis['chatViewportWorkUs']))}',
+      )
+      ..writeln(
+        'Chat row layout: '
+        '${_timingLine(_map(analysis['chatRowLayoutUs']))}',
+      )
+      ..writeln(
+        'Chat date extent scans: '
+        '${_timingLine(_map(analysis['chatDayExtentWorkUs']))}',
       );
     for (final chat in _maps(analysis['chats'])) {
       output.writeln(
         'Chat: ${chat['messageCount']} loaded messages | '
+        'direct message ${chat['directMessage']} | group ${chat['group']} | '
         'thread ${chat['thread']} | viewport extent ${chat['viewportExtent']}',
       );
     }
