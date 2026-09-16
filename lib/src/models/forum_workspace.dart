@@ -50,46 +50,120 @@ final class ForumTabAnchor {
 }
 
 @immutable
+final class ForumTabLocation {
+  ForumTabLocation({
+    required this.rootDestinationId,
+    required List<ContentRoute> contentStack,
+  }) : assert(rootDestinationId.isNotEmpty),
+       assert(contentStack.isNotEmpty),
+       assert(contentStack.length <= ForumTab.maximumContentRoutes),
+       contentStack = List.unmodifiable(contentStack);
+
+  final String rootDestinationId;
+  final List<ContentRoute> contentStack;
+
+  Map<String, Object?> toJson() => {
+    'root_destination_id': rootDestinationId,
+    'content_stack': [for (final route in contentStack) route.toJson()],
+  };
+
+  static ForumTabLocation? tryFromJson(Object? value) {
+    if (value is! Map) return null;
+    final root = value['root_destination_id'];
+    final routes = ForumTab._readRoutes(
+      value['content_stack'],
+      ForumTab.maximumContentRoutes,
+      preserveRoot: true,
+    );
+    if (root is! String || root.isEmpty || routes.isEmpty) return null;
+    return ForumTabLocation(rootDestinationId: root, contentStack: routes);
+  }
+
+  @override
+  bool operator ==(Object other) =>
+      other is ForumTabLocation &&
+      other.rootDestinationId == rootDestinationId &&
+      listEquals(other.contentStack, contentStack);
+
+  @override
+  int get hashCode =>
+      Object.hash(rootDestinationId, Object.hashAll(contentStack));
+}
+
+@immutable
 final class ForumTab {
   ForumTab({
     required this.id,
     required this.rootDestinationId,
     required List<ContentRoute> contentStack,
     List<ContentRoute> forwardStack = const [],
+    List<ForumTabLocation>? backHistory,
+    List<ForumTabLocation>? forwardHistory,
     Map<String, ForumTabAnchor> anchors = const {},
   }) : assert(id.isNotEmpty),
        assert(rootDestinationId.isNotEmpty),
        assert(contentStack.isNotEmpty),
+       assert(contentStack.length <= maximumContentRoutes),
+       assert(forwardStack.length <= maximumHistoryEntries),
        assert(
-         contentStack.length + forwardStack.length <= maximumContentRoutes,
+         backHistory == null || backHistory.length <= maximumHistoryEntries,
+       ),
+       assert(
+         forwardHistory == null ||
+             forwardHistory.length <= maximumHistoryEntries,
        ),
        contentStack = List.unmodifiable(contentStack),
-       forwardStack = List.unmodifiable(forwardStack),
+       backHistory = List.unmodifiable(
+         backHistory ?? _legacyBackHistory(rootDestinationId, contentStack),
+       ),
+       forwardHistory = List.unmodifiable(
+         forwardHistory ??
+             _legacyForwardHistory(
+               rootDestinationId,
+               contentStack,
+               forwardStack,
+             ),
+       ),
        anchors = Map.unmodifiable(anchors);
 
   static const int maximumContentRoutes = 64;
+  static const int maximumHistoryEntries = 50;
 
   final String id;
   final String rootDestinationId;
   final List<ContentRoute> contentStack;
-  final List<ContentRoute> forwardStack;
+  // History is separate from the current page's parent routes. Replacing a
+  // split-view reader or switching sidebar destinations is still a visit.
+  // Entries contain route metadata only, never widgets or loaded page data.
+  final List<ForumTabLocation> backHistory;
+  final List<ForumTabLocation> forwardHistory;
+  List<ContentRoute> get forwardStack => List.unmodifiable([
+    for (final entry in forwardHistory) entry.contentStack.last,
+  ]);
 
   final Map<String, ForumTabAnchor> anchors;
 
   ContentRoute get currentContent => contentStack.last;
-  bool get canGoBack => contentStack.length > 1;
-  bool get canGoForward => forwardStack.isNotEmpty;
+  bool get canGoBack => backHistory.isNotEmpty;
+  bool get canGoForward => forwardHistory.isNotEmpty;
+
+  ForumTabLocation get location => ForumTabLocation(
+    rootDestinationId: rootDestinationId,
+    contentStack: contentStack,
+  );
 
   ForumTab copyWith({
     String? rootDestinationId,
     List<ContentRoute>? contentStack,
-    List<ContentRoute>? forwardStack,
+    List<ForumTabLocation>? backHistory,
+    List<ForumTabLocation>? forwardHistory,
     Map<String, ForumTabAnchor>? anchors,
   }) => ForumTab(
     id: id,
     rootDestinationId: rootDestinationId ?? this.rootDestinationId,
     contentStack: contentStack ?? this.contentStack,
-    forwardStack: forwardStack ?? this.forwardStack,
+    backHistory: backHistory ?? this.backHistory,
+    forwardHistory: forwardHistory ?? this.forwardHistory,
     anchors: anchors ?? this.anchors,
   );
 
@@ -104,27 +178,105 @@ final class ForumTab {
         route,
       ];
     }
-    return copyWith(
-      contentStack: routes,
-      forwardStack: const [],
-      anchors: _retainAnchors({for (final item in routes) item.id}),
+    return navigate(contentStack: routes);
+  }
+
+  ForumTab navigate({
+    String? rootDestinationId,
+    required List<ContentRoute> contentStack,
+  }) {
+    final target = ForumTabLocation(
+      rootDestinationId: rootDestinationId ?? this.rootDestinationId,
+      contentStack: contentStack,
     );
+    if (target == location) return this;
+    return copyWith(
+      rootDestinationId: target.rootDestinationId,
+      contentStack: target.contentStack,
+      backHistory: _bounded([...backHistory, location]),
+      forwardHistory: const [],
+    )._pruneAnchors();
   }
 
   ForumTab goBack() {
     if (!canGoBack) return this;
     return copyWith(
-      contentStack: contentStack.take(contentStack.length - 1).toList(),
-      forwardStack: [...forwardStack, currentContent],
-    );
+      rootDestinationId: backHistory.last.rootDestinationId,
+      contentStack: backHistory.last.contentStack,
+      backHistory: backHistory.take(backHistory.length - 1).toList(),
+      forwardHistory: _bounded([...forwardHistory, location]),
+    )._pruneAnchors();
   }
 
   ForumTab goForward() {
     if (!canGoForward) return this;
     return copyWith(
-      contentStack: [...contentStack, forwardStack.last],
-      forwardStack: forwardStack.take(forwardStack.length - 1).toList(),
+      rootDestinationId: forwardHistory.last.rootDestinationId,
+      contentStack: forwardHistory.last.contentStack,
+      backHistory: _bounded([...backHistory, location]),
+      forwardHistory: forwardHistory.take(forwardHistory.length - 1).toList(),
+    )._pruneAnchors();
+  }
+
+  ForumTab rewriteRoutes(ContentRoute Function(ContentRoute) rewrite) {
+    ForumTabLocation rewriteLocation(ForumTabLocation entry) =>
+        ForumTabLocation(
+          rootDestinationId: entry.rootDestinationId,
+          contentStack: entry.contentStack.map(rewrite).toList(),
+        );
+    final updated = copyWith(
+      contentStack: contentStack.map(rewrite).toList(),
+      backHistory: backHistory.map(rewriteLocation).toList(),
+      forwardHistory: forwardHistory.map(rewriteLocation).toList(),
     );
+    return updated == this ? this : updated;
+  }
+
+  ForumTab _pruneAnchors() => copyWith(
+    anchors: _retainAnchors({
+      for (final route in contentStack) route.id,
+      for (final entry in [...backHistory, ...forwardHistory])
+        for (final route in entry.contentStack) route.id,
+    }),
+  );
+
+  static List<ForumTabLocation> _bounded(List<ForumTabLocation> entries) =>
+      entries.length <= maximumHistoryEntries
+      ? entries
+      : entries.sublist(entries.length - maximumHistoryEntries);
+
+  static List<ForumTabLocation> _legacyBackHistory(
+    String root,
+    List<ContentRoute> routes,
+  ) => _bounded([
+    for (var index = 1; index < routes.length; index++)
+      ForumTabLocation(
+        rootDestinationId: root,
+        contentStack: routes.take(index).toList(),
+      ),
+  ]);
+
+  static List<ForumTabLocation> _legacyForwardHistory(
+    String root,
+    List<ContentRoute> routes,
+    List<ContentRoute> forward,
+  ) {
+    final entries = <ForumTabLocation>[];
+    var stack = routes;
+    for (final route in forward.reversed) {
+      stack = [
+        if (stack.length == maximumContentRoutes) ...[
+          stack.first,
+          ...stack.skip(2),
+        ] else
+          ...stack,
+        route,
+      ];
+      entries.add(
+        ForumTabLocation(rootDestinationId: root, contentStack: stack),
+      );
+    }
+    return entries.reversed.toList();
   }
 
   Map<String, ForumTabAnchor> _retainAnchors(Set<String> routeIds) => {
@@ -136,10 +288,8 @@ final class ForumTab {
     'id': id,
     'root_destination_id': rootDestinationId,
     'content_stack': [for (final route in contentStack) route.toJson()],
-    if (forwardStack.isNotEmpty)
-      'forward_content_stack': [
-        for (final route in forwardStack) route.toJson(),
-      ],
+    'back_history': [for (final entry in backHistory) entry.toJson()],
+    'forward_history': [for (final entry in forwardHistory) entry.toJson()],
     if (anchors.isNotEmpty)
       'anchors': {
         for (final entry in anchors.entries) entry.key: entry.value.toJson(),
@@ -160,52 +310,25 @@ final class ForumTab {
       return null;
     }
 
-    ContentRoute? rootRoute;
-    final recent = <ContentRoute>[];
-    for (final rawRoute in rawStack) {
-      try {
-        if (rawRoute is Map) {
-          final route = ContentRoute.fromJson(
-            Map<String, dynamic>.from(rawRoute),
-          );
-          if (rootRoute == null) {
-            rootRoute = route;
-          } else {
-            recent.add(route);
-            if (recent.length >= maximumContentRoutes) recent.removeAt(0);
-          }
-        }
-      } on FormatException {
-        // A broken route cannot be left in the middle of a back stack. The tab
-        // is discarded below when no valid route remains.
-      }
-    }
-    if (rootRoute == null) return null;
-    final stack = <ContentRoute>[rootRoute, ...recent];
-
-    final forwardStack = <ContentRoute>[];
-    final rawForwardStack = json['forward_content_stack'];
-    final forwardCapacity = maximumContentRoutes - stack.length;
-    if (rawForwardStack is List && forwardCapacity > 0) {
-      for (final rawRoute in rawForwardStack) {
-        try {
-          if (rawRoute is Map) {
-            forwardStack.add(
-              ContentRoute.fromJson(Map<String, dynamic>.from(rawRoute)),
-            );
-            if (forwardStack.length > forwardCapacity) {
-              forwardStack.removeAt(0);
-            }
-          }
-        } on FormatException {
-          // One broken future entry does not invalidate the usable history.
-        }
-      }
-    }
-
+    final stack = _readRoutes(
+      rawStack,
+      maximumContentRoutes,
+      preserveRoot: true,
+    );
+    if (stack.isEmpty) return null;
+    final backHistory =
+        _readHistory(json['back_history']) ?? _legacyBackHistory(root, stack);
+    final forwardHistory =
+        _readHistory(json['forward_history']) ??
+        _legacyForwardHistory(
+          root,
+          stack,
+          _readRoutes(json['forward_content_stack'], maximumHistoryEntries),
+        );
     final routeIds = {
       for (final route in stack) route.id,
-      for (final route in forwardStack) route.id,
+      for (final entry in [...backHistory, ...forwardHistory])
+        for (final route in entry.contentStack) route.id,
     };
     final anchors = <String, ForumTabAnchor>{};
     final rawAnchors = json['anchors'];
@@ -229,9 +352,44 @@ final class ForumTab {
       id: id,
       rootDestinationId: root,
       contentStack: stack,
-      forwardStack: forwardStack,
+      backHistory: backHistory,
+      forwardHistory: forwardHistory,
       anchors: anchors,
     );
+  }
+
+  static List<ContentRoute> _readRoutes(
+    Object? value,
+    int limit, {
+    bool preserveRoot = false,
+  }) {
+    final routes = <ContentRoute>[];
+    if (value is! List) return routes;
+    for (final rawRoute in value) {
+      try {
+        if (rawRoute is Map) {
+          routes.add(
+            ContentRoute.fromJson(Map<String, dynamic>.from(rawRoute)),
+          );
+          if (routes.length > limit) routes.removeAt(preserveRoot ? 1 : 0);
+        }
+      } on FormatException {
+        // A broken route must not discard its usable neighbours.
+      }
+    }
+    return routes;
+  }
+
+  static List<ForumTabLocation>? _readHistory(Object? value) {
+    if (value is! List) return null;
+    final entries = <ForumTabLocation>[];
+    for (final rawEntry in value) {
+      final entry = ForumTabLocation.tryFromJson(rawEntry);
+      if (entry == null) continue;
+      entries.add(entry);
+      if (entries.length > maximumHistoryEntries) entries.removeAt(0);
+    }
+    return entries;
   }
 
   @override
@@ -240,7 +398,8 @@ final class ForumTab {
       other.id == id &&
       other.rootDestinationId == rootDestinationId &&
       listEquals(other.contentStack, contentStack) &&
-      listEquals(other.forwardStack, forwardStack) &&
+      listEquals(other.backHistory, backHistory) &&
+      listEquals(other.forwardHistory, forwardHistory) &&
       mapEquals(other.anchors, anchors);
 
   @override
@@ -248,7 +407,8 @@ final class ForumTab {
     id,
     rootDestinationId,
     Object.hashAll(contentStack),
-    Object.hashAll(forwardStack),
+    Object.hashAll(backHistory),
+    Object.hashAll(forwardHistory),
     // MapEntry hashes by identity while == uses mapEquals, so the anchors
     // must be hashed by key/value pairs, order-independently, to keep equal
     // tabs — such as one snapshot decoded twice — on one hash code.
