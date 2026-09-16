@@ -510,15 +510,23 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
   }
 
   bool _discardPromptOpen = false;
+  bool _resumeDraftAfterDiscardPrompt = false;
 
   bool beginDiscardPrompt() {
     if (_disposed || _discarding || _discardPromptOpen) return false;
     _discardPromptOpen = true;
+    _resumeDraftAfterDiscardPrompt = draftPending;
+    _draftTimer?.cancel();
+    _queuedDraft = null;
     return true;
   }
 
   void finishDiscardPrompt() {
     _discardPromptOpen = false;
+    if (_resumeDraftAfterDiscardPrompt) {
+      _resumeDraftAfterDiscardPrompt = false;
+      _scheduleDraft();
+    }
   }
 
   int? beginDiscard() {
@@ -2237,6 +2245,11 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
       return;
     }
     _draftTimer?.cancel();
+
+    if (_discardPromptOpen) {
+      _resumeDraftAfterDiscardPrompt = true;
+      return;
+    }
 
     final last = _lastDraftSaveAt;
     if (last != null && _now().difference(last) >= draftMaxWait) {

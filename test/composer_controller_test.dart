@@ -276,6 +276,41 @@ void main() {
     composer.dispose();
   });
 
+  testWidgets('discard prompt pauses queued saves until editing resumes', (
+    tester,
+  ) async {
+    final gate = Completer<void>();
+    final saves = <ComposerDraftSave>[];
+    final composer = ComposerController(
+      _target,
+      onSaveDraft: (save) async {
+        saves.add(save);
+        await gate.future;
+        return save.sequence + 1;
+      },
+    );
+    addTearDown(composer.dispose);
+
+    composer.text.text = 'active save';
+    await tester.pump(ComposerController.draftDebounce);
+    composer.text.text = 'queued save';
+    await tester.pump(ComposerController.draftDebounce);
+    expect(composer.beginDiscardPrompt(), isTrue);
+    expect(composer.beginDiscardPrompt(), isFalse);
+    gate.complete();
+    await tester.pump();
+    composer.text.text = 'latest revision';
+    await tester.pump(ComposerController.draftDebounce);
+    expect(saves.map((save) => save.draft.reply), ['active save']);
+
+    composer.finishDiscardPrompt();
+    await tester.pump(ComposerController.draftDebounce);
+    expect(saves.map((save) => save.draft.reply), [
+      'active save',
+      'latest revision',
+    ]);
+  });
+
   testWidgets('flushes debounced text before submission continues', (
     tester,
   ) async {
