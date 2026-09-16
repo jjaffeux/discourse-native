@@ -37,7 +37,12 @@ Direct preview parameters: `?mode=compact&theme=dark`, `?mode=card&theme=light`,
 ## Production component mapping
 
 The approved design is implemented in Flutter using the public Native library.
-This folder retains the original HTML/CSS design artifact:
+This folder retains the original HTML/CSS design artifact. The later
+[inline assignment proposal](assignments/README.md) replaces the assignment
+column in production; [calendar stamps](event-dates/README.md) distinguish event
+dates from activity.
+
+Component mapping:
 
 | Surface | Existing Native component |
 | --- | --- |

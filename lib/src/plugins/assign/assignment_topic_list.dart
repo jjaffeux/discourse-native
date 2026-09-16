@@ -20,12 +20,17 @@ class AssignmentTopicListSummary extends StatelessWidget {
     final all = assignments.all.toList(growable: false);
     if (all.isEmpty) return const SizedBox.shrink();
     final first = all.first;
-    return Row(
-      mainAxisSize: MainAxisSize.min,
+    return Wrap(
+      spacing: DSpacing.xs,
+      runSpacing: DSpacing.xs,
+      crossAxisAlignment: WrapCrossAlignment.center,
       children: [
-        Flexible(child: _Assignee(assignment: first)),
-        if (all.length > 1) ...[
-          const SizedBox(width: DSpacing.xs),
+        Text(
+          'Assigned to',
+          style: TextStyle(color: DTokens.of(context).mutedForeground),
+        ),
+        _Assignee(assignment: first),
+        if (all.length > 1)
           DButton(
             onPressed: onOpen,
             size: DButtonSize.small,
@@ -34,7 +39,6 @@ class AssignmentTopicListSummary extends StatelessWidget {
             tooltip: 'View all ${all.length} assignments in topic',
             label: Text('+${all.length - 1}'),
           ),
-        ],
       ],
     );
   }
@@ -54,6 +58,7 @@ class _Assignee extends StatelessWidget {
     return DTooltip(
       message: assignmentSummary(assignment, target),
       child: Semantics(
+        container: true,
         label: assignmentSummary(assignment, target),
         child: ExcludeSemantics(
           child: Row(
@@ -64,8 +69,8 @@ class _Assignee extends StatelessWidget {
               Flexible(
                 child: Text(
                   assignment.assignee.displayName,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+                  softWrap: true,
+                  overflow: TextOverflow.visible,
                 ),
               ),
               if (assignment.isPostAssignment) ...[

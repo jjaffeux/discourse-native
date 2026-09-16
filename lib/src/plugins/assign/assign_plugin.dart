@@ -38,7 +38,7 @@ final class AssignPlugin
         TopicRecordPlugin<Assignments>,
         PostDecorationPlugin,
         TopicListMetadataPlugin,
-        TopicListColumnPlugin,
+        CompactTopicListMetadataPlugin,
         TopicPropertiesPlugin,
         TopicPropertiesRebuildPlugin,
         PostMenuPlugin,
@@ -238,20 +238,18 @@ final class AssignPlugin
   }
 
   @override
-  TopicListColumn topicListColumn(String siteUrl) => TopicListColumn(
-    id: 'assigned-to',
-    label: 'Assigned to',
-    width: 158,
-    appliesTo: (topic) => topic.plugins.get(assignmentsDataKey) != null,
-    builder: (context, topic, onOpen) {
-      final assignments = topic.plugins.get(assignmentsDataKey);
-      if (assignments == null || !assignments.hasAssignments) return null;
-      return AssignmentTopicListSummary(
-        assignments: assignments,
-        onOpen: onOpen,
-      );
-    },
-  );
+  List<Widget> compactTopicListMetadata(
+    BuildContext context,
+    String siteUrl,
+    Topic topic,
+    VoidCallback onOpen,
+  ) {
+    final assignments = topic.plugins.get(assignmentsDataKey);
+    if (assignments == null || !assignments.hasAssignments) return const [];
+    return [
+      AssignmentTopicListSummary(assignments: assignments, onOpen: onOpen),
+    ];
+  }
 
   @override
   List<TopicPropertySection> topicProperties(

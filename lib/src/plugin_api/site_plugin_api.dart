@@ -354,33 +354,17 @@ abstract interface class TopicListMetadataPlugin {
   );
 }
 
-/// A plugin-owned column in compact topic lists. Narrow rows render its
-/// nonempty cells below the title, using [label] as the field label.
-@immutable
-final class TopicListColumn {
-  const TopicListColumn({
-    required this.id,
-    required this.label,
-    required this.width,
-    required this.appliesTo,
-    required this.builder,
-  });
-
-  final String id;
-  final String label;
-  final double width;
-  final bool Function(Topic topic) appliesTo;
-
+/// Optional metadata beside the tags beneath a compact topic's title.
+/// Replaces this plugin's card metadata when rendered in compact mode.
+abstract interface class CompactTopicListMetadataPlugin {
+  /// Return no widgets when there is no metadata for this topic.
   /// [onOpen] uses the list's existing topic activation and scroll policy.
-  final Widget? Function(BuildContext context, Topic topic, VoidCallback onOpen)
-  builder;
-}
-
-/// Compact column content replaces this plugin's card metadata. Plugins that
-/// only implement [TopicListMetadataPlugin] retain their normal metadata below
-/// the compact row.
-abstract interface class TopicListColumnPlugin {
-  TopicListColumn topicListColumn(String siteUrl);
+  List<Widget> compactTopicListMetadata(
+    BuildContext context,
+    String siteUrl,
+    Topic topic,
+    VoidCallback onOpen,
+  );
 }
 
 enum TopicPropertySectionLayout { inline, standalone }

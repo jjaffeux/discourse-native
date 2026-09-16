@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Topic assignments · Inline metadata</title>
+  <link rel="stylesheet" href="styles.css">
+  <script src="mockup.js" defer></script>
+</head>
+<body>
+  <svg class="symbols" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+    <symbol id="group" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M3 20v-2a6 6 0 0 1 12 0v2M16 5a3 3 0 0 1 0 6m2 3a5 5 0 0 1 3 4v2"/></symbol>
+    <symbol id="close" viewBox="0 0 24 24"><path d="m6 6 12 12M6 18 18 6"/></symbol>
+  </svg>
+  <header class="study-bar">
+    <a class="brand" href="../event-dates/?option=stamp&mode=compact&theme=dark"><span class="brand__mark">d<span>•</span></span><span>Discourse Native<small>Topic list / Assignments</small></span></a>
+    <div class="study-tools">
+      <button type="button" class="control" id="width-toggle" aria-pressed="false">390px pane</button>
+      <button type="button" class="control" id="theme-toggle">Light theme</button>
+    </div>
+  </header>
+  <main class="study" id="study" data-placement="inline" data-narrow="false">
+    <div class="intro">
+      <p class="eyebrow">COMPACT TOPIC LIST</p>
+      <h1>Assignments, only where they exist.</h1>
+      <p>Put the assignee under the title. Keep the space for the conversation.</p>
+    </div>
+    <div class="comparison-bar">
+      <div class="segmented" aria-label="Assignment placement">
+        <button type="button" data-placement="column" aria-pressed="false">Current · Column</button>
+        <button type="button" data-placement="inline" aria-pressed="true">Proposed · In the topic</button>
+      </div>
+      <span class="sample-note">Sample topics · 4 of 11 assigned</span>
+    </div>
+    <section class="preview" aria-label="Compact topic list">
+      <header class="preview__header"><h2>Topics</h2><span class="feed">Latest</span><span class="preview__count">11 conversations</span></header>
+      <div class="topic-heading" aria-hidden="true"><span>Topic</span><span class="category-column">Category</span><span class="assignment-column">Assigned to</span><span class="number-column">Replies</span><span class="number-column">Activity</span></div>
+      <div id="topics"></div>
+    </section>
+    <p class="note" id="placement-note"></p>
+    <p class="hint">The calendar stamp stays as selected. Click a topic or +N to see its assignments.</p>
+  </main>
+  <dialog class="details" id="details" aria-labelledby="details-title" aria-describedby="details-context">
+    <button type="button" class="close" id="close-details" aria-label="Close details"><svg class="icon" aria-hidden="true"><use href="#close"/></svg></button>
+    <p class="eyebrow" id="details-context">SAMPLE TOPIC</p>
+    <h2 id="details-title"></h2>
+    <div id="details-body"></div>
+    <button type="button" class="control" id="done-details">Back to topics</button>
+  </dialog>
+</body>
+</html>
