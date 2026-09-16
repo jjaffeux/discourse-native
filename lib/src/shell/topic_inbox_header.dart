@@ -12,7 +12,6 @@ import '../plugin_api/plugin_registry.dart';
 import '../plugin_api/site_plugin_api.dart';
 import '../theme/app_theme.dart';
 import '../theme/d_icons.dart';
-import '../theme/d_native_icons.dart';
 import 'anchored_picker.dart';
 import 'avatar_image.dart';
 import 'category_icon.dart';
@@ -205,26 +204,12 @@ class _TopicHeaderToolbar extends StatelessWidget {
         color: Theme.of(context).shell.content,
         child: ConstrainedBox(
           key: const ValueKey('topic-content-header'),
-          constraints: const BoxConstraints(minHeight: shellHeaderHeight),
+          constraints: const BoxConstraints(minHeight: readerHeaderHeight),
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
             child: Row(
               children: [
-                if (!header.keepTopicListOpen)
-                  ConstrainedBox(
-                    constraints: BoxConstraints(
-                      minWidth: lane.padding.left + 4,
-                    ),
-                    child: Align(
-                      alignment: AlignmentDirectional.centerStart,
-                      widthFactor: 1,
-                      child: TopicCloseButton(
-                        canReturnToSidebar: header.canReturnToSidebar,
-                      ),
-                    ),
-                  )
-                else
-                  SizedBox(width: lane.padding.left + 4),
+                SizedBox(width: lane.padding.left + 4),
                 Expanded(
                   child: Padding(
                     padding: const EdgeInsetsDirectional.only(end: 8),
@@ -236,6 +221,10 @@ class _TopicHeaderToolbar extends StatelessWidget {
                   width: constraints.maxWidth,
                 ),
                 const TopicPresentationButton(),
+                if (!header.keepTopicListOpen)
+                  TopicCloseButton(
+                    canReturnToSidebar: header.canReturnToSidebar,
+                  ),
               ],
             ),
           ),
@@ -299,12 +288,12 @@ class _TopicHeaderActions extends StatelessWidget {
     final siteUrl = header.siteUrl;
     return Row(
       mainAxisSize: MainAxisSize.min,
-      spacing: DSpacing.sm,
+      spacing: DSpacing.xs,
       children: [
         Row(
           key: const ValueKey('topic-header-common-actions'),
           mainAxisSize: MainAxisSize.min,
-          spacing: DSpacing.sm,
+          spacing: DSpacing.xs,
           children: [
             if (topic != null && siteUrl != null) ...[
               TopicStatusButton(
@@ -337,12 +326,12 @@ class TopicCloseButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) => DButton.iconOnly(
     key: const ValueKey('topic-close-reader'),
-    icon: const DIcon(DNativeIcons.closeTopicPane, size: 20),
+    icon: const DIcon(DIcons.xmark),
     tooltip: ShellScope.read(context).topicListContent?.isMessages == true
         ? 'Collapse message'
         : 'Collapse topic',
     variant: DButtonVariant.ghost,
-    size: DButtonSize.small,
+    size: DButtonSize.regular,
     onPressed: () {
       final controller = ShellScope.read(context);
       if (TopicReaderPresentation.isSheetOf(context)) {
