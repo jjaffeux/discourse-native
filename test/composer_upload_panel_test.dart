@@ -16,6 +16,7 @@ import 'package:discourse_native/src/shell/markdown_editing_controller.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
+import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
@@ -26,6 +27,89 @@ import 'support/fakes.dart';
 
 void main() {
   group('upload lifecycle', () {
+    for (final staff in [false, true]) {
+      testWidgets('toolbar uploads allowed files (staff: $staff)', (
+        tester,
+      ) async {
+        const config = SiteConfig(
+          authorizedExtensions: [
+            'png',
+            'pdf',
+            'mp4',
+            'mp3',
+            'tar.gz',
+            'custom',
+          ],
+          authorizedExtensionsForStaff: ['zip'],
+        );
+        final uploaded = <String>[];
+        final composer = ComposerController(
+          _target,
+          canUploadImage: (name) => config.canUploadImage(name, staff: staff),
+          canUploadFile: (name) => config.canUploadFile(name, staff: staff),
+          imageUploader:
+              (file, {required onProgress, required abortTrigger}) async {
+                uploaded.add(file.name);
+                return ComposerUploadResult(
+                  id: uploaded.length,
+                  originalFilename: file.name,
+                  shortUrl: 'upload://${file.name}',
+                  url: 'https://meta.discourse.org/uploads/${file.name}',
+                );
+              },
+        );
+        final shell = await _shell();
+        addTearDown(shell.dispose);
+        addTearDown(composer.dispose);
+        await _pumpPanel(
+          tester,
+          shell,
+          composer,
+          pickFiles: () async => [
+            for (final name in [
+              'photo.png',
+              'notes.pdf',
+              'video.mp4',
+              'audio.mp3',
+              'archive.tar.gz',
+              'data.custom',
+              'staff.zip',
+              'blocked.exe',
+            ])
+              ComposerUploadFile(
+                name: name,
+                length: _file.length,
+                openRead: _file.openRead,
+              ),
+          ],
+        );
+
+        final button = tester.widget<DButton>(
+          find.byKey(const ValueKey('composer-upload')),
+        );
+        expect(button.tooltip, 'Upload');
+        expect((button.icon! as DIcon).icon, DIcons.paperclip);
+        await tester.tap(find.byKey(const ValueKey('composer-upload')));
+        await tester.pumpAndSettle();
+
+        expect(uploaded, [
+          'photo.png',
+          'notes.pdf',
+          'video.mp4',
+          'audio.mp3',
+          'archive.tar.gz',
+          'data.custom',
+          if (staff) 'staff.zip',
+        ]);
+        expect(composer.text.text, contains('![photo](upload://photo.png)'));
+        for (final name in uploaded.skip(1)) {
+          expect(composer.text.text, contains('[$name](upload://$name)'));
+        }
+        expect(composer.text.text, isNot(contains('blocked.exe')));
+        expect(composer.notice, contains('not allowed'));
+      });
+    }
+
     for (final ontoGallery in [false, true]) {
       testWidgets(
         'video drops insert attachment markdown (gallery: $ontoGallery)',
@@ -466,13 +550,13 @@ void main() {
         tester,
         shell,
         composer,
-        pickImages: () {
+        pickFiles: () {
           pickerCalls++;
           return pickerResult.future;
         },
       );
 
-      expect(find.byTooltip('Upload images'), findsOneWidget);
+      expect(find.byTooltip('Upload'), findsOneWidget);
       await tester.tap(find.byKey(const ValueKey('composer-upload')));
       await tester.pump();
       expect(pickerCalls, 1);
@@ -1809,6 +1893,7 @@ Future<void> _pumpPanel(
   ShellController shell,
   ComposerController composer, {
   double? height,
+  ComposerFilePicker pickFiles = _cancelImagePick,
   ComposerImagePicker pickImages = _cancelImagePick,
   ComposerClipboardFileReader readClipboardFiles = readComposerClipboardFiles,
 }) => tester.pumpWidget(
@@ -1820,6 +1905,7 @@ Future<void> _pumpPanel(
         body: ComposerPanel(
           composer: composer,
           height: height ?? 500,
+          pickFiles: pickFiles,
           pickImages: pickImages,
           readClipboardFiles: readClipboardFiles,
         ),

@@ -590,6 +590,36 @@ void main() {
   });
 
   group('composer uploads', () {
+    test('compound extensions follow site and staff permissions', () {
+      final config = SiteConfig.fromSettings(
+        settings(
+          authorizedExtensions: 'png|tar.gz',
+          authorizedExtensionsForStaff: 'data.custom',
+        ),
+      );
+      expect(config.canUploadFile('archive.TAR.GZ', staff: false), isTrue);
+      expect(config.canUploadFile('archive.gz', staff: false), isFalse);
+      expect(config.canUploadFile('report.data.custom', staff: false), isFalse);
+      expect(config.canUploadFile('report.data.custom', staff: true), isTrue);
+      expect(config.canUploadFile('report.custom', staff: true), isFalse);
+    });
+
+    test('wildcard settings also permit files without an extension', () {
+      final config = SiteConfig.fromSettings(
+        settings(authorizedExtensions: '*'),
+      );
+      expect(config.canUploadFile('README', staff: false), isTrue);
+      expect(config.canUploadFile('data.unknown', staff: false), isTrue);
+      final staffConfig = SiteConfig.fromSettings(
+        settings(
+          authorizedExtensions: 'png',
+          authorizedExtensionsForStaff: '*',
+        ),
+      );
+      expect(staffConfig.canUploadFile('README', staff: false), isFalse);
+      expect(staffConfig.canUploadFile('README', staff: true), isTrue);
+    });
+
     test('file uploads honor video, attachment, and staff permissions', () {
       final config = SiteConfig.fromSettings(
         settings(
