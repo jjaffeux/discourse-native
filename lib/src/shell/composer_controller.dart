@@ -2580,6 +2580,8 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
     if (!_replacingDocument) autocomplete.update(text.value);
 
     if (text.text == _lastText) return;
+    final wasDraftPending = draftPending;
+    final couldSubmit = _canSubmit;
     _moveUploadAnchors(_lastText, text.text);
     _lastText = text.text;
     _draftRevision++;
@@ -2589,11 +2591,12 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
       _scheduleDraft();
     }
 
-    // Only the send button depends on this, so notifying per keystroke would
-    // rebuild the panel for nothing. Which means it has to be computed here
-    // rather than read off the text: an edit typed back to what it said is a
-    // change to the button with no change to whether the field is empty.
+    // Update the send button and save status when they change, without
+    // rebuilding the panel for every keystroke during the debounce window.
     _recomputeCanSubmit();
+    if (_canSubmit == couldSubmit && draftPending != wasDraftPending) {
+      _notify();
+    }
   }
 
   void _moveUploadAnchors(String before, String after) {

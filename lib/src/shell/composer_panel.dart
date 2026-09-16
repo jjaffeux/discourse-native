@@ -3103,18 +3103,10 @@ class _Footer extends StatelessWidget {
         PluginScope.maybeOf(context)?.registry ?? PluginRegistry.empty;
     final pluginControls = registry.composerFooter(context, composer);
 
-    final draftMessage = !composer.canSaveDraft || composer.target.isEdit
-        ? null
-        : composer.draftPending || composer.draftStatus == DraftStatus.saving
-        ? 'Saving draft…'
-        : composer.draftStatus == DraftStatus.saved
-        ? 'Draft saved'
-        : null;
-    final statusMessage = message ?? draftMessage;
-    final status = statusMessage == null
+    final status = message == null
         ? const SizedBox.shrink()
         : Text(
-            statusMessage,
+            message!,
             style: theme.textTheme.labelSmall?.copyWith(
               color: isError
                   ? theme.colorScheme.error
@@ -3226,7 +3218,7 @@ class _Footer extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          if (statusMessage != null) ...[
+          if (message != null) ...[
             Align(alignment: AlignmentDirectional.centerStart, child: status),
             const SizedBox(height: 4),
           ],
