@@ -9,11 +9,13 @@ import 'package:super_sliver_list/super_sliver_list.dart';
 import '../app_shortcuts.dart';
 import '../diagnostics/diagnostics_scope.dart';
 import '../diagnostics/topic_scroll_capture.dart';
+import '../models/app_settings.dart';
 import '../models/discourse_instance.dart';
 import '../models/topic.dart';
 import '../models/topic_feed.dart';
 import '../plugin_api/plugin_registry.dart';
 import '../plugin_api/plugin_scope.dart';
+import '../plugin_api/site_plugin_api.dart';
 import '../theme/d_icons.dart';
 import '../utils/pagination.dart';
 import 'avatar_image.dart';
@@ -29,6 +31,8 @@ import 'shell_scope.dart';
 import 'topic_list_indicators.dart';
 import 'topic_list_layout.dart';
 import 'topic_title.dart';
+
+part 'compact_topic_list.dart';
 
 typedef _TopicListIdentity = (String?, String?, String?, String);
 typedef _TopicListCursor = ({int topicId, int index});
@@ -60,6 +64,8 @@ class _TopicListViewState extends State<TopicListView> {
   Object? _keyboardMoveToken;
   Object? _loadMoreToken;
   bool _restored = false;
+  TopicListDisplayMode _mode = TopicListDisplayMode.card;
+  bool get _compact => _mode == TopicListDisplayMode.compact;
   int? _readingTopicId;
   int _boundaryJumpRevision = 0;
 
@@ -518,9 +524,12 @@ class _TopicListViewState extends State<TopicListView> {
 
   @override
   Widget build(BuildContext context) {
-    return ShellSelector<_TopicListSnapshot>(
-      select: _topicListSnapshot,
-      builder: (context, state, _) => _build(context, state),
+    return ListenableBuilder(
+      listenable: ShellScope.identityOf(context).appSettings,
+      builder: (context, _) => ShellSelector<_TopicListSnapshot>(
+        select: _topicListSnapshot,
+        builder: (context, state, _) => _build(context, state),
+      ),
     );
   }
 
@@ -536,6 +545,7 @@ class _TopicListViewState extends State<TopicListView> {
       );
     }
     _controller = controller;
+    _updateMode(controller.appSettings.topicListMode);
     final destination = state.destination;
     final feedIdentity = state.feedIdentity;
 
@@ -566,6 +576,55 @@ class _TopicListViewState extends State<TopicListView> {
     );
   }
 
+  void _updateMode(TopicListDisplayMode mode) {
+    if (_mode == mode) return;
+    _mode = mode;
+    final list = _list;
+    final scroll = _scroll;
+    final identity = _feedIdentity;
+    if (list?.isAttached != true || scroll?.hasClients != true) return;
+    final range = list!.visibleRange;
+    if (range == null || widget.feed.topicIds.isEmpty) return;
+    final index = (range.$1 ~/ 2).clamp(0, widget.feed.topicIds.length - 1);
+    final id = widget.feed.topicIds[index];
+    final oldTop = _renderedRow(index)?.localToGlobal(Offset.zero).dy;
+    void restore({bool correct = true}) {
+      if (!mounted ||
+          _mode != mode ||
+          _feedIdentity != identity ||
+          !identical(_list, list) ||
+          !list.isAttached ||
+          !scroll!.hasClients) {
+        return;
+      }
+      final next = widget.feed.topicIds.indexOf(id);
+      if (next < 0) return;
+      final box = _renderedRow(next);
+      if (box == null || oldTop == null) {
+        list.jumpToItem(
+          index: next * 2,
+          scrollController: scroll,
+          alignment: 0,
+        );
+      } else {
+        scroll.jumpTo(
+          (scroll.offset + box.localToGlobal(Offset.zero).dy - oldTop).clamp(
+            scroll.position.minScrollExtent,
+            scroll.position.maxScrollExtent,
+          ),
+        );
+      }
+      if (correct) {
+        WidgetsBinding.instance.addPostFrameCallback(
+          (_) => restore(correct: false),
+        );
+        WidgetsBinding.instance.scheduleFrame();
+      }
+    }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) => restore());
+  }
+
   Widget _body(
     ShellController controller,
     String destination,
@@ -581,6 +640,7 @@ class _TopicListViewState extends State<TopicListView> {
         child: _TopicListLoadingSkeleton(
           key: const ValueKey('topic-list-loading-skeleton'),
           destination: destination,
+          compact: _compact,
         ),
       );
     }
@@ -599,7 +659,10 @@ class _TopicListViewState extends State<TopicListView> {
     if (feed.isEmpty && feed.hasMore) {
       _scheduleLoadMore(controller, destination, feedIdentity, feed);
       // A filtered page can be empty while later pages still contain replies.
-      return _TopicListLoadingSkeleton(destination: destination);
+      return _TopicListLoadingSkeleton(
+        destination: destination,
+        compact: _compact,
+      );
     }
     if (feed.isEmpty) {
       return _Message(
@@ -630,8 +693,21 @@ class _TopicListViewState extends State<TopicListView> {
       }
     }
 
+    final siteUrl = controller.currentInstance?.url;
+    final columns = _compact && siteUrl != null
+        ? (PluginScope.maybeOf(context)?.registry ?? PluginRegistry.empty)
+              .topicListColumns(siteUrl)
+              .where(
+                (column) => feed.topicIds.any((id) {
+                  final topic = controller.store.read<Topic>(siteUrl, id);
+                  return topic != null && column.appliesTo(topic);
+                }),
+              )
+              .toList(growable: false)
+        : const <TopicListColumn>[];
     return Column(
       children: [
+        if (_compact) _CompactTopicListHeader(columns: columns),
         if (feed.error case final error? when !feed.pageError)
           _FeedErrorBanner(
             key: const ValueKey('topic-feed-refresh-error'),
@@ -735,8 +811,14 @@ class _TopicListViewState extends State<TopicListView> {
                           // The separated delegate addresses topics and gaps.
                           return index < 0 ? null : index * 2;
                         },
-                        separatorBuilder: (context, _) =>
-                            const SizedBox(height: 8),
+                        separatorBuilder: (context, _) => _compact
+                            ? const Padding(
+                                padding: EdgeInsets.symmetric(
+                                  horizontal: topicListHorizontalPadding,
+                                ),
+                                child: DSeparator(),
+                              )
+                            : const SizedBox(height: 8),
                         itemBuilder: (context, index) {
                           if (_recording) {
                             _recordScrollEvent('topicList.row.built', {
@@ -778,6 +860,8 @@ class _TopicListViewState extends State<TopicListView> {
                             child: _TopicRow(
                               topicId: topicId,
                               inbox: widget.inbox,
+                              compact: _compact,
+                              columns: columns,
                               onOpen: _openRow,
                               hiddenCategoryId:
                                   controller.topicListContent?.categoryId,
@@ -812,9 +896,13 @@ class _TopicListViewState extends State<TopicListView> {
 
   // Separators occupy half of the sliver indices. Estimating them at the
   // library's default 100px forces large corrections as they are measured.
-  static double _estimateExtent(int? index, double crossAxisExtent) {
+  double _estimateExtent(int? index, double crossAxisExtent) {
     if (index == null) return 0;
-    return index.isOdd ? 8 : TopicListRow.minimumHeight;
+    return index.isOdd
+        ? (_compact ? 1 : 8)
+        : _compact
+        ? 64
+        : TopicListRow.minimumHeight;
   }
 }
 
@@ -833,7 +921,12 @@ class TopicListHeader extends StatelessWidget {
 }
 
 class _TopicListLoadingSkeleton extends StatelessWidget {
-  const _TopicListLoadingSkeleton({super.key, required this.destination});
+  const _TopicListLoadingSkeleton({
+    super.key,
+    required this.destination,
+    this.compact = false,
+  });
+  final bool compact;
 
   static const _patternLength = 5;
 
@@ -857,7 +950,9 @@ class _TopicListLoadingSkeleton extends StatelessWidget {
       child: LayoutBuilder(
         builder: (context, constraints) {
           final visibleRowCount = constraints.hasBoundedHeight
-              ? (constraints.maxHeight / TopicListRow.minimumHeight).ceil()
+              ? (constraints.maxHeight /
+                        (compact ? 64 : TopicListRow.minimumHeight))
+                    .ceil()
               : _patternLength;
           final rowCount = visibleRowCount < 1 ? 1 : visibleRowCount;
 
@@ -882,24 +977,44 @@ class _TopicListLoadingSkeleton extends StatelessWidget {
     );
   }
 
-  Widget _rowAt(int index) => switch (index % _patternLength) {
-    0 => const _TopicListSkeletonRow(titleWidth: 0.72, metadataWidth: 0.64),
-    1 => const _TopicListSkeletonRow(titleWidth: 0.88, metadataWidth: 0.52),
-    2 => const _TopicListSkeletonRow(titleWidth: 0.56, metadataWidth: 0.72),
-    3 => const _TopicListSkeletonRow(titleWidth: 0.82, metadataWidth: 0.48),
-    _ => const Opacity(
-      opacity: 0.72,
-      child: _TopicListSkeletonRow(titleWidth: 0.66, metadataWidth: 0.58),
-    ),
-  };
+  Widget _rowAt(int index) => compact
+      ? const _TopicListSkeletonRow(
+          titleWidth: .72,
+          metadataWidth: .4,
+          compact: true,
+        )
+      : switch (index % _patternLength) {
+          0 => const _TopicListSkeletonRow(
+            titleWidth: 0.72,
+            metadataWidth: 0.64,
+          ),
+          1 => const _TopicListSkeletonRow(
+            titleWidth: 0.88,
+            metadataWidth: 0.52,
+          ),
+          2 => const _TopicListSkeletonRow(
+            titleWidth: 0.56,
+            metadataWidth: 0.72,
+          ),
+          3 => const _TopicListSkeletonRow(
+            titleWidth: 0.82,
+            metadataWidth: 0.48,
+          ),
+          _ => const Opacity(
+            opacity: 0.72,
+            child: _TopicListSkeletonRow(titleWidth: 0.66, metadataWidth: 0.58),
+          ),
+        };
 }
 
 class _TopicListSkeletonRow extends StatelessWidget {
   const _TopicListSkeletonRow({
     required this.titleWidth,
     required this.metadataWidth,
+    this.compact = false,
   });
 
+  final bool compact;
   final double titleWidth;
   final double metadataWidth;
 
@@ -910,14 +1025,15 @@ class _TopicListSkeletonRow extends StatelessWidget {
         horizontal: topicListHorizontalPadding,
       ),
       child: DItem(
-        variant: DItemVariant.outline,
+        variant: compact ? DItemVariant.standard : DItemVariant.outline,
+        size: compact ? DItemSize.xs : DItemSize.standard,
         children: [
           DItemContent(
-            spacing: 12,
+            spacing: compact ? 6 : 12,
             children: [
               _SkeletonLine(widthFactor: titleWidth, height: 14),
               _SkeletonLine(widthFactor: metadataWidth, height: 12),
-              const DSkeleton(width: 100, height: 20),
+              if (!compact) const DSkeleton(width: 100, height: 20),
             ],
           ),
         ],
@@ -1048,8 +1164,12 @@ class _TopicRow extends StatelessWidget {
     required this.hiddenCategoryId,
     required this.onOpen,
     this.inbox = false,
+    required this.compact,
+    required this.columns,
   });
 
+  final bool compact;
+  final List<TopicListColumn> columns;
   final int topicId;
   final int? hiddenCategoryId;
   final bool inbox;
@@ -1082,10 +1202,12 @@ class _TopicRow extends StatelessWidget {
                     controller,
                     topic.categoryId,
                     siteUrl,
-                    hiddenCategoryId: hiddenCategoryId,
+                    hiddenCategoryId: compact ? null : hiddenCategoryId,
                   ),
                   builder: (context, categoryPresentation, _) => _TopicRowBody(
                     topic: topic,
+                    compact: compact,
+                    columns: columns,
                     category: categoryPresentation.category,
                     parentCategory: categoryPresentation.parent,
                     showCategoryBreadcrumb: true,
@@ -1242,8 +1364,12 @@ class _TopicRowBody extends StatelessWidget {
     this.itemVariant = DItemVariant.outline,
     this.contentPadding,
     this.outerPadding,
+    this.compact,
+    this.columns,
   });
 
+  final bool? compact;
+  final List<TopicListColumn>? columns;
   final Topic topic;
   final TopicCategory? category;
   final TopicCategory? parentCategory;
@@ -1260,6 +1386,21 @@ class _TopicRowBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final settings = ShellScope.maybeIdentityOf(context)?.appSettings;
+    if (compact != null || settings == null) {
+      return _build(context, compact ?? false);
+    }
+    return ListenableBuilder(
+      listenable: settings,
+      builder: (context, _) => _build(
+        context,
+        settings.topicListMode == TopicListDisplayMode.compact,
+      ),
+    );
+  }
+
+  Widget _build(BuildContext context, bool compact) {
+    if (compact) return _CompactTopicRow(row: this);
     final theme = Theme.of(context);
     final effectiveTitleStyle = titleStyle ?? theme.textTheme.titleSmall;
     final titleLineHeight =

@@ -4,6 +4,8 @@ enum AppThemeMode { system, light, dark }
 
 enum ContentAlignment { left, center, right }
 
+enum TopicListDisplayMode { card, compact }
+
 enum AppTextScale {
   percent80(0.8),
   percent90(0.9),
@@ -26,6 +28,7 @@ final class AppSettings {
     this.disableGifAnimations = false,
     this.textScale = AppTextScale.percent100,
     this.themeMode = AppThemeMode.system,
+    this.topicListMode = TopicListDisplayMode.card,
   });
 
   static const AppSettings defaults = AppSettings();
@@ -34,17 +37,20 @@ final class AppSettings {
   final bool disableGifAnimations;
   final AppTextScale textScale;
   final AppThemeMode themeMode;
+  final TopicListDisplayMode topicListMode;
 
   AppSettings copyWith({
     ContentAlignment? contentAlignment,
     bool? disableGifAnimations,
     AppTextScale? textScale,
     AppThemeMode? themeMode,
+    TopicListDisplayMode? topicListMode,
   }) => AppSettings(
     contentAlignment: contentAlignment ?? this.contentAlignment,
     disableGifAnimations: disableGifAnimations ?? this.disableGifAnimations,
     textScale: textScale ?? this.textScale,
     themeMode: themeMode ?? this.themeMode,
+    topicListMode: topicListMode ?? this.topicListMode,
   );
 
   @override
@@ -53,9 +59,15 @@ final class AppSettings {
       other.contentAlignment == contentAlignment &&
       other.disableGifAnimations == disableGifAnimations &&
       other.textScale == textScale &&
-      other.themeMode == themeMode;
+      other.themeMode == themeMode &&
+      other.topicListMode == topicListMode;
 
   @override
-  int get hashCode =>
-      Object.hash(contentAlignment, disableGifAnimations, textScale, themeMode);
+  int get hashCode => Object.hash(
+    contentAlignment,
+    disableGifAnimations,
+    textScale,
+    themeMode,
+    topicListMode,
+  );
 }

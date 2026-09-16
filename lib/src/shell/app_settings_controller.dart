@@ -16,6 +16,7 @@ final class AppSettingsController extends FrameSafeNotifier {
   bool get disableGifAnimations => _settings.disableGifAnimations;
   AppTextScale get textScale => _settings.textScale;
   AppThemeMode get themeMode => _settings.themeMode;
+  TopicListDisplayMode get topicListMode => _settings.topicListMode;
   double get textScaleFactor => textScale.factor;
 
   bool _loaded = false;
@@ -25,6 +26,7 @@ final class AppSettingsController extends FrameSafeNotifier {
   bool? _selectedDisableGifAnimations;
   AppTextScale? _selectedTextScale;
   AppThemeMode? _selectedThemeMode;
+  TopicListDisplayMode? _selectedTopicListMode;
   Future<void>? _loadTask;
 
   Future<void> load() {
@@ -50,6 +52,7 @@ final class AppSettingsController extends FrameSafeNotifier {
       disableGifAnimations: _selectedDisableGifAnimations,
       textScale: _selectedTextScale,
       themeMode: _selectedThemeMode,
+      topicListMode: _selectedTopicListMode,
     );
     _loaded = true;
     notifySafely();
@@ -108,6 +111,20 @@ final class AppSettingsController extends FrameSafeNotifier {
     _selectedThemeMode = mode;
     _settings = _settings.copyWith(themeMode: mode);
     final saving = store.update(themeMode: mode);
+    unawaited(load());
+    notifySafely();
+    return saving;
+  }
+
+  Future<void> setTopicListMode(TopicListDisplayMode mode) {
+    if (isDisposed ||
+        ((_loaded || _selectedTopicListMode != null) &&
+            mode == topicListMode)) {
+      return Future<void>.value();
+    }
+    _selectedTopicListMode = mode;
+    _settings = _settings.copyWith(topicListMode: mode);
+    final saving = store.update(topicListMode: mode);
     unawaited(load());
     notifySafely();
     return saving;

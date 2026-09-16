@@ -39,6 +39,7 @@ void main() {
     expect(find.text('System'), findsOneWidget);
     expect(find.text('Content alignment'), findsOneWidget);
     expect(find.text('Text size'), findsOneWidget);
+    expect(find.text('Topic list'), findsOneWidget);
     expect(find.text('100%'), findsOneWidget);
     expect(find.text('Disable GIF animations'), findsOneWidget);
     expect(
@@ -51,6 +52,18 @@ void main() {
       find.byKey(const ValueKey('content-alignment-segmented-button')),
     );
     expect(segmented.values, [ContentAlignment.center]);
+
+    final modes = find.byKey(const ValueKey('topic-list-mode-toggle'));
+    expect(tester.widget<DToggleGroup<TopicListDisplayMode>>(modes).values, [
+      TopicListDisplayMode.card,
+    ]);
+    await tester.tap(find.text('Compact'));
+    await tester.pump();
+    expect(controller.appSettings.topicListMode, TopicListDisplayMode.compact);
+    expect(persistence.topicListMode, 'compact');
+    expect(tester.widget<DToggleGroup<TopicListDisplayMode>>(modes).values, [
+      TopicListDisplayMode.compact,
+    ]);
 
     await tester.tap(find.text('Left'));
     await tester.pump();
@@ -117,6 +130,7 @@ void main() {
         ('Appearance', 2),
         ('Content alignment', 2),
         ('Text size', 2),
+        ('Topic list', 2),
       ]) {
         expect(
           tester.getSemantics(find.text(label)).getSemanticsData().headingLevel,

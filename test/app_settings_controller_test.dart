@@ -6,6 +6,73 @@ import 'package:discourse_native/src/shell/app_settings_controller.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  for (final mode in TopicListDisplayMode.values) {
+    test(
+      'topic list choice $mode survives hydration without replacing other settings',
+      () async {
+        final gate = Completer<void>();
+        final persistence = _ControlledAppSettingsPersistence(
+          contentAlignment: 'right',
+          themeMode: 'dark',
+          topicListMode: 'compact',
+          readGate: gate,
+        );
+        final controller = _controller(persistence);
+        final loading = controller.load();
+        await persistence.readStarted.future;
+        final saving = controller.setTopicListMode(mode);
+        expect(controller.topicListMode, mode);
+        gate.complete();
+        await Future.wait([loading, saving]);
+        await _expectSettings(
+          controller,
+          persistence,
+          AppSettings(
+            contentAlignment: ContentAlignment.right,
+            themeMode: AppThemeMode.dark,
+            topicListMode: mode,
+          ),
+        );
+      },
+    );
+  }
+
+  test(
+    'rapid topic list choices persist in order and skip repeated values',
+    () async {
+      final gate = Completer<void>();
+      final persistence = _ControlledAppSettingsPersistence(
+        firstWriteGate: gate,
+      );
+      final controller = _controller(persistence);
+      await controller.load();
+      final compact = controller.setTopicListMode(TopicListDisplayMode.compact);
+      await persistence.firstWriteStarted.future;
+      final card = controller.setTopicListMode(TopicListDisplayMode.card);
+      await controller.setTopicListMode(TopicListDisplayMode.card);
+      expect(controller.topicListMode, TopicListDisplayMode.card);
+      gate.complete();
+      await Future.wait([compact, card]);
+      expect(persistence.attemptedTopicListModeWrites, ['compact', 'card']);
+      expect(
+        (await AppSettingsStore(persistence: persistence).read()).topicListMode,
+        TopicListDisplayMode.card,
+      );
+    },
+  );
+
+  test('failed topic list writes retain the session choice', () async {
+    final persistence = _ControlledAppSettingsPersistence(acceptWrites: false);
+    final controller = _controller(persistence);
+    await controller.setTopicListMode(TopicListDisplayMode.compact);
+    await controller.load();
+    expect(controller.topicListMode, TopicListDisplayMode.compact);
+    expect(
+      (await controller.store.read()).topicListMode,
+      TopicListDisplayMode.compact,
+    );
+  });
+
   for (final mode in AppThemeMode.values) {
     test('choosing $mode during hydration preserves saved fields', () async {
       final readGate = Completer<void>();
@@ -712,6 +779,7 @@ final class _ControlledAppSettingsPersistence
     this.disableGifAnimations,
     this.textScale,
     this.themeMode,
+    this.topicListMode,
     this.readGate,
     this.firstWriteGate,
     this.acceptWrites = true,
@@ -721,6 +789,7 @@ final class _ControlledAppSettingsPersistence
   bool? disableGifAnimations;
   String? textScale;
   String? themeMode;
+  String? topicListMode;
   final Completer<void>? readGate;
   final Completer<void>? firstWriteGate;
   final bool acceptWrites;
@@ -730,6 +799,7 @@ final class _ControlledAppSettingsPersistence
   final List<bool> attemptedGifAnimationWrites = [];
   final List<String> attemptedTextScaleWrites = [];
   final List<String> attemptedThemeModeWrites = [];
+  final List<String> attemptedTopicListModeWrites = [];
   int readCount = 0;
 
   @override
@@ -783,6 +853,18 @@ final class _ControlledAppSettingsPersistence
     await _waitForFirstWrite();
     if (!acceptWrites) return false;
     themeMode = value;
+    return true;
+  }
+
+  @override
+  Future<String?> readTopicListMode() async => topicListMode;
+
+  @override
+  Future<bool> writeTopicListMode(String value) async {
+    attemptedTopicListModeWrites.add(value);
+    await _waitForFirstWrite();
+    if (!acceptWrites) return false;
+    topicListMode = value;
     return true;
   }
 

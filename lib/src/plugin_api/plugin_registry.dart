@@ -1208,14 +1208,35 @@ final class PluginRegistry
   List<Widget> topicListMetadata(
     BuildContext context,
     String siteUrl,
-    Topic topic,
-  ) => [
+    Topic topic, {
+    bool compact = false,
+  }) => [
     for (final plugin in plugins.whereType<TopicListMetadataPlugin>())
-      ..._ownedAll(
-        plugin,
-        plugin.topicListMetadata(_uiContext(context, plugin), siteUrl, topic),
-      ),
+      if (!compact || plugin is! TopicListColumnPlugin)
+        ..._ownedAll(
+          plugin,
+          plugin.topicListMetadata(_uiContext(context, plugin), siteUrl, topic),
+        ),
   ];
+
+  List<TopicListColumn> topicListColumns(String siteUrl) => [
+    for (final plugin in plugins.whereType<TopicListColumnPlugin>())
+      _ownedTopicListColumn(plugin, plugin.topicListColumn(siteUrl)),
+  ];
+
+  static TopicListColumn _ownedTopicListColumn(
+    Object plugin,
+    TopicListColumn column,
+  ) => TopicListColumn(
+    id: '${_owner(plugin).value}/${column.id}',
+    label: column.label,
+    width: column.width,
+    appliesTo: column.appliesTo,
+    builder: (context, topic, onOpen) {
+      final child = column.builder(_uiContext(context, plugin), topic, onOpen);
+      return child == null ? null : _owned(plugin, child);
+    },
+  );
 
   List<TopicPropertySection> topicProperties(
     BuildContext context,
