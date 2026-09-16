@@ -10,6 +10,100 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  testWidgets('overlay pills grow left without obscuring the icon or count', (
+    tester,
+  ) async {
+    final semantics = tester.ensureSemantics();
+    try {
+      for (final scale in [1.0, 2.0]) {
+        for (final rtl in [false, true]) {
+          var previousWidth = 0.0;
+          double? rightEdge;
+          for (final count in ['4', '129', '999+']) {
+            await _pump(
+              tester,
+              Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  const SizedBox.square(dimension: 32),
+                  Positioned(
+                    right: -1.5,
+                    bottom: -1.5,
+                    child: DBadge.overlay(
+                      semanticLabel: '1284 unread notifications',
+                      child: Text(count),
+                    ),
+                  ),
+                ],
+              ),
+              scale: scale,
+              rtl: rtl,
+            );
+            final bounds = tester.getRect(find.byType(DBadge));
+            final label = tester.getRect(find.text(count));
+            expect(bounds.height, closeTo(12 * scale + 2, 0.01));
+            expect(bounds.width, greaterThan(previousWidth));
+            expect(bounds.contains(label.topLeft), isTrue);
+            expect(bounds.contains(label.bottomRight), isTrue);
+            if (rightEdge != null) expect(bounds.right, rightEdge);
+            rightEdge = bounds.right;
+            previousWidth = bounds.width;
+            expect(
+              find.bySemanticsLabel('1284 unread notifications'),
+              findsOneWidget,
+            );
+            expect(tester.takeException(), isNull);
+          }
+        }
+      }
+    } finally {
+      semantics.dispose();
+    }
+  });
+
+  testWidgets('overlay counts fit a narrow rail at large text sizes', (
+    tester,
+  ) async {
+    for (final scale in [1.0, 2.0, 3.0]) {
+      await _pump(
+        tester,
+        ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 36),
+          child: const DBadge.overlay(child: Text('999+')),
+        ),
+        scale: scale,
+      );
+      final bounds = tester.getRect(find.byType(DBadge));
+      final label = tester.getRect(find.text('999+'));
+      expect(bounds.width, lessThanOrEqualTo(36));
+      expect(bounds.contains(label.topLeft), isTrue);
+      expect(bounds.contains(label.bottomRight), isTrue);
+      expect(
+        tester
+            .renderObject<RenderParagraph>(find.text('999+'))
+            .didExceedMaxLines,
+        isFalse,
+      );
+      expect(tester.takeException(), isNull);
+    }
+  });
+
+  testWidgets('overlay count does not intercept its parent action', (
+    tester,
+  ) async {
+    var taps = 0;
+    await _pump(
+      tester,
+      GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () => taps++,
+        child: const DBadge.overlay(child: Text('129')),
+      ),
+    );
+    await tester.tapAt(tester.getCenter(find.text('129')));
+    expect(taps, 1);
+  });
+
   testWidgets('compact counts keep full text and semantics at large scales', (
     tester,
   ) async {

@@ -15,6 +15,7 @@ import 'package:discourse_native/src/shell/instance_rail.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
+import 'package:discourse_native/src/theme/color_contrast.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
@@ -531,8 +532,19 @@ void main() {
       _controller(tester).selectInstance(1);
       await tester.pumpAndSettle();
 
-      expect(_railBadgeBackground(tester, host: 'a.example'), firstSuccess);
-      expect(_railBadgeBackground(tester, host: 'b.example'), secondSuccess);
+      final theme = _activeTheme(tester);
+      final railSurface = Color.alphaBlend(
+        theme.shell.rail,
+        opaqueColorOnCanvas(theme.scaffoldBackgroundColor, theme.brightness),
+      );
+      expect(
+        _railBadgeBackground(tester, host: 'a.example'),
+        Color.lerp(firstSuccess, railSurface, 0.2),
+      );
+      expect(
+        _railBadgeBackground(tester, host: 'b.example'),
+        Color.lerp(secondSuccess, railSurface, 0.2),
+      );
     });
 
     testWidgets('updates a non-current item when its appearance arrives late', (
@@ -704,14 +716,7 @@ Color _railBadgeBackground(WidgetTester tester, {required String host}) {
     ValueKey<String>('instance-rail-badge-https://$host'),
   );
   expect(badge, findsOneWidget);
-  final container = find.descendant(
-    of: badge,
-    matching: find.byType(Container),
-  );
-  expect(container, findsOneWidget);
-  final decoration = tester.widget<Container>(container).decoration;
-  expect(decoration, isA<BoxDecoration>());
-  return (decoration! as BoxDecoration).color!;
+  return tester.widget<DBadge>(badge).backgroundColor!;
 }
 
 Color _railAvatarBackground(WidgetTester tester, {required String host}) {

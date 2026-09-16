@@ -18,6 +18,8 @@ final badgeExamples = ComponentExamples(
       'The reference uses 20px height, 12/16px medium type, 4px gaps and pill corners. '
       'DBadgeSize.compact uses 16px height, 12/14px type and 4px horizontal '
       'insets for dense counts. Regular badges retain the reference geometry. '
+      'DBadge.overlay uses a 14px count pill with 10px tabular text and a '
+      '1.5px surface ring for small icons; the caller owns positioning and caps. '
       'Labels grow and wrap for accessibility; native touch actions reserve 48px '
       'around their compact visual. No selected/toggle behavior is implied. '
       'Use semanticValue and liveRegion for changes, invalid for validation, '
@@ -295,6 +297,53 @@ DBadge(
           DBadge(size: DBadgeSize.compact, child: Text('99+')),
         ],
       ),
+    ),
+    StyleguideExample(
+      title: 'Overlay counts',
+      description:
+          'Small count pills on 32px icons. The right edge stays fixed as the '
+          'count grows. The full count remains accessible when capped at 999+.',
+      states: const ['4', '129', '999+', 'Large text', 'Site palette'],
+      code: r'''Stack(clipBehavior: Clip.none, children: [
+  DAvatar(child: DAvatarFallback(child: Text('D'))),
+  Positioned(
+    right: -1.5,
+    bottom: -1.5,
+    child: DBadge.overlay(
+      semanticLabel: '1284 unread notifications',
+      child: Text('999+'),
+    ),
+  ),
+])''',
+      builder: (context) {
+        final tokens = DTokens.of(context);
+        return Padding(
+          padding: const EdgeInsets.all(16),
+          child: Wrap(
+            spacing: 48,
+            runSpacing: 32,
+            children: [
+              for (final count in [4, 129, 1284])
+                Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    const DAvatar(child: DAvatarFallback(child: Text('D'))),
+                    Positioned(
+                      right: -1.5,
+                      bottom: -1.5,
+                      child: DBadge.overlay(
+                        backgroundColor: tokens.primary,
+                        foregroundColor: tokens.primaryForeground,
+                        semanticLabel: '$count unread notifications',
+                        child: Text(count > 999 ? '999+' : '$count'),
+                      ),
+                    ),
+                  ],
+                ),
+            ],
+          ),
+        );
+      },
     ),
   ],
 );

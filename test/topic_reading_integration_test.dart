@@ -2237,6 +2237,49 @@ void _registerTopicReadingTests() {
       expect(bellBadge, findsOneWidget);
     });
 
+    testWidgets(
+      'rail pills keep three digits and expose uncapped live counts',
+      (tester) async {
+        final tracker = await pumpConnected(
+          tester,
+          totals: const NotificationTotals(unreadNotifications: 4),
+        );
+        final badge = find.byKey(
+          const ValueKey('instance-rail-badge-https://meta.discourse.org'),
+        );
+        final initial = tester.getRect(badge);
+        expect(tester.widget(badge), isA<DBadge>());
+        expect(initial.height, 14);
+        for (final (count, label) in [(129, '129'), (1284, '999+')]) {
+          tracker.deliverNotification({
+            'all_unread_notifications_count': count,
+            'new_personal_messages_notifications_count': 0,
+          });
+          await tester.pumpAndSettle();
+          expect(
+            find.descendant(of: badge, matching: find.text(label)),
+            findsOneWidget,
+          );
+          expect(
+            tester.widget<DBadge>(badge).semanticLabel,
+            '$count unread notifications',
+          );
+          final bounds = tester.getRect(badge);
+          expect(bounds.right, initial.right);
+          expect(bounds.height, lessThanOrEqualTo(initial.height));
+          expect(bounds.width, lessThanOrEqualTo(36));
+          expect(bounds.width, greaterThan(initial.width));
+          expect(tester.takeException(), isNull);
+        }
+        tracker.deliverNotification(const {
+          'all_unread_notifications_count': 0,
+          'new_personal_messages_notifications_count': 0,
+        });
+        await tester.pumpAndSettle();
+        expect(badge, findsNothing);
+      },
+    );
+
     testWidgets('chat-only activity stays off the notification bell', (
       tester,
     ) async {

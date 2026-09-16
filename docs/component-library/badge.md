@@ -59,6 +59,26 @@ on 2026-09-13. It uses a 16px minimum height, the same 12px font with 14px leadi
 badges retain the reference geometry. Both sizes grow with text scaling, wrap
 under finite constraints and preserve the 48px touch target for actions/links.
 
+`DBadge.overlay` is a static icon-count adaptation authorized on 2026-09-16.
+It uses a 14px minimum diameter, 10/12px semibold tabular numerals, 3px horizontal
+insets, 1px vertical insets, capsule corners and a 1.5px exterior surface ring.
+It grows with text scaling, fits down within finite parent widths and ignores
+pointer input. The rail bounds it to 36px to keep large counts inside its lane
+at increased text scales. Positioning, count caps
+and exact accessible names belong to the caller. This smaller native geometry
+adapts the approved HTML lower-corner pill to the rail's 32px logical icons
+(the supplied screenshot displayed those icons at 64 physical pixels).
+InstanceRail anchors it at bottom/right -1.5px, softens each forum's success
+color 20% toward the rail surface and caps visual counts at 999+ while exposing
+the full count to accessibility. Diagnostics retains its existing 99+ counter.
+
+Verification: 72 focused badge, ring, styleguide, site-theme and live-counter
+tests pass, with clean static analysis on the installed Flutter 3.47.4 SDK.
+The isolated macOS notification-capsule fixture verified the production rail
+in light/dark/custom palettes and the corrected width fitting at 200% text.
+The final native styleguide verified 4/129/999+ in light/dark and RTL, with
+1284 retained in accessibility. No iOS/Linux device verification was performed.
+
 Verification: 52 focused badge, styleguide, menu and migration tests passed;
 root static analysis was clean. The isolated macOS preview displayed the real
 user menu with Assign list (1) and Other (6), alongside the compact styleguide
@@ -109,7 +129,7 @@ Migrated renderers preserve their domain adapters and existing callback owners:
 
 Retained alternatives from core/plugin audit:
 
-- UserMenuButton, InstanceRail and ChatHeaderButton overlay counters retain their
+- UserMenuButton and ChatHeaderButton overlay counters retain their
   small anchored overlay geometry and parent-owned accessible names; changing
   them to inline 20px pills would obscure avatars/icons. Avatar group flair and
   DAvatarBadge are image adornments, not inline labels.
