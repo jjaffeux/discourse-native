@@ -29,13 +29,13 @@ import 'keyboard_navigation.dart';
 import 'keyboard_shortcuts_help.dart';
 import 'main_content.dart';
 import 'platform.dart';
-import 'reader_content_bounds.dart';
 import 'resizable_pane.dart';
 import 'shell_controller.dart';
 import 'shell_panel.dart';
 import 'shell_scope.dart';
 import 'shell_search_controller.dart';
 import 'title_bar.dart';
+import 'topic_presentation.dart';
 
 enum ShellLayout {
   compact,
@@ -126,7 +126,8 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
     final focusedRoute = focusedContext == null
         ? null
         : ModalRoute.of(focusedContext);
-    if (focusedRoute is PopupRoute) {
+    if (focusedRoute is PopupRoute &&
+        focusedRoute.settings is! ReadingRouteSettings) {
       return false;
     }
 
@@ -316,7 +317,8 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
         final focusedRoute = focusedContext == null
             ? null
             : ModalRoute.of(focusedContext);
-        if (focusedRoute is PopupRoute) {
+        if (focusedRoute is PopupRoute &&
+            focusedRoute.settings is! ReadingRouteSettings) {
           return;
         }
         controller.openReply();
@@ -443,7 +445,9 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
           return true;
         },
       },
-      child: ComposerPresentationHost(child: _buildShell(context)),
+      child: TopicPresentationPreferences(
+        child: ComposerPresentationHost(child: _buildShell(context)),
+      ),
     );
   }
 
@@ -1075,11 +1079,12 @@ class _PageComposerDock extends StatelessWidget {
   final Widget child;
 
   @override
-  Widget build(BuildContext context) => ComposerDock(
-    key: ComposerPresentationHost.dockKeyOf(context),
-    appWorkspace: !context.isTouch,
-    child: context.isTouch ? child : ReaderContentBounds(child: child),
-  );
+  Widget build(BuildContext context) => context.isTouch
+      ? ComposerDock(
+          key: ComposerPresentationHost.dockKeyOf(context),
+          child: child,
+        )
+      : TopicWorkspace(child: child);
 }
 
 class _ShellLoadProgress extends StatelessWidget {

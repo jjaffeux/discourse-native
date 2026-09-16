@@ -51,6 +51,8 @@ import 'topic_list_bottom_bar.dart';
 import 'topic_list_layout.dart';
 import 'topic_list_navigation.dart';
 import 'topic_list_view.dart';
+import 'topic_presentation.dart';
+import 'topic_presentation_controller.dart';
 import 'topic_title.dart';
 import 'topic_view.dart';
 import 'user_activity.dart';
@@ -169,7 +171,9 @@ class _MainContentBody extends StatelessWidget {
           left: false,
           child: Column(
             children: [
-              if (forumTabsEnabled) const CurrentForumTabsBar(),
+              if (forumTabsEnabled &&
+                  !TopicReaderPresentation.hasWorkspaceOf(context))
+                const CurrentForumTabsBar(),
               Expanded(
                 child: _TopicInboxWorkspace(
                   key: ValueKey((state.siteUrl, state.activeTabId)),
@@ -228,7 +232,9 @@ class _MainContentBody extends StatelessWidget {
         left: false,
         child: Column(
           children: [
-            if (forumTabsEnabled) const CurrentForumTabsBar(),
+            if (forumTabsEnabled &&
+                !TopicReaderPresentation.hasWorkspaceOf(context))
+              const CurrentForumTabsBar(),
             if (!pluginOwnsChrome &&
                 !route.isTopic &&
                 !(usesTopicToolbar && ShellTitleBar.isSupported))
@@ -333,9 +339,13 @@ class _TopicInboxWorkspaceState extends State<_TopicInboxWorkspace> {
         final registry = widget.registry;
         final theme = Theme.of(context);
         final topicOpen = state.route!.isTopic;
-        final minimumTopicWidth = context.isTouch ? 520.0 : 825.0;
+        final sheet = TopicReaderPresentation.isSheetOf(context);
+        final minimumTopicWidth = context.isTouch
+            ? 520.0
+            : TopicPresentationController.minimumReaderWidth;
         final split =
             topicOpen &&
+            !sheet &&
             constraints.maxWidth >=
                 (context.isTouch
                     ? 880
@@ -489,11 +499,11 @@ class _TopicInboxWorkspaceState extends State<_TopicInboxWorkspace> {
                 // list fills the reader, the shell or composer owns its edge.
                 dividerWidth: 1,
                 child: Offstage(
-                  offstage: topicOpen && !split,
+                  offstage: topicOpen && !split && !sheet,
                   child: ExcludeFocus(
-                    excluding: topicOpen && !split,
+                    excluding: topicOpen && !split && !sheet,
                     child: TickerMode(
-                      enabled: !topicOpen || split,
+                      enabled: !topicOpen || split || sheet,
                       child: Column(
                         children: [
                           if (!ShellTitleBar.isSupported)
@@ -559,18 +569,20 @@ class _TopicInboxWorkspaceState extends State<_TopicInboxWorkspace> {
                 end: 0,
                 top: 0,
                 bottom: 0,
-                child: DesktopTopicPage(
-                  sourceListVisible: split,
-                  child: TopicView(
-                    key: ValueKey(state.route!.topicId),
-                    inbox: true,
-                    keepTopicListOpen: split,
-                    route: state.route!,
-                    canReturnToSidebar: layout.isCompact,
-                    canReply: state.canReply,
-                    bookmarkBusy: state.bookmarkBusy,
-                    isConnected: state.isConnected,
-                    registry: registry,
+                child: TopicReaderPresentation(
+                  child: DesktopTopicPage(
+                    sourceListVisible: split,
+                    child: TopicView(
+                      key: ValueKey(state.route!.topicId),
+                      inbox: true,
+                      keepTopicListOpen: split,
+                      route: state.route!,
+                      canReturnToSidebar: layout.isCompact,
+                      canReply: state.canReply,
+                      bookmarkBusy: state.bookmarkBusy,
+                      isConnected: state.isConnected,
+                      registry: registry,
+                    ),
                   ),
                 ),
               ),
@@ -663,15 +675,17 @@ class _ContentViewport extends StatelessWidget {
       );
     }
     if (route.isTopic) {
-      return DesktopTopicPage(
-        child: TopicView(
-          inbox: true,
-          canReturnToSidebar: layout.isCompact,
-          route: route,
-          canReply: canReply,
-          bookmarkBusy: bookmarkBusy,
-          isConnected: isConnected,
-          registry: registry,
+      return TopicReaderPresentation(
+        child: DesktopTopicPage(
+          child: TopicView(
+            inbox: true,
+            canReturnToSidebar: layout.isCompact,
+            route: route,
+            canReply: canReply,
+            bookmarkBusy: bookmarkBusy,
+            isConnected: isConnected,
+            registry: registry,
+          ),
         ),
       );
     }

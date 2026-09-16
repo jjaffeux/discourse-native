@@ -26,6 +26,7 @@ import 'title_bar.dart';
 import 'topic_actions.dart';
 import 'topic_category_picker.dart';
 import 'topic_header_tags.dart';
+import 'topic_presentation.dart';
 import 'topic_title.dart';
 import 'user_menu_button.dart';
 
@@ -234,6 +235,7 @@ class _TopicHeaderToolbar extends StatelessWidget {
                   header: header,
                   width: constraints.maxWidth,
                 ),
+                const TopicPresentationButton(),
               ],
             ),
           ),
@@ -343,7 +345,9 @@ class TopicCloseButton extends StatelessWidget {
     size: DButtonSize.small,
     onPressed: () {
       final controller = ShellScope.read(context);
-      if (controller.topicListContent != null) {
+      if (TopicReaderPresentation.isSheetOf(context)) {
+        controller.closeTopic();
+      } else if (controller.topicListContent != null) {
         controller.closeTopicListReader();
       } else {
         controller.handleBack(canReturnToSidebar: canReturnToSidebar);
