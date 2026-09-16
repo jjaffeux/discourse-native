@@ -37,6 +37,7 @@ import 'package:super_sliver_list/super_sliver_list.dart';
 
 import 'support/button_surface.dart';
 import 'support/fakes.dart';
+import 'support/page_scrollbar.dart';
 
 const _parent = TopicCategory(
   id: 21,
@@ -203,6 +204,16 @@ void main() {
       final toolbarBounds = tester.getRect(toolbar);
       final taxonomy = find.byKey(const ValueKey('topic-header-taxonomy'));
       final taxonomyElement = tester.element(taxonomy);
+      final taxonomyBounds = tester.getRect(taxonomy);
+      final scrollbar = find.ancestor(
+        of: viewport,
+        matching: find.byType(DScrollBar),
+      );
+      expect(
+        viewportBounds.top,
+        closeTo(taxonomyBounds.bottom + DSpacing.sm, 1),
+      );
+      expect(tester.getRect(scrollbar), viewportBounds);
       final title = find.byKey(const ValueKey('topic-header-title-field'));
       final toolbarTitleBounds = tester.getRect(_compactHeader);
       final toolbarTitleElement = tester.element(_compactHeader);
@@ -240,9 +251,8 @@ void main() {
         expect(tester.getRect(toolbar), toolbarBounds);
         expect(tester.element(viewport), same(viewportElement));
         expect(tester.element(taxonomy), same(taxonomyElement));
-        if (offset >= 180) {
-          expect(tester.getRect(taxonomy).top, closeTo(viewportBounds.top, 1));
-        }
+        expect(tester.getRect(taxonomy), taxonomyBounds);
+        expect(tester.getRect(scrollbar), viewportBounds);
         expect(taxonomy.hitTestable(), findsOneWidget);
       }
       scroll.jumpTo(0);
@@ -253,6 +263,19 @@ void main() {
       );
       expect(title.hitTestable(), findsOneWidget);
       expect(tester.getRect(viewport), viewportBounds);
+      await tester.sendEventToBinding(
+        PointerScrollEvent(
+          position: tester.getCenter(taxonomy),
+          scrollDelta: const Offset(0, 80),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(scroll.offset, 0);
+      await expectPageEdgeScrolling(
+        tester,
+        viewport: viewport,
+        right: viewportBounds.right,
+      );
       expect(tester.takeException(), isNull);
     },
   );
