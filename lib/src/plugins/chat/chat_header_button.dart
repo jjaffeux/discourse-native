@@ -59,7 +59,7 @@ class ChatHeaderButton extends StatelessWidget {
             key: buttonKey,
             tooltip: 'Exit chat',
             onPressed: shell.closeSidebarPanel,
-            variant: DButtonVariant.ghost,
+            variant: DButtonVariant.transparentBackground,
             icon: const DIcon(DIcons.shuffle),
           );
         }
@@ -102,7 +102,7 @@ class ChatHeaderButton extends StatelessWidget {
           key: buttonKey,
           tooltip: tooltip,
           onPressed: openChat,
-          variant: DButtonVariant.ghost,
+          variant: DButtonVariant.transparentBackground,
           icon: ExcludeSemantics(
             child: Stack(
               clipBehavior: Clip.none,
