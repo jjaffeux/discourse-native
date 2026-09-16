@@ -315,7 +315,7 @@ class TopicPresentationButton extends StatelessWidget {
                 semanticLabel: 'Topic view',
                 values: [controller.preference],
                 allowEmptySelection: false,
-                size: DToggleSize.small,
+                size: DToggleSize.regular,
                 spacing: 1,
                 onChanged: (values) {
                   close();
