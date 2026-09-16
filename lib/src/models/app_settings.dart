@@ -1,5 +1,7 @@
 import 'package:flutter/foundation.dart';
 
+enum AppThemeMode { system, light, dark }
+
 enum ContentAlignment { left, center, right }
 
 enum AppTextScale {
@@ -23,6 +25,7 @@ final class AppSettings {
     this.contentAlignment = ContentAlignment.center,
     this.disableGifAnimations = false,
     this.textScale = AppTextScale.percent100,
+    this.themeMode = AppThemeMode.system,
   });
 
   static const AppSettings defaults = AppSettings();
@@ -30,15 +33,18 @@ final class AppSettings {
   final ContentAlignment contentAlignment;
   final bool disableGifAnimations;
   final AppTextScale textScale;
+  final AppThemeMode themeMode;
 
   AppSettings copyWith({
     ContentAlignment? contentAlignment,
     bool? disableGifAnimations,
     AppTextScale? textScale,
+    AppThemeMode? themeMode,
   }) => AppSettings(
     contentAlignment: contentAlignment ?? this.contentAlignment,
     disableGifAnimations: disableGifAnimations ?? this.disableGifAnimations,
     textScale: textScale ?? this.textScale,
+    themeMode: themeMode ?? this.themeMode,
   );
 
   @override
@@ -46,9 +52,10 @@ final class AppSettings {
       other is AppSettings &&
       other.contentAlignment == contentAlignment &&
       other.disableGifAnimations == disableGifAnimations &&
-      other.textScale == textScale;
+      other.textScale == textScale &&
+      other.themeMode == themeMode;
 
   @override
   int get hashCode =>
-      Object.hash(contentAlignment, disableGifAnimations, textScale);
+      Object.hash(contentAlignment, disableGifAnimations, textScale, themeMode);
 }

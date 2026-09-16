@@ -15,6 +15,7 @@ final class AppSettingsController extends FrameSafeNotifier {
   ContentAlignment get contentAlignment => _settings.contentAlignment;
   bool get disableGifAnimations => _settings.disableGifAnimations;
   AppTextScale get textScale => _settings.textScale;
+  AppThemeMode get themeMode => _settings.themeMode;
   double get textScaleFactor => textScale.factor;
 
   bool _loaded = false;
@@ -23,6 +24,7 @@ final class AppSettingsController extends FrameSafeNotifier {
   ContentAlignment? _selectedContentAlignment;
   bool? _selectedDisableGifAnimations;
   AppTextScale? _selectedTextScale;
+  AppThemeMode? _selectedThemeMode;
   Future<void>? _loadTask;
 
   Future<void> load() {
@@ -47,6 +49,7 @@ final class AppSettingsController extends FrameSafeNotifier {
       contentAlignment: _selectedContentAlignment,
       disableGifAnimations: _selectedDisableGifAnimations,
       textScale: _selectedTextScale,
+      themeMode: _selectedThemeMode,
     );
     _loaded = true;
     notifySafely();
@@ -91,6 +94,20 @@ final class AppSettingsController extends FrameSafeNotifier {
     _selectedTextScale = scale;
     _settings = _settings.copyWith(textScale: scale);
     final saving = store.update(textScale: scale);
+    unawaited(load());
+    notifySafely();
+    return saving;
+  }
+
+  Future<void> setThemeMode(AppThemeMode mode) {
+    if (isDisposed ||
+        ((_loaded || _selectedThemeMode != null) && mode == themeMode)) {
+      return Future<void>.value();
+    }
+
+    _selectedThemeMode = mode;
+    _settings = _settings.copyWith(themeMode: mode);
+    final saving = store.update(themeMode: mode);
     unawaited(load());
     notifySafely();
     return saving;

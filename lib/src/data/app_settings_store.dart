@@ -16,6 +16,10 @@ abstract interface class AppSettingsPersistence {
   Future<String?> readTextScale();
 
   Future<bool> writeTextScale(String value);
+
+  Future<String?> readThemeMode();
+
+  Future<bool> writeThemeMode(String value);
 }
 
 final class SharedPreferencesAppSettingsPersistence
@@ -60,6 +64,19 @@ final class SharedPreferencesAppSettingsPersistence
         AppSettingsStore.textScaleKey,
         value,
       );
+
+  @override
+  Future<String?> readThemeMode() async =>
+      (await SharedPreferences.getInstance()).getString(
+        AppSettingsStore.themeModeKey,
+      );
+
+  @override
+  Future<bool> writeThemeMode(String value) async =>
+      (await SharedPreferences.getInstance()).setString(
+        AppSettingsStore.themeModeKey,
+        value,
+      );
 }
 
 final class MemoryAppSettingsPersistence implements AppSettingsPersistence {
@@ -67,11 +84,13 @@ final class MemoryAppSettingsPersistence implements AppSettingsPersistence {
     this.contentAlignment,
     this.disableGifAnimations,
     this.textScale,
+    this.themeMode,
   });
 
   String? contentAlignment;
   bool? disableGifAnimations;
   String? textScale;
+  String? themeMode;
 
   @override
   Future<String?> readContentAlignment() async => contentAlignment;
@@ -99,6 +118,15 @@ final class MemoryAppSettingsPersistence implements AppSettingsPersistence {
     textScale = value;
     return true;
   }
+
+  @override
+  Future<String?> readThemeMode() async => themeMode;
+
+  @override
+  Future<bool> writeThemeMode(String value) async {
+    themeMode = value;
+    return true;
+  }
 }
 
 final class AppSettingsStore {
@@ -110,6 +138,7 @@ final class AppSettingsStore {
   static const String disableGifAnimationsKey =
       'discourse_native.disable_gif_animations';
   static const String textScaleKey = 'discourse_native.text_scale';
+  static const String themeModeKey = 'discourse_native.theme_mode';
   static const String _operationKey = 'discourse_native.app_settings';
   static const AppSettingsPersistence _defaultPersistence =
       SharedPreferencesAppSettingsPersistence();
@@ -120,12 +149,14 @@ final class AppSettingsStore {
   ContentAlignment? _sessionContentAlignment;
   bool? _sessionDisableGifAnimations;
   AppTextScale? _sessionTextScale;
+  AppThemeMode? _sessionThemeMode;
   AppSettings? _lastReadSettings;
 
   bool get _hasSessionChanges =>
       _sessionContentAlignment != null ||
       _sessionDisableGifAnimations != null ||
-      _sessionTextScale != null;
+      _sessionTextScale != null ||
+      _sessionThemeMode != null;
 
   Future<AppSettings> read() async {
     final known = _lastReadSettings;
@@ -134,7 +165,8 @@ final class AppSettingsStore {
     }
     if (_sessionContentAlignment != null &&
         _sessionDisableGifAnimations != null &&
-        _sessionTextScale != null) {
+        _sessionTextScale != null &&
+        _sessionThemeMode != null) {
       return _withSessionSettings(AppSettings.defaults);
     }
     final persisted = await _operations.read(
@@ -155,12 +187,14 @@ final class AppSettingsStore {
     contentAlignment: _sessionContentAlignment,
     disableGifAnimations: _sessionDisableGifAnimations,
     textScale: _sessionTextScale,
+    themeMode: _sessionThemeMode,
   );
 
   Future<AppSettings> _read() async {
     var contentAlignment = ContentAlignment.center;
     var disableGifAnimations = false;
     var textScale = AppTextScale.percent100;
+    var themeMode = AppThemeMode.system;
     try {
       final stored = await _persistence.readContentAlignment();
       contentAlignment = _contentAlignmentByName(stored);
@@ -187,10 +221,20 @@ final class AppSettingsStore {
     } catch (error, stackTrace) {
       reportStorageFailure(error, stackTrace, 'appSettings.readTextScale');
     }
+    try {
+      final stored = await _persistence.readThemeMode();
+      themeMode = AppThemeMode.values.firstWhere(
+        (mode) => mode.name == stored,
+        orElse: () => AppThemeMode.system,
+      );
+    } catch (error, stackTrace) {
+      reportStorageFailure(error, stackTrace, 'appSettings.readThemeMode');
+    }
     return AppSettings(
       contentAlignment: contentAlignment,
       disableGifAnimations: disableGifAnimations,
       textScale: textScale,
+      themeMode: themeMode,
     );
   }
 
@@ -198,6 +242,7 @@ final class AppSettingsStore {
     contentAlignment: settings.contentAlignment,
     disableGifAnimations: settings.disableGifAnimations,
     textScale: settings.textScale,
+    themeMode: settings.themeMode,
   );
 
   /// Saves explicit choices without replacing preferences still being read.
@@ -206,11 +251,13 @@ final class AppSettingsStore {
     ContentAlignment? contentAlignment,
     bool? disableGifAnimations,
     AppTextScale? textScale,
+    AppThemeMode? themeMode,
   }) {
     _sessionContentAlignment = contentAlignment ?? _sessionContentAlignment;
     _sessionDisableGifAnimations =
         disableGifAnimations ?? _sessionDisableGifAnimations;
     _sessionTextScale = textScale ?? _sessionTextScale;
+    _sessionThemeMode = themeMode ?? _sessionThemeMode;
     return _operations.write<void>(
       owner: _persistence,
       key: _operationKey,
@@ -218,6 +265,7 @@ final class AppSettingsStore {
         contentAlignment: contentAlignment,
         disableGifAnimations: disableGifAnimations,
         textScale: textScale,
+        themeMode: themeMode,
       ),
     );
   }
@@ -226,6 +274,7 @@ final class AppSettingsStore {
     ContentAlignment? contentAlignment,
     bool? disableGifAnimations,
     AppTextScale? textScale,
+    AppThemeMode? themeMode,
   }) async {
     try {
       if (contentAlignment != null &&
@@ -258,6 +307,14 @@ final class AppSettingsStore {
       }
     } catch (error, stackTrace) {
       reportStorageFailure(error, stackTrace, 'appSettings.writeTextScale');
+    }
+    try {
+      if (themeMode != null &&
+          !await _persistence.writeThemeMode(themeMode.name)) {
+        throw StateError('Could not persist the app theme mode.');
+      }
+    } catch (error, stackTrace) {
+      reportStorageFailure(error, stackTrace, 'appSettings.writeThemeMode');
     }
   }
 }
