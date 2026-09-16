@@ -25,7 +25,7 @@ class ComposerTagRemovalNotice extends StatelessWidget {
           icon: const DIcon(DIcons.xmark),
           tooltip: 'Dismiss tag notice',
           variant: DButtonVariant.ghost,
-          size: DButtonSize.small,
+          size: DButtonSize.regular,
           onPressed: onDismiss,
         ),
       ),
