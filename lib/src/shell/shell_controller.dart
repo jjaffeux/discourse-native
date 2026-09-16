@@ -31,6 +31,7 @@ import '../data/update_store.dart';
 import '../data/updater.dart';
 import '../data/user_directory_api.dart';
 import '../diagnostics/diagnostics_controller.dart';
+import '../diagnostics/surface_opening_trace.dart';
 import '../foundation/bounded_lru_cache.dart';
 import '../foundation/frame_safe_notifier.dart';
 import '../foundation/timezone_environment.dart';
@@ -5170,6 +5171,7 @@ class ShellController extends FrameSafeNotifier
     // A fast double tap on a row pushes the same topic twice — the fetch is
     // deduped below, but the second route still costs a back tap.
     if (currentContent?.topicId == topicId) return;
+    SurfaceOpeningTrace.mark('topic.request');
     if (currentInstance case final instance?) {
       _topicSummaryStreams.remove(_topicKey(instance.url, topicId));
     }
@@ -5670,7 +5672,10 @@ class ShellController extends FrameSafeNotifier
               final post = store.read<Post>(instance.url, id);
               return post?.postNumber == requestedPostNumber;
             });
-      if (targetHeld) return;
+      if (targetHeld) {
+        SurfaceOpeningTrace.mark('topic.cacheHit');
+        return;
+      }
     }
     final lease = lifecycle.capture(instance.url);
     final elapsed = Stopwatch()..start();
@@ -5701,6 +5706,7 @@ class ShellController extends FrameSafeNotifier
         'loading topic $topicId',
       );
       if (isDisposed || !lease.isCurrent) return;
+      SurfaceOpeningTrace.mark('topic.response');
       try {
         await _awaitTopicLoadStage(
           _ensureCategoryIds(instance, credential.value, [
@@ -5724,6 +5730,7 @@ class ShellController extends FrameSafeNotifier
       }
       if (isDisposed || !lease.isCurrent) return;
       lease.commit(() {
+        SurfaceOpeningTrace.mark('topic.publish');
         final detail = _absorb(
           instance.url,
           fetched,
@@ -6957,6 +6964,7 @@ class ShellController extends FrameSafeNotifier
   }
 
   void _setComposer(ComposerController composer) {
+    SurfaceOpeningTrace.mark('composer.publish');
     final target = composer.target;
     _composers[target.siteUrl] = composer;
   }
@@ -7060,6 +7068,7 @@ class ShellController extends FrameSafeNotifier
     bool persistsDraft = false,
     int minimumRequiredTags = 0,
   }) {
+    SurfaceOpeningTrace.mark('composer.create');
     final config = siteConfigFor(target.siteUrl);
     final draftSession = persistsDraft
         ? _composerDrafts.openSession(target)

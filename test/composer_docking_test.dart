@@ -19,6 +19,31 @@ import 'support/fakes.dart';
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
+  testWidgets('reader position reports do not rebuild the editor', (
+    tester,
+  ) async {
+    final harness = await _Harness.create(tester);
+    final editor = tester.element(find.byType(ComposerEditor));
+    final panel = tester.element(find.byType(ComposerPanel));
+    final rebuilt = <Element>{};
+    final previous = debugOnRebuildDirtyWidget;
+    debugOnRebuildDirtyWidget = (element, builtOnce) {
+      previous?.call(element, builtOnce);
+      rebuilt.add(element);
+    };
+    addTearDown(() => debugOnRebuildDirtyWidget = previous);
+    for (var frame = 0; frame < 10; frame++) {
+      harness.shell.reportReaderContentBounds(
+        Rect.fromLTWH(0, frame.toDouble(), 800, 600),
+      );
+      await tester.pump(const Duration(milliseconds: 16));
+    }
+    expect(rebuilt, isNot(contains(panel)));
+    expect(rebuilt, isNot(contains(editor)));
+    expect(harness.shell.visibleComposer!.focus.hasFocus, isTrue);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('opening and revealing the composer focuses its editor', (
     tester,
   ) async {

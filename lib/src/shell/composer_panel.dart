@@ -11,6 +11,7 @@ import 'package:flutter/rendering.dart' show RenderBox, RenderEditable;
 import 'package:flutter/services.dart';
 
 import '../diagnostics/diagnostics_controller.dart';
+import '../diagnostics/surface_opening_trace.dart';
 import '../models/composer_placement.dart';
 import '../models/composer_upload.dart';
 import '../models/site_config.dart';
@@ -97,6 +98,7 @@ class ComposerPanel extends StatelessWidget {
     return ListenableBuilder(
       listenable: composer,
       builder: (context, _) {
+        SurfaceOpeningTrace.mark('composer.build');
         final target = composer.target;
         final error = composer.error;
         final notice = composer.notice;
@@ -770,6 +772,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
   @override
   void initState() {
     super.initState();
+    SurfaceOpeningTrace.mark('composer.editorMount');
     _scroll = ScrollController();
     _blockquoteFieldGeneration = widget.composer.fieldGeneration;
     widget.composer.text.addListener(_observeBlockquoteValue);
@@ -1937,14 +1940,19 @@ final class _ComposerSelectionOverlay {
   void _attach() {
     _composer.addListener(sync);
     _composer.text.addListener(sync);
-    _composer.focus.addListener(sync);
+    _composer.focus.addListener(_editorFocusChanged);
     scroll.addListener(sync);
+  }
+
+  void _editorFocusChanged() {
+    if (_composer.focus.hasFocus) SurfaceOpeningTrace.mark('composer.focus');
+    sync();
   }
 
   void _detach() {
     _composer.removeListener(sync);
     _composer.text.removeListener(sync);
-    _composer.focus.removeListener(sync);
+    _composer.focus.removeListener(_editorFocusChanged);
     scroll.removeListener(sync);
   }
 

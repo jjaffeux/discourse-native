@@ -11,6 +11,7 @@ import '../app_shortcuts.dart';
 import '../data/topic_recommendations_tab_store.dart';
 import '../data/topic_sidebar_store.dart';
 import '../diagnostics/diagnostics_scope.dart';
+import '../diagnostics/surface_opening_trace.dart';
 import '../diagnostics/topic_scroll_capture.dart';
 import '../foundation/calendar_day.dart';
 import '../models/content_route.dart';
@@ -238,6 +239,8 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
   bool _retainedGeometryRefreshScheduled = false;
   double _laidOutPostWidth = 0;
   int _extentGeneration = 0;
+  (String, int, int)? _warmCacheIdentity;
+  (String, int, int)? _scheduledCacheIdentity;
   TopicScrollCaptureController? _scrollCapture;
   TopicScrollCaptureController? _reportedScrollCaptureController;
   int? _reportedScrollCaptureId;
@@ -1751,6 +1754,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     TopicViewportSnapshot snapshot,
     double viewportWidth,
   ) {
+    SurfaceOpeningTrace.mark('topic.build');
     final theme = Theme.of(context);
     final controller = ShellScope.read(context);
     _scrollCapture = DiagnosticsScope.maybeRead(context)?.topicScrollCapture;
@@ -1907,6 +1911,11 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
       );
     }
 
+    SurfaceOpeningTrace.afterFrame(
+      'topic.contentFrame',
+      isCurrent: () =>
+          mounted && controller.currentContent?.topicId == snapshot.topicId,
+    );
     final showFooter = snapshot.loadingMore;
     final showHeader = snapshot.hasEarlier || snapshot.loadingEarlier;
     final hasRecommendations = snapshot.recommendations?.isNotEmpty == true;
@@ -1922,6 +1931,18 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     final postIndexes = _postIndexes(postIds);
     final siteUrl = snapshot.siteUrl!;
     _syncViewport(controller, snapshot);
+    final cacheIdentity = _topicIdentity;
+    if (_warmCacheIdentity != cacheIdentity &&
+        _scheduledCacheIdentity != cacheIdentity) {
+      _scheduledCacheIdentity = cacheIdentity;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (_scheduledCacheIdentity == cacheIdentity) {
+          _scheduledCacheIdentity = null;
+        }
+        if (!mounted || _topicIdentity != cacheIdentity) return;
+        setState(() => _warmCacheIdentity = cacheIdentity);
+      });
+    }
     _laidOutPostWidth = readingLane.width;
     _viewport.updateLaidOutSnapshot(snapshot);
     final dayStarts = _dayStarts(
@@ -2160,6 +2181,11 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
               _extentGeneration,
             )),
             controller: _scroll,
+            // Lay out visible replies first, then prime the ordinary scroll
+            // cache on the next frame without changing visible post geometry.
+            scrollCacheExtent: _warmCacheIdentity == _topicIdentity
+                ? null
+                : const ScrollCacheExtent.pixels(0),
             // A partial window must accept a pull to fetch or retry a page.
             physics: SuperRangeMaintainingScrollPhysics(
               parent: snapshot.hasEarlier || snapshot.hasMore

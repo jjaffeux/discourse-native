@@ -10,6 +10,7 @@ import 'package:discourse_native/src/shell/adaptive_shell.dart';
 import 'package:discourse_native/src/shell/app_settings_controller.dart';
 import 'package:discourse_native/src/shell/composer_panel.dart';
 import 'package:discourse_native/src/shell/content_reading_lane.dart';
+import 'package:discourse_native/src/shell/cooked_html.dart';
 import 'package:discourse_native/src/shell/instance_rail.dart';
 import 'package:discourse_native/src/shell/instance_sidebar.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
@@ -19,6 +20,7 @@ import 'package:discourse_native/src/shell/topic_list_view.dart';
 import 'package:discourse_native/src/shell/topic_view.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show ScrollCacheExtent;
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -32,6 +34,147 @@ final _back = find.byKey(const ValueKey('topic-close-reader'));
 
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
+
+  testWidgets('sheet and editor retain accessible workspace navigation', (
+    tester,
+  ) async {
+    final semantics = tester.ensureSemantics();
+    try {
+      await const TopicPresentationStore().write(TopicPresentation.sheet);
+      final h = await _setup(tester, size: const Size(1280, 860));
+      expect(find.bySemanticsLabel('Forum navigation'), findsOneWidget);
+      h.shell.openTopicFromList(h.topics.first);
+      await tester.pumpAndSettle();
+      expect(find.bySemanticsLabel('Forum navigation'), findsOneWidget);
+      h.shell.openReply();
+      await tester.pumpAndSettle();
+      expect(find.bySemanticsLabel('Forum navigation'), findsOneWidget);
+      expect(h.shell.visibleComposer!.focus.hasFocus, isTrue);
+      expect(tester.takeException(), isNull);
+    } finally {
+      semantics.dispose();
+    }
+  }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
+
+  testWidgets('a new sheet reader mounts only inside its sheet', (
+    tester,
+  ) async {
+    await const TopicPresentationStore().write(TopicPresentation.sheet);
+    final h = await _setup(tester);
+    await h.shell.loadTopic(h.topics.first.id, h.topics.first.slug);
+    h.shell.openTopicFromList(h.topics.first);
+    for (var frame = 0; frame < 20; frame++) {
+      await tester.pump(const Duration(milliseconds: 16));
+      for (final reader
+          in find.byType(TopicView, skipOffstage: false).evaluate()) {
+        var inSheet = false;
+        reader.visitAncestorElements((element) {
+          if (element.widget is DSheetContent) inSheet = true;
+          return true;
+        });
+        expect(
+          inSheet,
+          isTrue,
+          reason: 'Reader built outside sheet on frame $frame',
+        );
+      }
+    }
+    expect(_reader, findsOneWidget);
+    expect(tester.takeException(), isNull);
+  }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
+
+  for (final mode in TopicPresentation.values) {
+    testWidgets('opening composer preserves cooked trees in ${mode.name}', (
+      tester,
+    ) async {
+      await const TopicPresentationStore().write(mode);
+      final h = await _setup(tester);
+      h.shell.openTopicFromList(h.topics.first);
+      await tester.pumpAndSettle();
+      final cooked = find.byType(CookedHtml).evaluate().toSet();
+      expect(cooked, isNotEmpty);
+      final rebuilt = <Element>{};
+      final previous = debugOnRebuildDirtyWidget;
+      debugOnRebuildDirtyWidget = (element, builtOnce) {
+        previous?.call(element, builtOnce);
+        if (cooked.contains(element)) rebuilt.add(element);
+      };
+      addTearDown(() => debugOnRebuildDirtyWidget = previous);
+      h.shell.openReply();
+      await tester.pumpAndSettle();
+      expect(rebuilt, isEmpty);
+      expect(find.byType(CookedHtml).evaluate().toSet(), containsAll(cooked));
+      expect(h.shell.visibleComposer!.focus.hasFocus, isTrue);
+      expect(tester.takeException(), isNull);
+    }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
+  }
+
+  testWidgets('a hidden source list does not reflow when the composer opens', (
+    tester,
+  ) async {
+    final h = await _setup(tester, size: const Size(1280, 860));
+    final listState = tester.state(_allLists);
+    final width = tester.getSize(_allLists).width;
+    h.shell.openTopicFromList(h.topics.first);
+    await tester.pumpAndSettle();
+    final rows = find
+        .byWidgetPredicate(
+          (widget) =>
+              widget.key is ValueKey<String> &&
+              (widget.key! as ValueKey<String>).value.startsWith('topic-card-'),
+          skipOffstage: false,
+        )
+        .evaluate()
+        .toSet();
+    expect(rows, isNotEmpty);
+    final rebuilt = <Element>{};
+    final previous = debugOnRebuildDirtyWidget;
+    debugOnRebuildDirtyWidget = (element, builtOnce) {
+      previous?.call(element, builtOnce);
+      if (rows.contains(element)) rebuilt.add(element);
+    };
+    addTearDown(() => debugOnRebuildDirtyWidget = previous);
+    h.shell.openReply();
+    await tester.pumpAndSettle();
+    expect(tester.state(_allLists), same(listState));
+    expect(tester.getSize(_allLists).width, width);
+    expect(rebuilt, isEmpty);
+    h.shell.closeComposer();
+    h.shell.closeTopic();
+    await tester.pumpAndSettle();
+    expect(tester.state(_allLists), same(listState));
+    expect(find.byType(TopicListView).hitTestable(), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
+
+  for (final mode in TopicPresentation.values) {
+    testWidgets('visible replies precede scroll cache in ${mode.name}', (
+      tester,
+    ) async {
+      await const TopicPresentationStore().write(mode);
+      final h = await _setup(tester);
+      await h.shell.loadTopic(h.topics.first.id, h.topics.first.slug);
+      h.shell.openTopicFromList(h.topics.first);
+      final scroll = find.descendant(
+        of: _reader,
+        matching: find.byType(CustomScrollView),
+      );
+      for (var frame = 0; frame < 8 && scroll.evaluate().isEmpty; frame++) {
+        await tester.pump();
+      }
+      expect(scroll, findsOneWidget);
+      expect(
+        tester.widget<CustomScrollView>(scroll).scrollCacheExtent,
+        const ScrollCacheExtent.pixels(0),
+      );
+      final position = _readerScroll(tester).pixels;
+      await tester.pump();
+      expect(tester.widget<CustomScrollView>(scroll).scrollCacheExtent, isNull);
+      expect(_readerScroll(tester).pixels, position);
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+    }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
+  }
 
   testWidgets('topic view switching retains reader and editor', (tester) async {
     final h = await _setup(tester, size: const Size(2400, 1000));
