@@ -575,8 +575,11 @@ void main() {
 
         final submit = find.byKey(const ValueKey('composer-submit'));
         expect(
-          find.descendant(of: submit, matching: find.text(label)),
-          findsNothing,
+          find.descendant(
+            of: submit,
+            matching: find.text(target.isNewTopic ? 'Create' : label),
+          ),
+          target.isNewTopic ? findsOneWidget : findsNothing,
         );
         expect(
           tester

@@ -3107,17 +3107,14 @@ class _Footer extends StatelessWidget {
             (300 + pluginControls.length * 120) *
                 MediaQuery.textScalerOf(context).scale(14) /
                 14;
+        final compactCreate =
+            compact && composer.target.isNewTopic && !composer.canRecheck;
         // Native image pickers outlive a resize, so the toolbar keeps its state.
         return ComposerFooterLayout(
           compact: compact,
           child: Row(
             children: [
               if (toolbar != null) Expanded(child: toolbar) else const Spacer(),
-              for (final control in pluginControls)
-                Padding(
-                  padding: const EdgeInsetsDirectional.only(end: 8),
-                  child: control,
-                ),
               if (composer.canSaveDraft && composer.hasSavedDraft) ...[
                 DButton.iconOnly(
                   key: const ValueKey('composer-discard'),
@@ -3151,7 +3148,7 @@ class _Footer extends StatelessWidget {
                         ],
                       )
                     : theme,
-                child: compact
+                child: compact && !compactCreate
                     ? DButton.iconOnly(
                         key: const ValueKey('composer-submit'),
                         tooltip: label,
@@ -3173,9 +3170,18 @@ class _Footer extends StatelessWidget {
                         onPressed: busy ? null : onSubmit,
                         loading: busy,
                         semanticLabel: label,
-                        label: Text(label),
+                        tooltip: compactCreate ? label : null,
+                        icon: compactCreate
+                            ? const DIcon(DIcons.farPenToSquare)
+                            : null,
+                        label: Text(compactCreate ? 'Create' : label),
                       ),
               ),
+              for (final control in pluginControls)
+                Padding(
+                  padding: const EdgeInsetsDirectional.only(start: 8),
+                  child: control,
+                ),
             ],
           ),
         );

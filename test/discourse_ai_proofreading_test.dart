@@ -471,22 +471,39 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('new-topic footer includes the same Proofread switch', (
+  testWidgets('new-topic footer keeps labeled Create before Proofread', (
     tester,
   ) async {
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
     final fixture = await _openReply();
     final composer = ComposerController(_newTopicTarget);
     addTearDown(fixture.shell.dispose);
     addTearDown(composer.dispose);
 
-    await _pumpComposer(tester, fixture.shell, composer: composer);
-    await tester.pump();
+    for (final width in [360.0, 800.0]) {
+      tester.view.physicalSize = Size(width, 640);
+      await _pumpComposer(tester, fixture.shell, composer: composer);
+      await tester.pump();
 
-    expect(find.text('New topic'), findsOneWidget);
-    expect(
-      find.byKey(const ValueKey('composer-proofread-control')),
-      findsOneWidget,
-    );
+      expect(find.text('New topic'), findsOneWidget);
+      final submit = find.byKey(const ValueKey('composer-submit'));
+      final proofread = find.byKey(
+        const ValueKey('composer-proofread-control'),
+      );
+      expect(
+        find.descendant(
+          of: submit,
+          matching: find.text(width == 360 ? 'Create' : 'Create topic'),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        tester.getRect(submit).right,
+        lessThan(tester.getRect(proofread).left),
+      );
+      expect(tester.takeException(), isNull);
+    }
   });
 
   testWidgets('minimized composer hides the Proofread switch', (tester) async {
