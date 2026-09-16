@@ -330,7 +330,7 @@ class TopicPresentationButton extends StatelessWidget {
           icon: _viewIcon(sheet),
           tooltip: 'Topic view',
           semanticLabel: 'Topic view',
-          variant: DButtonVariant.ghost,
+          variant: DButtonVariant.transparentBackground,
           size: DButtonSize.regular,
           focusNode: trigger.focusNode,
           expanded: trigger.open,

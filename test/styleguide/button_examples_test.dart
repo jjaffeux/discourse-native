@@ -19,8 +19,35 @@ void main() {
       'Control consistency',
       'Reference demo',
       'Custom colors',
+      'Transparent background',
     ]);
   });
+
+  testWidgets(
+    'transparent background example opens its menu and reports actions',
+    (tester) async {
+      final example = buttonExamples.examples.singleWhere(
+        (example) => example.title == 'Transparent background',
+      );
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.dark.copyWith(platform: TargetPlatform.macOS),
+          home: Scaffold(body: Builder(builder: example.builder)),
+        ),
+      );
+      await tester.tap(find.text('Reply'));
+      await tester.pumpAndSettle();
+      expect(find.text('Reply activated'), findsOneWidget);
+      await tester.tap(find.byTooltip('Copy link'));
+      await tester.pumpAndSettle();
+      expect(find.text('Link copied'), findsOneWidget);
+      await tester.tap(find.byTooltip('Insert'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Insert image'));
+      await tester.pumpAndSettle();
+      expect(find.text('Image inserted'), findsOneWidget);
+    },
+  );
 
   testWidgets(
     'custom colors keep category selection and browse actions independent',

@@ -36,10 +36,11 @@ and framework-specific form integration pages do not add catalogue rows.
 
 ## Control consistency
 
-Application buttons use the six reference variants: primary, outline,
-secondary, ghost, destructive and link. Legacy enum names are compatibility
-aliases for external callers, not application choices. Ordinary dropdown
-triggers should use `DDropdownMenuTrigger.button`; richer compositions must
+Application buttons use primary, outline, secondary, ghost, destructive, link
+and transparentBackground. Use transparentBackground for subdued toolbar actions
+whose icon/text changes color on interaction without a background fill. Legacy
+enum names are compatibility aliases for external callers, not application
+choices. Ordinary dropdown triggers should use `DDropdownMenuTrigger.button`; richer compositions must
 render DButton or the appropriate existing kit control and pass through focus,
 expanded state and activation.
 

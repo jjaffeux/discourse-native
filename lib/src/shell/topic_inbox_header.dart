@@ -347,7 +347,7 @@ class TopicCloseButton extends StatelessWidget {
     tooltip: ShellScope.read(context).topicListContent?.isMessages == true
         ? 'Collapse message'
         : 'Collapse topic',
-    variant: DButtonVariant.ghost,
+    variant: DButtonVariant.transparentBackground,
     size: DButtonSize.regular,
     onPressed: () {
       final controller = ShellScope.read(context);

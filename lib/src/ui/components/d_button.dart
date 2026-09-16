@@ -10,12 +10,16 @@ import 'd_kbd.dart';
 import 'd_spinner.dart';
 import 'd_tooltip.dart';
 
-/// The six reference variants are the application styling contract.
+/// The reference variants and [transparentBackground] are the application
+/// styling contract.
 /// Legacy names remain source-compatible aliases for external plugin callers.
 enum DButtonVariant {
   outline,
   secondary,
   ghost,
+
+  /// A subdued foreground that brightens on interaction, with no surface fill.
+  transparentBackground,
   destructive,
   standard,
   primary,
@@ -153,6 +157,7 @@ class DiscourseButtonTheme extends ThemeExtension<DiscourseButtonTheme> {
     DButtonVariant.outline => standard,
     DButtonVariant.secondary => standard,
     DButtonVariant.ghost => flat,
+    DButtonVariant.transparentBackground => transparent,
     DButtonVariant.destructive => danger,
     DButtonVariant.standard => standard,
     DButtonVariant.primary => primary,
@@ -520,6 +525,15 @@ class DButton extends StatelessWidget {
         _alpha(tokens.muted, dark ? .5 : 1),
         tokens.foreground,
         expanded: tokens.muted,
+      ),
+      DButtonVariant.transparentBackground => DButtonVariantStyle(
+        enabled: state(
+          Colors.transparent,
+          Color.lerp(tokens.mutedForeground, tokens.foreground, .35)!,
+        ),
+        interactive: state(Colors.transparent, tokens.foreground),
+        focused: state(Colors.transparent, tokens.foreground),
+        expanded: state(Colors.transparent, tokens.foreground),
       ),
       DButtonVariant.destructive => pair(
         _alpha(tokens.destructive, dark ? .2 : .1),

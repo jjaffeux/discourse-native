@@ -2,6 +2,7 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../theme/d_icons.dart';
 import '../styleguide_example.dart';
 import 'button_reference_icons.dart';
 import 'control_comparison_example.dart';
@@ -19,6 +20,8 @@ final buttonExamples = ComponentExamples(
       'The fill stops at the 1px border like bg-clip-padding, and hover, '
       'expanded, focus, invalid and pressed changes transition over 150ms. '
       'Hover exit clears immediately so neighboring highlights never overlap. '
+      'Transparent background actions change only their foreground color, '
+      'with a subdued resting tint and the usual keyboard focus ring. '
       'Loading and asynchronous ownership remain controlled by the caller. '
       'Navigation uses isLink and an application-owned callback. Pointer cursors '
       'use a hand for enabled buttons and forbidden for disabled or loading buttons. '
@@ -216,8 +219,91 @@ DButtonGroup(children: [
 ])''',
       builder: (_) => const _ButtonCustomColors(),
     ),
+    StyleguideExample(
+      title: 'Transparent background',
+      description:
+          'Subdued icons and text return to the normal foreground on hover, '
+          'focus or expansion. The background stays transparent. '
+          'Use Tab to compare the keyboard focus ring.',
+      states: const ['Text', 'Icon', 'Hover', 'Focus', 'Expanded', 'Disabled'],
+      code: '''DButton.iconOnly(
+  icon: const DIcon(DIcons.link),
+  tooltip: 'Copy link',
+  variant: DButtonVariant.transparentBackground,
+  onPressed: copyLink,
+)''',
+      builder: (_) => const _ButtonTransparentBackground(),
+    ),
   ],
 );
+
+class _ButtonTransparentBackground extends StatefulWidget {
+  const _ButtonTransparentBackground();
+
+  @override
+  State<_ButtonTransparentBackground> createState() =>
+      _ButtonTransparentBackgroundState();
+}
+
+class _ButtonTransparentBackgroundState
+    extends State<_ButtonTransparentBackground> {
+  String _result = 'No action yet';
+
+  @override
+  Widget build(BuildContext context) => Column(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      Wrap(
+        spacing: DSpacing.xs,
+        runSpacing: DSpacing.sm,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          DButton(
+            label: const Text('Reply'),
+            icon: const DIcon(DIcons.reply),
+            variant: DButtonVariant.transparentBackground,
+            onPressed: () => setState(() => _result = 'Reply activated'),
+          ),
+          DButton.iconOnly(
+            icon: const DIcon(DIcons.link),
+            tooltip: 'Copy link',
+            variant: DButtonVariant.transparentBackground,
+            onPressed: () => setState(() => _result = 'Link copied'),
+          ),
+          DDropdownMenu(
+            content: DDropdownMenuContent(
+              children: [
+                DDropdownMenuItem(
+                  child: const Text('Insert image'),
+                  onPressed: () => setState(() => _result = 'Image inserted'),
+                ),
+              ],
+            ),
+            child: DDropdownMenuTrigger(
+              builder: (_, trigger) => DButton.iconOnly(
+                icon: const DIcon(DIcons.circlePlus),
+                tooltip: 'Insert',
+                variant: DButtonVariant.transparentBackground,
+                hasPopup: true,
+                expanded: trigger.open,
+                focusNode: trigger.focusNode,
+                onPressed: trigger.toggle,
+              ),
+            ),
+          ),
+          const DButton.iconOnly(
+            icon: DIcon(DIcons.trashCan),
+            tooltip: 'Discard draft',
+            variant: DButtonVariant.transparentBackground,
+            onPressed: null,
+          ),
+        ],
+      ),
+      const SizedBox(height: DSpacing.lg),
+      Text(_result),
+    ],
+  );
+}
 
 class _ButtonCustomColors extends StatefulWidget {
   const _ButtonCustomColors();
