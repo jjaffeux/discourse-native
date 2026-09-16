@@ -9,6 +9,101 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  testWidgets('a flexible single row shares hover across its cells', (
+    tester,
+  ) async {
+    await _pump(
+      tester,
+      const DTable(
+        columnWidths: {0: FlexColumnWidth(), 1: FixedColumnWidth(120)},
+        body: DTableBody(
+          rows: [
+            DTableRow(
+              cells: [
+                DTableCell(child: Text('Title')),
+                DTableCell(child: Text('Metadata')),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+    expect(find.byType(AnimatedContainer), findsOneWidget);
+    final first = find.text('Title');
+    final last = find.text('Metadata');
+    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    await mouse.addPointer(location: const Offset(1, 1));
+    addTearDown(mouse.removePointer);
+    await mouse.moveTo(tester.getCenter(first));
+    await tester.pumpAndSettle();
+    final decoration = tester
+        .widget<AnimatedContainer>(find.byType(AnimatedContainer))
+        .decoration;
+    await mouse.moveTo(tester.getCenter(last));
+    await tester.pump();
+    expect(
+      tester
+          .widget<AnimatedContainer>(find.byType(AnimatedContainer))
+          .decoration,
+      decoration,
+    );
+    expect(tester.getTopLeft(first).dy, tester.getTopLeft(last).dy);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('fitting explicit columns only scroll after narrowing', (
+    tester,
+  ) async {
+    const table = DTable(
+      columnWidths: {0: FixedColumnWidth(120), 1: FlexColumnWidth()},
+      body: DTableBody(
+        rows: [
+          DTableRow(
+            cells: [
+              DTableCell(child: Text('Fixed')),
+              DTableCell(softWrap: true, child: Text('Flexible content wraps')),
+            ],
+          ),
+        ],
+      ),
+    );
+    await _pump(tester, table, width: 300);
+    expect(find.byType(Scrollable), findsNothing);
+    expect(tester.getSize(find.byType(DTableCell).last).width, 180);
+    await _pump(tester, table, width: 100);
+    await tester.pumpAndSettle();
+    final scroll = tester.state<ScrollableState>(find.byType(Scrollable));
+    expect(scroll.position.maxScrollExtent, 20);
+    await tester.drag(find.byType(Scrollable), const Offset(-30, 0));
+    await tester.pumpAndSettle();
+    expect(scroll.position.pixels, greaterThan(0));
+    await _pump(tester, table, width: 300);
+    await tester.pumpAndSettle();
+    expect(find.byType(Scrollable), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('explicit scroll controllers remain attached to fitting tables', (
+    tester,
+  ) async {
+    final controller = ScrollController();
+    addTearDown(controller.dispose);
+    await _pump(
+      tester,
+      DTable(
+        controller: controller,
+        columnWidths: const {0: FlexColumnWidth()},
+        body: const DTableBody(
+          rows: [
+            DTableRow(cells: [DTableCell(child: Text('Cell'))]),
+          ],
+        ),
+      ),
+    );
+    expect(controller.hasClients, isTrue);
+    expect(controller.position.maxScrollExtent, 0);
+  });
+
   testWidgets('lazy rows share one hover animation across all cells', (
     tester,
   ) async {

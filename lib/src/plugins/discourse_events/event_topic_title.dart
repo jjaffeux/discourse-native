@@ -143,7 +143,7 @@ class EventTopicTitle extends StatelessWidget {
 }
 
 class _EventSchedule {
-  const _EventSchedule({
+  _EventSchedule({
     required this.start,
     required this.end,
     required this.allDay,
@@ -156,6 +156,11 @@ class _EventSchedule {
   final bool allDay;
   final String? zone;
   final String locale;
+
+  // A list row uses the same description for its tooltip and semantics, and
+  // the same formatters for both endpoints. Resolve each once per schedule.
+  late final _fullDateFormat = DateFormat.yMMMMEEEEd(locale);
+  late final _timeFormat = DateFormat.Hm(locale);
 
   bool get spansDays => end != null && _day(start) != _day(end!);
   DateTime _day(DateTime date) => DateTime.utc(date.year, date.month, date.day);
@@ -171,14 +176,14 @@ class _EventSchedule {
     }
     final date = year ? DateFormat.yMMMEd(locale) : DateFormat.E(locale);
     return 'Event · ${date.format(start)} · '
-        '${allDay ? 'All day' : DateFormat.Hm(locale).format(start)}';
+        '${allDay ? 'All day' : _timeFormat.format(start)}';
   }
 
   String fullDate(DateTime date) =>
-      '${DateFormat.yMMMMEEEEd(locale).format(date)}'
-      '${allDay ? ' · All day' : ' · ${DateFormat.Hm(locale).format(date)}'}';
+      '${_fullDateFormat.format(date)}'
+      '${allDay ? ' · All day' : ' · ${_timeFormat.format(date)}'}';
 
-  String get description =>
+  late final String description =
       '${fullDate(start)}'
       '${end == null ? '' : ' → ${fullDate(end!)}'}'
       '${allDay || zone == null ? '' : ' · $zone'}';

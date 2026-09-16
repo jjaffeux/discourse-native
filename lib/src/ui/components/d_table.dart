@@ -106,8 +106,13 @@ class _DTableState extends State<DTable> {
     ];
     final headerCount = widget.header?.rows.length ?? 0;
     final footerStart = headerCount + widget.body.rows.length;
-    final singleFragment =
-        widget._fragment && rows.length == 1 && widget.caption == null;
+    final singleRow =
+        rows.length == 1 &&
+        widget.caption == null &&
+        (widget._fragment ||
+            widget.columnWidths.values.any(
+              (width) => width is FlexColumnWidth,
+            ));
     final columns = rows.fold<int>(
       0,
       (count, row) =>
@@ -134,7 +139,7 @@ class _DTableState extends State<DTable> {
             widget.minimumWidth,
             constraints.hasBoundedWidth ? constraints.maxWidth : 0.0,
           );
-          final content = Column(
+          Widget content = Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Semantics(
@@ -180,7 +185,7 @@ class _DTableState extends State<DTable> {
                               ? SemanticsRole.columnHeader
                               : SemanticsRole.cell,
                           header: rows[r].cells[c] is DTableHead,
-                          child: singleFragment
+                          child: singleRow
                               ? rows[r].cells[c]
                               : MouseRegion(
                                   onEnter: (_) => _hovered.value = r,
@@ -232,9 +237,9 @@ class _DTableState extends State<DTable> {
               ),
             ],
           );
-          if (singleFragment) {
+          if (singleRow) {
             final row = rows.single;
-            return MouseRegion(
+            content = MouseRegion(
               onEnter: (_) => _hovered.value = 0,
               onExit: (_) => _hovered.value = null,
               child: ValueListenableBuilder<int?>(
@@ -266,6 +271,28 @@ class _DTableState extends State<DTable> {
             );
           }
           if (widget._fragment) return content;
+          // Explicit fixed/flex columns cannot overflow when their fixed
+          // widths fit. Avoid a Scrollable (and its focus, gesture, viewport,
+          // and semantics owners) for every compact topic-list row.
+          final fits =
+              constraints.hasBoundedWidth &&
+              widget.minimumWidth <= constraints.maxWidth &&
+              List.generate(
+                columns,
+                (column) => widget.columnWidths[column],
+              ).every(
+                (policy) =>
+                    policy is FixedColumnWidth || policy is FlexColumnWidth,
+              ) &&
+              rows.every(
+                (row) => row.cells.every((cell) => cell.columnSpan == 1),
+              ) &&
+              widget.columnWidths.values.whereType<FixedColumnWidth>().fold(
+                    0.0,
+                    (total, policy) => total + policy.value,
+                  ) <=
+                  constraints.maxWidth;
+          if (fits && widget.controller == null) return content;
           return SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             controller: widget.controller,
