@@ -316,14 +316,15 @@ class ComposerHeader extends StatelessWidget {
           variant: DButtonVariant.transparentBackground,
           size: DButtonSize.regular,
         ),
-      DButton.iconOnly(
-        key: const ValueKey('composer-close'),
-        onPressed: onClose,
-        icon: const DIcon(DIcons.xmark),
-        tooltip: closeTooltip,
-        variant: DButtonVariant.transparentBackground,
-        size: DButtonSize.regular,
-      ),
+      if (!minimized)
+        DButton.iconOnly(
+          key: const ValueKey('composer-close'),
+          onPressed: onClose,
+          icon: const DIcon(DIcons.xmark),
+          tooltip: closeTooltip,
+          variant: DButtonVariant.transparentBackground,
+          size: DButtonSize.regular,
+        ),
     ];
     return SizedBox(
       key: const ValueKey('composer-header'),
@@ -344,15 +345,12 @@ class ComposerHeader extends StatelessWidget {
                               child: heading,
                             ),
                     ),
-                    if (composer.canSaveDraft && !target.isEdit)
+                    if (!minimized && composer.canSaveDraft && !target.isEdit)
                       ConstrainedBox(
                         constraints: BoxConstraints(
                           maxWidth: constraints.maxWidth * 0.6,
                         ),
-                        child: _DraftStatus(
-                          composer: composer,
-                          compact: minimized,
-                        ),
+                        child: _DraftStatus(composer: composer),
                       ),
                   ],
                 ),
@@ -367,10 +365,9 @@ class ComposerHeader extends StatelessWidget {
 }
 
 class _DraftStatus extends StatelessWidget {
-  const _DraftStatus({required this.composer, required this.compact});
+  const _DraftStatus({required this.composer});
 
   final ComposerController composer;
-  final bool compact;
 
   @override
   Widget build(BuildContext context) {
@@ -406,9 +403,8 @@ class _DraftStatus extends StatelessWidget {
     ).textTheme.labelSmall?.copyWith(color: color);
     final textScaler = MediaQuery.textScalerOf(context);
     final showLabel =
-        !compact &&
         textScaler.scale(style?.fontSize ?? 12) * (style?.height ?? 1) <=
-            ComposerHeader.height;
+        ComposerHeader.height;
     return Padding(
       padding: const EdgeInsetsDirectional.only(start: 8, end: 8),
       child: Semantics(
