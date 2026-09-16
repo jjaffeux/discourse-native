@@ -1075,9 +1075,8 @@ class _ComposerEditorState extends State<ComposerEditor> {
   }
 
   void _moveDropCaret(Offset globalPosition) {
-    final gallery = widget.composer.text.collapsedGalleryAtGlobalPosition(
-      globalPosition,
-    );
+    final text = widget.composer.text;
+    final gallery = text.collapsedGalleryAtGlobalPosition(globalPosition);
     if (gallery != null) {
       _media.updateDropTarget(gallery);
       widget.composer.focus.requestFocus();
@@ -1086,10 +1085,14 @@ class _ComposerEditorState extends State<ComposerEditor> {
     _media.updateDropTarget(null);
     final editable = _renderEditable;
     if (editable == null) return;
-    final position = editable.getPositionForPoint(globalPosition);
-    widget.composer.text.selection = TextSelection.collapsed(
-      offset: position.offset.clamp(0, widget.composer.text.text.length),
-    );
+    final offset = editable
+        .getPositionForPoint(globalPosition)
+        .offset
+        .clamp(0, text.text.length);
+    final image =
+        text.collapsedImageAtGlobalPosition(globalPosition) ??
+        text.collapsedImageAtOffset(offset);
+    text.selection = TextSelection.collapsed(offset: image?.end ?? offset);
     widget.composer.focus.requestFocus();
   }
 

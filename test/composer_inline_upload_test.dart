@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:desktop_drop/desktop_drop.dart';
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/composer_upload.dart';
 import 'package:discourse_native/src/shell/composer_controller.dart';
@@ -11,6 +12,92 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  for (final scrolled in [false, true]) {
+    testWidgets('file drag keeps existing image rendered (scrolled: $scrolled)', (
+      tester,
+    ) async {
+      final request = Completer<ComposerUploadResult>();
+      final composer = ComposerController(
+        _target,
+        imageUploader: (file, {required onProgress, required abortTrigger}) =>
+            request.future,
+      );
+      addTearDown(composer.dispose);
+      const originalImage =
+          '![Screenshot 2026-09-16 at 20.15.19|100x100](upload://existing.png)';
+      final source = '${'Before\n' * 8}$originalImage\n${'After\n' * 30}';
+      composer.text.value = TextEditingValue(
+        text: source,
+        selection: const TextSelection.collapsed(offset: 0),
+      );
+      await _pump(tester, composer);
+      final editor = tester
+          .state<EditableTextState>(find.byType(EditableText))
+          .renderEditable;
+      editor.offset.jumpTo(scrolled ? 120 : 0);
+      await tester.pump();
+      final existing = composer.text.imageBlocks.single;
+      final rect = composer.text.collapsedImageGlobalRect(existing)!;
+      final dropTarget = tester.widget<DropTarget>(find.byType(DropTarget));
+      final position = rect.center;
+      dropTarget.onDragEntered!(
+        DropEventDetails(localPosition: position, globalPosition: position),
+      );
+      await tester.pump();
+      expect(composer.text.isImageCollapsed(existing), isTrue);
+      expect(composer.text.selection.extentOffset, existing.end);
+      expect(composer.text.text, source);
+
+      for (final point in [rect.topLeft + const Offset(2, 2), rect.center]) {
+        dropTarget.onDragUpdated!(
+          DropEventDetails(localPosition: point, globalPosition: point),
+        );
+        await tester.pump();
+        expect(composer.text.isImageCollapsed(existing), isTrue);
+        expect(composer.text.selection.extentOffset, existing.end);
+      }
+      dropTarget.onDragExited!(
+        DropEventDetails(localPosition: position, globalPosition: position),
+      );
+      await tester.pump();
+      expect(composer.text.isImageCollapsed(existing), isTrue);
+      expect(composer.text.text, source);
+
+      dropTarget.onDragEntered!(
+        DropEventDetails(localPosition: position, globalPosition: position),
+      );
+      await tester.pump();
+      dropTarget.onDragDone!(
+        DropDoneDetails(
+          files: [
+            DropItemFile(
+              '/tmp/dropped.png',
+              bytes: Uint8List.fromList(const [1, 2, 3]),
+            ),
+          ],
+          localPosition: position,
+          globalPosition: position,
+        ),
+      );
+      await tester.pump();
+      expect(composer.text.isImageCollapsed(existing), isTrue);
+      expect(find.byType(DAttachment), findsOneWidget);
+      expect(
+        composer.text.text.indexOf(composer.uploadPlaceholders.values.single),
+        greaterThanOrEqualTo(existing.end),
+      );
+      request.complete(_result);
+      await tester.pumpAndSettle();
+      expect(composer.text.imageBlocks.map((image) => image.url), [
+        'upload://existing.png',
+        'upload://photo',
+      ]);
+      expect(composer.raw, contains(originalImage));
+      expect(find.byType(ComposerImagePreview), findsNWidgets(2));
+      expect(tester.takeException(), isNull);
+    });
+  }
+
   for (final dark in [false, true]) {
     testWidgets(
       'upload occupies its slot while typing around it (${dark ? 'dark' : 'light'})',
