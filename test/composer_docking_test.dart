@@ -128,7 +128,9 @@ void main() {
     expect((await const ComposerLayoutStore().read()).sideWidth, 420);
   });
 
-  testWidgets('restored draft has a discard action', (tester) async {
+  testWidgets('restored draft keeps Cancel and save-and-close actions', (
+    tester,
+  ) async {
     final harness = await _Harness.create(tester);
     harness.shell.visibleComposer!.restore(
       const ComposerDraft(
@@ -138,25 +140,25 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    expect(find.byKey(const ValueKey('composer-discard')), findsOneWidget);
+    expect(find.byKey(const ValueKey('composer-discard')), findsNothing);
+    expect(find.byKey(const ValueKey('composer-cancel')), findsOneWidget);
+    expect(find.byTooltip('Save and close'), findsOneWidget);
   });
 
   for (final mobile in [false, true]) {
-    testWidgets('saved draft can be discarded (mobile: $mobile)', (
+    testWidgets('Cancel can discard a saved draft (mobile: $mobile)', (
       tester,
     ) async {
       final harness = await _Harness.create(tester, mobile: mobile);
       final composer = harness.shell.visibleComposer!;
-      final discard = find.byKey(const ValueKey('composer-discard'));
-      expect(discard, findsNothing);
+      final cancel = find.byKey(const ValueKey('composer-cancel'));
       composer.text.text = 'A saved topic draft';
       await tester.runAsync(composer.flushDraft);
       await tester.pumpAndSettle();
-      expect(discard, findsOneWidget);
+      expect(find.byKey(const ValueKey('composer-discard')), findsNothing);
       composer.text.text = 'A saved topic draft with edits';
       await tester.pump();
-      expect(discard, findsOneWidget);
-      await tester.tap(discard);
+      await tester.tap(cancel);
       await tester.pumpAndSettle();
       expect(
         find.byKey(const ValueKey('composer-discard-dialog')),
@@ -165,7 +167,7 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('composer-cancel-discard')));
       await tester.pumpAndSettle();
       expect(composer.raw, 'A saved topic draft with edits');
-      await tester.tap(discard);
+      await tester.tap(cancel);
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('composer-confirm-discard')));
       await tester.pumpAndSettle();
