@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
@@ -195,6 +196,19 @@ class _TopicHeaderToolbar extends StatelessWidget {
   @override
   Widget build(BuildContext context) => LayoutBuilder(
     builder: (context, constraints) {
+      const padding = EdgeInsets.symmetric(horizontal: 12, vertical: 4);
+      final firstLineConstraints = BoxConstraints(
+        minHeight: math.max(
+          readerHeaderHeight - padding.vertical,
+          math.max(
+            context.isTouch ? DSpacing.touchTarget : 0,
+            DControlStyle.scaledHeight(
+              DControlSize.large,
+              MediaQuery.textScalerOf(context),
+            ),
+          ),
+        ),
+      );
       final lane = ContentReadingLane.geometryFor(
         context,
         availableWidth: constraints.maxWidth,
@@ -206,25 +220,41 @@ class _TopicHeaderToolbar extends StatelessWidget {
           key: const ValueKey('topic-content-header'),
           constraints: const BoxConstraints(minHeight: readerHeaderHeight),
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+            padding: padding,
             child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 SizedBox(width: lane.padding.left + 4),
                 Expanded(
                   child: Padding(
                     padding: const EdgeInsetsDirectional.only(end: 8),
-                    child: _TopicHeaderTitle(header: header),
+                    child: ConstrainedBox(
+                      constraints: firstLineConstraints,
+                      child: Align(
+                        alignment: AlignmentDirectional.centerStart,
+                        heightFactor: 1,
+                        child: _TopicHeaderTitle(header: header),
+                      ),
+                    ),
                   ),
                 ),
-                _TopicHeaderActions(
-                  header: header,
-                  width: constraints.maxWidth,
-                ),
-                const TopicPresentationButton(),
-                if (!header.keepTopicListOpen)
-                  TopicCloseButton(
-                    canReturnToSidebar: header.canReturnToSidebar,
+                ConstrainedBox(
+                  constraints: firstLineConstraints,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _TopicHeaderActions(
+                        header: header,
+                        width: constraints.maxWidth,
+                      ),
+                      const TopicPresentationButton(),
+                      if (!header.keepTopicListOpen)
+                        TopicCloseButton(
+                          canReturnToSidebar: header.canReturnToSidebar,
+                        ),
+                    ],
                   ),
+                ),
               ],
             ),
           ),
