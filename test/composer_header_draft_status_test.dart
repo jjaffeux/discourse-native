@@ -51,9 +51,7 @@ void main() {
         expect(tester.getRect(find.byType(ComposerEditor)), editor);
         final statusBounds = tester.getRect(_status);
         expect(
-          tester
-              .getTopRight(find.byKey(const ValueKey('composer-minimize')))
-              .dx,
+          tester.getTopRight(find.byKey(const ValueKey('composer-close'))).dx,
           tester.getRect(_header).right - 8,
         );
 
@@ -115,7 +113,7 @@ void main() {
       final shell = await _shell();
       addTearDown(composer.dispose);
       addTearDown(shell.dispose);
-      await _pump(tester, shell, composer);
+      await _pump(tester, shell, composer, width: 320);
 
       composer.text.text = 'Please keep this draft';
       await composer.flushDraft();
@@ -275,6 +273,8 @@ Future<void> _pump(
               ? ComposerHeader(
                   composer: composer,
                   minimized: false,
+                  onClose: () {},
+                  closeTooltip: 'Save and close',
                   onMinimize: () {},
                   onPlacementChanged: (_) {},
                 )

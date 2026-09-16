@@ -347,7 +347,7 @@ class ComposerHeader extends StatelessWidget {
                     if (composer.canSaveDraft && !target.isEdit)
                       ConstrainedBox(
                         constraints: BoxConstraints(
-                          maxWidth: constraints.maxWidth / 2,
+                          maxWidth: constraints.maxWidth * 0.6,
                         ),
                         child: _DraftStatus(
                           composer: composer,
