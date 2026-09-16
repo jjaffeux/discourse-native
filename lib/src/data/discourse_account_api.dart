@@ -650,6 +650,12 @@ final class DiscourseAccountApi {
     'notification_level_when_replying',
     'bookmark_auto_delete_preference',
     'chat_separate_sidebar_mode',
+    'chat_channel_list_filter',
+    'chat_channel_list_filter_starred',
+    'chat_channel_list_filter_dms',
+    'chat_channel_list_sort',
+    'chat_channel_list_sort_starred',
+    'chat_channel_list_sort_dms',
   };
 
   static void _validateUserPreferenceValues(Map<String, Object?> values) {

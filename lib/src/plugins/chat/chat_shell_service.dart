@@ -8,6 +8,7 @@ import 'package:flutter/foundation.dart';
 
 import '../../data/store.dart';
 import '../../models/bookmark.dart';
+import '../../models/chat_channel_list_preferences.dart';
 import '../../models/content_route.dart';
 import '../../models/discourse_user.dart';
 import '../../models/notification_totals.dart';
@@ -46,6 +47,7 @@ final class ChatShellService
         PluginTotalsObserver,
         PluginTrackerAttachment,
         PluginUserPreferenceMirror,
+        PluginCurrentUserObserver,
         PluginBookmarkTargetStrategy {
   ChatShellService({
     required this.chat,
@@ -105,6 +107,14 @@ final class ChatShellService
       drawerActive ? drawerCurrentContent : _host.currentContent;
   bool get fullPageChatActive =>
       ChatPlugin.ownsRouteId(_host.currentContent?.id);
+  int? get visibleChannelId {
+    if (drawerActive ? !drawerExpanded : !fullPageChatActive) return null;
+    final id = currentContent?.id;
+    if (id == null) return null;
+    return ChatRoute.parse(id)?.channelId ??
+        ChatPlugin.channelIdFromThreadsRoute(id);
+  }
+
   bool get chatActive => drawerActive || fullPageChatActive;
   bool get drawerAvailable =>
       _drawerAvailable && forumActive && _currentSiteCanUseChat;
@@ -233,9 +243,23 @@ final class ChatShellService
     final siteUrl = currentSiteUrl;
     if (!chatActive || siteUrl == null) return false;
     final orderedChannels = <ChatChannel>[
-      ...chat.starredChannels(siteUrl),
-      ...chat.unstarredPublicChannels(siteUrl),
-      ...chat.unstarredDirectChannels(siteUrl).take(50),
+      ...chat.channelList(
+        siteUrl,
+        ChatChannelListSection.starred,
+        activeChannelId: visibleChannelId,
+      ),
+      ...chat.channelList(
+        siteUrl,
+        ChatChannelListSection.channels,
+        activeChannelId: visibleChannelId,
+      ),
+      ...chat
+          .channelList(
+            siteUrl,
+            ChatChannelListSection.directMessages,
+            activeChannelId: visibleChannelId,
+          )
+          .take(50),
     ];
     if (orderedChannels.isEmpty) return false;
 
@@ -541,6 +565,10 @@ final class ChatShellService
       chat.attachTracker(siteUrl, channels);
 
   @override
+  void pluginCurrentUserRefreshed(String siteUrl) =>
+      chat.channelListPreferences.refresh(siteUrl);
+
+  @override
   DiscourseUser mirrorUserPreference(
     DiscourseUser user,
     PreferenceSection section,
@@ -563,6 +591,7 @@ final class ChatShellService
       },
       lastChannelId: held.lastChannelId,
       ignoredUsernames: held.ignoredUsernames,
+      channelListPreferences: held.channelListPreferences,
     );
     return user.withPlugins(
       user.plugins.withValue(chatCurrentUserDataKey, updated),

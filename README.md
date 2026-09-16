@@ -1750,6 +1750,14 @@ conversation capability: dependent room UIs observe messages and request
 refresh, older pages, and sends without duplicating Chat paging, read receipts,
 timeline merging, or MessageBus subscriptions.
 
+Channel-list menus provide independent filters and sorts for public channels,
+starred channels and DMs. Preferences save per site/account through Discourse's
+user-options API and apply to the sidebar, drawer and full-page lists. Show all
+temporarily bypasses one filter while retaining its saved value and sort;
+Reapply filter restores it. Older servers retain their existing ordering and
+receive no unsupported options. See [channel-list preferences](docs/chat-channel-list-preferences.md)
+for the upstream semantics, compatibility and concurrency rules.
+
 **Browse channels** mirrors the web directory with server-side text and status
 filters, client-side joined/not-joined filtering, and 25-row pagination from
 `GET /chat/api/channels`. Cards retain the server's description, member count,
@@ -1800,6 +1808,9 @@ vanishes is worse than one that arrives late, and a section with a spinner in
 it says something untrue about how many channels there are. The permission-
 backed Direct messages action is the exception: it remains useful before the
 reader has any conversations.
+
+A section emptied by a user-selected channel filter retains its heading and
+Show all action, so the reader can recover the hidden channels.
 
 Search is the deliberate exception to the final presentation rule above. The
 separate, headerless Search row and the channel-header action require all of the

@@ -126,6 +126,11 @@ enum AggregateTopicOpenResult { opened, tabLimitReached, unavailable }
 
 enum TabOpenResult { opened, unsupported, limitReached }
 
+typedef _PluginUserOptionUpdate = ({
+  int revision,
+  PluginData Function(PluginData) update,
+});
+
 typedef TopicMoveDestination = ({int id, String title, String slug});
 
 // A site can retain a substantial topic, post, and taxonomy working set, while
@@ -450,6 +455,27 @@ class ShellController extends FrameSafeNotifier
       PluginHostPort<Object>(
         corePluginRequestPort,
         _ShellPluginRequestHost(this),
+      ),
+      PluginHostPort<Object>(
+        corePluginUserOptionsPort,
+        PluginUserOptionsHost(
+          api: api.userPreferences,
+          updateData: (siteUrl, field, update) {
+            final instance = _instanceAt(siteUrl);
+            final user = instance?.user;
+            if (instance == null || user == null) return;
+            final revision = (_pluginUserOptionVersions[siteUrl] ?? 0) + 1;
+            _pluginUserOptionVersions[siteUrl] = revision;
+            (_pluginUserOptionUpdates[siteUrl] ??= {})[field] = (
+              revision: revision,
+              update: update,
+            );
+            final updated = user.withPlugins(update(user.plugins));
+            if (updated == user) return;
+            _replaceInstance(instance, instance.copyWith(user: updated));
+            unawaited(_persistPreferencesMirror(List.of(_instances)));
+          },
+        ),
       ),
       _pluginPostHostPort(),
       PluginHostPort<Object>(
@@ -3537,6 +3563,7 @@ class ShellController extends FrameSafeNotifier
     final draftCountVersion = _draftCountVersions[siteUrl] ?? 0;
     final categoryPreferenceVersion =
         _categoryNotificationPreferenceVersions[siteUrl] ?? 0;
+    final pluginUserOptionVersion = _pluginUserOptionVersions[siteUrl] ?? 0;
     final bootstrap = apiKey == null
         ? null
         : await _messageBusBootstrap(
@@ -3556,6 +3583,7 @@ class ShellController extends FrameSafeNotifier
             groupedUnreadNotificationVersion,
             draftCountVersion,
             categoryPreferenceVersion,
+            pluginUserOptionVersion,
           );
 
     final userId = apiKey == null
@@ -4010,6 +4038,7 @@ class ShellController extends FrameSafeNotifier
     final draftCountVersion = _draftCountVersions[siteUrl] ?? 0;
     final categoryPreferenceVersion =
         _categoryNotificationPreferenceVersions[siteUrl] ?? 0;
+    final pluginUserOptionVersion = _pluginUserOptionVersions[siteUrl] ?? 0;
     late final Future<DiscourseUser?> request;
     request =
         _readSessionUser(
@@ -4020,6 +4049,7 @@ class ShellController extends FrameSafeNotifier
           groupedUnreadNotificationVersion,
           draftCountVersion,
           categoryPreferenceVersion,
+          pluginUserOptionVersion,
         ).whenComplete(() {
           if (identical(_sessionUserRequests[siteUrl], request)) {
             final removed = _sessionUserRequests.remove(siteUrl);
@@ -4038,6 +4068,7 @@ class ShellController extends FrameSafeNotifier
     int groupedUnreadNotificationVersion,
     int draftCountVersion,
     int categoryPreferenceVersion,
+    int pluginUserOptionVersion,
   ) async {
     if (!lease.isCurrent || _connectingSiteUrl == siteUrl) return null;
 
@@ -4073,6 +4104,7 @@ class ShellController extends FrameSafeNotifier
       groupedUnreadNotificationVersion,
       draftCountVersion,
       categoryPreferenceVersion,
+      pluginUserOptionVersion,
     );
   }
 
@@ -4084,6 +4116,7 @@ class ShellController extends FrameSafeNotifier
     int groupedUnreadNotificationVersion,
     int draftCountVersion,
     int categoryPreferenceVersion,
+    int pluginUserOptionVersion,
   ) {
     if (isDisposed || !lease.isCurrent || _connectingSiteUrl == siteUrl) {
       return null;
@@ -4138,12 +4171,26 @@ class ShellController extends FrameSafeNotifier
           indirectlyMutedCategoryIds: previousUser.indirectlyMutedCategoryIds,
         );
       }
+      if (!accountChanged) {
+        var data = reconciledUser.plugins;
+        for (final write
+            in (_pluginUserOptionUpdates[siteUrl]?.values ??
+                const <_PluginUserOptionUpdate>[])) {
+          if (write.revision > pluginUserOptionVersion) {
+            data = write.update(data);
+          }
+        }
+        reconciledUser = reconciledUser.withPlugins(data);
+      }
       committedUser = reconciledUser;
       _sessionUsersRefreshed.add(siteUrl);
       _hidePresenceErrors.remove(siteUrl);
       if (previousUser != committedUser || accountChanged) {
         changed = true;
         if (accountChanged) {
+          _pluginUserOptionUpdates.remove(siteUrl);
+          // Other in-flight reads can still carry the previous account's
+          // revision, so the counter stays monotonic until site retirement.
           accountActivity.forget(siteUrl);
           groups.forget(siteUrl);
           userDirectory.forget(siteUrl);
@@ -4690,6 +4737,9 @@ class ShellController extends FrameSafeNotifier
   final Map<String, Future<void>> _categoryNotificationTails = {};
   final Map<String, Future<void>> _categoryNotificationSiteTails = {};
   final Map<String, int> _categoryNotificationPreferenceVersions = {};
+  final Map<String, int> _pluginUserOptionVersions = {};
+  final Map<String, Map<String, _PluginUserOptionUpdate>>
+  _pluginUserOptionUpdates = {};
   final Map<String, CategoryNotificationLevel> _categoryNotificationConfirmed =
       {};
   final Set<String> _topicPinWrites = {};
@@ -12765,6 +12815,8 @@ class ShellController extends FrameSafeNotifier
     );
     final _ = _categoryNotificationSiteTails.remove(siteUrl);
     _categoryNotificationPreferenceVersions.remove(siteUrl);
+    _pluginUserOptionVersions.remove(siteUrl);
+    _pluginUserOptionUpdates.remove(siteUrl);
     _categoryNotificationConfirmed.removeWhere(
       (key, _) => key.startsWith('$siteUrl^'),
     );
@@ -14132,6 +14184,8 @@ class ShellController extends FrameSafeNotifier
     _categoryNotificationConfirmed.clear();
     _categoryNotificationSiteTails.clear();
     _categoryNotificationPreferenceVersions.clear();
+    _pluginUserOptionVersions.clear();
+    _pluginUserOptionUpdates.clear();
     _topicPinWrites.clear();
     _topicStatusWrites.clear();
     _userStatusOverrides.clear();

@@ -166,6 +166,24 @@ final class PluginTarget {
   final int topicId;
 }
 
+/// Uses the host's user-options API and persists confirmed plugin preferences.
+/// The plugin owns notification of its independently changing presentation.
+final class PluginUserOptionsHost {
+  const PluginUserOptionsHost({required this.api, required this.updateData});
+  final UserPreferencesApi api;
+  final void Function(
+    String siteUrl,
+    String field,
+    PluginData Function(PluginData) update,
+  )
+  updateData;
+}
+
+const corePluginUserOptionsPort = PluginHostPortKey<PluginUserOptionsHost>(
+  owner: PluginId('core'),
+  name: 'user-options',
+);
+
 final class PluginSiteStateHost {
   const PluginSiteStateHost({
     required this.currentUserFor,

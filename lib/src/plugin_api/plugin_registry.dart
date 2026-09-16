@@ -387,6 +387,12 @@ final class PluginRegistry
         actionLabel: section.actionLabel,
         actionShortcut: section.actionShortcut,
         onAction: section.onAction,
+        headerActionsBuilder: section.headerActionsBuilder == null
+            ? null
+            : (context) => _owned(
+                plugin,
+                section.headerActionsBuilder!(_uiContext(context, plugin)),
+              ),
       );
 
   List<PluginGroupTab> groupTabs(PluginGroupContext group) =>

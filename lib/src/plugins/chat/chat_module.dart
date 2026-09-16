@@ -66,6 +66,7 @@ final class ChatModule implements PluginModule {
         final gifs = dependencies.maybe(gifsPickerSessionService);
         final controller = ChatController(
           api: chatApi,
+          userOptionsHost: bindings.require(corePluginUserOptionsPort),
           requests: requests,
           store: store,
           currentUserFor: siteState.currentUserFor,
@@ -146,6 +147,7 @@ final class ChatModule implements PluginModule {
       requires: const [
         corePluginTransportPort,
         corePluginRequestPort,
+        corePluginUserOptionsPort,
         corePluginSiteStatePort,
         corePluginStaticContributionsPort,
         corePluginAccountEventsPort,
