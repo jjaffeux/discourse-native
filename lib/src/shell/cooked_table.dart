@@ -94,6 +94,7 @@ class _CookedTableState extends State<_CookedTable> {
               ? 'Column ${index + 1}'
               : widget.headers[index].text,
           resizable: true,
+          alignment: AlignmentDirectional.topStart,
           width: FixedColumnWidth(_initialWidth(context, index)),
           compare: (first, second) => _compare(
             widget.rows[first][index].text,
@@ -105,8 +106,17 @@ class _CookedTableState extends State<_CookedTable> {
             onSortChanged: header.onSortChanged,
             onHide: () => header.onVisibilityChanged!(false),
           ),
-          cellBuilder: (context, cell) =>
-              widget.cellBuilder(context, widget.rows[cell.row][index].html),
+          cellBuilder: (context, cell) => DefaultTextStyle.merge(
+            style: TextStyle(
+              fontWeight: index == 0 ? FontWeight.w600 : FontWeight.w400,
+            ),
+            child: Builder(
+              builder: (context) => widget.cellBuilder(
+                context,
+                widget.rows[cell.row][index].html,
+              ),
+            ),
+          ),
         ),
     ];
     return Column(
@@ -124,6 +134,7 @@ class _CookedTableState extends State<_CookedTable> {
         ),
         const SizedBox(height: DSpacing.sm),
         DDataTable<int>(
+          variant: DDataTableVariant.softHeader,
           data: List.generate(widget.rows.length, (index) => index),
           columns: columns,
           rowId: (row) => row,
