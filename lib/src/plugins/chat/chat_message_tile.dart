@@ -1568,6 +1568,34 @@ class _Tile extends StatelessWidget {
     required bool showIdentity,
   }) {
     final theme = Theme.of(context);
+    // Keep the confirmed message's action geometry while sending.
+    final reserveActions = message.isOptimistic && !context.isTouch;
+    Widget? pendingAction(DIconData icon, DButtonSize size, String label) =>
+        reserveActions
+        ? Visibility(
+            visible: false,
+            maintainSize: true,
+            maintainAnimation: true,
+            maintainState: true,
+            child: DButton.iconOnly(
+              icon: DIcon(icon),
+              tooltip: label,
+              size: size,
+              variant: DButtonVariant.transparentBackground,
+              onPressed: null,
+            ),
+          )
+        : null;
+    final messageActions =
+        directMessageActions ??
+        pendingAction(
+          DIcons.chevronDown,
+          DButtonSize.small,
+          'More message actions',
+        );
+    final messageReaction =
+        directMessageReaction ??
+        pendingAction(DIcons.farFaceSmile, DButtonSize.regular, 'Add reaction');
     final bubbleAlign = outgoing ? DBubbleAlign.end : DBubbleAlign.start;
     final hasBody = message.canonicalReceived
         ? message.cooked.isNotEmpty
@@ -1597,7 +1625,7 @@ class _Tile extends StatelessWidget {
               ),
             )!,
           );
-          return directMessageActions == null
+          return messageActions == null
               ? body
               : Row(
                   mainAxisSize: MainAxisSize.min,
@@ -1605,7 +1633,7 @@ class _Tile extends StatelessWidget {
                   spacing: DSpacing.xs,
                   children: [
                     Flexible(child: body),
-                    directMessageActions!,
+                    messageActions,
                   ],
                 );
         },
@@ -1696,16 +1724,16 @@ class _Tile extends StatelessWidget {
                       ? DBubbleVariant.primary
                       : DBubbleVariant.muted,
                   children: [
-                    if (directMessageReaction == null)
+                    if (messageReaction == null)
                       bubbleContent
                     else
                       Row(
                         mainAxisSize: MainAxisSize.min,
                         spacing: DSpacing.sm,
                         children: [
-                          if (outgoing) directMessageReaction!,
+                          if (outgoing) messageReaction,
                           Flexible(child: bubbleContent),
-                          if (!outgoing) directMessageReaction!,
+                          if (!outgoing) messageReaction,
                         ],
                       ),
                   ],
@@ -1716,8 +1744,8 @@ class _Tile extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   spacing: DSpacing.xs,
                   children: [
-                    if (!hasBody && outgoing && directMessageReaction != null)
-                      directMessageReaction!,
+                    if (!hasBody && outgoing && messageReaction != null)
+                      messageReaction,
                     Flexible(
                       child: ChatUploads(
                         siteUrl: siteUrl,
@@ -1727,16 +1755,13 @@ class _Tile extends StatelessWidget {
                             : CrossAxisAlignment.start,
                       ),
                     ),
-                    if (!hasBody && directMessageActions != null)
-                      directMessageActions!,
-                    if (!hasBody && !outgoing && directMessageReaction != null)
-                      directMessageReaction!,
+                    if (!hasBody && messageActions != null) messageActions,
+                    if (!hasBody && !outgoing && messageReaction != null)
+                      messageReaction,
                   ],
                 ),
-              if (!hasBody &&
-                  message.uploads.isEmpty &&
-                  directMessageActions != null)
-                directMessageActions!,
+              if (!hasBody && message.uploads.isEmpty && messageActions != null)
+                messageActions,
               if (message.reactions.isNotEmpty)
                 _Reactions(
                   siteUrl: siteUrl,
