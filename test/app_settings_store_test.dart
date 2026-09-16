@@ -19,6 +19,7 @@ void main() {
     SharedPreferences.setMockInitialValues({
       AppSettingsStore.contentAlignmentKey: 'justify',
       AppSettingsStore.textScaleKey: 'percent137',
+      AppSettingsStore.themeModeKey: 'sepia',
     });
     expect(await platformStore.read(), AppSettings.defaults);
   });
@@ -79,6 +80,20 @@ void main() {
         scale.name,
       );
       expect(await AppSettingsStore().read(), AppSettings(textScale: scale));
+    }
+  });
+
+  test('restores every theme mode in a fresh store', () async {
+    for (final mode in AppThemeMode.values) {
+      await AppSettingsStore().update(themeMode: mode);
+
+      expect(
+        (await SharedPreferences.getInstance()).getString(
+          AppSettingsStore.themeModeKey,
+        ),
+        mode.name,
+      );
+      expect(await AppSettingsStore().read(), AppSettings(themeMode: mode));
     }
   });
 
@@ -322,12 +337,14 @@ void main() {
         _isStorageFailure('appSettings.readContentAlignment', 'StateError'),
         _isStorageFailure('appSettings.readDisableGifAnimations', 'StateError'),
         _isStorageFailure('appSettings.readTextScale', 'StateError'),
+        _isStorageFailure('appSettings.readThemeMode', 'StateError'),
         _isStorageFailure('appSettings.writeContentAlignment', 'StateError'),
         _isStorageFailure(
           'appSettings.writeDisableGifAnimations',
           'StateError',
         ),
         _isStorageFailure('appSettings.writeTextScale', 'StateError'),
+        _isStorageFailure('appSettings.writeThemeMode', 'StateError'),
       ]),
     );
   });
@@ -375,6 +392,7 @@ final class _ControlledAppSettingsPersistence
   String? contentAlignment;
   bool? disableGifAnimations;
   String? textScale;
+  String? themeMode;
   final Completer<void>? firstWriteGate;
   bool failReads;
   final bool failTextScaleRead;
@@ -384,6 +402,7 @@ final class _ControlledAppSettingsPersistence
   final List<String> attemptedWrites = [];
   final List<bool> attemptedGifAnimationWrites = [];
   final List<String> attemptedTextScaleWrites = [];
+  final List<String> attemptedThemeModeWrites = [];
   int readCount = 0;
 
   @override
@@ -405,6 +424,12 @@ final class _ControlledAppSettingsPersistence
       throw StateError('preferences unavailable');
     }
     return textScale;
+  }
+
+  @override
+  Future<String?> readThemeMode() async {
+    if (failReads) throw StateError('preferences unavailable');
+    return themeMode;
   }
 
   @override
@@ -435,6 +460,15 @@ final class _ControlledAppSettingsPersistence
     if (throwWrites) throw StateError('preferences unavailable');
     if (!acceptWrites) return false;
     textScale = value;
+    return true;
+  }
+
+  @override
+  Future<bool> writeThemeMode(String value) async {
+    attemptedThemeModeWrites.add(value);
+    if (throwWrites) throw StateError('preferences unavailable');
+    if (!acceptWrites) return false;
+    themeMode = value;
     return true;
   }
 }

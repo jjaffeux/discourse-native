@@ -21,6 +21,7 @@ import 'data/update_store.dart';
 import 'data/updater.dart';
 import 'diagnostics/diagnostics.dart';
 import 'foundation/timezone_environment.dart';
+import 'models/app_settings.dart';
 import 'models/site_appearance.dart';
 import 'plugin_api/core_plugin_manifest.dart';
 import 'plugin_api/plugin_runtime.dart';
@@ -489,34 +490,29 @@ class _DiscourseAppState extends State<DiscourseApp>
         child: ShellSelector<_AppThemeSelection>(
           select: _AppThemeSelection.from,
           builder: (context, selection, _) {
-            final appearance = selection.appearance;
-            final base = appearance?.base ?? appearance?.alternate;
-            if (appearance == null || base == null) {
-              return _materialApp(
-                theme: AppTheme.light,
-                darkTheme: AppTheme.dark,
-                themeMode: ThemeMode.system,
+            ThemeData themeFor(Brightness brightness) {
+              final palette = selection.appearance?.paletteForBrightness(
+                brightness,
               );
+              if (palette != null) return AppTheme.fromPalette(palette);
+              return brightness == Brightness.dark
+                  ? AppTheme.dark
+                  : AppTheme.light;
             }
 
-            final baseTheme = AppTheme.fromPalette(base);
-            final alternate = appearance.alternate;
-            final alternateTheme = AppTheme.fromPalette(
-              alternate ?? appearance.base ?? base,
-            );
-            final themeMode = switch (appearance.mode) {
-              SiteAppearanceMode.followSystem when alternate != null =>
-                ThemeMode.system,
-              SiteAppearanceMode.alternate when alternate != null =>
-                ThemeMode.dark,
-              SiteAppearanceMode.followSystem ||
-              SiteAppearanceMode.base ||
-              SiteAppearanceMode.alternate => ThemeMode.light,
-            };
-            return _materialApp(
-              theme: baseTheme,
-              darkTheme: alternateTheme,
-              themeMode: themeMode,
+            final lightTheme = themeFor(Brightness.light);
+            final darkTheme = themeFor(Brightness.dark);
+            return ListenableBuilder(
+              listenable: _controller.appSettings,
+              builder: (context, _) => _materialApp(
+                theme: lightTheme,
+                darkTheme: darkTheme,
+                themeMode: switch (_controller.appSettings.themeMode) {
+                  AppThemeMode.system => ThemeMode.system,
+                  AppThemeMode.light => ThemeMode.light,
+                  AppThemeMode.dark => ThemeMode.dark,
+                },
+              ),
             );
           },
         ),

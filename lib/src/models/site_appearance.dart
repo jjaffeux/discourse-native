@@ -64,6 +64,12 @@ class SiteAppearance {
 
   bool get isKnown => base != null || alternate != null;
 
+  ResolvedSitePalette? paletteForBrightness(Brightness brightness) {
+    if (base?.brightness == brightness) return base;
+    if (alternate?.brightness == brightness) return alternate;
+    return null;
+  }
+
   Map<String, dynamic> toJson() => {
     'base': base?.toJson(),
     'alternate': alternate?.toJson(),
