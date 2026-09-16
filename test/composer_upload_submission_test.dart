@@ -131,22 +131,31 @@ void main() {
       expect(api.uploads, hasLength(1));
 
       gate.completeError(_writeFailure);
-      await tester.pump();
+      await tester.pumpAndSettle();
       expect(composer.submitting, isFalse);
       expect(tester.widget<DButton>(uploadButton).onPressed, isNotNull);
       expect(
         tester.widget<DAttachmentAction>(retryButton).onPressed,
         isNotNull,
       );
+      await _showFirstUpload(tester);
       await tester.tap(retryButton);
       await tester.tap(uploadButton);
       await tester.pump();
       expect(pickerCalls, 1);
       expect(api.uploads, hasLength(3));
-      await tester.tap(find.byTooltip('Cancel upload').first);
+      final cancel = find.descendant(
+        of: find.byKey(
+          ValueKey('composer-inline-upload-${composer.uploads.first.id}'),
+        ),
+        matching: find.byTooltip('Cancel upload'),
+      );
+      await _showFirstUpload(tester);
+      await tester.tap(cancel);
       await tester.pump();
       expect(api.uploads[1].aborted, isTrue);
       expect(composer.uploads, hasLength(1));
+      await composer.flushDraft();
       await tester.pumpWidget(const SizedBox.shrink());
     });
   }
@@ -215,6 +224,7 @@ void main() {
     await media.pickImagesForSelectedGallery(() async => [_file('retry.png')]);
     await tester.pump();
     expect(api.uploads.single.file.name, 'retry.png');
+    await composer.flushDraft();
   });
 
   for (final result in ['image', 'empty', 'error']) {
@@ -251,8 +261,22 @@ void main() {
       );
       await tester.pump();
       expect(api.uploads.single.file.name, 'retry.png');
+      await composer.flushDraft();
     });
   }
+}
+
+Future<void> _showFirstUpload(WidgetTester tester) async {
+  await tester.ensureVisible(find.byType(ComposerEditor));
+  // RenderEditable does not include its paint scroll offset in WidgetSpan
+  // localToGlobal transforms. Scroll the first row into view before using a
+  // widget finder to tap its visual controls.
+  tester
+      .state<EditableTextState>(find.byType(EditableText).last)
+      .renderEditable
+      .offset
+      .jumpTo(0);
+  await tester.pump();
 }
 
 Future<ShellController> _openComposer(
