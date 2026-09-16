@@ -2035,7 +2035,7 @@ class _NewDivider extends StatelessWidget {
         children: [
           Expanded(child: DSeparator(space: 1, color: theme.colorScheme.error)),
           Padding(
-            padding: const EdgeInsets.only(left: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 8),
             child: Text(
               'New',
               style: theme.textTheme.labelSmall?.copyWith(
@@ -2044,6 +2044,7 @@ class _NewDivider extends StatelessWidget {
               ),
             ),
           ),
+          Expanded(child: DSeparator(space: 1, color: theme.colorScheme.error)),
         ],
       ),
     );
