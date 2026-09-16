@@ -68,9 +68,12 @@ at increased text scales. Positioning, count caps
 and exact accessible names belong to the caller. This smaller native geometry
 adapts the approved HTML lower-corner pill to the rail's 32px logical icons
 (the supplied screenshot displayed those icons at 64 physical pixels).
-InstanceRail anchors it at bottom/right -1.5px, softens each forum's success
-color 20% toward the rail surface and caps visual counts at 999+ while exposing
-the full count to accessibility. Diagnostics retains its existing 99+ counter.
+InstanceRail anchors it at bottom/right -1.5px, softens the current window's
+success color 20% toward the rail surface and caps visual counts at 999+ while
+exposing the full count to accessibility. Every forum badge uses that same
+window's fill, contrast-safe text color and ring, including inactive forums.
+They update together when switching forums or light/dark mode. Diagnostics
+retains its existing 99+ counter.
 
 Verification: 72 focused badge, ring, styleguide, site-theme and live-counter
 tests pass, with clean static analysis on the installed Flutter 3.47.4 SDK.
