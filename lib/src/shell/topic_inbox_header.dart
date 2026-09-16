@@ -13,6 +13,7 @@ import '../plugin_api/plugin_registry.dart';
 import '../plugin_api/site_plugin_api.dart';
 import '../theme/app_theme.dart';
 import '../theme/d_icons.dart';
+import '../theme/d_native_icons.dart';
 import 'anchored_picker.dart';
 import 'avatar_image.dart';
 import 'category_icon.dart';
@@ -376,7 +377,13 @@ class TopicCloseButton extends StatelessWidget {
         : 'topic';
     return DButton.iconOnly(
       key: const ValueKey('topic-close-reader'),
-      icon: DIcon(backToList ? DIcons.arrowLeft : DIcons.xmark),
+      icon: DIcon(
+        backToList
+            ? DIcons.arrowLeft
+            : TopicReaderPresentation.isSheetOf(context)
+            ? DIcons.xmark
+            : DNativeIcons.closeTopicPane,
+      ),
       tooltip: backToList ? 'Back to $content list' : 'Collapse $content',
       variant: DButtonVariant.transparentBackground,
       size: DButtonSize.regular,
