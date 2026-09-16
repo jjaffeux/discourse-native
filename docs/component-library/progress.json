@@ -6381,6 +6381,41 @@
         "mergeBranch": "codex/header-notification-capsules-merge",
         "integrationBase": "707716a79f83618a3c2ef732df1cccd3cfed1899"
       }
+    },
+    {
+      "id": "pull-to-refresh",
+      "status": "implemented",
+      "taskId": "01a0a781-68a3-78c0-ba92-8f49991192d3",
+      "branch": "codex/topic-list-pull-to-refresh",
+      "dependencies": [
+        "spinner"
+      ],
+      "acceptanceCriteria": [
+        "Refresh topic feeds from a downward drag at the top, including short and empty lists, preserving topics on failure.",
+        "Provide a reusable public Native component with themed feedback, reduced motion, disabled state and a screen-reader refresh action.",
+        "Keep request completion and gesture state scoped to the current feed; verify pagination and keyboard navigation remain intact."
+      ],
+      "decisions": [
+        "User approved adding DPullToRefresh on 2026-09-16.",
+        "Reuse Flutter RefreshIndicator.noSpinner for gesture ownership and DSpinner for Native visuals; leave networking and errors in the existing feed controller.",
+        "Register this approved Native extension in the application catalogue, leaving the frozen upstream catalogue unchanged."
+      ],
+      "migrations": [
+        "TopicListView wraps loading, error, empty and populated bodies in a refresh control keyed by controller and feed identity. Short and empty list viewports use AlwaysScrollableScrollPhysics."
+      ],
+      "verification": [
+        "Formatted all touched Dart files; flutter analyze --no-pub: no issues. Installed Flutter 3.47.4 / Dart 3.13.3; the repository Flutter pin and lockfile are unchanged.",
+        "10 component widget tests passed: iOS/Android physics, short lists, canceled gestures, duplicate requests, disabled state with scroll retention, nested scrollables, completion after disposal, live themes, screen-reader action, reduced motion and narrow RTL examples.",
+        "104 topic/feed tests passed across topic_list_view_lifecycle_test.dart, topic_feed_controller_test.dart, topic_list_navigation_test.dart and topic_list_read_removal_test.dart. New interactions cover short/empty list refresh, retained rows after failure, retry by pulling and feed changes during a pending refresh.",
+        "Full styleguide-page tests: 16 passed, 5 failed. All five failures reproduced identically at unchanged base 71246b96 in /tmp/discourse-native-pull-refresh-baseline; they concern existing preview-selection helpers. Logs: /tmp/pull-to-refresh-final-tests.log and /tmp/pull-refresh-baseline-styleguide.log.",
+        "Built and launched an isolated offline macOS fixture using the production TopicListView and styleguide examples. Reviewed 390px light and 740px dark panes; drag reveals the Native spinner, completion replaces rows, a failed request retains rows with Retry, and another pull recovers. Short-list styleguide drag increments its refresh count. Fixture enables mouse drags for desktop inspection and uses iOS theme/physics. Confirmed empty-list pull shows loading and returns to the empty state; a widget assertion also verifies that the empty content remains centered.",
+        "The isolated review bundle uses an alternate bundle identifier and ad-hoc signing with only sandbox, JIT, get-task-allow and client/server debug-network entitlements; read-back verified. No production app provisioning changed.",
+        "Follow-up: a macOS PointerPanZoom trackpad test using the default ScrollBehavior passes: pulling arms the control, ending the gesture starts one request, and completion clears the indicator. The running app was confirmed to use the main checkout, which does not contain this unmerged implementation."
+      ],
+      "limitations": [
+        "No physical iOS device or simulator testing; iOS/Android gestures exercised in widget tests and desktop fixture.",
+        "Five broader styleguide-page failures reproduce on the unchanged baseline. Changes are local and unmerged."
+      ]
     }
   ]
 }

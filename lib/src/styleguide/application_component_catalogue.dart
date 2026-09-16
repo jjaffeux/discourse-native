@@ -4,6 +4,11 @@ import 'styleguide_example.dart';
 /// component reference catalogue.
 const applicationComponentCatalogue = <ComponentReference>[
   ComponentReference(
+    id: 'pull-to-refresh',
+    name: 'Pull to refresh',
+    sections: ['Topics', 'Short list', 'Empty list', 'Disabled'],
+  ),
+  ComponentReference(
     id: 'mermaid',
     name: 'Mermaid',
     sections: ['Flowchart', 'Sequence', 'Gantt', 'Invalid syntax'],

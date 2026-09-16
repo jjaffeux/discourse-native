@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:ui' as ui;
 
 import 'package:discourse_native/discourse_ui.dart'
-    show DButton, DSpinner, DItem;
+    show DButton, DSpinner, DItem, DPullToRefresh, DEmpty;
 import 'package:discourse_native/src/data/discourse_api_contracts.dart';
 import 'package:discourse_native/src/data/store.dart';
 import 'package:discourse_native/src/models/app_settings.dart';
@@ -31,6 +31,101 @@ import 'support/fakes.dart';
 
 void main() {
   final sites = [instance('one.example'), instance('two.example')];
+
+  for (final empty in [false, true]) {
+    testWidgets('pull refreshes ${empty ? 'an empty' : 'a short'} topic list', (
+      tester,
+    ) async {
+      final api = _ControlledPagingApi();
+      final controller = await _controlledShell(api, sites.first);
+      addTearDown(controller.dispose);
+      api.requests.single.response.complete(
+        TopicList(topics: empty ? [] : _topics(1, 1)),
+      );
+      await tester.pumpWidget(
+        _LiveTestList(
+          controller: controller,
+          theme: AppTheme.light.copyWith(platform: TargetPlatform.iOS),
+        ),
+      );
+      await tester.pumpAndSettle();
+      if (empty) {
+        expect(
+          tester.getCenter(find.byType(DEmpty)),
+          tester.getCenter(find.byType(DPullToRefresh)),
+        );
+      }
+      await _pullTopics(tester);
+      expect(api.requests, hasLength(2));
+      expect(api.requests.last.path, '/latest.json');
+      expect(find.bySemanticsLabel('Refreshing'), findsOneWidget);
+      if (!empty) {
+        expect(find.text('Topic 1'), findsOneWidget);
+        await _pullTopics(tester);
+        expect(api.requests, hasLength(2));
+      }
+      api.requests.last.response.complete(_page(99));
+      await tester.pumpAndSettle();
+      expect(find.text('Topic 99'), findsOneWidget);
+      expect(find.bySemanticsLabel('Refreshing'), findsNothing);
+      expect(tester.takeException(), isNull);
+    });
+  }
+
+  testWidgets('failed pull retains topics and permits another refresh', (
+    tester,
+  ) async {
+    final api = _ControlledPagingApi();
+    final controller = await _controlledShell(api, sites.first);
+    addTearDown(controller.dispose);
+    api.requests.single.response.complete(_page(1));
+    await tester.pumpWidget(_LiveTestList(controller: controller));
+    await tester.pumpAndSettle();
+    await _pullTopics(tester);
+    api.requests.last.response.completeError(Exception('offline'));
+    await tester.pumpAndSettle();
+    expect(find.text('Topic 1'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('topic-feed-refresh-error')),
+      findsOneWidget,
+    );
+    expect(find.bySemanticsLabel('Refreshing'), findsNothing);
+    await _pullTopics(tester);
+    expect(api.requests, hasLength(3));
+    api.requests.last.response.complete(_page(2));
+    await tester.pumpAndSettle();
+    expect(find.text('Topic 2'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('topic-feed-refresh-error')),
+      findsNothing,
+    );
+  });
+
+  testWidgets('switching feeds during a pull refresh keeps the new feed', (
+    tester,
+  ) async {
+    final api = _ControlledPagingApi();
+    final controller = await _controlledShell(api, sites.first);
+    addTearDown(controller.dispose);
+    api.requests.single.response.complete(_page(1));
+    await tester.pumpWidget(_LiveTestList(controller: controller));
+    await tester.pumpAndSettle();
+    await _pullTopics(tester);
+    final refresh = api.requests.last;
+    final switching = controller.selectTopicListMode(TopicListMode.popular);
+    await tester.pump();
+    expect(api.requests, hasLength(3));
+    expect(api.requests.last.path, '/hot.json');
+    api.requests.last.response.complete(_page(2));
+    await switching;
+    await tester.pumpAndSettle();
+    refresh.response.complete(_page(99));
+    await tester.pumpAndSettle();
+    expect(find.text('Topic 2'), findsOneWidget);
+    expect(find.text('Topic 99'), findsNothing);
+    expect(find.bySemanticsLabel('Refreshing'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
 
   testWidgets('scroll separator spans the pane only away from the top', (
     tester,
@@ -984,6 +1079,12 @@ void main() {
 
     expect(api.pageSites, isNot(contains(sites[1].url)));
   });
+}
+
+Future<void> _pullTopics(WidgetTester tester) async {
+  await tester.drag(find.byType(DPullToRefresh), const Offset(0, 500));
+  await tester.pump();
+  await tester.pump(const Duration(milliseconds: 300));
 }
 
 final class _TestList extends StatelessWidget {
