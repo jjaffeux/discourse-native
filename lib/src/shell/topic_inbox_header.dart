@@ -225,8 +225,9 @@ class _TopicHeaderTitle extends StatelessWidget {
     final style = Theme.of(
       context,
     ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600);
+    final Widget title;
     if (topic?.canEdit == true && siteUrl != null) {
-      return InlineTopicTitleEditor(
+      title = InlineTopicTitleEditor(
         key: ValueKey(('topic-header-title', siteUrl, topic!.id)),
         title: header.title,
         siteUrl: siteUrl,
@@ -236,23 +237,47 @@ class _TopicHeaderTitle extends StatelessWidget {
           context,
         ).saveTopicTitle(siteUrl: siteUrl, topicId: topic.id, title: value),
       );
+    } else {
+      final text = siteUrl == null
+          ? Text(
+              header.title,
+              maxLines: 3,
+              overflow: TextOverflow.ellipsis,
+              style: style,
+            )
+          : TopicTitle(
+              header.title,
+              key: const ValueKey('topic-header-compact-title'),
+              siteUrl: siteUrl,
+              maxLines: 3,
+              overflow: TextOverflow.ellipsis,
+              style: style,
+            );
+      title = DTooltip(message: header.title, child: text);
     }
-    final title = siteUrl == null
-        ? Text(
-            header.title,
-            maxLines: 3,
-            overflow: TextOverflow.ellipsis,
-            style: style,
-          )
-        : TopicTitle(
-            header.title,
-            key: const ValueKey('topic-header-compact-title'),
-            siteUrl: siteUrl,
-            maxLines: 3,
-            overflow: TextOverflow.ellipsis,
-            style: style,
-          );
-    return DTooltip(message: header.title, child: title);
+    final lineHeight =
+        MediaQuery.textScalerOf(
+          context,
+        ).scale(style?.fontSize ?? DiscourseTypography.lg) *
+        (style?.height ?? DiscourseTypography.lineHeightLarge);
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      spacing: DSpacing.sm,
+      children: [
+        if (topic?.closed == true)
+          Padding(
+            padding: EdgeInsets.only(top: math.max(0, (lineHeight - 16) / 2)),
+            child: DIcon(
+              DIcons.lock,
+              key: const ValueKey('topic-header-closed'),
+              size: 16,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+              semanticLabel: 'Topic closed',
+            ),
+          ),
+        Expanded(child: title),
+      ],
+    );
   }
 }
 
@@ -375,42 +400,6 @@ class _TopicActivitySummary extends StatelessWidget {
         runSpacing: 4,
         crossAxisAlignment: WrapCrossAlignment.center,
         children: [
-          if (topic.closed)
-            Semantics(
-              key: const ValueKey('topic-header-closed'),
-              label: 'Topic closed',
-              excludeSemantics: true,
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  color: theme.shell.panel,
-                  border: Border.all(color: theme.shell.divider),
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 6,
-                    vertical: 3,
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      DIcon(
-                        DIcons.lock,
-                        size: 12,
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                      const SizedBox(width: 4),
-                      Flexible(
-                        child: Text(
-                          'Closed',
-                          style: style?.copyWith(fontWeight: FontWeight.w600),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
           if (participants.isNotEmpty)
             SizedBox(
               width: 20 + (participants.length - 1) * 15,
