@@ -74,7 +74,10 @@ class _AppTextScaleRegionState extends State<AppTextScaleRegion> {
       unawaited(widget.controller.decreaseTextScale());
       return true;
     }
-    if (event.logicalKey == LogicalKeyboardKey.numpad0) {
+    // The zero key can produce another character (e.g. 'à' on French
+    // keyboards). Recognize its logical key before rejecting that character.
+    if (event.logicalKey == LogicalKeyboardKey.digit0 ||
+        event.logicalKey == LogicalKeyboardKey.numpad0) {
       unawaited(widget.controller.resetTextScale());
       return true;
     }
@@ -86,10 +89,6 @@ class _AppTextScaleRegionState extends State<AppTextScaleRegion> {
     }
     if (event.logicalKey == LogicalKeyboardKey.minus) {
       unawaited(widget.controller.decreaseTextScale());
-      return true;
-    }
-    if (event.logicalKey == LogicalKeyboardKey.digit0) {
-      unawaited(widget.controller.resetTextScale());
       return true;
     }
     return false;
