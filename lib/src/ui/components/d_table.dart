@@ -25,6 +25,8 @@ class DTable extends StatefulWidget {
     this.minimumWidth = 0,
     this.controller,
     this.semanticLabel,
+    this.headerBackgroundColor,
+    this.borderColor,
     this.rowBuilder,
     this.rowCount = 0,
     this.findChildIndexCallback,
@@ -41,6 +43,8 @@ class DTable extends StatefulWidget {
     this._rowIndex = 0,
     this.footer,
     this.caption,
+    this.headerBackgroundColor,
+    this.borderColor,
   }) : _fragment = true,
        controller = null,
        semanticLabel = null,
@@ -59,6 +63,12 @@ class DTable extends StatefulWidget {
   final double minimumWidth;
   final ScrollController? controller;
   final String? semanticLabel;
+
+  /// Optional section fill, shared across header cells and lazy fragments.
+  final Color? headerBackgroundColor;
+
+  /// Optional separator color. Defaults to the host's border token.
+  final Color? borderColor;
 
   /// Lazy body rows. Requires bounded height and fixed widths for every column.
   /// [body] is displayed instead when [rowCount] is zero.
@@ -146,7 +156,9 @@ class _DTableState extends State<DTable> {
                           (r >= footerStart && r < rows.length - 1),
                   ],
                   footerStart: footerStart < rows.length ? footerStart : -1,
-                  border: tokens.border,
+                  border: widget.borderColor ?? tokens.border,
+                  headerCount: headerCount,
+                  headerBackgroundColor: widget.headerBackgroundColor,
                   hasCaption: widget.caption != null,
                   children: [
                     for (var r = 0; r < rows.length; r++)
@@ -196,6 +208,10 @@ class _DTableState extends State<DTable> {
                                           curve: Curves.easeInOut,
                                           color: rows[r].selected
                                               ? tokens.muted
+                                              : r < headerCount &&
+                                                    widget.headerBackgroundColor !=
+                                                        null
+                                              ? widget.headerBackgroundColor
                                               : (hovered == r ||
                                                     rows[r].expanded ||
                                                     r >= footerStart)
@@ -239,6 +255,8 @@ class _DTableState extends State<DTable> {
                   curve: Curves.easeInOut,
                   color: row.selected
                       ? tokens.muted
+                      : headerCount > 0 && widget.headerBackgroundColor != null
+                      ? widget.headerBackgroundColor
                       : hovered != null || row.expanded || footerStart == 0
                       ? tokens.muted.withValues(alpha: tokens.muted.a * .5)
                       : tokens.muted.withValues(alpha: 0),
@@ -279,6 +297,8 @@ class _DTableState extends State<DTable> {
       rowIndex: rowIndex,
       columnWidths: widget.columnWidths,
       minimumWidth: width,
+      headerBackgroundColor: widget.headerBackgroundColor,
+      borderColor: widget.borderColor,
       header: header ? DTableHeader(rows: rows) : null,
       body: DTableBody(rows: header ? const [] : rows),
     );
@@ -321,7 +341,9 @@ class _DTableState extends State<DTable> {
                               border: index < widget.rowCount - 1
                                   ? Border(
                                       bottom: BorderSide(
-                                        color: DTokens.of(context).border,
+                                        color:
+                                            widget.borderColor ??
+                                            DTokens.of(context).border,
                                       ),
                                     )
                                   : null,
@@ -343,6 +365,8 @@ class _DTableState extends State<DTable> {
                       caption: widget.caption,
                       columnWidths: widget.columnWidths,
                       minimumWidth: width,
+                      headerBackgroundColor: widget.headerBackgroundColor,
+                      borderColor: widget.borderColor,
                       rowIndex:
                           (widget.header?.rows.length ?? 0) + widget.rowCount,
                     ),
@@ -481,6 +505,8 @@ class _TableLayout extends MultiChildRenderObjectWidget {
     required this.borders,
     required this.footerStart,
     required this.border,
+    required this.headerCount,
+    required this.headerBackgroundColor,
     required this.hasCaption,
     required super.children,
   });
@@ -494,6 +520,8 @@ class _TableLayout extends MultiChildRenderObjectWidget {
   final List<bool> borders;
   final int footerStart;
   final Color border;
+  final int headerCount;
+  final Color? headerBackgroundColor;
   final bool hasCaption;
   @override
   _RenderTable createRenderObject(BuildContext context) =>
@@ -721,6 +749,13 @@ class _RenderTable extends RenderBox
 
   @override
   void paint(PaintingContext context, Offset offset) {
+    if (spec.headerBackgroundColor case final color?
+        when spec.headerCount > 0) {
+      context.canvas.drawRect(
+        offset & Size(size.width, _rowEnds[spec.headerCount - 1]),
+        Paint()..color = color,
+      );
+    }
     defaultPaint(context, offset);
     final paint = Paint()..color = spec.border;
     for (var r = 0; r < _rowEnds.length; r++) {

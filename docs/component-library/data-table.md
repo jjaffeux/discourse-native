@@ -1,5 +1,41 @@
 # Data Table reference and acceptance
 
+## Soft header variant — 2026-09-16
+
+`DDataTableVariant.softHeader` implements the selected post-table mockup:
+a subtle header fill, visible fine separators and frame, 14px horizontal cell
+insets, 11px vertical body insets, and 14/21 body text. Sort controls retain the
+standard small button and accessible target, with 12px icons and aligned text.
+Header height remains at least 40px and grows with touch targets or text scale.
+Explicit column padding overrides the variant defaults.
+
+The fill and border colors derive from the host foreground and content surface,
+so the structure remains visible even when a forum's divider matches its
+background. `DTable.headerBackgroundColor` paints the full header width,
+including space beyond fixed-width columns, in eager and virtual tables.
+`DTable.borderColor` carries the separators through lazy fragments.
+
+Cooked post tables opt into this variant and emphasize the first content column.
+Other consumers retain `DDataTableVariant.standard`. The styleguide includes a
+resizable Soft header example. Sorting, visibility and width state remain local
+to the existing table; styling adds no persistence.
+
+Verification: root analysis is clean. The focused table, cooked-post, styleguide,
+Users and control-adoption run passed 185 tests. Three existing Alert Tables
+failures (two obsolete `IconButton` finders and a phone overflow) reproduced
+identically with the unchanged `3c4c422a` source. New regression coverage checks
+full-width eager header paint, lazy header colors, live palettes, header/cell
+alignment in both directions, explicit padding and state-preserving variant
+changes.
+
+The macOS debug fixture mounted the actual `CookedHtml` post renderer and the
+actual Soft header styleguide example. Native review covered the screenshot's
+gray palette, light mode, wide and 360px layouts, 100% and 200% text, keyboard
+sorting, and pointer resizing. Both surfaces kept the full-width header and
+aligned cells. Narrow horizontal scrolling and RTL are covered by widget tests;
+no phone-device pass is claimed. The isolated review bundle built and launched
+with the permitted debug entitlements, then was quit after inspection.
+
 Reference date: 2026-09-09. The frozen official Markdown at
 `https://ui.shadcn.com/docs/components/base/data-table.md` hashes to
 `31d46187a08d79ce41dd8991599ce86ff2d6fba0b99ae4ebff84cfbccce6cff4`,
