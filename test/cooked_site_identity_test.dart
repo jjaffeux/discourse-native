@@ -139,7 +139,8 @@ void main() {
     );
 
     await tester.tap(find.text('@sam'));
-    await tester.pump();
+    // The profile route mounts its Native popover on a subsequent frame.
+    await tester.pumpAndSettle();
 
     expect(api.sites, [sourceSite]);
     expect(controller.currentInstance?.url, selectedSite);

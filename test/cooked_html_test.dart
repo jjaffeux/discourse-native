@@ -538,6 +538,27 @@ void main() {
     });
   }
 
+  testWidgets('unstyled elements bypass custom CSS parsing', (tester) async {
+    await pumpCooked(
+      tester,
+      '<p>Plain <strong>bold</strong> and <em>emphasis</em>.</p>'
+      '<div><p>A nested paragraph.</p></div>',
+      compactParagraphs: true,
+    );
+    final renderer = tester.widget<HtmlWidget>(find.byType(HtmlWidget));
+    final styles = renderer.customStylesBuilder!;
+    final document = html_parser.parseFragment(renderer.html);
+
+    // Unstyled elements should preserve the absence of overrides, including
+    // paragraphs in nested quotes and oneboxes.
+    for (final element in document.querySelectorAll('strong, em, div, div p')) {
+      expect(styles(element), isNull, reason: element.outerHtml);
+    }
+    expect(styles(document.querySelector('p')!), contains('margin'));
+    expect(styles(dom.Element.tag('a')), contains('text-decoration'));
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('compact spacing scans each document once per widget build', (
     tester,
   ) async {
