@@ -11,7 +11,7 @@
 +int probeCustomCssTicks = 0;
 +final probeCustomCssInputs = <String, int>{};
 +
- 
+
  class CoreBuildTree extends BuildTree {
    final WidgetFactory wf;
 @@ -321,7 +328,14 @@
@@ -29,7 +29,7 @@
 +    probeCustomCssInputs.update(str, (count) => count + 1, ifAbsent: () => 1);
      _styles.addAll(customStyles);
    }
- 
+
 --- a/tool/chat_scroll_profile_main.dart
 +++ b/tool/chat_scroll_profile_main.dart
 @@ -1,6 +1,8 @@
@@ -39,11 +39,11 @@
 +import 'dart:convert';
 +import 'package:flutter_widget_from_html_core/src/internal/core_build_tree.dart';
  import 'dart:io';
- 
+
  import 'package:discourse_native/src/data/media_pipeline.dart';
 @@ -11,6 +13,7 @@
  import '../test/support/chat_scroll_fixture.dart';
- 
+
  Future<void> main() async {
 +  probeCustomCssCache = _option('SCROLL_CSS_CACHE', 'true') == 'true';
    final binding = WidgetsFlutterBinding.ensureInitialized();

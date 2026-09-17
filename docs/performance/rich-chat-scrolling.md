@@ -157,3 +157,10 @@ mounted. The same assertion failed with both renderer changes removed. That
 fixture now waits for the opening frames to settle; all six source-site tests
 then pass. No profile-navigation behavior was changed. Root static analysis,
 formatting and all three vendor archive provenance checks pass.
+
+Integration from main `9f7e9c3e` preserved the new cooked-details renderer and
+passed all 261 focused tests, including details, cooked HTML/table/quote
+rendering, selection, the four rich channel/DM scroll variants, chat lifecycle,
+threads, uploads and reactors. Static analysis and the final macOS profile
+build pass. Temporary probes and the native accessibility hook are absent from
+the production source; the optional probe patch still applies cleanly.
