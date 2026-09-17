@@ -19,7 +19,12 @@ class ReactionPills extends Padding {
         padding: const EdgeInsets.only(top: DSpacing.xs),
         child: Align(
           alignment: Alignment.centerLeft,
-          child: Wrap(spacing: 6, runSpacing: 6, children: children),
+          child: Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: children,
+          ),
         ),
       );
 }
