@@ -65,7 +65,7 @@ void main() {
     expect(card(setup.rows.first.id).selected, isTrue);
     expect(
       card(setup.rows.first.id).selectionStyle,
-      DItemSelectionStyle.neutral,
+      DItemSelectionStyle.outline,
     );
     expect(card(setup.rows.first.id).showSelectionIndicator, isFalse);
     expect(card(setup.rows[1].id).selected, isFalse);

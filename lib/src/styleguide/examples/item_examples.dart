@@ -33,9 +33,10 @@ final itemExamples = ComponentExamples(
       title: 'Outline selection',
       description:
           'Topic selection uses a 2px accent outline, the normal background, '
-          'and a faint neutral hover. Selecting a row does not move its content.',
+          'and a faint neutral hover with broader corners. Selecting a row '
+          'does not move its content.',
       code:
-          "DItem(selected: true, selectionStyle: DItemSelectionStyle.outline, showSelectionIndicator: false, variant: DItemVariant.outline, onPressed: () {}, children: [DItemContent(children: [DItemTitle(child: Text('Current topic'))])])",
+          "DItem(selected: true, selectionStyle: DItemSelectionStyle.outline, showSelectionIndicator: false, onPressed: () {}, children: [DItemContent(children: [DItemTitle(child: Text('Current topic'))])])",
       builder: (_) =>
           const _SelectionExample(style: DItemSelectionStyle.outline),
     ),
@@ -113,9 +114,6 @@ class _SelectionExampleState extends State<_SelectionExample> {
           selected: index == selected,
           selectionStyle: widget.style,
           showSelectionIndicator: false,
-          variant: widget.style == DItemSelectionStyle.outline
-              ? DItemVariant.outline
-              : DItemVariant.standard,
           onPressed: () => setState(() => selected = index),
           children: [
             DItemContent(children: [DItemTitle(child: Text(title))]),

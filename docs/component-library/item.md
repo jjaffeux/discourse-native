@@ -207,9 +207,19 @@ styleguide example, then changed its preview from dark to light. Open-reader
 selection was verified by widget tests; the offline native fixture has no topic
 detail responses. iOS/Linux were not run on devices.
 
-Topic lists use `DItemSelectionStyle.neutral` with
-`showSelectionIndicator: false`: selection uses a 5% foreground tint and hover
-uses 6%, without an accent border or extra leading marker. Corners use 2.5× the
-host radius (10px at the default radius). Focus remains visible through the
-existing focus ring; selection semantics remain unchanged. The interactive
-Neutral selection example demonstrates both states.
+Topic lists use `DItemSelectionStyle.outline` with
+`showSelectionIndicator: false`: selection uses a 2px accent outline on the
+normal surface, and hover uses the previous selection's 5% foreground tint.
+Corners keep the 2.5× host radius (10px at the default radius). Hovering the
+selected row retains its outline while adding the neutral hover fill. Focus
+remains visible through the existing focus ring; selection semantics and content
+positions remain unchanged. The interactive Outline selection example
+demonstrates these states without borders on unselected rows.
+
+The September 17 follow-up passed 165 focused Item, styleguide, topic-list,
+inbox, semantics, and keyboard tests plus analysis. The two already-known
+390px G J/G K tests for opening from an unlisted topic were excluded. The
+isolated macOS build of `tool/topics_redesign_review_main.dart` was inspected
+with outline selection and a separately hovered row in dark desktop and light
+390px panes. The live Outline selection styleguide example was clicked to move
+selection, then hovered on the other row; the outline and fill stayed distinct.

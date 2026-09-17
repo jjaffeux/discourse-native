@@ -59,8 +59,9 @@ class DItem extends StatefulWidget {
   final bool selected;
 
   /// Outline selection keeps the normal surface and paints a 2px accent border
-  /// without moving the content. Neutral selection uses a subtle surface tint,
-  /// broader theme-relative corners and no accent border. Both retain focus.
+  /// without moving the content, with a subtle neutral fill on hover. Neutral
+  /// selection uses a subtle surface tint and no accent border. Both use broader
+  /// theme-relative corners and retain keyboard focus styling.
   final DItemSelectionStyle selectionStyle;
 
   /// Shows a checkmark when selected. Selection styling and semantics remain
@@ -119,7 +120,8 @@ class _DItemState extends State<DItem> {
         widget.selectionStyle == DItemSelectionStyle.outline;
     final neutralSelection =
         widget.selectionStyle == DItemSelectionStyle.neutral;
-    final radius = tokens.radius * (neutralSelection ? 2.5 : 1);
+    final radius =
+        tokens.radius * (neutralSelection || outlineSelection ? 2.5 : 1);
     final borderRadius = BorderRadius.circular(radius);
     final background = widget.selected && !outlineSelection
         ? neutralSelection
@@ -127,7 +129,7 @@ class _DItemState extends State<DItem> {
               : tokens.primary.withValues(alpha: .12)
         : _active && _hover
         ? outlineSelection
-              ? tokens.foreground.withValues(alpha: .03)
+              ? tokens.foreground.withValues(alpha: .05)
               : neutralSelection
               ? tokens.foreground.withValues(alpha: .06)
               : tokens.muted
