@@ -261,12 +261,7 @@ class _ParticipantsState extends State<_Participants> {
 
   Widget _buildResults(BuildContext context) {
     if (_loading) {
-      return const Center(
-        child: Padding(
-          padding: EdgeInsets.symmetric(horizontal: 24),
-          child: DProgress(semanticsLabel: 'Loading participants'),
-        ),
-      );
+      return const _ParticipantSkeleton();
     }
     if (_error != null || _rows?.isEmpty != false) {
       final searching = _search.text.trim().isNotEmpty;
@@ -319,6 +314,52 @@ class _ParticipantsState extends State<_Participants> {
       separatorBuilder: (_, _) => const DSeparator(space: 1),
       itemBuilder: (context, index) =>
           _ParticipantRow(invitee: _rows![index], siteUrl: widget.handle.site),
+    );
+  }
+}
+
+class _ParticipantSkeleton extends StatelessWidget {
+  const _ParticipantSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    final scaler = MediaQuery.textScalerOf(context);
+    return SingleChildScrollView(
+      padding: const EdgeInsets.symmetric(horizontal: 6),
+      child: DSkeletonRegion(
+        semanticsLabel: 'Loading participants',
+        child: Column(
+          children: [
+            for (var i = 0; i < 6; i++) ...[
+              if (i > 0) const DSeparator(space: 1),
+              DItem(
+                size: DItemSize.xs,
+                children: [
+                  const DItemMedia(
+                    variant: DItemMediaVariant.avatar,
+                    child: DAvatar(decorative: true, child: DSkeleton()),
+                  ),
+                  DItemContent(
+                    spacing: 6,
+                    children: [
+                      DItemTitle(
+                        child: DSkeleton(
+                          width: 120 + (i % 3) * 24,
+                          height: scaler.scale(16),
+                        ),
+                      ),
+                      DItemDescription(
+                        child: DSkeleton(width: 90, height: scaler.scale(12)),
+                      ),
+                    ],
+                  ),
+                  DSkeleton(width: 44, height: scaler.scale(12)),
+                ],
+              ),
+            ],
+          ],
+        ),
+      ),
     );
   }
 }

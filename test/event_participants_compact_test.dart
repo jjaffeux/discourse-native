@@ -44,6 +44,7 @@ void main() {
     double keyboard = 0,
     TextDirection direction = TextDirection.ltr,
     TargetPlatform platform = TargetPlatform.macOS,
+    bool settle = true,
   }) async {
     tester.view.devicePixelRatio = 1;
     tester.view.physicalSize = Size(width, 800);
@@ -81,8 +82,54 @@ void main() {
       ),
     );
     await tester.tap(find.text('Open participants'));
-    await tester.pumpAndSettle();
+    if (settle) {
+      await tester.pumpAndSettle();
+    } else {
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+    }
   }
+
+  testWidgets('loading skeleton gives way to results and filtered empty state', (
+    tester,
+  ) async {
+    final semantics = tester.ensureSemantics();
+    try {
+      final initial = Completer<Map<String, dynamic>>();
+      ports.transport.responders['GET ${participantFixturePath()}'] = (_) =>
+          initial.future;
+      await open(tester, settle: false);
+      expect(find.bySemanticsLabel('Loading participants'), findsOneWidget);
+      expect(find.byType(DSkeletonRegion), findsOneWidget);
+      expect(find.byType(DProgress), findsNothing);
+      expect(find.text('6 shown'), findsNothing);
+      final dialogBounds = tester.getRect(find.byType(DDialogContent));
+
+      initial.complete({'invitees': participantScreenshotRows});
+      await tester.pumpAndSettle();
+      expect(find.byType(DSkeletonRegion), findsNothing);
+      expect(find.bySemanticsLabel('Loading participants'), findsNothing);
+      expect(find.text('@Emily_Roman'), findsOneWidget);
+      expect(tester.getRect(find.byType(DDialogContent)), dialogBounds);
+
+      final filtered = Completer<Map<String, dynamic>>();
+      ports
+              .transport
+              .responders['GET ${participantFixturePath(type: 'interested')}'] =
+          (_) => filtered.future;
+      await tester.tap(find.widgetWithText(DTabTrigger<String>, 'Interested'));
+      await tester.pump();
+      expect(find.byType(DSkeletonRegion), findsOneWidget);
+      expect(find.text('@Emily_Roman'), findsNothing);
+      filtered.complete({'invitees': <Object?>[]});
+      await tester.pumpAndSettle();
+      expect(find.byType(DSkeletonRegion), findsNothing);
+      expect(find.text('No participants found'), findsOneWidget);
+      expect(tester.getRect(find.byType(DDialogContent)), dialogBounds);
+    } finally {
+      semantics.dispose();
+    }
+  });
 
   testWidgets('compact roster shows real identities and opens profile links', (
     tester,
@@ -239,6 +286,9 @@ void main() {
     testWidgets(
       'narrow large text and keyboard remain usable in ${direction.name}',
       (tester) async {
+        final pending = Completer<Map<String, dynamic>>();
+        ports.transport.responders['GET ${participantFixturePath()}'] = (_) =>
+            pending.future;
         await open(
           tester,
           width: 320,
@@ -246,8 +296,12 @@ void main() {
           keyboard: 280,
           direction: direction,
           platform: TargetPlatform.iOS,
+          settle: false,
         );
         expect(tester.takeException(), isNull);
+        expect(find.byType(DSkeletonRegion), findsOneWidget);
+        pending.complete({'invitees': participantScreenshotRows});
+        await tester.pumpAndSettle();
         await tester.ensureVisible(find.text('Done'));
         await tester.tap(find.text('Done'));
         await tester.pumpAndSettle();

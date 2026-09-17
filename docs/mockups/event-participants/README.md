@@ -25,7 +25,7 @@ All, Going, Interested and Not going filters are retained. Interested and Not go
 
 ## Production mapping
 
-The selected **Compact list** is implemented in `lib/src/plugins/discourse_events/event_participants.dart`. It composes the existing Native dialog, DInput, DTabs, DItem, DAvatar, DButton, DProgress and DEmpty components. The UI kit itself is unchanged.
+The selected **Compact list** is implemented in `lib/src/plugins/discourse_events/event_participants.dart`. It composes the existing Native dialog, DInput, DTabs, DItem, DAvatar, DButton, DSkeleton and DEmpty components. The UI kit itself is unchanged.
 
 The dialog preserves server-side search and response filtering, authorization, stale-request handling, loading/error states, the 200-person result limit, recurring attendance indication and profile navigation. Search runs after a 250ms pause or immediately on submission; an optional leading `@` is removed. Real avatars use the existing loader with initials as the fallback. The footer reports returned rows rather than an inferred event total. A stable, scrollable results area keeps search and response controls in place when results change. Revoked access clears the roster and disables search/filter controls.
 
@@ -45,3 +45,11 @@ JavaScript syntax and whitespace checks pass. Browser interaction checks cover a
 - The isolated review bundle used only sandbox, JIT and local debug network entitlements, verified after signing. Source and launched bundle kernel SHA-256 matched: `e217621a8b928ff3283ce8ebad5056d6d78bbdba343cd3d2dc094e04222fa02f`. No real account data or participant responses were modified.
 
 Run the local native fixture with `flutter run -d macos -t tool/event_participants_review_main.dart --no-pub`.
+
+### Skeleton loading follow-up
+
+Participant requests now show six decorative row placeholders with avatar, name, username and response shapes. A shared `DSkeletonRegion` announces “Loading participants” once and honors the kit's reduced-motion behavior. Search/filter controls stay usable, the dialog keeps its existing bounds, and the placeholders disappear for ready, empty, error or unavailable states. No count is inferred while loading.
+
+Use `--dart-define=PARTICIPANT_DELAY_MS=5000` with the native fixture to inspect loading before its local response resolves. The delay belongs only to the review transport.
+
+Verification: 17 focused tests pass across participant, invitation and control-adoption coverage; full analysis is clean. Loading-to-ready and loading-to-empty transitions preserve dialog bounds, and loading fits the existing 320px/2×/keyboard/RTL widget cases. Native macOS review confirmed the skeleton in dark desktop and light 360px layouts, one accessible loading label, and replacement by the real rows. The delayed-review source and launched kernel matched SHA-256 `60adf07058a03f44915c0681378b2cde3b8d1991dcfd709c82cd5ec738509b21`; the isolated bundle retained only the same permitted debug entitlements.
