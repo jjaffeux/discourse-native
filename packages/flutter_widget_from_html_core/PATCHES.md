@@ -24,8 +24,16 @@ retain the upstream parser path. The cache admits at most 64 style strings of
 at most 4,096 characters each. Existing entries are not evicted while a body is
 being built. When the shared pool fills, each body retains its original bounded
 local cache for additional styles; earlier bodies cannot crowd out local reuse.
-Inline and custom CSS parsing, conversion order and mounting are
-unchanged.
+Inline CSS parsing, conversion order and mounting are unchanged.
+
+Custom-style callback output uses the same bounded syntax cache as defaults.
+The complete ordered map remains the key and callbacks still run for every
+element, so changes in attributes, theme or plugin state are respected. Empty
+default/custom maps bypass parsing. Custom declarations use the same literal
+eligibility, deep-copy guarantees, 64-entry shared/body-local limits and
+4,096-character cutoff. This avoids reparsing identical link and paragraph
+overrides as rich chat rows enter the viewport. It retains no HTML or message
+content. Inline CSS still applies after custom styles.
 
 Files:
 

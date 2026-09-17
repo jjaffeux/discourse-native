@@ -336,9 +336,8 @@ class CookedHtml extends StatelessWidget {
             mentionedUserStatuses: mentionedUserStatuses,
           ),
         ),
-        customStylesBuilder: (element) => {
-          if (contentSized && element.localName == 'p') 'width': 'auto',
-          ...?_customStyles(
+        customStylesBuilder: (element) {
+          final styles = _customStyles(
             element,
             paragraphMargins,
             horizontalRuleColor,
@@ -347,7 +346,13 @@ class CookedHtml extends StatelessWidget {
             linkCountBackground,
             linkCountForeground,
             linkStyle,
-          ),
+          );
+          if (contentSized && element.localName == 'p') {
+            return {'width': 'auto', ...?styles};
+          }
+          // Preserve the absence of overrides for unstyled elements, including
+          // nested quote/onebox paragraphs.
+          return styles;
         },
         // The builders close over the style and resolved site, and [HtmlWidget]
         // caches what they built — so a change to either has to say so to reach

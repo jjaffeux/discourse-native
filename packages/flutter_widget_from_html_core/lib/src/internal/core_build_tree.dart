@@ -21,8 +21,8 @@ final _regExpSpaces = RegExp('$_asciiWhitespace+', unicode: true);
 
 final _logger = Logger('fwfh.CoreBuildTree');
 final _rootElement = dom.Element.tag('root');
-// Default CSS is keyed by its complete text and cloned for each element. Share
-// the bounded parser cache across bodies, never their widgets or build trees.
+// Default and custom CSS share syntax keyed by its complete ordered text, with
+// independent copies per element. Never retain widgets or build trees here.
 final _defaultStyles = DefaultStylesCache();
 
 class CoreBuildTree extends BuildTree {
@@ -313,15 +313,15 @@ class CoreBuildTree extends BuildTree {
 
   void _customStylesBuilder() {
     final map = wf.customStylesBuilder(element);
-    if (map == null) {
+    if (map == null || map.isEmpty) {
       return;
     }
 
     _logger.fine('Custom styles for ${element.localName?.toUpperCase()}: $map');
     final str = map.entries.map((e) => '${e.key}: ${e.value}').join(';');
-    final styleSheet = css.parse('*{$str}');
-
-    final customStyles = styleSheet.collectDeclarations();
+    // Apply the same bounded, mutation-safe reuse as default declarations.
+    // The callback still runs for every element; inline CSS still follows it.
+    final customStyles = _defaultStylesCache.parse(str);
     _styles.addAll(customStyles);
   }
 
@@ -386,7 +386,7 @@ class _CoreBuildOp {
 
   List<css.Declaration>? get defaultStyles {
     final map = op.defaultStyles?.call(tree.element);
-    if (map == null) {
+    if (map == null || map.isEmpty) {
       return null;
     }
 

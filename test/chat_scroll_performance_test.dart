@@ -1,10 +1,14 @@
 import 'dart:convert';
 
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/src/data/media_pipeline.dart';
 import 'package:discourse_native/src/diagnostics/diagnostics.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel_view.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message_tile.dart';
+import 'package:discourse_native/src/shell/oneboxes/onebox.dart';
+import 'package:discourse_native/src/shell/quote.dart';
+import 'package:discourse_native/src/shell/site_image.dart';
 import 'package:discourse_native/src/shell/stream_day_separator.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -14,6 +18,81 @@ import 'support/chat_shell.dart';
 import 'support/topic_scroll_capture.dart';
 
 void main() {
+  final richLayouts = ValueVariant({
+    (width: 800.0, dark: false, directMessage: false),
+    (width: 360.0, dark: true, directMessage: false),
+    (width: 800.0, dark: false, directMessage: true),
+    (width: 360.0, dark: true, directMessage: true),
+  });
+  testWidgets(
+    'rich channel fixture scrolls through images, previews and quotes',
+    (tester) async {
+      tester.view.physicalSize = const Size(900, 700);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      MediaPipeline.replace(chatScrollMediaPipeline());
+      addTearDown(() => MediaPipeline.replace(MediaPipeline()));
+      final layout = richLayouts.currentValue!;
+      final controller = await chatScrollController(
+        rich: true,
+        directMessage: layout.directMessage,
+      );
+      final capture = topicScrollCaptureWithoutVm();
+      final diagnostics = DiagnosticsController.start(
+        persistence: MemoryDiagnosticsPersistence(),
+        topicScrollCapture: capture,
+      );
+      addTearDown(controller.dispose);
+      addTearDown(diagnostics.close);
+      await tester.pumpWidget(
+        ChatScrollFixture(
+          controller: controller,
+          diagnostics: diagnostics,
+          width: layout.width,
+          dark: layout.dark,
+        ),
+      );
+      await tester.pumpAndSettle();
+      final scrollable = find.descendant(
+        of: find.byType(ChatMessageStream),
+        matching: find.byWidgetPredicate(
+          (widget) =>
+              widget is Scrollable &&
+              axisDirectionToAxis(widget.axisDirection) == Axis.vertical,
+        ),
+      );
+      final position = tester.state<ScrollableState>(scrollable).position;
+      final seen = <Type>{};
+      capture.start();
+      for (final delta in [40.0, 1200.0, -1200.0]) {
+        for (var step = 0; step < 40; step++) {
+          for (final type in [SiteImage, OneboxCard, QuoteBlock]) {
+            if (find.byType(type).evaluate().isNotEmpty) seen.add(type);
+          }
+          position.pointerScroll(delta);
+          await tester.pump(const Duration(milliseconds: 16));
+          expect(tester.takeException(), isNull);
+        }
+      }
+      await tester.pumpAndSettle();
+      capture.stop();
+      final activity = <String, int>{};
+      for (final event in capture.events) {
+        activity.update(event.name, (count) => count + 1, ifAbsent: () => 1);
+      }
+      debugPrint('CHAT_RICH_COUNTS ${jsonEncode(activity)}');
+      expect(seen, containsAll([SiteImage, OneboxCard, QuoteBlock]));
+      expect(
+        capture.events.where((event) => event.name == 'chat.stream.built'),
+        isEmpty,
+      );
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump();
+      await diagnostics.close();
+    },
+    variant: richLayouts,
+  );
+
   final layouts = ValueVariant({
     for (final directMessage in [false, true])
       for (final group in directMessage ? [false, true] : [false])
