@@ -13,8 +13,10 @@ Widget host(
   double scale = 1,
   TextDirection direction = TextDirection.ltr,
   ThemeData? theme,
+  bool focusPolicy = false,
 }) => MaterialApp(
   theme: theme ?? ThemeData(platform: TargetPlatform.macOS),
+  builder: focusPolicy ? (_, child) => DFocusHighlight(child: child!) : null,
   home: Scaffold(
     body: MediaQuery(
       data: MediaQueryData(
@@ -129,12 +131,8 @@ void main() {
   });
 
   testWidgets(
-    'outline selection moves immediately without tint or layout shift',
+    'outline selection and pointer hover stay independent of keyboard focus',
     (tester) async {
-      final strategy = FocusManager.instance.highlightStrategy;
-      FocusManager.instance.highlightStrategy =
-          FocusHighlightStrategy.alwaysTraditional;
-      addTearDown(() => FocusManager.instance.highlightStrategy = strategy);
       final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
       addTearDown(mouse.removePointer);
       await mouse.addPointer(location: const Offset(700, 500));
@@ -168,6 +166,7 @@ void main() {
               ),
             ),
             theme: theme,
+            focusPolicy: true,
           ),
         );
         await tester.pumpAndSettle();

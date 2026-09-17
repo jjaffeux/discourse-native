@@ -291,6 +291,7 @@ class _ReviewState extends State<_Review> {
     child: MaterialApp(
       debugShowCheckedModeBanner: false,
       theme: _dark ? AppTheme.dark : AppTheme.light,
+      builder: (_, child) => DFocusHighlight(child: child!),
       home: Builder(
         builder: (context) => Scaffold(
           body: Column(

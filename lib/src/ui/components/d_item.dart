@@ -233,25 +233,31 @@ class _DItemState extends State<DItem> {
       ),
     );
     if (widget.onPressed != null || widget.link) {
-      result = FocusableActionDetector(
-        enabled: _active,
-        focusNode: _focus,
-        autofocus: widget.autofocus,
-        mouseCursor: _active
-            ? SystemMouseCursors.click
-            : SystemMouseCursors.basic,
-        onShowHoverHighlight: (value) => setState(() => _hover = value),
-        onShowFocusHighlight: (value) => setState(() => _focusVisible = value),
-        child: GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          excludeFromSemantics: true,
-          onTap: _active
-              ? () {
-                  _focus.requestFocus();
-                  widget.onPressed!();
-                }
-              : null,
-          child: result,
+      // Pointer hover remains visible while the app suppresses keyboard focus
+      // rings. FocusableActionDetector's hover highlight follows that policy.
+      result = MouseRegion(
+        onEnter: (_) => setState(() => _hover = true),
+        onExit: (_) => setState(() => _hover = false),
+        child: FocusableActionDetector(
+          enabled: _active,
+          focusNode: _focus,
+          autofocus: widget.autofocus,
+          mouseCursor: _active
+              ? SystemMouseCursors.click
+              : SystemMouseCursors.basic,
+          onShowFocusHighlight: (value) =>
+              setState(() => _focusVisible = value),
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            excludeFromSemantics: true,
+            onTap: _active
+                ? () {
+                    _focus.requestFocus();
+                    widget.onPressed!();
+                  }
+                : null,
+            child: result,
+          ),
         ),
       );
       result = Focus(
