@@ -207,7 +207,7 @@ void main() {
     );
     expect(
       find.descendant(of: header, matching: find.byType(DTableHead)),
-      findsNWidgets(4),
+      findsNWidgets(5),
     );
     final assigned = find.byKey(const ValueKey('topic-compact-1'));
     final unassigned = find.byKey(const ValueKey('topic-compact-2'));
@@ -421,10 +421,13 @@ void main() {
         ),
       ),
     );
+    expect(find.text('Excerpt 1'), findsNothing);
+    await shell.appSettings.setTopicListExcerpts(true);
+    await tester.pumpAndSettle();
     expect(find.text('Excerpt 1'), findsOneWidget);
     await shell.appSettings.setTopicListMode(TopicListDisplayMode.compact);
     await tester.pumpAndSettle();
-    expect(find.text('Excerpt 1'), findsNothing);
+    expect(find.text('Excerpt 1'), findsOneWidget);
     expect(find.text('joffrey'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });

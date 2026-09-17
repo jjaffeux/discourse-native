@@ -6,6 +6,33 @@ import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test(
+    'advanced filters round trip with taxonomy and compile one API query',
+    () {
+      final route = ContentRoute.topicFilter(
+        'status:open',
+        categoryId: 42,
+        tags: const ['ux', 'bug'],
+      );
+      final restored = ContentRoute.fromJson(route.toJson());
+      expect(restored, route);
+      expect(restored.isTopicList, isTrue);
+      expect(restored.topicFilterQuery, 'status:open');
+      expect(restored.categoryId, 42);
+      expect(restored.tagNames, ['ux', 'bug']);
+      expect(Uri.parse(restored.topicFilterRequestPath).queryParameters, {
+        'q': 'status:open category:42 tag:ux+bug',
+      });
+      expect(
+        ContentRoute.fromJson({
+          ...route.toJson(),
+          'id': 'filter',
+        }).isAdvancedTopicFilter,
+        isTrue,
+      );
+    },
+  );
+
   group('obsolete list search migration', () {
     test('restores list filters without their hidden search parameter', () {
       for (final source in [

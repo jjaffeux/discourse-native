@@ -16,6 +16,8 @@ final class AppSettingsController extends FrameSafeNotifier {
   bool get disableGifAnimations => _settings.disableGifAnimations;
   AppTextScale get textScale => _settings.textScale;
   AppThemeMode get themeMode => _settings.themeMode;
+  bool get topicListExcerpts => _settings.topicListExcerpts;
+  bool get topicListLargerText => _settings.topicListLargerText;
   TopicListDisplayMode get topicListMode => _settings.topicListMode;
   double get textScaleFactor => textScale.factor;
 
@@ -26,6 +28,8 @@ final class AppSettingsController extends FrameSafeNotifier {
   bool? _selectedDisableGifAnimations;
   AppTextScale? _selectedTextScale;
   AppThemeMode? _selectedThemeMode;
+  bool? _selectedTopicListExcerpts;
+  bool? _selectedTopicListLargerText;
   TopicListDisplayMode? _selectedTopicListMode;
   Future<void>? _loadTask;
 
@@ -52,6 +56,8 @@ final class AppSettingsController extends FrameSafeNotifier {
       disableGifAnimations: _selectedDisableGifAnimations,
       textScale: _selectedTextScale,
       themeMode: _selectedThemeMode,
+      topicListExcerpts: _selectedTopicListExcerpts,
+      topicListLargerText: _selectedTopicListLargerText,
       topicListMode: _selectedTopicListMode,
     );
     _loaded = true;
@@ -111,6 +117,34 @@ final class AppSettingsController extends FrameSafeNotifier {
     _selectedThemeMode = mode;
     _settings = _settings.copyWith(themeMode: mode);
     final saving = store.update(themeMode: mode);
+    unawaited(load());
+    notifySafely();
+    return saving;
+  }
+
+  Future<void> setTopicListExcerpts(bool value) {
+    if (isDisposed ||
+        ((_loaded || _selectedTopicListExcerpts != null) &&
+            value == topicListExcerpts)) {
+      return Future<void>.value();
+    }
+    _selectedTopicListExcerpts = value;
+    _settings = _settings.copyWith(topicListExcerpts: value);
+    final saving = store.update(topicListExcerpts: value);
+    unawaited(load());
+    notifySafely();
+    return saving;
+  }
+
+  Future<void> setTopicListLargerText(bool value) {
+    if (isDisposed ||
+        ((_loaded || _selectedTopicListLargerText != null) &&
+            value == topicListLargerText)) {
+      return Future<void>.value();
+    }
+    _selectedTopicListLargerText = value;
+    _settings = _settings.copyWith(topicListLargerText: value);
+    final saving = store.update(topicListLargerText: value);
     unawaited(load());
     notifySafely();
     return saving;

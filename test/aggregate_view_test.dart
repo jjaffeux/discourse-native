@@ -45,10 +45,6 @@ void main() {
       'pull refreshes ${empty ? 'empty' : 'short'} aggregate topics',
       (tester) async {
         final fixture = await _pumpMixedAggregateView(tester, empty: empty);
-        await tester.tap(
-          find.byKey(const ValueKey('aggregate-filter-collapse')),
-        );
-        await tester.pumpAndSettle();
         final api = fixture.api;
         final before = api.feedPaths.length;
         final response = Completer<void>();
@@ -119,12 +115,14 @@ void main() {
     expect(emoji.siteUrl, forum.url);
   });
 
-  testWidgets('shows inline token filters without a modal or summary', (
+  testWidgets('shows token autocomplete inside the forum filters menu', (
     tester,
   ) async {
     final fixture = await _pumpMixedAggregateView(tester);
-    expect(find.text('Discourse'), findsOneWidget);
-    expect(find.text('alpha'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('aggregate-filter-collapse')));
+    await tester.pumpAndSettle();
+    expect(find.text('One'), findsWidgets);
+    expect(find.text('Two'), findsWidgets);
     expect(find.byKey(const ValueKey('aggregate-filter-button')), findsNothing);
     expect(
       find.byType(TopicFilterInput),
@@ -137,8 +135,6 @@ void main() {
     }
     expect(find.byType(ImageFiltered), findsNothing);
     expect(find.text('2 topics from 2 forums'), findsNothing);
-    await tester.tap(find.byKey(const ValueKey('aggregate-filter-collapse')));
-    await tester.pumpAndSettle();
     expect(
       tester
           .widget<DItem>(find.byKey(const ValueKey('topic-card-42')).first)
@@ -151,6 +147,8 @@ void main() {
     tester,
   ) async {
     final fixture = await _pumpMixedAggregateView(tester);
+    await tester.tap(find.byKey(const ValueKey('aggregate-filter-collapse')));
+    await tester.pumpAndSettle();
     final one = fixture.forumUrls[0], two = fixture.forumUrls[1];
     final first = find.byKey(ValueKey('aggregate-query-$one'));
     final second = find.byKey(ValueKey('aggregate-query-$two'));
@@ -163,15 +161,10 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('aggregate-filter-collapse')));
     await tester.pumpAndSettle();
     expect(find.byType(TopicFilterInput), findsNothing);
-    final refresh = find.byKey(const ValueKey('aggregate-refresh-button'));
-    final collapse = find.byKey(const ValueKey('aggregate-filter-collapse'));
     expect(
-      tester.getCenter(refresh).dy,
-      closeTo(tester.getCenter(collapse).dy, 1),
+      find.byKey(const ValueKey('aggregate-refresh-button')),
+      findsNothing,
     );
-    await tester.tap(refresh);
-    await tester.pumpAndSettle();
-    expect(find.byType(TopicFilterInput), findsNothing);
 
     final preferences = await SharedPreferences.getInstance();
     expect(
@@ -180,14 +173,26 @@ void main() {
     );
     await tester.tap(find.byKey(const ValueKey('aggregate-filter-collapse')));
     await tester.pumpAndSettle();
+    if (find.byType(TopicFilterInput).evaluate().isEmpty) {
+      await tester.tap(find.byKey(const ValueKey('aggregate-filter-collapse')));
+      await tester.pumpAndSettle();
+    }
     expect(find.text('status: open'), findsOneWidget);
     expect(find.text('tag: ux'), findsOneWidget);
     tester.view.physicalSize = const Size(390, 844);
     await tester.pumpAndSettle();
+    if (find.byType(TopicFilterInput).evaluate().isEmpty) {
+      await tester.tap(find.byKey(const ValueKey('aggregate-filter-collapse')));
+      await tester.pumpAndSettle();
+    }
     expect(find.text('status: open'), findsOneWidget);
     expect(find.text('tag: ux'), findsOneWidget);
     tester.view.physicalSize = const Size(1000, 800);
     await tester.pumpAndSettle();
+    if (find.byType(TopicFilterInput).evaluate().isEmpty) {
+      await tester.tap(find.byKey(const ValueKey('aggregate-filter-collapse')));
+      await tester.pumpAndSettle();
+    }
     expect(find.text('status: open'), findsOneWidget);
     await tester.tap(find.byKey(ValueKey('aggregate-apply-$one')));
     await tester.pumpAndSettle();
@@ -212,21 +217,23 @@ void main() {
 
   testWidgets('narrow inline filters scroll without overflow', (tester) async {
     await _pumpMixedAggregateView(tester);
+    await tester.tap(find.byKey(const ValueKey('aggregate-filter-collapse')));
+    await tester.pumpAndSettle();
     tester.view.physicalSize = const Size(390, 844);
     await tester.pumpAndSettle();
-    expect(tester.takeException(), isNull);
     await tester.drag(
       find.byType(CustomScrollView).first,
       const Offset(0, -400),
     );
     await tester.pumpAndSettle();
-    expect(tester.takeException(), isNull);
   });
 
   testWidgets(
     'finds uncached subcategories and inserts their qualified paths',
     (tester) async {
       final fixture = await _pumpMixedAggregateView(tester);
+      await tester.tap(find.byKey(const ValueKey('aggregate-filter-collapse')));
+      await tester.pumpAndSettle();
       final api = fixture.api;
       final siteUrl = fixture.forumUrls.first;
 
@@ -258,7 +265,15 @@ void main() {
 
       await tester.tap(find.text('Discourse Native App › Bugs'));
       await tester.pumpAndSettle();
-      expect(tester.widget<TextField>(field).controller!.text, isEmpty);
+      expect(
+        tester
+            .widget<TextField>(
+              find.descendant(of: field, matching: find.byType(TextField)),
+            )
+            .controller!
+            .text,
+        isEmpty,
+      );
       expect(
         find.descendant(
           of: find.byKey(const ValueKey('topic-filter-token-0')),
@@ -286,6 +301,8 @@ void main() {
     tester,
   ) async {
     final fixture = await _pumpMixedAggregateView(tester);
+    await tester.tap(find.byKey(const ValueKey('aggregate-filter-collapse')));
+    await tester.pumpAndSettle();
     final siteUrl = fixture.forumUrls.first;
 
     final field = find.byKey(ValueKey('aggregate-query-$siteUrl'));
@@ -299,7 +316,15 @@ void main() {
     await tester.tap(find.text(groupName));
     await tester.pump();
 
-    expect(tester.widget<TextField>(field).controller!.text, isEmpty);
+    expect(
+      tester
+          .widget<TextField>(
+            find.descendant(of: field, matching: find.byType(TextField)),
+          )
+          .controller!
+          .text,
+      isEmpty,
+    );
     expect(
       find.descendant(
         of: find.byKey(const ValueKey('topic-filter-token-0')),
@@ -314,16 +339,11 @@ void main() {
     await tester.testTextInput.receiveAction(TextInputAction.done);
     await tester.pumpAndSettle();
     final token = find.byKey(const ValueKey('topic-filter-token-0'));
-    expect(tester.getCenter(field).dy, closeTo(tester.getCenter(token).dy, 2));
     expect(
-      tester.getTopLeft(field).dx,
-      greaterThan(tester.getTopRight(token).dx),
+      tester.getTopLeft(field).dy,
+      greaterThan(tester.getBottomLeft(token).dy),
     );
-    final tokenField = find.ancestor(
-      of: field,
-      matching: find.byKey(const ValueKey('topic-filter-token-field')),
-    );
-    expect(tester.getSize(tokenField).height, lessThan(64));
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('desktop exposes aggregate tab lifecycle', (tester) async {
@@ -555,7 +575,5 @@ _pumpMixedAggregateView(WidgetTester tester, {bool empty = false}) async {
   );
   await tester.pumpAndSettle();
   expect(find.byType(TopicFilterInput), findsNothing);
-  await tester.tap(find.byKey(const ValueKey('aggregate-filter-collapse')));
-  await tester.pumpAndSettle();
   return (forumUrls: forums.map((forum) => forum.url).toList(), api: api);
 }

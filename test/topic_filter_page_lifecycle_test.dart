@@ -1,8 +1,7 @@
-import 'package:discourse_native/src/models/topic_feed.dart';
 import 'package:discourse_native/src/models/topic_filter.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
-import 'package:discourse_native/src/shell/topic_filter_page.dart';
+import 'package:discourse_native/src/shell/topic_filter_input.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -11,10 +10,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'support/fakes.dart';
 
 const _siteUrl = 'https://meta.example';
-const _feed = TopicFeed(
-  loaded: true,
-  filterOptions: [TopicFilterOption(name: 'status:', priority: 1)],
-);
 
 void main() {
   testWidgets('filter submissions follow a replacement shell controller', (
@@ -35,11 +30,15 @@ void main() {
             controller: active,
             child: MaterialApp(
               theme: AppTheme.light,
-              home: const Scaffold(
-                body: TopicFilterPage(
+              home: Scaffold(
+                body: TopicFilterInput(
                   siteUrl: _siteUrl,
-                  feed: _feed,
-                  categories: [],
+                  initialQuery: '',
+                  options: const [
+                    TopicFilterOption(name: 'status:', priority: 1),
+                  ],
+                  onSubmitted: active.submitTopicFilter,
+                  categories: const [],
                 ),
               ),
             ),

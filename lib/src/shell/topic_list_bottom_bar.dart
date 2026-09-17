@@ -21,7 +21,11 @@ _AdjacentTopics _adjacentTopics(ShellController shell) {
   final fallback = topicId != null && index < 0 ? ids.firstOrNull : null;
   return (
     previous: index > 0 ? ids[index - 1] : fallback,
-    next: index >= 0 && index + 1 < ids.length ? ids[index + 1] : fallback,
+    next: topicId == null
+        ? ids.firstOrNull
+        : index >= 0 && index + 1 < ids.length
+        ? ids[index + 1]
+        : fallback,
     more:
         index >= 0 &&
         index == ids.length - 1 &&
@@ -157,16 +161,14 @@ class TopicNavigationButtons extends StatelessWidget {
               ReadingCommand.openPreviousTopic.prefix!,
               ReadingCommand.openPreviousTopic.shortcuts.cast(),
             ),
-            icon: vertical
-                ? const RotatedBox(
-                    quarterTurns: 2,
-                    child: DIcon(DIcons.chevronDown),
-                  )
-                : const DIcon(DIcons.chevronLeft),
+            icon: const RotatedBox(
+              quarterTurns: 2,
+              child: DIcon(DIcons.chevronDown),
+            ),
             onPressed: state.previous == null
                 ? null
                 : () => openAdjacentTopic(context, next: false),
-            variant: vertical ? DButtonVariant.outline : DButtonVariant.ghost,
+            variant: DButtonVariant.transparentBackground,
             size: DButtonSize.regular,
           ),
           SizedBox(
@@ -183,11 +185,11 @@ class TopicNavigationButtons extends StatelessWidget {
               ReadingCommand.openNextTopic.prefix!,
               ReadingCommand.openNextTopic.shortcuts.cast(),
             ),
-            icon: DIcon(vertical ? DIcons.chevronDown : DIcons.chevronRight),
+            icon: const DIcon(DIcons.chevronDown),
             onPressed: state.next == null && (!state.more || state.busy)
                 ? null
                 : () => openAdjacentTopic(context, next: true),
-            variant: vertical ? DButtonVariant.outline : DButtonVariant.ghost,
+            variant: DButtonVariant.transparentBackground,
             size: DButtonSize.regular,
           ),
         ],

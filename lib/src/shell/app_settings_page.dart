@@ -103,30 +103,6 @@ class AppSettingsModal extends StatelessWidget {
                       unawaited(appSettings.setContentAlignment(alignment)),
                 ),
                 const DFieldSeparator(),
-                _SettingsField(
-                  title: 'Topic list',
-                  description: 'Card previews or a compact table.',
-                  control: DToggleGroup<TopicListDisplayMode>(
-                    key: const ValueKey('topic-list-mode-toggle'),
-                    semanticLabel: 'Topic list mode',
-                    variant: DToggleVariant.outline,
-                    allowEmptySelection: false,
-                    values: [appSettings.topicListMode],
-                    items: const [
-                      DToggleGroupItem(
-                        value: TopicListDisplayMode.card,
-                        child: Text('Card'),
-                      ),
-                      DToggleGroupItem(
-                        value: TopicListDisplayMode.compact,
-                        child: Text('Compact'),
-                      ),
-                    ],
-                    onChanged: (values) =>
-                        unawaited(appSettings.setTopicListMode(values.single)),
-                  ),
-                ),
-                const DFieldSeparator(),
                 _TextSizeSetting(
                   scale: appSettings.textScale,
                   onDecrease: appSettings.textScale.index == 0

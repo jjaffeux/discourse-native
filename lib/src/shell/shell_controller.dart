@@ -2935,6 +2935,7 @@ class ShellController extends FrameSafeNotifier
           groupName: route.messageGroupName,
         );
       }
+      if (route.isAdvancedTopicFilter) return route.topicFilterRequestPath;
       if (route.feedPath != null) return route.feedPath;
     }
 
@@ -3013,11 +3014,40 @@ class ShellController extends FrameSafeNotifier
 
   String filterQueryFor(String siteUrl) => topicFeeds.filterQueryFor(siteUrl);
 
+  Future<List<TopicFilterOption>> loadTopicFilterOptions(String siteUrl) =>
+      _filterLookup(
+        siteUrl,
+        'topics.filter.options',
+        (apiKey, clientId) async => (await api.topicFeeds.topicList(
+          siteUrl: siteUrl,
+          path: '/filter.json',
+          apiKey: apiKey,
+          clientId: clientId,
+        )).filterOptions,
+      );
+
   Future<void> submitTopicFilter(String query) async {
     final instance = currentInstance;
-    if (instance == null || destinationId != 'filter') return;
-    topicFeeds.setFilterQuery(instance.url, query);
-    await loadFeed('filter', force: true);
+    if (instance == null) return;
+    final source = topicListContent;
+    final route = query.trim().isEmpty
+        ? ContentRoute.filteredTopicList(
+            TopicListMode.latest,
+            categoryId: source?.categoryId,
+            tags: source?.tagNames ?? const [],
+          )
+        : ContentRoute.topicFilter(
+            query,
+            categoryId: source?.categoryId,
+            tags: source?.tagNames ?? const [],
+          );
+    _replaceTopicListContent(
+      route,
+      keepTopicOpen: currentContent?.isTopic == true,
+    );
+    _syncTopicChannels();
+    _notify();
+    await loadFeed(route.id);
   }
 
   List<TopicCategory> filterCategoriesFor(String siteUrl) =>
@@ -13330,16 +13360,22 @@ class ShellController extends FrameSafeNotifier
       return;
     }
     if (mode.isSubset && user?.unifiedNewEnabled != true) return;
-    if (mode == currentMode) return;
+    if (mode == currentMode &&
+        topicListContent?.isAdvancedTopicFilter != true) {
+      return;
+    }
 
     final source = topicListContent;
-    final route = _topicListFilterRoute(
-      siteUrl: instance.url,
-      mode: mode,
-      category: categoryFor(source?.categoryId),
-      tagName: source?.tagName,
-      tags: source?.tagNames ?? const [],
-    ).withTopicListQueryFrom(source);
+    final route =
+        _topicListFilterRoute(
+          siteUrl: instance.url,
+          mode: mode,
+          category: categoryFor(source?.categoryId),
+          tagName: source?.tagName,
+          tags: source?.tagNames ?? const [],
+        ).withTopicListQueryFrom(
+          source?.isAdvancedTopicFilter == true ? null : source,
+        );
     _replaceTopicListContent(route, keepTopicOpen: keepTopicOpen);
     _mobilePane = MobilePane.content;
     _syncTopicChannels();

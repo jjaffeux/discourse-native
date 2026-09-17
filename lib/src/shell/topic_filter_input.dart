@@ -6,9 +6,7 @@ import 'package:flutter/services.dart';
 
 import '../models/topic.dart';
 import '../models/topic_filter.dart';
-import '../theme/app_theme.dart';
 import '../theme/d_icons.dart';
-import 'anchored_layout.dart';
 import 'category_icon.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';
@@ -51,9 +49,6 @@ class TopicFilterInput extends StatefulWidget {
 }
 
 class _TopicFilterInputState extends State<TopicFilterInput> {
-  final OverlayPortalController _portal = OverlayPortalController();
-  final GlobalKey _anchorKey = GlobalKey();
-  final ValueNotifier<Rect?> _anchor = ValueNotifier(null);
   final FocusNode _focus = FocusNode();
 
   ShellController? _shell;
@@ -249,19 +244,8 @@ class _TopicFilterInputState extends State<TopicFilterInput> {
   }
 
   void _onFilterChanged() {
-    if (!mounted) return;
-    if (filter.isOpen) {
-      _anchor.value = _anchorRect();
-      _portal.show();
-    } else {
-      _portal.hide();
-    }
+    if (mounted) setState(() {});
   }
-
-  Rect? _anchorRect() => anchorRect(
-    anchor: _anchorKey.currentContext?.findRenderObject() as RenderBox?,
-    overlay: Overlay.of(context).context.findRenderObject() as RenderBox?,
-  );
 
   KeyEventResult _onKey(FocusNode node, KeyEvent event) {
     if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
@@ -349,243 +333,172 @@ class _TopicFilterInputState extends State<TopicFilterInput> {
     _filter?.dispose();
     _focus.removeListener(_onFocusChanged);
     _focus.dispose();
-    _anchor.dispose();
     super.dispose();
   }
 
-  Widget _buildPlainInput(ThemeData theme) {
-    final controlHeight = DButton.iconOnlyDimensionFor(DButtonSize.small);
-    return SizedBox(
-      height: controlHeight,
-      child: TextField(
-        key: widget.inputKey,
-        controller: filter.text,
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: widget.padding,
+    child: Focus(
+      canRequestFocus: false,
+      skipTraversal: true,
+      onKeyEvent: _onKey,
+      child: DCombobox<TopicFilterSuggestion>.controlled(
+        value: null,
+        options: [
+          for (var i = 0; i < filter.suggestions.length; i++)
+            DComboboxOption(
+              value: filter.suggestions[i],
+              label: filter.suggestions[i].name,
+              itemKey: ValueKey('topic-filter-suggestion-$i'),
+            ),
+        ],
+        textController: filter.text,
         focusNode: _focus,
+        open: filter.isOpen,
+        filterLocally: false,
+        loopFocus: false,
+        restoreFocus: false,
+        closeOnSelect: false,
+        highlightedValue: filter.selected,
+        highlightControlled: true,
+        equals: (a, b) => a.name == b.name,
         enabled: widget.enabled,
-        autocorrect: false,
-        enableSuggestions: false,
-        textInputAction: TextInputAction.search,
-        style: theme.textTheme.bodyMedium,
-        decoration: InputDecoration(
-          isDense: true,
-          filled: true,
-          fillColor: theme.shell.content,
-          hintText: widget.hintText,
-          hintStyle: theme.textTheme.bodyMedium?.copyWith(
-            color: theme.colorScheme.onSurfaceVariant,
-          ),
-          suffixIcon: filter.text.text.isEmpty
-              ? null
-              : DTooltip(
-                  message: 'Clear filter',
-                  labelTrigger: true,
-                  child: DButton.iconOnly(
-                    key: widget.clearKey,
-                    tooltip: 'Clear all filters',
-                    variant: DButtonVariant.ghost,
-                    size: DButtonSize.small,
-                    onPressed: widget.enabled
-                        ? () => unawaited(filter.clear())
-                        : null,
-                    icon: DIcon(
-                      DIcons.xmark,
-                      color: theme.colorScheme.onSurfaceVariant,
+        onQueryChanged: (query, reason) {
+          if (reason == DComboboxChangeReason.input) filter.inputChanged(query);
+        },
+        onOpenChanged: (open, reason) {
+          if (open) {
+            if (!filter.menuRequested) unawaited(filter.openSuggestions());
+          } else {
+            filter.dismiss();
+          }
+        },
+        onHighlightChanged: (value, reason) {
+          final index = filter.suggestions.indexWhere(
+            (s) => s.name == value?.name,
+          );
+          if (index >= 0) filter.select(index);
+        },
+        onChanged: (choice, reason) {
+          if (reason == DComboboxChangeReason.clear) {
+            unawaited(widget.tokenized ? _clearTokenQuery() : filter.clear());
+          } else if (choice != null) {
+            if (reason == DComboboxChangeReason.keyboard) {
+              unawaited(_acceptSelectedOrFallback());
+            } else {
+              unawaited(_acceptSuggestion(choice));
+            }
+          }
+        },
+        anchor: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (widget.tokenized && _tokens.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 6),
+                child: Wrap(
+                  key: const ValueKey('topic-filter-token-field'),
+                  spacing: 4,
+                  runSpacing: 4,
+                  children: [
+                    for (var i = 0; i < _tokens.length; i++)
+                      _TopicFilterTokenChip(
+                        raw: _tokens[i],
+                        index: i,
+                        categories: widget.categories,
+                        enabled: widget.enabled,
+                        onDeleted: () => _removeToken(i),
+                      ),
+                  ],
+                ),
+              ),
+            DComboboxInput<TopicFilterSuggestion>(
+              key: widget.inputKey,
+              semanticLabel: widget.hintText,
+              placeholder: widget.hintText,
+              showTrigger: false,
+              onSubmitted: (_) => unawaited(_acceptSelectedOrFallback()),
+              addons: [
+                if (_tokens.isNotEmpty || filter.text.text.isNotEmpty)
+                  DInputGroupAddon(
+                    alignment: DInputGroupAddonAlignment.inlineEnd,
+                    child: DButton.iconOnly(
+                      key: widget.clearKey,
+                      tooltip: 'Clear all filters',
+                      icon: const DIcon(DIcons.xmark),
+                      variant: DButtonVariant.transparentBackground,
+                      size: DButtonSize.small,
+                      onPressed: widget.enabled
+                          ? () => unawaited(
+                              widget.tokenized
+                                  ? _clearTokenQuery()
+                                  : filter.clear(),
+                            )
+                          : null,
                     ),
                   ),
-                ),
-          border: _plainInputBorder(theme),
-          enabledBorder: _plainInputBorder(theme),
-          focusedBorder: _plainInputBorder(
-            theme,
-            focused: DFocusHighlight.visibleOf(context),
-          ),
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: 12,
-            vertical: 10,
-          ),
+              ],
+            ),
+          ],
         ),
-        onChanged: filter.inputChanged,
-        onTap: _openSuggestions,
-        onTapOutside: (_) => _dismissInput(),
+        content: DComboboxContent(
+          key: const ValueKey('topic-filter-suggestions'),
+          semanticLabel: 'Filter suggestions',
+          side: widget.preferSuggestionsAbove
+              ? DPopoverSide.top
+              : DPopoverSide.bottom,
+          maxHeight: 360,
+          children: [
+            DComboboxList<TopicFilterSuggestion>(
+              itemBuilder: (context, option) {
+                final suggestion = option.value;
+                return Row(
+                  children: [
+                    if (suggestion.category case final category?) ...[
+                      CategoryIcon(
+                        category: category,
+                        parentCategory: suggestion.parentCategory,
+                        siteUrl: widget.siteUrl,
+                        size: 16,
+                        squareSize: 12,
+                      ),
+                      const SizedBox(width: 8),
+                    ],
+                    Expanded(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            suggestion.displayName ??
+                                (suggestion.category == null
+                                    ? suggestion.name
+                                    : suggestion.description ??
+                                          suggestion.name),
+                          ),
+                          if (suggestion.category == null &&
+                              suggestion.description != null)
+                            Text(
+                              suggestion.description!,
+                              style: Theme.of(context).textTheme.labelSmall
+                                  ?.copyWith(
+                                    color: DTokens.of(context).mutedForeground,
+                                  ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ],
+                );
+              },
+            ),
+          ],
+        ),
       ),
-    );
-  }
-
-  static OutlineInputBorder _plainInputBorder(
-    ThemeData theme, {
-    bool focused = false,
-  }) => OutlineInputBorder(
-    borderRadius: BorderRadius.circular(8),
-    borderSide: BorderSide(
-      color: focused ? theme.colorScheme.primary : theme.shell.divider,
-      width: focused ? 1.5 : 1,
     ),
   );
-
-  Widget _buildTokenInput(ThemeData theme) {
-    final hasQuery = _tokens.isNotEmpty || filter.text.text.trim().isNotEmpty;
-    final borderColor = _focus.hasFocus
-        ? theme.colorScheme.primary
-        : theme.colorScheme.outline;
-    return TextFieldTapRegion(
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: widget.enabled ? _focus.requestFocus : null,
-        child: Container(
-          key: const ValueKey('topic-filter-token-field'),
-          constraints: const BoxConstraints(minHeight: 44),
-          padding: const EdgeInsets.fromLTRB(12, 6, 4, 6),
-          decoration: BoxDecoration(
-            color: theme.shell.content,
-            borderRadius: BorderRadius.circular(7),
-          ),
-          foregroundDecoration: BoxDecoration(
-            border: Border.all(
-              color: borderColor,
-              width: _focus.hasFocus ? 2 : 1,
-            ),
-            borderRadius: BorderRadius.circular(7),
-          ),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: LayoutBuilder(
-                  builder: (context, constraints) {
-                    final hint = _tokens.isEmpty
-                        ? widget.hintText
-                        : 'Add another filter';
-                    final measure = TextPainter(
-                      text: TextSpan(
-                        text: filter.text.text.isEmpty
-                            ? hint
-                            : filter.text.text,
-                        style: theme.textTheme.bodyMedium,
-                      ),
-                      textDirection: Directionality.of(context),
-                      textScaler: MediaQuery.textScalerOf(context),
-                    )..layout();
-                    final desiredWidth = measure.width + 20;
-                    measure.dispose();
-                    final inputWidth = _tokens.isEmpty
-                        ? constraints.maxWidth
-                        : (desiredWidth < 160 ? 160.0 : desiredWidth).clamp(
-                            0.0,
-                            constraints.maxWidth,
-                          );
-                    return Wrap(
-                      spacing: 5,
-                      runSpacing: 5,
-                      crossAxisAlignment: WrapCrossAlignment.center,
-                      children: [
-                        for (var index = 0; index < _tokens.length; index++)
-                          _TopicFilterTokenChip(
-                            raw: _tokens[index],
-                            index: index,
-                            categories: widget.categories,
-                            enabled: widget.enabled,
-                            onDeleted: () => _removeToken(index),
-                          ),
-                        SizedBox(
-                          width: inputWidth,
-                          child: TextField(
-                            style: theme.textTheme.bodyMedium,
-                            key: widget.inputKey,
-                            controller: filter.text,
-                            focusNode: _focus,
-                            enabled: widget.enabled,
-                            autocorrect: false,
-                            enableSuggestions: false,
-                            maxLines: 1,
-                            textInputAction: TextInputAction.done,
-                            decoration: InputDecoration(
-                              hintText: hint,
-                              border: InputBorder.none,
-                              enabledBorder: InputBorder.none,
-                              focusedBorder: InputBorder.none,
-                              disabledBorder: InputBorder.none,
-                              isDense: true,
-                              contentPadding: const EdgeInsets.symmetric(
-                                vertical: 4,
-                              ),
-                            ),
-                            onChanged: filter.inputChanged,
-                            onSubmitted: (_) => _commitTokenDraft(),
-                            onTap: _openSuggestions,
-                            onTapOutside: (_) => _dismissInput(),
-                          ),
-                        ),
-                      ],
-                    );
-                  },
-                ),
-              ),
-              if (hasQuery)
-                DButton.iconOnly(
-                  key: widget.clearKey,
-                  onPressed: widget.enabled
-                      ? () => unawaited(_clearTokenQuery())
-                      : null,
-                  variant: DButtonVariant.ghost,
-                  tooltip: 'Clear all filters',
-                  icon: const DIcon(DIcons.xmark),
-                ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  void _openSuggestions() {
-    if (!filter.menuRequested) unawaited(filter.openSuggestions());
-  }
-
-  void _dismissInput() {
-    filter.dismiss();
-    _focus.unfocus();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Padding(
-      padding: widget.padding,
-      child: Focus(
-        canRequestFocus: false,
-        skipTraversal: true,
-        onKeyEvent: _onKey,
-        child: OverlayPortal(
-          controller: _portal,
-          overlayChildBuilder: (context) => ValueListenableBuilder<Rect?>(
-            valueListenable: _anchor,
-            builder: (context, anchor, child) => CustomSingleChildLayout(
-              delegate: AnchoredLayout(
-                anchor: anchor,
-                maxWidth: anchor?.width ?? 720,
-                preferAbove: widget.preferSuggestionsAbove,
-                keepPreferredPlacement: widget.preferSuggestionsAbove,
-              ),
-              child: child!,
-            ),
-            child: TextFieldTapRegion(
-              child: _SuggestionList(
-                siteUrl: widget.siteUrl,
-                filter: filter,
-                onAccept: _acceptSuggestion,
-              ),
-            ),
-          ),
-          child: KeyedSubtree(
-            key: _anchorKey,
-            child: widget.tokenized
-                ? _buildTokenInput(theme)
-                : _buildPlainInput(theme),
-          ),
-        ),
-      ),
-    );
-  }
 }
 
 class _TopicFilterTokenChip extends StatelessWidget {
@@ -605,61 +518,27 @@ class _TopicFilterTokenChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final label = _topicFilterTokenLabel(raw, categories);
-    final foreground = theme.colorScheme.onPrimaryContainer;
     return DTooltip(
       message: raw,
-      child: Material(
+      child: DBadge(
         key: ValueKey('topic-filter-token-$index'),
-        color: enabled
-            ? theme.colorScheme.primaryContainer
-            : theme.colorScheme.primaryContainer.withValues(alpha: 0.6),
-        shape: RoundedRectangleBorder(
-          side: BorderSide(
-            color: theme.colorScheme.primary.withValues(alpha: 0.38),
-          ),
-          borderRadius: BorderRadius.circular(6),
-        ),
-        clipBehavior: Clip.antiAlias,
-        child: SizedBox(
-          height: 28,
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Flexible(
-                child: Padding(
-                  padding: const EdgeInsets.only(left: 8),
-                  child: Text(
-                    label,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.labelMedium?.copyWith(
-                      color: foreground,
-                    ),
-                  ),
-                ),
-              ),
-              Semantics(
-                button: true,
-                label: 'Remove $label',
-                child: DTooltip(
-                  message: 'Remove $label',
-                  child: InkWell(
-                    key: ValueKey('topic-filter-token-remove-$index'),
-                    onTap: enabled ? onDeleted : null,
-                    child: SizedBox(
-                      width: 26,
-                      height: 28,
-                      child: Center(
-                        child: DIcon(DIcons.xmark, size: 10, color: foreground),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
+        variant: DBadgeVariant.secondary,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Flexible(
+              child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
+            ),
+            DButton.iconOnly(
+              key: ValueKey('topic-filter-token-remove-$index'),
+              icon: const DIcon(DIcons.xmark),
+              tooltip: 'Remove $label',
+              size: DButtonSize.small,
+              variant: DButtonVariant.transparentBackground,
+              onPressed: enabled ? onDeleted : null,
+            ),
+          ],
         ),
       ),
     );
@@ -720,118 +599,3 @@ String _titleCaseTopicFilterValue(String value) => value
     .where((word) => word.isNotEmpty)
     .map(_sentenceCaseTopicFilterValue)
     .join(' ');
-
-class _SuggestionList extends StatelessWidget {
-  const _SuggestionList({
-    required this.siteUrl,
-    required this.filter,
-    required this.onAccept,
-  });
-
-  final String siteUrl;
-  final TopicFilterController filter;
-  final Future<void> Function(TopicFilterSuggestion suggestion) onAccept;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return ListenableBuilder(
-      listenable: filter,
-      builder: (context, _) {
-        if (!filter.isOpen) return const SizedBox.shrink();
-        return Material(
-          key: const ValueKey('topic-filter-suggestions'),
-          color: theme.shell.floating,
-          elevation: 8,
-          borderRadius: BorderRadius.circular(10),
-          child: Container(
-            width: double.infinity,
-            constraints: const BoxConstraints(maxHeight: 360),
-            decoration: BoxDecoration(
-              border: Border.all(color: theme.shell.divider),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: ListView.builder(
-              shrinkWrap: true,
-              padding: const EdgeInsets.symmetric(vertical: 4),
-              itemCount: filter.suggestions.length,
-              itemBuilder: (context, index) {
-                final suggestion = filter.suggestions[index];
-                final isSelected = index == filter.selectedIndex;
-                return MouseRegion(
-                  cursor: SystemMouseCursors.click,
-                  onEnter: (_) => filter.select(index),
-                  child: Semantics(
-                    button: true,
-                    selected: isSelected,
-                    child: GestureDetector(
-                      behavior: HitTestBehavior.opaque,
-                      onTap: () => unawaited(onAccept(suggestion)),
-                      child: Container(
-                        key: ValueKey('topic-filter-suggestion-$index'),
-                        constraints: const BoxConstraints(minHeight: 44),
-                        decoration: BoxDecoration(
-                          color: isSelected ? theme.shell.selected : null,
-                          border: Border(
-                            left: BorderSide(
-                              color: isSelected
-                                  ? theme.colorScheme.primary
-                                  : Colors.transparent,
-                              width: 3,
-                            ),
-                          ),
-                        ),
-                        padding: const EdgeInsets.fromLTRB(9, 9, 12, 9),
-                        child: Row(
-                          children: [
-                            if (suggestion.category case final category?) ...[
-                              CategoryIcon(
-                                category: category,
-                                parentCategory: suggestion.parentCategory,
-                                siteUrl: siteUrl,
-                                size: 16,
-                                squareSize: 16,
-                              ),
-                              const SizedBox(width: 10),
-                            ],
-                            Flexible(
-                              child: Text(
-                                suggestion.displayName ??
-                                    (suggestion.category == null
-                                        ? suggestion.name
-                                        : suggestion.description ??
-                                              suggestion.category!.name),
-                                style: theme.textTheme.bodyMedium?.copyWith(
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ),
-                            if (suggestion.category == null)
-                              if (suggestion.description
-                                  case final description?) ...[
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: Text(
-                                    description,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: theme.textTheme.bodySmall?.copyWith(
-                                      color: theme.colorScheme.onSurfaceVariant,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                );
-              },
-            ),
-          ),
-        );
-      },
-    );
-  }
-}

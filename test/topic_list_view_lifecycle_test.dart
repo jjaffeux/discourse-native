@@ -439,7 +439,7 @@ void main() {
       tester.getSize(compactRow).width,
     );
     expect(find.text('design'), findsOneWidget);
-    expect(find.text('582 replies'), findsOneWidget);
+    expect(find.text('582'), findsOneWidget);
     expect(find.text('13800'), findsNothing);
     expect(tester.takeException(), isNull);
   });
@@ -485,7 +485,7 @@ void main() {
 
     final topicColumn = find.byKey(const ValueKey('topic-card-7'));
     expect(topicColumn, findsOneWidget);
-    expect(find.text('2 replies'), findsOneWidget);
+    expect(find.text('2'), findsOneWidget);
     expect(tester.getSize(topicColumn).width, lessThanOrEqualTo(390));
     expect(tester.takeException(), isNull);
   });
@@ -532,7 +532,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.text('5 replies'), findsOneWidget);
+      expect(find.text('5'), findsOneWidget);
       expect(find.text('309'), findsNothing);
       expect(tester.takeException(), isNull);
     } finally {
@@ -800,11 +800,11 @@ void main() {
       final list = tester.widget<SuperListView>(viewport);
       final firstRow = find.byKey(const ValueKey(1));
       expect(tester.getSize(viewport).width, 1200);
-      expect(tester.getSize(firstRow).width, 1120);
-      expect(tester.getTopLeft(firstRow).dx, 40);
+      expect(tester.getSize(firstRow).width, 1200);
+      expect(tester.getTopLeft(firstRow).dx, 0);
 
       const gutterPoint = Offset(1180, 300);
-      expect(tester.getRect(firstRow).contains(gutterPoint), isFalse);
+      expect(tester.getRect(firstRow).right, greaterThan(gutterPoint.dx));
       await tester.sendEventToBinding(
         const PointerScrollEvent(
           position: gutterPoint,

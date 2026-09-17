@@ -13,7 +13,7 @@ enum DItemVariant { standard, outline, muted }
 
 enum DItemSize { standard, sm, xs }
 
-enum DItemSelectionStyle { tinted, outline }
+enum DItemSelectionStyle { tinted, outline, neutral }
 
 enum DItemMediaVariant { standard, icon, avatar, image }
 
@@ -117,7 +117,9 @@ class _DItemState extends State<DItem> {
     final outlineSelection =
         widget.selectionStyle == DItemSelectionStyle.outline;
     final background = widget.selected && !outlineSelection
-        ? tokens.primary.withValues(alpha: .12)
+        ? widget.selectionStyle == DItemSelectionStyle.neutral
+              ? tokens.muted
+              : tokens.primary.withValues(alpha: .12)
         : _active && _hover
         ? outlineSelection
               ? tokens.foreground.withValues(alpha: .03)

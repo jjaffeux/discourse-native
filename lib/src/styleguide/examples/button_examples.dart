@@ -8,7 +8,7 @@ import 'button_reference_icons.dart';
 import 'control_comparison_example.dart';
 
 final buttonExamples = ComponentExamples(
-  topLevelExampleIndex: 9,
+  topLevelExampleIndex: 10,
   description: 'Actions and links, with variants for emphasis and intent.',
   status: ComponentStatus.implemented,
   notes:
@@ -32,6 +32,21 @@ final buttonExamples = ComponentExamples(
       'Custom borders retain the themed focus ring and yield to invalid styling. '
       'Reference and native visual verification are recorded in the library documentation.',
   examples: [
+    StyleguideExample(
+      title: 'Pill toolbar action',
+      description:
+          'Round actions share the normal button focus, hover and target size.',
+      code:
+          "DButton.iconOnly(shape: DButtonShape.pill, size: DButtonSize.large, variant: DButtonVariant.secondary, icon: DIcon(DIcons.filter), tooltip: 'Filter topics', onPressed: openFilters)",
+      builder: (_) => DButton.iconOnly(
+        shape: DButtonShape.pill,
+        size: DButtonSize.large,
+        variant: DButtonVariant.secondary,
+        icon: const DIcon(DIcons.filter),
+        tooltip: 'Filter topics',
+        onPressed: () {},
+      ),
+    ),
     StyleguideExample(
       title: 'Variants',
       description: 'Activate a button, or use Tab and Enter to compare focus.',
@@ -58,7 +73,7 @@ final buttonExamples = ComponentExamples(
     StyleguideExample(
       title: 'With icon and rounded',
       description:
-          'Icons follow the reading direction. Rounded surfaces use an explicit radius.',
+          'Icons follow the reading direction. Pill shape scales its radius with the control size.',
       states: const ['Leading icon', 'Trailing icon', 'Rounded', 'RTL'],
       code:
           "DButton(label: const Text('Fork'), icon: const Icon(Icons.fork_right), iconPosition: DButtonIconPosition.end, variant: DButtonVariant.outline, onPressed: fork)",

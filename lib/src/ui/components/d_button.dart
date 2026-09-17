@@ -39,6 +39,9 @@ typedef DButtonSize = DControlSize;
 /// Icon placement follows the ambient reading direction.
 enum DButtonIconPosition { start, end }
 
+/// Pill also produces a circular surface for icon-only buttons.
+enum DButtonShape { rounded, pill }
+
 @immutable
 class DButtonStateStyle {
   const DButtonStateStyle({
@@ -356,6 +359,7 @@ class DButton extends StatelessWidget {
     this.focusNode,
     this.autofocus = false,
     this.alignment = Alignment.center,
+    this.shape = DButtonShape.rounded,
     this.borderRadius,
     this.backgroundColor,
     this.foregroundColor,
@@ -377,6 +381,7 @@ class DButton extends StatelessWidget {
     this.focusNode,
     this.autofocus = false,
     this.alignment = Alignment.center,
+    this.shape = DButtonShape.rounded,
     this.borderRadius,
     this.backgroundColor,
     this.foregroundColor,
@@ -428,6 +433,7 @@ class DButton extends StatelessWidget {
   final bool autofocus;
   final AlignmentGeometry alignment;
 
+  final DButtonShape shape;
   final BorderRadiusGeometry? borderRadius;
 
   /// Overrides the variant's fill in every state, including expanded and
@@ -576,7 +582,11 @@ class DButton extends StatelessWidget {
     final enabled = onPressed != null && !loading;
     final baseRadius =
         borderRadius ??
-        BorderRadius.circular(DControlStyle.radius(tokens, size));
+        BorderRadius.circular(
+          shape == DButtonShape.pill
+              ? visualDimension / 2
+              : DControlStyle.radius(tokens, size),
+        );
     final direction = Directionality.of(context);
     final joined = DJoinedControlScope.maybeOf(context);
     final radius =
