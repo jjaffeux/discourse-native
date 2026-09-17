@@ -14,19 +14,21 @@ import 'site_emoji_image.dart';
 import 'user_card.dart';
 
 class ReactionPills extends Padding {
-  ReactionPills({super.key, required List<Widget> children})
-    : super(
-        padding: const EdgeInsets.only(top: DSpacing.xs),
-        child: Align(
-          alignment: Alignment.centerLeft,
-          child: Wrap(
-            spacing: 6,
-            runSpacing: 6,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: children,
-          ),
-        ),
-      );
+  ReactionPills({
+    super.key,
+    required List<Widget> children,
+    super.padding = const EdgeInsets.only(top: DSpacing.xs),
+  }) : super(
+         child: Align(
+           alignment: Alignment.centerLeft,
+           child: Wrap(
+             spacing: 6,
+             runSpacing: 6,
+             crossAxisAlignment: WrapCrossAlignment.center,
+             children: children,
+           ),
+         ),
+       );
 }
 
 class ReactionPickerButton extends StatefulWidget {
