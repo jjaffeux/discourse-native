@@ -7,6 +7,7 @@ import '../models/discourse_instance.dart';
 import '../models/topic.dart';
 import '../theme/app_theme.dart';
 import '../theme/d_icons.dart';
+import '../theme/d_native_icons.dart';
 import '../utils/pagination.dart';
 import 'aggregate_feed_controller.dart';
 import 'content_reading_lane.dart';
@@ -126,27 +127,16 @@ class AggregateViewState extends State<AggregateView> {
                           style: theme.textTheme.titleMedium,
                         ),
                       ),
-                      const TopicListActions(),
-                    ],
-                  ),
-                ),
-                const DSeparator(key: ValueKey('topic-list-heading-separator')),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Align(
-                          alignment: AlignmentDirectional.centerEnd,
-                          child: _AggregateInlineFilters(
-                            key: ValueKey(('aggregate-filters', tabId)),
-                            controller: controller,
-                          ),
+                      TopicListActions(
+                        filter: _AggregateInlineFilters(
+                          key: ValueKey(('aggregate-filters', tabId)),
+                          controller: controller,
                         ),
                       ),
                     ],
                   ),
                 ),
+                const DSeparator(key: ValueKey('topic-list-heading-separator')),
                 const TopicListTableHeader(),
                 Expanded(
                   child: ContentReadingLane(
@@ -235,6 +225,14 @@ class _AggregateInlineFilters extends StatelessWidget {
   const _AggregateInlineFilters({super.key, required this.controller});
   final ShellController controller;
 
+  bool get _hasFilters => controller.instances
+      .where((forum) => forum.isConnected)
+      .any(
+        (forum) =>
+            !controller.aggregate.includes(forum) ||
+            controller.aggregate.queryFor(forum.url).trim().isNotEmpty,
+      );
+
   @override
   Widget build(BuildContext context) => DPopover(
     open: !controller.aggregate.filtersCollapsed,
@@ -257,28 +255,14 @@ class _AggregateInlineFilters extends StatelessWidget {
       ),
     ),
     child: DPopoverTrigger(
-      builder: (context, trigger) => DButton(
+      builder: (context, trigger) => DButton.iconOnly(
         key: const ValueKey('aggregate-filter-collapse'),
-        label: Row(
-          mainAxisSize: MainAxisSize.min,
-          spacing: 8,
-          children: [
-            const Flexible(
-              child: Text(
-                'Forum filters',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-            DBadge(
-              variant: DBadgeVariant.secondary,
-              child: Text('${controller.aggregate.state.includedForums}'),
-            ),
-            const DIcon(DIcons.chevronDown, size: 12),
-          ],
-        ),
-        icon: const DIcon(DIcons.globe),
-        variant: DButtonVariant.transparentBackground,
+        tooltip: _hasFilters ? 'Edit active filters' : 'Forum filters',
+        icon: const DIcon(DNativeIcons.filterLines),
+        size: DButtonSize.large,
+        variant: _hasFilters
+            ? DButtonVariant.primary
+            : DButtonVariant.transparentBackground,
         focusNode: trigger.focusNode,
         hasPopup: true,
         expanded: trigger.open,
