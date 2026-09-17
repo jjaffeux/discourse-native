@@ -110,11 +110,9 @@ void main() {
       );
       final viewport = tester.getRect(find.byType(ListView));
       final ltr = direction == TextDirection.ltr;
-      expect(handle.width, 4);
-      expect(
-        ltr ? viewport.right : viewport.left,
-        ltr ? handle.left : handle.right,
-      );
+      expect(handle.width, 2);
+      // Content still paints all the way to the pane edge: no exposed gutter.
+      expect(viewport, tester.getRect(find.byKey(const ValueKey('pane'))));
 
       // Even the outermost pixel must belong to resize, not the scroll thumb.
       final edge = Offset(ltr ? handle.right - 0.5 : handle.left + 0.5, 10);
@@ -486,7 +484,6 @@ Future<void> _pumpPane(
               ResizablePane(
                 key: const ValueKey('pane'),
                 controller: controller,
-                reserveHandleSpace: true,
                 edge: edge,
                 resizeKey: 'shared',
                 semanticsLabel: 'Resize shared pane',

@@ -269,7 +269,7 @@ void main() {
     await _pumpShell(tester, controller, const Size(1200, 800));
 
     final handle = find.byKey(const ValueKey('sidebar-resize-handle'));
-    expect(tester.getSize(handle).width, 4);
+    expect(tester.getSize(handle).width, 2);
     final divider = find.descendant(
       of: handle,
       matching: find.byType(ColoredBox),
