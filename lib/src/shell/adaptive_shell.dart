@@ -1044,6 +1044,7 @@ class _WideShell extends StatelessWidget {
                               controller: sidebarWidth,
                               edge: ResizablePaneEdge.trailing,
                               resizeKey: 'sidebar',
+                              reserveHandleSpace: true,
                               semanticsLabel: 'Resize sidebar',
                               maximumWidth: windowMaximum,
                               dividerWidth: 1,
