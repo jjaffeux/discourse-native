@@ -264,8 +264,9 @@ class _CompactTopicRow extends StatelessWidget {
                               Padding(
                                 padding: const EdgeInsets.only(top: 6),
                                 child: DItemDescription(
-                                  child: Text(
+                                  child: SiteEmojiText.plain(
                                     topic.excerpt!,
+                                    siteUrl: row.siteUrl,
                                     maxLines: 2,
                                     overflow: TextOverflow.ellipsis,
                                   ),

@@ -220,8 +220,9 @@ class _ConversationTopicCard extends StatelessWidget {
                                           true) ...[
                                     const SizedBox(height: DSpacing.sm),
                                     DCardDescription(
-                                      child: Text(
+                                      child: SiteEmojiText.plain(
                                         topic.excerpt!,
+                                        siteUrl: row.siteUrl,
                                         maxLines: 3,
                                         overflow: TextOverflow.ellipsis,
                                       ),

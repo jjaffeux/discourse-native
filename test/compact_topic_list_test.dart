@@ -1,8 +1,11 @@
+import 'dart:convert';
+
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/data/app_settings_store.dart';
 import 'package:discourse_native/src/models/app_settings.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/site_config.dart';
+import 'package:discourse_native/src/models/site_emoji.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/plugin_api/plugin_data.dart';
 import 'package:discourse_native/src/plugin_api/plugin_registry.dart';
@@ -12,8 +15,10 @@ import 'package:discourse_native/src/plugins/assign/assign_plugin.dart';
 import 'package:discourse_native/src/plugins/discourse_events/discourse_events_module.dart';
 import 'package:discourse_native/src/plugins/discourse_events/discourse_events_plugin.dart';
 import 'package:discourse_native/src/plugins/discourse_events/event_data.dart';
+import 'package:discourse_native/src/shell/emoji.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
+import 'package:discourse_native/src/shell/site_emoji_image.dart';
 import 'package:discourse_native/src/shell/topic_inbox_row.dart';
 import 'package:discourse_native/src/shell/topic_list_actions.dart';
 import 'package:discourse_native/src/shell/topic_list_layout.dart';
@@ -24,11 +29,82 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 import 'package:super_sliver_list/super_sliver_list.dart';
 
 import 'support/fakes.dart';
+import 'support/media_pipeline.dart';
 
 void main() {
+  for (final mode in TopicListDisplayMode.values) {
+    testWidgets('titles and excerpts render site emoji in $mode', (
+      tester,
+    ) async {
+      installTestMediaPipeline(
+        client: MockClient(
+          (_) async => http.Response.bytes(
+            base64Decode(
+              'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk'
+              'YPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==',
+            ),
+            200,
+          ),
+        ),
+      );
+      final shell = await _setup(
+        tester,
+        mode: mode,
+        emojis: const [
+          SiteEmoji(name: 'information_source', url: '/emoji/info.png'),
+          SiteEmoji(name: 'discourse2', url: '/uploads/custom-discourse.png'),
+        ],
+        customEmojis: const {
+          'discourse2': 'https://compact.example/uploads/custom-discourse.png',
+        },
+      );
+      await shell.appSettings.setTopicListExcerpts(true);
+      await tester.pumpWidget(
+        ShellScope(
+          controller: shell,
+          child: MaterialApp(
+            theme: AppTheme.light,
+            home: Scaffold(
+              body: TopicListRow(
+                topic: const Topic(
+                  id: 100,
+                  title: 'Welcome :discourse2:',
+                  slug: 'welcome',
+                  excerpt: ':information_source: Help from :discourse2:',
+                ),
+                onTap: () {},
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        tester
+            .widgetList<SiteEmojiImage>(find.byType(SiteEmojiImage))
+            .map((emoji) => emoji.name),
+        ['discourse2', 'information_source', 'discourse2'],
+      );
+      expect(
+        tester
+            .widgetList<EmojiImage>(find.byType(EmojiImage))
+            .map((emoji) => emoji.url),
+        [
+          'https://compact.example/uploads/custom-discourse.png',
+          'https://compact.example/images/emoji/twitter/information_source.png',
+          'https://compact.example/uploads/custom-discourse.png',
+        ],
+      );
+      expect(find.byType(Image), findsNWidgets(3));
+      expect(tester.takeException(), isNull);
+    });
+  }
+
   for (final standalone in [false, true]) {
     testWidgets(
       'cards follow the pane breakpoint without saving it ($standalone)',
@@ -754,6 +830,8 @@ Future<ShellController> _setup(
   double scale = 1,
   TextDirection direction = TextDirection.ltr,
   TopicListDisplayMode mode = TopicListDisplayMode.compact,
+  List<SiteEmoji> emojis = const [],
+  Map<String, String> customEmojis = const {},
 }) async {
   await tester.binding.setSurfaceSize(Size(width, 700));
   addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -817,6 +895,8 @@ Future<ShellController> _setup(
     api: FakeDiscourseApi(
       user: user,
       feeds: {'/latest.json': rows},
+      emojisBySite: {site.url: emojis},
+      customEmojisBySite: {site.url: customEmojis},
       categoryList: nestedCategories
           ? const [
               TopicCategory(
