@@ -5,12 +5,16 @@ part of 'topic_list_view.dart';
 const _compactItemInset = 11.0;
 
 class _CompactTopicLayout {
-  _CompactTopicLayout(BuildContext context, double width) {
+  _CompactTopicLayout(
+    BuildContext context,
+    double width, {
+    bool showCategory = true,
+  }) {
     final scale = MediaQuery.textScalerOf(context).scale(14) / 14;
     final effective = width / scale;
-    category = effective >= 560;
+    category = showCategory && effective >= 560;
     activity = effective >= 300;
-    avatar = category;
+    avatar = effective >= 560;
     widths = {
       0: const FlexColumnWidth(),
       // Let ordinary parent/child paths share a line without taking over
@@ -18,7 +22,7 @@ class _CompactTopicLayout {
       if (category)
         1: FixedColumnWidth((effective * .3).clamp(180, 320) * scale),
       if (activity) ...{
-        (category ? 2 : 1): FixedColumnWidth((category ? 66 : 52) * scale),
+        (category ? 2 : 1): FixedColumnWidth((avatar ? 66 : 52) * scale),
         (category ? 3 : 2): FixedColumnWidth((avatar ? 96 : 52) * scale),
       },
     };
@@ -31,7 +35,9 @@ class _CompactTopicLayout {
 }
 
 class _CompactTopicListHeader extends StatelessWidget {
-  const _CompactTopicListHeader();
+  const _CompactTopicListHeader({required this.showCategory});
+
+  final bool showCategory;
 
   @override
   Widget build(BuildContext context) => ContentReadingLaneBox(
@@ -41,7 +47,11 @@ class _CompactTopicListHeader extends StatelessWidget {
     ),
     child: LayoutBuilder(
       builder: (context, constraints) {
-        final layout = _CompactTopicLayout(context, constraints.maxWidth);
+        final layout = _CompactTopicLayout(
+          context,
+          constraints.maxWidth,
+          showCategory: showCategory,
+        );
         final style = Theme.of(context).textTheme.labelSmall?.copyWith(
           color: DTokens.of(context).mutedForeground,
         );
@@ -136,6 +146,7 @@ class _CompactTopicRow extends StatelessWidget {
                       final layout = _CompactTopicLayout(
                         context,
                         constraints.maxWidth,
+                        showCategory: row.showCategoryColumn,
                       );
                       final style = Theme.of(context).textTheme.labelSmall;
                       final muted = DTokens.of(context).mutedForeground;

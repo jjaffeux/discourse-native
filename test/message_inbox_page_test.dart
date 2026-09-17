@@ -1,4 +1,5 @@
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/src/models/app_settings.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/post.dart';
@@ -30,6 +31,38 @@ const _groupUnread = '/topics/private-messages-group/reader/team/unread.json';
 const _groupArchive = '/topics/private-messages-group/reader/team/archive.json';
 
 void main() {
+  testWidgets('compact message folders omit category headers and cells', (
+    tester,
+  ) async {
+    final setup = await _pumpInbox(tester);
+    await setup.controller.appSettings.setTopicListMode(
+      TopicListDisplayMode.compact,
+    );
+    for (final group in <String?>[null, 'team']) {
+      setup.controller.selectMessageInbox(group);
+      for (final mode in MessageListMode.values) {
+        if (group != null && mode == MessageListMode.sent) continue;
+        setup.controller.selectMessageListMode(mode);
+        await tester.pumpAndSettle();
+        expect(find.text('Category'), findsNothing);
+        expect(find.bySemanticsLabel('No category'), findsNothing);
+        expect(find.text('Replies'), findsOneWidget);
+        expect(find.text('Activity'), findsOneWidget);
+        final tables = tester.widgetList<DTable>(
+          find.descendant(
+            of: find.byType(TopicListView),
+            matching: find.byType(DTable),
+          ),
+        );
+        expect(tables.length, greaterThanOrEqualTo(2));
+        for (final table in tables) {
+          expect(table.columnWidths, hasLength(3));
+        }
+        expect(tester.takeException(), isNull);
+      }
+    }
+  });
+
   for (final (platform, width, textScale) in [
     (TargetPlatform.macOS, 1440.0, 1.0),
     (TargetPlatform.iOS, 360.0, 1.0),
