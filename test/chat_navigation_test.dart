@@ -1535,6 +1535,7 @@ void main() {
         );
         final button = tester.widget<DButton>(titleAction);
         expect(button.variant, DButtonVariant.transparentBackground);
+        expect(button.size, DButtonSize.large);
         expect(button.icon, isNotNull);
         expect(tester.getSize(titleAction).width, lessThan(200));
         final star = find.byKey(const ValueKey('chat-channel-star-button'));
