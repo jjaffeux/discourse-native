@@ -5361,6 +5361,7 @@ class ShellController extends FrameSafeNotifier
     final tab = route.id == root.currentContent.id
         ? root.copyWith(contentStack: [route])
         : root.push(route);
+    _pendingHomepageTabs.remove(tab.id);
     _putWorkspace(workspace.copyWith(tabs: [...workspace.tabs, tab]));
     _syncTopicChannels();
     _notify();
@@ -13269,6 +13270,9 @@ class ShellController extends FrameSafeNotifier
         postNumber: topic.lastUnreadPostNumber,
       ),
     );
+    // This tab already has an explicit destination; homepage hydration would
+    // replace its topic route when the site configuration finishes loading.
+    _pendingHomepageTabs.remove(tab.id);
     _putWorkspace(
       workspace.copyWith(tabs: [...workspace.tabs, tab], activeTabId: tab.id),
     );

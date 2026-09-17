@@ -35,7 +35,7 @@ void main() {
     });
 
     group('creation', () {
-      test('opens a topic in the background with its requested post', () {
+      test('opens a topic in the background with its requested post', () async {
         controller.openTopicUrl('/t/another-topic/42/3');
         final original = controller.activeTab;
 
@@ -51,6 +51,7 @@ void main() {
         expect(opened.currentContent.postNumber, 8);
 
         controller.selectTab(opened.id);
+        await Future<void>.delayed(Duration.zero);
         expect(controller.currentContent?.topicId, 42);
         expect(controller.currentContent?.postNumber, 8);
       });
