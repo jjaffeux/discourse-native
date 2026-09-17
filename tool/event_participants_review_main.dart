@@ -110,9 +110,13 @@ class _ParticipantReviewTransport extends RecordingPluginTransport {
     required String path,
     required String? apiKey,
     String? clientId,
-  }) {
+  }) async {
     final uri = Uri.parse(path);
     if (uri.path.endsWith('/invitees.json')) {
+      const delay = int.fromEnvironment('PARTICIPANT_DELAY_MS');
+      if (delay > 0) {
+        await Future<void>.delayed(const Duration(milliseconds: delay));
+      }
       final filter = (uri.queryParameters['filter'] ?? '').toLowerCase();
       final type = uri.queryParameters['type'];
       responses['GET $path'] = {
