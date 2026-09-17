@@ -139,7 +139,11 @@ class _DItemState extends State<DItem> {
               : tokens.primary.withValues(alpha: .12)
         : _active && _hover
         ? outlineSelection
-              ? tokens.foreground.withValues(alpha: .05)
+              ? tokens.foreground.withValues(
+                  alpha: Theme.of(context).brightness == Brightness.light
+                      ? .09
+                      : .05,
+                )
               : neutralSelection
               ? tokens.foreground.withValues(alpha: .06)
               : tokens.muted
