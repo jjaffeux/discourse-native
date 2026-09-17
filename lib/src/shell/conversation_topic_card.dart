@@ -172,6 +172,13 @@ class _ConversationTopicCard extends StatelessWidget {
                                         )
                                       else if (row.category != null)
                                         _topicRowCategory(context, row),
+                                      if (!topic.privateMessage &&
+                                          row.category != null &&
+                                          topic.tags.isNotEmpty)
+                                        const DSeparator(
+                                          orientation: Axis.vertical,
+                                          length: 12,
+                                        ),
                                       ..._topicRowTags(context, row),
                                       if (row.forum != null)
                                         Text(
@@ -180,14 +187,16 @@ class _ConversationTopicCard extends StatelessWidget {
                                         ),
                                     ])
                                       WidgetSpan(
-                                        alignment:
-                                            PlaceholderAlignment.baseline,
+                                        alignment: child is DSeparator
+                                            ? PlaceholderAlignment.middle
+                                            : PlaceholderAlignment.baseline,
                                         baseline: TextBaseline.alphabetic,
                                         child: Padding(
-                                          padding:
-                                              const EdgeInsetsDirectional.only(
-                                                end: DSpacing.xs,
-                                              ),
+                                          padding: child is _TopicTag
+                                              ? EdgeInsets.zero
+                                              : const EdgeInsetsDirectional.only(
+                                                  end: DSpacing.xs,
+                                                ),
                                           child: child,
                                         ),
                                       ),
