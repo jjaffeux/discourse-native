@@ -7,7 +7,7 @@ class ComposerEmbeddedEditor extends StatelessWidget {
   const ComposerEmbeddedEditor({
     super.key,
     required this.owner,
-    required this.scrollController,
+    this.scrollController,
     required this.semanticLabel,
     required this.child,
   });
