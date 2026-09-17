@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:ui' as ui;
 
 import 'package:discourse_native/discourse_ui.dart'
-    show DButton, DSpinner, DItem, DPullToRefresh, DEmpty;
+    show DButton, DSpinner, DItem, DPullToRefresh, DEmpty, DTable;
 import 'package:discourse_native/src/data/discourse_api_contracts.dart';
 import 'package:discourse_native/src/data/store.dart';
 import 'package:discourse_native/src/models/app_settings.dart';
@@ -195,7 +195,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('scroll separator spans the pane only away from the top', (
+  testWidgets('one header separator spans the pane at every scroll position', (
     tester,
   ) async {
     final api = _ControlledPagingApi();
@@ -205,22 +205,41 @@ void main() {
     await tester.pumpWidget(_LiveTestList(controller: controller));
     await tester.pumpAndSettle();
 
-    final separator = find.byKey(const ValueKey('topic-list-scroll-separator'));
-    expect(separator, findsNothing);
+    final separator = find.byKey(const ValueKey('topic-list-header-separator'));
+    final pane = tester.getRect(find.byType(TopicListView));
+    void expectSingleFullWidthSeparator() {
+      expect(separator, findsOneWidget);
+      final bounds = tester.getRect(separator);
+      expect(bounds.left, pane.left);
+      expect(bounds.right, pane.right);
+      expect(bounds.height, 1);
+      expect(
+        find.byKey(const ValueKey('topic-list-scroll-separator')),
+        findsNothing,
+      );
+      expect(
+        tester
+            .widget<DTable>(
+              find.byKey(const ValueKey('compact-topic-list-header')),
+            )
+            .borderColor,
+        Colors.transparent,
+      );
+    }
+
+    expectSingleFullWidthSeparator();
+    final originalBounds = tester.getRect(separator);
     final scroll = tester
         .state<ScrollableState>(find.byType(Scrollable))
         .position;
     scroll.jumpTo(100);
     await tester.pumpAndSettle();
 
-    expect(separator, findsOneWidget);
-    expect(
-      tester.getSize(separator).width,
-      tester.getSize(find.byType(TopicListView)).width,
-    );
+    expectSingleFullWidthSeparator();
+    expect(tester.getRect(separator), originalBounds);
     scroll.jumpTo(scroll.minScrollExtent);
     await tester.pumpAndSettle();
-    expect(separator, findsNothing);
+    expectSingleFullWidthSeparator();
   });
 
   testWidgets(

@@ -45,86 +45,97 @@ class TopicListTableHeader extends StatelessWidget {
   final ValueChanged<String>? onSort;
 
   @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.symmetric(
-      horizontal: topicListHorizontalPadding + _compactItemInset,
-    ),
-    child: LayoutBuilder(
-      builder: (context, constraints) {
-        final layout = _CompactTopicLayout(
-          context,
-          constraints.maxWidth,
-          showCategory: showCategory,
-          showViews: showViews,
-        );
-        final style = Theme.of(context).textTheme.labelSmall?.copyWith(
-          color: DTokens.of(context).mutedForeground,
-        );
-        DTableHead heading(String text, {bool end = false, String? sort}) =>
-            DTableHead(
-              padding: EdgeInsetsDirectional.only(end: end ? 0 : 8),
-              alignment: end
-                  ? AlignmentDirectional.centerEnd
-                  : AlignmentDirectional.centerStart,
-              textStyle: style,
-              child: sort != null && onSort != null
-                  ? DButton(
-                      key: ValueKey('topic-sort-$sort'),
-                      size: DButtonSize.small,
-                      variant: DButtonVariant.transparentBackground,
-                      semanticLabel:
-                          '$text, ${order == sort
-                              ? ascending
-                                    ? 'ascending'
-                                    : 'descending'
-                              : 'unsorted'}',
-                      label: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Flexible(
-                            child: Text(
-                              text,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                          if (order == sort) ...[
-                            const SizedBox(width: 4),
-                            RotatedBox(
-                              quarterTurns: ascending ? 2 : 0,
-                              child: const DIcon(DIcons.chevronDown, size: 12),
-                            ),
-                          ],
-                        ],
-                      ),
-                      onPressed: () => onSort!(sort),
-                    )
-                  : Text(text),
+  Widget build(BuildContext context) => Column(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      Padding(
+        padding: const EdgeInsets.symmetric(
+          horizontal: topicListHorizontalPadding + _compactItemInset,
+        ),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final layout = _CompactTopicLayout(
+              context,
+              constraints.maxWidth,
+              showCategory: showCategory,
+              showViews: showViews,
             );
-        return DTable(
-          key: const ValueKey('compact-topic-list-header'),
-          columnWidths: layout.widths,
-          header: DTableHeader(
-            rows: [
-              DTableRow(
-                highlightOnHover: false,
-                cells: [
-                  heading('Topic'),
-                  if (layout.category) heading('Category'),
-                  if (layout.avatar) heading('Last reply'),
-                  if (layout.activity)
-                    heading('Replies', end: true, sort: 'posts'),
-                  if (layout.views) heading('Views', end: true, sort: 'views'),
-                  if (layout.activity)
-                    heading('Activity', end: true, sort: 'activity'),
+            final style = Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: DTokens.of(context).mutedForeground,
+            );
+            DTableHead heading(String text, {bool end = false, String? sort}) =>
+                DTableHead(
+                  padding: EdgeInsetsDirectional.only(end: end ? 0 : 8),
+                  alignment: end
+                      ? AlignmentDirectional.centerEnd
+                      : AlignmentDirectional.centerStart,
+                  textStyle: style,
+                  child: sort != null && onSort != null
+                      ? DButton(
+                          key: ValueKey('topic-sort-$sort'),
+                          size: DButtonSize.small,
+                          variant: DButtonVariant.transparentBackground,
+                          semanticLabel:
+                              '$text, ${order == sort
+                                  ? ascending
+                                        ? 'ascending'
+                                        : 'descending'
+                                  : 'unsorted'}',
+                          label: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Flexible(
+                                child: Text(
+                                  text,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              if (order == sort) ...[
+                                const SizedBox(width: 4),
+                                RotatedBox(
+                                  quarterTurns: ascending ? 2 : 0,
+                                  child: const DIcon(
+                                    DIcons.chevronDown,
+                                    size: 12,
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                          onPressed: () => onSort!(sort),
+                        )
+                      : Text(text),
+                );
+            return DTable(
+              key: const ValueKey('compact-topic-list-header'),
+              borderColor: Colors.transparent,
+              columnWidths: layout.widths,
+              header: DTableHeader(
+                rows: [
+                  DTableRow(
+                    highlightOnHover: false,
+                    cells: [
+                      heading('Topic'),
+                      if (layout.category) heading('Category'),
+                      if (layout.avatar) heading('Last reply'),
+                      if (layout.activity)
+                        heading('Replies', end: true, sort: 'posts'),
+                      if (layout.views)
+                        heading('Views', end: true, sort: 'views'),
+                      if (layout.activity)
+                        heading('Activity', end: true, sort: 'activity'),
+                    ],
+                  ),
                 ],
               ),
-            ],
-          ),
-          body: const DTableBody(rows: []),
-        );
-      },
-    ),
+              body: const DTableBody(rows: []),
+            );
+          },
+        ),
+      ),
+      const DSeparator(key: ValueKey('topic-list-header-separator')),
+    ],
   );
 }
 

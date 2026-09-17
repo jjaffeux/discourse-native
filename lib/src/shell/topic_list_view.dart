@@ -705,175 +705,148 @@ class _TopicListViewState extends State<TopicListView> {
             onRetry: () => unawaited(controller.loadFeed(destination)),
           ),
         Expanded(
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              ContentReadingLane(
-                widthLimit: topicListContentWidth,
-                basePadding: const EdgeInsets.symmetric(vertical: 8),
-                builder: (context, lane) => NotificationListener<ScrollNotification>(
-                  // Fetching on a scroll notification rather than from
-                  // itemBuilder keeps the request off the hot path of building
-                  // rows. Both paths coalesce through a post-frame callback
-                  // because a viewport can emit a scroll notification while
-                  // applying new content dimensions during layout.
-                  onNotification: (notification) {
-                    if (notification.depth != 0) return false;
-                    final stopwatch = _recording
-                        ? (Stopwatch()..start())
-                        : null;
-                    // Opening a topic tears this list down, so the position has
-                    // to be handed to the controller as it changes rather than
-                    // on dispose.
-                    if (_isCurrent(controller, feedIdentity) &&
-                        _list?.isAttached == true) {
-                      if (_list!.visibleRange case final range?) {
-                        controller.saveFeedScrollRow(destination, range.$1);
-                      }
-                    }
-                    if (notification.metrics.extentAfter <
-                        paginationPrefetchDistance(notification.metrics)) {
-                      _scheduleLoadMore(
-                        controller,
-                        destination,
-                        feedIdentity,
-                        feed,
-                      );
-                    }
-                    if (stopwatch != null) {
-                      stopwatch.stop();
-                      _recordScrollEvent('topicList.scroll.notification', {
-                        'type': notification.runtimeType.toString(),
-                        'pixels': notification.metrics.pixels,
-                        'maxScrollExtent': notification.metrics.maxScrollExtent,
-                        'viewportExtent':
-                            notification.metrics.viewportDimension,
-                        'durationUs': stopwatch.elapsedMicroseconds,
-                        if (_list?.isAttached == true)
-                          if (_list!.visibleRange case final range?)
-                            'visibleRange': [range.$1, range.$2],
-                      });
-                    }
-                    return false;
-                  },
-                  // SuperListView preserves measured heights for variably sized
-                  // rows.
-                  child: ReadingShortcuts(
-                    commands: {
-                      ReadingCommand.nextTopic: () => _moveSelection(1),
-                      ReadingCommand.previousTopic: () => _moveSelection(-1),
-                      ReadingCommand.nextPost: () =>
-                          controller.currentContent?.isTopic != true &&
-                          _moveSelection(1),
-                      ReadingCommand.previousPost: () =>
-                          controller.currentContent?.isTopic != true &&
-                          _moveSelection(-1),
-                      ReadingCommand.openTopic: _openSelection,
+          child: ContentReadingLane(
+            widthLimit: topicListContentWidth,
+            basePadding: const EdgeInsets.symmetric(vertical: 8),
+            builder: (context, lane) => NotificationListener<ScrollNotification>(
+              // Fetching on a scroll notification rather than from
+              // itemBuilder keeps the request off the hot path of building
+              // rows. Both paths coalesce through a post-frame callback
+              // because a viewport can emit a scroll notification while
+              // applying new content dimensions during layout.
+              onNotification: (notification) {
+                if (notification.depth != 0) return false;
+                final stopwatch = _recording ? (Stopwatch()..start()) : null;
+                // Opening a topic tears this list down, so the position has
+                // to be handed to the controller as it changes rather than
+                // on dispose.
+                if (_isCurrent(controller, feedIdentity) &&
+                    _list?.isAttached == true) {
+                  if (_list!.visibleRange case final range?) {
+                    controller.saveFeedScrollRow(destination, range.$1);
+                  }
+                }
+                if (notification.metrics.extentAfter <
+                    paginationPrefetchDistance(notification.metrics)) {
+                  _scheduleLoadMore(
+                    controller,
+                    destination,
+                    feedIdentity,
+                    feed,
+                  );
+                }
+                if (stopwatch != null) {
+                  stopwatch.stop();
+                  _recordScrollEvent('topicList.scroll.notification', {
+                    'type': notification.runtimeType.toString(),
+                    'pixels': notification.metrics.pixels,
+                    'maxScrollExtent': notification.metrics.maxScrollExtent,
+                    'viewportExtent': notification.metrics.viewportDimension,
+                    'durationUs': stopwatch.elapsedMicroseconds,
+                    if (_list?.isAttached == true)
+                      if (_list!.visibleRange case final range?)
+                        'visibleRange': [range.$1, range.$2],
+                  });
+                }
+                return false;
+              },
+              // SuperListView preserves measured heights for variably sized
+              // rows.
+              child: ReadingShortcuts(
+                commands: {
+                  ReadingCommand.nextTopic: () => _moveSelection(1),
+                  ReadingCommand.previousTopic: () => _moveSelection(-1),
+                  ReadingCommand.nextPost: () =>
+                      controller.currentContent?.isTopic != true &&
+                      _moveSelection(1),
+                  ReadingCommand.previousPost: () =>
+                      controller.currentContent?.isTopic != true &&
+                      _moveSelection(-1),
+                  ReadingCommand.openTopic: _openSelection,
+                },
+                child: ListBoundaryShortcuts(
+                  key: ValueKey(('topic-list-boundary', feedIdentity)),
+                  debugLabel: 'topic list',
+                  initiallyActive: controller.currentContent?.isTopic != true,
+                  scrollController: _scroll!,
+                  focusNode: _keyboardFocus,
+                  onStart: () => _jumpToBoundary(end: false),
+                  onEnd: () => _jumpToBoundary(end: true),
+                  child: SuperListView.separated(
+                    // Switching destinations swaps the controller, so the
+                    // scrollable has to be a new one rather than re-attached
+                    // to a different controller.
+                    key: ValueKey(feedIdentity),
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    controller: _scroll,
+                    listController: _list,
+                    // During a fast fling, build the visible rows first. The
+                    // sliver fills its cache once scrolling slows down.
+                    delayPopulatingCacheArea: true,
+                    extentEstimation: _estimateExtent,
+                    padding: lane.padding,
+                    itemCount:
+                        feed.topicIds.length +
+                        (feed.loadingMore || feed.pageError ? 1 : 0),
+                    findChildIndexCallback: (key) {
+                      if (key is! ValueKey<int>) return null;
+                      final index = feed.topicIds.indexOf(key.value);
+                      // The separated delegate addresses topics and gaps.
+                      return index < 0 ? null : index * 2;
                     },
-                    child: ListBoundaryShortcuts(
-                      key: ValueKey(('topic-list-boundary', feedIdentity)),
-                      debugLabel: 'topic list',
-                      initiallyActive:
-                          controller.currentContent?.isTopic != true,
-                      scrollController: _scroll!,
-                      focusNode: _keyboardFocus,
-                      onStart: () => _jumpToBoundary(end: false),
-                      onEnd: () => _jumpToBoundary(end: true),
-                      child: SuperListView.separated(
-                        // Switching destinations swaps the controller, so the
-                        // scrollable has to be a new one rather than re-attached
-                        // to a different controller.
-                        key: ValueKey(feedIdentity),
-                        physics: const AlwaysScrollableScrollPhysics(),
-                        controller: _scroll,
-                        listController: _list,
-                        // During a fast fling, build the visible rows first. The
-                        // sliver fills its cache once scrolling slows down.
-                        delayPopulatingCacheArea: true,
-                        extentEstimation: _estimateExtent,
-                        padding: lane.padding,
-                        itemCount:
-                            feed.topicIds.length +
-                            (feed.loadingMore || feed.pageError ? 1 : 0),
-                        findChildIndexCallback: (key) {
-                          if (key is! ValueKey<int>) return null;
-                          final index = feed.topicIds.indexOf(key.value);
-                          // The separated delegate addresses topics and gaps.
-                          return index < 0 ? null : index * 2;
-                        },
-                        separatorBuilder: (context, _) =>
-                            const SizedBox(height: 1),
-                        itemBuilder: (context, index) {
-                          if (_recording) {
-                            _recordScrollEvent('topicList.row.built', {
-                              'index': index,
-                            });
-                          }
-                          if (index >= feed.topicIds.length) {
-                            if (feed.loadingMore) {
-                              return const _LoadingMoreRow();
-                            }
-                            return _LoadMoreErrorRow(
-                              message: feed.error!,
-                              onRetry: () => unawaited(
-                                controller.loadMoreFeed(destination),
-                              ),
-                            );
-                          }
+                    separatorBuilder: (context, _) => const SizedBox(height: 1),
+                    itemBuilder: (context, index) {
+                      if (_recording) {
+                        _recordScrollEvent('topicList.row.built', {
+                          'index': index,
+                        });
+                      }
+                      if (index >= feed.topicIds.length) {
+                        if (feed.loadingMore) {
+                          return const _LoadingMoreRow();
+                        }
+                        return _LoadMoreErrorRow(
+                          message: feed.error!,
+                          onRetry: () =>
+                              unawaited(controller.loadMoreFeed(destination)),
+                        );
+                      }
 
-                          if (index == feed.topicIds.length - 1 &&
-                              feed.hasMore) {
-                            _scheduleLoadMore(
-                              controller,
-                              destination,
-                              feedIdentity,
-                              feed,
-                            );
-                          }
+                      if (index == feed.topicIds.length - 1 && feed.hasMore) {
+                        _scheduleLoadMore(
+                          controller,
+                          destination,
+                          feedIdentity,
+                          feed,
+                        );
+                      }
 
-                          final topicId = feed.topicIds[index];
-                          return ValueListenableBuilder<_TopicListCursor?>(
-                            key: ValueKey(topicId),
-                            valueListenable: _cursor!,
-                            builder: (context, cursor, child) =>
-                                KeyboardSelection.scope(
-                                  key: ValueKey('topic-list-keyboard-$topicId'),
-                                  selected: cursor?.topicId == topicId,
-                                  child: child!,
-                                ),
-                            child: _TopicRow(
-                              topicId: topicId,
-                              inbox: widget.inbox,
-                              compact: _compact,
-                              showCategoryColumn:
-                                  controller.topicListContent?.isMessages !=
-                                  true,
-                              onOpen: _openRow,
-                              hiddenCategoryId:
-                                  controller.topicListContent?.categoryId,
+                      final topicId = feed.topicIds[index];
+                      return ValueListenableBuilder<_TopicListCursor?>(
+                        key: ValueKey(topicId),
+                        valueListenable: _cursor!,
+                        builder: (context, cursor, child) =>
+                            KeyboardSelection.scope(
+                              key: ValueKey('topic-list-keyboard-$topicId'),
+                              selected: cursor?.topicId == topicId,
+                              child: child!,
                             ),
-                          );
-                        },
-                      ),
-                    ),
+                        child: _TopicRow(
+                          topicId: topicId,
+                          inbox: widget.inbox,
+                          compact: _compact,
+                          showCategoryColumn:
+                              controller.topicListContent?.isMessages != true,
+                          onOpen: _openRow,
+                          hiddenCategoryId:
+                              controller.topicListContent?.categoryId,
+                        ),
+                      );
+                    },
                   ),
                 ),
               ),
-              Positioned(
-                top: 0,
-                left: 0,
-                right: 0,
-                child: ListenableBuilder(
-                  listenable: _scroll!,
-                  builder: (context, _) =>
-                      _scroll!.hasClients && _scroll!.position.extentBefore > 0
-                      ? const DSeparator(
-                          key: ValueKey('topic-list-scroll-separator'),
-                        )
-                      : const SizedBox.shrink(),
-                ),
-              ),
-            ],
+            ),
           ),
         ),
       ],
