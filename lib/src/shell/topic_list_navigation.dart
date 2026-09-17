@@ -463,7 +463,7 @@ class TopicFeedMenu extends StatelessWidget {
               const DIcon(DIcons.chevronDown, size: 12),
             ],
           ),
-          variant: DButtonVariant.secondary,
+          variant: DButtonVariant.outline,
           focusNode: trigger.focusNode,
           hasPopup: true,
           expanded: trigger.open,
