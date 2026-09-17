@@ -620,7 +620,7 @@ class _ForumIdentityHeader extends StatelessWidget {
             leading: const DIcon(DIcons.gear, size: 16),
             onPressed: () =>
                 showForumSettingsDialog(context, siteUrl: siteUrl, name: name),
-            child: const Text('Forum settings'),
+            child: const Text('Settings'),
           ),
           const DDropdownMenuSeparator(),
           DDropdownMenuItem(

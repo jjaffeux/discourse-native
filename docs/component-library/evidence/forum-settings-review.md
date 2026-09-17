@@ -1,6 +1,6 @@
 # Forum settings review — 2026-09-17
 
-Appearance now lives in **Forum settings**, opened from the forum identity menu.
+Appearance now lives in **Settings**, opened from the forum identity menu.
 The dialog composes the existing Native Dialog, Field, Select, and Button
 components without changing their APIs or styling.
 

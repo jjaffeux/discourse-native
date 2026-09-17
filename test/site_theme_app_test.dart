@@ -34,7 +34,7 @@ void main() {
   const siteA = 'https://a.example';
   const siteB = 'https://b.example';
 
-  testWidgets('Escape closes Forum settings after changing appearance', (
+  testWidgets('Escape closes forum Settings after changing appearance', (
     tester,
   ) async {
     tester.view.physicalSize = const Size(1200, 800);

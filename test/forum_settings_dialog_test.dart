@@ -63,7 +63,7 @@ void main() {
         );
         await tester.tap(find.text('Open'));
         await tester.pumpAndSettle();
-        expect(find.bySemanticsLabel('Close forum settings'), findsOneWidget);
+        expect(find.bySemanticsLabel('Close settings'), findsOneWidget);
         expect(tester.takeException(), isNull);
         await tester.ensureVisible(
           find.byKey(const ValueKey('appearance-theme-select')),
