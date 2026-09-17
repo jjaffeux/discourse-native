@@ -247,7 +247,6 @@ class _TopicListFilterMenuState extends State<TopicListFilterMenu> {
                 DToggle(
                   pressed: splitTopicFilterQuery(_query).contains(query),
                   variant: DToggleVariant.outline,
-                  selectedIcon: const DIcon(DIcons.check),
                   onPressedChanged: (pressed) => setState(() {
                     final clauses = splitTopicFilterQuery(_query)
                       ..removeWhere((clause) => clause == query);

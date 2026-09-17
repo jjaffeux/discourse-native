@@ -446,6 +446,7 @@ class _TopicFilterInputState extends State<TopicFilterInput> {
               DPopoverAnchor(
                 child: DInputGroup(
                   enabled: widget.enabled,
+                  viewportHeight: widget.tokenized ? 104 : null,
                   children: [
                     DInputGroupTextarea(
                       key: widget.inputKey,
@@ -453,8 +454,8 @@ class _TopicFilterInputState extends State<TopicFilterInput> {
                       focusNode: _focus,
                       semanticLabel: 'Topic filter query',
                       hintText: widget.hintText,
-                      minLines: _tokens.isEmpty ? 3 : 1,
-                      maxLines: 6,
+                      minLines: widget.tokenized ? 1 : 3,
+                      maxLines: widget.tokenized ? null : 6,
                       enabled: widget.enabled,
                       autocorrect: false,
                       enableSuggestions: false,

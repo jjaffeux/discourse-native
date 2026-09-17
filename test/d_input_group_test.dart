@@ -27,6 +27,63 @@ Widget host(
 );
 
 void main() {
+  for (final scale in [1.0, 2.0]) {
+    testWidgets('fixed viewport scrolls editor and addons at scale $scale', (
+      tester,
+    ) async {
+      final text = TextEditingController(
+        text: List.generate(12, (i) => 'Line $i').join('\n'),
+      );
+      addTearDown(text.dispose);
+      await tester.pumpWidget(
+        host(
+          DInputGroup(
+            viewportHeight: 104,
+            children: [
+              DInputGroupTextarea(controller: text, maxLines: null),
+              const DInputGroupAddon(
+                alignment: DInputGroupAddonAlignment.blockStart,
+                child: Text('Tokens'),
+              ),
+            ],
+          ),
+          width: 260,
+          scale: scale,
+        ),
+      );
+      await tester.pumpAndSettle();
+      final group = find.byType(DInputGroup);
+      final bounds = tester.getRect(group);
+      expect(bounds.height, 104);
+      final position = tester
+          .state<ScrollableState>(
+            find
+                .descendant(
+                  of: find.byType(DScrollArea),
+                  matching: find.byType(Scrollable),
+                )
+                .first,
+          )
+          .position;
+      expect(position.maxScrollExtent, greaterThan(0));
+      await tester.drag(find.byType(DScrollArea), const Offset(0, -160));
+      await tester.pumpAndSettle();
+      expect(position.pixels, greaterThan(0));
+      expect(tester.getRect(group), bounds);
+      text.text = 'Short';
+      await tester.pumpAndSettle();
+      expect(tester.getRect(group), bounds);
+      expect(position.pixels, 0);
+      await tester.tapAt(bounds.bottomLeft + const Offset(20, -8));
+      await tester.pumpAndSettle();
+      expect(
+        tester.widget<TextField>(find.byType(TextField)).focusNode!.hasFocus,
+        isTrue,
+      );
+      expect(tester.takeException(), isNull);
+    });
+  }
+
   testWidgets('addon focuses the editor while its button stays independent', (
     tester,
   ) async {
