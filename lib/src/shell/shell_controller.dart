@@ -14,6 +14,7 @@ import '../data/discourse_api_contracts.dart';
 import '../data/discover_sites.dart';
 import '../data/draft_store.dart';
 import '../data/emoji_picker_store.dart';
+import '../data/forum_settings_store.dart';
 import '../data/forum_tab_store.dart';
 import '../data/groups_api.dart';
 import '../data/http_transport.dart';
@@ -98,6 +99,7 @@ import 'composer_quotes.dart';
 import 'composer_triggers.dart';
 import 'do_not_disturb_controller.dart';
 import 'draft_list_controller.dart';
+import 'forum_settings_controller.dart';
 import 'global_search_api.dart';
 import 'global_search_controller.dart';
 import 'groups_controller.dart';
@@ -278,6 +280,7 @@ class ShellController extends FrameSafeNotifier
     EmojiPickerStore? emojiPickerStore,
     AggregatePreferencesStore? aggregatePreferences,
     AppSettingsStore? appSettingsStore,
+    ForumSettingsStore? forumSettingsStore,
     ForumTabStore? forumTabs,
     this.forumTabsEnabled = true,
     Store? store,
@@ -307,6 +310,9 @@ class ShellController extends FrameSafeNotifier
              appSettingsStore ??
              AppSettingsStore(persistence: MemoryAppSettingsPersistence()),
        ),
+       forumSettings = ForumSettingsController(
+         store: forumSettingsStore ?? ForumSettingsStore.memory(),
+       ),
        emojiPickerStore = emojiPickerStore ?? EmojiPickerStore(),
        assert(topicLoadTimeout > Duration.zero),
        assert(anchorPersistDebounce >= Duration.zero),
@@ -331,6 +337,7 @@ class ShellController extends FrameSafeNotifier
   final ForumTabStore forumTabs;
   final AggregatePreferencesStore aggregatePreferences;
   final AppSettingsController appSettings;
+  final ForumSettingsController forumSettings;
   final sidebarSections = SidebarSectionStore();
   final topicSidebar = TopicSidebarStore();
 
@@ -1643,6 +1650,8 @@ class ShellController extends FrameSafeNotifier
     }
     await Future.wait([
       aggregate.loadPreferences(stored),
+      for (final instance in stored)
+        forumSettings.load(instance.url, initialMode: appSettings.themeMode),
       for (final instance in stored) topicSidebar.ensure(siteUrl: instance.url),
     ]);
     if (isDisposed) return;
@@ -1686,6 +1695,10 @@ class ShellController extends FrameSafeNotifier
   Future<bool> addInstance(DiscourseInstance instance) async {
     await load();
     if (isDisposed || !loaded) return false;
+    if (contains(instance.url)) return true;
+
+    await forumSettings.load(instance.url);
+    if (isDisposed) return false;
     if (contains(instance.url)) return true;
 
     final previousSiteUrl = currentInstance?.url;
@@ -14339,6 +14352,7 @@ class ShellController extends FrameSafeNotifier
     topicFeeds.dispose();
     aggregate.dispose();
     appSettings.dispose();
+    forumSettings.dispose();
     siteImages.dispose();
     videoThumbnails.dispose();
     final closePluginSession = _pluginSession.close();

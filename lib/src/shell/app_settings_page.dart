@@ -65,38 +65,6 @@ class AppSettingsModal extends StatelessWidget {
             builder: (context, _) => DFieldGroup(
               key: const ValueKey('app-settings-form'),
               children: [
-                _SettingsField(
-                  title: 'Appearance',
-                  description: 'Choose a theme or follow your system settings.',
-                  control: DSelect<AppThemeMode>.controlled(
-                    key: const ValueKey('appearance-theme-select'),
-                    semanticLabel: 'Appearance',
-                    value: appSettings.themeMode,
-                    entries: const [
-                      DSelectOption(
-                        value: AppThemeMode.system,
-                        label: 'System',
-                        child: Text('System'),
-                      ),
-                      DSelectOption(
-                        value: AppThemeMode.light,
-                        label: 'Light',
-                        child: Text('Light'),
-                      ),
-                      DSelectOption(
-                        value: AppThemeMode.dark,
-                        label: 'Dark',
-                        child: Text('Dark'),
-                      ),
-                    ],
-                    onChanged: (mode) {
-                      if (mode != null) {
-                        unawaited(appSettings.setThemeMode(mode));
-                      }
-                    },
-                  ),
-                ),
-                const DFieldSeparator(),
                 _ContentAlignmentSetting(
                   alignment: appSettings.contentAlignment,
                   onChanged: (alignment) =>

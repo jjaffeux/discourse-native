@@ -14,6 +14,7 @@ import 'data/app_settings_store.dart';
 import 'data/authenticator.dart';
 import 'data/discourse_api.dart';
 import 'data/draft_store.dart';
+import 'data/forum_settings_store.dart';
 import 'data/forum_tab_store.dart';
 import 'data/instance_store.dart';
 import 'data/notification_opens.dart';
@@ -44,6 +45,7 @@ class DiscourseApp extends StatefulWidget {
     this.api,
     this.authenticator,
     this.appSettingsStore,
+    this.forumSettingsStore,
     this.drafts,
     this.forumTabs,
     this.trackers,
@@ -63,6 +65,7 @@ class DiscourseApp extends StatefulWidget {
   final ShellApiCapabilities? api;
   final Authenticator? authenticator;
   final AppSettingsStore? appSettingsStore;
+  final ForumSettingsStore? forumSettingsStore;
   final DraftStore? drafts;
   final ForumTabStore? forumTabs;
   final SiteTrackerFactory? trackers;
@@ -84,6 +87,7 @@ class _DiscourseAppState extends State<DiscourseApp>
   late ShellApiCapabilities _api;
   late Authenticator _authenticator;
   late AppSettingsStore _appSettingsStore;
+  late ForumSettingsStore _forumSettingsStore;
   late DraftStore _drafts;
   late ForumTabStore _forumTabs;
   late SiteTrackerFactory _trackers;
@@ -133,6 +137,7 @@ class _DiscourseAppState extends State<DiscourseApp>
     api: _api,
     authenticator: _authenticator,
     appSettingsStore: _appSettingsStore,
+    forumSettingsStore: _forumSettingsStore,
     drafts: _drafts,
     forumTabs: _forumTabs,
     forumTabsEnabled: forumTabsEnabledForCurrentPlatform,
@@ -155,6 +160,7 @@ class _DiscourseAppState extends State<DiscourseApp>
     _api = widget.api ?? DiscourseApi(models: _plugins.models);
     _authenticator = widget.authenticator ?? Authenticator();
     _appSettingsStore = widget.appSettingsStore ?? AppSettingsStore();
+    _forumSettingsStore = widget.forumSettingsStore ?? ForumSettingsStore();
     _drafts = widget.drafts ?? DraftStore();
     _forumTabs = widget.forumTabs ?? ForumTabStore();
     _trackers = widget.trackers ?? SiteTracker.new;
@@ -226,6 +232,7 @@ class _DiscourseAppState extends State<DiscourseApp>
       !identical(widget.api, oldWidget.api) ||
       !identical(widget.authenticator, oldWidget.authenticator) ||
       !identical(widget.appSettingsStore, oldWidget.appSettingsStore) ||
+      !identical(widget.forumSettingsStore, oldWidget.forumSettingsStore) ||
       !identical(widget.drafts, oldWidget.drafts) ||
       !identical(widget.forumTabs, oldWidget.forumTabs) ||
       !identical(widget.trackers, oldWidget.trackers) ||
@@ -264,6 +271,9 @@ class _DiscourseAppState extends State<DiscourseApp>
     }
     if (!identical(widget.appSettingsStore, oldWidget.appSettingsStore)) {
       _appSettingsStore = widget.appSettingsStore ?? AppSettingsStore();
+    }
+    if (!identical(widget.forumSettingsStore, oldWidget.forumSettingsStore)) {
+      _forumSettingsStore = widget.forumSettingsStore ?? ForumSettingsStore();
     }
     if (!identical(widget.drafts, oldWidget.drafts)) {
       _drafts = widget.drafts ?? DraftStore();
@@ -525,11 +535,15 @@ class _DiscourseAppState extends State<DiscourseApp>
             final darkTheme = _themeFor(selection.appearance, Brightness.dark);
             SurfaceOpeningTrace.mark('forum.theme.end');
             return ListenableBuilder(
-              listenable: _controller.appSettings,
+              listenable: _controller.forumSettings,
               builder: (context, _) => _materialApp(
                 theme: lightTheme,
                 darkTheme: darkTheme,
-                themeMode: switch (_controller.appSettings.themeMode) {
+                themeMode: switch (selection.siteUrl == null
+                    ? AppThemeMode.system
+                    : _controller.forumSettings.themeModeFor(
+                        selection.siteUrl!,
+                      )) {
                   AppThemeMode.system => ThemeMode.system,
                   AppThemeMode.light => ThemeMode.light,
                   AppThemeMode.dark => ThemeMode.dark,

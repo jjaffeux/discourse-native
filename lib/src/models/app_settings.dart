@@ -37,6 +37,7 @@ final class AppSettings {
   final ContentAlignment contentAlignment;
   final bool disableGifAnimations;
   final AppTextScale textScale;
+  // Legacy app-wide choice used only to seed existing forums on migration.
   final AppThemeMode themeMode;
   final bool topicListLargerText;
   final TopicListDisplayMode topicListMode;
