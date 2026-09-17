@@ -864,6 +864,7 @@ void main() {
       apply.top,
       greaterThan(tester.getRect(find.text('Tracking')).bottom),
     );
+    final expectedClauses = ['status:open', 'tag:feedback'];
     for (final (label, query) in [
       ('New topics', 'in:new-topics'),
       ('Unseen', 'in:unseen'),
@@ -873,7 +874,11 @@ void main() {
     ]) {
       await tester.tap(find.text(label));
       await tester.pumpAndSettle();
-      expect(tester.widget<DTextarea>(textarea).controller!.text, query);
+      expectedClauses.add(query);
+      expect(
+        tester.widget<DTextarea>(textarea).controller!.text,
+        expectedClauses.join('\n'),
+      );
       expect(api.feedPaths, ['/latest.json', '/filter.json']);
     }
     await tester.enterText(field, 'status:open\ntag:feedback');
@@ -882,6 +887,66 @@ void main() {
     expect(
       api.feedPaths,
       contains('/filter.json?q=status%3Aopen%0Atag%3Afeedback'),
+    );
+  });
+
+  testWidgets('quick filters toggle exact clauses and follow manual edits', (
+    tester,
+  ) async {
+    final api = FakeDiscourseApi(
+      feeds: const {'/latest.json': [], '/filter.json': []},
+    );
+    await _pump(tester, api);
+    await _openFilter(tester);
+    final textarea = find.byType(DTextarea);
+    DToggle toggle(String label) => tester.widget<DToggle>(
+      find.ancestor(of: find.text(label), matching: find.byType(DToggle)),
+    );
+    String draft() => tester.widget<DTextarea>(textarea).controller!.text;
+
+    await tester.enterText(
+      textarea,
+      'tag:"customer feedback"\n"status:open"\n-status:open',
+    );
+    await tester.pumpAndSettle();
+    expect(toggle('Open topics').pressed, isFalse);
+    await tester.tap(find.text('Open topics'));
+    await tester.pumpAndSettle();
+    expect(toggle('Open topics').pressed, isTrue);
+    expect(
+      draft(),
+      'tag:"customer feedback"\n"status:open"\n-status:open\nstatus:open',
+    );
+    await tester.tap(find.text('Bookmarked'));
+    await tester.pumpAndSettle();
+    expect(toggle('Open topics').pressed, isTrue);
+    expect(toggle('Bookmarked').pressed, isTrue);
+    expect(draft(), endsWith('status:open\nin:bookmarked'));
+    await tester.tap(find.text('Open topics'));
+    await tester.pumpAndSettle();
+    expect(toggle('Open topics').pressed, isFalse);
+    expect(toggle('Bookmarked').pressed, isTrue);
+    expect(
+      draft(),
+      'tag:"customer feedback"\n"status:open"\n-status:open\nin:bookmarked',
+    );
+
+    await tester.enterText(textarea, 'status:open status:open tag:feedback');
+    await tester.pumpAndSettle();
+    expect(toggle('Open topics').pressed, isTrue);
+    expect(toggle('Bookmarked').pressed, isFalse);
+    await tester.tap(find.text('Open topics'));
+    await tester.pumpAndSettle();
+    expect(draft(), 'tag:feedback');
+    expect(toggle('Open topics').pressed, isFalse);
+    expect(api.feedPaths, ['/latest.json', '/filter.json']);
+    await tester.tap(find.text('Bookmarked'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Apply filter'));
+    await tester.pumpAndSettle();
+    expect(
+      api.feedPaths,
+      contains('/filter.json?q=tag%3Afeedback%0Ain%3Abookmarked'),
     );
   });
 
