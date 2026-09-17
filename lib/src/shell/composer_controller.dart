@@ -431,8 +431,10 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
   }
 
   void activateEmbeddedEditor(ComposerController? editor) {
-    if (_disposed || identical(_activeEmbeddedEditor, editor)) return;
+    if (_disposed) return;
     _activeEmbeddedEditor = editor;
+    // A nested region can change while its enclosing editor stays the same.
+    // Rebuild the shared toolbar for the deepest newly focused editor.
     _notify();
   }
 

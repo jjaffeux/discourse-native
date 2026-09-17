@@ -718,8 +718,8 @@ class _RenderedEmojiInputFormatter extends TextInputFormatter {
   }
 }
 
-/// Reuses the composer commands, platform inputs and rich editor for a body
-/// embedded inside another draft component.
+/// A content region of the enclosing composer, with the same editing surface
+/// and inputs. Formatting and insertion belong to the enclosing toolbar.
 class ComposerRichBodyEditor extends StatelessWidget {
   const ComposerRichBodyEditor({
     super.key,
@@ -737,7 +737,7 @@ class ComposerRichBodyEditor extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final enclosing = context.findAncestorWidgetOfExactType<ComposerEditor>();
-    final style = Theme.of(context).textTheme.bodyLarge;
+    final style = enclosing?.textStyle ?? Theme.of(context).textTheme.bodyLarge;
     return ListenableBuilder(
       listenable: composer,
       builder: (context, _) => CallbackShortcuts(
@@ -763,45 +763,27 @@ class ComposerRichBodyEditor extends StatelessWidget {
             ),
           },
         },
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            DLabel(child: Text(label)),
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  _FormattingToolbar(composer: composer),
-                  if (composer.imageUploader != null)
-                    _ComposerUploadButton(
-                      composer: composer.activeEditor,
-                      pickFiles: enclosing?.pickFiles ?? pickComposerFiles,
-                    ),
-                ],
-              ),
+        child: Semantics(
+          container: true,
+          explicitChildNodes: true,
+          label: label,
+          child: ComposerEditor(
+            composer: composer,
+            hintText: hintText,
+            textStyle: style,
+            hintStyle: style?.copyWith(
+              color: DTokens.of(context).mutedForeground,
             ),
-            ConstrainedBox(
-              constraints: const BoxConstraints(minHeight: 96, maxHeight: 360),
-              child: ComposerEditor(
-                composer: composer,
-                hintText: hintText,
-                textStyle: style,
-                hintStyle: style?.copyWith(
-                  color: DTokens.of(context).mutedForeground,
-                ),
-                autofocus: false,
-                expands: false,
-                showSelectionToolbar: false,
-                enableDropTarget: enclosing?.enableDropTarget ?? true,
-                pickFiles: enclosing?.pickFiles ?? pickComposerFiles,
-                pickImages: enclosing?.pickImages ?? pickComposerImages,
-                readClipboardFiles:
-                    enclosing?.readClipboardFiles ?? readComposerClipboardFiles,
-              ),
-            ),
-          ],
+            autofocus: false,
+            expands: false,
+            showSelectionToolbar: enclosing?.showSelectionToolbar ?? true,
+            enableDropTarget: enclosing?.enableDropTarget ?? true,
+            pickFiles: enclosing?.pickFiles ?? pickComposerFiles,
+            pickImages: enclosing?.pickImages ?? pickComposerImages,
+            readClipboardFiles:
+                enclosing?.readClipboardFiles ?? readComposerClipboardFiles,
+            onSuggestionAction: enclosing?.onSuggestionAction,
+          ),
         ),
       ),
     );

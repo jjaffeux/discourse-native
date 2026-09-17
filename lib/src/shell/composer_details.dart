@@ -21,11 +21,30 @@ void insertComposerDetails(ComposerController composer) {
   if (!composer.isCurrent || !composer.isEditing || composer.target.isPlugin) {
     return;
   }
-  composer.insertBlock(
-    expectedValue: composer.value,
-    markdown: '[details="Summary"]\n\n[/details]',
-  );
-  composer.requestFocus();
+  final value = composer.value;
+  if (!value.composing.isCollapsed) return;
+  final selection = value.selection;
+  final selected = selection.isValid ? selection.textInside(value.text) : '';
+  if (!composer.insertBlock(
+    expectedValue: value,
+    markdown: '[details]\n$selected\n[/details]',
+  )) {
+    return;
+  }
+  final inserted = composer.value;
+  final start = selection.isValid ? selection.start : value.text.length;
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    if (!composer.isEditing || composer.value != inserted) return;
+    for (final occurrence in composer.text.syntaxBlocks) {
+      final projection = occurrence.projection;
+      if (occurrence.start >= start &&
+          occurrence.end <= inserted.selection.extentOffset &&
+          projection is _DetailsProjection) {
+        projection.focusSummary();
+        break;
+      }
+    }
+  });
 }
 
 final class ComposerDetailsPolicy implements ComposerSyntaxPolicy {
@@ -90,10 +109,15 @@ final class _DetailsProjection implements ComposerInteractiveSyntaxProjection {
         style: context.baseStyle,
         child: ComposerBlockSelection(
           selected: context.highlighted,
-          child: ComposerDetailsEditor(
-            key: context.pillKey,
-            composer: composer,
-            block: block,
+          // WidgetSpan already scales its whole child with the surrounding text.
+          // Applying the inherited scaler again compounds it in every nested
+          // editor, shrinking media space and enlarging text relative to prose.
+          child: MediaQuery.withNoTextScaling(
+            child: ComposerDetailsEditor(
+              key: context.pillKey,
+              composer: composer,
+              block: block,
+            ),
           ),
         ),
       ),
@@ -115,7 +139,9 @@ final class _DetailsProjection implements ComposerInteractiveSyntaxProjection {
   }
 
   @override
-  void edit(BuildContext context, ComposerEditorHost editor) {
+  void edit(BuildContext context, ComposerEditorHost editor) => focusSummary();
+
+  void focusSummary() {
     if (_editorKey?.currentState case final _ComposerDetailsEditorState state) {
       state.edit();
     }
@@ -168,8 +194,20 @@ class _ComposerDetailsEditorState extends State<ComposerDetailsEditor> {
   ComposerDetailsBlock get _block => _body.block;
   late final _summary = TextEditingController(text: widget.block.summary);
   final _summaryFocus = FocusNode();
-  final _accordion = DAccordionController<int>(initialValues: const [0]);
+  bool _open = true;
   String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _summaryFocus.addListener(_activate);
+  }
+
+  void _activate() {
+    if (_summaryFocus.hasFocus) {
+      widget.composer.activateEmbeddedEditor(_body);
+    }
+  }
 
   @override
   void didUpdateWidget(ComposerDetailsEditor oldWidget) {
@@ -192,16 +230,75 @@ class _ComposerDetailsEditorState extends State<ComposerDetailsEditor> {
     _summary.dispose();
     _body.dispose();
     _summaryFocus.dispose();
-    _accordion.dispose();
     super.dispose();
   }
 
   void edit() {
     if (!widget.composer.isEditing) return;
-    _accordion.open(0);
+    setState(() => _open = true);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _summaryFocus.requestFocus();
     });
+  }
+
+  void _focusBody() {
+    if (!_body.isEditing) return;
+    setState(() => _open = true);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && _body.isEditing) _body.requestFocus();
+    });
+  }
+
+  void _leave({bool before = false}) {
+    if (!widget.composer.isEditing) return;
+    final text = widget.composer.text;
+    var offset = before ? _block.start : _block.end;
+    if (before && offset > 0 && text.text[offset - 1] == '\n') {
+      offset--;
+      if (offset > 0 && text.text[offset - 1] == '\r') offset--;
+    } else if (before && offset == 0) {
+      final newline = _block.source.contains('\r\n') ? '\r\n' : '\n';
+      if (!widget.composer.commitText(
+        expectedText: text.text,
+        value: TextEditingValue(
+          text: '$newline${text.text}',
+          selection: const TextSelection.collapsed(offset: 0),
+        ),
+      )) {
+        return;
+      }
+    } else if (!before) {
+      if (text.text.startsWith('\r\n', offset)) {
+        offset += 2;
+      } else if (text.text.startsWith('\n', offset)) {
+        offset++;
+      } else if (offset == text.text.length) {
+        // A block at the end needs an ordinary text line to continue writing.
+        final newline = _block.source.contains('\r\n') ? '\r\n' : '\n';
+        if (!widget.composer.commitText(
+          expectedText: text.text,
+          value: TextEditingValue(
+            text: '${text.text}$newline',
+            selection: TextSelection.collapsed(offset: offset + newline.length),
+          ),
+        )) {
+          return;
+        }
+        offset += newline.length;
+      }
+    }
+    text.selection = TextSelection.collapsed(offset: offset);
+    widget.composer.requestFocus();
+  }
+
+  void _remove({bool keepContent = false}) {
+    if (_replaceDetails(
+      widget.composer,
+      _block,
+      keepContent ? _block.body : '',
+    )) {
+      widget.composer.requestFocus();
+    }
   }
 
   bool _change(String source) {
@@ -238,11 +335,64 @@ class _ComposerDetailsEditorState extends State<ComposerDetailsEditor> {
   KeyEventResult _onKey(FocusNode node, KeyEvent event) {
     if (event is! KeyDownEvent) return KeyEventResult.ignored;
     if (event.logicalKey == LogicalKeyboardKey.escape) {
-      widget.composer.requestFocus();
+      _leave();
       return KeyEventResult.handled;
     }
     // The summary is plain text; body shortcuts belong to its rich editor.
     final keyboard = HardwareKeyboard.instance;
+    final rtl = Directionality.of(context) == TextDirection.rtl;
+    final backward = rtl
+        ? LogicalKeyboardKey.arrowRight
+        : LogicalKeyboardKey.arrowLeft;
+    final forward = rtl
+        ? LogicalKeyboardKey.arrowLeft
+        : LogicalKeyboardKey.arrowRight;
+    if (!keyboard.isMetaPressed &&
+        !keyboard.isControlPressed &&
+        !keyboard.isAltPressed &&
+        !keyboard.isShiftPressed) {
+      if (_summaryFocus.hasFocus &&
+          _summary.value.composing.isCollapsed &&
+          (event.logicalKey == LogicalKeyboardKey.enter ||
+              event.logicalKey == LogicalKeyboardKey.numpadEnter ||
+              (event.logicalKey == LogicalKeyboardKey.arrowDown &&
+                  _summary.selection.isCollapsed &&
+                  _summary.selection.extentOffset == _summary.text.length))) {
+        _focusBody();
+        return KeyEventResult.handled;
+      }
+      final value = _body.value;
+      if (_body.focus.hasPrimaryFocus &&
+          value.composing.isCollapsed &&
+          value.selection.isValid &&
+          value.selection.isCollapsed) {
+        final caret = value.selection.extentOffset;
+        if (caret == 0 &&
+            (event.logicalKey == LogicalKeyboardKey.arrowUp ||
+                event.logicalKey == backward)) {
+          _summary.selection = TextSelection.collapsed(
+            offset: _summary.text.length,
+          );
+          _summaryFocus.requestFocus();
+          return KeyEventResult.handled;
+        }
+        if (caret == value.text.length &&
+            (event.logicalKey == LogicalKeyboardKey.arrowDown ||
+                event.logicalKey == forward)) {
+          _leave();
+          return KeyEventResult.handled;
+        }
+      }
+      if (_summaryFocus.hasFocus &&
+          _summary.value.composing.isCollapsed &&
+          _summary.selection.isCollapsed &&
+          _summary.selection.extentOffset == 0 &&
+          (event.logicalKey == LogicalKeyboardKey.arrowUp ||
+              event.logicalKey == backward)) {
+        _leave(before: true);
+        return KeyEventResult.handled;
+      }
+    }
     if (_summaryFocus.hasFocus &&
         (keyboard.isMetaPressed || keyboard.isControlPressed) &&
         {
@@ -268,80 +418,98 @@ class _ComposerDetailsEditorState extends State<ComposerDetailsEditor> {
     listenable: widget.composer,
     builder: (context, _) => Focus(
       onKeyEvent: _onKey,
-      child: DAccordion<int>(
-        controller: _accordion,
-        keepMounted: true,
-        onValuesChange: (values) {
-          if (!values.contains(0) &&
-              widget.composer.activeEditor != widget.composer) {
-            widget.composer.requestFocus();
-          }
-        },
-        children: [
-          DAccordionItem<int>(
-            value: 0,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: DAccordionHeader(
-                        child: DAccordionTrigger(
-                          child: Text(
-                            _block.summary.isEmpty ? 'Details' : _block.summary,
-                          ),
-                        ),
-                      ),
-                    ),
-                    DButton.iconOnly(
-                      tooltip: 'Remove details',
-                      variant: DButtonVariant.transparentBackground,
-                      icon: const DIcon(DIcons.trashCan),
-                      onPressed: widget.composer.isEditing
-                          ? () {
-                              if (_replaceDetails(
-                                widget.composer,
-                                _block,
-                                '',
-                              )) {
-                                widget.composer.requestFocus();
-                              }
-                            }
-                          : null,
-                    ),
-                  ],
-                ),
-                DAccordionContent(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      DInput(
-                        key: const ValueKey('details-summary'),
-                        controller: _summary,
-                        focusNode: _summaryFocus,
-                        labelText: 'Summary',
-                        errorText: _error,
-                        enabled: widget.composer.isEditing,
-                        onChanged: _changeSummary,
-                      ),
-                      const SizedBox(height: DSpacing.sm),
-                      ComposerRichBodyEditor(
+      child: DCollapsible(
+        open: _open,
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _disclosure(context),
+            const SizedBox(width: DSpacing.xs),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  DInput(
+                    key: const ValueKey('details-summary'),
+                    borderless: true,
+                    maxLines: 3,
+                    controller: _summary,
+                    focusNode: _summaryFocus,
+                    semanticLabel: 'Details summary',
+                    hintText: 'Summary',
+                    style: context
+                        .findAncestorWidgetOfExactType<ComposerEditor>()
+                        ?.textStyle,
+                    errorText: _error,
+                    enabled: widget.composer.isEditing,
+                    textInputAction: TextInputAction.next,
+                    inputFormatters: [
+                      FilteringTextInputFormatter.singleLineFormatter,
+                    ],
+                    onEditingComplete: _focusBody,
+                    onChanged: _changeSummary,
+                  ),
+                  DCollapsibleContent(
+                    keepMounted: true,
+                    child: Padding(
+                      padding: const EdgeInsets.only(top: DSpacing.xs),
+                      child: ComposerRichBodyEditor(
                         key: const ValueKey('details-body'),
                         composer: _body,
-                        label: 'Hidden content',
-                        hintText: 'Write the content to reveal…',
-                        onExit: widget.composer.requestFocus,
+                        label: 'Details content',
+                        hintText: 'Write here…',
+                        onExit: _leave,
                       ),
-                    ],
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
+      ),
+    ),
+  );
+
+  Widget _disclosure(BuildContext context) => DContextMenu(
+    restoreFocus: false,
+    content: DContextMenuContent(
+      width: 260,
+      children: [
+        DContextMenuItem(
+          onPressed: widget.composer.isEditing
+              ? () => _remove(keepContent: true)
+              : null,
+          child: const Text('Remove details, keep content'),
+        ),
+        DContextMenuItem(
+          variant: DContextMenuItemVariant.destructive,
+          onPressed: widget.composer.isEditing ? _remove : null,
+          child: const Text('Delete details'),
+        ),
+      ],
+    ),
+    child: DContextMenuTrigger(
+      focusable: false,
+      child: DButton(
+        key: const ValueKey('details-disclosure'),
+        semanticLabel: _open ? 'Collapse details' : 'Expand details',
+        expanded: _open,
+        variant: DButtonVariant.transparentBackground,
+        label: DIcon(
+          _open
+              ? DIcons.chevronDown
+              : Directionality.of(context) == TextDirection.rtl
+              ? DIcons.chevronLeft
+              : DIcons.chevronRight,
+        ),
+        onPressed: () {
+          setState(() => _open = !_open);
+          if (!_open && widget.composer.activeEditor == _body.activeEditor) {
+            widget.composer.activateEmbeddedEditor(null);
+          }
+        },
       ),
     ),
   );
