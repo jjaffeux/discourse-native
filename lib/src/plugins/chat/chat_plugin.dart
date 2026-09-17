@@ -612,6 +612,7 @@ class ChatPlugin
             tooltip: 'Close full-screen chat',
             onPressed: () => unawaited(shell.openDrawerFromFullPage()),
             variant: DButtonVariant.ghost,
+            size: DButtonSize.large,
             icon: const DIcon(DIcons.discourseCompress),
           )
         : null;
@@ -813,7 +814,7 @@ class _ChatChannelHeaderTrailing extends StatelessWidget {
       ChatChannelStarButton(
         siteUrl: siteUrl,
         channelId: channelId,
-        size: DButtonSize.small,
+        size: DButtonSize.large,
       ),
       _ChatChannelHeaderStatus(siteUrl: siteUrl, channelId: channelId),
     ],

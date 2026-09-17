@@ -870,6 +870,9 @@ class _ContentHeader extends StatelessWidget {
             children: [
               if (showBack)
                 DButton.iconOnly(
+                  size: contentHeaderTitleAction != null
+                      ? DButtonSize.large
+                      : DButtonSize.regular,
                   onPressed: () {
                     if (groupBackIntent != null) {
                       groupPages.handleBack(
@@ -948,6 +951,7 @@ class _ContentHeader extends StatelessWidget {
                                   'content-header-title-action',
                                 ),
                                 onPressed: contentHeaderTitleAction,
+                                size: DButtonSize.large,
                                 variant: DButtonVariant.transparentBackground,
                                 semanticLabel: 'Open ${route.title} details',
                                 icon: contentHeaderLeading == null
