@@ -15,7 +15,6 @@ import 'shell_controller.dart';
 import 'shell_scope.dart';
 import 'topic_filter_input.dart';
 import 'topic_list_actions.dart';
-import 'topic_list_footer.dart';
 import 'topic_list_layout.dart';
 import 'topic_list_view.dart';
 
@@ -227,18 +226,6 @@ class AggregateViewState extends State<AggregateView> {
                       ),
                     ),
                   ),
-                ),
-                TopicSourceFooter(
-                  chooseForum: true,
-                  onNext: state.topics.isEmpty
-                      ? null
-                      : () {
-                          final first = state.topics.first;
-                          controller.openAggregateTopic(
-                            first.siteUrl,
-                            first.topicId,
-                          );
-                        },
                 ),
               ],
             );
