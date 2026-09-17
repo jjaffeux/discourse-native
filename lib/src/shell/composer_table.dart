@@ -156,14 +156,24 @@ class _ComposerTableEditorState extends State<ComposerTableEditor> {
   late List<int> _columns = List.generate(_table.columnCount, (_) => _nextId++);
   late List<int> _rows = List.generate(_table.rowCount + 1, (_) => _nextId++);
   final _cells = <(int, int), _CellEditing>{};
+  Widget? _content;
+  bool? _contentEditing;
+  Object _actionVersion = Object();
+
+  void _invalidateContent() {
+    _content = null;
+    _actionVersion = Object();
+  }
 
   @override
   void didUpdateWidget(ComposerTableEditor oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (oldWidget.composer != widget.composer) _invalidateContent();
     if (_table.source == widget.table.source &&
         _table.start == widget.table.start) {
       return;
     }
+    _invalidateContent();
     _table = widget.table;
     // External history and restored drafts replace the snapshot. Existing
     // fields retain their controllers when the shape has not changed.
@@ -229,11 +239,16 @@ class _ComposerTableEditorState extends State<ComposerTableEditor> {
       composer.requestFocus();
       return true;
     }
-    setState(() {
-      _table = table!;
-      structureChanged?.call();
-      _pruneCells();
-    });
+    _table = table!;
+    // Cell controllers already own text, selection and IME updates. Rebuilding
+    // every Native input/menu here turns each keystroke into a whole-table edit.
+    if (structureChanged != null) {
+      setState(() {
+        structureChanged();
+        _invalidateContent();
+        _pruneCells();
+      });
+    }
     return true;
   }
 
@@ -418,9 +433,11 @@ class _ComposerTableEditorState extends State<ComposerTableEditor> {
       );
 
   VoidCallback _menuAction(VoidCallback action) {
-    final table = _table;
+    final version = _actionVersion;
     return () {
-      if (mounted && identical(table, _table) && widget.composer.isEditing) {
+      if (mounted &&
+          identical(version, _actionVersion) &&
+          widget.composer.isEditing) {
         action();
       }
     };
@@ -519,101 +536,107 @@ class _ComposerTableEditorState extends State<ComposerTableEditor> {
 
   Widget _tableContent() => ListenableBuilder(
     listenable: widget.composer,
-    builder: (context, _) => Padding(
-      padding: const EdgeInsets.symmetric(vertical: DSpacing.sm),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          DDataTable<int>(
-            semanticLabel: 'Editable table',
-            variant: DDataTableVariant.softHeader,
-            data: _rows.skip(1).toList(),
-            rowId: (row) => row,
-            operationMode: DDataTableOperationMode.manual,
-            empty: const Text('Add a row to start writing.'),
-            columns: [
+    builder: (context, _) {
+      if (_contentEditing != widget.composer.isEditing) {
+        _contentEditing = widget.composer.isEditing;
+        _invalidateContent();
+      }
+      return _content ??= _buildTableContent();
+    },
+  );
+
+  Widget _buildTableContent() => Padding(
+    padding: const EdgeInsets.symmetric(vertical: DSpacing.sm),
+    child: Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        DDataTable<int>(
+          semanticLabel: 'Editable table',
+          variant: DDataTableVariant.softHeader,
+          data: _rows.skip(1).toList(),
+          rowId: (row) => row,
+          operationMode: DDataTableOperationMode.manual,
+          empty: const Text('Add a row to start writing.'),
+          columns: [
+            DDataTableColumn<int>(
+              id: 'row-actions',
+              cellContextMenuBuilder: widget.composer.isEditing
+                  ? (cell) => _rowContextMenu(_rows.indexOf(cell.row) - 1)
+                  : null,
+              label: 'Rows',
+              hideable: false,
+              width: const FixedColumnWidth(64),
+              cellBuilder: (_, cell) => _rowMenu(_rows.indexOf(cell.row) - 1),
+            ),
+            for (final (column, id) in _columns.indexed)
               DDataTableColumn<int>(
-                id: 'row-actions',
+                id: '$id',
+                // The input owns the live heading. Keep the resize/menu
+                // identity stable while the heading's text is being edited.
+                label: 'Column ${column + 1}',
+                hideable: false,
+                width: const FixedColumnWidth(200),
+                resizable: true,
+                headerContextMenu: widget.composer.isEditing
+                    ? DContextMenuContent(
+                        semanticLabel: 'Column ${column + 1} actions',
+                        width: 220,
+                        children: _columnItems(column),
+                      )
+                    : null,
                 cellContextMenuBuilder: widget.composer.isEditing
                     ? (cell) => _rowContextMenu(_rows.indexOf(cell.row) - 1)
                     : null,
-                label: 'Rows',
-                hideable: false,
-                width: const FixedColumnWidth(64),
-                cellBuilder: (_, cell) => _rowMenu(_rows.indexOf(cell.row) - 1),
-              ),
-              for (final (column, id) in _columns.indexed)
-                DDataTableColumn<int>(
-                  id: '$id',
-                  label: _table.cell(0, column).isEmpty
-                      ? 'Column ${column + 1}'
-                      : _table.cell(0, column),
-                  hideable: false,
-                  width: const FixedColumnWidth(200),
-                  resizable: true,
-                  headerContextMenu: widget.composer.isEditing
-                      ? DContextMenuContent(
-                          semanticLabel: 'Column ${column + 1} actions',
-                          width: 220,
-                          children: _columnItems(column),
-                        )
-                      : null,
-                  cellContextMenuBuilder: widget.composer.isEditing
-                      ? (cell) => _rowContextMenu(_rows.indexOf(cell.row) - 1)
-                      : null,
-                  cellMouseCursor: SystemMouseCursors.text,
-                  onHeaderTap: widget.composer.isEditing
-                      ? () => _focusCell(0, column)
-                      : null,
-                  onCellTap: widget.composer.isEditing
-                      ? (cell) => _focusCell(_rows.indexOf(cell.row), column)
-                      : null,
-                  headerBuilder: (_, _) => Row(
-                    children: [
-                      Expanded(child: _input(0, column)),
-                      _columnMenu(column),
-                    ],
-                  ),
-                  cellBuilder: (_, cell) =>
-                      _input(_rows.indexOf(cell.row), column),
+                cellMouseCursor: SystemMouseCursors.text,
+                onHeaderTap: widget.composer.isEditing
+                    ? () => _focusCell(0, column)
+                    : null,
+                onCellTap: widget.composer.isEditing
+                    ? (cell) => _focusCell(_rows.indexOf(cell.row), column)
+                    : null,
+                headerBuilder: (_, _) => Row(
+                  children: [
+                    Expanded(child: _input(0, column)),
+                    _columnMenu(column),
+                  ],
                 ),
-            ],
-          ),
-          const SizedBox(height: DSpacing.sm),
-          Wrap(
-            spacing: DSpacing.sm,
-            runSpacing: DSpacing.sm,
-            children: [
-              DButton(
-                label: const Text('Add row'),
-                variant: DButtonVariant.outline,
-                size: DButtonSize.small,
-                onPressed: widget.composer.isEditing
-                    ? () => _insertRow(_table.rowCount)
-                    : null,
+                cellBuilder: (_, cell) =>
+                    _input(_rows.indexOf(cell.row), column),
               ),
-              DButton(
-                label: const Text('Add column'),
-                variant: DButtonVariant.outline,
-                size: DButtonSize.small,
-                onPressed: widget.composer.isEditing
-                    ? () => _insertColumn(_columns.length)
-                    : null,
-              ),
-              DButton.iconOnly(
-                tooltip: 'Remove table',
-                icon: const DIcon(DIcons.trashCan, size: 14),
-                variant: DButtonVariant.ghost,
-                size: DButtonSize.small,
-                onPressed: widget.composer.isEditing
-                    ? () => _replace('')
-                    : null,
-              ),
-            ],
-          ),
-        ],
-      ),
+          ],
+        ),
+        const SizedBox(height: DSpacing.sm),
+        Wrap(
+          spacing: DSpacing.sm,
+          runSpacing: DSpacing.sm,
+          children: [
+            DButton(
+              label: const Text('Add row'),
+              variant: DButtonVariant.outline,
+              size: DButtonSize.small,
+              onPressed: widget.composer.isEditing
+                  ? () => _insertRow(_table.rowCount)
+                  : null,
+            ),
+            DButton(
+              label: const Text('Add column'),
+              variant: DButtonVariant.outline,
+              size: DButtonSize.small,
+              onPressed: widget.composer.isEditing
+                  ? () => _insertColumn(_columns.length)
+                  : null,
+            ),
+            DButton.iconOnly(
+              tooltip: 'Remove table',
+              icon: const DIcon(DIcons.trashCan, size: 14),
+              variant: DButtonVariant.ghost,
+              size: DButtonSize.small,
+              onPressed: widget.composer.isEditing ? () => _replace('') : null,
+            ),
+          ],
+        ),
+      ],
     ),
   );
 }
