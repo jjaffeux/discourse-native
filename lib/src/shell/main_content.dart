@@ -419,60 +419,69 @@ class _TopicInboxWorkspaceState extends State<_TopicInboxWorkspace> {
           ],
         );
         // The heading follows the full width of the topic list.
-        Widget buildHeading(BuildContext context, Widget? navigation) =>
-            ContentReadingLane(
-              widthLimit: topicListContentWidth,
-              builder: (context, lane) => ConstrainedBox(
-                constraints: BoxConstraints(
-                  minHeight: sourceRoute.isTopicListFilter
-                      ? 0
-                      : shellHeaderHeight,
-                ),
-                child: Padding(
-                  padding: sourceRoute.isTopicListFilter
-                      ? const EdgeInsets.symmetric(vertical: DSpacing.sm)
-                      // Match the sidebar account header's baseline.
-                      : EdgeInsets.zero,
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Padding(
-                          padding: EdgeInsetsDirectional.only(
-                            start: DDirection.of(context) == TextDirection.ltr
-                                ? lane.leftInset
-                                : lane.rightInset,
-                          ),
-                          child: Align(
-                            alignment: AlignmentDirectional.centerStart,
-                            child: SizedBox(
-                              width: lane.width,
-                              child: Padding(
-                                padding: EdgeInsetsDirectional.only(
-                                  start: topicListHorizontalPadding,
-                                  end: split
-                                      ? topicInboxDividerInset
-                                      : topicListHorizontalPadding,
-                                ),
-                                child: heading(navigation),
+        Widget buildHeading(BuildContext context, Widget? navigation) {
+          final toolbar = ContentReadingLane(
+            widthLimit: topicListContentWidth,
+            builder: (context, lane) => ConstrainedBox(
+              constraints: BoxConstraints(
+                minHeight: sourceRoute.isTopicListFilter
+                    ? 0
+                    : shellHeaderHeight,
+              ),
+              child: Padding(
+                padding: sourceRoute.isTopicListFilter
+                    ? const EdgeInsets.symmetric(vertical: DSpacing.sm)
+                    // Match the sidebar account header's baseline.
+                    : EdgeInsets.zero,
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Padding(
+                        padding: EdgeInsetsDirectional.only(
+                          start: DDirection.of(context) == TextDirection.ltr
+                              ? lane.leftInset
+                              : lane.rightInset,
+                        ),
+                        child: Align(
+                          alignment: AlignmentDirectional.centerStart,
+                          child: SizedBox(
+                            width: lane.width,
+                            child: Padding(
+                              padding: EdgeInsetsDirectional.only(
+                                start: topicListHorizontalPadding,
+                                end: split
+                                    ? topicInboxDividerInset
+                                    : topicListHorizontalPadding,
                               ),
+                              child: heading(navigation),
                             ),
                           ),
                         ),
                       ),
-                      if (topicOpen && split)
-                        Padding(
-                          padding: EdgeInsetsDirectional.only(
-                            end: DResizableHandle.resolveHitExtent(context, 8),
-                          ),
-                          child: TopicCloseButton(
-                            canReturnToSidebar: layout.isCompact,
-                          ),
+                    ),
+                    if (topicOpen && split)
+                      Padding(
+                        padding: EdgeInsetsDirectional.only(
+                          end: DResizableHandle.resolveHitExtent(context, 8),
                         ),
-                    ],
-                  ),
+                        child: TopicCloseButton(
+                          canReturnToSidebar: layout.isCompact,
+                        ),
+                      ),
+                  ],
                 ),
               ),
-            );
+            ),
+          );
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              toolbar,
+              const DSeparator(key: ValueKey('topic-list-heading-separator')),
+            ],
+          );
+        }
+
         return Stack(
           children: [
             PositionedDirectional(

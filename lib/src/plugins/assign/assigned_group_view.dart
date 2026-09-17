@@ -219,6 +219,7 @@ class AssignedGroupPresentationView extends StatelessWidget {
           ],
         ),
       ),
+      const DSeparator(key: ValueKey('topic-list-heading-separator')),
       Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         child: Row(
