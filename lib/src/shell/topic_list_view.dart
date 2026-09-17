@@ -35,7 +35,7 @@ part 'compact_topic_list.dart';
 part 'conversation_topic_card.dart';
 
 typedef _TopicListIdentity = (String?, String?, String?, String);
-typedef _TopicListCursor = ({int topicId, int index});
+typedef _TopicListCursor = ({int topicId, int index, bool keyboard});
 
 class TopicListView extends StatefulWidget {
   const TopicListView({
@@ -435,11 +435,19 @@ class _TopicListViewState extends State<TopicListView> {
     );
   }
 
-  void _rememberTopic(int topicId) {
+  void _rememberTopic(int topicId, {bool? keyboard}) {
     final ids = _controller?.currentFeed?.topicIds ?? widget.feed.topicIds;
     final index = ids.indexOf(topicId);
     if (index < 0) return;
-    final cursor = (topicId: topicId, index: index);
+    // Mouse navigation remembers the position without leaving a keyboard
+    // highlight behind after the reader closes.
+    final previous = _cursor!.value;
+    final cursor = (
+      topicId: topicId,
+      index: index,
+      keyboard:
+          keyboard ?? (previous?.topicId == topicId && previous!.keyboard),
+    );
     _cursor!.value = cursor;
     PageStorage.maybeOf(context)?.writeState(
       context,
@@ -484,7 +492,7 @@ class _TopicListViewState extends State<TopicListView> {
           controller.currentFeed?.topicIds ?? widget.feed.topicIds;
       if (!isCurrent() || currentIds.isEmpty) return;
       target = target.clamp(0, currentIds.length - 1);
-      _rememberTopic(currentIds[target]);
+      _rememberTopic(currentIds[target], keyboard: true);
       _keyboardFocus.requestFocus();
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!isCurrent()) return;
@@ -503,7 +511,7 @@ class _TopicListViewState extends State<TopicListView> {
 
   void _openRow(Topic topic, {bool keyboard = false}) {
     _keyboardMoveToken = null;
-    _rememberTopic(topic.id);
+    _rememberTopic(topic.id, keyboard: keyboard);
     if (keyboard) FocusManager.instance.primaryFocus?.unfocus();
     final controller = _controller!;
     if (keyboard && controller.currentContent?.topicId == topic.id) return;
@@ -869,7 +877,10 @@ class _TopicListViewState extends State<TopicListView> {
                         builder: (context, cursor, child) =>
                             KeyboardSelection.scope(
                               key: ValueKey('topic-list-keyboard-$topicId'),
-                              selected: cursor?.topicId == topicId,
+                              selected:
+                                  cursor?.topicId == topicId &&
+                                  (cursor!.keyboard ||
+                                      readingTopicId == topicId),
                               child: child!,
                             ),
                         child: _TopicRow(
