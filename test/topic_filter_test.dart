@@ -543,7 +543,7 @@ void main() {
 
     await _openFilter(tester);
     expect(
-      tester.widget<TextField>(field).controller!.text,
+      _filterQuery(tester),
       'status:open',
       reason: 'the submitted query belongs to this site and destination',
     );
@@ -586,7 +586,8 @@ void main() {
     await tester.pump();
     await gesture.up();
     await tester.pumpAndSettle();
-    expect(tester.widget<TextField>(field).controller!.text, 'tag:bug');
+    expect(_filterQuery(tester), 'tag:bug');
+    expect(find.text('tag: bug'), findsOneWidget);
     expect(api.feedPaths, ['/latest.json', '/filter.json']);
   });
 
@@ -633,10 +634,7 @@ void main() {
 
     await tester.tap(find.descendant(of: row, matching: find.text(groupName)));
     await tester.pumpAndSettle();
-    expect(
-      tester.widget<TextField>(field).controller!.text.trim(),
-      'group:$groupName',
-    );
+    expect(_filterQuery(tester), 'group:$groupName');
   });
 
   testWidgets('the filter menu remains usable while vocabulary loads', (
@@ -653,10 +651,7 @@ void main() {
     expect(find.byType(DProgress), findsNothing);
     await tester.tap(find.text('Unanswered'));
     await tester.pump();
-    expect(
-      tester.widget<DTextarea>(find.byType(DTextarea)).controller!.text,
-      'status:noreplies',
-    );
+    expect(_filterQuery(tester), 'status:noreplies');
     gate.complete();
     await tester.pumpAndSettle();
     expect(find.byType(DProgress), findsNothing);
@@ -834,7 +829,7 @@ void main() {
     );
     await _pump(tester, api);
     await _openFilter(tester);
-    final textarea = find.byType(DTextarea);
+    final textarea = find.byType(DInputGroupTextarea);
     final field = find.descendant(
       of: textarea,
       matching: find.byType(TextField),
@@ -849,10 +844,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Apply filter'), findsOneWidget);
     expect(api.feedPaths, ['/latest.json', '/filter.json']);
-    expect(
-      tester.widget<DTextarea>(textarea).controller!.text,
-      startsWith('status:open\ntag:feedback'),
-    );
+    expect(_filterQuery(tester), 'status:open tag:feedback');
     final apply = tester.getRect(
       find.ancestor(
         of: find.text('Apply filter'),
@@ -875,18 +867,27 @@ void main() {
       await tester.tap(find.text(label));
       await tester.pumpAndSettle();
       expectedClauses.add(query);
-      expect(
-        tester.widget<DTextarea>(textarea).controller!.text,
-        expectedClauses.join('\n'),
-      );
+      expect(_filterQuery(tester), expectedClauses.join(' '));
       expect(api.feedPaths, ['/latest.json', '/filter.json']);
     }
-    await tester.enterText(field, 'status:open\ntag:feedback');
+    final chips = find.byType(DBadge);
+    final first = tester.getRect(chips.first);
+    final last = tester.getRect(chips.last);
+    expect(last.top, greaterThan(first.top));
+    final surface = tester.getRect(
+      find.ancestor(of: textarea, matching: find.byType(DInputGroup)),
+    );
+    expect(surface.contains(first.topLeft), isTrue);
+    expect(surface.contains(last.bottomRight), isTrue);
+    await tester.ensureVisible(find.text('Apply filter'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Apply filter'));
     await tester.pumpAndSettle();
     expect(
       api.feedPaths,
-      contains('/filter.json?q=status%3Aopen%0Atag%3Afeedback'),
+      contains(
+        '/filter.json?q=${Uri.encodeQueryComponent(expectedClauses.join(' '))}',
+      ),
     );
   });
 
@@ -898,11 +899,11 @@ void main() {
     );
     await _pump(tester, api);
     await _openFilter(tester);
-    final textarea = find.byType(DTextarea);
+    final textarea = find.byType(DInputGroupTextarea);
     DToggle toggle(String label) => tester.widget<DToggle>(
       find.ancestor(of: find.text(label), matching: find.byType(DToggle)),
     );
-    String draft() => tester.widget<DTextarea>(textarea).controller!.text;
+    String draft() => _filterQuery(tester);
 
     await tester.enterText(
       textarea,
@@ -915,22 +916,43 @@ void main() {
     expect(toggle('Open topics').pressed, isTrue);
     expect(
       draft(),
-      'tag:"customer feedback"\n"status:open"\n-status:open\nstatus:open',
+      'tag:"customer feedback" "status:open" -status:open status:open',
     );
     await tester.tap(find.text('Bookmarked'));
     await tester.pumpAndSettle();
     expect(toggle('Open topics').pressed, isTrue);
     expect(toggle('Bookmarked').pressed, isTrue);
-    expect(draft(), endsWith('status:open\nin:bookmarked'));
+    expect(
+      find.descendant(
+        of: find.widgetWithText(DToggle, 'Bookmarked'),
+        matching: find.byType(DIcon),
+      ),
+      findsOneWidget,
+    );
+    expect(draft(), endsWith('status:open in:bookmarked'));
     await tester.tap(find.text('Open topics'));
     await tester.pumpAndSettle();
     expect(toggle('Open topics').pressed, isFalse);
     expect(toggle('Bookmarked').pressed, isTrue);
     expect(
+      find.descendant(
+        of: find.widgetWithText(DToggle, 'Bookmarked'),
+        matching: find.byType(DIcon),
+      ),
+      findsOneWidget,
+    );
+    expect(
       draft(),
-      'tag:"customer feedback"\n"status:open"\n-status:open\nin:bookmarked',
+      'tag:"customer feedback" "status:open" -status:open in:bookmarked',
     );
 
+    for (var i = 0; i < 4; i++) {
+      await tester.tap(
+        find.byKey(const ValueKey('topic-filter-token-remove-0')),
+      );
+      await tester.pumpAndSettle();
+    }
+    expect(toggle('Bookmarked').pressed, isFalse);
     await tester.enterText(textarea, 'status:open status:open tag:feedback');
     await tester.pumpAndSettle();
     expect(toggle('Open topics').pressed, isTrue);
@@ -946,7 +968,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(
       api.feedPaths,
-      contains('/filter.json?q=tag%3Afeedback%0Ain%3Abookmarked'),
+      contains('/filter.json?q=tag%3Afeedback+in%3Abookmarked'),
     );
   });
 
@@ -967,7 +989,7 @@ void main() {
       );
       await _pump(tester, api);
       await _openFilter(tester);
-      await tester.enterText(find.byType(DTextarea), 'tag');
+      await tester.enterText(find.byType(DInputGroupTextarea), 'tag');
       await tester.pumpAndSettle();
       expect(find.text('tag:'), findsOneWidget);
       await tester.sendKeyDownEvent(modifier);
@@ -975,7 +997,7 @@ void main() {
       await tester.sendKeyUpEvent(modifier);
       await tester.pumpAndSettle();
       expect(api.feedPaths, contains('/filter.json?q=tag'));
-      expect(find.byType(DTextarea), findsNothing);
+      expect(find.byType(DInputGroupTextarea), findsNothing);
     });
   }
 
@@ -993,7 +1015,7 @@ void main() {
     );
     await _pump(tester, api);
     await _openFilter(tester);
-    await tester.tap(find.byType(DTextarea));
+    await tester.tap(find.byType(DInputGroupTextarea));
     await tester.pumpAndSettle();
     final rows = find.byType(DComboboxItem<TopicFilterSuggestion>);
     final count = rows.evaluate().length;
@@ -1115,4 +1137,17 @@ Future<void> _openFilter(WidgetTester tester, {bool settle = true}) async {
       await tester.pump(const Duration(milliseconds: 100));
     }
   }
+}
+
+String _filterQuery(WidgetTester tester) {
+  final tokens = tester
+      .widgetList<DTooltip>(find.byType(DTooltip))
+      .where((tooltip) => tooltip.child is DBadge)
+      .map((tooltip) => tooltip.message);
+  final draft = tester
+      .widget<DTextarea>(find.byType(DInputGroupTextarea))
+      .controller!
+      .text
+      .trim();
+  return [...tokens, if (draft.isNotEmpty) draft].join(' ');
 }
