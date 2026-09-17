@@ -135,40 +135,37 @@ class TopicHeaderTags extends StatelessWidget {
         Widget chip(
           String label,
           Key key, {
-          required String tooltip,
+          required String semanticLabel,
           TopicTag? tag,
-        }) => DTooltip(
-          message: tooltip,
-          child: GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            excludeFromSemantics: true,
-            onTertiaryTapUp: tag == null
-                ? null
-                : (_) => onTagNavigate(tag, newTab: true),
-            child: tag == null
-                ? DBadge.action(
-                    key: key,
-                    variant: DBadgeVariant.secondary,
-                    onPressed: open,
-                    semanticLabel: tooltip,
-                    child: Text(
-                      label,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  )
-                : DBadge.link(
-                    key: key,
-                    variant: DBadgeVariant.secondary,
-                    onPressed: () => onTagNavigate(tag),
-                    semanticLabel: tooltip,
-                    child: Text(
-                      label,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
+        }) => GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          excludeFromSemantics: true,
+          onTertiaryTapUp: tag == null
+              ? null
+              : (_) => onTagNavigate(tag, newTab: true),
+          child: tag == null
+              ? DBadge.action(
+                  key: key,
+                  variant: DBadgeVariant.secondary,
+                  onPressed: open,
+                  semanticLabel: semanticLabel,
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
-          ),
+                )
+              : DBadge.link(
+                  key: key,
+                  variant: DBadgeVariant.secondary,
+                  onPressed: () => onTagNavigate(tag),
+                  semanticLabel: semanticLabel,
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
         );
 
         return Row(
@@ -181,7 +178,7 @@ class TopicHeaderTags extends StatelessWidget {
                 child: chip(
                   '# ${tags[index].name}',
                   ValueKey(('topic-header-tag', tags[index].name)),
-                  tooltip: 'Open tag ${tags[index].name}',
+                  semanticLabel: 'Open tag ${tags[index].name}',
                   tag: tags[index],
                 ),
               ),
@@ -192,7 +189,7 @@ class TopicHeaderTags extends StatelessWidget {
                 child: chip(
                   overflowLabel(visible),
                   const ValueKey('topic-header-more-tags'),
-                  tooltip: topic.canEditTags
+                  semanticLabel: topic.canEditTags
                       ? 'View and edit all ${tags.length} topic tags'
                       : 'View all ${tags.length} topic tags',
                 ),
