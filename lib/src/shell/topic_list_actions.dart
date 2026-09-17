@@ -214,9 +214,6 @@ class _TopicListFilterMenuState extends State<TopicListFilterMenu> {
         spacing: 12,
         children: [
           const Text('Filter topics'),
-          const DFieldDescription(
-            child: Text('Combine quick filters or write your own query.'),
-          ),
           TopicFilterInput(
             key: ValueKey(_presetRevision),
             siteUrl: widget.siteUrl,
@@ -231,7 +228,6 @@ class _TopicListFilterMenuState extends State<TopicListFilterMenu> {
             onChanged: (query) => setState(() => _query = query),
             onSubmitted: _apply,
           ),
-          const DFieldDescription(child: Text('Quick filters')),
           Wrap(
             spacing: 8,
             runSpacing: 8,
