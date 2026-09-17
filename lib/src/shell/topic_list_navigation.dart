@@ -168,7 +168,6 @@ class _TopicListNavigationControls extends StatelessWidget {
     );
     final navigation = TopicFeedMenu(
       mode: mode,
-      filtered: state.route?.isAdvancedTopicFilter == true,
       signedIn: state.signedIn,
       unreadCount: state.unreadCount,
       newCount: state.allCount,
@@ -342,7 +341,6 @@ class TopicFeedMenu extends StatelessWidget {
     super.key,
     required this.mode,
     required this.onSelected,
-    this.filtered = false,
     this.signedIn = true,
     this.unreadCount = 0,
     this.newCount = 0,
@@ -350,7 +348,6 @@ class TopicFeedMenu extends StatelessWidget {
   final TopicListMode mode;
   final ValueChanged<TopicListMode> onSelected;
   final bool signedIn;
-  final bool filtered;
   final int unreadCount, newCount;
 
   static String label(TopicListMode mode) => switch (mode) {
@@ -454,7 +451,7 @@ class TopicFeedMenu extends StatelessWidget {
           label: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(filtered ? 'Filtered' : label(mode)),
+              Text(label(mode)),
               if (count > 0) ...[
                 const SizedBox(width: 8),
                 DBadge(variant: DBadgeVariant.secondary, child: Text('$count')),
