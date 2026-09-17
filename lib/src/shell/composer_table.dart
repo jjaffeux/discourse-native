@@ -562,12 +562,6 @@ class _ComposerTableEditorState extends State<ComposerTableEditor> {
                     ? () => _insertColumn(_columns.length)
                     : null,
               ),
-              DButton(
-                label: const Text('Done'),
-                variant: DButtonVariant.ghost,
-                size: DButtonSize.small,
-                onPressed: widget.composer.isEditing ? _finish : null,
-              ),
               DButton.iconOnly(
                 tooltip: 'Remove table',
                 icon: const DIcon(DIcons.trashCan, size: 14),

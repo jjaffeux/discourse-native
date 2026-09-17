@@ -10,7 +10,7 @@ as cooked posts, with Native inputs, menus and buttons.
 - **Add row** and **Add column** append to the table. The header stays first,
   and deleting the last column is disabled.
 - Tab/Shift+Tab move between cells; advancing past the last cell adds a row.
-  Enter/Shift+Enter move within a column. Escape or **Done** returns to prose.
+  Enter/Shift+Enter move within a column. Escape returns to prose.
 - Native selection, clipboard and undo shortcuts act on the focused cell.
   Bold, italic and code shortcuts insert Markdown in that cell.
 - Column resizing is local presentation state; column ordering changes the

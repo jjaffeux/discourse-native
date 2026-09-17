@@ -448,7 +448,7 @@ void main() {
       await tester.enterText(_cell(1, 0), 'Coffee');
       await tester.pump(const Duration(seconds: 1));
       final edited = composer.raw;
-      await tester.tap(find.text('Done'));
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
       await tester.pump();
       await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
       await tester.sendKeyEvent(LogicalKeyboardKey.keyZ);
@@ -464,7 +464,7 @@ void main() {
       expect(composer.raw, edited);
       await _menu(tester, 'Row 2 actions', 'Move row up');
       await tester.pump(const Duration(seconds: 1));
-      await tester.tap(find.text('Done'));
+      composer.requestFocus();
       await tester.pump();
       await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
       await tester.sendKeyEvent(LogicalKeyboardKey.keyZ);
