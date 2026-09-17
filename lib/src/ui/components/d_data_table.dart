@@ -196,6 +196,9 @@ class DDataTableColumn<T> {
     required this.label,
     required this.cellBuilder,
     this.headerBuilder,
+    this.onCellTap,
+    this.onHeaderTap,
+    this.cellMouseCursor,
     this.compare,
     this.filter,
     this.filterText,
@@ -217,6 +220,11 @@ class DDataTableColumn<T> {
   final String label;
   final DDataTableCellBuilder<T> cellBuilder;
   final DDataTableHeaderBuilder<T>? headerBuilder;
+
+  /// Activates embedded controls when the surrounding cell padding is tapped.
+  final ValueChanged<DDataTableCellContext<T>>? onCellTap;
+  final VoidCallback? onHeaderTap;
+  final MouseCursor? cellMouseCursor;
   final DDataTableComparator<T>? compare;
   final DDataTableFilter<T>? filter;
   final String Function(T row)? filterText;
@@ -705,6 +713,8 @@ class _DDataTableState<T> extends State<DDataTable<T>> {
                   for (final column in visible)
                     DTableHead(
                       alignment: column.headerAlignment,
+                      onTap: column.onHeaderTap,
+                      mouseCursor: column.cellMouseCursor,
                       padding: EdgeInsets.zero,
                       child: _resizableHeader(
                         column,
@@ -913,6 +923,10 @@ class _DDataTableState<T> extends State<DDataTable<T>> {
         for (final column in columns)
           DTableCell(
             alignment: column.alignment,
+            onTap: column.onCellTap == null
+                ? null
+                : () => column.onCellTap!(cell),
+            mouseCursor: column.cellMouseCursor,
             padding:
                 column._padding ??
                 (_softHeader

@@ -41,7 +41,10 @@ across its own edits and gives its nested controls pointer/keyboard ownership.
 surrounding composer, gives cells a separate focus scope, and groups
 accessibility traversal outside the main text field. Its viewport transform
 keeps cell input/accessibility coordinates aligned with the scrolled content.
-These changes compose existing Native components without extending the UI kit.
+Editable columns use the Native table's `onCellTap` and `onHeaderTap` callbacks
+and text cursor to activate their input across the full cell, including padding.
+`DTableCell` owns this hit area; nested inputs, action menus and resize handles
+retain their own gestures and semantics. Submitting disables cell activation.
 
 ## Verification
 
@@ -69,3 +72,16 @@ The fixture includes narrow/wide, light/dark and RTL controls, plus a link to th
 component styleguide. It uses fake API and draft storage. To reproduce a longer
 post locally, set `COMPOSER_TABLE_FIXTURE_BASE64` to its UTF-8 source encoded as
 base64 through `--dart-define-from-file`; do not commit private fixture content.
+
+### Full-cell hit area verification (2026-09-18)
+
+The 55 focused composer-table, Native Table and Data Table widget tests pass,
+including mouse clicks near header/body edges, empty cells, typing after focus,
+column dragging and action menus in both themes. Full static analysis passes.
+Native macOS verification used the production composer fixture: top-left and
+bottom-right body padding and header padding accepted edits in the wide light
+layout; body padding also accepted edits in the narrow dark layout. The Data
+Table styleguide page was inspected. The new editable-cell example is covered
+by static analysis; native column dragging was inconclusive, with resizing
+verified by widget tests. No iOS or Android device verification was performed.
+The installed Flutter SDK was 3.47.4; the repository pin was not changed.

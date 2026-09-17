@@ -86,8 +86,61 @@ final dataTableExamples = ComponentExamples(
       ),
       states: const ['RTL', 'large text', 'horizontal overflow'],
     ),
+    StyleguideExample(
+      title: 'Editable cell surface',
+      description:
+          'Click anywhere in the cell, including its padding, to focus the Native input. Text selection remains owned by the input.',
+      code: """DDataTableColumn<int>(
+  id: 'name', label: 'Name',
+  cellMouseCursor: SystemMouseCursors.text,
+  onCellTap: (_) => focusNode.requestFocus(),
+  cellBuilder: (_, _) => DInput(
+    borderless: true, focusNode: focusNode, initialValue: 'Edit me',
+  ),
+)""",
+      builder: (_) => const _EditableCellExample(),
+      states: const ['focus', 'editing', 'pointer'],
+    ),
   ],
 );
+
+class _EditableCellExample extends StatefulWidget {
+  const _EditableCellExample();
+
+  @override
+  State<_EditableCellExample> createState() => _EditableCellExampleState();
+}
+
+class _EditableCellExampleState extends State<_EditableCellExample> {
+  final _focus = FocusNode();
+
+  @override
+  void dispose() {
+    _focus.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => DDataTable<int>(
+    variant: DDataTableVariant.softHeader,
+    data: const [0],
+    rowId: (row) => row,
+    columns: [
+      DDataTableColumn(
+        id: 'name',
+        label: 'Name',
+        cellMouseCursor: SystemMouseCursors.text,
+        onCellTap: (_) => _focus.requestFocus(),
+        cellBuilder: (_, _) => DInput(
+          borderless: true,
+          focusNode: _focus,
+          initialValue: 'Edit me',
+          semanticLabel: 'Name',
+        ),
+      ),
+    ],
+  );
+}
 
 class DataTableSoftHeaderExample extends StatelessWidget {
   const DataTableSoftHeaderExample({super.key});
