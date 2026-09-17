@@ -1053,7 +1053,8 @@ void main() {
       await shell.load();
       addTearDown(composer.dispose);
       addTearDown(shell.dispose);
-      final source = _source.substring(0, _source.length - '\nAfter'.length);
+      final source =
+          'Before\n${_source.substring(0, _source.length - '\nAfter'.length)}';
       composer.text.value = TextEditingValue(
         text: source,
         selection: const TextSelection.collapsed(offset: 0),
@@ -1142,7 +1143,7 @@ void main() {
       await tester.pump();
       await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
       await tester.pump();
-      expect(composer.text.selection.extentOffset, gallery.start);
+      expect(composer.text.selection.extentOffset, gallery.start - 1);
       expect(
         find.byKey(const ValueKey('composer-gallery-toolbar')),
         findsNothing,
@@ -1150,6 +1151,9 @@ void main() {
       expect(_composerEditable(tester).showCursor, isTrue);
 
       await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+      await tester.pump();
+      expect(composer.text.keyboardSelectedProjection, isNotNull);
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
       await tester.pump();
       expect(composer.text.selection.extentOffset, gallery.end);
       expect(
@@ -1183,7 +1187,7 @@ void main() {
       await shell.load();
       addTearDown(composer.dispose);
       addTearDown(shell.dispose);
-      composer.text.text = _source;
+      composer.text.text = 'Before\n$_source';
 
       await tester.pumpWidget(
         MaterialApp(
@@ -1199,7 +1203,7 @@ void main() {
       final gallery = composer.text.galleryBlocks.single;
       final controlCenter = _paintedGalleryControlCenter(tester, composer);
       for (final (key, expectedOffset) in [
-        (LogicalKeyboardKey.arrowUp, gallery.start),
+        (LogicalKeyboardKey.arrowUp, gallery.start - 1),
         (LogicalKeyboardKey.arrowDown, gallery.end),
       ]) {
         await tester.tapAt(controlCenter);
@@ -1322,7 +1326,7 @@ void main() {
       final gallery = composer.text.galleryBlocks.single;
       composer.focus.requestFocus();
       for (final (caret, key) in [
-        (gallery.start, LogicalKeyboardKey.arrowDown),
+        (gallery.start - 1, LogicalKeyboardKey.arrowRight),
         (gallery.end, LogicalKeyboardKey.arrowUp),
       ]) {
         composer.text.selection = TextSelection.collapsed(offset: caret);
@@ -1331,6 +1335,11 @@ void main() {
         await tester.sendKeyEvent(key);
         await tester.pump();
 
+        if (caret < gallery.start) {
+          expect(composer.text.keyboardSelectedProjection, isNotNull);
+          await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+          await tester.pump();
+        }
         expect(composer.text.text, source);
         expect(
           composer.text.selection,

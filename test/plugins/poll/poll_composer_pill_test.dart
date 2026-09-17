@@ -688,7 +688,11 @@ void main() {
       expect(controller.keyboardSelectedPoll, isNull);
 
       controller.selection = const TextSelection.collapsed(offset: 0);
-      expect(controller.selection.extentOffset, 0);
+      expect(
+        controller.selection,
+        const TextSelection(baseOffset: 0, extentOffset: source.length),
+      );
+      expect(controller.keyboardSelectedPoll, isNotNull);
     });
   });
 }

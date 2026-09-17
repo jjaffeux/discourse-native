@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 
 import '../plugin_api/composer_syntax.dart';
 import '../theme/d_icons.dart';
+import 'composer_block_selection.dart';
 import 'composer_controller.dart';
 import 'composer_details_blocks.dart';
 import 'composer_details_body_controller.dart';
@@ -87,10 +88,13 @@ final class _DetailsProjection implements ComposerInteractiveSyntaxProjection {
       WidgetSpan(
         alignment: PlaceholderAlignment.top,
         style: context.baseStyle,
-        child: ComposerDetailsEditor(
-          key: context.pillKey,
-          composer: composer,
-          block: block,
+        child: ComposerBlockSelection(
+          selected: context.highlighted,
+          child: ComposerDetailsEditor(
+            key: context.pillKey,
+            composer: composer,
+            block: block,
+          ),
         ),
       ),
       TextSpan(

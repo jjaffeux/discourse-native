@@ -1,0 +1,227 @@
+import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/src/plugin_api/composer_syntax.dart';
+import 'package:discourse_native/src/plugins/poll/poll_plugin.dart';
+import 'package:discourse_native/src/shell/composer_controller.dart';
+import 'package:discourse_native/src/shell/composer_panel.dart';
+import 'package:discourse_native/src/theme/app_theme.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_test/flutter_test.dart';
+
+const _target = ComposerTarget(
+  siteUrl: 'https://example.test',
+  topicId: 1,
+  slug: 'topic',
+  topicTitle: 'Topic',
+);
+const _table = '| Name | Cost |\n| --- | --- |\n| Tea | 12 |';
+const _blocks = {
+  'table': _table,
+  'details': '[details="Summary"]\nBody\n[/details]',
+  'quote': '[quote="sam, post:1, topic:1"]\nQuoted text\n[/quote]',
+  'image': '![Photo|100x100](upload://photo)',
+  'gallery': '[grid]\n![Photo|100x100](upload://photo)\n[/grid]',
+  'poll': '[poll]\n* Tea\n* Coffee\n[/poll]',
+};
+
+Finder _field(ComposerController composer) => find.byWidgetPredicate(
+  (widget) => widget is EditableText && widget.controller == composer.text,
+);
+
+Future<ComposerController> _pump(WidgetTester tester, String source) async {
+  final composer = ComposerController(
+    _target,
+    syntaxPolicies: const [PollComposerSyntaxPolicy()],
+  );
+  addTearDown(composer.dispose);
+  composer.text.value = TextEditingValue(
+    text: source,
+    selection: TextSelection.collapsed(offset: source.length),
+  );
+  await tester.pumpWidget(
+    MaterialApp(
+      theme: AppTheme.light,
+      home: Scaffold(
+        body: SizedBox(
+          width: 760,
+          child: ComposerEditor(
+            composer: composer,
+            hintText: 'Write a reply',
+            textStyle: const TextStyle(fontSize: 16, height: 1.5),
+            hintStyle: null,
+          ),
+        ),
+      ),
+    ),
+  );
+  composer.requestFocus();
+  await tester.pumpAndSettle();
+  return composer;
+}
+
+void main() {
+  for (final entry in _blocks.entries) {
+    for (final prefix in ['', 'Before\n\n']) {
+      testWidgets(
+        '${entry.key} leading boundary selects and deletes the whole block '
+        'with ${prefix.isEmpty ? 'no' : 'preceding'} text',
+        (tester) async {
+          final source = '$prefix${entry.value}\n\nAfter';
+          final composer = await _pump(tester, source);
+          tester.testTextInput.updateEditingValue(
+            composer.text.value.copyWith(
+              selection: TextSelection.collapsed(offset: prefix.length),
+            ),
+          );
+          await tester.pump();
+
+          final selected = composer.text.selection;
+          expect(selected.isCollapsed, isFalse);
+          expect(selected.start, prefix.length);
+          expect(selected.textInside(source).trimRight(), entry.value);
+          expect(composer.text.keyboardSelectedProjection, isNotNull);
+          expect(
+            tester.widget<EditableText>(_field(composer)).showCursor,
+            false,
+          );
+          expect(
+            find.byKey(const ValueKey('composer-selection-toolbar')),
+            findsNothing,
+          );
+          expect(composer.raw, source);
+
+          await tester.sendKeyEvent(LogicalKeyboardKey.backspace);
+          await tester.pump();
+          expect(
+            composer.raw,
+            source.replaceRange(selected.start, selected.end, '').trim(),
+          );
+          expect(composer.text.keyboardSelectedProjection, isNull);
+          expect(tester.takeException(), isNull);
+        },
+      );
+    }
+    testWidgets('${entry.key} supports native keyboard deletion', (
+      tester,
+    ) async {
+      final source = 'Before\n\n${entry.value}\n\nAfter';
+      final composer = await _pump(tester, source);
+      composer.text.selection = const TextSelection.collapsed(offset: 8);
+      await tester.pump();
+      final selected = composer.text.selection;
+      final remaining = source.replaceRange(selected.start, selected.end, '');
+      tester.testTextInput.updateEditingValue(
+        TextEditingValue(
+          text: remaining,
+          selection: TextSelection.collapsed(offset: selected.start),
+        ),
+      );
+      await tester.pump();
+      expect(composer.raw, remaining.trim());
+      expect(composer.text.keyboardSelectedProjection, isNull);
+    });
+  }
+
+  testWidgets(
+    'Delete removes a selected block and undo restores exact source',
+    (tester) async {
+      const source = 'Before\n\n$_table\n\nAfter';
+      final composer = await _pump(tester, source);
+      composer.text.selection = const TextSelection.collapsed(offset: 8);
+      await tester.pump(const Duration(seconds: 1));
+      final selectedItem = tester
+          .widgetList<DItem>(find.byType(DItem))
+          .where((item) => item.selected);
+      expect(selectedItem, hasLength(1));
+      expect(selectedItem.single.selectionStyle, DItemSelectionStyle.outline);
+      await tester.sendKeyEvent(LogicalKeyboardKey.delete);
+      await tester.pump(const Duration(seconds: 1));
+      expect(composer.raw, 'Before\n\n\n\nAfter');
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyZ);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
+      await tester.pump();
+      expect(composer.raw, source);
+      expect(tester.takeException(), isNull);
+    },
+    variant: TargetPlatformVariant.only(TargetPlatform.macOS),
+  );
+
+  testWidgets('arrows traverse a block without stopping at its leading caret', (
+    tester,
+  ) async {
+    const prefix = 'Before\n\n';
+    final composer = await _pump(tester, '$prefix$_table\n\nAfter');
+    composer.text.selection = const TextSelection.collapsed(
+      offset: prefix.length - 1,
+    );
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+    await tester.pump();
+    expect(
+      composer.text.keyboardSelectedProjection,
+      isA<ComposerSyntaxOccurrence>(),
+    );
+    expect(composer.text.selection.start, prefix.length);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+    await tester.pump();
+    expect(composer.text.keyboardSelectedProjection, isNull);
+    expect(
+      composer.text.selection,
+      const TextSelection.collapsed(offset: prefix.length - 1),
+    );
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+    await tester.pump();
+    expect(composer.text.keyboardSelectedProjection, isNull);
+    expect(
+      composer.text.selection,
+      const TextSelection.collapsed(offset: prefix.length + _table.length + 1),
+    );
+  });
+
+  testWidgets('clicking the leading table caret selects it', (tester) async {
+    final composer = await _pump(tester, '$_table\n\nAfter');
+    final render = tester
+        .state<EditableTextState>(_field(composer))
+        .renderEditable;
+    final caret = render.getLocalRectForCaret(const TextPosition(offset: 0));
+    await tester.tapAt(
+      render.localToGlobal(caret.topLeft + const Offset(1, 1)),
+    );
+    await tester.pump();
+    expect(composer.text.keyboardSelectedSyntax, isNotNull);
+    expect(
+      composer.text.selection,
+      const TextSelection(baseOffset: 0, extentOffset: _table.length),
+    );
+    await tester.sendKeyEvent(LogicalKeyboardKey.backspace);
+    await tester.pump();
+    expect(composer.raw, 'After');
+  });
+
+  testWidgets('leaving an image skips a complete preceding grapheme', (
+    tester,
+  ) async {
+    const prefix = '👩‍💻';
+    final composer = await _pump(tester, '$prefix${_blocks['image']}\nAfter');
+    final image = composer.text.imageBlocks.single;
+    composer.text.selection = TextSelection.collapsed(offset: image.start);
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+    await tester.pump();
+    expect(composer.text.selection, const TextSelection.collapsed(offset: 0));
+  });
+
+  testWidgets('inline links retain an editable leading caret', (tester) async {
+    final composer = await _pump(
+      tester,
+      'Before [link](https://example.test) after',
+    );
+    composer.text.selection = const TextSelection.collapsed(offset: 7);
+    await tester.pump();
+    expect(composer.text.selection.isCollapsed, isTrue);
+    expect(composer.text.keyboardSelectedProjection, isNull);
+    expect(tester.widget<EditableText>(_field(composer)).showCursor, isTrue);
+  });
+}

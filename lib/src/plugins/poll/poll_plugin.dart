@@ -194,7 +194,7 @@ final class PollComposerSyntaxPolicy implements ComposerSyntaxPolicy {
 }
 
 final class PollComposerSyntaxProjection
-    implements ComposerSyntaxProjection, PollComposerProjectionData {
+    implements ComposerBlockSyntaxProjection, PollComposerProjectionData {
   const PollComposerSyntaxProjection({
     required this.policy,
     required this.block,

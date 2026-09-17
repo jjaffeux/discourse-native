@@ -1140,6 +1140,10 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
       final markerSelection = text.selection;
       final marker = _uploadPlaceholders[first.key];
       final markerStart = marker == null ? -1 : text.text.indexOf(marker);
+      final markerSelected =
+          text.keyboardSelectedSyntax?.start == markerStart &&
+          markerSelection.start == markerStart &&
+          !markerSelection.isCollapsed;
       if (markerStart >= 0) {
         if (first.value.destination == _ComposerUploadDestination.standalone) {
           // The slot itself owns ordering and both selection boundaries.
@@ -1232,14 +1236,17 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
           markerStart == insertionOffset &&
           markerSelection.isValid) {
         final current = text.selection;
-        text.selection = current.copyWith(
-          baseOffset: markerSelection.baseOffset == markerStart
-              ? insertionOffset
-              : current.baseOffset,
-          extentOffset: markerSelection.extentOffset == markerStart
-              ? insertionOffset
-              : current.extentOffset,
-        );
+        text.clearKeyboardPillSelection();
+        text.selection = markerSelected
+            ? TextSelection.collapsed(offset: insertionOffset)
+            : current.copyWith(
+                baseOffset: markerSelection.baseOffset == markerStart
+                    ? insertionOffset
+                    : current.baseOffset,
+                extentOffset: markerSelection.extentOffset == markerStart
+                    ? insertionOffset
+                    : current.extentOffset,
+              );
       }
 
       // A later request is allowed to finish first, but it must not steal the
