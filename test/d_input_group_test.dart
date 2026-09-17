@@ -159,7 +159,7 @@ void main() {
     );
 
     expect(tester.getSize(find.byType(DInputGroup)).height, 28);
-    expect(tester.getSize(find.byType(EditableText)).height, 20);
+    expect(tester.getSize(find.byType(EditableText)).height, 16);
   });
 
   testWidgets('inline addons hug their edges and leave width to the editor', (

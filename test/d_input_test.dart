@@ -617,12 +617,12 @@ void main() {
   );
 
   testWidgets(
-    '32px desktop bounds grow for 200% text without changing inset or overflowing RTL',
+    '28px desktop bounds grow for 200% text without changing inset or overflowing RTL',
     (tester) async {
       await tester.pumpWidget(host(DInput(hintText: 'Email')));
-      expect(tester.getSize(find.byType(DInput)).height, 32);
+      expect(tester.getSize(find.byType(DInput)).height, 28);
       final field = tester.widget<TextField>(find.byType(TextField));
-      expect(field.style!.fontSize, 14);
+      expect(field.style!.fontSize, 12);
       await tester.pumpWidget(
         host(
           Directionality(
@@ -641,14 +641,14 @@ void main() {
   );
 
   testWidgets(
-    'file input retains 32px desktop geometry and grows for large text',
+    'file input retains 28px desktop geometry and grows for large text',
     (tester) async {
       await tester.pumpWidget(host(DFileInput(onPick: () async => null)));
-      expect(tester.getSize(find.byType(DFileInput)).height, 32);
+      expect(tester.getSize(find.byType(DFileInput)).height, 28);
       await tester.pumpWidget(
         host(DFileInput(onPick: () async => null), scale: 2),
       );
-      expect(tester.getSize(find.byType(DFileInput)).height, 48);
+      expect(tester.getSize(find.byType(DFileInput)).height, 34);
       expect(tester.takeException(), isNull);
     },
   );

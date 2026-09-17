@@ -34,6 +34,7 @@ class DInput extends FormField<String> {
   DInput({
     super.key,
     this.borderless = false,
+    this.size = DControlSize.regular,
     this.style,
     this.maxLines = 1,
     this.controller,
@@ -89,6 +90,9 @@ class DInput extends FormField<String> {
 
   /// Removes the field surface and insets for editing text in place.
   final bool borderless;
+
+  /// Shared button and field size. Input groups supply their own size.
+  final DControlSize size;
 
   /// Text styling for an inline editor.
   final TextStyle? style;
@@ -245,25 +249,26 @@ class _DInputState extends FormFieldState<String> {
 
   Widget _build() {
     final t = DTokens.of(context);
+    final size = _group?.size ?? input.size;
     final joined = DJoinedControlScope.maybeOf(context);
     final radius =
         joined?.resolveRadius(
-          BorderRadius.circular(t.controlRadius),
+          BorderRadius.circular(DControlStyle.radius(t, size)),
           Directionality.of(context),
         ) ??
-        BorderRadius.circular(t.controlRadius);
+        BorderRadius.circular(DControlStyle.radius(t, size));
     final error = input.errorText ?? errorText;
     final isInvalid = input.invalid || error != null;
     final touch = switch (Theme.of(context).platform) {
       TargetPlatform.iOS || TargetPlatform.android => true,
       _ => false,
     };
-    final fontSize = touch ? DiscourseTypography.base : DiscourseTypography.sm;
+    final fontSize = DControlStyle.fontSize(size);
     final style =
         input.style ??
         Theme.of(context).textTheme.bodyMedium!.copyWith(
           fontSize: fontSize,
-          height: (touch ? 24 : 20) / fontSize,
+          height: DControlStyle.lineHeight(size) / fontSize,
           fontWeight: FontWeight.w400,
           letterSpacing: 0,
           color: t.foreground,
@@ -387,6 +392,7 @@ class _DInputState extends FormFieldState<String> {
             touch: touch,
             onTap: input.enabled ? _focus.requestFocus : null,
             child: _InputSurface(
+              size: size,
               enabled: input.enabled,
               invalid: isInvalid,
               focused: _focus.hasFocus,
@@ -450,7 +456,7 @@ class _InputSurface extends StatelessWidget {
     this.borderRadius,
     this.joinedAxis,
     this.omitLeadingBorder = false,
-    this.verticalPadding = 5,
+    this.size = DControlSize.regular,
     this.fadeDisabled = true,
   });
   final Widget child;
@@ -458,7 +464,7 @@ class _InputSurface extends StatelessWidget {
   final BorderRadius? borderRadius;
   final Axis? joinedAxis;
   final bool omitLeadingBorder;
-  final double verticalPadding;
+  final DControlSize size;
   final bool fadeDisabled;
   @override
   Widget build(BuildContext context) {
@@ -486,7 +492,8 @@ class _InputSurface extends StatelessWidget {
               : _InputRing(
                   color: ring,
                   radius:
-                      borderRadius ?? BorderRadius.circular(t.controlRadius),
+                      borderRadius ??
+                      BorderRadius.circular(DControlStyle.radius(t, size)),
                 ),
           child: AnimatedContainer(
             duration: DMotion.duration(
@@ -494,11 +501,13 @@ class _InputSurface extends StatelessWidget {
               const Duration(milliseconds: 150),
             ),
             curve: Curves.fastOutSlowIn,
-            constraints: const BoxConstraints(minHeight: 32),
-            padding: EdgeInsets.symmetric(
-              horizontal: 10,
-              vertical: verticalPadding,
+            constraints: BoxConstraints(
+              minHeight: DControlStyle.scaledHeight(
+                size,
+                MediaQuery.textScalerOf(context),
+              ),
             ),
+            padding: const EdgeInsets.symmetric(horizontal: 10),
             decoration: _InputSurfaceDecoration(
               backgroundColor: DControlStyle.fieldFill(
                 t,
@@ -506,14 +515,22 @@ class _InputSurface extends StatelessWidget {
                 enabled: enabled,
               ),
               borderRadius:
-                  borderRadius ?? BorderRadius.circular(t.controlRadius),
+                  borderRadius ??
+                  BorderRadius.circular(DControlStyle.radius(t, size)),
               borderColor: border,
               joinedAxis: joinedAxis,
               omitLeadingBorder: omitLeadingBorder,
             ),
             child: IconTheme.merge(
-              data: IconThemeData(size: 16, color: t.mutedForeground),
-              child: child,
+              data: IconThemeData(
+                size: DControlStyle.iconDimension(size),
+                color: t.mutedForeground,
+              ),
+              child: Align(
+                alignment: AlignmentDirectional.centerStart,
+                heightFactor: 1,
+                child: child,
+              ),
             ),
           ),
         ),
@@ -632,6 +649,7 @@ class DFileInput extends FormField<List<String>> {
   DFileInput({
     super.key,
     required this.onPick,
+    this.size = DControlSize.regular,
     this.onChanged,
     this.label = 'Choose file',
     this.emptyLabel = 'No file chosen',
@@ -642,6 +660,7 @@ class DFileInput extends FormField<List<String>> {
     super.onReset,
     super.autovalidateMode,
   }) : super(builder: (state) => (state as _DFileInputState)._build());
+  final DControlSize size;
   final Future<List<String>?> Function() onPick;
   final ValueChanged<List<String>>? onChanged;
   final String label, emptyLabel;
@@ -703,12 +722,16 @@ class _DFileInputState extends FormFieldState<List<String>> {
       _ => false,
     };
     final lineHeight =
-        MediaQuery.textScalerOf(context).scale(DiscourseTypography.sm) *
-        20 /
-        14;
+        MediaQuery.textScalerOf(
+          context,
+        ).scale(DControlStyle.fontSize(input.size)) *
+        DControlStyle.lineHeight(input.size) /
+        DControlStyle.fontSize(input.size);
     final style = Theme.of(context).textTheme.bodyMedium!.copyWith(
-      fontSize: DiscourseTypography.sm,
-      height: 20 / 14,
+      fontSize: DControlStyle.fontSize(input.size),
+      height:
+          DControlStyle.lineHeight(input.size) /
+          DControlStyle.fontSize(input.size),
       fontWeight: FontWeight.w400,
       letterSpacing: 0,
       color: t.foreground,
@@ -732,7 +755,7 @@ class _DFileInputState extends FormFieldState<List<String>> {
                   fadeDisabled: false,
                   invalid: hasError || _pickerError != null,
                   focused: _focused,
-                  verticalPadding: 3,
+                  size: input.size,
                   child: SizedBox(width: double.infinity, height: lineHeight),
                 ),
                 Padding(
@@ -760,7 +783,7 @@ class _DFileInputState extends FormFieldState<List<String>> {
                             child: DButton(
                               onPressed: input.enabled && !_busy ? _pick : null,
                               variant: DButtonVariant.ghost,
-                              size: DButtonSize.small,
+                              size: input.size,
                               label: Text(
                                 _busy ? 'Choosing…' : input.label,
                                 maxLines: 1,
