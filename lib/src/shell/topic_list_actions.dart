@@ -108,21 +108,6 @@ class TopicListActions extends StatelessWidget {
               ),
             ),
           ),
-          if (presentation != null)
-            DButton.iconOnly(
-              key: const ValueKey('topic-list-presentation'),
-              tooltip: presentation.preference == TopicPresentation.docked
-                  ? 'Open topics in a dialog'
-                  : 'Open topics beside the list',
-              icon: const DIcon(DNativeIcons.columns),
-              size: DButtonSize.large,
-              variant: DButtonVariant.transparentBackground,
-              onPressed: () => presentation.select(
-                presentation.preference == TopicPresentation.docked
-                    ? TopicPresentation.sheet
-                    : TopicPresentation.docked,
-              ),
-            ),
         ],
       ),
     );
