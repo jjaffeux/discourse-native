@@ -62,7 +62,7 @@ void main() {
               .responders['GET /discourse-post-event/events/42/invitees.json?filter=sam'] =
           (_) => pending.future;
       await tester.enterText(find.byType(TextField), 'sam');
-      await tester.tap(find.byTooltip('Search'));
+      await tester.testTextInput.receiveAction(TextInputAction.search);
       await tester.pump();
       current = eventJson(
         overrides: {
