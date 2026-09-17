@@ -234,75 +234,80 @@ class _DBadgeState extends State<DBadge> {
               (widget.variant == DBadgeVariant.outline
                   ? tokens.border
                   : Colors.transparent);
-    Widget visual = AnimatedContainer(
-      duration: DMotion.duration(context, const Duration(milliseconds: 150)),
-      curve: _transitionCurve,
-      clipBehavior: Clip.antiAlias,
-      constraints: BoxConstraints(
-        minWidth: overlay ? 14 : 0,
-        minHeight: overlay ? 14 : (compact ? 16 : 20),
-      ),
-      decoration: BoxDecoration(
-        color: widget.backgroundColor ?? baseBackground,
-        border: overlay ? null : Border.all(color: border),
-        borderRadius: radius,
-      ),
-      foregroundDecoration: _BadgeRing(
-        radius: radius,
-        width: overlay ? 1.5 : (focus ? 3 : 0),
-        color: overlay
-            ? widget.ringColor ?? tokens.background
-            : ringColor.withValues(
-                alpha: destructiveRing ? (dark ? .4 : .2) : .5,
+    Widget visual = _BadgeHoverTransition(
+      hovered: _hovered,
+      builder: (hoverChanged) => AnimatedContainer(
+        duration: hoverChanged
+            ? Duration.zero
+            : DMotion.duration(context, const Duration(milliseconds: 150)),
+        curve: _transitionCurve,
+        clipBehavior: Clip.antiAlias,
+        constraints: BoxConstraints(
+          minWidth: overlay ? 14 : 0,
+          minHeight: overlay ? 14 : (compact ? 16 : 20),
+        ),
+        decoration: BoxDecoration(
+          color: widget.backgroundColor ?? baseBackground,
+          border: overlay ? null : Border.all(color: border),
+          borderRadius: radius,
+        ),
+        foregroundDecoration: _BadgeRing(
+          radius: radius,
+          width: overlay ? 1.5 : (focus ? 3 : 0),
+          color: overlay
+              ? widget.ringColor ?? tokens.background
+              : ringColor.withValues(
+                  alpha: destructiveRing ? (dark ? .4 : .2) : .5,
+                ),
+        ),
+        // Compact counts keep 12px type with 14px leading inside a 1px border.
+        padding: overlay
+            ? const EdgeInsets.symmetric(horizontal: 3, vertical: 1)
+            : EdgeInsetsDirectional.fromSTEB(
+                compact ? 4 : (widget.leading == null ? 8 : 6),
+                compact ? 0 : 1,
+                compact ? 4 : (widget.trailing == null ? 8 : 6),
+                compact ? 0 : 1,
               ),
-      ),
-      // Compact counts keep 12px type with 14px leading inside a 1px border.
-      padding: overlay
-          ? const EdgeInsets.symmetric(horizontal: 3, vertical: 1)
-          : EdgeInsetsDirectional.fromSTEB(
-              compact ? 4 : (widget.leading == null ? 8 : 6),
-              compact ? 0 : 1,
-              compact ? 4 : (widget.trailing == null ? 8 : 6),
-              compact ? 0 : 1,
+        child: IconTheme.merge(
+          data: IconThemeData(size: 12, color: foreground),
+          child: DefaultTextStyle(
+            style: (Theme.of(context).textTheme.bodySmall ?? const TextStyle())
+                .copyWith(
+                  fontSize: overlay ? 10 : DiscourseTypography.xs,
+                  height: overlay
+                      ? 1.2
+                      : compact
+                      ? 14 / DiscourseTypography.xs
+                      : DiscourseTypography.lineHeightCaption,
+                  fontWeight: overlay ? FontWeight.w600 : FontWeight.w500,
+                  fontFeatures: overlay
+                      ? const [FontFeature.tabularFigures()]
+                      : null,
+                  letterSpacing: 0,
+                  color: foreground,
+                  decoration: widget.variant == DBadgeVariant.link && active
+                      ? TextDecoration.underline
+                      : TextDecoration.none,
+                  decorationColor: foreground,
+                ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: overlay
+                  ? MainAxisAlignment.center
+                  : MainAxisAlignment.start,
+              children: [
+                if (widget.leading case final leading?) ...[
+                  _artwork(leading),
+                  const SizedBox(width: DSpacing.xs),
+                ],
+                Flexible(child: widget.child),
+                if (widget.trailing case final trailing?) ...[
+                  const SizedBox(width: DSpacing.xs),
+                  _artwork(trailing),
+                ],
+              ],
             ),
-      child: IconTheme.merge(
-        data: IconThemeData(size: 12, color: foreground),
-        child: DefaultTextStyle(
-          style: (Theme.of(context).textTheme.bodySmall ?? const TextStyle())
-              .copyWith(
-                fontSize: overlay ? 10 : DiscourseTypography.xs,
-                height: overlay
-                    ? 1.2
-                    : compact
-                    ? 14 / DiscourseTypography.xs
-                    : DiscourseTypography.lineHeightCaption,
-                fontWeight: overlay ? FontWeight.w600 : FontWeight.w500,
-                fontFeatures: overlay
-                    ? const [FontFeature.tabularFigures()]
-                    : null,
-                letterSpacing: 0,
-                color: foreground,
-                decoration: widget.variant == DBadgeVariant.link && active
-                    ? TextDecoration.underline
-                    : TextDecoration.none,
-                decorationColor: foreground,
-              ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            mainAxisAlignment: overlay
-                ? MainAxisAlignment.center
-                : MainAxisAlignment.start,
-            children: [
-              if (widget.leading case final leading?) ...[
-                _artwork(leading),
-                const SizedBox(width: DSpacing.xs),
-              ],
-              Flexible(child: widget.child),
-              if (widget.trailing case final trailing?) ...[
-                const SizedBox(width: DSpacing.xs),
-                _artwork(trailing),
-              ],
-            ],
           ),
         ),
       ),
@@ -403,6 +408,32 @@ class _DBadgeState extends State<DBadge> {
       ),
     ),
   );
+}
+
+// Hover entry and exit paint immediately, while theme and focus changes keep
+// the badge's usual transition. In particular, leaving a tag cannot trail fill
+// across the containing topic row.
+class _BadgeHoverTransition extends StatefulWidget {
+  const _BadgeHoverTransition({required this.hovered, required this.builder});
+
+  final bool hovered;
+  final Widget Function(bool hoverChanged) builder;
+
+  @override
+  State<_BadgeHoverTransition> createState() => _BadgeHoverTransitionState();
+}
+
+class _BadgeHoverTransitionState extends State<_BadgeHoverTransition> {
+  bool _hoverChanged = false;
+
+  @override
+  void didUpdateWidget(_BadgeHoverTransition oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _hoverChanged = widget.hovered != oldWidget.hovered;
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.builder(_hoverChanged);
 }
 
 /// CSS outer shadows exclude the border box, even with translucent backgrounds.

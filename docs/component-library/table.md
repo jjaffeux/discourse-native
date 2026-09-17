@@ -1,5 +1,11 @@
 # Table implementation and review queue
 
+`DTableRow.highlightOnHover` defaults to true. Set it to false when an
+enclosing component owns the highlight, as with topic rows inside `DItem`.
+The table stays transparent during pointer movement; selected and expanded
+states remain controlled independently. This works for full and lazy tables
+and the single-row layout.
+
 Status: **in_progress — native/reference rendered comparison pending**. Task
 `01a0844a-0669-7780-92e8-33cc4314f64a`, branch `codex/ui-table`, isolated checkout
 `/Users/joffreyjaffeux/.codex/worktrees/7328/discourse-native`.

@@ -53,6 +53,81 @@ Widget sample(DItemSize size) => DItem(
 );
 
 void main() {
+  testWidgets('neutral rows keep hover subtle and selection borderless', (
+    tester,
+  ) async {
+    final strategy = FocusManager.instance.highlightStrategy;
+    FocusManager.instance.highlightStrategy =
+        FocusHighlightStrategy.alwaysTraditional;
+    addTearDown(() => FocusManager.instance.highlightStrategy = strategy);
+    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    addTearDown(mouse.removePointer);
+    await mouse.addPointer(location: const Offset(700, 500));
+    final focus = FocusNode();
+    addTearDown(focus.dispose);
+    for (final brightness in Brightness.values) {
+      final theme = ThemeData(brightness: brightness);
+      final tokens = DTokens.fromTheme(theme);
+      var selected = false;
+      await tester.pumpWidget(
+        host(
+          StatefulBuilder(
+            builder: (context, setState) => DItem(
+              focusNode: focus,
+              selected: selected,
+              selectionStyle: DItemSelectionStyle.neutral,
+              showSelectionIndicator: false,
+              onPressed: () => setState(() => selected = !selected),
+              children: const [
+                DItemContent(children: [DItemTitle(child: Text('Topic'))]),
+              ],
+            ),
+          ),
+          theme: theme,
+        ),
+      );
+      await tester.pumpAndSettle();
+      BoxDecoration painted() =>
+          tester
+                  .renderObject<RenderDecoratedBox>(
+                    find
+                        .descendant(
+                          of: find.byType(DItem),
+                          matching: find.byType(DecoratedBox),
+                        )
+                        .first,
+                  )
+                  .decoration
+              as BoxDecoration;
+      final bounds = tester.getRect(find.text('Topic'));
+      await mouse.moveTo(tester.getCenter(find.text('Topic')));
+      await tester.pump();
+      final hovered = painted();
+      expect(hovered.color!.a, inExclusiveRange(0, .1));
+      expect(hovered.border!.top.color, Colors.transparent);
+      expect(
+        (hovered.borderRadius! as BorderRadius).topLeft.x,
+        greaterThan(tokens.radius),
+      );
+      await tester.pump(const Duration(milliseconds: 75));
+      expect(painted(), hovered);
+      await mouse.moveTo(const Offset(700, 500));
+      await tester.pump();
+      expect(painted().color, Colors.transparent);
+      await tester.tap(find.text('Topic'));
+      focus.unfocus();
+      await tester.pump();
+      expect(painted().color!.a, inExclusiveRange(0, .1));
+      expect(painted().border!.top.color, Colors.transparent);
+      expect(tester.getRect(find.text('Topic')), bounds);
+      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+      await tester.pumpAndSettle();
+      expect(focus.hasFocus, isTrue);
+      expect(painted().border!.top.color, tokens.focusRing);
+      await tester.pumpWidget(const SizedBox());
+    }
+  });
+
   testWidgets(
     'outline selection moves immediately without tint or layout shift',
     (tester) async {

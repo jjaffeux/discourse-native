@@ -264,6 +264,7 @@ class _CompactTopicRow extends StatelessWidget {
                           body: DTableBody(
                             rows: [
                               DTableRow(
+                                highlightOnHover: false,
                                 cells: [
                                   cell(
                                     registry.decorateTopicListTitle(

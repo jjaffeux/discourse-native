@@ -27,6 +27,66 @@ import 'package:super_sliver_list/super_sliver_list.dart';
 import 'support/fakes.dart';
 
 void main() {
+  for (final dark in [false, true]) {
+    for (final mode in TopicListDisplayMode.values) {
+      testWidgets('topic tags stay transparent on hover in $mode/$dark', (
+        tester,
+      ) async {
+        await _setup(tester, dark: dark, mode: mode);
+        final row = find.byKey(ValueKey('topic-${mode.name}-1'));
+        final tag = find.descendant(of: row, matching: find.text('design'));
+        final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+        addTearDown(mouse.removePointer);
+        await mouse.addPointer(location: Offset.zero);
+        for (final hovering in [true, false]) {
+          await mouse.moveTo(hovering ? tester.getCenter(tag) : Offset.zero);
+          await tester.pump();
+          for (final elapsed in [0, 50, 100, 150]) {
+            await tester.pump(Duration(milliseconds: elapsed));
+            final surface =
+                tester
+                        .renderObject<RenderDecoratedBox>(
+                          find
+                              .ancestor(
+                                of: tag,
+                                matching: find.byWidgetPredicate(
+                                  (widget) =>
+                                      widget is DecoratedBox &&
+                                      widget.decoration is BoxDecoration,
+                                ),
+                              )
+                              .first,
+                        )
+                        .decoration
+                    as BoxDecoration;
+            expect(surface.color, Colors.transparent);
+            expect(surface.border!.top.color, Colors.transparent);
+            final tableSurface =
+                tester
+                        .renderObject<RenderDecoratedBox>(
+                          find
+                              .descendant(
+                                of: find.descendant(
+                                  of: row,
+                                  matching: find.byType(DTable),
+                                ),
+                                matching: find.byType(DecoratedBox),
+                              )
+                              .first,
+                        )
+                        .decoration
+                    as BoxDecoration;
+            expect(
+              tableSurface.color!.a,
+              0,
+              reason: 'The containing Item owns the entire row highlight.',
+            );
+          }
+        }
+      });
+    }
+  }
+
   for (final (width, scale, direction) in [
     (1200.0, 1.0, TextDirection.ltr),
     (780.0, 1.0, TextDirection.ltr),
