@@ -294,8 +294,6 @@ void main() {
       composer.text.selection = TextSelection.collapsed(offset: table.start);
       composer.requestFocus();
       await tester.pump();
-      await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
-      await tester.pump();
       expect(
         composer.text.keyboardSelectedSyntax?.kind,
         composerTableSyntaxKind,

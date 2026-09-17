@@ -163,7 +163,7 @@ void main() {
     );
   }
 
-  testWidgets('completion preserves a caret immediately before the slot', (
+  testWidgets('completion preserves selection of the upload component', (
     tester,
   ) async {
     final request = Completer<ComposerUploadResult>();
@@ -179,12 +179,18 @@ void main() {
     composer.text.selection = const TextSelection.collapsed(offset: 0);
     request.complete(_result);
     await tester.pumpAndSettle();
-    expect(composer.text.selection, const TextSelection.collapsed(offset: 0));
-    await _type(tester, composer, 'Before\n');
-    expect(composer.raw, 'Before\n![photo|100x100](upload://photo)');
+    final image = composer.text.imageBlocks.single;
+    expect(
+      composer.text.selection,
+      TextSelection(baseOffset: image.start, extentOffset: image.end),
+    );
+    expect(composer.text.keyboardSelectedImage, isNotNull);
+    await tester.sendKeyEvent(LogicalKeyboardKey.backspace);
+    await tester.pump();
+    expect(composer.raw, isEmpty);
   });
 
-  testWidgets('a new gallery preserves a caret before its pending slots', (
+  testWidgets('a new gallery preserves selection of its pending slot', (
     tester,
   ) async {
     final request = Completer<ComposerUploadResult>();
@@ -200,8 +206,41 @@ void main() {
     composer.text.selection = const TextSelection.collapsed(offset: 0);
     request.complete(_result);
     await tester.pumpAndSettle();
-    expect(composer.text.selection, const TextSelection.collapsed(offset: 0));
-    expect(composer.text.galleryBlocks.single.images, hasLength(3));
+    final gallery = composer.text.galleryBlocks.single;
+    expect(
+      composer.text.selection,
+      TextSelection(baseOffset: gallery.start, extentOffset: gallery.end),
+    );
+    expect(composer.text.keyboardSelectedProjection, isNotNull);
+    expect(gallery.images, hasLength(3));
+  });
+
+  testWidgets('Backspace cancels a selected pending upload', (tester) async {
+    final request = Completer<ComposerUploadResult>();
+    var cancelled = false;
+    final composer = ComposerController(
+      _target,
+      imageUploader: (file, {required onProgress, required abortTrigger}) {
+        unawaited(abortTrigger.then((_) => cancelled = true));
+        return request.future;
+      },
+    );
+    addTearDown(composer.dispose);
+    await _pump(tester, composer);
+    composer.addImages([_file], 0);
+    await tester.pump();
+    composer.text.selection = const TextSelection.collapsed(offset: 0);
+    await tester.pump();
+    expect(composer.text.keyboardSelectedSyntax?.kind.name, 'upload');
+    expect(composer.text.selection.isCollapsed, isFalse);
+    await tester.sendKeyEvent(LogicalKeyboardKey.backspace);
+    await tester.pump();
+    expect(cancelled, isTrue);
+    expect(composer.uploads, isEmpty);
+    expect(composer.raw, isEmpty);
+    request.complete(_result);
+    await tester.pumpAndSettle();
+    expect(composer.raw, isEmpty);
   });
 
   testWidgets('cancel targets the clicked row in a batch', (tester) async {

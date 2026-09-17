@@ -574,15 +574,15 @@ final class ComposerMediaEditingCoordinator extends FrameSafeNotifier
         if (movesBefore || movesAfter) {
           dismissGallery(requestFocus: false);
           _composer.text.selection = TextSelection.collapsed(
-            offset: movesBefore ? gallery.start : gallery.end,
+            offset: movesBefore
+                ? _composer.text.caretBeforeBlock(gallery.start)
+                : gallery.end,
           );
           return KeyEventResult.handled;
         }
-        if (event.logicalKey == LogicalKeyboardKey.backspace) {
+        if (event.logicalKey == LogicalKeyboardKey.backspace ||
+            event.logicalKey == LogicalKeyboardKey.delete) {
           removeSelectedGallery();
-          return KeyEventResult.handled;
-        }
-        if (event.logicalKey == LogicalKeyboardKey.delete) {
           return KeyEventResult.handled;
         }
       }
@@ -621,7 +621,9 @@ final class ComposerMediaEditingCoordinator extends FrameSafeNotifier
       if (movesBefore || movesAfter) {
         clearKeyboardImageSelection();
         _composer.text.selection = TextSelection.collapsed(
-          offset: movesBefore ? selectedImage.start : selectedImage.end,
+          offset: movesBefore
+              ? _composer.text.caretBeforeBlock(selectedImage.start)
+              : selectedImage.end,
         );
         return KeyEventResult.handled;
       }
@@ -635,7 +637,8 @@ final class ComposerMediaEditingCoordinator extends FrameSafeNotifier
         return KeyEventResult.handled;
       }
       if (event is KeyDownEvent &&
-          event.logicalKey == LogicalKeyboardKey.backspace &&
+          (event.logicalKey == LogicalKeyboardKey.backspace ||
+              event.logicalKey == LogicalKeyboardKey.delete) &&
           !hasModifier) {
         clearKeyboardImageSelection();
         _composer.removeImage(selectedImage);

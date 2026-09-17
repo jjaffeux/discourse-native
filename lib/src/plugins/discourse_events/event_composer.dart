@@ -43,7 +43,7 @@ final class EventSyntaxPolicy implements ComposerSyntaxPolicy {
   ];
 }
 
-final class EventProjection implements ComposerSyntaxProjection {
+final class EventProjection implements ComposerBlockSyntaxProjection {
   const EventProjection(this.block, this.policy);
   final EventBlock block;
   final EventSyntaxPolicy policy;

@@ -614,15 +614,27 @@ class _TopicTaxonomy extends StatelessWidget {
 }
 
 class _SelectedPillInputFormatter extends TextInputFormatter {
-  const _SelectedPillInputFormatter(this.isSelected);
+  const _SelectedPillInputFormatter(this.isSelected, this.onDelete);
 
   final bool Function() isSelected;
+  final VoidCallback onDelete;
 
   @override
   TextEditingValue formatEditUpdate(
     TextEditingValue oldValue,
     TextEditingValue newValue,
-  ) => isSelected() ? oldValue : newValue;
+  ) {
+    if (!isSelected()) return newValue;
+    final selection = oldValue.selection;
+    if (selection.isValid &&
+        !selection.isCollapsed &&
+        newValue.text ==
+            oldValue.text.replaceRange(selection.start, selection.end, '') &&
+        newValue.composing.isCollapsed) {
+      onDelete();
+    }
+    return oldValue;
+  }
 }
 
 class _RenderedEmojiInputFormatter extends TextInputFormatter {
@@ -900,8 +912,25 @@ class _ComposerEditorState extends State<ComposerEditor> {
     );
     _selectedPillInputFormatter = _SelectedPillInputFormatter(
       () =>
-          widget.composer.text.keyboardSelectedSyntax != null ||
+          widget.composer.text.keyboardSelectedProjection != null ||
           _media.hasSelectedMediaProjection,
+      () {
+        final composer = widget.composer;
+        final pill = _keyboardSelectedPill;
+        if (pill == null) return;
+        final source = composer.text.text;
+        // Finish the native proposal before committing the component's removal.
+        scheduleMicrotask(() {
+          if (!mounted ||
+              !identical(widget.composer, composer) ||
+              composer.text.text != source ||
+              !identical(_keyboardSelectedPill, pill)) {
+            return;
+          }
+          _clearKeyboardPillSelection();
+          _removePill(pill);
+        });
+      },
     );
     _renderedEmojiInputFormatter = _RenderedEmojiInputFormatter(
       endingAt: (offset) => widget.composer.text.renderedEmojiEndingAt(offset),
@@ -1578,10 +1607,17 @@ class _ComposerEditorState extends State<ComposerEditor> {
         _clearKeyboardPillSelection();
         if (movesBefore) {
           widget.composer.text.selection = TextSelection.collapsed(
-            offset: _pillStart(selectedPill),
+            offset: switch (selectedPill) {
+              ComposerSyntaxOccurrence(:final projection)
+                  when projection is! ComposerBlockSyntaxProjection =>
+                projection.start,
+              _ => widget.composer.text.caretBeforeBlock(
+                _pillStart(selectedPill),
+              ),
+            },
           );
         } else {
-          _moveCaretAfterSyntax(selectedPill);
+          _moveCaretAfterPill(selectedPill);
         }
         return KeyEventResult.handled;
       }
@@ -1595,7 +1631,8 @@ class _ComposerEditorState extends State<ComposerEditor> {
         return KeyEventResult.handled;
       }
       if (event is KeyDownEvent &&
-          event.logicalKey == LogicalKeyboardKey.backspace &&
+          (event.logicalKey == LogicalKeyboardKey.backspace ||
+              event.logicalKey == LogicalKeyboardKey.delete) &&
           !hasModifier) {
         _clearKeyboardPillSelection();
         _removePill(selectedPill);
@@ -1739,8 +1776,8 @@ class _ComposerEditorState extends State<ComposerEditor> {
     return KeyEventResult.ignored;
   }
 
-  ComposerSyntaxOccurrence? get _keyboardSelectedPill =>
-      widget.composer.text.keyboardSelectedSyntax;
+  Object? get _keyboardSelectedPill =>
+      widget.composer.text.keyboardSelectedProjection;
 
   void _clearKeyboardPillSelection() {
     _media.clearKeyboardImageSelection();
@@ -1786,8 +1823,25 @@ class _ComposerEditorState extends State<ComposerEditor> {
 
   static int _pillStart(Object pill) => switch (pill) {
     ComposerSyntaxOccurrence syntax => syntax.start,
+    ComposerQuoteBlock quote => quote.start,
+    ComposerImageGalleryBlock gallery => gallery.start,
+    ComposerImageBlock image => image.start,
     _ => throw ArgumentError.value(pill, 'pill'),
   };
+
+  void _moveCaretAfterPill(Object pill) {
+    if (pill case final ComposerSyntaxOccurrence syntax) {
+      _moveCaretAfterSyntax(syntax);
+      return;
+    }
+    final end = switch (pill) {
+      ComposerQuoteBlock quote => quote.end,
+      ComposerImageGalleryBlock gallery => gallery.end,
+      ComposerImageBlock image => image.end,
+      _ => throw ArgumentError.value(pill, 'pill'),
+    };
+    widget.composer.text.selection = TextSelection.collapsed(offset: end);
+  }
 
   void _moveCaretAfterSyntax(ComposerSyntaxOccurrence syntax) {
     final text = widget.composer.text;
@@ -1802,6 +1856,14 @@ class _ComposerEditorState extends State<ComposerEditor> {
         return;
       case ComposerSyntaxOccurrence syntax:
         unawaited(_editSyntax(syntax));
+        return;
+      case ComposerImageGalleryBlock gallery:
+        _clearKeyboardPillSelection();
+        _media.selectGallery(gallery);
+        return;
+      case ComposerQuoteBlock _:
+        _clearKeyboardPillSelection();
+        _moveCaretAfterPill(pill);
         return;
     }
     throw ArgumentError.value(pill, 'pill');
@@ -1823,6 +1885,12 @@ class _ComposerEditorState extends State<ComposerEditor> {
             ),
           ),
         );
+        return;
+      case ComposerQuoteBlock quote:
+        widget.composer.removeQuote(quote);
+        return;
+      case ComposerImageGalleryBlock gallery:
+        widget.composer.removeGallery(gallery);
         return;
     }
     throw ArgumentError.value(pill, 'pill');
@@ -2230,6 +2298,7 @@ final class _ComposerSelectionOverlay {
       _composer.isEditing &&
       selection.isValid &&
       !selection.isCollapsed &&
+      _composer.text.keyboardSelectedProjection == null &&
       !selectionTouchesComposerQuote(_composer.text.quoteBlocks, selection);
 
   void dispose() {
