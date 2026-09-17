@@ -4658,18 +4658,10 @@ void _registerChatShellTests() {
           final titleAction = find.byKey(
             const ValueKey('content-header-title-action'),
           );
-          final title = find.descendant(
-            of: titleAction,
-            matching: find.text('hawk'),
+          final status = find.byKey(
+            const ValueKey('chat-channel-header-status'),
           );
-          final status = find.descendant(
-            of: titleAction,
-            matching: find.byKey(const ValueKey('chat-channel-header-status')),
-          );
-          final star = find.descendant(
-            of: titleAction,
-            matching: find.byKey(const ValueKey('chat-channel-star-button')),
-          );
+          final star = find.byKey(const ValueKey('chat-channel-star-button'));
           final emoji = find.descendant(
             of: status,
             matching: find.byType(SiteEmojiImage),
@@ -4679,7 +4671,7 @@ void _registerChatShellTests() {
           expect(status, findsOneWidget);
           expect(emoji, findsOneWidget);
           expect(
-            tester.getRect(star).left - tester.getRect(title).right,
+            tester.getRect(star).left - tester.getRect(titleAction).right,
             closeTo(0, 0.01),
           );
           expect(

@@ -887,7 +887,9 @@ class _ContentHeader extends StatelessWidget {
                 )
               else
                 const SizedBox(width: 8),
-              if (showRouteIdentity)
+              if (showRouteIdentity &&
+                  (contentHeaderTitleAction == null ||
+                      (route.categoryId != null && siteUrl != null)))
                 if (contentHeaderLeading case final leading?)
                   Padding(
                     key: const ValueKey('content-header-leading'),
@@ -936,6 +938,31 @@ class _ContentHeader extends StatelessWidget {
                           siteUrl: siteUrl!,
                           trailing: contentHeaderTitleTrailing,
                           titleAction: contentHeaderTitleAction,
+                        )
+                      : contentHeaderTitleAction != null
+                      ? Row(
+                          children: [
+                            Flexible(
+                              child: DButton(
+                                key: const ValueKey(
+                                  'content-header-title-action',
+                                ),
+                                onPressed: contentHeaderTitleAction,
+                                variant: DButtonVariant.transparentBackground,
+                                semanticLabel: 'Open ${route.title} details',
+                                icon: contentHeaderLeading == null
+                                    ? DIcon(route.icon)
+                                    : KeyedSubtree(
+                                        key: const ValueKey(
+                                          'content-header-leading',
+                                        ),
+                                        child: contentHeaderLeading,
+                                      ),
+                                label: Text(route.title),
+                              ),
+                            ),
+                            ?contentHeaderTitleTrailing,
+                          ],
                         )
                       : Semantics(
                           button: contentHeaderTitleAction != null,

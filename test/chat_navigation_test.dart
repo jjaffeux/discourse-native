@@ -1533,17 +1533,14 @@ void main() {
         final titleAction = find.byKey(
           const ValueKey('content-header-title-action'),
         );
-        final title = find.descendant(
-          of: titleAction,
-          matching: find.text('Support'),
-        );
-        final star = find.descendant(
-          of: titleAction,
-          matching: find.byKey(const ValueKey('chat-channel-star-button')),
-        );
+        final button = tester.widget<DButton>(titleAction);
+        expect(button.variant, DButtonVariant.transparentBackground);
+        expect(button.icon, isNotNull);
+        expect(tester.getSize(titleAction).width, lessThan(200));
+        final star = find.byKey(const ValueKey('chat-channel-star-button'));
         expect(star, findsOneWidget);
         expect(
-          tester.getRect(star).left - tester.getRect(title).right,
+          tester.getRect(star).left - tester.getRect(titleAction).right,
           closeTo(0, 0.01),
         );
         expect(
