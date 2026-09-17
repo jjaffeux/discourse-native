@@ -195,7 +195,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('one header separator spans the pane at every scroll position', (
+  testWidgets('table headings remain fixed without a divider while scrolling', (
     tester,
   ) async {
     final api = _ControlledPagingApi();
@@ -206,13 +206,9 @@ void main() {
     await tester.pumpAndSettle();
 
     final separator = find.byKey(const ValueKey('topic-list-header-separator'));
-    final pane = tester.getRect(find.byType(TopicListView));
-    void expectSingleFullWidthSeparator() {
-      expect(separator, findsOneWidget);
-      final bounds = tester.getRect(separator);
-      expect(bounds.left, pane.left);
-      expect(bounds.right, pane.right);
-      expect(bounds.height, 1);
+    final header = find.byKey(const ValueKey('compact-topic-list-header'));
+    void expectNoTableDivider() {
+      expect(separator, findsNothing);
       expect(
         find.byKey(const ValueKey('topic-list-scroll-separator')),
         findsNothing,
@@ -227,19 +223,19 @@ void main() {
       );
     }
 
-    expectSingleFullWidthSeparator();
-    final originalBounds = tester.getRect(separator);
+    expectNoTableDivider();
+    final originalBounds = tester.getRect(header);
     final scroll = tester
         .state<ScrollableState>(find.byType(Scrollable))
         .position;
     scroll.jumpTo(100);
     await tester.pumpAndSettle();
 
-    expectSingleFullWidthSeparator();
-    expect(tester.getRect(separator), originalBounds);
+    expectNoTableDivider();
+    expect(tester.getRect(header), originalBounds);
     scroll.jumpTo(scroll.minScrollExtent);
     await tester.pumpAndSettle();
-    expectSingleFullWidthSeparator();
+    expectNoTableDivider();
   });
 
   testWidgets(

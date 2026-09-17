@@ -128,6 +128,7 @@ class AggregateViewState extends State<AggregateView> {
                     ],
                   ),
                 ),
+                const DSeparator(key: ValueKey('topic-list-heading-separator')),
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
                   child: Row(
