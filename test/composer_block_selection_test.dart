@@ -28,7 +28,11 @@ Finder _field(ComposerController composer) => find.byWidgetPredicate(
   (widget) => widget is EditableText && widget.controller == composer.text,
 );
 
-Future<ComposerController> _pump(WidgetTester tester, String source) async {
+Future<ComposerController> _pump(
+  WidgetTester tester,
+  String source, {
+  ThemeData? theme,
+}) async {
   final composer = ComposerController(
     _target,
     syntaxPolicies: const [PollComposerSyntaxPolicy()],
@@ -40,7 +44,7 @@ Future<ComposerController> _pump(WidgetTester tester, String source) async {
   );
   await tester.pumpWidget(
     MaterialApp(
-      theme: AppTheme.light,
+      theme: theme ?? AppTheme.light,
       home: Scaffold(
         body: SizedBox(
           width: 760,
@@ -60,6 +64,65 @@ Future<ComposerController> _pump(WidgetTester tester, String source) async {
 }
 
 void main() {
+  for (final theme in [AppTheme.light, AppTheme.dark]) {
+    testWidgets(
+      'block outline replaces the text fill in ${theme.brightness.name}',
+      (tester) async {
+        final composer = await _pump(
+          tester,
+          'Before\n\n$_table\n\nAfter',
+          theme: theme,
+        );
+        final mainField = _field(composer);
+        final mainEditable = tester.state<EditableTextState>(mainField);
+        final normalSelectionColor = mainEditable.renderEditable.selectionColor;
+        expect(normalSelectionColor?.a, greaterThan(0));
+
+        composer.text.selection = const TextSelection.collapsed(offset: 8);
+        await tester.pump();
+        expect(mainEditable.renderEditable.selectionColor?.a, 0);
+        expect(
+          tester
+              .widgetList<DItem>(find.byType(DItem))
+              .where(
+                (item) =>
+                    item.selected &&
+                    item.selectionStyle == DItemSelectionStyle.outline,
+              ),
+          hasLength(1),
+        );
+
+        // Keyboard focus can move into a cell without a pointer clearing the
+        // component selection. The cell must keep its normal text highlight.
+        final cell = find.descendant(
+          of: find.byKey(const ValueKey('table-cell-1-0')),
+          matching: find.byType(EditableText),
+        );
+        await tester.showKeyboard(cell);
+        final cellEditable = tester.state<EditableTextState>(cell);
+        cellEditable.widget.controller.selection = const TextSelection(
+          baseOffset: 0,
+          extentOffset: 3,
+        );
+        await tester.pump();
+        expect(cellEditable.renderEditable.selectionColor?.a, greaterThan(0));
+
+        composer.text.clearKeyboardPillSelection();
+        composer.text.selection = const TextSelection(
+          baseOffset: 0,
+          extentOffset: 6,
+        );
+        composer.requestFocus();
+        await tester.pump();
+        expect(
+          mainEditable.renderEditable.selectionColor,
+          normalSelectionColor,
+        );
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
   for (final entry in _blocks.entries) {
     for (final prefix in ['', 'Before\n\n']) {
       testWidgets(
