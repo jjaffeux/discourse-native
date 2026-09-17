@@ -32,7 +32,7 @@ class ForumSettingsDialog extends StatelessWidget {
     return DDialogContent(
       key: const ValueKey('forum-settings-dialog'),
       maxWidth: 600,
-      semanticLabel: 'Forum settings',
+      semanticLabel: 'Settings',
       spacing: DSpacing.xl,
       closeButton: DDialogClose<void>(
         builder: (_, close) => DButton.iconOnly(
@@ -40,7 +40,7 @@ class ForumSettingsDialog extends StatelessWidget {
           onPressed: close,
           icon: const DIcon(DIcons.xmark),
           tooltip: 'Close',
-          semanticLabel: 'Close forum settings',
+          semanticLabel: 'Close settings',
           size: DButtonSize.small,
           variant: DButtonVariant.ghost,
         ),
@@ -49,10 +49,7 @@ class ForumSettingsDialog extends StatelessWidget {
         DDialogHeader(
           children: [
             DDialogTitle(
-              child: Semantics(
-                headingLevel: 1,
-                child: const Text('Forum settings'),
-              ),
+              child: Semantics(headingLevel: 1, child: const Text('Settings')),
             ),
             DDialogDescription(child: Text('Preferences for $name.')),
           ],
