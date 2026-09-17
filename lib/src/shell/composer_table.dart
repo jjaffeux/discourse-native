@@ -534,6 +534,13 @@ class _ComposerTableEditorState extends State<ComposerTableEditor> {
                   hideable: false,
                   width: const FixedColumnWidth(200),
                   resizable: true,
+                  cellMouseCursor: SystemMouseCursors.text,
+                  onHeaderTap: widget.composer.isEditing
+                      ? () => _focusCell(0, column)
+                      : null,
+                  onCellTap: widget.composer.isEditing
+                      ? (cell) => _focusCell(_rows.indexOf(cell.row), column)
+                      : null,
                   headerBuilder: (_, _) => Row(
                     children: [
                       Expanded(child: _input(0, column)),

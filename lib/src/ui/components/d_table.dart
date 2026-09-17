@@ -467,6 +467,8 @@ class DTableCell extends StatelessWidget {
     this.padding = const EdgeInsets.all(8),
     this.softWrap = false,
     this.textStyle,
+    this.onTap,
+    this.mouseCursor,
   }) : assert(columnSpan > 0);
   final Widget child;
   final int columnSpan;
@@ -475,20 +477,38 @@ class DTableCell extends StatelessWidget {
   final bool softWrap;
   final TextStyle? textStyle;
 
+  /// Activates the cell through its padding as well as its content. Nested
+  /// controls retain their own gestures and semantics (for example an editor).
+  /// Supplements a focusable child without adding a separate semantic action.
+  final VoidCallback? onTap;
+  final MouseCursor? mouseCursor;
+
   @override
-  Widget build(BuildContext context) => Padding(
-    padding: padding,
-    child: Align(
-      alignment: alignment,
-      widthFactor: 1,
-      heightFactor: 1,
-      child: DefaultTextStyle.merge(
-        softWrap: softWrap,
-        style: textStyle,
-        child: child,
+  Widget build(BuildContext context) {
+    final content = Padding(
+      padding: padding,
+      child: Align(
+        alignment: alignment,
+        widthFactor: 1,
+        heightFactor: 1,
+        child: DefaultTextStyle.merge(
+          softWrap: softWrap,
+          style: textStyle,
+          child: child,
+        ),
       ),
-    ),
-  );
+    );
+    if (onTap == null) return content;
+    return MouseRegion(
+      cursor: mouseCursor ?? SystemMouseCursors.click,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        excludeFromSemantics: true,
+        onTap: onTap,
+        child: content,
+      ),
+    );
+  }
 }
 
 /// Column header with the reference's 40px minimum height and medium weight.
@@ -502,6 +522,8 @@ class DTableHead extends DTableCell {
     super.padding = const EdgeInsets.symmetric(horizontal: 8),
     super.softWrap,
     super.textStyle,
+    super.onTap,
+    super.mouseCursor,
   });
 
   @override

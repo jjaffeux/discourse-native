@@ -109,6 +109,69 @@ Future<ComposerController> _pumpPanel(
 }
 
 void main() {
+  for (final dark in [false, true]) {
+    testWidgets('cell padding focuses the editor (dark: $dark)', (
+      tester,
+    ) async {
+      final composer = await _pump(
+        tester,
+        dark: dark,
+        source: _source.replaceFirst('Cake', ''),
+      );
+      for (final row in [0, 1, 2]) {
+        final input = _cell(row, 0);
+        final cell = find
+            .ancestor(
+              of: input,
+              matching: find.byWidgetPredicate(
+                (widget) => widget is DTableCell,
+              ),
+            )
+            .first;
+        final rect = tester.getRect(cell);
+        final points = [
+          rect.topLeft + const Offset(2, 2),
+          rect.bottomLeft + const Offset(2, -2),
+          Offset(rect.center.dx, rect.top + 2),
+          Offset(rect.center.dx, rect.bottom - 2),
+          if (row > 0) ...[
+            rect.topRight + const Offset(-2, 2),
+            rect.bottomRight + const Offset(-2, -2),
+          ],
+        ];
+        for (final point in points) {
+          await tester.tap(_cell(row, 1));
+          await tester.pump();
+          await tester.tapAt(point, kind: PointerDeviceKind.mouse);
+          await tester.pumpAndSettle();
+          expect(
+            tester.widget<EditableText>(input).focusNode.hasFocus,
+            isTrue,
+            reason: 'Row $row at $point',
+          );
+          expect(composer.text.selection.isCollapsed, isTrue);
+        }
+        tester.testTextInput.enterText('Edited $row');
+        await tester.pump();
+        expect(
+          parseComposerTables(composer.raw).single.cell(row, 0),
+          'Edited $row',
+        );
+      }
+      final handle = find.byType(DResizableHandle).first;
+      final widthBefore = tester.widget<DResizableHandle>(handle).value;
+      await tester.drag(handle, const Offset(40, 0));
+      await tester.pumpAndSettle();
+      expect(
+        tester.widget<DResizableHandle>(handle).value,
+        greaterThan(widthBefore),
+      );
+      await _menu(tester, 'Column 1 actions', 'Insert column after');
+      expect(parseComposerTables(composer.raw).single.columnCount, 3);
+      expect(tester.takeException(), isNull);
+    });
+  }
+
   testWidgets(
     'cell edits retain authored padding without accumulating typed spaces',
     (tester) async {
