@@ -181,7 +181,7 @@ void main() {
       testWidgets('topic tags stay transparent on hover in $mode/$dark', (
         tester,
       ) async {
-        await _setup(tester, dark: dark, mode: mode);
+        await _setup(tester, dark: dark, mode: mode, focusPolicy: true);
         final row = find.byKey(ValueKey('topic-${mode.name}-1'));
         final tag = find.descendant(of: row, matching: find.text('design'));
         final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
@@ -210,6 +210,26 @@ void main() {
                     as BoxDecoration;
             expect(surface.color, Colors.transparent);
             expect(surface.border!.top.color, Colors.transparent);
+            final rowSurface = tester.widget<Container>(
+              find
+                  .descendant(
+                    of: row,
+                    matching: find.byWidgetPredicate(
+                      (widget) =>
+                          widget is Container &&
+                          widget.decoration is BoxDecoration,
+                    ),
+                  )
+                  .first,
+            );
+            expect(
+              (rowSurface.decoration! as BoxDecoration).color,
+              hovering
+                  ? DTokens.of(
+                      tester.element(row),
+                    ).foreground.withValues(alpha: .05)
+                  : Colors.transparent,
+            );
             if (mode == TopicListDisplayMode.card) {
               expect(
                 find.descendant(of: row, matching: find.byType(DTable)),
@@ -660,6 +680,7 @@ Future<ShellController> _setup(
   bool enableEvents = false,
   bool nestedCategories = false,
   bool dark = false,
+  bool focusPolicy = false,
   double scale = 1,
   TextDirection direction = TextDirection.ltr,
   TopicListDisplayMode mode = TopicListDisplayMode.compact,
@@ -769,6 +790,9 @@ Future<ShellController> _setup(
       controller: shell,
       child: MaterialApp(
         theme: dark ? AppTheme.dark : AppTheme.light,
+        builder: focusPolicy
+            ? (_, child) => DFocusHighlight(child: child!)
+            : null,
         home: MediaQuery(
           data: MediaQueryData(textScaler: TextScaler.linear(scale)),
           child: Directionality(
