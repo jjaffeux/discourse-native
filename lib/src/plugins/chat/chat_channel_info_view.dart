@@ -131,6 +131,7 @@ class _ChannelInfoTabs extends StatelessWidget {
                     children: [
                       DTabList<ChatChannelInfoTab>(
                         variant: DTabListVariant.line,
+                        size: DControlSize.large,
                         children: [
                           const DTabTrigger(
                             key: ValueKey('chat-channel-info-settings-tab'),
