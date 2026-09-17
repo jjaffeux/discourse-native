@@ -93,9 +93,8 @@ class TopicListActions extends StatelessWidget {
                 key: const ValueKey('topic-list-display'),
                 tooltip: 'Display',
                 icon: const DIcon(DNativeIcons.sliders),
-                shape: DButtonShape.pill,
                 size: DButtonSize.large,
-                variant: DButtonVariant.secondary,
+                variant: DButtonVariant.transparentBackground,
                 focusNode: trigger.focusNode,
                 hasPopup: true,
                 expanded: trigger.open,
@@ -110,9 +109,8 @@ class TopicListActions extends StatelessWidget {
                   ? 'Open topics in a dialog'
                   : 'Open topics beside the list',
               icon: const DIcon(DNativeIcons.columns),
-              shape: DButtonShape.pill,
               size: DButtonSize.large,
-              variant: DButtonVariant.secondary,
+              variant: DButtonVariant.transparentBackground,
               onPressed: () => presentation.select(
                 presentation.preference == TopicPresentation.docked
                     ? TopicPresentation.sheet
@@ -276,11 +274,8 @@ class _TopicListFilterMenuState extends State<TopicListFilterMenu> {
         key: const ValueKey('topic-list-filter'),
         tooltip: widget.query.isEmpty ? 'Filter topics' : 'Edit active filter',
         icon: const DIcon(DNativeIcons.filterLines),
-        shape: DButtonShape.pill,
         size: DButtonSize.large,
-        variant: widget.query.isEmpty
-            ? DButtonVariant.secondary
-            : DButtonVariant.outline,
+        variant: DButtonVariant.transparentBackground,
         focusNode: trigger.focusNode,
         expanded: trigger.open,
         hasPopup: true,
