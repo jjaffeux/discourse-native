@@ -150,7 +150,7 @@ void main() {
           of: card,
           matching: find.text('Features'),
         );
-        final tag = find.descendant(of: card, matching: find.text('design'));
+        final tag = find.descendant(of: card, matching: find.text('#design'));
         final title = find.descendant(
           of: card,
           matching: find.text(
@@ -168,7 +168,7 @@ void main() {
           expect(baseline(tag), closeTo(baseline(category), 0.01));
           final secondTag = find.descendant(
             of: card,
-            matching: find.text('mobile'),
+            matching: find.text('#mobile'),
           );
           expect(baseline(secondTag), closeTo(baseline(tag), 0.01));
           expect(
@@ -249,7 +249,7 @@ void main() {
       ) async {
         await _setup(tester, dark: dark, mode: mode, focusPolicy: true);
         final row = find.byKey(ValueKey('topic-${mode.name}-1'));
-        final tag = find.descendant(of: row, matching: find.text('design'));
+        final tag = find.descendant(of: row, matching: find.text('#design'));
         final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
         addTearDown(mouse.removePointer);
         await mouse.addPointer(location: Offset.zero);
@@ -526,7 +526,7 @@ void main() {
       findsNothing,
     );
     expect(find.bySemanticsLabel('Assigned to: none'), findsNothing);
-    final tag = find.descendant(of: assigned, matching: find.text('mobile'));
+    final tag = find.descendant(of: assigned, matching: find.text('#mobile'));
     final person = find.text('joffrey');
     expect(tester.getCenter(person).dy, closeTo(tester.getCenter(tag).dy, 2));
     expect(tester.getRect(person).left, greaterThan(tester.getRect(tag).right));

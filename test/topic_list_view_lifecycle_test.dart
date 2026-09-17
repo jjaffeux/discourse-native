@@ -454,7 +454,7 @@ void main() {
       tester.getSize(contextualRow).width,
       tester.getSize(compactRow).width,
     );
-    expect(find.text('design'), findsOneWidget);
+    expect(find.text('#design'), findsOneWidget);
     expect(find.text('582'), findsOneWidget);
     expect(find.text('13800'), findsNothing);
     expect(tester.takeException(), isNull);
