@@ -259,6 +259,7 @@ class ComposerPanel extends StatelessWidget {
                                           'composer-topic-title',
                                         ),
                                         controller: composer.title,
+                                        size: DControlSize.large,
                                         readOnly: !composer.isEditing,
                                         labelText: 'Title',
                                         hintText: 'Give your topic a title',
