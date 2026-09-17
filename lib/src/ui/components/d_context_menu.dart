@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -105,6 +106,7 @@ class DContextMenuTrigger extends StatefulWidget {
     this.enabled = true,
     this.focusable = true,
     this.longPressEnabled = true,
+    this.captureSecondaryTap = false,
     this.semanticLabel,
   });
 
@@ -114,6 +116,10 @@ class DContextMenuTrigger extends StatefulWidget {
   final bool enabled;
   final bool focusable;
   final bool longPressEnabled;
+
+  /// Own secondary clicks even when a descendant has its own context menu,
+  /// such as a text field inside an editable table. Primary gestures are intact.
+  final bool captureSecondaryTap;
   final String? semanticLabel;
 
   @override
@@ -194,7 +200,7 @@ class _DContextMenuTriggerState extends State<DContextMenuTrigger> {
     focusNode: widget.focusNode,
     builder: (context, trigger) {
       _trigger = trigger;
-      return Semantics(
+      final region = Semantics(
         label: widget.semanticLabel,
         enabled: _enabled,
         onLongPress: _enabled && widget.longPressEnabled
@@ -208,7 +214,7 @@ class _DContextMenuTriggerState extends State<DContextMenuTrigger> {
           child: GestureDetector(
             behavior: HitTestBehavior.translucent,
             excludeFromSemantics: true,
-            onSecondaryTapDown: _enabled
+            onSecondaryTapDown: _enabled && !widget.captureSecondaryTap
                 ? (details) => _openAt(
                     details.localPosition,
                     trigger,
@@ -223,6 +229,7 @@ class _DContextMenuTriggerState extends State<DContextMenuTrigger> {
                   )
                 : null,
             child: Stack(
+              fit: StackFit.passthrough,
               clipBehavior: Clip.none,
               children: [
                 widget.child,
@@ -236,6 +243,27 @@ class _DContextMenuTriggerState extends State<DContextMenuTrigger> {
               ],
             ),
           ),
+        ),
+      );
+      if (!_enabled || !widget.captureSecondaryTap) return region;
+      return RawGestureDetector(
+        gestures: {
+          EagerGestureRecognizer:
+              GestureRecognizerFactoryWithHandlers<EagerGestureRecognizer>(
+                () => EagerGestureRecognizer(
+                  allowedButtonsFilter: (buttons) =>
+                      buttons == kSecondaryMouseButton,
+                ),
+                (_) {},
+              ),
+        },
+        child: Listener(
+          onPointerDown: (event) {
+            if (event.buttons == kSecondaryMouseButton) {
+              _openAt(event.localPosition, trigger, DPopoverInteraction.mouse);
+            }
+          },
+          child: region,
         ),
       );
     },

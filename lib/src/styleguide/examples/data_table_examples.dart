@@ -89,13 +89,16 @@ final dataTableExamples = ComponentExamples(
     StyleguideExample(
       title: 'Editable cell surface',
       description:
-          'Click anywhere in the cell, including its padding, to focus the Native input. Text selection remains owned by the input.',
+          'Click anywhere in the cell, including its padding, to focus the Native input. Right-click anywhere to clear the cell; ordinary text selection remains owned by the input.',
       code: """DDataTableColumn<int>(
   id: 'name', label: 'Name',
   cellMouseCursor: SystemMouseCursors.text,
   onCellTap: (_) => focusNode.requestFocus(),
+  cellContextMenuBuilder: (_) => DContextMenuContent(children: [
+    DContextMenuItem(onPressed: controller.clear, child: Text('Clear cell')),
+  ]),
   cellBuilder: (_, _) => DInput(
-    borderless: true, focusNode: focusNode, initialValue: 'Edit me',
+    borderless: true, focusNode: focusNode, controller: controller,
   ),
 )""",
       builder: (_) => const _EditableCellExample(),
@@ -113,10 +116,12 @@ class _EditableCellExample extends StatefulWidget {
 
 class _EditableCellExampleState extends State<_EditableCellExample> {
   final _focus = FocusNode();
+  final _text = TextEditingController(text: 'Edit me');
 
   @override
   void dispose() {
     _focus.dispose();
+    _text.dispose();
     super.dispose();
   }
 
@@ -131,10 +136,18 @@ class _EditableCellExampleState extends State<_EditableCellExample> {
         label: 'Name',
         cellMouseCursor: SystemMouseCursors.text,
         onCellTap: (_) => _focus.requestFocus(),
+        cellContextMenuBuilder: (_) => DContextMenuContent(
+          children: [
+            DContextMenuItem(
+              onPressed: _text.clear,
+              child: const Text('Clear cell'),
+            ),
+          ],
+        ),
         cellBuilder: (_, _) => DInput(
           borderless: true,
           focusNode: _focus,
-          initialValue: 'Edit me',
+          controller: _text,
           semanticLabel: 'Name',
         ),
       ),

@@ -85,3 +85,25 @@ Table styleguide page was inspected. The new editable-cell example is covered
 by static analysis; native column dragging was inconclusive, with resizing
 verified by widget tests. No iOS or Android device verification was performed.
 The installed Flutter SDK was 3.47.4; the repository pin was not changed.
+
+### Table context actions (2026-09-18)
+
+Secondary-clicking a composer body cell (including its padding or row-number
+control) opens its row actions: insert above/below, move up/down, and delete.
+Headers expose column actions. The Native context trigger can explicitly claim
+secondary gestures from descendant editors; primary click, text selection,
+keyboard editing and resizing keep their existing owners. Right-click does not
+select the table's Markdown range. Block selections retain their outline when
+focus moves into a menu. Submitting closes the menus and stale actions remain
+inert.
+
+Read-mode tables have a Copy table button beside Columns. It copies the complete
+table as plain-text Markdown, in original row/column order (including hidden
+columns), and briefly confirms success. Displayed cell text is copied without
+HTML markup, with Markdown table separators and backslashes escaped.
+
+Verification: 81 focused composer-table, cooked-table, Native context-menu,
+Table and Data Table tests pass, with full static analysis. Native macOS checks
+confirmed row menus without blue selection, insertion in the wide light layout,
+deletion in the narrow dark layout, and the read-mode copy button/confirmation.
+The local fixture now offers Read mode. No mobile device checks were performed.

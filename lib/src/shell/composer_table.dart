@@ -426,7 +426,10 @@ class _ComposerTableEditorState extends State<ComposerTableEditor> {
     };
   }
 
-  Widget _columnMenu(int column) => _menu('Column ${column + 1} actions', [
+  Widget _columnMenu(int column) =>
+      _menu('Column ${column + 1} actions', _columnItems(column));
+
+  List<Widget> _columnItems(int column) => [
     DDropdownMenuItem(
       onPressed: _menuAction(() => _insertColumn(column)),
       child: const Text('Insert column before'),
@@ -460,9 +463,21 @@ class _ComposerTableEditorState extends State<ComposerTableEditor> {
             ),
       child: const Text('Delete column'),
     ),
-  ]);
+  ];
 
-  Widget _rowMenu(int row) => _menu('Row ${row + 1} actions', [
+  Widget _rowMenu(int row) => _menu(
+    'Row ${row + 1} actions',
+    _rowItems(row),
+    child: Text('${row + 1}'),
+  );
+
+  DContextMenuContent _rowContextMenu(int row) => DContextMenuContent(
+    semanticLabel: 'Row ${row + 1} actions',
+    width: 220,
+    children: _rowItems(row),
+  );
+
+  List<Widget> _rowItems(int row) => [
     DDropdownMenuItem(
       onPressed: _menuAction(() => _insertRow(row)),
       child: const Text('Insert row above'),
@@ -492,7 +507,7 @@ class _ComposerTableEditorState extends State<ComposerTableEditor> {
       ),
       child: const Text('Delete row'),
     ),
-  ], child: Text('${row + 1}'));
+  ];
 
   @override
   Widget build(BuildContext context) => ComposerEmbeddedEditor(
@@ -520,6 +535,9 @@ class _ComposerTableEditorState extends State<ComposerTableEditor> {
             columns: [
               DDataTableColumn<int>(
                 id: 'row-actions',
+                cellContextMenuBuilder: widget.composer.isEditing
+                    ? (cell) => _rowContextMenu(_rows.indexOf(cell.row) - 1)
+                    : null,
                 label: 'Rows',
                 hideable: false,
                 width: const FixedColumnWidth(64),
@@ -534,6 +552,16 @@ class _ComposerTableEditorState extends State<ComposerTableEditor> {
                   hideable: false,
                   width: const FixedColumnWidth(200),
                   resizable: true,
+                  headerContextMenu: widget.composer.isEditing
+                      ? DContextMenuContent(
+                          semanticLabel: 'Column ${column + 1} actions',
+                          width: 220,
+                          children: _columnItems(column),
+                        )
+                      : null,
+                  cellContextMenuBuilder: widget.composer.isEditing
+                      ? (cell) => _rowContextMenu(_rows.indexOf(cell.row) - 1)
+                      : null,
                   cellMouseCursor: SystemMouseCursors.text,
                   onHeaderTap: widget.composer.isEditing
                       ? () => _focusCell(0, column)

@@ -9,6 +9,7 @@ import '../../theme/d_icons.dart';
 import '../foundation/tokens.dart';
 import 'd_button.dart';
 import 'd_checkbox.dart';
+import 'd_context_menu.dart';
 import 'd_dropdown_menu.dart';
 import 'd_input.dart';
 import 'd_pagination.dart';
@@ -199,6 +200,8 @@ class DDataTableColumn<T> {
     this.onCellTap,
     this.onHeaderTap,
     this.cellMouseCursor,
+    this.cellContextMenuBuilder,
+    this.headerContextMenu,
     this.compare,
     this.filter,
     this.filterText,
@@ -225,6 +228,11 @@ class DDataTableColumn<T> {
   final ValueChanged<DDataTableCellContext<T>>? onCellTap;
   final VoidCallback? onHeaderTap;
   final MouseCursor? cellMouseCursor;
+
+  /// Context actions for the complete cell surface, including nested editors.
+  final DContextMenuContent Function(DDataTableCellContext<T> cell)?
+  cellContextMenuBuilder;
+  final DContextMenuContent? headerContextMenu;
   final DDataTableComparator<T>? compare;
   final DDataTableFilter<T>? filter;
   final String Function(T row)? filterText;
@@ -714,6 +722,7 @@ class _DDataTableState<T> extends State<DDataTable<T>> {
                     DTableHead(
                       alignment: column.headerAlignment,
                       onTap: column.onHeaderTap,
+                      contextMenu: column.headerContextMenu,
                       mouseCursor: column.cellMouseCursor,
                       padding: EdgeInsets.zero,
                       child: _resizableHeader(
@@ -927,6 +936,7 @@ class _DDataTableState<T> extends State<DDataTable<T>> {
                 ? null
                 : () => column.onCellTap!(cell),
             mouseCursor: column.cellMouseCursor,
+            contextMenu: column.cellContextMenuBuilder?.call(cell),
             padding:
                 column._padding ??
                 (_softHeader

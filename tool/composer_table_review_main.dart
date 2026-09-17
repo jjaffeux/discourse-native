@@ -5,6 +5,7 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/macos_launch_screen.dart';
 import 'package:discourse_native/src/shell/composer_controller.dart';
 import 'package:discourse_native/src/shell/composer_panel.dart';
+import 'package:discourse_native/src/shell/cooked_html.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/styleguide/styleguide_page.dart';
@@ -42,6 +43,7 @@ Future<void> main() async {
   var dark = false;
   var narrow = false;
   var rtl = false;
+  var read = false;
   runApp(
     StatefulBuilder(
       builder: (context, setState) => MaterialApp(
@@ -74,6 +76,10 @@ Future<void> main() async {
                             onPressed: () => setState(() => rtl = !rtl),
                           ),
                           DButton(
+                            label: Text(read ? 'Edit mode' : 'Read mode'),
+                            onPressed: () => setState(() => read = !read),
+                          ),
+                          DButton(
                             label: const Text('Styleguide'),
                             onPressed: () => Navigator.of(context).push(
                               MaterialPageRoute<void>(
@@ -88,7 +94,16 @@ Future<void> main() async {
                       child: Center(
                         child: SizedBox(
                           width: narrow ? 340 : 760,
-                          child: ComposerPanel(composer: composer, height: 600),
+                          child: read
+                              ? const SingleChildScrollView(
+                                  child: CookedHtml(
+                                    html:
+                                        '<table><thead><tr><th>Name</th><th>Bringing</th></tr></thead><tbody><tr><td>Sam</td><td>Bread</td></tr><tr><td>Alex</td><td>Salad</td></tr></tbody></table>',
+                                    siteUrl: 'https://example.test',
+                                    buildAsync: false,
+                                  ),
+                                )
+                              : ComposerPanel(composer: composer, height: 600),
                         ),
                       ),
                     ),
