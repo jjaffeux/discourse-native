@@ -1645,7 +1645,7 @@ class _TopicTag extends StatelessWidget {
       foregroundColor: DTokens.of(context).mutedForeground,
       semanticLabel: 'Tag: ${tag.name}',
       onPressed: onTap,
-      child: Text(tag.name),
+      child: Text('#${tag.name}'),
     ),
   );
 }
@@ -1657,7 +1657,7 @@ class _TopicTagOverflow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => DTooltip(
-    message: tags.map((tag) => '# ${tag.name}').join(', '),
+    message: tags.map((tag) => '#${tag.name}').join(', '),
     child: DBadge(
       key: const ValueKey('topic-row-tag-overflow'),
       variant: DBadgeVariant.outline,

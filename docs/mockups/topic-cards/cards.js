@@ -32,7 +32,7 @@ rowMarkup = function(t) {
     ? `<span class="count" title="${t.unread} unread replies">${t.unread}</span>`
     : t.isNew || t.newReplies ? `<span class="dot" title="${t.isNew ? 'New topic' : 'New replies'}"></span>` : '';
   const stamp = t.event ? `<span class="event-stamp" aria-hidden="true"><small>${t.event.month}</small><strong>${t.event.day}</strong></span>` : '';
-  const tags = (t.tags || []).slice(0, 2).map(tag => `<button class="tag" data-tag="${esc(tag)}" title="Filter by ${esc(tag)}">${esc(tag)}</button>`).join('');
+  const tags = (t.tags || []).slice(0, 2).map(tag => `<button class="tag" data-tag="${esc(tag)}" title="Filter by ${esc(tag)}">#${esc(tag)}</button>`).join('');
   return `<article class="topic card-topic ${t.visited ? 'visited' : ''} ${selected ? 'current' : ''} ${state.keyboard && state.cursor === t.id ? 'keyboard' : ''}" data-topic="${t.id}" aria-label="${esc(t.title)}${t.unread ? `, ${t.unread} unread replies` : ''}">
     <div class="card-top">${isMessages() ? `<span class="card-field-name">${icon('mail')} Private conversation</span>` : categoryMarkup(t)}${tags}${t.tags?.length > 2 ? `<button class="tag-overflow" data-tags="${t.id}" title="More tags">+${t.tags.length - 2}</button>` : ''}${state.scene === 'aggregate' ? `<span class="forum-name">${esc(t.forum)}</span>` : ''}</div>
     <div class="card-main">${stamp}<div class="card-copy">

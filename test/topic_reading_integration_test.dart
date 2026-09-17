@@ -1563,8 +1563,8 @@ void _registerTopicReadingTests() {
 
       await pumpShell(tester, desktop, api: api);
 
-      final firstTag = find.text('ai');
-      final secondTag = find.text('in-progress');
+      final firstTag = find.text('#ai');
+      final secondTag = find.text('#in-progress');
       final firstTagLink = find.bySemanticsLabel('Tag: ai');
       final secondTagLink = find.bySemanticsLabel('Tag: in-progress');
       expect(firstTag, findsOneWidget);
@@ -1583,7 +1583,7 @@ void _registerTopicReadingTests() {
       expect(
         tester.getTopLeft(secondTagLink).dx -
             tester.getTopRight(firstTagLink).dx,
-        closeTo(6, 0.01),
+        closeTo(DSpacing.xs, 0.01),
       );
       final category = find.descendant(
         of: find.byType(TopicListView),
@@ -1724,7 +1724,7 @@ void _registerTopicReadingTests() {
       );
 
       await pumpShell(tester, desktop, api: api);
-      await tester.tap(find.text(tag.name));
+      await tester.tap(find.text('#${tag.name}'));
       await tester.pumpAndSettle();
 
       final controller = ShellScope.read(
@@ -1773,7 +1773,7 @@ void _registerTopicReadingTests() {
       final controller = ShellScope.read(
         tester.element(find.byType(MainContent)),
       );
-      await tester.tap(find.text(tag.name));
+      await tester.tap(find.text('#${tag.name}'));
       await tester.pump();
       expect(api.hashtagSearchesRequested, ['2024']);
 
@@ -1818,14 +1818,14 @@ void _registerTopicReadingTests() {
       await tester.tap(sidebarDestination('Topics'));
       await tester.pumpAndSettle();
 
-      expect(find.text('design'), findsOneWidget);
+      expect(find.text('#design'), findsOneWidget);
       expect(find.textContaining(longName), findsOneWidget);
       expect(find.text('+3'), findsOneWidget);
       expect(
         tester.getSemantics(find.text('+3')).label,
         contains('3 more tags'),
       );
-      expect(find.text('support'), findsNothing);
+      expect(find.text('#support'), findsNothing);
       expect(tester.takeException(), isNull);
     });
 
@@ -1890,8 +1890,8 @@ void _registerTopicReadingTests() {
       await tester.tap(sidebarDestination('Topics'));
       await tester.pumpAndSettle();
 
-      expect(find.text('sea2'), findsOneWidget);
-      expect(find.text('sea1'), findsOneWidget);
+      expect(find.text('#sea2'), findsOneWidget);
+      expect(find.text('#sea1'), findsOneWidget);
       expect(find.text('+12'), findsOneWidget);
       final firstTag = find.bySemanticsLabel('Tag: sea2');
       final secondTag = find.bySemanticsLabel('Tag: sea1');
@@ -1911,7 +1911,7 @@ void _registerTopicReadingTests() {
         contains('12 more tags'),
       );
       for (final tag in tags.skip(2)) {
-        expect(find.text(tag.name), findsNothing);
+        expect(find.text('#${tag.name}'), findsNothing);
       }
       expect(tester.takeException(), isNull);
     });
