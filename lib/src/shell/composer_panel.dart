@@ -89,8 +89,9 @@ class ComposerPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final controller = ShellScope.read(context);
-    void openLink() =>
-        unawaited(showComposerLinkDialog(context: context, composer: composer));
+    void openLink() => unawaited(
+      showComposerLinkDialog(context: context, composer: composer.activeEditor),
+    );
     composer.text.configureQuoteContentsResolver(
       (block) => controller.quoteContentsFor(composer.target, block),
       context: (controller, composer.target),
@@ -137,24 +138,24 @@ class ComposerPanel extends StatelessWidget {
               const SingleActivator(LogicalKeyboardKey.keyW, control: true):
                   close,
               const SingleActivator(LogicalKeyboardKey.keyB, meta: true): () =>
-                  composer.toggleMark(ComposerMark.bold),
+                  composer.activeEditor.toggleMark(ComposerMark.bold),
               const SingleActivator(
                 LogicalKeyboardKey.keyB,
                 control: true,
               ): () =>
-                  composer.toggleMark(ComposerMark.bold),
+                  composer.activeEditor.toggleMark(ComposerMark.bold),
               const SingleActivator(LogicalKeyboardKey.keyI, meta: true): () =>
-                  composer.toggleMark(ComposerMark.italic),
+                  composer.activeEditor.toggleMark(ComposerMark.italic),
               const SingleActivator(
                 LogicalKeyboardKey.keyI,
                 control: true,
               ): () =>
-                  composer.toggleMark(ComposerMark.italic),
+                  composer.activeEditor.toggleMark(ComposerMark.italic),
               const SingleActivator(LogicalKeyboardKey.keyE, meta: true):
-                  composer.toggleSelectedInlineCode,
+                  composer.activeEditor.toggleSelectedInlineCode,
               if (!_usesCommandModifier)
                 const SingleActivator(LogicalKeyboardKey.keyE, control: true):
-                    composer.toggleSelectedInlineCode,
+                    composer.activeEditor.toggleSelectedInlineCode,
               const SingleActivator(LogicalKeyboardKey.keyL, meta: true):
                   openLink,
               if (!_usesCommandModifier)
@@ -323,6 +324,7 @@ class ComposerPanel extends StatelessWidget {
                                               pickImages: pickImages,
                                               readClipboardFiles:
                                                   readClipboardFiles,
+                                              pickFiles: pickFiles,
                                               onSuggestionAction:
                                                   ({
                                                     required context,
@@ -704,6 +706,96 @@ class _RenderedEmojiInputFormatter extends TextInputFormatter {
   }
 }
 
+/// Reuses the composer commands, platform inputs and rich editor for a body
+/// embedded inside another draft component.
+class ComposerRichBodyEditor extends StatelessWidget {
+  const ComposerRichBodyEditor({
+    super.key,
+    required this.composer,
+    required this.label,
+    required this.hintText,
+    required this.onExit,
+  });
+
+  final ComposerController composer;
+  final String label;
+  final String hintText;
+  final VoidCallback onExit;
+
+  @override
+  Widget build(BuildContext context) {
+    final enclosing = context.findAncestorWidgetOfExactType<ComposerEditor>();
+    final style = Theme.of(context).textTheme.bodyLarge;
+    return ListenableBuilder(
+      listenable: composer,
+      builder: (context, _) => CallbackShortcuts(
+        bindings: {
+          const SingleActivator(LogicalKeyboardKey.escape): onExit,
+          for (final modifier in [true, false]) ...{
+            for (final (key, mark) in [
+              (LogicalKeyboardKey.keyB, ComposerMark.bold),
+              (LogicalKeyboardKey.keyI, ComposerMark.italic),
+              (LogicalKeyboardKey.keyE, ComposerMark.inlineCode),
+            ])
+              SingleActivator(key, meta: modifier, control: !modifier): () =>
+                  composer.activeEditor.toggleMark(mark),
+            SingleActivator(
+              LogicalKeyboardKey.keyL,
+              meta: modifier,
+              control: !modifier,
+            ): () => unawaited(
+              showComposerLinkDialog(
+                context: context,
+                composer: composer.activeEditor,
+              ),
+            ),
+          },
+        },
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            DLabel(child: Text(label)),
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _FormattingToolbar(composer: composer),
+                  if (composer.imageUploader != null)
+                    _ComposerUploadButton(
+                      composer: composer.activeEditor,
+                      pickFiles: enclosing?.pickFiles ?? pickComposerFiles,
+                    ),
+                ],
+              ),
+            ),
+            ConstrainedBox(
+              constraints: const BoxConstraints(minHeight: 96, maxHeight: 360),
+              child: ComposerEditor(
+                composer: composer,
+                hintText: hintText,
+                textStyle: style,
+                hintStyle: style?.copyWith(
+                  color: DTokens.of(context).mutedForeground,
+                ),
+                autofocus: false,
+                expands: false,
+                showSelectionToolbar: false,
+                enableDropTarget: enclosing?.enableDropTarget ?? true,
+                pickFiles: enclosing?.pickFiles ?? pickComposerFiles,
+                pickImages: enclosing?.pickImages ?? pickComposerImages,
+                readClipboardFiles:
+                    enclosing?.readClipboardFiles ?? readComposerClipboardFiles,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class ComposerEditor extends StatefulWidget {
   const ComposerEditor({
     super.key,
@@ -715,6 +807,7 @@ class ComposerEditor extends StatefulWidget {
     this.enableDropTarget = true,
     this.showSelectionToolbar = true,
     this.expands = true,
+    this.pickFiles = pickComposerFiles,
     this.pickImages = pickComposerImages,
     this.readClipboardFiles = readComposerClipboardFiles,
     this.onSuggestionAction,
@@ -729,6 +822,7 @@ class ComposerEditor extends StatefulWidget {
 
   /// Topic composers expose persistent Native formatting actions instead.
   final bool showSelectionToolbar;
+  final ComposerFilePicker pickFiles;
   final ComposerImagePicker pickImages;
   final ComposerClipboardFileReader readClipboardFiles;
 
@@ -740,6 +834,9 @@ class ComposerEditor extends StatefulWidget {
 }
 
 class _ComposerEditorState extends State<ComposerEditor> {
+  _ComposerEditorState? _parentEditor;
+  _ComposerEditorState? _nativeDropEditor;
+  final _nestedEditors = <_ComposerEditorState>{};
   static const _menuWidth = 88.0;
   static const _menuHeight = 44.0;
   static const _menuGap = 4.0;
@@ -817,6 +914,17 @@ class _ComposerEditorState extends State<ComposerEditor> {
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final parent = context.findAncestorStateOfType<_ComposerEditorState>();
+    if (!identical(parent, _parentEditor)) {
+      _parentEditor?._nestedEditors.remove(this);
+      _parentEditor = parent;
+      parent?._nestedEditors.add(this);
+    }
+  }
+
+  @override
   void didUpdateWidget(ComposerEditor oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (identical(oldWidget.composer, widget.composer)) return;
@@ -857,6 +965,10 @@ class _ComposerEditorState extends State<ComposerEditor> {
 
   @override
   void dispose() {
+    _parentEditor?._nestedEditors.remove(this);
+    if (identical(_parentEditor?._nativeDropEditor, this)) {
+      _parentEditor?._nativeDropEditor = null;
+    }
     widget.composer.text.removeListener(_observeBlockquoteValue);
     _releasePointerDownPillCollapse();
     if (identical(widget.composer.text.imageScrollController, _scroll)) {
@@ -1134,6 +1246,11 @@ class _ComposerEditorState extends State<ComposerEditor> {
   }
 
   void _dropFiles(DropDoneDetails details) {
+    final target = _editorAt(details.globalPosition);
+    if (!identical(target, this)) {
+      target._dropFiles(details);
+      return;
+    }
     _moveDropCaret(details.globalPosition);
     if (dropContainsDirectory(details.files)) {
       widget.composer.showNotice('Folders cannot be uploaded here.');
@@ -1143,6 +1260,34 @@ class _ComposerEditorState extends State<ComposerEditor> {
       files,
       offset: widget.composer.text.selection.extentOffset,
     );
+  }
+
+  _ComposerEditorState _editorAt(Offset position) {
+    for (final nested in _nestedEditors) {
+      if (!TickerMode.valuesOf(nested.context).enabled) continue;
+      final render = nested._stackKey.currentContext?.findRenderObject();
+      if (render is! RenderBox || !render.hasSize) continue;
+      final origin = render.localToGlobal(Offset.zero);
+      if ((origin & render.size).contains(position)) {
+        return nested._editorAt(position);
+      }
+    }
+    return this;
+  }
+
+  void _updateNativeDrop(Offset position) {
+    final target = _editorAt(position);
+    if (!identical(target, _nativeDropEditor)) {
+      _nativeDropEditor?._media.cancelDrag();
+      _nativeDropEditor = target;
+    }
+    target._moveDropCaret(position);
+    target._media.beginDrag();
+  }
+
+  void _cancelNativeDrop() {
+    _nativeDropEditor?._media.cancelDrag();
+    _nativeDropEditor = null;
   }
 
   bool get _hasPointerDownPill =>
@@ -1874,13 +2019,13 @@ class _ComposerEditorState extends State<ComposerEditor> {
         ),
       ),
       child: DropTarget(
-        enable: widget.enableDropTarget && !context.isTouch,
-        onDragEntered: (details) {
-          _moveDropCaret(details.globalPosition);
-          _media.beginDrag();
-        },
-        onDragUpdated: (details) => _moveDropCaret(details.globalPosition),
-        onDragExited: (_) => _media.cancelDrag(),
+        enable:
+            widget.enableDropTarget &&
+            !context.isTouch &&
+            _parentEditor == null,
+        onDragEntered: (details) => _updateNativeDrop(details.globalPosition),
+        onDragUpdated: (details) => _updateNativeDrop(details.globalPosition),
+        onDragExited: (_) => _cancelNativeDrop(),
         onDragDone: _dropFiles,
         child: DragTarget<ComposerImageBlock>(
           onWillAcceptWithDetails: (details) => widget.composer.isEditing,
@@ -2251,10 +2396,10 @@ class _ImageComposerMenu extends StatelessWidget {
         clipBehavior: Clip.antiAlias,
         child: SizedBox(
           width: width,
-          height: _ComposerEditorState._imageMenuHeight,
           child: Padding(
             padding: const EdgeInsets.fromLTRB(8, 4, 4, 6),
             child: Column(
+              mainAxisSize: MainAxisSize.min,
               children: [
                 Row(
                   children: [
@@ -2557,65 +2702,75 @@ class _FormattingToolbar extends StatelessWidget {
   final ComposerController composer;
 
   @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.fromLTRB(12, 0, 12, 4),
-    child: Align(
-      alignment: AlignmentDirectional.centerStart,
-      child: TextFieldTapRegion(
-        child: DButtonGroup(
-          key: const ValueKey('composer-formatting'),
-          semanticLabel: 'Formatting',
-          children: [
-            for (final (label, icon, mark, key) in [
-              ('Bold', DIcons.bold, ComposerMark.bold, LogicalKeyboardKey.keyB),
-              (
-                'Italic',
-                DIcons.italic,
-                ComposerMark.italic,
-                LogicalKeyboardKey.keyI,
-              ),
-              (
-                'Inline code',
-                DIcons.code,
-                ComposerMark.inlineCode,
-                LogicalKeyboardKey.keyE,
-              ),
-            ])
+  Widget build(BuildContext context) {
+    final composer = this.composer.activeEditor;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 0, 12, 4),
+      child: Align(
+        alignment: AlignmentDirectional.centerStart,
+        child: TextFieldTapRegion(
+          child: DButtonGroup(
+            key: const ValueKey('composer-formatting'),
+            semanticLabel: 'Formatting',
+            children: [
+              for (final (label, icon, mark, key) in [
+                (
+                  'Bold',
+                  DIcons.bold,
+                  ComposerMark.bold,
+                  LogicalKeyboardKey.keyB,
+                ),
+                (
+                  'Italic',
+                  DIcons.italic,
+                  ComposerMark.italic,
+                  LogicalKeyboardKey.keyI,
+                ),
+                (
+                  'Inline code',
+                  DIcons.code,
+                  ComposerMark.inlineCode,
+                  LogicalKeyboardKey.keyE,
+                ),
+              ])
+                DButton.iconOnly(
+                  key: ValueKey('composer-format-${mark.name}'),
+                  tooltip: label,
+                  shortcut: DShortcut(_formattingShortcut(key)),
+                  variant: DButtonVariant.transparentBackground,
+                  size: DButtonSize.regular,
+                  icon: DIcon(icon),
+                  onPressed: composer.isEditing && !composer.loadingBody
+                      ? () {
+                          composer.toggleMark(mark);
+                          composer.focus.requestFocus();
+                        }
+                      : null,
+                ),
               DButton.iconOnly(
-                key: ValueKey('composer-format-${mark.name}'),
-                tooltip: label,
-                shortcut: DShortcut(_formattingShortcut(key)),
+                key: const ValueKey('composer-format-link'),
+                tooltip: 'Link',
+                shortcut: DShortcut(
+                  _formattingShortcut(LogicalKeyboardKey.keyL),
+                ),
                 variant: DButtonVariant.transparentBackground,
                 size: DButtonSize.regular,
-                icon: DIcon(icon),
+                icon: const DIcon(DIcons.link),
                 onPressed: composer.isEditing && !composer.loadingBody
-                    ? () {
-                        composer.toggleMark(mark);
-                        composer.focus.requestFocus();
-                      }
+                    ? () => unawaited(
+                        showComposerLinkDialog(
+                          context: context,
+                          composer: composer,
+                        ),
+                      )
                     : null,
               ),
-            DButton.iconOnly(
-              key: const ValueKey('composer-format-link'),
-              tooltip: 'Link',
-              shortcut: DShortcut(_formattingShortcut(LogicalKeyboardKey.keyL)),
-              variant: DButtonVariant.transparentBackground,
-              size: DButtonSize.regular,
-              icon: const DIcon(DIcons.link),
-              onPressed: composer.isEditing && !composer.loadingBody
-                  ? () => unawaited(
-                      showComposerLinkDialog(
-                        context: context,
-                        composer: composer,
-                      ),
-                    )
-                  : null,
-            ),
-          ],
+            ],
+          ),
         ),
       ),
-    ),
-  );
+    );
+  }
 }
 
 class _Toolbar extends StatelessWidget {
@@ -2635,6 +2790,7 @@ class _Toolbar extends StatelessWidget {
   );
 
   Widget _buildToolbar(BuildContext context) {
+    final composer = this.composer.activeEditor;
     final registry =
         PluginScope.maybeOf(context)?.registry ?? PluginRegistry.empty;
     final actions = registry.composerToolbar(context, composer);

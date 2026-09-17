@@ -32,7 +32,7 @@ Future<void> main() async {
   );
   composer.text.value = const TextEditingValue(
     text:
-        'Before the details.\n\n[details="More information"]\nThis is **hidden content**.\n\n[details="Nested details"]\nNested content.\n[/details]\n[/details]\n\nAfter the details.',
+        'Before the details.\n\n[details="More information"]\nThis is **bold**, *italic* and `code` in hidden content.\n\n![An image preview|240x120](upload://details-example)\n\n[details="Nested details"]\nNested **rich content**.\n[/details]\n[/details]\n\nAfter the details.',
     selection: TextSelection.collapsed(offset: 0),
   );
   MacOSLaunchScreen.dismissAfterFirstFlutterFrame();
