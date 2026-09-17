@@ -214,7 +214,7 @@ class _ConversationTopicCard extends StatelessWidget {
                               Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  _TopicListTitle(row: row, card: true),
+                                  _TopicListTitle(row: row),
                                   if (settings?.topicListExcerpts == true &&
                                       topic.excerpt?.trim().isNotEmpty ==
                                           true) ...[

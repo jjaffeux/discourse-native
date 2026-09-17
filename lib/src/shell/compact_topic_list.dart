@@ -449,9 +449,8 @@ List<Widget> _topicRowTags(BuildContext context, _TopicRowBody row) {
 }
 
 class _TopicListTitle extends StatelessWidget {
-  const _TopicListTitle({required this.row, this.card = false});
+  const _TopicListTitle({required this.row});
   final _TopicRowBody row;
-  final bool card;
 
   @override
   Widget build(BuildContext context) {
@@ -462,11 +461,7 @@ class _TopicListTitle extends StatelessWidget {
         true;
     final style =
         row.titleStyle ??
-        (large
-            ? (card ? theme.textTheme.titleLarge : theme.textTheme.titleMedium)
-            : (card
-                  ? theme.textTheme.titleMedium
-                  : theme.textTheme.titleSmall));
+        (large ? theme.textTheme.titleMedium : theme.textTheme.titleSmall);
     final largeText = MediaQuery.textScalerOf(context).scale(14) > 21;
     return DItemTitle(
       maxLines: largeText ? null : 2,
