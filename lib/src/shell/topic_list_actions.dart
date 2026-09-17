@@ -10,6 +10,7 @@ import '../theme/d_icons.dart';
 import '../theme/d_native_icons.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';
+import 'topic_filter_controller.dart';
 import 'topic_filter_input.dart';
 import 'topic_list_layout.dart';
 import 'topic_presentation.dart';
@@ -169,8 +170,9 @@ class _TopicListFilterMenuState extends State<TopicListFilterMenu> {
   Future<void> _load() async {
     if (_retired || _loading || _options != null) return;
     setState(() => _loading = true);
-    final options = await ShellScope.read(context)
-        .loadTopicFilterOptions(widget.siteUrl);
+    final options = await ShellScope.read(
+      context,
+    ).loadTopicFilterOptions(widget.siteUrl);
     if (mounted && !_retired) {
       setState(() {
         _options = options;
@@ -213,19 +215,20 @@ class _TopicListFilterMenuState extends State<TopicListFilterMenu> {
         children: [
           const Text('Filter topics'),
           const DFieldDescription(
-            child: Text('Choose a starting point or write your own filter.'),
+            child: Text('Combine quick filters or write your own query.'),
           ),
           TopicFilterInput(
             key: ValueKey(_presetRevision),
             siteUrl: widget.siteUrl,
             initialQuery: _query,
             options: _options ?? const [],
-            categories: ShellScope.read(context)
-                .filterCategoriesFor(widget.siteUrl),
+            categories: ShellScope.read(
+              context,
+            ).filterCategoriesFor(widget.siteUrl),
             hintText: 'status:open\ntag:feedback',
             multiline: true,
             padding: EdgeInsets.zero,
-            onChanged: (query) => _query = query,
+            onChanged: (query) => setState(() => _query = query),
             onSubmitted: _apply,
           ),
           const DFieldDescription(child: Text('Quick filters')),
@@ -244,13 +247,17 @@ class _TopicListFilterMenuState extends State<TopicListFilterMenu> {
                 ('Watching', 'in:watching'),
                 ('Tracking', 'in:tracking'),
               ])
-                DButton(
-                  label: Text(label),
-                  variant: DButtonVariant.outline,
-                  onPressed: () => setState(() {
-                    _query = query;
+                DToggle(
+                  pressed: splitTopicFilterQuery(_query).contains(query),
+                  variant: DToggleVariant.outline,
+                  onPressedChanged: (pressed) => setState(() {
+                    final clauses = splitTopicFilterQuery(_query)
+                      ..removeWhere((clause) => clause == query);
+                    if (pressed) clauses.add(query);
+                    _query = clauses.join('\n');
                     _presetRevision++;
                   }),
+                  child: Text(label),
                 ),
             ],
           ),
