@@ -107,6 +107,7 @@ class TopicListTableHeader extends StatelessWidget {
           header: DTableHeader(
             rows: [
               DTableRow(
+                highlightOnHover: false,
                 cells: [
                   heading('Topic'),
                   if (layout.category) heading('Category'),
