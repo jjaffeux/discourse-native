@@ -32,6 +32,74 @@ import 'support/fakes.dart';
 void main() {
   final sites = [instance('one.example'), instance('two.example')];
 
+  for (final mode in TopicListDisplayMode.values) {
+    testWidgets('$mode pagination retains unchanged row contents', (
+      tester,
+    ) async {
+      final api = _ControlledPagingApi();
+      final controller = await _controlledShell(api, sites.first);
+      addTearDown(controller.dispose);
+      await controller.appSettings.setTopicListMode(mode);
+      api.requests.single.response.complete(
+        TopicList(topics: _topics(1, 30), moreTopicsUrl: '/latest.json?page=1'),
+      );
+      await tester.pumpWidget(_LiveTestList(controller: controller));
+      await tester.pumpAndSettle();
+      final rebuiltTitles = <Element>[];
+      final builtTitles = find.byType(TopicTitle).evaluate().toSet();
+      final previous = debugOnRebuildDirtyWidget;
+      debugOnRebuildDirtyWidget = (element, builtOnce) {
+        previous?.call(element, builtOnce);
+        if (element.widget is TopicTitle && !builtTitles.add(element)) {
+          rebuiltTitles.add(element);
+        }
+      };
+      addTearDown(() => debugOnRebuildDirtyWidget = previous);
+      final position = tester
+          .state<ScrollableState>(find.byType(Scrollable).first)
+          .position;
+      final offset = position.pixels;
+
+      final loading = controller.loadMoreFeed('latest');
+      await tester.pump();
+      expect(controller.currentFeed!.loadingMore, isTrue);
+      expect(rebuiltTitles, isEmpty);
+      api.requests.last.response.complete(TopicList(topics: _topics(31, 30)));
+      await loading;
+      await tester.pumpAndSettle();
+      expect(controller.currentFeed!.topicIds, hasLength(60));
+      expect(rebuiltTitles, isEmpty);
+      expect(position.pixels, offset);
+
+      controller.store.put(
+        sites.first.url,
+        const Topic(id: 1, title: 'Updated topic', slug: 'topic-1'),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Updated topic'), findsOneWidget);
+      expect(rebuiltTitles, hasLength(1));
+
+      await controller.appSettings.setTopicListMode(
+        mode == TopicListDisplayMode.card
+            ? TopicListDisplayMode.compact
+            : TopicListDisplayMode.card,
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Updated topic'), findsOneWidget);
+      expect(
+        find.byKey(
+          ValueKey(
+            mode == TopicListDisplayMode.card
+                ? 'topic-compact-1'
+                : 'topic-card-1',
+          ),
+        ),
+        findsOneWidget,
+      );
+      expect(tester.takeException(), isNull);
+    });
+  }
+
   for (final empty in [false, true]) {
     testWidgets('pull refreshes ${empty ? 'an empty' : 'a short'} topic list', (
       tester,

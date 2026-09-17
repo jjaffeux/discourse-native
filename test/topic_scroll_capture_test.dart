@@ -120,6 +120,14 @@ void main() {
         'pixels': 100.0,
       });
       capture.recordTopicEvent('topicList.row.built', {'index': 10});
+      capture.recordTopicEvent('topicList.row.build', {
+        'topicId': 10,
+        'durationUs': 300,
+      });
+      capture.recordTopicEvent('topicList.row.layout', {
+        'topicId': 10,
+        'durationUs': 120,
+      });
       capture.stop();
 
       final report =
@@ -130,9 +138,13 @@ void main() {
       expect(analysis['topicListContextCount'], 1);
       expect(work['total'], 25);
       expect(activity['topicList.row.built'], 1);
+      expect((analysis['topicListRowBuildUs'] as Map)['total'], 300);
+      expect((analysis['topicListRowLayoutUs'] as Map)['total'], 120);
       final compact = await capture.buildPerformanceReport();
       expect(compact, contains('300 loaded topics'));
       expect(compact, contains('Topic-list scroll bookkeeping'));
+      expect(compact, contains('Topic-list row build'));
+      expect(compact, contains('Topic-list row layout'));
       expect(compact, isNot(contains('No topic context was recorded')));
     },
   );
@@ -329,6 +341,8 @@ void main() {
     addTearDown(capture.dispose);
     capture.start();
     capture.recordTopicEvent('viewport.work', const {'durationUs': 1200});
+    capture.recordTopicEvent('topicList.row.build', const {'durationUs': 300});
+    capture.recordTopicEvent('topicList.row.layout', const {'durationUs': 120});
     frameNumber = 43;
     PlatformDispatcher.instance.onReportTimings?.call([
       _timing(frameNumber: 42, buildUs: 20000),
@@ -345,7 +359,13 @@ void main() {
         (analysis['worstFrames']! as List<Object?>).single!
             as Map<String, Object?>;
     expect(worst['buildUs'], 20000);
-    expect(worst['topicActivity'], {'viewport.work': 1});
+    expect(worst['topicActivity'], {
+      'viewport.work': 1,
+      'topicList.row.build': 1,
+      'topicList.row.layout': 1,
+    });
+    expect((worst['measuredWorkUs'] as Map)['topicList.row.build'], 300);
+    expect((worst['measuredWorkUs'] as Map)['topicList.row.layout'], 120);
   });
 
   test('empty capture explains missing measurements', () async {

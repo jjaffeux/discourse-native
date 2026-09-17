@@ -18,6 +18,8 @@ String encodeTopicScrollReport(
   final postLengths = <(int, int), int>{};
   final viewportDurations = <int>[];
   final listScrollDurations = <int>[];
+  final listBuildDurations = <int>[];
+  final listLayoutDurations = <int>[];
   final chatScrollDurations = <int>[];
   final chatViewportDurations = <int>[];
   final chatRowLayoutDurations = <int>[];
@@ -70,6 +72,12 @@ String encodeTopicScrollReport(
     if (name == 'chat.dayExtents.scanned') {
       chatDayExtentDurations.add(_int(data['durationUs']));
     }
+    if (name == 'topicList.row.build') {
+      listBuildDurations.add(_int(data['durationUs']));
+    }
+    if (name == 'topicList.row.layout') {
+      listLayoutDurations.add(_int(data['durationUs']));
+    }
     if (name == 'topicList.scroll.notification') {
       listScrollDurations.add(_int(data['durationUs']));
     }
@@ -103,6 +111,8 @@ String encodeTopicScrollReport(
     'allFrames': _frameStats(frames, budgetUs),
     'topicFrames': _frameStats(topicFrames, budgetUs),
     'viewportWorkUs': _distribution(viewportDurations),
+    'topicListRowBuildUs': _distribution(listBuildDurations),
+    'topicListRowLayoutUs': _distribution(listLayoutDurations),
     'topicListScrollWorkUs': _distribution(listScrollDurations),
     'chatScrollWorkUs': _distribution(chatScrollDurations),
     'chatViewportWorkUs': _distribution(chatViewportDurations),
@@ -144,6 +154,8 @@ String encodeTopicScrollReport(
           'topicActivity': _activityCounts(byFrame[frame['frameNumber']] ?? []),
           'measuredWorkUs': {
             for (final name in [
+              'topicList.row.build',
+              'topicList.row.layout',
               'post.layout',
               'viewport.work',
               'chat.row.layout',
@@ -324,6 +336,13 @@ String _formatReport(Map<String, Object?> report) {
       'Topic-list scroll bookkeeping: '
       '${_timingLine(_map(analysis['topicListScrollWorkUs']))}',
     );
+    output
+      ..writeln(
+        'Topic-list row build: ${_timingLine(_map(analysis['topicListRowBuildUs']))}',
+      )
+      ..writeln(
+        'Topic-list row layout: ${_timingLine(_map(analysis['topicListRowLayoutUs']))}',
+      );
     for (final list in _maps(analysis['topicLists'])) {
       output.writeln(
         'Topic list: ${list['topicCount']} loaded topics | '
@@ -412,7 +431,9 @@ String _formatReport(Map<String, Object?> report) {
       final work = _map(frame['measuredWorkUs']);
       output.writeln(
         '    Measured row layout ${_ms(work['post.layout'])} ms; '
-        'viewport ${_ms(work['viewport.work'])} ms',
+        'viewport ${_ms(work['viewport.work'])} ms; '
+        'topic-list build ${_ms(work['topicList.row.build'])} ms, '
+        'layout ${_ms(work['topicList.row.layout'])} ms',
       );
       final cpu = _map(frame['cpu']);
       if (_int(cpu['sampleCount']) > 0) {

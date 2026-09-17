@@ -1151,7 +1151,7 @@ class _FeedErrorBanner extends StatelessWidget {
   );
 }
 
-class _TopicRow extends StatelessWidget {
+class _TopicRow extends StatefulWidget {
   const _TopicRow({
     required this.topicId,
     required this.hiddenCategoryId,
@@ -1169,12 +1169,39 @@ class _TopicRow extends StatelessWidget {
   final ValueChanged<Topic> onOpen;
 
   @override
-  Widget build(BuildContext context) {
+  State<_TopicRow> createState() => _TopicRowState();
+}
+
+class _TopicRowState extends State<_TopicRow> {
+  Widget? _content;
+
+  @override
+  void didUpdateWidget(_TopicRow oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.topicId != widget.topicId ||
+        oldWidget.hiddenCategoryId != widget.hiddenCategoryId ||
+        oldWidget.onOpen != widget.onOpen ||
+        oldWidget.inbox != widget.inbox ||
+        oldWidget.compact != widget.compact ||
+        oldWidget.showCategoryColumn != widget.showCategoryColumn) {
+      _content = null;
+    }
+  }
+
+  // Pagination rebuilds the sliver delegate. Keep the mounted row's selectors
+  // and content stable; topic, category, selection and inherited dependencies
+  // still update independently. The cache dies when the row leaves the sliver.
+  @override
+  Widget build(BuildContext context) => _content ??= _buildContent();
+
+  Widget _buildContent() {
     return ShellSelector<({String? siteUrl, bool selected, bool reading})>(
       select: (controller) => (
         siteUrl: controller.currentInstance?.url,
-        reading: inbox && controller.currentContent?.isTopic == true,
-        selected: inbox && controller.currentContent?.topicId == topicId,
+        reading: widget.inbox && controller.currentContent?.isTopic == true,
+        selected:
+            widget.inbox &&
+            controller.currentContent?.topicId == widget.topicId,
       ),
       builder: (context, state, _) {
         final siteUrl = state.siteUrl;
@@ -1182,7 +1209,7 @@ class _TopicRow extends StatelessWidget {
         final controller = ShellScope.read(context);
 
         return ValueListenableBuilder<Topic?>(
-          valueListenable: controller.topicRef(siteUrl, topicId),
+          valueListenable: controller.topicRef(siteUrl, widget.topicId),
           builder: (context, topic, _) => topic == null
               // The id is in a list, so the topic was stored with it. A gap
               // here means the site was just disconnected and this list is
@@ -1195,19 +1222,21 @@ class _TopicRow extends StatelessWidget {
                     controller,
                     topic.categoryId,
                     siteUrl,
-                    hiddenCategoryId: compact ? null : hiddenCategoryId,
+                    hiddenCategoryId: widget.compact
+                        ? null
+                        : widget.hiddenCategoryId,
                   ),
                   builder: (context, categoryPresentation, _) => _TopicRowBody(
                     topic: topic,
-                    compact: compact,
-                    showCategoryColumn: showCategoryColumn,
+                    compact: widget.compact,
+                    showCategoryColumn: widget.showCategoryColumn,
                     category: categoryPresentation.category,
                     parentCategory: categoryPresentation.parent,
                     showCategoryBreadcrumb: true,
                     siteUrl: siteUrl,
                     selected: state.selected,
                     inbox: state.reading,
-                    onTap: () => onOpen(topic),
+                    onTap: () => widget.onOpen(topic),
                   ),
                 ),
         );
@@ -1378,7 +1407,16 @@ class _TopicRowBody extends StatelessWidget {
   final EdgeInsetsGeometry? outerPadding;
 
   @override
-  Widget build(BuildContext context) {
+  StatelessElement createElement() => _TopicRowBodyElement(this);
+
+  @override
+  Widget build(BuildContext context) => _TopicRowLayout(
+    topicId: topic.id,
+    capture: DiagnosticsScope.maybeRead(context)?.topicScrollCapture,
+    child: _buildBody(context),
+  );
+
+  Widget _buildBody(BuildContext context) {
     final settings = ShellScope.maybeIdentityOf(context)?.appSettings;
     if (compact != null || settings == null) {
       return _build(context, compact ?? false);
@@ -1873,4 +1911,79 @@ class _Message extends StatelessWidget {
       ),
     ),
   );
+}
+
+// Measure synchronous subtree construction, including descendants, rather than
+// just allocating the widget returned by _TopicRowBody.build.
+class _TopicRowBodyElement extends StatelessElement {
+  _TopicRowBodyElement(_TopicRowBody super.widget);
+
+  @override
+  void performRebuild() {
+    final capture = getInheritedWidgetOfExactType<DiagnosticsScope>()
+        ?.controller
+        .topicScrollCapture;
+    if (capture == null || !capture.isRecording) {
+      super.performRebuild();
+      return;
+    }
+    final timer = Stopwatch()..start();
+    try {
+      super.performRebuild();
+    } finally {
+      timer.stop();
+      capture.recordTopicEvent('topicList.row.build', {
+        'topicId': (widget as _TopicRowBody).topic.id,
+        'durationUs': timer.elapsedMicroseconds,
+      });
+    }
+  }
+}
+
+class _TopicRowLayout extends SingleChildRenderObjectWidget {
+  const _TopicRowLayout({
+    required this.topicId,
+    required this.capture,
+    required super.child,
+  });
+
+  final int topicId;
+  final TopicScrollCaptureController? capture;
+
+  @override
+  RenderObject createRenderObject(BuildContext context) =>
+      _RenderTopicRowLayout(topicId, capture);
+
+  @override
+  void updateRenderObject(BuildContext context, _RenderTopicRowLayout object) {
+    object
+      ..topicId = topicId
+      ..capture = capture;
+  }
+}
+
+class _RenderTopicRowLayout extends RenderProxyBox {
+  _RenderTopicRowLayout(this.topicId, this.capture);
+
+  int topicId;
+  TopicScrollCaptureController? capture;
+
+  @override
+  void performLayout() {
+    final recorder = capture;
+    if (recorder == null || !recorder.isRecording) {
+      super.performLayout();
+      return;
+    }
+    final timer = Stopwatch()..start();
+    try {
+      super.performLayout();
+    } finally {
+      timer.stop();
+      recorder.recordTopicEvent('topicList.row.layout', {
+        'topicId': topicId,
+        'durationUs': timer.elapsedMicroseconds,
+      });
+    }
+  }
 }
