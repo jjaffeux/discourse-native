@@ -5,6 +5,46 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   ComposerTableBlock parse(String source) => parseComposerTables(source).single;
 
+  test('recognizes every table when a body row omits its final cells', () {
+    const tuesday =
+        '| **Teams** | **# ppl** | **Delegate(s)** | **People** | **Activity** |\n'
+        '|:---|:---|:---|:---|:---|\n'
+        '| Group One | 2 | @delegate | @one, @two | Walk |\n'
+        '| Group Two| 3| @delegate| @one, @two, @three|';
+    const source =
+        '## Tuesday\n\n$tuesday\n\n## Wednesday\n\n| Team | Activity |\n|:--|:--|\n| Group | |';
+    final tables = parseComposerTables(source);
+    expect(tables, hasLength(2));
+    final table = tables.first;
+    expect(table.source, tuesday);
+    expect(table.columnCount, 5);
+    expect(table.rowCount, 2);
+    expect(table.cell(2, 4), '');
+    expect(table.editCell(2, 4, ''), tuesday);
+    final edited = parse(table.editCell(2, 4, 'Coffee'));
+    expect(edited.cell(2, 4), 'Coffee');
+    expect(edited.cell(2, 3), '@one, @two, @three');
+    expect(edited.source.split('\n').take(3), tuesday.split('\n').take(3));
+    final moved = parse(table.moveColumn(4, 0));
+    expect(moved.cell(0, 0), '**Activity**');
+    expect(moved.cell(1, 0), 'Walk');
+    expect(moved.cell(2, 0), '');
+    expect(parse(table.insertColumn(4)).columnCount, 6);
+    expect(parse(table.removeColumn(4)).cell(2, 3), '@one, @two, @three');
+  });
+
+  test('extra body cells remain in source without hiding the table', () {
+    const source = '| A | B |\n| --- | --- |\n| x | y | extra |';
+    final table = parse(source);
+    expect(table.columnCount, 2);
+    expect(table.cell(1, 1), 'y');
+    expect(
+      table.editCell(1, 1, 'changed'),
+      source.replaceFirst(' y ', ' changed '),
+    );
+    expect(table.moveColumn(0, 1), contains('| y | x | extra |'));
+  });
+
   test(
     'edits only the selected cell and retains offsets, whitespace and CRLF',
     () {
@@ -86,11 +126,10 @@ void main() {
   );
 
   test(
-    'leaves malformed, ragged, code, list, quote and HTML tables untouched',
+    'leaves mismatched headers, code, list, quote and HTML tables untouched',
     () {
       for (final source in [
         '| A | B |\n| --- |\n| x | y |',
-        '| A | B |\n| --- | --- |\n| x | y | z |',
         '```md\n| A | B |\n| --- | --- |\n| x | y |\n```',
         '    | A | B |\n    | --- | --- |\n    | x | y |',
         '> | A | B |\n> | --- | --- |\n> | x | y |',

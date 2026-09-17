@@ -1,3 +1,4 @@
+import 'package:flutter/rendering.dart';
 import 'package:flutter/widgets.dart';
 
 /// Isolates Native cell editors from the enclosing composer's text actions.
@@ -6,16 +7,28 @@ class ComposerEmbeddedEditor extends StatelessWidget {
   const ComposerEmbeddedEditor({
     super.key,
     required this.owner,
+    required this.scrollController,
     required this.semanticLabel,
     required this.child,
   });
 
   final Object owner;
+  final ScrollController? scrollController;
   final String semanticLabel;
   final Widget child;
 
   @override
-  Widget build(BuildContext context) => Semantics(
+  Widget build(BuildContext context) => _EmbeddedViewport(
+    scrollController: scrollController,
+    child: FocusScope(
+      // Keep the cell and main EditableText from both owning keyboard input
+      // and scrolling to their carets when a cell receives focus.
+      parentNode: FocusScope.of(context),
+      child: _editor(),
+    ),
+  );
+
+  Widget _editor() => Semantics(
     container: true,
     explicitChildNodes: true,
     label: semanticLabel,
@@ -83,4 +96,63 @@ class _LocalTextAction<T extends Intent> extends Action<T> {
 
   @override
   bool consumesKey(T intent) => callingAction?.consumesKey(intent) ?? false;
+}
+
+/// RenderEditable scrolls inline children while painting, but omits that offset
+/// from their coordinate transform. Restore it for native input and semantics,
+/// without moving the already scrolled painting or pointer hit tests.
+class _EmbeddedViewport extends SingleChildRenderObjectWidget {
+  const _EmbeddedViewport({
+    required this.scrollController,
+    required super.child,
+  });
+
+  final ScrollController? scrollController;
+
+  @override
+  _RenderEmbeddedViewport createRenderObject(BuildContext context) =>
+      _RenderEmbeddedViewport(scrollController);
+
+  @override
+  void updateRenderObject(
+    BuildContext context,
+    _RenderEmbeddedViewport renderObject,
+  ) {
+    renderObject.scrollController = scrollController;
+  }
+}
+
+class _RenderEmbeddedViewport extends RenderProxyBox {
+  _RenderEmbeddedViewport(this._scrollController);
+
+  ScrollController? _scrollController;
+
+  set scrollController(ScrollController? value) {
+    if (identical(_scrollController, value)) return;
+    if (attached) _scrollController?.removeListener(markNeedsSemanticsUpdate);
+    _scrollController = value;
+    if (attached) _scrollController?.addListener(markNeedsSemanticsUpdate);
+    markNeedsSemanticsUpdate();
+  }
+
+  @override
+  void attach(PipelineOwner owner) {
+    super.attach(owner);
+    _scrollController?.addListener(markNeedsSemanticsUpdate);
+  }
+
+  @override
+  void detach() {
+    _scrollController?.removeListener(markNeedsSemanticsUpdate);
+    super.detach();
+  }
+
+  @override
+  void applyPaintTransform(RenderBox child, Matrix4 transform) {
+    super.applyPaintTransform(child, transform);
+    final scroll = _scrollController;
+    if (scroll != null && scroll.hasClients) {
+      transform.translateByDouble(0, -scroll.offset, 0, 1);
+    }
+  }
 }

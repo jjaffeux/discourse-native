@@ -1,4 +1,6 @@
 // Local fixture: the production composer and table use in-memory drafts/API.
+import 'dart:convert';
+
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/macos_launch_screen.dart';
 import 'package:discourse_native/src/shell/composer_controller.dart';
@@ -29,10 +31,12 @@ Future<void> main() async {
       topicTitle: 'Table editing',
     ),
   );
-  composer.text.value = const TextEditingValue(
-    text:
-        'Plans for the team lunch:\n\n| Name | Bringing |\n| :--- | --- |\n| Sam | Bread |\n| Alex | Salad |\n| Jo | Dessert |\n\nSee you on Friday!',
-    selection: TextSelection.collapsed(offset: 0),
+  const encodedSource = String.fromEnvironment('COMPOSER_TABLE_FIXTURE_BASE64');
+  composer.text.value = TextEditingValue(
+    text: encodedSource.isEmpty
+        ? 'Plans for the team lunch:\n\n| Name | Bringing |\n| :--- | --- |\n| Sam | Bread |\n| Alex | Salad |\n| Jo | Dessert |\n\nSee you on Friday!'
+        : utf8.decode(base64Decode(encodedSource)),
+    selection: const TextSelection.collapsed(offset: 0),
   );
   MacOSLaunchScreen.dismissAfterFirstFlutterFrame();
   var dark = false;

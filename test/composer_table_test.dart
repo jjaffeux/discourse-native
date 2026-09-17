@@ -76,6 +76,38 @@ Future<void> _menu(WidgetTester tester, String label, String action) async {
   await tester.pumpAndSettle();
 }
 
+Future<ComposerController> _pumpPanel(
+  WidgetTester tester,
+  String source,
+) async {
+  final composer = ComposerController(_target);
+  composer.text.value = TextEditingValue(
+    text: source,
+    selection: const TextSelection.collapsed(offset: 0),
+  );
+  final shell = ShellController(
+    instanceStore: FakeInstanceStore(),
+    api: FakeDiscourseApi(),
+    authenticator: FakeAuthenticator(),
+    drafts: FakeDraftStore(),
+    trackers: FakeSiteTracker.reset(),
+  );
+  addTearDown(composer.dispose);
+  addTearDown(shell.dispose);
+  await shell.load();
+  await tester.pumpWidget(
+    MaterialApp(
+      theme: AppTheme.light,
+      home: ShellScope(
+        controller: shell,
+        child: Scaffold(body: ComposerPanel(composer: composer, height: 550)),
+      ),
+    ),
+  );
+  await tester.pumpAndSettle();
+  return composer;
+}
+
 void main() {
   testWidgets(
     'cell edits retain authored padding without accumulating typed spaces',
@@ -208,6 +240,50 @@ void main() {
     await tester.enterText(_cell(1, 0), 'Mouse edit');
     await tester.pump();
     expect(composer.raw, _source.replaceFirst('Tea', 'Mouse edit'));
+  }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
+
+  testWidgets('scrolling to an existing table preserves cell pointer ownership', (
+    tester,
+  ) async {
+    final semantics = tester.ensureSemantics();
+    final source =
+        '${'Paragraph before the table with [a link](https://example.test).\n\n> Quoted text\n\n' * 20}${'| Name | Count | Delegate | People | Activity |\n| :--- | ---: | --- | --- | --- |\n| Tea | 2 | @host | @one, @two | |\n'}${'| Other group | 3 | @host | @one, @two, @three |\n' * 15}\n\n${'Paragraph after the table.\n\n' * 30}'
+            .trimRight();
+    final composer = await _pumpPanel(tester, source);
+    final scroll = composer.text.imageScrollController!;
+    final editorTop = tester.getTopLeft(find.byType(ComposerEditor)).dy;
+    final cellTop = tester.getTopLeft(_cell(1, 0)).dy;
+    scroll.jumpTo(
+      (cellTop - editorTop - 150).clamp(0, scroll.position.maxScrollExtent),
+    );
+    await tester.pumpAndSettle();
+    final scrollBefore = scroll.offset;
+    final point = tester.getCenter(_cell(1, 0));
+    await tester.tapAt(point, kind: PointerDeviceKind.mouse);
+    await tester.pumpAndSettle();
+    final cell = tester.widget<EditableText>(_cell(1, 0));
+    expect(cell.focusNode.hasPrimaryFocus, isTrue);
+    expect(composer.focus.hasFocus, isFalse);
+    expect(scroll.offset, closeTo(scrollBefore, 1));
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyA);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
+    await tester.pump();
+    expect(
+      cell.controller.selection,
+      const TextSelection(baseOffset: 0, extentOffset: 3),
+    );
+    expect(composer.text.selection.isCollapsed, isTrue);
+    tester.testTextInput.updateEditingValue(
+      const TextEditingValue(
+        text: 'Clicked cell',
+        selection: TextSelection.collapsed(offset: 12),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(composer.raw, source.replaceFirst('Tea', 'Clicked cell'));
+    expect(find.byType(ComposerTableEditor), findsOneWidget);
+    semantics.dispose();
   }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 
   testWidgets(
@@ -515,12 +591,15 @@ void main() {
       tester,
     ) async {
       final composer = await _pump(tester, dark: dark, width: 320, scale: 2);
-      // RenderEditable paints its inline children at a viewport offset that
-      // is not reflected by their localToGlobal transform.
-      await tester.tapAt(
-        tester.getCenter(find.text('Add row')) -
-            Offset(0, composer.text.imageScrollController?.offset ?? 0),
+      final scroll = composer.text.imageScrollController!;
+      scroll.jumpTo(
+        (scroll.offset + tester.getCenter(find.text('Add row')).dy - 400).clamp(
+          0,
+          scroll.position.maxScrollExtent,
+        ),
       );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Add row'));
       await tester.pumpAndSettle();
       expect(parseComposerTables(composer.raw).single.rowCount, 3);
       expect(tester.takeException(), isNull);
