@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:discourse_native/discourse_plugin_sdk.dart';
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/plugins/discourse_events/event_card.dart';
 import 'package:discourse_native/src/plugins/discourse_events/event_data.dart';
 import 'package:discourse_native/src/plugins/discourse_events/event_navigation.dart';
@@ -409,7 +410,7 @@ void main() {
         findsOneWidget,
       );
       final reads = ports.transport.reads.length;
-      await tester.tap(find.byTooltip('Search'));
+      await tester.tap(find.widgetWithText(DTabTrigger<String>, 'Interested'));
       await tester.pumpAndSettle();
       expect(ports.transport.reads, hasLength(reads));
       expect(find.text('@lee'), findsNothing);

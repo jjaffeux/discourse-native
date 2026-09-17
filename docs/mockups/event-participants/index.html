@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark light">
+  <title>Participants · Discourse Native design studies</title>
+  <link rel="stylesheet" href="styles.css">
+  <script src="mockups.js" defer></script>
+</head>
+<body>
+  <div class="workbench">
+    <header class="masthead">
+      <a class="brand" href="#concept=compact" aria-label="Participants design studies"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i><i></i></span>DISCOURSE NATIVE <span class="slash">/</span> DESIGN STUDIES</a>
+      <span class="edition">EVENT PARTICIPANTS · 01</span>
+    </header>
+    <div class="intro">
+      <div><span class="eyebrow">THE NEXT PIECE OF THE EVENT</span><h1>Participants, at a glance.</h1><p>Three compact layouts for finding people and scanning responses.</p></div>
+      <span class="source-note"><span></span> SAME SIX VISIBLE PARTICIPANTS</span>
+    </div>
+    <nav class="concepts" aria-label="Design directions">
+      <button data-concept="compact" aria-pressed="true"><span class="number">01</span><span><strong>Compact list</strong><small>A natural companion to the event card</small></span><span class="layout-icon list-icon" aria-hidden="true"></span></button>
+      <button data-concept="rail" aria-pressed="false"><span class="number">02</span><span><strong>Status rail</strong><small>Filters beside the people</small></span><span class="layout-icon rail-icon" aria-hidden="true"></span></button>
+      <button data-concept="directory" aria-pressed="false"><span class="number">03</span><span><strong>Directory</strong><small>More people in less space</small></span><span class="layout-icon table-icon" aria-hidden="true"></span></button>
+    </nav>
+    <div class="toolbar">
+      <div class="tools" role="group" aria-label="Preview width">
+        <button data-width="desktop" aria-pressed="true"><span data-icon="desktop"></span>Desktop</button>
+        <button data-width="mobile" aria-pressed="false"><span data-icon="mobile"></span>Mobile</button>
+      </div>
+      <div class="tools">
+        <button id="compare" aria-pressed="false"><span data-icon="compare"></span>Compare all</button>
+        <span class="divider"></span>
+        <button id="theme"><span data-icon="sun"></span><span>Light</span></button>
+      </div>
+    </div>
+    <main id="studies"></main>
+    <footer class="page-footer">
+      <p>Names, usernames, and responses come from your screenshot. Initials are derived from those names.<br>Six people are visible; the full attendance totals are unknown. Filters apply only to this sample.</p>
+      <a href="README.md">Design & implementation notes <span aria-hidden="true">↗</span></a>
+    </footer>
+  </div>
+  <div class="toast" role="status" aria-live="polite" id="toast"></div>
+</body>
+</html>
