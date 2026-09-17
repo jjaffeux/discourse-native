@@ -496,11 +496,11 @@ class _TopicInboxWorkspaceState extends State<_TopicInboxWorkspace> {
                 resizeEnabled: split,
                 edge: ResizablePaneEdge.trailing,
                 resizeKey: 'inbox-list',
+                reserveHandleSpace: true,
                 semanticsLabel: messages
                     ? 'Resize message list'
                     : 'Resize topic list',
                 maximumWidth: maximumListWidth,
-                handleWidth: 8,
                 // The resize handle owns the list/reader boundary. When the
                 // list fills the reader, the shell or composer owns its edge.
                 dividerWidth: 1,

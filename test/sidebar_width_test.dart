@@ -10,6 +10,7 @@ import 'package:discourse_native/src/shell/app_text_scale.dart';
 import 'package:discourse_native/src/shell/instance_rail.dart';
 import 'package:discourse_native/src/shell/instance_sidebar.dart';
 import 'package:discourse_native/src/shell/main_content.dart';
+import 'package:discourse_native/src/shell/resizable_pane.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
@@ -268,7 +269,7 @@ void main() {
     await _pumpShell(tester, controller, const Size(1200, 800));
 
     final handle = find.byKey(const ValueKey('sidebar-resize-handle'));
-    expect(tester.getSize(handle).width, 16);
+    expect(tester.getSize(handle).width, 4);
     final divider = find.descendant(
       of: handle,
       matching: find.byType(ColoredBox),
@@ -369,8 +370,15 @@ void main() {
   }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 }
 
-double _sidebarWidth(WidgetTester tester) =>
-    tester.getSize(find.byType(InstanceSidebar)).width;
+double _sidebarWidth(WidgetTester tester) {
+  final pane = find.ancestor(
+    of: find.byType(InstanceSidebar),
+    matching: find.byType(ResizablePane),
+  );
+  return tester
+      .getSize(pane.evaluate().isEmpty ? find.byType(InstanceSidebar) : pane)
+      .width;
+}
 
 Future<ShellController> _controller({
   FakeInstanceStore? store,
