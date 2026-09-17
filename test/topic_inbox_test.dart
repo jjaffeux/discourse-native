@@ -2530,10 +2530,6 @@ void main() {
       final timestamp = find.byKey(const ValueKey('inbox-row-time-1'));
       expect(timestamp, findsOneWidget);
       expect(find.text('First topic preview'), findsNothing);
-      await shell.appSettings.setTopicListExcerpts(true);
-      await tester.pumpAndSettle();
-      expect(find.text('First topic preview'), findsOneWidget);
-      expect(tester.state(list), same(listState));
       expect(
         find.byKey(const ValueKey('topic-ledger-activity-1')),
         findsNothing,

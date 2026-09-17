@@ -38,9 +38,7 @@ import 'support/media_pipeline.dart';
 
 void main() {
   for (final mode in TopicListDisplayMode.values) {
-    testWidgets('titles and excerpts render site emoji in $mode', (
-      tester,
-    ) async {
+    testWidgets('topic titles render site emoji in $mode', (tester) async {
       installTestMediaPipeline(
         client: MockClient(
           (_) async => http.Response.bytes(
@@ -63,7 +61,6 @@ void main() {
           'discourse2': 'https://compact.example/uploads/custom-discourse.png',
         },
       );
-      await shell.appSettings.setTopicListExcerpts(true);
       await tester.pumpWidget(
         ShellScope(
           controller: shell,
@@ -73,7 +70,7 @@ void main() {
               body: TopicListRow(
                 topic: const Topic(
                   id: 100,
-                  title: 'Welcome :discourse2:',
+                  title: 'Welcome :information_source: :discourse2:',
                   slug: 'welcome',
                   excerpt: ':information_source: Help from :discourse2:',
                 ),
@@ -88,19 +85,18 @@ void main() {
         tester
             .widgetList<SiteEmojiImage>(find.byType(SiteEmojiImage))
             .map((emoji) => emoji.name),
-        ['discourse2', 'information_source', 'discourse2'],
+        ['information_source', 'discourse2'],
       );
       expect(
         tester
             .widgetList<EmojiImage>(find.byType(EmojiImage))
             .map((emoji) => emoji.url),
         [
-          'https://compact.example/uploads/custom-discourse.png',
           'https://compact.example/images/emoji/twitter/information_source.png',
           'https://compact.example/uploads/custom-discourse.png',
         ],
       );
-      expect(find.byType(Image), findsNWidgets(3));
+      expect(find.byType(Image), findsNWidgets(2));
       expect(tester.takeException(), isNull);
     });
   }
@@ -169,6 +165,8 @@ void main() {
         );
         await tester.tap(find.byKey(const ValueKey('topic-list-display')));
         await tester.pumpAndSettle();
+        expect(find.text('Show excerpts'), findsNothing);
+        expect(find.text('Larger text'), findsOneWidget);
         final card = tester.widget<DDropdownMenuCheckboxItem>(
           find.byKey(const ValueKey('topic-display-card')),
         );
@@ -206,7 +204,7 @@ void main() {
     testWidgets(
       'conversation cards keep metadata and a separate footer at $width/$scale/$direction',
       (tester) async {
-        final shell = await _setup(
+        await _setup(
           tester,
           width: width,
           scale: scale,
@@ -215,8 +213,6 @@ void main() {
           enableEvents: true,
           nestedCategories: true,
         );
-        await shell.appSettings.setTopicListExcerpts(true);
-        await tester.pumpAndSettle();
         final card = find.byKey(const ValueKey('topic-card-1'));
         expect(
           find.descendant(of: card, matching: find.text('Category')),
@@ -802,12 +798,11 @@ void main() {
       ),
     );
     expect(find.text('Excerpt 1'), findsNothing);
-    await shell.appSettings.setTopicListExcerpts(true);
-    await tester.pumpAndSettle();
-    expect(find.text('Excerpt 1'), findsOneWidget);
+    expect(find.byKey(const ValueKey('topic-card-1')), findsOneWidget);
     await shell.appSettings.setTopicListMode(TopicListDisplayMode.compact);
     await tester.pumpAndSettle();
-    expect(find.text('Excerpt 1'), findsOneWidget);
+    expect(find.byKey(const ValueKey('topic-compact-1')), findsOneWidget);
+    expect(find.text('Excerpt 1'), findsNothing);
     expect(find.text('joffrey'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });

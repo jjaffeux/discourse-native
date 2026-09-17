@@ -9,7 +9,6 @@ class _ConversationTopicCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final topic = row.topic;
     final shell = ShellScope.maybeRead(context);
-    final settings = ShellScope.maybeIdentityOf(context)?.appSettings;
     final registry =
         PluginScope.maybeOf(context)?.registry ?? PluginRegistry.empty;
     final assignments = registry.compactTopicListMetadata(
@@ -211,25 +210,7 @@ class _ConversationTopicCard extends StatelessWidget {
                               context,
                               row.siteUrl,
                               topic,
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  _TopicListTitle(row: row, card: true),
-                                  if (settings?.topicListExcerpts == true &&
-                                      topic.excerpt?.trim().isNotEmpty ==
-                                          true) ...[
-                                    const SizedBox(height: DSpacing.sm),
-                                    DCardDescription(
-                                      child: SiteEmojiText.plain(
-                                        topic.excerpt!,
-                                        siteUrl: row.siteUrl,
-                                        maxLines: 3,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ),
-                                  ],
-                                ],
-                              ),
+                              _TopicListTitle(row: row, card: true),
                             ),
                             if (assignments.isNotEmpty) ...[
                               const SizedBox(height: DSpacing.md),
