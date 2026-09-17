@@ -390,36 +390,18 @@ Widget _topicRowCategory(BuildContext context, _TopicRowBody row) =>
 Widget _topicRowMetadata(
   BuildContext context,
   _TopicRowBody row, {
-  bool showForum = true,
   required bool category,
   required bool lastPoster,
   required List<Widget> inlineMetadata,
 }) {
-  final controller = ShellScope.maybeRead(context);
   return Wrap(
     spacing: DSpacing.xs,
     runSpacing: DSpacing.xs,
     crossAxisAlignment: WrapCrossAlignment.center,
     children: [
-      if (showForum && row.forum != null) Text(row.forum!.title),
+      if (row.forum != null) Text(row.forum!.title),
       if (category && row.category != null) _topicRowCategory(context, row),
-      for (final tag in row.topic.tags.take(2))
-        _TopicTag(
-          tag: tag,
-          onTap: () => controller?.openTopicTag(
-            tag,
-            siteUrl: row.siteUrl,
-            privateMessage: row.topic.privateMessage,
-          ),
-          onMiddleClick: () async => controller?.openTopicTag(
-            tag,
-            siteUrl: row.siteUrl,
-            privateMessage: row.topic.privateMessage,
-            newTab: true,
-          ),
-        ),
-      if (row.topic.tags.length > 2)
-        _TopicTagOverflow(tags: row.topic.tags.skip(2).toList()),
+      ..._topicRowTags(context, row),
       ...inlineMetadata,
       if (lastPoster)
         if (row.topic.lastPosterUsername case final username?)
@@ -431,6 +413,29 @@ Widget _topicRowMetadata(
           ),
     ],
   );
+}
+
+List<Widget> _topicRowTags(BuildContext context, _TopicRowBody row) {
+  final controller = ShellScope.maybeRead(context);
+  return [
+    for (final tag in row.topic.tags.take(2))
+      _TopicTag(
+        tag: tag,
+        onTap: () => controller?.openTopicTag(
+          tag,
+          siteUrl: row.siteUrl,
+          privateMessage: row.topic.privateMessage,
+        ),
+        onMiddleClick: () async => controller?.openTopicTag(
+          tag,
+          siteUrl: row.siteUrl,
+          privateMessage: row.topic.privateMessage,
+          newTab: true,
+        ),
+      ),
+    if (row.topic.tags.length > 2)
+      _TopicTagOverflow(tags: row.topic.tags.skip(2).toList()),
+  ];
 }
 
 class _TopicListTitle extends StatelessWidget {

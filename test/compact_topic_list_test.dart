@@ -137,10 +137,37 @@ void main() {
           direction: direction,
           mode: TopicListDisplayMode.card,
           enableEvents: true,
+          nestedCategories: true,
         );
         await shell.appSettings.setTopicListExcerpts(true);
         await tester.pumpAndSettle();
         final card = find.byKey(const ValueKey('topic-card-1'));
+        expect(
+          find.descendant(of: card, matching: find.text('Category')),
+          findsNothing,
+        );
+        final category = find.descendant(
+          of: card,
+          matching: find.text('Features'),
+        );
+        final tag = find.descendant(of: card, matching: find.text('design'));
+        final title = find.descendant(
+          of: card,
+          matching: find.text(
+            'Topic 1: a conversation about improving our community',
+          ),
+        );
+        expect(tester.getRect(tag).bottom, lessThan(tester.getRect(title).top));
+        if (width == 1200) {
+          expect(
+            tester.getCenter(tag).dy,
+            closeTo(tester.getCenter(category).dy, 2),
+          );
+          expect(
+            tester.getRect(tag).left,
+            greaterThan(tester.getRect(category).right),
+          );
+        }
         final footer = find.descendant(
           of: card,
           matching: find.byType(DCardFooter),

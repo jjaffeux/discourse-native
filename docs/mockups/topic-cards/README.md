@@ -35,12 +35,13 @@ directions collapse into a single column in a narrow pane.
 - Feed counts aligned at the trailing edge and Top periods inside the feed menu.
 - Category/subcategory colors, tags and overflow, assignment details, unread/new
   markers, visited titles, bookmark/pin colors, and event dates/schedules.
+- Category badges and tags share the card's top line, wrapping as needed.
 - Neutral filled hover and outlined selection, without tag hover transitions.
 - Excerpts and larger text, topic preview beside the list or in a dialog, topic
   navigation, new topic and saved drafts.
 - Existing sample filter autocomplete and filtering, forum and assignee filters.
-- A retains sortable column headings. B exposes Category, Replies and Activity
-  field headings within cards; C exposes Replies and Activity in its footer.
+- A retains sortable column headings. B and C expose Replies and Activity
+  field headings in their footers.
   Assigned cards also expose Views. Unsupported sorts remain passive.
 
 `base.css` and `base.js` reuse the earlier topics-table prototype; `cards.css` and
