@@ -16,6 +16,7 @@ class TopicTaxonomyButton extends StatelessWidget {
     this.tooltip,
     this.focusNode,
     this.expanded = false,
+    this.categoryColor,
   });
 
   final DButtonSize size;
@@ -28,6 +29,7 @@ class TopicTaxonomyButton extends StatelessWidget {
   final String? tooltip;
   final FocusNode? focusNode;
   final bool expanded;
+  final Color? categoryColor;
 
   @override
   Widget build(BuildContext context) => IntrinsicWidth(
@@ -55,6 +57,15 @@ class TopicTaxonomyButton extends StatelessWidget {
         expanded: expanded,
         alignment: AlignmentDirectional.centerStart,
         variant: DButtonVariant.outline,
+        backgroundColor: categoryColor == null
+            ? null
+            : Color.lerp(DTokens.of(context).background, categoryColor, .18),
+        borderColor: categoryColor == null
+            ? null
+            : Color.lerp(DTokens.of(context).background, categoryColor, .38),
+        interactiveBackgroundColor: categoryColor == null
+            ? null
+            : Color.lerp(DTokens.of(context).background, categoryColor, .30),
       ),
     ),
   );

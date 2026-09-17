@@ -51,6 +51,12 @@ void main() {
           'borderColor': 2,
           'interactiveBackgroundColor': 2,
         },
+        // Category dropdowns reuse the topic header's category identity tint.
+        'lib/src/shell/topic_taxonomy_button.dart': {
+          'backgroundColor': 1,
+          'borderColor': 1,
+          'interactiveBackgroundColor': 1,
+        },
         // A saved bookmark combines the kit's selected fill with its outline
         // variant so the joined group keeps a continuous perimeter and divider.
         'lib/src/shell/topic_actions.dart': {
