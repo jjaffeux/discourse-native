@@ -583,6 +583,10 @@ void main() {
     await tester.tap(disclosure);
     await tester.pumpAndSettle();
     expect(shell.currentContent?.topicId, 1);
+    expect(
+      shell.consumeTopicProperty(shell.currentInstance!.url, 1, 'Assignments'),
+      isTrue,
+    );
     await tester.tap(find.byKey(const ValueKey('topic-compact-2')));
     await tester.pumpAndSettle();
     expect(shell.currentContent?.topicId, 2);

@@ -372,6 +372,72 @@ void main() {
   );
 
   testWidgets(
+    'assignment count opens details once and can reopen the selected topic',
+    (tester) async {
+      const registry = PluginRegistry([AssignPlugin()]);
+      final setup = await _setup(
+        tester,
+        registry: registry,
+        privateMessage: true,
+        topicPluginPayload: const {
+          'can_assign': false,
+          'assigned_to_user': {'username': 'sam', 'name': 'Sam'},
+          'indirectly_assigned_to': {
+            '102': {
+              'post_number': 2,
+              'assigned_to': {'username': 'alex', 'name': 'Alex'},
+            },
+          },
+        },
+      );
+      final disclosure = find.descendant(
+        of: find.byKey(const ValueKey('topic-card-1')),
+        matching: find.bySemanticsLabel('Open topic to view all 2 assignments'),
+      );
+      await tester.tap(disclosure);
+      await tester.pumpAndSettle();
+      expect(setup.controller.currentContent?.topicId, 1);
+      expect(find.byKey(const Key('assign-topic-property')), findsOneWidget);
+      expect(find.text('@alex'), findsWidgets);
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('assign-topic-property')), findsNothing);
+      setup.controller.notifyPluginStateChanged();
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('assign-topic-property')), findsNothing);
+      expect(setup.controller.currentContent?.topicId, 1);
+      setup.controller.requestTopicProperty(
+        siteUrl: setup.controller.currentInstance!.url,
+        topicId: 1,
+        label: 'Assignments',
+      );
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('assign-topic-property')), findsOneWidget);
+      setup.controller.openTopicFromList(setup.rows[1]);
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('assign-topic-property')), findsNothing);
+      setup.controller.openTopicFromList(setup.rows.first);
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('assign-topic-property')), findsNothing);
+      // Leaving before the next frame must discard the pending disclosure.
+      setup.controller.requestTopicProperty(
+        siteUrl: setup.controller.currentInstance!.url,
+        topicId: 1,
+        label: 'Assignments',
+      );
+      setup.controller.openTopicFromList(setup.rows[1]);
+      setup.controller.openTopicFromList(setup.rows.first);
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('assign-topic-property')), findsNothing);
+      expect(tester.takeException(), isNull);
+    },
+    variant: const TargetPlatformVariant({
+      TargetPlatform.macOS,
+      TargetPlatform.iOS,
+    }),
+  );
+
+  testWidgets(
     'compact category navigates and assignment details remain available',
     (tester) async {
       const registry = PluginRegistry([AssignPlugin()]);
@@ -3034,6 +3100,7 @@ _setup(
         unreadPosts: 3,
         lastReadPostNumber: 1,
         highestPostNumber: 4,
+        plugins: registry.readTopic(topicPluginPayload, site.url),
       ),
   ];
   final posts = {

@@ -242,12 +242,15 @@ final class AssignPlugin
     BuildContext context,
     String siteUrl,
     Topic topic,
-    VoidCallback onOpen,
+    void Function({String? property}) onOpen,
   ) {
     final assignments = topic.plugins.get(assignmentsDataKey);
     if (assignments == null || !assignments.hasAssignments) return const [];
     return [
-      AssignmentTopicListSummary(assignments: assignments, onOpen: onOpen),
+      AssignmentTopicListSummary(
+        assignments: assignments,
+        onOpen: () => onOpen(property: 'Assignments'),
+      ),
     ];
   }
 
