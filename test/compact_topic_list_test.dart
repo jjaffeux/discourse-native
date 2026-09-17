@@ -159,9 +159,21 @@ void main() {
         );
         expect(tester.getRect(tag).bottom, lessThan(tester.getRect(title).top));
         if (width == 1200) {
+          double baseline(Finder finder) {
+            final box = tester.renderObject<RenderBox>(finder);
+            return box.localToGlobal(Offset.zero).dy +
+                box.getDryBaseline(box.constraints, TextBaseline.alphabetic)!;
+          }
+
+          expect(baseline(tag), closeTo(baseline(category), 0.01));
+          final secondTag = find.descendant(
+            of: card,
+            matching: find.text('mobile'),
+          );
+          expect(baseline(secondTag), closeTo(baseline(tag), 0.01));
           expect(
-            tester.getCenter(tag).dy,
-            closeTo(tester.getCenter(category).dy, 2),
+            tester.getRect(secondTag).left - tester.getRect(tag).right,
+            lessThanOrEqualTo(14),
           );
           expect(
             tester.getRect(tag).left,

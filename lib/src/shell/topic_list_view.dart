@@ -1641,6 +1641,7 @@ class _TopicTag extends StatelessWidget {
     onTertiaryTapUp: (_) => onMiddleClick(),
     child: DBadge.link(
       variant: DBadgeVariant.link,
+      size: DBadgeSize.compact,
       foregroundColor: DTokens.of(context).mutedForeground,
       semanticLabel: 'Tag: ${tag.name}',
       onPressed: onTap,

@@ -150,22 +150,40 @@ class _ConversationTopicCard extends StatelessWidget {
                                 topic.tags.isNotEmpty ||
                                 row.forum != null ||
                                 topic.privateMessage) ...[
-                              Wrap(
-                                spacing: DSpacing.sm,
-                                runSpacing: DSpacing.xs,
-                                crossAxisAlignment: WrapCrossAlignment.center,
-                                children: [
-                                  if (topic.privateMessage)
-                                    Text(
-                                      'Private conversation',
-                                      style: textStyle,
-                                    )
-                                  else if (row.category != null)
-                                    _topicRowCategory(context, row),
-                                  ..._topicRowTags(context, row),
-                                  if (row.forum != null)
-                                    Text(row.forum!.title, style: textStyle),
-                                ],
+                              Text.rich(
+                                TextSpan(
+                                  children: [
+                                    for (final child in <Widget>[
+                                      if (topic.privateMessage)
+                                        Text(
+                                          'Private conversation',
+                                          style: textStyle,
+                                        )
+                                      else if (row.category != null)
+                                        _topicRowCategory(context, row),
+                                      ..._topicRowTags(context, row),
+                                      if (row.forum != null)
+                                        Text(
+                                          row.forum!.title,
+                                          style: textStyle,
+                                        ),
+                                    ])
+                                      WidgetSpan(
+                                        alignment:
+                                            PlaceholderAlignment.baseline,
+                                        baseline: TextBaseline.alphabetic,
+                                        child: Padding(
+                                          padding:
+                                              const EdgeInsetsDirectional.only(
+                                                end: DSpacing.xs,
+                                              ),
+                                          child: child,
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                                // Each Native component scales its own text.
+                                textScaler: TextScaler.noScaling,
                               ),
                               const SizedBox(height: DSpacing.sm),
                             ],
