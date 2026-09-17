@@ -268,7 +268,9 @@ class _TopicListFilterMenuState extends State<TopicListFilterMenu> {
         tooltip: widget.query.isEmpty ? 'Filter topics' : 'Edit active filter',
         icon: const DIcon(DNativeIcons.filterLines),
         size: DButtonSize.large,
-        variant: DButtonVariant.transparentBackground,
+        variant: widget.query.isEmpty
+            ? DButtonVariant.transparentBackground
+            : DButtonVariant.primary,
         focusNode: trigger.focusNode,
         expanded: trigger.open,
         hasPopup: true,
