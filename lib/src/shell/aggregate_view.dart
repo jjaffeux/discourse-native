@@ -135,11 +135,6 @@ class AggregateViewState extends State<AggregateView> {
                   padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
                   child: Row(
                     children: [
-                      const DBadge(
-                        variant: DBadgeVariant.secondary,
-                        child: Text('Latest'),
-                      ),
-                      const SizedBox(width: 8),
                       Expanded(
                         child: Align(
                           alignment: AlignmentDirectional.centerEnd,
