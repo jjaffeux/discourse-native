@@ -6,16 +6,26 @@ fallback. The HTML `open` attribute sets the initial state. Nested bodies retain
 post typography, site identity, plugin registry, link styling and post context.
 
 The post composer offers **Insert → Details**. Complete `[details]` blocks
-become expandable embedded editors with Native summary and multiline body
-fields, plus a remove action. The editor starts expanded for authoring. Its
+become expandable embedded editors with a Native summary field, a rich body
+editor and a remove action. The editor starts expanded for authoring. Its
 disclosure state does not change the post's authored `open` attribute.
-The body field accepts Markdown, including nested details source.
+The body reuses the existing composer, with the user's approval, so bold,
+italic, inline code, links, image previews and nested details remain editable.
+Its formatting and upload actions use the same commands as the main composer.
+The main toolbar also follows focus into the hidden content.
 
 Edits synchronously update canonical Markdown, drafts and submission. Summary
 changes retain other attributes; body changes retain the opening and closing
 tags and line-ending convention. Surrounding prose is preserved. The embedded
-fields own selection, clipboard, undo and formatting shortcuts. Submission
+editors own selection, clipboard, undo and formatting shortcuts. Submission
 disables them, and stale callbacks cannot change a submitting composer.
+
+The enclosing draft owns all upload requests and placeholders. Picked, pasted
+and dropped files are inserted at the selection inside the details body;
+pending uploads prevent submission and are stripped from persisted drafts.
+Collapsing a disclosure retains its uploads, while removing it cancels them.
+Only the outer editor registers native drops, routing each to the deepest
+body under the pointer. Embedded image hit testing accounts for outer scroll.
 
 Recognition covers bare, quoted, smart-quoted and legacy unquoted summaries,
 single-line blocks and multiline nested blocks. Code examples, escaped tags,
@@ -35,7 +45,10 @@ parser][bbcode]. No UI-kit API changes or dependencies are required.
 Focused tests cover source preservation, nesting, code examples, malformed
 markup, insertion through the real toolbar, local undo and formatting,
 submission locking, external history updates, disclosure activation, rich
-post bodies, inherited typography, and narrow/dark layouts. Existing composer,
+post bodies, inherited typography, and narrow/dark layouts. Rich-body tests
+also cover toolbar focus, upload completion/retry/cancellation, clipboard and
+scrolled file drops, image selection/deletion, CRLF offsets, and large text.
+Existing composer,
 quote, table, cooked HTML and Native-control adoption tests are also included.
 
 Static analysis and the macOS debug fixture build pass. A Flutter widget-test

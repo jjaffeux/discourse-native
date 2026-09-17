@@ -366,6 +366,7 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
       text.syntaxPolicies.add(ComposerDetailsPolicy(this));
     }
     text.addListener(_onTextChanged);
+    focus.addListener(_activateMainEditor);
     title.addListener(_onMetadataChanged);
     _recomputeCanSubmit();
   }
@@ -418,6 +419,33 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
 
   final MarkdownEditingController text;
   final TextEditingController title;
+
+  ComposerController? _activeEmbeddedEditor;
+
+  /// Routes the enclosing toolbar to the rich text editor last focused.
+  ComposerController get activeEditor {
+    final embedded = _activeEmbeddedEditor;
+    return embedded != null && embedded.isCurrent
+        ? embedded.activeEditor
+        : this;
+  }
+
+  void activateEmbeddedEditor(ComposerController? editor) {
+    if (_disposed || identical(_activeEmbeddedEditor, editor)) return;
+    _activeEmbeddedEditor = editor;
+    _notify();
+  }
+
+  void deactivateEmbeddedEditor(ComposerController editor) {
+    if (!identical(_activeEmbeddedEditor, editor)) return;
+    _activeEmbeddedEditor = null;
+    // Embedded fields may unmount while the enclosing editor is rebuilding.
+    scheduleMicrotask(_notify);
+  }
+
+  void _activateMainEditor() {
+    if (focus.hasPrimaryFocus) activateEmbeddedEditor(null);
+  }
 
   int? _categoryId;
   int? get categoryId => _categoryId;
@@ -2853,6 +2881,7 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
     text.dispose();
     title.dispose();
     autocomplete.dispose();
+    focus.removeListener(_activateMainEditor);
     focus.dispose();
     super.dispose();
   }

@@ -7,8 +7,9 @@ import '../plugin_api/composer_syntax.dart';
 import '../theme/d_icons.dart';
 import 'composer_controller.dart';
 import 'composer_details_blocks.dart';
+import 'composer_details_body_controller.dart';
 import 'composer_embedded_editor.dart';
-import 'composer_marks.dart';
+import 'composer_panel.dart';
 
 const composerDetailsSyntaxKind = ComposerSyntaxKind(
   owner: PluginId('core'),
@@ -146,7 +147,7 @@ bool _replaceDetails(
   );
 }
 
-/// Native fields edit the canonical block without exposing its delimiters.
+/// Summary and rich body edits update the canonical block without its tags.
 class ComposerDetailsEditor extends StatefulWidget {
   const ComposerDetailsEditor({
     super.key,
@@ -160,24 +161,29 @@ class ComposerDetailsEditor extends StatefulWidget {
 }
 
 class _ComposerDetailsEditorState extends State<ComposerDetailsEditor> {
-  late ComposerDetailsBlock _block = widget.block;
-  late final _summary = TextEditingController(text: _block.summary);
-  late final _body = TextEditingController(text: _block.body);
+  late ComposerDetailsBodyController _body = ComposerDetailsBodyController(
+    widget.composer,
+    widget.block,
+  );
+  ComposerDetailsBlock get _block => _body.block;
+  late final _summary = TextEditingController(text: widget.block.summary);
   final _summaryFocus = FocusNode();
-  final _bodyFocus = FocusNode();
   final _accordion = DAccordionController<int>(initialValues: const [0]);
   String? _error;
 
   @override
   void didUpdateWidget(ComposerDetailsEditor oldWidget) {
     super.didUpdateWidget(oldWidget);
-    final changed = _block.source != widget.block.source;
-    _block = widget.block;
+    final changed = oldWidget.block.summary != widget.block.summary;
+    if (!identical(_body.parent, widget.composer) || !_body.isCurrent) {
+      final previous = _body;
+      _body = ComposerDetailsBodyController(widget.composer, widget.block);
+      WidgetsBinding.instance.addPostFrameCallback((_) => previous.dispose());
+    } else {
+      _body.updateBlock(widget.block);
+    }
     if (changed && _summary.text != _block.summary) {
       _summary.text = _block.summary;
-    }
-    if (changed && _body.text != _block.body) {
-      _body.text = _block.body;
     }
   }
 
@@ -186,7 +192,6 @@ class _ComposerDetailsEditorState extends State<ComposerDetailsEditor> {
     _summary.dispose();
     _body.dispose();
     _summaryFocus.dispose();
-    _bodyFocus.dispose();
     _accordion.dispose();
     super.dispose();
   }
@@ -213,10 +218,10 @@ class _ComposerDetailsEditorState extends State<ComposerDetailsEditor> {
       return true;
     }
     final updated = parseComposerDetails(
-      widget.composer.raw,
+      widget.composer.text.text,
     ).firstWhere((block) => block.start == _block.start);
     setState(() {
-      _block = updated;
+      _body.updateBlock(updated);
       _error = null;
     });
     return true;
@@ -236,25 +241,17 @@ class _ComposerDetailsEditorState extends State<ComposerDetailsEditor> {
       widget.composer.requestFocus();
       return KeyEventResult.handled;
     }
+    // The summary is plain text; body shortcuts belong to its rich editor.
     final keyboard = HardwareKeyboard.instance;
-    if ((keyboard.isMetaPressed || keyboard.isControlPressed) &&
-        !keyboard.isAltPressed) {
-      final marker = switch (event.logicalKey) {
-        LogicalKeyboardKey.keyB => '**',
-        LogicalKeyboardKey.keyI => '*',
-        LogicalKeyboardKey.keyE => '`',
-        _ => null,
-      };
-      if (marker != null) {
-        if (_bodyFocus.hasFocus) {
-          final next = toggleMarkdownMark(_body.value, marker);
-          if (_change(_block.withBody(next.text))) _body.value = next;
-        }
-        return KeyEventResult.handled;
-      }
-      if (event.logicalKey == LogicalKeyboardKey.keyL) {
-        return KeyEventResult.handled;
-      }
+    if (_summaryFocus.hasFocus &&
+        (keyboard.isMetaPressed || keyboard.isControlPressed) &&
+        {
+          LogicalKeyboardKey.keyB,
+          LogicalKeyboardKey.keyI,
+          LogicalKeyboardKey.keyE,
+          LogicalKeyboardKey.keyL,
+        }.contains(event.logicalKey)) {
+      return KeyEventResult.handled;
     }
     return KeyEventResult.ignored;
   }
@@ -313,21 +310,17 @@ class _ComposerDetailsEditorState extends State<ComposerDetailsEditor> {
                         controller: _summary,
                         focusNode: _summaryFocus,
                         labelText: 'Summary',
+                        errorText: _error,
                         enabled: widget.composer.isEditing,
                         onChanged: _changeSummary,
                       ),
                       const SizedBox(height: DSpacing.sm),
-                      DTextarea(
+                      ComposerRichBodyEditor(
                         key: const ValueKey('details-body'),
-                        controller: _body,
-                        focusNode: _bodyFocus,
-                        labelText: 'Hidden content',
+                        composer: _body,
+                        label: 'Hidden content',
                         hintText: 'Write the content to reveal…',
-                        enabled: widget.composer.isEditing,
-                        minLines: 2,
-                        maxLines: 10,
-                        errorText: _error,
-                        onChanged: (value) => _change(_block.withBody(value)),
+                        onExit: widget.composer.requestFocus,
                       ),
                     ],
                   ),

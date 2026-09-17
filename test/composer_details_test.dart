@@ -169,9 +169,11 @@ void main() {
     final summary = tester.widget<DInput>(
       find.byKey(const ValueKey('details-summary')),
     );
-    final body = tester.widget<DTextarea>(
-      find.byKey(const ValueKey('details-body')),
-    );
+    final body = tester
+        .widget<ComposerRichBodyEditor>(
+          find.byKey(const ValueKey('details-body')),
+        )
+        .composer;
     final remove = tester.widget<DButton>(
       find.byWidgetPredicate(
         (widget) => widget is DButton && widget.tooltip == 'Remove details',
@@ -180,7 +182,10 @@ void main() {
     composer.beginSubmit();
     await tester.pump();
     summary.onChanged!('Changed');
-    body.onChanged!('Changed');
+    body.commitText(
+      expectedText: body.text.text,
+      value: const TextEditingValue(text: 'Changed'),
+    );
     remove.onPressed!();
     insertComposerDetails(composer);
     expect(composer.raw, _source);
@@ -190,12 +195,7 @@ void main() {
           .enabled,
       isFalse,
     );
-    expect(
-      tester
-          .widget<DTextarea>(find.byKey(const ValueKey('details-body')))
-          .enabled,
-      isFalse,
-    );
+    expect(tester.widget<EditableText>(_field('body')).readOnly, isTrue);
   });
 
   testWidgets(

@@ -99,6 +99,9 @@ class MarkdownEditingController extends TextEditingController {
   ScrollController? _imageScrollController;
   ScrollController? get imageScrollController => _imageScrollController;
 
+  /// Paint-only scrolling inherited when this field lives in a WidgetSpan.
+  double Function()? enclosingEditorScrollOffset;
+
   ValueChanged<ComposerImageGalleryBlock>? onEditImageGallery;
 
   void Function(ComposerImageGalleryBlock, ComposerImageBlock, int)?
@@ -160,7 +163,11 @@ class MarkdownEditingController extends TextEditingController {
     // children, but omits it from their local-to-global transform. Account for
     // that difference only when querying projected-component geometry; moving
     // the child itself would apply the scroll twice on screen.
-    return (renderObject.localToGlobal(Offset.zero) - Offset(0, scrollOffset)) &
+    return (renderObject.localToGlobal(Offset.zero) -
+            Offset(
+              0,
+              scrollOffset + (enclosingEditorScrollOffset?.call() ?? 0),
+            )) &
         renderObject.size;
   }
 

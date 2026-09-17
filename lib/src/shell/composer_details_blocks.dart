@@ -32,12 +32,12 @@ class ComposerDetailsBlock {
     return source.replaceRange(summaryStart, summaryEnd, rendered);
   }
 
-  String withBody(String value) {
-    if (value == body) return source;
+  String withBody(String value, {bool multiline = false}) {
+    if (value == body && !multiline) return source;
     final newline = source.contains('\r\n') ? '\r\n' : '\n';
     value = value.replaceAll(RegExp(r'\r\n?|\n'), newline);
     // A one-line block becomes a proper block when its body gains newlines.
-    if (!source.contains('\n') && value.contains('\n')) {
+    if (!source.contains('\n') && (multiline || value.contains('\n'))) {
       value = '$newline$value$newline';
     } else if (source.contains('\n') &&
         bodyStart == bodyEnd &&
