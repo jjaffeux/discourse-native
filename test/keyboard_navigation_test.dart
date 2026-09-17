@@ -24,6 +24,27 @@ import 'support/shell_test_harness.dart';
 const _unlistedTopic = Topic(id: 32, title: 'Unlisted topic', slug: 'unlisted');
 
 void main() {
+  for (final size in [desktop, laptop]) {
+    testWidgets('mouse-opened topic loses its outline when closed at $size', (
+      tester,
+    ) async {
+      final setup = await _setup(tester, size: size);
+      await tester.tap(find.text('Keyboard topic 1'));
+      await tester.pumpAndSettle();
+      expect(setup.shell.currentContent?.topicId, 1);
+
+      setup.shell.closeTopic();
+      await tester.pumpAndSettle();
+      expect(setup.shell.currentContent?.isTopic, isFalse);
+      expect(_selectedTopics(tester), isEmpty);
+      expect(_topicItem(tester, 1).selected, isFalse);
+
+      await _moveTopic(tester, next: true);
+      expect(_selectedTopics(tester), [2]);
+      expect(_topicItem(tester, 2).selected, isTrue);
+    });
+  }
+
   for (final size in [desktop, phone]) {
     testWidgets(
       'B bookmarks the open topic and advertises the footer shortcut at $size',
