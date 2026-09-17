@@ -12,17 +12,23 @@ import '../test/support/chat_scroll_fixture.dart';
 
 Future<void> main() async {
   final binding = WidgetsFlutterBinding.ensureInitialized();
+  final semantics = _option('SCROLL_SEMANTICS', 'false') == 'true'
+      ? binding.ensureSemantics()
+      : null;
   MacOSLaunchScreen.dismissAfterFirstFlutterFrame();
   final rich =
       _option('SCROLL_RICH', const String.fromEnvironment('SCROLL_RICH')) ==
       'true';
   if (rich) MediaPipeline.replace(chatScrollMediaPipeline());
+  const configuredMessages = String.fromEnvironment('SCROLL_MESSAGES');
   final controller = await chatScrollController(
     rich: rich,
     count: int.parse(
       _option(
         'SCROLL_MESSAGES',
-        const String.fromEnvironment('SCROLL_MESSAGES', defaultValue: '500'),
+        configuredMessages.isEmpty
+            ? (rich ? '1000' : '500')
+            : configuredMessages,
       ),
     ),
     directMessage:
@@ -50,7 +56,9 @@ Future<void> main() async {
           'true',
     ),
   );
-  await Future<void>.delayed(const Duration(seconds: 3));
+  await Future<void>.delayed(
+    Duration(seconds: int.parse(_option('SCROLL_START_DELAY', '3'))),
+  );
   ScrollableState? scrollable;
   void findScrollable(Element element) {
     if (element is StatefulElement && element.state is ScrollableState) {
@@ -80,6 +88,7 @@ Future<void> main() async {
     );
     capture.recordTopicEvent('chat.fixture.phase', {
       'rich': rich,
+      'semanticsEnabled': binding.semanticsEnabled,
       'phase': name,
       'steps': steps,
       'delta': delta,
@@ -104,11 +113,12 @@ Future<void> main() async {
     stdout.writeln('CHAT_SCROLL_PROFILE $name ${file.path}');
     final report = await capture.buildPerformanceReport();
     await File(
-      file.path.replaceFirst('.json', '-summary.json'),
+      file.path.replaceFirst('.json', '-summary.txt'),
     ).writeAsString(report);
     stdout.writeln(report);
   }
   stdout.writeln('CHAT_SCROLL_PROFILE complete');
+  semantics?.dispose();
   if (_option('SCROLL_EXIT', 'false') == 'true') exit(0);
 }
 

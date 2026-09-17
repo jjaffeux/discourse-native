@@ -1,5 +1,3 @@
-import 'dart:typed_data';
-
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/data/media_pipeline.dart';
 import 'package:discourse_native/src/data/site_image_repository.dart';
@@ -160,14 +158,14 @@ String richChatScrollHtml(int id) => [
         '<img class="thumbnail" src="$chatScrollSite/thumbnail-$id.jpg" '
         'width="640" height="427">'
         '<h3><a href="https://example.com/$id">A useful article $id</a></h3>'
-        '<p>A preview with <strong>formatting</strong>, a thumbnail, and enough '
+        '<p>Preview $id with <strong>formatting</strong>, a thumbnail, and enough '
         'text to wrap across several lines in narrow chat channels.</p>'
         '</article></aside>',
   if (id % 2 == 0)
     '<aside class="quote" data-username="reader2">'
         '<div class="title">reader2:</div><blockquote>'
-        '<p>A quoted reply with <em>emphasis</em> and <code>some code</code>.</p>'
-        '<blockquote><p>A nested quotation with more context.</p></blockquote>'
+        '<p>Quoted reply $id with <em>emphasis</em> and <code>some code</code>.</p>'
+        '<blockquote><p>Nested quotation $id with more context.</p></blockquote>'
         '</blockquote></aside>',
   if (id % 5 == 0)
     '<ul><li>Images and previews should stay stable.</li>'

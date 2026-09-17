@@ -1,0 +1,3106 @@
+{
+  "environment": {
+    "date": "2026-09-17",
+    "flutter": "3.47.4",
+    "dart": "3.13.3",
+    "os": "macOS 26.6.2",
+    "cpu": "Apple M4 Pro",
+    "renderer": "Skia/Metal",
+    "refreshHz": 120
+  },
+  "fixture": {
+    "messages": 1000,
+    "width": 800,
+    "dark": false,
+    "directMessage": false,
+    "nativeSemantics": true,
+    "steady": {
+      "steps": 360,
+      "delta": 40
+    },
+    "fast": {
+      "steps": 100,
+      "delta": 1200
+    },
+    "return": {
+      "steps": 100,
+      "delta": -1200
+    }
+  },
+  "runs": {
+    "unique-baseline-1": {
+      "steady": {
+        "allFrames": {
+          "count": 369,
+          "overBudget": 10,
+          "slowBuilds": 1,
+          "slowRasters": 9,
+          "buildUs": {
+            "count": 369,
+            "total": 213630,
+            "p50": 235,
+            "p95": 2708,
+            "p99": 5979,
+            "max": 8833
+          },
+          "rasterUs": {
+            "count": 369,
+            "total": 472200,
+            "p50": 611,
+            "p95": 1897,
+            "p99": 29388,
+            "max": 35748
+          },
+          "vsyncOverheadUs": {
+            "count": 369,
+            "total": 82623,
+            "p50": 217,
+            "p95": 356,
+            "p99": 592,
+            "max": 3156
+          },
+          "totalSpanUs": {
+            "count": 369,
+            "total": 934935,
+            "p50": 1179,
+            "p95": 7959,
+            "p99": 30058,
+            "max": 40281
+          }
+        },
+        "activityCounts": {
+          "chat.fixture.phase": 1,
+          "chat.capture.context": 1,
+          "chat.scroll.notification": 1800,
+          "chat.viewport.work": 361,
+          "chat.row.built": 38,
+          "chat.row.layout": 63,
+          "chat.dayExtents.scanned": 59,
+          "chat.floatingDay.changed": 6,
+          "chat.fixture.finished": 1
+        },
+        "chatRowLayoutUs": {
+          "count": 63,
+          "total": 45367,
+          "p50": 599,
+          "p95": 2188,
+          "p99": 3544,
+          "max": 3544
+        },
+        "chatDayExtentWorkUs": {
+          "count": 59,
+          "total": 2069,
+          "p50": 33,
+          "p95": 61,
+          "p99": 126,
+          "max": 126
+        },
+        "chatViewportWorkUs": {
+          "count": 361,
+          "total": 3304,
+          "p50": 2,
+          "p95": 40,
+          "p99": 66,
+          "max": 138
+        },
+        "fixtureEvents": [
+          {
+            "rich": true,
+            "semanticsEnabled": true,
+            "phase": "steady",
+            "steps": 360,
+            "delta": 40.0,
+            "startPixels": 0.0,
+            "imageCacheBytes": 82368
+          },
+          {
+            "endPixels": 14400.0,
+            "imageCacheBytes": 18495104,
+            "pendingImages": 0
+          }
+        ],
+        "cpu": {
+          "sampleCount": 500,
+          "truncatedStackCount": 67,
+          "topFunctions": [
+            {
+              "name": "mach_msg2_trap",
+              "samples": 19
+            },
+            {
+              "name": "<anonymous closure>",
+              "samples": 16
+            },
+            {
+              "name": "__munmap",
+              "samples": 8
+            },
+            {
+              "name": "_xzm_xzone_malloc_tiny",
+              "samples": 8
+            },
+            {
+              "name": "_tlv_get_addr",
+              "samples": 7
+            },
+            {
+              "name": "dart::Object::InitializeObject(unsigned long, long, long, bool, unsigned long, unsigned long)",
+              "samples": 7
+            },
+            {
+              "name": "dart::Scavenger::TryAllocateNewTLAB(dart::Thread*, long, bool)",
+              "samples": 7
+            },
+            {
+              "name": "RenderObject.parent",
+              "samples": 5
+            }
+          ],
+          "topStacks": [
+            {
+              "name": "mach_msg2_trap \u2190 mach_msg_overwrite \u2190 mach_msg \u2190 CFRunLoopWakeUp \u2190 $s20InternalFlutterSwift0B7RunLoopC7perform10afterDelay5blockySd_yyctF \u2190 $s20InternalFlutterSwift0B7RunLoopC7perform10afterDelay5blockySd_yyctFTo",
+              "samples": 18
+            },
+            {
+              "name": "<anonymous closure> \u2190 handleValueCallback \u2190 _Future._propagateToListeners \u2190 _Future._complete \u2190 <anonymous closure> \u2190 <anonymous closure>",
+              "samples": 8
+            },
+            {
+              "name": "__munmap \u2190 dart::PageCache::Clear() \u2190 dart::Heap::NotifyIdle(long long) \u2190 dart::IdleTimeHandler::NotifyIdle(long long) \u2190 Dart_NotifyIdle \u2190 flutter::RuntimeController::NotifyIdle(fml::TimeDelta)",
+              "samples": 8
+            },
+            {
+              "name": "dart::Scavenger::TryAllocateNewTLAB(dart::Thread*, long, bool) \u2190 dart::Heap::AllocateNew(dart::Thread*, long) \u2190 dart::Object::Allocate(long, long, dart::Heap::Space, bool, unsigned long, unsigned long) \u2190 dart::Array::NewUninitialized(long, long, dart::Heap::Space) \u2190 Dart_InvokeClosure \u2190 tonic::DartInvoke(_Dart_Handle*, std::initializer_list<_Dart_Handle*>)",
+              "samples": 7
+            },
+            {
+              "name": "__Map&_LinkedHashBase&MapMixin&_HashBase&_OperatorEqualsAndHashCode&_LinkedHashMapMixin.putIfAbsent \u2190 LayoutPass.getLayoutState \u2190 RenderSuperSliverList._performLayoutInner \u2190 _performLayoutInner \u2190 ExtentManager.performLayout \u2190 RenderSuperSliverList.performLayout",
+              "samples": 4
+            }
+          ],
+          "vmTags": [
+            {
+              "name": "Dart",
+              "samples": 242
+            },
+            {
+              "name": "Unknown native entry",
+              "samples": 114
+            },
+            {
+              "name": "VM",
+              "samples": 62
+            },
+            {
+              "name": "Timeline_reportTaskEvent",
+              "samples": 38
+            },
+            {
+              "name": "Double_toStringAsFixed",
+              "samples": 12
+            },
+            {
+              "name": "DRT_InterruptOrStackOverflow",
+              "samples": 7
+            },
+            {
+              "name": "DRT_AllocateObject",
+              "samples": 6
+            },
+            {
+              "name": "GCOldSpace",
+              "samples": 4
+            }
+          ]
+        },
+        "slowFrameCpu": {
+          "sampleCount": 6,
+          "truncatedStackCount": 5,
+          "topFunctions": [
+            {
+              "name": "Element.dependOnInheritedWidgetOfExactType",
+              "samples": 1
+            },
+            {
+              "name": "SemanticsConfiguration.SemanticsConfiguration",
+              "samples": 1
+            },
+            {
+              "name": "TextStyle.copyWith",
+              "samples": 1
+            },
+            {
+              "name": "__openat",
+              "samples": 1
+            },
+            {
+              "name": "dart::AbstractType::operator=(dart::AbstractTypePtr)",
+              "samples": 1
+            },
+            {
+              "name": "decltype(auto) std::__fl::__variant_detail::__visitation::__base::__dispatcher<0ul>::__dispatch[abi:nn210000]<std::__fl:",
+              "samples": 1
+            }
+          ],
+          "topStacks": [
+            {
+              "name": "Element.dependOnInheritedWidgetOfExactType \u2190 Localizations.maybeLocaleOf \u2190 RichText.createRenderObject \u2190 RenderObjectElement.mount \u2190 MultiChildRenderObjectElement.mount \u2190 Element.inflateWidget",
+              "samples": 1
+            },
+            {
+              "name": "SemanticsConfiguration.SemanticsConfiguration \u2190 _SemanticsConfigurationProvider.original \u2190 _SemanticsConfigurationProvider.effective \u2190 _RenderObjectSemantics.markNeedsUpdate \u2190 RenderObject.markNeedsSemanticsUpdate \u2190 RenderObject.adoptChild",
+              "samples": 1
+            },
+            {
+              "name": "TextStyle.copyWith \u2190 _Header.build \u2190 StatelessElement.build \u2190 ComponentElement.performRebuild \u2190 Element.rebuild \u2190 ComponentElement._firstBuild",
+              "samples": 1
+            },
+            {
+              "name": "__openat \u2190 fml::OpenFile(fml::UniqueObject<int, fml::internal::os_unix::UniqueFDTraits> const&, char const*, bool, fml::FilePermiss \u2190 flutter::DirectoryAssetBundle::GetAsMapping(std::__fl::basic_string<char, std::__fl::char_traits<char>, std::__fl::alloc \u2190 flutter::AssetManager::GetAsMapping(std::__fl::basic_string<char, std::__fl::char_traits<char>, std::__fl::allocator<cha \u2190 flutter::AssetManagerFontStyleSet::createTypeface(int) \u2190 flutter::AssetManagerFontStyleSet::getStyle(int, SkFontStyle*, SkString*)",
+              "samples": 1
+            },
+            {
+              "name": "dart::AbstractType::operator=(dart::AbstractTypePtr) \u2190 dart::Function::DoArgumentTypesMatch(dart::Array const&, dart::ArgumentsDescriptor const&, dart::TypeArguments const&, d \u2190 dart::DartEntry::InvokeCallable(dart::Thread*, dart::Function const&, dart::Array const&, dart::Array const&) \u2190 Dart_InvokeClosure \u2190 tonic::DartInvoke(_Dart_Handle*, std::initializer_list<_Dart_Handle*>) \u2190 flutter::PlatformConfiguration::BeginFrame(fml::TimePoint, unsigned long long)",
+              "samples": 1
+            }
+          ],
+          "vmTags": [
+            {
+              "name": "Dart",
+              "samples": 3
+            },
+            {
+              "name": "Unknown native entry",
+              "samples": 2
+            },
+            {
+              "name": "VM",
+              "samples": 1
+            }
+          ]
+        },
+        "raster": {
+          "status": "available",
+          "requestedFrameCount": 9,
+          "profiledFrameCount": 9,
+          "matchedFrameCount": 9,
+          "engineFrameSpanCount": 740,
+          "frames": [
+            {
+              "frameNumber": 58,
+              "outsidePhaseMarkersUs": 35547,
+              "phases": [
+                {
+                  "name": "CompositorContext::ScopedFrame::Raster",
+                  "durationUs": 200
+                },
+                {
+                  "name": "LayerTree::Paint",
+                  "durationUs": 160
+                },
+                {
+                  "name": "LayerTree::Preroll",
+                  "durationUs": 38
+                },
+                {
+                  "name": "SurfaceFrame::Encode",
+                  "durationUs": 1
+                },
+                {
+                  "name": "SurfaceFrame::Submit",
+                  "durationUs": 1
+                }
+              ]
+            },
+            {
+              "frameNumber": 333,
+              "outsidePhaseMarkersUs": 32922,
+              "phases": [
+                {
+                  "name": "CompositorContext::ScopedFrame::Raster",
+                  "durationUs": 136
+                },
+                {
+                  "name": "LayerTree::Paint",
+                  "durationUs": 112
+                },
+                {
+                  "name": "LayerTree::Preroll",
+                  "durationUs": 23
+                },
+                {
+                  "name": "SurfaceFrame::Submit",
+                  "durationUs": 1
+                }
+              ]
+            },
+            {
+              "frameNumber": 175,
+              "outsidePhaseMarkersUs": 29479,
+              "phases": [
+                {
+                  "name": "CompositorContext::ScopedFrame::Raster",
+                  "durationUs": 138
+                },
+                {
+                  "name": "LayerTree::Paint",
+                  "durationUs": 114
+                },
+                {
+                  "name": "LayerTree::Preroll",
+                  "durationUs": 22
+                }
+              ]
+            },
+            {
+              "frameNumber": 71,
+              "outsidePhaseMarkersUs": 29276,
+              "phases": [
+                {
+                  "name": "CompositorContext::ScopedFrame::Raster",
+                  "durationUs": 111
+                },
+                {
+                  "name": "LayerTree::Paint",
+                  "durationUs": 93
+                },
+                {
+                  "name": "LayerTree::Preroll",
+                  "durationUs": 17
+                },
+                {
+                  "name": "SurfaceFrame::Submit",
+                  "durationUs": 1
+                }
+              ]
+            },
+            {
+              "frameNumber": 129,
+              "outsidePhaseMarkersUs": 25283,
+              "phases": [
+                {
+                  "name": "CompositorContext::ScopedFrame::Raster",
+                  "durationUs": 187
+                },
+                {
+                  "name": "LayerTree::Paint",
+                  "durationUs": 146
+                },
+                {
+                  "name": "LayerTree::Preroll",
+                  "durationUs": 40
+                },
+                {
+                  "name": "SurfaceFrame::Encode",
+                  "durationUs": 1
+                },
+                {
+                  "name": "SurfaceFrame::Submit",
+                  "durationUs": 1
+                }
+              ]
+            },
+            {
+              "frameNumber": 85,
+              "outsidePhaseMarkersUs": 19498,
+              "phases": [
+                {
+                  "name": "CompositorContext::ScopedFrame::Raster",
+                  "durationUs": 131
+                },
+                {
+                  "name": "LayerTree::Paint",
+                  "durationUs": 37
+                },
+                {
+                  "name": "LayerTree::Preroll",
+                  "durationUs": 28
+                },
+                {
+                  "name": "SurfaceFrame::Encode",
+                  "durationUs": 1
+                },
+                {
+                  "name": "SurfaceFrame::Submit",
+                  "durationUs": 1
+                }
+              ]
+            },
+            {
+              "frameNumber": 89,
+              "outsidePhaseMarkersUs": 15187,
+              "phases": [
+                {
+                  "name": "CompositorContext::ScopedFrame::Raster",
+                  "durationUs": 98
+                },
+                {
+                  "name": "LayerTree::Paint",
+                  "durationUs": 78
+                },
+                {
+                  "name": "LayerTree::Preroll",
+                  "durationUs": 20
+                },
+                {
+                  "name": "SurfaceFrame::Submit",
+                  "durationUs": 1
+                }
+              ]
+            },
+            {
+              "frameNumber": 139,
+              "outsidePhaseMarkersUs": 11362,
+              "phases": [
+                {
+                  "name": "CompositorContext::ScopedFrame::Raster",
+                  "durationUs": 49
+                },
+                {
+                  "name": "LayerTree::Paint",
+                  "durationUs": 27
+                },
+                {
+                  "name": "LayerTree::Preroll",
+                  "durationUs": 22
+                }
+              ]
+            },
+            {
+              "frameNumber": 140,
+              "outsidePhaseMarkersUs": 10080,
+              "phases": [
+                {
+                  "name": "CompositorContext::ScopedFrame::Raster",
+                  "durationUs": 166
+                },
+                {
+                  "name": "LayerTree::Paint",
+                  "durationUs": 141
+                },
+                {
+                  "name": "LayerTree::Preroll",
+                  "durationUs": 24
+                },
+                {
+                  "name": "SurfaceFrame::Encode",
+                  "durationUs": 1
+                },
+                {
+                  "name": "SurfaceFrame::Submit",
+                  "durationUs": 1
+                }
+              ]
+            }
+          ],
+          "unmatchedFrames": [],
+          "source": "live-stream",
+          "streamedEventCount": 5180,
+          "retainedEventCount": 5180,
+          "discardedEventCount": 0,
+          "tailAvailable": true
+        }
+      },
+      "fast": {
+        "allFrames": {
+          "count": 108,
+          "overBudget": 0,
+          "slowBuilds": 0,
+          "slowRasters": 0,
+          "buildUs": {
+            "count": 108,
+            "total": 341956,
+            "p50": 2755,
+            "p95": 5357,
+            "p99": 5914,
+            "max": 6394
+          },
+          "rasterUs": {
+            "count": 108,
+            "total": 61468,
+            "p50": 524,
+            "p95": 769,
+            "p99": 1884,
+            "max": 3163
+          },
+          "vsyncOverheadUs": {
+            "count": 108,
+            "total": 25140,
+            "p50": 241,
+            "p95": 323,
+            "p99": 441,
+            "max": 782
+          },
+          "totalSpanUs": {
+            "count": 108,
+            "total": 434243,
+            "p50": 3725,
+            "p95": 6431,
+            "p99": 7029,
+            "max": 7261
+          }
+        },
+        "activityCounts": {
+          "chat.fixture.phase": 1,
+          "chat.capture.context": 1,
+          "chat.scroll.notification": 500,
+          "chat.row.built": 282,
+          "chat.row.layout": 320,
+          "chat.dayExtents.scanned": 101,
+          "chat.floatingDay.changed": 43,
+          "chat.viewport.work": 101,
+          "chat.fixture.finished": 1
+        },
+        "chatRowLayoutUs": {
+          "count": 320,
+          "total": 94372,
+          "p50": 239,
+          "p95": 588,
+          "p99": 1589,
+          "max": 2894
+        },
+        "chatDayExtentWorkUs": {
+          "count": 101,
+          "total": 1559,
+          "p50": 15,
+          "p95": 20,
+          "p99": 25,
+          "max": 35
+        },
+        "chatViewportWorkUs": {
+          "count": 101,
+          "total": 1980,
+          "p50": 19,
+          "p95": 27,
+          "p99": 38,
+          "max": 39
+        },
+        "fixtureEvents": [
+          {
+            "rich": true,
+            "semanticsEnabled": true,
+            "phase": "fast",
+            "steps": 100,
+            "delta": 1200.0,
+            "startPixels": 14400.0,
+            "imageCacheBytes": 18495104
+          },
+          {
+            "endPixels": 134400.0,
+            "imageCacheBytes": 19670592,
+            "pendingImages": 0
+          }
+        ],
+        "cpu": {
+          "sampleCount": 349,
+          "truncatedStackCount": 195,
+          "topFunctions": [
+            {
+              "name": "<anonymous closure>",
+              "samples": 14
+            },
+            {
+              "name": "__psynch_mutexwait",
+              "samples": 7
+            },
+            {
+              "name": "dart::MarkingVisitor::VisitPointers(dart::ObjectPtr*, dart::ObjectPtr*)",
+              "samples": 7
+            },
+            {
+              "name": "dart::Object::InitializeObject(unsigned long, long, long, bool, unsigned long, unsigned long)",
+              "samples": 6
+            },
+            {
+              "name": "flutter::RuntimeController::ScheduleFrame()",
+              "samples": 6
+            },
+            {
+              "name": "__munmap",
+              "samples": 5
+            },
+            {
+              "name": "_xzm_free",
+              "samples": 4
+            },
+            {
+              "name": "dart::GCSweeper::SweepPage(dart::Page*, dart::FreeList*)",
+              "samples": 4
+            }
+          ],
+          "topStacks": [
+            {
+              "name": "<anonymous closure> \u2190 handleValueCallback \u2190 _Future._propagateToListeners \u2190 _Future._complete \u2190 <anonymous closure> \u2190 <anonymous closure>",
+              "samples": 9
+            },
+            {
+              "name": "dart::MarkingVisitor::VisitPointers(dart::ObjectPtr*, dart::ObjectPtr*) \u2190 dart::UntaggedObject::VisitPointersPredefined(dart::ObjectPointerVisitor*, long) \u2190 dart::MarkingVisitor::ProcessOldMarkingStack(long) \u2190 dart::GCMarker::IncrementalMarkWithSizeBudget(dart::PageSpace*, long) \u2190 dart::Scavenger::TryAllocateNewTLAB(dart::Thread*, long, bool) \u2190 dart::Heap::AllocateNew(dart::Thread*, long)",
+              "samples": 6
+            },
+            {
+              "name": "flutter::RuntimeController::ScheduleFrame() \u2190 PlatformDispatcher._scheduleFrame \u2190 PlatformDispatcher.scheduleFrame \u2190 _MixinApplication26&BindingBase&GestureBinding&SchedulerBinding.scheduleFrame \u2190 Ticker.scheduleTick \u2190 Ticker._tick",
+              "samples": 6
+            },
+            {
+              "name": "__munmap \u2190 dart::PageCache::Clear() \u2190 dart::Heap::NotifyIdle(long long) \u2190 dart::IdleTimeHandler::NotifyIdle(long long) \u2190 Dart_NotifyIdle \u2190 flutter::RuntimeController::NotifyIdle(fml::TimeDelta)",
+              "samples": 5
+            },
+            {
+              "name": "dart::IrregexpInterpreter::Result dart::(anonymous namespace)::RawMatch<unsigned char const, dart::OneByteString>(dart:: \u2190 dart::IrregexpInterpreter::Match(dart::Thread*, dart::RegExp const&, dart::String const&, int*, int, int, dart::RegExpSt \u2190 dart::RegExpStatics::Interpret(dart::Thread*, dart::RegExp const&, dart::String const&, int, bool) \u2190 dart::NativeEntry::BootstrapNativeCallWrapper(_Dart_NativeArguments*, void (*)(_Dart_NativeArguments*)) \u2190 _RegExp._ExecuteMatch \u2190 _RegExp.firstMatch",
+              "samples": 3
+            }
+          ],
+          "vmTags": [
+            {
+              "name": "Dart",
+              "samples": 180
+            },
+            {
+              "name": "Unknown native entry",
+              "samples": 97
+            },
+            {
+              "name": "DRT_AllocateObject",
+              "samples": 19
+            },
+            {
+              "name": "Timeline_reportTaskEvent",
+              "samples": 10
+            },
+            {
+              "name": "VM",
+              "samples": 9
+            },
+            {
+              "name": "Closure_equals",
+              "samples": 5
+            },
+            {
+              "name": "Closure_computeHash",
+              "samples": 4
+            },
+            {
+              "name": "GCOldSpace",
+              "samples": 3
+            }
+          ]
+        },
+        "slowFrameCpu": {
+          "sampleCount": 0,
+          "truncatedStackCount": 0,
+          "topFunctions": [],
+          "topStacks": [],
+          "vmTags": []
+        },
+        "raster": {
+          "status": "available",
+          "requestedFrameCount": 0,
+          "profiledFrameCount": 0,
+          "matchedFrameCount": 0,
+          "engineFrameSpanCount": 216,
+          "frames": [],
+          "unmatchedFrames": [],
+          "source": "live-stream",
+          "streamedEventCount": 1512,
+          "retainedEventCount": 1512,
+          "discardedEventCount": 0,
+          "tailAvailable": true
+        }
+      },
+      "return": {
+        "allFrames": {
+          "count": 122,
+          "overBudget": 0,
+          "slowBuilds": 0,
+          "slowRasters": 0,
+          "buildUs": {
+            "count": 122,
+            "total": 374668,
+            "p50": 2805,
+            "p95": 6225,
+            "p99": 7055,
+            "max": 7069
+          },
+          "rasterUs": {
+            "count": 122,
+            "total": 63111,
+            "p50": 484,
+            "p95": 682,
+            "p99": 1817,
+            "max": 2388
+          },
+          "vsyncOverheadUs": {
+            "count": 122,
+            "total": 26743,
+            "p50": 224,
+            "p95": 342,
+            "p99": 675,
+            "max": 738
+          },
+          "totalSpanUs": {
+            "count": 122,
+            "total": 470440,
+            "p50": 3604,
+            "p95": 7164,
+            "p99": 7776,
+            "max": 7900
+          }
+        },
+        "activityCounts": {
+          "chat.fixture.phase": 1,
+          "chat.capture.context": 1,
+          "chat.scroll.notification": 500,
+          "chat.row.built": 267,
+          "chat.row.layout": 268,
+          "chat.dayExtents.scanned": 101,
+          "chat.viewport.work": 101,
+          "chat.floatingDay.changed": 43,
+          "chat.fixture.finished": 1
+        },
+        "chatRowLayoutUs": {
+          "count": 268,
+          "total": 102228,
+          "p50": 307,
+          "p95": 796,
+          "p99": 1912,
+          "max": 2090
+        },
+        "chatDayExtentWorkUs": {
+          "count": 101,
+          "total": 1646,
+          "p50": 15,
+          "p95": 22,
+          "p99": 37,
+          "max": 39
+        },
+        "chatViewportWorkUs": {
+          "count": 101,
+          "total": 2213,
+          "p50": 21,
+          "p95": 30,
+          "p99": 42,
+          "max": 45
+        },
+        "fixtureEvents": [
+          {
+            "rich": true,
+            "semanticsEnabled": true,
+            "phase": "return",
+            "steps": 100,
+            "delta": -1200.0,
+            "startPixels": 134400.0,
+            "imageCacheBytes": 19670592
+          },
+          {
+            "endPixels": 14400.0,
+            "imageCacheBytes": 104514336,
+            "pendingImages": 0
+          }
+        ],
+        "cpu": {
+          "sampleCount": 357,
+          "truncatedStackCount": 220,
+          "topFunctions": [
+            {
+              "name": "_xzm_free",
+              "samples": 11
+            },
+            {
+              "name": "_xzm_xzone_malloc_tiny",
+              "samples": 10
+            },
+            {
+              "name": "dart::Object::InitializeObject(unsigned long, long, long, bool, unsigned long, unsigned long)",
+              "samples": 8
+            },
+            {
+              "name": "dart::GCSweeper::SweepPage(dart::Page*, dart::FreeList*)",
+              "samples": 7
+            },
+            {
+              "name": "__munmap",
+              "samples": 6
+            },
+            {
+              "name": "dart::BaseTextBuffer::AddEscapedUTF8(char const*, long)",
+              "samples": 6
+            },
+            {
+              "name": "dart::MarkingVisitor::VisitPointers(dart::ObjectPtr*, dart::ObjectPtr*)",
+              "samples": 5
+            },
+            {
+              "name": "_SemanticsConfigurationProvider.original",
+              "samples": 4
+            }
+          ],
+          "topStacks": [
+            {
+              "name": "__munmap \u2190 dart::PageCache::Clear() \u2190 dart::Heap::NotifyIdle(long long) \u2190 dart::IdleTimeHandler::NotifyIdle(long long) \u2190 Dart_NotifyIdle \u2190 flutter::RuntimeController::NotifyIdle(fml::TimeDelta)",
+              "samples": 6
+            },
+            {
+              "name": "dart::MarkingVisitor::VisitPointers(dart::ObjectPtr*, dart::ObjectPtr*) \u2190 dart::UntaggedObject::VisitPointersPredefined(dart::ObjectPointerVisitor*, long) \u2190 dart::MarkingVisitor::ProcessOldMarkingStack(long) \u2190 dart::GCMarker::IncrementalMarkWithSizeBudget(dart::PageSpace*, long) \u2190 dart::Scavenger::TryAllocateNewTLAB(dart::Thread*, long, bool) \u2190 dart::Heap::AllocateNew(dart::Thread*, long)",
+              "samples": 5
+            },
+            {
+              "name": "ContainerLayer.updateSubtreeNeedsAddToScene \u2190 ContainerLayer.updateSubtreeNeedsAddToScene \u2190 ContainerLayer.updateSubtreeNeedsAddToScene \u2190 ContainerLayer.updateSubtreeNeedsAddToScene \u2190 ContainerLayer.updateSubtreeNeedsAddToScene \u2190 ContainerLayer.updateSubtreeNeedsAddToScene",
+              "samples": 3
+            },
+            {
+              "name": "dart::BaseTextBuffer::AddEscapedUTF8(char const*, long) \u2190 dart::JSONWriter::PrintPropertyName(char const*) \u2190 dart::JSONWriter::PrintProperty(char const*, char const*) \u2190 dart::TimelineEvent::PrintJSON(dart::JSONWriter*) const \u2190 dart::TimelineEventBlock::PrintJSON(dart::JSONStream*) const \u2190 dart::ServiceEvent::PrintJSON(dart::JSONStream*) const",
+              "samples": 3
+            },
+            {
+              "name": "dart::GCSweeper::SweepPage(dart::Page*, dart::FreeList*) \u2190 dart::PageSpace::Sweep(bool, bool) \u2190 dart::Scavenger::TryAllocateNewTLAB(dart::Thread*, long, bool) \u2190 dart::Heap::AllocateNew(dart::Thread*, long) \u2190 dart::Object::Allocate(long, long, dart::Heap::Space, bool, unsigned long, unsigned long) \u2190 DRT_AllocateObject",
+              "samples": 3
+            }
+          ],
+          "vmTags": [
+            {
+              "name": "Dart",
+              "samples": 182
+            },
+            {
+              "name": "Unknown native entry",
+              "samples": 92
+            },
+            {
+              "name": "DRT_AllocateObject",
+              "samples": 25
+            },
+            {
+              "name": "Timeline_reportTaskEvent",
+              "samples": 19
+            },
+            {
+              "name": "VM",
+              "samples": 10
+            },
+            {
+              "name": "Closure_equals",
+              "samples": 7
+            },
+            {
+              "name": "GCOldSpace",
+              "samples": 3
+            },
+            {
+              "name": "RegExp_ExecuteMatch",
+              "samples": 3
+            }
+          ]
+        },
+        "slowFrameCpu": {
+          "sampleCount": 0,
+          "truncatedStackCount": 0,
+          "topFunctions": [],
+          "topStacks": [],
+          "vmTags": []
+        },
+        "raster": {
+          "status": "available",
+          "requestedFrameCount": 0,
+          "profiledFrameCount": 0,
+          "matchedFrameCount": 0,
+          "engineFrameSpanCount": 244,
+          "frames": [],
+          "unmatchedFrames": [],
+          "source": "live-stream",
+          "streamedEventCount": 1708,
+          "retainedEventCount": 1708,
+          "discardedEventCount": 0,
+          "tailAvailable": true
+        }
+      }
+    },
+    "unique-fixed-1": {
+      "steady": {
+        "allFrames": {
+          "count": 369,
+          "overBudget": 10,
+          "slowBuilds": 1,
+          "slowRasters": 9,
+          "buildUs": {
+            "count": 369,
+            "total": 208810,
+            "p50": 242,
+            "p95": 2779,
+            "p99": 6302,
+            "max": 9005
+          },
+          "rasterUs": {
+            "count": 369,
+            "total": 466183,
+            "p50": 615,
+            "p95": 1851,
+            "p99": 29057,
+            "max": 35587
+          },
+          "vsyncOverheadUs": {
+            "count": 369,
+            "total": 87625,
+            "p50": 219,
+            "p95": 329,
+            "p99": 1054,
+            "max": 4241
+          },
+          "totalSpanUs": {
+            "count": 369,
+            "total": 931670,
+            "p50": 1198,
+            "p95": 7624,
+            "p99": 30099,
+            "max": 40167
+          }
+        },
+        "activityCounts": {
+          "chat.fixture.phase": 1,
+          "chat.capture.context": 1,
+          "chat.scroll.notification": 1800,
+          "chat.viewport.work": 361,
+          "chat.row.built": 38,
+          "chat.row.layout": 63,
+          "chat.dayExtents.scanned": 59,
+          "chat.floatingDay.changed": 6,
+          "chat.fixture.finished": 1
+        },
+        "chatRowLayoutUs": {
+          "count": 63,
+          "total": 42646,
+          "p50": 635,
+          "p95": 1939,
+          "p99": 3321,
+          "max": 3321
+        },
+        "chatDayExtentWorkUs": {
+          "count": 59,
+          "total": 2113,
+          "p50": 35,
+          "p95": 67,
+          "p99": 69,
+          "max": 69
+        },
+        "chatViewportWorkUs": {
+          "count": 361,
+          "total": 3301,
+          "p50": 2,
+          "p95": 45,
+          "p99": 71,
+          "max": 81
+        },
+        "fixtureEvents": [
+          {
+            "rich": true,
+            "semanticsEnabled": true,
+            "phase": "steady",
+            "steps": 360,
+            "delta": 40.0,
+            "startPixels": 0.0,
+            "imageCacheBytes": 82368
+          },
+          {
+            "endPixels": 14400.0,
+            "imageCacheBytes": 18495104,
+            "pendingImages": 0
+          }
+        ],
+        "cpu": {
+          "sampleCount": 490,
+          "truncatedStackCount": 69,
+          "topFunctions": [
+            {
+              "name": "mach_msg2_trap",
+              "samples": 22
+            },
+            {
+              "name": "dart::Scavenger::TryAllocateNewTLAB(dart::Thread*, long, bool)",
+              "samples": 10
+            },
+            {
+              "name": "<anonymous closure>",
+              "samples": 9
+            },
+            {
+              "name": "dart::Object::InitializeObject(unsigned long, long, long, bool, unsigned long, unsigned long)",
+              "samples": 9
+            },
+            {
+              "name": "RenderObject.parent",
+              "samples": 8
+            },
+            {
+              "name": "_xzm_xzone_malloc_tiny",
+              "samples": 8
+            },
+            {
+              "name": "[Native] /private/tmp/chat-rich-unique-fixed.app/Contents/Frameworks/FlutterMacOS.framework/Versions/A/FlutterMacOS+0xc4",
+              "samples": 7
+            },
+            {
+              "name": "_tlv_get_addr",
+              "samples": 6
+            }
+          ],
+          "topStacks": [
+            {
+              "name": "mach_msg2_trap \u2190 mach_msg_overwrite \u2190 mach_msg \u2190 CFRunLoopWakeUp \u2190 $s20InternalFlutterSwift0B7RunLoopC7perform10afterDelay5blockySd_yyctF \u2190 $s20InternalFlutterSwift0B7RunLoopC7perform10afterDelay5blockySd_yyctFTo",
+              "samples": 20
+            },
+            {
+              "name": "dart::Scavenger::TryAllocateNewTLAB(dart::Thread*, long, bool) \u2190 dart::Heap::AllocateNew(dart::Thread*, long) \u2190 dart::Object::Allocate(long, long, dart::Heap::Space, bool, unsigned long, unsigned long) \u2190 dart::Array::NewUninitialized(long, long, dart::Heap::Space) \u2190 Dart_InvokeClosure \u2190 tonic::DartInvoke(_Dart_Handle*, std::initializer_list<_Dart_Handle*>)",
+              "samples": 10
+            },
+            {
+              "name": "RenderObject.parent \u2190 RenderObject.markNeedsPaint \u2190 RenderObject.markNeedsPaint \u2190 RenderObject.markNeedsPaint \u2190 RenderObject.markNeedsPaint \u2190 RenderObject.markNeedsPaint",
+              "samples": 5
+            },
+            {
+              "name": "RenderSuperSliverList._performLayoutInner \u2190 _performLayoutInner \u2190 ExtentManager.performLayout \u2190 RenderSuperSliverList.performLayout \u2190 RenderObject.layout \u2190 RenderSuperSliverList.layout",
+              "samples": 4
+            },
+            {
+              "name": "__munmap \u2190 dart::PageCache::Clear() \u2190 dart::Heap::NotifyIdle(long long) \u2190 dart::IdleTimeHandler::NotifyIdle(long long) \u2190 Dart_NotifyIdle \u2190 flutter::RuntimeController::NotifyIdle(fml::TimeDelta)",
+              "samples": 4
+            }
+          ],
+          "vmTags": [
+            {
+              "name": "Dart",
+              "samples": 241
+            },
+            {
+              "name": "Unknown native entry",
+              "samples": 95
+            },
+            {
+              "name": "VM",
+              "samples": 59
+            },
+            {
+              "name": "Timeline_reportTaskEvent",
+              "samples": 36
+            },
+            {
+              "name": "Double_toStringAsFixed",
+              "samples": 16
+            },
+            {
+              "name": "DRT_InterruptOrStackOverflow",
+              "samples": 10
+            },
+            {
+              "name": "DRT_AllocateObject",
+              "samples": 8
+            },
+            {
+              "name": "DRT_AllocateTypedData",
+              "samples": 6
+            }
+          ]
+        },
+        "slowFrameCpu": {
+          "sampleCount": 6,
+          "truncatedStackCount": 5,
+          "topFunctions": [
+            {
+              "name": "BuildOwner._registerGlobalKey",
+              "samples": 1
+            },
+            {
+              "name": "Element.dependOnInheritedElement",
+              "samples": 1
+            },
+            {
+              "name": "_HashBase._hashPattern",
+              "samples": 1
+            },
+            {
+              "name": "_RenderObjectSemantics.markNeedsUpdate",
+              "samples": 1
+            },
+            {
+              "name": "__openat",
+              "samples": 1
+            },
+            {
+              "name": "dart::Scavenger::TryAllocateNewTLAB(dart::Thread*, long, bool)",
+              "samples": 1
+            }
+          ],
+          "topStacks": [
+            {
+              "name": "BuildOwner._registerGlobalKey \u2190 RenderObjectElement.mount \u2190 MultiChildRenderObjectElement.mount \u2190 Element.inflateWidget \u2190 Element.updateChild \u2190 ComponentElement.performRebuild",
+              "samples": 1
+            },
+            {
+              "name": "Element.dependOnInheritedElement \u2190 Directionality.maybeOf \u2190 Flex.getEffectiveTextDirection \u2190 Flex.createRenderObject \u2190 RenderObjectElement.mount \u2190 MultiChildRenderObjectElement.mount",
+              "samples": 1
+            },
+            {
+              "name": "_HashBase._hashPattern \u2190 __Map&_LinkedHashBase&MapMixin&_HashBase&_OperatorEqualsAndHashCode&_LinkedHashMapMixin._set \u2190 __Map&_LinkedHashBase&MapMixin&_HashBase&_OperatorEqualsAndHashCode&_LinkedHashMapMixin.[]= \u2190 _MixinApplication26&BindingBase&GestureBinding&SchedulerBinding.scheduleFrameCallback \u2190 Ticker.scheduleTick \u2190 Ticker.start",
+              "samples": 1
+            },
+            {
+              "name": "_RenderObjectSemantics.markNeedsUpdate \u2190 RenderObject.markNeedsSemanticsUpdate \u2190 RenderObject.attach \u2190 _MixinApplication13&RenderBox&RenderObjectWithChildMixin.attach \u2190 RenderObject.adoptChild \u2190 _MixinApplication13&RenderBox&RenderObjectWithChildMixin.child",
+              "samples": 1
+            },
+            {
+              "name": "__openat \u2190 fml::OpenFile(fml::UniqueObject<int, fml::internal::os_unix::UniqueFDTraits> const&, char const*, bool, fml::FilePermiss \u2190 flutter::DirectoryAssetBundle::GetAsMapping(std::__fl::basic_string<char, std::__fl::char_traits<char>, std::__fl::alloc \u2190 flutter::AssetManager::GetAsMapping(std::__fl::basic_string<char, std::__fl::char_traits<char>, std::__fl::allocator<cha \u2190 flutter::AssetManagerFontStyleSet::createTypeface(int) \u2190 flutter::AssetManagerFontStyleSet::getStyle(int, SkFontStyle*, SkString*)",
+              "samples": 1
+            }
+          ],
+          "vmTags": [
+            {
+              "name": "Dart",
+              "samples": 4
+            },
+            {
+              "name": "Unknown native entry",
+              "samples": 1
+            },
+            {
+              "name": "VM",
+              "samples": 1
+            }
+          ]
+        },
+        "raster": {
+          "status": "available",
+          "requestedFrameCount": 9,
+          "profiledFrameCount": 9,
+          "matchedFrameCount": 9,
+          "engineFrameSpanCount": 740,
+          "frames": [
+            {
+              "frameNumber": 58,
+              "outsidePhaseMarkersUs": 35391,
+              "phases": [
+                {
+                  "name": "CompositorContext::ScopedFrame::Raster",
+                  "durationUs": 196
+                },
+                {
+                  "name": "LayerTree::Paint",
+                  "durationUs": 153
+                },
+                {
+                  "name": "LayerTree::Preroll",
+                  "durationUs": 40
+                }
+              ]
+            },
+            {
+              "frameNumber": 333,
+              "outsidePhaseMarkersUs": 33129,
+              "phases": [
+                {
+                  "name": "CompositorContext::ScopedFrame::Raster",
+                  "durationUs": 129
+                },
+                {
+                  "name": "LayerTree::Paint",
+                  "durationUs": 108
+                },
+                {
+                  "name": "LayerTree::Preroll",
+                  "durationUs": 20
+                },
+                {
+                  "name": "SurfaceFrame::Encode",
+                  "durationUs": 1
+                },
+                {
+                  "name": "SurfaceFrame::Submit",
+                  "durationUs": 1
+                }
+              ]
+            },
+            {
+              "frameNumber": 175,
+              "outsidePhaseMarkersUs": 29520,
+              "phases": [
+                {
+                  "name": "CompositorContext::ScopedFrame::Raster",
+                  "durationUs": 145
+                },
+                {
+                  "name": "LayerTree::Paint",
+                  "durationUs": 123
+                },
+                {
+                  "name": "LayerTree::Preroll",
+                  "durationUs": 21
+                },
+                {
+                  "name": "SurfaceFrame::Encode",
+                  "durationUs": 1
+                },
+                {
+                  "name": "SurfaceFrame::Submit",
+                  "durationUs": 1
+                }
+              ]
+            },
+            {
+              "frameNumber": 71,
+              "outsidePhaseMarkersUs": 28949,
+              "phases": [
+                {
+                  "name": "CompositorContext::ScopedFrame::Raster",
+                  "durationUs": 108
+                },
+                {
+                  "name": "LayerTree::Paint",
+                  "durationUs": 91
+                },
+                {
+                  "name": "LayerTree::Preroll",
+                  "durationUs": 17
+                }
+              ]
+            },
+            {
+              "frameNumber": 129,
+              "outsidePhaseMarkersUs": 25668,
+              "phases": [
+                {
+                  "name": "CompositorContext::ScopedFrame::Raster",
+                  "durationUs": 184
+                },
+                {
+                  "name": "LayerTree::Paint",
+                  "durationUs": 147
+                },
+                {
+                  "name": "LayerTree::Preroll",
+                  "durationUs": 36
+                }
+              ]
+            },
+            {
+              "frameNumber": 85,
+              "outsidePhaseMarkersUs": 19164,
+              "phases": [
+                {
+                  "name": "CompositorContext::ScopedFrame::Raster",
+                  "durationUs": 116
+                },
+                {
+                  "name": "LayerTree::Paint",
+                  "durationUs": 33
+                },
+                {
+                  "name": "LayerTree::Preroll",
+                  "durationUs": 21
+                }
+              ]
+            },
+            {
+              "frameNumber": 89,
+              "outsidePhaseMarkersUs": 14838,
+              "phases": [
+                {
+                  "name": "CompositorContext::ScopedFrame::Raster",
+                  "durationUs": 48
+                },
+                {
+                  "name": "LayerTree::Paint",
+                  "durationUs": 27
+                },
+                {
+                  "name": "LayerTree::Preroll",
+                  "durationUs": 20
+                }
+              ]
+            },
+            {
+              "frameNumber": 139,
+              "outsidePhaseMarkersUs": 11630,
+              "phases": [
+                {
+                  "name": "CompositorContext::ScopedFrame::Raster",
+                  "durationUs": 54
+                },
+                {
+                  "name": "LayerTree::Paint",
+                  "durationUs": 30
+                },
+                {
+                  "name": "LayerTree::Preroll",
+                  "durationUs": 23
+                },
+                {
+                  "name": "SurfaceFrame::Submit",
+                  "durationUs": 1
+                }
+              ]
+            },
+            {
+              "frameNumber": 140,
+              "outsidePhaseMarkersUs": 9912,
+              "phases": [
+                {
+                  "name": "CompositorContext::ScopedFrame::Raster",
+                  "durationUs": 171
+                },
+                {
+                  "name": "LayerTree::Paint",
+                  "durationUs": 142
+                },
+                {
+                  "name": "LayerTree::Preroll",
+                  "durationUs": 27
+                },
+                {
+                  "name": "SurfaceFrame::Encode",
+                  "durationUs": 1
+                },
+                {
+                  "name": "SurfaceFrame::Submit",
+                  "durationUs": 1
+                }
+              ]
+            }
+          ],
+          "unmatchedFrames": [],
+          "source": "live-stream",
+          "streamedEventCount": 5180,
+          "retainedEventCount": 5180,
+          "discardedEventCount": 0,
+          "tailAvailable": true
+        }
+      },
+      "fast": {
+        "allFrames": {
+          "count": 108,
+          "overBudget": 0,
+          "slowBuilds": 0,
+          "slowRasters": 0,
+          "buildUs": {
+            "count": 108,
+            "total": 354631,
+            "p50": 3029,
+            "p95": 5604,
+            "p99": 6321,
+            "max": 6420
+          },
+          "rasterUs": {
+            "count": 108,
+            "total": 60046,
+            "p50": 525,
+            "p95": 773,
+            "p99": 1862,
+            "max": 2177
+          },
+          "vsyncOverheadUs": {
+            "count": 108,
+            "total": 26083,
+            "p50": 241,
+            "p95": 353,
+            "p99": 377,
+            "max": 419
+          },
+          "totalSpanUs": {
+            "count": 108,
+            "total": 446135,
+            "p50": 3892,
+            "p95": 6527,
+            "p99": 7272,
+            "max": 7288
+          }
+        },
+        "activityCounts": {
+          "chat.fixture.phase": 1,
+          "chat.capture.context": 1,
+          "chat.scroll.notification": 500,
+          "chat.row.built": 282,
+          "chat.row.layout": 320,
+          "chat.dayExtents.scanned": 101,
+          "chat.floatingDay.changed": 43,
+          "chat.viewport.work": 101,
+          "chat.fixture.finished": 1
+        },
+        "chatRowLayoutUs": {
+          "count": 320,
+          "total": 106109,
+          "p50": 234,
+          "p95": 765,
+          "p99": 2068,
+          "max": 2440
+        },
+        "chatDayExtentWorkUs": {
+          "count": 101,
+          "total": 4500,
+          "p50": 15,
+          "p95": 23,
+          "p99": 1168,
+          "max": 1745
+        },
+        "chatViewportWorkUs": {
+          "count": 101,
+          "total": 6696,
+          "p50": 20,
+          "p95": 30,
+          "p99": 1751,
+          "max": 1765
+        },
+        "fixtureEvents": [
+          {
+            "rich": true,
+            "semanticsEnabled": true,
+            "phase": "fast",
+            "steps": 100,
+            "delta": 1200.0,
+            "startPixels": 14400.0,
+            "imageCacheBytes": 18495104
+          },
+          {
+            "endPixels": 134400.0,
+            "imageCacheBytes": 19670592,
+            "pendingImages": 0
+          }
+        ],
+        "cpu": {
+          "sampleCount": 347,
+          "truncatedStackCount": 189,
+          "topFunctions": [
+            {
+              "name": "__munmap",
+              "samples": 12
+            },
+            {
+              "name": "<anonymous closure>",
+              "samples": 10
+            },
+            {
+              "name": "dart::Object::InitializeObject(unsigned long, long, long, bool, unsigned long, unsigned long)",
+              "samples": 9
+            },
+            {
+              "name": "dart::MarkingVisitor::VisitPointers(dart::ObjectPtr*, dart::ObjectPtr*)",
+              "samples": 8
+            },
+            {
+              "name": "__psynch_mutexwait",
+              "samples": 5
+            },
+            {
+              "name": "dart::GCSweeper::SweepPage(dart::Page*, dart::FreeList*)",
+              "samples": 5
+            },
+            {
+              "name": "dart::IrregexpInterpreter::Result dart::(anonymous namespace)::RawMatch<unsigned char const, dart::OneByteString>(dart::",
+              "samples": 5
+            },
+            {
+              "name": "mach_msg2_trap",
+              "samples": 5
+            }
+          ],
+          "topStacks": [
+            {
+              "name": "__munmap \u2190 dart::PageCache::Clear() \u2190 dart::Heap::NotifyIdle(long long) \u2190 dart::IdleTimeHandler::NotifyIdle(long long) \u2190 Dart_NotifyIdle \u2190 flutter::RuntimeController::NotifyIdle(fml::TimeDelta)",
+              "samples": 12
+            },
+            {
+              "name": "dart::MarkingVisitor::VisitPointers(dart::ObjectPtr*, dart::ObjectPtr*) \u2190 dart::UntaggedObject::VisitPointersPredefined(dart::ObjectPointerVisitor*, long) \u2190 dart::MarkingVisitor::ProcessOldMarkingStack(long) \u2190 dart::GCMarker::IncrementalMarkWithSizeBudget(dart::PageSpace*, long) \u2190 dart::Scavenger::TryAllocateNewTLAB(dart::Thread*, long, bool) \u2190 dart::Heap::AllocateNew(dart::Thread*, long)",
+              "samples": 5
+            },
+            {
+              "name": "<anonymous closure> \u2190 handleValueCallback \u2190 _Future._propagateToListeners \u2190 _Future._complete \u2190 <anonymous closure> \u2190 <anonymous closure>",
+              "samples": 4
+            },
+            {
+              "name": "dart::GCSweeper::SweepPage(dart::Page*, dart::FreeList*) \u2190 dart::PageSpace::Sweep(bool, bool) \u2190 dart::Scavenger::TryAllocateNewTLAB(dart::Thread*, long, bool) \u2190 dart::Heap::AllocateNew(dart::Thread*, long) \u2190 dart::Object::Allocate(long, long, dart::Heap::Space, bool, unsigned long, unsigned long) \u2190 DRT_AllocateObject",
+              "samples": 4
+            },
+            {
+              "name": "dart::IrregexpInterpreter::Result dart::(anonymous namespace)::RawMatch<unsigned char const, dart::OneByteString>(dart:: \u2190 dart::IrregexpInterpreter::Match(dart::Thread*, dart::RegExp const&, dart::String const&, int*, int, int, dart::RegExpSt \u2190 dart::RegExpStatics::Interpret(dart::Thread*, dart::RegExp const&, dart::String const&, int, bool) \u2190 dart::NativeEntry::BootstrapNativeCallWrapper(_Dart_NativeArguments*, void (*)(_Dart_NativeArguments*)) \u2190 _RegExp._ExecuteMatch \u2190 _RegExp.firstMatch",
+              "samples": 4
+            }
+          ],
+          "vmTags": [
+            {
+              "name": "Dart",
+              "samples": 161
+            },
+            {
+              "name": "Unknown native entry",
+              "samples": 110
+            },
+            {
+              "name": "DRT_AllocateObject",
+              "samples": 21
+            },
+            {
+              "name": "VM",
+              "samples": 15
+            },
+            {
+              "name": "Closure_equals",
+              "samples": 6
+            },
+            {
+              "name": "RegExp_ExecuteMatch",
+              "samples": 6
+            },
+            {
+              "name": "Timeline_reportTaskEvent",
+              "samples": 6
+            },
+            {
+              "name": "DRT_AllocateArray",
+              "samples": 5
+            }
+          ]
+        },
+        "slowFrameCpu": {
+          "sampleCount": 0,
+          "truncatedStackCount": 0,
+          "topFunctions": [],
+          "topStacks": [],
+          "vmTags": []
+        },
+        "raster": {
+          "status": "available",
+          "requestedFrameCount": 0,
+          "profiledFrameCount": 0,
+          "matchedFrameCount": 0,
+          "engineFrameSpanCount": 216,
+          "frames": [],
+          "unmatchedFrames": [],
+          "source": "live-stream",
+          "streamedEventCount": 1512,
+          "retainedEventCount": 1512,
+          "discardedEventCount": 0,
+          "tailAvailable": true
+        }
+      },
+      "return": {
+        "allFrames": {
+          "count": 122,
+          "overBudget": 0,
+          "slowBuilds": 0,
+          "slowRasters": 0,
+          "buildUs": {
+            "count": 122,
+            "total": 352193,
+            "p50": 2690,
+            "p95": 5924,
+            "p99": 6453,
+            "max": 6642
+          },
+          "rasterUs": {
+            "count": 122,
+            "total": 60799,
+            "p50": 456,
+            "p95": 661,
+            "p99": 1788,
+            "max": 2401
+          },
+          "vsyncOverheadUs": {
+            "count": 122,
+            "total": 27731,
+            "p50": 213,
+            "p95": 359,
+            "p99": 625,
+            "max": 951
+          },
+          "totalSpanUs": {
+            "count": 122,
+            "total": 447110,
+            "p50": 3469,
+            "p95": 6695,
+            "p99": 7338,
+            "max": 7553
+          }
+        },
+        "activityCounts": {
+          "chat.fixture.phase": 1,
+          "chat.capture.context": 1,
+          "chat.scroll.notification": 500,
+          "chat.row.built": 267,
+          "chat.row.layout": 268,
+          "chat.dayExtents.scanned": 101,
+          "chat.viewport.work": 101,
+          "chat.floatingDay.changed": 43,
+          "chat.fixture.finished": 1
+        },
+        "chatRowLayoutUs": {
+          "count": 268,
+          "total": 98930,
+          "p50": 311,
+          "p95": 736,
+          "p99": 1774,
+          "max": 2137
+        },
+        "chatDayExtentWorkUs": {
+          "count": 101,
+          "total": 1623,
+          "p50": 16,
+          "p95": 20,
+          "p99": 23,
+          "max": 34
+        },
+        "chatViewportWorkUs": {
+          "count": 101,
+          "total": 2273,
+          "p50": 21,
+          "p95": 30,
+          "p99": 39,
+          "max": 101
+        },
+        "fixtureEvents": [
+          {
+            "rich": true,
+            "semanticsEnabled": true,
+            "phase": "return",
+            "steps": 100,
+            "delta": -1200.0,
+            "startPixels": 134400.0,
+            "imageCacheBytes": 19670592
+          },
+          {
+            "endPixels": 14400.0,
+            "imageCacheBytes": 104514336,
+            "pendingImages": 0
+          }
+        ],
+        "cpu": {
+          "sampleCount": 346,
+          "truncatedStackCount": 219,
+          "topFunctions": [
+            {
+              "name": "__munmap",
+              "samples": 11
+            },
+            {
+              "name": "__psynch_mutexwait",
+              "samples": 9
+            },
+            {
+              "name": "_xzm_xzone_malloc_tiny",
+              "samples": 9
+            },
+            {
+              "name": "dart::MarkingVisitor::VisitPointers(dart::ObjectPtr*, dart::ObjectPtr*)",
+              "samples": 7
+            },
+            {
+              "name": "<anonymous closure>",
+              "samples": 6
+            },
+            {
+              "name": "SemanticsConfiguration.isSemanticBoundary",
+              "samples": 5
+            },
+            {
+              "name": "dart::GCSweeper::SweepPage(dart::Page*, dart::FreeList*)",
+              "samples": 5
+            },
+            {
+              "name": "dart::Object::HandleImpl(dart::Zone*, dart::ObjectPtr, long)",
+              "samples": 5
+            }
+          ],
+          "topStacks": [
+            {
+              "name": "__munmap \u2190 dart::PageCache::Clear() \u2190 dart::Heap::NotifyIdle(long long) \u2190 dart::IdleTimeHandler::NotifyIdle(long long) \u2190 Dart_NotifyIdle \u2190 flutter::RuntimeController::NotifyIdle(fml::TimeDelta)",
+              "samples": 11
+            },
+            {
+              "name": "dart::MarkingVisitor::VisitPointers(dart::ObjectPtr*, dart::ObjectPtr*) \u2190 dart::UntaggedObject::VisitPointersPredefined(dart::ObjectPointerVisitor*, long) \u2190 dart::MarkingVisitor::ProcessOldMarkingStack(long) \u2190 dart::GCMarker::IncrementalMarkWithSizeBudget(dart::PageSpace*, long) \u2190 dart::Scavenger::TryAllocateNewTLAB(dart::Thread*, long, bool) \u2190 dart::Heap::AllocateNew(dart::Thread*, long)",
+              "samples": 6
+            },
+            {
+              "name": "SemanticsConfiguration.isSemanticBoundary \u2190 _RenderObjectSemantics.contributesToSemanticsTree \u2190 _RenderObjectSemantics._getTagsForChildren \u2190 _RenderObjectSemantics.updateChildren \u2190 _RenderObjectSemantics._didUpdateParentData \u2190 _RenderObjectSemantics._collectChildMergeUpAndSiblingGroup",
+              "samples": 3
+            },
+            {
+              "name": "__psynch_mutexwait \u2190 _pthread_mutex_firstfit_lock_slow \u2190 dart::PageSpace::Sweep(bool, bool) \u2190 dart::Scavenger::TryAllocateNewTLAB(dart::Thread*, long, bool) \u2190 dart::Heap::AllocateNew(dart::Thread*, long) \u2190 dart::Object::Allocate(long, long, dart::Heap::Space, bool, unsigned long, unsigned long)",
+              "samples": 3
+            },
+            {
+              "name": "mach_msg2_trap \u2190 mach_msg_overwrite \u2190 mach_msg \u2190 CFRunLoopWakeUp \u2190 $s20InternalFlutterSwift0B7RunLoopC7perform10afterDelay5blockySd_yyctF \u2190 $s20InternalFlutterSwift0B7RunLoopC7perform10afterDelay5blockySd_yyctFTo",
+              "samples": 3
+            }
+          ],
+          "vmTags": [
+            {
+              "name": "Dart",
+              "samples": 175
+            },
+            {
+              "name": "Unknown native entry",
+              "samples": 79
+            },
+            {
+              "name": "DRT_AllocateObject",
+              "samples": 26
+            },
+            {
+              "name": "Timeline_reportTaskEvent",
+              "samples": 20
+            },
+            {
+              "name": "VM",
+              "samples": 17
+            },
+            {
+              "name": "Closure_equals",
+              "samples": 9
+            },
+            {
+              "name": "Closure_computeHash",
+              "samples": 3
+            },
+            {
+              "name": "RegExp_ExecuteMatch",
+              "samples": 3
+            }
+          ]
+        },
+        "slowFrameCpu": {
+          "sampleCount": 0,
+          "truncatedStackCount": 0,
+          "topFunctions": [],
+          "topStacks": [],
+          "vmTags": []
+        },
+        "raster": {
+          "status": "available",
+          "requestedFrameCount": 0,
+          "profiledFrameCount": 0,
+          "matchedFrameCount": 0,
+          "engineFrameSpanCount": 244,
+          "frames": [],
+          "unmatchedFrames": [],
+          "source": "live-stream",
+          "streamedEventCount": 1708,
+          "retainedEventCount": 1708,
+          "discardedEventCount": 0,
+          "tailAvailable": true
+        }
+      }
+    },
+    "unique-baseline-2": {
+      "steady": {
+        "allFrames": {
+          "count": 369,
+          "overBudget": 0,
+          "slowBuilds": 0,
+          "slowRasters": 0,
+          "buildUs": {
+            "count": 369,
+            "total": 254499,
+            "p50": 279,
+            "p95": 3552,
+            "p99": 6881,
+            "max": 7880
+          },
+          "rasterUs": {
+            "count": 369,
+            "total": 306753,
+            "p50": 725,
+            "p95": 1607,
+            "p99": 2438,
+            "max": 7367
+          },
+          "vsyncOverheadUs": {
+            "count": 369,
+            "total": 86206,
+            "p50": 219,
+            "p95": 367,
+            "p99": 1111,
+            "max": 2437
+          },
+          "totalSpanUs": {
+            "count": 369,
+            "total": 673572,
+            "p50": 1336,
+            "p95": 5036,
+            "p99": 8078,
+            "max": 9551
+          }
+        },
+        "activityCounts": {
+          "chat.fixture.phase": 1,
+          "chat.capture.context": 1,
+          "chat.scroll.notification": 1800,
+          "chat.viewport.work": 361,
+          "chat.row.built": 38,
+          "chat.row.layout": 63,
+          "chat.dayExtents.scanned": 59,
+          "chat.floatingDay.changed": 6,
+          "chat.fixture.finished": 1
+        },
+        "chatRowLayoutUs": {
+          "count": 63,
+          "total": 52669,
+          "p50": 741,
+          "p95": 2489,
+          "p99": 3279,
+          "max": 3279
+        },
+        "chatDayExtentWorkUs": {
+          "count": 59,
+          "total": 2341,
+          "p50": 36,
+          "p95": 62,
+          "p99": 169,
+          "max": 169
+        },
+        "chatViewportWorkUs": {
+          "count": 361,
+          "total": 3782,
+          "p50": 3,
+          "p95": 43,
+          "p99": 81,
+          "max": 190
+        },
+        "fixtureEvents": [
+          {
+            "rich": true,
+            "semanticsEnabled": true,
+            "phase": "steady",
+            "steps": 360,
+            "delta": 40.0,
+            "startPixels": 0.0,
+            "imageCacheBytes": 82368
+          },
+          {
+            "endPixels": 14400.0,
+            "imageCacheBytes": 18495104,
+            "pendingImages": 0
+          }
+        ],
+        "cpu": {
+          "sampleCount": 524,
+          "truncatedStackCount": 83,
+          "topFunctions": [
+            {
+              "name": "mach_msg2_trap",
+              "samples": 26
+            },
+            {
+              "name": "<anonymous closure>",
+              "samples": 9
+            },
+            {
+              "name": "__munmap",
+              "samples": 9
+            },
+            {
+              "name": "_tlv_get_addr",
+              "samples": 9
+            },
+            {
+              "name": "dart::Object::InitializeObject(unsigned long, long, long, bool, unsigned long, unsigned long)",
+              "samples": 9
+            },
+            {
+              "name": "dart::Scavenger::TryAllocateNewTLAB(dart::Thread*, long, bool)",
+              "samples": 8
+            },
+            {
+              "name": "xzm_malloc",
+              "samples": 8
+            },
+            {
+              "name": "RenderSliverLayoutPass.getLayoutPass",
+              "samples": 6
+            }
+          ],
+          "topStacks": [
+            {
+              "name": "mach_msg2_trap \u2190 mach_msg_overwrite \u2190 mach_msg \u2190 CFRunLoopWakeUp \u2190 $s20InternalFlutterSwift0B7RunLoopC7perform10afterDelay5blockySd_yyctF \u2190 $s20InternalFlutterSwift0B7RunLoopC7perform10afterDelay5blockySd_yyctFTo",
+              "samples": 26
+            },
+            {
+              "name": "__munmap \u2190 dart::PageCache::Clear() \u2190 dart::Heap::NotifyIdle(long long) \u2190 dart::IdleTimeHandler::NotifyIdle(long long) \u2190 Dart_NotifyIdle \u2190 flutter::RuntimeController::NotifyIdle(fml::TimeDelta)",
+              "samples": 9
+            },
+            {
+              "name": "dart::Scavenger::TryAllocateNewTLAB(dart::Thread*, long, bool) \u2190 dart::Heap::AllocateNew(dart::Thread*, long) \u2190 dart::Object::Allocate(long, long, dart::Heap::Space, bool, unsigned long, unsigned long) \u2190 dart::Array::NewUninitialized(long, long, dart::Heap::Space) \u2190 Dart_InvokeClosure \u2190 tonic::DartInvoke(_Dart_Handle*, std::initializer_list<_Dart_Handle*>)",
+              "samples": 7
+            },
+            {
+              "name": "RenderSliverLayoutPass.getLayoutPass \u2190 RenderSuperSliverList._performLayoutInner \u2190 _performLayoutInner \u2190 ExtentManager.performLayout \u2190 RenderSuperSliverList.performLayout \u2190 RenderObject.layout",
+              "samples": 6
+            },
+            {
+              "name": "dart::Class::IsSubtypeOf(dart::Class const&, dart::TypeArguments const&, dart::Nullability, dart::AbstractType const&, d \u2190 dart::Function::DoArgumentTypesMatch(dart::Array const&, dart::ArgumentsDescriptor const&, dart::TypeArguments const&, d \u2190 dart::DartEntry::InvokeCallable(dart::Thread*, dart::Function const&, dart::Array const&, dart::Array const&) \u2190 Dart_InvokeClosure \u2190 tonic::DartInvoke(_Dart_Handle*, std::initializer_list<_Dart_Handle*>) \u2190 flutter::PlatformConfiguration::BeginFrame(fml::TimePoint, unsigned long long)",
+              "samples": 5
+            }
+          ],
+          "vmTags": [
+            {
+              "name": "Dart",
+              "samples": 240
+            },
+            {
+              "name": "Unknown native entry",
+              "samples": 119
+            },
+            {
+              "name": "VM",
+              "samples": 66
+            },
+            {
+              "name": "Timeline_reportTaskEvent",
+              "samples": 39
+            },
+            {
+              "name": "Double_toStringAsFixed",
+              "samples": 13
+            },
+            {
+              "name": "DRT_AllocateObject",
+              "samples": 11
+            },
+            {
+              "name": "DRT_InterruptOrStackOverflow",
+              "samples": 10
+            },
+            {
+              "name": "DRT_AllocateTypedData",
+              "samples": 5
+            }
+          ]
+        },
+        "slowFrameCpu": {
+          "sampleCount": 0,
+          "truncatedStackCount": 0,
+          "topFunctions": [],
+          "topStacks": [],
+          "vmTags": []
+        },
+        "raster": {
+          "status": "available",
+          "requestedFrameCount": 0,
+          "profiledFrameCount": 0,
+          "matchedFrameCount": 0,
+          "engineFrameSpanCount": 738,
+          "frames": [],
+          "unmatchedFrames": [],
+          "source": "live-stream",
+          "streamedEventCount": 5166,
+          "retainedEventCount": 5166,
+          "discardedEventCount": 0,
+          "tailAvailable": true
+        }
+      },
+      "fast": {
+        "allFrames": {
+          "count": 109,
+          "overBudget": 0,
+          "slowBuilds": 0,
+          "slowRasters": 0,
+          "buildUs": {
+            "count": 109,
+            "total": 349287,
+            "p50": 2826,
+            "p95": 5609,
+            "p99": 6318,
+            "max": 6449
+          },
+          "rasterUs": {
+            "count": 109,
+            "total": 60081,
+            "p50": 501,
+            "p95": 776,
+            "p99": 1873,
+            "max": 2355
+          },
+          "vsyncOverheadUs": {
+            "count": 109,
+            "total": 27106,
+            "p50": 247,
+            "p95": 357,
+            "p99": 489,
+            "max": 1104
+          },
+          "totalSpanUs": {
+            "count": 109,
+            "total": 442173,
+            "p50": 3671,
+            "p95": 6513,
+            "p99": 7338,
+            "max": 7436
+          }
+        },
+        "activityCounts": {
+          "chat.fixture.phase": 1,
+          "chat.capture.context": 1,
+          "chat.scroll.notification": 500,
+          "chat.row.built": 282,
+          "chat.row.layout": 320,
+          "chat.dayExtents.scanned": 101,
+          "chat.floatingDay.changed": 43,
+          "chat.viewport.work": 101,
+          "chat.fixture.finished": 1
+        },
+        "chatRowLayoutUs": {
+          "count": 320,
+          "total": 103678,
+          "p50": 236,
+          "p95": 778,
+          "p99": 2197,
+          "max": 2412
+        },
+        "chatDayExtentWorkUs": {
+          "count": 101,
+          "total": 1584,
+          "p50": 15,
+          "p95": 19,
+          "p99": 24,
+          "max": 34
+        },
+        "chatViewportWorkUs": {
+          "count": 101,
+          "total": 2007,
+          "p50": 19,
+          "p95": 26,
+          "p99": 28,
+          "max": 40
+        },
+        "fixtureEvents": [
+          {
+            "rich": true,
+            "semanticsEnabled": true,
+            "phase": "fast",
+            "steps": 100,
+            "delta": 1200.0,
+            "startPixels": 14400.0,
+            "imageCacheBytes": 18495104
+          },
+          {
+            "endPixels": 134400.0,
+            "imageCacheBytes": 19670592,
+            "pendingImages": 0
+          }
+        ],
+        "cpu": {
+          "sampleCount": 342,
+          "truncatedStackCount": 192,
+          "topFunctions": [
+            {
+              "name": "<anonymous closure>",
+              "samples": 17
+            },
+            {
+              "name": "_xzm_free",
+              "samples": 11
+            },
+            {
+              "name": "_xzm_xzone_malloc_tiny",
+              "samples": 9
+            },
+            {
+              "name": "dart::Object::InitializeObject(unsigned long, long, long, bool, unsigned long, unsigned long)",
+              "samples": 8
+            },
+            {
+              "name": "dart::VMHandles::AllocateHandle(dart::Zone*)",
+              "samples": 8
+            },
+            {
+              "name": "dart::MarkingVisitor::VisitPointers(dart::ObjectPtr*, dart::ObjectPtr*)",
+              "samples": 7
+            },
+            {
+              "name": "mach_msg2_trap",
+              "samples": 7
+            },
+            {
+              "name": "_platform_memmove",
+              "samples": 5
+            }
+          ],
+          "topStacks": [
+            {
+              "name": "<anonymous closure> \u2190 handleValueCallback \u2190 _Future._propagateToListeners \u2190 _Future._complete \u2190 <anonymous closure> \u2190 <anonymous closure>",
+              "samples": 9
+            },
+            {
+              "name": "mach_msg2_trap \u2190 mach_msg_overwrite \u2190 mach_msg \u2190 CFRunLoopWakeUp \u2190 $s20InternalFlutterSwift0B7RunLoopC7perform10afterDelay5blockySd_yyctF \u2190 $s20InternalFlutterSwift0B7RunLoopC7perform10afterDelay5blockySd_yyctFTo",
+              "samples": 7
+            },
+            {
+              "name": "_StringBase.toString \u2190 PipelineOwner.flushLayout \u2190 _MixinApplication30&BindingBase&GestureBinding&SchedulerBinding&ServicesBinding&PaintingBinding&SemanticsBinding&Rendere \u2190 _MixinApplication31&BindingBase&GestureBinding&SchedulerBinding&ServicesBinding&PaintingBinding&SemanticsBinding&Rendere \u2190 _MixinApplication30&BindingBase&GestureBinding&SchedulerBinding&ServicesBinding&PaintingBinding&SemanticsBinding&Rendere \u2190 _MixinApplication26&BindingBase&GestureBinding&SchedulerBinding._invokeFrameCallback",
+              "samples": 3
+            },
+            {
+              "name": "_platform_memmove \u2190 [Native] 12abfd461 \u2190 <anonymous closure> \u2190 handleValueCallback \u2190 _Future._propagateToListeners \u2190 _Future._complete",
+              "samples": 3
+            },
+            {
+              "name": "dart::MarkingVisitor::VisitPointers(dart::ObjectPtr*, dart::ObjectPtr*) \u2190 dart::ClassTable::VisitObjectPointers(dart::ObjectPointerVisitor*) \u2190 dart::IsolateGroup::VisitSharedPointers(dart::ObjectPointerVisitor*, long) \u2190 dart::IsolateGroup::VisitSharedPointers(dart::ObjectPointerVisitor*) \u2190 dart::IsolateGroup::VisitObjectPointers(dart::ObjectPointerVisitor*, dart::ValidationPolicy) \u2190 dart::GCMarker::IterateRoots(dart::ObjectPointerVisitor*)",
+              "samples": 3
+            }
+          ],
+          "vmTags": [
+            {
+              "name": "Dart",
+              "samples": 170
+            },
+            {
+              "name": "Unknown native entry",
+              "samples": 98
+            },
+            {
+              "name": "Closure_equals",
+              "samples": 13
+            },
+            {
+              "name": "DRT_AllocateObject",
+              "samples": 12
+            },
+            {
+              "name": "Timeline_reportTaskEvent",
+              "samples": 9
+            },
+            {
+              "name": "RegExp_ExecuteMatch",
+              "samples": 7
+            },
+            {
+              "name": "GCOldSpace",
+              "samples": 5
+            },
+            {
+              "name": "VM",
+              "samples": 4
+            }
+          ]
+        },
+        "slowFrameCpu": {
+          "sampleCount": 0,
+          "truncatedStackCount": 0,
+          "topFunctions": [],
+          "topStacks": [],
+          "vmTags": []
+        },
+        "raster": {
+          "status": "available",
+          "requestedFrameCount": 0,
+          "profiledFrameCount": 0,
+          "matchedFrameCount": 0,
+          "engineFrameSpanCount": 218,
+          "frames": [],
+          "unmatchedFrames": [],
+          "source": "live-stream",
+          "streamedEventCount": 1526,
+          "retainedEventCount": 1526,
+          "discardedEventCount": 0,
+          "tailAvailable": true
+        }
+      },
+      "return": {
+        "allFrames": {
+          "count": 122,
+          "overBudget": 0,
+          "slowBuilds": 0,
+          "slowRasters": 0,
+          "buildUs": {
+            "count": 122,
+            "total": 355194,
+            "p50": 2781,
+            "p95": 5828,
+            "p99": 6567,
+            "max": 7035
+          },
+          "rasterUs": {
+            "count": 122,
+            "total": 63555,
+            "p50": 472,
+            "p95": 662,
+            "p99": 2162,
+            "max": 2671
+          },
+          "vsyncOverheadUs": {
+            "count": 122,
+            "total": 26627,
+            "p50": 215,
+            "p95": 351,
+            "p99": 799,
+            "max": 803
+          },
+          "totalSpanUs": {
+            "count": 122,
+            "total": 452171,
+            "p50": 3572,
+            "p95": 6708,
+            "p99": 7472,
+            "max": 7872
+          }
+        },
+        "activityCounts": {
+          "chat.fixture.phase": 1,
+          "chat.capture.context": 1,
+          "chat.scroll.notification": 500,
+          "chat.row.built": 267,
+          "chat.row.layout": 268,
+          "chat.dayExtents.scanned": 101,
+          "chat.viewport.work": 101,
+          "chat.floatingDay.changed": 43,
+          "chat.fixture.finished": 1
+        },
+        "chatRowLayoutUs": {
+          "count": 268,
+          "total": 96713,
+          "p50": 323,
+          "p95": 647,
+          "p99": 1708,
+          "max": 1724
+        },
+        "chatDayExtentWorkUs": {
+          "count": 101,
+          "total": 1668,
+          "p50": 16,
+          "p95": 21,
+          "p99": 37,
+          "max": 40
+        },
+        "chatViewportWorkUs": {
+          "count": 101,
+          "total": 2230,
+          "p50": 21,
+          "p95": 30,
+          "p99": 40,
+          "max": 47
+        },
+        "fixtureEvents": [
+          {
+            "rich": true,
+            "semanticsEnabled": true,
+            "phase": "return",
+            "steps": 100,
+            "delta": -1200.0,
+            "startPixels": 134400.0,
+            "imageCacheBytes": 19670592
+          },
+          {
+            "endPixels": 14400.0,
+            "imageCacheBytes": 104514336,
+            "pendingImages": 0
+          }
+        ],
+        "cpu": {
+          "sampleCount": 348,
+          "truncatedStackCount": 211,
+          "topFunctions": [
+            {
+              "name": "<anonymous closure>",
+              "samples": 11
+            },
+            {
+              "name": "__munmap",
+              "samples": 10
+            },
+            {
+              "name": "dart::VMHandles::AllocateHandle(dart::Zone*)",
+              "samples": 9
+            },
+            {
+              "name": "dart::MarkingVisitor::VisitPointers(dart::ObjectPtr*, dart::ObjectPtr*)",
+              "samples": 7
+            },
+            {
+              "name": "dart::Object::InitializeObject(unsigned long, long, long, bool, unsigned long, unsigned long)",
+              "samples": 6
+            },
+            {
+              "name": "_xzm_xzone_malloc_tiny",
+              "samples": 5
+            },
+            {
+              "name": "dart::GCSweeper::SweepPage(dart::Page*, dart::FreeList*)",
+              "samples": 5
+            },
+            {
+              "name": "dart::StackResource::Init(dart::ThreadState*)",
+              "samples": 5
+            }
+          ],
+          "topStacks": [
+            {
+              "name": "__munmap \u2190 dart::PageCache::Clear() \u2190 dart::Heap::NotifyIdle(long long) \u2190 dart::IdleTimeHandler::NotifyIdle(long long) \u2190 Dart_NotifyIdle \u2190 flutter::RuntimeController::NotifyIdle(fml::TimeDelta)",
+              "samples": 10
+            },
+            {
+              "name": "dart::GCSweeper::SweepPage(dart::Page*, dart::FreeList*) \u2190 dart::PageSpace::Sweep(bool, bool) \u2190 dart::Scavenger::TryAllocateNewTLAB(dart::Thread*, long, bool) \u2190 dart::Heap::AllocateNew(dart::Thread*, long) \u2190 dart::Object::Allocate(long, long, dart::Heap::Space, bool, unsigned long, unsigned long) \u2190 DRT_AllocateObject",
+              "samples": 4
+            },
+            {
+              "name": "dart::MarkingVisitor::VisitPointers(dart::ObjectPtr*, dart::ObjectPtr*) \u2190 dart::UntaggedObject::VisitPointersPredefined(dart::ObjectPointerVisitor*, long) \u2190 dart::MarkingVisitor::ProcessOldMarkingStack(long) \u2190 dart::GCMarker::IncrementalMarkWithSizeBudget(dart::PageSpace*, long) \u2190 dart::Scavenger::TryAllocateNewTLAB(dart::Thread*, long, bool) \u2190 dart::Heap::AllocateNew(dart::Thread*, long)",
+              "samples": 4
+            },
+            {
+              "name": "<anonymous closure> \u2190 ComponentElement.visitChildren \u2190 _InactiveElements._unmount \u2190 <anonymous closure> \u2190 ComponentElement.visitChildren \u2190 _InactiveElements._unmount",
+              "samples": 3
+            },
+            {
+              "name": "mach_msg2_trap \u2190 mach_msg_overwrite \u2190 mach_msg \u2190 CFRunLoopWakeUp \u2190 $s20InternalFlutterSwift0B7RunLoopC7perform10afterDelay5blockySd_yyctF \u2190 $s20InternalFlutterSwift0B7RunLoopC7perform10afterDelay5blockySd_yyctFTo",
+              "samples": 3
+            }
+          ],
+          "vmTags": [
+            {
+              "name": "Dart",
+              "samples": 173
+            },
+            {
+              "name": "Unknown native entry",
+              "samples": 86
+            },
+            {
+              "name": "DRT_AllocateObject",
+              "samples": 23
+            },
+            {
+              "name": "VM",
+              "samples": 22
+            },
+            {
+              "name": "Timeline_reportTaskEvent",
+              "samples": 14
+            },
+            {
+              "name": "Closure_equals",
+              "samples": 8
+            },
+            {
+              "name": "DRT_AllocateArray",
+              "samples": 4
+            },
+            {
+              "name": "GCOldSpace",
+              "samples": 4
+            }
+          ]
+        },
+        "slowFrameCpu": {
+          "sampleCount": 0,
+          "truncatedStackCount": 0,
+          "topFunctions": [],
+          "topStacks": [],
+          "vmTags": []
+        },
+        "raster": {
+          "status": "available",
+          "requestedFrameCount": 0,
+          "profiledFrameCount": 0,
+          "matchedFrameCount": 0,
+          "engineFrameSpanCount": 244,
+          "frames": [],
+          "unmatchedFrames": [],
+          "source": "live-stream",
+          "streamedEventCount": 1708,
+          "retainedEventCount": 1708,
+          "discardedEventCount": 0,
+          "tailAvailable": true
+        }
+      }
+    },
+    "unique-fixed-2": {
+      "steady": {
+        "allFrames": {
+          "count": 369,
+          "overBudget": 0,
+          "slowBuilds": 0,
+          "slowRasters": 0,
+          "buildUs": {
+            "count": 369,
+            "total": 240693,
+            "p50": 259,
+            "p95": 3320,
+            "p99": 6318,
+            "max": 7729
+          },
+          "rasterUs": {
+            "count": 369,
+            "total": 305183,
+            "p50": 700,
+            "p95": 1808,
+            "p99": 2509,
+            "max": 5577
+          },
+          "vsyncOverheadUs": {
+            "count": 369,
+            "total": 84213,
+            "p50": 221,
+            "p95": 357,
+            "p99": 590,
+            "max": 2172
+          },
+          "totalSpanUs": {
+            "count": 369,
+            "total": 656268,
+            "p50": 1298,
+            "p95": 4520,
+            "p99": 7234,
+            "max": 9438
+          }
+        },
+        "activityCounts": {
+          "chat.fixture.phase": 1,
+          "chat.capture.context": 1,
+          "chat.scroll.notification": 1800,
+          "chat.viewport.work": 361,
+          "chat.row.built": 38,
+          "chat.row.layout": 63,
+          "chat.dayExtents.scanned": 59,
+          "chat.floatingDay.changed": 6,
+          "chat.fixture.finished": 1
+        },
+        "chatRowLayoutUs": {
+          "count": 63,
+          "total": 49138,
+          "p50": 677,
+          "p95": 2396,
+          "p99": 3452,
+          "max": 3452
+        },
+        "chatDayExtentWorkUs": {
+          "count": 59,
+          "total": 2365,
+          "p50": 36,
+          "p95": 64,
+          "p99": 134,
+          "max": 134
+        },
+        "chatViewportWorkUs": {
+          "count": 361,
+          "total": 3860,
+          "p50": 3,
+          "p95": 44,
+          "p99": 80,
+          "max": 148
+        },
+        "fixtureEvents": [
+          {
+            "rich": true,
+            "semanticsEnabled": true,
+            "phase": "steady",
+            "steps": 360,
+            "delta": 40.0,
+            "startPixels": 0.0,
+            "imageCacheBytes": 82368
+          },
+          {
+            "endPixels": 14400.0,
+            "imageCacheBytes": 18495104,
+            "pendingImages": 0
+          }
+        ],
+        "cpu": {
+          "sampleCount": 525,
+          "truncatedStackCount": 78,
+          "topFunctions": [
+            {
+              "name": "mach_msg2_trap",
+              "samples": 28
+            },
+            {
+              "name": "<anonymous closure>",
+              "samples": 11
+            },
+            {
+              "name": "__psynch_mutexwait",
+              "samples": 11
+            },
+            {
+              "name": "_tlv_get_addr",
+              "samples": 9
+            },
+            {
+              "name": "dart::BaseTextBuffer::AddEscapedUTF8(char const*, long)",
+              "samples": 8
+            },
+            {
+              "name": "dart::Scavenger::TryAllocateNewTLAB(dart::Thread*, long, bool)",
+              "samples": 8
+            },
+            {
+              "name": "_OneByteString._concatAll",
+              "samples": 7
+            },
+            {
+              "name": "_xzm_xzone_malloc_tiny",
+              "samples": 7
+            }
+          ],
+          "topStacks": [
+            {
+              "name": "mach_msg2_trap \u2190 mach_msg_overwrite \u2190 mach_msg \u2190 CFRunLoopWakeUp \u2190 $s20InternalFlutterSwift0B7RunLoopC7perform10afterDelay5blockySd_yyctF \u2190 $s20InternalFlutterSwift0B7RunLoopC7perform10afterDelay5blockySd_yyctFTo",
+              "samples": 26
+            },
+            {
+              "name": "<anonymous closure> \u2190 handleValueCallback \u2190 _Future._propagateToListeners \u2190 _Future._complete \u2190 <anonymous closure> \u2190 <anonymous closure>",
+              "samples": 8
+            },
+            {
+              "name": "dart::Scavenger::TryAllocateNewTLAB(dart::Thread*, long, bool) \u2190 dart::Heap::AllocateNew(dart::Thread*, long) \u2190 dart::Object::Allocate(long, long, dart::Heap::Space, bool, unsigned long, unsigned long) \u2190 dart::Array::NewUninitialized(long, long, dart::Heap::Space) \u2190 Dart_InvokeClosure \u2190 tonic::DartInvoke(_Dart_Handle*, std::initializer_list<_Dart_Handle*>)",
+              "samples": 7
+            },
+            {
+              "name": "__psynch_mutexwait \u2190 _pthread_mutex_firstfit_lock_slow \u2190 dart::TimelineEventRecorder::ThreadBlockStartEvent() \u2190 dart::TimelineStream::StartEvent() \u2190 dart::BootstrapNatives::DN_Timeline_reportTaskEvent(dart::Thread*, dart::Zone*, dart::NativeArguments*) \u2190 dart::NativeEntry::BootstrapNativeCallWrapper(_Dart_NativeArguments*, void (*)(_Dart_NativeArguments*))",
+              "samples": 6
+            },
+            {
+              "name": "RenderSliverEdgeInsetsPadding.performLayout \u2190 RenderSliverPadding.performLayout \u2190 RenderObject.layout \u2190 RenderViewportBase.layoutChildSequence \u2190 RenderViewport._attemptLayout \u2190 RenderViewport.performLayout",
+              "samples": 4
+            }
+          ],
+          "vmTags": [
+            {
+              "name": "Dart",
+              "samples": 242
+            },
+            {
+              "name": "Unknown native entry",
+              "samples": 114
+            },
+            {
+              "name": "VM",
+              "samples": 70
+            },
+            {
+              "name": "Timeline_reportTaskEvent",
+              "samples": 41
+            },
+            {
+              "name": "Double_toStringAsFixed",
+              "samples": 21
+            },
+            {
+              "name": "DRT_AllocateObject",
+              "samples": 7
+            },
+            {
+              "name": "GCOldSpace",
+              "samples": 5
+            },
+            {
+              "name": "DRT_AllocateTypedData",
+              "samples": 3
+            }
+          ]
+        },
+        "slowFrameCpu": {
+          "sampleCount": 0,
+          "truncatedStackCount": 0,
+          "topFunctions": [],
+          "topStacks": [],
+          "vmTags": []
+        },
+        "raster": {
+          "status": "available",
+          "requestedFrameCount": 0,
+          "profiledFrameCount": 0,
+          "matchedFrameCount": 0,
+          "engineFrameSpanCount": 738,
+          "frames": [],
+          "unmatchedFrames": [],
+          "source": "live-stream",
+          "streamedEventCount": 5166,
+          "retainedEventCount": 5166,
+          "discardedEventCount": 0,
+          "tailAvailable": true
+        }
+      },
+      "fast": {
+        "allFrames": {
+          "count": 109,
+          "overBudget": 0,
+          "slowBuilds": 0,
+          "slowRasters": 0,
+          "buildUs": {
+            "count": 109,
+            "total": 343147,
+            "p50": 2762,
+            "p95": 5648,
+            "p99": 6102,
+            "max": 6221
+          },
+          "rasterUs": {
+            "count": 109,
+            "total": 61086,
+            "p50": 514,
+            "p95": 788,
+            "p99": 2071,
+            "max": 2317
+          },
+          "vsyncOverheadUs": {
+            "count": 109,
+            "total": 25587,
+            "p50": 241,
+            "p95": 334,
+            "p99": 446,
+            "max": 518
+          },
+          "totalSpanUs": {
+            "count": 109,
+            "total": 435666,
+            "p50": 3784,
+            "p95": 6533,
+            "p99": 7108,
+            "max": 7134
+          }
+        },
+        "activityCounts": {
+          "chat.fixture.phase": 1,
+          "chat.capture.context": 1,
+          "chat.scroll.notification": 500,
+          "chat.row.built": 282,
+          "chat.row.layout": 320,
+          "chat.dayExtents.scanned": 101,
+          "chat.floatingDay.changed": 43,
+          "chat.viewport.work": 101,
+          "chat.fixture.finished": 1
+        },
+        "chatRowLayoutUs": {
+          "count": 320,
+          "total": 97358,
+          "p50": 242,
+          "p95": 652,
+          "p99": 1645,
+          "max": 2329
+        },
+        "chatDayExtentWorkUs": {
+          "count": 101,
+          "total": 1603,
+          "p50": 15,
+          "p95": 20,
+          "p99": 25,
+          "max": 38
+        },
+        "chatViewportWorkUs": {
+          "count": 101,
+          "total": 2024,
+          "p50": 19,
+          "p95": 25,
+          "p99": 31,
+          "max": 42
+        },
+        "fixtureEvents": [
+          {
+            "rich": true,
+            "semanticsEnabled": true,
+            "phase": "fast",
+            "steps": 100,
+            "delta": 1200.0,
+            "startPixels": 14400.0,
+            "imageCacheBytes": 18495104
+          },
+          {
+            "endPixels": 134400.0,
+            "imageCacheBytes": 19670592,
+            "pendingImages": 0
+          }
+        ],
+        "cpu": {
+          "sampleCount": 345,
+          "truncatedStackCount": 184,
+          "topFunctions": [
+            {
+              "name": "<anonymous closure>",
+              "samples": 12
+            },
+            {
+              "name": "__Set&_LinkedHashBase&SetMixin&_HashBase&_OperatorEqualsAndHashCode&_LinkedHashSetMixin._add",
+              "samples": 7
+            },
+            {
+              "name": "mach_msg2_trap",
+              "samples": 7
+            },
+            {
+              "name": "__munmap",
+              "samples": 6
+            },
+            {
+              "name": "__psynch_mutexwait",
+              "samples": 6
+            },
+            {
+              "name": "_xzm_free",
+              "samples": 6
+            },
+            {
+              "name": "dart::GCSweeper::SweepPage(dart::Page*, dart::FreeList*)",
+              "samples": 6
+            },
+            {
+              "name": "dart::MarkingVisitor::VisitPointers(dart::ObjectPtr*, dart::ObjectPtr*)",
+              "samples": 6
+            }
+          ],
+          "topStacks": [
+            {
+              "name": "<anonymous closure> \u2190 handleValueCallback \u2190 _Future._propagateToListeners \u2190 _Future._complete \u2190 <anonymous closure> \u2190 <anonymous closure>",
+              "samples": 6
+            },
+            {
+              "name": "__munmap \u2190 dart::PageCache::Clear() \u2190 dart::Heap::NotifyIdle(long long) \u2190 dart::IdleTimeHandler::NotifyIdle(long long) \u2190 Dart_NotifyIdle \u2190 flutter::RuntimeController::NotifyIdle(fml::TimeDelta)",
+              "samples": 6
+            },
+            {
+              "name": "dart::SimpleHashMap::Lookup(void*, unsigned int, bool) \u2190 dart::TimelineEventRecorderWithPerfettoSupport<dart::TimelineEventRecorder>::AddAsyncTrackMetadataBasedOnEvent(dart::Tim \u2190 dart::TimelineEventFixedBufferRecorder::CompleteEvent(dart::TimelineEvent*) \u2190 dart::TimelineEvent::Complete() \u2190 Dart_RecordTimelineEvent \u2190 fml::tracing::TraceEventAsyncBegin0(char const*, char const*, long long, unsigned long, unsigned long long const*)",
+              "samples": 5
+            },
+            {
+              "name": "mach_msg2_trap \u2190 mach_msg_overwrite \u2190 mach_msg \u2190 CFRunLoopWakeUp \u2190 $s20InternalFlutterSwift0B7RunLoopC7perform10afterDelay5blockySd_yyctF \u2190 $s20InternalFlutterSwift0B7RunLoopC7perform10afterDelay5blockySd_yyctFTo",
+              "samples": 5
+            },
+            {
+              "name": "dart::MarkingVisitor::VisitPointers(dart::ObjectPtr*, dart::ObjectPtr*) \u2190 dart::UntaggedObject::VisitPointersPredefined(dart::ObjectPointerVisitor*, long) \u2190 dart::MarkingVisitor::ProcessOldMarkingStack(long) \u2190 dart::GCMarker::IncrementalMarkWithSizeBudget(dart::PageSpace*, long) \u2190 dart::Scavenger::TryAllocateNewTLAB(dart::Thread*, long, bool) \u2190 dart::Heap::AllocateNew(dart::Thread*, long)",
+              "samples": 4
+            }
+          ],
+          "vmTags": [
+            {
+              "name": "Dart",
+              "samples": 185
+            },
+            {
+              "name": "Unknown native entry",
+              "samples": 93
+            },
+            {
+              "name": "DRT_AllocateObject",
+              "samples": 15
+            },
+            {
+              "name": "VM",
+              "samples": 12
+            },
+            {
+              "name": "Timeline_reportTaskEvent",
+              "samples": 7
+            },
+            {
+              "name": "DRT_AllocateArray",
+              "samples": 4
+            },
+            {
+              "name": "DRT_TypeCheck",
+              "samples": 4
+            },
+            {
+              "name": "GCOldSpace",
+              "samples": 4
+            }
+          ]
+        },
+        "slowFrameCpu": {
+          "sampleCount": 0,
+          "truncatedStackCount": 0,
+          "topFunctions": [],
+          "topStacks": [],
+          "vmTags": []
+        },
+        "raster": {
+          "status": "available",
+          "requestedFrameCount": 0,
+          "profiledFrameCount": 0,
+          "matchedFrameCount": 0,
+          "engineFrameSpanCount": 218,
+          "frames": [],
+          "unmatchedFrames": [],
+          "source": "live-stream",
+          "streamedEventCount": 1526,
+          "retainedEventCount": 1526,
+          "discardedEventCount": 0,
+          "tailAvailable": true
+        }
+      },
+      "return": {
+        "allFrames": {
+          "count": 122,
+          "overBudget": 0,
+          "slowBuilds": 0,
+          "slowRasters": 0,
+          "buildUs": {
+            "count": 122,
+            "total": 365306,
+            "p50": 2752,
+            "p95": 5922,
+            "p99": 6430,
+            "max": 7021
+          },
+          "rasterUs": {
+            "count": 122,
+            "total": 63616,
+            "p50": 493,
+            "p95": 665,
+            "p99": 2151,
+            "max": 2214
+          },
+          "vsyncOverheadUs": {
+            "count": 122,
+            "total": 27044,
+            "p50": 221,
+            "p95": 344,
+            "p99": 790,
+            "max": 1001
+          },
+          "totalSpanUs": {
+            "count": 122,
+            "total": 462511,
+            "p50": 3523,
+            "p95": 6885,
+            "p99": 7294,
+            "max": 7744
+          }
+        },
+        "activityCounts": {
+          "chat.fixture.phase": 1,
+          "chat.capture.context": 1,
+          "chat.scroll.notification": 500,
+          "chat.row.built": 267,
+          "chat.row.layout": 268,
+          "chat.dayExtents.scanned": 101,
+          "chat.viewport.work": 101,
+          "chat.floatingDay.changed": 43,
+          "chat.fixture.finished": 1
+        },
+        "chatRowLayoutUs": {
+          "count": 268,
+          "total": 105364,
+          "p50": 318,
+          "p95": 797,
+          "p99": 2002,
+          "max": 2240
+        },
+        "chatDayExtentWorkUs": {
+          "count": 101,
+          "total": 1802,
+          "p50": 16,
+          "p95": 23,
+          "p99": 39,
+          "max": 118
+        },
+        "chatViewportWorkUs": {
+          "count": 101,
+          "total": 2351,
+          "p50": 21,
+          "p95": 31,
+          "p99": 44,
+          "max": 124
+        },
+        "fixtureEvents": [
+          {
+            "rich": true,
+            "semanticsEnabled": true,
+            "phase": "return",
+            "steps": 100,
+            "delta": -1200.0,
+            "startPixels": 134400.0,
+            "imageCacheBytes": 19670592
+          },
+          {
+            "endPixels": 14400.0,
+            "imageCacheBytes": 104514336,
+            "pendingImages": 0
+          }
+        ],
+        "cpu": {
+          "sampleCount": 358,
+          "truncatedStackCount": 216,
+          "topFunctions": [
+            {
+              "name": "_xzm_free",
+              "samples": 8
+            },
+            {
+              "name": "dart::MarkingVisitor::VisitPointers(dart::ObjectPtr*, dart::ObjectPtr*)",
+              "samples": 7
+            },
+            {
+              "name": "<anonymous closure>",
+              "samples": 6
+            },
+            {
+              "name": "_GrowableList.add",
+              "samples": 6
+            },
+            {
+              "name": "__munmap",
+              "samples": 6
+            },
+            {
+              "name": "__psynch_mutexwait",
+              "samples": 6
+            },
+            {
+              "name": "dart::Object::HandleImpl(dart::Zone*, dart::ObjectPtr, long)",
+              "samples": 6
+            },
+            {
+              "name": "SingleChildRenderObjectElement.visitChildren",
+              "samples": 5
+            }
+          ],
+          "topStacks": [
+            {
+              "name": "__munmap \u2190 dart::PageCache::Clear() \u2190 dart::Heap::NotifyIdle(long long) \u2190 dart::IdleTimeHandler::NotifyIdle(long long) \u2190 Dart_NotifyIdle \u2190 flutter::RuntimeController::NotifyIdle(fml::TimeDelta)",
+              "samples": 6
+            },
+            {
+              "name": "dart::MarkingVisitor::VisitPointers(dart::ObjectPtr*, dart::ObjectPtr*) \u2190 dart::UntaggedObject::VisitPointersPredefined(dart::ObjectPointerVisitor*, long) \u2190 dart::MarkingVisitor::ProcessOldMarkingStack(long) \u2190 dart::GCMarker::IncrementalMarkWithSizeBudget(dart::PageSpace*, long) \u2190 dart::Scavenger::TryAllocateNewTLAB(dart::Thread*, long, bool) \u2190 dart::Heap::AllocateNew(dart::Thread*, long)",
+              "samples": 5
+            },
+            {
+              "name": "__psynch_mutexwait \u2190 _pthread_mutex_firstfit_lock_slow \u2190 dart::PageSpace::Sweep(bool, bool) \u2190 dart::Scavenger::TryAllocateNewTLAB(dart::Thread*, long, bool) \u2190 dart::Heap::AllocateNew(dart::Thread*, long) \u2190 dart::Object::Allocate(long, long, dart::Heap::Space, bool, unsigned long, unsigned long)",
+              "samples": 3
+            },
+            {
+              "name": "dart::Object::InitializeObject(unsigned long, long, long, bool, unsigned long, unsigned long) \u2190 dart::Object::Allocate(long, long, dart::Heap::Space, bool, unsigned long, unsigned long) \u2190 DRT_AllocateObject \u2190 _SemanticsConfigurationProvider.original \u2190 _SemanticsConfigurationProvider.effective \u2190 _RenderObjectSemantics.markNeedsUpdate",
+              "samples": 3
+            },
+            {
+              "name": "dart::StackResource::Init(dart::ThreadState*) \u2190 dart::TransitionGeneratedToVM::TransitionGeneratedToVM(dart::Thread*) \u2190 DRT_AllocateObject \u2190 _SemanticsConfigurationProvider.original \u2190 _SemanticsConfigurationProvider.effective \u2190 _RenderObjectSemantics.markNeedsUpdate",
+              "samples": 3
+            }
+          ],
+          "vmTags": [
+            {
+              "name": "Dart",
+              "samples": 176
+            },
+            {
+              "name": "Unknown native entry",
+              "samples": 98
+            },
+            {
+              "name": "DRT_AllocateObject",
+              "samples": 25
+            },
+            {
+              "name": "VM",
+              "samples": 18
+            },
+            {
+              "name": "Timeline_reportTaskEvent",
+              "samples": 14
+            },
+            {
+              "name": "Closure_equals",
+              "samples": 6
+            },
+            {
+              "name": "GCOldSpace",
+              "samples": 4
+            },
+            {
+              "name": "RegExp_ExecuteMatch",
+              "samples": 4
+            }
+          ]
+        },
+        "slowFrameCpu": {
+          "sampleCount": 0,
+          "truncatedStackCount": 0,
+          "topFunctions": [],
+          "topStacks": [],
+          "vmTags": []
+        },
+        "raster": {
+          "status": "available",
+          "requestedFrameCount": 0,
+          "profiledFrameCount": 0,
+          "matchedFrameCount": 0,
+          "engineFrameSpanCount": 244,
+          "frames": [],
+          "unmatchedFrames": [],
+          "source": "live-stream",
+          "streamedEventCount": 1708,
+          "retainedEventCount": 1708,
+          "discardedEventCount": 0,
+          "tailAvailable": true
+        }
+      }
+    }
+  },
+  "customCssProbe": {
+    "parser": [
+      {
+        "phase": "steady",
+        "cached": false,
+        "calls": 81,
+        "totalUs": 1700.17,
+        "inputs": {
+          "margin: 0.1em 0 0.5em": 11,
+          "text-decoration: none": 35,
+          "margin: 0.5em 0 0.1em": 11,
+          "margin: 0.1em 0 0.1em": 24
+        }
+      },
+      {
+        "phase": "fast",
+        "cached": false,
+        "calls": 576,
+        "totalUs": 3005.474,
+        "inputs": {
+          "margin: 0.1em 0 0.1em": 177,
+          "text-decoration: none": 251,
+          "margin: 0.1em 0 0.5em": 74,
+          "margin: 0.5em 0 0.1em": 74
+        }
+      },
+      {
+        "phase": "return",
+        "cached": false,
+        "calls": 573,
+        "totalUs": 5886.281,
+        "inputs": {
+          "margin: 0.1em 0 0.5em": 73,
+          "text-decoration: none": 250,
+          "margin: 0.5em 0 0.1em": 73,
+          "margin: 0.1em 0 0.1em": 177
+        }
+      }
+    ],
+    "cache": [
+      {
+        "phase": "steady",
+        "cached": true,
+        "calls": 81,
+        "totalUs": 133.217,
+        "inputs": {
+          "margin: 0.1em 0 0.5em": 11,
+          "text-decoration: none": 35,
+          "margin: 0.5em 0 0.1em": 11,
+          "margin: 0.1em 0 0.1em": 24
+        }
+      },
+      {
+        "phase": "fast",
+        "cached": true,
+        "calls": 576,
+        "totalUs": 170.471,
+        "inputs": {
+          "margin: 0.1em 0 0.1em": 177,
+          "text-decoration: none": 251,
+          "margin: 0.1em 0 0.5em": 74,
+          "margin: 0.5em 0 0.1em": 74
+        }
+      },
+      {
+        "phase": "return",
+        "cached": true,
+        "calls": 573,
+        "totalUs": 179.468,
+        "inputs": {
+          "margin: 0.1em 0 0.5em": 73,
+          "text-decoration: none": 250,
+          "margin: 0.5em 0 0.1em": 73,
+          "margin: 0.1em 0 0.1em": 177
+        }
+      }
+    ]
+  }
+}
