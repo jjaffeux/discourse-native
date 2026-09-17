@@ -65,7 +65,7 @@ void main() {
     expect(card(setup.rows.first.id).selected, isTrue);
     expect(
       card(setup.rows.first.id).selectionStyle,
-      DItemSelectionStyle.outline,
+      DItemSelectionStyle.neutral,
     );
     expect(card(setup.rows.first.id).showSelectionIndicator, isFalse);
     expect(card(setup.rows[1].id).selected, isFalse);
@@ -2414,10 +2414,7 @@ void main() {
         await mouse.moveTo(tester.getCenter(hovered));
         await tester.pumpAndSettle();
         final other = hovered == previous ? next : previous;
-        expect(
-          buttonSurface(tester, of: hovered).color,
-          isNot(Colors.transparent),
-        );
+        expect(buttonSurface(tester, of: hovered).color, Colors.transparent);
         expect(buttonSurface(tester, of: other).color, Colors.transparent);
       }
       final footer = tester.getRect(
@@ -2466,10 +2463,11 @@ void main() {
       expect(tester.getRect(row).right, lessThan(tester.getRect(list).right));
       final timestamp = find.byKey(const ValueKey('inbox-row-time-1'));
       expect(timestamp, findsOneWidget);
-      expect(
-        tester.getRect(timestamp).top,
-        lessThan(tester.getRect(find.text('First topic preview')).top),
-      );
+      expect(find.text('First topic preview'), findsNothing);
+      await shell.appSettings.setTopicListExcerpts(true);
+      await tester.pumpAndSettle();
+      expect(find.text('First topic preview'), findsOneWidget);
+      expect(tester.state(list), same(listState));
       expect(
         find.byKey(const ValueKey('topic-ledger-activity-1')),
         findsNothing,

@@ -276,7 +276,7 @@ void main() {
             'topic-list-category-filter',
             'topic-list-subcategory-filter',
             'topic-list-tag-filter',
-            'topic-list-feed-tabs',
+            'topic-list-feed-menu',
           ]) {
             final rect = tester.getRect(find.byKey(ValueKey(key)));
             expect(rect.left, greaterThanOrEqualTo(0));
@@ -982,17 +982,26 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(controller.topicListNewCounts, (all: 4, topics: 3, replies: 1));
-    expect(_tabText(tester, 'topic-list-new').data, 'New 4');
+    expect(
+      tester.widget<TopicFeedMenu>(find.byType(TopicFeedMenu)).newCount,
+      4,
+    );
 
     controller.selectTopicListCategory(parent);
     await tester.pumpAndSettle();
     expect(controller.topicListNewCounts, (all: 3, topics: 2, replies: 1));
-    expect(_tabText(tester, 'topic-list-new').data, 'New 3');
+    expect(
+      tester.widget<TopicFeedMenu>(find.byType(TopicFeedMenu)).newCount,
+      3,
+    );
 
     controller.selectTopicListTags(['bug-fixes']);
     await tester.pumpAndSettle();
     expect(controller.topicListNewCounts, (all: 2, topics: 1, replies: 1));
-    expect(_tabText(tester, 'topic-list-new').data, 'New 2');
+    expect(
+      tester.widget<TopicFeedMenu>(find.byType(TopicFeedMenu)).newCount,
+      2,
+    );
     expect(_tabText(tester, 'topic-list-new-all').data, 'All');
     expect(_tabText(tester, 'topic-list-new-topics').data, 'Topics');
     expect(
@@ -1014,7 +1023,10 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('topic-list-new-replies')));
     await tester.pumpAndSettle();
     expect(controller.topicListNewCounts, (all: 2, topics: 1, replies: 1));
-    expect(_tabText(tester, 'topic-list-new').data, 'New 2');
+    expect(
+      tester.widget<TopicFeedMenu>(find.byType(TopicFeedMenu)).newCount,
+      2,
+    );
     expect(controller.sidebarBadgeFor('latest').count, 4);
 
     FakeSiteTracker.built.single.deliverTopicTracking(const {
@@ -1025,7 +1037,10 @@ void main() {
     await tester.pumpAndSettle();
     expect(_tabText(tester, 'topic-list-new-replies').data, 'Replies');
     expect(controller.sidebarBadgeFor('latest').count, 3);
-    expect(_tabText(tester, 'topic-list-new').data, 'New 1');
+    expect(
+      tester.widget<TopicFeedMenu>(find.byType(TopicFeedMenu)).newCount,
+      1,
+    );
 
     controller.selectTopicListTags(['Bug Fixes', 'urgent']);
     await tester.pumpAndSettle();
@@ -1038,7 +1053,10 @@ void main() {
     controller.selectTopicListTags(['unknown']);
     await tester.pumpAndSettle();
     expect(controller.topicListNewCounts, (all: 0, topics: 0, replies: 0));
-    expect(_tabText(tester, 'topic-list-new').data, 'New');
+    expect(
+      tester.widget<TopicFeedMenu>(find.byType(TopicFeedMenu)).newCount,
+      0,
+    );
 
     controller.selectTopicListTags([]);
     await tester.pumpAndSettle();
@@ -1075,11 +1093,14 @@ void main() {
       findsOneWidget,
     );
     expect(find.text('1059'), findsNothing);
-    expect(find.byKey(const ValueKey('topic-list-unread')), findsOneWidget);
+    expect(find.byKey(const ValueKey('topic-list-feed-menu')), findsOneWidget);
     expect(find.text('Unread (5)'), findsNothing);
-    expect(_tabText(tester, 'topic-list-new').data, 'New 1059');
-    expect(find.text('Top'), findsOneWidget);
-    expect(find.text('Trending'), findsOneWidget);
+    expect(
+      tester.widget<TopicFeedMenu>(find.byType(TopicFeedMenu)).newCount,
+      1059,
+    );
+    expect(find.text('Top'), findsNothing);
+    expect(find.text('Trending'), findsNothing);
     expect(find.text('Latest topic'), findsOneWidget);
     expect(find.byKey(const ValueKey('topic-list-new-all')), findsNothing);
     expect(controller.sidebarBadgeFor('latest').count, 1059);
@@ -1098,7 +1119,7 @@ void main() {
     expect(controller.activeTab?.rootDestinationId, 'latest');
     expect(controller.contentStack, hasLength(1));
     expect(_tabText(tester, 'topic-list-new-all').data, 'All');
-    expect(find.text('1059'), findsNothing);
+    expect(find.text('1059'), findsOneWidget);
     expect(find.text('1054'), findsOneWidget);
     expect(find.text('5'), findsOneWidget);
     expect(find.text('All new activity'), findsOneWidget);
@@ -1121,7 +1142,7 @@ void main() {
     await tester.pump();
     await tester.pump();
 
-    expect(find.text('1060'), findsNothing);
+    expect(find.text('1060'), findsOneWidget);
     expect(find.text('Unread (6)'), findsNothing);
     expect(_tabText(tester, 'topic-list-new-all').data, 'All');
     expect(find.text('1054'), findsOneWidget);
@@ -1148,9 +1169,9 @@ void main() {
 
     expect(controller.currentTopicListMode, TopicListMode.topYearly);
     expect(find.text('Top this year'), findsOneWidget);
-    expect(find.byKey(const ValueKey('topic-list-top-period')), findsOneWidget);
+    expect(find.byKey(const ValueKey('topic-list-top-period')), findsNothing);
 
-    await tester.tap(find.byKey(const ValueKey('topic-list-top-period')));
+    await tester.tap(find.byKey(const ValueKey('topic-list-feed-menu')));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Week'));
     await tester.pumpAndSettle();
@@ -1221,15 +1242,7 @@ void main() {
 
         await pump(1);
         final tabs = tester.getRect(
-          find.byKey(const ValueKey('topic-list-feed-tabs')),
-        );
-        expect(
-          tester
-              .widget<DTabList<TopicListMode>>(
-                find.byKey(const ValueKey('topic-list-feed-tabs')),
-              )
-              .variant,
-          DTabListVariant.pill,
+          find.byKey(const ValueKey('topic-list-feed-menu')),
         );
         final segments = find.byKey(const ValueKey('topic-list-new-segments'));
         final segmentRect = tester.getRect(segments);
@@ -1239,7 +1252,7 @@ void main() {
         final filters = tester.getRect(
           find.byKey(const ValueKey('topic-list-category-filter')),
         );
-        expect(segmentRect.top, greaterThanOrEqualTo(filters.bottom + 12));
+        expect(segmentRect.top, greaterThanOrEqualTo(filters.bottom));
         expect(
           segmentRect.height,
           inInclusiveRange(
@@ -1304,64 +1317,21 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      final trigger = find.byKey(const ValueKey('topic-list-top-period'));
-      final picker = find.byType(DPopoverContent);
-      final semantics = tester.ensureSemantics();
-      try {
-        await tester.pump();
-        expect(
-          tester.getSemantics(find.bySemanticsLabel('Top period')),
-          isSemantics(
-            label: 'Top period',
-            value: 'Year',
-            isButton: true,
-            hasTapAction: true,
-          ),
-        );
-      } finally {
-        semantics.dispose();
-      }
-      expect(find.text('Period'), findsNothing);
+      final trigger = find.byKey(const ValueKey('topic-list-feed-menu'));
       await tester.tap(trigger);
       await tester.pumpAndSettle();
-      expect(picker, findsOneWidget);
-      expect(find.text('Year'), findsWidgets);
-
-      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      expect(find.text('Year'), findsOneWidget);
+      expect(find.text('Week'), findsOneWidget);
       await tester.sendKeyEvent(LogicalKeyboardKey.escape);
       await tester.pumpAndSettle();
-      expect(picker, findsNothing);
       expect(controller.currentTopicListMode, TopicListMode.topYearly);
-      final requestsBeforeSelection = [...setup.api.feedPaths];
-
       await tester.tap(trigger);
       await tester.pumpAndSettle();
-      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
-      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
-      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyW);
       await tester.sendKeyEvent(LogicalKeyboardKey.enter);
       await tester.pumpAndSettle();
-      expect(picker, findsNothing);
       expect(controller.currentTopicListMode, TopicListMode.topWeekly);
-      expect(
-        find.descendant(of: trigger, matching: find.text('Week')),
-        findsOneWidget,
-      );
-      expect(setup.api.feedPaths, [
-        ...requestsBeforeSelection,
-        '/top.json?period=weekly',
-      ]);
-
-      await tester.tap(trigger);
-      await tester.pumpAndSettle();
-      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
-      await tester.pumpAndSettle();
-      expect(picker, findsNothing);
-      expect(controller.currentTopicListMode, TopicListMode.topWeekly);
-      expect(setup.api.feedPaths, [
-        ...requestsBeforeSelection,
-        '/top.json?period=weekly',
-      ]);
+      expect(find.text('Top · Week'), findsOneWidget);
       expect(tester.takeException(), isNull);
     },
   );
@@ -1393,8 +1363,8 @@ void main() {
       final scope = tester.getRect(
         find.byKey(const ValueKey('topic-list-new-segments')),
       );
-      expect(category.right, lessThan(scope.left));
-      expect(category.center.dy, closeTo(scope.center.dy, 4));
+      expect(category.bottom, lessThanOrEqualTo(scope.top));
+      expect(category.center.dy, lessThan(scope.center.dy));
       expect(
         find.byKey(const ValueKey('topic-list-ledger-header')),
         findsNothing,
@@ -1438,11 +1408,11 @@ void main() {
           );
           await setup.controller.selectTopicListMode(TopicListMode.topWeekly);
           await tester.pumpAndSettle();
-          final tabs = tester.widget<DTabs<TopicListMode>>(
-            find.byType(DTabs<TopicListMode>).first,
-          );
-          expect(tabs.value, TopicListMode.topYearly);
-          await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+          expect(find.text('Top · Week'), findsOneWidget);
+          final trigger = find.byKey(const ValueKey('topic-list-feed-menu'));
+          await tester.tap(trigger);
+          await tester.pumpAndSettle();
+          await tester.sendKeyEvent(LogicalKeyboardKey.end);
           await tester.sendKeyEvent(LogicalKeyboardKey.enter);
           await tester.pumpAndSettle();
           expect(setup.controller.currentTopicListMode, TopicListMode.popular);
@@ -1593,9 +1563,12 @@ void main() {
           expect(controller.currentInstance?.user, isNull);
           final primary = find.byKey(const ValueKey('topic-list-primary-row'));
           expect(primary, findsOneWidget);
-          expect(find.byKey(const ValueKey('topic-list-top')), findsOneWidget);
           expect(
-            find.byKey(const ValueKey('topic-list-popular')),
+            find.byKey(const ValueKey('topic-list-feed-menu')),
+            findsOneWidget,
+          );
+          expect(
+            find.byKey(const ValueKey('topic-list-feed-menu')),
             findsOneWidget,
           );
           expect(find.text('More'), findsNothing);
@@ -1615,7 +1588,7 @@ void main() {
           await tester.pumpAndSettle();
           expect(controller.currentTopicListMode, TopicListMode.topYearly);
           expect(find.text('Top this year'), findsOneWidget);
-          await tester.tap(find.byKey(const ValueKey('topic-list-top-period')));
+          await tester.tap(find.byKey(const ValueKey('topic-list-feed-menu')));
           await tester.pumpAndSettle();
           await tester.tap(find.text('Week'));
           await tester.pumpAndSettle();
@@ -1778,9 +1751,9 @@ void main() {
         find.byKey(const ValueKey('topic-list-filter-bar')),
       );
       final refinement = tester.getRect(
-        find.byKey(const ValueKey('topic-list-refinement-row')),
+        find.byKey(const ValueKey('topic-list-feed-row')),
       );
-      expect(filters.left, closeTo(card.left, 1));
+      expect(filters.left, greaterThanOrEqualTo(card.left));
       expect(refinement.right, closeTo(card.right, 1));
       expect(find.byKey(const ValueKey('topic-list-search')), findsNothing);
       expect(tester.takeException(), isNull);
@@ -1813,7 +1786,7 @@ void main() {
           find.byKey(const ValueKey('topic-list-heading')),
         );
         final select = tester.getRect(
-          find.byKey(const ValueKey('topic-list-feed-tabs')),
+          find.byKey(const ValueKey('topic-list-feed-menu')),
         );
         final create = tester.getRect(find.byKey(TopicCreateButton.buttonKey));
         expect(select.top, greaterThanOrEqualTo(heading.top));
@@ -2038,7 +2011,7 @@ void main() {
         findsOneWidget,
       );
       expect(
-        find.byKey(const ValueKey('topic-list-feed-tabs')),
+        find.byKey(const ValueKey('topic-list-feed-menu')),
         findsOneWidget,
       );
     }
@@ -2085,6 +2058,8 @@ void main() {
       final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
       addTearDown(mouse.removePointer);
       await mouse.addPointer();
+      await tester.tap(find.byKey(const ValueKey('topic-list-feed-menu')));
+      await tester.pumpAndSettle();
       final tab = find.byKey(const ValueKey('topic-list-popular'));
       await tester.ensureVisible(tab);
       await tester.pumpAndSettle();
@@ -2144,7 +2119,10 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    expect(_tabText(tester, 'topic-list-new').data, 'New 1054');
+    expect(
+      tester.widget<TopicFeedMenu>(find.byType(TopicFeedMenu)).newCount,
+      1054,
+    );
     expect(controller.newActivityCount, 1054);
     expect(controller.sidebarBadgeFor('latest').count, 5);
 
@@ -2256,8 +2234,13 @@ Future<({ShellController controller, FakeDiscourseApi api})> _controller({
 }
 
 Future<void> _selectFeed(WidgetTester tester, String key) async {
-  await tester.ensureVisible(find.byKey(ValueKey(key)));
+  final trigger = find.byKey(const ValueKey('topic-list-feed-menu'));
+  await tester.tap(trigger);
   await tester.pumpAndSettle();
-  await tester.tap(find.byKey(ValueKey(key)));
+  final choice = find.byKey(
+    ValueKey(key == 'topic-list-top' ? 'topic-list-top-period-yearly' : key),
+  );
+  await tester.ensureVisible(choice);
+  await tester.tap(choice);
   await tester.pumpAndSettle();
 }

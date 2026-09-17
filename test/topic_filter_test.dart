@@ -1,17 +1,17 @@
 import 'dart:async';
 import 'dart:ui' show PointerDeviceKind;
 
-import 'package:discourse_native/discourse_ui.dart' show DSpinner;
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/app.dart';
+import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/models/topic_filter.dart';
 import 'package:discourse_native/src/shell/hashtag.dart';
 import 'package:discourse_native/src/shell/instance_sidebar.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
+import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/topic_filter_controller.dart';
-import 'package:discourse_native/src/shell/topic_filter_page.dart';
-import 'package:discourse_native/src/theme/app_theme.dart';
-import 'package:discourse_native/src/theme/d_icon.dart';
+import 'package:discourse_native/src/shell/topic_list_actions.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -492,71 +492,67 @@ void main() {
     );
   });
 
-  testWidgets(
-    'the sidebar Filter destination submits and clears a native feed',
-    (tester) async {
-      final api = FakeDiscourseApi(
-        feeds: const {
-          '/latest.json': [],
-          '/filter.json': [
-            Topic(id: 1, title: 'Every topic', slug: 'every-topic'),
-          ],
-          '/filter.json?q=status%3Aopen': [
-            Topic(id: 2, title: 'Only open topics', slug: 'open-topic'),
-          ],
-        },
-        filterOptionsByPath: const {
-          '/filter.json': [_tagOption],
-          '/filter.json?q=status%3Aopen': [_tagOption],
-        },
-      );
-      await _pump(tester, api);
+  testWidgets('the Topics filter menu submits and clears a native feed', (
+    tester,
+  ) async {
+    final api = FakeDiscourseApi(
+      feeds: const {
+        '/latest.json': [],
+        '/filter.json': [
+          Topic(id: 1, title: 'Every topic', slug: 'every-topic'),
+        ],
+        '/filter.json?q=status%3Aopen': [
+          Topic(id: 2, title: 'Only open topics', slug: 'open-topic'),
+        ],
+      },
+      filterOptionsByPath: const {
+        '/filter.json': [_tagOption],
+        '/filter.json?q=status%3Aopen': [_tagOption],
+      },
+    );
+    await _pump(tester, api);
 
-      expect(
-        find.descendant(
-          of: find.byType(InstanceSidebar),
-          matching: find.text('Filter'),
-        ),
-        findsOneWidget,
-      );
-      await _openFilter(tester);
+    expect(
+      find.descendant(
+        of: find.byType(InstanceSidebar),
+        matching: find.text('Filter'),
+      ),
+      findsNothing,
+    );
+    await _openFilter(tester);
 
-      expect(find.byType(TopicFilterPage), findsOneWidget);
-      expect(api.feedPaths, contains('/filter.json'));
-      expect(find.text('Every topic'), findsOneWidget);
+    expect(find.byType(TopicListFilterMenu), findsOneWidget);
+    expect(api.feedPaths, contains('/filter.json'));
 
-      final field = find.byKey(const ValueKey('topic-filter-input'));
-      await tester.enterText(field, 'status:open');
-      await tester.pump(const Duration(milliseconds: 350));
-      expect(
-        api.feedPaths.where((path) => path.startsWith('/filter.json')),
-        hasLength(1),
-        reason: 'typing only updates suggestions',
-      );
+    final field = find.descendant(
+      of: find.byKey(const ValueKey('topic-filter-input')),
+      matching: find.byType(TextField),
+    );
+    await tester.enterText(field, 'status:open');
+    await tester.pump(const Duration(milliseconds: 350));
+    expect(
+      api.feedPaths.where((path) => path.startsWith('/filter.json')),
+      hasLength(1),
+      reason: 'typing only updates suggestions',
+    );
 
-      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
-      await tester.pumpAndSettle();
-      expect(api.feedPaths, contains('/filter.json?q=status%3Aopen'));
-      expect(find.text('Only open topics'), findsOneWidget);
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pumpAndSettle();
+    expect(api.feedPaths, contains('/filter.json?q=status%3Aopen'));
+    expect(find.text('Only open topics'), findsOneWidget);
 
-      await tester.tap(find.text('Topics'));
-      await tester.pumpAndSettle();
-      await _openFilter(tester);
-      expect(
-        tester.widget<TextField>(field).controller!.text,
-        'status:open',
-        reason: 'the submitted query belongs to this site and destination',
-      );
+    await _openFilter(tester);
+    expect(
+      tester.widget<TextField>(field).controller!.text,
+      'status:open',
+      reason: 'the submitted query belongs to this site and destination',
+    );
 
-      await tester.tap(find.byKey(const ValueKey('clear-topic-filter')));
-      await tester.pumpAndSettle();
-      expect(
-        api.feedPaths.where((path) => path == '/filter.json'),
-        hasLength(2),
-      );
-      expect(find.text('Every topic'), findsOneWidget);
-    },
-  );
+    await tester.tap(find.byKey(const ValueKey('clear-topic-filter')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('topic-filter-input')), findsNothing);
+    expect(find.text('Filtered'), findsNothing);
+  });
 
   testWidgets('filter suggestions can be chosen without submitting the feed', (
     tester,
@@ -574,7 +570,10 @@ void main() {
     await _pump(tester, api);
     await _openFilter(tester);
 
-    final field = find.byKey(const ValueKey('topic-filter-input'));
+    final field = find.descendant(
+      of: find.byKey(const ValueKey('topic-filter-input')),
+      matching: find.byType(TextField),
+    );
     await tester.tap(field);
     await tester.enterText(field, 'tag:bu');
     await tester.pump(const Duration(milliseconds: 350));
@@ -610,7 +609,10 @@ void main() {
     await _pump(tester, api, authenticated: true);
     await _openFilter(tester);
 
-    final field = find.byKey(const ValueKey('topic-filter-input'));
+    final field = find.descendant(
+      of: find.byKey(const ValueKey('topic-filter-input')),
+      matching: find.byType(TextField),
+    );
     await tester.tap(field);
     await tester.enterText(field, 'group:tokyo');
     await tester.pump(const Duration(milliseconds: 350));
@@ -637,7 +639,7 @@ void main() {
     );
   });
 
-  testWidgets('the filter page keeps its field over a topic-row skeleton', (
+  testWidgets('the filter menu remains usable while vocabulary loads', (
     tester,
   ) async {
     final gate = Completer<void>();
@@ -645,27 +647,13 @@ void main() {
       feeds: const {'/latest.json': [], '/filter.json': []},
       feedGates: {'/filter.json': gate},
     );
-
     await _pump(tester, api);
-    final semantics = tester.ensureSemantics();
     await _openFilter(tester, settle: false);
-
     expect(find.byKey(const ValueKey('topic-filter-input')), findsOneWidget);
-    expect(
-      find.byKey(const ValueKey('topic-list-loading-skeleton')),
-      findsOneWidget,
-    );
-    expect(find.bySemanticsLabel('Loading filtered topics'), findsOneWidget);
-    expect(find.byType(DSpinner), findsNothing);
-
+    expect(find.byType(DProgress), findsOneWidget);
     gate.complete();
     await tester.pumpAndSettle();
-
-    expect(
-      find.byKey(const ValueKey('topic-list-loading-skeleton')),
-      findsNothing,
-    );
-    semantics.dispose();
+    expect(find.byType(DProgress), findsNothing);
   });
 
   testWidgets(
@@ -685,7 +673,10 @@ void main() {
         await _pump(tester, api);
         await _openFilter(tester);
 
-        final field = find.byKey(const ValueKey('topic-filter-input'));
+        final field = find.descendant(
+          of: find.byKey(const ValueKey('topic-filter-input')),
+          matching: find.byType(TextField),
+        );
         await tester.tap(field);
         await tester.pumpAndSettle();
 
@@ -760,6 +751,9 @@ void main() {
 
         await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
         await tester.pump();
+        _expectSelectedRow(tester, firstRow);
+        await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+        await tester.pump();
         _expectSelectedRow(tester, secondRow);
 
         await tester.sendKeyEvent(LogicalKeyboardKey.enter);
@@ -772,6 +766,37 @@ void main() {
     },
   );
 
+  testWidgets('a retired filter menu cannot change the replacement feed', (
+    tester,
+  ) async {
+    final api = FakeDiscourseApi(
+      feeds: const {
+        '/latest.json': [],
+        '/filter.json': [],
+        '/top.json?period=weekly': [],
+      },
+    );
+    await _pump(tester, api);
+    await _openFilter(tester);
+    final shell = ShellScope.read(
+      tester.element(find.byType(TopicListFilterMenu)),
+    );
+    final apply = tester
+        .widget<DButton>(
+          find.ancestor(
+            of: find.text('Apply filter'),
+            matching: find.byType(DButton),
+          ),
+        )
+        .onPressed!;
+    unawaited(shell.selectTopicListMode(TopicListMode.topWeekly));
+    final replacement = shell.topicListContent;
+    apply();
+    await tester.pumpAndSettle();
+    expect(shell.topicListContent, replacement);
+    expect(find.text('Apply filter'), findsNothing);
+  });
+
   testWidgets('enter accepts the first filter suggestion', (tester) async {
     final api = FakeDiscourseApi(
       feeds: const {'/latest.json': [], '/filter.json': []},
@@ -782,7 +807,10 @@ void main() {
     await _pump(tester, api);
     await _openFilter(tester);
 
-    final field = find.byKey(const ValueKey('topic-filter-input'));
+    final field = find.descendant(
+      of: find.byKey(const ValueKey('topic-filter-input')),
+      matching: find.byType(TextField),
+    );
     await tester.tap(field);
     await tester.pumpAndSettle();
     await tester.sendKeyEvent(LogicalKeyboardKey.enter);
@@ -814,7 +842,10 @@ void main() {
     await _pump(tester, api);
     await _openFilter(tester);
 
-    final field = find.byKey(const ValueKey('topic-filter-input'));
+    final field = find.descendant(
+      of: find.byKey(const ValueKey('topic-filter-input')),
+      matching: find.byType(TextField),
+    );
     await tester.tap(field);
     await tester.enterText(field, 'category:feat');
     await tester.pump(const Duration(milliseconds: 350));
@@ -828,12 +859,11 @@ void main() {
 }
 
 void _expectSelectedRow(WidgetTester tester, Finder row) {
-  final theme = Theme.of(tester.element(row));
-  final decoration = tester.widget<Container>(row).decoration! as BoxDecoration;
-  final border = decoration.border! as Border;
-  expect(decoration.color, theme.shell.selected);
-  expect(border.left.color, theme.colorScheme.primary);
-  expect(border.left.width, 3);
+  final combo = tester.widget<DCombobox<TopicFilterSuggestion>>(
+    find.byType(DCombobox<TopicFilterSuggestion>),
+  );
+  final item = tester.widget<DComboboxItem<TopicFilterSuggestion>>(row);
+  expect(combo.highlightedValue?.name, item.option.value.name);
 }
 
 void _expectSuggestionSemantics(
@@ -842,16 +872,12 @@ void _expectSuggestionSemantics(
   required String label,
   required bool selected,
 }) {
-  expect(
-    tester.getSemantics(row),
-    isSemantics(
-      label: label,
-      isButton: true,
-      hasSelectedState: true,
-      isSelected: selected,
-      hasTapAction: true,
-    ),
+  final combo = tester.widget<DCombobox<TopicFilterSuggestion>>(
+    find.byType(DCombobox<TopicFilterSuggestion>),
   );
+  final item = tester.widget<DComboboxItem<TopicFilterSuggestion>>(row);
+  expect(combo.highlightedValue?.name == item.option.value.name, selected);
+  expect(item.option.label, contains(label.split('\n').first));
 }
 
 Future<void> _pump(
@@ -882,14 +908,20 @@ Future<void> _pump(
 }
 
 Future<void> _openFilter(WidgetTester tester, {bool settle = true}) async {
-  await tester.tap(find.text('Filter'));
+  await tester.tap(find.byKey(const ValueKey('topic-list-filter')));
   if (settle) {
     await tester.pumpAndSettle();
   } else {
     for (
       var attempt = 0;
       attempt < 10 &&
-          find.byKey(const ValueKey('topic-filter-input')).evaluate().isEmpty;
+          find
+              .descendant(
+                of: find.byKey(const ValueKey('topic-filter-input')),
+                matching: find.byType(TextField),
+              )
+              .evaluate()
+              .isEmpty;
       attempt++
     ) {
       await tester.pump(const Duration(milliseconds: 100));

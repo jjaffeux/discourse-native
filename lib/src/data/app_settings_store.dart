@@ -21,6 +21,14 @@ abstract interface class AppSettingsPersistence {
 
   Future<bool> writeThemeMode(String value);
 
+  Future<bool?> readTopicListExcerpts();
+
+  Future<bool> writeTopicListExcerpts(bool value);
+
+  Future<bool?> readTopicListLargerText();
+
+  Future<bool> writeTopicListLargerText(bool value);
+
   Future<String?> readTopicListMode();
 
   Future<bool> writeTopicListMode(String value);
@@ -29,6 +37,32 @@ abstract interface class AppSettingsPersistence {
 final class SharedPreferencesAppSettingsPersistence
     implements AppSettingsPersistence {
   const SharedPreferencesAppSettingsPersistence();
+
+  @override
+  Future<bool?> readTopicListLargerText() async =>
+      (await SharedPreferences.getInstance()).getBool(
+        AppSettingsStore.topicListLargerTextKey,
+      );
+
+  @override
+  Future<bool> writeTopicListLargerText(bool value) async =>
+      (await SharedPreferences.getInstance()).setBool(
+        AppSettingsStore.topicListLargerTextKey,
+        value,
+      );
+
+  @override
+  Future<bool?> readTopicListExcerpts() async =>
+      (await SharedPreferences.getInstance()).getBool(
+        AppSettingsStore.topicListExcerptsKey,
+      );
+
+  @override
+  Future<bool> writeTopicListExcerpts(bool value) async =>
+      (await SharedPreferences.getInstance()).setBool(
+        AppSettingsStore.topicListExcerptsKey,
+        value,
+      );
 
   @override
   Future<String?> readTopicListMode() async =>
@@ -102,6 +136,8 @@ final class MemoryAppSettingsPersistence implements AppSettingsPersistence {
     this.disableGifAnimations,
     this.textScale,
     this.themeMode,
+    this.topicListExcerpts,
+    this.topicListLargerText,
     this.topicListMode,
   });
 
@@ -109,7 +145,27 @@ final class MemoryAppSettingsPersistence implements AppSettingsPersistence {
   bool? disableGifAnimations;
   String? textScale;
   String? themeMode;
+  bool? topicListExcerpts;
+  bool? topicListLargerText;
   String? topicListMode;
+
+  @override
+  Future<bool?> readTopicListLargerText() async => topicListLargerText;
+
+  @override
+  Future<bool> writeTopicListLargerText(bool value) async {
+    topicListLargerText = value;
+    return true;
+  }
+
+  @override
+  Future<bool?> readTopicListExcerpts() async => topicListExcerpts;
+
+  @override
+  Future<bool> writeTopicListExcerpts(bool value) async {
+    topicListExcerpts = value;
+    return true;
+  }
 
   @override
   Future<String?> readTopicListMode() async => topicListMode;
@@ -167,6 +223,10 @@ final class AppSettingsStore {
       'discourse_native.disable_gif_animations';
   static const String textScaleKey = 'discourse_native.text_scale';
   static const String themeModeKey = 'discourse_native.theme_mode';
+  static const String topicListExcerptsKey =
+      'discourse_native.topic_list_excerpts';
+  static const String topicListLargerTextKey =
+      'discourse_native.topic_list_larger_text';
   static const String topicListModeKey = 'discourse_native.topic_list_mode';
   static const String _operationKey = 'discourse_native.app_settings';
   static const AppSettingsPersistence _defaultPersistence =
@@ -179,6 +239,8 @@ final class AppSettingsStore {
   bool? _sessionDisableGifAnimations;
   AppTextScale? _sessionTextScale;
   AppThemeMode? _sessionThemeMode;
+  bool? _sessionTopicListExcerpts;
+  bool? _sessionTopicListLargerText;
   TopicListDisplayMode? _sessionTopicListMode;
   AppSettings? _lastReadSettings;
 
@@ -187,6 +249,8 @@ final class AppSettingsStore {
       _sessionDisableGifAnimations != null ||
       _sessionTextScale != null ||
       _sessionThemeMode != null ||
+      _sessionTopicListExcerpts != null ||
+      _sessionTopicListLargerText != null ||
       _sessionTopicListMode != null;
 
   Future<AppSettings> read() async {
@@ -198,6 +262,8 @@ final class AppSettingsStore {
         _sessionDisableGifAnimations != null &&
         _sessionTextScale != null &&
         _sessionThemeMode != null &&
+        _sessionTopicListExcerpts != null &&
+        _sessionTopicListLargerText != null &&
         _sessionTopicListMode != null) {
       return _withSessionSettings(AppSettings.defaults);
     }
@@ -220,6 +286,8 @@ final class AppSettingsStore {
     disableGifAnimations: _sessionDisableGifAnimations,
     textScale: _sessionTextScale,
     themeMode: _sessionThemeMode,
+    topicListExcerpts: _sessionTopicListExcerpts,
+    topicListLargerText: _sessionTopicListLargerText,
     topicListMode: _sessionTopicListMode,
   );
 
@@ -228,6 +296,8 @@ final class AppSettingsStore {
     var disableGifAnimations = false;
     var textScale = AppTextScale.percent100;
     var themeMode = AppThemeMode.system;
+    var topicListExcerpts = false;
+    var topicListLargerText = false;
     var topicListMode = TopicListDisplayMode.card;
     try {
       final stored = await _persistence.readContentAlignment();
@@ -273,11 +343,32 @@ final class AppSettingsStore {
     } catch (error, stackTrace) {
       reportStorageFailure(error, stackTrace, 'appSettings.readTopicListMode');
     }
+    try {
+      topicListExcerpts = await _persistence.readTopicListExcerpts() ?? false;
+    } catch (error, stackTrace) {
+      reportStorageFailure(
+        error,
+        stackTrace,
+        'appSettings.readTopicListExcerpts',
+      );
+    }
+    try {
+      topicListLargerText =
+          await _persistence.readTopicListLargerText() ?? false;
+    } catch (error, stackTrace) {
+      reportStorageFailure(
+        error,
+        stackTrace,
+        'appSettings.readTopicListLargerText',
+      );
+    }
     return AppSettings(
       contentAlignment: contentAlignment,
       disableGifAnimations: disableGifAnimations,
       textScale: textScale,
       themeMode: themeMode,
+      topicListExcerpts: topicListExcerpts,
+      topicListLargerText: topicListLargerText,
       topicListMode: topicListMode,
     );
   }
@@ -287,6 +378,8 @@ final class AppSettingsStore {
     disableGifAnimations: settings.disableGifAnimations,
     textScale: settings.textScale,
     themeMode: settings.themeMode,
+    topicListExcerpts: settings.topicListExcerpts,
+    topicListLargerText: settings.topicListLargerText,
     topicListMode: settings.topicListMode,
   );
 
@@ -297,6 +390,8 @@ final class AppSettingsStore {
     bool? disableGifAnimations,
     AppTextScale? textScale,
     AppThemeMode? themeMode,
+    bool? topicListExcerpts,
+    bool? topicListLargerText,
     TopicListDisplayMode? topicListMode,
   }) {
     _sessionContentAlignment = contentAlignment ?? _sessionContentAlignment;
@@ -304,6 +399,9 @@ final class AppSettingsStore {
         disableGifAnimations ?? _sessionDisableGifAnimations;
     _sessionTextScale = textScale ?? _sessionTextScale;
     _sessionThemeMode = themeMode ?? _sessionThemeMode;
+    _sessionTopicListExcerpts = topicListExcerpts ?? _sessionTopicListExcerpts;
+    _sessionTopicListLargerText =
+        topicListLargerText ?? _sessionTopicListLargerText;
     _sessionTopicListMode = topicListMode ?? _sessionTopicListMode;
     return _operations.write<void>(
       owner: _persistence,
@@ -313,6 +411,8 @@ final class AppSettingsStore {
         disableGifAnimations: disableGifAnimations,
         textScale: textScale,
         themeMode: themeMode,
+        topicListExcerpts: topicListExcerpts,
+        topicListLargerText: topicListLargerText,
         topicListMode: topicListMode,
       ),
     );
@@ -323,8 +423,34 @@ final class AppSettingsStore {
     bool? disableGifAnimations,
     AppTextScale? textScale,
     AppThemeMode? themeMode,
+    bool? topicListExcerpts,
+    bool? topicListLargerText,
     TopicListDisplayMode? topicListMode,
   }) async {
+    try {
+      if (topicListLargerText != null &&
+          !await _persistence.writeTopicListLargerText(topicListLargerText)) {
+        throw StateError('Could not persist topicListLargerText.');
+      }
+    } catch (error, stackTrace) {
+      reportStorageFailure(
+        error,
+        stackTrace,
+        'appSettings.writeTopicListLargerText',
+      );
+    }
+    try {
+      if (topicListExcerpts != null &&
+          !await _persistence.writeTopicListExcerpts(topicListExcerpts)) {
+        throw StateError('Could not persist topicListExcerpts.');
+      }
+    } catch (error, stackTrace) {
+      reportStorageFailure(
+        error,
+        stackTrace,
+        'appSettings.writeTopicListExcerpts',
+      );
+    }
     try {
       if (contentAlignment != null &&
           !await _persistence.writeContentAlignment(contentAlignment.name)) {

@@ -202,3 +202,9 @@ superseded. Build log: `/private/tmp/button-review-v2-build.log`.
 See [Button native review](button-native-review.md) for actual screenshots,
 source provenance, Users touch-target corrections, native accessibility fixes,
 final checks and the coordinator-owned root styleguide AX integration boundary.
+
+`DButtonShape.pill` derives the radius from the normal size preset. It is used
+for topic-list toolbar actions and feed selectors. Icon buttons become round;
+text buttons keep their standard horizontal padding. The shape does not change
+focus rings, target size, state colors or disabled behavior. Footer topic
+navigation uses `transparentBackground` with the default shape.

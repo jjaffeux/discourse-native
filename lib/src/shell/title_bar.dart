@@ -25,7 +25,10 @@ class ShellTitleBar extends StatelessWidget {
 
   static const double height = 48;
 
-  static bool get isSupported =>
+  // Every platform keeps account and search controls above the topic list.
+  static bool get isSupported => true;
+
+  static bool get _hasWindowChrome =>
       !kIsWeb && defaultTargetPlatform == TargetPlatform.macOS;
 
   static bool get columnsCarryUserMenu => !isSupported;
@@ -36,112 +39,116 @@ class ShellTitleBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (!isSupported) return const SizedBox.shrink();
+    if (!showControls && !_hasWindowChrome) return const SizedBox.shrink();
 
     final surface = Theme.of(context).scaffoldBackgroundColor;
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        // Large-text count capsules keep their full labels. At narrow desktop
-        // widths, give account actions a second row below the window controls.
-        final stacked =
-            showControls &&
-            constraints.maxWidth < 480 &&
-            MediaQuery.textScalerOf(context).scale(12) > 18;
-        final search = Expanded(
-          child: Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 860),
-              child: ShellSelector<ShellRootMode>(
-                select: (controller) => controller.rootMode,
-                builder: (context, rootMode, _) => switch (rootMode) {
-                  ShellRootMode.forum => const ForumSearch(dense: true),
-                  ShellRootMode.aggregate => const SizedBox.shrink(),
-                },
-              ),
-            ),
-          ),
-        );
-        final actions = <Widget>[
-          if (showControls)
-            ...PluginScope.of(context).registry.shellHeaderActions(
-              context,
-              surface: PluginHeaderSurface.titleBar,
-              compact: stacked,
-              ringColor: surface,
-            ),
-          if (showControls)
-            Padding(
-              padding: const EdgeInsets.only(
-                left: DSpacing.sm,
-                right: DSpacing.sm,
-              ),
-              child: UserMenuButton(size: 26, ringColor: surface),
-            ),
-        ];
-        return SizedBox(
-          height: stacked ? height * 2 : height,
-          child: ColoredBox(
-            color: surface,
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                GestureDetector(
-                  key: maximizeGestureKey,
-                  behavior: HitTestBehavior.opaque,
-                  onDoubleTap: _toggleMaximized,
-                  child: const SizedBox.expand(),
+    return SafeArea(
+      bottom: false,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          // Large-text count capsules keep their full labels. At narrow desktop
+          // widths, give account actions a second row below the window controls.
+          final stacked =
+              showControls &&
+              constraints.maxWidth < 480 &&
+              MediaQuery.textScalerOf(context).scale(12) > 18;
+          final search = Expanded(
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 860),
+                child: ShellSelector<ShellRootMode>(
+                  select: (controller) => controller.rootMode,
+                  builder: (context, rootMode, _) => switch (rootMode) {
+                    ShellRootMode.forum => const ForumSearch(dense: true),
+                    ShellRootMode.aggregate => const SizedBox.shrink(),
+                  },
                 ),
-                if (showControls)
-                  ShellSelector<ShellRootMode>(
-                    select: (controller) => controller.rootMode,
-                    builder: (context, rootMode, _) =>
-                        rootMode == ShellRootMode.aggregate
-                        ? const IgnorePointer(
-                            child: Padding(
-                              padding: EdgeInsets.symmetric(horizontal: 88),
-                              child: Center(child: AggregateBranding()),
-                            ),
-                          )
-                        : const SizedBox.shrink(),
-                  ),
-                if (showControls)
-                  if (stacked)
-                    Column(
-                      children: [
-                        SizedBox(
-                          height: height,
-                          child: Row(
-                            children: [
-                              const SizedBox(width: 88),
-                              search,
-                              const SizedBox(width: 8),
-                            ],
-                          ),
-                        ),
-                        SizedBox(
-                          height: height,
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.end,
-                            children: actions,
-                          ),
-                        ),
-                      ],
-                    )
-                  else
-                    Row(
-                      children: [
-                        const SizedBox(width: 88),
-                        search,
-                        const SizedBox(width: 16),
-                        ...actions,
-                      ],
-                    ),
-              ],
+              ),
             ),
-          ),
-        );
-      },
+          );
+          final actions = <Widget>[
+            if (showControls)
+              ...PluginScope.of(context).registry.shellHeaderActions(
+                context,
+                surface: PluginHeaderSurface.titleBar,
+                compact: stacked,
+                ringColor: surface,
+              ),
+            if (showControls)
+              Padding(
+                padding: const EdgeInsets.only(
+                  left: DSpacing.sm,
+                  right: DSpacing.sm,
+                ),
+                child: UserMenuButton(size: 26, ringColor: surface),
+              ),
+          ];
+          return SizedBox(
+            height: stacked ? height * 2 : height,
+            child: ColoredBox(
+              color: surface,
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  if (_hasWindowChrome)
+                    GestureDetector(
+                      key: maximizeGestureKey,
+                      behavior: HitTestBehavior.opaque,
+                      onDoubleTap: _toggleMaximized,
+                      child: const SizedBox.expand(),
+                    ),
+                  if (showControls)
+                    ShellSelector<ShellRootMode>(
+                      select: (controller) => controller.rootMode,
+                      builder: (context, rootMode, _) =>
+                          rootMode == ShellRootMode.aggregate
+                          ? const IgnorePointer(
+                              child: Padding(
+                                padding: EdgeInsets.symmetric(horizontal: 88),
+                                child: Center(child: AggregateBranding()),
+                              ),
+                            )
+                          : const SizedBox.shrink(),
+                    ),
+                  if (showControls)
+                    if (stacked)
+                      Column(
+                        children: [
+                          SizedBox(
+                            height: height,
+                            child: Row(
+                              children: [
+                                SizedBox(width: _hasWindowChrome ? 88 : 8),
+                                search,
+                                const SizedBox(width: 8),
+                              ],
+                            ),
+                          ),
+                          SizedBox(
+                            height: height,
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.end,
+                              children: actions,
+                            ),
+                          ),
+                        ],
+                      )
+                    else
+                      Row(
+                        children: [
+                          SizedBox(width: _hasWindowChrome ? 88 : 8),
+                          search,
+                          const SizedBox(width: 16),
+                          ...actions,
+                        ],
+                      ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
     );
   }
 }

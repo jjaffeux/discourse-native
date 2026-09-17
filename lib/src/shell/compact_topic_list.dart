@@ -1,7 +1,5 @@
 part of 'topic_list_view.dart';
 
-/// The inset of an xs DItem (10px padding + 1px border), used to align the
-/// passive table header with the tables inside the interactive list items.
 const _compactItemInset = 11.0;
 
 class _CompactTopicLayout {
@@ -9,39 +7,45 @@ class _CompactTopicLayout {
     BuildContext context,
     double width, {
     bool showCategory = true,
+    bool showViews = false,
   }) {
     final scale = MediaQuery.textScalerOf(context).scale(14) / 14;
     final effective = width / scale;
-    category = showCategory && effective >= 560;
+    category = showCategory && effective >= 660;
     activity = effective >= 300;
-    avatar = effective >= 560;
+    avatar = effective >= 900;
+    views = showViews && effective >= 480;
+    var index = 0;
     widths = {
-      0: const FlexColumnWidth(),
-      // Let ordinary parent/child paths share a line without taking over
-      // the topic column in narrower panes.
+      index++: const FlexColumnWidth(),
       if (category)
-        1: FixedColumnWidth((effective * .3).clamp(180, 320) * scale),
-      if (activity) ...{
-        (category ? 2 : 1): FixedColumnWidth((avatar ? 66 : 52) * scale),
-        (category ? 3 : 2): FixedColumnWidth((avatar ? 96 : 52) * scale),
-      },
+        index++: FixedColumnWidth((effective * .19).clamp(140, 240) * scale),
+      if (avatar) index++: FixedColumnWidth(138 * scale),
+      if (activity) index++: FixedColumnWidth(92 * scale),
+      if (views) index++: FixedColumnWidth(92 * scale),
+      if (activity) index++: FixedColumnWidth(100 * scale),
     };
   }
-
-  late final bool category;
-  late final bool activity;
-  late final bool avatar;
+  late final bool category, activity, avatar, views;
   late final Map<int, TableColumnWidth> widths;
 }
 
-class _CompactTopicListHeader extends StatelessWidget {
-  const _CompactTopicListHeader({required this.showCategory});
-
-  final bool showCategory;
+/// Aligns with the virtualized rows. Only columns supported by the source have actions.
+class TopicListTableHeader extends StatelessWidget {
+  const TopicListTableHeader({
+    super.key,
+    this.showCategory = true,
+    this.showViews = false,
+    this.order,
+    this.ascending = false,
+    this.onSort,
+  });
+  final bool showCategory, showViews, ascending;
+  final String? order;
+  final ValueChanged<String>? onSort;
 
   @override
-  Widget build(BuildContext context) => ContentReadingLaneBox(
-    widthLimit: topicListContentWidth,
+  Widget build(BuildContext context) => Padding(
     padding: const EdgeInsets.symmetric(
       horizontal: topicListHorizontalPadding + _compactItemInset,
     ),
@@ -51,18 +55,52 @@ class _CompactTopicListHeader extends StatelessWidget {
           context,
           constraints.maxWidth,
           showCategory: showCategory,
+          showViews: showViews,
         );
         final style = Theme.of(context).textTheme.labelSmall?.copyWith(
           color: DTokens.of(context).mutedForeground,
         );
-        DTableHead heading(String text, {bool end = false}) => DTableHead(
-          padding: EdgeInsetsDirectional.only(end: end ? 0 : DSpacing.sm),
-          alignment: end
-              ? AlignmentDirectional.centerEnd
-              : AlignmentDirectional.centerStart,
-          textStyle: style,
-          child: Text(text),
-        );
+        DTableHead heading(String text, {bool end = false, String? sort}) =>
+            DTableHead(
+              padding: EdgeInsetsDirectional.only(end: end ? 0 : 8),
+              alignment: end
+                  ? AlignmentDirectional.centerEnd
+                  : AlignmentDirectional.centerStart,
+              textStyle: style,
+              child: sort != null && onSort != null
+                  ? DButton(
+                      key: ValueKey('topic-sort-$sort'),
+                      size: DButtonSize.small,
+                      variant: DButtonVariant.transparentBackground,
+                      semanticLabel:
+                          '$text, ${order == sort
+                              ? ascending
+                                    ? 'ascending'
+                                    : 'descending'
+                              : 'unsorted'}',
+                      label: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Flexible(
+                            child: Text(
+                              text,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          if (order == sort) ...[
+                            const SizedBox(width: 4),
+                            RotatedBox(
+                              quarterTurns: ascending ? 2 : 0,
+                              child: const DIcon(DIcons.chevronDown, size: 12),
+                            ),
+                          ],
+                        ],
+                      ),
+                      onPressed: () => onSort!(sort),
+                    )
+                  : Text(text),
+            );
         return DTable(
           key: const ValueKey('compact-topic-list-header'),
           columnWidths: layout.widths,
@@ -72,10 +110,12 @@ class _CompactTopicListHeader extends StatelessWidget {
                 cells: [
                   heading('Topic'),
                   if (layout.category) heading('Category'),
-                  if (layout.activity) ...[
-                    heading('Replies', end: true),
-                    heading('Activity', end: true),
-                  ],
+                  if (layout.avatar) heading('Last reply'),
+                  if (layout.activity)
+                    heading('Replies', end: true, sort: 'posts'),
+                  if (layout.views) heading('Views', end: true, sort: 'views'),
+                  if (layout.activity)
+                    heading('Activity', end: true, sort: 'activity'),
                 ],
               ),
             ],
@@ -88,8 +128,9 @@ class _CompactTopicListHeader extends StatelessWidget {
 }
 
 class _CompactTopicRow extends StatelessWidget {
-  const _CompactTopicRow({required this.row});
+  const _CompactTopicRow({required this.row, required this.compact});
   final _TopicRowBody row;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
@@ -108,6 +149,9 @@ class _CompactTopicRow extends StatelessWidget {
       topic,
       compact: true,
     );
+    final excerpts =
+        ShellScope.maybeIdentityOf(context)?.appSettings.topicListExcerpts ==
+        true;
     return Padding(
       padding:
           row.outerPadding ??
@@ -121,137 +165,129 @@ class _CompactTopicRow extends StatelessWidget {
           container: true,
           selected: row.selected || KeyboardSelection.isSelectedOf(context),
           child: DItem(
-            key: ValueKey('topic-compact-${topic.id}'),
+            key: ValueKey(
+              '${compact ? 'topic-compact' : 'topic-card'}-${topic.id}',
+            ),
             size: DItemSize.xs,
-            onPressed: row.onTap,
             link: true,
+            onPressed: row.onTap,
             selected: row.selected || KeyboardSelection.isSelectedOf(context),
-            selectionStyle: DItemSelectionStyle.outline,
+            selectionStyle: DItemSelectionStyle.neutral,
             showSelectionIndicator: false,
-            footer: metadata.isEmpty
-                ? null
-                : DItemFooter(
-                    child: Wrap(
-                      spacing: DSpacing.sm,
-                      runSpacing: DSpacing.xs,
-                      children: metadata,
-                    ),
-                  ),
             children: [
               DItemContent(
                 alignment: CrossAxisAlignment.stretch,
                 children: [
-                  LayoutBuilder(
-                    builder: (context, constraints) {
-                      final layout = _CompactTopicLayout(
-                        context,
-                        constraints.maxWidth,
-                        showCategory: row.showCategoryColumn,
-                      );
-                      final style = Theme.of(context).textTheme.labelSmall;
-                      final muted = DTokens.of(context).mutedForeground;
-                      DTableCell cell(Widget child, {bool end = false}) =>
-                          DTableCell(
-                            padding: EdgeInsetsDirectional.only(
-                              end: end ? 0 : DSpacing.sm,
-                            ),
-                            alignment: end
-                                ? AlignmentDirectional.centerEnd
-                                : AlignmentDirectional.centerStart,
-                            softWrap: true,
-                            textStyle: style,
-                            child: child,
-                          );
-                      Widget empty(String label) => Semantics(
-                        label: label,
-                        child: ExcludeSemantics(
-                          child: Text('—', style: TextStyle(color: muted)),
-                        ),
-                      );
-                      final age = topic.bumpedAt == null
-                          ? null
-                          : relativeTime(topic.bumpedAt!);
-                      return DTable(
-                        columnWidths: layout.widths,
-                        body: DTableBody(
-                          rows: [
-                            DTableRow(
-                              cells: [
-                                cell(
-                                  Column(
-                                    mainAxisSize: MainAxisSize.min,
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      registry.decorateTopicListTitle(
-                                        context,
-                                        row.siteUrl,
-                                        topic,
-                                        _CompactTopicTitle(row: row),
-                                      ),
-                                      if (row.forum != null ||
-                                          (!layout.category &&
-                                              row.category != null) ||
-                                          topic.tags.isNotEmpty ||
-                                          inlineMetadata.isNotEmpty) ...[
-                                        const SizedBox(height: DSpacing.xs),
-                                        _metadataLine(
-                                          context,
-                                          category: !layout.category,
-                                          inlineMetadata: inlineMetadata,
-                                        ),
-                                      ],
-                                      if (!layout.activity)
-                                        Padding(
-                                          padding: const EdgeInsets.only(
-                                            top: DSpacing.xs,
-                                          ),
-                                          child: Text(
-                                            '${topic.replyCount} replies${age == null ? '' : ' · $age'}',
-                                            style: TextStyle(color: muted),
-                                          ),
-                                        ),
-                                    ],
+                  Padding(
+                    padding: EdgeInsets.symmetric(vertical: compact ? 0 : 8),
+                    child: LayoutBuilder(
+                      builder: (context, constraints) {
+                        final layout = _CompactTopicLayout(
+                          context,
+                          constraints.maxWidth,
+                          showCategory: row.showCategoryColumn,
+                          showViews: row.showViews,
+                        );
+                        final muted = DTokens.of(context).mutedForeground;
+                        final style = Theme.of(context).textTheme.labelSmall
+                            ?.copyWith(
+                              color: muted,
+                              fontFeatures: const [
+                                FontFeature.tabularFigures(),
+                              ],
+                            );
+                        DTableCell cell(Widget child, {bool end = false}) =>
+                            DTableCell(
+                              padding: EdgeInsetsDirectional.only(
+                                end: end ? 0 : 8,
+                              ),
+                              softWrap: true,
+                              textStyle: style,
+                              alignment: end
+                                  ? AlignmentDirectional.centerEnd
+                                  : AlignmentDirectional.centerStart,
+                              child: child,
+                            );
+                        final age = topic.bumpedAt == null
+                            ? '—'
+                            : relativeTime(topic.bumpedAt!);
+                        final title = Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _CompactTopicTitle(row: row),
+                            if (row.forum != null ||
+                                (!layout.category && row.category != null) ||
+                                topic.tags.isNotEmpty ||
+                                inlineMetadata.isNotEmpty ||
+                                (!layout.avatar &&
+                                    topic.lastPosterUsername != null)) ...[
+                              const SizedBox(height: 4),
+                              _metadataLine(
+                                context,
+                                category: !layout.category,
+                                lastPoster: !layout.avatar,
+                                inlineMetadata: inlineMetadata,
+                              ),
+                            ],
+                            if (excerpts &&
+                                topic.excerpt?.trim().isNotEmpty == true)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 6),
+                                child: DItemDescription(
+                                  child: Text(
+                                    topic.excerpt!,
+                                    maxLines: compact ? 2 : 4,
+                                    overflow: TextOverflow.ellipsis,
                                   ),
                                 ),
-                                if (layout.category)
+                              ),
+                            if (!layout.activity)
+                              Text(
+                                '${topic.replyCount} replies · $age',
+                                key: ValueKey('inbox-row-time-${topic.id}'),
+                                style: style,
+                              ),
+                            if (metadata.isNotEmpty)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 4),
+                                child: Wrap(
+                                  spacing: 8,
+                                  runSpacing: 4,
+                                  children: metadata,
+                                ),
+                              ),
+                          ],
+                        );
+                        return DTable(
+                          columnWidths: layout.widths,
+                          body: DTableBody(
+                            rows: [
+                              DTableRow(
+                                cells: [
                                   cell(
-                                    row.category == null
-                                        ? empty('No category')
-                                        : _category(context),
-                                  ),
-                                if (layout.activity) ...[
-                                  cell(
-                                    Semantics(
-                                      label: '${topic.replyCount} replies',
-                                      child: ExcludeSemantics(
-                                        child: Text(
-                                          '${topic.replyCount}',
-                                          style: TextStyle(
-                                            color: muted,
-                                            fontFeatures: const [
-                                              FontFeature.tabularFigures(),
-                                            ],
-                                          ),
-                                        ),
-                                      ),
+                                    registry.decorateTopicListTitle(
+                                      context,
+                                      row.siteUrl,
+                                      topic,
+                                      title,
                                     ),
-                                    end: true,
                                   ),
-                                  cell(
-                                    Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        if (layout.avatar &&
-                                            topic.lastPosterUsername !=
-                                                null) ...[
-                                          DTooltip(
-                                            message:
-                                                'Last post by ${topic.lastPosterUsername}',
-                                            child: DAvatar(
+                                  if (layout.category)
+                                    cell(
+                                      row.category == null
+                                          ? const Text('—')
+                                          : _category(context),
+                                    ),
+                                  if (layout.avatar)
+                                    cell(
+                                      Row(
+                                        children: [
+                                          if (topic.lastPosterUsername !=
+                                              null) ...[
+                                            DAvatar(
                                               dimension: 20,
-                                              semanticLabel:
-                                                  'Last post by ${topic.lastPosterUsername}',
+                                              decorative: true,
                                               child: AvatarImage(
                                                 url: topic.lastPosterAvatarUrl,
                                                 size: 20,
@@ -263,26 +299,52 @@ class _CompactTopicRow extends StatelessWidget {
                                                 ),
                                               ),
                                             ),
+                                            const SizedBox(width: 6),
+                                          ],
+                                          Flexible(
+                                            child: Text(
+                                              topic.lastPosterUsername ?? '—',
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
                                           ),
-                                          const SizedBox(width: DSpacing.sm),
                                         ],
-                                        Flexible(
-                                          child: Text(
-                                            age ?? '—',
-                                            style: TextStyle(color: muted),
-                                          ),
-                                        ),
-                                      ],
+                                      ),
                                     ),
-                                    end: true,
-                                  ),
+                                  if (layout.activity)
+                                    cell(
+                                      Text(
+                                        '${topic.replyCount}',
+                                        semanticsLabel:
+                                            '${topic.replyCount} replies',
+                                      ),
+                                      end: true,
+                                    ),
+                                  if (layout.views)
+                                    cell(
+                                      Text(
+                                        '${topic.views}',
+                                        semanticsLabel: '${topic.views} views',
+                                      ),
+                                      end: true,
+                                    ),
+                                  if (layout.activity)
+                                    cell(
+                                      Text(
+                                        age,
+                                        key: ValueKey(
+                                          'inbox-row-time-${topic.id}',
+                                        ),
+                                      ),
+                                      end: true,
+                                    ),
                                 ],
-                              ],
-                            ),
-                          ],
-                        ),
-                      );
-                    },
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
                   ),
                 ],
               ),
@@ -305,6 +367,7 @@ class _CompactTopicRow extends StatelessWidget {
   Widget _metadataLine(
     BuildContext context, {
     required bool category,
+    required bool lastPoster,
     required List<Widget> inlineMetadata,
   }) {
     final controller = ShellScope.maybeRead(context);
@@ -333,6 +396,14 @@ class _CompactTopicRow extends StatelessWidget {
         if (row.topic.tags.length > 2)
           _TopicTagOverflow(tags: row.topic.tags.skip(2).toList()),
         ...inlineMetadata,
+        if (lastPoster)
+          if (row.topic.lastPosterUsername case final username?)
+            Text(
+              username,
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                color: DTokens.of(context).mutedForeground,
+              ),
+            ),
       ],
     );
   }
@@ -346,7 +417,12 @@ class _CompactTopicTitle extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final topic = row.topic;
-    final style = row.titleStyle ?? theme.textTheme.titleSmall;
+    final large =
+        ShellScope.maybeIdentityOf(context)?.appSettings.topicListLargerText ==
+        true;
+    final style =
+        row.titleStyle ??
+        (large ? theme.textTheme.titleMedium : theme.textTheme.titleSmall);
     final largeText = MediaQuery.textScalerOf(context).scale(14) > 21;
     return DItemTitle(
       maxLines: largeText ? null : 2,
@@ -364,7 +440,7 @@ class _CompactTopicTitle extends StatelessWidget {
                 height:
                     MediaQuery.textScalerOf(
                       context,
-                    ).scale(style?.fontSize ?? 14) *
+                    ).scale(style?.fontSize ?? DiscourseTypography.sm) *
                     (style?.height ?? 1.5),
                 child: Center(
                   child: DIcon(icon, size: 14, semanticLabel: label),
@@ -378,7 +454,7 @@ class _CompactTopicTitle extends StatelessWidget {
               overflow: largeText ? TextOverflow.clip : TextOverflow.ellipsis,
               style: style?.copyWith(
                 color: topicListTitleColor(theme, visited: topic.visited),
-                fontWeight: topic.visited ? FontWeight.w400 : FontWeight.w600,
+                fontWeight: FontWeight.w400,
               ),
               trailing: [
                 if (topic.showNewTopicDot || topic.showNewRepliesDot)

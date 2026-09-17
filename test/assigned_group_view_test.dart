@@ -195,7 +195,7 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      expect(tester.getRect(find.byType(TopicListRow).first).right, 1012.5);
+      expect(tester.getRect(find.byType(TopicListRow).first).right, 1200);
       await expectPageEdgeScrolling(
         tester,
         viewport: find.byType(CustomScrollView),
@@ -288,6 +288,8 @@ void main() {
       );
       await _pumpView(tester, presentation);
 
+      await tester.tap(find.byKey(const ValueKey('assigned-person-menu')));
+      await tester.pumpAndSettle();
       final memberFinder = find.byKey(
         const ValueKey('assigned-person-member-sam'),
       );
@@ -299,7 +301,7 @@ void main() {
             .isSelected,
         Tristate.isTrue,
       );
-      expect(find.byTooltip('Ascending'), findsOneWidget);
+      expect(find.byTooltip('Ascending'), findsNothing);
       expect(
         find.byKey(const ValueKey('assigned-people-rail')),
         findsOneWidget,
@@ -313,7 +315,7 @@ void main() {
       await tester.tap(find.byTooltip('Find assigned person'));
       await tester.pump();
       await tester.enterText(
-        find.widgetWithText(TextField, 'Find assigned person'),
+        find.byKey(const ValueKey('assigned-member-search')),
         ' Alex ',
       );
       await tester.testTextInput.receiveAction(TextInputAction.search);
@@ -385,6 +387,8 @@ void main() {
       await tester.binding.setSurfaceSize(const Size(1200, 400));
       await tester.pump();
 
+      await tester.tap(find.byKey(const ValueKey('assigned-person-menu')));
+      await tester.pumpAndSettle();
       const lastMemberKey = ValueKey('assigned-person-member-ten');
       expect(find.byKey(lastMemberKey), findsNothing);
       expect(
@@ -408,47 +412,19 @@ void main() {
       expect(presentation.loadMoreMemberCalls, 1);
     });
 
-    testWidgets('adapts the people rail into a compact grid', (tester) async {
+    testWidgets('person menu remains usable in a narrow pane', (tester) async {
       final presentation = _FakeAssignedGroupPresentation(
-        _state(
-          members: const AssignedGroupMembersState(
-            members: [
-              AssignedGroupMember(
-                id: 7,
-                username: 'Sam',
-                usernameLower: 'sam',
-                assignmentsCount: 4,
-              ),
-            ],
-            assignmentCount: 8,
-            groupAssignmentCount: 2,
-            hasMore: true,
-            loaded: true,
-          ),
-          feed: const TopicFeed(loaded: true),
-        ),
+        _state(feed: const TopicFeed(loaded: true)),
       );
       await _pumpView(tester, presentation);
-
+      await tester.binding.setSurfaceSize(const Size(390, 900));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('assigned-person-menu')));
+      await tester.pumpAndSettle();
       expect(
-        find.byKey(const ValueKey('assigned-people-rail')),
+        find.byKey(const ValueKey('assigned-person-everyone')),
         findsOneWidget,
       );
-      expect(find.byKey(const ValueKey('assigned-people-grid')), findsNothing);
-
-      await tester.binding.setSurfaceSize(const Size(600, 900));
-      await tester.pump();
-
-      expect(find.byKey(const ValueKey('assigned-people-rail')), findsNothing);
-      expect(
-        find.byKey(const ValueKey('assigned-people-grid')),
-        findsOneWidget,
-      );
-      expect(
-        find.byKey(const ValueKey('assigned-topic-search')),
-        findsOneWidget,
-      );
-      expect(presentation.loadMoreMemberCalls, 1);
       expect(tester.takeException(), isNull);
     });
 
@@ -466,24 +442,27 @@ void main() {
       );
       await _pumpView(tester, presentation);
 
-      await tester.enterText(
-        find.widgetWithText(TextField, 'Search assignments'),
-        ' incident ',
+      await tester.tap(find.byKey(const ValueKey('topic-sort-views')));
+      expect(
+        presentation.queries.last,
+        const AssignedGroupTopicQuery(order: AssignedGroupOrder.views),
       );
-      await tester.testTextInput.receiveAction(TextInputAction.search);
-      await tester.tap(find.byTooltip('Descending'));
-
-      expect(presentation.queries, [
+      await tester.tap(find.byKey(const ValueKey('assigned-query-menu')));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const ValueKey('assigned-topic-search')),
+        'incident',
+      );
+      await tester.testTextInput.receiveAction(TextInputAction.done);
+      await tester.pump();
+      expect(
+        presentation.queries.last,
         const AssignedGroupTopicQuery(
           order: AssignedGroupOrder.posts,
           ascending: true,
           search: 'incident',
         ),
-        const AssignedGroupTopicQuery(
-          order: AssignedGroupOrder.posts,
-          ascending: false,
-        ),
-      ]);
+      );
     });
 
     testWidgets('clears the sort order without losing the query filters', (
@@ -501,13 +480,9 @@ void main() {
       );
       await _pumpView(tester, presentation);
 
-      await tester.tap(find.byType(DSelect<AssignedGroupOrder>));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Default order'));
-      await tester.pumpAndSettle();
-
+      await tester.tap(find.byKey(const ValueKey('topic-sort-posts')));
       expect(presentation.queries, [
-        const AssignedGroupTopicQuery(ascending: true, search: 'incident'),
+        const AssignedGroupTopicQuery(search: 'incident'),
       ]);
     });
 
@@ -519,20 +494,18 @@ void main() {
       );
       await _pumpView(tester, presentation);
 
-      final search = find.byKey(const ValueKey('assigned-topic-search'));
-      final order = find.byKey(const ValueKey('assigned-order-default'));
-      final direction = find.byTooltip('Ascending');
-
-      await tester.tap(search);
+      final replies = find.byKey(const ValueKey('topic-sort-posts'));
+      final views = find.byKey(const ValueKey('topic-sort-views'));
+      final focus = Focus.of(
+        tester.element(
+          find.descendant(of: replies, matching: find.text('Replies')).first,
+        ),
+      );
+      focus.requestFocus();
+      await tester.pump();
       await tester.sendKeyEvent(LogicalKeyboardKey.tab);
       await tester.pump();
-
-      expect(_primaryFocusIsWithin(order), isTrue);
-
-      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
-      await tester.pump();
-
-      expect(_primaryFocusIsWithin(direction), isTrue);
+      expect(_primaryFocusIsWithin(views), isTrue);
     });
 
     testWidgets('opens topics and requests the next assignment page', (
@@ -555,7 +528,7 @@ void main() {
         findsNothing,
       );
       expect(find.byType(TopicListRow), findsOneWidget);
-      expect(find.text('91'), findsNothing);
+      expect(find.text('91'), findsOneWidget);
       expect(find.byKey(const ValueKey('topic-card-42')), findsOneWidget);
       await tester.tap(find.text(_topic.title));
       await tester.scrollUntilVisible(

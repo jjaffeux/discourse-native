@@ -6,7 +6,8 @@ import 'package:flutter/material.dart';
 import '../../models/topic.dart';
 import '../../plugin_api/plugin_scope.dart';
 import '../../shell/avatar_image.dart';
-import '../../shell/content_reading_lane.dart';
+import '../../shell/topic_list_actions.dart';
+import '../../shell/topic_list_footer.dart';
 import '../../shell/topic_list_view.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/d_icons.dart';
@@ -23,9 +24,6 @@ typedef AssignedGroupPresentationFactory =
       String groupName,
       String? subsection,
     );
-
-const double _assignedDesktopBreakpoint = 720;
-const double _assignedPeopleRailWidth = 220;
 
 class AssignedGroupView extends StatefulWidget {
   const AssignedGroupView({
@@ -172,45 +170,72 @@ class AssignedGroupPresentationView extends StatelessWidget {
   final ValueChanged<Topic> onOpenTopic;
 
   @override
-  Widget build(BuildContext context) {
-    return ContentReadingLane(
-      basePadding: const EdgeInsets.symmetric(horizontal: 16),
-      builder: (context, lane) {
-        final desktop =
-            ContentReadingLane.breakpointWidthOf(context, lane.width) >=
-            _assignedDesktopBreakpoint;
-        if (!desktop) {
-          return _buildFeed(
-            horizontalPadding: 16,
-            people: _AssignedPeoplePanel(
-              key: const ValueKey('assigned-people-grid'),
-              compact: true,
-              groupName: state.groupName,
-              filter: state.filter,
-              members: state.members,
-              onSelect: onSelect,
-              onMemberSearch: onMemberSearch,
-              onLoadMoreMembers: onLoadMoreMembers,
+  Widget build(BuildContext context) => Column(
+    children: [
+      Padding(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                'Topics',
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
             ),
-          );
-        }
-
-        final rtl = Directionality.of(context) == TextDirection.rtl;
-        return Padding(
-          padding: EdgeInsets.only(
-            left: rtl ? 0 : lane.padding.left,
-            right: rtl ? lane.padding.right : 0,
-          ),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              SizedBox(
-                width: _assignedPeopleRailWidth,
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(0, 14, 0, 28),
+            TopicListActions(
+              filter: DPopover(
+                content: DPopoverContent(
+                  align: DPopoverAlign.end,
+                  width: 320,
+                  child: DInput(
+                    key: const ValueKey('assigned-topic-search'),
+                    initialValue: state.query.search,
+                    labelText: 'Filter assignments',
+                    hintText: 'Words in the topic title',
+                    onSubmitted: (search) => onQueryChanged(
+                      AssignedGroupTopicQuery(
+                        order: state.query.order,
+                        ascending: state.query.ascending,
+                        search: search,
+                      ),
+                    ),
+                  ),
+                ),
+                child: DPopoverTrigger(
+                  builder: (context, trigger) => DButton.iconOnly(
+                    icon: const DIcon(DIcons.filter),
+                    key: const ValueKey('assigned-query-menu'),
+                    tooltip: 'Filter assignments',
+                    shape: DButtonShape.pill,
+                    variant: DButtonVariant.secondary,
+                    focusNode: trigger.focusNode,
+                    hasPopup: true,
+                    expanded: trigger.open,
+                    onPressed: trigger.toggle,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+      Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        child: Row(
+          children: [
+            const DBadge(
+              variant: DBadgeVariant.secondary,
+              child: Text('Assigned'),
+            ),
+            const Spacer(),
+            DPopover(
+              content: DPopoverContent(
+                width: 320,
+                align: DPopoverAlign.end,
+                child: SizedBox(
+                  height: 420,
                   child: _AssignedPeoplePanel(
                     key: const ValueKey('assigned-people-rail'),
-                    compact: false,
                     groupName: state.groupName,
                     filter: state.filter,
                     members: state.members,
@@ -220,22 +245,53 @@ class AssignedGroupPresentationView extends StatelessWidget {
                   ),
                 ),
               ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: _buildFeed(
-                  horizontalPadding: 0,
-                  insets: EdgeInsets.only(
-                    left: rtl ? lane.padding.left : 0,
-                    right: rtl ? 0 : lane.padding.right,
-                  ),
+              child: DPopoverTrigger(
+                builder: (context, trigger) => DButton(
+                  key: const ValueKey('assigned-person-menu'),
+                  label: Text(switch (state.filter) {
+                    AssignedGroupEveryoneFilter() => 'Everyone',
+                    AssignedGroupDirectFilter() => '@${state.groupName}',
+                    AssignedGroupMemberFilter(:final usernameLower) =>
+                      '@$usernameLower',
+                  }),
+                  icon: const DIcon(DIcons.users),
+                  variant: DButtonVariant.transparentBackground,
+                  focusNode: trigger.focusNode,
+                  hasPopup: true,
+                  expanded: trigger.open,
+                  onPressed: trigger.toggle,
                 ),
               ),
-            ],
-          ),
-        );
-      },
-    );
-  }
+            ),
+          ],
+        ),
+      ),
+      TopicListTableHeader(
+        showViews: true,
+        order: state.query.order?.wireName,
+        ascending: state.query.ascending,
+        onSort: (column) {
+          final order = AssignedGroupOrder.values.firstWhere(
+            (value) => value.wireName == column,
+          );
+          final same = state.query.order == order;
+          onQueryChanged(
+            AssignedGroupTopicQuery(
+              order: same && state.query.ascending ? null : order,
+              ascending: same && !state.query.ascending,
+              search: state.query.search,
+            ),
+          );
+        },
+      ),
+      Expanded(child: _buildFeed(horizontalPadding: 0)),
+      TopicSourceFooter(
+        onNext: state.topics.isEmpty
+            ? null
+            : () => onOpenTopic(state.topics.first),
+      ),
+    ],
+  );
 
   Widget _buildFeed({
     required double horizontalPadding,
@@ -258,13 +314,6 @@ class AssignedGroupPresentationView extends StatelessWidget {
             sliver: SliverMainAxisGroup(
               slivers: [
                 if (people != null) SliverToBoxAdapter(child: people),
-                SliverToBoxAdapter(
-                  child: _AssignedQueryControls(
-                    horizontalPadding: horizontalPadding,
-                    query: state.query,
-                    onQueryChanged: onQueryChanged,
-                  ),
-                ),
                 if (feed.error case final error?)
                   SliverToBoxAdapter(
                     child: _AssignedError(message: error, onRetry: onRefresh),
@@ -295,6 +344,7 @@ class AssignedGroupPresentationView extends StatelessWidget {
                       ),
                       itemBuilder: (context, index) => TopicListRow(
                         topic: topics[index],
+                        showViews: true,
                         siteUrl: siteUrl,
                         onTap: () => onOpenTopic(topics[index]),
                       ),
@@ -326,7 +376,6 @@ class AssignedGroupPresentationView extends StatelessWidget {
 class _AssignedPeoplePanel extends StatefulWidget {
   const _AssignedPeoplePanel({
     super.key,
-    required this.compact,
     required this.groupName,
     required this.filter,
     required this.members,
@@ -335,7 +384,6 @@ class _AssignedPeoplePanel extends StatefulWidget {
     required this.onLoadMoreMembers,
   });
 
-  final bool compact;
   final String groupName;
   final AssignedGroupFilter filter;
   final AssignedGroupMembersState members;
@@ -400,7 +448,6 @@ class _AssignedPeoplePanelState extends State<_AssignedPeoplePanel> {
           member: member,
         ),
     ];
-    _loadAllMembersOnCompactLayouts();
 
     final header = Padding(
       padding: const EdgeInsets.fromLTRB(14, 8, 6, 4),
@@ -430,16 +477,11 @@ class _AssignedPeoplePanelState extends State<_AssignedPeoplePanel> {
     final search = _showSearch
         ? Padding(
             padding: const EdgeInsets.fromLTRB(8, 4, 8, 8),
-            child: TextField(
-              style: Theme.of(context).textTheme.bodyMedium,
+            child: DInput(
               key: const ValueKey('assigned-member-search'),
               autofocus: true,
-              decoration: const InputDecoration(
-                labelText: 'Find assigned person',
-                prefixIcon: DIcon(DIcons.magnifyingGlass, size: 16),
-                border: OutlineInputBorder(),
-                isDense: true,
-              ),
+              labelText: 'Find assigned person',
+              prefix: const DIcon(DIcons.magnifyingGlass, size: 16),
               textInputAction: TextInputAction.search,
               onSubmitted: widget.onMemberSearch,
             ),
@@ -452,90 +494,40 @@ class _AssignedPeoplePanelState extends State<_AssignedPeoplePanel> {
           )
         : null;
 
-    final panel = Material(
-      color: theme.colorScheme.surfaceContainerLowest,
-      shape: RoundedRectangleBorder(
-        side: BorderSide(color: theme.colorScheme.outlineVariant),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: widget.compact
-          ? Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                header,
-                ?search,
-                ?loading,
-                GridView.builder(
-                  padding: const EdgeInsets.fromLTRB(6, 4, 6, 8),
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: options.length,
-                  gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-                    maxCrossAxisExtent: 220,
-                    mainAxisExtent: 48,
-                    crossAxisSpacing: 4,
-                    mainAxisSpacing: 4,
-                  ),
-                  itemBuilder: (context, index) => _AssignedPersonButton(
-                    option: options[index],
-                    selected: options[index].filter == widget.filter,
-                    onTap: () => widget.onSelect(options[index].filter),
-                  ),
-                ),
-              ],
-            )
-          : Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                header,
-                ?search,
-                ?loading,
-                Expanded(
-                  child: DScrollBar(
-                    key: const ValueKey('assigned-people-scrollbar'),
-                    controller: _peopleScrollController,
-                    thumbVisibility: true,
-                    child: ListView.separated(
-                      controller: _peopleScrollController,
-                      padding: const EdgeInsets.fromLTRB(6, 4, 10, 8),
-                      itemCount: options.length,
-                      separatorBuilder: (_, _) => const SizedBox(height: 4),
-                      itemBuilder: (context, index) => SizedBox(
-                        height: 48,
-                        child: _AssignedPersonButton(
-                          option: options[index],
-                          selected: options[index].filter == widget.filter,
-                          onTap: () => widget.onSelect(options[index].filter),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        header,
+        ?search,
+        ?loading,
+        Expanded(
+          child: DScrollBar(
+            key: const ValueKey('assigned-people-scrollbar'),
+            controller: _peopleScrollController,
+            thumbVisibility: true,
+            child: ListView.separated(
+              controller: _peopleScrollController,
+              padding: const EdgeInsets.fromLTRB(6, 4, 10, 8),
+              itemCount: options.length,
+              separatorBuilder: (_, _) => const SizedBox(height: 4),
+              itemBuilder: (context, index) => _AssignedPersonButton(
+                option: options[index],
+                selected: options[index].filter == widget.filter,
+                onTap: () => widget.onSelect(options[index].filter),
+              ),
             ),
-    );
-
-    if (!widget.compact) return panel;
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 14, 16, 4),
-      child: panel,
+          ),
+        ),
+      ],
     );
   }
 
   void _loadMoreAtEnd() {
-    if (widget.compact || !_peopleScrollController.hasClients) return;
+    if (!_peopleScrollController.hasClients) return;
     if (_peopleScrollController.position.extentAfter <=
         paginationPrefetchDistance(_peopleScrollController.position)) {
       _requestMoreMembers();
     }
-  }
-
-  void _loadAllMembersOnCompactLayouts() {
-    if (!widget.compact || widget.members.pageError) return;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted && widget.compact) _requestMoreMembers();
-    });
   }
 
   void _requestMoreMembers() {
@@ -591,50 +583,32 @@ class _AssignedPersonButton extends StatelessWidget {
       AssignedGroupMemberFilter(:final usernameLower) =>
         'member-$usernameLower',
     };
-    return Semantics(
+    return DItem(
       key: ValueKey('assigned-person-$route'),
-      button: true,
+      size: DItemSize.xs,
       selected: selected,
-      label: count == null
-          ? option.label
-          : '${option.label}, $count assignments',
-      onTap: onTap,
-      child: ExcludeSemantics(
-        child: Material(
-          color: selected ? theme.shell.selected : Colors.transparent,
-          borderRadius: BorderRadius.circular(7),
-          child: InkWell(
-            borderRadius: BorderRadius.circular(7),
-            onTap: onTap,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
-              child: Row(
-                children: [
-                  _AssignedPersonAvatar(option: option, color: foreground),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      option.label,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(color: foreground),
-                    ),
+      onPressed: onTap,
+      showSelectionIndicator: false,
+      children: [
+        DItemContent(
+          children: [
+            Row(
+              children: [
+                _AssignedPersonAvatar(option: option, color: foreground),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    option.label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                  if (count != null) ...[
-                    const SizedBox(width: 6),
-                    Text(
-                      '$count',
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        color: foreground,
-                      ),
-                    ),
-                  ],
-                ],
-              ),
+                ),
+                if (count != null) Text('$count'),
+              ],
             ),
-          ),
+          ],
         ),
-      ),
+      ],
     );
   }
 }
@@ -666,133 +640,6 @@ class _AssignedPersonAvatar extends StatelessWidget {
           ),
           null => fallback,
         },
-      ),
-    );
-  }
-}
-
-class _AssignedQueryControls extends StatelessWidget {
-  const _AssignedQueryControls({
-    required this.horizontalPadding,
-    required this.query,
-    required this.onQueryChanged,
-  });
-
-  final double horizontalPadding;
-  final AssignedGroupTopicQuery query;
-  final ValueChanged<AssignedGroupTopicQuery> onQueryChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    final search = TextField(
-      style: Theme.of(context).textTheme.bodyMedium,
-      key: const ValueKey('assigned-topic-search'),
-      decoration: const InputDecoration(
-        labelText: 'Search assignments',
-        prefixIcon: DIcon(DIcons.magnifyingGlass, size: 16),
-        border: OutlineInputBorder(),
-        isDense: true,
-      ),
-      textInputAction: TextInputAction.search,
-      onSubmitted: (value) => onQueryChanged(
-        AssignedGroupTopicQuery(
-          order: query.order,
-          ascending: query.ascending,
-          search: value.trim(),
-        ),
-      ),
-    );
-    final order = DSelect<AssignedGroupOrder>.controlled(
-      isExpanded: true,
-      placeholder: 'Default order',
-      key: ValueKey('assigned-order-${query.order?.wireName ?? 'default'}'),
-      value: query.order,
-      entries: const [
-        DSelectOption(
-          value: null,
-          label: 'Default order',
-          child: Text('Default order'),
-        ),
-        DSelectOption(
-          value: AssignedGroupOrder.activity,
-          label: 'Activity',
-          child: Text('Activity'),
-        ),
-        DSelectOption(
-          value: AssignedGroupOrder.posts,
-          label: 'Posts',
-          child: Text('Posts'),
-        ),
-        DSelectOption(
-          value: AssignedGroupOrder.views,
-          label: 'Views',
-          child: Text('Views'),
-        ),
-      ],
-      onChanged: (value) => onQueryChanged(
-        AssignedGroupTopicQuery(
-          order: value,
-          ascending: query.ascending,
-          search: query.search,
-        ),
-      ),
-      initialValue: query.order,
-    );
-    final direction = DButton.iconOnly(
-      onPressed: () => onQueryChanged(
-        AssignedGroupTopicQuery(
-          order: query.order,
-          ascending: !query.ascending,
-          search: query.search,
-        ),
-      ),
-      variant: DButtonVariant.ghost,
-      tooltip: query.ascending ? 'Descending' : 'Ascending',
-      icon: Icon(query.ascending ? Icons.arrow_upward : Icons.arrow_downward),
-    );
-
-    return FocusTraversalGroup(
-      policy: ReadingOrderTraversalPolicy(),
-      child: Padding(
-        padding: EdgeInsets.fromLTRB(
-          horizontalPadding,
-          14,
-          horizontalPadding,
-          10,
-        ),
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            if (ContentReadingLane.breakpointWidthOf(
-                  context,
-                  constraints.maxWidth,
-                ) >=
-                520) {
-              return Row(
-                children: [
-                  Expanded(child: search),
-                  const SizedBox(width: 10),
-                  SizedBox(width: 170, child: order),
-                  const SizedBox(width: 4),
-                  direction,
-                ],
-              );
-            }
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                search,
-                const SizedBox(height: 10),
-                Row(
-                  children: [
-                    Expanded(child: order),
-                    const SizedBox(width: 4),
-                    direction,
-                  ],
-                ),
-              ],
-            );
-          },
-        ),
       ),
     );
   }

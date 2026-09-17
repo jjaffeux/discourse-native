@@ -452,6 +452,16 @@ final class _GatedInstanceStore implements InstanceStore {
 }
 
 final class _GatedAppSettingsPersistence implements AppSettingsPersistence {
+  @override
+  Future<bool?> readTopicListLargerText() async => null;
+  @override
+  Future<bool> writeTopicListLargerText(bool value) async => true;
+
+  @override
+  Future<bool?> readTopicListExcerpts() async => null;
+  @override
+  Future<bool> writeTopicListExcerpts(bool value) async => true;
+
   final readGate = Completer<void>();
   final _delegate = MemoryAppSettingsPersistence(
     contentAlignment: ContentAlignment.left.name,

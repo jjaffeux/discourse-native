@@ -6,8 +6,7 @@ import 'package:flutter/material.dart';
 import '../models/content_route.dart';
 import '../models/sidebar_tag.dart';
 import '../models/topic.dart';
-import '../models/topic_filter.dart';
-import 'content_reading_lane.dart';
+import '../theme/d_icons.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';
 import 'topic_list_filter_bar.dart';
@@ -18,6 +17,7 @@ typedef _TopicListNavigationSnapshot = ({
   bool signedIn,
   bool unifiedNew,
   int allCount,
+  int unreadCount,
   int topicCount,
   int replyCount,
   String? siteUrl,
@@ -89,6 +89,7 @@ class TopicListNavigation extends StatelessWidget {
         signedIn: controller.currentInstance?.user != null,
         unifiedNew: controller.currentInstance?.user?.unifiedNewEnabled == true,
         allCount: counts.all,
+        unreadCount: controller.currentTotals?.topicTrackingUnread ?? 0,
         topicCount: counts.topics,
         replyCount: counts.replies,
         siteUrl: siteUrl,
@@ -165,59 +166,13 @@ class _TopicListNavigationControls extends StatelessWidget {
     void selectMode(TopicListMode value) => unawaited(
       controller.selectTopicListMode(value, keepTopicOpen: keepTopicOpen),
     );
-    final navigation = DTabs<TopicListMode>.controlled(
-      value: mode.isNew
-          ? TopicListMode.newActivity
-          : mode.isTop
-          ? TopicListMode.topYearly
-          : mode,
-      onChanged: (value) {
-        if (value != null) {
-          selectMode(value.isTop ? controller.defaultTopTopicListMode : value);
-        }
-      },
-      children: [
-        DTabList<TopicListMode>(
-          key: const ValueKey('topic-list-feed-tabs'),
-          variant: DTabListVariant.pill,
-          children: [
-            const DTabTrigger(
-              key: ValueKey('topic-list-latest'),
-              value: TopicListMode.latest,
-              child: Text('Latest'),
-            ),
-            if (state.signedIn) ...[
-              const DTabTrigger(
-                key: ValueKey('topic-list-unread'),
-                value: TopicListMode.unread,
-                child: Text('Unread'),
-              ),
-              DTabTrigger(
-                key: const ValueKey('topic-list-new'),
-                value: TopicListMode.newActivity,
-                child: Text(
-                  state.allCount > 0 ? 'New ${state.allCount}' : 'New',
-                ),
-              ),
-              const DTabTrigger(
-                key: ValueKey('topic-list-unseen'),
-                value: TopicListMode.unseen,
-                child: Text('Unseen'),
-              ),
-            ],
-            const DTabTrigger(
-              key: ValueKey('topic-list-top'),
-              value: TopicListMode.topYearly,
-              child: Text('Top'),
-            ),
-            const DTabTrigger(
-              key: ValueKey('topic-list-popular'),
-              value: TopicListMode.popular,
-              child: Text('Trending'),
-            ),
-          ],
-        ),
-      ],
+    final navigation = TopicFeedMenu(
+      mode: mode,
+      filtered: state.route?.isAdvancedTopicFilter == true,
+      signedIn: state.signedIn,
+      unreadCount: state.unreadCount,
+      newCount: state.allCount,
+      onSelected: selectMode,
     );
     Widget? contextualFor(bool wide) {
       if (showsTabs && mode.isNew && state.unifiedNew) {
@@ -275,194 +230,246 @@ class _TopicListNavigationControls extends StatelessWidget {
             ),
           ],
         );
-      } else if (showsTabs && mode.topPeriod != null) {
-        return Align(
-          key: const ValueKey('topic-list-top-period-segment'),
-          alignment: wide
-              ? AlignmentDirectional.centerEnd
-              : AlignmentDirectional.centerStart,
-          child: DSelect<TopPeriod>(
-            key: const ValueKey('topic-list-top-period'),
-            size: DControlSize.regular,
-            value: mode.topPeriod,
-            semanticLabel: 'Top period',
-            entries: [
-              for (final period in TopPeriod.values)
-                DSelectItem(
-                  value: period,
-                  textValue: period.label,
-                  child: Text(
-                    period.label,
-                    key: ValueKey('topic-list-top-period-${period.queryValue}'),
-                  ),
-                ),
-            ],
-            onChanged: (value) {
-              if (value != null) selectMode(TopicListMode.top(value));
-            },
-          ),
-        );
-      } else {
-        return null;
       }
+      return null;
     }
 
+    final owner = state.filterOwner;
+    final lease = state.siteUrl == null
+        ? null
+        : controller.lifecycle.capture(state.siteUrl!);
+    bool ownsFeed() =>
+        context.mounted &&
+        lease?.isCurrent == true &&
+        _filterOwner(controller) == owner;
+    final filters = !showsFilters
+        ? null
+        : TopicListFilterBar(
+            key: ValueKey(owner),
+            inline: true,
+            wrap: true,
+            siteUrl: state.siteUrl!,
+            categories: state.categories,
+            knownTags: state.tags,
+            selectedCategoryId: state.route!.categoryId,
+            selectedTagName: state.route!.tagName,
+            selectedTagNames: state.route!.tagNames,
+            taggingEnabled: state.taggingEnabled,
+            searchTags: (query) async {
+              if (!ownsFeed()) return const [];
+              final result = await controller.searchFilterTags(
+                siteUrl: state.siteUrl!,
+                term: query,
+              );
+              return ownsFeed() ? result : const [];
+            },
+            onCategorySelected: (category) {
+              if (ownsFeed()) {
+                controller.selectTopicListCategory(
+                  category,
+                  keepTopicOpen: keepTopicOpen,
+                );
+              }
+            },
+            onTagSelected: (tag) {
+              if (ownsFeed()) {
+                controller.selectTopicListTag(
+                  tag,
+                  keepTopicOpen: keepTopicOpen,
+                );
+              }
+            },
+            onTagsSelected: (tags) {
+              if (ownsFeed()) {
+                controller.selectTopicListTags(
+                  tags,
+                  keepTopicOpen: keepTopicOpen,
+                );
+              }
+            },
+          );
     return Semantics(
       key: const ValueKey('topic-list-navigation'),
       container: true,
       label: 'Topic lists',
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final lane = ContentReadingLane.geometryFor(
-            context,
-            availableWidth: constraints.maxWidth,
-            widthLimit: topicListContentWidth,
-          );
-          // App zoom expands the lane; system text scaling also needs room.
-          final effectiveWidth =
-              ContentReadingLane.breakpointWidthOf(context, lane.width) /
-              MediaQuery.textScalerOf(context).scale(1);
-          final wide = effectiveWidth >= 760;
-          final contextual = contextualFor(wide);
-          final heading = headingBuilder;
-          Widget inset(Widget child) => ContentReadingLaneBox(
-            widthLimit: topicListContentWidth,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: topicListHorizontalPadding,
-              ),
-              child: child,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (headingBuilder != null)
+            KeyedSubtree(
+              key: const ValueKey('topic-list-primary-row'),
+              child: headingBuilder!(context, null),
             ),
-          );
-          Widget primary() => ConstrainedBox(
-            key: ValueKey(
-              heading == null
-                  ? 'topic-list-primary-row'
-                  : 'topic-list-feed-row',
+          Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: topicListHorizontalPadding,
+              vertical: 8,
             ),
-            constraints: const BoxConstraints(minHeight: 38),
             child: Row(
+              key: const ValueKey('topic-list-feed-row'),
               children: [
-                if (showsTabs) Expanded(child: navigation) else const Spacer(),
-                if (trailing != null) ...[
-                  const SizedBox(width: DSpacing.sm),
-                  trailing!,
-                ],
+                Expanded(
+                  child: Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [if (showsTabs) navigation, ?filters],
+                  ),
+                ),
+                if (trailing != null) ...[const SizedBox(width: 8), trailing!],
               ],
             ),
-          );
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              if (heading != null)
-                KeyedSubtree(
-                  key: const ValueKey('topic-list-primary-row'),
-                  child: heading(
-                    context,
-                    showsTabs && wide ? navigation : null,
-                  ),
-                ),
-              if (heading == null || (!wide && showsTabs)) inset(primary()),
-              if (contextual != null || showsFilters)
-                inset(
-                  Padding(
-                    padding: EdgeInsets.only(
-                      top: heading != null && wide ? 0 : DSpacing.sm,
-                      bottom: DSpacing.sm,
-                    ),
-                    child: Builder(
-                      builder: (filterContext) {
-                        final lease = state.siteUrl == null
-                            ? null
-                            : controller.lifecycle.capture(state.siteUrl!);
-                        bool ownsFeed() =>
-                            filterContext.mounted &&
-                            lease?.isCurrent == true &&
-                            _filterOwner(controller) == state.filterOwner;
-                        Future<List<TopicFilterLookupValue>> searchTags(
-                          String query,
-                        ) async {
-                          if (!ownsFeed()) return const [];
-                          final result = await controller.searchFilterTags(
-                            siteUrl: state.siteUrl!,
-                            term: query,
-                          );
-                          return ownsFeed() ? result : const [];
-                        }
+          ),
+          if (contextualFor(false) case final contextual?)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                topicListHorizontalPadding,
+                0,
+                topicListHorizontalPadding,
+                8,
+              ),
+              child: contextual,
+            ),
+        ],
+      ),
+    );
+  }
+}
 
-                        final Widget? filters = !showsFilters
-                            ? null
-                            : TopicListFilterBar(
-                                key: ValueKey(state.filterOwner),
-                                inline: true,
-                                wrap: wide,
-                                compact: !wide,
-                                siteUrl: state.siteUrl!,
-                                categories: state.categories,
-                                knownTags: state.tags,
-                                selectedCategoryId: state.route!.categoryId,
-                                selectedTagName: state.route!.tagName,
-                                selectedTagNames: state.route!.tagNames,
-                                taggingEnabled: state.taggingEnabled,
-                                searchTags: searchTags,
-                                onCategorySelected: (category) {
-                                  if (ownsFeed()) {
-                                    controller.selectTopicListCategory(
-                                      category,
-                                      keepTopicOpen: keepTopicOpen,
-                                    );
-                                  }
-                                },
-                                onTagSelected: (tag) {
-                                  if (ownsFeed()) {
-                                    controller.selectTopicListTag(
-                                      tag,
-                                      keepTopicOpen: keepTopicOpen,
-                                    );
-                                  }
-                                },
-                                onTagsSelected: (tags) {
-                                  if (ownsFeed()) {
-                                    controller.selectTopicListTags(
-                                      tags,
-                                      keepTopicOpen: keepTopicOpen,
-                                    );
-                                  }
-                                },
-                              );
-                        return Flex(
-                          key: const ValueKey('topic-list-refinement-row'),
-                          direction: wide ? Axis.horizontal : Axis.vertical,
-                          crossAxisAlignment: wide
-                              ? CrossAxisAlignment.center
-                              : CrossAxisAlignment.stretch,
-                          children: [
-                            if (filters != null)
-                              if (wide) Expanded(child: filters) else filters,
-                            if (filters != null && contextual != null)
-                              SizedBox(
-                                width: wide ? 16 : 0,
-                                height: wide ? 0 : 12,
-                              ),
-                            if (contextual != null)
-                              if (wide)
-                                Flexible(
-                                  child: Align(
-                                    alignment: AlignmentDirectional.centerEnd,
-                                    child: contextual,
-                                  ),
-                                )
-                              else
-                                contextual,
-                          ],
-                        );
-                      },
-                    ),
-                  ),
-                ),
+/// Shared feed menu: periods are direct choices beneath Top, never a second picker.
+class TopicFeedMenu extends StatelessWidget {
+  const TopicFeedMenu({
+    super.key,
+    required this.mode,
+    required this.onSelected,
+    this.filtered = false,
+    this.signedIn = true,
+    this.unreadCount = 0,
+    this.newCount = 0,
+  });
+  final TopicListMode mode;
+  final ValueChanged<TopicListMode> onSelected;
+  final bool signedIn;
+  final bool filtered;
+  final int unreadCount, newCount;
+
+  static String label(TopicListMode mode) => switch (mode) {
+    TopicListMode.latest => 'Latest',
+    TopicListMode.unread => 'Unread',
+    TopicListMode.newActivity ||
+    TopicListMode.newTopics ||
+    TopicListMode.newReplies => 'New',
+    TopicListMode.unseen => 'Unseen',
+    TopicListMode.popular => 'Trending',
+    _ => 'Top · ${mode.topPeriod!.label}',
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    final selected = mode.isNew ? TopicListMode.newActivity : mode;
+    Widget item(
+      TopicListMode value,
+      String description, {
+      int count = 0,
+      bool inset = false,
+    }) => DDropdownMenuItem(
+      key: ValueKey(
+        value.isTop
+            ? 'topic-list-top-period-${value.topPeriod!.queryValue}'
+            : 'topic-list-${value == TopicListMode.newActivity
+                  ? 'new'
+                  : value == TopicListMode.popular
+                  ? 'popular'
+                  : value.name}',
+      ),
+      inset: inset,
+      onPressed: () => onSelected(value),
+      semanticLabel:
+          '${value.isTop ? value.topPeriod!.label : label(value)}${count > 0 ? ', $count topics' : ''}${selected == value ? ', selected' : ''}',
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (selected == value) const DIcon(DIcons.check, size: 14),
+          if (count > 0) ...[
+            if (selected == value) const SizedBox(width: 8),
+            DBadge(variant: DBadgeVariant.secondary, child: Text('$count')),
+          ],
+        ],
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(value.isTop ? value.topPeriod!.label : label(value)),
+          if (description.isNotEmpty)
+            Text(
+              description,
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                color: DTokens.of(context).mutedForeground,
+              ),
+            ),
+        ],
+      ),
+    );
+    final count = mode == TopicListMode.unread
+        ? unreadCount
+        : mode.isNew
+        ? newCount
+        : 0;
+    return DDropdownMenu(
+      content: DDropdownMenuContent(
+        width: 304,
+        semanticLabel: 'Choose topic feed',
+        children: [
+          item(TopicListMode.latest, 'Recently active conversations'),
+          if (signedIn) ...[
+            item(
+              TopicListMode.unread,
+              'Replies in conversations you follow',
+              count: unreadCount,
+            ),
+            item(
+              TopicListMode.newActivity,
+              'New topics and replies',
+              count: newCount,
+            ),
+            item(TopicListMode.unseen, 'Topics you haven’t visited'),
+          ],
+          const DDropdownMenuLabel(child: Text('Top')),
+          for (final period in [
+            TopPeriod.yearly,
+            TopPeriod.quarterly,
+            TopPeriod.monthly,
+            TopPeriod.weekly,
+            TopPeriod.daily,
+            TopPeriod.all,
+          ])
+            item(TopicListMode.top(period), '', inset: true),
+          item(TopicListMode.popular, 'Conversations gaining momentum'),
+        ],
+      ),
+      child: DDropdownMenuTrigger(
+        builder: (context, trigger) => DButton(
+          key: const ValueKey('topic-list-feed-menu'),
+          label: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(filtered ? 'Filtered' : label(mode)),
+              if (count > 0) ...[
+                const SizedBox(width: 8),
+                DBadge(variant: DBadgeVariant.secondary, child: Text('$count')),
+              ],
+              const SizedBox(width: 8),
+              const DIcon(DIcons.chevronDown, size: 12),
             ],
-          );
-        },
+          ),
+          variant: DButtonVariant.secondary,
+          shape: DButtonShape.pill,
+          focusNode: trigger.focusNode,
+          hasPopup: true,
+          expanded: trigger.open,
+          onPressed: trigger.toggle,
+        ),
       ),
     );
   }

@@ -62,7 +62,7 @@ void main() {
 
 void _registerShellNavigationTests() {
   group('forum search', () {
-    testWidgets('uses the macOS title strip and current non-macOS headers', (
+    testWidgets('keeps search in the top-level toolbar on every platform', (
       tester,
     ) async {
       await pumpShell(tester, laptop);
@@ -71,7 +71,7 @@ void _registerShellNavigationTests() {
       final linuxLikeField = tester.getRect(find.byKey(ForumSearch.inputKey));
       expect(
         tester
-            .getRect(find.byType(MainContent))
+            .getRect(find.byType(ShellTitleBar))
             .contains(linuxLikeField.center),
         isTrue,
       );
@@ -171,30 +171,26 @@ void _registerShellNavigationTests() {
       }
     });
 
-    testWidgets('keeps the compact forum identity above its search field', (
-      tester,
-    ) async {
-      await pumpShell(tester, phone);
+    testWidgets(
+      'keeps compact search in the toolbar above the forum identity',
+      (tester) async {
+        await pumpShell(tester, phone);
 
-      final title = tester.getRect(find.text('Discourse Meta'));
-      final field = tester.getRect(find.byKey(ForumSearch.inputKey));
-      final searchTarget = find
-          .descendant(
-            of: find.byKey(const ValueKey('instance-sidebar-search-target')),
-            matching: find.byType(GestureDetector),
-          )
-          .first;
-      expect(title.bottom, lessThan(field.top));
-      expect(searchTarget, findsOneWidget);
-      expect(tester.getSize(searchTarget).width, greaterThanOrEqualTo(44));
-      expect(find.byType(InstanceSidebar), findsOneWidget);
+        final title = tester.getRect(find.text('Discourse Meta'));
+        final field = tester.getRect(find.byKey(ForumSearch.inputKey));
+        final searchTarget = find.byKey(ForumSearch.inputKey);
+        expect(field.bottom, lessThan(title.top));
+        expect(searchTarget, findsOneWidget);
+        expect(tester.getSize(searchTarget).width, greaterThanOrEqualTo(44));
+        expect(find.byType(InstanceSidebar), findsOneWidget);
 
-      await tester.tap(searchTarget);
-      await tester.pump();
+        await tester.tap(searchTarget);
+        await tester.pump();
 
-      final focusNode = tester.widget<EditableText>(_searchEditor).focusNode;
-      expect(focusNode.hasFocus, isTrue);
-    });
+        final focusNode = tester.widget<EditableText>(_searchEditor).focusNode;
+        expect(focusNode.hasFocus, isTrue);
+      },
+    );
 
     testWidgets('global search clears its query and keeps the editor focused', (
       tester,
@@ -426,37 +422,23 @@ void _registerShellNavigationTests() {
       expect(shell.currentContent?.id, 'compact-mouse-history');
     });
 
-    testWidgets('the avatar follows whichever pane is showing', (tester) async {
+    testWidgets('the avatar stays in the top-level toolbar across panes', (
+      tester,
+    ) async {
       await pumpShell(tester, phone);
-
       expect(userMenu, findsOneWidget);
-      final onSidebar = tester.getRect(userMenu);
-      final userHeader = tester.getRect(
-        find.byKey(const ValueKey('sidebar-user-header')),
-      );
-      final forumHeader = tester.getRect(
-        find.byKey(const ValueKey('forum-identity-header')),
-      );
-      expect(userHeader.contains(onSidebar.center), isTrue);
-      expect(forumHeader.top, userHeader.bottom + 8);
+      final initial = tester.getRect(userMenu);
       expect(
-        find.descendant(
-          of: find.byKey(const ValueKey('forum-identity-header')),
-          matching: userMenu,
-        ),
-        findsNothing,
+        tester.getRect(find.byType(ShellTitleBar)).contains(initial.center),
+        isTrue,
       );
-
       await tester.tap(find.text('Topics'));
       await tester.pumpAndSettle();
-
       expect(userMenu, findsOneWidget);
-      final inContent = tester.getRect(userMenu);
-      expect(inContent.size, onSidebar.size);
-      expect(inContent.right, onSidebar.right);
+      expect(tester.getRect(userMenu), initial);
       expect(
-        tester.getRect(find.byType(MainContent)).contains(inContent.center),
-        isTrue,
+        find.descendant(of: find.byType(MainContent), matching: userMenu),
+        findsNothing,
       );
     });
   });
@@ -603,7 +585,7 @@ void _registerShellNavigationTests() {
 
     expect(sidebarDestination('Groups'), findsNothing);
     expect(sidebarDestination('Users'), findsOneWidget);
-    expect(sidebarDestination('Filter'), findsOneWidget);
+    expect(sidebarDestination('Filter'), findsNothing);
     expect(sidebarDestination('More'), findsOneWidget);
 
     await tester.tap(sidebarDestination('More'));

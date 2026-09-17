@@ -176,7 +176,11 @@ class TopicListFilterBar extends StatelessWidget {
       child: compact
           ? controls
           : wrap
-          ? Align(alignment: AlignmentDirectional.centerStart, child: controls)
+          ? Align(
+              widthFactor: 1,
+              alignment: AlignmentDirectional.centerStart,
+              child: controls,
+            )
           : inline
           ? controls
           : ContentReadingLaneBox(

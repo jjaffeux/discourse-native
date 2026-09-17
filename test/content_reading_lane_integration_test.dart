@@ -109,65 +109,55 @@ void main() {
     });
   }
 
-  testWidgets(
-    'TopicListView aligns its 1120px child lane and keeps its offset',
-    (tester) async {
-      await _withDesktop(tester, const Size(1200, 800), () async {
-        final site = instance('one.example');
-        final topics = [
-          for (var id = 1; id <= 40; id++)
-            Topic(id: id, title: 'Topic $id', slug: 'topic-$id'),
-        ];
-        final controller = await _shell(
-          site,
-          FakeDiscourseApi(feeds: const {'/latest.json': []}),
-        );
-        addTearDown(controller.dispose);
-        controller.store.putAll(site.url, topics);
-        final feed = TopicFeed(
-          topicIds: [for (final topic in topics) topic.id],
-          loaded: true,
-        );
+  testWidgets('TopicListView uses its full child lane and keeps its offset', (
+    tester,
+  ) async {
+    await _withDesktop(tester, const Size(1200, 800), () async {
+      final site = instance('one.example');
+      final topics = [
+        for (var id = 1; id <= 40; id++)
+          Topic(id: id, title: 'Topic $id', slug: 'topic-$id'),
+      ];
+      final controller = await _shell(
+        site,
+        FakeDiscourseApi(feeds: const {'/latest.json': []}),
+      );
+      addTearDown(controller.dispose);
+      controller.store.putAll(site.url, topics);
+      final feed = TopicFeed(
+        topicIds: [for (final topic in topics) topic.id],
+        loaded: true,
+      );
 
-        await tester.pumpWidget(
-          _shellSurface(controller, TopicListView(feed: feed)),
-        );
-        await tester.pumpAndSettle();
+      await tester.pumpWidget(
+        _shellSurface(controller, TopicListView(feed: feed)),
+      );
+      await tester.pumpAndSettle();
 
-        final viewport = find.byType(SuperListView);
-        final scroll = tester.widget<SuperListView>(viewport).controller!;
-        for (final alignment in ContentAlignment.values) {
-          await controller.appSettings.setContentAlignment(alignment);
-          await tester.pump();
-          final row = find.byKey(const ValueKey(1));
-          expect(tester.getSize(viewport).width, 1200);
-          expect(tester.getSize(row).width, closeTo(1120, 0.001));
-          expect(
-            tester.getTopLeft(row).dx,
-            closeTo(_laneLeft(1200, alignment, width: 1120), 0.001),
-          );
-          expect(
-            tester.widget<SuperListView>(viewport).controller,
-            same(scroll),
-          );
-        }
+      final viewport = find.byType(SuperListView);
+      final scroll = tester.widget<SuperListView>(viewport).controller!;
+      for (final alignment in ContentAlignment.values) {
+        await controller.appSettings.setContentAlignment(alignment);
+        await tester.pump();
+        final row = find.byKey(const ValueKey(1));
+        expect(tester.getSize(viewport).width, 1200);
+        expect(tester.getSize(row).width, closeTo(1200, 0.001));
+        expect(tester.getTopLeft(row).dx, closeTo(0, 0.001));
+        expect(tester.widget<SuperListView>(viewport).controller, same(scroll));
+      }
 
-        scroll.jumpTo(200);
-        await tester.pumpAndSettle();
-        final offset = scroll.offset;
-        expect(offset, greaterThan(0));
-        for (final alignment in ContentAlignment.values) {
-          await controller.appSettings.setContentAlignment(alignment);
-          await tester.pump();
-          expect(
-            tester.widget<SuperListView>(viewport).controller,
-            same(scroll),
-          );
-          expect(scroll.offset, closeTo(offset, 0.001));
-        }
-      });
-    },
-  );
+      scroll.jumpTo(200);
+      await tester.pumpAndSettle();
+      final offset = scroll.offset;
+      expect(offset, greaterThan(0));
+      for (final alignment in ContentAlignment.values) {
+        await controller.appSettings.setContentAlignment(alignment);
+        await tester.pump();
+        expect(tester.widget<SuperListView>(viewport).controller, same(scroll));
+        expect(scroll.offset, closeTo(offset, 0.001));
+      }
+    });
+  });
 
   testWidgets(
     'TopicView gives its pinned sidebar a structural column beside the lane',
@@ -295,18 +285,15 @@ void main() {
         final card = find.byKey(ValueKey('aggregate-topic-card-${one.url}-42'));
         final toolbar = find.byKey(const ValueKey('aggregate-tabs'));
         expect(tester.getSize(viewport).width, 1400);
-        expect(tester.getSize(card).width, closeTo(825, 0.001));
-        expect(tester.getTopLeft(card).dx, closeTo(287.5, 0.001));
+        expect(tester.getSize(card).width, closeTo(1384, 0.001));
+        expect(tester.getTopLeft(card).dx, closeTo(8, 0.001));
         expect(tester.getSize(toolbar).width, 1400);
 
         for (final alignment in ContentAlignment.values) {
           await controller.appSettings.setContentAlignment(alignment);
           await tester.pump();
-          expect(tester.getSize(card).width, closeTo(825, 0.001));
-          expect(
-            tester.getTopLeft(card).dx,
-            closeTo(_aggregateCardLeft(1400, alignment), 0.001),
-          );
+          expect(tester.getSize(card).width, closeTo(1384, 0.001));
+          expect(tester.getTopLeft(card).dx, closeTo(8, 0.001));
           expect(tester.getSize(toolbar).width, 1400);
         }
 
@@ -470,13 +457,6 @@ double _laneLeft(
     ContentAlignment.right => extra,
   };
 }
-
-double _aggregateCardLeft(double availableWidth, ContentAlignment alignment) =>
-    switch (alignment) {
-      ContentAlignment.left => 16,
-      ContentAlignment.center => 16 + (availableWidth - 32 - 825) / 2,
-      ContentAlignment.right => availableWidth - 16 - 825,
-    };
 
 ChatMessage _chatMessage(int id) => ChatMessage(
   id: id,

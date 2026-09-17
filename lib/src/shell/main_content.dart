@@ -45,8 +45,8 @@ import 'shell_sheet.dart';
 import 'tags_page.dart';
 import 'title_bar.dart';
 import 'topic_create_button.dart';
-import 'topic_filter_page.dart';
 import 'topic_inbox_header.dart';
+import 'topic_list_actions.dart';
 import 'topic_list_bottom_bar.dart';
 import 'topic_list_layout.dart';
 import 'topic_list_navigation.dart';
@@ -337,7 +337,6 @@ class _TopicInboxWorkspaceState extends State<_TopicInboxWorkspace> {
         final state = widget.state;
         final sourceRoute = widget.sourceRoute;
         final registry = widget.registry;
-        final theme = Theme.of(context);
         final topicOpen = state.route!.isTopic;
         final sheet = TopicReaderPresentation.isSheetOf(context);
         final minimumTopicWidth = context.isTouch
@@ -359,7 +358,6 @@ class _TopicInboxWorkspaceState extends State<_TopicInboxWorkspace> {
         final buttonTextScale =
             MediaQuery.textScalerOf(context).scale(buttonFontSize) /
             buttonFontSize;
-        final showsUserMenu = !topicOpen && ShellTitleBar.columnsCarryUserMenu;
         final messages = sourceRoute.isMessages;
         final createAction = messages
             ? const MessageCreateButton(showLabel: true)
@@ -409,10 +407,18 @@ class _TopicInboxWorkspaceState extends State<_TopicInboxWorkspace> {
               ),
             ),
             ...registry.contentHeaderActions(context, sourceRoute),
+            TopicListActions(
+              filter: state.siteUrl == null || messages
+                  ? null
+                  : TopicListFilterMenu(
+                      key: ValueKey((state.siteUrl, sourceRoute.id)),
+                      siteUrl: state.siteUrl!,
+                      query: sourceRoute.topicFilterQuery,
+                    ),
+            ),
           ],
         );
-        // Account controls stay at the pane edge; title, tabs and actions
-        // share the same reading lane as the topics below them.
+        // The heading follows the full width of the topic list.
         Widget buildHeading(BuildContext context, Widget? navigation) =>
             ContentReadingLane(
               widthLimit: topicListContentWidth,
@@ -426,7 +432,7 @@ class _TopicInboxWorkspaceState extends State<_TopicInboxWorkspace> {
                   padding: sourceRoute.isTopicListFilter
                       ? const EdgeInsets.symmetric(vertical: DSpacing.sm)
                       // Match the sidebar account header's baseline.
-                      : EdgeInsets.only(bottom: showsUserMenu ? 1 : 0),
+                      : EdgeInsets.zero,
                   child: Row(
                     children: [
                       Expanded(
@@ -462,22 +468,6 @@ class _TopicInboxWorkspaceState extends State<_TopicInboxWorkspace> {
                             canReturnToSidebar: layout.isCompact,
                           ),
                         ),
-                      if (showsUserMenu)
-                        Padding(
-                          padding: const EdgeInsetsDirectional.only(end: 8),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              ...registry.shellHeaderActions(
-                                context,
-                                surface: PluginHeaderSurface.content,
-                                compact: layout.isCompact,
-                                ringColor: theme.shell.content,
-                              ),
-                              UserMenuButton(ringColor: theme.shell.content),
-                            ],
-                          ),
-                        ),
                     ],
                   ),
                 ),
@@ -505,23 +495,14 @@ class _TopicInboxWorkspaceState extends State<_TopicInboxWorkspace> {
                 // list fills the reader, the shell or composer owns its edge.
                 dividerWidth: 1,
                 child: _RetainedTopicListPane(
-                  key: ValueKey((state.siteUrl, sourceRoute.id)),
+                  key: ValueKey((
+                    state.siteUrl,
+                    controller.currentAccountIdentity,
+                    controller.activeTabId,
+                  )),
                   hidden: topicOpen && !split && !sheet,
                   child: Column(
                     children: [
-                      if (!ShellTitleBar.isSupported)
-                        const ContentReadingLaneBox(
-                          widthLimit: topicListContentWidth,
-                          child: Padding(
-                            padding: EdgeInsets.fromLTRB(
-                              topicListHorizontalPadding,
-                              0,
-                              topicListHorizontalPadding,
-                              8,
-                            ),
-                            child: ForumSearch(dense: true),
-                          ),
-                        ),
                       Expanded(
                         child: _FeedBackedContent(
                           route: sourceRoute,
@@ -789,12 +770,6 @@ class _FeedBackedContent extends StatelessWidget {
           );
         } else if (feed == null) {
           content = fallback ?? _ContentPlaceholder(route: route);
-        } else if (route.id == 'filter' && siteUrl != null) {
-          content = TopicFilterPage(
-            siteUrl: siteUrl!,
-            feed: feed,
-            categories: filterCategories,
-          );
         } else {
           content = TopicListView(
             feed: feed,

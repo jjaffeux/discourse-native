@@ -46,7 +46,7 @@ void main() {
   });
 
   group('DiscourseInstance.sections', () {
-    test('keeps Users and Filter visible and Groups in More', () {
+    test('keeps Users visible and Groups in More', () {
       final section = const DiscourseInstance(
         url: 'https://example.com',
         title: 'Example',
@@ -55,7 +55,6 @@ void main() {
       expect(section.destinations.map((destination) => destination.id), [
         'latest',
         'users',
-        'filter',
       ]);
       expect(section.moreDestinations.map((destination) => destination.id), [
         'groups',
@@ -73,14 +72,13 @@ void main() {
       expect(section.destinations.map((destination) => destination.id), [
         'latest',
         'users',
-        'filter',
       ]);
       expect(section.moreDestinations.map((destination) => destination.id), [
         'badges',
       ]);
     });
 
-    test('keeps Filter visible for connected accounts', () {
+    test('keeps filtering out of the connected sidebar', () {
       final section = const DiscourseInstance(
         url: 'https://example.com',
         title: 'Example',
@@ -92,7 +90,6 @@ void main() {
         'messages',
         'drafts',
         'users',
-        'filter',
       ]);
       expect(section.moreDestinations.map((destination) => destination.id), [
         'groups',
@@ -111,7 +108,6 @@ void main() {
 
         expect(connected.destinations.map((destination) => destination.id), [
           'latest',
-          'filter',
         ]);
       },
     );

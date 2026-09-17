@@ -20,6 +20,21 @@ final itemExamples = ComponentExamples(
       'Dropdown Menu primitives with actual passive xs Items.',
   examples: [
     StyleguideExample(
+      title: 'Neutral selection',
+      description:
+          'A quiet selected topic row retains keyboard focus and selected semantics.',
+      code:
+          "DItem(selected: true, selectionStyle: DItemSelectionStyle.neutral, showSelectionIndicator: false, children: [DItemContent(children: [DItemTitle(child: Text('Selected topic'))])])",
+      builder: (_) => const DItem(
+        selected: true,
+        selectionStyle: DItemSelectionStyle.neutral,
+        showSelectionIndicator: false,
+        children: [
+          DItemContent(children: [DItemTitle(child: Text('Selected topic'))]),
+        ],
+      ),
+    ),
+    StyleguideExample(
       title: 'Outline selection',
       description:
           'Topic selection uses a 2px accent outline, the normal background, '
