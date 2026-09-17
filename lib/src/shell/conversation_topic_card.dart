@@ -50,7 +50,7 @@ class _ConversationTopicCard extends StatelessWidget {
       column: column,
       order: order,
       ascending: ascending,
-      onSort: column == 'category' && row.showViews ? null : onSort,
+      onSort: onSort,
     );
     Widget stat(String label, String column, String value, {Key? key}) => Row(
       key: key,
@@ -147,6 +147,7 @@ class _ConversationTopicCard extends StatelessWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             if (row.category != null ||
+                                topic.tags.isNotEmpty ||
                                 row.forum != null ||
                                 topic.privateMessage) ...[
                               Wrap(
@@ -159,10 +160,9 @@ class _ConversationTopicCard extends StatelessWidget {
                                       'Private conversation',
                                       style: textStyle,
                                     )
-                                  else if (row.category != null) ...[
-                                    field('Category', 'category'),
+                                  else if (row.category != null)
                                     _topicRowCategory(context, row),
-                                  ],
+                                  ..._topicRowTags(context, row),
                                   if (row.forum != null)
                                     Text(row.forum!.title, style: textStyle),
                                 ],
@@ -192,16 +192,13 @@ class _ConversationTopicCard extends StatelessWidget {
                                 ],
                               ),
                             ),
-                            if (topic.tags.isNotEmpty ||
-                                assignments.isNotEmpty) ...[
+                            if (assignments.isNotEmpty) ...[
                               const SizedBox(height: DSpacing.md),
-                              _topicRowMetadata(
-                                context,
-                                row,
-                                showForum: false,
-                                category: false,
-                                lastPoster: false,
-                                inlineMetadata: assignments,
+                              Wrap(
+                                spacing: DSpacing.xs,
+                                runSpacing: DSpacing.xs,
+                                crossAxisAlignment: WrapCrossAlignment.center,
+                                children: assignments,
                               ),
                             ],
                             if (metadata.isNotEmpty) ...[

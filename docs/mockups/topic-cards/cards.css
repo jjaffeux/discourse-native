@@ -73,7 +73,7 @@ body { font-size: 14px; }
   content: ''; position: absolute; inset: 0; border: 1px solid var(--accent);
   border-radius: inherit; pointer-events: none; z-index: 1;
 }
-.card-top { display: flex; align-items: center; gap: 12px; min-width: 0; padding: 16px 20px 0; }
+.card-top { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; min-width: 0; padding: 16px 20px 0; }
 .card-top .category-cell { font-size: 12px; }
 .card-field-name { color: var(--faint); font-size: 10px; font-weight: 400; line-height: 16px; }
 .card-top .card-field-name { margin-right: -5px; }
@@ -97,7 +97,8 @@ body { font-size: 14px; }
 .card-main .event-stamp small { font-size: 9px; }
 .card-main .event-meta { margin: 6px 0 0; color: var(--muted); font-size: 12px; }
 .card-tags { padding: 10px 20px 16px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; font-size: 12px; color: var(--muted); }
-.card-tags .tag { font-size: 11px; }
+.card-top .tag { font-size: 11px; }
+.frame[data-design] .card-tags:empty { padding-top: 0; }
 .card-tags .assignment { margin-left: 4px; gap: 6px; }
 .card-tags > .meta-dot { display: none; }
 .card-tags .assignment .avatar { width: 17px; height: 17px; }
