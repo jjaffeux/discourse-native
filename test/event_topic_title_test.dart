@@ -26,7 +26,7 @@ void main() {
       await _pump(tester, ports, onOpen: () => opened++);
       expect(find.text('OCT'), findsOneWidget);
       expect(find.text('14'), findsOneWidget);
-      expect(find.text('Event · Wed · 20:00'), findsOneWidget);
+      expect(find.text('Wed · 20:00'), findsOneWidget);
       expect(
         tester.getTopLeft(find.text('OCT')).dx,
         lessThan(tester.getTopLeft(find.text(_title)).dx),
@@ -71,7 +71,7 @@ void main() {
       await tester.sendKeyEvent(LogicalKeyboardKey.escape);
       await tester.pumpAndSettle();
       expect(find.text('15'), findsOneWidget);
-      expect(find.text('Event · Thu · 03:00'), findsOneWidget);
+      expect(find.text('Thu · 03:00'), findsOneWidget);
     },
   );
 
@@ -90,7 +90,7 @@ void main() {
         event: const EventTopicData(startsAt: '2026-10-16', allDay: true),
       );
       expect(find.text('16'), findsOneWidget);
-      expect(find.text('Event · Fri · All day'), findsOneWidget);
+      expect(find.text('Fri · All day'), findsOneWidget);
       await tester.tap(find.byKey(const ValueKey('event-schedule-trigger')));
       await tester.pumpAndSettle();
       expect(find.text('Friday, October 16, 2026 · All day'), findsOneWidget);
@@ -115,7 +115,7 @@ void main() {
       ),
     );
     expect(find.text('14'), findsOneWidget);
-    expect(find.text('Event · Wed · 20:00'), findsOneWidget);
+    expect(find.text('Wed · 20:00'), findsOneWidget);
   });
 
   testWidgets('multi-day ranges count calendar days across daylight saving', (
@@ -132,7 +132,7 @@ void main() {
         timezone: 'Europe/Paris',
       ),
     );
-    expect(find.text('Event · Oct 24 – Oct 26 · 3 days'), findsOneWidget);
+    expect(find.text('Oct 24 – Oct 26 · 3 days'), findsOneWidget);
   });
 
   testWidgets('cross-year and future dates keep their year visible', (
@@ -149,16 +149,13 @@ void main() {
         allDay: true,
       ),
     );
-    expect(
-      find.text('Event · Dec 31, 2026 – Jan 2, 2027 · All day'),
-      findsOneWidget,
-    );
+    expect(find.text('Dec 31, 2026 – Jan 2, 2027 · All day'), findsOneWidget);
     await _pump(
       tester,
       ports,
       event: const EventTopicData(startsAt: '2027-10-16', allDay: true),
     );
-    expect(find.text('Event · Sat, Oct 16, 2027 · All day'), findsOneWidget);
+    expect(find.text('Sat, Oct 16, 2027 · All day'), findsOneWidget);
   });
 
   testWidgets('hidden or invalid event dates leave the original title alone', (
@@ -211,7 +208,7 @@ void main() {
           ),
         );
         expect(
-          find.text('Event · Dec 31, 2026 – Jan 2, 2027 · All day'),
+          find.text('Dec 31, 2026 – Jan 2, 2027 · All day'),
           findsOneWidget,
         );
         expect(tester.takeException(), isNull);

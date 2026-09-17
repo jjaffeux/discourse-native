@@ -171,11 +171,11 @@ class _EventSchedule {
     if (spansDays) {
       final date = year ? DateFormat.yMMMd(locale) : DateFormat.MMMd(locale);
       final days = _day(end!).difference(_day(start)).inDays + 1;
-      return 'Event · ${date.format(start)} – ${date.format(end!)} · '
+      return '${date.format(start)} – ${date.format(end!)} · '
           '${allDay ? 'All day' : '$days days'}';
     }
     final date = year ? DateFormat.yMMMEd(locale) : DateFormat.E(locale);
-    return 'Event · ${date.format(start)} · '
+    return '${date.format(start)} · '
         '${allDay ? 'All day' : _timeFormat.format(start)}';
   }
 

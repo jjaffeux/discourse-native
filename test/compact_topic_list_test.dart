@@ -482,10 +482,7 @@ void main() {
         findsOneWidget,
       );
       expect(find.text('joffrey'), findsOneWidget);
-      expect(
-        find.textContaining(RegExp(r'^Event · .* · 20:00$')),
-        findsOneWidget,
-      );
+      expect(find.textContaining(RegExp(r'^.* · 20:00$')), findsOneWidget);
       await tester.tap(find.byKey(const ValueKey('event-schedule-trigger')));
       await tester.pumpAndSettle();
       expect(find.text('Event schedule').hitTestable(), findsOneWidget);
@@ -523,10 +520,7 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(find.text('14'), findsOneWidget);
-    expect(
-      find.textContaining(RegExp(r'^Event · .* · 20:00$')),
-      findsOneWidget,
-    );
+    expect(find.textContaining(RegExp(r'^.* · 20:00$')), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
