@@ -28,6 +28,7 @@ class TopicFilterInput extends StatefulWidget {
     this.enabled = true,
     this.preferSuggestionsAbove = false,
     this.tokenized = false,
+    this.multiline = false,
   });
 
   final String siteUrl;
@@ -43,6 +44,7 @@ class TopicFilterInput extends StatefulWidget {
   final bool enabled;
   final bool preferSuggestionsAbove;
   final bool tokenized;
+  final bool multiline;
 
   @override
   State<TopicFilterInput> createState() => _TopicFilterInputState();
@@ -50,6 +52,7 @@ class TopicFilterInput extends StatefulWidget {
 
 class _TopicFilterInputState extends State<TopicFilterInput> {
   final FocusNode _focus = FocusNode();
+  final _combobox = DComboboxController<TopicFilterSuggestion>();
 
   ShellController? _shell;
   TopicFilterController? _filter;
@@ -247,16 +250,29 @@ class _TopicFilterInputState extends State<TopicFilterInput> {
     if (mounted) setState(() {});
   }
 
+  void _moveSelection(int delta) {
+    if (!widget.multiline) {
+      filter.moveSelection(delta);
+      return;
+    }
+    if (filter.suggestions.isEmpty) return;
+    final index = (filter.selectedIndex + delta).clamp(
+      0,
+      filter.suggestions.length - 1,
+    );
+    _combobox.highlight(filter.suggestions[index]);
+  }
+
   KeyEventResult _onKey(FocusNode node, KeyEvent event) {
     if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
       return KeyEventResult.ignored;
     }
     switch (event.logicalKey) {
       case LogicalKeyboardKey.arrowDown when filter.isOpen:
-        filter.moveSelection(1);
+        _moveSelection(1);
         return KeyEventResult.handled;
       case LogicalKeyboardKey.arrowUp when filter.isOpen:
-        filter.moveSelection(-1);
+        _moveSelection(-1);
         return KeyEventResult.handled;
       case LogicalKeyboardKey.escape when filter.isOpen:
         filter.dismiss();
@@ -277,6 +293,14 @@ class _TopicFilterInputState extends State<TopicFilterInput> {
         return KeyEventResult.handled;
       case LogicalKeyboardKey.enter:
       case LogicalKeyboardKey.numpadEnter:
+        if (widget.multiline) {
+          if (HardwareKeyboard.instance.isMetaPressed ||
+              HardwareKeyboard.instance.isControlPressed) {
+            unawaited(filter.submit());
+            return KeyEventResult.handled;
+          }
+          return KeyEventResult.ignored;
+        }
         if (filter.isOpen) {
           unawaited(_acceptSelectedOrFallback());
         } else if (widget.tokenized) {
@@ -333,6 +357,7 @@ class _TopicFilterInputState extends State<TopicFilterInput> {
     _filter?.dispose();
     _focus.removeListener(_onFocusChanged);
     _focus.dispose();
+    _combobox.dispose();
     super.dispose();
   }
 
@@ -344,6 +369,7 @@ class _TopicFilterInputState extends State<TopicFilterInput> {
       skipTraversal: true,
       onKeyEvent: _onKey,
       child: DCombobox<TopicFilterSuggestion>.controlled(
+        controller: _combobox,
         value: null,
         options: [
           for (var i = 0; i < filter.suggestions.length; i++)
@@ -414,33 +440,50 @@ class _TopicFilterInputState extends State<TopicFilterInput> {
                   ],
                 ),
               ),
-            DComboboxInput<TopicFilterSuggestion>(
-              key: widget.inputKey,
-              semanticLabel: widget.hintText,
-              placeholder: widget.hintText,
-              showTrigger: false,
-              onSubmitted: (_) => unawaited(_acceptSelectedOrFallback()),
-              addons: [
-                if (_tokens.isNotEmpty || filter.text.text.isNotEmpty)
-                  DInputGroupAddon(
-                    alignment: DInputGroupAddonAlignment.inlineEnd,
-                    child: DButton.iconOnly(
-                      key: widget.clearKey,
-                      tooltip: 'Clear all filters',
-                      icon: const DIcon(DIcons.xmark),
-                      variant: DButtonVariant.transparentBackground,
-                      size: DButtonSize.small,
-                      onPressed: widget.enabled
-                          ? () => unawaited(
-                              widget.tokenized
-                                  ? _clearTokenQuery()
-                                  : filter.clear(),
-                            )
-                          : null,
+            if (widget.multiline)
+              DPopoverAnchor(
+                child: DTextarea(
+                  key: widget.inputKey,
+                  controller: filter.text,
+                  focusNode: _focus,
+                  semanticLabel: 'Topic filter query',
+                  hintText: widget.hintText,
+                  minLines: 3,
+                  maxLines: 6,
+                  enabled: widget.enabled,
+                  autocorrect: false,
+                  enableSuggestions: false,
+                  onChanged: filter.inputChanged,
+                ),
+              )
+            else
+              DComboboxInput<TopicFilterSuggestion>(
+                key: widget.inputKey,
+                semanticLabel: widget.hintText,
+                placeholder: widget.hintText,
+                showTrigger: false,
+                onSubmitted: (_) => unawaited(_acceptSelectedOrFallback()),
+                addons: [
+                  if (_tokens.isNotEmpty || filter.text.text.isNotEmpty)
+                    DInputGroupAddon(
+                      alignment: DInputGroupAddonAlignment.inlineEnd,
+                      child: DButton.iconOnly(
+                        key: widget.clearKey,
+                        tooltip: 'Clear all filters',
+                        icon: const DIcon(DIcons.xmark),
+                        variant: DButtonVariant.transparentBackground,
+                        size: DButtonSize.small,
+                        onPressed: widget.enabled
+                            ? () => unawaited(
+                                widget.tokenized
+                                    ? _clearTokenQuery()
+                                    : filter.clear(),
+                              )
+                            : null,
+                      ),
                     ),
-                  ),
-              ],
-            ),
+                ],
+              ),
           ],
         ),
         content: DComboboxContent(
