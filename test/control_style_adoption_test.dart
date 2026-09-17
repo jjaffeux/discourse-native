@@ -25,7 +25,7 @@ void main() {
       offenders,
       isEmpty,
       reason:
-          'Choose primary, outline, secondary, ghost, destructive, link or transparentBackground. Legacy enum names are SDK aliases only.',
+          'Choose primary, outline, secondary, ghost, destructive, link, inline or transparentBackground. Legacy enum names are SDK aliases only.',
     );
   });
 

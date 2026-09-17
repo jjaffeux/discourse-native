@@ -107,12 +107,12 @@ body { font-size: 14px; }
 .card-person { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 12px; margin-right: auto; min-width: 0; }
 .card-person .person-caption { display: inline; font-size: 11px; color: var(--faint); margin-right: 3px; }
 .card-person .avatar { width: 21px; height: 21px; }
-.card-stat { display: flex; align-items: center; gap: 7px; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.card-stat { display: flex; align-items: center; gap: 4px; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .card-stat .stat-value { font-size: 12px; font-weight: 450; color: var(--text); }
 .card-stat .num, .card-top .num { font-size: 11px; text-align: inherit; }
-.card-stat .column-sort { justify-content: flex-start; flex-direction: row-reverse; min-height: 22px; }
-.card-stat .column-sort .i { opacity: 0; }
-.card-stat .column-sort:hover .i, .card-stat .column-sort[aria-pressed="true"] .i { opacity: 1; }
+.card-stat .column-sort { justify-content: flex-start; flex-direction: row-reverse; min-height: 22px; padding-inline: 0; }
+.card-stat .column-sort .i { display: none; }
+.card-stat .column-sort[aria-pressed="true"] .i { display: block; opacity: 1; }
 .card-stat .column-sort:hover { color: var(--strong); }
 .frame[data-design="conversation"] .table-shell .columns, .frame[data-design="grid"] .table-shell .columns { display: none; }
 .frame[data-design="conversation"] .card-main { padding-top: 10px; }

@@ -197,10 +197,37 @@ void main() {
           find.byKey(const ValueKey('compact-topic-list-header')),
           findsNothing,
         );
-        expect(
-          find.descendant(of: footer, matching: find.text('Replies')),
-          findsOneWidget,
+        final replies = find.descendant(
+          of: footer,
+          matching: find.text('Replies'),
         );
+        final replyCount = find.descendant(
+          of: footer,
+          matching: find.text('24'),
+        );
+        final labelRect = tester.getRect(replies);
+        final valueRect = tester.getRect(replyCount);
+        final rtl = direction == TextDirection.rtl;
+        expect(
+          rtl
+              ? labelRect.left - valueRect.right
+              : valueRect.left - labelRect.right,
+          closeTo(DSpacing.xs, 0.01),
+        );
+        if (width < 560) {
+          final contentRect = tester.getRect(
+            find.descendant(
+              of: card,
+              matching: find.byKey(
+                const ValueKey(('topic-row-parent-category', 1)),
+              ),
+            ),
+          );
+          expect(
+            rtl ? labelRect.right : labelRect.left,
+            closeTo(rtl ? contentRect.right : contentRect.left, 0.01),
+          );
+        }
         expect(
           find.descendant(of: footer, matching: find.text('Activity')),
           findsOneWidget,

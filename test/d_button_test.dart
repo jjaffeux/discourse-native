@@ -8,6 +8,49 @@ import 'package:flutter_test/flutter_test.dart';
 import 'support/button_surface.dart';
 
 void main() {
+  for (final direction in TextDirection.values) {
+    testWidgets('inline actions align with surrounding text in $direction', (
+      tester,
+    ) async {
+      var presses = 0;
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.dark.copyWith(platform: TargetPlatform.macOS),
+          home: Directionality(
+            textDirection: direction,
+            child: Scaffold(
+              body: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Topic content'),
+                  DButton(
+                    label: const Text('Replies'),
+                    variant: DButtonVariant.inline,
+                    size: DButtonSize.small,
+                    onPressed: () => presses++,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+      final content = tester.getRect(find.text('Topic content'));
+      final label = tester.getRect(find.text('Replies'));
+      expect(
+        direction == TextDirection.ltr ? label.left : label.right,
+        direction == TextDirection.ltr ? content.left : content.right,
+      );
+      expect(tester.getSize(find.byType(DButton)).height, 24);
+      expect(buttonSurface(tester).color, Colors.transparent);
+      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+      await tester.pump();
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pump();
+      expect(presses, 1);
+    });
+  }
+
   for (final dark in [false, true]) {
     for (final variant in DButtonVariant.values) {
       testWidgets(
