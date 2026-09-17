@@ -408,7 +408,7 @@ class _TopicInboxWorkspaceState extends State<_TopicInboxWorkspace> {
             ),
             ...registry.contentHeaderActions(context, sourceRoute),
             TopicListActions(
-              forceCard: split,
+              forceCard: split || listWidth < topicListCardBreakpoint,
               filter: state.siteUrl == null || messages
                   ? null
                   : TopicListFilterMenu(

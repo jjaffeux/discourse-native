@@ -11,6 +11,7 @@ import '../theme/d_native_icons.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';
 import 'topic_filter_input.dart';
+import 'topic_list_layout.dart';
 import 'topic_presentation.dart';
 
 /// The same list presentation controls are used in every topic source.
@@ -21,6 +22,7 @@ class TopicListActions extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final forceCard = this.forceCard || TopicListLayout.forceCardOf(context);
     final settings = ShellScope.maybeIdentityOf(context)?.appSettings;
     final presentation = TopicPresentationPreferences.maybeControllerOf(
       context,

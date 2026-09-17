@@ -529,11 +529,13 @@ class _TopicListViewState extends State<TopicListView> {
 
   @override
   Widget build(BuildContext context) {
-    return ListenableBuilder(
-      listenable: ShellScope.identityOf(context).appSettings,
-      builder: (context, _) => ShellSelector<_TopicListSnapshot>(
-        select: _topicListSnapshot,
-        builder: (context, state, _) => _build(context, state),
+    return TopicListLayout(
+      child: ListenableBuilder(
+        listenable: ShellScope.identityOf(context).appSettings,
+        builder: (context, _) => ShellSelector<_TopicListSnapshot>(
+          select: _topicListSnapshot,
+          builder: (context, state, _) => _build(context, state),
+        ),
       ),
     );
   }
@@ -551,7 +553,7 @@ class _TopicListViewState extends State<TopicListView> {
     }
     _controller = controller;
     _updateMode(
-      widget.forceCard
+      widget.forceCard || TopicListLayout.forceCardOf(context)
           ? TopicListDisplayMode.card
           : controller.appSettings.topicListMode,
     );
@@ -1311,7 +1313,10 @@ class TopicListRow extends StatelessWidget {
   final EdgeInsetsGeometry? outerPadding;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) =>
+      TopicListLayout(child: Builder(builder: _build));
+
+  Widget _build(BuildContext context) {
     final owningForum = forum;
     if (owningForum != null) {
       return _buildRow(context, owningForum.url, owningForum);
@@ -1469,15 +1474,17 @@ class _TopicRowBody extends StatelessWidget {
   );
 
   Widget _buildBody(BuildContext context) {
+    final forceCard = TopicListLayout.forceCardOf(context);
     final settings = ShellScope.maybeIdentityOf(context)?.appSettings;
     if (settings == null) {
-      return _build(context, compact ?? false);
+      return _build(context, !forceCard && (compact ?? false));
     }
     return ListenableBuilder(
       listenable: settings,
       builder: (context, _) => _build(
         context,
-        compact ?? settings.topicListMode == TopicListDisplayMode.compact,
+        !forceCard &&
+            (compact ?? settings.topicListMode == TopicListDisplayMode.compact),
       ),
     );
   }
