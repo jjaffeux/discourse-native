@@ -222,7 +222,8 @@ class _TopicListFilterMenuState extends State<TopicListFilterMenu> {
             categories: ShellScope.read(
               context,
             ).filterCategoriesFor(widget.siteUrl),
-            hintText: 'status:open\ntag:feedback',
+            hintText: 'Add a filter…',
+            tokenized: true,
             multiline: true,
             padding: EdgeInsets.zero,
             onChanged: (query) => setState(() => _query = query),
@@ -246,11 +247,12 @@ class _TopicListFilterMenuState extends State<TopicListFilterMenu> {
                 DToggle(
                   pressed: splitTopicFilterQuery(_query).contains(query),
                   variant: DToggleVariant.outline,
+                  selectedIcon: const DIcon(DIcons.check),
                   onPressedChanged: (pressed) => setState(() {
                     final clauses = splitTopicFilterQuery(_query)
                       ..removeWhere((clause) => clause == query);
                     if (pressed) clauses.add(query);
-                    _query = clauses.join('\n');
+                    _query = clauses.join(' ');
                     _presetRevision++;
                   }),
                   child: Text(label),

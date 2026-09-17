@@ -361,6 +361,22 @@ class _TopicFilterInputState extends State<TopicFilterInput> {
     super.dispose();
   }
 
+  Widget _buildTokens() => Wrap(
+    key: const ValueKey('topic-filter-token-field'),
+    spacing: 4,
+    runSpacing: 4,
+    children: [
+      for (var i = 0; i < _tokens.length; i++)
+        _TopicFilterTokenChip(
+          raw: _tokens[i],
+          index: i,
+          categories: widget.categories,
+          enabled: widget.enabled,
+          onDeleted: () => _removeToken(i),
+        ),
+    ],
+  );
+
   @override
   Widget build(BuildContext context) => Padding(
     padding: widget.padding,
@@ -421,39 +437,35 @@ class _TopicFilterInputState extends State<TopicFilterInput> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            if (widget.tokenized && _tokens.isNotEmpty)
+            if (widget.tokenized && !widget.multiline && _tokens.isNotEmpty)
               Padding(
                 padding: const EdgeInsets.only(bottom: 6),
-                child: Wrap(
-                  key: const ValueKey('topic-filter-token-field'),
-                  spacing: 4,
-                  runSpacing: 4,
-                  children: [
-                    for (var i = 0; i < _tokens.length; i++)
-                      _TopicFilterTokenChip(
-                        raw: _tokens[i],
-                        index: i,
-                        categories: widget.categories,
-                        enabled: widget.enabled,
-                        onDeleted: () => _removeToken(i),
-                      ),
-                  ],
-                ),
+                child: _buildTokens(),
               ),
             if (widget.multiline)
               DPopoverAnchor(
-                child: DTextarea(
-                  key: widget.inputKey,
-                  controller: filter.text,
-                  focusNode: _focus,
-                  semanticLabel: 'Topic filter query',
-                  hintText: widget.hintText,
-                  minLines: 3,
-                  maxLines: 6,
+                child: DInputGroup(
                   enabled: widget.enabled,
-                  autocorrect: false,
-                  enableSuggestions: false,
-                  onChanged: filter.inputChanged,
+                  children: [
+                    DInputGroupTextarea(
+                      key: widget.inputKey,
+                      controller: filter.text,
+                      focusNode: _focus,
+                      semanticLabel: 'Topic filter query',
+                      hintText: widget.hintText,
+                      minLines: _tokens.isEmpty ? 3 : 1,
+                      maxLines: 6,
+                      enabled: widget.enabled,
+                      autocorrect: false,
+                      enableSuggestions: false,
+                      onChanged: filter.inputChanged,
+                    ),
+                    if (widget.tokenized && _tokens.isNotEmpty)
+                      DInputGroupAddon(
+                        alignment: DInputGroupAddonAlignment.blockStart,
+                        child: _buildTokens(),
+                      ),
+                  ],
                 ),
               )
             else
