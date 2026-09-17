@@ -162,7 +162,16 @@ class _CompactTopicRow extends StatelessWidget {
       context,
       row.siteUrl,
       topic,
-      row.onTap,
+      ({String? property}) {
+        row.onTap();
+        if (property != null) {
+          ShellScope.maybeRead(context)?.requestTopicProperty(
+            siteUrl: row.siteUrl,
+            topicId: topic.id,
+            label: property,
+          );
+        }
+      },
     );
     final metadata = registry.topicListMetadata(
       context,

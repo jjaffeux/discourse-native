@@ -1242,7 +1242,7 @@ final class PluginRegistry
     BuildContext context,
     String siteUrl,
     Topic topic,
-    VoidCallback onOpen,
+    void Function({String? property}) onOpen,
   ) => [
     for (final plugin in plugins.whereType<CompactTopicListMetadataPlugin>())
       ..._ownedAll(

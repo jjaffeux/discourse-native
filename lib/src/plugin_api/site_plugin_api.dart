@@ -359,11 +359,12 @@ abstract interface class TopicListMetadataPlugin {
 abstract interface class CompactTopicListMetadataPlugin {
   /// Return no widgets when there is no metadata for this topic.
   /// [onOpen] uses the list's existing topic activation and scroll policy.
+  /// Supply a property section label to reveal its details after navigation.
   List<Widget> compactTopicListMetadata(
     BuildContext context,
     String siteUrl,
     Topic topic,
-    VoidCallback onOpen,
+    void Function({String? property}) onOpen,
   );
 }
 

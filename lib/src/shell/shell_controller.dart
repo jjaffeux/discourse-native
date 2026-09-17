@@ -5016,6 +5016,49 @@ class ShellController extends FrameSafeNotifier
     return _topicsLoading.contains(_topicKey(instance.url, topicId));
   }
 
+  ({
+    String siteUrl,
+    int topicId,
+    String label,
+    ContentRoute route,
+    String? tabId,
+    int revision,
+  })?
+  _pendingTopicProperty;
+  final _topicPropertyRequests = ChangeNotifier();
+  Listenable get topicPropertyRequests => _topicPropertyRequests;
+
+  /// Opens a property once its header is mounted, including after a cold load.
+  void requestTopicProperty({
+    required String siteUrl,
+    required int topicId,
+    required String label,
+  }) {
+    final route = currentContent;
+    if (currentInstance?.url != siteUrl || route?.topicId != topicId) return;
+    _pendingTopicProperty = (
+      siteUrl: siteUrl,
+      topicId: topicId,
+      label: label,
+      route: route!,
+      tabId: activeTab?.id,
+      revision: topicNavigationRevision,
+    );
+    _topicPropertyRequests.notifyListeners();
+  }
+
+  bool consumeTopicProperty(String siteUrl, int topicId, String label) {
+    final request = _pendingTopicProperty;
+    if (request == null ||
+        request.siteUrl != siteUrl ||
+        request.topicId != topicId ||
+        request.label != label) {
+      return false;
+    }
+    _pendingTopicProperty = null;
+    return true;
+  }
+
   void openTopic(Topic topic) => _openTopic(
     topic.id,
     topic.slug,
@@ -14203,7 +14246,17 @@ class ShellController extends FrameSafeNotifier
     return true;
   }
 
-  void _notify() => notifySafely();
+  void _notify() {
+    final request = _pendingTopicProperty;
+    if (request != null &&
+        (currentInstance?.url != request.siteUrl ||
+            !identical(currentContent, request.route) ||
+            activeTab?.id != request.tabId ||
+            topicNavigationRevision != request.revision)) {
+      _pendingTopicProperty = null;
+    }
+    notifySafely();
+  }
 
   @override
   void dispose() {
@@ -14228,6 +14281,7 @@ class ShellController extends FrameSafeNotifier
     if (_tabSelectionPersistencePending || _anchorPersistencePending) {
       _persistWorkspaces();
     }
+    _topicPropertyRequests.dispose();
     unawaited(_topicListRevealRequests.close());
     _topicNotificationWrites.clear();
     _closedForumTabs.clear();

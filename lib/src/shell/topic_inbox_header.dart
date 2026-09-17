@@ -844,6 +844,36 @@ class _TopicPropertyPopover extends StatefulWidget {
 
 class _TopicPropertyPopoverState extends State<_TopicPropertyPopover> {
   final _controller = DPopoverController();
+  Listenable? _propertyRequests;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final requests = ShellScope.read(context).topicPropertyRequests;
+    if (!identical(requests, _propertyRequests)) {
+      _propertyRequests?.removeListener(_openRequestedProperty);
+      _propertyRequests = requests..addListener(_openRequestedProperty);
+    }
+  }
+
+  void _openRequestedProperty() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if (!ShellScope.read(context).consumeTopicProperty(
+        widget.siteUrl,
+        widget.topicId,
+        widget.section.label,
+      )) {
+        return;
+      }
+      if (context.isTouch) {
+        _showTouch(context);
+      } else {
+        _controller.open();
+      }
+    });
+    WidgetsBinding.instance.ensureVisualUpdate();
+  }
 
   @override
   void didUpdateWidget(_TopicPropertyPopover oldWidget) {
@@ -911,8 +941,10 @@ class _TopicPropertyPopoverState extends State<_TopicPropertyPopover> {
   Widget build(BuildContext context) {
     if (context.isTouch) {
       return Builder(
-        builder: (anchorContext) =>
-            _trigger(anchorContext, () => _showTouch(anchorContext)),
+        builder: (anchorContext) {
+          _openRequestedProperty();
+          return _trigger(anchorContext, () => _showTouch(anchorContext));
+        },
       );
     }
     return DPopover(
@@ -932,18 +964,23 @@ class _TopicPropertyPopoverState extends State<_TopicPropertyPopover> {
         ),
       ),
       child: DPopoverTrigger(
-        builder: (context, trigger) => _trigger(
-          context,
-          trigger.toggle,
-          focusNode: trigger.focusNode,
-          expanded: trigger.open,
-        ),
+        builder: (context, trigger) {
+          // Queue after DPopover has scheduled its initial state sync.
+          _openRequestedProperty();
+          return _trigger(
+            context,
+            trigger.toggle,
+            focusNode: trigger.focusNode,
+            expanded: trigger.open,
+          );
+        },
       ),
     );
   }
 
   @override
   void dispose() {
+    _propertyRequests?.removeListener(_openRequestedProperty);
     _controller.dispose();
     super.dispose();
   }
