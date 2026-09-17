@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:ui' show PointerDeviceKind;
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/data/discourse_api.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/post.dart';
@@ -19,7 +20,6 @@ import 'package:discourse_native/src/shell/hover_panel.dart';
 import 'package:discourse_native/src/shell/post_likes.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/site_emoji_image.dart';
-import 'package:discourse_native/src/theme/d_icon.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -36,7 +36,8 @@ void main() {
 }
 
 void _registerReactionAndLikeTests() {
-  Finder menuAction(String label) => find.widgetWithText(MenuItemButton, label);
+  Finder menuAction(String label) =>
+      find.widgetWithText(DDropdownMenuItem, label);
 
   Future<void> openPostMenu(WidgetTester tester) async {
     await tester.tap(find.bySemanticsLabel('More actions for post 1'));
@@ -533,9 +534,20 @@ void _registerReactionAndLikeTests() {
         beforeSettle: beforeSettle == null
             ? null
             : () async {
-                await tester.pump();
-                await tester.tap(find.text('A real topic'));
-                await tester.pump();
+                // The topic list now waits for site configuration. Open the
+                // known fixture topic directly while this test holds it back.
+                tester
+                    .widget<ShellScope>(find.byType(ShellScope))
+                    .notifier!
+                    .openTopic(listed.single);
+                for (
+                  var frame = 0;
+                  frame < 20 &&
+                      find.byType(PostReactionButton).evaluate().isEmpty;
+                  frame++
+                ) {
+                  await tester.pump(const Duration(milliseconds: 16));
+                }
                 await beforeSettle();
               },
       );
@@ -1168,7 +1180,7 @@ void _registerReactionAndLikeTests() {
       expect(pill('2'), findsOneWidget);
       expect(
         tester.getSemantics(find.bySemanticsLabel('2 clap reactions')),
-        isSemantics(isSelected: true),
+        isSemantics(hasToggledState: true, isToggled: true),
       );
     });
 
@@ -1414,7 +1426,7 @@ void _registerReactionAndLikeTests() {
       await openPostMenu(tester);
 
       expect(
-        tester.widget<MenuItemButton>(menuAction('React')).onPressed,
+        tester.widget<DDropdownMenuItem>(menuAction('React')).onPressed,
         isNull,
       );
       expect(api.reacted, [(postId: 1, reaction: 'heart')]);

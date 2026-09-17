@@ -66,12 +66,15 @@ class DToggle extends StatefulWidget {
     this.pressed,
     this.initialPressed = false,
     this.onPressedChanged,
+    this.onLongPress,
     this.enabled = true,
+    this.readOnly = false,
     this.invalid = false,
     this.variant = DToggleVariant.standard,
     this.size = DToggleSize.regular,
     this.semanticLabel,
     this.semanticHint,
+    this.semanticLongPressHint,
     this.focusNode,
     this.autofocus = false,
     this.onFocusChanged,
@@ -86,11 +89,14 @@ class DToggle extends StatefulWidget {
     this.pressed,
     this.initialPressed = false,
     this.onPressedChanged,
+    this.onLongPress,
     this.enabled = true,
+    this.readOnly = false,
     this.invalid = false,
     this.variant = DToggleVariant.standard,
     this.size = DToggleSize.regular,
     this.semanticHint,
+    this.semanticLongPressHint,
     this.focusNode,
     this.autofocus = false,
     this.onFocusChanged,
@@ -110,12 +116,21 @@ class DToggle extends StatefulWidget {
   final bool? pressed;
   final bool initialPressed;
   final ValueChanged<bool>? onPressedChanged;
+
+  /// A secondary action that does not change the pressed value.
+  /// Disabled controls suppress both pointer and semantic long presses.
+  final VoidCallback? onLongPress;
   final bool enabled;
+
+  /// Keeps the value and focus available while suppressing toggle actions.
+  /// Unlike a disabled control, a read-only toggle can still [onLongPress].
+  final bool readOnly;
   final bool invalid;
   final DToggleVariant variant;
   final DToggleSize size;
   final String? semanticLabel;
   final String? semanticHint;
+  final String? semanticLongPressHint;
 
   /// Borrowed from the caller and never disposed by this widget.
   final FocusNode? focusNode;
@@ -160,15 +175,18 @@ class _DToggleState extends State<DToggle> {
   bool _focusVisible = false;
   bool _hovered = false;
   bool _pointerPressed = false;
-  final FocusNode _ownedFocus = FocusNode(debugLabel: 'Toggle');
+  FocusNode? _ownedFocus;
 
-  FocusNode get _focus => widget.focusNode ?? _ownedFocus;
+  FocusNode get _focus =>
+      widget.focusNode ?? (_ownedFocus ??= FocusNode(debugLabel: 'Toggle'));
   bool get _current => widget.pressed ?? _pressed;
   bool get _enabled => widget.enabled;
+  bool get _canToggle => _enabled && !widget.readOnly;
 
   @override
   void didUpdateWidget(DToggle oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (!_canToggle) _pointerPressed = false;
     if (oldWidget.pressed case final previous? when widget.pressed == null) {
       _pressed = previous;
     }
@@ -176,12 +194,12 @@ class _DToggleState extends State<DToggle> {
 
   @override
   void dispose() {
-    _ownedFocus.dispose();
+    _ownedFocus?.dispose();
     super.dispose();
   }
 
   void _toggle() {
-    if (!_enabled) return;
+    if (!_canToggle) return;
     final next = !_current;
     if (widget.pressed == null) setState(() => _pressed = next);
     widget.onPressedChanged?.call(next);
@@ -209,7 +227,8 @@ class _DToggleState extends State<DToggle> {
       TargetPlatform.fuchsia => true,
       _ => false,
     };
-    final activeSurface = _current || _hovered || _pointerPressed;
+    final activeSurface =
+        _current || (_enabled && (_hovered || _pointerPressed));
     final borderColor = widget.invalid
         ? tokens.destructive.withValues(
             alpha: tokens.destructive.a * (dark ? .5 : 1),
@@ -312,15 +331,11 @@ class _DToggleState extends State<DToggle> {
               iconPosition: widget.iconPosition,
             )),
       decoration: BoxDecoration(
-        color:
-            widget.variant == DToggleVariant.outline && tokens.controls != null
-            ? DControlStyle.outlineFill(
-                tokens,
-                dark: dark,
-                hovered: activeSurface,
-              )
-            : activeSurface
+        color: activeSurface
             ? tokens.muted
+            : widget.variant == DToggleVariant.outline &&
+                  tokens.controls != null
+            ? DControlStyle.outlineFill(tokens, dark: dark)
             : Colors.transparent,
         borderRadius: radius,
         border: border,
@@ -353,49 +368,61 @@ class _DToggleState extends State<DToggle> {
         enabled: _enabled,
         label: widget.semanticLabel,
         hint: widget.semanticHint,
+        onLongPressHint: _enabled && widget.onLongPress != null
+            ? widget.semanticLongPressHint
+            : null,
+        onLongPress: _enabled ? widget.onLongPress : null,
         validationResult: widget.invalid
             ? SemanticsValidationResult.invalid
             : SemanticsValidationResult.none,
-        onTap: _enabled ? _toggle : null,
-        child: FocusableActionDetector(
-          enabled: _enabled,
-          focusNode: _focus,
-          autofocus: widget.autofocus,
-          mouseCursor: _enabled
-              ? SystemMouseCursors.click
-              : SystemMouseCursors.forbidden,
-          onShowHoverHighlight: (value) {
-            if (_hovered != value) setState(() => _hovered = value);
+        onTap: _canToggle ? _toggle : null,
+        child: MouseRegion(
+          onEnter: (_) {
+            if (!_hovered) setState(() => _hovered = true);
           },
-          onShowFocusHighlight: (value) {
-            if (_focusVisible != value) setState(() => _focusVisible = value);
+          onExit: (_) {
+            if (_hovered) setState(() => _hovered = false);
           },
-          onFocusChange: widget.onFocusChanged,
-          shortcuts: const {
-            SingleActivator(LogicalKeyboardKey.space): ActivateIntent(),
-            SingleActivator(LogicalKeyboardKey.enter): ActivateIntent(),
-          },
-          actions: {
-            ActivateIntent: CallbackAction<ActivateIntent>(
-              onInvoke: (_) {
-                _toggle();
-                return null;
-              },
+          child: FocusableActionDetector(
+            enabled: _enabled,
+            focusNode: _focus,
+            autofocus: widget.autofocus,
+            mouseCursor: !_enabled
+                ? SystemMouseCursors.forbidden
+                : widget.readOnly
+                ? SystemMouseCursors.basic
+                : SystemMouseCursors.click,
+            onShowFocusHighlight: (value) {
+              if (_focusVisible != value) setState(() => _focusVisible = value);
+            },
+            onFocusChange: widget.onFocusChanged,
+            shortcuts: const {
+              SingleActivator(LogicalKeyboardKey.space): ActivateIntent(),
+              SingleActivator(LogicalKeyboardKey.enter): ActivateIntent(),
+            },
+            actions: {
+              ActivateIntent: CallbackAction<ActivateIntent>(
+                onInvoke: (_) {
+                  _toggle();
+                  return null;
+                },
+              ),
+            },
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              excludeFromSemantics: true,
+              onLongPress: _enabled ? widget.onLongPress : null,
+              onTapDown: _canToggle ? (_) => _setPointerPressed(true) : null,
+              onTapUp: _canToggle ? (_) => _setPointerPressed(false) : null,
+              onTapCancel: _canToggle ? () => _setPointerPressed(false) : null,
+              onTap: _canToggle
+                  ? () {
+                      _focus.requestFocus();
+                      _toggle();
+                    }
+                  : null,
+              child: Opacity(opacity: _enabled ? 1 : .5, child: target),
             ),
-          },
-          child: GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            excludeFromSemantics: true,
-            onTapDown: _enabled ? (_) => _setPointerPressed(true) : null,
-            onTapUp: _enabled ? (_) => _setPointerPressed(false) : null,
-            onTapCancel: _enabled ? () => _setPointerPressed(false) : null,
-            onTap: _enabled
-                ? () {
-                    _focus.requestFocus();
-                    _toggle();
-                  }
-                : null,
-            child: Opacity(opacity: _enabled ? 1 : .5, child: target),
           ),
         ),
       ),

@@ -1,0 +1,18 @@
+--- a/lib/src/plugins/chat/chat_channel_view.dart
++++ b/lib/src/plugins/chat/chat_channel_view.dart
+@@ -1,5 +1,6 @@
+ import 'dart:async';
+ import 'dart:developer' as developer;
++import 'dart:io' as io;
+
+ import 'package:discourse_native/discourse_ui.dart';
+ import 'package:flutter/material.dart';
+@@ -2509,7 +2510,7 @@
+
+ class _RetainedChatMessageState extends State<_RetainedChatMessage>
+     with AutomaticKeepAliveClientMixin {
+-  bool _retained = true;
++  bool _retained = io.Platform.environment['SCROLL_RETAIN'] != 'false';
+   // Cached sliver children remain mounted but may rebuild without layout.
+   // They must stay out of keyboard traversal until visible and laid out.
+   final _focus = FocusNode(

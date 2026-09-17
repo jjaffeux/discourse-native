@@ -3,6 +3,7 @@ import 'dart:developer' as developer;
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import 'package:super_sliver_list/super_sliver_list.dart';
 
@@ -658,6 +659,7 @@ class _StreamState extends State<ChatMessageStream>
   static const EdgeInsets _streamPadding = EdgeInsets.symmetric(vertical: 8);
 
   final ListController _list = ListController();
+  final _recentMessages = _RecentChatMessages();
 
   final ScrollController _scroll = ScrollController();
   final DMessageScrollerController _messageScroller =
@@ -704,6 +706,7 @@ class _StreamState extends State<ChatMessageStream>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _list.addListener(_noteExtentsChanged);
+    _scroll.addListener(_noteScrollPosition);
     _acceptHighlightRequest();
     _scheduleLook();
   }
@@ -851,6 +854,7 @@ class _StreamState extends State<ChatMessageStream>
       if (!mounted) return;
       final recheckVisibleRead = _recheckVisibleRead;
       _recheckVisibleRead = false;
+      _recentMessages.syncVisible(_list.isAttached ? _list.visibleRange : null);
       if (_anchorIfFresh()) return;
       final started = _recording ? developer.Timeline.now : null;
       _syncFloatingDay();
@@ -865,6 +869,10 @@ class _StreamState extends State<ChatMessageStream>
   }
 
   bool _lookScheduled = false;
+
+  void _noteScrollPosition() {
+    _recentMessages.noteScroll(_scroll.position);
+  }
 
   void _fillTowardsPresent() {
     final stream = widget.stream;
@@ -1448,46 +1456,52 @@ class _StreamState extends State<ChatMessageStream>
                 }
 
                 final child = switch (_itemAt(row)) {
-                  ChatStreamMessage(:final id, :final chained) => ConstrainedBox(
-                    // Reserve hover overflow only when the live-edge row is short.
-                    constraints: BoxConstraints(
-                      minHeight: row == 0
-                          ? ChatMessageTile.hoverActionsHeight(context)
-                          : 0,
-                    ),
-                    child: _HighlightedChatMessage(
-                      highlighted: id == _highlightMessageId,
-                      child: ChatMessageTile(
-                        siteUrl: siteUrl,
-                        messageId: id,
-                        chained: chained,
-                        endsGroup: _endsSenderGroup(context, row, id),
-                        followsReactions: switch (_itemAt(row + 1)) {
-                          ChatStreamMessage(:final id) =>
-                            _chat!
-                                    .messageRef(siteUrl, id)
-                                    .value
-                                    ?.reactions
-                                    .isNotEmpty ==
-                                true,
-                          _ => false,
-                        },
-                        contextThreadId: widget.target.threadId,
-                        onOpenThread: widget.onOpenThread,
-                        onJumpToMessage: widget.onJumpToMessage,
-                        onReply: widget.onReply,
-                        onEdit: widget.onEdit,
-                        showThreadSummary: widget.showThreadSummaries,
-                        onSelect: id > 0 && widget.onStartSelecting != null
-                            ? () => widget.onStartSelecting!(id)
-                            : null,
-                        selecting: widget.selectingMessages,
-                        selected: widget.selectedMessageIds.contains(id),
-                        onSelectedChanged: (selected) =>
-                            widget.onSelectionChanged?.call(id, selected),
+                  ChatStreamMessage(:final id, :final chained) =>
+                    _RetainedChatMessage(
+                      key: ValueKey((siteUrl, widget.target, id)),
+                      recent: _recentMessages,
+                      index: row,
+                      child: ConstrainedBox(
+                        // Reserve hover overflow only when the live-edge row is short.
+                        constraints: BoxConstraints(
+                          minHeight: row == 0
+                              ? ChatMessageTile.hoverActionsHeight(context)
+                              : 0,
+                        ),
+                        child: _HighlightedChatMessage(
+                          highlighted: id == _highlightMessageId,
+                          child: ChatMessageTile(
+                            siteUrl: siteUrl,
+                            messageId: id,
+                            chained: chained,
+                            endsGroup: _endsSenderGroup(context, row, id),
+                            followsReactions: switch (_itemAt(row + 1)) {
+                              ChatStreamMessage(:final id) =>
+                                _chat!
+                                        .messageRef(siteUrl, id)
+                                        .value
+                                        ?.reactions
+                                        .isNotEmpty ==
+                                    true,
+                              _ => false,
+                            },
+                            contextThreadId: widget.target.threadId,
+                            onOpenThread: widget.onOpenThread,
+                            onJumpToMessage: widget.onJumpToMessage,
+                            onReply: widget.onReply,
+                            onEdit: widget.onEdit,
+                            showThreadSummary: widget.showThreadSummaries,
+                            onSelect: id > 0 && widget.onStartSelecting != null
+                                ? () => widget.onStartSelecting!(id)
+                                : null,
+                            selecting: widget.selectingMessages,
+                            selected: widget.selectedMessageIds.contains(id),
+                            onSelectedChanged: (selected) =>
+                                widget.onSelectionChanged?.call(id, selected),
+                          ),
+                        ),
                       ),
                     ),
-                  ),
                   ChatStreamDay(:final day) => ValueListenableBuilder(
                     valueListenable: _floatingDayState,
                     builder: (context, floating, child) => IgnorePointer(
@@ -2425,4 +2439,130 @@ class _Message extends StatelessWidget {
       ),
     ),
   );
+}
+
+// Keep recently mounted rows available for direction reversals without retaining
+// the full history. The sliver still builds no offscreen rows in advance.
+class _RecentChatMessages {
+  static const capacity = 24;
+  final _rows = <_RetainedChatMessageState>{};
+  final _mountedRows = <_RetainedChatMessageState>{};
+  double? _lastPixels;
+
+  void add(_RetainedChatMessageState row) {
+    _mountedRows.add(row);
+    _rows.add(row);
+    if (_rows.length > capacity) {
+      final oldest = _rows.first;
+      _rows.remove(oldest);
+      // Mounting a new sliver child can happen during layout. Release the old
+      // keep-alive after that frame, outside the sliver's layout/build lock.
+      WidgetsBinding.instance.addPostFrameCallback((_) => oldest.release());
+    }
+  }
+
+  void noteScroll(ScrollMetrics metrics) {
+    final jumped =
+        _lastPixels != null &&
+        (metrics.pixels - _lastPixels!).abs() > metrics.viewportDimension;
+    _lastPixels = metrics.pixels;
+    if (jumped) {
+      // Release the old window before mounting the destination where possible.
+      // Otherwise its rich trees increase GC work throughout rapid traversal.
+      final previous = _rows.toList();
+      _rows.clear();
+      for (final row in previous) {
+        row.release();
+      }
+    }
+  }
+
+  void syncVisible((int, int)? range) {
+    for (final row in _mountedRows) {
+      final visible =
+          range != null &&
+          row.widget.index >= range.$1 &&
+          row.widget.index <= range.$2;
+      row.setVisible(visible);
+    }
+  }
+
+  void remove(_RetainedChatMessageState row) {
+    _rows.remove(row);
+    _mountedRows.remove(row);
+  }
+}
+
+class _RetainedChatMessage extends StatefulWidget {
+  const _RetainedChatMessage({
+    super.key,
+    required this.recent,
+    required this.index,
+    required this.child,
+  });
+  final _RecentChatMessages recent;
+  final int index;
+  final Widget child;
+  @override
+  State<_RetainedChatMessage> createState() => _RetainedChatMessageState();
+}
+
+class _RetainedChatMessageState extends State<_RetainedChatMessage>
+    with AutomaticKeepAliveClientMixin {
+  bool _retained = true;
+  // Cached sliver children remain mounted but may rebuild without layout.
+  // They must stay out of keyboard traversal until visible and laid out.
+  final _focus = FocusNode(
+    skipTraversal: true,
+    canRequestFocus: false,
+    descendantsAreFocusable: false,
+  );
+  @override
+  bool get wantKeepAlive => _retained;
+
+  @override
+  void initState() {
+    super.initState();
+    widget.recent.add(this);
+  }
+
+  void setVisible(bool visible) {
+    _focus.descendantsAreFocusable = visible;
+  }
+
+  void release() {
+    // Newly mounted rows finish applying their initial keep-alive in a
+    // post-frame callback. Let those callbacks finish before releasing one.
+    void releaseNow() {
+      if (!mounted || !_retained) return;
+      _retained = false;
+      updateKeepAlive();
+    }
+
+    final binding = WidgetsBinding.instance;
+    if (binding.schedulerPhase == SchedulerPhase.persistentCallbacks) {
+      binding.addPostFrameCallback((_) => scheduleMicrotask(releaseNow));
+    } else if (binding.schedulerPhase == SchedulerPhase.postFrameCallbacks) {
+      scheduleMicrotask(releaseNow);
+    } else {
+      releaseNow();
+    }
+  }
+
+  @override
+  void dispose() {
+    widget.recent.remove(this);
+    _focus.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+    return Focus.withExternalFocusNode(
+      focusNode: _focus,
+      includeSemantics: false,
+      child: widget.child,
+    );
+  }
 }

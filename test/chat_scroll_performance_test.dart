@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:ui' show PointerDeviceKind;
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/data/media_pipeline.dart';
@@ -6,8 +7,10 @@ import 'package:discourse_native/src/diagnostics/diagnostics.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel_view.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message_tile.dart';
+import 'package:discourse_native/src/plugins/chat/chat_services.dart';
 import 'package:discourse_native/src/shell/oneboxes/onebox.dart';
 import 'package:discourse_native/src/shell/quote.dart';
+import 'package:discourse_native/src/shell/reaction_presentation.dart';
 import 'package:discourse_native/src/shell/site_image.dart';
 import 'package:discourse_native/src/shell/stream_day_separator.dart';
 import 'package:flutter/material.dart';
@@ -18,6 +21,120 @@ import 'support/chat_shell.dart';
 import 'support/topic_scroll_capture.dart';
 
 void main() {
+  testWidgets(
+    'recent rich rows survive reversals with bounded retention and live data',
+    (tester) async {
+      tester.view.physicalSize = const Size(900, 700);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      MediaPipeline.replace(chatScrollMediaPipeline());
+      addTearDown(() => MediaPipeline.replace(MediaPipeline()));
+      final controller = await chatScrollController(rich: true);
+      addTearDown(controller.dispose);
+      final diagnostics = DiagnosticsController.start(
+        persistence: MemoryDiagnosticsPersistence(),
+      );
+      addTearDown(diagnostics.close);
+      await tester.pumpWidget(
+        ChatScrollFixture(
+          controller: controller,
+          diagnostics: diagnostics,
+          width: 800,
+        ),
+      );
+      await tester.pumpAndSettle();
+      final scrollable = find.descendant(
+        of: find.byType(ChatMessageStream),
+        matching: find.byWidgetPredicate(
+          (widget) =>
+              widget is Scrollable &&
+              axisDirectionToAxis(widget.axisDirection) == Axis.vertical,
+        ),
+      );
+      final position = tester.state<ScrollableState>(scrollable).position;
+      final tiles = find.byType(ChatMessageTile, skipOffstage: false);
+      final pill = find.byType(ReactionPill).hitTestable().last;
+      final hoveredElement = tester.element(pill);
+      final preview = tester
+          .widget<DHoverCard>(
+            find.descendant(of: pill, matching: find.byType(DHoverCard)),
+          )
+          .controller!;
+      final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      await mouse.addPointer(location: Offset.zero);
+      await mouse.moveTo(tester.getCenter(pill));
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.pumpAndSettle();
+      expect(preview.isOpen, isTrue);
+      for (var step = 0; step < 4; step++) {
+        position.pointerScroll(350);
+        await tester.pump();
+      }
+      await tester.pump(const Duration(milliseconds: 700));
+      await tester.pumpAndSettle();
+      expect(hoveredElement.mounted, isTrue);
+      expect(
+        preview.isOpen,
+        isFalse,
+        reason: 'retaining a row must not strand its hover preview',
+      );
+      await mouse.removePointer();
+      position.jumpTo(0);
+      await tester.pumpAndSettle();
+      final initial = tiles.evaluate().toSet();
+      for (var step = 0; step < 200; step++) {
+        position.pointerScroll(120);
+        await tester.pump(const Duration(milliseconds: 16));
+      }
+      await tester.pumpAndSettle();
+      final held = tiles.evaluate().toSet();
+      expect(held.length, inInclusiveRange(20, 24));
+      expect(
+        held.intersection(initial),
+        isEmpty,
+        reason: 'old rows must be evicted',
+      );
+      for (var step = 0; step < 60; step++) {
+        position.pointerScroll(-40);
+        await tester.pump(const Duration(milliseconds: 16));
+      }
+      await tester.pumpAndSettle();
+      expect(
+        tiles.evaluate().toSet(),
+        held,
+        reason: 'a local reversal reuses the actual elements',
+      );
+
+      final tile = tester.widgetList<ChatMessageTile>(tiles).first;
+      final chat = controller.pluginSession.require(chatControllerService);
+      final message = chat.messageRef(chatScrollSite, tile.messageId).value!;
+      controller.chatRecords.put(
+        chatScrollSite,
+        message.withReactions(const [ChatReaction(emoji: 'heart', count: 101)]),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        find.byWidgetPredicate(
+          (widget) => widget is ReactionPill && widget.count == 101,
+          skipOffstage: false,
+        ),
+        findsOneWidget,
+      );
+      position.pointerScroll(12000);
+      await tester.pumpAndSettle();
+      expect(
+        tiles.evaluate().toSet().intersection(held),
+        isEmpty,
+        reason: 'long jumps discard the previous retention window',
+      );
+      expect(tiles.evaluate().length, lessThanOrEqualTo(4));
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump();
+      expect(tester.takeException(), isNull);
+      await diagnostics.close();
+    },
+  );
+
   final richLayouts = ValueVariant({
     (width: 800.0, dark: false, directMessage: false),
     (width: 360.0, dark: true, directMessage: false),

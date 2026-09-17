@@ -9,7 +9,6 @@ import 'package:discourse_native/src/shell/reaction_presentation.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
-import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -73,9 +72,7 @@ void main() {
       );
 
       final reaction = find.bySemanticsLabel('2 clap reactions');
-      InkWell control() => tester.widget<InkWell>(
-        find.descendant(of: reaction, matching: find.byType(InkWell)),
-      );
+      DToggle control() => tester.widget<DToggle>(find.byType(DToggle));
       expect(
         tester.getSemantics(reaction),
         isSemantics(
@@ -86,7 +83,7 @@ void main() {
           hasTapAction: true,
         ),
       );
-      expect(control().mouseCursor, SystemMouseCursors.click);
+      expect(control().enabled, isTrue);
 
       await tester.tap(reaction);
       await tester.pump();
@@ -102,88 +99,72 @@ void main() {
           hasTapAction: false,
         ),
       );
-      expect(control().mouseCursor, SystemMouseCursors.basic);
+      expect(control().enabled, isFalse);
 
       await tester.tap(reaction);
       await tester.pump();
       expect(toggles, 1);
 
       write.complete(null);
-      await tester.pump();
+      await tester.pumpAndSettle();
       expect(
         tester.getSemantics(reaction),
         isSemantics(isEnabled: true, hasTapAction: true),
       );
-      expect(control().mouseCursor, SystemMouseCursors.click);
+      expect(control().enabled, isTrue);
     } finally {
       semantics.dispose();
     }
   });
 
-  testWidgets('reaction picker keeps its full target around compact feedback', (
-    tester,
-  ) async {
-    final opening = Completer<void>();
-    addTearDown(() {
-      if (!opening.isCompleted) opening.complete();
-    });
-    var opens = 0;
-    await tester.pumpWidget(
-      MaterialApp(
-        theme: AppTheme.light.copyWith(platform: TargetPlatform.macOS),
-        home: Scaffold(
-          body: Center(
-            child: ReactionPickerButton(
-              onOpenPicker: (_) {
-                opens++;
-                return opening.future;
-              },
+  for (final platform in [TargetPlatform.macOS, TargetPlatform.android]) {
+    testWidgets(
+      'reaction picker uses Native targets and awaits opening ($platform)',
+      (tester) async {
+        final opening = Completer<void>();
+        addTearDown(() {
+          if (!opening.isCompleted) opening.complete();
+        });
+        var opens = 0;
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: AppTheme.light.copyWith(platform: platform),
+            home: Scaffold(
+              body: Center(
+                child: ReactionPickerButton(
+                  onOpenPicker: (_) {
+                    opens++;
+                    return opening.future;
+                  },
+                ),
+              ),
             ),
           ),
-        ),
-      ),
+        );
+        final target = find.byKey(const ValueKey('reaction-picker-surface'));
+        DButton control() => tester.widget<DButton>(target);
+        final bounds = tester.getRect(target);
+        expect(
+          bounds.size,
+          Size.square(platform == TargetPlatform.android ? 48 : 28),
+        );
+        expect(control().size, DButtonSize.regular);
+        expect(control().onPressed, isNotNull);
+        final edge = Offset(bounds.left + 1, bounds.center.dy);
+        await tester.tapAt(edge);
+        await tester.pumpAndSettle();
+        expect(opens, 1);
+        expect(control().onPressed, isNull);
+        await tester.tapAt(edge);
+        await tester.pump();
+        expect(opens, 1);
+        opening.complete();
+        await tester.pumpAndSettle();
+        expect(control().onPressed, isNotNull);
+        expect(tester.takeException(), isNull);
+      },
     );
-
-    final target = find.bySemanticsLabel('Add reaction');
-    InkWell control() => tester.widget<InkWell>(
-      find.descendant(of: target, matching: find.byType(InkWell)),
-    );
-    final surface = find.byKey(const ValueKey('reaction-picker-surface'));
-    Color? background() =>
-        (tester.widget<Container>(surface).decoration! as BoxDecoration).color;
-    final targetBounds = tester.getRect(target);
-    final surfaceBounds = tester.getRect(surface);
-    expect(targetBounds.size, const Size.square(44));
-    expect(surfaceBounds.size, const Size.square(32));
-    expect(surfaceBounds.center, targetBounds.center);
-    expect(control().mouseCursor, SystemMouseCursors.click);
-    expect(background(), Colors.transparent);
-
-    final edge = Offset(targetBounds.left + 1, targetBounds.center.dy);
-    expect(surfaceBounds.contains(edge), isFalse);
-    final pointer = await tester.createGesture(kind: PointerDeviceKind.mouse);
-    await pointer.addPointer(location: Offset.zero);
-    addTearDown(pointer.removePointer);
-    await pointer.moveTo(edge);
-    await tester.pumpAndSettle();
-    expect(background(), Theme.of(tester.element(target)).shell.hover);
-    await pointer.moveTo(Offset.zero);
-    await tester.pumpAndSettle();
-    expect(background(), Colors.transparent);
-
-    await tester.tapAt(edge);
-    await tester.pumpAndSettle();
-    expect(opens, 1);
-    expect(control().mouseCursor, SystemMouseCursors.basic);
-    expect(background(), Colors.transparent);
-    await tester.tapAt(edge);
-    await tester.pump();
-    expect(opens, 1);
-    opening.complete();
-    await tester.pumpAndSettle();
-    expect(control().mouseCursor, SystemMouseCursors.click);
-    expect(tester.takeException(), isNull);
-  });
+  }
 
   testWidgets('reactor failure is announced and keyboard retryable', (
     tester,
@@ -244,8 +225,8 @@ void main() {
       );
 
       final retry = find.byKey(const ValueKey('reactor-list-retry'));
-      expect(tester.getSize(retry).width, greaterThanOrEqualTo(44));
-      expect(tester.getSize(retry).height, greaterThanOrEqualTo(44));
+      expect(tester.getSize(retry).width, greaterThanOrEqualTo(28));
+      expect(tester.getSize(retry).height, greaterThanOrEqualTo(28));
       expect(
         tester.getSemantics(retry),
         isSemantics(

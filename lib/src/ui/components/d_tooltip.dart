@@ -326,12 +326,21 @@ class DTooltipState extends State<DTooltip>
     with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   final _portal = OverlayPortalController();
   final _surfaceKey = GlobalKey();
-  late final _animation = AnimationController(
-    vsync: this,
-    duration: widget.animationStyle.duration,
-    reverseDuration: widget.animationStyle.reverseDuration,
-  )..addStatusListener(_animationStatus);
-  late final _curve = CurvedAnimation(parent: _animation, curve: Curves.ease);
+  // Most scrolling-row previews never open. Disposing them must not create
+  // the animation and ticker that lazy getters would otherwise allocate.
+  AnimationController? _allocatedAnimation;
+  CurvedAnimation? _allocatedCurve;
+
+  AnimationController get _animation =>
+      _allocatedAnimation ??= (AnimationController(
+        vsync: this,
+        duration: widget.animationStyle.duration,
+        reverseDuration: widget.animationStyle.reverseDuration,
+      )..addStatusListener(_animationStatus));
+  CurvedAnimation get _curve => _allocatedCurve ??= CurvedAnimation(
+    parent: _animation,
+    curve: Curves.ease,
+  );
   _DTooltipProviderState? _group;
   Timer? _showTimer;
   Timer? _hideTimer;
@@ -440,7 +449,8 @@ class DTooltipState extends State<DTooltip>
       if (_open && controller != null && controller._active != this) {
         controller._changed(this);
       }
-      if (MediaQuery.disableAnimationsOf(context) && _animation.isAnimating) {
+      if (MediaQuery.disableAnimationsOf(context) &&
+          (_allocatedAnimation?.isAnimating ?? false)) {
         _animation.value = _open ? 1 : 0;
       }
     });
@@ -475,7 +485,7 @@ class DTooltipState extends State<DTooltip>
     if (!mounted || (value && (!_available || _suspended))) return;
     if (value == _open) {
       if (!value && immediate) {
-        _animation.value = 0;
+        _allocatedAnimation?.value = 0;
         _portal.hide();
       }
       return;
@@ -915,8 +925,8 @@ class DTooltipState extends State<DTooltip>
     _tapPointer = null;
     _syncGlobalListeners();
     WidgetsBinding.instance.removeObserver(this);
-    _curve.dispose();
-    _animation.dispose();
+    _allocatedCurve?.dispose();
+    _allocatedAnimation?.dispose();
     super.dispose();
   }
 }

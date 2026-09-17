@@ -6,9 +6,11 @@ import 'dart:io';
 import 'package:discourse_native/src/data/media_pipeline.dart';
 import 'package:discourse_native/src/diagnostics/diagnostics.dart';
 import 'package:discourse_native/src/macos_launch_screen.dart';
+import 'package:discourse_native/src/plugins/chat/chat_message_tile.dart';
 import 'package:flutter/widgets.dart';
 
 import '../test/support/chat_scroll_fixture.dart';
+import 'chat_scroll_trace.dart';
 
 Future<void> main() async {
   final binding = WidgetsFlutterBinding.ensureInitialized();
@@ -77,11 +79,23 @@ Future<void> main() async {
     'SCROLL_LABEL',
     const String.fromEnvironment('SCROLL_LABEL', defaultValue: 'capture'),
   );
+  final fastSteps = int.parse(
+    _option('SCROLL_FAST_STEPS', rich ? '100' : '12'),
+  );
+  final local = _option('SCROLL_LOCAL', 'false') == 'true';
   for (final (name, delta, steps) in [
     ('steady', rich ? 40.0 : 10.0, 360),
-    ('fast', 1200.0, rich ? 100 : 12),
-    ('return', -1200.0, rich ? 100 : 12),
+    if (local) ...[
+      ('revisit', -40.0, 180),
+      ('reread', 40.0, 180),
+    ] else ...[
+      ('fast', 1200.0, fastSteps),
+      ('return', -1200.0, fastSteps),
+    ],
   ]) {
+    final trace = _option('SCROLL_TRACE_PHASE', '') == name
+        ? await ChatScrollTrace.start()
+        : null;
     capture.start(
       displayRefreshRate:
           binding.platformDispatcher.views.first.display.refreshRate,
@@ -100,12 +114,21 @@ Future<void> main() async {
       await binding.endOfFrame;
     }
     await Future<void>.delayed(const Duration(seconds: 1));
+    var mountedMessages = 0;
+    void countMessages(Element element) {
+      if (element.widget is ChatMessageTile) mountedMessages++;
+      element.visitChildren(countMessages);
+    }
+
+    binding.rootElement!.visitChildren(countMessages);
     capture.recordTopicEvent('chat.fixture.finished', {
+      'mountedMessages': mountedMessages,
       'endPixels': position.pixels,
       'imageCacheBytes': PaintingBinding.instance.imageCache.currentSizeBytes,
       'pendingImages': PaintingBinding.instance.imageCache.pendingImageCount,
     });
     capture.stop();
+    await trace?.finish('$label-$name');
     final file = File(
       '${Directory.systemTemp.path}/chat-scroll-$label-$name.json',
     );
