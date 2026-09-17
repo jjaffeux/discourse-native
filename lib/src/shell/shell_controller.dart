@@ -13383,6 +13383,24 @@ class ShellController extends FrameSafeNotifier
     await loadFeed(route.id);
   }
 
+  Future<void> sortTopicList(String column) async {
+    final source = topicListContent;
+    if (currentInstance == null ||
+        source?.canSortTopicList != true ||
+        !ContentRoute.topicListSortColumns.contains(column)) {
+      return;
+    }
+    final same = source!.topicListOrder == column;
+    final route = source.withTopicListSort(
+      same && source.topicListAscending ? null : column,
+      ascending: same && !source.topicListAscending,
+    );
+    _replaceTopicListContent(route, keepTopicOpen: true);
+    _syncTopicChannels();
+    _notify();
+    await loadFeed(route.id);
+  }
+
   void searchTopicList(String query, {bool keepTopicOpen = false}) {
     final source = topicListContent;
     if (source?.isTopicListFilter != true || currentInstance == null) return;
