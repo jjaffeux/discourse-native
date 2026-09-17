@@ -43,6 +43,29 @@ class DPullToRefresh extends StatefulWidget {
 class _DPullToRefreshState extends State<DPullToRefresh> {
   final _indicator = GlobalKey<RefreshIndicatorState>();
   RefreshIndicatorStatus? _status;
+  double _pullDistance = 0;
+
+  bool _acceptScrollNotification(ScrollNotification notification) {
+    if (widget.onRefresh == null ||
+        notification.depth != 0 ||
+        notification.metrics.axisDirection != AxisDirection.down) {
+      return false;
+    }
+
+    // Flutter enters `drag` at scroll start, before the direction is known.
+    // Only reveal our indicator once the gesture has actually pulled down.
+    if (_status == RefreshIndicatorStatus.drag) {
+      final delta = switch (notification) {
+        ScrollUpdateNotification(:final scrollDelta) => scrollDelta ?? 0,
+        OverscrollNotification(:final overscroll) => overscroll,
+        _ => 0.0,
+      };
+      final wasPulling = _pullDistance > 0;
+      _pullDistance -= delta;
+      if (wasPulling != (_pullDistance > 0)) setState(() {});
+    }
+    return true;
+  }
 
   Future<void> _refresh() async {
     if (mounted) await widget.onRefresh?.call();
@@ -57,7 +80,7 @@ class _DPullToRefreshState extends State<DPullToRefresh> {
     final visible =
         busy ||
         (widget.onRefresh != null &&
-            (_status == RefreshIndicatorStatus.drag ||
+            ((_status == RefreshIndicatorStatus.drag && _pullDistance > 0) ||
                 _status == RefreshIndicatorStatus.armed));
     final label = busy
         ? widget.refreshingLabel
@@ -78,12 +101,16 @@ class _DPullToRefreshState extends State<DPullToRefresh> {
           RefreshIndicator.noSpinner(
             key: _indicator,
             onRefresh: _refresh,
-            notificationPredicate: (notification) =>
-                widget.onRefresh != null &&
-                notification.depth == 0 &&
-                notification.metrics.axisDirection == AxisDirection.down,
+            notificationPredicate: _acceptScrollNotification,
             onStatusChange: (status) {
-              if (mounted) setState(() => _status = status);
+              if (mounted) {
+                setState(() {
+                  _status = status;
+                  if (status == null || status == RefreshIndicatorStatus.drag) {
+                    _pullDistance = 0;
+                  }
+                });
+              }
             },
             child: widget.child,
           ),
