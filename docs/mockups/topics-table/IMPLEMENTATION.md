@@ -90,3 +90,9 @@ The approved HTML mockup is preserved alongside the native implementation.
 - The final isolated native fixture was inspected in dark and light themes:
   row hover is continuous and rounded, and tags stay transparent when hovered.
   The desktop review lease was released after inspection.
+
+Row spacing follow-up: both modes add 4px of inner vertical padding per side;
+card list gaps shrink from 8px to 1px, matching compact lists. Loading gaps and
+scroll estimates follow the new spacing. The macOS fixture confirmed that the
+hover surface covers the padding in both modes. All 84 focused list and scroll
+tests, affected-source analysis, and the native review build passed.

@@ -180,7 +180,9 @@ class _CompactTopicRow extends StatelessWidget {
                 alignment: CrossAxisAlignment.stretch,
                 children: [
                   Padding(
-                    padding: EdgeInsets.symmetric(vertical: compact ? 0 : 8),
+                    padding: EdgeInsets.symmetric(
+                      vertical: compact ? DSpacing.xs : DSpacing.md,
+                    ),
                     child: LayoutBuilder(
                       builder: (context, constraints) {
                         final layout = _CompactTopicLayout(
