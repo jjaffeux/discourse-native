@@ -184,7 +184,7 @@ class _CompactTopicRow extends StatelessWidget {
             link: true,
             onPressed: row.onTap,
             selected: row.selected || KeyboardSelection.isSelectedOf(context),
-            selectionStyle: DItemSelectionStyle.neutral,
+            selectionStyle: DItemSelectionStyle.outline,
             showSelectionIndicator: false,
             children: [
               DItemContent(

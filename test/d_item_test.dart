@@ -153,7 +153,6 @@ void main() {
                       selected: i == selected,
                       selectionStyle: DItemSelectionStyle.outline,
                       showSelectionIndicator: false,
-                      variant: DItemVariant.outline,
                       onPressed: () => setState(() => selected = i),
                       children: [
                         DItemContent(
@@ -188,6 +187,31 @@ void main() {
           (surface(0).foregroundDecoration! as BoxDecoration).border,
           Border.all(color: tokens.primary, width: 2),
         );
+        expect(
+          (surface(0).decoration! as BoxDecoration).borderRadius,
+          BorderRadius.circular(tokens.radius * 2.5),
+        );
+        await mouse.moveTo(tester.getCenter(find.text('Topic 1')));
+        await tester.pump();
+        for (final duration in [
+          Duration.zero,
+          const Duration(milliseconds: 75),
+          const Duration(milliseconds: 75),
+        ]) {
+          await tester.pump(duration);
+          expect(
+            (surface(1).decoration! as BoxDecoration).color,
+            tokens.foreground.withValues(alpha: .05),
+          );
+          expect(surface(1).foregroundDecoration, isNull);
+          expect(
+            (surface(1).decoration! as BoxDecoration).border!.top.color,
+            Colors.transparent,
+          );
+          expect(tester.getRect(find.text('Topic 1')), positions[1]);
+        }
+        await mouse.moveTo(const Offset(700, 500));
+        await tester.pump();
         await tester.tap(find.text('Topic 1'));
         await tester.pump();
         for (final duration in [
@@ -212,7 +236,7 @@ void main() {
         await tester.pump();
         expect(
           (surface(1).decoration! as BoxDecoration).color,
-          tokens.foreground.withValues(alpha: .03),
+          tokens.foreground.withValues(alpha: .05),
         );
         expect(surface(1).foregroundDecoration, isNotNull);
         await mouse.moveTo(const Offset(700, 500));

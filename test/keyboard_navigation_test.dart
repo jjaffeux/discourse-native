@@ -481,7 +481,7 @@ void main() {
           expect(_topicItem(tester, 1).selected, isTrue);
           expect(
             _topicItem(tester, 1).selectionStyle,
-            DItemSelectionStyle.neutral,
+            DItemSelectionStyle.outline,
           );
           await tester.sendKeyEvent(LogicalKeyboardKey.enter);
         } else {
@@ -500,7 +500,7 @@ void main() {
         expect(_topicItem(tester, 2).variant, DItemVariant.standard);
         expect(
           _topicItem(tester, 2).selectionStyle,
-          DItemSelectionStyle.neutral,
+          DItemSelectionStyle.outline,
         );
         expect(_selectedTopics(tester), [2]);
 
