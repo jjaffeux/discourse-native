@@ -27,6 +27,60 @@ import 'package:super_sliver_list/super_sliver_list.dart';
 import 'support/fakes.dart';
 
 void main() {
+  for (final (width, scale, direction) in [
+    (1200.0, 1.0, TextDirection.ltr),
+    (390.0, 1.0, TextDirection.ltr),
+    (320.0, 2.0, TextDirection.rtl),
+  ]) {
+    testWidgets(
+      'conversation cards keep metadata and a separate footer at $width/$scale/$direction',
+      (tester) async {
+        final shell = await _setup(
+          tester,
+          width: width,
+          scale: scale,
+          direction: direction,
+          mode: TopicListDisplayMode.card,
+          enableEvents: true,
+        );
+        await shell.appSettings.setTopicListExcerpts(true);
+        await tester.pumpAndSettle();
+        final card = find.byKey(const ValueKey('topic-card-1'));
+        final footer = find.descendant(
+          of: card,
+          matching: find.byType(DCardFooter),
+        );
+        expect(footer, findsOneWidget);
+        expect(
+          find.ancestor(of: card, matching: find.byType(DCard)),
+          findsOneWidget,
+        );
+        expect(
+          find.descendant(of: card, matching: find.byType(DTable)),
+          findsNothing,
+        );
+        expect(
+          find.byKey(const ValueKey('compact-topic-list-header')),
+          findsNothing,
+        );
+        expect(
+          find.descendant(of: footer, matching: find.text('Replies')),
+          findsOneWidget,
+        );
+        expect(
+          find.descendant(of: footer, matching: find.text('Activity')),
+          findsOneWidget,
+        );
+        expect(
+          tester.getRect(footer).top,
+          greaterThan(tester.getRect(card).top),
+        );
+        expect(tester.getRect(card).width, lessThanOrEqualTo(width));
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
   for (final dark in [false, true]) {
     for (final mode in TopicListDisplayMode.values) {
       testWidgets('topic tags stay transparent on hover in $mode/$dark', (
@@ -61,26 +115,37 @@ void main() {
                     as BoxDecoration;
             expect(surface.color, Colors.transparent);
             expect(surface.border!.top.color, Colors.transparent);
-            final tableSurface =
-                tester
-                        .renderObject<RenderDecoratedBox>(
-                          find
-                              .descendant(
-                                of: find.descendant(
-                                  of: row,
-                                  matching: find.byType(DTable),
-                                ),
-                                matching: find.byType(DecoratedBox),
-                              )
-                              .first,
-                        )
-                        .decoration
-                    as BoxDecoration;
-            expect(
-              tableSurface.color!.a,
-              0,
-              reason: 'The containing Item owns the entire row highlight.',
-            );
+            if (mode == TopicListDisplayMode.card) {
+              expect(
+                find.descendant(of: row, matching: find.byType(DTable)),
+                findsNothing,
+              );
+              expect(
+                find.descendant(of: row, matching: find.byType(DCardFooter)),
+                findsOneWidget,
+              );
+            } else {
+              final tableSurface =
+                  tester
+                          .renderObject<RenderDecoratedBox>(
+                            find
+                                .descendant(
+                                  of: find.descendant(
+                                    of: row,
+                                    matching: find.byType(DTable),
+                                  ),
+                                  matching: find.byType(DecoratedBox),
+                                )
+                                .first,
+                          )
+                          .decoration
+                      as BoxDecoration;
+              expect(
+                tableSurface.color!.a,
+                0,
+                reason: 'The containing Item owns the entire row highlight.',
+              );
+            }
           }
         }
       });

@@ -1,5 +1,15 @@
 # Item implementation and independent review
 
+## Card composition
+
+`DItemShape.card` uses the same theme-relative corner radius as `DCard` (1.4 ×
+the radius token) for the surface, focus ring and selection outline. Compose it
+inside `DCard(spacing: 0)` with `padding: EdgeInsets.zero`; Card content and footer
+own their interior spacing. This keeps Item's immediate neutral hover, controlled
+selection, keyboard activation and independent nested controls. The Item
+styleguide's Card composition example demonstrates the composition, and the
+selection interaction tests cover both Item shapes in light and dark themes.
+
 Task `01a084bf-dd8a-7c13-86dd-63f2e60d20cd`, branch `codex/ui-item`,
 initial base `402fe578`; integrated pinned main
 `e612ad7b47413fa890b35ae3b55a6f6d37b08cf7` in merge `1462873c`.

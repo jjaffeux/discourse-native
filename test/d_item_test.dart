@@ -138,7 +138,10 @@ void main() {
       final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
       addTearDown(mouse.removePointer);
       await mouse.addPointer(location: const Offset(700, 500));
-      for (final brightness in Brightness.values) {
+      for (final (brightness, shape) in [
+        for (final brightness in Brightness.values)
+          for (final shape in DItemShape.values) (brightness, shape),
+      ]) {
         final theme = ThemeData(brightness: brightness);
         final tokens = DTokens.fromTheme(theme);
         var selected = 0;
@@ -150,6 +153,7 @@ void main() {
                   for (var i = 0; i < 2; i++)
                     DItem(
                       key: ValueKey(i),
+                      shape: shape,
                       selected: i == selected,
                       selectionStyle: DItemSelectionStyle.outline,
                       showSelectionIndicator: false,
@@ -189,7 +193,9 @@ void main() {
         );
         expect(
           (surface(0).decoration! as BoxDecoration).borderRadius,
-          BorderRadius.circular(tokens.radius * 2.5),
+          BorderRadius.circular(
+            tokens.radius * (shape == DItemShape.card ? 1.4 : 2.5),
+          ),
         );
         await mouse.moveTo(tester.getCenter(find.text('Topic 1')));
         await tester.pump();

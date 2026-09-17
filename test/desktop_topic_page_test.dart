@@ -1,6 +1,7 @@
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/data/topic_presentation_store.dart';
 import 'package:discourse_native/src/diagnostics/diagnostics.dart';
+import 'package:discourse_native/src/models/app_settings.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/post.dart';
@@ -17,6 +18,7 @@ import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/title_bar.dart';
 import 'package:discourse_native/src/shell/topic_list_view.dart';
+import 'package:discourse_native/src/shell/topic_presentation.dart';
 import 'package:discourse_native/src/shell/topic_view.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
@@ -34,6 +36,66 @@ final _back = find.byKey(const ValueKey('topic-close-reader'));
 
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
+
+  testWidgets(
+    'beside-list cards preserve the saved mode across presentation changes',
+    (tester) async {
+      final h = await _setup(tester, size: const Size(1800, 1000));
+      await h.shell.appSettings.setTopicListMode(TopicListDisplayMode.compact);
+      await tester.pumpAndSettle();
+      final listState = tester.state(_allLists);
+      expect(find.byKey(const ValueKey('topic-compact-1')), findsOneWidget);
+
+      h.shell.openTopicFromList(h.topics.first);
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('topic-card-1')), findsOneWidget);
+      expect(find.byType(DCardFooter), findsWidgets);
+      expect(
+        find.byKey(const ValueKey('compact-topic-list-header')),
+        findsNothing,
+      );
+      expect(h.shell.appSettings.topicListMode, TopicListDisplayMode.compact);
+      expect(tester.state(_allLists), same(listState));
+
+      await tester.tap(find.byKey(const ValueKey('topic-list-display')));
+      await tester.pumpAndSettle();
+      final cardChoice = tester.widget<DDropdownMenuCheckboxItem>(
+        find.byKey(const ValueKey('topic-display-card')),
+      );
+      final compactChoice = tester.widget<DDropdownMenuCheckboxItem>(
+        find.byKey(const ValueKey('topic-display-compact')),
+      );
+      expect(cardChoice.checked, isTrue);
+      expect(compactChoice.checked, isFalse);
+      expect(compactChoice.onChanged, isNull);
+      expect(cardChoice.onChanged, isNull);
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+
+      final presentation = TopicPresentationPreferences.maybeControllerOf(
+        tester.element(_reader),
+      )!;
+      presentation.select(TopicPresentation.sheet);
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const ValueKey('topic-compact-1'), skipOffstage: false),
+        findsOneWidget,
+      );
+      expect(h.shell.appSettings.topicListMode, TopicListDisplayMode.compact);
+      expect(tester.state(_allLists), same(listState));
+
+      presentation.select(TopicPresentation.docked);
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('topic-card-1')), findsOneWidget);
+      await tester.tap(_back);
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('topic-compact-1')), findsOneWidget);
+      expect(h.shell.appSettings.topicListMode, TopicListDisplayMode.compact);
+      expect(tester.state(_allLists), same(listState));
+      expect(tester.takeException(), isNull);
+    },
+    variant: TargetPlatformVariant.only(TargetPlatform.macOS),
+  );
 
   testWidgets('sheet and editor retain accessible workspace navigation', (
     tester,

@@ -13,6 +13,9 @@ enum DItemVariant { standard, outline, muted }
 
 enum DItemSize { standard, sm, xs }
 
+/// Card composition follows the Card surface corners, including selection.
+enum DItemShape { standard, card }
+
 enum DItemSelectionStyle { tinted, outline, neutral }
 
 enum DItemMediaVariant { standard, icon, avatar, image }
@@ -31,6 +34,7 @@ class DItem extends StatefulWidget {
     this.footer,
     this.variant = DItemVariant.standard,
     this.size = DItemSize.standard,
+    this.shape = DItemShape.standard,
     this.onPressed,
     this.link = false,
     this.enabled = true,
@@ -48,6 +52,7 @@ class DItem extends StatefulWidget {
   final DItemFooter? footer;
   final DItemVariant variant;
   final DItemSize size;
+  final DItemShape shape;
   final VoidCallback? onPressed;
 
   /// Uses link semantics. Navigation and external URL policy remain caller-owned.
@@ -121,7 +126,12 @@ class _DItemState extends State<DItem> {
     final neutralSelection =
         widget.selectionStyle == DItemSelectionStyle.neutral;
     final radius =
-        tokens.radius * (neutralSelection || outlineSelection ? 2.5 : 1);
+        tokens.radius *
+        (widget.shape == DItemShape.card
+            ? 1.4
+            : neutralSelection || outlineSelection
+            ? 2.5
+            : 1);
     final borderRadius = BorderRadius.circular(radius);
     final background = widget.selected && !outlineSelection
         ? neutralSelection
