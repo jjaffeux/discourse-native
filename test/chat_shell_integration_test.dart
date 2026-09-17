@@ -5882,31 +5882,17 @@ void _registerChatShellTests() {
         expect(find.text('3'), findsOneWidget);
         expect(find.text('2'), findsOneWidget);
 
-        final mine = tester.widget<Container>(
+        final mine = tester.widget<DToggle>(
           find.byKey(const ValueKey('chat-reaction-heart')),
         );
-        final other = tester.widget<Container>(
+        final other = tester.widget<DToggle>(
           find.byKey(const ValueKey('chat-reaction-clap')),
         );
-        final mineDecoration = mine.decoration! as BoxDecoration;
-        final otherDecoration = other.decoration! as BoxDecoration;
         expect(find.byType(ReactionPill), findsNWidgets(2));
-        expect(
-          tester
-              .widget<Padding>(find.byKey(const ValueKey('chat-reactions')))
-              .padding,
-          const EdgeInsets.only(top: 10),
-        );
-        expect(mine.padding, const EdgeInsets.fromLTRB(8, 4, 9, 4));
-        expect(mineDecoration.borderRadius, BorderRadius.circular(14));
-        expect(mineDecoration.border, isNotNull);
-        expect(mineDecoration.color, otherDecoration.color);
-        expect(otherDecoration.borderRadius, BorderRadius.circular(14));
-        expect(otherDecoration.border, isNotNull);
-        expect(
-          (mineDecoration.border! as Border).top.color,
-          isNot((otherDecoration.border! as Border).top.color),
-        );
+        expect(mine.variant, DToggleVariant.outline);
+        expect(other.variant, DToggleVariant.outline);
+        expect(mine.pressed, isTrue);
+        expect(other.pressed, isFalse);
 
         final heart = find.bySemanticsLabel('3 heart reactions');
         final clap = find.bySemanticsLabel('2 clap reactions');
@@ -5916,8 +5902,9 @@ void _registerChatShellTests() {
           tester.getSemantics(heart),
           isSemantics(
             isButton: true,
-            isSelected: true,
-            onTapHint: 'remove your reaction',
+            hasToggledState: true,
+            isToggled: true,
+            hint: 'remove your reaction',
             onLongPressHint: 'show who reacted',
           ),
         );
@@ -5925,8 +5912,9 @@ void _registerChatShellTests() {
           tester.getSemantics(clap),
           isSemantics(
             isButton: true,
-            isSelected: false,
-            onTapHint: 'add this reaction',
+            hasToggledState: true,
+            isToggled: false,
+            hint: 'add this reaction',
             onLongPressHint: 'show who reacted',
           ),
         );
@@ -5965,15 +5953,17 @@ void _registerChatShellTests() {
 
         final reaction = find.byKey(const ValueKey('chat-reaction-clap'));
         BoxDecoration decoration() =>
-            tester.widget<Container>(reaction).decoration! as BoxDecoration;
-
-        final theme = Theme.of(tester.element(reaction));
+            tester
+                    .widget<AnimatedContainer>(
+                      find.descendant(
+                        of: reaction,
+                        matching: find.byType(AnimatedContainer),
+                      ),
+                    )
+                    .decoration!
+                as BoxDecoration;
+        final resting = decoration().color;
         final rect = tester.getRect(reaction);
-        final hoverFill = Color.alphaBlend(
-          theme.colorScheme.onSurface.withValues(alpha: 0.08),
-          theme.shell.floating,
-        );
-        expect(decoration().color, theme.shell.floating);
 
         final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
         await mouse.addPointer(location: Offset.zero);
@@ -5981,12 +5971,14 @@ void _registerChatShellTests() {
         await mouse.moveTo(tester.getCenter(reaction));
         await tester.pump();
 
-        expect(decoration().color, hoverFill);
+        await tester.pumpAndSettle();
+        expect(decoration().color, isNot(resting));
         expect(tester.getRect(reaction), rect);
 
         await mouse.moveTo(Offset.zero);
         await tester.pump();
-        expect(decoration().color, theme.shell.floating);
+        await tester.pumpAndSettle();
+        expect(decoration().color, resting);
       });
 
       testWidgets('an existing message reaction offers the full emoji picker', (
@@ -6024,7 +6016,7 @@ void _registerChatShellTests() {
 
           final launcher = find.bySemanticsLabel('Add reaction');
           expect(launcher, findsOneWidget);
-          expect(tester.getSize(launcher), const Size.square(44));
+          expect(tester.getSize(launcher), const Size.square(28));
           final launcherRect = tester.getRect(launcher);
           await tester.tap(launcher);
           await tester.pumpAndSettle();
@@ -6148,7 +6140,7 @@ void _registerChatShellTests() {
         expect(
           tester.getSemantics(find.bySemanticsLabel('2 heart reactions')),
           isSemantics(
-            onTapHint: 'remove your reaction',
+            hint: 'remove your reaction',
             onLongPressHint: 'show who reacted',
           ),
         );
@@ -6703,7 +6695,8 @@ void _registerChatShellTests() {
         await tester.tap(find.dIcon(DIcons.arrowLeft));
         await tester.pumpAndSettle();
 
-        expect(find.byType(InstanceSidebar), findsOneWidget);
+        expect(renderedText('Hello there'), findsNothing);
+        expect(find.text('Topics'), findsOneWidget);
       });
     });
   });

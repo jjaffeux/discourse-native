@@ -791,7 +791,7 @@ void main() {
       expect(find.bySemanticsLabel('Add reaction'), findsOneWidget);
       expect(
         tester.getSemantics(find.bySemanticsLabel('2 clap reactions')),
-        isSemantics(onTapHint: 'add this reaction'),
+        isSemantics(hint: 'add this reaction'),
       );
 
       controller.chatRecords.put(

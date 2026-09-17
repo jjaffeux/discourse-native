@@ -11,6 +11,8 @@ final toggleExamples = ComponentExamples(
       'Audited against the current base-nova Toggle source, examples and Base UI API. '
       'DToggle accepts controlled pressed/onPressedChanged state or internally owned initialPressed state. '
       'Controlled state remains interactive when its optional callback is omitted. Borrowed focus nodes are never disposed. '
+      'Read-only toggles keep focus and secondary long-press inspection while preventing value changes. '
+      'Long press never toggles the value and is suppressed when disabled. '
       'Space, Enter, pointer and native semantics toggle the value; disabled controls do not enter traversal or activate. '
       'Visual surfaces are 24/28/32px with 48px touch targets, 12/14/16px icons, exact icon-side padding, '
       'Lucide example artwork, live palette/font/radius, RTL composition and reduced motion.',
@@ -79,6 +81,15 @@ final toggleExamples = ComponentExamples(
           ),
         ],
       ),
+    ),
+    StyleguideExample(
+      title: 'Secondary long press',
+      description:
+          'Tap to toggle; hold to inspect. The read-only example supports inspection without changing its value.',
+      states: const ['Long press', 'Read-only', 'Semantics'],
+      code:
+          "DToggle(readOnly: true, pressed: true, onLongPress: inspect, semanticLongPressHint: 'show details', child: const Text('Reaction'))",
+      builder: (_) => const _LongPressDemo(),
     ),
     StyleguideExample(
       title: 'RTL',
@@ -279,6 +290,44 @@ class _OwnershipDemoState extends State<_OwnershipDemo> {
       ),
       const SizedBox(height: 8),
       Text(_observed),
+    ],
+  );
+}
+
+class _LongPressDemo extends StatefulWidget {
+  const _LongPressDemo();
+  @override
+  State<_LongPressDemo> createState() => _LongPressDemoState();
+}
+
+class _LongPressDemoState extends State<_LongPressDemo> {
+  String _details = 'Hold either toggle to inspect.';
+  @override
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        children: [
+          DToggle(
+            onLongPress: () =>
+                setState(() => _details = 'Editable reaction inspected.'),
+            semanticLongPressHint: 'show details',
+            child: const Text('Editable'),
+          ),
+          DToggle(
+            readOnly: true,
+            pressed: true,
+            onLongPress: () =>
+                setState(() => _details = 'Read-only reaction inspected.'),
+            semanticLongPressHint: 'show details',
+            child: const Text('Read-only'),
+          ),
+        ],
+      ),
+      const SizedBox(height: 8),
+      Text(_details),
     ],
   );
 }

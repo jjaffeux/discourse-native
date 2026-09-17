@@ -53,6 +53,11 @@ composition, which is more appropriate than a compact toggle button.
 ## Native adaptations
 
 - Touch hit targets expand invisibly to 48px; the base-nova artwork does not.
+- `onLongPress` provides an optional secondary action without toggling. Disabled
+  controls suppress it; `semanticLongPressHint` describes it to assistive tools.
+- `readOnly` suppresses pointer, keyboard and semantic toggle actions while
+  preserving focus and secondary inspection. Chat reactions use this when the
+  viewer can inspect reactors but cannot change the reaction.
 - Flutter `Semantics(toggled:)`, focus traversal and Space/Enter activation map
   native button behavior to Base UI's `aria-pressed` contract.
 - The app's configured font and semantic palette replace Geist and fixed web

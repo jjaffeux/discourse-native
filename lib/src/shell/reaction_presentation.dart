@@ -8,7 +8,6 @@ import '../theme/app_theme.dart';
 import '../theme/d_icons.dart';
 import 'avatar_image.dart';
 import 'emoji_picker.dart';
-import 'hover_panel.dart';
 import 'platform.dart';
 import 'shell_sheet.dart';
 import 'site_emoji_image.dart';
@@ -40,14 +39,7 @@ class ReactionPickerButton extends StatefulWidget {
 }
 
 class _ReactionPickerButtonState extends State<ReactionPickerButton> {
-  final WidgetStatesController _states = WidgetStatesController();
   bool _opening = false;
-
-  @override
-  void dispose() {
-    _states.dispose();
-    super.dispose();
-  }
 
   Future<void> _open(BuildContext context) async {
     if (_opening || !widget.enabled) return;
@@ -61,70 +53,16 @@ class _ReactionPickerButtonState extends State<ReactionPickerButton> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final enabled = widget.enabled && !_opening;
     return EmojiPickerAnchor(
       child: Builder(
-        builder: (buttonContext) => Semantics(
-          container: true,
-          button: true,
-          enabled: enabled,
-          label: 'Add reaction',
-          child: DTooltip(
-            message: 'Add reaction',
-            excludeFromSemantics: true,
-            child: SizedBox.square(
-              dimension: ReactionPill.minTarget,
-              child: Material(
-                type: MaterialType.transparency,
-                child: InkWell(
-                  statesController: _states,
-                  mouseCursor: enabled
-                      ? SystemMouseCursors.click
-                      : SystemMouseCursors.basic,
-                  onTap: enabled ? () => _open(buttonContext) : null,
-                  borderRadius: BorderRadius.circular(14),
-                  overlayColor: const WidgetStatePropertyAll(
-                    Colors.transparent,
-                  ),
-                  splashFactory: NoSplash.splashFactory,
-                  child: AnimatedOpacity(
-                    opacity: enabled ? 1 : 0.5,
-                    duration: const Duration(milliseconds: 100),
-                    child: Center(
-                      child: ValueListenableBuilder<Set<WidgetState>>(
-                        valueListenable: _states,
-                        builder: (context, states, _) {
-                          final highlighted =
-                              enabled &&
-                              (states.contains(WidgetState.hovered) ||
-                                  states.contains(WidgetState.focused) ||
-                                  states.contains(WidgetState.pressed));
-                          return Container(
-                            key: const ValueKey('reaction-picker-surface'),
-                            width: 32,
-                            height: 32,
-                            alignment: Alignment.center,
-                            decoration: BoxDecoration(
-                              color: highlighted
-                                  ? theme.shell.hover
-                                  : Colors.transparent,
-                              borderRadius: BorderRadius.circular(14),
-                            ),
-                            child: DIcon(
-                              DIcons.farFaceSmile,
-                              size: 18,
-                              color: theme.colorScheme.onSurfaceVariant,
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
+        builder: (buttonContext) => DButton.iconOnly(
+          key: const ValueKey('reaction-picker-surface'),
+          tooltip: 'Add reaction',
+          icon: const DIcon(DIcons.farFaceSmile),
+          variant: DButtonVariant.transparentBackground,
+          onPressed: widget.enabled && !_opening
+              ? () => _open(buttonContext)
+              : null,
         ),
       ),
     );
@@ -147,6 +85,8 @@ class ReactionPill extends StatefulWidget {
     this.visualKey,
   });
 
+  // Retained for the legacy post reaction-picker adapter. Native controls
+  // determine their own platform-appropriate target size.
   static const double minTarget = 44;
 
   final String siteUrl;
@@ -173,19 +113,13 @@ class ReactionPill extends StatefulWidget {
 class _ReactionPillState extends State<ReactionPill> {
   static const double _panelWidth = 260;
 
-  final GlobalKey<HoverPanelState> _panel = GlobalKey<HoverPanelState>();
-  bool _hovered = false;
-  bool _focused = false;
+  final DHoverCardController _panel = DHoverCardController();
   bool _toggling = false;
 
-  void _setHovered(bool value) {
-    if (_hovered == value) return;
-    setState(() => _hovered = value);
-  }
-
-  void _setFocused(bool value) {
-    if (_focused == value) return;
-    setState(() => _focused = value);
+  @override
+  void dispose() {
+    _panel.dispose();
+    super.dispose();
   }
 
   void _load() => unawaited(widget.loadReactors());
@@ -210,7 +144,7 @@ class _ReactionPillState extends State<ReactionPill> {
       final error = await toggle();
       if (!mounted || !identical(widget.interactionOwner, owner)) return;
 
-      if (_panel.currentState?.isShowing ?? false) _load();
+      if (_panel.isOpen) _load();
       if (error != null) {
         DToast.show(context, error, type: DToastType.error);
       }
@@ -221,99 +155,41 @@ class _ReactionPillState extends State<ReactionPill> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final label = widget.count == 1
         ? '1 ${widget.reaction} reaction'
         : '${widget.count} ${widget.reaction} reactions';
-    final enabled = widget.enabled && !_toggling;
-    final canToggle = enabled && widget.onToggle != null;
-    final background = enabled && (_hovered || _focused)
-        ? Color.alphaBlend(
-            theme.colorScheme.onSurface.withValues(alpha: 0.08),
-            theme.shell.floating,
-          )
-        : theme.shell.floating;
-
-    return HoverPanel(
-      key: _panel,
-      maxWidth: _panelWidth,
-      onOpen: _load,
-      panelBuilder: (context) =>
-          ReactionUsersPanel(child: widget.reactorsBuilder(context)),
-      child: Semantics(
-        container: true,
-        button: true,
-        enabled: enabled,
-        selected: widget.selected,
-        label: label,
-        onTapHint: canToggle ? widget.onTapHint : null,
-        onLongPressHint: enabled && context.isTouch ? 'show who reacted' : null,
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(
-            minWidth: ReactionPill.minTarget,
-            minHeight: ReactionPill.minTarget,
+    return DHoverCard(
+      controller: _panel,
+      enabled: widget.enabled,
+      onOpenChange: (open, _) {
+        if (open) _load();
+      },
+      content: DHoverCardContent(
+        width: _panelWidth,
+        child: Builder(builder: widget.reactorsBuilder),
+      ),
+      trigger: DHoverCardTrigger(
+        delay: const Duration(milliseconds: 250),
+        closeDelay: const Duration(milliseconds: 500),
+        builder: (context, state) => DToggle(
+          key: widget.visualKey,
+          focusNode: state.focusNode,
+          pressed: widget.selected,
+          enabled: widget.enabled && !_toggling,
+          readOnly: widget.onToggle == null,
+          onPressedChanged: (_) => _toggle(),
+          onLongPress: context.isTouch ? _openSheet : null,
+          semanticLabel: label,
+          semanticHint: widget.onToggle != null ? widget.onTapHint : null,
+          semanticLongPressHint: 'show who reacted',
+          variant: DToggleVariant.outline,
+          icon: SiteEmojiImage(
+            siteUrl: widget.siteUrl,
+            name: widget.reaction,
+            size: DToggle.iconDimensionFor(DToggleSize.regular),
+            alt: ':${widget.reaction}:',
           ),
-          child: Center(
-            widthFactor: 1,
-            heightFactor: 1,
-            child: Material(
-              type: MaterialType.transparency,
-              child: MouseRegion(
-                onEnter: enabled ? (_) => _setHovered(true) : null,
-                onExit: enabled ? (_) => _setHovered(false) : null,
-                child: InkWell(
-                  mouseCursor: canToggle
-                      ? SystemMouseCursors.click
-                      : SystemMouseCursors.basic,
-                  onTap: canToggle ? _toggle : null,
-                  onLongPress: enabled && context.isTouch ? _openSheet : null,
-                  onFocusChange: _setFocused,
-                  borderRadius: BorderRadius.circular(14),
-                  child: AnimatedOpacity(
-                    opacity: enabled ? 1 : 0.5,
-                    duration: const Duration(milliseconds: 100),
-                    child: ExcludeSemantics(
-                      child: Container(
-                        key: widget.visualKey,
-                        padding: const EdgeInsets.fromLTRB(8, 4, 9, 4),
-                        decoration: BoxDecoration(
-                          color: background,
-                          borderRadius: BorderRadius.circular(14),
-                          border: Border.all(
-                            color: widget.selected
-                                ? theme.colorScheme.primary
-                                : theme.shell.divider,
-                          ),
-                        ),
-                        child: Wrap(
-                          spacing: 5,
-                          crossAxisAlignment: WrapCrossAlignment.center,
-                          children: [
-                            SiteEmojiImage(
-                              siteUrl: widget.siteUrl,
-                              name: widget.reaction,
-                              size: 16,
-                              alt: ':${widget.reaction}:',
-                              style: theme.textTheme.labelSmall,
-                            ),
-                            Text(
-                              '${widget.count}',
-                              style: theme.textTheme.labelMedium?.copyWith(
-                                color: widget.selected
-                                    ? theme.colorScheme.primary
-                                    : theme.colorScheme.onSurfaceVariant,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
+          child: Text('${widget.count}'),
         ),
       ),
     );

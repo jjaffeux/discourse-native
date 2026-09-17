@@ -6,6 +6,9 @@ inline code and fenced Ruby. It found avoidable CSS parsing in newly mounted
 rows and removes that work. It did **not** establish a repeatable improvement
 in whole-frame scrolling time or eliminate intermittent native raster stalls.
 
+The [row-reuse follow-up](rich-chat-row-reuse.md) investigates the remaining
+construction cost and measures improvements when revisiting recent messages.
+
 ## Reproduction and instrumentation
 
 ```sh

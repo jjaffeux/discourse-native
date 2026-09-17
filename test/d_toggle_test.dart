@@ -167,6 +167,99 @@ void main() {
     );
   });
 
+  for (final iconOnly in [false, true]) {
+    testWidgets(
+      'long press is secondary and respects read-only / disabled ($iconOnly)',
+      (tester) async {
+        final semantics = tester.ensureSemantics();
+        final focus = FocusNode();
+        addTearDown(focus.dispose);
+        var longPresses = 0;
+        final changes = <bool>[];
+        var enabled = true;
+        var readOnly = false;
+        late StateSetter update;
+        await mount(
+          tester,
+          StatefulBuilder(
+            builder: (context, setState) {
+              update = setState;
+              return iconOnly
+                  ? DToggle.iconOnly(
+                      icon: const Icon(Icons.favorite),
+                      semanticLabel: 'Reaction',
+                      focusNode: focus,
+                      enabled: enabled,
+                      readOnly: readOnly,
+                      onPressedChanged: changes.add,
+                      onLongPress: () => longPresses++,
+                      semanticLongPressHint: 'show who reacted',
+                    )
+                  : DToggle(
+                      semanticLabel: 'Reaction',
+                      focusNode: focus,
+                      enabled: enabled,
+                      readOnly: readOnly,
+                      onPressedChanged: changes.add,
+                      onLongPress: () => longPresses++,
+                      semanticLongPressHint: 'show who reacted',
+                      child: const Text('Reaction'),
+                    );
+            },
+          ),
+        );
+        final toggle = find.byType(DToggle);
+        await tester.longPress(toggle);
+        await tester.pumpAndSettle();
+        expect(longPresses, 1);
+        expect(changes, isEmpty);
+        await tester.tap(toggle);
+        await tester.pumpAndSettle();
+        expect(changes, [true]);
+
+        update(() => readOnly = true);
+        await tester.pumpAndSettle();
+        await tester.tap(toggle);
+        focus.requestFocus();
+        await tester.pumpAndSettle();
+        await tester.sendKeyEvent(LogicalKeyboardKey.space);
+        await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+        await tester.longPress(toggle);
+        await tester.pumpAndSettle();
+        final node = tester.getSemantics(toggle);
+        expect(node.getSemanticsData().hasAction(SemanticsAction.tap), isFalse);
+        expect(
+          node.getSemanticsData().hasAction(SemanticsAction.longPress),
+          isTrue,
+        );
+        node.owner!.performAction(node.id, SemanticsAction.longPress);
+        await tester.pumpAndSettle();
+        expect(longPresses, 3);
+        expect(changes, [true]);
+        expect(focus.hasFocus, isTrue);
+        expect(
+          node.getSemanticsData().flagsCollection.isToggled,
+          Tristate.isTrue,
+        );
+
+        update(() => enabled = false);
+        await tester.pumpAndSettle();
+        await tester.longPress(toggle);
+        await tester.pumpAndSettle();
+        expect(longPresses, 3);
+        expect(
+          tester
+              .getSemantics(toggle)
+              .getSemanticsData()
+              .hasAction(SemanticsAction.longPress),
+          isFalse,
+        );
+        expect(changes, [true]);
+        semantics.dispose();
+      },
+    );
+  }
+
   testWidgets('Native artwork stays compact inside touch targets', (
     tester,
   ) async {
@@ -285,6 +378,41 @@ void main() {
           .validationResult,
       SemanticsValidationResult.invalid,
     );
+  });
+
+  testWidgets('mouse hover survives the application focus-outline policy', (
+    tester,
+  ) async {
+    await mount(
+      tester,
+      const DFocusHighlight(
+        child: DToggle(
+          variant: DToggleVariant.outline,
+          child: Text('Reaction'),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    BoxDecoration surface() =>
+        tester
+                .widget<AnimatedContainer>(
+                  find.descendant(
+                    of: find.byType(DToggle),
+                    matching: find.byType(AnimatedContainer),
+                  ),
+                )
+                .decoration!
+            as BoxDecoration;
+    final resting = surface().color;
+    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    await mouse.addPointer(location: Offset.zero);
+    await mouse.moveTo(tester.getCenter(find.byType(DToggle)));
+    await tester.pumpAndSettle();
+    expect(surface().color, isNot(resting));
+    await mouse.moveTo(Offset.zero);
+    await tester.pumpAndSettle();
+    expect(surface().color, resting);
+    await mouse.removePointer();
   });
 
   testWidgets('icon-side padding and content gap match current base-nova', (
@@ -429,6 +557,7 @@ void main() {
       'With Text',
       'Size',
       'Disabled',
+      'Secondary long press',
       'RTL',
       'Ownership and states',
     ]);

@@ -329,16 +329,23 @@ class _DHoverCardState extends State<DHoverCard>
     with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   final OverlayPortalController _portal = OverlayPortalController();
   final GlobalKey _surfaceKey = GlobalKey();
-  late final DHoverCardController _ownedController = DHoverCardController();
-  late final FocusNode _ownedFocus = FocusNode(
-    debugLabel: 'DHoverCard trigger',
-  );
-  late final AnimationController _animation = AnimationController(
-    vsync: this,
-    duration: const Duration(milliseconds: 100),
-    reverseDuration: const Duration(milliseconds: 100),
-  )..addStatusListener(_animationStatus);
-  late final CurvedAnimation _curve = CurvedAnimation(
+  DHoverCardController? _allocatedController;
+  DHoverCardController get _ownedController =>
+      _allocatedController ??= DHoverCardController();
+  FocusNode? _allocatedFocus;
+  FocusNode get _ownedFocus =>
+      _allocatedFocus ??= FocusNode(debugLabel: 'DHoverCard trigger');
+  // Most scrolling-row previews never open. Disposing them must not create
+  // the animation and ticker that lazy getters would otherwise allocate.
+  AnimationController? _allocatedAnimation;
+  CurvedAnimation? _allocatedCurve;
+  AnimationController get _animation =>
+      _allocatedAnimation ??= (AnimationController(
+        vsync: this,
+        duration: const Duration(milliseconds: 100),
+        reverseDuration: const Duration(milliseconds: 100),
+      )..addStatusListener(_animationStatus));
+  CurvedAnimation get _curve => _allocatedCurve ??= CurvedAnimation(
     parent: _animation,
     curve: Curves.easeOut,
     reverseCurve: Curves.easeIn,
@@ -424,7 +431,8 @@ class _DHoverCardState extends State<DHoverCard>
         _setOpen(widget.defaultOpen);
       }
       _initialized = true;
-      if (MediaQuery.disableAnimationsOf(context) && _animation.isAnimating) {
+      if (MediaQuery.disableAnimationsOf(context) &&
+          (_allocatedAnimation?.isAnimating ?? false)) {
         _animation.value = _open ? 1 : 0;
         if (!_open) _portal.hide();
       }
@@ -777,10 +785,10 @@ class _DHoverCardState extends State<DHoverCard>
     GestureBinding.instance.pointerRouter.removeGlobalRoute(_globalPointer);
     FocusManager.instance.removeEarlyKeyEventHandler(_globalKey);
     WidgetsBinding.instance.removeObserver(this);
-    _curve.dispose();
-    _animation.dispose();
-    _ownedFocus.dispose();
-    _ownedController.dispose();
+    _allocatedCurve?.dispose();
+    _allocatedAnimation?.dispose();
+    _allocatedFocus?.dispose();
+    _allocatedController?.dispose();
     super.dispose();
   }
 }
