@@ -15,6 +15,7 @@ import 'avatar_image.dart';
 import 'emoji.dart';
 import 'external_link.dart';
 import 'forum_search.dart';
+import 'forum_settings_dialog.dart';
 import 'instance_actions.dart';
 import 'open_link.dart';
 import 'platform.dart';
@@ -613,6 +614,13 @@ class _ForumIdentityHeader extends StatelessWidget {
             leading: const DIcon(DIcons.upRightFromSquare, size: 16),
             onPressed: () => unawaited(openExternalLink(siteUrl)),
             child: const Text('Open forum in browser'),
+          ),
+          DDropdownMenuItem(
+            key: const ValueKey('forum-identity-settings'),
+            leading: const DIcon(DIcons.gear, size: 16),
+            onPressed: () =>
+                showForumSettingsDialog(context, siteUrl: siteUrl, name: name),
+            child: const Text('Forum settings'),
           ),
           const DDropdownMenuSeparator(),
           DDropdownMenuItem(

@@ -563,6 +563,13 @@ installation and apply across every forum. The current forum workspace or
 Aggregate view stays mounted behind the modal, and closing it reveals the exact
 same root, pane, tab, route, and scroll position.
 
+Click the forum logo and name at the top of its sidebar, then choose **Forum
+settings** to set that forum's **Appearance** to System, Light, or Dark. Changes
+apply immediately and persist per forum URL, including forums in subfolders.
+Existing forums start with the previous app-wide appearance choice; newly added
+forums follow the system. Aggregate and the app-wide Settings modal follow the
+system appearance independently.
+
 **Topic list** switches between **Card** (the default, with previews) and
 **Compact** (a denser table). It applies immediately to forum lists, Aggregate
 rows, and topic recommendations, and persists across restarts under

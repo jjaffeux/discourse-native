@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/app.dart';
 import 'package:discourse_native/src/data/app_settings_store.dart';
+import 'package:discourse_native/src/data/forum_settings_store.dart';
 import 'package:discourse_native/src/diagnostics/surface_opening_trace.dart';
 import 'package:discourse_native/src/models/app_settings.dart';
 import 'package:discourse_native/src/models/content_route.dart';
@@ -11,8 +12,8 @@ import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/notification_totals.dart';
 import 'package:discourse_native/src/models/site_appearance.dart';
 import 'package:discourse_native/src/shell/adaptive_shell.dart';
-import 'package:discourse_native/src/shell/app_settings_page.dart';
 import 'package:discourse_native/src/shell/avatar_image.dart';
+import 'package:discourse_native/src/shell/forum_settings_dialog.dart';
 import 'package:discourse_native/src/shell/instance_rail.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
@@ -33,20 +34,24 @@ void main() {
   const siteA = 'https://a.example';
   const siteB = 'https://b.example';
 
-  testWidgets('Escape closes Settings after changing appearance', (
+  testWidgets('Escape closes Forum settings after changing appearance', (
     tester,
   ) async {
+    tester.view.physicalSize = const Size(1200, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
     await _pumpApp(
       tester,
-      store: FakeInstanceStore(),
+      store: FakeInstanceStore([
+        const DiscourseInstance(url: siteA, title: 'A'),
+      ]),
       api: FakeDiscourseApi(),
       appSettingsStore: AppSettingsStore(
         persistence: MemoryAppSettingsPersistence(),
       ),
     );
     final controller = _controller(tester);
-    await tester.tap(find.byKey(const ValueKey('settings-rail-button')));
-    await tester.pumpAndSettle();
+    await _openForumSettings(tester);
 
     await tester.tap(
       find.byKey(const ValueKey('appearance-theme-select')),
@@ -56,7 +61,7 @@ void main() {
     await tester.sendKeyEvent(LogicalKeyboardKey.escape, character: '\x1b');
     await tester.pumpAndSettle();
     expect(find.byType(DPopoverContent), findsNothing);
-    expect(find.byType(AppSettingsModal), findsOneWidget);
+    expect(find.byType(ForumSettingsDialog), findsOneWidget);
 
     await tester.tap(
       find.byKey(const ValueKey('appearance-theme-select')),
@@ -65,12 +70,12 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Dark').last, kind: PointerDeviceKind.mouse);
     await tester.pumpAndSettle();
-    expect(controller.appSettings.themeMode, AppThemeMode.dark);
+    expect(controller.forumSettings.themeModeFor(siteA), AppThemeMode.dark);
 
     await tester.sendKeyEvent(LogicalKeyboardKey.escape, character: '\x1b');
     await tester.pumpAndSettle();
 
-    expect(find.byType(AppSettingsModal), findsNothing);
+    expect(find.byType(ForumSettingsDialog), findsNothing);
     expect(controller.appSettingsModalOpen, isFalse);
   }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 
@@ -97,14 +102,73 @@ void main() {
       ContentAlignment.right,
     );
     expect(_controller(tester).appSettings.textScale, AppTextScale.percent125);
-    expect(_materialApp(tester).themeMode, ThemeMode.dark);
-    expect(_activeTheme(tester).brightness, Brightness.dark);
+    expect(_materialApp(tester).themeMode, ThemeMode.system);
     expect(
       MediaQuery.textScalerOf(
         tester.element(find.byType(AdaptiveShell)),
       ).scale(DiscourseTypography.base),
       moreOrLessEquals(DiscourseTypography.base * 1.25),
     );
+  });
+
+  testWidgets('forum choices survive switching and an app restart', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1200, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final forums = ForumSettingsStore.memory();
+    final instances = FakeInstanceStore([
+      const DiscourseInstance(url: siteA, title: 'A'),
+      const DiscourseInstance(url: siteB, title: 'B'),
+    ]);
+    await _pumpApp(
+      tester,
+      store: instances,
+      api: FakeDiscourseApi(),
+      forumSettingsStore: forums,
+    );
+    var controller = _controller(tester);
+    await _openForumSettings(tester);
+    expect(find.text('Preferences for A.'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('appearance-theme-select')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Dark').last);
+    await tester.pumpAndSettle();
+    expect(_activeTheme(tester).brightness, Brightness.dark);
+    await tester.tap(find.byKey(const ValueKey('forum-settings-close')));
+    await tester.pumpAndSettle();
+    controller.selectInstance(1);
+    await tester.pumpAndSettle();
+    await _openForumSettings(tester);
+    expect(find.text('Preferences for B.'), findsOneWidget);
+    expect(find.text('System'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('appearance-theme-select')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Light').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('forum-settings-close')));
+    await tester.pumpAndSettle();
+    controller.selectInstance(0);
+    await tester.pumpAndSettle();
+    expect(_materialApp(tester).themeMode, ThemeMode.dark);
+    controller.selectInstance(1);
+    await tester.pumpAndSettle();
+    expect(_materialApp(tester).themeMode, ThemeMode.light);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pumpAndSettle();
+    await _pumpApp(
+      tester,
+      store: instances,
+      api: FakeDiscourseApi(),
+      forumSettingsStore: forums,
+    );
+    controller = _controller(tester);
+    expect(_materialApp(tester).themeMode, ThemeMode.dark);
+    controller.selectInstance(1);
+    await tester.pumpAndSettle();
+    expect(_materialApp(tester).themeMode, ThemeMode.light);
   });
 
   for (final size in [const Size(390, 700), const Size(1200, 800)]) {
@@ -291,7 +355,7 @@ void main() {
       expect(events.where((event) => event == 'forum.frame'), isEmpty);
     });
 
-    testWidgets('appearance changes the app and open Settings immediately', (
+    testWidgets('appearance changes the forum and open dialog immediately', (
       tester,
     ) async {
       tester.platformDispatcher.platformBrightnessTestValue = Brightness.light;
@@ -311,8 +375,7 @@ void main() {
         api: FakeDiscourseApi(),
       );
       expect(_activeTheme(tester).brightness, Brightness.light);
-      await tester.tap(find.byKey(const ValueKey('settings-rail-button')));
-      await tester.pumpAndSettle();
+      await _openForumSettings(tester);
 
       for (final (label, brightness) in [
         ('Dark', Brightness.dark),
@@ -349,12 +412,12 @@ void main() {
       await tester.tap(find.text('Light').last);
       await tester.pumpAndSettle();
       expect(_activeTheme(tester).brightness, Brightness.light);
-      await tester.tap(find.byKey(const ValueKey('app-settings-close')));
+      await tester.tap(find.byKey(const ValueKey('forum-settings-close')));
       await tester.pumpAndSettle();
       _controller(tester).selectAggregate();
       await tester.pump();
-      expect(_activeTheme(tester).brightness, Brightness.light);
-      expect(_materialApp(tester).themeMode, ThemeMode.light);
+      expect(_activeTheme(tester).brightness, Brightness.dark);
+      expect(_materialApp(tester).themeMode, ThemeMode.system);
     });
 
     testWidgets('matches palette brightness and supplies missing variants', (
@@ -380,19 +443,29 @@ void main() {
         api: FakeDiscourseApi(),
       );
       final controller = _controller(tester);
-      await controller.appSettings.setThemeMode(AppThemeMode.light);
+      await controller.forumSettings.setThemeMode(
+        controller.currentInstance!.url,
+        AppThemeMode.light,
+      );
       await tester.pump();
       expect(_activeTheme(tester).colorScheme, AppTheme.light.colorScheme);
-      await controller.appSettings.setThemeMode(AppThemeMode.dark);
+      await controller.forumSettings.setThemeMode(
+        controller.currentInstance!.url,
+        AppThemeMode.dark,
+      );
       await tester.pump();
       expect(
         _activeTheme(tester).colorScheme,
         AppTheme.fromPalette(darkPalette).colorScheme,
       );
       controller.selectInstance(1);
+      await controller.forumSettings.setThemeMode(siteB, AppThemeMode.dark);
       await tester.pump();
       expect(_activeTheme(tester).colorScheme, AppTheme.dark.colorScheme);
-      await controller.appSettings.setThemeMode(AppThemeMode.light);
+      await controller.forumSettings.setThemeMode(
+        controller.currentInstance!.url,
+        AppThemeMode.light,
+      );
       await tester.pump();
       expect(
         _activeTheme(tester).colorScheme,
@@ -482,7 +555,7 @@ void main() {
       );
     });
 
-    testWidgets('uses the app dark preference in navigator overlays', (
+    testWidgets('uses the forum dark preference in navigator overlays', (
       tester,
     ) async {
       final appearance = siteAppearance(
@@ -500,7 +573,9 @@ void main() {
       await _pumpApp(tester, store: store, api: FakeDiscourseApi());
 
       expect(_materialApp(tester).themeMode, ThemeMode.system);
-      await _controller(tester).appSettings.setThemeMode(AppThemeMode.dark);
+      await _controller(
+        tester,
+      ).forumSettings.setThemeMode(siteA, AppThemeMode.dark);
       await tester.pump();
       expect(_activeTheme(tester).brightness, Brightness.dark);
       Color? overlayPrimary;
@@ -623,7 +698,8 @@ void main() {
       final controller = _controller(tester);
       final seenColors = <Color>{};
       for (final mode in [AppThemeMode.light, AppThemeMode.dark]) {
-        await controller.appSettings.setThemeMode(mode);
+        await controller.forumSettings.setThemeMode(siteA, mode);
+        await controller.forumSettings.setThemeMode(siteB, mode);
         for (final index in [1, 0]) {
           controller.selectInstance(index);
           await tester.pumpAndSettle();
@@ -784,6 +860,7 @@ Future<void> _pumpApp(
   required FakeDiscourseApi api,
   FakeAuthenticator? authenticator,
   AppSettingsStore? appSettingsStore,
+  ForumSettingsStore? forumSettingsStore,
   bool settle = true,
 }) async {
   await tester.pumpWidget(
@@ -792,6 +869,7 @@ Future<void> _pumpApp(
       api: api,
       authenticator: authenticator ?? FakeAuthenticator(),
       appSettingsStore: appSettingsStore,
+      forumSettingsStore: forumSettingsStore ?? ForumSettingsStore.memory(),
       drafts: FakeDraftStore(),
       forumTabs: FakeForumTabStore(),
       trackers: FakeSiteTracker.reset(),
@@ -882,4 +960,11 @@ double _contrast(Color first, Color second) {
       ? secondLuminance
       : firstLuminance;
   return (lighter + 0.05) / (darker + 0.05);
+}
+
+Future<void> _openForumSettings(WidgetTester tester) async {
+  await tester.tap(find.byKey(const ValueKey('forum-identity-button')));
+  await tester.pumpAndSettle();
+  await tester.tap(find.byKey(const ValueKey('forum-identity-settings')));
+  await tester.pumpAndSettle();
 }
