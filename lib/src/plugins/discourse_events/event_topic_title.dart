@@ -84,7 +84,7 @@ class EventTopicTitle extends StatelessWidget {
                 child,
                 DButton(
                   key: const ValueKey('event-schedule-trigger'),
-                  variant: DButtonVariant.transparentBackground,
+                  variant: DButtonVariant.inline,
                   size: DButtonSize.small,
                   alignment: AlignmentDirectional.centerStart,
                   semanticLabel: 'View event schedule: ${schedule.description}',
