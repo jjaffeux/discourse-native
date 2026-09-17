@@ -15,6 +15,8 @@ import 'package:discourse_native/src/plugins/discourse_events/event_data.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/topic_inbox_row.dart';
+import 'package:discourse_native/src/shell/topic_list_actions.dart';
+import 'package:discourse_native/src/shell/topic_list_layout.dart';
 import 'package:discourse_native/src/shell/topic_list_view.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/gestures.dart';
@@ -27,6 +29,99 @@ import 'package:super_sliver_list/super_sliver_list.dart';
 import 'support/fakes.dart';
 
 void main() {
+  for (final standalone in [false, true]) {
+    testWidgets(
+      'cards follow the pane breakpoint without saving it ($standalone)',
+      (tester) async {
+        final shell = await _setup(tester);
+        final width = ValueNotifier<double>(320);
+        addTearDown(width.dispose);
+        final topic = shell.store.read<Topic>(shell.currentInstance!.url, 1)!;
+        await tester.pumpWidget(
+          ShellScope(
+            controller: shell,
+            child: MaterialApp(
+              theme: AppTheme.light,
+              home: Scaffold(
+                body: Align(
+                  alignment: Alignment.topLeft,
+                  child: ValueListenableBuilder<double>(
+                    valueListenable: width,
+                    builder: (context, width, child) =>
+                        SizedBox(width: width, child: child),
+                    child: TopicListLayout(
+                      child: Column(
+                        children: [
+                          const TopicListActions(),
+                          if (standalone) ...[
+                            const TopicListTableHeader(),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                              ),
+                              child: TopicListRow(topic: topic, onTap: () {}),
+                            ),
+                          ] else
+                            Expanded(
+                              child: TopicListView(feed: shell.currentFeed!),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(find.byKey(const ValueKey('topic-compact-1')), findsOneWidget);
+        expect(
+          find.byKey(const ValueKey('compact-topic-list-header')),
+          findsOneWidget,
+        );
+        final listState = standalone
+            ? null
+            : tester.state(find.byType(TopicListView));
+
+        width.value = 319;
+        await tester.pumpAndSettle();
+        expect(find.byKey(const ValueKey('topic-card-1')), findsOneWidget);
+        expect(
+          find.byKey(const ValueKey('compact-topic-list-header')),
+          findsNothing,
+        );
+        await tester.tap(find.byKey(const ValueKey('topic-list-display')));
+        await tester.pumpAndSettle();
+        final card = tester.widget<DDropdownMenuCheckboxItem>(
+          find.byKey(const ValueKey('topic-display-card')),
+        );
+        final compact = tester.widget<DDropdownMenuCheckboxItem>(
+          find.byKey(const ValueKey('topic-display-compact')),
+        );
+        expect(card.checked, isTrue);
+        expect(card.onChanged, isNull);
+        expect(compact.checked, isFalse);
+        expect(compact.onChanged, isNull);
+        await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+        await tester.pumpAndSettle();
+
+        width.value = 320;
+        await tester.pumpAndSettle();
+        expect(find.byKey(const ValueKey('topic-compact-1')), findsOneWidget);
+        expect(
+          find.byKey(const ValueKey('compact-topic-list-header')),
+          findsOneWidget,
+        );
+        expect(shell.appSettings.topicListMode, TopicListDisplayMode.compact);
+        if (!standalone) {
+          expect(tester.state(find.byType(TopicListView)), same(listState));
+        }
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
   for (final (width, scale, direction) in [
     (1200.0, 1.0, TextDirection.ltr),
     (390.0, 1.0, TextDirection.ltr),

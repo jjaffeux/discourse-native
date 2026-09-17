@@ -8,6 +8,7 @@ import '../../plugin_api/plugin_scope.dart';
 import '../../shell/avatar_image.dart';
 import '../../shell/topic_list_actions.dart';
 import '../../shell/topic_list_footer.dart';
+import '../../shell/topic_list_layout.dart';
 import '../../shell/topic_list_view.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/d_icons.dart';
@@ -170,7 +171,10 @@ class AssignedGroupPresentationView extends StatelessWidget {
   final ValueChanged<Topic> onOpenTopic;
 
   @override
-  Widget build(BuildContext context) => Column(
+  Widget build(BuildContext context) =>
+      TopicListLayout(child: Builder(builder: _build));
+
+  Widget _build(BuildContext context) => Column(
     children: [
       Padding(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),

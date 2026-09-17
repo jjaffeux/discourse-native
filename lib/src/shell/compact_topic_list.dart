@@ -50,6 +50,7 @@ class TopicListTableHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (TopicListLayout.forceCardOf(context)) return const SizedBox.shrink();
     final settings = ShellScope.maybeIdentityOf(context)?.appSettings;
     Widget header() =>
         (compact ?? settings?.topicListMode != TopicListDisplayMode.card)

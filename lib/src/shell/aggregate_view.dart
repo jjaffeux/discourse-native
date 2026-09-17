@@ -96,7 +96,10 @@ class AggregateViewState extends State<AggregateView> {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) =>
+      TopicListLayout(child: Builder(builder: _build));
+
+  Widget _build(BuildContext context) {
     final controller = ShellScope.read(context);
     _controller = controller;
     final theme = Theme.of(context);
