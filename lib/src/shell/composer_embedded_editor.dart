@@ -155,4 +155,47 @@ class _RenderEmbeddedViewport extends RenderProxyBox {
       transform.translateByDouble(0, -scroll.offset, 0, 1);
     }
   }
+
+  @override
+  void showOnScreen({
+    RenderObject? descendant,
+    Rect? rect,
+    Duration duration = Duration.zero,
+    Curve curve = Curves.ease,
+  }) {
+    // EditableText reveals its own caret but has no viewport adapter for
+    // another editable embedded in a WidgetSpan. Relay native caret reveals
+    // from both the summary and body to the enclosing document's scroll.
+    final scroll = _scrollController;
+    RenderObject? viewport = parent;
+    while (viewport != null && viewport is! RenderEditable) {
+      viewport = viewport.parent;
+    }
+    if (rect != null &&
+        viewport is RenderEditable &&
+        scroll != null &&
+        scroll.hasClients) {
+      final target = MatrixUtils.transformRect(
+        (descendant ?? this).getTransformTo(viewport),
+        rect,
+      );
+      final delta = target.bottom > viewport.size.height
+          ? target.bottom - viewport.size.height
+          : target.top < 0
+          ? target.top
+          : 0.0;
+      final position = scroll.position;
+      final offset = (position.pixels + delta).clamp(
+        position.minScrollExtent,
+        position.maxScrollExtent,
+      );
+      if (offset != position.pixels) scroll.jumpTo(offset);
+    }
+    super.showOnScreen(
+      descendant: descendant,
+      rect: rect,
+      duration: duration,
+      curve: curve,
+    );
+  }
 }

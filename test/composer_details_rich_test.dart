@@ -57,6 +57,7 @@ Future<({ComposerController root, List<_Upload> uploads})> _pump(
   bool panel = false,
   double width = 760,
   double scale = 1,
+  ComposerUploadFile? pickedFile,
 }) async {
   final uploads = <_Upload>[];
   final root = ComposerController(
@@ -83,7 +84,8 @@ Future<({ComposerController root, List<_Upload> uploads})> _pump(
     hintText: 'Reply',
     textStyle: const TextStyle(fontSize: 16, height: 1.5),
     hintStyle: null,
-    pickFiles: () async => [_file],
+    showSelectionToolbar: false,
+    pickFiles: () async => [pickedFile ?? _file],
     readClipboardFiles: () async => [_file],
   );
   if (panel) {
@@ -101,7 +103,7 @@ Future<({ComposerController root, List<_Upload> uploads})> _pump(
       child: ComposerPanel(
         composer: root,
         height: 570,
-        pickFiles: () async => [_file],
+        pickFiles: () async => [pickedFile ?? _file],
       ),
     );
   }
@@ -179,14 +181,133 @@ void main() {
       startsWith('Before\n\n[details="Summary" open future=keep]'),
     );
     expect(fixture.root.draft.reply, fixture.root.text.text);
+    expect(_button('Bold'), findsOneWidget);
+    expect(_button('Link'), findsOneWidget);
+  });
+
+  testWidgets('shared tools follow focus into nested details and back out', (
+    tester,
+  ) async {
+    const source =
+        '[details="Outer"]\nOuter words\n\n[details="Inner"]\nInner words\n[/details]\n[/details]\n\nAfter';
+    final fixture = await _pump(tester, panel: true, source: source);
+    final outer = _bodies(tester).first;
+    final inner = _bodies(tester).last;
+    outer.requestFocus();
+    await tester.pump();
+    await tester.pump();
+    await tester.showKeyboard(_editable(inner));
+    inner.text.selection = const TextSelection(baseOffset: 0, extentOffset: 5);
+    await tester.pump();
+    await tester.tap(_button('Bold'));
+    await tester.pump();
+    expect(inner.text.text, '**Inner** words');
+    expect(outer.text.text, startsWith('Outer words'));
+    expect(fixture.root.activeEditor, same(inner));
+
+    outer.requestFocus();
+    await tester.pump();
+    outer.text.selection = const TextSelection(baseOffset: 0, extentOffset: 5);
+    await tester.pump();
+    await tester.tap(_button('Italic'));
+    await tester.pump();
+    expect(outer.text.text, startsWith('*Outer* words'));
+    expect(fixture.root.text.text, contains('**Inner** words'));
+
+    fixture.root.requestFocus();
+    await tester.pump();
+    final start = fixture.root.text.text.indexOf('After');
+    fixture.root.text.selection = TextSelection(
+      baseOffset: start,
+      extentOffset: start + 5,
+    );
+    await tester.pump();
+    await tester.tap(_button('Bold'));
+    await tester.pump();
+    expect(fixture.root.text.text, endsWith('**After**'));
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('the shared link dialog edits selected details content', (
+    tester,
+  ) async {
+    final fixture = await _pump(
+      tester,
+      panel: true,
+      source: 'Before\n\n[details]\nRead this\n[/details]\n\nAfter',
+    );
+    final body = _bodies(tester).single;
+    await tester.showKeyboard(_editable(body));
+    body.text.selection = const TextSelection(baseOffset: 0, extentOffset: 9);
+    await tester.pump();
+    await tester.tap(_button('Link'));
+    await tester.pumpAndSettle();
+    final url = find.descendant(
+      of: find.byKey(const ValueKey('composer-link-url')),
+      matching: find.byType(EditableText),
+    );
+    await tester.enterText(url, 'https://example.test/read');
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('composer-link-insert')));
+    await tester.pumpAndSettle();
+    expect(body.text.text, '[Read this](https://example.test/read)');
+    expect(
+      fixture.root.raw,
+      'Before\n\n[details]\n[Read this](https://example.test/read)\n[/details]\n\nAfter',
+    );
+    expect(body.focus.hasPrimaryFocus, isTrue);
+  });
+
+  testWidgets('the shared upload action inserts video into details content', (
+    tester,
+  ) async {
+    final video = ComposerUploadFile(
+      name: 'clip.mp4',
+      length: () async => 3,
+      openRead: () => Stream.value([1, 2, 3]),
+    );
+    final fixture = await _pump(
+      tester,
+      panel: true,
+      source: 'Before\n\n[details]\nVideo\n[/details]\n\nAfter',
+      pickedFile: video,
+    );
+    final body = _bodies(tester).single;
+    await tester.showKeyboard(_editable(body));
+    body.text.selection = TextSelection.collapsed(
+      offset: body.text.text.length,
+    );
+    await tester.pump();
+    await tester.tap(_button('Upload'));
+    await tester.pump();
+    expect(fixture.uploads, hasLength(1));
+    fixture.uploads.single.result.complete(
+      const ComposerUploadResult(
+        id: 2,
+        originalFilename: 'clip.mp4',
+        shortUrl: 'upload://clip.mp4',
+        url: 'https://example.test/clip.mp4',
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      parseComposerDetails(fixture.root.raw).single.body,
+      'Video\n[clip.mp4](upload://clip.mp4)',
+    );
+    expect(fixture.root.raw, startsWith('Before\n\n[details]'));
+    expect(fixture.root.raw, endsWith('[/details]\n\nAfter'));
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets(
     'the inherited upload picker stores its slot and result inside details',
     (tester) async {
-      final fixture = await _pump(tester);
+      final fixture = await _pump(tester, panel: true);
       final body = _bodies(tester).single;
+      await tester.showKeyboard(_editable(body));
       body.text.selection = const TextSelection.collapsed(offset: 0);
+      await tester.pump();
+      expect(_button('Upload'), findsOneWidget);
       await tester.tap(_button('Upload'));
       await tester.pump();
       expect(fixture.uploads, hasLength(1));
@@ -225,7 +346,10 @@ void main() {
     await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
     await tester.pump();
     expect(fixture.uploads, hasLength(1));
-    await tester.tap(_button('Remove details'));
+    await tester.longPress(find.byKey(const ValueKey('details-disclosure')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 250));
+    await tester.tap(find.text('Delete details'));
     await tester.pumpAndSettle();
     expect(fixture.uploads.single.aborted, isTrue);
     expect(fixture.root.hasActiveUploads, isFalse);
@@ -264,7 +388,7 @@ void main() {
     body.retryUpload(body.uploads.single.id);
     await tester.pump();
     expect(fixture.uploads, hasLength(2));
-    await tester.tap(find.text('Summary').first);
+    await tester.tap(find.byKey(const ValueKey('details-disclosure')));
     await tester.pumpAndSettle();
     fixture.uploads.last.result.complete(_result);
     await tester.pumpAndSettle();
@@ -272,7 +396,7 @@ void main() {
       parseComposerDetails(fixture.root.raw).single.body,
       startsWith('![new|'),
     );
-    await tester.tap(find.text('Summary').first);
+    await tester.tap(find.byKey(const ValueKey('details-disclosure')));
     await tester.pumpAndSettle();
     expect(find.byType(ComposerImagePreview), findsNWidgets(2));
     expect(tester.takeException(), isNull);
@@ -281,7 +405,7 @@ void main() {
   testWidgets('scrolled details retain image hit testing and deletion', (
     tester,
   ) async {
-    final fixture = await _pump(tester, source: '${'Intro\n' * 6}$_source');
+    final fixture = await _pump(tester, source: '${'Intro\n' * 14}$_source');
     final body = _bodies(tester).single;
     fixture.root.text.imageScrollController!.jumpTo(70);
     await tester.pump();
@@ -313,7 +437,7 @@ void main() {
       (tester) async {
         final fixture = await _pump(
           tester,
-          source: '${scroll ? 'Intro\n' * 6 : ''}$_source',
+          source: '${scroll ? 'Intro\n' * 14 : ''}$_source',
         );
         final body = _bodies(tester).single;
         if (scroll) {
@@ -366,7 +490,7 @@ void main() {
     final fixture = await _pump(tester);
     final body = _bodies(tester).single;
     await tester.showKeyboard(_editable(body));
-    await tester.tap(find.text('Summary').first);
+    await tester.tap(find.byKey(const ValueKey('details-disclosure')));
     await tester.pumpAndSettle();
     expect(fixture.root.activeEditor, same(fixture.root));
     final render = tester
@@ -518,8 +642,24 @@ void main() {
   testWidgets(
     'narrow large-text details keep rich content and controls within the viewport',
     (tester) async {
-      await _pump(tester, width: 320, scale: 2);
+      final fixture = await _pump(tester, width: 320, scale: 2);
       expect(find.byType(ComposerImagePreview), findsOneWidget);
+      double caretHeight(ComposerController composer) {
+        final editable = tester
+            .state<EditableTextState>(_editable(composer))
+            .renderEditable;
+        final caret = editable.getLocalRectForCaret(
+          const TextPosition(offset: 0),
+        );
+        return (editable.localToGlobal(caret.bottomLeft) -
+                editable.localToGlobal(caret.topLeft))
+            .dy;
+      }
+
+      expect(
+        caretHeight(_bodies(tester).single),
+        closeTo(caretHeight(fixture.root), 1),
+      );
       expect(tester.takeException(), isNull);
     },
   );
