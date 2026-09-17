@@ -29,6 +29,35 @@ final dropdownMenuExamples = ComponentExamples(
     _example('Avatar', _DropdownExampleKind.avatar),
     _example('Complex', _DropdownExampleKind.complex),
     _example('RTL', _DropdownExampleKind.rtl),
+    StyleguideExample(
+      title: 'Grouped guide',
+      description:
+          'A sidebar-style vertical guide groups indented choices beneath a label. The guide follows the reading direction and live palette.',
+      code: _guideCode,
+      builder: (_) => DDropdownMenu(
+        content: DDropdownMenuContent(
+          children: [
+            const DDropdownMenuLabel(child: Text('Top')),
+            DDropdownMenuGroup(
+              showGuide: true,
+              semanticLabel: 'Top periods',
+              children: [
+                for (final period in [
+                  'Year',
+                  'Quarter',
+                  'Month',
+                  'Week',
+                  'Today',
+                  'All time',
+                ])
+                  DDropdownMenuItem(onPressed: () {}, child: Text(period)),
+              ],
+            ),
+          ],
+        ),
+        child: DDropdownMenuTrigger.button(label: const Text('Top periods')),
+      ),
+    ),
   ],
 );
 
@@ -646,3 +675,14 @@ const _usageCode = r'''DDropdownMenu(
     ),
   ),
 )''';
+
+const _guideCode = """
+DDropdownMenuGroup(
+  showGuide: true,
+  semanticLabel: 'Top periods',
+  children: [
+    DDropdownMenuItem(onPressed: selectYear, child: Text('Year')),
+    DDropdownMenuItem(onPressed: selectMonth, child: Text('Month')),
+  ],
+)
+""";

@@ -172,3 +172,17 @@ nested focus/non-overlap/deepest Escape, restoration, outside pointer,
 positioning/scrolling, and live theme/RTL/scaling/lifecycle updates. No iOS or
 Linux device run, spoken VoiceOver pass, or pixel-diff equality is claimed by
 the source task.
+
+## Grouped vertical guide
+
+`DDropdownMenuGroup(showGuide: true)` draws a decorative 1px vertical guide
+beside its children, matching Sidebar's guide contrast policy. The group owns
+22px of directional indentation; its items use normal padding, not `inset`.
+The line mirrors in RTL and follows live palette changes. The default group
+appearance is unchanged. The topic feed menu uses this option for the six Top
+periods; the styleguide includes a **Grouped guide** example.
+
+Validation: 118 existing Dropdown Menu, topic navigation, and dropdown styleguide
+tests passed, and targeted static analysis passed. Widget-rendered production
+feed menus were inspected in light and dark at 380px, plus RTL at 200% text.
+These captures are widget rendering checks, not native-device verification.
