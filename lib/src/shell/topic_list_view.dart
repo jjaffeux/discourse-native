@@ -802,7 +802,7 @@ class _TopicListViewState extends State<TopicListView> {
                           return index < 0 ? null : index * 2;
                         },
                         separatorBuilder: (context, _) =>
-                            SizedBox(height: _compact ? 1 : 8),
+                            const SizedBox(height: 1),
                         itemBuilder: (context, index) {
                           if (_recording) {
                             _recordScrollEvent('topicList.row.built', {
@@ -885,9 +885,9 @@ class _TopicListViewState extends State<TopicListView> {
   double _estimateExtent(int? index, double crossAxisExtent) {
     if (index == null) return 0;
     return index.isOdd
-        ? (_compact ? 1 : 8)
+        ? 1
         : _compact
-        ? 64
+        ? 72
         : TopicListRow.minimumHeight;
   }
 }
@@ -937,7 +937,7 @@ class _TopicListLoadingSkeleton extends StatelessWidget {
         builder: (context, constraints) {
           final visibleRowCount = constraints.hasBoundedHeight
               ? (constraints.maxHeight /
-                        (compact ? 64 : TopicListRow.minimumHeight))
+                        (compact ? 72 : TopicListRow.minimumHeight))
                     .ceil()
               : _patternLength;
           final rowCount = visibleRowCount < 1 ? 1 : visibleRowCount;
@@ -951,7 +951,7 @@ class _TopicListLoadingSkeleton extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   for (var index = 0; index < rowCount; index++) ...[
-                    if (index > 0) const SizedBox(height: 8),
+                    if (index > 0) const SizedBox(height: 1),
                     _rowAt(index),
                   ],
                 ],
