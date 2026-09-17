@@ -52,6 +52,7 @@ class ReactionsRow extends StatelessWidget {
     }
     final writeInFlight = controller?.writeInFlight(siteUrl, post.id) == true;
     return ReactionPills(
+      padding: const EdgeInsets.only(top: 10),
       children: [
         for (final entry in reactions.entries)
           ReactionPill(

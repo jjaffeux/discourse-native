@@ -1004,7 +1004,7 @@ class PostActionsFooter extends StatelessWidget {
     if (scope == null || actions == null || scope.actions.isEmpty) return child;
 
     return Row(
-      crossAxisAlignment: CrossAxisAlignment.end,
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         Expanded(child: child),
         const SizedBox(width: 8),
