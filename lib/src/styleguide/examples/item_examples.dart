@@ -41,7 +41,7 @@ final itemExamples = ComponentExamples(
       title: 'Outline selection',
       description:
           'Topic selection uses a 2px accent outline, the normal background, '
-          'and a faint neutral hover with broader corners. Selecting a row '
+          'and a neutral hover with stronger contrast in light mode and broader corners. Selecting a row '
           'does not move its content.',
       code:
           "DItem(selected: true, selectionStyle: DItemSelectionStyle.outline, showSelectionIndicator: false, onPressed: () {}, children: [DItemContent(children: [DItemTitle(child: Text('Current topic'))])])",

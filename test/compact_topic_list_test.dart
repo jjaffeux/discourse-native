@@ -365,7 +365,7 @@ void main() {
               hovering
                   ? DTokens.of(
                       tester.element(row),
-                    ).foreground.withValues(alpha: .05)
+                    ).foreground.withValues(alpha: dark ? .05 : .09)
                   : Colors.transparent,
             );
             if (mode == TopicListDisplayMode.card) {

@@ -206,7 +206,9 @@ void main() {
           await tester.pump(duration);
           expect(
             (surface(1).decoration! as BoxDecoration).color,
-            tokens.foreground.withValues(alpha: .05),
+            tokens.foreground.withValues(
+              alpha: brightness == Brightness.light ? .09 : .05,
+            ),
           );
           expect(surface(1).foregroundDecoration, isNull);
           expect(
@@ -241,7 +243,9 @@ void main() {
         await tester.pump();
         expect(
           (surface(1).decoration! as BoxDecoration).color,
-          tokens.foreground.withValues(alpha: .05),
+          tokens.foreground.withValues(
+            alpha: brightness == Brightness.light ? .09 : .05,
+          ),
         );
         expect(surface(1).foregroundDecoration, isNotNull);
         await mouse.moveTo(const Offset(700, 500));
