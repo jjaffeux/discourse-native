@@ -372,7 +372,6 @@ class TopicTagsValue extends StatelessWidget {
       onTap: onTagNavigate == null ? onTap : () => onTagNavigate!(tag),
       isLink: onTagNavigate != null,
       semanticLabel: onTagNavigate == null ? null : 'Tag: ${tag.name}',
-      tooltip: onTagNavigate == null ? editTooltip : 'Open tag ${tag.name}',
     );
 
     final pills = [for (final tag in tags) pill(tag)];
@@ -432,7 +431,6 @@ class _TopicTagPill extends StatelessWidget {
   const _TopicTagPill({
     required this.pillKey,
     required this.tag,
-    required this.tooltip,
     required this.isLink,
     this.semanticLabel,
     this.onTap,
@@ -441,7 +439,6 @@ class _TopicTagPill extends StatelessWidget {
   final Key? pillKey;
   final TopicTag tag;
   final VoidCallback? onTap;
-  final String tooltip;
   final bool isLink;
   final String? semanticLabel;
 
@@ -493,7 +490,7 @@ class _TopicTagPill extends StatelessWidget {
             ),
           )
         : pill;
-    return DTooltip(message: tooltip, child: action);
+    return action;
   }
 }
 
