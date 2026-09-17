@@ -37,9 +37,11 @@ import 'support/fakes.dart';
 import 'support/media_pipeline.dart';
 
 void main() {
-  for (final width in [780.0, 1200.0]) {
-    testWidgets('compact category precedes tags at $width', (tester) async {
-      await _setup(tester, width: width);
+  for (final (width, scale) in [(780.0, 1.0), (1200.0, 1.0), (1200.0, 2.0)]) {
+    testWidgets('compact category and tags share a baseline at $width/$scale', (
+      tester,
+    ) async {
+      await _setup(tester, width: width, scale: scale);
       final header = find.byKey(const ValueKey('compact-topic-list-header'));
       expect(
         find.descendant(of: header, matching: find.text('Category')),
@@ -51,10 +53,13 @@ void main() {
         matching: find.text('Community'),
       );
       final tag = find.descendant(of: row, matching: find.text('#design'));
-      expect(
-        tester.getCenter(category).dy,
-        closeTo(tester.getCenter(tag).dy, 2),
-      );
+      double baseline(Finder finder) {
+        final box = tester.renderObject<RenderBox>(finder);
+        return box.localToGlobal(Offset.zero).dy +
+            box.getDryBaseline(box.constraints, TextBaseline.alphabetic)!;
+      }
+
+      expect(baseline(category), closeTo(baseline(tag), 0.01));
       expect(
         tester.getRect(category).right,
         lessThan(tester.getRect(tag).left),

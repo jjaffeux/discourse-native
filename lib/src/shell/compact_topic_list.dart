@@ -371,24 +371,38 @@ Widget _topicRowMetadata(
   required bool lastPoster,
   required List<Widget> inlineMetadata,
 }) {
-  return Wrap(
-    spacing: DSpacing.xs,
-    runSpacing: DSpacing.xs,
-    crossAxisAlignment: WrapCrossAlignment.center,
-    children: [
-      if (row.forum != null) Text(row.forum!.title),
-      if (category && row.category != null) _topicRowCategory(context, row),
-      ..._topicRowTags(context, row),
-      ...inlineMetadata,
-      if (lastPoster)
-        if (row.topic.lastPosterUsername case final username?)
-          Text(
-            username,
-            style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: DTokens.of(context).mutedForeground,
+  final children = [
+    if (row.forum != null) Text(row.forum!.title),
+    if (category && row.category != null) _topicRowCategory(context, row),
+    ..._topicRowTags(context, row),
+    ...inlineMetadata,
+    if (lastPoster)
+      if (row.topic.lastPosterUsername case final username?)
+        Text(
+          username,
+          style: Theme.of(context).textTheme.labelSmall?.copyWith(
+            color: DTokens.of(context).mutedForeground,
+          ),
+        ),
+  ];
+  return Text.rich(
+    TextSpan(
+      children: [
+        for (var index = 0; index < children.length; index++)
+          WidgetSpan(
+            alignment: PlaceholderAlignment.baseline,
+            baseline: TextBaseline.alphabetic,
+            child: Padding(
+              padding: EdgeInsetsDirectional.only(
+                end: index < children.length - 1 ? DSpacing.xs : 0,
+              ),
+              child: children[index],
             ),
           ),
-    ],
+      ],
+    ),
+    // Native components scale their own text and expose its baseline.
+    textScaler: TextScaler.noScaling,
   );
 }
 
