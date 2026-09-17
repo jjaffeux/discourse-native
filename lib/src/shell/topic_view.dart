@@ -1808,6 +1808,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
                     title:
                         snapshot.topic?.title ?? widget.route?.title ?? 'Topic',
                     siteUrl: snapshot.siteUrl,
+                    topic: snapshot.topic,
                     route: widget.route,
                     canReturnToSidebar: widget.canReturnToSidebar,
                     sidebarVisible: showPinnedSidebar || showOverlaySidebar,
@@ -2878,16 +2879,28 @@ class _TopicViewHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (inbox) {
-      return TopicInboxHeader(
-        title: title,
+      final topic = this.topic;
+      Widget header(Topic? preview) => TopicInboxHeader(
+        title: topic?.title ?? preview?.title ?? title,
         siteUrl: this.siteUrl,
         topic: this.topic,
+        preview: preview,
         route: route,
         canReturnToSidebar: canReturnToSidebar,
         keepTopicListOpen: keepTopicListOpen,
         registry: registry,
         scrollController: scrollController,
         hasEarlierPosts: hasEarlierPosts,
+      );
+      final siteUrl = this.siteUrl;
+      final controller = ShellScope.read(context);
+      final topicId = route?.topicId ?? controller.currentContent?.topicId;
+      if (topic != null || siteUrl == null || topicId == null) {
+        return header(null);
+      }
+      return ValueListenableBuilder<Topic?>(
+        valueListenable: controller.topicRef(siteUrl, topicId),
+        builder: (context, preview, _) => header(preview),
       );
     }
     final theme = Theme.of(context);

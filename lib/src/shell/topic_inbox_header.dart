@@ -41,6 +41,7 @@ class TopicInboxHeader extends StatelessWidget {
     required this.registry,
     this.route,
     this.topic,
+    this.preview,
     this.scrollController,
     this.hasEarlierPosts = false,
     this.bodyBuilder,
@@ -53,13 +54,32 @@ class TopicInboxHeader extends StatelessWidget {
   final PluginRegistry registry;
   final ContentRoute? route;
   final TopicDetail? topic;
+
+  /// Cached list metadata to display until the full topic response arrives.
+  final Topic? preview;
   final ScrollController? scrollController;
   final bool hasEarlierPosts;
   final Widget Function(List<Widget> openingSlivers)? bodyBuilder;
 
   @override
   Widget build(BuildContext context) {
-    final topic = this.topic;
+    final preview = this.preview;
+    // Reuse the read-only taxonomy presentation without promoting a list row
+    // into the detail cache or inferring permissions from incomplete data.
+    final topic =
+        this.topic ??
+        (preview == null
+            ? null
+            : TopicDetail(
+                id: preview.id,
+                title: preview.title,
+                stream: const [],
+                categoryId: preview.categoryId,
+                tags: preview.tags,
+                privateMessage: preview.privateMessage,
+                postsCount: preview.postsCount,
+                replyCount: preview.replyCount,
+              ));
     final siteUrl = this.siteUrl;
     final hasTopic = topic != null && siteUrl != null;
     final showActivity = hasTopic && !hasEarlierPosts;
@@ -74,6 +94,7 @@ class TopicInboxHeader extends StatelessWidget {
                   topic: topic,
                   keepTopicListOpen: keepTopicListOpen,
                   registry: registry,
+                  showProperties: this.topic != null,
                 ),
               ),
             ),
@@ -264,7 +285,7 @@ class _TopicHeaderTitle extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       spacing: DSpacing.sm,
       children: [
-        if (topic?.closed == true)
+        if ((topic?.closed ?? header.preview?.closed) == true)
           Padding(
             padding: EdgeInsets.only(top: math.max(0, (lineHeight - 16) / 2)),
             child: DIcon(
@@ -391,6 +412,10 @@ class _TopicActivitySummary extends StatelessWidget {
     builder: (context, row, _) {
       final theme = Theme.of(context);
       final participants = topic.participants.take(3).toList();
+      final previewAvatars = participants.isEmpty
+          ? row?.posterAvatars.take(3).toList() ?? const <String>[]
+          : const <String>[];
+      final avatarCount = participants.length + previewAvatars.length;
       final style = theme.textTheme.labelSmall?.copyWith(
         color: theme.colorScheme.onSurfaceVariant,
       );
@@ -400,12 +425,23 @@ class _TopicActivitySummary extends StatelessWidget {
         runSpacing: 4,
         crossAxisAlignment: WrapCrossAlignment.center,
         children: [
-          if (participants.isNotEmpty)
+          if (avatarCount > 0)
             SizedBox(
-              width: 20 + (participants.length - 1) * 15,
+              width: 20 + (avatarCount - 1) * 15,
               height: 20,
               child: Stack(
                 children: [
+                  for (var i = 0; i < previewAvatars.length; i++)
+                    Positioned(
+                      left: i * 15,
+                      child: DAvatar.frame(
+                        child: AvatarImage(
+                          url: previewAvatars[i],
+                          size: 20,
+                          fallback: const SizedBox.square(dimension: 20),
+                        ),
+                      ),
+                    ),
                   for (var i = 0; i < participants.length; i++)
                     Positioned(
                       left: i * 15,
@@ -460,11 +496,13 @@ class _TopicHeaderTaxonomy extends StatelessWidget {
     required this.topic,
     required this.keepTopicListOpen,
     required this.registry,
+    this.showProperties = true,
   });
   final String siteUrl;
   final TopicDetail topic;
   final bool keepTopicListOpen;
   final PluginRegistry registry;
+  final bool showProperties;
 
   @override
   Widget build(BuildContext context) => ShellSelector<Object>(
@@ -555,13 +593,14 @@ class _TopicHeaderTaxonomy extends StatelessWidget {
                   ),
                 ),
               ],
-              _TopicHeaderProperties(
-                siteUrl: siteUrl,
-                topic: topic,
-                registry: registry,
-                compact: constraints.maxWidth < 620,
-                showSeparator: hasCategories || hasTags,
-              ),
+              if (showProperties)
+                _TopicHeaderProperties(
+                  siteUrl: siteUrl,
+                  topic: topic,
+                  registry: registry,
+                  compact: constraints.maxWidth < 620,
+                  showSeparator: hasCategories || hasTags,
+                ),
             ],
           );
         },
