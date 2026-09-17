@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../plugin_api/composer_syntax.dart';
+import 'composer_block_selection.dart';
 import 'composer_controller.dart';
 import 'composer_upload_attachment.dart';
 
@@ -31,7 +32,7 @@ final class ComposerUploadPlaceholderPolicy implements ComposerSyntaxPolicy {
   ];
 }
 
-final class _UploadProjection implements ComposerSyntaxProjection {
+final class _UploadProjection implements ComposerBlockSyntaxProjection {
   const _UploadProjection(this.composer, this.id, this.start, this.source);
 
   final ComposerController composer;
@@ -70,23 +71,26 @@ final class _UploadProjection implements ComposerSyntaxProjection {
     WidgetSpan(
       alignment: PlaceholderAlignment.top,
       style: context.baseStyle,
-      child: ListenableBuilder(
-        key: context.pillKey,
-        listenable: composer,
-        builder: (context, _) {
-          final upload = composer.uploads
-              .where((upload) => upload.id == id)
-              .firstOrNull;
-          if (upload == null) return const SizedBox.shrink();
-          return Padding(
-            padding: const EdgeInsets.symmetric(vertical: 4),
-            child: ComposerUploadAttachment(
-              key: ValueKey('composer-inline-upload-$id'),
-              composer: composer,
-              upload: upload,
-            ),
-          );
-        },
+      child: ComposerBlockSelection(
+        selected: context.highlighted,
+        child: ListenableBuilder(
+          key: context.pillKey,
+          listenable: composer,
+          builder: (context, _) {
+            final upload = composer.uploads
+                .where((upload) => upload.id == id)
+                .firstOrNull;
+            if (upload == null) return const SizedBox.shrink();
+            return Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              child: ComposerUploadAttachment(
+                key: ValueKey('composer-inline-upload-$id'),
+                composer: composer,
+                upload: upload,
+              ),
+            );
+          },
+        ),
       ),
     ),
     // Match the editor's image/quote block accounting: end the widget's

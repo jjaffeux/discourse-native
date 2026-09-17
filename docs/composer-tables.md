@@ -13,6 +13,10 @@ as cooked posts, with Native inputs, menus and buttons.
   Enter/Shift+Enter move within a column. Escape returns to prose.
 - Native selection, clipboard and undo shortcuts act on the focused cell.
   Bold, italic and code shortcuts insert Markdown in that cell.
+- Moving or clicking immediately before a block selects the whole component.
+  Backspace or Delete removes it; Left/Up returns to preceding text and Right/Down moves
+  after it. Enter opens the selected table's first cell. This boundary behavior
+  is shared with details, quotes, images, galleries, polls and upload slots.
 - Column resizing is local presentation state; column ordering changes the
   source. Wide tables scroll horizontally.
 

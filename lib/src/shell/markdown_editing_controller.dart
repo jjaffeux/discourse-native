@@ -10,6 +10,7 @@ import '../models/site_config.dart';
 import '../plugin_api/composer_syntax.dart';
 import '../plugin_api/hashtag_kind.dart';
 import '../theme/discourse_typography.dart';
+import 'composer_block_selection.dart';
 import 'composer_blockquote.dart';
 import 'composer_galleries.dart';
 import 'composer_image.dart';
@@ -114,6 +115,8 @@ class MarkdownEditingController extends TextEditingController {
   @override
   set value(TextEditingValue newValue) {
     final current = super.value;
+    final wasSelectedBlock =
+        _keyboardSelectedProjection != null && !current.selection.isCollapsed;
     if (newValue.text != current.text) {
       _keyboardSelectedProjection = null;
       _keyboardSelectionDocument = null;
@@ -142,7 +145,78 @@ class MarkdownEditingController extends TextEditingController {
         composing: TextRange.empty,
       );
     }
+    // A block's first source position paints in front of its widget, not in
+    // an editable paragraph. Select its complete range instead. Retain that
+    // selection when an upload slot is replaced by its finished component.
+    if (_keyboardSelectedProjection == null &&
+        newValue.selection.isValid &&
+        (newValue.selection.isCollapsed ||
+            (newValue.text != current.text && wasSelectedBlock)) &&
+        newValue.composing.isCollapsed) {
+      final block = _blockStartingAt(
+        newValue.copyWith(
+          selection: TextSelection.collapsed(offset: newValue.selection.start),
+        ),
+      );
+      if (block != null) {
+        final (start, end) = _blockRange(block);
+        if (newValue.selection.isCollapsed || newValue.selection.end == end) {
+          _keyboardSelectedProjection = block;
+          _keyboardSelectionDocument = newValue.text;
+          newValue = newValue.copyWith(
+            selection: TextSelection(baseOffset: start, extentOffset: end),
+          );
+        }
+      }
+    }
     super.value = newValue;
+  }
+
+  Object? _blockStartingAt(TextEditingValue document) {
+    final offset = document.selection.extentOffset;
+    for (final syntax in _syntaxBlocksFor(document.text)) {
+      if (syntax.start > offset) break;
+      if (syntax.start <= offset &&
+          offset < syntax.end &&
+          syntax.projection is ComposerBlockSyntaxProjection) {
+        return syntax.start == offset &&
+                !syntax.projection.needsRawSource(
+                  document,
+                  suppressCollapsedCaret: false,
+                )
+            ? syntax
+            : null;
+      }
+    }
+    for (final quote in _quoteBlocksFor(document.text)) {
+      if (quote.start <= offset && offset < quote.end) {
+        return quote.start == offset ? quote : null;
+      }
+    }
+    for (final gallery in _galleryBlocksFor(document.text)) {
+      if (gallery.start <= offset && offset < gallery.end) {
+        return gallery.start == offset ? gallery : null;
+      }
+    }
+    for (final image in _imageBlocksFor(document.text)) {
+      if (image.start == offset) return image;
+    }
+    return null;
+  }
+
+  static (int, int) _blockRange(Object block) => switch (block) {
+    ComposerSyntaxOccurrence block => (block.start, block.end),
+    ComposerQuoteBlock block => (block.start, block.end),
+    ComposerImageGalleryBlock block => (block.start, block.end),
+    ComposerImageBlock block => (block.start, block.end),
+    _ => throw ArgumentError.value(block, 'block'),
+  };
+
+  /// The preceding text position, skipping the block's selection boundary.
+  int caretBeforeBlock(int start) {
+    final offset = start.clamp(0, text.length);
+    if (offset == 0) return 0;
+    return offset - text.substring(0, offset).characters.last.length;
   }
 
   set imageScrollController(ScrollController? value) {
@@ -194,15 +268,19 @@ class MarkdownEditingController extends TextEditingController {
       ? _keyboardSelectedProjection as ComposerSyntaxOccurrence
       : null;
 
+  Object? get keyboardSelectedProjection =>
+      _keyboardSelectionDocument == text ? _keyboardSelectedProjection : null;
+
   bool get selectedProjectionHidesCursor =>
       _caretSuppressedImage != null ||
       _caretSuppressedGallery != null ||
-      keyboardSelectedSyntax != null ||
-      keyboardSelectedImage != null;
+      keyboardSelectedProjection != null;
 
   void selectPillForKeyboard(Object projection) {
     if (projection is! ComposerImageBlock &&
-        projection is! ComposerSyntaxOccurrence) {
+        projection is! ComposerSyntaxOccurrence &&
+        projection is! ComposerQuoteBlock &&
+        projection is! ComposerImageGalleryBlock) {
       for (final occurrence in _syntaxBlocksFor(text)) {
         if (identical(occurrence.projection, projection) ||
             occurrence.projection == projection) {
@@ -212,7 +290,9 @@ class MarkdownEditingController extends TextEditingController {
       }
     }
     if (projection is! ComposerImageBlock &&
-        projection is! ComposerSyntaxOccurrence) {
+        projection is! ComposerSyntaxOccurrence &&
+        projection is! ComposerQuoteBlock &&
+        projection is! ComposerImageGalleryBlock) {
       throw ArgumentError.value(projection, 'projection');
     }
     if (_keyboardSelectionDocument == text &&
@@ -797,6 +877,7 @@ class MarkdownEditingController extends TextEditingController {
           block.end,
           block.title,
           _displayedContentsFor(block),
+          isPillSelectedForKeyboard(block),
         ),
       ),
     );
@@ -805,13 +886,14 @@ class MarkdownEditingController extends TextEditingController {
     final syntaxBlocks = _syntaxBlocksFor(source);
     final collapsedSyntax = [
       for (final block in syntaxBlocks)
-        if (!block.projection.needsRawSource(
-          value,
-          suppressCollapsedCaret: _sameProjection(
-            _caretSuppressedSyntax,
-            block,
-          ),
-        ))
+        if (isPillSelectedForKeyboard(block) ||
+            !block.projection.needsRawSource(
+              value,
+              suppressCollapsedCaret: _sameProjection(
+                _caretSuppressedSyntax,
+                block,
+              ),
+            ))
           block,
     ];
     _collapsedSyntaxKeys = {
@@ -893,6 +975,7 @@ class MarkdownEditingController extends TextEditingController {
           gallery.start,
           gallery.end,
           gallery.mode,
+          isPillSelectedForKeyboard(gallery),
           Object.hashAll(
             gallery.images.map(
               (image) => Object.hash(
@@ -1138,15 +1221,18 @@ class MarkdownEditingController extends TextEditingController {
             block.start,
             () => GlobalKey(debugLabel: 'composer-quote-${block.start}'),
           ),
-          child: IgnorePointer(
-            child: ComposerQuotePreview(
-              block: block,
-              contents: displayedContents,
-              baseStyle: base,
-              removeKey: _quoteRemoveKeys.putIfAbsent(
-                block.start,
-                () => GlobalKey(
-                  debugLabel: 'composer-quote-remove-${block.start}',
+          child: ComposerBlockSelection(
+            selected: isPillSelectedForKeyboard(block),
+            child: IgnorePointer(
+              child: ComposerQuotePreview(
+                block: block,
+                contents: displayedContents,
+                baseStyle: base,
+                removeKey: _quoteRemoveKeys.putIfAbsent(
+                  block.start,
+                  () => GlobalKey(
+                    debugLabel: 'composer-quote-remove-${block.start}',
+                  ),
                 ),
               ),
             ),
@@ -1251,7 +1337,9 @@ class MarkdownEditingController extends TextEditingController {
             gallery: gallery,
             items: items,
             siteUrl: imageSiteUrl,
-            highlighted: _sameProjection(_caretSuppressedGallery, gallery),
+            highlighted:
+                isPillSelectedForKeyboard(gallery) ||
+                _sameProjection(_caretSuppressedGallery, gallery),
             onEdit: onEditImageGallery == null
                 ? null
                 : () => onEditImageGallery!(gallery),

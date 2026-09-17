@@ -114,7 +114,10 @@ void main() {
               await tester.pump();
               expect(
                 composer.text.selection,
-                TextSelection.collapsed(offset: newQuote.start),
+                TextSelection(
+                  baseOffset: newQuote.start,
+                  extentOffset: newQuote.end,
+                ),
               );
             } else {
               expect(find.byType(ComposerQuotePreview), findsNothing);
@@ -135,11 +138,17 @@ void main() {
 
       await _pumpPanel(tester, shell, composer);
       await tester.showKeyboard(find.byType(TextField));
-      composer.text.selection = const TextSelection.collapsed(offset: 0);
+      composer.text.clearKeyboardPillSelection();
+      composer.text.selection = const TextSelection.collapsed(
+        offset: _quote.length,
+      );
       await tester.pump();
       final old = composer.text.value;
       tester.testTextInput.updateEditingValue(
-        old.copyWith(text: _quote.replaceFirst('You’ll yell', 'Rewritten')),
+        old.copyWith(
+          text: _quote.replaceFirst('You’ll yell', 'Rewritten'),
+          selection: const TextSelection.collapsed(offset: 0),
+        ),
       );
       await tester.pump();
 

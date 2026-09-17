@@ -516,20 +516,25 @@ void main() {
 
       await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
       await tester.pump();
-      expect(composer.text.selection.extentOffset, block.start);
+      expect(composer.text.selection.extentOffset, block.start - 1);
       expect(composer.text.keyboardSelectedPoll, isNull);
       expect(tester.widget<PollComposerPill>(pill).highlighted, isFalse);
       expect(_composerEditable(tester).showCursor, isTrue);
       expect(find.byType(PollComposerPill), findsOneWidget);
 
-      composer.text.selection = TextSelection.collapsed(offset: block.start);
+      composer.text.selection = TextSelection.collapsed(
+        offset: block.start - 1,
+      );
       await tester.pump();
       expect(
         await tester.sendKeyDownEvent(LogicalKeyboardKey.arrowRight),
         isTrue,
       );
       await tester.pump();
-      expect(composer.text.selection.extentOffset, block.start);
+      expect(
+        composer.text.selection,
+        TextSelection(baseOffset: block.start, extentOffset: block.end),
+      );
       expect(tester.widget<PollComposerPill>(pill).highlighted, isTrue);
       expect(_composerEditable(tester).showCursor, isFalse);
 
@@ -553,16 +558,10 @@ void main() {
         isTrue,
       );
       await tester.pump();
-      expect(composer.text.selection.extentOffset, block.start);
-      expect(composer.text.keyboardSelectedPoll, isNull);
-      expect(find.byType(PollComposerPill), findsOneWidget);
-
       expect(
-        await tester.sendKeyRepeatEvent(LogicalKeyboardKey.arrowRight),
-        isTrue,
+        composer.text.selection,
+        TextSelection(baseOffset: block.start, extentOffset: block.end),
       );
-      await tester.pump();
-      expect(composer.text.selection.extentOffset, block.start);
       expect(composer.text.keyboardSelectedPoll, isNotNull);
       expect(tester.widget<PollComposerPill>(pill).highlighted, isTrue);
 
@@ -608,13 +607,12 @@ void main() {
         isTrue,
       );
       await tester.pump();
-      expect(composer.text.selection.extentOffset, block.start);
+      expect(composer.text.selection.extentOffset, block.start - 1);
       expect(composer.text.keyboardSelectedPoll, isNull);
       expect(find.byType(PollComposerPill), findsOneWidget);
       await tester.sendKeyUpEvent(LogicalKeyboardKey.arrowLeft);
 
       composer.text.selection = TextSelection.collapsed(offset: block.start);
-      await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
       await tester.pump();
       expect(composer.text.keyboardSelectedPoll, isNotNull);
 
@@ -678,7 +676,7 @@ void main() {
       );
       composer.focus.requestFocus();
       for (final (key, expectedOffset) in [
-        (LogicalKeyboardKey.arrowUp, block.start),
+        (LogicalKeyboardKey.arrowUp, block.start - 1),
         (LogicalKeyboardKey.arrowDown, composer.text.pollCaretAfter(block)),
       ]) {
         composer.text.selectPillForKeyboard(occurrence);
@@ -1040,56 +1038,57 @@ void main() {
       await _closeComposerAfterAssertions(tester, shell);
     });
 
-    testWidgets('typing before a poll creates a preceding caret line', (
-      tester,
-    ) async {
-      const poll = '[poll]\n* Soup\n* Salad\n[/poll]';
-      const source = '$poll\n';
-      const typed = 'Before';
-      final shell = await _openComposer();
-      addTearDown(shell.dispose);
-      final composer = shell.visibleComposer!;
-      composer.text.value = const TextEditingValue(
-        text: source,
-        selection: TextSelection.collapsed(offset: 0),
-      );
+    testWidgets(
+      'typing on a preceding line keeps the poll selected separately',
+      (tester) async {
+        const poll = '[poll]\n* Soup\n* Salad\n[/poll]';
+        const source = '\n$poll\n';
+        const typed = 'Before';
+        final shell = await _openComposer();
+        addTearDown(shell.dispose);
+        final composer = shell.visibleComposer!;
+        composer.text.value = const TextEditingValue(
+          text: source,
+          selection: TextSelection.collapsed(offset: 0),
+        );
 
-      await tester.pumpWidget(
-        MaterialApp(
-          theme: AppTheme.dark,
-          home: ShellScope(
-            controller: shell,
-            child: Scaffold(
-              body: ComposerPanel(composer: composer, height: 500),
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: AppTheme.dark,
+            home: ShellScope(
+              controller: shell,
+              child: Scaffold(
+                body: ComposerPanel(composer: composer, height: 500),
+              ),
             ),
           ),
-        ),
-      );
-      composer.focus.requestFocus();
-      await tester.pump();
-      expect(_composerEditable(tester).showCursor, isTrue);
+        );
+        composer.focus.requestFocus();
+        await tester.pump();
+        expect(_composerEditable(tester).showCursor, isTrue);
 
-      tester.testTextInput.updateEditingValue(
-        const TextEditingValue(
-          text: '$typed$source',
-          selection: TextSelection.collapsed(offset: typed.length),
-        ),
-      );
-      await tester.pump();
+        tester.testTextInput.updateEditingValue(
+          const TextEditingValue(
+            text: '$typed$source',
+            selection: TextSelection.collapsed(offset: typed.length),
+          ),
+        );
+        await tester.pump();
 
-      expect(composer.text.text, '$typed\n$source');
-      expect(composer.text.selection.extentOffset, typed.length);
-      expect(composer.text.pollBlocks, hasLength(1));
-      expect(composer.text.pollBlocks.single.start, typed.length + 1);
-      expect(
-        composer.text.isPollCollapsed(composer.text.pollBlocks.single),
-        true,
-      );
-      expect(find.byType(PollComposerPill), findsOneWidget);
-      expect(composer.text.keyboardSelectedPoll, isNull);
-      expect(_composerEditable(tester).showCursor, isTrue);
-      await _closeComposerAfterAssertions(tester, shell);
-    });
+        expect(composer.text.text, '$typed$source');
+        expect(composer.text.selection.extentOffset, typed.length);
+        expect(composer.text.pollBlocks, hasLength(1));
+        expect(composer.text.pollBlocks.single.start, typed.length + 1);
+        expect(
+          composer.text.isPollCollapsed(composer.text.pollBlocks.single),
+          true,
+        );
+        expect(find.byType(PollComposerPill), findsOneWidget);
+        expect(composer.text.keyboardSelectedPoll, isNull);
+        expect(_composerEditable(tester).showCursor, isTrue);
+        await _closeComposerAfterAssertions(tester, shell);
+      },
+    );
 
     testWidgets('hovering the pill changes its fill without opening a menu', (
       tester,
@@ -1148,7 +1147,7 @@ void main() {
   });
 
   group('poll selection and editing guards', () {
-    testWidgets('a selected poll blocks deletion keys and text input', (
+    testWidgets('a selected poll blocks modified deletion and text input', (
       tester,
     ) async {
       final shell = await _openComposer();
@@ -1203,24 +1202,10 @@ void main() {
       }
 
       expectLocked();
-      for (final key in [LogicalKeyboardKey.delete, LogicalKeyboardKey.keyA]) {
-        expect(
-          await tester.sendKeyEvent(
-            key,
-            character: key == LogicalKeyboardKey.keyA ? 'a' : null,
-          ),
-          isTrue,
-        );
-        await tester.pump();
-        expectLocked();
-      }
-
-      expect(await tester.sendKeyDownEvent(LogicalKeyboardKey.delete), isTrue);
       expect(
-        await tester.sendKeyRepeatEvent(LogicalKeyboardKey.delete),
+        await tester.sendKeyEvent(LogicalKeyboardKey.keyA, character: 'a'),
         isTrue,
       );
-      expect(await tester.sendKeyUpEvent(LogicalKeyboardKey.delete), isTrue);
       await tester.pump();
       expectLocked();
 
@@ -1487,11 +1472,10 @@ void main() {
             selection: TextSelection.collapsed(offset: block.start),
           );
           await tester.pump();
-          await tester.sendKeyEvent(LogicalKeyboardKey.delete);
-          await tester.pump();
-
-          expect(composer.text.text, source);
-          expect(composer.text.selection.extentOffset, block.start);
+          expect(
+            composer.text.selection,
+            TextSelection(baseOffset: block.start, extentOffset: block.end),
+          );
           expect(
             tester
                 .widget<PollComposerPill>(find.byType(PollComposerPill))
@@ -1500,8 +1484,8 @@ void main() {
           );
           await tester.sendKeyEvent(LogicalKeyboardKey.delete);
           await tester.pump();
-          expect(composer.text.text, source);
-          expect(composer.text.keyboardSelectedPoll, isNotNull);
+          expect(composer.text.text, lineEnding.value);
+          expect(composer.text.keyboardSelectedPoll, isNull);
           await _closeComposerAfterAssertions(tester, shell);
         },
       );

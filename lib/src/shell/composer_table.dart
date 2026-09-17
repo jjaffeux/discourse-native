@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 
 import '../plugin_api/composer_syntax.dart';
 import '../theme/d_icons.dart';
+import 'composer_block_selection.dart';
 import 'composer_controller.dart';
 import 'composer_embedded_editor.dart';
 import 'composer_marks.dart';
@@ -83,10 +84,13 @@ final class _TableProjection implements ComposerInteractiveSyntaxProjection {
       WidgetSpan(
         alignment: PlaceholderAlignment.top,
         style: context.baseStyle,
-        child: ComposerTableEditor(
-          key: context.pillKey,
-          composer: composer,
-          table: table,
+        child: ComposerBlockSelection(
+          selected: context.highlighted,
+          child: ComposerTableEditor(
+            key: context.pillKey,
+            composer: composer,
+            table: table,
+          ),
         ),
       ),
       TextSpan(
