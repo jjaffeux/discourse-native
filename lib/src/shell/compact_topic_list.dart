@@ -434,10 +434,21 @@ class _CompactTopicTitle extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         spacing: 6,
         children: [
-          for (final (shown, icon, label) in [
-            (topic.closed, DIcons.lock, 'Closed'),
-            (topic.pinned, DIcons.thumbtack, 'Pinned'),
-            (topic.bookmarked, DIcons.bookmark, 'Bookmarked'),
+          // AppTheme maps Discourse tertiary to primary, highlight to tertiary.
+          for (final (shown, icon, label, color) in [
+            (topic.closed, DIcons.lock, 'Closed', null),
+            (
+              topic.pinned,
+              DIcons.thumbtack,
+              'Pinned',
+              theme.colorScheme.tertiary,
+            ),
+            (
+              topic.bookmarked,
+              DIcons.bookmark,
+              'Bookmarked',
+              theme.colorScheme.primary,
+            ),
           ])
             if (shown)
               SizedBox(
@@ -447,7 +458,12 @@ class _CompactTopicTitle extends StatelessWidget {
                     ).scale(style?.fontSize ?? DiscourseTypography.sm) *
                     (style?.height ?? 1.5),
                 child: Center(
-                  child: DIcon(icon, size: 14, semanticLabel: label),
+                  child: DIcon(
+                    icon,
+                    size: 14,
+                    color: color,
+                    semanticLabel: label,
+                  ),
                 ),
               ),
           Flexible(

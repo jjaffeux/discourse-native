@@ -145,7 +145,11 @@ class TopicInboxRow extends StatelessWidget {
                                         ? DIcons.thumbtack
                                         : DIcons.bookmark,
                                     size: 14,
-                                    color: muted,
+                                    color: topic.closed
+                                        ? muted
+                                        : topic.pinned
+                                        ? theme.colorScheme.tertiary
+                                        : theme.colorScheme.primary,
                                   ),
                                 ),
                               Expanded(
