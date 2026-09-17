@@ -271,19 +271,7 @@ class AssignedGroupPresentationView extends StatelessWidget {
         showViews: true,
         order: state.query.order?.wireName,
         ascending: state.query.ascending,
-        onSort: (column) {
-          final order = AssignedGroupOrder.values.firstWhere(
-            (value) => value.wireName == column,
-          );
-          final same = state.query.order == order;
-          onQueryChanged(
-            AssignedGroupTopicQuery(
-              order: same && state.query.ascending ? null : order,
-              ascending: same && !state.query.ascending,
-              search: state.query.search,
-            ),
-          );
-        },
+        onSort: _sortTopics,
       ),
       Expanded(child: _buildFeed(horizontalPadding: 0)),
       TopicSourceFooter(
@@ -293,6 +281,20 @@ class AssignedGroupPresentationView extends StatelessWidget {
       ),
     ],
   );
+
+  void _sortTopics(String column) {
+    final order = AssignedGroupOrder.values.firstWhere(
+      (value) => value.wireName == column,
+    );
+    final same = state.query.order == order;
+    onQueryChanged(
+      AssignedGroupTopicQuery(
+        order: same && state.query.ascending ? null : order,
+        ascending: same && !state.query.ascending,
+        search: state.query.search,
+      ),
+    );
+  }
 
   Widget _buildFeed({
     required double horizontalPadding,
@@ -339,13 +341,14 @@ class AssignedGroupPresentationView extends StatelessWidget {
                     ),
                     sliver: SliverList.separated(
                       itemCount: topics.length,
-                      separatorBuilder: (context, _) => DSeparator(
-                        space: 1,
-                        color: Theme.of(context).shell.divider,
-                      ),
+                      separatorBuilder: (context, _) =>
+                          const SizedBox(height: 1),
                       itemBuilder: (context, index) => TopicListRow(
                         topic: topics[index],
                         showViews: true,
+                        onSort: _sortTopics,
+                        order: state.query.order?.wireName,
+                        ascending: state.query.ascending,
                         siteUrl: siteUrl,
                         onTap: () => onOpenTopic(topics[index]),
                       ),

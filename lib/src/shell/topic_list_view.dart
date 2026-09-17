@@ -32,6 +32,7 @@ import 'topic_list_layout.dart';
 import 'topic_title.dart';
 
 part 'compact_topic_list.dart';
+part 'conversation_topic_card.dart';
 
 typedef _TopicListIdentity = (String?, String?, String?, String);
 typedef _TopicListCursor = ({int topicId, int index});
@@ -42,11 +43,15 @@ class TopicListView extends StatefulWidget {
     required this.feed,
     this.inbox = false,
     this.showHeader = true,
+    this.forceCard = false,
   });
 
   final TopicFeed feed;
   final bool inbox;
   final bool showHeader;
+
+  /// The visible source pane uses cards without changing the saved preference.
+  final bool forceCard;
 
   @override
   State<TopicListView> createState() => _TopicListViewState();
@@ -545,7 +550,11 @@ class _TopicListViewState extends State<TopicListView> {
       );
     }
     _controller = controller;
-    _updateMode(controller.appSettings.topicListMode);
+    _updateMode(
+      widget.forceCard
+          ? TopicListDisplayMode.card
+          : controller.appSettings.topicListMode,
+    );
     final destination = state.destination;
     final feedIdentity = state.feedIdentity;
 
@@ -585,9 +594,32 @@ class _TopicListViewState extends State<TopicListView> {
     if (list?.isAttached != true || scroll?.hasClients != true) return;
     final range = list!.visibleRange;
     if (range == null || widget.feed.topicIds.isEmpty) return;
-    final index = (range.$1 ~/ 2).clamp(0, widget.feed.topicIds.length - 1);
+    var index = (range.$1 ~/ 2).clamp(0, widget.feed.topicIds.length - 1);
+    var anchor = _renderedRow(index);
+    final viewport = anchor == null
+        ? null
+        : RenderAbstractViewport.maybeOf(anchor);
+    if (viewport is RenderBox) {
+      final viewportBox = viewport as RenderBox;
+      final viewportTop = viewportBox.localToGlobal(Offset.zero).dy;
+      final viewportBottom = viewportTop + viewportBox.size.height;
+      // A clipped card can be taller than several compact rows. Preserve the
+      // first fully visible topic instead of anchoring an offscreen card top.
+      while (anchor != null &&
+          anchor.localToGlobal(Offset.zero).dy < viewportTop &&
+          index < range.$2 ~/ 2 &&
+          index + 1 < widget.feed.topicIds.length) {
+        final next = _renderedRow(index + 1);
+        if (next == null ||
+            next.localToGlobal(Offset.zero).dy >= viewportBottom) {
+          break;
+        }
+        index++;
+        anchor = next;
+      }
+    }
     final id = widget.feed.topicIds[index];
-    final oldTop = _renderedRow(index)?.localToGlobal(Offset.zero).dy;
+    final oldTop = anchor?.localToGlobal(Offset.zero).dy;
     void restore({bool correct = true}) {
       if (!mounted ||
           _mode != mode ||
@@ -696,6 +728,7 @@ class _TopicListViewState extends State<TopicListView> {
     return Column(
       children: [
         TopicListTableHeader(
+          compact: _compact,
           showCategory: controller.topicListContent?.isMessages != true,
           sortCategory: true,
           order: controller.topicListContent?.topicListOrder,
@@ -985,20 +1018,43 @@ class _TopicListSkeletonRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (!compact) {
+      return Padding(
+        padding: const EdgeInsets.fromLTRB(
+          topicListHorizontalPadding,
+          0,
+          topicListHorizontalPadding,
+          DSpacing.md,
+        ),
+        child: DCard(
+          footer: DCardFooter(
+            child: _SkeletonLine(widthFactor: metadataWidth, height: 12),
+          ),
+          children: [
+            DCardHeader(
+              title: _SkeletonLine(widthFactor: titleWidth, height: 14),
+              description: _SkeletonLine(
+                widthFactor: metadataWidth,
+                height: 12,
+              ),
+            ),
+            const DCardContent(child: DSkeleton(width: 100, height: 20)),
+          ],
+        ),
+      );
+    }
     return Padding(
       padding: const EdgeInsets.symmetric(
         horizontal: topicListHorizontalPadding,
       ),
       child: DItem(
-        variant: compact ? DItemVariant.standard : DItemVariant.outline,
-        size: compact ? DItemSize.xs : DItemSize.standard,
+        size: DItemSize.xs,
         children: [
           DItemContent(
-            spacing: compact ? 6 : 12,
+            spacing: 6,
             children: [
               _SkeletonLine(widthFactor: titleWidth, height: 14),
               _SkeletonLine(widthFactor: metadataWidth, height: 12),
-              if (!compact) const DSkeleton(width: 100, height: 20),
             ],
           ),
         ],
@@ -1226,6 +1282,9 @@ class TopicListRow extends StatelessWidget {
     this.onTap,
     this.titleStyle,
     this.showViews = false,
+    this.onSort,
+    this.order,
+    this.ascending = false,
     this.showCategoryBreadcrumb = true,
     this.itemVariant = DItemVariant.outline,
     this.contentPadding,
@@ -1237,6 +1296,9 @@ class TopicListRow extends StatelessWidget {
 
   final Topic topic;
   final bool showViews;
+  final ValueChanged<String>? onSort;
+  final String? order;
+  final bool ascending;
   final DiscourseInstance? forum;
 
   final String? siteUrl;
@@ -1284,6 +1346,9 @@ class TopicListRow extends StatelessWidget {
         onTap: onTap ?? () {},
         titleStyle: titleStyle,
         showViews: showViews,
+        onSort: onSort,
+        order: order,
+        ascending: ascending,
         itemVariant: itemVariant,
         contentPadding: contentPadding,
         outerPadding: outerPadding,
@@ -1301,6 +1366,10 @@ class TopicListRow extends StatelessWidget {
         forum: owningForum,
         onTap: onTap ?? () => controller.openTopic(topic),
         titleStyle: titleStyle,
+        showViews: showViews,
+        onSort: onSort,
+        order: order,
+        ascending: ascending,
         itemVariant: itemVariant,
         contentPadding: contentPadding,
         outerPadding: outerPadding,
@@ -1364,10 +1433,16 @@ class _TopicRowBody extends StatelessWidget {
     this.compact,
     this.showCategoryColumn = true,
     this.showViews = false,
+    this.onSort,
+    this.order,
+    this.ascending = false,
   });
 
   final bool showCategoryColumn;
   final bool showViews;
+  final ValueChanged<String>? onSort;
+  final String? order;
+  final bool ascending;
   final bool? compact;
   final Topic topic;
   final TopicCategory? category;
@@ -1408,7 +1483,7 @@ class _TopicRowBody extends StatelessWidget {
   }
 
   Widget _build(BuildContext context, bool compact) =>
-      _CompactTopicRow(row: this, compact: compact);
+      compact ? _CompactTopicRow(row: this) : _ConversationTopicCard(row: this);
 }
 
 class _CategoryBreadcrumb extends StatelessWidget {

@@ -40,14 +40,30 @@ class TopicListTableHeader extends StatelessWidget {
     this.order,
     this.ascending = false,
     this.onSort,
+    this.compact,
   });
   final bool showCategory, showViews, ascending;
   final bool sortCategory;
   final String? order;
   final ValueChanged<String>? onSort;
+  final bool? compact;
 
   @override
-  Widget build(BuildContext context) => Padding(
+  Widget build(BuildContext context) {
+    final settings = ShellScope.maybeIdentityOf(context)?.appSettings;
+    Widget header() =>
+        (compact ?? settings?.topicListMode != TopicListDisplayMode.card)
+        ? _buildHeader(context)
+        : const SizedBox.shrink();
+    return settings == null || compact != null
+        ? header()
+        : ListenableBuilder(
+            listenable: settings,
+            builder: (context, _) => header(),
+          );
+  }
+
+  Widget _buildHeader(BuildContext context) => Padding(
     padding: const EdgeInsets.symmetric(
       horizontal: topicListHorizontalPadding + _compactItemInset,
     ),
@@ -133,9 +149,8 @@ class TopicListTableHeader extends StatelessWidget {
 }
 
 class _CompactTopicRow extends StatelessWidget {
-  const _CompactTopicRow({required this.row, required this.compact});
+  const _CompactTopicRow({required this.row});
   final _TopicRowBody row;
-  final bool compact;
 
   @override
   Widget build(BuildContext context) {
@@ -170,9 +185,7 @@ class _CompactTopicRow extends StatelessWidget {
           container: true,
           selected: row.selected || KeyboardSelection.isSelectedOf(context),
           child: DItem(
-            key: ValueKey(
-              '${compact ? 'topic-compact' : 'topic-card'}-${topic.id}',
-            ),
+            key: ValueKey('topic-compact-${topic.id}'),
             size: DItemSize.xs,
             link: true,
             onPressed: row.onTap,
@@ -184,9 +197,7 @@ class _CompactTopicRow extends StatelessWidget {
                 alignment: CrossAxisAlignment.stretch,
                 children: [
                   Padding(
-                    padding: EdgeInsets.symmetric(
-                      vertical: compact ? DSpacing.xs : DSpacing.md,
-                    ),
+                    padding: const EdgeInsets.symmetric(vertical: DSpacing.xs),
                     child: LayoutBuilder(
                       builder: (context, constraints) {
                         final layout = _CompactTopicLayout(
@@ -222,7 +233,7 @@ class _CompactTopicRow extends StatelessWidget {
                           mainAxisSize: MainAxisSize.min,
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            _CompactTopicTitle(row: row),
+                            _TopicListTitle(row: row),
                             if (row.forum != null ||
                                 (!layout.category && row.category != null) ||
                                 topic.tags.isNotEmpty ||
@@ -230,8 +241,9 @@ class _CompactTopicRow extends StatelessWidget {
                                 (!layout.avatar &&
                                     topic.lastPosterUsername != null)) ...[
                               const SizedBox(height: 4),
-                              _metadataLine(
+                              _topicRowMetadata(
                                 context,
+                                row,
                                 category: !layout.category,
                                 lastPoster: !layout.avatar,
                                 inlineMetadata: inlineMetadata,
@@ -244,7 +256,7 @@ class _CompactTopicRow extends StatelessWidget {
                                 child: DItemDescription(
                                   child: Text(
                                     topic.excerpt!,
-                                    maxLines: compact ? 2 : 4,
+                                    maxLines: 2,
                                     overflow: TextOverflow.ellipsis,
                                   ),
                                 ),
@@ -285,7 +297,7 @@ class _CompactTopicRow extends StatelessWidget {
                                     cell(
                                       row.category == null
                                           ? const Text('—')
-                                          : _category(context),
+                                          : _topicRowCategory(context, row),
                                     ),
                                   if (layout.avatar)
                                     cell(
@@ -362,64 +374,68 @@ class _CompactTopicRow extends StatelessWidget {
       ),
     );
   }
-
-  Widget _category(BuildContext context) => _CategoryBreadcrumb(
-    parent: row.parentCategory,
-    category: row.category!,
-    siteUrl: row.siteUrl,
-    onOpen: (category) => ShellScope.maybeRead(
-      context,
-    )?.openCategory(category, siteUrl: row.siteUrl),
-  );
-
-  Widget _metadataLine(
-    BuildContext context, {
-    required bool category,
-    required bool lastPoster,
-    required List<Widget> inlineMetadata,
-  }) {
-    final controller = ShellScope.maybeRead(context);
-    return Wrap(
-      spacing: DSpacing.xs,
-      runSpacing: DSpacing.xs,
-      crossAxisAlignment: WrapCrossAlignment.center,
-      children: [
-        if (row.forum case final forum?) Text(forum.title),
-        if (category && row.category != null) _category(context),
-        for (final tag in row.topic.tags.take(2))
-          _TopicTag(
-            tag: tag,
-            onTap: () => controller?.openTopicTag(
-              tag,
-              siteUrl: row.siteUrl,
-              privateMessage: row.topic.privateMessage,
-            ),
-            onMiddleClick: () async => controller?.openTopicTag(
-              tag,
-              siteUrl: row.siteUrl,
-              privateMessage: row.topic.privateMessage,
-              newTab: true,
-            ),
-          ),
-        if (row.topic.tags.length > 2)
-          _TopicTagOverflow(tags: row.topic.tags.skip(2).toList()),
-        ...inlineMetadata,
-        if (lastPoster)
-          if (row.topic.lastPosterUsername case final username?)
-            Text(
-              username,
-              style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                color: DTokens.of(context).mutedForeground,
-              ),
-            ),
-      ],
-    );
-  }
 }
 
-class _CompactTopicTitle extends StatelessWidget {
-  const _CompactTopicTitle({required this.row});
+Widget _topicRowCategory(BuildContext context, _TopicRowBody row) =>
+    _CategoryBreadcrumb(
+      parent: row.parentCategory,
+      category: row.category!,
+      siteUrl: row.siteUrl,
+      onOpen: (category) => ShellScope.maybeRead(
+        context,
+      )?.openCategory(category, siteUrl: row.siteUrl),
+    );
+
+Widget _topicRowMetadata(
+  BuildContext context,
+  _TopicRowBody row, {
+  bool showForum = true,
+  required bool category,
+  required bool lastPoster,
+  required List<Widget> inlineMetadata,
+}) {
+  final controller = ShellScope.maybeRead(context);
+  return Wrap(
+    spacing: DSpacing.xs,
+    runSpacing: DSpacing.xs,
+    crossAxisAlignment: WrapCrossAlignment.center,
+    children: [
+      if (showForum && row.forum != null) Text(row.forum!.title),
+      if (category && row.category != null) _topicRowCategory(context, row),
+      for (final tag in row.topic.tags.take(2))
+        _TopicTag(
+          tag: tag,
+          onTap: () => controller?.openTopicTag(
+            tag,
+            siteUrl: row.siteUrl,
+            privateMessage: row.topic.privateMessage,
+          ),
+          onMiddleClick: () async => controller?.openTopicTag(
+            tag,
+            siteUrl: row.siteUrl,
+            privateMessage: row.topic.privateMessage,
+            newTab: true,
+          ),
+        ),
+      if (row.topic.tags.length > 2)
+        _TopicTagOverflow(tags: row.topic.tags.skip(2).toList()),
+      ...inlineMetadata,
+      if (lastPoster)
+        if (row.topic.lastPosterUsername case final username?)
+          Text(
+            username,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: DTokens.of(context).mutedForeground,
+            ),
+          ),
+    ],
+  );
+}
+
+class _TopicListTitle extends StatelessWidget {
+  const _TopicListTitle({required this.row, this.card = false});
   final _TopicRowBody row;
+  final bool card;
 
   @override
   Widget build(BuildContext context) {
@@ -430,7 +446,11 @@ class _CompactTopicTitle extends StatelessWidget {
         true;
     final style =
         row.titleStyle ??
-        (large ? theme.textTheme.titleMedium : theme.textTheme.titleSmall);
+        (large
+            ? (card ? theme.textTheme.titleLarge : theme.textTheme.titleMedium)
+            : (card
+                  ? theme.textTheme.titleMedium
+                  : theme.textTheme.titleSmall));
     final largeText = MediaQuery.textScalerOf(context).scale(14) > 21;
     return DItemTitle(
       maxLines: largeText ? null : 2,

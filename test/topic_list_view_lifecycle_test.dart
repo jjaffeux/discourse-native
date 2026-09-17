@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:ui' as ui;
 
 import 'package:discourse_native/discourse_ui.dart'
-    show DButton, DSpinner, DItem, DPullToRefresh, DEmpty, DTable;
+    show DButton, DSpinner, DCard, DPullToRefresh, DEmpty, DTable;
 import 'package:discourse_native/src/data/discourse_api_contracts.dart';
 import 'package:discourse_native/src/data/store.dart';
 import 'package:discourse_native/src/models/app_settings.dart';
@@ -201,6 +201,7 @@ void main() {
     final api = _ControlledPagingApi();
     final controller = await _controlledShell(api, sites.first);
     addTearDown(controller.dispose);
+    await controller.appSettings.setTopicListMode(TopicListDisplayMode.compact);
     api.requests.single.response.complete(TopicList(topics: _topics(1, 40)));
     await tester.pumpWidget(_LiveTestList(controller: controller));
     await tester.pumpAndSettle();
@@ -372,7 +373,7 @@ void main() {
       expect(
         find.descendant(
           of: find.byKey(const ValueKey('topic-list-loading-skeleton')),
-          matching: find.byType(DItem),
+          matching: find.byType(DCard),
         ),
         findsWidgets,
       );

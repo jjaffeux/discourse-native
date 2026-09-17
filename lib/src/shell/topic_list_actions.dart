@@ -15,7 +15,8 @@ import 'topic_presentation.dart';
 
 /// The same list presentation controls are used in every topic source.
 class TopicListActions extends StatelessWidget {
-  const TopicListActions({super.key, this.filter});
+  const TopicListActions({super.key, this.filter, this.forceCard = false});
+  final bool forceCard;
   final Widget? filter;
 
   @override
@@ -44,9 +45,14 @@ class TopicListActions extends StatelessWidget {
                 ])
                   DDropdownMenuCheckboxItem(
                     key: ValueKey('topic-display-${mode.name}'),
-                    checked: settings.topicListMode == mode,
-                    onChanged: (_) =>
-                        unawaited(settings.setTopicListMode(mode)),
+                    checked:
+                        (forceCard
+                            ? TopicListDisplayMode.card
+                            : settings.topicListMode) ==
+                        mode,
+                    onChanged: forceCard
+                        ? null
+                        : (_) => unawaited(settings.setTopicListMode(mode)),
                     leading: DIcon(
                       mode == TopicListDisplayMode.compact
                           ? DIcons.list

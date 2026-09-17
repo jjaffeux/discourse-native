@@ -3,6 +3,14 @@
 Three interactive HTML/CSS alternatives for card mode. This folder is a design
 artifact; it does not change the Flutter application or its compact list.
 
+The selected direction is **B — Conversation cards**. The native implementation
+is in `lib/src/shell/conversation_topic_card.dart`: Card owns the surface/footer,
+and Item owns immediate hover and outlined selection. Sortable fields remain in
+the cards; table headings belong to Compact mode. When a topic is visible beside
+its source list, the list temporarily uses cards and the display choices are
+locked to Card. Closing the topic or switching to a dialog restores the saved
+display preference without replacing the list's controllers.
+
 Run from the repository root:
 
 ```sh

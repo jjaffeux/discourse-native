@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:ui' show Tristate;
 
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/src/models/app_settings.dart';
 import 'package:discourse_native/src/models/category_sidebar.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
@@ -65,13 +66,16 @@ const _unseenTopic = Topic(
 );
 
 void main() {
-  for (final mode in [
-    TopicListMode.latest,
-    TopicListMode.topWeekly,
-    TopicListMode.popular,
+  for (final (mode, display) in [
+    for (final mode in [
+      TopicListMode.latest,
+      TopicListMode.topWeekly,
+      TopicListMode.popular,
+    ])
+      for (final display in TopicListDisplayMode.values) (mode, display),
   ]) {
     testWidgets(
-      '$mode headers request server sorting and cycle back to default',
+      '$mode $display fields request server sorting and cycle back to default',
       (tester) async {
         tester.view.physicalSize = const Size(1200, 850);
         tester.view.devicePixelRatio = 1;
@@ -90,6 +94,7 @@ void main() {
         );
         final controller = setup.controller;
         addTearDown(controller.dispose);
+        await controller.appSettings.setTopicListMode(display);
         await controller.selectTopicListMode(mode);
         await tester.pumpWidget(
           ShellScope(
@@ -115,11 +120,13 @@ void main() {
           findsNothing,
         );
         for (final (column, label) in [
-          ('category', 'Category'),
+          if (display == TopicListDisplayMode.compact) ('category', 'Category'),
           ('posts', 'Replies'),
           ('activity', 'Activity'),
         ]) {
-          final header = find.byKey(ValueKey('topic-sort-$column'));
+          final header = display == TopicListDisplayMode.compact
+              ? find.byKey(ValueKey('topic-sort-$column'))
+              : find.widgetWithText(DButton, label).first;
           for (final ascending in [false, true]) {
             await tester.tap(header);
             await tester.pumpAndSettle();

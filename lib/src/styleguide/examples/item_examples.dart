@@ -20,6 +20,14 @@ final itemExamples = ComponentExamples(
       'Dropdown Menu primitives with actual passive xs Items.',
   examples: [
     StyleguideExample(
+      title: 'Card composition',
+      description:
+          'Card owns the surface and divided footer. Item owns hover, activation and an outline that follows the card corners.',
+      code:
+          "DCard(spacing: 0, child: DItem(shape: DItemShape.card, padding: EdgeInsets.zero, selected: selected, selectionStyle: DItemSelectionStyle.outline, showSelectionIndicator: false, onPressed: select, children: [DItemContent(spacing: 0, children: [content, DCardFooter(child: footer)])]))",
+      builder: (_) => const _CardSelectionExample(),
+    ),
+    StyleguideExample(
       title: 'Neutral selection',
       description:
           'Hover and select rows with a faint neutral fill and broader corners. '
@@ -90,6 +98,55 @@ final itemExamples = ComponentExamples(
       ),
   ],
 );
+
+class _CardSelectionExample extends StatefulWidget {
+  const _CardSelectionExample();
+  @override
+  State<_CardSelectionExample> createState() => _CardSelectionExampleState();
+}
+
+class _CardSelectionExampleState extends State<_CardSelectionExample> {
+  bool selected = false;
+  @override
+  Widget build(BuildContext context) => DCard(
+    spacing: 0,
+    child: DItem(
+      shape: DItemShape.card,
+      padding: EdgeInsets.zero,
+      selected: selected,
+      selectionStyle: DItemSelectionStyle.outline,
+      showSelectionIndicator: false,
+      onPressed: () => setState(() => selected = !selected),
+      children: const [
+        DItemContent(
+          spacing: 0,
+          alignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: EdgeInsets.all(DSpacing.lg),
+              child: DCardHeader(
+                title: DCardTitle(
+                  child: Text('A calmer, more focused topic list'),
+                ),
+                description: DCardDescription(
+                  child: Text(
+                    'One conversation, with its people and activity below.',
+                  ),
+                ),
+              ),
+            ),
+            DCardFooter(
+              child: Padding(
+                padding: EdgeInsets.all(DSpacing.lg),
+                child: Text('Last reply by Sam · 24 replies'),
+              ),
+            ),
+          ],
+        ),
+      ],
+    ),
+  );
+}
 
 class _SelectionExample extends StatefulWidget {
   const _SelectionExample({required this.style});

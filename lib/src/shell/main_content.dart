@@ -408,6 +408,7 @@ class _TopicInboxWorkspaceState extends State<_TopicInboxWorkspace> {
             ),
             ...registry.contentHeaderActions(context, sourceRoute),
             TopicListActions(
+              forceCard: split,
               filter: state.siteUrl == null || messages
                   ? null
                   : TopicListFilterMenu(
@@ -783,6 +784,7 @@ class _FeedBackedContent extends StatelessWidget {
           content = TopicListView(
             feed: feed,
             inbox: inbox,
+            forceCard: keepTopicOpen,
             showHeader: !route.isTopicListFilter,
           );
         }
