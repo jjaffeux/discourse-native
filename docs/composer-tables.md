@@ -107,3 +107,29 @@ Table and Data Table tests pass, with full static analysis. Native macOS checks
 confirmed row menus without blue selection, insertion in the wide light layout,
 deletion in the narrow dark layout, and the read-mode copy button/confirmation.
 The local fixture now offers Read mode. No mobile device checks were performed.
+
+### Typing performance (2026-09-18)
+
+Reproduced with a 14-row, four-column table: five input changes rebuilt all 60
+Native inputs each time (295 unrelated input rebuilds, 22,840 total widget
+builds), taking 545 ms in an isolated debug widget-test run. Retaining the table
+content across local text edits reduced the final run to 84 ms, 430 widget builds,
+and zero unrelated input rebuilds. These are diagnostic host timings, not a
+release-device frame-rate guarantee; the regression asserts rebuild isolation
+for both headers and body cells instead of a flaky time limit.
+
+Cell controllers own live text, selection and IME. Canonical Markdown still
+updates synchronously on every keystroke. Structure changes, external source
+updates/undo and submission state invalidate the retained content. Menus use a
+structure/source version to reject stale callbacks while staying usable after
+ordinary typing. Column resize actions use stable ordinal labels. Embedded
+editors restore their normal selection colors independently of the outer
+block's transparent selection range.
+
+Native macOS verification used repeated individual key events in the large
+table, then inserted a row through its context menu and typed in the new cell
+in the narrow dark layout. All 101 focused table, selection and embedded-details
+checks and full static analysis pass. The broader
+draft-integration suite has four failures also reproduced on unchanged main
+(three PM discard tests and the paused-typing save test); these are unrelated
+to table rendering. No mobile device timing was measured.

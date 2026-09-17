@@ -1,5 +1,5 @@
+import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
-import 'package:flutter/widgets.dart';
 
 /// Isolates Native cell editors from the enclosing composer's text actions.
 /// Controls use the outer editor group as their accessibility traversal parent.
@@ -24,7 +24,12 @@ class ComposerEmbeddedEditor extends StatelessWidget {
       // Keep the cell and main EditableText from both owning keyboard input
       // and scrolling to their carets when a cell receives focus.
       parentNode: FocusScope.of(context),
-      child: _editor(),
+      // A block's transparent range highlight must not leak into its fields.
+      child: DefaultSelectionStyle(
+        selectionColor: Theme.of(context).textSelectionTheme.selectionColor,
+        cursorColor: Theme.of(context).textSelectionTheme.cursorColor,
+        child: _editor(),
+      ),
     ),
   );
 

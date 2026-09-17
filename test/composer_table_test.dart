@@ -109,6 +109,62 @@ Future<ComposerController> _pumpPanel(
 }
 
 void main() {
+  for (final row in [0, 1]) {
+    testWidgets(
+      'typing in a large table rebuilds only the edited input (row $row)',
+      (tester) async {
+        final source = [
+          '| Name | Place | Arrival | Notes |',
+          '| --- | --- | --- | --- |',
+          for (var i = 0; i < 14; i++)
+            '| Member $i | Madrid | Saturday | Notes $i |',
+        ].join('\n');
+        final composer = await _pump(tester, source: source);
+        await tester.showKeyboard(_cell(row, 0));
+        await tester.pumpAndSettle();
+        var otherInputs = 0;
+        var builds = 0;
+        final previous = debugOnRebuildDirtyWidget;
+        debugOnRebuildDirtyWidget = (element, builtOnce) {
+          builds++;
+          if (element.widget is DInput &&
+              element.widget.key != ValueKey('table-cell-$row-0')) {
+            otherInputs++;
+          }
+        };
+        addTearDown(() => debugOnRebuildDirtyWidget = previous);
+        final watch = Stopwatch()..start();
+        for (var i = 1; i <= 5; i++) {
+          tester.testTextInput.enterText('Member 0${'x' * i}');
+          expect(
+            parseComposerTables(composer.raw).single.cell(row, 0),
+            'Member 0${'x' * i}',
+          );
+          await tester.pump();
+        }
+        watch.stop();
+        debugPrint(
+          'TABLE TYPING: ${watch.elapsedMilliseconds}ms, $builds builds, $otherInputs unrelated input rebuilds',
+        );
+        expect(
+          parseComposerTables(composer.raw).single.cell(row, 0),
+          'Member 0xxxxx',
+        );
+        expect(otherInputs, 0);
+        debugOnRebuildDirtyWidget = previous;
+        // Cached menus must remain usable after edits to their cells.
+        composer.text.imageScrollController!.jumpTo(0);
+        await tester.pumpAndSettle();
+        await _menu(tester, 'Column 1 actions', 'Insert column after');
+        expect(parseComposerTables(composer.raw).single.columnCount, 5);
+        expect(
+          parseComposerTables(composer.raw).single.cell(row, 0),
+          'Member 0xxxxx',
+        );
+      },
+    );
+  }
+
   for (final action in ['Insert row above', 'Insert row below', 'Delete row']) {
     for (final padding in [false, true]) {
       testWidgets('right-click row: $action (padding: $padding)', (
