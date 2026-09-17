@@ -10,8 +10,8 @@ import 'd_kbd.dart';
 import 'd_spinner.dart';
 import 'd_tooltip.dart';
 
-/// The reference variants and [transparentBackground] are the application
-/// styling contract.
+/// The reference variants, [transparentBackground] and [inline] are the
+/// application styling contract.
 /// Legacy names remain source-compatible aliases for external plugin callers.
 enum DButtonVariant {
   outline,
@@ -20,6 +20,10 @@ enum DButtonVariant {
 
   /// A subdued foreground that brightens on interaction, with no surface fill.
   transparentBackground,
+
+  /// Transparent text action with no horizontal inset, for inline metadata.
+  /// Retains the shared control height, keyboard focus and touch target.
+  inline,
   destructive,
   standard,
   primary,
@@ -160,7 +164,8 @@ class DiscourseButtonTheme extends ThemeExtension<DiscourseButtonTheme> {
     DButtonVariant.outline => standard,
     DButtonVariant.secondary => standard,
     DButtonVariant.ghost => flat,
-    DButtonVariant.transparentBackground => transparent,
+    DButtonVariant.transparentBackground ||
+    DButtonVariant.inline => transparent,
     DButtonVariant.destructive => danger,
     DButtonVariant.standard => standard,
     DButtonVariant.primary => primary,
@@ -532,7 +537,8 @@ class DButton extends StatelessWidget {
         tokens.foreground,
         expanded: tokens.muted,
       ),
-      DButtonVariant.transparentBackground => DButtonVariantStyle(
+      DButtonVariant.transparentBackground ||
+      DButtonVariant.inline => DButtonVariantStyle(
         enabled: state(
           Colors.transparent,
           Color.lerp(tokens.mutedForeground, tokens.foreground, .35)!,
@@ -660,6 +666,8 @@ class DButton extends StatelessWidget {
       padding: WidgetStatePropertyAll(
         (_iconOnly
             ? EdgeInsets.zero
+            : variant == DButtonVariant.inline
+            ? const EdgeInsets.symmetric(vertical: 1)
             : EdgeInsetsDirectional.only(
                 start:
                     (icon != null || (loading && loadingLabel != null)) &&

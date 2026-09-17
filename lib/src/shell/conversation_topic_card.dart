@@ -54,6 +54,10 @@ class _ConversationTopicCard extends StatelessWidget {
       fontFeatures: const [FontFeature.tabularFigures()],
     );
     final age = topic.bumpedAt == null ? '—' : relativeTime(topic.bumpedAt!);
+    final contentInsets =
+        (row.contentPadding ?? const EdgeInsets.all(DSpacing.lg)).resolve(
+          Directionality.of(context),
+        );
     Widget field(String label, String column) => _TopicCardField(
       label: label,
       column: column,
@@ -148,9 +152,7 @@ class _ConversationTopicCard extends StatelessWidget {
                     alignment: CrossAxisAlignment.stretch,
                     children: [
                       Padding(
-                        padding:
-                            row.contentPadding ??
-                            const EdgeInsets.all(DSpacing.lg),
+                        padding: contentInsets,
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -241,9 +243,9 @@ class _ConversationTopicCard extends StatelessWidget {
                       ),
                       DCardFooter(
                         child: Padding(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: DSpacing.lg,
-                            vertical: DSpacing.md,
+                          padding: contentInsets.copyWith(
+                            top: DSpacing.md,
+                            bottom: DSpacing.md,
                           ),
                           child: LayoutBuilder(
                             builder: (context, constraints) {
@@ -310,7 +312,7 @@ class _TopicCardField extends StatelessWidget {
         )
       : DButton(
           size: DButtonSize.small,
-          variant: DButtonVariant.transparentBackground,
+          variant: DButtonVariant.inline,
           label: Text(label),
           semanticLabel:
               '$label, ${order == column ? (ascending ? 'ascending' : 'descending') : 'unsorted'}',

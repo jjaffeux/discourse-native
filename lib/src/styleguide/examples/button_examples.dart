@@ -22,6 +22,8 @@ final buttonExamples = ComponentExamples(
       'Hover exit clears immediately so neighboring highlights never overlap. '
       'Transparent background actions change only their foreground color, '
       'with a subdued resting tint and the usual keyboard focus ring. '
+      'Inline actions share that treatment without horizontal insets, for '
+      'metadata that aligns with surrounding content. '
       'Loading and asynchronous ownership remain controlled by the caller. '
       'Navigation uses isLink and an application-owned callback. Pointer cursors '
       'use a hand for enabled buttons and forbidden for disabled or loading buttons. '
@@ -240,12 +242,26 @@ DButtonGroup(children: [
           'Subdued icons and text return to the normal foreground on hover, '
           'focus or expansion. The background stays transparent. '
           'Use Tab to compare the keyboard focus ring.',
-      states: const ['Text', 'Icon', 'Hover', 'Focus', 'Expanded', 'Disabled'],
+      states: const [
+        'Text',
+        'Inline',
+        'Icon',
+        'Hover',
+        'Focus',
+        'Expanded',
+        'Disabled',
+      ],
       code: '''DButton.iconOnly(
   icon: const DIcon(DIcons.link),
   tooltip: 'Copy link',
   variant: DButtonVariant.transparentBackground,
   onPressed: copyLink,
+)
+DButton(
+  label: const Text('Replies'),
+  size: DButtonSize.small,
+  variant: DButtonVariant.inline,
+  onPressed: sortReplies,
 )''',
       builder: (_) => const _ButtonTransparentBackground(),
     ),
@@ -315,6 +331,25 @@ class _ButtonTransparentBackgroundState
         ],
       ),
       const SizedBox(height: DSpacing.lg),
+      Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('Topic content'),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              DButton(
+                label: const Text('Replies'),
+                size: DButtonSize.small,
+                variant: DButtonVariant.inline,
+                onPressed: () => setState(() => _result = 'Replies sorted'),
+              ),
+              const SizedBox(width: DSpacing.xs),
+              const Text('226'),
+            ],
+          ),
+        ],
+      ),
       Text(_result),
     ],
   );
