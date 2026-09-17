@@ -22,17 +22,12 @@ final itemExamples = ComponentExamples(
     StyleguideExample(
       title: 'Neutral selection',
       description:
-          'A quiet selected topic row retains keyboard focus and selected semantics.',
+          'Hover and select rows with a faint neutral fill and broader corners. '
+          'Keyboard focus remains visible without an accent selection border.',
       code:
-          "DItem(selected: true, selectionStyle: DItemSelectionStyle.neutral, showSelectionIndicator: false, children: [DItemContent(children: [DItemTitle(child: Text('Selected topic'))])])",
-      builder: (_) => const DItem(
-        selected: true,
-        selectionStyle: DItemSelectionStyle.neutral,
-        showSelectionIndicator: false,
-        children: [
-          DItemContent(children: [DItemTitle(child: Text('Selected topic'))]),
-        ],
-      ),
+          "DItem(selected: selected, selectionStyle: DItemSelectionStyle.neutral, showSelectionIndicator: false, onPressed: select, children: [DItemContent(children: [DItemTitle(child: Text('Topic'))])])",
+      builder: (_) =>
+          const _SelectionExample(style: DItemSelectionStyle.neutral),
     ),
     StyleguideExample(
       title: 'Outline selection',
@@ -41,7 +36,8 @@ final itemExamples = ComponentExamples(
           'and a faint neutral hover. Selecting a row does not move its content.',
       code:
           "DItem(selected: true, selectionStyle: DItemSelectionStyle.outline, showSelectionIndicator: false, variant: DItemVariant.outline, onPressed: () {}, children: [DItemContent(children: [DItemTitle(child: Text('Current topic'))])])",
-      builder: (_) => const _OutlineSelectionExample(),
+      builder: (_) =>
+          const _SelectionExample(style: DItemSelectionStyle.outline),
     ),
     StyleguideExample(
       title: 'Selected',
@@ -94,15 +90,16 @@ final itemExamples = ComponentExamples(
   ],
 );
 
-class _OutlineSelectionExample extends StatefulWidget {
-  const _OutlineSelectionExample();
+class _SelectionExample extends StatefulWidget {
+  const _SelectionExample({required this.style});
+
+  final DItemSelectionStyle style;
 
   @override
-  State<_OutlineSelectionExample> createState() =>
-      _OutlineSelectionExampleState();
+  State<_SelectionExample> createState() => _SelectionExampleState();
 }
 
-class _OutlineSelectionExampleState extends State<_OutlineSelectionExample> {
+class _SelectionExampleState extends State<_SelectionExample> {
   int selected = 0;
 
   @override
@@ -114,9 +111,11 @@ class _OutlineSelectionExampleState extends State<_OutlineSelectionExample> {
       ].indexed)
         DItem(
           selected: index == selected,
-          selectionStyle: DItemSelectionStyle.outline,
+          selectionStyle: widget.style,
           showSelectionIndicator: false,
-          variant: DItemVariant.outline,
+          variant: widget.style == DItemSelectionStyle.outline
+              ? DItemVariant.outline
+              : DItemVariant.standard,
           onPressed: () => setState(() => selected = index),
           children: [
             DItemContent(children: [DItemTitle(child: Text(title))]),

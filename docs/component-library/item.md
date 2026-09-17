@@ -208,7 +208,8 @@ selection was verified by widget tests; the offline native fixture has no topic
 detail responses. iOS/Linux were not run on devices.
 
 Topic lists use `DItemSelectionStyle.neutral` with
-`showSelectionIndicator: false`: the selected row takes the muted surface,
-without an accent border or extra leading marker. Focus remains visible through
-the existing focus ring; selection semantics remain unchanged. The styleguide
-includes a Neutral selection example.
+`showSelectionIndicator: false`: selection uses a 5% foreground tint and hover
+uses 6%, without an accent border or extra leading marker. Corners use 2.5× the
+host radius (10px at the default radius). Focus remains visible through the
+existing focus ring; selection semantics remain unchanged. The interactive
+Neutral selection example demonstrates both states.

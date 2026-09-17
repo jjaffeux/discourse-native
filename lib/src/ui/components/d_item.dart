@@ -59,7 +59,8 @@ class DItem extends StatefulWidget {
   final bool selected;
 
   /// Outline selection keeps the normal surface and paints a 2px accent border
-  /// without moving the content. Hover uses a faint neutral tint.
+  /// without moving the content. Neutral selection uses a subtle surface tint,
+  /// broader theme-relative corners and no accent border. Both retain focus.
   final DItemSelectionStyle selectionStyle;
 
   /// Shows a checkmark when selected. Selection styling and semantics remain
@@ -116,13 +117,19 @@ class _DItemState extends State<DItem> {
     final focus = _active && _focusVisible;
     final outlineSelection =
         widget.selectionStyle == DItemSelectionStyle.outline;
+    final neutralSelection =
+        widget.selectionStyle == DItemSelectionStyle.neutral;
+    final radius = tokens.radius * (neutralSelection ? 2.5 : 1);
+    final borderRadius = BorderRadius.circular(radius);
     final background = widget.selected && !outlineSelection
-        ? widget.selectionStyle == DItemSelectionStyle.neutral
-              ? tokens.muted
+        ? neutralSelection
+              ? tokens.foreground.withValues(alpha: .05)
               : tokens.primary.withValues(alpha: .12)
         : _active && _hover
         ? outlineSelection
               ? tokens.foreground.withValues(alpha: .03)
+              : neutralSelection
+              ? tokens.foreground.withValues(alpha: .06)
               : tokens.muted
         : widget.variant == DItemVariant.muted
         ? tokens.muted.withValues(alpha: tokens.muted.a * .5)
@@ -147,23 +154,23 @@ class _DItemState extends State<DItem> {
             focus
                 ? tokens.focusRing.withValues(alpha: tokens.focusRing.a * .5)
                 : Colors.transparent,
-            tokens.radius,
+            radius,
           ),
           child: interactiveRowSurface(
             constraints: BoxConstraints(minHeight: touch && _active ? 48 : 0),
             foregroundDecoration: widget.selected && outlineSelection
                 ? BoxDecoration(
-                    borderRadius: tokens.borderRadius,
+                    borderRadius: borderRadius,
                     border: Border.all(color: tokens.primary, width: 2),
                   )
                 : null,
             decoration: BoxDecoration(
               color: background,
-              borderRadius: tokens.borderRadius,
+              borderRadius: borderRadius,
               border: Border.all(
                 color: focus
                     ? tokens.focusRing
-                    : widget.selected
+                    : widget.selected && !neutralSelection
                     ? tokens.primary
                     : widget.variant == DItemVariant.outline
                     ? tokens.border

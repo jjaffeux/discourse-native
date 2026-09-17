@@ -9,6 +9,53 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  testWidgets('embedded rows can leave hover painting to their parent', (
+    tester,
+  ) async {
+    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    await mouse.addPointer(location: const Offset(1, 1));
+    addTearDown(mouse.removePointer);
+    for (final rowCount in [1, 2]) {
+      await _pump(
+        tester,
+        DTable(
+          columnWidths: const {0: FlexColumnWidth()},
+          body: DTableBody(
+            rows: [
+              for (var row = 0; row < rowCount; row++)
+                DTableRow(
+                  highlightOnHover: false,
+                  cells: [DTableCell(child: Text('Row $row'))],
+                ),
+            ],
+          ),
+        ),
+      );
+      for (var row = 0; row < rowCount; row++) {
+        final label = find.text('Row $row');
+        await mouse.moveTo(tester.getCenter(label));
+        await tester.pump();
+        for (final elapsed in [0, 75, 150]) {
+          await tester.pump(Duration(milliseconds: elapsed));
+          final decoration =
+              tester
+                      .renderObject<RenderDecoratedBox>(
+                        find
+                            .ancestor(
+                              of: label,
+                              matching: find.byType(DecoratedBox),
+                            )
+                            .first,
+                      )
+                      .decoration
+                  as BoxDecoration;
+          expect(decoration.color!.a, 0);
+        }
+      }
+      await mouse.moveTo(const Offset(1, 1));
+    }
+  });
+
   testWidgets('a flexible single row shares hover across its cells', (
     tester,
   ) async {

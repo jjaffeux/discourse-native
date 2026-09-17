@@ -75,3 +75,18 @@ flutter test --no-pub \
 ```
 
 The approved HTML mockup is preserved alongside the native implementation.
+
+## Hover follow-up — 2026-09-17
+
+- Neutral Item rows now use faint foreground tints, 10px corners at the default
+  theme radius, and no accent selection border. Keyboard focus is preserved.
+- The nested table opts out of hover painting, leaving one continuous rounded
+  highlight instead of an animated rectangular fill inside the Item.
+- Topic tags use muted text links with an underline on hover. Badge hover entry
+  and exit paint immediately; focus and theme transitions retain their timing.
+- 113 focused Item, Badge, Table, topic-row, semantics, taxonomy and styleguide
+  tests passed, including painted-state assertions during the 150ms hover
+  interval. Full static analysis and the macOS review build passed.
+- The final isolated native fixture was inspected in dark and light themes:
+  row hover is continuous and rounded, and tags stay transparent when hovered.
+  The desktop review lease was released after inspection.

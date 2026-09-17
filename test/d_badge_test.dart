@@ -310,26 +310,45 @@ void main() {
   });
 
   testWidgets(
-    'hover changes actionable outline and clears after pointer exits',
+    'badge hover transfers immediately without intermediate fills or trails',
     (tester) async {
-      await _pump(
-        tester,
-        DBadge.link(
-          variant: DBadgeVariant.outline,
-          onPressed: () {},
-          child: const Text('Open'),
-        ),
-      );
       final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
       await mouse.addPointer(location: Offset.zero);
       addTearDown(mouse.removePointer);
-      await mouse.moveTo(tester.getCenter(find.text('Open')));
-      await tester.pumpAndSettle();
-      final context = tester.element(find.byType(DBadge));
-      expect(_decoration(tester).color, DTokens.of(context).muted);
-      await mouse.moveTo(Offset.zero);
-      await tester.pumpAndSettle();
-      expect(_decoration(tester).color, Colors.transparent);
+      for (final theme in [AppTheme.light, AppTheme.dark]) {
+        await _pump(
+          tester,
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              for (final label in ['First', 'Second'])
+                DBadge.link(
+                  variant: DBadgeVariant.outline,
+                  onPressed: () {},
+                  child: Text(label),
+                ),
+            ],
+          ),
+          theme: theme,
+          reducedMotion: false,
+        );
+        final tokens = DTokens.of(tester.element(find.byType(DBadge).first));
+        for (final active in ['First', 'Second', null]) {
+          await mouse.moveTo(
+            active == null ? Offset.zero : tester.getCenter(find.text(active)),
+          );
+          await tester.pump();
+          for (final elapsed in [0, 50, 100, 150]) {
+            await tester.pump(Duration(milliseconds: elapsed));
+            for (final label in ['First', 'Second']) {
+              expect(
+                _paintedDecorationOf(tester, label).color,
+                label == active ? tokens.muted : Colors.transparent,
+              );
+            }
+          }
+        }
+      }
     },
   );
 
@@ -407,7 +426,7 @@ void main() {
     },
   );
 
-  testWidgets('decoration transitions use the reference 150ms ease timing', (
+  testWidgets('static decoration changes retain the reference 150ms timing', (
     tester,
   ) async {
     await _pump(
@@ -599,6 +618,22 @@ void main() {
 
 BoxDecoration _decoration(WidgetTester tester) =>
     tester.widget<AnimatedContainer>(find.byType(AnimatedContainer)).decoration!
+        as BoxDecoration;
+BoxDecoration _paintedDecorationOf(WidgetTester tester, String text) =>
+    tester
+            .renderObject<RenderDecoratedBox>(
+              find
+                  .ancestor(
+                    of: find.text(text),
+                    matching: find.byWidgetPredicate(
+                      (widget) =>
+                          widget is DecoratedBox &&
+                          widget.decoration is BoxDecoration,
+                    ),
+                  )
+                  .first,
+            )
+            .decoration
         as BoxDecoration;
 BoxDecoration _decorationOf(WidgetTester tester, String text) =>
     tester
