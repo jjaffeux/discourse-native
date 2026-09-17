@@ -46,7 +46,8 @@ void main() {
 
   test('aggregate topic gets a new forum tab and then reuses it', () async {
     final store = Store();
-    final controller = _controller(store: store);
+    final api = FakeDiscourseApi(feeds: const {'/latest.json': []});
+    final controller = _controller(store: store, api: api);
     addTearDown(controller.dispose);
     await controller.load();
     const topic = Topic(
@@ -69,6 +70,11 @@ void main() {
     expect(controller.currentContent?.postNumber, 6);
     expect(controller.tabsForCurrentForum, hasLength(2));
     final topicTabId = controller.activeTabId;
+
+    await Future<void>.delayed(Duration.zero);
+    expect(controller.currentContent?.topicId, topic.id);
+    expect(controller.currentContent?.postNumber, 6);
+    expect(api.topicsOpened, contains(topic.id));
 
     controller.selectAggregate();
     final second = controller.openAggregateTopic(_site.url, topic.id);
@@ -98,6 +104,36 @@ void main() {
       controller.tabsForCurrentForum,
       hasLength(ForumWorkspace.maximumTabs),
     );
+  });
+
+  test('aggregate topic survives hydration when switching forums', () async {
+    const otherSite = DiscourseInstance(
+      url: 'https://two.example',
+      title: 'Two',
+    );
+    final store = Store();
+    final api = FakeDiscourseApi(feeds: const {'/latest.json': []});
+    final controller = _controller(
+      store: store,
+      api: api,
+      instances: const [_site, otherSite],
+    );
+    addTearDown(controller.dispose);
+    await controller.load();
+    const topic = Topic(id: 42, title: 'Other forum', slug: 'other-forum');
+    store.put(otherSite.url, topic);
+    controller.selectAggregate();
+
+    expect(
+      controller.openAggregateTopic(otherSite.url, topic.id),
+      AggregateTopicOpenResult.opened,
+    );
+    await Future<void>.delayed(Duration.zero);
+
+    expect(controller.rootMode, ShellRootMode.forum);
+    expect(controller.currentInstance?.url, otherSite.url);
+    expect(controller.currentContent?.topicId, topic.id);
+    expect(api.topicsOpened, contains(topic.id));
   });
 
   test('mobile uses its one forum navigation context', () async {
@@ -191,9 +227,11 @@ const _site = DiscourseInstance(
 ShellController _controller({
   required Store store,
   bool forumTabsEnabled = true,
+  FakeDiscourseApi? api,
+  List<DiscourseInstance> instances = const [_site],
 }) => ShellController(
-  instanceStore: FakeInstanceStore(const [_site]),
-  api: FakeDiscourseApi(feeds: const {'/latest.json': []}),
+  instanceStore: FakeInstanceStore(instances),
+  api: api ?? FakeDiscourseApi(feeds: const {'/latest.json': []}),
   authenticator: FakeAuthenticator(),
   drafts: FakeDraftStore(),
   forumTabs: FakeForumTabStore(),
