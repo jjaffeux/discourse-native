@@ -193,6 +193,10 @@ body { font-size: 14px; }
   .frame[data-design] .card-stat .column-sort { gap: 2px; }
   .frame[data-design] .card-tags .assignment { margin-left: 0; }
 }
+.frame[data-design="conversation"] .card-top { padding: 12px 12px 0; }
+.frame[data-design="conversation"] .card-main { padding: 8px 12px 0; }
+.frame[data-design="conversation"] .card-tags { padding: 8px 12px 12px; }
+.frame[data-design="conversation"] .card-bottom { padding: 8px 12px; }
 @media (max-width: 750px) {
   .studio { padding: 14px 14px 10px; gap: 10px; }
   .studio-heading { width: 100%; }

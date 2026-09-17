@@ -55,7 +55,7 @@ class _ConversationTopicCard extends StatelessWidget {
     );
     final age = topic.bumpedAt == null ? '—' : relativeTime(topic.bumpedAt!);
     final contentInsets =
-        (row.contentPadding ?? const EdgeInsets.all(DSpacing.lg)).resolve(
+        (row.contentPadding ?? const EdgeInsets.all(DSpacing.md)).resolve(
           Directionality.of(context),
         );
     Widget field(String label, String column) => _TopicCardField(
@@ -244,8 +244,8 @@ class _ConversationTopicCard extends StatelessWidget {
                       DCardFooter(
                         child: Padding(
                           padding: contentInsets.copyWith(
-                            top: DSpacing.md,
-                            bottom: DSpacing.md,
+                            top: DSpacing.sm,
+                            bottom: DSpacing.sm,
                           ),
                           child: LayoutBuilder(
                             builder: (context, constraints) {
