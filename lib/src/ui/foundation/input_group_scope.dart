@@ -1,5 +1,7 @@
 import 'package:flutter/widgets.dart';
 
+import 'control_style.dart';
+
 /// Internal bridge between an input-group surface and its native editor.
 ///
 /// DInput and DTextarea keep ownership of editing, Form state, focus, IME and
@@ -13,6 +15,7 @@ class DInputGroupControlScope extends InheritedWidget {
     required this.requestControlFocus,
     required this.inputPadding,
     required this.enabled,
+    this.size = DControlSize.regular,
     required super.child,
   });
 
@@ -21,6 +24,7 @@ class DInputGroupControlScope extends InheritedWidget {
   final VoidCallback requestControlFocus;
   final EdgeInsetsGeometry inputPadding;
   final bool enabled;
+  final DControlSize size;
 
   static DInputGroupControlScope? maybeOf(BuildContext context) =>
       context.dependOnInheritedWidgetOfExactType<DInputGroupControlScope>();
@@ -31,5 +35,6 @@ class DInputGroupControlScope extends InheritedWidget {
       remove != oldWidget.remove ||
       requestControlFocus != oldWidget.requestControlFocus ||
       inputPadding != oldWidget.inputPadding ||
-      enabled != oldWidget.enabled;
+      enabled != oldWidget.enabled ||
+      size != oldWidget.size;
 }

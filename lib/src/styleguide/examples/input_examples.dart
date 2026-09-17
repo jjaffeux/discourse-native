@@ -18,7 +18,7 @@ final inputExamples = ComponentExamples(
       'their catalogue tasks; the inline slots here support simple app search '
       'and status controls. File selection uses the native host picker and '
       'returns display names; it never uploads data. Reference base-nova: '
-      '32px minimum height, 14/20px desktop type, 10px horizontal inset and '
+      'Shared 24/28/32px small/regular/large heights, 10px horizontal inset and '
       '3px focus/invalid ring. The full box takes the text cursor and focuses '
       'from its inset; the ring appears immediately while colors ease. Large '
       'text grows naturally.',
@@ -167,6 +167,29 @@ final inputExamples = ComponentExamples(
   ),
 ])''',
       builder: (_) => const _InputReferenceDemo(),
+    ),
+    StyleguideExample(
+      title: 'Shared sizes',
+      description:
+          'Inputs and buttons use the same small, regular and large heights.',
+      code: "DInput(size: DControlSize.small, hintText: 'Small')",
+      builder: (_) => Column(
+        children: [
+          for (final size in DControlSize.values)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: DInput(size: size, hintText: size.name),
+                  ),
+                  const SizedBox(width: 8),
+                  DButton(size: size, label: Text(size.name), onPressed: () {}),
+                ],
+              ),
+            ),
+        ],
+      ),
     ),
   ],
 );
