@@ -109,6 +109,55 @@ Future<ComposerController> _pumpPanel(
 }
 
 void main() {
+  for (final action in ['Insert row above', 'Insert row below', 'Delete row']) {
+    for (final padding in [false, true]) {
+      testWidgets('right-click row: $action (padding: $padding)', (
+        tester,
+      ) async {
+        final composer = await _pump(tester);
+        final before = composer.value.selection;
+        final input = _cell(1, 0);
+        final cell = find
+            .ancestor(
+              of: input,
+              matching: find.byWidgetPredicate((w) => w is DTableCell),
+            )
+            .first;
+        final point = padding
+            ? tester.getRect(cell).topLeft + const Offset(2, 2)
+            : tester.getCenter(input);
+        await tester.tapAt(
+          point,
+          buttons: kSecondaryMouseButton,
+          kind: PointerDeviceKind.mouse,
+        );
+        await tester.pumpAndSettle();
+        expect(find.text('Insert row above'), findsOneWidget);
+        expect(find.text('Insert row below'), findsOneWidget);
+        expect(find.text('Delete row'), findsOneWidget);
+        expect(find.byType(AdaptiveTextSelectionToolbar), findsNothing);
+        expect(composer.value.selection, before);
+        await tester.tap(find.text(action));
+        await tester.pumpAndSettle();
+        final table = parseComposerTables(composer.raw).single;
+        switch (action) {
+          case 'Delete row':
+            expect(table.rowCount, 1);
+            expect(table.cell(1, 0), 'Cake');
+          case 'Insert row above':
+            expect(table.rowCount, 3);
+            expect(table.cell(1, 0), '');
+            expect(table.cell(2, 0), 'Tea');
+          case 'Insert row below':
+            expect(table.rowCount, 3);
+            expect(table.cell(1, 0), 'Tea');
+            expect(table.cell(2, 0), '');
+        }
+        expect(tester.takeException(), isNull);
+      }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
+    }
+  }
+
   for (final dark in [false, true]) {
     testWidgets('cell padding focuses the editor (dark: $dark)', (
       tester,
@@ -673,9 +722,18 @@ void main() {
       final composer = await _pump(tester);
       await tester.tap(_action('Row 1 actions'));
       await tester.pumpAndSettle();
+      final insert = tester
+          .widget<DDropdownMenuItem>(
+            find.ancestor(
+              of: find.text('Insert row below'),
+              matching: find.byType(DDropdownMenuItem),
+            ),
+          )
+          .onPressed!;
       composer.beginSubmit();
       await tester.pump();
-      await tester.tap(find.text('Insert row below'));
+      expect(find.text('Insert row below'), findsNothing);
+      insert();
       await tester.pumpAndSettle();
       expect(composer.raw, _source);
       expect(

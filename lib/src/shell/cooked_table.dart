@@ -1,8 +1,13 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+
 import 'package:html/dom.dart' as dom;
+
+import '../theme/d_icons.dart';
 
 /// Adapts ordinary cooked Markdown tables. Document tables with merged cells,
 /// multiple headers or footers retain the HTML renderer's structural support.
@@ -51,6 +56,7 @@ Widget? cookedTableWidgetBuilder(
 class _Cell {
   _Cell(dom.Element element)
     : text = element.text.trim().replaceAll(RegExp(r'\s+'), ' '),
+      copyText = _copyCellText(element),
       html =
           (dom.Element.tag('div')
                 ..attributes.addAll(element.attributes)
@@ -58,7 +64,16 @@ class _Cell {
               .outerHtml;
 
   final String text;
+  final String copyText;
   final String html;
+}
+
+String _copyCellText(dom.Element element) {
+  final copy = element.clone(true);
+  for (final br in copy.querySelectorAll('br')) {
+    br.replaceWith(dom.Text('<br>'));
+  }
+  return copy.text.trim().replaceAll(RegExp(r'\s+'), ' ');
 }
 
 class _CookedTable extends StatefulWidget {
@@ -80,6 +95,35 @@ class _CookedTable extends StatefulWidget {
 }
 
 class _CookedTableState extends State<_CookedTable> {
+  bool _copied = false;
+  Timer? _copyReset;
+
+  Future<void> _copyTable() async {
+    String line(List<_Cell> cells) =>
+        '| ${cells.map((cell) => cell.copyText.replaceAll(r'\', r'\\').replaceAll('|', r'\|')).join(' | ')} |';
+    await Clipboard.setData(
+      ClipboardData(
+        text: [
+          line(widget.headers),
+          '| ${List.filled(widget.headers.length, '---').join(' | ')} |',
+          ...widget.rows.map(line),
+        ].join('\n'),
+      ),
+    );
+    if (!mounted) return;
+    setState(() => _copied = true);
+    _copyReset?.cancel();
+    _copyReset = Timer(const Duration(seconds: 2), () {
+      if (mounted) setState(() => _copied = false);
+    });
+  }
+
+  @override
+  void dispose() {
+    _copyReset?.cancel();
+    super.dispose();
+  }
+
   late DDataTableState _state = DDataTableState(
     pageSize: math.max(1, widget.rows.length),
   );
@@ -122,15 +166,24 @@ class _CookedTableState extends State<_CookedTable> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Align(
-          alignment: AlignmentDirectional.centerEnd,
-          child: DDataTableColumnToggle(
-            columns: columns,
-            hiddenColumnIds: _state.hiddenColumnIds,
-            onChanged: (hidden) => setState(() {
-              _state = _state.copyWith(hiddenColumnIds: hidden);
-            }),
-          ),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.end,
+          children: [
+            DButton.iconOnly(
+              tooltip: _copied ? 'Table copied' : 'Copy table',
+              variant: DButtonVariant.outline,
+              icon: DIcon(_copied ? DIcons.check : DIcons.copy, size: 16),
+              onPressed: _copyTable,
+            ),
+            const SizedBox(width: DSpacing.sm),
+            DDataTableColumnToggle(
+              columns: columns,
+              hiddenColumnIds: _state.hiddenColumnIds,
+              onChanged: (hidden) => setState(() {
+                _state = _state.copyWith(hiddenColumnIds: hidden);
+              }),
+            ),
+          ],
         ),
         const SizedBox(height: DSpacing.sm),
         DDataTable<int>(

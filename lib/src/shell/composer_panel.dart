@@ -1131,9 +1131,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
                     // Components paint their own outline. The native range
                     // includes hidden Markdown and would tint extra lines.
                     selectionColor:
-                        widget.composer.focus.hasPrimaryFocus &&
-                            widget.composer.text.keyboardSelectedProjection !=
-                                null
+                        widget.composer.text.keyboardSelectedProjection != null
                         ? Colors.transparent
                         : null,
                     child: TextField(

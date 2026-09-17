@@ -5,6 +5,7 @@ import 'package:flutter/rendering.dart';
 
 import '../../theme/discourse_typography.dart';
 import '../foundation/tokens.dart';
+import 'd_context_menu.dart';
 
 /// A passive presentation table with optional lazy body rows. Sorting,
 /// selection controls, forms and menus belong to callers.
@@ -469,6 +470,7 @@ class DTableCell extends StatelessWidget {
     this.textStyle,
     this.onTap,
     this.mouseCursor,
+    this.contextMenu,
   }) : assert(columnSpan > 0);
   final Widget child;
   final int columnSpan;
@@ -483,9 +485,12 @@ class DTableCell extends StatelessWidget {
   final VoidCallback? onTap;
   final MouseCursor? mouseCursor;
 
+  /// A cell-wide context menu that takes precedence over nested text menus.
+  final DContextMenuContent? contextMenu;
+
   @override
   Widget build(BuildContext context) {
-    final content = Padding(
+    Widget content = Padding(
       padding: padding,
       child: Align(
         alignment: alignment,
@@ -498,16 +503,29 @@ class DTableCell extends StatelessWidget {
         ),
       ),
     );
-    if (onTap == null) return content;
-    return MouseRegion(
-      cursor: mouseCursor ?? SystemMouseCursors.click,
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        excludeFromSemantics: true,
-        onTap: onTap,
-        child: content,
-      ),
-    );
+    if (onTap != null) {
+      content = MouseRegion(
+        cursor: mouseCursor ?? SystemMouseCursors.click,
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          excludeFromSemantics: true,
+          onTap: onTap,
+          child: content,
+        ),
+      );
+    }
+    if (contextMenu case final menu?) {
+      content = DContextMenu(
+        content: menu,
+        child: DContextMenuTrigger(
+          captureSecondaryTap: true,
+          focusable: false,
+          longPressEnabled: false,
+          child: content,
+        ),
+      );
+    }
+    return content;
   }
 }
 
@@ -524,6 +542,7 @@ class DTableHead extends DTableCell {
     super.textStyle,
     super.onTap,
     super.mouseCursor,
+    super.contextMenu,
   });
 
   @override

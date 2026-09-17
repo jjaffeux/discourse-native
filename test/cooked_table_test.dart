@@ -5,6 +5,7 @@ import 'package:discourse_native/src/shell/inline_code.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_widget_from_html_core/flutter_widget_from_html_core.dart';
 
@@ -61,6 +62,65 @@ Future<void> _sort(WidgetTester tester, String column, String order) async {
 }
 
 void main() {
+  testWidgets('copy table copies complete Markdown beside Columns', (
+    tester,
+  ) async {
+    String? copied;
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      SystemChannels.platform,
+      (call) async {
+        if (call.method == 'Clipboard.setData') {
+          copied = (call.arguments as Map)['text'] as String;
+        }
+        return null;
+      },
+    );
+    addTearDown(
+      () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        null,
+      ),
+    );
+    await _pump(tester, _html);
+    await _sort(tester, 'Days', 'ascending');
+    await tester.tap(find.text('Notes'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Hide column'));
+    await tester.pumpAndSettle();
+    final copy = find.byWidgetPredicate(
+      (w) => w is DButton && w.tooltip == 'Copy table',
+    );
+    expect(copy, findsOneWidget);
+    expect(find.text('Columns'), findsOneWidget);
+    await tester.tap(copy);
+    await tester.pump();
+    expect(
+      copied,
+      '| Who? | Days | Notes |\n| --- | --- | --- |\n| Zara | 10 | First note |\n| Abe | 2 | second |\n| Mina | 2 | Third note |',
+    );
+    expect(
+      find.byWidgetPredicate(
+        (w) => w is DButton && w.tooltip == 'Table copied',
+      ),
+      findsOneWidget,
+    );
+    await tester.pump(const Duration(seconds: 2));
+    expect(copy, findsOneWidget);
+
+    await _pump(
+      tester,
+      r'<table><tr><th>Text</th></tr><tr><td>A|B<br>C\D</td></tr></table>',
+    );
+    await tester.tap(copy);
+    await tester.pump();
+    expect(
+      copied,
+      '| Text |\n| --- |\n'
+      r'| A\|B<br>C\\D |',
+    );
+    await tester.pump(const Duration(seconds: 2));
+  });
+
   testWidgets(
     'renders every row and keeps rich cells and the source link context',
     (tester) async {
