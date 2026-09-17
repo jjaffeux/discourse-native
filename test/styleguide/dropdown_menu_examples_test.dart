@@ -27,6 +27,7 @@ void main() {
       'Avatar',
       'Complex',
       'RTL',
+      'Grouped guide',
     ]);
   });
 

@@ -11,6 +11,7 @@ import '../foundation/tokens.dart';
 import 'd_button.dart';
 import 'd_popover.dart';
 import 'd_scroll_area.dart';
+import 'd_separator.dart';
 
 typedef DDropdownMenuController = DPopoverController;
 typedef DDropdownMenuOpenChange = DPopoverOpenChange;
@@ -682,21 +683,72 @@ class DDropdownMenuGroup extends StatelessWidget {
     super.key,
     required this.children,
     this.semanticLabel,
+    this.showGuide = false,
   });
 
   final List<Widget> children;
   final String? semanticLabel;
 
+  /// Indents the group beneath its label with a sidebar-style vertical guide.
+  /// Children should use their normal padding rather than `inset: true`.
+  final bool showGuide;
+
   @override
-  Widget build(BuildContext context) => Semantics(
-    container: semanticLabel != null,
-    label: semanticLabel,
-    child: Column(
+  Widget build(BuildContext context) {
+    Widget content = Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: children,
-    ),
-  );
+    );
+    if (showGuide) {
+      content = Stack(
+        children: [
+          PositionedDirectional(
+            start: 15,
+            top: 0,
+            bottom: 0,
+            child: DSeparator(
+              orientation: Axis.vertical,
+              color: _dropdownGuideColor(context),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsetsDirectional.only(start: 22),
+            child: content,
+          ),
+        ],
+      );
+    }
+    return Semantics(
+      container: semanticLabel != null,
+      label: semanticLabel,
+      child: content,
+    );
+  }
+}
+
+// Match the sidebar's subtle guide, including palettes whose border blends
+// into the surface. Resolve during build so open menus follow theme changes.
+Color _dropdownGuideColor(BuildContext context) {
+  final tokens = DTokens.of(context);
+  final surfaceLuminance = tokens.surface.computeLuminance() + 0.05;
+  double contrast(Color color) {
+    final luminance =
+        Color.alphaBlend(color, tokens.surface).computeLuminance() + 0.05;
+    return luminance > surfaceLuminance
+        ? luminance / surfaceLuminance
+        : surfaceLuminance / luminance;
+  }
+
+  if (contrast(tokens.border) >= 1.25) return tokens.border;
+  for (final alpha in const [.10, .12, .14, .16, .20, .24, .30]) {
+    final candidate = Color.alphaBlend(
+      tokens.foreground.withValues(alpha: alpha),
+      tokens.surface,
+    );
+    if (contrast(candidate) >= 1.25) return candidate;
+  }
+  return tokens.foreground;
 }
 
 class DDropdownMenuLabel extends StatelessWidget {

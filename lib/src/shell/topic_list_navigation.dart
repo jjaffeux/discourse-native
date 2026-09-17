@@ -374,7 +374,6 @@ class TopicFeedMenu extends StatelessWidget {
       TopicListMode value,
       String description, {
       int count = 0,
-      bool inset = false,
     }) => DDropdownMenuItem(
       key: ValueKey(
         value.isTop
@@ -385,7 +384,6 @@ class TopicFeedMenu extends StatelessWidget {
                   ? 'popular'
                   : value.name}',
       ),
-      inset: inset,
       onPressed: () => onSelected(value),
       semanticLabel:
           '${value.isTop ? value.topPeriod!.label : label(value)}${count > 0 ? ', $count topics' : ''}${selected == value ? ', selected' : ''}',
@@ -439,15 +437,21 @@ class TopicFeedMenu extends StatelessWidget {
             item(TopicListMode.unseen, 'Topics you haven’t visited'),
           ],
           const DDropdownMenuLabel(child: Text('Top')),
-          for (final period in [
-            TopPeriod.yearly,
-            TopPeriod.quarterly,
-            TopPeriod.monthly,
-            TopPeriod.weekly,
-            TopPeriod.daily,
-            TopPeriod.all,
-          ])
-            item(TopicListMode.top(period), '', inset: true),
+          DDropdownMenuGroup(
+            showGuide: true,
+            semanticLabel: 'Top periods',
+            children: [
+              for (final period in [
+                TopPeriod.yearly,
+                TopPeriod.quarterly,
+                TopPeriod.monthly,
+                TopPeriod.weekly,
+                TopPeriod.daily,
+                TopPeriod.all,
+              ])
+                item(TopicListMode.top(period), ''),
+            ],
+          ),
           item(TopicListMode.popular, 'Conversations gaining momentum'),
         ],
       ),
