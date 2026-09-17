@@ -45,15 +45,15 @@ void main() {
     'display preferences survive restart and unrelated setting changes',
     () async {
       final store = AppSettingsStore();
-      await store.update(topicListExcerpts: true, topicListLargerText: true);
+      await store.update(topicListLargerText: true);
       await store.update(topicListMode: TopicListDisplayMode.compact);
       final restored = await AppSettingsStore().read();
-      expect(restored.topicListExcerpts, isTrue);
       expect(restored.topicListLargerText, isTrue);
       expect(restored.topicListMode, TopicListDisplayMode.compact);
-      await store.update(topicListExcerpts: false);
-      expect((await AppSettingsStore().read()).topicListLargerText, isTrue);
-      expect((await AppSettingsStore().read()).topicListExcerpts, isFalse);
+      await store.update(topicListLargerText: false);
+      final updated = await AppSettingsStore().read();
+      expect(updated.topicListLargerText, isFalse);
+      expect(updated.topicListMode, TopicListDisplayMode.compact);
     },
   );
 
@@ -429,11 +429,6 @@ final class _ControlledAppSettingsPersistence
   Future<bool?> readTopicListLargerText() async => null;
   @override
   Future<bool> writeTopicListLargerText(bool value) async => true;
-
-  @override
-  Future<bool?> readTopicListExcerpts() async => null;
-  @override
-  Future<bool> writeTopicListExcerpts(bool value) async => true;
 
   _ControlledAppSettingsPersistence({
     this.contentAlignment,

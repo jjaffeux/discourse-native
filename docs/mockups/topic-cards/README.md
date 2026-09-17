@@ -20,7 +20,7 @@ python3 -m http.server 8778 --bind 127.0.0.1 --directory docs/mockups/topic-card
 | Direction | Preview | Design tradeoff |
 | --- | --- | --- |
 | A — Framed rows | http://127.0.0.1:8778/?design=framed | Individual bordered surfaces with internal padding, retaining aligned table columns. Familiar scanning, but the smallest departure from a list. |
-| B — Conversation cards | http://127.0.0.1:8778/?design=conversation | Full-width cards with taxonomy, title, excerpt and assignment above a separate people/activity footer. Preferred direction for a clear card treatment and predictable vertical reading order. |
+| B — Conversation cards | http://127.0.0.1:8778/?design=conversation | Full-width cards with taxonomy, title and assignment above a separate people/activity footer. Preferred direction for a clear card treatment and predictable vertical reading order. |
 | C — Card grid | http://127.0.0.1:8778/?design=grid | Responsive tiles with aligned footers. More visual separation, with more horizontal eye movement when scanning titles. |
 
 The direction tabs preserve the current preview context, theme and width.
@@ -37,7 +37,7 @@ directions collapse into a single column in a narrow pane.
   markers, visited titles, bookmark/pin colors, and event dates/schedules.
 - Category badges and tags share the card's top line, wrapping as needed.
 - Neutral filled hover and outlined selection, without tag hover transitions.
-- Excerpts and larger text, topic preview beside the list or in a dialog, topic
+- Larger text, topic preview beside the list or in a dialog, topic
   navigation, new topic and saved drafts.
 - Existing sample filter autocomplete and filtering, forum and assignee filters.
 - A retains sortable column headings. B and C expose Replies and Activity

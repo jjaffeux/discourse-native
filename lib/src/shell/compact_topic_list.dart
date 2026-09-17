@@ -179,9 +179,6 @@ class _CompactTopicRow extends StatelessWidget {
       topic,
       compact: true,
     );
-    final excerpts =
-        ShellScope.maybeIdentityOf(context)?.appSettings.topicListExcerpts ==
-        true;
     return Padding(
       padding:
           row.outerPadding ??
@@ -259,19 +256,6 @@ class _CompactTopicRow extends StatelessWidget {
                                 inlineMetadata: inlineMetadata,
                               ),
                             ],
-                            if (excerpts &&
-                                topic.excerpt?.trim().isNotEmpty == true)
-                              Padding(
-                                padding: const EdgeInsets.only(top: 6),
-                                child: DItemDescription(
-                                  child: SiteEmojiText.plain(
-                                    topic.excerpt!,
-                                    siteUrl: row.siteUrl,
-                                    maxLines: 2,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                              ),
                             if (!layout.activity)
                               Text(
                                 '${topic.replyCount} replies · $age',

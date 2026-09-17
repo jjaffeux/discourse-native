@@ -27,7 +27,6 @@ import 'platform.dart';
 import 'relative_time.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';
-import 'site_emoji_text.dart';
 import 'topic_list_indicators.dart';
 import 'topic_list_layout.dart';
 import 'topic_title.dart';

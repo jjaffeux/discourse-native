@@ -2,12 +2,11 @@
 
 const designs = {
   framed: 'A · Framed rows — individual surfaces and more internal padding, while keeping the familiar column alignment.',
-  conversation: 'B · Conversation cards — a clear title and excerpt, with people and activity in a separate footer.',
+  conversation: 'B · Conversation cards — a clear title, with people and activity in a separate footer.',
   grid: 'C · Card grid — a responsive collection of self-contained topics. Columns adapt to the available width and become one in a narrow pane.'
 };
 let design = Object.hasOwn(designs, params.get('design')) ? params.get('design') : 'conversation';
 state.mode = 'card';
-state.excerpts = true;
 
 const baseRender = render;
 const baseRenderRows = renderRows;
@@ -37,7 +36,6 @@ rowMarkup = function(t) {
     <div class="card-top">${isMessages() ? `<span class="card-field-name">${icon('mail')} Private conversation</span>` : categoryMarkup(t)}${tags}${t.tags?.length > 2 ? `<button class="tag-overflow" data-tags="${t.id}" title="More tags">+${t.tags.length - 2}</button>` : ''}${state.scene === 'aggregate' ? `<span class="forum-name">${esc(t.forum)}</span>` : ''}</div>
     <div class="card-main">${stamp}<div class="card-copy">
       <div class="card-heading">${status}<a class="card-title" href="#topic-${t.id}" data-open="${t.id}">${esc(t.title)}</a>${marker}</div>
-      ${t.excerpt ? `<p class="card-excerpt">${esc(t.excerpt)}</p>` : ''}
       ${t.event ? `<div class="event-meta"><button class="schedule" data-schedule="${t.id}">${esc(t.event.summary)}</button></div>` : ''}
     </div></div>
     <div class="card-tags">${assignmentMarkup(t)}</div>
@@ -89,7 +87,7 @@ openMenu = function(name, button) {
 };
 
 coverage = function() {
-  showDialog('About this card study', `<p>Three alternative presentations of the same topics. All content is local sample data.</p><p>Try the feed, category and tag menus, filter autocomplete, event schedules, assignments, recent drafts and topic preview. Use Display to toggle excerpts and larger text.</p><p>A keeps sortable table headers. B and C use the field headings inside each card for Replies and Activity. Selecting a topic adds an outline, while hover adds a neutral fill.</p><p>Switch the context below to inspect messages, assigned topics, aggregate forums or signed-out mode. Loading, empty and error states are available in the State selector.</p><p>Native mapping: DCard for the surface and footer; DItem for hover and selection; the existing DButton, menus, taxonomy, badge, assignment and event components for controls. This is a design prototype, not a change to the Flutter app.</p>`);
+  showDialog('About this card study', `<p>Three alternative presentations of the same topics. All content is local sample data.</p><p>Try the feed, category and tag menus, filter autocomplete, event schedules, assignments, recent drafts and topic preview. Use Display to toggle larger text.</p><p>A keeps sortable table headers. B and C use the field headings inside each card for Replies and Activity. Selecting a topic adds an outline, while hover adds a neutral fill.</p><p>Switch the context below to inspect messages, assigned topics, aggregate forums or signed-out mode. Loading, empty and error states are available in the State selector.</p><p>Native mapping: DCard for the surface and footer; DItem for hover and selection; the existing DButton, menus, taxonomy, badge, assignment and event components for controls. This is a design prototype, not a change to the Flutter app.</p>`);
 };
 
 document.addEventListener('click', event => {

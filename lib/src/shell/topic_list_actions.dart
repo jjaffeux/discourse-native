@@ -66,12 +66,6 @@ class TopicListActions extends StatelessWidget {
                   ),
                 const DDropdownMenuSeparator(),
                 DDropdownMenuCheckboxItem(
-                  checked: settings.topicListExcerpts,
-                  onChanged: (value) =>
-                      unawaited(settings.setTopicListExcerpts(value)),
-                  child: const Text('Show excerpts'),
-                ),
-                DDropdownMenuCheckboxItem(
                   checked: settings.topicListLargerText,
                   onChanged: (value) =>
                       unawaited(settings.setTopicListLargerText(value)),

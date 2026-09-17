@@ -10,7 +10,7 @@ the approved design reference. All controls compose the public Native UI kit.
   keeps search and account access available on platforms without macOS chrome.
 - Feed selection contains the Top periods directly. Counts occupy the trailing
   edge of the menu; category/subcategory colors and tag selection remain.
-- Excerpts and larger text are persisted. Compact/Card lives in Display, with
+- Larger text is persisted. Compact/Card lives in Display, with
   the duplicate field removed from app settings.
 - Advanced filtering is a Topics feed with the existing autocomplete parser,
   server vocabulary, remote category/tag/group/user lookups and account/session
@@ -37,7 +37,7 @@ moving between multiple forum inputs.
   completed with no issues.
 - 612 tests passed across the topic, inbox, assignment, aggregate, filter,
   route, settings, keyboard, accessibility, shell toolbar and affected UI-kit
-  suites. The final set includes the retained-list excerpt toggle, retired
+  suites. The final set includes the retained-list display controls, retired
   filter callback, narrow/RTL/large-text layouts, menu keyboard selection,
   sorting, pagination and per-forum draft retention.
 - Three existing failures were excluded from that final set after reproducing
