@@ -45,9 +45,15 @@ void main() {
       await tester.pumpAndSettle();
       final listState = tester.state(_allLists);
       expect(find.byKey(const ValueKey('topic-compact-1')), findsOneWidget);
+      final previous = find.byKey(const ValueKey('inbox-previous-topic'));
+      final next = find.byKey(const ValueKey('inbox-next-topic'));
+      expect(previous, findsNothing);
+      expect(next, findsNothing);
 
       h.shell.openTopicFromList(h.topics.first);
       await tester.pumpAndSettle();
+      expect(previous, findsOneWidget);
+      expect(next, findsOneWidget);
       expect(find.byKey(const ValueKey('topic-card-1')), findsOneWidget);
       expect(find.byType(DCardFooter), findsWidgets);
       expect(
@@ -89,6 +95,8 @@ void main() {
       expect(find.byKey(const ValueKey('topic-card-1')), findsOneWidget);
       await tester.tap(_back);
       await tester.pumpAndSettle();
+      expect(previous, findsNothing);
+      expect(next, findsNothing);
       expect(find.byKey(const ValueKey('topic-compact-1')), findsOneWidget);
       expect(h.shell.appSettings.topicListMode, TopicListDisplayMode.compact);
       expect(tester.state(_allLists), same(listState));
