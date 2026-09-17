@@ -5,6 +5,54 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  for (final open in [false, true]) {
+    testWidgets(
+      'ancestor scrolling cancels ${open ? "open" : "pending"} hover hint',
+      (tester) async {
+        final scroll = ScrollController();
+        addTearDown(scroll.dispose);
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: AppTheme.light,
+            home: Scaffold(
+              body: SingleChildScrollView(
+                controller: scroll,
+                child: const Column(
+                  children: [
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: DTooltip(
+                        message: 'Details',
+                        hoverDelay: Duration(milliseconds: 400),
+                        child: SizedBox(
+                          width: 900,
+                          height: 48,
+                          child: Text('Target'),
+                        ),
+                      ),
+                    ),
+                    SizedBox(height: 1200),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+        final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+        addTearDown(mouse.removePointer);
+        await mouse.addPointer(location: const Offset(20, 20));
+        await tester.pump(Duration(milliseconds: open ? 500 : 200));
+        await tester.pump();
+        expect(find.text('Details'), open ? findsOneWidget : findsNothing);
+        scroll.jumpTo(100);
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 500));
+        expect(find.text('Details'), findsNothing);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
   testWidgets('hiding a retained control cancels its pending hover tooltip', (
     tester,
   ) async {

@@ -326,6 +326,7 @@ class DTooltipState extends State<DTooltip>
     with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   final _portal = OverlayPortalController();
   final _surfaceKey = GlobalKey();
+  final _scrollPositions = <ScrollPosition>[];
   // Most scrolling-row previews never open. Disposing them must not create
   // the animation and ticker that lazy getters would otherwise allocate.
   AnimationController? _allocatedAnimation;
@@ -485,6 +486,7 @@ class DTooltipState extends State<DTooltip>
     if (!mounted || (value && (!_available || _suspended))) return;
     if (value == _open) {
       if (!value && immediate) {
+        _stopScrollTracking();
         _allocatedAnimation?.value = 0;
         _portal.hide();
       }
@@ -508,6 +510,7 @@ class DTooltipState extends State<DTooltip>
       DTooltip._visible.add(this);
       _group?.opened(this);
       _pointerEngaged = _hovered || _popupHovered;
+      _startScrollTracking();
       _portal.show();
       if (still) {
         _animation.value = 1;
@@ -545,9 +548,42 @@ class DTooltipState extends State<DTooltip>
     }
   }
 
+  void _startScrollTracking() {
+    _stopScrollTracking();
+    context.visitAncestorElements((element) {
+      if (element is StatefulElement && element.state is ScrollableState) {
+        final position = (element.state as ScrollableState).position;
+        _scrollPositions.add(position);
+        position.addListener(_scrollChanged);
+      }
+      return true;
+    });
+  }
+
+  void _stopScrollTracking() {
+    for (final position in _scrollPositions) {
+      position.removeListener(_scrollChanged);
+    }
+    _scrollPositions.clear();
+  }
+
+  // Cancel delayed hover openings before scrolling can detach the portal's
+  // accessibility anchor. Imperative and keyboard hints still track the anchor.
+  void _scrollChanged() {
+    if (!_focused && (_pointerEngaged || _hovered || !_open)) {
+      _request(
+        false,
+        DTooltipChangeReason.lifecycle,
+        immediate: true,
+        force: true,
+      );
+    }
+  }
+
   void _animationStatus(AnimationStatus status) {
     if (!mounted) return;
     if (status == AnimationStatus.dismissed) {
+      _stopScrollTracking();
       _portal.hide();
       widget.onOpenChangeComplete?.call(false);
     } else if (status == AnimationStatus.completed) {
@@ -561,6 +597,7 @@ class DTooltipState extends State<DTooltip>
     _pointer = event.position;
     _hideTimer?.cancel();
     if (_open || !_available || _suspended) return;
+    _startScrollTracking();
     _showTimer?.cancel();
     if (_delay == Duration.zero) {
       _request(true, DTooltipChangeReason.hover);
@@ -575,6 +612,7 @@ class DTooltipState extends State<DTooltip>
     _hovered = false;
     _pointer = event.position;
     _showTimer?.cancel();
+    if (!_open) _stopScrollTracking();
     _scheduleHide();
   }
 
@@ -916,6 +954,7 @@ class DTooltipState extends State<DTooltip>
   @override
   void dispose() {
     _cancelTimers();
+    _stopScrollTracking();
     _longPress?.onLongPressCancel = null;
     _longPress?.dispose();
     _detachController(widget.controller);
