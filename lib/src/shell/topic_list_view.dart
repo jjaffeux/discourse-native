@@ -739,8 +739,6 @@ class _TopicListViewState extends State<TopicListView> {
       children: [
         TopicListTableHeader(
           compact: _compact,
-          showCategory: controller.topicListContent?.isMessages != true,
-          sortCategory: true,
           order: controller.topicListContent?.topicListOrder,
           ascending: controller.topicListContent?.topicListAscending ?? false,
           onSort: controller.topicListContent?.canSortTopicList == true
@@ -887,8 +885,6 @@ class _TopicListViewState extends State<TopicListView> {
                           topicId: topicId,
                           inbox: widget.inbox,
                           compact: _compact,
-                          showCategoryColumn:
-                              controller.topicListContent?.isMessages != true,
                           onOpen: _openRow,
                           hiddenCategoryId:
                               controller.topicListContent?.categoryId,
@@ -1199,11 +1195,9 @@ class _TopicRow extends StatefulWidget {
     required this.onOpen,
     this.inbox = false,
     required this.compact,
-    required this.showCategoryColumn,
   });
 
   final bool compact;
-  final bool showCategoryColumn;
   final int topicId;
   final int? hiddenCategoryId;
   final bool inbox;
@@ -1223,8 +1217,7 @@ class _TopicRowState extends State<_TopicRow> {
         oldWidget.hiddenCategoryId != widget.hiddenCategoryId ||
         oldWidget.onOpen != widget.onOpen ||
         oldWidget.inbox != widget.inbox ||
-        oldWidget.compact != widget.compact ||
-        oldWidget.showCategoryColumn != widget.showCategoryColumn) {
+        oldWidget.compact != widget.compact) {
       _content = null;
     }
   }
@@ -1270,7 +1263,6 @@ class _TopicRowState extends State<_TopicRow> {
                   builder: (context, categoryPresentation, _) => _TopicRowBody(
                     topic: topic,
                     compact: widget.compact,
-                    showCategoryColumn: widget.showCategoryColumn,
                     category: categoryPresentation.category,
                     parentCategory: categoryPresentation.parent,
                     showCategoryBreadcrumb: true,
@@ -1447,14 +1439,12 @@ class _TopicRowBody extends StatelessWidget {
     this.contentPadding,
     this.outerPadding,
     this.compact,
-    this.showCategoryColumn = true,
     this.showViews = false,
     this.onSort,
     this.order,
     this.ascending = false,
   });
 
-  final bool showCategoryColumn;
   final bool showViews;
   final ValueChanged<String>? onSort;
   final String? order;

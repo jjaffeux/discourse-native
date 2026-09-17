@@ -6,27 +6,23 @@ class _CompactTopicLayout {
   _CompactTopicLayout(
     BuildContext context,
     double width, {
-    bool showCategory = true,
     bool showViews = false,
   }) {
     final scale = MediaQuery.textScalerOf(context).scale(14) / 14;
     final effective = width / scale;
-    category = showCategory && effective >= 660;
     activity = effective >= 300;
     avatar = effective >= 900;
     views = showViews && effective >= 480;
     var index = 0;
     widths = {
       index++: const FlexColumnWidth(),
-      if (category)
-        index++: FixedColumnWidth((effective * .19).clamp(140, 240) * scale),
       if (avatar) index++: FixedColumnWidth(138 * scale),
       if (activity) index++: FixedColumnWidth(92 * scale),
       if (views) index++: FixedColumnWidth(92 * scale),
       if (activity) index++: FixedColumnWidth(100 * scale),
     };
   }
-  late final bool category, activity, avatar, views;
+  late final bool activity, avatar, views;
   late final Map<int, TableColumnWidth> widths;
 }
 
@@ -34,16 +30,13 @@ class _CompactTopicLayout {
 class TopicListTableHeader extends StatelessWidget {
   const TopicListTableHeader({
     super.key,
-    this.showCategory = true,
     this.showViews = false,
-    this.sortCategory = false,
     this.order,
     this.ascending = false,
     this.onSort,
     this.compact,
   });
-  final bool showCategory, showViews, ascending;
-  final bool sortCategory;
+  final bool showViews, ascending;
   final String? order;
   final ValueChanged<String>? onSort;
   final bool? compact;
@@ -73,7 +66,6 @@ class TopicListTableHeader extends StatelessWidget {
         final layout = _CompactTopicLayout(
           context,
           constraints.maxWidth,
-          showCategory: showCategory,
           showViews: showViews,
         );
         final style = Theme.of(context).textTheme.labelSmall?.copyWith(
@@ -130,8 +122,6 @@ class TopicListTableHeader extends StatelessWidget {
                 highlightOnHover: false,
                 cells: [
                   heading('Topic'),
-                  if (layout.category)
-                    heading('Category', sort: sortCategory ? 'category' : null),
                   if (layout.avatar) heading('Last reply'),
                   if (layout.activity)
                     heading('Replies', end: true, sort: 'posts'),
@@ -210,7 +200,6 @@ class _CompactTopicRow extends StatelessWidget {
                         final layout = _CompactTopicLayout(
                           context,
                           constraints.maxWidth,
-                          showCategory: row.showCategoryColumn,
                           showViews: row.showViews,
                         );
                         final muted = DTokens.of(context).mutedForeground;
@@ -242,7 +231,7 @@ class _CompactTopicRow extends StatelessWidget {
                           children: [
                             _TopicListTitle(row: row),
                             if (row.forum != null ||
-                                (!layout.category && row.category != null) ||
+                                row.category != null ||
                                 topic.tags.isNotEmpty ||
                                 inlineMetadata.isNotEmpty ||
                                 (!layout.avatar &&
@@ -251,7 +240,7 @@ class _CompactTopicRow extends StatelessWidget {
                               _topicRowMetadata(
                                 context,
                                 row,
-                                category: !layout.category,
+                                category: true,
                                 lastPoster: !layout.avatar,
                                 inlineMetadata: inlineMetadata,
                               ),
@@ -288,12 +277,6 @@ class _CompactTopicRow extends StatelessWidget {
                                       title,
                                     ),
                                   ),
-                                  if (layout.category)
-                                    cell(
-                                      row.category == null
-                                          ? const Text('—')
-                                          : _topicRowCategory(context, row),
-                                    ),
                                   if (layout.avatar)
                                     cell(
                                       Row(

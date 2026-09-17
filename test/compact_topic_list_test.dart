@@ -37,6 +37,32 @@ import 'support/fakes.dart';
 import 'support/media_pipeline.dart';
 
 void main() {
+  for (final width in [780.0, 1200.0]) {
+    testWidgets('compact category precedes tags at $width', (tester) async {
+      await _setup(tester, width: width);
+      final header = find.byKey(const ValueKey('compact-topic-list-header'));
+      expect(
+        find.descendant(of: header, matching: find.text('Category')),
+        findsNothing,
+      );
+      final row = find.byKey(const ValueKey('topic-compact-1'));
+      final category = find.descendant(
+        of: row,
+        matching: find.text('Community'),
+      );
+      final tag = find.descendant(of: row, matching: find.text('#design'));
+      expect(
+        tester.getCenter(category).dy,
+        closeTo(tester.getCenter(tag).dy, 2),
+      );
+      expect(
+        tester.getRect(category).right,
+        lessThan(tester.getRect(tag).left),
+      );
+      expect(tester.takeException(), isNull);
+    });
+  }
+
   for (final mode in TopicListDisplayMode.values) {
     testWidgets('topic titles render site emoji in $mode', (tester) async {
       installTestMediaPipeline(
@@ -444,7 +470,7 @@ void main() {
         within(find.bySemanticsLabel('Category: Features')),
         findsOneWidget,
       );
-      if (width == 780) {
+      if (width == 390) {
         expect(
           tester.renderObject<RenderParagraph>(parent).didExceedMaxLines,
           isTrue,
@@ -579,7 +605,7 @@ void main() {
     );
     expect(
       find.descendant(of: header, matching: find.byType(DTableHead)),
-      findsNWidgets(5),
+      findsNWidgets(4),
     );
     final assigned = find.byKey(const ValueKey('topic-compact-1'));
     final unassigned = find.byKey(const ValueKey('topic-compact-2'));
