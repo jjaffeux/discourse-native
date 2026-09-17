@@ -40,6 +40,19 @@ Future<void> main() async {
       ).toDouble(),
     ),
   );
+  // A Dart ensureSemantics() handle alone does not activate macOS's native
+  // accessibility bridge. For AX reproductions, wait for a platform request.
+  if (const bool.fromEnvironment('LIST_REQUIRE_ACCESSIBILITY')) {
+    final waiting = Stopwatch()..start();
+    while (!binding.platformDispatcher.semanticsEnabled) {
+      if (waiting.elapsed > const Duration(seconds: 30)) {
+        throw StateError(
+          'Native accessibility was not enabled. Enable it before profiling.',
+        );
+      }
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+    }
+  }
   await Future<void>.delayed(const Duration(seconds: 3));
   ScrollableState? scrollable;
   void findScrollable(Element element) {

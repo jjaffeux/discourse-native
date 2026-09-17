@@ -622,7 +622,7 @@ void main() {
     await _pumpApp(tester, const Size(1000, 800), diagnostics);
     await tester.tap(find.byKey(const ValueKey('diagnostics-rail-button')));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Topic scroll'));
+    await tester.tap(find.text('Scroll performance'));
     await tester.pump();
 
     expect(

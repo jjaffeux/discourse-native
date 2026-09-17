@@ -14,6 +14,33 @@ import 'support/topic_scroll_capture.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
+  test('records accessibility changes only during the capture', () async {
+    final capture = topicScrollCaptureWithoutVm();
+    addTearDown(capture.dispose);
+    capture.start();
+    final semantics = WidgetsBinding.instance.ensureSemantics();
+    capture.stop();
+    semantics.dispose();
+    final report = jsonDecode(await capture.buildJsonReport()) as Map;
+    expect((report['capture'] as Map)['accessibility'], {
+      'frameworkEnabledAtStart': false,
+      'frameworkEnabledAtEnd': true,
+      'platformEnabledAtStart': false,
+      'stateChanges': 1,
+    });
+    expect(
+      await capture.buildPerformanceReport(),
+      contains('Accessibility: off at start, on at end'),
+    );
+    capture.start();
+    capture.stop();
+    final second = jsonDecode(await capture.buildJsonReport()) as Map;
+    expect(
+      (second['capture'] as Map)['accessibility'],
+      containsPair('stateChanges', 0),
+    );
+  });
+
   test(
     'users captures include directory context and metric derivation costs',
     () async {
