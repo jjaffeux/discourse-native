@@ -18,6 +18,7 @@ import '../plugin_api/emoji_usage.dart';
 import '../plugin_api/hashtag_kind.dart';
 import '../plugin_api/plugin_data.dart';
 import 'composer_autocomplete.dart';
+import 'composer_details.dart';
 import 'composer_galleries.dart';
 import 'composer_images.dart';
 import 'composer_marks.dart';
@@ -362,6 +363,7 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
     if (!_target.isPlugin) {
       text.syntaxPolicies.add(ComposerUploadPlaceholderPolicy(this));
       text.syntaxPolicies.add(ComposerTablePolicy(this));
+      text.syntaxPolicies.add(ComposerDetailsPolicy(this));
     }
     text.addListener(_onTextChanged);
     title.addListener(_onMetadataChanged);

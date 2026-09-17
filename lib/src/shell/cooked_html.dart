@@ -9,6 +9,7 @@ import '../plugin_api/plugin_scope.dart';
 import '../plugin_api/site_plugin_api.dart';
 import '../theme/app_theme.dart';
 import 'code_block.dart';
+import 'cooked_details.dart';
 import 'cooked_table.dart';
 import 'emoji.dart';
 import 'hashtag.dart';
@@ -84,7 +85,7 @@ class CookedHtml extends StatelessWidget {
     PluginContainingTopic? containingTopic,
     PluginRegistry registry,
     Map<String, UserStatusReference> mentionedUserStatuses,
-    Widget Function(BuildContext, String) tableCellBuilder,
+    Widget Function(BuildContext, String, TextStyle?) nestedContentBuilder,
   ) {
     final counts = post?.linkCounts;
     final linkCounts = counts == null || counts.isEmpty
@@ -123,7 +124,19 @@ class CookedHtml extends StatelessWidget {
           youtubeVideoWidgetBuilder(element, siteUrl: siteUrl) ??
           oneboxWidgetBuilder(element, siteUrl: siteUrl) ??
           quoteWidgetBuilder(element, siteUrl: siteUrl) ??
-          cookedTableWidgetBuilder(element, cellBuilder: tableCellBuilder) ??
+          cookedDetailsWidgetBuilder(
+            element,
+            contentBuilder: (context, html) =>
+                nestedContentBuilder(context, html, textStyle),
+          ) ??
+          cookedTableWidgetBuilder(
+            element,
+            cellBuilder: (context, html) => nestedContentBuilder(
+              context,
+              html,
+              DefaultTextStyle.of(context).style,
+            ),
+          ) ??
           codeBlockWidgetBuilder(element) ??
           inlineCodeWidgetBuilder(element, textStyle);
     };
@@ -310,9 +323,9 @@ class CookedHtml extends StatelessWidget {
           containingTopic,
           resolvedRegistry,
           mentionedUserStatuses,
-          (context, html) => CookedHtml(
+          (context, html, nestedStyle) => CookedHtml(
             html: html,
-            textStyle: DefaultTextStyle.of(context).style,
+            textStyle: nestedStyle,
             linkStyle: linkStyle,
             siteUrl: resolvedSiteUrl,
             post: post,
