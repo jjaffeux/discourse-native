@@ -496,7 +496,6 @@ class _TopicInboxWorkspaceState extends State<_TopicInboxWorkspace> {
                 resizeEnabled: split,
                 edge: ResizablePaneEdge.trailing,
                 resizeKey: 'inbox-list',
-                reserveHandleSpace: true,
                 semanticsLabel: messages
                     ? 'Resize message list'
                     : 'Resize topic list',

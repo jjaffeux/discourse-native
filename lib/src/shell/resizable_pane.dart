@@ -129,8 +129,7 @@ class ResizablePane extends StatefulWidget {
     required this.child,
     this.maximumWidth = double.infinity,
     this.resizeEnabled = true,
-    this.reserveHandleSpace = false,
-    this.handleWidth = 4,
+    this.handleWidth = 2,
     this.keyboardStep = 16,
     this.dividerWidth = 0,
     this.focusedDividerWidth = 3,
@@ -148,8 +147,6 @@ class ResizablePane extends StatefulWidget {
   final double maximumWidth;
   final bool resizeEnabled;
 
-  /// Keeps desktop content and its scrollbar outside the resize target.
-  final bool reserveHandleSpace;
   final double handleWidth;
   final double keyboardStep;
   final double dividerWidth;
@@ -185,26 +182,12 @@ class _ResizablePaneState extends State<ResizablePane> {
       final handleExtent = widget.resizeEnabled
           ? DResizableHandle.resolveHitExtent(context, widget.handleWidth)
           : 0.0;
-      // Coarse-input handles keep their existing expanded overlay target.
-      final contentInset =
-          !widget.reserveHandleSpace || handleExtent > widget.handleWidth
-          ? 0.0
-          : handleExtent;
       return SizedBox(
         width: width,
         child: Stack(
           children: [
-            // Reserve the edge for resizing so scrollbar gestures cannot
-            // compete with the handle. The handle stays last for hit priority.
-            PositionedDirectional(
-              start: widget.edge == ResizablePaneEdge.leading
-                  ? contentInset
-                  : 0,
-              end: widget.edge == ResizablePaneEdge.trailing ? contentInset : 0,
-              top: 0,
-              bottom: 0,
-              child: child!,
-            ),
+            Positioned.fill(child: child!),
+            // Hit-test the border before content without reserving a gutter.
             if (widget.resizeEnabled)
               PositionedDirectional(
                 start: widget.edge == ResizablePaneEdge.leading ? 0 : null,
