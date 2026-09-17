@@ -1,4 +1,4 @@
-import 'dart:ui' show SemanticsAction, SemanticsActionEvent;
+import 'dart:ui' show PointerDeviceKind, SemanticsAction, SemanticsActionEvent;
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/shell/resizable_pane.dart';
@@ -78,6 +78,72 @@ void main() {
 
       expect(tester.getSize(find.byKey(const ValueKey('pane'))).width, 256);
       expect(writes, [256]);
+    });
+  }
+
+  for (final direction in TextDirection.values) {
+    testWidgets('resize edge and scrollbar stay independent in $direction', (
+      tester,
+    ) async {
+      final controller = _controller();
+      final scroll = ScrollController();
+      addTearDown(controller.dispose);
+      addTearDown(scroll.dispose);
+      await _pumpPane(
+        tester,
+        controller: controller,
+        direction: direction,
+        platform: TargetPlatform.macOS,
+        child: DScrollBar(
+          controller: scroll,
+          child: ListView.builder(
+            controller: scroll,
+            itemCount: 100,
+            itemExtent: 40,
+            itemBuilder: (_, index) => Text('Item $index'),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final handle = tester.getRect(
+        find.byKey(const ValueKey('shared-resize-handle')),
+      );
+      final viewport = tester.getRect(find.byType(ListView));
+      final ltr = direction == TextDirection.ltr;
+      expect(handle.width, 4);
+      expect(
+        ltr ? viewport.right : viewport.left,
+        ltr ? handle.left : handle.right,
+      );
+
+      // Even the outermost pixel must belong to resize, not the scroll thumb.
+      final edge = Offset(ltr ? handle.right - 0.5 : handle.left + 0.5, 10);
+      final resize = await tester.startGesture(
+        edge,
+        kind: PointerDeviceKind.mouse,
+      );
+      await resize.moveBy(Offset(ltr ? 30 : -30, 0));
+      await resize.moveBy(Offset(ltr ? 20 : -20, 0));
+      await resize.up();
+      await tester.pumpAndSettle();
+      expect(controller.value, greaterThan(240));
+      expect(scroll.offset, 0);
+
+      final width = controller.value;
+      final resizedViewport = tester.getRect(find.byType(ListView));
+      final thumb = Offset(
+        ltr ? resizedViewport.right - 4 : resizedViewport.left + 4,
+        resizedViewport.top + 10,
+      );
+      final drag = await tester.startGesture(
+        thumb,
+        kind: PointerDeviceKind.mouse,
+      );
+      await drag.moveBy(const Offset(0, 60));
+      await drag.up();
+      await tester.pumpAndSettle();
+      expect(scroll.offset, greaterThan(0));
+      expect(controller.value, width);
     });
   }
 
@@ -403,9 +469,11 @@ Future<void> _pumpPane(
   double maximumWidth = double.infinity,
   double dividerWidth = 0,
   Widget sibling = const SizedBox.shrink(),
+  Widget child = const ColoredBox(color: Colors.blue),
+  TargetPlatform? platform,
 }) => tester.pumpWidget(
   MaterialApp(
-    theme: AppTheme.light,
+    theme: AppTheme.light.copyWith(platform: platform),
     home: DDirection(
       textDirection: direction,
       child: Align(
@@ -418,12 +486,13 @@ Future<void> _pumpPane(
               ResizablePane(
                 key: const ValueKey('pane'),
                 controller: controller,
+                reserveHandleSpace: true,
                 edge: edge,
                 resizeKey: 'shared',
                 semanticsLabel: 'Resize shared pane',
                 maximumWidth: maximumWidth,
                 dividerWidth: dividerWidth,
-                child: const ColoredBox(color: Colors.blue),
+                child: child,
               ),
               sibling,
             ],
