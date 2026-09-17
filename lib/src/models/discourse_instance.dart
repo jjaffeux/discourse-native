@@ -381,7 +381,6 @@ class DiscourseInstance {
           icon: DIcons.layerGroup,
         ),
         SidebarDestination(id: 'users', label: 'Users', icon: DIcons.user),
-        SidebarDestination(id: 'filter', label: 'Filter', icon: DIcons.filter),
       ],
       moreDestinations: [
         SidebarDestination(id: 'groups', label: 'Groups', icon: DIcons.users),
@@ -418,7 +417,6 @@ class DiscourseInstance {
         ),
         SidebarDestination(id: 'drafts', label: 'Drafts', icon: DIcons.pencil),
         SidebarDestination(id: 'users', label: 'Users', icon: DIcons.user),
-        SidebarDestination(id: 'filter', label: 'Filter', icon: DIcons.filter),
       ],
       moreDestinations: [
         SidebarDestination(id: 'groups', label: 'Groups', icon: DIcons.users),

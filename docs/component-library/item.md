@@ -206,3 +206,9 @@ independent unread dots/counts. Inspected and clicked both rows in the new Item
 styleguide example, then changed its preview from dark to light. Open-reader
 selection was verified by widget tests; the offline native fixture has no topic
 detail responses. iOS/Linux were not run on devices.
+
+Topic lists use `DItemSelectionStyle.neutral` with
+`showSelectionIndicator: false`: the selected row takes the muted surface,
+without an accent border or extra leading marker. Focus remains visible through
+the existing focus ring; selection semantics remain unchanged. The styleguide
+includes a Neutral selection example.

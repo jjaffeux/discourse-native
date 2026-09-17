@@ -19,6 +19,9 @@ class TopicPresentationPreferences extends StatefulWidget {
   const TopicPresentationPreferences({super.key, required this.child});
   final Widget child;
 
+  static TopicPresentationController? maybeControllerOf(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<_PreferenceScope>()?.notifier;
+
   @override
   State<TopicPresentationPreferences> createState() =>
       _TopicPresentationPreferencesState();

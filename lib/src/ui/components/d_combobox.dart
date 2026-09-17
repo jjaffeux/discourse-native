@@ -158,6 +158,7 @@ class DCombobox<T> extends FormField<List<T>> {
     this.onHighlightChanged,
     this.autoHighlight = false,
     this.loopFocus = true,
+    this.restoreFocus = true,
     this.highlightItemOnHover = true,
     this.filterLocally = true,
     this.filter,
@@ -213,6 +214,7 @@ class DCombobox<T> extends FormField<List<T>> {
     this.onHighlightChanged,
     this.autoHighlight = false,
     this.loopFocus = true,
+    this.restoreFocus = true,
     this.highlightItemOnHover = true,
     this.filterLocally = true,
     this.filter,
@@ -268,6 +270,7 @@ class DCombobox<T> extends FormField<List<T>> {
     this.onHighlightChanged,
     this.autoHighlight = false,
     this.loopFocus = true,
+    this.restoreFocus = true,
     this.highlightItemOnHover = true,
     this.filterLocally = true,
     this.filter,
@@ -318,6 +321,7 @@ class DCombobox<T> extends FormField<List<T>> {
     this.onHighlightChanged,
     this.autoHighlight = false,
     this.loopFocus = true,
+    this.restoreFocus = true,
     this.highlightItemOnHover = true,
     this.filterLocally = true,
     this.filter,
@@ -369,6 +373,10 @@ class DCombobox<T> extends FormField<List<T>> {
   final DComboboxHighlightChanged<T>? onHighlightChanged;
   final bool autoHighlight;
   final bool loopFocus;
+
+  /// Restore the trigger after dismissal. Completion editors can disable this
+  /// when focus should continue to a neighboring input instead.
+  final bool restoreFocus;
   final bool highlightItemOnHover;
   final bool filterLocally;
   final DComboboxFilter<T>? filter;
@@ -828,6 +836,9 @@ class _DComboboxState<T> extends FormFieldState<List<T>> {
         controller: _popoverController,
         open: isOpen,
         focusContentOnOpen: false,
+        // The editor owns focus. Closing one completion popup must not steal
+        // focus back from a neighboring editor that has just been activated.
+        restoreFocus: combobox.restoreFocus,
         onOpenChange: (open, reason) =>
             _requestOpen(open, _popoverReason(reason)),
         content: DPopoverContent(
@@ -905,6 +916,7 @@ class DComboboxInput<T> extends StatelessWidget {
     this.autofocus = false,
     this.registerAsAnchor = true,
     this.semanticLabel,
+    this.onSubmitted,
   });
 
   final DControlSize size;
@@ -916,6 +928,10 @@ class DComboboxInput<T> extends StatelessWidget {
   final bool autofocus;
   final bool registerAsAnchor;
   final String? semanticLabel;
+
+  /// Overrides IME submission for free-text completions. Keyboard option selection
+  /// still uses the root callback and preserves the active highlight.
+  final ValueChanged<String>? onSubmitted;
 
   @override
   Widget build(BuildContext context) {
@@ -966,6 +982,7 @@ class DComboboxInput<T> extends StatelessWidget {
               placeholder: placeholder,
               autofocus: autofocus,
               semanticLabel: semanticLabel,
+              onSubmitted: onSubmitted,
               invalid: isInvalid,
             ),
           ),
@@ -993,6 +1010,7 @@ class _ComboboxTextEditor<T> extends StatelessWidget {
     this.placeholder,
     required this.autofocus,
     this.semanticLabel,
+    this.onSubmitted,
     required this.invalid,
   });
 
@@ -1001,6 +1019,10 @@ class _ComboboxTextEditor<T> extends StatelessWidget {
   final String? placeholder;
   final bool autofocus;
   final String? semanticLabel;
+
+  /// Overrides IME submission for free-text completions. Keyboard option selection
+  /// still uses the root callback and preserves the active highlight.
+  final ValueChanged<String>? onSubmitted;
   final bool invalid;
 
   @override
@@ -1040,7 +1062,13 @@ class _ComboboxTextEditor<T> extends StatelessWidget {
             root._requestQuery(value, DComboboxChangeReason.input),
         // Selection owns focus; Done must not blur the editor before submitting.
         onEditingComplete: () {},
-        onSubmitted: (_) => root._submitHighlighted(),
+        onSubmitted: (value) {
+          if (onSubmitted != null) {
+            onSubmitted!(value);
+          } else {
+            root._submitHighlighted();
+          }
+        },
         onTap: () => root._requestOpen(true, DComboboxChangeReason.input),
       ),
     );

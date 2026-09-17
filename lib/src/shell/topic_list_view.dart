@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:discourse_native/discourse_ui.dart';
-import 'package:discourse_native/src/theme/discourse_typography.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:super_sliver_list/super_sliver_list.dart';
@@ -16,6 +15,7 @@ import '../models/topic_feed.dart';
 import '../plugin_api/plugin_registry.dart';
 import '../plugin_api/plugin_scope.dart';
 import '../theme/d_icons.dart';
+import '../theme/discourse_typography.dart';
 import '../utils/pagination.dart';
 import 'avatar_image.dart';
 import 'category_icon.dart';
@@ -695,10 +695,9 @@ class _TopicListViewState extends State<TopicListView> {
 
     return Column(
       children: [
-        if (_compact)
-          _CompactTopicListHeader(
-            showCategory: controller.topicListContent?.isMessages != true,
-          ),
+        TopicListTableHeader(
+          showCategory: controller.topicListContent?.isMessages != true,
+        ),
         if (feed.error case final error? when !feed.pageError)
           _FeedErrorBanner(
             key: const ValueKey('topic-feed-refresh-error'),
@@ -802,14 +801,8 @@ class _TopicListViewState extends State<TopicListView> {
                           // The separated delegate addresses topics and gaps.
                           return index < 0 ? null : index * 2;
                         },
-                        separatorBuilder: (context, _) => _compact
-                            ? const Padding(
-                                padding: EdgeInsets.symmetric(
-                                  horizontal: topicListHorizontalPadding,
-                                ),
-                                child: DSeparator(),
-                              )
-                            : const SizedBox(height: 8),
+                        separatorBuilder: (context, _) =>
+                            SizedBox(height: _compact ? 1 : 8),
                         itemBuilder: (context, index) {
                           if (_recording) {
                             _recordScrollEvent('topicList.row.built', {
@@ -1253,6 +1246,7 @@ class TopicListRow extends StatelessWidget {
     this.siteUrl,
     this.onTap,
     this.titleStyle,
+    this.showViews = false,
     this.showCategoryBreadcrumb = true,
     this.itemVariant = DItemVariant.outline,
     this.contentPadding,
@@ -1263,6 +1257,7 @@ class TopicListRow extends StatelessWidget {
   static const double compactMinimumHeight = 50;
 
   final Topic topic;
+  final bool showViews;
   final DiscourseInstance? forum;
 
   final String? siteUrl;
@@ -1309,6 +1304,7 @@ class TopicListRow extends StatelessWidget {
         forum: owningForum,
         onTap: onTap ?? () {},
         titleStyle: titleStyle,
+        showViews: showViews,
         itemVariant: itemVariant,
         contentPadding: contentPadding,
         outerPadding: outerPadding,
@@ -1388,9 +1384,11 @@ class _TopicRowBody extends StatelessWidget {
     this.outerPadding,
     this.compact,
     this.showCategoryColumn = true,
+    this.showViews = false,
   });
 
   final bool showCategoryColumn;
+  final bool showViews;
   final bool? compact;
   final Topic topic;
   final TopicCategory? category;
@@ -1418,288 +1416,20 @@ class _TopicRowBody extends StatelessWidget {
 
   Widget _buildBody(BuildContext context) {
     final settings = ShellScope.maybeIdentityOf(context)?.appSettings;
-    if (compact != null || settings == null) {
+    if (settings == null) {
       return _build(context, compact ?? false);
     }
     return ListenableBuilder(
       listenable: settings,
       builder: (context, _) => _build(
         context,
-        settings.topicListMode == TopicListDisplayMode.compact,
+        compact ?? settings.topicListMode == TopicListDisplayMode.compact,
       ),
     );
   }
 
-  Widget _build(BuildContext context, bool compact) {
-    if (compact) return _CompactTopicRow(row: this);
-    final theme = Theme.of(context);
-    final effectiveTitleStyle = titleStyle ?? theme.textTheme.titleSmall;
-    final titleLineHeight =
-        MediaQuery.textScalerOf(
-          context,
-        ).scale(effectiveTitleStyle?.fontSize ?? DiscourseTypography.sm) *
-        (effectiveTitleStyle?.height ?? 1.5);
-    Widget statusIcon(DIconData icon, String label) => SizedBox(
-      height: titleLineHeight,
-      child: Center(child: DIcon(icon, size: 14, semanticLabel: label)),
-    );
-    final registry =
-        PluginScope.maybeOf(context)?.registry ?? PluginRegistry.empty;
-    final pluginMetadata = registry.topicListMetadata(context, siteUrl, topic);
-
-    final muted = theme.colorScheme.onSurfaceVariant;
-    final titleColor = topicListTitleColor(theme, visited: topic.visited);
-    final keyboardSelected = KeyboardSelection.isSelectedOf(context);
-    final controller = ShellScope.maybeRead(context);
-    const maximumVisibleTags = 2;
-    final visibleTags = topic.tags.take(maximumVisibleTags).toList();
-    final age = topic.bumpedAt == null ? null : relativeTime(topic.bumpedAt!);
-    return Padding(
-      padding:
-          outerPadding ??
-          const EdgeInsets.symmetric(horizontal: topicListHorizontalPadding),
-      child: LinkTarget(
-        url: '/t/${topic.slug}/${topic.id}/${topic.lastUnreadPostNumber ?? 1}',
-        title: topic.title,
-        siteUrl: siteUrl,
-        child: Semantics(
-          key: inbox ? ValueKey('inbox-row-${topic.id}') : null,
-          container: true,
-          selected: selected || keyboardSelected,
-          child: DItem(
-            padding: contentPadding,
-            key: ValueKey('topic-card-${topic.id}'),
-            selected: selected || keyboardSelected,
-            selectionStyle: DItemSelectionStyle.outline,
-            showSelectionIndicator: false,
-            variant: itemVariant,
-            onPressed: onTap,
-            link: true,
-            footer: pluginMetadata.isEmpty
-                ? null
-                : DItemFooter(
-                    child: Wrap(
-                      spacing: 8,
-                      runSpacing: 6,
-                      children: pluginMetadata,
-                    ),
-                  ),
-            children: [
-              DItemContent(
-                alignment: CrossAxisAlignment.stretch,
-                spacing: 8,
-                children: [
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(
-                        child: registry.decorateTopicListTitle(
-                          context,
-                          siteUrl,
-                          topic,
-                          DItemTitle(
-                            maxLines: 2,
-                            child: Row(
-                              spacing: 6,
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                if (topic.closed)
-                                  statusIcon(DIcons.lock, 'Closed'),
-                                if (topic.pinned)
-                                  statusIcon(DIcons.thumbtack, 'Pinned'),
-                                if (topic.bookmarked)
-                                  statusIcon(DIcons.bookmark, 'Bookmarked'),
-                                Flexible(
-                                  child: TopicTitle(
-                                    topic.title,
-                                    siteUrl: siteUrl,
-                                    overflow:
-                                        MediaQuery.textScalerOf(
-                                              context,
-                                            ).scale(14) >
-                                            21
-                                        ? TextOverflow.clip
-                                        : TextOverflow.ellipsis,
-                                    maxLines:
-                                        MediaQuery.textScalerOf(
-                                              context,
-                                            ).scale(14) >
-                                            21
-                                        ? null
-                                        : 2,
-                                    trailing: [
-                                      for (final marker in <Widget>[
-                                        if (topic.showNewTopicDot)
-                                          const TopicStateDot(
-                                            key: ValueKey('new-topic-dot'),
-                                            label: 'New topic',
-                                          )
-                                        else if (topic.showNewRepliesDot)
-                                          const TopicStateDot(
-                                            key: ValueKey('new-replies-dot'),
-                                            label: 'Topic has new replies',
-                                          ),
-                                        if (topic.showUnreadCount)
-                                          TopicUnreadBadge(
-                                            key: ValueKey(
-                                              'inbox-row-unread-${topic.id}',
-                                            ),
-                                            count: topic.unreadCount,
-                                          ),
-                                      ])
-                                        Padding(
-                                          padding:
-                                              const EdgeInsetsDirectional.only(
-                                                start: 6,
-                                              ),
-                                          child: marker,
-                                        ),
-                                    ],
-
-                                    style: effectiveTitleStyle?.copyWith(
-                                      color: titleColor,
-                                      fontWeight: topic.visited
-                                          ? FontWeight.w400
-                                          : FontWeight.w600,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                      if (age != null) ...[
-                        const SizedBox(width: 12),
-                        Text(
-                          age,
-                          key: ValueKey('inbox-row-time-${topic.id}'),
-                          style: theme.textTheme.labelSmall?.copyWith(
-                            color: muted,
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                  if (topic.excerpt case final excerpt?
-                      when excerpt.trim().isNotEmpty)
-                    DItemDescription(child: Text(excerpt)),
-                  LayoutBuilder(
-                    builder: (context, constraints) {
-                      final taxonomy = Wrap(
-                        spacing: 6,
-                        runSpacing: 6,
-                        crossAxisAlignment: WrapCrossAlignment.center,
-                        children: [
-                          if (forum case final forum?)
-                            Text(
-                              forum.title,
-                              style: theme.textTheme.labelMedium,
-                            ),
-                          if (showCategoryBreadcrumb && category != null)
-                            _CategoryBreadcrumb(
-                              parent: parentCategory,
-                              category: category!,
-                              siteUrl: siteUrl,
-                              onOpen: (category) => controller?.openCategory(
-                                category,
-                                siteUrl: siteUrl,
-                              ),
-                            ),
-                          for (final tag in visibleTags)
-                            _TopicTag(
-                              tag: tag,
-                              onTap: () => controller?.openTopicTag(
-                                tag,
-                                siteUrl: siteUrl,
-                                privateMessage: topic.privateMessage,
-                              ),
-                              onMiddleClick: () async {
-                                await controller?.openTopicTag(
-                                  tag,
-                                  siteUrl: siteUrl,
-                                  privateMessage: topic.privateMessage,
-                                  newTab: true,
-                                );
-                              },
-                            ),
-                          if (topic.tags.length > maximumVisibleTags)
-                            _TopicTagOverflow(
-                              tags: topic.tags
-                                  .skip(maximumVisibleTags)
-                                  .toList(),
-                            ),
-                        ],
-                      );
-                      final activity = Wrap(
-                        spacing: 6,
-                        runSpacing: 4,
-                        crossAxisAlignment: WrapCrossAlignment.center,
-                        children: [
-                          if (topic.lastPosterUsername
-                              case final username?) ...[
-                            DAvatar(
-                              dimension: 20,
-                              decorative: true,
-                              child: AvatarImage(
-                                url: topic.lastPosterAvatarUrl,
-                                size: 20,
-                                fallback: const DAvatarFallback(
-                                  child: DIcon(DIcons.user, size: 12),
-                                ),
-                              ),
-                            ),
-                            Text(
-                              'Last post by $username',
-                              style: theme.textTheme.labelSmall?.copyWith(
-                                color: muted,
-                              ),
-                            ),
-                            Text('·', style: TextStyle(color: muted)),
-                          ],
-                          Text(
-                            '${topic.replyCount} ${topic.replyCount == 1 ? 'reply' : 'replies'}',
-                            style: theme.textTheme.labelSmall?.copyWith(
-                              color: muted,
-                            ),
-                          ),
-                        ],
-                      );
-                      if (constraints.maxWidth /
-                              MediaQuery.textScalerOf(context).scale(1) <
-                          620) {
-                        return Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            taxonomy,
-                            const SizedBox(height: 8),
-                            activity,
-                          ],
-                        );
-                      }
-                      return Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(child: taxonomy),
-                          const SizedBox(width: 12),
-                          Flexible(
-                            child: Align(
-                              alignment: AlignmentDirectional.centerEnd,
-                              child: activity,
-                            ),
-                          ),
-                        ],
-                      );
-                    },
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
+  Widget _build(BuildContext context, bool compact) =>
+      _CompactTopicRow(row: this, compact: compact);
 }
 
 class _CategoryBreadcrumb extends StatelessWidget {

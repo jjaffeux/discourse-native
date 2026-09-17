@@ -28,6 +28,8 @@ final class AppSettings {
     this.disableGifAnimations = false,
     this.textScale = AppTextScale.percent100,
     this.themeMode = AppThemeMode.system,
+    this.topicListExcerpts = false,
+    this.topicListLargerText = false,
     this.topicListMode = TopicListDisplayMode.card,
   });
 
@@ -37,6 +39,8 @@ final class AppSettings {
   final bool disableGifAnimations;
   final AppTextScale textScale;
   final AppThemeMode themeMode;
+  final bool topicListExcerpts;
+  final bool topicListLargerText;
   final TopicListDisplayMode topicListMode;
 
   AppSettings copyWith({
@@ -44,12 +48,16 @@ final class AppSettings {
     bool? disableGifAnimations,
     AppTextScale? textScale,
     AppThemeMode? themeMode,
+    bool? topicListExcerpts,
+    bool? topicListLargerText,
     TopicListDisplayMode? topicListMode,
   }) => AppSettings(
     contentAlignment: contentAlignment ?? this.contentAlignment,
     disableGifAnimations: disableGifAnimations ?? this.disableGifAnimations,
     textScale: textScale ?? this.textScale,
     themeMode: themeMode ?? this.themeMode,
+    topicListExcerpts: topicListExcerpts ?? this.topicListExcerpts,
+    topicListLargerText: topicListLargerText ?? this.topicListLargerText,
     topicListMode: topicListMode ?? this.topicListMode,
   );
 
@@ -60,6 +68,8 @@ final class AppSettings {
       other.disableGifAnimations == disableGifAnimations &&
       other.textScale == textScale &&
       other.themeMode == themeMode &&
+      other.topicListExcerpts == topicListExcerpts &&
+      other.topicListLargerText == topicListLargerText &&
       other.topicListMode == topicListMode;
 
   @override
@@ -68,6 +78,8 @@ final class AppSettings {
     disableGifAnimations,
     textScale,
     themeMode,
+    topicListExcerpts,
+    topicListLargerText,
     topicListMode,
   );
 }

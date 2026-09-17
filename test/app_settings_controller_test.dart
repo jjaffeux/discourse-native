@@ -774,6 +774,16 @@ Future<void> _expectSettings(
 
 final class _ControlledAppSettingsPersistence
     implements AppSettingsPersistence {
+  @override
+  Future<bool?> readTopicListLargerText() async => null;
+  @override
+  Future<bool> writeTopicListLargerText(bool value) async => true;
+
+  @override
+  Future<bool?> readTopicListExcerpts() async => null;
+  @override
+  Future<bool> writeTopicListExcerpts(bool value) async => true;
+
   _ControlledAppSettingsPersistence({
     this.contentAlignment,
     this.disableGifAnimations,

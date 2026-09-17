@@ -67,7 +67,7 @@ enum TopicListMode {
     }
     final uri = Uri.tryParse(route.feedPath ?? '');
     return switch (uri?.path) {
-      '/latest.json' => latest,
+      '/latest.json' || '/filter.json' => latest,
       '/new.json' => switch (uri?.queryParameters['subset']) {
         'topics' => newTopics,
         'replies' => newReplies,
@@ -305,6 +305,45 @@ class ContentRoute {
     );
   }
 
+  /// Advanced filters are an ordinary Topics source, not a separate page.
+  factory ContentRoute.topicFilter(
+    String query, {
+    int? categoryId,
+    List<String> tags = const [],
+  }) {
+    final uri = Uri(
+      path: '/filter.json',
+      queryParameters: {
+        if (query.trim().isNotEmpty) 'q': query.trim(),
+        if (categoryId != null) 'category': '$categoryId',
+        if (tags.isNotEmpty) 'tags[]': tags,
+      },
+    );
+    return ContentRoute(
+      id: 'topic-list-filter-$uri',
+      title: 'Topics',
+      icon: DIcons.layerGroup,
+      feedPath: uri.toString(),
+    );
+  }
+
+  String get topicFilterQuery =>
+      Uri.tryParse(feedPath ?? '')?.queryParameters['q'] ?? '';
+  bool get isAdvancedTopicFilter =>
+      Uri.tryParse(feedPath ?? '')?.path == '/filter.json';
+
+  /// Only q/page are understood by /filter.json. Compile taxonomy into q.
+  String get topicFilterRequestPath => Uri(
+    path: '/filter.json',
+    queryParameters: {
+      'q': [
+        topicFilterQuery,
+        if (categoryId != null) 'category:$categoryId',
+        if (tagNames.isNotEmpty) 'tag:${tagNames.join('+')}',
+      ].where((part) => part.isNotEmpty).join(' '),
+    },
+  ).toString();
+
   factory ContentRoute.homepage(SiteConfig config, {required bool connected}) {
     const anonymous = {'latest', 'top', 'categories', 'hot'};
     var homepage = config.defaultHomepage.isNotEmpty
@@ -335,8 +374,8 @@ class ContentRoute {
   }
 
   ContentRoute.fromDestination(SidebarDestination destination)
-    : id = destination.id,
-      title = destination.label,
+    : id = destination.id == 'filter' ? 'latest' : destination.id,
+      title = destination.id == 'filter' ? 'Topics' : destination.label,
       icon = destination.icon,
       subtitle = null,
       color = destination.routeColor ?? destination.color,
@@ -450,6 +489,13 @@ class ContentRoute {
   }
 
   ContentRoute withTopicListQueryFrom(ContentRoute? source) {
+    if (source?.isAdvancedTopicFilter == true) {
+      return ContentRoute.topicFilter(
+        source!.topicFilterQuery,
+        categoryId: categoryId,
+        tags: tagNames,
+      );
+    }
     final query = {...?Uri.tryParse(source?.feedPath ?? '')?.queryParametersAll}
       ..removeWhere(
         (key, _) => const {
@@ -648,6 +694,7 @@ class ContentRoute {
       groupRoute: groupRoute,
       badgeRoute: badgeRoute,
     );
+    if (id == 'filter') return ContentRoute.topicFilter(route.topicFilterQuery);
     // The removed list-search field stored its query in the feed URL. Restore
     // those lists without an invisible filter, retaining their durable IDs so
     // tab history and viewport anchors still refer to the same routes.

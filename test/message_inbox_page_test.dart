@@ -56,7 +56,7 @@ void main() {
         );
         expect(tables.length, greaterThanOrEqualTo(2));
         for (final table in tables) {
-          expect(table.columnWidths, hasLength(3));
+          expect(table.columnWidths, hasLength(4));
         }
         expect(tester.takeException(), isNull);
       }
@@ -104,10 +104,7 @@ void main() {
           tester.getRect(navigation).top,
           greaterThan(tester.getRect(picker).bottom),
         );
-        expect(
-          find.byType(ForumSearch),
-          platform == TargetPlatform.macOS ? findsNothing : findsOneWidget,
-        );
+        expect(find.byType(ForumSearch), findsNothing);
         expect(tester.takeException(), isNull);
 
         await tester.tap(picker);
@@ -128,6 +125,8 @@ void main() {
       final shell = setup.controller;
 
       Future<void> folder(String mode) async {
+        await tester.tap(find.byKey(const ValueKey('message-list-menu')));
+        await tester.pumpAndSettle();
         await tester.tap(find.byKey(ValueKey('message-list-$mode')));
         await tester.pumpAndSettle();
       }
@@ -156,7 +155,6 @@ void main() {
       await inbox('Personal');
       expect(find.text('Personal inbox message'), findsOneWidget);
       expect(setup.api.feedPaths, [
-        '/latest.json',
         _inbox,
         _unread,
         _groupUnread,
@@ -291,37 +289,22 @@ void main() {
         await tester.pumpAndSettle();
         await tester.sendKeyEvent(LogicalKeyboardKey.keyJ);
         await tester.pumpAndSettle();
-        await tester.tap(find.byKey(const ValueKey('message-list-inbox')));
-        await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
-        await tester.pumpAndSettle();
-        expect(
-          setup.controller.currentContent?.messageListMode,
-          MessageListMode.inbox,
-        );
+        Future<void> chooseWithKeyboard(LogicalKeyboardKey key) async {
+          await tester.tap(find.byKey(const ValueKey('message-list-menu')));
+          await tester.pumpAndSettle();
+          await tester.sendKeyEvent(key);
+          await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+          await tester.pumpAndSettle();
+        }
 
-        await tester.sendKeyEvent(LogicalKeyboardKey.enter);
-        await tester.pumpAndSettle();
+        await chooseWithKeyboard(LogicalKeyboardKey.keyU);
         expect(
           find.text(
             group == null ? 'Unread personal message' : 'Unread group message',
           ),
           findsOneWidget,
         );
-
-        await tester.sendKeyEvent(LogicalKeyboardKey.end);
-        await tester.pumpAndSettle();
-        final archive = find.byKey(const ValueKey('message-list-archive'));
-        expect(archive.hitTestable(), findsOneWidget);
-        expect(
-          tester.getRect(archive).bottom,
-          lessThanOrEqualTo(
-            tester
-                .getRect(find.byKey(const ValueKey('new-message-button')))
-                .top,
-          ),
-        );
-        await tester.sendKeyEvent(LogicalKeyboardKey.space);
-        await tester.pumpAndSettle();
+        await chooseWithKeyboard(LogicalKeyboardKey.end);
         expect(
           find.text(
             group == null
@@ -330,10 +313,9 @@ void main() {
           ),
           findsOneWidget,
         );
-
-        await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
-        await tester.sendKeyEvent(LogicalKeyboardKey.enter);
-        await tester.pumpAndSettle();
+        await chooseWithKeyboard(
+          group == null ? LogicalKeyboardKey.keyS : LogicalKeyboardKey.keyU,
+        );
         expect(
           find.text(
             group == null ? 'Sent personal message' : 'Unread group message',
@@ -390,7 +372,11 @@ void main() {
       );
       expect(find.text('Personal'), findsOneWidget);
       expect(find.byKey(const ValueKey('new-message-button')), findsNothing);
+      await tester.tap(find.byKey(const ValueKey('message-list-menu')));
+      await tester.pumpAndSettle();
       expect(find.byKey(const ValueKey('message-list-sent')), findsOneWidget);
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
     },
   );
 
@@ -505,6 +491,8 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('topic-card-1')));
       await tester.pumpAndSettle();
       final reader = tester.element(find.byType(TopicView));
+      await tester.tap(find.byKey(const ValueKey('message-list-menu')));
+      await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('message-list-sent')));
       await tester.pumpAndSettle();
       expect(

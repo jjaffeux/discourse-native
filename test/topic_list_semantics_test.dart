@@ -8,6 +8,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:super_sliver_list/super_sliver_list.dart';
+
 import 'support/topic_list_scroll_fixture.dart';
 import 'support/topic_scroll_capture.dart';
 
@@ -67,12 +69,10 @@ void main() {
       await tester.sendKeyEvent(LogicalKeyboardKey.escape);
       await tester.pumpAndSettle();
       expect(binding.errors, isEmpty);
-      final scrollable = find.byWidgetPredicate(
-        (widget) =>
-            widget is Scrollable &&
-            axisDirectionToAxis(widget.axisDirection) == Axis.vertical,
-      );
-      final position = tester.state<ScrollableState>(scrollable).position;
+      final position = tester
+          .widget<SuperListView>(find.byType(SuperListView))
+          .controller!
+          .position;
       for (var step = 0; step < 10; step++) {
         final schedule = find
             .byKey(const ValueKey('event-schedule-trigger'))

@@ -8,123 +8,16 @@ import '../models/topic.dart';
 import '../theme/app_theme.dart';
 import '../theme/d_icons.dart';
 import '../utils/pagination.dart';
-import 'aggregate_branding.dart';
 import 'aggregate_feed_controller.dart';
 import 'content_reading_lane.dart';
 import 'forum_tabs_bar.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';
-import 'title_bar.dart';
 import 'topic_filter_input.dart';
+import 'topic_list_actions.dart';
+import 'topic_list_footer.dart';
+import 'topic_list_layout.dart';
 import 'topic_list_view.dart';
-
-abstract final class _AggregateTheme {
-  static const purple = Color(0xFF7B5FE2);
-  static const yellow = Color(0xFFF8DE6A);
-  static const orange = Color(0xFFF15D3A);
-
-  static ThemeData from(ThemeData base) {
-    final isDark = base.brightness == Brightness.dark;
-    final ink = isDark ? const Color(0xFFF9F8FC) : const Color(0xFF333638);
-    final muted = isDark ? const Color(0xFFC8C0D3) : const Color(0xFF6A6672);
-    final canvas = isDark ? const Color(0xFF17131F) : const Color(0xFFF9F8FC);
-    final card = isDark ? const Color(0xFF211B2B) : Colors.white;
-    final tabs = isDark ? const Color(0xFF1D1726) : const Color(0xFFF1EDF9);
-    final divider = isDark ? const Color(0xFF3C3149) : const Color(0xFFE5DEEF);
-    final hover = isDark ? const Color(0xFF2D2538) : const Color(0xFFF2EDFC);
-    final accent = isDark ? const Color(0xFF9B85EF) : purple;
-    final accentSoft = isDark
-        ? const Color(0xFF392F50)
-        : const Color(0xFFE9E2FF);
-
-    final shell = base.shell.copyWith(
-      sidebar: tabs,
-      content: canvas,
-      panel: card,
-      divider: divider,
-      floating: card,
-      hover: hover,
-      selected: accentSoft,
-      selectedForeground: ink,
-      marker: muted,
-      mention: accentSoft,
-    );
-    final discourse = base.discourse.copyWith(
-      unreadIndicator: accent,
-      primaryLowMid: muted.withValues(alpha: 0.58),
-      primaryHigh: muted,
-      whisper: muted,
-      primaryVeryHigh: ink,
-    );
-    final scheme = base.colorScheme.copyWith(
-      primary: accent,
-      onPrimary: Colors.white,
-      primaryContainer: accentSoft,
-      onPrimaryContainer: ink,
-      secondary: orange,
-      onSecondary: Colors.white,
-      secondaryContainer: orange.withValues(alpha: 0.16),
-      onSecondaryContainer: ink,
-      tertiary: yellow,
-      onTertiary: const Color(0xFF382F10),
-      tertiaryContainer: yellow.withValues(alpha: 0.22),
-      onTertiaryContainer: ink,
-      surface: canvas,
-      onSurface: ink,
-      onSurfaceVariant: muted,
-      surfaceContainerLowest: canvas,
-      surfaceContainerLow: tabs,
-      surfaceContainer: card,
-      surfaceContainerHigh: card,
-      surfaceContainerHighest: card,
-      outline: divider,
-      outlineVariant: divider,
-      surfaceTint: accent,
-    );
-    final textTheme = base.textTheme.apply(bodyColor: ink, displayColor: ink);
-
-    return base.copyWith(
-      colorScheme: scheme,
-      textTheme: textTheme,
-      scaffoldBackgroundColor: canvas,
-      hoverColor: hover,
-      extensions: [
-        for (final extension in base.extensions.values)
-          if (extension is! ShellColors &&
-              extension is! DiscourseColors &&
-              extension is! DiscourseButtonTheme &&
-              extension is! DTokens)
-            extension,
-        shell,
-        discourse,
-        DTokens(
-          colors: scheme,
-          background: canvas,
-          surface: card,
-          muted: tabs,
-          border: divider,
-          hover: hover,
-          selected: accentSoft,
-          selectedForeground: ink,
-        ),
-        DiscourseButtonTheme.fromColors(
-          scheme,
-          borderRadius: 999,
-          hover: hover,
-          success: discourse.success,
-        ),
-      ],
-      filledButtonTheme: FilledButtonThemeData(
-        style: base.filledButtonTheme.style?.copyWith(
-          shape: const WidgetStatePropertyAll(StadiumBorder()),
-          textStyle: const WidgetStatePropertyAll(
-            TextStyle(fontWeight: FontWeight.w700),
-          ),
-        ),
-      ),
-    );
-  }
-}
 
 class AggregateView extends StatefulWidget {
   const AggregateView({super.key});
@@ -137,6 +30,17 @@ class AggregateViewState extends State<AggregateView> {
   final Map<String, ScrollController> _scrolls = {};
   ShellController? _controller;
   bool _releaseScheduled = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final shell = ShellScope.read(context);
+    if (_controller == null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) shell.aggregate.setFiltersCollapsed(true);
+      });
+    }
+  }
 
   /// One controller per open tab whose topic list has been laid out.
   @visibleForTesting
@@ -195,7 +99,7 @@ class AggregateViewState extends State<AggregateView> {
   Widget build(BuildContext context) {
     final controller = ShellScope.read(context);
     _controller = controller;
-    final theme = _AggregateTheme.from(Theme.of(context));
+    final theme = Theme.of(context);
     return Theme(
       data: theme,
       child: ColoredBox(
@@ -208,13 +112,51 @@ class AggregateViewState extends State<AggregateView> {
             final tabId = controller.activeAggregateTabId;
             return Column(
               children: [
-                if (!ShellTitleBar.isSupported)
-                  const Center(child: AggregateBranding()),
                 if (controller.forumTabsEnabled)
                   _AggregateTabsBar(controller: controller),
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          'Topics',
+                          style: theme.textTheme.titleMedium,
+                        ),
+                      ),
+                      const TopicListActions(),
+                    ],
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                  child: Row(
+                    children: [
+                      const DBadge(
+                        variant: DBadgeVariant.secondary,
+                        child: Text('Latest'),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Align(
+                          alignment: AlignmentDirectional.centerEnd,
+                          child: _AggregateInlineFilters(
+                            key: ValueKey(('aggregate-filters', tabId)),
+                            controller: controller,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const TopicListTableHeader(),
                 Expanded(
                   child: ContentReadingLane(
-                    basePadding: const EdgeInsets.fromLTRB(16, 24, 16, 24),
+                    widthLimit: topicListContentWidth,
+                    basePadding: const EdgeInsets.symmetric(
+                      horizontal: topicListHorizontalPadding,
+                      vertical: 8,
+                    ),
                     builder: (context, lane) => DPullToRefresh(
                       key: ValueKey(('aggregate-refresh', controller, tabId)),
                       onRefresh: controller.refreshAggregate,
@@ -223,20 +165,6 @@ class AggregateViewState extends State<AggregateView> {
                         key: PageStorageKey(('aggregate-topic-list', tabId)),
                         controller: _scrollFor(tabId),
                         slivers: [
-                          SliverPadding(
-                            padding: lane.padding,
-                            sliver: SliverToBoxAdapter(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.stretch,
-                                children: [
-                                  _AggregateInlineFilters(
-                                    key: ValueKey(('aggregate-filters', tabId)),
-                                    controller: controller,
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
                           if (state.loading && state.topics.isEmpty)
                             const SliverToBoxAdapter(
                               child: Center(child: DSpinner()),
@@ -274,7 +202,7 @@ class AggregateViewState extends State<AggregateView> {
                               sliver: SliverList.separated(
                                 itemCount: state.topics.length,
                                 separatorBuilder: (_, _) =>
-                                    const DSeparator(space: 1),
+                                    const SizedBox(height: 1),
                                 itemBuilder: (_, index) {
                                   final reference = state.topics[index];
                                   return _AggregateTopicRow(
@@ -296,6 +224,18 @@ class AggregateViewState extends State<AggregateView> {
                     ),
                   ),
                 ),
+                TopicSourceFooter(
+                  chooseForum: true,
+                  onNext: state.topics.isEmpty
+                      ? null
+                      : () {
+                          final first = state.topics.first;
+                          controller.openAggregateTopic(
+                            first.siteUrl,
+                            first.topicId,
+                          );
+                        },
+                ),
               ],
             );
           },
@@ -310,71 +250,53 @@ class _AggregateInlineFilters extends StatelessWidget {
   final ShellController controller;
 
   @override
-  Widget build(BuildContext context) => DCard(
-    spacing: 0,
-    child: DCollapsible(
-      open: !controller.aggregate.filtersCollapsed,
-      onOpenChange: (open) => controller.aggregate.setFiltersCollapsed(!open),
+  Widget build(BuildContext context) => DPopover(
+    open: !controller.aggregate.filtersCollapsed,
+    onOpenChange: (open, _) => controller.aggregate.setFiltersCollapsed(!open),
+    content: DPopoverContent(
+      width: 640,
+      align: DPopoverAlign.end,
+      semanticLabel: 'Forum filters',
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Padding(
-            padding: const EdgeInsets.all(12),
-            child: Row(
-              children: [
-                Expanded(
-                  child: DCollapsibleTrigger(
-                    key: const ValueKey('aggregate-filter-collapse'),
-                    child: Row(
-                      children: [
-                        DIcon(
-                          controller.aggregate.filtersCollapsed
-                              ? DIcons.chevronRight
-                              : DIcons.chevronDown,
-                          size: 16,
-                        ),
-                        const SizedBox(width: 8),
-                        const Flexible(child: Text('Forum filters')),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                DButton(
-                  key: const ValueKey('aggregate-refresh-button'),
-                  label: const Text('Refresh'),
-                  loadingLabel: const Text('Refreshing…'),
-                  icon: const DIcon(DIcons.arrowsRotate),
-                  variant: DButtonVariant.outline,
-                  loading:
-                      controller.aggregate.state.loading ||
-                      controller.aggregate.state.refreshing,
-                  onPressed:
-                      controller.aggregate.state.loading ||
-                          controller.aggregate.state.refreshing
-                      ? null
-                      : () => unawaited(controller.refreshAggregate()),
-                ),
-              ],
+          for (final forum in controller.instances)
+            _AggregateForumFilterRow(
+              key: ValueKey(forum.url),
+              forum: forum,
+              controller: controller,
+              tabId: controller.activeAggregateTabId,
             ),
-          ),
-          DCollapsibleContent(
-            keepMounted: true,
-            child: Column(
-              children: [
-                for (final forum in controller.instances) ...[
-                  const DSeparator(space: 1),
-                  _AggregateForumFilterRow(
-                    key: ValueKey(forum.url),
-                    forum: forum,
-                    controller: controller,
-                    tabId: controller.activeAggregateTabId,
-                  ),
-                ],
-              ],
-            ),
-          ),
         ],
+      ),
+    ),
+    child: DPopoverTrigger(
+      builder: (context, trigger) => DButton(
+        key: const ValueKey('aggregate-filter-collapse'),
+        label: Row(
+          mainAxisSize: MainAxisSize.min,
+          spacing: 8,
+          children: [
+            const Flexible(
+              child: Text(
+                'Forum filters',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            DBadge(
+              variant: DBadgeVariant.secondary,
+              child: Text('${controller.aggregate.state.includedForums}'),
+            ),
+            const DIcon(DIcons.chevronDown, size: 12),
+          ],
+        ),
+        icon: const DIcon(DIcons.globe),
+        variant: DButtonVariant.transparentBackground,
+        focusNode: trigger.focusNode,
+        hasPopup: true,
+        expanded: trigger.open,
+        onPressed: trigger.toggle,
       ),
     ),
   );
@@ -586,7 +508,9 @@ class _AggregateTopicRow extends StatelessWidget {
           topic: topic,
           forum: forum,
           itemVariant: DItemVariant.standard,
-          outerPadding: EdgeInsets.zero,
+          outerPadding: const EdgeInsets.symmetric(
+            horizontal: topicListHorizontalPadding,
+          ),
           contentPadding: const EdgeInsets.symmetric(
             horizontal: DSpacing.xl,
             vertical: DSpacing.lg,

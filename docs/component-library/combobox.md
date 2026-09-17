@@ -161,3 +161,10 @@ Retained deliberately:
   selection restricted to one returned object.
 - DSelect remains the non-editable selection owner. Command menus remain
   action selection owners, not form values.
+
+Free-text completion clients may supply `DComboboxInput.onSubmitted` to handle
+IME Done when the draft does not match a suggestion. Keyboard selection still
+uses the root callback. `DCombobox.restoreFocus` defaults to true for ordinary
+pickers; completion editors use false so closing suggestions while moving to
+another input cannot steal focus back. TopicFilterInput supplies both options
+and reuses its existing parser, debounce and latest-request ownership rules.

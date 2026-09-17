@@ -8,6 +8,7 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   test('registers every documented section in reference order', () {
     expect(buttonExamples.examples.map((example) => example.title), [
+      'Pill toolbar action',
       'Variants',
       'Size',
       'With icon and rounded',
