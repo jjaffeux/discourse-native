@@ -210,7 +210,7 @@ class _ConversationTopicCard extends StatelessWidget {
                               context,
                               row.siteUrl,
                               topic,
-                              _TopicListTitle(row: row, card: true),
+                              _TopicListTitle(row: row),
                             ),
                             if (assignments.isNotEmpty) ...[
                               const SizedBox(height: DSpacing.md),
