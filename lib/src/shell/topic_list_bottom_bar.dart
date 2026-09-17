@@ -127,7 +127,12 @@ class TopicListBottomBar extends StatelessWidget {
                 )
               else
                 const Spacer(),
-              const TopicNavigationButtons(),
+              ShellSelector<bool>(
+                select: (shell) => shell.currentContent?.isTopic == true,
+                builder: (context, topicOpen, _) => topicOpen
+                    ? const TopicNavigationButtons()
+                    : const SizedBox.shrink(),
+              ),
             ],
           ),
         ),

@@ -20,7 +20,7 @@ class TopicSourceFooter extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final shell = ShellScope.maybeIdentityOf(context);
+    final shell = ShellScope.maybeOf(context);
     if (shell == null) return const SizedBox.shrink();
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -61,21 +61,23 @@ class TopicSourceFooter extends StatelessWidget {
               onPressed: () => unawaited(shell.openNewTopicFromSidebar()),
             ),
           const Spacer(),
-          DButton.iconOnly(
-            tooltip: 'Previous topic',
-            icon: const RotatedBox(
-              quarterTurns: 2,
-              child: DIcon(DIcons.chevronDown),
+          if (shell.currentContent?.isTopic == true) ...[
+            DButton.iconOnly(
+              tooltip: 'Previous topic',
+              icon: const RotatedBox(
+                quarterTurns: 2,
+                child: DIcon(DIcons.chevronDown),
+              ),
+              variant: DButtonVariant.transparentBackground,
+              onPressed: onPrevious,
             ),
-            variant: DButtonVariant.transparentBackground,
-            onPressed: onPrevious,
-          ),
-          DButton.iconOnly(
-            tooltip: 'Next topic',
-            icon: const DIcon(DIcons.chevronDown),
-            variant: DButtonVariant.transparentBackground,
-            onPressed: onNext,
-          ),
+            DButton.iconOnly(
+              tooltip: 'Next topic',
+              icon: const DIcon(DIcons.chevronDown),
+              variant: DButtonVariant.transparentBackground,
+              onPressed: onNext,
+            ),
+          ],
         ],
       ),
     );
