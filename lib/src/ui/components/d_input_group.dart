@@ -10,6 +10,7 @@ import '../foundation/tokens.dart';
 import 'd_button.dart';
 import 'd_input.dart';
 import 'd_kbd.dart';
+import 'd_scroll_area.dart';
 import 'd_textarea.dart';
 
 enum DInputGroupAddonAlignment { inlineStart, inlineEnd, blockStart, blockEnd }
@@ -31,7 +32,12 @@ class DInputGroup extends StatefulWidget {
     this.invalid = false,
     this.borderless = false,
     this.semanticLabel,
-  }) : assert(children.length > 0);
+    this.viewportHeight,
+  }) : assert(children.length > 0),
+       assert(
+         viewportHeight == null ||
+             (viewportHeight > 0 && viewportHeight < double.infinity),
+       );
 
   final List<Widget> children;
   final DControlSize size;
@@ -42,6 +48,12 @@ class DInputGroup extends StatefulWidget {
   /// editor, addon spacing, size, focus behavior or semantics.
   final bool borderless;
   final String? semanticLabel;
+
+  /// Fixed height for a vertically scrolling surface containing the editor
+  /// and all addons. Null retains content-driven sizing. Use an unbounded
+  /// textarea [DTextarea.maxLines] so the group owns vertical scrolling.
+  /// The viewport owns its scroll controller and disposes it with the group.
+  final double? viewportHeight;
 
   @override
   State<DInputGroup> createState() => _DInputGroupState();
@@ -197,6 +209,21 @@ class _DInputGroupState extends State<DInputGroup> {
       child: content,
     );
 
+    if (widget.viewportHeight case final height?) {
+      content = SizedBox(
+        height: height,
+        child: ClipRRect(
+          borderRadius: radius,
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            excludeFromSemantics: true,
+            onTap: _requestControlFocus,
+            child: DScrollArea(child: content),
+          ),
+        ),
+      );
+    }
+
     final surface = Semantics(
       container: true,
       label: widget.semanticLabel,
@@ -222,12 +249,14 @@ class _DInputGroupState extends State<DInputGroup> {
                       : const Duration(milliseconds: 150),
                 ),
                 constraints: BoxConstraints(
-                  minHeight: multiline
-                      ? 64
-                      : DControlStyle.scaledHeight(
-                          widget.size,
-                          MediaQuery.textScalerOf(context),
-                        ),
+                  minHeight:
+                      widget.viewportHeight ??
+                      (multiline
+                          ? 64
+                          : DControlStyle.scaledHeight(
+                              widget.size,
+                              MediaQuery.textScalerOf(context),
+                            )),
                 ),
                 decoration: _InputGroupSurfaceDecoration(
                   backgroundColor: widget.borderless

@@ -838,7 +838,12 @@ void main() {
       tester.widget<TextField>(field).textInputAction,
       TextInputAction.newline,
     );
-    expect(tester.widget<TextField>(field).minLines, 3);
+    expect(tester.widget<TextField>(field).minLines, 1);
+    final group = find.ancestor(
+      of: textarea,
+      matching: find.byType(DInputGroup),
+    );
+    final initialBounds = tester.getRect(group);
     await tester.enterText(field, 'status:open\ntag:feedback');
     await tester.sendKeyEvent(LogicalKeyboardKey.enter);
     await tester.pumpAndSettle();
@@ -867,6 +872,7 @@ void main() {
       await tester.tap(find.text(label));
       await tester.pumpAndSettle();
       expectedClauses.add(query);
+      expect(tester.getRect(group), initialBounds);
       expect(_filterQuery(tester), expectedClauses.join(' '));
       expect(api.feedPaths, ['/latest.json', '/filter.json']);
     }
@@ -878,7 +884,18 @@ void main() {
       find.ancestor(of: textarea, matching: find.byType(DInputGroup)),
     );
     expect(surface.contains(first.topLeft), isTrue);
-    expect(surface.contains(last.bottomRight), isTrue);
+    final scrollable = find
+        .descendant(of: group, matching: find.byType(Scrollable))
+        .first;
+    final position = tester.state<ScrollableState>(scrollable).position;
+    expect(position.maxScrollExtent, greaterThan(0));
+    await tester.drag(
+      find.descendant(of: group, matching: find.byType(DScrollArea)),
+      const Offset(0, -200),
+    );
+    await tester.pumpAndSettle();
+    expect(position.pixels, greaterThan(0));
+    expect(tester.getRect(group), initialBounds);
     await tester.ensureVisible(find.text('Apply filter'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Apply filter'));
@@ -918,8 +935,15 @@ void main() {
       draft(),
       'tag:"customer feedback" "status:open" -status:open status:open',
     );
+    final bookmarkBounds = tester.getRect(
+      find.widgetWithText(DToggle, 'Bookmarked'),
+    );
     await tester.tap(find.text('Bookmarked'));
     await tester.pumpAndSettle();
+    expect(
+      tester.getRect(find.widgetWithText(DToggle, 'Bookmarked')),
+      bookmarkBounds,
+    );
     expect(toggle('Open topics').pressed, isTrue);
     expect(toggle('Bookmarked').pressed, isTrue);
     expect(
@@ -927,7 +951,7 @@ void main() {
         of: find.widgetWithText(DToggle, 'Bookmarked'),
         matching: find.byType(DIcon),
       ),
-      findsOneWidget,
+      findsNothing,
     );
     expect(draft(), endsWith('status:open in:bookmarked'));
     await tester.tap(find.text('Open topics'));
@@ -939,19 +963,29 @@ void main() {
         of: find.widgetWithText(DToggle, 'Bookmarked'),
         matching: find.byType(DIcon),
       ),
-      findsOneWidget,
+      findsNothing,
     );
     expect(
       draft(),
       'tag:"customer feedback" "status:open" -status:open in:bookmarked',
     );
 
+    final group = find.ancestor(
+      of: textarea,
+      matching: find.byType(DInputGroup),
+    );
+    final groupBounds = tester.getRect(group);
     for (var i = 0; i < 4; i++) {
+      await tester.ensureVisible(
+        find.byKey(const ValueKey('topic-filter-token-remove-0')),
+      );
+      await tester.pumpAndSettle();
       await tester.tap(
         find.byKey(const ValueKey('topic-filter-token-remove-0')),
       );
       await tester.pumpAndSettle();
     }
+    expect(tester.getRect(group), groupBounds);
     expect(toggle('Bookmarked').pressed, isFalse);
     await tester.enterText(textarea, 'status:open status:open tag:feedback');
     await tester.pumpAndSettle();

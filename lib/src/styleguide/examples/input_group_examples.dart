@@ -21,6 +21,36 @@ final inputGroupExamples = ComponentExamples(
       'a downstream consumer of this public API.',
   examples: [
     StyleguideExample(
+      title: 'Fixed-height scrolling',
+      description:
+          'The editor and addons scroll together inside a stable field surface.',
+      states: const ['Fixed height', 'Vertical scrolling'],
+      code: '''DInputGroup(viewportHeight: 104, children: [
+  DInputGroupTextarea(maxLines: null, hintText: 'Write a message...'),
+  DInputGroupAddon(
+    alignment: DInputGroupAddonAlignment.blockStart,
+    child: Text('Message details'),
+  ),
+])''',
+      builder: (_) => DInputGroup(
+        viewportHeight: 104,
+        children: [
+          DInputGroupTextarea(
+            maxLines: null,
+            initialValue: List.generate(
+              12,
+              (i) => 'Message line ${i + 1}',
+            ).join('\n'),
+            hintText: 'Write a message...',
+          ),
+          const DInputGroupAddon(
+            alignment: DInputGroupAddonAlignment.blockStart,
+            child: Text('Message details'),
+          ),
+        ],
+      ),
+    ),
+    StyleguideExample(
       title: 'Shared surrounding surface',
       description:
           'A borderless group lets the surrounding card own the surface while preserving editor and addon spacing.',
