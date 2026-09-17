@@ -217,6 +217,7 @@ Map<String, int> _activityCounts(List<Map<String, Object?>> events) {
 String _formatReport(Map<String, Object?> report) {
   final app = _map(report['app']);
   final capture = _map(report['capture']);
+  final accessibility = _map(capture['accessibility']);
   final summary = _map(report['summary']);
   final analysis = _map(report['analysis']);
   final allFrames = _map(analysis['allFrames']);
@@ -244,6 +245,20 @@ String _formatReport(Map<String, Object?> report) {
       'frames with topic activity: ${topicFrames['count']}',
     )
     ..writeln();
+
+  if (accessibility.isNotEmpty) {
+    String enabled(Object? value) => switch (value) {
+      true => 'on',
+      false => 'off',
+      _ => 'unknown',
+    };
+    output.writeln(
+      'Accessibility: ${enabled(accessibility['frameworkEnabledAtStart'])} '
+      'at start, ${enabled(accessibility['frameworkEnabledAtEnd'])} at end | '
+      'platform request ${enabled(accessibility['platformEnabledAtStart'])} | '
+      '${accessibility['stateChanges']} state changes',
+    );
+  }
 
   if (app['buildMode'] == 'debug') {
     output.writeln(

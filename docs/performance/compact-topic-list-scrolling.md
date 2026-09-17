@@ -32,6 +32,8 @@ Three alternating baseline/fixed process pairs used macOS arm64, Flutter
 budget), DPR 2 and an 800 × 559 logical-pixel list viewport. The baseline is
 `8d31b4dd`, including the newly merged category layout, with the same fixture
 and display-mode instrumentation. Builds and tests were stopped during captures.
+These comparison runs did not explicitly enable accessibility during scrolling;
+they do not establish whether native accessibility updates are healthy.
 
 Entries are the median of each run's p50/p95 UI build/layout/paint durations.
 Over-budget counts include either UI or raster exceeding the frame budget.
@@ -51,6 +53,46 @@ The captures include the deferred cache-fill frame. The isolated experiment
 removing only horizontal scrollables did not show a clear timing improvement;
 the retained change also consolidates hover owners and avoids duplicate date
 formatting. These are fixture measurements, not a guarantee for every feed.
+
+## Accessibility follow-up, September 17
+
+The reported `Failed to update ui::AXTree` errors remain **unreproduced and
+unfixed**. A subsequent macOS profile run explicitly activated the native
+accessibility bridge after engine startup. Both the platform request and Dart
+semantics stayed on for every capture. This distinction matters: holding a
+Dart `ensureSemantics()` handle alone does not activate the macOS bridge.
+
+The same 1,000-topic compact fixture, with events and assignments, produced:
+
+| Scenario | UI p50 | UI p95 | Over-budget frames |
+| --- | ---: | ---: | ---: |
+| Steady | 1.412 ms | 2.124 ms | 0/75 |
+| Fast | 6.580 ms | 9.849 ms | 11/41 |
+| Return | 6.618 ms | 9.828 ms | 7/41 |
+
+This is one diagnostic run, not a controlled improvement comparison. There
+were zero AXTree errors during these phases and subsequent native wheel
+scrolling and opening/closing an event schedule. Accessibility actions opened
+the schedule successfully, and the native tree updated after scrolling.
+Fast scrolling still exceeds the 120 Hz budget in some frames.
+
+The bridge was enabled for this experiment with a temporary call to
+`flutterViewController.engine.setValue(true, forKey: "semanticsEnabled")`
+one second after startup in `MainFlutterWindow.awakeFromNib`. That call is
+not shipped. `LIST_REQUIRE_ACCESSIBILITY=true` now makes the profiling tool
+wait for a real platform accessibility request, failing after 30 seconds
+instead of silently measuring with the bridge disabled.
+
+The widget regression checks incremental accessibility updates, including
+subtree removal during reparenting, rather than just the final framework
+tree. It covers small and large scroll deltas, returning to earlier rows,
+tooltips being scrolled away, and opening/closing event schedules.
+
+For a user reproduction, use **Diagnostics → Scroll performance → Start
+capture**, scroll the affected list for 5–10 seconds, wait a second, then stop
+and copy the performance report and full JSON. Reports now include whether
+framework/platform accessibility was enabled and changes during the capture.
+Native stderr errors are not included in the JSON; keep those alongside it.
 
 
 ## Reproduction

@@ -5,6 +5,7 @@ import 'dart:ui' show FramePhase;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/scheduler.dart';
+import 'package:flutter/semantics.dart';
 
 import '../data/app_release.dart';
 import '../foundation/frame_safe_notifier.dart';
@@ -137,6 +138,11 @@ final class TopicScrollCaptureController extends FrameSafeNotifier {
   Future<Map<String, Object?>>? _rasterProfile;
   double _displayRefreshRate = 60;
   int _frameBudgetUs = slowFrameThreshold.inMicroseconds;
+  SemanticsBinding? _semanticsBinding;
+  bool? _semanticsEnabledAtStart;
+  bool? _semanticsEnabledAtEnd;
+  bool? _platformSemanticsEnabledAtStart;
+  int _semanticsChanges = 0;
 
   bool get isRecording => _recording;
 
@@ -201,6 +207,7 @@ final class TopicScrollCaptureController extends FrameSafeNotifier {
     _elapsed
       ..reset()
       ..start();
+    _attachSemanticsState();
     _attachFrameTimings();
     _durationTimer = Timer(
       maximumDuration,
@@ -229,6 +236,10 @@ final class TopicScrollCaptureController extends FrameSafeNotifier {
     _maximumBuildMicroseconds = 0;
     _maximumRasterMicroseconds = 0;
     _maximumTotalSpanMicroseconds = 0;
+    _semanticsEnabledAtStart = null;
+    _semanticsEnabledAtEnd = null;
+    _platformSemanticsEnabledAtStart = null;
+    _semanticsChanges = 0;
     notifySafely();
   }
 
@@ -279,6 +290,12 @@ final class TopicScrollCaptureController extends FrameSafeNotifier {
         'memoryOnly': true,
         'maximumEvents': maximumEvents,
         'maximumDurationMs': maximumDuration.inMilliseconds,
+        'accessibility': {
+          'frameworkEnabledAtStart': _semanticsEnabledAtStart,
+          'frameworkEnabledAtEnd': _semanticsEnabledAtEnd,
+          'platformEnabledAtStart': _platformSemanticsEnabledAtStart,
+          'stateChanges': _semanticsChanges,
+        },
       },
       'scope': {
         'captured': [
@@ -453,6 +470,34 @@ final class TopicScrollCaptureController extends FrameSafeNotifier {
     }
   }
 
+  void _attachSemanticsState() {
+    _semanticsEnabledAtStart = null;
+    _semanticsEnabledAtEnd = null;
+    _platformSemanticsEnabledAtStart = null;
+    _semanticsChanges = 0;
+    try {
+      final binding = SemanticsBinding.instance;
+      _semanticsEnabledAtStart = binding.semanticsEnabled;
+      _semanticsEnabledAtEnd = binding.semanticsEnabled;
+      _platformSemanticsEnabledAtStart =
+          binding.platformDispatcher.semanticsEnabled;
+      binding.addSemanticsEnabledListener(_semanticsChanged);
+      _semanticsBinding = binding;
+    } on Object {
+      // The recorder also supports headless tests without a semantics binding.
+    }
+  }
+
+  void _semanticsChanged() {
+    _semanticsEnabledAtEnd = _semanticsBinding?.semanticsEnabled;
+    _semanticsChanges++;
+  }
+
+  void _detachSemanticsState() {
+    _semanticsBinding?.removeSemanticsEnabledListener(_semanticsChanged);
+    _semanticsBinding = null;
+  }
+
   void _detachFrameTimings() {
     if (!_timingsAttached) return;
     _timingsAttached = false;
@@ -529,6 +574,7 @@ final class TopicScrollCaptureController extends FrameSafeNotifier {
     }
     _durationTimer?.cancel();
     _durationTimer = null;
+    _detachSemanticsState();
     _detachFrameTimings();
     if (notify && !_disposed) notifySafely();
   }

@@ -532,7 +532,7 @@ class _DiagnosticsTabs extends StatelessWidget {
               key: const ValueKey('diagnostics-top-level-tabs'),
               children: [
                 const DTabTrigger(value: 0, child: Text('General')),
-                const DTabTrigger(value: 1, child: Text('Topic scroll')),
+                const DTabTrigger(value: 1, child: Text('Scroll performance')),
                 for (var index = 0; index < plugins.length; index++)
                   DTabTrigger(
                     value: index + 2,
@@ -566,7 +566,7 @@ class _TopicScrollCapturePanel extends StatelessWidget {
         padding: const EdgeInsets.all(20),
         children: [
           Text(
-            'Topic scroll capture',
+            'Scroll performance capture',
             style: Theme.of(
               context,
             ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
