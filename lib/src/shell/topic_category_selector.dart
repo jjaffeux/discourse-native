@@ -204,6 +204,9 @@ class _TopicCategorySelectorState extends State<TopicCategorySelector> {
               buttonKey: widget.valueKey,
               size: widget.size,
               label: label,
+              categoryColor: selected == null
+                  ? null
+                  : Color(selected.colorValue),
               icon: selected == null
                   ? null
                   : CategoryIcon(
