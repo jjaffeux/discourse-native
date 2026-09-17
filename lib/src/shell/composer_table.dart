@@ -83,14 +83,10 @@ final class _TableProjection implements ComposerInteractiveSyntaxProjection {
       WidgetSpan(
         alignment: PlaceholderAlignment.top,
         style: context.baseStyle,
-        child: ComposerEmbeddedEditor(
-          owner: composer,
-          semanticLabel: 'Table editor',
-          child: ComposerTableEditor(
-            key: context.pillKey,
-            composer: composer,
-            table: table,
-          ),
+        child: ComposerTableEditor(
+          key: context.pillKey,
+          composer: composer,
+          table: table,
         ),
       ),
       TextSpan(
@@ -495,7 +491,14 @@ class _ComposerTableEditorState extends State<ComposerTableEditor> {
   ], child: Text('${row + 1}'));
 
   @override
-  Widget build(BuildContext context) => ListenableBuilder(
+  Widget build(BuildContext context) => ComposerEmbeddedEditor(
+    owner: widget.composer,
+    scrollController: widget.composer.text.imageScrollController,
+    semanticLabel: 'Table editor',
+    child: _tableContent(),
+  );
+
+  Widget _tableContent() => ListenableBuilder(
     listenable: widget.composer,
     builder: (context, _) => Padding(
       padding: const EdgeInsets.symmetric(vertical: DSpacing.sm),

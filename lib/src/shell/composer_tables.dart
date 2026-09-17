@@ -3,7 +3,7 @@ import 'package:flutter/services.dart';
 
 import 'markdown_highlight.dart';
 
-/// A rectangular Markdown table, retaining each authored line and cell range.
+/// A Markdown pipe table, retaining each authored line and cell range.
 /// Row zero is the header; the delimiter line is never a movable data row.
 @immutable
 class ComposerTableBlock {
@@ -19,9 +19,11 @@ class ComposerTableBlock {
   String get _newline => source.contains('\r\n') ? '\r\n' : '\n';
   _TableLine _row(int row) => _lines[row == 0 ? 0 : row + 1];
 
-  String cell(int row, int column) => _row(row).cells[column].text;
+  String cell(int row, int column) =>
+      _row(row).cells.elementAtOrNull(column)?.text ?? '';
   ({String before, String after}) cellPadding(int row, int column) =>
-      _row(row).cells[column].padding;
+      _row(row).cells.elementAtOrNull(column)?.padding ??
+      (before: ' ', after: ' ');
 
   /// Changes only the cell's content, preserving the rest of the source.
   String editCell(
@@ -30,7 +32,19 @@ class ComposerTableBlock {
     String value, {
     ({String before, String after})? padding,
   }) {
+    RangeError.checkValueInInterval(column, 0, columnCount - 1, 'column');
     final line = _row(row);
+    if (column >= line.cells.length) {
+      if (value.isEmpty) return source;
+      final cells = _paddedCells(line);
+      final spacing = padding ?? (before: ' ', after: ' ');
+      cells[column] = '${spacing.before}${_encodeCell(value)}${spacing.after}';
+      return source.replaceRange(
+        line.start - start,
+        line.start - start + line.text.length,
+        _renderLine(line, cells),
+      );
+    }
     final cell = line.cells[column];
     final spacing = padding ?? cell.padding;
     return source.replaceRange(
@@ -83,14 +97,23 @@ class ComposerTableBlock {
   String _mapColumns(void Function(List<String>, bool) change) => [
     for (final (index, line) in _lines.indexed)
       (() {
-        final cells = line.cells.map((cell) => cell.raw).toList();
+        final cells = _paddedCells(line);
         change(cells, index == 1);
-        return '${line.prefix}|${cells.join('|')}|${line.suffix}';
+        return _renderLine(line, cells);
       })(),
   ].join(_newline);
+
+  List<String> _paddedCells(_TableLine line) => [
+    for (final cell in line.cells) cell.raw,
+    for (var index = line.cells.length; index < columnCount; index++) '  ',
+  ];
+
+  String _renderLine(_TableLine line, List<String> cells) =>
+      '${line.prefix}|${cells.join('|')}|${line.suffix}';
 }
 
-/// Recognizes ordinary pipe tables. Ambiguous/ragged tables remain Markdown.
+/// Body rows may omit trailing cells or contain additional source cells.
+/// Missing cells are empty; surplus cells stay in source, as with cooked posts.
 /// Code blocks, quoted/list tables and HTML tables retain their existing owner.
 List<ComposerTableBlock> parseComposerTables(String source) {
   if (!source.contains('|')) return const [];
@@ -120,24 +143,20 @@ List<ComposerTableBlock> parseComposerTables(String source) {
     }
     final rows = [header, delimiter];
     var next = index + 2;
-    var rectangular = true;
     while (next < lines.length) {
       final row = lines[next];
       if (row == null || code.contains(row.start)) break;
-      if (row.cells.length != header.cells.length) rectangular = false;
       rows.add(row);
       next++;
     }
-    if (rectangular) {
-      final end = rows.last.start + rows.last.text.length;
-      tables.add(
-        ComposerTableBlock._(
-          header.start,
-          source.substring(header.start, end),
-          List.unmodifiable(rows),
-        ),
-      );
-    }
+    final end = rows.last.start + rows.last.text.length;
+    tables.add(
+      ComposerTableBlock._(
+        header.start,
+        source.substring(header.start, end),
+        List.unmodifiable(rows),
+      ),
+    );
     index = next - 1;
   }
   return List.unmodifiable(tables);
