@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/app_settings.dart';
 import 'package:discourse_native/src/models/bookmark.dart';
@@ -12,6 +14,7 @@ import 'package:discourse_native/src/plugin_api/plugin_runtime.dart';
 import 'package:discourse_native/src/plugin_api/site_plugin_api.dart';
 import 'package:discourse_native/src/plugins/assign/assign_plugin.dart';
 import 'package:discourse_native/src/shell/adaptive_shell.dart';
+import 'package:discourse_native/src/shell/avatar_image.dart';
 import 'package:discourse_native/src/shell/cooked_html.dart';
 import 'package:discourse_native/src/shell/main_content.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
@@ -55,6 +58,129 @@ const _child = TopicCategory(
 const _tag = TopicTag(id: 1, name: 'community');
 
 void main() {
+  testWidgets('loading reader shows cached metadata until details arrive', (
+    tester,
+  ) async {
+    final gate = Completer<void>();
+    final setup = await _setup(tester, topicGate: gate);
+    final shell = setup.controller;
+    final siteUrl = shell.currentInstance!.url;
+    final row = setup.rows.first.copyWith(
+      title: 'Cached title',
+      closed: true,
+      postsCount: 9,
+      lastReadPostNumber: 0,
+      tags: const [TopicTag(name: 'cached-tag')],
+      posterAvatars: const ['https://meta.example/avatar/sam.png'],
+    );
+    shell.store.put(siteUrl, row);
+    shell.openTopicFromList(row);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    final header = find.byType(TopicInboxHeader);
+    Finder inHeader(Finder finder) =>
+        find.descendant(of: header, matching: finder);
+    expect(
+      find.byKey(const ValueKey('topic-loading-skeleton')),
+      findsOneWidget,
+    );
+    expect(inHeader(find.text('Cached title')), findsOneWidget);
+    expect(inHeader(find.text('Design')), findsOneWidget);
+    expect(inHeader(find.text('Onboarding')), findsOneWidget);
+    expect(inHeader(find.text('# cached-tag')), findsOneWidget);
+    expect(inHeader(find.text('8 replies')), findsOneWidget);
+    expect(inHeader(find.textContaining('Last activity')), findsOneWidget);
+    expect(
+      inHeader(find.byKey(const ValueKey('topic-header-closed'))),
+      findsOneWidget,
+    );
+    expect(
+      tester.widget<AvatarImage>(inHeader(find.byType(AvatarImage))).url,
+      row.posterAvatars.single,
+    );
+    expect(inHeader(find.byType(InlineTopicTitleEditor)), findsNothing);
+    expect(inHeader(find.byTooltip('Edit topic category')), findsNothing);
+    expect(inHeader(find.byTooltip('Edit topic tags')), findsNothing);
+    expect(inHeader(find.byType(TopicStatusButton)), findsNothing);
+    expect(shell.currentTopic, isNull);
+    expect(find.byType(CookedHtml), findsNothing);
+
+    shell.store.put(siteUrl, row.copyWith(postsCount: 10));
+    await tester.pump();
+    expect(inHeader(find.text('9 replies')), findsOneWidget);
+
+    gate.complete();
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('topic-loading-skeleton')), findsNothing);
+    expect(inHeader(find.text('9 replies')), findsNothing);
+    expect(inHeader(find.text('3 replies')), findsOneWidget);
+    expect(inHeader(find.text('# cached-tag')), findsNothing);
+    expect(inHeader(find.text('# community')), findsOneWidget);
+    expect(
+      inHeader(find.byKey(const ValueKey('topic-header-closed'))),
+      findsNothing,
+    );
+    expect(inHeader(find.byType(InlineTopicTitleEditor)), findsOneWidget);
+    expect(inHeader(find.byType(TopicStatusButton)), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('loading metadata follows navigation and absent cached rows', (
+    tester,
+  ) async {
+    final gate = Completer<void>();
+    final setup = await _setup(tester, topicGate: gate);
+    final shell = setup.controller;
+    final siteUrl = shell.currentInstance!.url;
+    final first = setup.rows.first.copyWith(
+      tags: const [TopicTag(name: 'first')],
+    );
+    final second = setup.rows[1].copyWith(
+      categoryId: 21,
+      tags: const [TopicTag(name: 'second')],
+    );
+    shell.store.putAll(siteUrl, [first, second]);
+    shell.openTopicFromList(first);
+    await tester.pump();
+    expect(find.text('# first'), findsOneWidget);
+    shell.openTopicFromList(second);
+    await tester.pump();
+    expect(find.text('# first'), findsNothing);
+    expect(find.text('# second'), findsOneWidget);
+
+    shell.pushContent(
+      ContentRoute.topic(
+        topicId: 999,
+        slug: 'uncached',
+        title: 'Uncached topic',
+      ),
+    );
+    final loading = shell.loadTopic(999, 'uncached');
+    await tester.pump();
+    expect(find.text('# second'), findsNothing);
+    expect(find.byKey(const ValueKey('topic-header-taxonomy')), findsNothing);
+    expect(find.byKey(const ValueKey('topic-header-activity')), findsNothing);
+    expect(
+      find.descendant(
+        of: find.byType(TopicInboxHeader),
+        matching: find.text('Uncached topic'),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('topic-loading-skeleton')),
+      findsOneWidget,
+    );
+
+    gate.complete();
+    await tester.pumpAndSettle();
+    await loading;
+    expect(find.text("Couldn't load this topic."), findsOneWidget);
+    expect(find.byKey(const ValueKey('topic-header-taxonomy')), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('open topic selection follows the reader', (tester) async {
     final setup = await _setup(tester);
     DItem card(int id) =>
@@ -3052,6 +3178,7 @@ Future<({ShellController controller, FakeDiscourseApi api, List<Topic> rows})>
 _setup(
   WidgetTester tester, {
   ThemeData? theme,
+  Completer<void>? topicGate,
   PluginRegistry registry = PluginRegistry.empty,
   bool recommendations = false,
   bool canCreateTopic = false,
@@ -3116,6 +3243,7 @@ _setup(
       ],
   };
   final api = FakeDiscourseApi(
+    topicGate: topicGate,
     creatableFeedPaths: canCreateTopic ? {'/latest.json'} : {},
     user: user,
     feeds: {
