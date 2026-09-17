@@ -36,11 +36,13 @@ class TopicListTableHeader extends StatelessWidget {
     super.key,
     this.showCategory = true,
     this.showViews = false,
+    this.sortCategory = false,
     this.order,
     this.ascending = false,
     this.onSort,
   });
   final bool showCategory, showViews, ascending;
+  final bool sortCategory;
   final String? order;
   final ValueChanged<String>? onSort;
 
@@ -117,7 +119,11 @@ class TopicListTableHeader extends StatelessWidget {
                     highlightOnHover: false,
                     cells: [
                       heading('Topic'),
-                      if (layout.category) heading('Category'),
+                      if (layout.category)
+                        heading(
+                          'Category',
+                          sort: sortCategory ? 'category' : null,
+                        ),
                       if (layout.avatar) heading('Last reply'),
                       if (layout.activity)
                         heading('Replies', end: true, sort: 'posts'),

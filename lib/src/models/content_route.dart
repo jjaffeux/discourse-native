@@ -472,6 +472,44 @@ class ContentRoute {
   String get topicListSearch =>
       Uri.tryParse(feedPath ?? '')?.queryParameters['search'] ?? '';
 
+  // These columns are supported by Discourse's TopicQuery ordering. Advanced
+  // filters use their own order: syntax rather than these URL parameters.
+  static const topicListSortColumns = {
+    'category',
+    'posts',
+    'views',
+    'activity',
+  };
+
+  bool get canSortTopicList => isTopicListFilter && !isAdvancedTopicFilter;
+
+  String? get topicListOrder =>
+      Uri.tryParse(feedPath ?? '')?.queryParameters['order'];
+
+  bool get topicListAscending =>
+      Uri.tryParse(feedPath ?? '')?.queryParameters['ascending'] == 'true';
+
+  ContentRoute withTopicListSort(String? order, {bool ascending = false}) {
+    if (!canSortTopicList ||
+        (order != null && !topicListSortColumns.contains(order))) {
+      return this;
+    }
+    final uri = Uri.parse(feedPath ?? '/latest.json');
+    final query = {...uri.queryParametersAll}
+      ..remove('page')
+      ..remove('order')
+      ..remove('ascending');
+    if (order != null) {
+      query['order'] = [order];
+      if (ascending) query['ascending'] = ['true'];
+    }
+    final path = Uri(
+      path: uri.path,
+      queryParameters: query.isEmpty ? null : query,
+    ).toString();
+    return _withFeedPath(path, id: 'topic-list-filter-$path');
+  }
+
   ContentRoute withTopicListSearch(String value) {
     final uri = Uri.parse(feedPath ?? '/latest.json');
     final query = {...uri.queryParametersAll}..remove('page');

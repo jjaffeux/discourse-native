@@ -65,6 +65,127 @@ const _unseenTopic = Topic(
 );
 
 void main() {
+  for (final mode in [
+    TopicListMode.latest,
+    TopicListMode.topWeekly,
+    TopicListMode.popular,
+  ]) {
+    testWidgets(
+      '$mode headers request server sorting and cycle back to default',
+      (tester) async {
+        tester.view.physicalSize = const Size(1200, 850);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+        final source = ContentRoute.topicList(mode);
+        final setup = await _controller(
+          extraFeeds: {
+            for (final column in ['category', 'posts', 'activity'])
+              for (final ascending in [false, true])
+                source
+                    .withTopicListSort(column, ascending: ascending)
+                    .feedPath!: ascending
+                    ? [_latestTopic, _popularTopic]
+                    : [_popularTopic, _latestTopic],
+          },
+        );
+        final controller = setup.controller;
+        addTearDown(controller.dispose);
+        await controller.selectTopicListMode(mode);
+        await tester.pumpWidget(
+          ShellScope(
+            controller: controller,
+            child: MaterialApp(
+              theme: AppTheme.dark.copyWith(platform: TargetPlatform.macOS),
+              home: const Scaffold(
+                body: MainContent(layout: ShellLayout.expanded),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(
+          find.ancestor(
+            of: find.text('Last reply'),
+            matching: find.byType(DButton),
+          ),
+          findsNothing,
+        );
+        expect(
+          find.ancestor(of: find.text('Topic'), matching: find.byType(DButton)),
+          findsNothing,
+        );
+        for (final (column, label) in [
+          ('category', 'Category'),
+          ('posts', 'Replies'),
+          ('activity', 'Activity'),
+        ]) {
+          final header = find.byKey(ValueKey('topic-sort-$column'));
+          for (final ascending in [false, true]) {
+            await tester.tap(header);
+            await tester.pumpAndSettle();
+            expect(
+              setup.api.feedPaths.last,
+              source.withTopicListSort(column, ascending: ascending).feedPath,
+            );
+            expect(
+              controller.currentFeed?.topicIds,
+              ascending ? [1, 8] : [8, 1],
+            );
+            expect(controller.currentTopicListMode, mode);
+            expect(
+              tester.widget<DButton>(header).semanticLabel,
+              '$label, ${ascending ? 'ascending' : 'descending'}',
+            );
+          }
+          await tester.tap(header);
+          await tester.pumpAndSettle();
+          expect(controller.topicListContent?.topicListOrder, isNull);
+          expect(controller.topicListContent?.topicListAscending, isFalse);
+          expect(controller.currentTopicListMode, mode);
+          expect(
+            tester.widget<DButton>(header).semanticLabel,
+            '$label, unsorted',
+          );
+        }
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
+  test('sorting preserves the open reader and category/tag filters', () async {
+    const category = TopicCategory(
+      id: 42,
+      name: 'Support',
+      slug: 'support',
+      color: '3188CC',
+    );
+    const path = '/tags/c/support/42/design.json';
+    final setup = await _controller(
+      categoryList: [category],
+      extraFeeds: {
+        '/c/support/42.json': [_latestTopic],
+        path: [_latestTopic],
+        '$path?order=posts': [_latestTopic],
+      },
+    );
+    final controller = setup.controller;
+    addTearDown(controller.dispose);
+    controller.selectTopicListCategory(category);
+    await Future<void>.delayed(Duration.zero);
+    controller.selectTopicListTag('design');
+    await Future<void>.delayed(Duration.zero);
+    controller.openTopicFromList(_latestTopic);
+    await controller.sortTopicList('posts');
+    expect(controller.currentContent?.topicId, _latestTopic.id);
+    expect(controller.topicListContent?.categoryId, category.id);
+    expect(controller.topicListContent?.tagNames, ['design']);
+    expect(controller.topicListContent?.topicListOrder, 'posts');
+    expect(setup.api.feedPaths.last, '$path?order=posts');
+    final requests = setup.api.feedPaths.length;
+    await controller.sortTopicList('last-poster');
+    expect(setup.api.feedPaths.length, requests);
+  });
+
   test(
     'fresh settings select the first feed before requesting topics',
     () async {

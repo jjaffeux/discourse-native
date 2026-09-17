@@ -96,3 +96,19 @@ card list gaps shrink from 8px to 1px, matching compact lists. Loading gaps and
 scroll estimates follow the new spacing. The macOS fixture confirmed that the
 hover surface covers the padding in both modes. All 84 focused list and scroll
 tests, affected-source analysis, and the native review build passed.
+
+Header sorting follow-up: ordinary forum feeds now wire Category, Replies and
+Activity headers to Discourse's server-side `order`/`ascending` parameters. Each
+cycles through descending, ascending and the feed's default order. Changes keep
+the category/tag filters, selected feed and open reader, reset pagination, and
+use a distinct cached feed identity. Topic and Last reply stay passive; assigned
+lists retain their existing supported columns. Advanced filters keep their
+`order:` query syntax, and aggregate/message headers remain passive.
+
+All 141 focused route, navigation, assigned-list, compact-row and list-lifecycle
+tests passed, along with affected-source analysis and the macOS fixture build.
+Native macOS review verified descending and ascending Replies, returning to
+default order, and the Activity header in the offline production-widget fixture
+in dark and light themes. Header labels expose the current sort direction to
+accessibility. Request and response ordering were verified with the test API;
+no live forum was modified.

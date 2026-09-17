@@ -179,6 +179,15 @@ Future<void> main() async {
       feeds: {
         '/filter.json': rows,
         '/latest.json': rows,
+        for (final column in ['posts', 'activity'])
+          for (final ascending in [false, true])
+            '/latest.json?order=$column${ascending ? '&ascending=true' : ''}':
+                [...rows]..sort((a, b) {
+                  final compared = column == 'posts'
+                      ? a.postsCount.compareTo(b.postsCount)
+                      : a.bumpedAt!.compareTo(b.bumpedAt!);
+                  return ascending ? compared : -compared;
+                }),
         '/latest.json?search=layout': [rows[1]],
         '/latest.json?search=missing': const [],
         '/new.json': rows,

@@ -6,6 +6,70 @@ import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  group('topic list sorting', () {
+    test('preserves filters and mode, resets pagination, and round trips', () {
+      for (final mode in TopicListMode.values) {
+        final source = ContentRoute.filteredTopicList(
+          mode,
+          categoryId: 42,
+          tags: const ['design', 'mobile'],
+        );
+        final paged = ContentRoute.fromJson({
+          ...source.toJson(),
+          'feed_path': '${source.feedPath}&page=3&status=open',
+        });
+        final sorted = paged.withTopicListSort('posts', ascending: true);
+        expect(sorted.id, isNot(source.id));
+        expect(sorted.topicListOrder, 'posts');
+        expect(sorted.topicListAscending, isTrue);
+        expect(TopicListMode.fromRoute(sorted), mode);
+        expect(sorted.categoryId, 42);
+        expect(sorted.tagNames, ['design', 'mobile']);
+        final query = Uri.parse(sorted.feedPath!).queryParameters;
+        expect(query['page'], isNull);
+        expect(query['status'], 'open');
+        expect(ContentRoute.fromJson(sorted.toJson()), sorted);
+
+        final cleared = sorted.withTopicListSort(null);
+        expect(cleared.topicListOrder, isNull);
+        expect(cleared.topicListAscending, isFalse);
+        expect(TopicListMode.fromRoute(cleared), mode);
+        expect(cleared.categoryId, 42);
+        expect(cleared.tagNames, ['design', 'mobile']);
+      }
+    });
+
+    test(
+      'clears the last sort parameter and retains sorting across filters',
+      () {
+        final sorted = ContentRoute.topicList(
+          TopicListMode.latest,
+        ).withTopicListSort('activity');
+        expect(sorted.withTopicListSort(null).feedPath, '/latest.json');
+        final filtered = ContentRoute.filteredTopicList(
+          TopicListMode.topWeekly,
+          categoryId: 42,
+        ).withTopicListQueryFrom(sorted);
+        expect(filtered.topicListOrder, 'activity');
+        expect(TopicListMode.fromRoute(filtered), TopicListMode.topWeekly);
+        expect(filtered.categoryId, 42);
+      },
+    );
+
+    test('does not invent ordering for unsupported sources or columns', () {
+      for (final source in [
+        ContentRoute.messages(),
+        ContentRoute.topicFilter('status:open order:views'),
+        ContentRoute.topic(topicId: 1, slug: 'topic', title: 'Topic'),
+      ]) {
+        expect(source.canSortTopicList, isFalse);
+        expect(source.withTopicListSort('posts'), same(source));
+      }
+      final latest = ContentRoute.topicList(TopicListMode.latest);
+      expect(latest.withTopicListSort('last-poster'), same(latest));
+    });
+  });
+
   test(
     'advanced filters round trip with taxonomy and compile one API query',
     () {

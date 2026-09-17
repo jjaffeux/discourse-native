@@ -697,6 +697,12 @@ class _TopicListViewState extends State<TopicListView> {
       children: [
         TopicListTableHeader(
           showCategory: controller.topicListContent?.isMessages != true,
+          sortCategory: true,
+          order: controller.topicListContent?.topicListOrder,
+          ascending: controller.topicListContent?.topicListAscending ?? false,
+          onSort: controller.topicListContent?.canSortTopicList == true
+              ? (column) => unawaited(controller.sortTopicList(column))
+              : null,
         ),
         if (feed.error case final error? when !feed.pageError)
           _FeedErrorBanner(
