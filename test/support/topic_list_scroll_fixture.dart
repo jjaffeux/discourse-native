@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:discourse_native/src/data/app_settings_store.dart';
 import 'package:discourse_native/src/diagnostics/diagnostics.dart';
 import 'package:discourse_native/src/models/app_settings.dart';
@@ -22,10 +24,13 @@ import 'fakes.dart';
 
 Future<ShellController> topicListScrollController({
   int count = 500,
+  int? pageSize,
   TopicListDisplayMode mode = TopicListDisplayMode.card,
   bool events = false,
   bool assignments = false,
 }) async {
+  assert(count > 0);
+  assert(pageSize == null || pageSize > 0);
   const user = DiscourseUser(id: 7, username: 'sam', timezone: 'Europe/Paris');
   final site = instance('scroll.example').copyWith(
     user: user,
@@ -37,6 +42,49 @@ Future<ShellController> topicListScrollController({
     ),
   );
   const registry = PluginRegistry([AssignPlugin(), EventTopicPlugin()]);
+  final topics = <Topic>[
+    for (var id = 1; id <= count; id++)
+      Topic(
+        id: id,
+        title: id.isEven
+            ? 'Topic $id with a longer title that can wrap onto a second line'
+            : 'Topic $id',
+        slug: 'topic-$id',
+        categoryId: 2,
+        tags: const [
+          TopicTag(name: 'performance'),
+          TopicTag(name: 'support'),
+        ],
+        views: id * 10,
+        postsCount: id % 30 + 1,
+        replyCount: id % 30,
+        lastPosterUsername: 'sam',
+        bumpedAt: DateTime.utc(2026, 9, 1),
+        closed: id % 7 == 0,
+        bookmarked: id % 11 == 0,
+        plugins: registry.readTopic({
+          if (events && id % 3 != 0) ...{
+            'event_starts_at': '2026-10-14T20:00:00+02:00',
+            'event_ends_at': '2026-10-14T21:00:00+02:00',
+            'event_timezone': 'Europe/Paris',
+          },
+          if (assignments && id.isOdd) ...{
+            'can_assign': false,
+            'assigned_to_user': {'username': 'joffrey'},
+            if (id % 5 == 0)
+              'indirectly_assigned_to': {
+                '108': {
+                  'post_number': 8,
+                  'assigned_to': {'name': 'design'},
+                },
+              },
+          },
+        }, site.url),
+      ),
+  ];
+  final size = pageSize ?? count;
+  String pagePath(int page) =>
+      page == 0 ? '/latest.json' : '/latest.json?page=$page';
   final controller = ShellController(
     plugins: PluginInstaller.install(
       const PluginManifest([assignModule, discourseEventsModule]),
@@ -45,49 +93,19 @@ Future<ShellController> topicListScrollController({
       persistence: MemoryAppSettingsPersistence(topicListMode: mode.name),
     ),
     instanceStore: FakeInstanceStore([site]),
-    api: FakeDiscourseApi(
+    api: _TopicListScrollApi(
       user: user,
+      paginated: pageSize != null,
       feeds: {
-        '/latest.json': [
-          for (var id = 1; id <= count; id++)
-            Topic(
-              id: id,
-              title: id.isEven
-                  ? 'Topic $id with a longer title that can wrap onto a second line'
-                  : 'Topic $id',
-              slug: 'topic-$id',
-              categoryId: 2,
-              tags: const [
-                TopicTag(name: 'performance'),
-                TopicTag(name: 'support'),
-              ],
-              views: id * 10,
-              postsCount: id % 30 + 1,
-              replyCount: id % 30,
-              lastPosterUsername: 'sam',
-              bumpedAt: DateTime.utc(2026, 9, 1),
-              closed: id % 7 == 0,
-              bookmarked: id % 11 == 0,
-              plugins: registry.readTopic({
-                if (events && id % 3 != 0) ...{
-                  'event_starts_at': '2026-10-14T20:00:00+02:00',
-                  'event_ends_at': '2026-10-14T21:00:00+02:00',
-                  'event_timezone': 'Europe/Paris',
-                },
-                if (assignments && id.isOdd) ...{
-                  'can_assign': false,
-                  'assigned_to_user': {'username': 'joffrey'},
-                  if (id % 5 == 0)
-                    'indirectly_assigned_to': {
-                      '108': {
-                        'post_number': 8,
-                        'assigned_to': {'name': 'design'},
-                      },
-                    },
-                },
-              }, site.url),
-            ),
-        ],
+        for (var page = 0; page * size < count; page++)
+          pagePath(page): topics.sublist(
+            page * size,
+            math.min((page + 1) * size, count),
+          ),
+      },
+      nextPages: {
+        for (var page = 0; (page + 1) * size < count; page++)
+          pagePath(page): pagePath(page + 1),
       },
       categoryList: const [
         TopicCategory(id: 1, name: 'General', color: '0088CC'),
@@ -109,7 +127,7 @@ Future<ShellController> topicListScrollController({
   await controller.load();
   await controller.loadFeed('latest');
   final feed = controller.currentFeed!;
-  if (feed.topicIds.length != count ||
+  if (feed.topicIds.length != math.min(pageSize ?? count, count) ||
       feed.topicIds.any(
         (id) =>
             controller.store.read<Topic>(controller.currentInstance!.url, id) ==
@@ -146,11 +164,43 @@ class TopicListScrollFixture extends StatelessWidget {
             child: SizedBox(
               width: width,
               height: 600,
-              child: TopicListView(key: listKey, feed: controller.currentFeed!),
+              child: ListenableBuilder(
+                listenable: controller.topicFeeds,
+                builder: (context, _) =>
+                    TopicListView(key: listKey, feed: controller.currentFeed!),
+              ),
             ),
           ),
         ),
       ),
     ),
   );
+}
+
+class _TopicListScrollApi extends FakeDiscourseApi {
+  _TopicListScrollApi({
+    required super.user,
+    required super.feeds,
+    required super.nextPages,
+    required super.categoryList,
+    required this.paginated,
+  });
+
+  final bool paginated;
+
+  @override
+  Future<TopicList> topicList({
+    required String siteUrl,
+    required String path,
+    String? apiKey,
+    String? clientId,
+  }) async {
+    if (paginated) await Future<void>.delayed(const Duration(milliseconds: 50));
+    return super.topicList(
+      siteUrl: siteUrl,
+      path: path,
+      apiKey: apiKey,
+      clientId: clientId,
+    );
+  }
 }

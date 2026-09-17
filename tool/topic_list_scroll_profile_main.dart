@@ -19,8 +19,10 @@ Future<void> main() async {
     'LIST_ASSIGNMENTS',
     defaultValue: true,
   );
+  const pageSize = int.fromEnvironment('LIST_PAGE_SIZE');
   final controller = await topicListScrollController(
     count: 1000,
+    pageSize: pageSize > 0 ? pageSize : null,
     mode: TopicListDisplayMode.values.byName(mode),
     events: events,
     assignments: assignments,

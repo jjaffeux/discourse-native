@@ -306,6 +306,7 @@ final class TopicScrollCaptureController extends FrameSafeNotifier {
           'viewport anchor capture and correction decisions',
           'Flutter UI-thread build and raster frame timings',
           'post layout and viewport bookkeeping durations',
+          'topic-list row subtree build and layout durations',
           'sampled CPU functions in slow topic frames when available',
           'recorded rendering phases in slow topic raster frames when available',
         ],

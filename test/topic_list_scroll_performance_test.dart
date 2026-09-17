@@ -8,6 +8,21 @@ import 'support/topic_list_scroll_fixture.dart';
 import 'support/topic_scroll_capture.dart';
 
 void main() {
+  test('profile fixture appends bounded pages', () async {
+    final controller = await topicListScrollController(count: 65, pageSize: 30);
+    addTearDown(() async {
+      controller.dispose();
+      await controller.pluginTeardown;
+      await controller.plugins.close();
+    });
+    expect(controller.currentFeed!.topicIds, hasLength(30));
+    await controller.loadMoreFeed('latest');
+    expect(controller.currentFeed!.topicIds, hasLength(60));
+    await controller.loadMoreFeed('latest');
+    expect(controller.currentFeed!.topicIds, hasLength(65));
+    expect(controller.currentFeed!.hasMore, isFalse);
+  });
+
   for (final (mode, events, assignments) in [
     (TopicListDisplayMode.card, false, false),
     (TopicListDisplayMode.compact, false, false),
@@ -66,10 +81,11 @@ void main() {
           final position = tester.state<ScrollableState>(scrollable).position;
           final viewport = tester.getRect(scrollable);
           final rebuiltTitles = <Element>[];
+          final builtTitles = find.byType(TopicTitle).evaluate().toSet();
           final previous = debugOnRebuildDirtyWidget;
           debugOnRebuildDirtyWidget = (element, builtOnce) {
             previous?.call(element, builtOnce);
-            if (builtOnce && element.widget is TopicTitle) {
+            if (element.widget is TopicTitle && !builtTitles.add(element)) {
               rebuiltTitles.add(element);
             }
           };
@@ -107,6 +123,19 @@ void main() {
               expect(position.pixels, closeTo(requested, 0.01));
             }
             capture.stop();
+            for (final name in [
+              'topicList.row.build',
+              'topicList.row.layout',
+            ]) {
+              final measurements = capture.events.where(
+                (event) => event.name == name,
+              );
+              expect(measurements, isNotEmpty);
+              expect(
+                measurements.every((event) => event.data['durationUs'] is int),
+                isTrue,
+              );
+            }
             expect(
               capture.events.where(
                 (event) => event.name == 'topicList.capture.context',
