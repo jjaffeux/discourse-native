@@ -464,7 +464,6 @@ class TopicFeedMenu extends StatelessWidget {
             ],
           ),
           variant: DButtonVariant.secondary,
-          shape: DButtonShape.pill,
           focusNode: trigger.focusNode,
           hasPopup: true,
           expanded: trigger.open,
