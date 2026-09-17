@@ -2,7 +2,6 @@ import 'dart:ui' show SemanticsValidationResult;
 
 import 'package:flutter/material.dart';
 
-import '../../theme/discourse_typography.dart';
 import '../foundation/control_style.dart';
 import '../foundation/focus_highlight.dart';
 import '../foundation/input_group_scope.dart';
@@ -223,7 +222,12 @@ class _DInputGroupState extends State<DInputGroup> {
                       : const Duration(milliseconds: 150),
                 ),
                 constraints: BoxConstraints(
-                  minHeight: multiline ? 64 : DControlStyle.height(widget.size),
+                  minHeight: multiline
+                      ? 64
+                      : DControlStyle.scaledHeight(
+                          widget.size,
+                          MediaQuery.textScalerOf(context),
+                        ),
                 ),
                 decoration: _InputGroupSurfaceDecoration(
                   backgroundColor: widget.borderless
@@ -266,6 +270,7 @@ class _DInputGroupState extends State<DInputGroup> {
       remove: _remove,
       requestControlFocus: _requestControlFocus,
       inputPadding: inputPadding,
+      size: widget.size,
       enabled: widget.enabled,
       child: touch && !multiline
           ? GestureDetector(
@@ -305,6 +310,8 @@ class DInputGroupAddon extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tokens = DTokens.of(context);
+    final size =
+        DInputGroupControlScope.maybeOf(context)?.size ?? DControlSize.regular;
     final content = child == null ? children : <Widget>[child!];
     final block =
         alignment == DInputGroupAddonAlignment.blockStart ||
@@ -365,11 +372,16 @@ class DInputGroupAddon extends StatelessWidget {
         child: Padding(
           padding: padding,
           child: IconTheme.merge(
-            data: IconThemeData(size: 16, color: tokens.mutedForeground),
+            data: IconThemeData(
+              size: DControlStyle.iconDimension(size),
+              color: tokens.mutedForeground,
+            ),
             child: DefaultTextStyle.merge(
               style: Theme.of(context).textTheme.bodySmall!.copyWith(
-                fontSize: DiscourseTypography.sm,
-                height: 20 / DiscourseTypography.sm,
+                fontSize: DControlStyle.fontSize(size),
+                height:
+                    DControlStyle.lineHeight(size) /
+                    DControlStyle.fontSize(size),
                 fontWeight: FontWeight.w500,
                 letterSpacing: 0,
                 color: tokens.mutedForeground,
