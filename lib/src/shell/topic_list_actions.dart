@@ -175,9 +175,8 @@ class _TopicListFilterMenuState extends State<TopicListFilterMenu> {
   Future<void> _load() async {
     if (_retired || _loading || _options != null) return;
     setState(() => _loading = true);
-    final options = await ShellScope.read(
-      context,
-    ).loadTopicFilterOptions(widget.siteUrl);
+    final options = await ShellScope.read(context)
+        .loadTopicFilterOptions(widget.siteUrl);
     if (mounted && !_retired) {
       setState(() {
         _options = options;
@@ -210,7 +209,7 @@ class _TopicListFilterMenuState extends State<TopicListFilterMenu> {
       if (open) unawaited(_load());
     },
     content: DPopoverContent(
-      width: 360,
+      width: 400,
       align: DPopoverAlign.end,
       semanticLabel: 'Filter topics',
       child: Column(
@@ -219,46 +218,66 @@ class _TopicListFilterMenuState extends State<TopicListFilterMenu> {
         spacing: 12,
         children: [
           const Text('Filter topics'),
+          const DFieldDescription(
+            child: Text('Choose a starting point or write your own filter.'),
+          ),
           TopicFilterInput(
             key: ValueKey(_presetRevision),
             siteUrl: widget.siteUrl,
             initialQuery: _query,
             options: _options ?? const [],
-            categories: ShellScope.read(
-              context,
-            ).filterCategoriesFor(widget.siteUrl),
-            hintText: 'status:open tag:feedback',
+            categories: ShellScope.read(context)
+                .filterCategoriesFor(widget.siteUrl),
+            hintText: 'status:open\ntag:feedback',
+            multiline: true,
             padding: EdgeInsets.zero,
             onChanged: (query) => _query = query,
             onSubmitted: _apply,
           ),
-          if (_loading) const DProgress(),
-          DButton(
-            label: const Text('Apply filter'),
-            variant: DButtonVariant.secondary,
-            onPressed: () => _apply(_query),
+          const DFieldDescription(child: Text('Quick filters')),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final (label, query) in const [
+                ('Open topics', 'status:open'),
+                ('Unanswered', 'status:noreplies'),
+                ('Closed topics', 'status:closed'),
+                ('Bookmarked', 'in:bookmarked'),
+                ('Unread replies', 'in:new-replies'),
+                ('New topics', 'in:new-topics'),
+                ('Unseen', 'in:unseen'),
+                ('Watching', 'in:watching'),
+                ('Tracking', 'in:tracking'),
+              ])
+                DButton(
+                  label: Text(label),
+                  variant: DButtonVariant.outline,
+                  onPressed: () => setState(() {
+                    _query = query;
+                    _presetRevision++;
+                  }),
+                ),
+            ],
           ),
           const DSeparator(),
-          for (final (label, query, icon) in [
-            ('Open topics', 'status:open', DIcons.comments),
-            ('Bookmarked', 'in:bookmarked', DIcons.bookmark),
-            ('Unread replies', 'in:new-replies', DIcons.circle),
-          ])
-            DButton(
-              label: Text(label),
-              icon: DIcon(icon),
-              variant: DButtonVariant.transparentBackground,
-              onPressed: () => setState(() {
-                _query = query;
-                _presetRevision++;
-              }),
-            ),
-          if (widget.query.isNotEmpty)
-            DButton(
-              label: const Text('Clear filter'),
-              variant: DButtonVariant.transparentBackground,
-              onPressed: () => _apply(''),
-            ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              if (widget.query.isNotEmpty) ...[
+                DButton(
+                  label: const Text('Clear filter'),
+                  variant: DButtonVariant.ghost,
+                  onPressed: () => _apply(''),
+                ),
+                const Spacer(),
+              ],
+              DButton(
+                label: const Text('Apply filter'),
+                onPressed: () => _apply(_query),
+              ),
+            ],
+          ),
         ],
       ),
     ),

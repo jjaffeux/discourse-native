@@ -536,7 +536,7 @@ void main() {
       reason: 'typing only updates suggestions',
     );
 
-    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.tap(find.text('Apply filter'));
     await tester.pumpAndSettle();
     expect(api.feedPaths, contains('/filter.json?q=status%3Aopen'));
     expect(find.text('Only open topics'), findsOneWidget);
@@ -548,7 +548,7 @@ void main() {
       reason: 'the submitted query belongs to this site and destination',
     );
 
-    await tester.tap(find.byKey(const ValueKey('clear-topic-filter')));
+    await tester.tap(find.text('Clear filter'));
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('topic-filter-input')), findsNothing);
     expect(find.text('Filtered'), findsNothing);
@@ -650,7 +650,13 @@ void main() {
     await _pump(tester, api);
     await _openFilter(tester, settle: false);
     expect(find.byKey(const ValueKey('topic-filter-input')), findsOneWidget);
-    expect(find.byType(DProgress), findsOneWidget);
+    expect(find.byType(DProgress), findsNothing);
+    await tester.tap(find.text('Unanswered'));
+    await tester.pump();
+    expect(
+      tester.widget<DTextarea>(find.byType(DTextarea)).controller!.text,
+      'status:noreplies',
+    );
     gate.complete();
     await tester.pumpAndSettle();
     expect(find.byType(DProgress), findsNothing);
@@ -756,7 +762,7 @@ void main() {
         await tester.pump();
         _expectSelectedRow(tester, secondRow);
 
-        await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+        await tester.sendKeyEvent(LogicalKeyboardKey.tab);
         await tester.pumpAndSettle();
         expect(tester.widget<TextField>(field).controller!.text, 'tag:');
         expect(api.feedPaths, ['/latest.json', '/filter.json']);
@@ -797,7 +803,7 @@ void main() {
     expect(find.text('Apply filter'), findsNothing);
   });
 
-  testWidgets('enter accepts the first filter suggestion', (tester) async {
+  testWidgets('tab accepts the first filter suggestion', (tester) async {
     final api = FakeDiscourseApi(
       feeds: const {'/latest.json': [], '/filter.json': []},
       filterOptionsByPath: const {
@@ -813,11 +819,128 @@ void main() {
     );
     await tester.tap(field);
     await tester.pumpAndSettle();
-    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.sendKeyEvent(LogicalKeyboardKey.tab);
     await tester.pumpAndSettle();
 
     expect(tester.widget<TextField>(field).controller!.text, 'tag:');
     expect(api.feedPaths, ['/latest.json', '/filter.json']);
+  });
+
+  testWidgets('multiline filter keeps editing separate from submission', (
+    tester,
+  ) async {
+    final api = FakeDiscourseApi(
+      feeds: const {'/latest.json': [], '/filter.json': []},
+    );
+    await _pump(tester, api);
+    await _openFilter(tester);
+    final textarea = find.byType(DTextarea);
+    final field = find.descendant(
+      of: textarea,
+      matching: find.byType(TextField),
+    );
+    expect(
+      tester.widget<TextField>(field).textInputAction,
+      TextInputAction.newline,
+    );
+    expect(tester.widget<TextField>(field).minLines, 3);
+    await tester.enterText(field, 'status:open\ntag:feedback');
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pumpAndSettle();
+    expect(find.text('Apply filter'), findsOneWidget);
+    expect(api.feedPaths, ['/latest.json', '/filter.json']);
+    expect(
+      tester.widget<DTextarea>(textarea).controller!.text,
+      startsWith('status:open\ntag:feedback'),
+    );
+    final apply = tester.getRect(
+      find.ancestor(
+        of: find.text('Apply filter'),
+        matching: find.byType(DButton),
+      ),
+    );
+    expect(apply.right, closeTo(tester.getRect(textarea).right, 1));
+    expect(
+      apply.top,
+      greaterThan(tester.getRect(find.text('Tracking')).bottom),
+    );
+    for (final (label, query) in [
+      ('New topics', 'in:new-topics'),
+      ('Unseen', 'in:unseen'),
+      ('Watching', 'in:watching'),
+      ('Tracking', 'in:tracking'),
+      ('Closed topics', 'status:closed'),
+    ]) {
+      await tester.tap(find.text(label));
+      await tester.pumpAndSettle();
+      expect(tester.widget<DTextarea>(textarea).controller!.text, query);
+      expect(api.feedPaths, ['/latest.json', '/filter.json']);
+    }
+    await tester.enterText(field, 'status:open\ntag:feedback');
+    await tester.tap(find.text('Apply filter'));
+    await tester.pumpAndSettle();
+    expect(
+      api.feedPaths,
+      contains('/filter.json?q=status%3Aopen%0Atag%3Afeedback'),
+    );
+  });
+
+  for (final modifier in [
+    LogicalKeyboardKey.metaLeft,
+    LogicalKeyboardKey.controlLeft,
+  ]) {
+    testWidgets('$modifier submits while suggestions are open', (tester) async {
+      final api = FakeDiscourseApi(
+        feeds: const {
+          '/latest.json': [],
+          '/filter.json': [],
+          '/filter.json?q=tag': [],
+        },
+        filterOptionsByPath: const {
+          '/filter.json': [_tagOption],
+        },
+      );
+      await _pump(tester, api);
+      await _openFilter(tester);
+      await tester.enterText(find.byType(DTextarea), 'tag');
+      await tester.pumpAndSettle();
+      expect(find.text('tag:'), findsOneWidget);
+      await tester.sendKeyDownEvent(modifier);
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.sendKeyUpEvent(modifier);
+      await tester.pumpAndSettle();
+      expect(api.feedPaths, contains('/filter.json?q=tag'));
+      expect(find.byType(DTextarea), findsNothing);
+    });
+  }
+
+  testWidgets('keyboard navigation reveals suggestions below the fold', (
+    tester,
+  ) async {
+    final api = FakeDiscourseApi(
+      feeds: const {'/latest.json': [], '/filter.json': []},
+      filterOptionsByPath: {
+        '/filter.json': [
+          for (var i = 0; i < 15; i++)
+            TopicFilterOption(name: 'option$i:', priority: 1),
+        ],
+      },
+    );
+    await _pump(tester, api);
+    await _openFilter(tester);
+    await tester.tap(find.byType(DTextarea));
+    await tester.pumpAndSettle();
+    final rows = find.byType(DComboboxItem<TopicFilterSuggestion>);
+    final count = rows.evaluate().length;
+    expect(count, greaterThan(8));
+    for (var i = 1; i < count; i++) {
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.pumpAndSettle();
+    }
+    final last = find.byKey(ValueKey('topic-filter-suggestion-${count - 1}'));
+    _expectSelectedRow(tester, last);
+    final popup = tester.getRect(find.byType(DComboboxContent));
+    expect(tester.getRect(last).bottom, lessThanOrEqualTo(popup.bottom));
   });
 
   testWidgets('category suggestions use their category badges', (tester) async {
