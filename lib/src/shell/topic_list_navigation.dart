@@ -247,6 +247,7 @@ class _TopicListNavigationControls extends StatelessWidget {
             key: ValueKey(owner),
             inline: true,
             wrap: true,
+            leading: showsTabs ? navigation : null,
             siteUrl: state.siteUrl!,
             categories: state.categories,
             knownTags: state.tags,
@@ -312,7 +313,12 @@ class _TopicListNavigationControls extends StatelessWidget {
                     spacing: 8,
                     runSpacing: 8,
                     crossAxisAlignment: WrapCrossAlignment.center,
-                    children: [if (showsTabs) navigation, ?filters],
+                    children: [
+                      if (filters != null)
+                        filters
+                      else if (showsTabs)
+                        navigation,
+                    ],
                   ),
                 ),
                 if (trailing != null) ...[const SizedBox(width: 8), trailing!],

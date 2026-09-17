@@ -483,8 +483,14 @@ void main() {
         final tagRect = tester.getRect(
           find.byKey(const ValueKey('topic-list-tag-filter')),
         );
-        expect(parentRect.top, childRect.top);
-        expect(tagRect.top, greaterThanOrEqualTo(childRect.bottom));
+        final feedRect = tester.getRect(
+          find.byKey(const ValueKey('topic-list-feed-menu')),
+        );
+        expect(parentRect.center.dy, feedRect.center.dy);
+        expect(parentRect.left, greaterThan(feedRect.right));
+        expect(childRect.top, greaterThanOrEqualTo(parentRect.bottom));
+        expect(tagRect.center.dy, childRect.center.dy);
+        expect(tagRect.left, greaterThan(childRect.right));
         await tester.tap(
           find.byKey(const ValueKey('topic-list-subcategory-filter')),
         );
@@ -1883,6 +1889,21 @@ void main() {
       );
       expect(filters.left, greaterThanOrEqualTo(card.left));
       expect(refinement.right, closeTo(card.right, 1));
+      if (width >= 1120) {
+        final feed = tester.getRect(
+          find.byKey(const ValueKey('topic-list-feed-menu')),
+        );
+        final category = tester.getRect(
+          find.byKey(const ValueKey('topic-list-category-filter')),
+        );
+        final tags = tester.getRect(
+          find.byKey(const ValueKey('topic-list-tag-filter')),
+        );
+        expect(category.center.dy, closeTo(feed.center.dy, 1));
+        expect(tags.center.dy, closeTo(feed.center.dy, 1));
+        expect(category.left, greaterThan(feed.right));
+        expect(tags.left, greaterThan(category.right));
+      }
       expect(find.byKey(const ValueKey('topic-list-search')), findsNothing);
       expect(tester.takeException(), isNull);
     }

@@ -28,6 +28,7 @@ class TopicListFilterBar extends StatelessWidget {
     this.compact = false,
     this.selectedTagNames,
     this.onTagsSelected,
+    this.leading,
   });
 
   final String siteUrl;
@@ -44,6 +45,7 @@ class TopicListFilterBar extends StatelessWidget {
   final bool compact;
   final List<String>? selectedTagNames;
   final ValueChanged<List<String>>? onTagsSelected;
+  final Widget? leading;
 
   @override
   Widget build(BuildContext context) {
@@ -140,6 +142,7 @@ class TopicListFilterBar extends StatelessWidget {
         ? Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              ?leading,
               Row(
                 children: [
                   Expanded(child: controlChildren.first),
@@ -156,10 +159,16 @@ class TopicListFilterBar extends StatelessWidget {
             ],
           )
         : wrap
-        ? Wrap(spacing: 8, runSpacing: 8, children: controlChildren)
+        ? Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [?leading, ...controlChildren],
+          )
         : Row(
             mainAxisSize: MainAxisSize.min,
             children: [
+              if (leading != null) ...[leading!, const SizedBox(width: 8)],
               for (var index = 0; index < controlChildren.length; index++) ...[
                 if (index > 0) const SizedBox(width: 8),
                 if (inline)
