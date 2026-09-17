@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="dark light">
+    <title>Events, in context · Event design studies</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="mockups.js" defer></script>
+  </head>
+  <body>
+    <div class="workbench">
+      <header class="page-header">
+        <div class="brand"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i><i></i></span> DISCOURSE NATIVE <span class="brand-divider">/</span> DESIGN STUDIES</div>
+        <span class="edition">POST EVENTS · ROUND 02</span>
+      </header>
+      <div class="intro">
+        <div><h1>Events, in context.</h1><p>Four layouts. The same supplied content. No assumptions about the occasion.</p></div>
+        <span class="prototype-label"><span></span> ROUND 02 · CONTENT FIRST</span>
+      </div>
+      <nav class="concept-nav" aria-label="Design directions">
+        <button class="concept-tab" data-concept="showcase" aria-pressed="true"><span class="tab-number">01</span><span><strong>Framed</strong><small>Title first</small></span><span class="layout-glyph glyph-framed" aria-hidden="true"></span></button>
+        <button class="concept-tab" data-concept="rail" aria-pressed="false"><span class="tab-number">02</span><span><strong>Date rail</strong><small>A clear date anchor</small></span><span class="layout-glyph glyph-rail" aria-hidden="true"></span></button>
+        <button class="concept-tab" data-concept="schedule" aria-pressed="false"><span class="tab-number">03</span><span><strong>Schedule band</strong><small>Time above the title</small></span><span class="layout-glyph glyph-schedule" aria-hidden="true"></span></button>
+        <button class="concept-tab" data-concept="compact" aria-pressed="false"><span class="tab-number">04</span><span><strong>Compact</strong><small>Less vertical space</small></span><span class="layout-glyph glyph-compact" aria-hidden="true"></span></button>
+      </nav>
+      <div class="preview-toolbar">
+        <div class="toolbar-group" aria-label="Preview width">
+          <button class="tool-button" data-width="wide" aria-pressed="true"><span data-icon="desktop"></span> Desktop</button>
+          <button class="tool-button" data-width="narrow" aria-pressed="false"><span data-icon="mobile"></span> Mobile</button>
+        </div>
+        <div class="toolbar-group toolbar-right">
+          <button class="tool-button" id="compare" aria-pressed="false"><span data-icon="grid"></span> Compare all</button>
+          <span class="toolbar-divider"></span>
+          <button class="tool-button" id="theme" aria-label="Switch to light theme"><span data-icon="sun"></span><span class="theme-label">Light</span></button>
+        </div>
+      </div>
+      <div class="content-toolbar">
+        <span>OPTIONAL CONTENT</span>
+        <div class="toolbar-group" role="group" aria-label="Optional content">
+          <button class="tool-button" data-content="all" aria-pressed="true">All supplied fields</button>
+          <button class="tool-button" data-content="no-description" aria-pressed="false">No description</button>
+          <button class="tool-button" data-content="core" aria-pressed="false">No location or description</button>
+        </div>
+      </div>
+      <main id="studies"></main>
+      <footer class="page-footer"><span>ONE COMPONENT. MANY KINDS OF EVENTS.</span><p>Only content from the supplied screenshot. RSVP changes are local demonstrations.<br>Link destinations and menu contents were not supplied. Descriptions are expandable.</p><a href="README.md">Design & implementation notes <span aria-hidden="true">↗</span></a></footer>
+    </div>
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  </body>
+</html>
