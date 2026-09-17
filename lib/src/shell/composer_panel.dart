@@ -25,6 +25,7 @@ import 'composer_autocomplete.dart';
 import 'composer_blockquote.dart';
 import 'composer_clipboard.dart';
 import 'composer_controller.dart';
+import 'composer_details.dart';
 import 'composer_discard.dart';
 import 'composer_drop.dart';
 import 'composer_galleries.dart';
@@ -2681,6 +2682,13 @@ class _Toolbar extends StatelessWidget {
                         ? () => insertComposerTable(composer)
                         : null,
                     child: const Text('Table'),
+                  ),
+                if (!composer.target.isPlugin)
+                  DDropdownMenuItem(
+                    onPressed: composer.isEditing
+                        ? () => insertComposerDetails(composer)
+                        : null,
+                    child: const Text('Details'),
                   ),
                 for (final action in actions)
                   DDropdownMenuItem(
