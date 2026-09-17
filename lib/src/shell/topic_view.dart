@@ -2777,6 +2777,12 @@ class _TopicPostSkeleton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final tokens = DTokens.of(context);
+    // The muted surface nearly disappears at the pulse's half-opacity trough
+    // on light topic backgrounds. Use the stronger existing neutral token.
+    final color = Theme.of(context).brightness == Brightness.light
+        ? tokens.border
+        : tokens.muted;
     final post = Padding(
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
       child: Column(
@@ -2784,18 +2790,18 @@ class _TopicPostSkeleton extends StatelessWidget {
         children: [
           Row(
             children: [
-              const DSkeleton.circle(diameter: 32),
+              DSkeleton.circle(diameter: 32, color: color),
               const SizedBox(width: 10),
               Expanded(
                 child: Align(
                   alignment: AlignmentDirectional.centerStart,
                   child: FractionallySizedBox(
                     widthFactor: nameWidthFactor,
-                    child: const DSkeleton(height: 10),
+                    child: DSkeleton(height: 10, color: color),
                   ),
                 ),
               ),
-              const DSkeleton(width: 36, height: 7),
+              DSkeleton(width: 36, height: 7, color: color),
             ],
           ),
           Padding(
@@ -2807,7 +2813,7 @@ class _TopicPostSkeleton extends StatelessWidget {
                     alignment: AlignmentDirectional.centerStart,
                     child: FractionallySizedBox(
                       widthFactor: lineWidths[index],
-                      child: const DSkeleton(height: 9),
+                      child: DSkeleton(height: 9, color: color),
                     ),
                   ),
                   if (index < lineWidths.length - 1) const SizedBox(height: 8),
@@ -2816,13 +2822,13 @@ class _TopicPostSkeleton extends StatelessWidget {
             ),
           ),
           if (showFooter)
-            const Row(
+            Row(
               children: [
-                DSkeleton.circle(diameter: 14),
-                SizedBox(width: 12),
-                DSkeleton.circle(diameter: 14),
-                SizedBox(width: 12),
-                DSkeleton(width: 42, height: 7),
+                DSkeleton.circle(diameter: 14, color: color),
+                const SizedBox(width: 12),
+                DSkeleton.circle(diameter: 14, color: color),
+                const SizedBox(width: 12),
+                DSkeleton(width: 42, height: 7, color: color),
               ],
             ),
         ],
