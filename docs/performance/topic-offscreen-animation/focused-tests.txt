@@ -1,0 +1,320 @@
+Resolving dependencies...
+Downloading packages...
+  code_assets 2.0.0 (2.1.0 available)
+  equatable 2.1.0 (3.0.0 available)
+! flutter_webrtc 1.6.2 from path packages/discourse_voice/third_party/flutter_webrtc (overridden)
+! flutter_widget_from_html_core 0.17.4 from path packages/flutter_widget_from_html_core (overridden)
+  kalender 0.29.1 (0.30.0 available)
+  livekit_client 2.12.0 (2.13.0 available)
+  material_color_utilities 0.13.0 (0.13.1 available)
+  test_api 0.7.12 (0.7.14 available)
+! video_player_avfoundation 2.12.0 from path packages/video_player_avfoundation (overridden)
+  window_to_front 0.0.4 (1.0.0 available)
+Got dependencies!
+7 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+00:00 +0: loading /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/topic_view_rebuild_test.dart
+00:00 +0: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/topic_view_rebuild_test.dart: post index projection scans a retained stream only once
+00:00 +1: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/topic_view_rebuild_test.dart: unrelated shell notifications do not rebuild cooked posts
+00:00 +2: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/topic_view_lifecycle_test.dart: TopicView viewport and read-position lifecycle cancels queued read receipts after image relayout
+00:00 +3: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/topic_view_lifecycle_test.dart: TopicView viewport and read-position lifecycle cancels queued read receipts after image relayout
+00:00 +4: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/topic_view_lifecycle_test.dart: TopicView viewport and read-position lifecycle cancels queued read receipts after image relayout
+00:00 +5: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/topic_view_lifecycle_test.dart: TopicView viewport and read-position lifecycle cancels queued read receipts after image relayout
+00:00 +6: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/topic_view_lifecycle_test.dart: TopicView viewport and read-position lifecycle cancels queued read receipts after image relayout
+00:00 +7: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/topic_view_lifecycle_test.dart: TopicView viewport and read-position lifecycle cancels queued read receipts after image relayout
+00:00 +8: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/topic_view_lifecycle_test.dart: TopicView viewport and read-position lifecycle cancels queued read receipts after image relayout
+00:01 +9: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/topic_view_lifecycle_test.dart: TopicView viewport and read-position lifecycle cancels queued read receipts after image relayout
+00:01 +10: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/topic_scroll_churn_test.dart: prepend at top keeps replies lazy (inbox: true, pull: 0.0) (variant: TargetPlatform.android)
+00:01 +11: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/topic_scroll_churn_test.dart: prepend at top keeps replies lazy (inbox: true, pull: 0.0) (variant: TargetPlatform.android)
+00:01 +12: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/topic_scroll_churn_test.dart: prepend at top keeps replies lazy (inbox: true, pull: 0.0) (variant: TargetPlatform.android)
+00:01 +13: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/topic_scroll_churn_test.dart: prepend at top keeps replies lazy (inbox: true, pull: 0.0) (variant: TargetPlatform.android)
+00:01 +14: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/topic_scroll_churn_test.dart: prepend at top keeps replies lazy (inbox: true, pull: 0.0) (variant: TargetPlatform.android)
+00:01 +15: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/topic_scroll_churn_test.dart: prepend at top keeps replies lazy (inbox: true, pull: 0.0) (variant: TargetPlatform.android)
+00:01 +16: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/topic_scroll_churn_test.dart: prepend at top keeps replies lazy (inbox: true, pull: 0.0) (variant: TargetPlatform.android)
+00:01 +17: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/topic_scroll_churn_test.dart: prepend at top keeps replies lazy (inbox: true, pull: 0.0) (variant: TargetPlatform.android)
+00:01 +18: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/topic_scroll_churn_test.dart: prepend at top keeps replies lazy (inbox: true, pull: 0.0) (variant: TargetPlatform.android)
+00:01 +19: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/topic_scroll_churn_test.dart: prepend at top keeps replies lazy (inbox: true, pull: 0.0) (variant: TargetPlatform.android)
+00:01 +20: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/topic_scroll_churn_test.dart: prepend at top keeps replies lazy (inbox: true, pull: 0.0) (variant: TargetPlatform.android)
+00:01 +21: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/topic_scroll_churn_test.dart: prepend at top keeps replies lazy (inbox: true, pull: 0.0) (variant: TargetPlatform.android)
+00:01 +22: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/topic_scroll_churn_test.dart: prepend at top keeps replies lazy (inbox: true, pull: 0.0) (variant: TargetPlatform.android)
+00:01 +23: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/topic_scroll_churn_test.dart: prepend at top keeps replies lazy (inbox: true, pull: 0.0) (variant: TargetPlatform.android)
+00:01 +24: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/topic_scroll_churn_test.dart: prepend at top keeps replies lazy (inbox: true, pull: 0.0) (variant: TargetPlatform.android)
+00:01 +25: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/topic_scroll_churn_test.dart: prepend at top keeps replies lazy (inbox: true, pull: 0.0) (variant: TargetPlatform.android)
+00:01 +26: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/topic_scroll_churn_test.dart: prepend at top keeps replies lazy (inbox: true, pull: 0.0) (variant: TargetPlatform.android)
+00:01 +27: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/topic_scroll_churn_test.dart: prepend at top keeps replies lazy (inbox: true, pull: 0.0) (variant: TargetPlatform.android)
+00:01 +28: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/topic_scroll_churn_test.dart: prepend at top keeps replies lazy (inbox: true, pull: 0.0) (variant: TargetPlatform.android)
+00:01 +29: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/topic_scroll_churn_test.dart: prepend at top keeps replies lazy (inbox: true, pull: 0.0) (variant: TargetPlatform.android)
+00:01 +30: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/topic_scroll_churn_test.dart: prepend at top keeps replies lazy (inbox: true, pull: 0.0) (variant: TargetPlatform.android)
+00:01 +31: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/topic_progressive_html_test.dart: jump survives an unfinished long post above it (inbox=true, oversized=false)
+00:02 +32: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/topic_view_rebuild_test.dart: oversized posts recycle without repeated geometry refreshes
+00:02 +33: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/topic_view_rebuild_test.dart: oversized posts recycle without repeated geometry refreshes
+00:02 +34: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/topic_view_rebuild_test.dart: oversized posts recycle without repeated geometry refreshes
+00:02 +35: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/topic_view_lifecycle_test.dart: TopicView viewport and read-position lifecycle records the latest read post and targets it on reopen
+00:02 +36: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/topic_progress_lifecycle_test.dart: compact navigation fits narrow and enlarged layouts
+00:02 +37: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/topic_progress_lifecycle_test.dart: compact navigation fits narrow and enlarged layouts
+00:02 +38: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/topic_progress_lifecycle_test.dart: compact navigation fits narrow and enlarged layouts
+00:02 +39: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/topic_progress_lifecycle_test.dart: compact navigation fits narrow and enlarged layouts
+00:02 +40: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/topic_progress_lifecycle_test.dart: compact navigation fits narrow and enlarged layouts
+00:02 +41: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/topic_progress_lifecycle_test.dart: compact navigation fits narrow and enlarged layouts
+00:02 +42: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/topic_progress_lifecycle_test.dart: compact navigation fits narrow and enlarged layouts
+00:02 +43: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/topic_progress_lifecycle_test.dart: compact navigation fits narrow and enlarged layouts
+00:02 +44: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/topic_progress_lifecycle_test.dart: compact navigation fits narrow and enlarged layouts
+00:02 +45: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/topic_progress_lifecycle_test.dart: compact navigation fits narrow and enlarged layouts
+00:02 +46: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/topic_progress_lifecycle_test.dart: compact navigation fits narrow and enlarged layouts
+00:02 +47: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/topic_progress_lifecycle_test.dart: compact navigation fits narrow and enlarged layouts
+00:02 +48: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/topic_progress_lifecycle_test.dart: compact navigation fits narrow and enlarged layouts
+00:02 +49: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/topic_progress_lifecycle_test.dart: compact navigation fits narrow and enlarged layouts
+00:02 +50: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/topic_progress_lifecycle_test.dart: compact navigation fits narrow and enlarged layouts
+00:02 +51: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/topic_progress_lifecycle_test.dart: compact navigation fits narrow and enlarged layouts
+00:02 +52: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/topic_progress_lifecycle_test.dart: compact navigation fits narrow and enlarged layouts
+00:02 +53: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/topic_progress_lifecycle_test.dart: compact navigation fits narrow and enlarged layouts
+00:02 +54: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/topic_progress_lifecycle_test.dart: compact navigation fits narrow and enlarged layouts
+00:02 +55: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/topic_progress_lifecycle_test.dart: compact navigation fits narrow and enlarged layouts
+00:02 +56: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/topic_progress_lifecycle_test.dart: compact navigation fits narrow and enlarged layouts
+00:02 +57: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/topic_progress_lifecycle_test.dart: compact navigation fits narrow and enlarged layouts
+00:02 +58: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/topic_progress_lifecycle_test.dart: compact navigation fits narrow and enlarged layouts
+00:02 +59: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/topic_progress_lifecycle_test.dart: compact navigation fits narrow and enlarged layouts
+00:02 +60: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/topic_progress_lifecycle_test.dart: compact navigation fits narrow and enlarged layouts
+00:03 +61: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/topic_progress_lifecycle_test.dart: compact navigation fits narrow and enlarged layouts
+00:03 +62: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/topic_progress_lifecycle_test.dart: compact navigation fits narrow and enlarged layouts
+00:03 +63: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/topic_view_rebuild_test.dart: retained inbox posts accept edits and evict old HTML trees
+00:03 +64: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/topic_view_rebuild_test.dart: retained inbox posts accept edits and evict old HTML trees
+00:03 +65: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/topic_view_rebuild_test.dart: retained inbox posts accept edits and evict old HTML trees
+00:03 +66: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/topic_view_rebuild_test.dart: retained inbox posts accept edits and evict old HTML trees
+00:03 +67: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/topic_view_rebuild_test.dart: retained inbox posts accept edits and evict old HTML trees
+00:03 +68: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/topic_progressive_html_test.dart: jump survives an unfinished long post above it (inbox=true, oversized=true)
+00:03 +69: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/topic_progressive_html_test.dart: jump survives an unfinished long post above it (inbox=true, oversized=true)
+00:03 +70: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/topic_progressive_html_test.dart: jump survives an unfinished long post above it (inbox=true, oversized=true)
+00:03 +71: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/topic_progressive_html_test.dart: jump survives an unfinished long post above it (inbox=true, oversized=true)
+00:03 +72: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/topic_progressive_html_test.dart: jump survives an unfinished long post above it (inbox=true, oversized=true)
+00:03 +73: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/topic_progressive_html_test.dart: jump survives an unfinished long post above it (inbox=true, oversized=true)
+00:03 +74: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/topic_progressive_html_test.dart: jump survives an unfinished long post above it (inbox=true, oversized=true)
+00:03 +75: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/topic_progressive_html_test.dart: jump survives an unfinished long post above it (inbox=true, oversized=true)
+00:03 +76: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/topic_progressive_html_test.dart: jump survives an unfinished long post above it (inbox=true, oversized=true)
+00:03 +77: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/topic_progressive_html_test.dart: jump survives an unfinished long post above it (inbox=true, oversized=true)
+00:03 +78: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/topic_progressive_html_test.dart: jump survives an unfinished long post above it (inbox=true, oversized=true)
+00:03 +79: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/topic_progressive_html_test.dart: jump survives an unfinished long post above it (inbox=true, oversized=true)
+00:03 +80: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/topic_progressive_html_test.dart: jump survives an unfinished long post above it (inbox=true, oversized=true)
+00:03 +81: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/topic_progressive_html_test.dart: jump survives an unfinished long post above it (inbox=true, oversized=true)
+00:03 +82: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/topic_scroll_churn_test.dart: prepend at top keeps replies lazy (inbox: false, pull: 0.0) (variant: TargetPlatform.macOS)
+00:03 +83: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/topic_scroll_churn_test.dart: prepend at top keeps replies lazy (inbox: false, pull: 0.0) (variant: TargetPlatform.macOS)
+00:03 +84: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/topic_view_lifecycle_test.dart: TopicView scroll attachment lifecycle gives each topic an independent scroll position
+00:03 +85: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/topic_view_lifecycle_test.dart: TopicView scroll attachment lifecycle gives each topic an independent scroll position
+00:03 +86: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/topic_progress_lifecycle_test.dart: macOS late success after Escape preserves a new route
+00:03 +87: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/topic_scroll_churn_test.dart: prepend at top keeps replies lazy (inbox: false, pull: 800.0) (variant: TargetPlatform.android)
+00:03 +88: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/topic_scroll_churn_test.dart: prepend at top keeps replies lazy (inbox: false, pull: 800.0) (variant: TargetPlatform.android)
+00:03 +89: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/topic_scroll_churn_test.dart: prepend at top keeps replies lazy (inbox: false, pull: 800.0) (variant: TargetPlatform.android)
+00:03 +90: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/topic_scroll_churn_test.dart: prepend at top keeps replies lazy (inbox: false, pull: 800.0) (variant: TargetPlatform.android)
+00:03 +91: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/topic_scroll_churn_test.dart: prepend at top keeps replies lazy (inbox: false, pull: 800.0) (variant: TargetPlatform.android)
+00:03 +92: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/topic_scroll_churn_test.dart: prepend at top keeps replies lazy (inbox: false, pull: 800.0) (variant: TargetPlatform.android)
+00:03 +93: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/topic_view_lifecycle_test.dart: TopicView targeted post navigation keeps repeated progress jumps to 137 aligned as the viewport resizes
+00:03 +94: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/topic_view_lifecycle_test.dart: TopicView targeted post navigation keeps repeated progress jumps to 137 aligned as the viewport resizes
+00:03 +95: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/topic_view_lifecycle_test.dart: TopicView targeted post navigation keeps repeated progress jumps to 137 aligned as the viewport resizes
+00:04 +96: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/topic_view_lifecycle_test.dart: TopicView targeted post navigation keeps repeated progress jumps to 137 aligned as the viewport resizes
+00:04 +97: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/topic_view_lifecycle_test.dart: TopicView targeted post navigation keeps repeated progress jumps to 137 aligned as the viewport resizes
+00:04 +98: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/topic_view_lifecycle_test.dart: TopicView targeted post navigation keeps repeated progress jumps to 137 aligned as the viewport resizes
+00:04 +99: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/topic_view_lifecycle_test.dart: TopicView targeted post navigation keeps repeated progress jumps to 137 aligned as the viewport resizes
+00:04 +100: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/topic_view_lifecycle_test.dart: TopicView targeted post navigation keeps repeated progress jumps to 137 aligned as the viewport resizes
+00:04 +101: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/topic_view_lifecycle_test.dart: TopicView targeted post navigation keeps repeated progress jumps to 137 aligned as the viewport resizes
+00:04 +102: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/topic_view_lifecycle_test.dart: TopicView targeted post navigation keeps repeated progress jumps to 137 aligned as the viewport resizes
+00:04 +103: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/topic_view_lifecycle_test.dart: TopicView targeted post navigation keeps repeated progress jumps to 137 aligned as the viewport resizes
+00:04 +104: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/post_text_selection_test.dart: copy quote includes all progressively mounted paragraphs
+00:04 +105: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/post_text_selection_test.dart: copy quote includes all progressively mounted paragraphs
+00:04 +106: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/post_text_selection_test.dart: copy quote includes all progressively mounted paragraphs
+00:04 +107: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/post_text_selection_test.dart: copy quote includes all progressively mounted paragraphs
+00:04 +108: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/post_text_selection_test.dart: copy quote includes all progressively mounted paragraphs
+00:04 +109: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/post_text_selection_test.dart: copy quote includes all progressively mounted paragraphs
+00:04 +110: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/post_text_selection_test.dart: copy quote includes all progressively mounted paragraphs
+00:04 +111: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/post_text_selection_test.dart: copy quote includes all progressively mounted paragraphs
+00:04 +112: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/post_text_selection_test.dart: copy quote includes all progressively mounted paragraphs
+00:04 +113: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/post_text_selection_test.dart: copy quote includes all progressively mounted paragraphs
+00:04 +114: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/post_text_selection_test.dart: copy quote includes all progressively mounted paragraphs
+00:04 +115: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/post_text_selection_test.dart: copy quote includes all progressively mounted paragraphs
+00:04 +116: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/post_text_selection_test.dart: copy quote includes all progressively mounted paragraphs
+00:05 +117: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/post_text_selection_test.dart: copy quote includes all progressively mounted paragraphs
+00:05 +118: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/topic_offscreen_animation_test.dart: topic animation visibility follows prepend headers (inbox: false)
+00:05 +119: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/topic_offscreen_animation_test.dart: topic animation visibility follows prepend headers (inbox: false)
+00:05 +120: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/topic_offscreen_animation_test.dart: topic animation visibility follows prepend headers (inbox: false)
+00:05 +121: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/topic_offscreen_animation_test.dart: topic animation visibility follows prepend headers (inbox: false)
+00:05 +122: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/topic_offscreen_animation_test.dart: topic animation visibility follows prepend headers (inbox: false)
+00:05 +123: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/topic_offscreen_animation_test.dart: topic animation visibility follows prepend headers (inbox: false)
+00:05 +124: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/topic_offscreen_animation_test.dart: topic animation visibility follows prepend headers (inbox: false)
+00:05 +125: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/topic_offscreen_animation_test.dart: topic animation visibility follows prepend headers (inbox: false)
+00:05 +126: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/topic_offscreen_animation_test.dart: topic animation visibility follows prepend headers (inbox: false)
+00:05 +127: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/topic_offscreen_animation_test.dart: topic animation visibility follows prepend headers (inbox: false)
+00:05 +128: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/topic_offscreen_animation_test.dart: topic animation visibility follows prepend headers (inbox: false)
+00:05 +129: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/topic_offscreen_animation_test.dart: topic animation visibility follows prepend headers (inbox: false)
+00:05 +130: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/topic_offscreen_animation_test.dart: topic animation visibility follows prepend headers (inbox: false)
+00:05 +131: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/topic_offscreen_animation_test.dart: topic animation visibility follows prepend headers (inbox: false)
+00:05 +132: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/topic_offscreen_animation_test.dart: topic animation visibility follows prepend headers (inbox: false)
+00:05 +133: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/topic_offscreen_animation_test.dart: topic animation visibility follows prepend headers (inbox: false)
+00:05 +134: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/topic_offscreen_animation_test.dart: topic animation visibility follows prepend headers (inbox: false)
+00:05 +135: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/topic_offscreen_animation_test.dart: topic animation visibility follows prepend headers (inbox: false)
+00:05 +136: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/topic_offscreen_animation_test.dart: topic animation visibility follows prepend headers (inbox: false)
+00:05 +137: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/topic_offscreen_animation_test.dart: topic animation visibility follows prepend headers (inbox: false)
+00:05 +138: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/topic_offscreen_animation_test.dart: topic animation visibility follows prepend headers (inbox: false)
+00:05 +139: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/topic_offscreen_animation_test.dart: topic animation visibility follows prepend headers (inbox: false)
+00:05 +140: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/topic_offscreen_animation_test.dart: topic animation visibility follows prepend headers (inbox: false)
+00:05 +141: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/topic_offscreen_animation_test.dart: topic animation visibility follows prepend headers (inbox: false)
+00:05 +142: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/topic_offscreen_animation_test.dart: topic animation visibility follows prepend headers (inbox: false)
+00:05 +143: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/keyboard_navigation_test.dart: mouse-opened topic loses its outline when closed at Size(1440.0, 900.0)
+00:05 +144: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/keyboard_navigation_test.dart: mouse-opened topic loses its outline when closed at Size(1440.0, 900.0)
+00:05 +145: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/keyboard_navigation_test.dart: mouse-opened topic loses its outline when closed at Size(1440.0, 900.0)
+00:05 +146: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/keyboard_navigation_test.dart: mouse-opened topic loses its outline when closed at Size(1440.0, 900.0)
+00:05 +147: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/keyboard_navigation_test.dart: mouse-opened topic loses its outline when closed at Size(1440.0, 900.0)
+00:05 +148: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/keyboard_navigation_test.dart: mouse-opened topic loses its outline when closed at Size(1440.0, 900.0)
+00:05 +149: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/keyboard_navigation_test.dart: mouse-opened topic loses its outline when closed at Size(1440.0, 900.0)
+00:05 +150: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/keyboard_navigation_test.dart: mouse-opened topic loses its outline when closed at Size(1440.0, 900.0)
+00:05 +151: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/keyboard_navigation_test.dart: mouse-opened topic loses its outline when closed at Size(1440.0, 900.0)
+00:05 +152: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/keyboard_navigation_test.dart: mouse-opened topic loses its outline when closed at Size(1440.0, 900.0)
+00:05 +153: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/keyboard_navigation_test.dart: mouse-opened topic loses its outline when closed at Size(1440.0, 900.0)
+00:05 +154: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/keyboard_navigation_test.dart: mouse-opened topic loses its outline when closed at Size(1440.0, 900.0)
+00:05 +155: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/keyboard_navigation_test.dart: mouse-opened topic loses its outline when closed at Size(1440.0, 900.0)
+00:05 +156: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/keyboard_navigation_test.dart: mouse-opened topic loses its outline when closed at Size(1440.0, 900.0)
+00:05 +157: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/keyboard_navigation_test.dart: mouse-opened topic loses its outline when closed at Size(1440.0, 900.0)
+00:05 +158: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/keyboard_navigation_test.dart: mouse-opened topic loses its outline when closed at Size(1440.0, 900.0)
+00:05 +159: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/keyboard_navigation_test.dart: mouse-opened topic loses its outline when closed at Size(1440.0, 900.0)
+00:05 +160: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/keyboard_navigation_test.dart: mouse-opened topic loses its outline when closed at Size(1440.0, 900.0)
+00:05 +161: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/keyboard_navigation_test.dart: mouse-opened topic loses its outline when closed at Size(1440.0, 900.0)
+00:05 +162: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/keyboard_navigation_test.dart: mouse-opened topic loses its outline when closed at Size(1440.0, 900.0)
+00:05 +163: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/keyboard_navigation_test.dart: mouse-opened topic loses its outline when closed at Size(1440.0, 900.0)
+00:06 +164: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/keyboard_navigation_test.dart: mouse-opened topic loses its outline when closed at Size(1440.0, 900.0)
+00:06 +165: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/topic_offscreen_animation_test.dart: retained topic GIF stops listening offscreen (inbox: false)
+00:06 +166: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/topic_offscreen_animation_test.dart: retained topic GIF stops listening offscreen (inbox: false)
+00:06 +167: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/topic_offscreen_animation_test.dart: retained topic GIF stops listening offscreen (inbox: false)
+00:06 +168: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/topic_offscreen_animation_test.dart: retained topic GIF stops listening offscreen (inbox: false)
+00:06 +169: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/topic_offscreen_animation_test.dart: retained topic GIF stops listening offscreen (inbox: false)
+00:06 +170: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/topic_offscreen_animation_test.dart: retained topic GIF stops listening offscreen (inbox: false)
+00:06 +171: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/topic_offscreen_animation_test.dart: retained topic GIF stops listening offscreen (inbox: false)
+00:06 +172: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/topic_offscreen_animation_test.dart: retained topic GIF stops listening offscreen (inbox: false)
+00:06 +173: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/topic_offscreen_animation_test.dart: retained topic GIF stops listening offscreen (inbox: false)
+00:06 +174: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/topic_offscreen_animation_test.dart: retained topic GIF stops listening offscreen (inbox: false)
+00:06 +175: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/topic_offscreen_animation_test.dart: retained topic GIF stops listening offscreen (inbox: false)
+00:06 +176: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/topic_offscreen_animation_test.dart: retained topic GIF stops listening offscreen (inbox: false)
+00:06 +177: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/topic_offscreen_animation_test.dart: retained topic GIF stops listening offscreen (inbox: false)
+00:06 +178: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/topic_offscreen_animation_test.dart: retained topic GIF stops listening offscreen (inbox: false)
+00:06 +179: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/topic_offscreen_animation_test.dart: retained topic GIF stops listening offscreen (inbox: false)
+00:06 +180: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/topic_offscreen_animation_test.dart: retained topic GIF stops listening offscreen (inbox: false)
+00:06 +181: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/topic_offscreen_animation_test.dart: retained topic GIF stops listening offscreen (inbox: false)
+00:06 +182: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/topic_offscreen_animation_test.dart: retained topic GIF stops listening offscreen (inbox: false)
+00:06 +183: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/topic_offscreen_animation_test.dart: retained topic GIF stops listening offscreen (inbox: false)
+00:06 +184: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/topic_offscreen_animation_test.dart: retained topic GIF stops listening offscreen (inbox: false)
+00:06 +185: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/topic_offscreen_animation_test.dart: retained topic GIF stops listening offscreen (inbox: false)
+00:06 +186: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/keyboard_navigation_test.dart: B bookmarks the open topic and advertises the footer shortcut at Size(1440.0, 900.0) (variant: TargetPlatform.macOS)
+00:06 +187: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/keyboard_navigation_test.dart: B bookmarks the open topic and advertises the footer shortcut at Size(1440.0, 900.0) (variant: TargetPlatform.macOS)
+00:06 +188: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/keyboard_navigation_test.dart: B bookmarks the open topic and advertises the footer shortcut at Size(1440.0, 900.0) (variant: TargetPlatform.macOS)
+00:06 +189: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/keyboard_navigation_test.dart: B bookmarks the open topic and advertises the footer shortcut at Size(1440.0, 900.0) (variant: TargetPlatform.macOS)
+00:06 +190: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/keyboard_navigation_test.dart: B bookmarks the open topic and advertises the footer shortcut at Size(1440.0, 900.0) (variant: TargetPlatform.macOS)
+00:06 +191: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/keyboard_navigation_test.dart: B bookmarks the open topic and advertises the footer shortcut at Size(1440.0, 900.0) (variant: TargetPlatform.macOS)
+00:06 +192: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/keyboard_navigation_test.dart: B bookmarks the open topic and advertises the footer shortcut at Size(1440.0, 900.0) (variant: TargetPlatform.macOS)
+00:06 +193: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/keyboard_navigation_test.dart: B bookmarks the open topic and advertises the footer shortcut at Size(1440.0, 900.0) (variant: TargetPlatform.macOS)
+00:06 +194: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/keyboard_navigation_test.dart: B bookmarks the open topic and advertises the footer shortcut at Size(1440.0, 900.0) (variant: TargetPlatform.macOS)
+00:07 +195: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/keyboard_navigation_test.dart: B bookmarks the open topic and advertises the footer shortcut at Size(1440.0, 900.0) (variant: TargetPlatform.macOS)
+00:07 +196: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/keyboard_navigation_test.dart: B bookmarks the open topic and advertises the footer shortcut at Size(1440.0, 900.0) (variant: TargetPlatform.macOS)
+00:07 +197: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/keyboard_navigation_test.dart: B bookmarks the open topic and advertises the footer shortcut at Size(1440.0, 900.0) (variant: TargetPlatform.macOS)
+00:07 +198: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/topic_offscreen_animation_test.dart: retained topic GIF stops listening offscreen (inbox: true)
+00:07 +199: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/topic_offscreen_animation_test.dart: retained topic GIF stops listening offscreen (inbox: true)
+00:07 +200: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/topic_offscreen_animation_test.dart: retained topic GIF stops listening offscreen (inbox: true)
+00:08 +201: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/keyboard_navigation_test.dart: B bookmarks the open topic and advertises the footer shortcut at Size(390.0, 844.0) (variant: TargetPlatform.linux)
+00:08 +202: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/keyboard_navigation_test.dart: B does not bookmark a topic while signed out
+00:08 +203: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/keyboard_navigation_test.dart: topic sequences work after closing the category filter and opening a topic page (variant: TargetPlatform.macOS)
+00:08 +204: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/keyboard_navigation_test.dart: topic sequences work after closing the tag filter and opening a topic page (variant: TargetPlatform.macOS)
+00:09 +205: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/keyboard_navigation_test.dart: G K opens the first listed topic from an unlisted topic at 1440.0px
+00:09 +206: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/keyboard_navigation_test.dart: G J opens the first listed topic from an unlisted topic at 1440.0px
+00:09 +207: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/keyboard_navigation_test.dart: G J and G K open adjacent topics at 1440.0px
+00:10 +208: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/keyboard_navigation_test.dart: G K opens the first listed topic from an unlisted topic at 390.0px
+══╡ EXCEPTION CAUGHT BY FLUTTER TEST FRAMEWORK ╞════════════════════════════════════════════════════
+The following TestFailure was thrown running a test:
+Expected: exactly one matching candidate
+  Actual: _HitTestableWidgetFinder:<Found 0 widgets with key [<'topic-list-keyboard-1'>]
+(considering only hit-testable widgets with a RenderBox): []>
+   Which: means none were found but one was expected
+
+When the exception was thrown, this was the stack:
+#4      _expectTopicVisible (file:///Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/keyboard_navigation_test.dart:888:3)
+#5      main.<anonymous closure> (file:///Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/keyboard_navigation_test.dart:213:11)
+<asynchronous suspension>
+#6      testWidgets.<anonymous closure>.<anonymous closure> (package:flutter_test/src/widget_tester.dart:192:15)
+<asynchronous suspension>
+#7      TestWidgetsFlutterBinding._runTestBody (package:flutter_test/src/binding.dart:1953:5)
+<asynchronous suspension>
+<asynchronous suspension>
+(elided one frame from package:stack_trace)
+
+This was caught by the test expectation on the following line:
+  file:///Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/keyboard_navigation_test.dart line 888
+The test description was:
+  G K opens the first listed topic from an unlisted topic at 390.0px
+════════════════════════════════════════════════════════════════════════════════════════════════════
+00:11 +208 -1: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/keyboard_navigation_test.dart: G K opens the first listed topic from an unlisted topic at 390.0px [E]
+  Test failed. See exception logs above.
+  The test description was: G K opens the first listed topic from an unlisted topic at 390.0px
+  
+00:11 +208 -1: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/keyboard_navigation_test.dart: G J opens the first listed topic from an unlisted topic at 390.0px
+══╡ EXCEPTION CAUGHT BY FLUTTER TEST FRAMEWORK ╞════════════════════════════════════════════════════
+The following TestFailure was thrown running a test:
+Expected: exactly one matching candidate
+  Actual: _HitTestableWidgetFinder:<Found 0 widgets with key [<'topic-list-keyboard-1'>]
+(considering only hit-testable widgets with a RenderBox): []>
+   Which: means none were found but one was expected
+
+When the exception was thrown, this was the stack:
+#4      _expectTopicVisible (file:///Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/keyboard_navigation_test.dart:888:3)
+#5      main.<anonymous closure> (file:///Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/keyboard_navigation_test.dart:213:11)
+<asynchronous suspension>
+#6      testWidgets.<anonymous closure>.<anonymous closure> (package:flutter_test/src/widget_tester.dart:192:15)
+<asynchronous suspension>
+#7      TestWidgetsFlutterBinding._runTestBody (package:flutter_test/src/binding.dart:1953:5)
+<asynchronous suspension>
+<asynchronous suspension>
+(elided one frame from package:stack_trace)
+
+This was caught by the test expectation on the following line:
+  file:///Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/keyboard_navigation_test.dart line 888
+The test description was:
+  G J opens the first listed topic from an unlisted topic at 390.0px
+════════════════════════════════════════════════════════════════════════════════════════════════════
+00:12 +208 -2: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/keyboard_navigation_test.dart: G J opens the first listed topic from an unlisted topic at 390.0px [E]
+  Test failed. See exception logs above.
+  The test description was: G J opens the first listed topic from an unlisted topic at 390.0px
+  
+00:12 +208 -2: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/keyboard_navigation_test.dart: G J and G K open adjacent topics at 390.0px
+00:12 +209 -2: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/keyboard_navigation_test.dart: Previous button opens the first listed topic from an unlisted topic
+00:12 +210 -2: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/keyboard_navigation_test.dart: Next button opens the first listed topic from an unlisted topic
+00:12 +211 -2: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/keyboard_navigation_test.dart: Button scrolls to the previous topic outside the viewport
+00:13 +212 -2: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/keyboard_navigation_test.dart: Button scrolls to the next topic outside the viewport
+00:13 +213 -2: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/keyboard_navigation_test.dart: Shortcut scrolls to the previous topic outside the viewport
+00:13 +214 -2: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/keyboard_navigation_test.dart: Shortcut scrolls to the next topic outside the viewport
+00:13 +215 -2: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/keyboard_navigation_test.dart: clicking topic rows preserves the list scroll position
+00:14 +216 -2: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/keyboard_navigation_test.dart: topic arrows and shortcuts follow empty and refreshed source lists
+00:14 +217 -2: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/keyboard_navigation_test.dart: expired and interrupted topic sequences leave J as a post command
+00:14 +218 -2: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/keyboard_navigation_test.dart: a topic sequence is cancelled when another topic opens
+00:14 +219 -2: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/keyboard_navigation_test.dart: holding a completed topic sequence does not repeat or move posts
+00:15 +220 -2: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/keyboard_navigation_test.dart: adjacent topic pagination respects finish (variant: TargetPlatform.macOS)
+00:15 +221 -2: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/keyboard_navigation_test.dart: adjacent topic pagination respects change topic (variant: TargetPlatform.macOS)
+00:15 +222 -2: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/keyboard_navigation_test.dart: adjacent topic pagination respects change tab (variant: TargetPlatform.macOS)
+00:15 +223 -2: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/keyboard_navigation_test.dart: adjacent topic pagination respects return to tab (variant: TargetPlatform.macOS)
+00:16 +224 -2: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/keyboard_navigation_test.dart: adjacent topic pagination respects focus search (variant: TargetPlatform.macOS)
+00:16 +225 -2: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/keyboard_navigation_test.dart: opening a topic with the mouse retains its selection as the cursor moves
+00:16 +226 -2: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/keyboard_navigation_test.dart: opening a topic with the keyboard retains its selection as the cursor moves
+00:16 +227 -2: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/keyboard_navigation_test.dart: 1440.0 O reads, replies, returns, and selects the next topic
+00:17 +228 -2: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/keyboard_navigation_test.dart: 1440.0 Enter reads, replies, returns, and selects the next topic
+00:18 +229 -2: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/keyboard_navigation_test.dart: 1000.0 O reads, replies, returns, and selects the next topic
+00:18 +230 -2: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/keyboard_navigation_test.dart: 1000.0 Enter reads, replies, returns, and selects the next topic
+00:18 +231 -2: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/keyboard_navigation_test.dart: list and reader commands keep independent selections in split view
+00:19 +232 -2: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/keyboard_navigation_test.dart: topic selection reaches virtualized rows and continues into the next page
+00:19 +233 -2: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/keyboard_navigation_test.dart: typing and modal focus suspend navigation and help
+00:20 +234 -2: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/keyboard_navigation_test.dart: list J/K shortcuts pause for search and dialogs
+00:20 +235 -2: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/keyboard_navigation_test.dart: a pending page respects finish
+00:20 +236 -2: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/keyboard_navigation_test.dart: a pending page respects open topic
+00:21 +237 -2: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/keyboard_navigation_test.dart: a pending page respects focus search
+00:22 +238 -2: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/keyboard_navigation_test.dart: a refreshed list preserves topic identity and does not skip a removed row
+00:22 +239 -2: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/keyboard_navigation_test.dart: each tab restores its own list cursor (variant: TargetPlatform.macOS)
+00:22 +240 -2: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/keyboard_navigation_test.dart: each tab restores its own list cursor (variant: TargetPlatform.linux)
+00:22 +241 -2: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/keyboard_navigation_test.dart: a pending page cannot move the cursor in another tab (variant: TargetPlatform.linux)
+00:23 +242 -2: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/keyboard_navigation_test.dart: manual post scrolling clears the reply target
+00:23 +243 -2: Some tests failed.
+
+Failing tests:
+  /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/keyboard_navigation_test.dart: G J opens the first listed topic from an unlisted topic at 390.0px
+  /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/keyboard_navigation_test.dart: G K opens the first listed topic from an unlisted topic at 390.0px

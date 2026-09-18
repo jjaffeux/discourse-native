@@ -1,0 +1,19 @@
+Waiting for another flutter command to release the startup lock...
+Resolving dependencies...
+Downloading packages...
+  code_assets 2.0.0 (2.1.0 available)
+  equatable 2.1.0 (3.0.0 available)
+! flutter_webrtc 1.6.2 from path packages/discourse_voice/third_party/flutter_webrtc (overridden)
+! flutter_widget_from_html_core 0.17.4 from path packages/flutter_widget_from_html_core (overridden)
+  kalender 0.29.1 (0.30.0 available)
+  livekit_client 2.12.0 (2.13.0 available)
+  material_color_utilities 0.13.0 (0.13.1 available)
+  test_api 0.7.12 (0.7.14 available)
+! video_player_avfoundation 2.12.0 from path packages/video_player_avfoundation (overridden)
+  window_to_front 0.0.4 (1.0.0 available)
+Got dependencies!
+7 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+Building macOS application...                                   
+/Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/macos/Runner.xcodeproj: Runner: ld: warning: address=0x4EBB points before section(22) start and the target atom is ambiguous
+✓ Built build/macos/Build/Products/Profile/Discourse.app (137.9MB)
