@@ -31,8 +31,20 @@ assertion before the production fix.
 fixture natively in profile mode. Each idle sample lasts three seconds after
 a one-second grace period. It records existing completers' `hasListeners`,
 delivered image-frame identity changes, scheduler frames, UI frame count and
-aggregate UI build time. The observer adds no image listeners and schedules no
-frames itself. It tracks the original visible rows through retention, re-entry
+aggregate UI build time. Timing samples use exact `Timeline.now` start/end
+bounds, wait 1100 ms for batched timing delivery, and retain only frames whose
+vsync timestamp falls inside the interval. The raw selected vsync, build and
+raster arrays are saved. Scheduler callbacks and active image listeners remain
+the primary measures of idle work.
+
+The collector targets only message IDs 98–100 and their known GIF `SiteImage`
+descendants, requires exactly three `Image`s with multi-frame completers, and
+requires a decoded `RawImage` for each mounted target. It seeds image identities
+at every phase's start, so initial observations and scrolling/grace-period
+changes are not counted. At both sample endpoints it rejects a phase unless all
+three original rows/images are mounted and visible, mounted and retained, or
+fully evicted as appropriate. Re-entry therefore requires the original elements.
+The observer adds no image listeners and schedules no frames itself. It tracks the original visible rows through retention, re-entry
 and eviction. It waits for a resumed app lifecycle before starting and marks
 a sample invalid if a lifecycle observer sees the app leave the foreground.
 Image identity observations are delivered frames, not direct
@@ -47,7 +59,8 @@ listener, effective ticker mode is disabled, and the binding reports zero
 transient callbacks and no scheduled frame after the grace period.
 
 The regression also checks retained element identity, effective focus ancestry,
-re-entry animation, ancestor tab suspension, explicit user pause surviving a
+three-row visible/retained/re-entry/eviction phase gates, re-entry animation,
+ancestor tab suspension, explicit user pause surviving a
 local reversal, explicit resume, and final eviction/disposal. A test-only focus
 assertion was corrected to inspect ancestor focus restrictions rather than a
 nested HTML focus node's own flag.

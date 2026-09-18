@@ -55,6 +55,43 @@ void main() {
         ),
       );
       final position = tester.state<ScrollableState>(scrollable).position;
+      final gifRows = find
+          .byType(ChatMessageTile)
+          .evaluate()
+          .where(
+            (element) => const {
+              98,
+              99,
+              100,
+            }.contains((element.widget as ChatMessageTile).messageId),
+          )
+          .toList();
+      expect(gifRows, hasLength(3));
+      void expectGifPhase({required bool retained}) {
+        for (final row in gifRows) {
+          expect(row.mounted, isTrue);
+          RenderObject? render = row.renderObject;
+          while (render != null &&
+              render.parentData is! SliverMultiBoxAdaptorParentData) {
+            render = render.parent;
+          }
+          expect(
+            (render!.parentData! as SliverMultiBoxAdaptorParentData).keptAlive,
+            retained,
+          );
+          if (!retained) {
+            expect(
+              tester
+                  .getRect(find.byElementPredicate((e) => identical(e, row)))
+                  .overlaps(tester.getRect(scrollable)),
+              isTrue,
+            );
+          }
+        }
+      }
+
+      expectGifPhase(retained: false);
+
       final tile = find
           .byType(ChatMessageTile)
           .evaluate()
@@ -112,8 +149,10 @@ void main() {
         isTrue,
       );
       await frames(3);
+      expectGifPhase(retained: true);
       builds = 0;
       await frames(10);
+      expectGifPhase(retained: true);
       final retainedBuilds = builds;
       debugPrint(
         'CHAT_ANIMATION visible=$visibleBuilds retained=$retainedBuilds ticker=${TickerMode.valuesOf(image).enabled} listeners=${completer.hasListeners} scheduled=${tester.binding.hasScheduledFrame} callbacks=${tester.binding.transientCallbackCount}',
@@ -132,6 +171,7 @@ void main() {
       }
       await frames(4);
       expect(tile.mounted, isTrue);
+      expectGifPhase(retained: false);
       builds = 0;
       await frames(10);
       expect(builds, greaterThan(0));
@@ -181,6 +221,7 @@ void main() {
       position.jumpTo(position.maxScrollExtent);
       await frames(4);
       expect(tile.mounted, isFalse);
+      expect(gifRows.where((row) => row.mounted), isEmpty);
     } finally {
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pump();
