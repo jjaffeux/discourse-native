@@ -14,7 +14,6 @@ import 'package:discourse_native/src/shell/resizable_pane.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
-import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show RenderParagraph;
 import 'package:flutter/services.dart';
@@ -50,7 +49,12 @@ void main() {
             .dy,
       ),
     );
-    expect(tester.widget<DButton>(toggle).expanded, isTrue);
+    expect(tester.widget<DButton>(toggle).tooltip, 'Collapse sidebar');
+    final expandedColor = tester.widget<DButton>(toggle).foregroundColor!;
+    expect(
+      tester.widget<DButton>(toggle).variant,
+      DButtonVariant.transparentBackground,
+    );
 
     await tester.tap(toggle);
     await tester.pumpAndSettle();
@@ -60,7 +64,11 @@ void main() {
       greaterThan(contentWidth),
     );
     expect(tester.element(find.byType(MainContent)), same(content));
-    expect(tester.widget<DButton>(toggle).expanded, isFalse);
+    expect(tester.widget<DButton>(toggle).tooltip, 'Expand sidebar');
+    expect(
+      tester.widget<DButton>(toggle).foregroundColor!.a,
+      lessThan(expandedColor.a),
+    );
 
     await tester.tap(toggle);
     await tester.pumpAndSettle();
@@ -94,23 +102,10 @@ void main() {
     expect(tester.getSize(find.byType(InstanceRail)).width, 48);
 
     final aggregateButton = find.byKey(const ValueKey('aggregate-rail-button'));
-    expect(tester.getSize(aggregateButton), const Size.square(44));
+    expect(tester.widget<DButton>(aggregateButton).size, DButtonSize.large);
     expect(
-      tester.getSize(find.byKey(const ValueKey('aggregate-rail-visual'))),
-      const Size.square(32),
-    );
-    expect(
-      tester
-          .widget<DIcon>(
-            find.descendant(
-              of: aggregateButton,
-              matching: find.byWidgetPredicate(
-                (widget) => widget is DIcon && widget.icon == DIcons.house,
-              ),
-            ),
-          )
-          .size,
-      16,
+      tester.widget<DButton>(aggregateButton).variant,
+      DButtonVariant.transparentBackground,
     );
 
     final topics = find.descendant(

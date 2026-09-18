@@ -64,8 +64,10 @@ class InstanceRail extends StatelessWidget {
                             : sidebarExpanded
                             ? 'Collapse sidebar'
                             : 'Expand sidebar',
-                        expanded: sidebarExpanded,
-                        variant: DButtonVariant.ghost,
+                        variant: DButtonVariant.transparentBackground,
+                        foregroundColor: sidebarExpanded
+                            ? theme.shell.railForeground
+                            : theme.shell.railForeground.withValues(alpha: 0.6),
                         size: DButtonSize.large,
                         onPressed: onToggleSidebar,
                       ),
@@ -891,45 +893,27 @@ class _AggregateRailButtonState extends State<_AggregateRailButton> {
           ),
         ),
         Center(
-          child: DTooltip(
-            message: 'Aggregate',
-            shortcut: widget.shortcutKey == null
-                ? null
-                : DShortcut(
-                    primaryShortcutForPlatform(
-                      theme.platform,
-                      widget.shortcutKey!,
-                    ),
-                  ),
-            child: InkWell(
-              key: const ValueKey('aggregate-rail-button'),
-              onTap: widget.onTap,
-              onHover: (hovered) => setState(() => _hovered = hovered),
-              borderRadius: BorderRadius.circular(_railControlExtent / 2),
-              child: SizedBox.square(
-                dimension: _railControlExtent,
-                child: Center(
-                  child: AnimatedContainer(
-                    key: const ValueKey('aggregate-rail-visual'),
-                    duration: const Duration(milliseconds: 180),
-                    width: _railVisualSize,
-                    height: _railVisualSize,
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      color: widget.selected
-                          ? foreground
-                          : foreground.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(
-                        widget.selected || _hovered ? 10 : _railVisualSize / 2,
+          child: MouseRegion(
+            onEnter: (_) => setState(() => _hovered = true),
+            onExit: (_) => setState(() => _hovered = false),
+            child: Semantics(
+              selected: widget.selected,
+              child: DButton.iconOnly(
+                key: const ValueKey('aggregate-rail-button'),
+                icon: const DIcon(DIcons.house),
+                tooltip: 'Aggregate',
+                shortcut: widget.shortcutKey == null
+                    ? null
+                    : DShortcut(
+                        primaryShortcutForPlatform(
+                          theme.platform,
+                          widget.shortcutKey!,
+                        ),
                       ),
-                    ),
-                    child: DIcon(
-                      DIcons.house,
-                      size: _railIconSize,
-                      color: widget.selected ? theme.shell.rail : foreground,
-                    ),
-                  ),
-                ),
+                variant: DButtonVariant.transparentBackground,
+                size: DButtonSize.large,
+                foregroundColor: foreground,
+                onPressed: widget.onTap,
               ),
             ),
           ),

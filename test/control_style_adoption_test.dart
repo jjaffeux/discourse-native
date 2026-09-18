@@ -72,7 +72,11 @@ void main() {
           'borderRadius': 1,
         },
         // These are container/rail/navigation geometry, not alternative palettes.
-        'lib/src/shell/instance_rail.dart': {'borderRadius': 1},
+        // Rail actions use the rail foreground; collapsed sidebar is muted.
+        'lib/src/shell/instance_rail.dart': {
+          'borderRadius': 1,
+          'foregroundColor': 2,
+        },
       },
       reason:
           'Use the kit variant and size first. Document a concrete semantic or layout reason before adding an exception.',
