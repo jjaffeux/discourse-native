@@ -1047,7 +1047,34 @@ class _SectionHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final description = '${collapsed ? 'Expand' : 'Collapse'} ${section.title}';
+    final unreadDescription = section.unreadCount > 0
+        ? ', ${section.unreadCount} unread ${section.unreadCount == 1 ? 'message' : 'messages'}'
+        : '';
+    final description =
+        '${collapsed ? 'Expand' : 'Collapse'} ${section.title}$unreadDescription';
+    final label = Row(
+      mainAxisSize: MainAxisSize.min,
+      spacing: DSpacing.xs,
+      children: [
+        Flexible(
+          child: Text(
+            section.title,
+            maxLines: MediaQuery.textScalerOf(context).scale(14) > 14 ? 2 : 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+        if (section.unreadCount > 0)
+          DBadge(
+            key: ValueKey('sidebar-section-unread-${section.id}'),
+            size: DBadgeSize.compact,
+            backgroundColor: Theme.of(context).discourse.success,
+            foregroundColor: Theme.of(context).discourse.notificationForeground,
+            child: Text(
+              section.unreadCount > 99 ? '99+' : '${section.unreadCount}',
+            ),
+          ),
+      ],
+    );
     final expandIcon = Directionality.of(context) == TextDirection.rtl
         ? DIcons.chevronLeft
         : DIcons.chevronRight;
@@ -1084,17 +1111,9 @@ class _SectionHeader extends StatelessWidget {
               semanticLabel: description,
               expanded: !collapsed,
               onPressed: onPressed,
-              child: ExcludeSemantics(
-                child: Text(
-                  section.title,
-                  maxLines: MediaQuery.textScalerOf(context).scale(14) > 14
-                      ? 2
-                      : 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
+              child: ExcludeSemantics(child: label),
             )
-          : DSidebarGroupLabel(child: Text(section.title)),
+          : DSidebarGroupLabel(child: label),
     );
   }
 }

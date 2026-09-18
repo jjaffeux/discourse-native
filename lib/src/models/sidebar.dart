@@ -129,6 +129,7 @@ class SidebarSection {
     this.actionShortcut,
     this.onAction,
     this.headerActionsBuilder,
+    this.unreadCount = 0,
   }) : assert(showHeader || !collapsible);
 
   /// Core's hidden `max_sidebar_section_links` setting is 50 and is enforced
@@ -207,6 +208,9 @@ class SidebarSection {
   final String? actionLabel;
   final SingleActivator? actionShortcut;
   final VoidCallback? onAction;
+
+  /// Unread messages across the section, independent of its collapsed state.
+  final int unreadCount;
 
   /// App-owned Native controls composed into the sidebar action slot.
   final WidgetBuilder? headerActionsBuilder;

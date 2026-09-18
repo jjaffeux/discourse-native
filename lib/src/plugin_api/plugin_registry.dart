@@ -377,6 +377,7 @@ final class PluginRegistry
       SidebarSection(
         id: section.id,
         title: section.title,
+        unreadCount: section.unreadCount,
         destinations: [
           for (final destination in section.destinations)
             _ownedDestination(plugin, destination),
