@@ -105,7 +105,10 @@ class TopicListBottomBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) => DCardFooter(
     key: const ValueKey('topic-list-bottom-bar'),
-    backgroundColor: Theme.of(context).shell.content,
+    backgroundColor: context.isTouch
+        ? Theme.of(context).shell.content
+        : DTokens.of(context).footerBackground,
+    borderColor: context.isTouch ? null : DTokens.of(context).footerBorder,
     rounded: !context.isTouch,
     padding: EdgeInsets.zero,
     child: ConstrainedBox(

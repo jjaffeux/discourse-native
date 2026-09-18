@@ -2410,7 +2410,10 @@ class _TopicBottomBar extends StatelessWidget {
     final showNotifications = hasTopic && isConnected;
     return DCardFooter(
       key: const ValueKey('topic-bottom-bar'),
-      backgroundColor: topic == null ? theme.shell.panel : theme.shell.content,
+      backgroundColor: context.isTouch
+          ? (topic == null ? theme.shell.panel : theme.shell.content)
+          : DTokens.of(context).footerBackground,
+      borderColor: context.isTouch ? null : DTokens.of(context).footerBorder,
       rounded: !context.isTouch,
       padding: EdgeInsets.zero,
       child: LayoutBuilder(

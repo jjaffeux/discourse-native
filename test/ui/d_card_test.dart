@@ -31,6 +31,88 @@ Widget host(
 
 void main() {
   testWidgets(
+    'desktop footer palette matches CSS fill and hairline across themes',
+    (tester) async {
+      const captureKey = ValueKey('footer-colors');
+      for (final palette in const [
+        (
+          background: Color(0xFF2D303E),
+          foreground: Color(0xFFF2F2F2),
+          fill: Color(0xFF373A47),
+          line: Color(0xFF454754),
+        ),
+        (
+          background: Color(0xFFFFFFFF),
+          foreground: Color(0xFF222222),
+          fill: Color(0xFFF4F4F4),
+          line: Color(0xFFE4E4E4),
+        ),
+      ]) {
+        final theme = ThemeData(
+          colorScheme: ColorScheme.light(
+            surface: palette.background,
+            onSurface: palette.foreground,
+          ),
+        );
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: theme,
+            home: Builder(
+              builder: (context) {
+                final tokens = DTokens.of(context);
+                return Center(
+                  child: RepaintBoundary(
+                    key: captureKey,
+                    child: SizedBox(
+                      width: 128,
+                      height: 48,
+                      child: DCardFooter(
+                        rounded: true,
+                        backgroundColor: tokens.footerBackground,
+                        borderColor: tokens.footerBorder,
+                        padding: EdgeInsets.zero,
+                        child: const SizedBox.expand(),
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        final boundary = tester.renderObject<RenderRepaintBoundary>(
+          find.byKey(captureKey),
+        );
+        await tester.runAsync(() async {
+          final image = await boundary.toImage(pixelRatio: 1);
+          try {
+            final pixels = (await image.toByteData(
+              format: ImageByteFormat.rawRgba,
+            ))!;
+            void expectColor(int x, int y, Color expected) {
+              final offset = (y * image.width + x) * 4;
+              final argb = expected.toARGB32();
+              for (var channel = 0; channel < 3; channel++) {
+                expect(
+                  pixels.getUint8(offset + channel),
+                  closeTo((argb >> (16 - channel * 8)) & 255, 1),
+                );
+              }
+              expect(pixels.getUint8(offset + 3), 255);
+            }
+
+            expectColor(64, 24, palette.fill);
+            expectColor(64, 0, palette.line);
+          } finally {
+            image.dispose();
+          }
+        });
+      }
+    },
+  );
+
+  testWidgets(
     'rounded footer clips opaque children and keeps its top outline',
     (tester) async {
       const captureKey = ValueKey('footer-capture');
