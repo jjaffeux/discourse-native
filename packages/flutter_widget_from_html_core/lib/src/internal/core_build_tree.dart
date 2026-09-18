@@ -15,9 +15,12 @@ import 'flattener.dart';
 
 // https://infra.spec.whatwg.org/#ascii-whitespace
 const _asciiWhitespace = r'[\u{0009}\u{000A}\u{000C}\u{000D}\u{0020}]';
-final _regExpSpaceLeading = RegExp('^$_asciiWhitespace+', unicode: true);
-final _regExpSpaceTrailing = RegExp('$_asciiWhitespace+\$', unicode: true);
 final _regExpSpaces = RegExp('$_asciiWhitespace+', unicode: true);
+
+bool _isAsciiWhitespace(int codeUnit) => switch (codeUnit) {
+      0x09 || 0x0A || 0x0C || 0x0D || 0x20 => true,
+      _ => false,
+    };
 
 final _logger = Logger('fwfh.CoreBuildTree');
 final _rootElement = dom.Element.tag('root');
@@ -265,10 +268,16 @@ class CoreBuildTree extends BuildTree {
   }
 
   void _addText(String data) {
-    final leading = _regExpSpaceLeading.firstMatch(data);
-    final trailing = _regExpSpaceTrailing.firstMatch(data);
-    final start = leading?.end ?? 0;
-    final end = trailing?.start ?? data.length;
+    // Inspect only the edges: a trailing-whitespace regex scans the entire
+    // string even when ordinary prose ends in a non-whitespace character.
+    var start = 0;
+    while (start < data.length && _isAsciiWhitespace(data.codeUnitAt(start))) {
+      start++;
+    }
+    var end = data.length;
+    while (end > start && _isAsciiWhitespace(data.codeUnitAt(end - 1))) {
+      end--;
+    }
 
     if (end <= start) {
       // the string contains all spaces
@@ -276,8 +285,8 @@ class CoreBuildTree extends BuildTree {
       return;
     }
 
-    if (leading != null) {
-      addWhitespace(leading.group(0)!);
+    if (start > 0) {
+      addWhitespace(data.substring(0, start));
     }
 
     final contents = data.substring(start, end);
@@ -306,8 +315,8 @@ class CoreBuildTree extends BuildTree {
       }
     }
 
-    if (trailing != null) {
-      addWhitespace(trailing.group(0)!);
+    if (end < data.length) {
+      addWhitespace(data.substring(end));
     }
   }
 

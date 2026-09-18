@@ -17,6 +17,8 @@ import 'package:flutter_widget_from_html_core/flutter_widget_from_html_core.dart
 import 'package:vm_service/vm_service.dart' as vm;
 import 'package:vm_service/vm_service_io.dart';
 
+import 'long_post_fixture.dart';
+
 final _body = ValueNotifier<Widget>(const SizedBox.shrink());
 final _layouts = <int>[];
 final _frames = <ui.FrameTiming>[];
@@ -59,13 +61,15 @@ Future<void> main() async {
       _frames.clear();
       _layouts.clear();
       final start = developer.Timeline.now;
-      final html = List.generate(
-        450,
-        (i) =>
-            '<p>Paragraph $i: This local paragraph '
-            'exercises the production HTML renderer with variable post heights. '
-            'Scrolling through a long discussion should remain responsive.</p>',
-      ).join();
+      final html = Platform.environment['LONG_POST_VARIETY'] == 'true'
+          ? variedLongPostHtml()
+          : List.generate(
+              450,
+              (i) =>
+                  '<p>Paragraph $i: This local paragraph '
+                  'exercises the production HTML renderer with variable post heights. '
+                  'Scrolling through a long discussion should remain responsive.</p>',
+            ).join();
       Future<void>? mounting;
       final cooked = CookedHtml(
         html: html,
@@ -141,6 +145,16 @@ Future<void> main() async {
       }
       await Future<void>.delayed(const Duration(milliseconds: 150));
       final result = <String, Object?>{
+        'fixture': Platform.environment['LONG_POST_VARIETY'] == 'true'
+            ? 'varied'
+            : 'plain',
+        'semanticsEnabled': binding.platformDispatcher.semanticsEnabled,
+        'devicePixelRatio':
+            binding.platformDispatcher.views.first.devicePixelRatio,
+        'physicalWidth':
+            binding.platformDispatcher.views.first.physicalSize.width,
+        'physicalHeight':
+            binding.platformDispatcher.views.first.physicalSize.height,
         'run': run,
         'mode': mode == RenderMode.column
             ? 'column'
@@ -174,6 +188,7 @@ Future<void> main() async {
   );
   await file.writeAsString(const JsonEncoder.withIndent('  ').convert(results));
   stdout.writeln('LONG_POST_RENDER complete ${file.path}');
+  if (Platform.environment['LONG_POST_EXIT'] == 'true') exit(0);
 }
 
 List<int> _htmlBuildDurations(vm.Timeline? timeline) {

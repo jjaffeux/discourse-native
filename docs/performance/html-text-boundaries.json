@@ -1,0 +1,5157 @@
+{
+  "status": "pending native boundary-candidate comparison; not accepted or merged",
+  "device": {
+    "cpu": "Apple M4 Pro",
+    "os": "macOS 26.6.2 (25G83)",
+    "flutter": "3.47.4",
+    "dart": "3.13.3",
+    "contentWidth": 680,
+    "configuredViewport": [
+      1280,
+      860
+    ]
+  },
+  "rejectedRegexOnlyExperiment": {
+    "limitations": [
+      "No lifecycle/foreground gate or native semantics marker was collected. The Mac was subsequently found locked. Exploratory CPU spans only; no frame-performance claim.",
+      "First cycle in each process is warmup; retain but exclude from medians.",
+      "All conversion/phase samples retained; unrelated native frame arrays omitted from this compact report."
+    ],
+    "processes": [
+      {
+        "name": "varied-0-baseline",
+        "fixture": "varied",
+        "optimized": false,
+        "exitCode": 0,
+        "elapsedSeconds": 18.0605628490448,
+        "samples": [
+          {
+            "probe": {
+              "conversionUs": [
+                21666.125,
+                43.125,
+                40.167,
+                31.667,
+                26.459,
+                53.792,
+                24.125,
+                25.291,
+                26.75,
+                23.834,
+                23.958,
+                23.583,
+                23.5,
+                53.583,
+                27.041,
+                24.042
+              ],
+              "us": {
+                "customWidget": 757.97,
+                "factoryParse": 501.836,
+                "defaultStyles": 2938.074,
+                "customStyles": 1354.936,
+                "inlineStyles": 561.426,
+                "parseStyle": 527.866,
+                "displayStyles": 730.162,
+                "parseEverything": 7550.958,
+                "textNormalization": 9271.005,
+                "flattenAndBuild": 3103.178,
+                "conversion": 22151.542
+              },
+              "counts": {
+                "customWidget": 870,
+                "factoryParse": 825,
+                "cssParse:display: block;font-size: 1.17em;font-weight: bold;margin: 1em 0": 90,
+                "defaultStyles": 615,
+                "cssParse:font-size: 20.0px;line-height: 1.4": 90,
+                "customStyles": 825,
+                "inlineStyles": 825,
+                "parseStyle": 1485,
+                "displayStyles": 825,
+                "parseEverything": 825,
+                "textNormalization": 1065,
+                "flattenAndBuild": 511,
+                "cssParse:display: block;margin: 1em 0": 1,
+                "cssParse:text-decoration: underline": 1,
+                "cssParse:text-decoration: none": 1,
+                "cssParse:display: block;list-style-type: disc;padding-inline-start: 40px;margin: 1em 0": 1,
+                "cssParse:display: block;list-style-type: circle;padding-inline-start: 40px": 1,
+                "cssParse:display: block": 1,
+                "cssParse:display: block;list-style-type: decimal;padding-inline-start: 40px;margin: 1em 0": 1,
+                "cssParse:display: block;margin: 0.5em 0;border-top: 1px solid": 15,
+                "cssParse:border-top: 1px solid #dbdfe4": 15,
+                "conversion": 16
+              }
+            },
+            "run": 0,
+            "mode": "column",
+            "htmlCharacters": 68149,
+            "mountedParagraphs": 525,
+            "firstParagraphReadyUs": 190553,
+            "bodyCompleteUs": 190553,
+            "warmup": true
+          },
+          {
+            "probe": {
+              "conversionUs": [
+                24616.875,
+                61.25
+              ],
+              "us": {
+                "customWidget": 921.692,
+                "factoryParse": 524.283,
+                "defaultStyles": 3187.504,
+                "customStyles": 1530.68,
+                "inlineStyles": 2773.234,
+                "parseStyle": 549.493,
+                "displayStyles": 846.241,
+                "parseEverything": 10677.461,
+                "textNormalization": 8914.483,
+                "flattenAndBuild": 2443.199,
+                "conversion": 24678.541
+              },
+              "counts": {
+                "customWidget": 842,
+                "factoryParse": 797,
+                "cssParse:display: block;font-size: 1.17em;font-weight: bold;margin: 1em 0": 90,
+                "defaultStyles": 587,
+                "cssParse:font-size: 20.0px;line-height: 1.4": 90,
+                "customStyles": 797,
+                "inlineStyles": 797,
+                "parseStyle": 1429,
+                "displayStyles": 797,
+                "parseEverything": 797,
+                "textNormalization": 1037,
+                "flattenAndBuild": 469,
+                "cssParse:display: block;margin: 0.5em 0;border-top: 1px solid": 15,
+                "cssParse:border-top: 1px solid #dbdfe4": 15,
+                "conversion": 2
+              }
+            },
+            "run": 0,
+            "mode": "sliver",
+            "htmlCharacters": 68149,
+            "mountedParagraphs": 19,
+            "firstParagraphReadyUs": 52472,
+            "bodyCompleteUs": 52472,
+            "warmup": true
+          },
+          {
+            "probe": {
+              "conversionUs": [
+                20513.291,
+                39.333,
+                45.666,
+                33.292,
+                68.5,
+                52.792,
+                59.416,
+                33.625,
+                52.625,
+                55.416,
+                48.375,
+                50.625,
+                33.292,
+                368.625,
+                52.5,
+                58.375
+              ],
+              "us": {
+                "customWidget": 757.89,
+                "factoryParse": 509.522,
+                "defaultStyles": 4034.032,
+                "customStyles": 1350.959,
+                "inlineStyles": 620.209,
+                "parseStyle": 511.873,
+                "displayStyles": 733.789,
+                "parseEverything": 8757.61,
+                "textNormalization": 8030.752,
+                "flattenAndBuild": 2483.669,
+                "conversion": 21568.498
+              },
+              "counts": {
+                "customWidget": 870,
+                "factoryParse": 825,
+                "cssParse:display: block;font-size: 1.17em;font-weight: bold;margin: 1em 0": 90,
+                "defaultStyles": 615,
+                "cssParse:font-size: 20.0px;line-height: 1.4": 90,
+                "customStyles": 825,
+                "inlineStyles": 825,
+                "parseStyle": 1485,
+                "displayStyles": 825,
+                "parseEverything": 825,
+                "textNormalization": 1065,
+                "flattenAndBuild": 511,
+                "cssParse:display: block;margin: 0.5em 0;border-top: 1px solid": 15,
+                "cssParse:border-top: 1px solid #dbdfe4": 15,
+                "conversion": 16
+              }
+            },
+            "run": 0,
+            "mode": "progressive",
+            "htmlCharacters": 68149,
+            "mountedParagraphs": 91,
+            "firstParagraphReadyUs": 43288,
+            "bodyCompleteUs": 126857,
+            "warmup": true
+          },
+          {
+            "probe": {
+              "conversionUs": [
+                20159.542,
+                45.833,
+                38.584,
+                32.459,
+                31.459,
+                33.959,
+                34.25,
+                29.166,
+                31.541,
+                35.542,
+                33.834,
+                30.417,
+                30.917,
+                29.375,
+                39.542,
+                30.167
+              ],
+              "us": {
+                "customWidget": 1871.648,
+                "factoryParse": 471.096,
+                "defaultStyles": 2653.172,
+                "customStyles": 1295.842,
+                "inlineStyles": 586.839,
+                "parseStyle": 476.294,
+                "displayStyles": 687.964,
+                "parseEverything": 7253.954,
+                "textNormalization": 8013.306,
+                "flattenAndBuild": 2080.046,
+                "conversion": 20669.128
+              },
+              "counts": {
+                "customWidget": 870,
+                "factoryParse": 825,
+                "cssParse:display: block;font-size: 1.17em;font-weight: bold;margin: 1em 0": 90,
+                "defaultStyles": 615,
+                "cssParse:font-size: 20.0px;line-height: 1.4": 90,
+                "customStyles": 825,
+                "inlineStyles": 825,
+                "parseStyle": 1485,
+                "displayStyles": 825,
+                "parseEverything": 825,
+                "textNormalization": 1065,
+                "flattenAndBuild": 511,
+                "cssParse:display: block;margin: 0.5em 0;border-top: 1px solid": 15,
+                "cssParse:border-top: 1px solid #dbdfe4": 15,
+                "conversion": 16
+              }
+            },
+            "run": 1,
+            "mode": "column",
+            "htmlCharacters": 68149,
+            "mountedParagraphs": 525,
+            "firstParagraphReadyUs": 81875,
+            "bodyCompleteUs": 81875,
+            "warmup": false
+          },
+          {
+            "probe": {
+              "conversionUs": [
+                21500.667,
+                50.875
+              ],
+              "us": {
+                "customWidget": 777.947,
+                "factoryParse": 482.225,
+                "defaultStyles": 2981.997,
+                "customStyles": 1507.336,
+                "inlineStyles": 727.047,
+                "parseStyle": 518.405,
+                "displayStyles": 797.018,
+                "parseEverything": 8154.287,
+                "textNormalization": 8517.42,
+                "flattenAndBuild": 2499.292,
+                "conversion": 21552.042
+              },
+              "counts": {
+                "customWidget": 842,
+                "factoryParse": 797,
+                "cssParse:display: block;font-size: 1.17em;font-weight: bold;margin: 1em 0": 90,
+                "defaultStyles": 587,
+                "cssParse:font-size: 20.0px;line-height: 1.4": 90,
+                "customStyles": 797,
+                "inlineStyles": 797,
+                "parseStyle": 1429,
+                "displayStyles": 797,
+                "parseEverything": 797,
+                "textNormalization": 1037,
+                "flattenAndBuild": 469,
+                "cssParse:display: block;margin: 0.5em 0;border-top: 1px solid": 15,
+                "cssParse:border-top: 1px solid #dbdfe4": 15,
+                "conversion": 2
+              }
+            },
+            "run": 1,
+            "mode": "sliver",
+            "htmlCharacters": 68149,
+            "mountedParagraphs": 19,
+            "firstParagraphReadyUs": 49392,
+            "bodyCompleteUs": 49392,
+            "warmup": false
+          },
+          {
+            "probe": {
+              "conversionUs": [
+                22253.833,
+                43.667,
+                62.833,
+                33.458,
+                56.125,
+                57.042,
+                66.208,
+                42.833,
+                44.916,
+                108.417,
+                51.208,
+                53.25,
+                26.333,
+                43.584,
+                1838.583,
+                52.417
+              ],
+              "us": {
+                "customWidget": 852.203,
+                "factoryParse": 497.617,
+                "defaultStyles": 2932.482,
+                "customStyles": 1421.698,
+                "inlineStyles": 783.998,
+                "parseStyle": 521.215,
+                "displayStyles": 924.168,
+                "parseEverything": 8152.785,
+                "textNormalization": 8562.786,
+                "flattenAndBuild": 4071.118,
+                "conversion": 24838.041
+              },
+              "counts": {
+                "customWidget": 870,
+                "factoryParse": 825,
+                "cssParse:display: block;font-size: 1.17em;font-weight: bold;margin: 1em 0": 90,
+                "defaultStyles": 615,
+                "cssParse:font-size: 20.0px;line-height: 1.4": 90,
+                "customStyles": 825,
+                "inlineStyles": 825,
+                "parseStyle": 1485,
+                "displayStyles": 825,
+                "parseEverything": 825,
+                "textNormalization": 1065,
+                "flattenAndBuild": 511,
+                "cssParse:display: block;margin: 0.5em 0;border-top: 1px solid": 15,
+                "cssParse:border-top: 1px solid #dbdfe4": 15,
+                "conversion": 16
+              }
+            },
+            "run": 1,
+            "mode": "progressive",
+            "htmlCharacters": 68149,
+            "mountedParagraphs": 91,
+            "firstParagraphReadyUs": 50055,
+            "bodyCompleteUs": 136862,
+            "warmup": false
+          },
+          {
+            "probe": {
+              "conversionUs": [
+                21740.75,
+                34.875,
+                34.25,
+                35.417,
+                30.0,
+                29.875,
+                29.958,
+                29.75,
+                35.083,
+                33.291,
+                30.75,
+                29.125,
+                28.5,
+                39.458,
+                34.584,
+                34.0
+              ],
+              "us": {
+                "customWidget": 684.844,
+                "factoryParse": 456.002,
+                "defaultStyles": 2687.748,
+                "customStyles": 1293.92,
+                "inlineStyles": 568.744,
+                "parseStyle": 485.793,
+                "displayStyles": 689.974,
+                "parseEverything": 9577.166,
+                "textNormalization": 8416.611,
+                "flattenAndBuild": 2202.301,
+                "conversion": 22232.209
+              },
+              "counts": {
+                "customWidget": 870,
+                "factoryParse": 825,
+                "cssParse:display: block;font-size: 1.17em;font-weight: bold;margin: 1em 0": 90,
+                "defaultStyles": 615,
+                "cssParse:font-size: 20.0px;line-height: 1.4": 90,
+                "customStyles": 825,
+                "inlineStyles": 825,
+                "parseStyle": 1485,
+                "displayStyles": 825,
+                "parseEverything": 825,
+                "textNormalization": 1065,
+                "flattenAndBuild": 511,
+                "cssParse:display: block;margin: 0.5em 0;border-top: 1px solid": 15,
+                "cssParse:border-top: 1px solid #dbdfe4": 15,
+                "conversion": 16
+              }
+            },
+            "run": 2,
+            "mode": "column",
+            "htmlCharacters": 68149,
+            "mountedParagraphs": 525,
+            "firstParagraphReadyUs": 94757,
+            "bodyCompleteUs": 94757,
+            "warmup": false
+          },
+          {
+            "probe": {
+              "conversionUs": [
+                22615.125,
+                39.25
+              ],
+              "us": {
+                "customWidget": 2760.847,
+                "factoryParse": 453.662,
+                "defaultStyles": 2825.6,
+                "customStyles": 1436.544,
+                "inlineStyles": 667.326,
+                "parseStyle": 533.748,
+                "displayStyles": 702.158,
+                "parseEverything": 7709.365,
+                "textNormalization": 8443.36,
+                "flattenAndBuild": 2238.747,
+                "conversion": 22654.792
+              },
+              "counts": {
+                "customWidget": 842,
+                "factoryParse": 797,
+                "cssParse:display: block;font-size: 1.17em;font-weight: bold;margin: 1em 0": 90,
+                "defaultStyles": 587,
+                "cssParse:font-size: 20.0px;line-height: 1.4": 90,
+                "customStyles": 797,
+                "inlineStyles": 797,
+                "parseStyle": 1429,
+                "displayStyles": 797,
+                "parseEverything": 797,
+                "textNormalization": 1037,
+                "flattenAndBuild": 469,
+                "cssParse:display: block;margin: 0.5em 0;border-top: 1px solid": 15,
+                "cssParse:border-top: 1px solid #dbdfe4": 15,
+                "conversion": 2
+              }
+            },
+            "run": 2,
+            "mode": "sliver",
+            "htmlCharacters": 68149,
+            "mountedParagraphs": 19,
+            "firstParagraphReadyUs": 45292,
+            "bodyCompleteUs": 45292,
+            "warmup": false
+          },
+          {
+            "probe": {
+              "conversionUs": [
+                20484.667,
+                38.167,
+                57.5,
+                49.083,
+                53.833,
+                49.834,
+                46.875,
+                30.042,
+                47.167,
+                50.083,
+                52.833,
+                50.959,
+                26.959,
+                43.875,
+                195.708,
+                58.083
+              ],
+              "us": {
+                "customWidget": 690.758,
+                "factoryParse": 438.766,
+                "defaultStyles": 2680.036,
+                "customStyles": 1336.329,
+                "inlineStyles": 600.791,
+                "parseStyle": 495.742,
+                "displayStyles": 2222.779,
+                "parseEverything": 8954.457,
+                "textNormalization": 8103.853,
+                "flattenAndBuild": 2211.34,
+                "conversion": 21338.46
+              },
+              "counts": {
+                "customWidget": 870,
+                "factoryParse": 825,
+                "cssParse:display: block;font-size: 1.17em;font-weight: bold;margin: 1em 0": 90,
+                "defaultStyles": 615,
+                "cssParse:font-size: 20.0px;line-height: 1.4": 90,
+                "customStyles": 825,
+                "inlineStyles": 825,
+                "parseStyle": 1485,
+                "displayStyles": 825,
+                "parseEverything": 825,
+                "textNormalization": 1065,
+                "flattenAndBuild": 511,
+                "cssParse:display: block;margin: 0.5em 0;border-top: 1px solid": 15,
+                "cssParse:border-top: 1px solid #dbdfe4": 15,
+                "conversion": 16
+              }
+            },
+            "run": 2,
+            "mode": "progressive",
+            "htmlCharacters": 68149,
+            "mountedParagraphs": 91,
+            "firstParagraphReadyUs": 45255,
+            "bodyCompleteUs": 127811,
+            "warmup": false
+          },
+          {
+            "probe": {
+              "conversionUs": [
+                20191.375,
+                34.083,
+                37.875,
+                30.583,
+                29.75,
+                33.25,
+                30.916,
+                28.416,
+                58.959,
+                36.709,
+                33.375,
+                32.125,
+                33.292,
+                28.416,
+                27.542,
+                26.5
+              ],
+              "us": {
+                "customWidget": 631.952,
+                "factoryParse": 438.169,
+                "defaultStyles": 4096.907,
+                "customStyles": 1240.053,
+                "inlineStyles": 724.87,
+                "parseStyle": 475.83,
+                "displayStyles": 790.705,
+                "parseEverything": 8751.651,
+                "textNormalization": 7947.749,
+                "flattenAndBuild": 2017.827,
+                "conversion": 20695.5
+              },
+              "counts": {
+                "customWidget": 870,
+                "factoryParse": 825,
+                "cssParse:display: block;font-size: 1.17em;font-weight: bold;margin: 1em 0": 90,
+                "defaultStyles": 615,
+                "cssParse:font-size: 20.0px;line-height: 1.4": 90,
+                "customStyles": 825,
+                "inlineStyles": 825,
+                "parseStyle": 1485,
+                "displayStyles": 825,
+                "parseEverything": 825,
+                "textNormalization": 1065,
+                "flattenAndBuild": 511,
+                "cssParse:display: block;margin: 0.5em 0;border-top: 1px solid": 15,
+                "cssParse:border-top: 1px solid #dbdfe4": 15,
+                "conversion": 16
+              }
+            },
+            "run": 3,
+            "mode": "column",
+            "htmlCharacters": 68149,
+            "mountedParagraphs": 525,
+            "firstParagraphReadyUs": 83085,
+            "bodyCompleteUs": 83085,
+            "warmup": false
+          },
+          {
+            "probe": {
+              "conversionUs": [
+                20338.0,
+                40.417
+              ],
+              "us": {
+                "customWidget": 729.122,
+                "factoryParse": 460.748,
+                "defaultStyles": 2839.0,
+                "customStyles": 1409.042,
+                "inlineStyles": 597.586,
+                "parseStyle": 501.626,
+                "displayStyles": 726.921,
+                "parseEverything": 7612.543,
+                "textNormalization": 8264.764,
+                "flattenAndBuild": 2238.205,
+                "conversion": 20378.792
+              },
+              "counts": {
+                "customWidget": 842,
+                "factoryParse": 797,
+                "cssParse:display: block;font-size: 1.17em;font-weight: bold;margin: 1em 0": 90,
+                "defaultStyles": 587,
+                "cssParse:font-size: 20.0px;line-height: 1.4": 90,
+                "customStyles": 797,
+                "inlineStyles": 797,
+                "parseStyle": 1429,
+                "displayStyles": 797,
+                "parseEverything": 797,
+                "textNormalization": 1037,
+                "flattenAndBuild": 469,
+                "cssParse:display: block;margin: 0.5em 0;border-top: 1px solid": 15,
+                "cssParse:border-top: 1px solid #dbdfe4": 15,
+                "conversion": 2
+              }
+            },
+            "run": 3,
+            "mode": "sliver",
+            "htmlCharacters": 68149,
+            "mountedParagraphs": 19,
+            "firstParagraphReadyUs": 41637,
+            "bodyCompleteUs": 41637,
+            "warmup": false
+          },
+          {
+            "probe": {
+              "conversionUs": [
+                21969.584,
+                38.833,
+                46.333,
+                32.875,
+                46.833,
+                49.0,
+                53.084,
+                29.875,
+                45.792,
+                48.792,
+                45.708,
+                57.625,
+                33.125,
+                284.042,
+                45.292,
+                47.333
+              ],
+              "us": {
+                "customWidget": 785.09,
+                "factoryParse": 486.238,
+                "defaultStyles": 4613.775,
+                "customStyles": 1430.54,
+                "inlineStyles": 605.962,
+                "parseStyle": 511.505,
+                "displayStyles": 968.034,
+                "parseEverything": 9739.97,
+                "textNormalization": 8499.367,
+                "flattenAndBuild": 2342.163,
+                "conversion": 22877.083
+              },
+              "counts": {
+                "customWidget": 870,
+                "factoryParse": 825,
+                "cssParse:display: block;font-size: 1.17em;font-weight: bold;margin: 1em 0": 90,
+                "defaultStyles": 615,
+                "cssParse:font-size: 20.0px;line-height: 1.4": 90,
+                "customStyles": 825,
+                "inlineStyles": 825,
+                "parseStyle": 1485,
+                "displayStyles": 825,
+                "parseEverything": 825,
+                "textNormalization": 1065,
+                "flattenAndBuild": 511,
+                "cssParse:display: block;margin: 0.5em 0;border-top: 1px solid": 15,
+                "cssParse:border-top: 1px solid #dbdfe4": 15,
+                "conversion": 16
+              }
+            },
+            "run": 3,
+            "mode": "progressive",
+            "htmlCharacters": 68149,
+            "mountedParagraphs": 45,
+            "firstParagraphReadyUs": 43967,
+            "bodyCompleteUs": 134203,
+            "warmup": false
+          }
+        ]
+      },
+      {
+        "name": "varied-1-fixed",
+        "fixture": "varied",
+        "optimized": true,
+        "exitCode": 0,
+        "elapsedSeconds": 16.840051889419556,
+        "samples": [
+          {
+            "probe": {
+              "conversionUs": [
+                22166.875,
+                34.167,
+                46.708,
+                68.625,
+                38.333,
+                64.375,
+                32.084,
+                39.208,
+                33.166,
+                31.75,
+                36.0,
+                29.791,
+                28.708,
+                44.167,
+                29.792,
+                26.333
+              ],
+              "us": {
+                "customWidget": 677.387,
+                "factoryParse": 1016.546,
+                "defaultStyles": 2952.403,
+                "customStyles": 2868.66,
+                "inlineStyles": 528.137,
+                "parseStyle": 519.294,
+                "displayStyles": 817.719,
+                "parseEverything": 9723.586,
+                "textNormalization": 8442.454,
+                "flattenAndBuild": 2541.485,
+                "conversion": 22764.833
+              },
+              "counts": {
+                "customWidget": 870,
+                "factoryParse": 825,
+                "cssParse:display: block;font-size: 1.17em;font-weight: bold;margin: 1em 0": 90,
+                "defaultStyles": 615,
+                "cssParse:font-size: 20.0px;line-height: 1.4": 90,
+                "customStyles": 825,
+                "inlineStyles": 825,
+                "parseStyle": 1485,
+                "displayStyles": 825,
+                "parseEverything": 825,
+                "textNormalization": 1065,
+                "flattenAndBuild": 511,
+                "cssParse:display: block;margin: 1em 0": 1,
+                "cssParse:text-decoration: underline": 1,
+                "cssParse:text-decoration: none": 1,
+                "cssParse:display: block;list-style-type: disc;padding-inline-start: 40px;margin: 1em 0": 1,
+                "cssParse:display: block;list-style-type: circle;padding-inline-start: 40px": 1,
+                "cssParse:display: block": 1,
+                "cssParse:display: block;list-style-type: decimal;padding-inline-start: 40px;margin: 1em 0": 1,
+                "cssParse:display: block;margin: 0.5em 0;border-top: 1px solid": 15,
+                "cssParse:border-top: 1px solid #dbdfe4": 15,
+                "conversion": 16
+              }
+            },
+            "run": 0,
+            "mode": "column",
+            "htmlCharacters": 68149,
+            "mountedParagraphs": 525,
+            "firstParagraphReadyUs": 102791,
+            "bodyCompleteUs": 102791,
+            "warmup": true
+          },
+          {
+            "probe": {
+              "conversionUs": [
+                13919.375,
+                30.042
+              ],
+              "us": {
+                "customWidget": 451.172,
+                "factoryParse": 263.395,
+                "defaultStyles": 1682.211,
+                "customStyles": 850.278,
+                "inlineStyles": 403.501,
+                "parseStyle": 304.677,
+                "displayStyles": 554.784,
+                "parseEverything": 4743.875,
+                "textNormalization": 4716.355,
+                "flattenAndBuild": 3120.573,
+                "conversion": 13949.709
+              },
+              "counts": {
+                "customWidget": 842,
+                "factoryParse": 797,
+                "cssParse:display: block;font-size: 1.17em;font-weight: bold;margin: 1em 0": 90,
+                "defaultStyles": 587,
+                "cssParse:font-size: 20.0px;line-height: 1.4": 90,
+                "customStyles": 797,
+                "inlineStyles": 797,
+                "parseStyle": 1429,
+                "displayStyles": 797,
+                "parseEverything": 797,
+                "textNormalization": 1037,
+                "flattenAndBuild": 469,
+                "cssParse:display: block;margin: 0.5em 0;border-top: 1px solid": 15,
+                "cssParse:border-top: 1px solid #dbdfe4": 15,
+                "conversion": 2
+              }
+            },
+            "run": 0,
+            "mode": "sliver",
+            "htmlCharacters": 68149,
+            "mountedParagraphs": 19,
+            "firstParagraphReadyUs": 30363,
+            "bodyCompleteUs": 30363,
+            "warmup": true
+          },
+          {
+            "probe": {
+              "conversionUs": [
+                20761.458,
+                44.292,
+                48.042,
+                35.292,
+                68.166,
+                50.167,
+                56.0,
+                31.458,
+                43.208,
+                55.542,
+                48.625,
+                54.333,
+                26.583,
+                64.083,
+                70.375,
+                43.833
+              ],
+              "us": {
+                "customWidget": 699.741,
+                "factoryParse": 452.729,
+                "defaultStyles": 4199.792,
+                "customStyles": 1413.437,
+                "inlineStyles": 563.372,
+                "parseStyle": 512.677,
+                "displayStyles": 740.929,
+                "parseEverything": 9008.218,
+                "textNormalization": 8071.689,
+                "flattenAndBuild": 2208.33,
+                "conversion": 21504.247
+              },
+              "counts": {
+                "customWidget": 870,
+                "factoryParse": 825,
+                "cssParse:display: block;font-size: 1.17em;font-weight: bold;margin: 1em 0": 90,
+                "defaultStyles": 615,
+                "cssParse:font-size: 20.0px;line-height: 1.4": 90,
+                "customStyles": 825,
+                "inlineStyles": 825,
+                "parseStyle": 1485,
+                "displayStyles": 825,
+                "parseEverything": 825,
+                "textNormalization": 1065,
+                "flattenAndBuild": 511,
+                "cssParse:display: block;margin: 0.5em 0;border-top: 1px solid": 15,
+                "cssParse:border-top: 1px solid #dbdfe4": 15,
+                "conversion": 16
+              }
+            },
+            "run": 0,
+            "mode": "progressive",
+            "htmlCharacters": 68149,
+            "mountedParagraphs": 45,
+            "firstParagraphReadyUs": 44583,
+            "bodyCompleteUs": 134164,
+            "warmup": true
+          },
+          {
+            "probe": {
+              "conversionUs": [
+                21015.417,
+                34.833,
+                30.416,
+                35.208,
+                30.959,
+                32.041,
+                29.458,
+                30.375,
+                30.5,
+                29.5,
+                30.125,
+                27.833,
+                28.083,
+                31.667,
+                29.791,
+                27.916
+              ],
+              "us": {
+                "customWidget": 764.711,
+                "factoryParse": 452.695,
+                "defaultStyles": 4413.163,
+                "customStyles": 1340.8,
+                "inlineStyles": 585.905,
+                "parseStyle": 491.372,
+                "displayStyles": 745.542,
+                "parseEverything": 9083.636,
+                "textNormalization": 7970.429,
+                "flattenAndBuild": 2177.752,
+                "conversion": 21476.415
+              },
+              "counts": {
+                "customWidget": 870,
+                "factoryParse": 825,
+                "cssParse:display: block;font-size: 1.17em;font-weight: bold;margin: 1em 0": 90,
+                "defaultStyles": 615,
+                "cssParse:font-size: 20.0px;line-height: 1.4": 90,
+                "customStyles": 825,
+                "inlineStyles": 825,
+                "parseStyle": 1485,
+                "displayStyles": 825,
+                "parseEverything": 825,
+                "textNormalization": 1065,
+                "flattenAndBuild": 511,
+                "cssParse:display: block;margin: 0.5em 0;border-top: 1px solid": 15,
+                "cssParse:border-top: 1px solid #dbdfe4": 15,
+                "conversion": 16
+              }
+            },
+            "run": 1,
+            "mode": "column",
+            "htmlCharacters": 68149,
+            "mountedParagraphs": 525,
+            "firstParagraphReadyUs": 85719,
+            "bodyCompleteUs": 85719,
+            "warmup": false
+          },
+          {
+            "probe": {
+              "conversionUs": [
+                21219.375,
+                51.042
+              ],
+              "us": {
+                "customWidget": 661.704,
+                "factoryParse": 417.174,
+                "defaultStyles": 2726.454,
+                "customStyles": 1382.169,
+                "inlineStyles": 731.899,
+                "parseStyle": 505.737,
+                "displayStyles": 713.623,
+                "parseEverything": 7561.501,
+                "textNormalization": 7885.458,
+                "flattenAndBuild": 3850.163,
+                "conversion": 21270.834
+              },
+              "counts": {
+                "customWidget": 842,
+                "factoryParse": 797,
+                "cssParse:display: block;font-size: 1.17em;font-weight: bold;margin: 1em 0": 90,
+                "defaultStyles": 587,
+                "cssParse:font-size: 20.0px;line-height: 1.4": 90,
+                "customStyles": 797,
+                "inlineStyles": 797,
+                "parseStyle": 1429,
+                "displayStyles": 797,
+                "parseEverything": 797,
+                "textNormalization": 1037,
+                "flattenAndBuild": 469,
+                "cssParse:display: block;margin: 0.5em 0;border-top: 1px solid": 15,
+                "cssParse:border-top: 1px solid #dbdfe4": 15,
+                "conversion": 2
+              }
+            },
+            "run": 1,
+            "mode": "sliver",
+            "htmlCharacters": 68149,
+            "mountedParagraphs": 19,
+            "firstParagraphReadyUs": 44135,
+            "bodyCompleteUs": 44135,
+            "warmup": false
+          },
+          {
+            "probe": {
+              "conversionUs": [
+                18414.167,
+                38.0,
+                45.667,
+                30.667,
+                45.5,
+                60.875,
+                66.416,
+                30.583,
+                48.291,
+                40.625,
+                51.666,
+                51.083,
+                31.167,
+                41.0,
+                58.792,
+                72.5
+              ],
+              "us": {
+                "customWidget": 663.839,
+                "factoryParse": 447.582,
+                "defaultStyles": 2614.258,
+                "customStyles": 1278.882,
+                "inlineStyles": 518.287,
+                "parseStyle": 476.039,
+                "displayStyles": 737.75,
+                "parseEverything": 7069.055,
+                "textNormalization": 7928.674,
+                "flattenAndBuild": 2130.716,
+                "conversion": 19129.872
+              },
+              "counts": {
+                "customWidget": 870,
+                "factoryParse": 825,
+                "cssParse:display: block;font-size: 1.17em;font-weight: bold;margin: 1em 0": 90,
+                "defaultStyles": 615,
+                "cssParse:font-size: 20.0px;line-height: 1.4": 90,
+                "customStyles": 825,
+                "inlineStyles": 825,
+                "parseStyle": 1485,
+                "displayStyles": 825,
+                "parseEverything": 825,
+                "textNormalization": 1065,
+                "flattenAndBuild": 511,
+                "cssParse:display: block;margin: 0.5em 0;border-top: 1px solid": 15,
+                "cssParse:border-top: 1px solid #dbdfe4": 15,
+                "conversion": 16
+              }
+            },
+            "run": 1,
+            "mode": "progressive",
+            "htmlCharacters": 68149,
+            "mountedParagraphs": 91,
+            "firstParagraphReadyUs": 49954,
+            "bodyCompleteUs": 134225,
+            "warmup": false
+          },
+          {
+            "probe": {
+              "conversionUs": [
+                20494.125,
+                38.875,
+                56.958,
+                31.791,
+                44.208,
+                38.375,
+                30.042,
+                30.292,
+                41.5,
+                32.791,
+                28.584,
+                31.792,
+                30.125,
+                29.0,
+                27.166,
+                25.875
+              ],
+              "us": {
+                "customWidget": 798.076,
+                "factoryParse": 467.592,
+                "defaultStyles": 2957.59,
+                "customStyles": 1489.567,
+                "inlineStyles": 642.037,
+                "parseStyle": 544.234,
+                "displayStyles": 870.014,
+                "parseEverything": 8104.286,
+                "textNormalization": 8201.836,
+                "flattenAndBuild": 2335.113,
+                "conversion": 21014.084
+              },
+              "counts": {
+                "customWidget": 870,
+                "factoryParse": 825,
+                "cssParse:display: block;font-size: 1.17em;font-weight: bold;margin: 1em 0": 90,
+                "defaultStyles": 615,
+                "cssParse:font-size: 20.0px;line-height: 1.4": 90,
+                "customStyles": 825,
+                "inlineStyles": 825,
+                "parseStyle": 1485,
+                "displayStyles": 825,
+                "parseEverything": 825,
+                "textNormalization": 1065,
+                "flattenAndBuild": 511,
+                "cssParse:display: block;margin: 0.5em 0;border-top: 1px solid": 15,
+                "cssParse:border-top: 1px solid #dbdfe4": 15,
+                "conversion": 16
+              }
+            },
+            "run": 2,
+            "mode": "column",
+            "htmlCharacters": 68149,
+            "mountedParagraphs": 525,
+            "firstParagraphReadyUs": 91252,
+            "bodyCompleteUs": 91252,
+            "warmup": false
+          },
+          {
+            "probe": {
+              "conversionUs": [
+                16493.75,
+                33.041
+              ],
+              "us": {
+                "customWidget": 506.62,
+                "factoryParse": 341.161,
+                "defaultStyles": 2199.459,
+                "customStyles": 2527.521,
+                "inlineStyles": 470.293,
+                "parseStyle": 397.877,
+                "displayStyles": 531.849,
+                "parseEverything": 7276.291,
+                "textNormalization": 6024.101,
+                "flattenAndBuild": 1629.828,
+                "conversion": 16527.125
+              },
+              "counts": {
+                "customWidget": 842,
+                "factoryParse": 797,
+                "cssParse:display: block;font-size: 1.17em;font-weight: bold;margin: 1em 0": 90,
+                "defaultStyles": 587,
+                "cssParse:font-size: 20.0px;line-height: 1.4": 90,
+                "customStyles": 797,
+                "inlineStyles": 797,
+                "parseStyle": 1429,
+                "displayStyles": 797,
+                "parseEverything": 797,
+                "textNormalization": 1037,
+                "flattenAndBuild": 469,
+                "cssParse:display: block;margin: 0.5em 0;border-top: 1px solid": 15,
+                "cssParse:border-top: 1px solid #dbdfe4": 15,
+                "conversion": 2
+              }
+            },
+            "run": 2,
+            "mode": "sliver",
+            "htmlCharacters": 68149,
+            "mountedParagraphs": 19,
+            "firstParagraphReadyUs": 37517,
+            "bodyCompleteUs": 37517,
+            "warmup": false
+          },
+          {
+            "probe": {
+              "conversionUs": [
+                21370.375,
+                35.875,
+                57.791,
+                40.667,
+                52.042,
+                67.083,
+                94.209,
+                31.208,
+                44.666,
+                46.542,
+                65.917,
+                48.542,
+                29.208,
+                43.791,
+                65.042,
+                62.917
+              ],
+              "us": {
+                "customWidget": 2660.903,
+                "factoryParse": 482.857,
+                "defaultStyles": 2866.249,
+                "customStyles": 1363.08,
+                "inlineStyles": 693.162,
+                "parseStyle": 497.862,
+                "displayStyles": 755.198,
+                "parseEverything": 7723.345,
+                "textNormalization": 8106.312,
+                "flattenAndBuild": 2231.496,
+                "conversion": 22158.75
+              },
+              "counts": {
+                "customWidget": 870,
+                "factoryParse": 825,
+                "cssParse:display: block;font-size: 1.17em;font-weight: bold;margin: 1em 0": 90,
+                "defaultStyles": 615,
+                "cssParse:font-size: 20.0px;line-height: 1.4": 90,
+                "customStyles": 825,
+                "inlineStyles": 825,
+                "parseStyle": 1485,
+                "displayStyles": 825,
+                "parseEverything": 825,
+                "textNormalization": 1065,
+                "flattenAndBuild": 511,
+                "cssParse:display: block;margin: 0.5em 0;border-top: 1px solid": 15,
+                "cssParse:border-top: 1px solid #dbdfe4": 15,
+                "conversion": 16
+              }
+            },
+            "run": 2,
+            "mode": "progressive",
+            "htmlCharacters": 68149,
+            "mountedParagraphs": 45,
+            "firstParagraphReadyUs": 45712,
+            "bodyCompleteUs": 136236,
+            "warmup": false
+          },
+          {
+            "probe": {
+              "conversionUs": [
+                21703.875,
+                37.167,
+                33.0,
+                29.333,
+                33.125,
+                35.375,
+                30.292,
+                28.375,
+                36.542,
+                34.625,
+                37.375,
+                27.833,
+                39.625,
+                28.542,
+                27.25,
+                26.125
+              ],
+              "us": {
+                "customWidget": 724.195,
+                "factoryParse": 499.959,
+                "defaultStyles": 4533.593,
+                "customStyles": 1454.175,
+                "inlineStyles": 588.035,
+                "parseStyle": 495.663,
+                "displayStyles": 822.383,
+                "parseEverything": 9574.948,
+                "textNormalization": 8175.243,
+                "flattenAndBuild": 2271.577,
+                "conversion": 22190.751
+              },
+              "counts": {
+                "customWidget": 870,
+                "factoryParse": 825,
+                "cssParse:display: block;font-size: 1.17em;font-weight: bold;margin: 1em 0": 90,
+                "defaultStyles": 615,
+                "cssParse:font-size: 20.0px;line-height: 1.4": 90,
+                "customStyles": 825,
+                "inlineStyles": 825,
+                "parseStyle": 1485,
+                "displayStyles": 825,
+                "parseEverything": 825,
+                "textNormalization": 1065,
+                "flattenAndBuild": 511,
+                "cssParse:display: block;margin: 0.5em 0;border-top: 1px solid": 15,
+                "cssParse:border-top: 1px solid #dbdfe4": 15,
+                "conversion": 16
+              }
+            },
+            "run": 3,
+            "mode": "column",
+            "htmlCharacters": 68149,
+            "mountedParagraphs": 525,
+            "firstParagraphReadyUs": 90854,
+            "bodyCompleteUs": 90854,
+            "warmup": false
+          },
+          {
+            "probe": {
+              "conversionUs": [
+                23536.792,
+                46.875
+              ],
+              "us": {
+                "customWidget": 778.084,
+                "factoryParse": 543.199,
+                "defaultStyles": 3044.628,
+                "customStyles": 1567.125,
+                "inlineStyles": 625.618,
+                "parseStyle": 515.587,
+                "displayStyles": 1032.338,
+                "parseEverything": 8447.101,
+                "textNormalization": 8236.34,
+                "flattenAndBuild": 4517.376,
+                "conversion": 23584.25
+              },
+              "counts": {
+                "customWidget": 842,
+                "factoryParse": 797,
+                "cssParse:display: block;font-size: 1.17em;font-weight: bold;margin: 1em 0": 90,
+                "defaultStyles": 587,
+                "cssParse:font-size: 20.0px;line-height: 1.4": 90,
+                "customStyles": 797,
+                "inlineStyles": 797,
+                "parseStyle": 1429,
+                "displayStyles": 797,
+                "parseEverything": 797,
+                "textNormalization": 1037,
+                "flattenAndBuild": 469,
+                "cssParse:display: block;margin: 0.5em 0;border-top: 1px solid": 15,
+                "cssParse:border-top: 1px solid #dbdfe4": 15,
+                "conversion": 2
+              }
+            },
+            "run": 3,
+            "mode": "sliver",
+            "htmlCharacters": 68149,
+            "mountedParagraphs": 19,
+            "firstParagraphReadyUs": 45720,
+            "bodyCompleteUs": 45720,
+            "warmup": false
+          },
+          {
+            "probe": {
+              "conversionUs": [
+                22167.833,
+                39.0,
+                45.958,
+                37.042,
+                46.292,
+                60.709,
+                46.084,
+                29.792,
+                44.333,
+                59.708,
+                50.25,
+                62.917,
+                34.541,
+                267.125,
+                35.958,
+                57.25
+              ],
+              "us": {
+                "customWidget": 883.924,
+                "factoryParse": 536.088,
+                "defaultStyles": 4227.166,
+                "customStyles": 1572.136,
+                "inlineStyles": 702.532,
+                "parseStyle": 576.451,
+                "displayStyles": 860.595,
+                "parseEverything": 9606.544,
+                "textNormalization": 8428.727,
+                "flattenAndBuild": 2579.909,
+                "conversion": 23087.583
+              },
+              "counts": {
+                "customWidget": 870,
+                "factoryParse": 825,
+                "cssParse:display: block;font-size: 1.17em;font-weight: bold;margin: 1em 0": 90,
+                "defaultStyles": 615,
+                "cssParse:font-size: 20.0px;line-height: 1.4": 90,
+                "customStyles": 825,
+                "inlineStyles": 825,
+                "parseStyle": 1485,
+                "displayStyles": 825,
+                "parseEverything": 825,
+                "textNormalization": 1065,
+                "flattenAndBuild": 511,
+                "cssParse:display: block;margin: 0.5em 0;border-top: 1px solid": 15,
+                "cssParse:border-top: 1px solid #dbdfe4": 15,
+                "conversion": 16
+              }
+            },
+            "run": 3,
+            "mode": "progressive",
+            "htmlCharacters": 68149,
+            "mountedParagraphs": 45,
+            "firstParagraphReadyUs": 45625,
+            "bodyCompleteUs": 134197,
+            "warmup": false
+          }
+        ]
+      },
+      {
+        "name": "varied-2-baseline",
+        "fixture": "varied",
+        "optimized": false,
+        "exitCode": 0,
+        "elapsedSeconds": 16.797167778015137,
+        "samples": [
+          {
+            "probe": {
+              "conversionUs": [
+                21877.0,
+                35.083,
+                40.208,
+                36.333,
+                41.25,
+                64.833,
+                37.125,
+                32.0,
+                31.375,
+                39.875,
+                33.708,
+                32.708,
+                42.792,
+                46.333,
+                35.333,
+                27.375
+              ],
+              "us": {
+                "customWidget": 727.927,
+                "factoryParse": 449.784,
+                "defaultStyles": 3038.62,
+                "customStyles": 1334.263,
+                "inlineStyles": 597.614,
+                "parseStyle": 513.424,
+                "displayStyles": 783.483,
+                "parseEverything": 7820.503,
+                "textNormalization": 8694.826,
+                "flattenAndBuild": 3774.169,
+                "conversion": 22468.498
+              },
+              "counts": {
+                "customWidget": 870,
+                "factoryParse": 825,
+                "cssParse:display: block;font-size: 1.17em;font-weight: bold;margin: 1em 0": 90,
+                "defaultStyles": 615,
+                "cssParse:font-size: 20.0px;line-height: 1.4": 90,
+                "customStyles": 825,
+                "inlineStyles": 825,
+                "parseStyle": 1485,
+                "displayStyles": 825,
+                "parseEverything": 825,
+                "textNormalization": 1065,
+                "flattenAndBuild": 511,
+                "cssParse:display: block;margin: 1em 0": 1,
+                "cssParse:text-decoration: underline": 1,
+                "cssParse:text-decoration: none": 1,
+                "cssParse:display: block;list-style-type: disc;padding-inline-start: 40px;margin: 1em 0": 1,
+                "cssParse:display: block;list-style-type: circle;padding-inline-start: 40px": 1,
+                "cssParse:display: block": 1,
+                "cssParse:display: block;list-style-type: decimal;padding-inline-start: 40px;margin: 1em 0": 1,
+                "cssParse:display: block;margin: 0.5em 0;border-top: 1px solid": 15,
+                "cssParse:border-top: 1px solid #dbdfe4": 15,
+                "conversion": 16
+              }
+            },
+            "run": 0,
+            "mode": "column",
+            "htmlCharacters": 68149,
+            "mountedParagraphs": 525,
+            "firstParagraphReadyUs": 95141,
+            "bodyCompleteUs": 95141,
+            "warmup": true
+          },
+          {
+            "probe": {
+              "conversionUs": [
+                20454.75,
+                42.333
+              ],
+              "us": {
+                "customWidget": 638.816,
+                "factoryParse": 389.663,
+                "defaultStyles": 2510.435,
+                "customStyles": 1312.925,
+                "inlineStyles": 582.196,
+                "parseStyle": 429.197,
+                "displayStyles": 739.498,
+                "parseEverything": 6970.942,
+                "textNormalization": 7398.666,
+                "flattenAndBuild": 4057.965,
+                "conversion": 20497.458
+              },
+              "counts": {
+                "customWidget": 842,
+                "factoryParse": 797,
+                "cssParse:display: block;font-size: 1.17em;font-weight: bold;margin: 1em 0": 90,
+                "defaultStyles": 587,
+                "cssParse:font-size: 20.0px;line-height: 1.4": 90,
+                "customStyles": 797,
+                "inlineStyles": 797,
+                "parseStyle": 1429,
+                "displayStyles": 797,
+                "parseEverything": 797,
+                "textNormalization": 1037,
+                "flattenAndBuild": 469,
+                "cssParse:display: block;margin: 0.5em 0;border-top: 1px solid": 15,
+                "cssParse:border-top: 1px solid #dbdfe4": 15,
+                "conversion": 2
+              }
+            },
+            "run": 0,
+            "mode": "sliver",
+            "htmlCharacters": 68149,
+            "mountedParagraphs": 19,
+            "firstParagraphReadyUs": 44380,
+            "bodyCompleteUs": 44380,
+            "warmup": true
+          },
+          {
+            "probe": {
+              "conversionUs": [
+                21488.875,
+                40.709,
+                44.875,
+                31.5,
+                40.042,
+                48.875,
+                61.042,
+                32.583,
+                38.833,
+                50.459,
+                62.583,
+                50.083,
+                31.625,
+                45.625,
+                42.625,
+                46.375
+              ],
+              "us": {
+                "customWidget": 2011.668,
+                "factoryParse": 475.196,
+                "defaultStyles": 2942.287,
+                "customStyles": 1428.901,
+                "inlineStyles": 556.594,
+                "parseStyle": 561.925,
+                "displayStyles": 741.938,
+                "parseEverything": 7786.502,
+                "textNormalization": 8607.38,
+                "flattenAndBuild": 2211.964,
+                "conversion": 22159.46
+              },
+              "counts": {
+                "customWidget": 870,
+                "factoryParse": 825,
+                "cssParse:display: block;font-size: 1.17em;font-weight: bold;margin: 1em 0": 90,
+                "defaultStyles": 615,
+                "cssParse:font-size: 20.0px;line-height: 1.4": 90,
+                "customStyles": 825,
+                "inlineStyles": 825,
+                "parseStyle": 1485,
+                "displayStyles": 825,
+                "parseEverything": 825,
+                "textNormalization": 1065,
+                "flattenAndBuild": 511,
+                "cssParse:display: block;margin: 0.5em 0;border-top: 1px solid": 15,
+                "cssParse:border-top: 1px solid #dbdfe4": 15,
+                "conversion": 16
+              }
+            },
+            "run": 0,
+            "mode": "progressive",
+            "htmlCharacters": 68149,
+            "mountedParagraphs": 45,
+            "firstParagraphReadyUs": 46196,
+            "bodyCompleteUs": 134133,
+            "warmup": true
+          },
+          {
+            "probe": {
+              "conversionUs": [
+                22614.417,
+                39.875,
+                36.584,
+                34.25,
+                36.5,
+                34.334,
+                30.958,
+                40.291,
+                32.459,
+                29.5,
+                30.625,
+                29.583,
+                31.958,
+                40.833,
+                77.041,
+                31.583
+              ],
+              "us": {
+                "customWidget": 762.911,
+                "factoryParse": 522.754,
+                "defaultStyles": 3037.09,
+                "customStyles": 1494.419,
+                "inlineStyles": 693.533,
+                "parseStyle": 535.439,
+                "displayStyles": 858.443,
+                "parseEverything": 8279.374,
+                "textNormalization": 10255.887,
+                "flattenAndBuild": 2317.873,
+                "conversion": 23173.417
+              },
+              "counts": {
+                "customWidget": 870,
+                "factoryParse": 825,
+                "cssParse:display: block;font-size: 1.17em;font-weight: bold;margin: 1em 0": 90,
+                "defaultStyles": 615,
+                "cssParse:font-size: 20.0px;line-height: 1.4": 90,
+                "customStyles": 825,
+                "inlineStyles": 825,
+                "parseStyle": 1485,
+                "displayStyles": 825,
+                "parseEverything": 825,
+                "textNormalization": 1065,
+                "flattenAndBuild": 511,
+                "cssParse:display: block;margin: 0.5em 0;border-top: 1px solid": 15,
+                "cssParse:border-top: 1px solid #dbdfe4": 15,
+                "conversion": 16
+              }
+            },
+            "run": 1,
+            "mode": "column",
+            "htmlCharacters": 68149,
+            "mountedParagraphs": 525,
+            "firstParagraphReadyUs": 93371,
+            "bodyCompleteUs": 93371,
+            "warmup": false
+          },
+          {
+            "probe": {
+              "conversionUs": [
+                22031.25,
+                38.375
+              ],
+              "us": {
+                "customWidget": 694.128,
+                "factoryParse": 435.032,
+                "defaultStyles": 2754.665,
+                "customStyles": 1306.208,
+                "inlineStyles": 612.84,
+                "parseStyle": 484.701,
+                "displayStyles": 754.811,
+                "parseEverything": 7452.371,
+                "textNormalization": 8603.035,
+                "flattenAndBuild": 2131.192,
+                "conversion": 22070.126
+              },
+              "counts": {
+                "customWidget": 842,
+                "factoryParse": 797,
+                "cssParse:display: block;font-size: 1.17em;font-weight: bold;margin: 1em 0": 90,
+                "defaultStyles": 587,
+                "cssParse:font-size: 20.0px;line-height: 1.4": 90,
+                "customStyles": 797,
+                "inlineStyles": 797,
+                "parseStyle": 1429,
+                "displayStyles": 797,
+                "parseEverything": 797,
+                "textNormalization": 1037,
+                "flattenAndBuild": 469,
+                "cssParse:display: block;margin: 0.5em 0;border-top: 1px solid": 15,
+                "cssParse:border-top: 1px solid #dbdfe4": 15,
+                "conversion": 2
+              }
+            },
+            "run": 1,
+            "mode": "sliver",
+            "htmlCharacters": 68149,
+            "mountedParagraphs": 19,
+            "firstParagraphReadyUs": 48100,
+            "bodyCompleteUs": 48100,
+            "warmup": false
+          },
+          {
+            "probe": {
+              "conversionUs": [
+                15926.375,
+                30.333,
+                50.375,
+                32.333,
+                63.958,
+                72.542,
+                47.542,
+                28.5,
+                40.208,
+                53.958,
+                45.666,
+                44.5,
+                30.959,
+                41.709,
+                44.625,
+                48.125
+              ],
+              "us": {
+                "customWidget": 1796.059,
+                "factoryParse": 322.113,
+                "defaultStyles": 2122.841,
+                "customStyles": 989.336,
+                "inlineStyles": 397.428,
+                "parseStyle": 369.587,
+                "displayStyles": 582.908,
+                "parseEverything": 5590.54,
+                "textNormalization": 6511.301,
+                "flattenAndBuild": 1596.91,
+                "conversion": 16604.208
+              },
+              "counts": {
+                "customWidget": 870,
+                "factoryParse": 825,
+                "cssParse:display: block;font-size: 1.17em;font-weight: bold;margin: 1em 0": 90,
+                "defaultStyles": 615,
+                "cssParse:font-size: 20.0px;line-height: 1.4": 90,
+                "customStyles": 825,
+                "inlineStyles": 825,
+                "parseStyle": 1485,
+                "displayStyles": 825,
+                "parseEverything": 825,
+                "textNormalization": 1065,
+                "flattenAndBuild": 511,
+                "cssParse:display: block;margin: 0.5em 0;border-top: 1px solid": 15,
+                "cssParse:border-top: 1px solid #dbdfe4": 15,
+                "conversion": 16
+              }
+            },
+            "run": 1,
+            "mode": "progressive",
+            "htmlCharacters": 68149,
+            "mountedParagraphs": 91,
+            "firstParagraphReadyUs": 43505,
+            "bodyCompleteUs": 128270,
+            "warmup": false
+          },
+          {
+            "probe": {
+              "conversionUs": [
+                13414.083,
+                35.25,
+                25.25,
+                24.291,
+                29.208,
+                25.917,
+                23.5,
+                26.125,
+                22.75,
+                22.458,
+                38.708,
+                22.875,
+                22.5,
+                22.417,
+                22.958,
+                25.458
+              ],
+              "us": {
+                "customWidget": 473.06,
+                "factoryParse": 301.072,
+                "defaultStyles": 1810.336,
+                "customStyles": 892.337,
+                "inlineStyles": 425.958,
+                "parseStyle": 365.89,
+                "displayStyles": 549.84,
+                "parseEverything": 5115.576,
+                "textNormalization": 5663.866,
+                "flattenAndBuild": 1504.979,
+                "conversion": 13805.913
+              },
+              "counts": {
+                "customWidget": 870,
+                "factoryParse": 825,
+                "cssParse:display: block;font-size: 1.17em;font-weight: bold;margin: 1em 0": 90,
+                "defaultStyles": 615,
+                "cssParse:font-size: 20.0px;line-height: 1.4": 90,
+                "customStyles": 825,
+                "inlineStyles": 825,
+                "parseStyle": 1485,
+                "displayStyles": 825,
+                "parseEverything": 825,
+                "textNormalization": 1065,
+                "flattenAndBuild": 511,
+                "cssParse:display: block;margin: 0.5em 0;border-top: 1px solid": 15,
+                "cssParse:border-top: 1px solid #dbdfe4": 15,
+                "conversion": 16
+              }
+            },
+            "run": 2,
+            "mode": "column",
+            "htmlCharacters": 68149,
+            "mountedParagraphs": 525,
+            "firstParagraphReadyUs": 73106,
+            "bodyCompleteUs": 73106,
+            "warmup": false
+          },
+          {
+            "probe": {
+              "conversionUs": [
+                22443.833,
+                39.084
+              ],
+              "us": {
+                "customWidget": 765.07,
+                "factoryParse": 423.716,
+                "defaultStyles": 2886.577,
+                "customStyles": 1368.838,
+                "inlineStyles": 629.737,
+                "parseStyle": 516.87,
+                "displayStyles": 799.363,
+                "parseEverything": 7680.394,
+                "textNormalization": 8589.187,
+                "flattenAndBuild": 3981.718,
+                "conversion": 22483.417
+              },
+              "counts": {
+                "customWidget": 842,
+                "factoryParse": 797,
+                "cssParse:display: block;font-size: 1.17em;font-weight: bold;margin: 1em 0": 90,
+                "defaultStyles": 587,
+                "cssParse:font-size: 20.0px;line-height: 1.4": 90,
+                "customStyles": 797,
+                "inlineStyles": 797,
+                "parseStyle": 1429,
+                "displayStyles": 797,
+                "parseEverything": 797,
+                "textNormalization": 1037,
+                "flattenAndBuild": 469,
+                "cssParse:display: block;margin: 0.5em 0;border-top: 1px solid": 15,
+                "cssParse:border-top: 1px solid #dbdfe4": 15,
+                "conversion": 2
+              }
+            },
+            "run": 2,
+            "mode": "sliver",
+            "htmlCharacters": 68149,
+            "mountedParagraphs": 19,
+            "firstParagraphReadyUs": 44221,
+            "bodyCompleteUs": 44221,
+            "warmup": false
+          },
+          {
+            "probe": {
+              "conversionUs": [
+                19540.125,
+                55.583,
+                50.041,
+                30.584,
+                41.875,
+                58.458,
+                49.166,
+                29.875,
+                40.458,
+                60.375,
+                48.542,
+                42.541,
+                37.708,
+                59.416,
+                43.125,
+                39.792
+              ],
+              "us": {
+                "customWidget": 622.675,
+                "factoryParse": 406.288,
+                "defaultStyles": 2480.297,
+                "customStyles": 1236.005,
+                "inlineStyles": 594.868,
+                "parseStyle": 457.416,
+                "displayStyles": 697.058,
+                "parseEverything": 6854.756,
+                "textNormalization": 8041.714,
+                "flattenAndBuild": 3387.671,
+                "conversion": 20231.456
+              },
+              "counts": {
+                "customWidget": 870,
+                "factoryParse": 825,
+                "cssParse:display: block;font-size: 1.17em;font-weight: bold;margin: 1em 0": 90,
+                "defaultStyles": 615,
+                "cssParse:font-size: 20.0px;line-height: 1.4": 90,
+                "customStyles": 825,
+                "inlineStyles": 825,
+                "parseStyle": 1485,
+                "displayStyles": 825,
+                "parseEverything": 825,
+                "textNormalization": 1065,
+                "flattenAndBuild": 511,
+                "cssParse:display: block;margin: 0.5em 0;border-top: 1px solid": 15,
+                "cssParse:border-top: 1px solid #dbdfe4": 15,
+                "conversion": 16
+              }
+            },
+            "run": 2,
+            "mode": "progressive",
+            "htmlCharacters": 68149,
+            "mountedParagraphs": 91,
+            "firstParagraphReadyUs": 43289,
+            "bodyCompleteUs": 128661,
+            "warmup": false
+          },
+          {
+            "probe": {
+              "conversionUs": [
+                22607.042,
+                40.875,
+                37.625,
+                38.958,
+                35.166,
+                31.625,
+                2193.916,
+                34.292,
+                31.417,
+                58.375,
+                33.583,
+                30.166,
+                30.042,
+                29.916,
+                29.5,
+                30.917
+              ],
+              "us": {
+                "customWidget": 2872.614,
+                "factoryParse": 2408.458,
+                "defaultStyles": 2901.762,
+                "customStyles": 1362.944,
+                "inlineStyles": 698.244,
+                "parseStyle": 506.72,
+                "displayStyles": 815.792,
+                "parseEverything": 9785.126,
+                "textNormalization": 8830.55,
+                "flattenAndBuild": 2323.7,
+                "conversion": 25295.789
+              },
+              "counts": {
+                "customWidget": 870,
+                "factoryParse": 825,
+                "cssParse:display: block;font-size: 1.17em;font-weight: bold;margin: 1em 0": 90,
+                "defaultStyles": 615,
+                "cssParse:font-size: 20.0px;line-height: 1.4": 90,
+                "customStyles": 825,
+                "inlineStyles": 825,
+                "parseStyle": 1485,
+                "displayStyles": 825,
+                "parseEverything": 825,
+                "textNormalization": 1065,
+                "flattenAndBuild": 511,
+                "cssParse:display: block;margin: 0.5em 0;border-top: 1px solid": 15,
+                "cssParse:border-top: 1px solid #dbdfe4": 15,
+                "conversion": 16
+              }
+            },
+            "run": 3,
+            "mode": "column",
+            "htmlCharacters": 68149,
+            "mountedParagraphs": 525,
+            "firstParagraphReadyUs": 97292,
+            "bodyCompleteUs": 97292,
+            "warmup": false
+          },
+          {
+            "probe": {
+              "conversionUs": [
+                21333.875,
+                37.166
+              ],
+              "us": {
+                "customWidget": 699.542,
+                "factoryParse": 410.147,
+                "defaultStyles": 2655.251,
+                "customStyles": 1271.105,
+                "inlineStyles": 686.381,
+                "parseStyle": 460.373,
+                "displayStyles": 809.084,
+                "parseEverything": 7358.955,
+                "textNormalization": 7779.226,
+                "flattenAndBuild": 4150.085,
+                "conversion": 21371.458
+              },
+              "counts": {
+                "customWidget": 842,
+                "factoryParse": 797,
+                "cssParse:display: block;font-size: 1.17em;font-weight: bold;margin: 1em 0": 90,
+                "defaultStyles": 587,
+                "cssParse:font-size: 20.0px;line-height: 1.4": 90,
+                "customStyles": 797,
+                "inlineStyles": 797,
+                "parseStyle": 1429,
+                "displayStyles": 797,
+                "parseEverything": 797,
+                "textNormalization": 1037,
+                "flattenAndBuild": 469,
+                "cssParse:display: block;margin: 0.5em 0;border-top: 1px solid": 15,
+                "cssParse:border-top: 1px solid #dbdfe4": 15,
+                "conversion": 2
+              }
+            },
+            "run": 3,
+            "mode": "sliver",
+            "htmlCharacters": 68149,
+            "mountedParagraphs": 19,
+            "firstParagraphReadyUs": 38200,
+            "bodyCompleteUs": 38200,
+            "warmup": false
+          },
+          {
+            "probe": {
+              "conversionUs": [
+                20628.0,
+                51.708,
+                49.208,
+                36.041,
+                45.041,
+                46.833,
+                58.458,
+                33.083,
+                41.083,
+                51.083,
+                61.958,
+                48.291,
+                26.291,
+                39.917,
+                46.791,
+                45.083
+              ],
+              "us": {
+                "customWidget": 695.519,
+                "factoryParse": 457.54,
+                "defaultStyles": 2742.585,
+                "customStyles": 1300.621,
+                "inlineStyles": 612.826,
+                "parseStyle": 487.864,
+                "displayStyles": 734.328,
+                "parseEverything": 8570.128,
+                "textNormalization": 8503.243,
+                "flattenAndBuild": 2143.848,
+                "conversion": 21311.788
+              },
+              "counts": {
+                "customWidget": 870,
+                "factoryParse": 825,
+                "cssParse:display: block;font-size: 1.17em;font-weight: bold;margin: 1em 0": 90,
+                "defaultStyles": 615,
+                "cssParse:font-size: 20.0px;line-height: 1.4": 90,
+                "customStyles": 825,
+                "inlineStyles": 825,
+                "parseStyle": 1485,
+                "displayStyles": 825,
+                "parseEverything": 825,
+                "textNormalization": 1065,
+                "flattenAndBuild": 511,
+                "cssParse:display: block;margin: 0.5em 0;border-top: 1px solid": 15,
+                "cssParse:border-top: 1px solid #dbdfe4": 15,
+                "conversion": 16
+              }
+            },
+            "run": 3,
+            "mode": "progressive",
+            "htmlCharacters": 68149,
+            "mountedParagraphs": 91,
+            "firstParagraphReadyUs": 44272,
+            "bodyCompleteUs": 125684,
+            "warmup": false
+          }
+        ]
+      },
+      {
+        "name": "varied-3-fixed",
+        "fixture": "varied",
+        "optimized": true,
+        "exitCode": 0,
+        "elapsedSeconds": 16.861119031906128,
+        "samples": [
+          {
+            "probe": {
+              "conversionUs": [
+                20589.041,
+                46.625,
+                35.416,
+                33.959,
+                32.208,
+                98.25,
+                36.125,
+                33.25,
+                31.125,
+                31.25,
+                30.584,
+                30.125,
+                30.125,
+                54.709,
+                33.459,
+                27.958
+              ],
+              "us": {
+                "customWidget": 765.826,
+                "factoryParse": 447.298,
+                "defaultStyles": 2831.682,
+                "customStyles": 1306.198,
+                "inlineStyles": 574.255,
+                "parseStyle": 475.257,
+                "displayStyles": 757.643,
+                "parseEverything": 8004.427,
+                "textNormalization": 8813.035,
+                "flattenAndBuild": 2111.604,
+                "conversion": 21189.292
+              },
+              "counts": {
+                "customWidget": 870,
+                "factoryParse": 825,
+                "cssParse:display: block;font-size: 1.17em;font-weight: bold;margin: 1em 0": 90,
+                "defaultStyles": 615,
+                "cssParse:font-size: 20.0px;line-height: 1.4": 90,
+                "customStyles": 825,
+                "inlineStyles": 825,
+                "parseStyle": 1485,
+                "displayStyles": 825,
+                "parseEverything": 825,
+                "textNormalization": 1065,
+                "flattenAndBuild": 511,
+                "cssParse:display: block;margin: 1em 0": 1,
+                "cssParse:text-decoration: underline": 1,
+                "cssParse:text-decoration: none": 1,
+                "cssParse:display: block;list-style-type: disc;padding-inline-start: 40px;margin: 1em 0": 1,
+                "cssParse:display: block;list-style-type: circle;padding-inline-start: 40px": 1,
+                "cssParse:display: block": 1,
+                "cssParse:display: block;list-style-type: decimal;padding-inline-start: 40px;margin: 1em 0": 1,
+                "cssParse:display: block;margin: 0.5em 0;border-top: 1px solid": 15,
+                "cssParse:border-top: 1px solid #dbdfe4": 15,
+                "conversion": 16
+              }
+            },
+            "run": 0,
+            "mode": "column",
+            "htmlCharacters": 68149,
+            "mountedParagraphs": 525,
+            "firstParagraphReadyUs": 96773,
+            "bodyCompleteUs": 96773,
+            "warmup": true
+          },
+          {
+            "probe": {
+              "conversionUs": [
+                19678.042,
+                46.459
+              ],
+              "us": {
+                "customWidget": 737.264,
+                "factoryParse": 435.466,
+                "defaultStyles": 2830.341,
+                "customStyles": 1408.198,
+                "inlineStyles": 690.976,
+                "parseStyle": 488.467,
+                "displayStyles": 849.707,
+                "parseEverything": 7763.675,
+                "textNormalization": 7555.823,
+                "flattenAndBuild": 2204.49,
+                "conversion": 19727.418
+              },
+              "counts": {
+                "customWidget": 842,
+                "factoryParse": 797,
+                "cssParse:display: block;font-size: 1.17em;font-weight: bold;margin: 1em 0": 90,
+                "defaultStyles": 587,
+                "cssParse:font-size: 20.0px;line-height: 1.4": 90,
+                "customStyles": 797,
+                "inlineStyles": 797,
+                "parseStyle": 1429,
+                "displayStyles": 797,
+                "parseEverything": 797,
+                "textNormalization": 1037,
+                "flattenAndBuild": 469,
+                "cssParse:display: block;margin: 0.5em 0;border-top: 1px solid": 15,
+                "cssParse:border-top: 1px solid #dbdfe4": 15,
+                "conversion": 2
+              }
+            },
+            "run": 0,
+            "mode": "sliver",
+            "htmlCharacters": 68149,
+            "mountedParagraphs": 19,
+            "firstParagraphReadyUs": 45152,
+            "bodyCompleteUs": 45153,
+            "warmup": true
+          },
+          {
+            "probe": {
+              "conversionUs": [
+                20655.708,
+                38.375,
+                53.25,
+                34.833,
+                74.875,
+                41.833,
+                48.25,
+                28.75,
+                47.042,
+                47.833,
+                45.958,
+                44.166,
+                25.666,
+                54.125,
+                39.708,
+                37.416
+              ],
+              "us": {
+                "customWidget": 724.861,
+                "factoryParse": 1829.511,
+                "defaultStyles": 2778.122,
+                "customStyles": 1343.163,
+                "inlineStyles": 609.082,
+                "parseStyle": 553.444,
+                "displayStyles": 695.169,
+                "parseEverything": 8890.296,
+                "textNormalization": 7992.956,
+                "flattenAndBuild": 2241.034,
+                "conversion": 21320.206
+              },
+              "counts": {
+                "customWidget": 870,
+                "factoryParse": 825,
+                "cssParse:display: block;font-size: 1.17em;font-weight: bold;margin: 1em 0": 90,
+                "defaultStyles": 615,
+                "cssParse:font-size: 20.0px;line-height: 1.4": 90,
+                "customStyles": 825,
+                "inlineStyles": 825,
+                "parseStyle": 1485,
+                "displayStyles": 825,
+                "parseEverything": 825,
+                "textNormalization": 1065,
+                "flattenAndBuild": 511,
+                "cssParse:display: block;margin: 0.5em 0;border-top: 1px solid": 15,
+                "cssParse:border-top: 1px solid #dbdfe4": 15,
+                "conversion": 16
+              }
+            },
+            "run": 0,
+            "mode": "progressive",
+            "htmlCharacters": 68149,
+            "mountedParagraphs": 45,
+            "firstParagraphReadyUs": 44869,
+            "bodyCompleteUs": 134472,
+            "warmup": true
+          },
+          {
+            "probe": {
+              "conversionUs": [
+                22535.667,
+                38.042,
+                43.583,
+                35.292,
+                33.542,
+                45.75,
+                32.5,
+                32.875,
+                39.5,
+                36.208,
+                36.375,
+                29.459,
+                36.792,
+                31.125,
+                29.417,
+                41.25
+              ],
+              "us": {
+                "customWidget": 826.95,
+                "factoryParse": 476.462,
+                "defaultStyles": 3094.127,
+                "customStyles": 1514.384,
+                "inlineStyles": 697.201,
+                "parseStyle": 534.788,
+                "displayStyles": 804.427,
+                "parseEverything": 9702.312,
+                "textNormalization": 8540.177,
+                "flattenAndBuild": 2401.949,
+                "conversion": 23079.918
+              },
+              "counts": {
+                "customWidget": 870,
+                "factoryParse": 825,
+                "cssParse:display: block;font-size: 1.17em;font-weight: bold;margin: 1em 0": 90,
+                "defaultStyles": 615,
+                "cssParse:font-size: 20.0px;line-height: 1.4": 90,
+                "customStyles": 825,
+                "inlineStyles": 825,
+                "parseStyle": 1485,
+                "displayStyles": 825,
+                "parseEverything": 825,
+                "textNormalization": 1065,
+                "flattenAndBuild": 511,
+                "cssParse:display: block;margin: 0.5em 0;border-top: 1px solid": 15,
+                "cssParse:border-top: 1px solid #dbdfe4": 15,
+                "conversion": 16
+              }
+            },
+            "run": 1,
+            "mode": "column",
+            "htmlCharacters": 68149,
+            "mountedParagraphs": 525,
+            "firstParagraphReadyUs": 98341,
+            "bodyCompleteUs": 98341,
+            "warmup": false
+          },
+          {
+            "probe": {
+              "conversionUs": [
+                20695.334,
+                54.417
+              ],
+              "us": {
+                "customWidget": 752.59,
+                "factoryParse": 481.044,
+                "defaultStyles": 2951.971,
+                "customStyles": 1440.909,
+                "inlineStyles": 762.867,
+                "parseStyle": 531.687,
+                "displayStyles": 786.085,
+                "parseEverything": 8091.119,
+                "textNormalization": 8186.388,
+                "flattenAndBuild": 2264.076,
+                "conversion": 20750.126
+              },
+              "counts": {
+                "customWidget": 842,
+                "factoryParse": 797,
+                "cssParse:display: block;font-size: 1.17em;font-weight: bold;margin: 1em 0": 90,
+                "defaultStyles": 587,
+                "cssParse:font-size: 20.0px;line-height: 1.4": 90,
+                "customStyles": 797,
+                "inlineStyles": 797,
+                "parseStyle": 1429,
+                "displayStyles": 797,
+                "parseEverything": 797,
+                "textNormalization": 1037,
+                "flattenAndBuild": 469,
+                "cssParse:display: block;margin: 0.5em 0;border-top: 1px solid": 15,
+                "cssParse:border-top: 1px solid #dbdfe4": 15,
+                "conversion": 2
+              }
+            },
+            "run": 1,
+            "mode": "sliver",
+            "htmlCharacters": 68149,
+            "mountedParagraphs": 19,
+            "firstParagraphReadyUs": 49182,
+            "bodyCompleteUs": 49183,
+            "warmup": false
+          },
+          {
+            "probe": {
+              "conversionUs": [
+                12340.0,
+                25.583,
+                51.292,
+                23.958,
+                47.125,
+                55.75,
+                53.0,
+                34.917,
+                50.208,
+                43.083,
+                44.459,
+                54.375,
+                29.791,
+                53.042,
+                49.0,
+                44.959
+              ],
+              "us": {
+                "customWidget": 447.218,
+                "factoryParse": 289.499,
+                "defaultStyles": 1635.668,
+                "customStyles": 794.974,
+                "inlineStyles": 437.253,
+                "parseStyle": 305.828,
+                "displayStyles": 528.311,
+                "parseEverything": 4637.436,
+                "textNormalization": 4565.884,
+                "flattenAndBuild": 1322.968,
+                "conversion": 13002.583
+              },
+              "counts": {
+                "customWidget": 870,
+                "factoryParse": 825,
+                "cssParse:display: block;font-size: 1.17em;font-weight: bold;margin: 1em 0": 90,
+                "defaultStyles": 615,
+                "cssParse:font-size: 20.0px;line-height: 1.4": 90,
+                "customStyles": 825,
+                "inlineStyles": 825,
+                "parseStyle": 1485,
+                "displayStyles": 825,
+                "parseEverything": 825,
+                "textNormalization": 1065,
+                "flattenAndBuild": 511,
+                "cssParse:display: block;margin: 0.5em 0;border-top: 1px solid": 15,
+                "cssParse:border-top: 1px solid #dbdfe4": 15,
+                "conversion": 16
+              }
+            },
+            "run": 1,
+            "mode": "progressive",
+            "htmlCharacters": 68149,
+            "mountedParagraphs": 91,
+            "firstParagraphReadyUs": 34115,
+            "bodyCompleteUs": 119102,
+            "warmup": false
+          },
+          {
+            "probe": {
+              "conversionUs": [
+                19600.292,
+                40.0,
+                40.291,
+                34.875,
+                30.917,
+                36.166,
+                30.25,
+                28.709,
+                29.042,
+                52.208,
+                34.958,
+                29.5,
+                28.917,
+                27.5,
+                26.333,
+                28.042
+              ],
+              "us": {
+                "customWidget": 749.963,
+                "factoryParse": 440.083,
+                "defaultStyles": 2760.985,
+                "customStyles": 1387.467,
+                "inlineStyles": 534.456,
+                "parseStyle": 502.599,
+                "displayStyles": 924.032,
+                "parseEverything": 7617.204,
+                "textNormalization": 7965.987,
+                "flattenAndBuild": 2157.953,
+                "conversion": 20100.336
+              },
+              "counts": {
+                "customWidget": 870,
+                "factoryParse": 825,
+                "cssParse:display: block;font-size: 1.17em;font-weight: bold;margin: 1em 0": 90,
+                "defaultStyles": 615,
+                "cssParse:font-size: 20.0px;line-height: 1.4": 90,
+                "customStyles": 825,
+                "inlineStyles": 825,
+                "parseStyle": 1485,
+                "displayStyles": 825,
+                "parseEverything": 825,
+                "textNormalization": 1065,
+                "flattenAndBuild": 511,
+                "cssParse:display: block;margin: 0.5em 0;border-top: 1px solid": 15,
+                "cssParse:border-top: 1px solid #dbdfe4": 15,
+                "conversion": 16
+              }
+            },
+            "run": 2,
+            "mode": "column",
+            "htmlCharacters": 68149,
+            "mountedParagraphs": 525,
+            "firstParagraphReadyUs": 84523,
+            "bodyCompleteUs": 84523,
+            "warmup": false
+          },
+          {
+            "probe": {
+              "conversionUs": [
+                21020.75,
+                46.333
+              ],
+              "us": {
+                "customWidget": 787.481,
+                "factoryParse": 520.877,
+                "defaultStyles": 3054.045,
+                "customStyles": 1473.92,
+                "inlineStyles": 645.78,
+                "parseStyle": 511.829,
+                "displayStyles": 779.746,
+                "parseEverything": 8142.955,
+                "textNormalization": 8173.502,
+                "flattenAndBuild": 2421.994,
+                "conversion": 21067.5
+              },
+              "counts": {
+                "customWidget": 842,
+                "factoryParse": 797,
+                "cssParse:display: block;font-size: 1.17em;font-weight: bold;margin: 1em 0": 90,
+                "defaultStyles": 587,
+                "cssParse:font-size: 20.0px;line-height: 1.4": 90,
+                "customStyles": 797,
+                "inlineStyles": 797,
+                "parseStyle": 1429,
+                "displayStyles": 797,
+                "parseEverything": 797,
+                "textNormalization": 1037,
+                "flattenAndBuild": 469,
+                "cssParse:display: block;margin: 0.5em 0;border-top: 1px solid": 15,
+                "cssParse:border-top: 1px solid #dbdfe4": 15,
+                "conversion": 2
+              }
+            },
+            "run": 2,
+            "mode": "sliver",
+            "htmlCharacters": 68149,
+            "mountedParagraphs": 19,
+            "firstParagraphReadyUs": 53747,
+            "bodyCompleteUs": 53747,
+            "warmup": false
+          },
+          {
+            "probe": {
+              "conversionUs": [
+                21472.375,
+                39.0,
+                53.25,
+                34.708,
+                50.375,
+                45.458,
+                47.375,
+                29.333,
+                50.625,
+                61.833,
+                50.791,
+                50.833,
+                25.875,
+                48.417,
+                44.666,
+                46.375
+              ],
+              "us": {
+                "customWidget": 803.84,
+                "factoryParse": 493.466,
+                "defaultStyles": 2848.625,
+                "customStyles": 3119.293,
+                "inlineStyles": 650.664,
+                "parseStyle": 513.458,
+                "displayStyles": 761.696,
+                "parseEverything": 9501.65,
+                "textNormalization": 7971.614,
+                "flattenAndBuild": 2325.497,
+                "conversion": 22153.998
+              },
+              "counts": {
+                "customWidget": 870,
+                "factoryParse": 825,
+                "cssParse:display: block;font-size: 1.17em;font-weight: bold;margin: 1em 0": 90,
+                "defaultStyles": 615,
+                "cssParse:font-size: 20.0px;line-height: 1.4": 90,
+                "customStyles": 825,
+                "inlineStyles": 825,
+                "parseStyle": 1485,
+                "displayStyles": 825,
+                "parseEverything": 825,
+                "textNormalization": 1065,
+                "flattenAndBuild": 511,
+                "cssParse:display: block;margin: 0.5em 0;border-top: 1px solid": 15,
+                "cssParse:border-top: 1px solid #dbdfe4": 15,
+                "conversion": 16
+              }
+            },
+            "run": 2,
+            "mode": "progressive",
+            "htmlCharacters": 68149,
+            "mountedParagraphs": 45,
+            "firstParagraphReadyUs": 44077,
+            "bodyCompleteUs": 134300,
+            "warmup": false
+          },
+          {
+            "probe": {
+              "conversionUs": [
+                19807.833,
+                53.416,
+                34.292,
+                29.584,
+                29.791,
+                29.292,
+                28.583,
+                33.5,
+                30.875,
+                29.625,
+                29.583,
+                31.375,
+                34.083,
+                31.25,
+                29.875,
+                28.667
+              ],
+              "us": {
+                "customWidget": 721.371,
+                "factoryParse": 435.131,
+                "defaultStyles": 2782.327,
+                "customStyles": 1391.382,
+                "inlineStyles": 758.769,
+                "parseStyle": 531.992,
+                "displayStyles": 808.495,
+                "parseEverything": 7821.162,
+                "textNormalization": 7956.74,
+                "flattenAndBuild": 2317.655,
+                "conversion": 20293.79
+              },
+              "counts": {
+                "customWidget": 870,
+                "factoryParse": 825,
+                "cssParse:display: block;font-size: 1.17em;font-weight: bold;margin: 1em 0": 90,
+                "defaultStyles": 615,
+                "cssParse:font-size: 20.0px;line-height: 1.4": 90,
+                "customStyles": 825,
+                "inlineStyles": 825,
+                "parseStyle": 1485,
+                "displayStyles": 825,
+                "parseEverything": 825,
+                "textNormalization": 1065,
+                "flattenAndBuild": 511,
+                "cssParse:display: block;margin: 0.5em 0;border-top: 1px solid": 15,
+                "cssParse:border-top: 1px solid #dbdfe4": 15,
+                "conversion": 16
+              }
+            },
+            "run": 3,
+            "mode": "column",
+            "htmlCharacters": 68149,
+            "mountedParagraphs": 525,
+            "firstParagraphReadyUs": 87923,
+            "bodyCompleteUs": 87923,
+            "warmup": false
+          },
+          {
+            "probe": {
+              "conversionUs": [
+                21733.875,
+                35.459
+              ],
+              "us": {
+                "customWidget": 3046.239,
+                "factoryParse": 424.698,
+                "defaultStyles": 2739.875,
+                "customStyles": 1319.73,
+                "inlineStyles": 535.695,
+                "parseStyle": 473.075,
+                "displayStyles": 871.341,
+                "parseEverything": 7357.968,
+                "textNormalization": 7875.727,
+                "flattenAndBuild": 2163.376,
+                "conversion": 21769.668
+              },
+              "counts": {
+                "customWidget": 842,
+                "factoryParse": 797,
+                "cssParse:display: block;font-size: 1.17em;font-weight: bold;margin: 1em 0": 90,
+                "defaultStyles": 587,
+                "cssParse:font-size: 20.0px;line-height: 1.4": 90,
+                "customStyles": 797,
+                "inlineStyles": 797,
+                "parseStyle": 1429,
+                "displayStyles": 797,
+                "parseEverything": 797,
+                "textNormalization": 1037,
+                "flattenAndBuild": 469,
+                "cssParse:display: block;margin: 0.5em 0;border-top: 1px solid": 15,
+                "cssParse:border-top: 1px solid #dbdfe4": 15,
+                "conversion": 2
+              }
+            },
+            "run": 3,
+            "mode": "sliver",
+            "htmlCharacters": 68149,
+            "mountedParagraphs": 19,
+            "firstParagraphReadyUs": 41501,
+            "bodyCompleteUs": 41501,
+            "warmup": false
+          },
+          {
+            "probe": {
+              "conversionUs": [
+                19066.25,
+                37.208,
+                43.791,
+                31.125,
+                51.375,
+                63.5,
+                60.125,
+                33.667,
+                49.708,
+                66.75,
+                67.709,
+                48.333,
+                32.666,
+                51.375,
+                67.334,
+                52.416
+              ],
+              "us": {
+                "customWidget": 694.287,
+                "factoryParse": 471.303,
+                "defaultStyles": 2761.534,
+                "customStyles": 1360.7,
+                "inlineStyles": 533.372,
+                "parseStyle": 500.492,
+                "displayStyles": 659.015,
+                "parseEverything": 7356.754,
+                "textNormalization": 8108.9,
+                "flattenAndBuild": 2168.861,
+                "conversion": 19826.249
+              },
+              "counts": {
+                "customWidget": 870,
+                "factoryParse": 825,
+                "cssParse:display: block;font-size: 1.17em;font-weight: bold;margin: 1em 0": 90,
+                "defaultStyles": 615,
+                "cssParse:font-size: 20.0px;line-height: 1.4": 90,
+                "customStyles": 825,
+                "inlineStyles": 825,
+                "parseStyle": 1485,
+                "displayStyles": 825,
+                "parseEverything": 825,
+                "textNormalization": 1065,
+                "flattenAndBuild": 511,
+                "cssParse:display: block;margin: 0.5em 0;border-top: 1px solid": 15,
+                "cssParse:border-top: 1px solid #dbdfe4": 15,
+                "conversion": 16
+              }
+            },
+            "run": 3,
+            "mode": "progressive",
+            "htmlCharacters": 68149,
+            "mountedParagraphs": 91,
+            "firstParagraphReadyUs": 50031,
+            "bodyCompleteUs": 134437,
+            "warmup": false
+          }
+        ]
+      },
+      {
+        "name": "plain-0-baseline",
+        "fixture": "plain",
+        "optimized": false,
+        "exitCode": 0,
+        "elapsedSeconds": 16.811961889266968,
+        "samples": [
+          {
+            "probe": {
+              "conversionUs": [
+                20353.5
+              ],
+              "us": {
+                "customWidget": 899.079,
+                "factoryParse": 523.883,
+                "defaultStyles": 1663.833,
+                "customStyles": 223.81,
+                "inlineStyles": 187.566,
+                "parseStyle": 356.25,
+                "displayStyles": 1065.577,
+                "parseEverything": 4621.549,
+                "textNormalization": 11800.203,
+                "flattenAndBuild": 1896.958,
+                "conversion": 20365.75
+              },
+              "counts": {
+                "customWidget": 450,
+                "factoryParse": 450,
+                "cssParse:display: block;margin: 1em 0": 1,
+                "defaultStyles": 450,
+                "customStyles": 450,
+                "inlineStyles": 450,
+                "parseStyle": 900,
+                "displayStyles": 450,
+                "parseEverything": 450,
+                "textNormalization": 450,
+                "flattenAndBuild": 451,
+                "conversion": 1
+              }
+            },
+            "run": 0,
+            "mode": "column",
+            "htmlCharacters": 76840,
+            "mountedParagraphs": 450,
+            "firstParagraphReadyUs": 78082,
+            "bodyCompleteUs": 78082,
+            "warmup": true
+          },
+          {
+            "probe": {
+              "conversionUs": [
+                18183.875
+              ],
+              "us": {
+                "customWidget": 289.612,
+                "factoryParse": 296.805,
+                "defaultStyles": 712.995,
+                "customStyles": 191.172,
+                "inlineStyles": 176.699,
+                "parseStyle": 311.529,
+                "displayStyles": 588.47,
+                "parseEverything": 2917.413,
+                "textNormalization": 12845.489,
+                "flattenAndBuild": 1474.838,
+                "conversion": 18184.125
+              },
+              "counts": {
+                "customWidget": 450,
+                "factoryParse": 450,
+                "defaultStyles": 450,
+                "customStyles": 450,
+                "inlineStyles": 450,
+                "parseStyle": 900,
+                "displayStyles": 450,
+                "parseEverything": 450,
+                "textNormalization": 450,
+                "flattenAndBuild": 451,
+                "conversion": 1
+              }
+            },
+            "run": 0,
+            "mode": "sliver",
+            "htmlCharacters": 76840,
+            "mountedParagraphs": 18,
+            "firstParagraphReadyUs": 39358,
+            "bodyCompleteUs": 39358,
+            "warmup": true
+          },
+          {
+            "probe": {
+              "conversionUs": [
+                17057.583
+              ],
+              "us": {
+                "customWidget": 320.089,
+                "factoryParse": 275.579,
+                "defaultStyles": 759.745,
+                "customStyles": 220.911,
+                "inlineStyles": 239.793,
+                "parseStyle": 306.338,
+                "displayStyles": 571.96,
+                "parseEverything": 3074.164,
+                "textNormalization": 11371.718,
+                "flattenAndBuild": 1575.708,
+                "conversion": 17057.708
+              },
+              "counts": {
+                "customWidget": 450,
+                "factoryParse": 450,
+                "defaultStyles": 450,
+                "customStyles": 450,
+                "inlineStyles": 450,
+                "parseStyle": 900,
+                "displayStyles": 450,
+                "parseEverything": 450,
+                "textNormalization": 450,
+                "flattenAndBuild": 451,
+                "conversion": 1
+              }
+            },
+            "run": 0,
+            "mode": "progressive",
+            "htmlCharacters": 76840,
+            "mountedParagraphs": 32,
+            "firstParagraphReadyUs": 37337,
+            "bodyCompleteUs": 147766,
+            "warmup": true
+          },
+          {
+            "probe": {
+              "conversionUs": [
+                16955.041
+              ],
+              "us": {
+                "customWidget": 334.312,
+                "factoryParse": 286.919,
+                "defaultStyles": 679.654,
+                "customStyles": 183.969,
+                "inlineStyles": 187.364,
+                "parseStyle": 305.203,
+                "displayStyles": 580.805,
+                "parseEverything": 2869.297,
+                "textNormalization": 11479.661,
+                "flattenAndBuild": 1568.212,
+                "conversion": 16955.375
+              },
+              "counts": {
+                "customWidget": 450,
+                "factoryParse": 450,
+                "defaultStyles": 450,
+                "customStyles": 450,
+                "inlineStyles": 450,
+                "parseStyle": 900,
+                "displayStyles": 450,
+                "parseEverything": 450,
+                "textNormalization": 450,
+                "flattenAndBuild": 451,
+                "conversion": 1
+              }
+            },
+            "run": 1,
+            "mode": "column",
+            "htmlCharacters": 76840,
+            "mountedParagraphs": 450,
+            "firstParagraphReadyUs": 61953,
+            "bodyCompleteUs": 61953,
+            "warmup": false
+          },
+          {
+            "probe": {
+              "conversionUs": [
+                20228.542
+              ],
+              "us": {
+                "customWidget": 431.077,
+                "factoryParse": 324.79,
+                "defaultStyles": 878.789,
+                "customStyles": 226.208,
+                "inlineStyles": 280.582,
+                "parseStyle": 371.252,
+                "displayStyles": 805.771,
+                "parseEverything": 3588.38,
+                "textNormalization": 13692.699,
+                "flattenAndBuild": 1710.09,
+                "conversion": 20228.833
+              },
+              "counts": {
+                "customWidget": 450,
+                "factoryParse": 450,
+                "defaultStyles": 450,
+                "customStyles": 450,
+                "inlineStyles": 450,
+                "parseStyle": 900,
+                "displayStyles": 450,
+                "parseEverything": 450,
+                "textNormalization": 450,
+                "flattenAndBuild": 451,
+                "conversion": 1
+              }
+            },
+            "run": 1,
+            "mode": "sliver",
+            "htmlCharacters": 76840,
+            "mountedParagraphs": 18,
+            "firstParagraphReadyUs": 41629,
+            "bodyCompleteUs": 41629,
+            "warmup": false
+          },
+          {
+            "probe": {
+              "conversionUs": [
+                16553.166
+              ],
+              "us": {
+                "customWidget": 250.167,
+                "factoryParse": 252.16,
+                "defaultStyles": 1375.327,
+                "customStyles": 188.619,
+                "inlineStyles": 122.788,
+                "parseStyle": 268.78,
+                "displayStyles": 465.637,
+                "parseEverything": 3226.132,
+                "textNormalization": 11200.209,
+                "flattenAndBuild": 1236.38,
+                "conversion": 16553.791
+              },
+              "counts": {
+                "customWidget": 450,
+                "factoryParse": 450,
+                "defaultStyles": 450,
+                "customStyles": 450,
+                "inlineStyles": 450,
+                "parseStyle": 900,
+                "displayStyles": 450,
+                "parseEverything": 450,
+                "textNormalization": 450,
+                "flattenAndBuild": 451,
+                "conversion": 1
+              }
+            },
+            "run": 1,
+            "mode": "progressive",
+            "htmlCharacters": 76840,
+            "mountedParagraphs": 64,
+            "firstParagraphReadyUs": 41565,
+            "bodyCompleteUs": 147875,
+            "warmup": false
+          },
+          {
+            "probe": {
+              "conversionUs": [
+                19085.917
+              ],
+              "us": {
+                "customWidget": 411.28,
+                "factoryParse": 333.419,
+                "defaultStyles": 840.33,
+                "customStyles": 220.293,
+                "inlineStyles": 261.708,
+                "parseStyle": 358.389,
+                "displayStyles": 671.751,
+                "parseEverything": 3474.132,
+                "textNormalization": 12504.094,
+                "flattenAndBuild": 1800.375,
+                "conversion": 19086.209
+              },
+              "counts": {
+                "customWidget": 450,
+                "factoryParse": 450,
+                "defaultStyles": 450,
+                "customStyles": 450,
+                "inlineStyles": 450,
+                "parseStyle": 900,
+                "displayStyles": 450,
+                "parseEverything": 450,
+                "textNormalization": 450,
+                "flattenAndBuild": 451,
+                "conversion": 1
+              }
+            },
+            "run": 2,
+            "mode": "column",
+            "htmlCharacters": 76840,
+            "mountedParagraphs": 450,
+            "firstParagraphReadyUs": 68787,
+            "bodyCompleteUs": 68787,
+            "warmup": false
+          },
+          {
+            "probe": {
+              "conversionUs": [
+                13522.958
+              ],
+              "us": {
+                "customWidget": 508.802,
+                "factoryParse": 175.793,
+                "defaultStyles": 470.796,
+                "customStyles": 128.831,
+                "inlineStyles": 150.035,
+                "parseStyle": 233.915,
+                "displayStyles": 667.904,
+                "parseEverything": 2227.292,
+                "textNormalization": 9362.352,
+                "flattenAndBuild": 1002.484,
+                "conversion": 13523.125
+              },
+              "counts": {
+                "customWidget": 450,
+                "factoryParse": 450,
+                "defaultStyles": 450,
+                "customStyles": 450,
+                "inlineStyles": 450,
+                "parseStyle": 900,
+                "displayStyles": 450,
+                "parseEverything": 450,
+                "textNormalization": 450,
+                "flattenAndBuild": 451,
+                "conversion": 1
+              }
+            },
+            "run": 2,
+            "mode": "sliver",
+            "htmlCharacters": 76840,
+            "mountedParagraphs": 18,
+            "firstParagraphReadyUs": 31004,
+            "bodyCompleteUs": 31004,
+            "warmup": false
+          },
+          {
+            "probe": {
+              "conversionUs": [
+                17877.458
+              ],
+              "us": {
+                "customWidget": 395.129,
+                "factoryParse": 342.553,
+                "defaultStyles": 718.203,
+                "customStyles": 218.21,
+                "inlineStyles": 212.791,
+                "parseStyle": 346.916,
+                "displayStyles": 673.249,
+                "parseEverything": 3178.663,
+                "textNormalization": 11685.965,
+                "flattenAndBuild": 1757.664,
+                "conversion": 17877.75
+              },
+              "counts": {
+                "customWidget": 450,
+                "factoryParse": 450,
+                "defaultStyles": 450,
+                "customStyles": 450,
+                "inlineStyles": 450,
+                "parseStyle": 900,
+                "displayStyles": 450,
+                "parseEverything": 450,
+                "textNormalization": 450,
+                "flattenAndBuild": 451,
+                "conversion": 1
+              }
+            },
+            "run": 2,
+            "mode": "progressive",
+            "htmlCharacters": 76840,
+            "mountedParagraphs": 64,
+            "firstParagraphReadyUs": 43997,
+            "bodyCompleteUs": 148487,
+            "warmup": false
+          },
+          {
+            "probe": {
+              "conversionUs": [
+                20421.458
+              ],
+              "us": {
+                "customWidget": 1550.911,
+                "factoryParse": 331.968,
+                "defaultStyles": 798.578,
+                "customStyles": 241.585,
+                "inlineStyles": 253.455,
+                "parseStyle": 344.369,
+                "displayStyles": 660.344,
+                "parseEverything": 3366.991,
+                "textNormalization": 12958.074,
+                "flattenAndBuild": 1668.802,
+                "conversion": 20421.75
+              },
+              "counts": {
+                "customWidget": 450,
+                "factoryParse": 450,
+                "defaultStyles": 450,
+                "customStyles": 450,
+                "inlineStyles": 450,
+                "parseStyle": 900,
+                "displayStyles": 450,
+                "parseEverything": 450,
+                "textNormalization": 450,
+                "flattenAndBuild": 451,
+                "conversion": 1
+              }
+            },
+            "run": 3,
+            "mode": "column",
+            "htmlCharacters": 76840,
+            "mountedParagraphs": 450,
+            "firstParagraphReadyUs": 68346,
+            "bodyCompleteUs": 68346,
+            "warmup": false
+          },
+          {
+            "probe": {
+              "conversionUs": [
+                19641.667
+              ],
+              "us": {
+                "customWidget": 287.128,
+                "factoryParse": 318.248,
+                "defaultStyles": 602.75,
+                "customStyles": 184.876,
+                "inlineStyles": 189.197,
+                "parseStyle": 322.035,
+                "displayStyles": 545.165,
+                "parseEverything": 2777.095,
+                "textNormalization": 12249.694,
+                "flattenAndBuild": 1327.334,
+                "conversion": 19641.959
+              },
+              "counts": {
+                "customWidget": 450,
+                "factoryParse": 450,
+                "defaultStyles": 450,
+                "customStyles": 450,
+                "inlineStyles": 450,
+                "parseStyle": 900,
+                "displayStyles": 450,
+                "parseEverything": 450,
+                "textNormalization": 450,
+                "flattenAndBuild": 451,
+                "conversion": 1
+              }
+            },
+            "run": 3,
+            "mode": "sliver",
+            "htmlCharacters": 76840,
+            "mountedParagraphs": 18,
+            "firstParagraphReadyUs": 40434,
+            "bodyCompleteUs": 40434,
+            "warmup": false
+          },
+          {
+            "probe": {
+              "conversionUs": [
+                18915.042
+              ],
+              "us": {
+                "customWidget": 382.546,
+                "factoryParse": 293.423,
+                "defaultStyles": 785.21,
+                "customStyles": 261.737,
+                "inlineStyles": 288.33,
+                "parseStyle": 371.594,
+                "displayStyles": 786.298,
+                "parseEverything": 3477.672,
+                "textNormalization": 12545.079,
+                "flattenAndBuild": 1730.841,
+                "conversion": 18915.292
+              },
+              "counts": {
+                "customWidget": 450,
+                "factoryParse": 450,
+                "defaultStyles": 450,
+                "customStyles": 450,
+                "inlineStyles": 450,
+                "parseStyle": 900,
+                "displayStyles": 450,
+                "parseEverything": 450,
+                "textNormalization": 450,
+                "flattenAndBuild": 451,
+                "conversion": 1
+              }
+            },
+            "run": 3,
+            "mode": "progressive",
+            "htmlCharacters": 76840,
+            "mountedParagraphs": 64,
+            "firstParagraphReadyUs": 44520,
+            "bodyCompleteUs": 149223,
+            "warmup": false
+          }
+        ]
+      },
+      {
+        "name": "plain-1-fixed",
+        "fixture": "plain",
+        "optimized": true,
+        "exitCode": 0,
+        "elapsedSeconds": 16.75626802444458,
+        "samples": [
+          {
+            "probe": {
+              "conversionUs": [
+                17310.583
+              ],
+              "us": {
+                "customWidget": 294.043,
+                "factoryParse": 267.031,
+                "defaultStyles": 803.238,
+                "customStyles": 177.966,
+                "inlineStyles": 163.166,
+                "parseStyle": 300.559,
+                "displayStyles": 532.467,
+                "parseEverything": 3559.991,
+                "textNormalization": 10896.918,
+                "flattenAndBuild": 1962.001,
+                "conversion": 17322.5
+              },
+              "counts": {
+                "customWidget": 450,
+                "factoryParse": 450,
+                "cssParse:display: block;margin: 1em 0": 1,
+                "defaultStyles": 450,
+                "customStyles": 450,
+                "inlineStyles": 450,
+                "parseStyle": 900,
+                "displayStyles": 450,
+                "parseEverything": 450,
+                "textNormalization": 450,
+                "flattenAndBuild": 451,
+                "conversion": 1
+              }
+            },
+            "run": 0,
+            "mode": "column",
+            "htmlCharacters": 76840,
+            "mountedParagraphs": 450,
+            "firstParagraphReadyUs": 68269,
+            "bodyCompleteUs": 68270,
+            "warmup": true
+          },
+          {
+            "probe": {
+              "conversionUs": [
+                15550.917
+              ],
+              "us": {
+                "customWidget": 294.836,
+                "factoryParse": 294.328,
+                "defaultStyles": 702.632,
+                "customStyles": 187.844,
+                "inlineStyles": 211.362,
+                "parseStyle": 300.745,
+                "displayStyles": 616.168,
+                "parseEverything": 2946.164,
+                "textNormalization": 10142.096,
+                "flattenAndBuild": 1497.078,
+                "conversion": 15551.292
+              },
+              "counts": {
+                "customWidget": 450,
+                "factoryParse": 450,
+                "defaultStyles": 450,
+                "customStyles": 450,
+                "inlineStyles": 450,
+                "parseStyle": 900,
+                "displayStyles": 450,
+                "parseEverything": 450,
+                "textNormalization": 450,
+                "flattenAndBuild": 451,
+                "conversion": 1
+              }
+            },
+            "run": 0,
+            "mode": "sliver",
+            "htmlCharacters": 76840,
+            "mountedParagraphs": 18,
+            "firstParagraphReadyUs": 35551,
+            "bodyCompleteUs": 35551,
+            "warmup": true
+          },
+          {
+            "probe": {
+              "conversionUs": [
+                16669.5
+              ],
+              "us": {
+                "customWidget": 851.717,
+                "factoryParse": 243.82,
+                "defaultStyles": 624.515,
+                "customStyles": 199.288,
+                "inlineStyles": 134.554,
+                "parseStyle": 272.814,
+                "displayStyles": 433.72,
+                "parseEverything": 2455.758,
+                "textNormalization": 11429.238,
+                "flattenAndBuild": 1319.636,
+                "conversion": 16669.708
+              },
+              "counts": {
+                "customWidget": 450,
+                "factoryParse": 450,
+                "defaultStyles": 450,
+                "customStyles": 450,
+                "inlineStyles": 450,
+                "parseStyle": 900,
+                "displayStyles": 450,
+                "parseEverything": 450,
+                "textNormalization": 450,
+                "flattenAndBuild": 451,
+                "conversion": 1
+              }
+            },
+            "run": 0,
+            "mode": "progressive",
+            "htmlCharacters": 76840,
+            "mountedParagraphs": 64,
+            "firstParagraphReadyUs": 41340,
+            "bodyCompleteUs": 148192,
+            "warmup": true
+          },
+          {
+            "probe": {
+              "conversionUs": [
+                17730.0
+              ],
+              "us": {
+                "customWidget": 386.547,
+                "factoryParse": 280.63,
+                "defaultStyles": 683.174,
+                "customStyles": 198.46,
+                "inlineStyles": 209.703,
+                "parseStyle": 348.861,
+                "displayStyles": 585.796,
+                "parseEverything": 2971.203,
+                "textNormalization": 11543.031,
+                "flattenAndBuild": 1494.302,
+                "conversion": 17730.291
+              },
+              "counts": {
+                "customWidget": 450,
+                "factoryParse": 450,
+                "defaultStyles": 450,
+                "customStyles": 450,
+                "inlineStyles": 450,
+                "parseStyle": 900,
+                "displayStyles": 450,
+                "parseEverything": 450,
+                "textNormalization": 450,
+                "flattenAndBuild": 451,
+                "conversion": 1
+              }
+            },
+            "run": 1,
+            "mode": "column",
+            "htmlCharacters": 76840,
+            "mountedParagraphs": 450,
+            "firstParagraphReadyUs": 64165,
+            "bodyCompleteUs": 64165,
+            "warmup": false
+          },
+          {
+            "probe": {
+              "conversionUs": [
+                18714.292
+              ],
+              "us": {
+                "customWidget": 468.287,
+                "factoryParse": 376.382,
+                "defaultStyles": 857.459,
+                "customStyles": 225.328,
+                "inlineStyles": 325.046,
+                "parseStyle": 331.285,
+                "displayStyles": 885.971,
+                "parseEverything": 3715.74,
+                "textNormalization": 11834.961,
+                "flattenAndBuild": 1825.844,
+                "conversion": 18714.583
+              },
+              "counts": {
+                "customWidget": 450,
+                "factoryParse": 450,
+                "defaultStyles": 450,
+                "customStyles": 450,
+                "inlineStyles": 450,
+                "parseStyle": 900,
+                "displayStyles": 450,
+                "parseEverything": 450,
+                "textNormalization": 450,
+                "flattenAndBuild": 451,
+                "conversion": 1
+              }
+            },
+            "run": 1,
+            "mode": "sliver",
+            "htmlCharacters": 76840,
+            "mountedParagraphs": 18,
+            "firstParagraphReadyUs": 47094,
+            "bodyCompleteUs": 47094,
+            "warmup": false
+          },
+          {
+            "probe": {
+              "conversionUs": [
+                18202.333
+              ],
+              "us": {
+                "customWidget": 370.045,
+                "factoryParse": 331.81,
+                "defaultStyles": 845.315,
+                "customStyles": 268.032,
+                "inlineStyles": 222.583,
+                "parseStyle": 328.909,
+                "displayStyles": 594.041,
+                "parseEverything": 3332.412,
+                "textNormalization": 12135.819,
+                "flattenAndBuild": 1639.784,
+                "conversion": 18202.708
+              },
+              "counts": {
+                "customWidget": 450,
+                "factoryParse": 450,
+                "defaultStyles": 450,
+                "customStyles": 450,
+                "inlineStyles": 450,
+                "parseStyle": 900,
+                "displayStyles": 450,
+                "parseEverything": 450,
+                "textNormalization": 450,
+                "flattenAndBuild": 451,
+                "conversion": 1
+              }
+            },
+            "run": 1,
+            "mode": "progressive",
+            "htmlCharacters": 76840,
+            "mountedParagraphs": 64,
+            "firstParagraphReadyUs": 42458,
+            "bodyCompleteUs": 149254,
+            "warmup": false
+          },
+          {
+            "probe": {
+              "conversionUs": [
+                17731.542
+              ],
+              "us": {
+                "customWidget": 374.447,
+                "factoryParse": 292.701,
+                "defaultStyles": 794.777,
+                "customStyles": 212.421,
+                "inlineStyles": 256.122,
+                "parseStyle": 321.492,
+                "displayStyles": 677.915,
+                "parseEverything": 3310.716,
+                "textNormalization": 11586.968,
+                "flattenAndBuild": 1731.579,
+                "conversion": 17733.125
+              },
+              "counts": {
+                "customWidget": 450,
+                "factoryParse": 450,
+                "defaultStyles": 450,
+                "customStyles": 450,
+                "inlineStyles": 450,
+                "parseStyle": 900,
+                "displayStyles": 450,
+                "parseEverything": 450,
+                "textNormalization": 450,
+                "flattenAndBuild": 451,
+                "conversion": 1
+              }
+            },
+            "run": 2,
+            "mode": "column",
+            "htmlCharacters": 76840,
+            "mountedParagraphs": 450,
+            "firstParagraphReadyUs": 66157,
+            "bodyCompleteUs": 66157,
+            "warmup": false
+          },
+          {
+            "probe": {
+              "conversionUs": [
+                23250.75
+              ],
+              "us": {
+                "customWidget": 572.043,
+                "factoryParse": 292.762,
+                "defaultStyles": 4485.169,
+                "customStyles": 202.537,
+                "inlineStyles": 238.546,
+                "parseStyle": 313.628,
+                "displayStyles": 1206.549,
+                "parseEverything": 7428.787,
+                "textNormalization": 12440.994,
+                "flattenAndBuild": 1673.035,
+                "conversion": 23251.042
+              },
+              "counts": {
+                "customWidget": 450,
+                "factoryParse": 450,
+                "defaultStyles": 450,
+                "customStyles": 450,
+                "inlineStyles": 450,
+                "parseStyle": 900,
+                "displayStyles": 450,
+                "parseEverything": 450,
+                "textNormalization": 450,
+                "flattenAndBuild": 451,
+                "conversion": 1
+              }
+            },
+            "run": 2,
+            "mode": "sliver",
+            "htmlCharacters": 76840,
+            "mountedParagraphs": 18,
+            "firstParagraphReadyUs": 42931,
+            "bodyCompleteUs": 42931,
+            "warmup": false
+          },
+          {
+            "probe": {
+              "conversionUs": [
+                17804.875
+              ],
+              "us": {
+                "customWidget": 408.501,
+                "factoryParse": 357.825,
+                "defaultStyles": 855.667,
+                "customStyles": 208.996,
+                "inlineStyles": 211.005,
+                "parseStyle": 323.665,
+                "displayStyles": 672.407,
+                "parseEverything": 3350.999,
+                "textNormalization": 11572.716,
+                "flattenAndBuild": 1673.374,
+                "conversion": 17805.166
+              },
+              "counts": {
+                "customWidget": 450,
+                "factoryParse": 450,
+                "defaultStyles": 450,
+                "customStyles": 450,
+                "inlineStyles": 450,
+                "parseStyle": 900,
+                "displayStyles": 450,
+                "parseEverything": 450,
+                "textNormalization": 450,
+                "flattenAndBuild": 451,
+                "conversion": 1
+              }
+            },
+            "run": 2,
+            "mode": "progressive",
+            "htmlCharacters": 76840,
+            "mountedParagraphs": 64,
+            "firstParagraphReadyUs": 44110,
+            "bodyCompleteUs": 149228,
+            "warmup": false
+          },
+          {
+            "probe": {
+              "conversionUs": [
+                16878.959
+              ],
+              "us": {
+                "customWidget": 351.0,
+                "factoryParse": 283.832,
+                "defaultStyles": 729.411,
+                "customStyles": 270.381,
+                "inlineStyles": 201.458,
+                "parseStyle": 314.525,
+                "displayStyles": 593.25,
+                "parseEverything": 3063.076,
+                "textNormalization": 11159.818,
+                "flattenAndBuild": 1557.116,
+                "conversion": 16879.209
+              },
+              "counts": {
+                "customWidget": 450,
+                "factoryParse": 450,
+                "defaultStyles": 450,
+                "customStyles": 450,
+                "inlineStyles": 450,
+                "parseStyle": 900,
+                "displayStyles": 450,
+                "parseEverything": 450,
+                "textNormalization": 450,
+                "flattenAndBuild": 451,
+                "conversion": 1
+              }
+            },
+            "run": 3,
+            "mode": "column",
+            "htmlCharacters": 76840,
+            "mountedParagraphs": 450,
+            "firstParagraphReadyUs": 63989,
+            "bodyCompleteUs": 63989,
+            "warmup": false
+          },
+          {
+            "probe": {
+              "conversionUs": [
+                21075.0
+              ],
+              "us": {
+                "customWidget": 372.035,
+                "factoryParse": 430.079,
+                "defaultStyles": 1401.54,
+                "customStyles": 2720.47,
+                "inlineStyles": 189.753,
+                "parseStyle": 313.957,
+                "displayStyles": 620.535,
+                "parseEverything": 6396.835,
+                "textNormalization": 11595.665,
+                "flattenAndBuild": 2010.037,
+                "conversion": 21075.291
+              },
+              "counts": {
+                "customWidget": 450,
+                "factoryParse": 450,
+                "defaultStyles": 450,
+                "customStyles": 450,
+                "inlineStyles": 450,
+                "parseStyle": 900,
+                "displayStyles": 450,
+                "parseEverything": 450,
+                "textNormalization": 450,
+                "flattenAndBuild": 451,
+                "conversion": 1
+              }
+            },
+            "run": 3,
+            "mode": "sliver",
+            "htmlCharacters": 76840,
+            "mountedParagraphs": 18,
+            "firstParagraphReadyUs": 44037,
+            "bodyCompleteUs": 44037,
+            "warmup": false
+          },
+          {
+            "probe": {
+              "conversionUs": [
+                17411.083
+              ],
+              "us": {
+                "customWidget": 382.08,
+                "factoryParse": 357.382,
+                "defaultStyles": 825.708,
+                "customStyles": 224.295,
+                "inlineStyles": 310.828,
+                "parseStyle": 337.539,
+                "displayStyles": 767.255,
+                "parseEverything": 3475.71,
+                "textNormalization": 11075.827,
+                "flattenAndBuild": 1685.979,
+                "conversion": 17411.333
+              },
+              "counts": {
+                "customWidget": 450,
+                "factoryParse": 450,
+                "defaultStyles": 450,
+                "customStyles": 450,
+                "inlineStyles": 450,
+                "parseStyle": 900,
+                "displayStyles": 450,
+                "parseEverything": 450,
+                "textNormalization": 450,
+                "flattenAndBuild": 451,
+                "conversion": 1
+              }
+            },
+            "run": 3,
+            "mode": "progressive",
+            "htmlCharacters": 76840,
+            "mountedParagraphs": 32,
+            "firstParagraphReadyUs": 38487,
+            "bodyCompleteUs": 149042,
+            "warmup": false
+          }
+        ]
+      },
+      {
+        "name": "plain-2-baseline",
+        "fixture": "plain",
+        "optimized": false,
+        "exitCode": 0,
+        "elapsedSeconds": 16.83716106414795,
+        "samples": [
+          {
+            "probe": {
+              "conversionUs": [
+                19035.375
+              ],
+              "us": {
+                "customWidget": 762.035,
+                "factoryParse": 284.906,
+                "defaultStyles": 861.087,
+                "customStyles": 751.542,
+                "inlineStyles": 160.92,
+                "parseStyle": 355.122,
+                "displayStyles": 550.826,
+                "parseEverything": 3650.551,
+                "textNormalization": 12107.135,
+                "flattenAndBuild": 1537.997,
+                "conversion": 19048.375
+              },
+              "counts": {
+                "customWidget": 450,
+                "factoryParse": 450,
+                "cssParse:display: block;margin: 1em 0": 1,
+                "defaultStyles": 450,
+                "customStyles": 450,
+                "inlineStyles": 450,
+                "parseStyle": 900,
+                "displayStyles": 450,
+                "parseEverything": 450,
+                "textNormalization": 450,
+                "flattenAndBuild": 451,
+                "conversion": 1
+              }
+            },
+            "run": 0,
+            "mode": "column",
+            "htmlCharacters": 76840,
+            "mountedParagraphs": 450,
+            "firstParagraphReadyUs": 76258,
+            "bodyCompleteUs": 76258,
+            "warmup": true
+          },
+          {
+            "probe": {
+              "conversionUs": [
+                17471.25
+              ],
+              "us": {
+                "customWidget": 279.255,
+                "factoryParse": 282.671,
+                "defaultStyles": 668.749,
+                "customStyles": 1513.662,
+                "inlineStyles": 182.038,
+                "parseStyle": 293.256,
+                "displayStyles": 558.674,
+                "parseEverything": 4126.294,
+                "textNormalization": 10936.957,
+                "flattenAndBuild": 1493.284,
+                "conversion": 17471.5
+              },
+              "counts": {
+                "customWidget": 450,
+                "factoryParse": 450,
+                "defaultStyles": 450,
+                "customStyles": 450,
+                "inlineStyles": 450,
+                "parseStyle": 900,
+                "displayStyles": 450,
+                "parseEverything": 450,
+                "textNormalization": 450,
+                "flattenAndBuild": 451,
+                "conversion": 1
+              }
+            },
+            "run": 0,
+            "mode": "sliver",
+            "htmlCharacters": 76840,
+            "mountedParagraphs": 18,
+            "firstParagraphReadyUs": 39045,
+            "bodyCompleteUs": 39045,
+            "warmup": true
+          },
+          {
+            "probe": {
+              "conversionUs": [
+                18178.708
+              ],
+              "us": {
+                "customWidget": 349.081,
+                "factoryParse": 303.913,
+                "defaultStyles": 757.335,
+                "customStyles": 253.373,
+                "inlineStyles": 220.748,
+                "parseStyle": 329.108,
+                "displayStyles": 584.64,
+                "parseEverything": 3151.031,
+                "textNormalization": 12370.133,
+                "flattenAndBuild": 1584.665,
+                "conversion": 18178.958
+              },
+              "counts": {
+                "customWidget": 450,
+                "factoryParse": 450,
+                "defaultStyles": 450,
+                "customStyles": 450,
+                "inlineStyles": 450,
+                "parseStyle": 900,
+                "displayStyles": 450,
+                "parseEverything": 450,
+                "textNormalization": 450,
+                "flattenAndBuild": 451,
+                "conversion": 1
+              }
+            },
+            "run": 0,
+            "mode": "progressive",
+            "htmlCharacters": 76840,
+            "mountedParagraphs": 64,
+            "firstParagraphReadyUs": 43136,
+            "bodyCompleteUs": 148223,
+            "warmup": true
+          },
+          {
+            "probe": {
+              "conversionUs": [
+                19190.125
+              ],
+              "us": {
+                "customWidget": 383.96,
+                "factoryParse": 355.457,
+                "defaultStyles": 801.173,
+                "customStyles": 242.639,
+                "inlineStyles": 226.403,
+                "parseStyle": 378.714,
+                "displayStyles": 699.258,
+                "parseEverything": 3412.805,
+                "textNormalization": 12886.332,
+                "flattenAndBuild": 1736.162,
+                "conversion": 19190.416
+              },
+              "counts": {
+                "customWidget": 450,
+                "factoryParse": 450,
+                "defaultStyles": 450,
+                "customStyles": 450,
+                "inlineStyles": 450,
+                "parseStyle": 900,
+                "displayStyles": 450,
+                "parseEverything": 450,
+                "textNormalization": 450,
+                "flattenAndBuild": 451,
+                "conversion": 1
+              }
+            },
+            "run": 1,
+            "mode": "column",
+            "htmlCharacters": 76840,
+            "mountedParagraphs": 450,
+            "firstParagraphReadyUs": 68464,
+            "bodyCompleteUs": 68465,
+            "warmup": false
+          },
+          {
+            "probe": {
+              "conversionUs": [
+                20042.667
+              ],
+              "us": {
+                "customWidget": 346.212,
+                "factoryParse": 311.231,
+                "defaultStyles": 782.753,
+                "customStyles": 330.541,
+                "inlineStyles": 323.168,
+                "parseStyle": 359.496,
+                "displayStyles": 768.748,
+                "parseEverything": 4767.674,
+                "textNormalization": 12502.716,
+                "flattenAndBuild": 1631.742,
+                "conversion": 20042.875
+              },
+              "counts": {
+                "customWidget": 450,
+                "factoryParse": 450,
+                "defaultStyles": 450,
+                "customStyles": 450,
+                "inlineStyles": 450,
+                "parseStyle": 900,
+                "displayStyles": 450,
+                "parseEverything": 450,
+                "textNormalization": 450,
+                "flattenAndBuild": 451,
+                "conversion": 1
+              }
+            },
+            "run": 1,
+            "mode": "sliver",
+            "htmlCharacters": 76840,
+            "mountedParagraphs": 18,
+            "firstParagraphReadyUs": 38997,
+            "bodyCompleteUs": 38997,
+            "warmup": false
+          },
+          {
+            "probe": {
+              "conversionUs": [
+                17054.625
+              ],
+              "us": {
+                "customWidget": 269.534,
+                "factoryParse": 286.673,
+                "defaultStyles": 576.548,
+                "customStyles": 170.925,
+                "inlineStyles": 133.334,
+                "parseStyle": 272.074,
+                "displayStyles": 462.615,
+                "parseEverything": 2510.548,
+                "textNormalization": 12308.277,
+                "flattenAndBuild": 1368.94,
+                "conversion": 17054.917
+              },
+              "counts": {
+                "customWidget": 450,
+                "factoryParse": 450,
+                "defaultStyles": 450,
+                "customStyles": 450,
+                "inlineStyles": 450,
+                "parseStyle": 900,
+                "displayStyles": 450,
+                "parseEverything": 450,
+                "textNormalization": 450,
+                "flattenAndBuild": 451,
+                "conversion": 1
+              }
+            },
+            "run": 1,
+            "mode": "progressive",
+            "htmlCharacters": 76840,
+            "mountedParagraphs": 64,
+            "firstParagraphReadyUs": 43052,
+            "bodyCompleteUs": 147654,
+            "warmup": false
+          },
+          {
+            "probe": {
+              "conversionUs": [
+                17849.75
+              ],
+              "us": {
+                "customWidget": 333.085,
+                "factoryParse": 321.958,
+                "defaultStyles": 805.466,
+                "customStyles": 202.468,
+                "inlineStyles": 201.328,
+                "parseStyle": 311.122,
+                "displayStyles": 632.374,
+                "parseEverything": 3163.046,
+                "textNormalization": 11981.406,
+                "flattenAndBuild": 1635.825,
+                "conversion": 17850.125
+              },
+              "counts": {
+                "customWidget": 450,
+                "factoryParse": 450,
+                "defaultStyles": 450,
+                "customStyles": 450,
+                "inlineStyles": 450,
+                "parseStyle": 900,
+                "displayStyles": 450,
+                "parseEverything": 450,
+                "textNormalization": 450,
+                "flattenAndBuild": 451,
+                "conversion": 1
+              }
+            },
+            "run": 2,
+            "mode": "column",
+            "htmlCharacters": 76840,
+            "mountedParagraphs": 450,
+            "firstParagraphReadyUs": 65159,
+            "bodyCompleteUs": 65159,
+            "warmup": false
+          },
+          {
+            "probe": {
+              "conversionUs": [
+                20482.041
+              ],
+              "us": {
+                "customWidget": 680.085,
+                "factoryParse": 296.081,
+                "defaultStyles": 688.466,
+                "customStyles": 180.721,
+                "inlineStyles": 245.12,
+                "parseStyle": 315.013,
+                "displayStyles": 1164.926,
+                "parseEverything": 3547.503,
+                "textNormalization": 14012.093,
+                "flattenAndBuild": 1610.17,
+                "conversion": 20482.291
+              },
+              "counts": {
+                "customWidget": 450,
+                "factoryParse": 450,
+                "defaultStyles": 450,
+                "customStyles": 450,
+                "inlineStyles": 450,
+                "parseStyle": 900,
+                "displayStyles": 450,
+                "parseEverything": 450,
+                "textNormalization": 450,
+                "flattenAndBuild": 451,
+                "conversion": 1
+              }
+            },
+            "run": 2,
+            "mode": "sliver",
+            "htmlCharacters": 76840,
+            "mountedParagraphs": 18,
+            "firstParagraphReadyUs": 50060,
+            "bodyCompleteUs": 50060,
+            "warmup": false
+          },
+          {
+            "probe": {
+              "conversionUs": [
+                15950.75
+              ],
+              "us": {
+                "customWidget": 270.535,
+                "factoryParse": 250.223,
+                "defaultStyles": 631.256,
+                "customStyles": 185.528,
+                "inlineStyles": 185.618,
+                "parseStyle": 306.706,
+                "displayStyles": 533.334,
+                "parseEverything": 2720.833,
+                "textNormalization": 10895.128,
+                "flattenAndBuild": 1454.131,
+                "conversion": 15950.959
+              },
+              "counts": {
+                "customWidget": 450,
+                "factoryParse": 450,
+                "defaultStyles": 450,
+                "customStyles": 450,
+                "inlineStyles": 450,
+                "parseStyle": 900,
+                "displayStyles": 450,
+                "parseEverything": 450,
+                "textNormalization": 450,
+                "flattenAndBuild": 451,
+                "conversion": 1
+              }
+            },
+            "run": 2,
+            "mode": "progressive",
+            "htmlCharacters": 76840,
+            "mountedParagraphs": 64,
+            "firstParagraphReadyUs": 43125,
+            "bodyCompleteUs": 147814,
+            "warmup": false
+          },
+          {
+            "probe": {
+              "conversionUs": [
+                19357.417
+              ],
+              "us": {
+                "customWidget": 1290.241,
+                "factoryParse": 334.083,
+                "defaultStyles": 732.444,
+                "customStyles": 242.954,
+                "inlineStyles": 253.04,
+                "parseStyle": 333.259,
+                "displayStyles": 636.335,
+                "parseEverything": 3215.71,
+                "textNormalization": 12275.085,
+                "flattenAndBuild": 1712.633,
+                "conversion": 19357.667
+              },
+              "counts": {
+                "customWidget": 450,
+                "factoryParse": 450,
+                "defaultStyles": 450,
+                "customStyles": 450,
+                "inlineStyles": 450,
+                "parseStyle": 900,
+                "displayStyles": 450,
+                "parseEverything": 450,
+                "textNormalization": 450,
+                "flattenAndBuild": 451,
+                "conversion": 1
+              }
+            },
+            "run": 3,
+            "mode": "column",
+            "htmlCharacters": 76840,
+            "mountedParagraphs": 450,
+            "firstParagraphReadyUs": 64770,
+            "bodyCompleteUs": 64770,
+            "warmup": false
+          },
+          {
+            "probe": {
+              "conversionUs": [
+                19433.333
+              ],
+              "us": {
+                "customWidget": 299.926,
+                "factoryParse": 283.702,
+                "defaultStyles": 632.994,
+                "customStyles": 527.704,
+                "inlineStyles": 167.424,
+                "parseStyle": 273.009,
+                "displayStyles": 528.842,
+                "parseEverything": 5097.533,
+                "textNormalization": 11880.743,
+                "flattenAndBuild": 1482.581,
+                "conversion": 19433.583
+              },
+              "counts": {
+                "customWidget": 450,
+                "factoryParse": 450,
+                "defaultStyles": 450,
+                "customStyles": 450,
+                "inlineStyles": 450,
+                "parseStyle": 900,
+                "displayStyles": 450,
+                "parseEverything": 450,
+                "textNormalization": 450,
+                "flattenAndBuild": 451,
+                "conversion": 1
+              }
+            },
+            "run": 3,
+            "mode": "sliver",
+            "htmlCharacters": 76840,
+            "mountedParagraphs": 18,
+            "firstParagraphReadyUs": 38243,
+            "bodyCompleteUs": 38243,
+            "warmup": false
+          },
+          {
+            "probe": {
+              "conversionUs": [
+                20042.917
+              ],
+              "us": {
+                "customWidget": 477.804,
+                "factoryParse": 333.533,
+                "defaultStyles": 846.249,
+                "customStyles": 296.591,
+                "inlineStyles": 334.749,
+                "parseStyle": 351.104,
+                "displayStyles": 865.748,
+                "parseEverything": 3812.385,
+                "textNormalization": 12803.128,
+                "flattenAndBuild": 1965.129,
+                "conversion": 20043.167
+              },
+              "counts": {
+                "customWidget": 450,
+                "factoryParse": 450,
+                "defaultStyles": 450,
+                "customStyles": 450,
+                "inlineStyles": 450,
+                "parseStyle": 900,
+                "displayStyles": 450,
+                "parseEverything": 450,
+                "textNormalization": 450,
+                "flattenAndBuild": 451,
+                "conversion": 1
+              }
+            },
+            "run": 3,
+            "mode": "progressive",
+            "htmlCharacters": 76840,
+            "mountedParagraphs": 64,
+            "firstParagraphReadyUs": 44577,
+            "bodyCompleteUs": 149784,
+            "warmup": false
+          }
+        ]
+      },
+      {
+        "name": "plain-3-fixed",
+        "fixture": "plain",
+        "optimized": true,
+        "exitCode": 0,
+        "elapsedSeconds": 16.768254041671753,
+        "samples": [
+          {
+            "probe": {
+              "conversionUs": [
+                18462.375
+              ],
+              "us": {
+                "customWidget": 354.181,
+                "factoryParse": 850.963,
+                "defaultStyles": 794.205,
+                "customStyles": 214.461,
+                "inlineStyles": 185.873,
+                "parseStyle": 351.586,
+                "displayStyles": 622.962,
+                "parseEverything": 3660.616,
+                "textNormalization": 11436.879,
+                "flattenAndBuild": 2363.034,
+                "conversion": 18473.25
+              },
+              "counts": {
+                "customWidget": 450,
+                "factoryParse": 450,
+                "cssParse:display: block;margin: 1em 0": 1,
+                "defaultStyles": 450,
+                "customStyles": 450,
+                "inlineStyles": 450,
+                "parseStyle": 900,
+                "displayStyles": 450,
+                "parseEverything": 450,
+                "textNormalization": 450,
+                "flattenAndBuild": 451,
+                "conversion": 1
+              }
+            },
+            "run": 0,
+            "mode": "column",
+            "htmlCharacters": 76840,
+            "mountedParagraphs": 450,
+            "firstParagraphReadyUs": 73223,
+            "bodyCompleteUs": 73223,
+            "warmup": true
+          },
+          {
+            "probe": {
+              "conversionUs": [
+                18562.167
+              ],
+              "us": {
+                "customWidget": 410.944,
+                "factoryParse": 327.386,
+                "defaultStyles": 829.877,
+                "customStyles": 296.095,
+                "inlineStyles": 252.125,
+                "parseStyle": 354.072,
+                "displayStyles": 714.592,
+                "parseEverything": 3553.497,
+                "textNormalization": 11876.958,
+                "flattenAndBuild": 1837.051,
+                "conversion": 18562.583
+              },
+              "counts": {
+                "customWidget": 450,
+                "factoryParse": 450,
+                "defaultStyles": 450,
+                "customStyles": 450,
+                "inlineStyles": 450,
+                "parseStyle": 900,
+                "displayStyles": 450,
+                "parseEverything": 450,
+                "textNormalization": 450,
+                "flattenAndBuild": 451,
+                "conversion": 1
+              }
+            },
+            "run": 0,
+            "mode": "sliver",
+            "htmlCharacters": 76840,
+            "mountedParagraphs": 18,
+            "firstParagraphReadyUs": 38767,
+            "bodyCompleteUs": 38767,
+            "warmup": true
+          },
+          {
+            "probe": {
+              "conversionUs": [
+                16587.209
+              ],
+              "us": {
+                "customWidget": 864.461,
+                "factoryParse": 235.332,
+                "defaultStyles": 575.508,
+                "customStyles": 163.468,
+                "inlineStyles": 170.963,
+                "parseStyle": 279.741,
+                "displayStyles": 456.257,
+                "parseEverything": 2422.041,
+                "textNormalization": 11434.816,
+                "flattenAndBuild": 1282.637,
+                "conversion": 16587.417
+              },
+              "counts": {
+                "customWidget": 450,
+                "factoryParse": 450,
+                "defaultStyles": 450,
+                "customStyles": 450,
+                "inlineStyles": 450,
+                "parseStyle": 900,
+                "displayStyles": 450,
+                "parseEverything": 450,
+                "textNormalization": 450,
+                "flattenAndBuild": 451,
+                "conversion": 1
+              }
+            },
+            "run": 0,
+            "mode": "progressive",
+            "htmlCharacters": 76840,
+            "mountedParagraphs": 32,
+            "firstParagraphReadyUs": 35938,
+            "bodyCompleteUs": 147987,
+            "warmup": true
+          },
+          {
+            "probe": {
+              "conversionUs": [
+                16946.75
+              ],
+              "us": {
+                "customWidget": 299.077,
+                "factoryParse": 264.412,
+                "defaultStyles": 1410.669,
+                "customStyles": 183.298,
+                "inlineStyles": 186.825,
+                "parseStyle": 308.096,
+                "displayStyles": 558.74,
+                "parseEverything": 3592.54,
+                "textNormalization": 11032.552,
+                "flattenAndBuild": 1412.965,
+                "conversion": 16947.0
+              },
+              "counts": {
+                "customWidget": 450,
+                "factoryParse": 450,
+                "defaultStyles": 450,
+                "customStyles": 450,
+                "inlineStyles": 450,
+                "parseStyle": 900,
+                "displayStyles": 450,
+                "parseEverything": 450,
+                "textNormalization": 450,
+                "flattenAndBuild": 451,
+                "conversion": 1
+              }
+            },
+            "run": 1,
+            "mode": "column",
+            "htmlCharacters": 76840,
+            "mountedParagraphs": 450,
+            "firstParagraphReadyUs": 62857,
+            "bodyCompleteUs": 62857,
+            "warmup": false
+          },
+          {
+            "probe": {
+              "conversionUs": [
+                16061.791
+              ],
+              "us": {
+                "customWidget": 297.242,
+                "factoryParse": 253.843,
+                "defaultStyles": 687.447,
+                "customStyles": 220.743,
+                "inlineStyles": 251.18,
+                "parseStyle": 288.942,
+                "displayStyles": 697.804,
+                "parseEverything": 3085.948,
+                "textNormalization": 10470.834,
+                "flattenAndBuild": 1552.2,
+                "conversion": 16062.083
+              },
+              "counts": {
+                "customWidget": 450,
+                "factoryParse": 450,
+                "defaultStyles": 450,
+                "customStyles": 450,
+                "inlineStyles": 450,
+                "parseStyle": 900,
+                "displayStyles": 450,
+                "parseEverything": 450,
+                "textNormalization": 450,
+                "flattenAndBuild": 451,
+                "conversion": 1
+              }
+            },
+            "run": 1,
+            "mode": "sliver",
+            "htmlCharacters": 76840,
+            "mountedParagraphs": 18,
+            "firstParagraphReadyUs": 38586,
+            "bodyCompleteUs": 38586,
+            "warmup": false
+          },
+          {
+            "probe": {
+              "conversionUs": [
+                18186.417
+              ],
+              "us": {
+                "customWidget": 375.072,
+                "factoryParse": 302.576,
+                "defaultStyles": 760.996,
+                "customStyles": 258.623,
+                "inlineStyles": 219.792,
+                "parseStyle": 360.032,
+                "displayStyles": 652.797,
+                "parseEverything": 3361.377,
+                "textNormalization": 11889.629,
+                "flattenAndBuild": 1724.32,
+                "conversion": 18186.667
+              },
+              "counts": {
+                "customWidget": 450,
+                "factoryParse": 450,
+                "defaultStyles": 450,
+                "customStyles": 450,
+                "inlineStyles": 450,
+                "parseStyle": 900,
+                "displayStyles": 450,
+                "parseEverything": 450,
+                "textNormalization": 450,
+                "flattenAndBuild": 451,
+                "conversion": 1
+              }
+            },
+            "run": 1,
+            "mode": "progressive",
+            "htmlCharacters": 76840,
+            "mountedParagraphs": 64,
+            "firstParagraphReadyUs": 41327,
+            "bodyCompleteUs": 147793,
+            "warmup": false
+          },
+          {
+            "probe": {
+              "conversionUs": [
+                15667.5
+              ],
+              "us": {
+                "customWidget": 291.716,
+                "factoryParse": 292.538,
+                "defaultStyles": 657.118,
+                "customStyles": 196.31,
+                "inlineStyles": 211.015,
+                "parseStyle": 291.636,
+                "displayStyles": 595.696,
+                "parseEverything": 2877.344,
+                "textNormalization": 10409.66,
+                "flattenAndBuild": 1492.544,
+                "conversion": 15668.583
+              },
+              "counts": {
+                "customWidget": 450,
+                "factoryParse": 450,
+                "defaultStyles": 450,
+                "customStyles": 450,
+                "inlineStyles": 450,
+                "parseStyle": 900,
+                "displayStyles": 450,
+                "parseEverything": 450,
+                "textNormalization": 450,
+                "flattenAndBuild": 451,
+                "conversion": 1
+              }
+            },
+            "run": 2,
+            "mode": "column",
+            "htmlCharacters": 76840,
+            "mountedParagraphs": 450,
+            "firstParagraphReadyUs": 63122,
+            "bodyCompleteUs": 63122,
+            "warmup": false
+          },
+          {
+            "probe": {
+              "conversionUs": [
+                14270.875
+              ],
+              "us": {
+                "customWidget": 374.804,
+                "factoryParse": 324.046,
+                "defaultStyles": 520.943,
+                "customStyles": 128.746,
+                "inlineStyles": 797.006,
+                "parseStyle": 220.029,
+                "displayStyles": 449.239,
+                "parseEverything": 4078.241,
+                "textNormalization": 8164.272,
+                "flattenAndBuild": 1225.297,
+                "conversion": 14271.083
+              },
+              "counts": {
+                "customWidget": 450,
+                "factoryParse": 450,
+                "defaultStyles": 450,
+                "customStyles": 450,
+                "inlineStyles": 450,
+                "parseStyle": 900,
+                "displayStyles": 450,
+                "parseEverything": 450,
+                "textNormalization": 450,
+                "flattenAndBuild": 451,
+                "conversion": 1
+              }
+            },
+            "run": 2,
+            "mode": "sliver",
+            "htmlCharacters": 76840,
+            "mountedParagraphs": 18,
+            "firstParagraphReadyUs": 33111,
+            "bodyCompleteUs": 33111,
+            "warmup": false
+          },
+          {
+            "probe": {
+              "conversionUs": [
+                18735.834
+              ],
+              "us": {
+                "customWidget": 366.406,
+                "factoryParse": 322.796,
+                "defaultStyles": 811.512,
+                "customStyles": 210.957,
+                "inlineStyles": 194.291,
+                "parseStyle": 342.24,
+                "displayStyles": 697.841,
+                "parseEverything": 3321.922,
+                "textNormalization": 12411.586,
+                "flattenAndBuild": 1841.759,
+                "conversion": 18736.042
+              },
+              "counts": {
+                "customWidget": 450,
+                "factoryParse": 450,
+                "defaultStyles": 450,
+                "customStyles": 450,
+                "inlineStyles": 450,
+                "parseStyle": 900,
+                "displayStyles": 450,
+                "parseEverything": 450,
+                "textNormalization": 450,
+                "flattenAndBuild": 451,
+                "conversion": 1
+              }
+            },
+            "run": 2,
+            "mode": "progressive",
+            "htmlCharacters": 76840,
+            "mountedParagraphs": 64,
+            "firstParagraphReadyUs": 44650,
+            "bodyCompleteUs": 149701,
+            "warmup": false
+          },
+          {
+            "probe": {
+              "conversionUs": [
+                16793.875
+              ],
+              "us": {
+                "customWidget": 363.243,
+                "factoryParse": 295.376,
+                "defaultStyles": 696.13,
+                "customStyles": 194.989,
+                "inlineStyles": 234.002,
+                "parseStyle": 353.418,
+                "displayStyles": 630.417,
+                "parseEverything": 3090.713,
+                "textNormalization": 11040.852,
+                "flattenAndBuild": 1600.71,
+                "conversion": 16794.208
+              },
+              "counts": {
+                "customWidget": 450,
+                "factoryParse": 450,
+                "defaultStyles": 450,
+                "customStyles": 450,
+                "inlineStyles": 450,
+                "parseStyle": 900,
+                "displayStyles": 450,
+                "parseEverything": 450,
+                "textNormalization": 450,
+                "flattenAndBuild": 451,
+                "conversion": 1
+              }
+            },
+            "run": 3,
+            "mode": "column",
+            "htmlCharacters": 76840,
+            "mountedParagraphs": 450,
+            "firstParagraphReadyUs": 65381,
+            "bodyCompleteUs": 65381,
+            "warmup": false
+          },
+          {
+            "probe": {
+              "conversionUs": [
+                11298.458
+              ],
+              "us": {
+                "customWidget": 458.329,
+                "factoryParse": 141.044,
+                "defaultStyles": 368.43,
+                "customStyles": 101.407,
+                "inlineStyles": 118.509,
+                "parseStyle": 165.504,
+                "displayStyles": 1740.545,
+                "parseEverything": 2976.039,
+                "textNormalization": 6687.68,
+                "flattenAndBuild": 855.905,
+                "conversion": 11298.583
+              },
+              "counts": {
+                "customWidget": 450,
+                "factoryParse": 450,
+                "defaultStyles": 450,
+                "customStyles": 450,
+                "inlineStyles": 450,
+                "parseStyle": 900,
+                "displayStyles": 450,
+                "parseEverything": 450,
+                "textNormalization": 450,
+                "flattenAndBuild": 451,
+                "conversion": 1
+              }
+            },
+            "run": 3,
+            "mode": "sliver",
+            "htmlCharacters": 76840,
+            "mountedParagraphs": 18,
+            "firstParagraphReadyUs": 27581,
+            "bodyCompleteUs": 27581,
+            "warmup": false
+          },
+          {
+            "probe": {
+              "conversionUs": [
+                18262.792
+              ],
+              "us": {
+                "customWidget": 357.704,
+                "factoryParse": 360.756,
+                "defaultStyles": 760.169,
+                "customStyles": 228.854,
+                "inlineStyles": 219.879,
+                "parseStyle": 412.338,
+                "displayStyles": 796.164,
+                "parseEverything": 3458.915,
+                "textNormalization": 11792.116,
+                "flattenAndBuild": 1787.785,
+                "conversion": 18263.167
+              },
+              "counts": {
+                "customWidget": 450,
+                "factoryParse": 450,
+                "defaultStyles": 450,
+                "customStyles": 450,
+                "inlineStyles": 450,
+                "parseStyle": 900,
+                "displayStyles": 450,
+                "parseEverything": 450,
+                "textNormalization": 450,
+                "flattenAndBuild": 451,
+                "conversion": 1
+              }
+            },
+            "run": 3,
+            "mode": "progressive",
+            "htmlCharacters": 76840,
+            "mountedParagraphs": 64,
+            "firstParagraphReadyUs": 44318,
+            "bodyCompleteUs": 148905,
+            "warmup": false
+          }
+        ]
+      }
+    ]
+  },
+  "boundaryCandidateDebugProbe": {
+    "limitations": [
+      "Flutter test debug/JIT, not native profile evidence.",
+      "Counting probes and JIT warmup make these timings diagnostic only."
+    ],
+    "samples": [
+      {
+        "optimized": false,
+        "probe": {
+          "conversionUs": [
+            85490.958,
+            508.5,
+            321.75,
+            345.792,
+            245.333,
+            741.5,
+            327.166,
+            299.416,
+            286.667,
+            259.167,
+            360.292,
+            407.5,
+            287.625,
+            291.291,
+            317.709,
+            346.75
+          ],
+          "us": {
+            "customWidget": 7417.749,
+            "factoryParse": 3530.075,
+            "defaultStyles": 19138.561,
+            "customStyles": 9843.047,
+            "inlineStyles": 3591.827,
+            "parseStyle": 3155.909,
+            "displayStyles": 3931.65,
+            "parseEverything": 46386.955,
+            "leadingWhitespace": 631.918,
+            "trailingWhitespace": 2697.903,
+            "textNormalization": 12039.454,
+            "flattenAndBuild": 16756.546,
+            "conversion": 90848.25
+          },
+          "counts": {
+            "customWidget": 870,
+            "factoryParse": 825,
+            "cssParse:display: block;font-size: 1.17em;font-weight: bold;margin: 1em 0": 90,
+            "defaultStyles": 615,
+            "cssParse:font-size: 20.0px;line-height: 1.4": 90,
+            "customStyles": 825,
+            "inlineStyles": 825,
+            "parseStyle": 1485,
+            "displayStyles": 825,
+            "parseEverything": 825,
+            "leadingWhitespace": 1065,
+            "trailingWhitespace": 1065,
+            "textCharacters": 53114,
+            "whitespaceMatches": 6567,
+            "discardedSingleSpaces": 6567,
+            "textNormalization": 1065,
+            "flattenAndBuild": 511,
+            "cssParse:text-decoration: underline": 1,
+            "cssParse:text-decoration: none": 1,
+            "cssParse:display: block;list-style-type: disc;padding-inline-start: 40px;margin: 1em 0": 1,
+            "cssParse:display: block;list-style-type: circle;padding-inline-start: 40px": 1,
+            "cssParse:display: block;list-style-type: decimal;padding-inline-start: 40px;margin: 1em 0": 1,
+            "cssParse:display: block;margin: 0.5em 0;border-top: 1px solid": 15,
+            "cssParse:border-top: 1px solid #dbdfe4": 15,
+            "conversion": 16
+          }
+        },
+        "warmup": true
+      },
+      {
+        "optimized": true,
+        "probe": {
+          "conversionUs": [
+            39946.625,
+            259.625,
+            251.792,
+            260.209,
+            250.292,
+            376.25,
+            285.875,
+            249.458,
+            273.292,
+            242.167,
+            226.333,
+            218.083,
+            246.458,
+            330.75,
+            272.583,
+            317.0
+          ],
+          "us": {
+            "customWidget": 2594.477,
+            "factoryParse": 1736.695,
+            "defaultStyles": 10156.461,
+            "customStyles": 4219.162,
+            "inlineStyles": 1743.656,
+            "parseStyle": 1181.919,
+            "displayStyles": 2277.658,
+            "parseEverything": 22895.593,
+            "leadingWhitespace": 260.896,
+            "trailingWhitespace": 239.764,
+            "textNormalization": 5371.483,
+            "flattenAndBuild": 8652.485,
+            "conversion": 44012.126
+          },
+          "counts": {
+            "customWidget": 870,
+            "factoryParse": 825,
+            "cssParse:display: block;font-size: 1.17em;font-weight: bold;margin: 1em 0": 90,
+            "defaultStyles": 615,
+            "cssParse:font-size: 20.0px;line-height: 1.4": 90,
+            "customStyles": 825,
+            "inlineStyles": 825,
+            "parseStyle": 1485,
+            "displayStyles": 825,
+            "parseEverything": 825,
+            "leadingWhitespace": 1065,
+            "trailingWhitespace": 1065,
+            "textCharacters": 53114,
+            "whitespaceMatches": 6567,
+            "discardedSingleSpaces": 6567,
+            "textNormalization": 1065,
+            "flattenAndBuild": 511,
+            "cssParse:display: block;margin: 0.5em 0;border-top: 1px solid": 15,
+            "cssParse:border-top: 1px solid #dbdfe4": 15,
+            "conversion": 16
+          }
+        },
+        "warmup": true
+      },
+      {
+        "optimized": false,
+        "probe": {
+          "conversionUs": [
+            37724.917,
+            162.75,
+            201.292,
+            115.792,
+            153.334,
+            163.834,
+            189.958,
+            167.333,
+            174.375,
+            189.417,
+            219.334,
+            181.125,
+            220.334,
+            219.791,
+            192.542,
+            256.334
+          ],
+          "us": {
+            "customWidget": 2242.801,
+            "factoryParse": 924.703,
+            "defaultStyles": 7628.418,
+            "customStyles": 4025.562,
+            "inlineStyles": 1128.958,
+            "parseStyle": 779.761,
+            "displayStyles": 1477.13,
+            "parseEverything": 19015.429,
+            "leadingWhitespace": 412.324,
+            "trailingWhitespace": 2346.285,
+            "textNormalization": 7220.991,
+            "flattenAndBuild": 8206.163,
+            "conversion": 40537.379
+          },
+          "counts": {
+            "customWidget": 870,
+            "factoryParse": 825,
+            "cssParse:display: block;font-size: 1.17em;font-weight: bold;margin: 1em 0": 90,
+            "defaultStyles": 615,
+            "cssParse:font-size: 20.0px;line-height: 1.4": 90,
+            "customStyles": 825,
+            "inlineStyles": 825,
+            "parseStyle": 1485,
+            "displayStyles": 825,
+            "parseEverything": 825,
+            "leadingWhitespace": 1065,
+            "trailingWhitespace": 1065,
+            "textCharacters": 53114,
+            "whitespaceMatches": 6567,
+            "discardedSingleSpaces": 6567,
+            "textNormalization": 1065,
+            "flattenAndBuild": 511,
+            "cssParse:display: block;margin: 0.5em 0;border-top: 1px solid": 15,
+            "cssParse:border-top: 1px solid #dbdfe4": 15,
+            "conversion": 16
+          }
+        },
+        "warmup": false
+      },
+      {
+        "optimized": true,
+        "probe": {
+          "conversionUs": [
+            47926.708,
+            184.417,
+            154.417,
+            155.041,
+            140.834,
+            127.708,
+            136.625,
+            124.833,
+            128.75,
+            161.5,
+            112.75,
+            98.0,
+            101.042,
+            132.666,
+            252.958,
+            139.917
+          ],
+          "us": {
+            "customWidget": 2154.126,
+            "factoryParse": 676.744,
+            "defaultStyles": 8470.784,
+            "customStyles": 3187.628,
+            "inlineStyles": 1217.489,
+            "parseStyle": 715.63,
+            "displayStyles": 1218.038,
+            "parseEverything": 16514.513,
+            "leadingWhitespace": 245.54,
+            "trailingWhitespace": 217.798,
+            "textNormalization": 5726.744,
+            "flattenAndBuild": 22870.953,
+            "conversion": 50082.874
+          },
+          "counts": {
+            "customWidget": 870,
+            "factoryParse": 825,
+            "cssParse:display: block;font-size: 1.17em;font-weight: bold;margin: 1em 0": 90,
+            "defaultStyles": 615,
+            "cssParse:font-size: 20.0px;line-height: 1.4": 90,
+            "customStyles": 825,
+            "inlineStyles": 825,
+            "parseStyle": 1485,
+            "displayStyles": 825,
+            "parseEverything": 825,
+            "leadingWhitespace": 1065,
+            "trailingWhitespace": 1065,
+            "textCharacters": 53114,
+            "whitespaceMatches": 6567,
+            "discardedSingleSpaces": 6567,
+            "textNormalization": 1065,
+            "flattenAndBuild": 511,
+            "cssParse:display: block;margin: 0.5em 0;border-top: 1px solid": 15,
+            "cssParse:border-top: 1px solid #dbdfe4": 15,
+            "conversion": 16
+          }
+        },
+        "warmup": false
+      },
+      {
+        "optimized": false,
+        "probe": {
+          "conversionUs": [
+            26254.125,
+            123.792,
+            153.792,
+            96.417,
+            92.458,
+            230.583,
+            145.125,
+            208.333,
+            93.417,
+            84.709,
+            97.208,
+            73.167,
+            67.875,
+            146.917,
+            105.459,
+            137.166
+          ],
+          "us": {
+            "customWidget": 3418.383,
+            "factoryParse": 576.051,
+            "defaultStyles": 4767.745,
+            "customStyles": 2178.505,
+            "inlineStyles": 1050.125,
+            "parseStyle": 597.25,
+            "displayStyles": 1213.039,
+            "parseEverything": 11298.015,
+            "leadingWhitespace": 439.08,
+            "trailingWhitespace": 2239.982,
+            "textNormalization": 6474.166,
+            "flattenAndBuild": 4888.616,
+            "conversion": 28114.541
+          },
+          "counts": {
+            "customWidget": 870,
+            "factoryParse": 825,
+            "cssParse:display: block;font-size: 1.17em;font-weight: bold;margin: 1em 0": 90,
+            "defaultStyles": 615,
+            "cssParse:font-size: 20.0px;line-height: 1.4": 90,
+            "customStyles": 825,
+            "inlineStyles": 825,
+            "parseStyle": 1485,
+            "displayStyles": 825,
+            "parseEverything": 825,
+            "leadingWhitespace": 1065,
+            "trailingWhitespace": 1065,
+            "textCharacters": 53114,
+            "whitespaceMatches": 6567,
+            "discardedSingleSpaces": 6567,
+            "textNormalization": 1065,
+            "flattenAndBuild": 511,
+            "cssParse:display: block;margin: 0.5em 0;border-top: 1px solid": 15,
+            "cssParse:border-top: 1px solid #dbdfe4": 15,
+            "conversion": 16
+          }
+        },
+        "warmup": false
+      },
+      {
+        "optimized": true,
+        "probe": {
+          "conversionUs": [
+            22019.125,
+            103.833,
+            245.417,
+            130.0,
+            65.208,
+            122.709,
+            117.875,
+            76.958,
+            71.166,
+            133.625,
+            90.208,
+            78.792,
+            179.291,
+            64.875,
+            102.542,
+            104.625
+          ],
+          "us": {
+            "customWidget": 1381.223,
+            "factoryParse": 517.303,
+            "defaultStyles": 4772.308,
+            "customStyles": 2011.138,
+            "inlineStyles": 745.858,
+            "parseStyle": 568.484,
+            "displayStyles": 870.546,
+            "parseEverything": 10362.879,
+            "leadingWhitespace": 168.465,
+            "trailingWhitespace": 133.182,
+            "textNormalization": 4371.728,
+            "flattenAndBuild": 5813.836,
+            "conversion": 23710.414
+          },
+          "counts": {
+            "customWidget": 870,
+            "factoryParse": 825,
+            "cssParse:display: block;font-size: 1.17em;font-weight: bold;margin: 1em 0": 90,
+            "defaultStyles": 615,
+            "cssParse:font-size: 20.0px;line-height: 1.4": 90,
+            "customStyles": 825,
+            "inlineStyles": 825,
+            "parseStyle": 1485,
+            "displayStyles": 825,
+            "parseEverything": 825,
+            "leadingWhitespace": 1065,
+            "trailingWhitespace": 1065,
+            "textCharacters": 53114,
+            "whitespaceMatches": 6567,
+            "discardedSingleSpaces": 6567,
+            "textNormalization": 1065,
+            "flattenAndBuild": 511,
+            "cssParse:display: block;margin: 0.5em 0;border-top: 1px solid": 15,
+            "cssParse:border-top: 1px solid #dbdfe4": 15,
+            "conversion": 16
+          }
+        },
+        "warmup": false
+      },
+      {
+        "optimized": false,
+        "probe": {
+          "conversionUs": [
+            23659.292,
+            105.334,
+            92.834,
+            70.459,
+            68.75,
+            93.958,
+            60.375,
+            56.792,
+            71.0,
+            73.042,
+            56.5,
+            54.875,
+            65.667,
+            60.875,
+            84.834,
+            51.958
+          ],
+          "us": {
+            "customWidget": 1466.284,
+            "factoryParse": 537.914,
+            "defaultStyles": 4133.374,
+            "customStyles": 1851.336,
+            "inlineStyles": 918.074,
+            "parseStyle": 627.901,
+            "displayStyles": 711.344,
+            "parseEverything": 9708.203,
+            "leadingWhitespace": 294.701,
+            "trailingWhitespace": 2229.756,
+            "textNormalization": 6204.877,
+            "flattenAndBuild": 3105.548,
+            "conversion": 24730.209
+          },
+          "counts": {
+            "customWidget": 870,
+            "factoryParse": 825,
+            "cssParse:display: block;font-size: 1.17em;font-weight: bold;margin: 1em 0": 90,
+            "defaultStyles": 615,
+            "cssParse:font-size: 20.0px;line-height: 1.4": 90,
+            "customStyles": 825,
+            "inlineStyles": 825,
+            "parseStyle": 1485,
+            "displayStyles": 825,
+            "parseEverything": 825,
+            "leadingWhitespace": 1065,
+            "trailingWhitespace": 1065,
+            "textCharacters": 53114,
+            "whitespaceMatches": 6567,
+            "discardedSingleSpaces": 6567,
+            "textNormalization": 1065,
+            "flattenAndBuild": 511,
+            "cssParse:display: block;margin: 0.5em 0;border-top: 1px solid": 15,
+            "cssParse:border-top: 1px solid #dbdfe4": 15,
+            "conversion": 16
+          }
+        },
+        "warmup": false
+      },
+      {
+        "optimized": true,
+        "probe": {
+          "conversionUs": [
+            17717.416,
+            96.917,
+            1939.25,
+            95.25,
+            81.667,
+            54.833,
+            56.791,
+            180.667,
+            88.041,
+            60.209,
+            58.166,
+            70.042,
+            41.583,
+            47.625,
+            63.417,
+            49.375
+          ],
+          "us": {
+            "customWidget": 2695.408,
+            "factoryParse": 484.574,
+            "defaultStyles": 2977.6,
+            "customStyles": 1847.385,
+            "inlineStyles": 654.834,
+            "parseStyle": 515.012,
+            "displayStyles": 611.856,
+            "parseEverything": 8161.046,
+            "leadingWhitespace": 79.784,
+            "trailingWhitespace": 80.638,
+            "textNormalization": 3927.406,
+            "flattenAndBuild": 4407.572,
+            "conversion": 20705.292
+          },
+          "counts": {
+            "customWidget": 870,
+            "factoryParse": 825,
+            "cssParse:display: block;font-size: 1.17em;font-weight: bold;margin: 1em 0": 90,
+            "defaultStyles": 615,
+            "cssParse:font-size: 20.0px;line-height: 1.4": 90,
+            "customStyles": 825,
+            "inlineStyles": 825,
+            "parseStyle": 1485,
+            "displayStyles": 825,
+            "parseEverything": 825,
+            "leadingWhitespace": 1065,
+            "trailingWhitespace": 1065,
+            "textCharacters": 53114,
+            "whitespaceMatches": 6567,
+            "discardedSingleSpaces": 6567,
+            "textNormalization": 1065,
+            "flattenAndBuild": 511,
+            "cssParse:display: block;margin: 0.5em 0;border-top: 1px solid": 15,
+            "cssParse:border-top: 1px solid #dbdfe4": 15,
+            "conversion": 16
+          }
+        },
+        "warmup": false
+      }
+    ]
+  },
+  "boundaryCandidateNative": null
+}

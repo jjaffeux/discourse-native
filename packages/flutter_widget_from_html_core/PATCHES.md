@@ -42,6 +42,19 @@ Files:
 - `test/default_styles_cache_test.dart`
 - `test/default_styles_rendering_test.dart`
 
+## ASCII text boundaries
+
+Text conversion scans only the leading and trailing ASCII whitespace to find
+text boundaries, rather than searching the whole string with a trailing
+regular expression. The exact five HTML ASCII whitespace characters are
+preserved; NBSP, other Unicode spaces and malformed surrogate code units stay
+in text. Internal whitespace matching and build-bit construction are unchanged.
+
+The implementation is in the already-listed `core_build_tree.dart`.
+Additional file:
+
+- `test/text_whitespace_test.dart`
+
 ## Provenance metadata
 
 Files:
