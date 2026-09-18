@@ -16,81 +16,74 @@ void main() {
     DButtonVariant.transparentBackground,
     DButtonVariant.inline,
   ]) {
-    testWidgets('$variant separates enabled actions from pale metadata', (
-      tester,
-    ) async {
-      final forumLight = AppTheme.fromPalette(
-        ResolvedSitePalette.fromJson(const {
-          'brightness': 'light',
-          'primary': 0xFF222222,
-          'secondary': 0xFFFFFFFF,
-          'tertiary': 0xFF0088CC,
-          'metadataColor': 0xFF999999,
-        }),
-      );
-      for (final theme in [
-        forumLight,
-        AppTheme.light,
-        StyleguideTheme.forest.resolve(AppTheme.light),
-        AppTheme.dark,
-        StyleguideTheme.plum.resolve(AppTheme.light),
-        forumLight,
-      ]) {
-        await tester.pumpWidget(
-          MaterialApp(
-            theme: theme,
-            home: Scaffold(
-              body: Row(
-                children: [
-                  DButton(
-                    label: const Text('Reply'),
-                    icon: const DIcon(DIcons.reply, key: ValueKey('enabled')),
-                    variant: variant,
-                    onPressed: () {},
-                  ),
-                  DButton.iconOnly(
-                    icon: const DIcon(DIcons.reply, key: ValueKey('disabled')),
-                    tooltip: 'Unavailable reply',
-                    variant: variant,
-                    onPressed: null,
-                  ),
-                ],
+    testWidgets(
+      '$variant uses the mockup secondary text ramp across palettes',
+      (tester) async {
+        final forumLight = AppTheme.fromPalette(
+          ResolvedSitePalette.fromJson(const {
+            'brightness': 'light',
+            'primary': 0xFF222222,
+            'secondary': 0xFFFFFFFF,
+            'tertiary': 0xFF0088CC,
+            'metadataColor': 0xFF999999,
+          }),
+        );
+        for (final theme in [
+          forumLight,
+          AppTheme.light,
+          StyleguideTheme.forest.resolve(AppTheme.light),
+          AppTheme.dark,
+          StyleguideTheme.plum.resolve(AppTheme.light),
+          forumLight,
+        ]) {
+          await tester.pumpWidget(
+            MaterialApp(
+              theme: theme,
+              home: Scaffold(
+                body: Row(
+                  children: [
+                    DButton(
+                      label: const Text('Reply'),
+                      icon: const DIcon(DIcons.reply, key: ValueKey('enabled')),
+                      variant: variant,
+                      onPressed: () {},
+                    ),
+                    DButton.iconOnly(
+                      icon: const DIcon(
+                        DIcons.reply,
+                        key: ValueKey('disabled'),
+                      ),
+                      tooltip: 'Unavailable reply',
+                      variant: variant,
+                      onPressed: null,
+                    ),
+                  ],
+                ),
               ),
             ),
-          ),
-        );
-        await tester.pumpAndSettle();
-        final tokens = DTokens.of(tester.element(find.text('Reply')));
-        final foreground = IconTheme.of(
-          tester.element(find.byKey(const ValueKey('enabled'))),
-        ).color!;
-        expect(
-          DefaultTextStyle.of(tester.element(find.text('Reply'))).style.color,
-          foreground,
-        );
-        expect(
-          IconTheme.of(
-            tester.element(find.byKey(const ValueKey('disabled'))),
-          ).color,
-          tokens.mutedForeground,
-        );
-        if (theme.brightness == Brightness.light) {
-          expect(
-            foreground.computeLuminance(),
-            lessThan(tokens.mutedForeground.computeLuminance()),
           );
-          for (final surface in [tokens.background, tokens.surface]) {
-            expect(
-              (surface.computeLuminance() + .05) /
-                  (foreground.computeLuminance() + .05),
-              greaterThanOrEqualTo(4.5),
-            );
-          }
-        } else {
-          expect(foreground, tokens.mutedForeground);
+          await tester.pumpAndSettle();
+          final tokens = DTokens.of(tester.element(find.text('Reply')));
+          final foreground = IconTheme.of(
+            tester.element(find.byKey(const ValueKey('enabled'))),
+          ).color!;
+          expect(
+            DefaultTextStyle.of(tester.element(find.text('Reply'))).style.color,
+            foreground,
+          );
+          expect(
+            IconTheme.of(
+              tester.element(find.byKey(const ValueKey('disabled'))),
+            ).color,
+            tokens.mutedForeground,
+          );
+          expect(
+            foreground,
+            Color.lerp(tokens.background, tokens.foreground, .62),
+          );
         }
-      }
-    });
+      },
+    );
   }
 
   for (final dark in [false, true]) {
@@ -146,7 +139,7 @@ void main() {
             }
             expect(
               buttonSurface(tester).color,
-              filled ? DControlStyle.rowHover(tokens) : Colors.transparent,
+              filled ? tokens.buttonTheme.accent.hover : Colors.transparent,
             );
           }
 

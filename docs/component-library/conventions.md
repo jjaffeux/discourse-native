@@ -36,18 +36,17 @@ and framework-specific form integration pages do not add catalogue rows.
 
 ## Control consistency
 
-Application buttons use primary, outline, secondary, ghost, destructive, link,
-inline and transparentBackground. Use inline for text actions in metadata rows
-that must align flush with surrounding content; it removes horizontal insets
-while preserving shared control heights, focus and touch targets.
-Use transparentBackground for subdued toolbar actions with clear resting
-surfaces and a subtle neutral hover/pressed/open fill. Enabled ghost,
-transparent-background and inline actions have stronger foregrounds than
-metadata in light themes; the kit owns this distinction and disabled styling. Legacy
-enum names are compatibility aliases for external callers, not application
-choices. Ordinary dropdown triggers should use `DDropdownMenuTrigger.button`; richer compositions must
-render DButton or the appropriate existing kit control and pass through focus,
-expanded state and activation.
+The September 18 HTML redesign defines three button families through `DButton`:
+`primary` for colored actions, `outline` for outlined actions, and
+`transparentBackground` for clear toolbar actions. `secondary` aliases the
+outlined treatment and `ghost` aliases the transparent treatment. Destructive,
+link and inline actions retain their semantic roles; inline removes horizontal
+insets for metadata. All variants retain shared focus and accessible targets.
+Buttons use palette-derived muted accent fills, 1px outlines, 8px corners and
+no shadow. See [button redesign](button-redesign.md) for formulas, adoption,
+reference measurements and verification. Ordinary dropdown triggers use
+`DDropdownMenuTrigger.button`; richer compositions render DButton and pass
+through focus, expanded state and activation.
 
 Use shared control geometry and paint from `foundation/control_style.dart`.
 Button-like controls must use the Button styleguide's shared `DControlSize`
@@ -68,10 +67,9 @@ example across palettes and states whenever changing a control foundation;
 update its golden baselines only after visual review. See
 [the migration and verification record](control-consistency.md).
 
-The app uses the measured **Linear controls** styling through `DTokens.controls`:
-solid primary actions, neutral raised controls, half-pixel borders and subtle
-shadows. Action buttons, selectors and popup triggers use the theme's configured
-corner radius, independent of size or popup semantics. Keep the default
+Editable and selection controls retain the measured **Linear controls** styling through `DTokens.controls`:
+neutral raised controls, half-pixel borders and subtle shadows. Selectors use the theme's configured corner radius. Buttons and button-based
+popup triggers use the redesign's 8px radius, independent of size. Keep the default
 `DButtonShape.rounded` in application code; explicit pill shapes belong only to
 documented design exceptions. Menu rows use 32px minimum height and an 8px highlight radius inside
 popups using the theme’s control radius, matching buttons. Keyboard focus uses a 1px ring separated by 2px. Hover, pressed and

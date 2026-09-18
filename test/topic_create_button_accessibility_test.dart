@@ -161,7 +161,7 @@ void main() {
     final drafts = find.byKey(TopicCreateButton.draftsButtonKey);
     final createRect = tester.getRect(create);
     final draftRect = tester.getRect(drafts);
-    expect(createRect.height, 34);
+    expect(createRect.height, 42);
     expect(draftRect.height, createRect.height);
     expect(draftRect.top, createRect.top);
     final label = tester.getRect(find.text('New topic'));

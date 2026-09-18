@@ -184,7 +184,7 @@ void main() {
     for (final (size, height, font, icon) in [
       (DButtonSize.small, 24.0, 12.0, 12.0),
       (DButtonSize.regular, 28.0, 13.0, 14.0),
-      (DButtonSize.large, 32.0, 13.0, 16.0),
+      (DButtonSize.large, 32.0, 14.0, 16.0),
     ]) {
       await tester.pumpWidget(
         MaterialApp(
@@ -218,7 +218,7 @@ void main() {
     }
   });
 
-  testWidgets('flat icon buttons follow the theme radius and standard sizes', (
+  testWidgets('flat icon buttons use the mockup radius and standard sizes', (
     tester,
   ) async {
     for (final (radius, size) in [
@@ -267,7 +267,7 @@ void main() {
       expect(shape, isA<RoundedRectangleBorder>());
       expect(
         (shape! as RoundedRectangleBorder).borderRadius,
-        BorderRadius.circular(radius),
+        BorderRadius.circular(8),
       );
       expect(buttonSurface(tester).color, Colors.transparent);
       final pointer = await tester.createGesture(kind: PointerDeviceKind.mouse);
@@ -276,7 +276,7 @@ void main() {
       await tester.pump();
       expect(
         buttonSurface(tester).color,
-        DControlStyle.rowHover(DTokens.of(tester.element(rendered))),
+        DTokens.of(tester.element(rendered)).buttonTheme.accent.hover,
       );
       await pointer.removePointer();
     }
@@ -322,7 +322,7 @@ void main() {
 
     expect(
       buttonSurface(tester).color,
-      DControlStyle.rowHover(DTokens.of(tester.element(rendered))),
+      DTokens.of(tester.element(rendered)).buttonTheme.accent.hover,
     );
 
     await tester.tapAt(paddedPoint);

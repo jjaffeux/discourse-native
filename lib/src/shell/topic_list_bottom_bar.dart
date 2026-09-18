@@ -173,7 +173,7 @@ class TopicNavigationButtons extends StatelessWidget {
             onPressed: state.previous == null
                 ? null
                 : () => openAdjacentTopic(context, next: false),
-            variant: DButtonVariant.transparentBackground,
+            variant: DButtonVariant.outline,
             size: DButtonSize.regular,
           ),
           SizedBox(
@@ -194,7 +194,7 @@ class TopicNavigationButtons extends StatelessWidget {
             onPressed: state.next == null && (!state.more || state.busy)
                 ? null
                 : () => openAdjacentTopic(context, next: true),
-            variant: DButtonVariant.transparentBackground,
+            variant: DButtonVariant.outline,
             size: DButtonSize.regular,
           ),
         ],
