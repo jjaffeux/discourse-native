@@ -2779,7 +2779,7 @@ void _registerTopicReadingTests() {
       }
     });
 
-    testWidgets('promotes sharing and overflows administrative actions', (
+    testWidgets('omits header sharing and overflows administrative actions', (
       tester,
     ) async {
       const reader = DiscourseUser(id: 1, username: 'reader');
@@ -2818,8 +2818,9 @@ void _registerTopicReadingTests() {
       await tester.tap(contentText('A real topic'));
       await tester.pumpAndSettle();
 
+      expect(find.byTooltip('Share topic'), findsNothing);
+
       for (final tooltip in [
-        'Share topic',
         'Bookmark this topic',
         'More topic actions',
         'Reply to this topic',
@@ -2895,18 +2896,9 @@ void _registerTopicReadingTests() {
       },
     );
 
-    testWidgets('offers copy and system share for core’s canonical link', (
+    testWidgets('topic header omits sharing for signed-in users', (
       tester,
     ) async {
-      final copied = watchClipboard(tester);
-      const shareChannel = MethodChannel('dev.fluttercommunity.plus/share');
-      final shares = <MethodCall>[];
-      final messenger = tester.binding.defaultBinaryMessenger;
-      messenger.setMockMethodCallHandler(shareChannel, (call) async {
-        shares.add(call);
-        return 'test-share-target';
-      });
-      addTearDown(() => messenger.setMockMethodCallHandler(shareChannel, null));
       const reader = DiscourseUser(username: 'Reader');
       final api = FakeDiscourseApi(
         feeds: {'/latest.json': listed},
@@ -2929,27 +2921,7 @@ void _registerTopicReadingTests() {
       );
       await tester.tap(contentText('A real topic'));
       await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const ValueKey('topic-share-button')));
-      await tester.pumpAndSettle();
-
-      const url = 'https://meta.discourse.org/t/a-real-topic/7?u=reader';
-      expect(find.text('Share this topic'), findsOneWidget);
-      expect(find.text(url), findsOneWidget);
-
-      await tester.tap(find.byKey(const ValueKey('topic-share-copy')));
-      await tester.pumpAndSettle();
-      expect(copied, [url]);
-      expect(find.text('Copied!'), findsOneWidget);
-
-      await tester.tap(find.byKey(const ValueKey('topic-share-system')));
-      await tester.pumpAndSettle();
-      expect(shares, hasLength(1));
-      expect(shares.single.method, 'share');
-      expect((shares.single.arguments as Map)['text'], url);
-      expect((shares.single.arguments as Map)['subject'], 'A real topic');
-
-      await tester.tap(find.byTooltip('Close'));
-      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('topic-share-button')), findsNothing);
     });
 
     testWidgets('post sharing targets that post and can continue elsewhere', (
@@ -3657,27 +3629,28 @@ void _registerTopicReadingTests() {
       expect(shell.currentTopic?.canDeleteTopic, isTrue);
     });
 
-    testWidgets('share stays available when guardian-gated actions do not', (
-      tester,
-    ) async {
-      final api = FakeDiscourseApi(
-        feeds: {'/latest.json': listed},
-        topics: {7: detail()},
-      );
+    testWidgets(
+      'topic header omits sharing when guardian-gated actions are unavailable',
+      (tester) async {
+        final api = FakeDiscourseApi(
+          feeds: {'/latest.json': listed},
+          topics: {7: detail()},
+        );
 
-      await pumpShell(tester, desktop, api: api);
-      await tester.tap(contentText('A real topic'));
-      await tester.pumpAndSettle();
+        await pumpShell(tester, desktop, api: api);
+        await tester.tap(contentText('A real topic'));
+        await tester.pumpAndSettle();
 
-      expect(find.byKey(const ValueKey('topic-share-button')), findsOneWidget);
-      final more = tester.widget<DButton>(
-        find.byKey(const ValueKey('topic-status-button')),
-      );
-      expect(more.onPressed, isNull);
-      expect(find.text('Close topic'), findsNothing);
-      expect(find.text('Archive topic'), findsNothing);
-      expect(find.text('Delete topic'), findsNothing);
-    });
+        expect(find.byKey(const ValueKey('topic-share-button')), findsNothing);
+        final more = tester.widget<DButton>(
+          find.byKey(const ValueKey('topic-status-button')),
+        );
+        expect(more.onPressed, isNull);
+        expect(find.text('Close topic'), findsNothing);
+        expect(find.text('Archive topic'), findsNothing);
+        expect(find.text('Delete topic'), findsNothing);
+      },
+    );
 
     testWidgets('a personalized topic pin can be dismissed and restored', (
       tester,

@@ -215,10 +215,7 @@ class _TopicHeaderToolbar extends StatelessWidget {
                 ),
                 ConstrainedBox(
                   constraints: firstLineConstraints,
-                  child: _TopicHeaderActions(
-                    header: header,
-                    width: constraints.maxWidth,
-                  ),
+                  child: _TopicHeaderActions(header: header),
                 ),
               ],
             ),
@@ -297,10 +294,9 @@ class _TopicHeaderTitle extends StatelessWidget {
 }
 
 class _TopicHeaderActions extends StatelessWidget {
-  const _TopicHeaderActions({required this.header, required this.width});
+  const _TopicHeaderActions({required this.header});
 
   final TopicInboxHeader header;
-  final double width;
 
   @override
   Widget build(BuildContext context) {
@@ -319,12 +315,6 @@ class _TopicHeaderActions extends StatelessWidget {
               context,
             ).availableTopicFlagTypes(siteUrl, topic),
           ),
-          if (width >= 440)
-            TopicShareButton(
-              siteUrl: siteUrl,
-              topic: topic,
-              route: header.route,
-            ),
         ],
         if (ShellTitleBar.columnsCarryUserMenu) const UserMenuButton(),
       ],
