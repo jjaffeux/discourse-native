@@ -1,7 +1,7 @@
 # Retained topic GIF animation — September 18
 
-Status: widget reproduction and matched macOS profile comparison confirmed.
-Parent review and local main integration remain pending.
+Status: confirmed by widget tests and matched macOS profile comparison, reviewed
+by the coordinating audit, and merged into local main at `ed84c313`.
 
 The baseline is `552e9a729180e010054183edd0a5a306f3b565bc`. The installed SDK is
 Flutter 3.47.4 (`9584c6713b`), Dart 3.13.3. The repository SDK pin is unchanged.
@@ -132,3 +132,14 @@ The fixture isolates unnecessary idle work; a tiny synthetic GIF does not model
 large-image decode cost, whole-process CPU, real-world scrolling performance or
 mobile behavior. Native captures confirm removal of the specific idle workload;
 they do not establish a general frame-rate or battery-life improvement.
+
+## Main integration
+
+Branch tip `4aec8cf3` merged into main `ebd76f84` from the main checkout under
+the exclusive main lease, producing `ed84c313`. Existing HTML, code-block and
+chat changes were preserved; the merge had no conflicts. The combined-main
+[99-test focused run](topic-offscreen-animation/main-tests.txt) passed, including
+both topic and chat GIF regressions, retained-content reuse, pagination,
+selection and image behavior. [Full analysis](topic-offscreen-animation/main-analysis.txt)
+passed with no issues. Native measurements apply to the unchanged topic
+implementation; no extra native run was claimed for integration. No push.
