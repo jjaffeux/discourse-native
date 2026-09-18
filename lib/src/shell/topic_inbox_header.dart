@@ -30,7 +30,7 @@ import 'topic_title.dart';
 import 'user_menu_button.dart';
 
 /// Fixed topic title, actions and taxonomy above the post viewport.
-/// [bodyBuilder] inserts the activity sliver before the virtualized post list.
+/// [bodyBuilder] supplies the virtualized post list below the retracting header.
 class TopicInboxHeader extends StatelessWidget {
   const TopicInboxHeader({
     super.key,
@@ -82,7 +82,7 @@ class TopicInboxHeader extends StatelessWidget {
               ));
     final siteUrl = this.siteUrl;
     final hasTopic = topic != null && siteUrl != null;
-    final showActivity = hasTopic && !hasEarlierPosts;
+    final showActivity = hasTopic;
     final taxonomy = hasTopic
         ? ColoredBox(
             color: Theme.of(context).shell.content,
@@ -103,8 +103,8 @@ class TopicInboxHeader extends StatelessWidget {
     final activity = hasTopic
         ? _TopicHeaderReadingLane(
             child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 4),
-              child: _TopicActivitySummary(siteUrl: siteUrl, topic: topic),
+              padding: const EdgeInsets.only(top: 8, bottom: 20),
+              child: TopicActivitySummary(siteUrl: siteUrl, topic: topic),
             ),
           )
         : const SizedBox.shrink();
@@ -119,12 +119,8 @@ class TopicInboxHeader extends StatelessWidget {
     }
     return ScrollRetractingHeader(
       identity: (siteUrl, topic?.id, scrollController),
-      header: Column(children: [toolbar, taxonomy]),
-      child: bodyBuilder([
-        SliverToBoxAdapter(
-          child: showActivity ? activity : const SizedBox.shrink(),
-        ),
-      ]),
+      header: Column(children: [toolbar, taxonomy, if (showActivity) activity]),
+      child: bodyBuilder(const []),
     );
   }
 }
@@ -387,8 +383,13 @@ bool _showTopicSubcategory({
               )));
 }
 
-class _TopicActivitySummary extends StatelessWidget {
-  const _TopicActivitySummary({required this.siteUrl, required this.topic});
+/// Participant identities and topic-wide activity, using server totals.
+class TopicActivitySummary extends StatelessWidget {
+  const TopicActivitySummary({
+    super.key,
+    required this.siteUrl,
+    required this.topic,
+  });
   final String siteUrl;
   final TopicDetail topic;
 
@@ -397,79 +398,100 @@ class _TopicActivitySummary extends StatelessWidget {
     valueListenable: ShellScope.read(context).topicRef(siteUrl, topic.id),
     builder: (context, row, _) {
       final theme = Theme.of(context);
-      final participants = topic.participants.take(3).toList();
+      final participants = topic.participants.take(4).toList();
       final previewAvatars = participants.isEmpty
-          ? row?.posterAvatars.take(3).toList() ?? const <String>[]
+          ? row?.posterAvatars.take(4).toList() ?? const <String>[]
           : const <String>[];
-      final avatarCount = participants.length + previewAvatars.length;
-      final style = theme.textTheme.labelSmall?.copyWith(
+      final wordsPerMinute = ShellScope.read(
+        context,
+      ).siteConfigFor(siteUrl).readTimeWordCount;
+      final readMinutes = math
+          .max(topic.wordCount / wordsPerMinute, topic.postsCount * 4 / 60)
+          .ceil();
+      final style = theme.textTheme.bodySmall?.copyWith(
         color: theme.colorScheme.onSurfaceVariant,
       );
-      return Wrap(
+      Widget stat(int value, String label) => Text.rich(
+        TextSpan(
+          children: [
+            TextSpan(
+              text: '$value',
+              style: const TextStyle(fontWeight: FontWeight.w600),
+            ),
+            TextSpan(text: ' $label'),
+          ],
+        ),
+        style: style,
+      );
+      final stats = <Widget>[
+        stat(topic.replyCount, topic.replyCount == 1 ? 'reply' : 'replies'),
+        stat(topic.views, topic.views == 1 ? 'view' : 'views'),
+        stat(topic.likeCount, topic.likeCount == 1 ? 'like' : 'likes'),
+        stat(topic.links.length, topic.links.length == 1 ? 'link' : 'links'),
+        if (readMinutes > 0) stat(readMinutes, 'min read'),
+        if (row?.bumpedAt case final activity?)
+          Text(switch (relativeTime(activity)) {
+            'now' => 'last activity just now',
+            final age => 'last activity $age ago',
+          }, style: style),
+      ];
+      return Column(
         key: const ValueKey('topic-header-activity'),
-        spacing: 8,
-        runSpacing: 4,
-        crossAxisAlignment: WrapCrossAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (avatarCount > 0)
-            SizedBox(
-              width: 20 + (avatarCount - 1) * 15,
-              height: 20,
-              child: Stack(
-                children: [
-                  for (var i = 0; i < previewAvatars.length; i++)
-                    Positioned(
-                      left: i * 15,
-                      child: DAvatar.frame(
-                        child: AvatarImage(
-                          url: previewAvatars[i],
-                          size: 20,
-                          fallback: const SizedBox.square(dimension: 20),
-                        ),
-                      ),
+          if (participants.isNotEmpty || previewAvatars.isNotEmpty) ...[
+            DAvatarGroup(
+              size: DAvatarSize.sm,
+              children: [
+                for (final url in previewAvatars)
+                  DAvatar(
+                    child: AvatarImage(
+                      url: url,
+                      size: DAvatarSize.sm.dimension,
+                      fallback: const DAvatarFallback(child: Text('?')),
                     ),
-                  for (var i = 0; i < participants.length; i++)
-                    Positioned(
-                      left: i * 15,
-                      child: DTooltip(
-                        message: participants[i].displayName,
-                        child: DAvatar.frame(
-                          child: AvatarImage(
-                            url: participants[i].avatarUrl,
-                            size: 20,
-                            fallback: Container(
-                              width: 20,
-                              height: 20,
-                              color: theme.shell.hover,
-                              alignment: Alignment.center,
-                              child: Text(
-                                participants[i].username.isEmpty
-                                    ? '?'
-                                    : participants[i].username.characters.first
-                                          .toUpperCase(),
-                                style: style?.copyWith(
-                                  fontSize: DiscourseTypography.xs,
-                                ),
-                              ),
-                            ),
+                  ),
+                for (final participant in participants)
+                  DTooltip(
+                    message: participant.displayName,
+                    child: DAvatar(
+                      semanticLabel: participant.displayName,
+                      child: AvatarImage(
+                        url: participant.avatarUrl,
+                        size: DAvatarSize.sm.dimension,
+                        fallback: DAvatarFallback(
+                          child: Text(
+                            participant.username.isEmpty
+                                ? '?'
+                                : participant.username.characters.first
+                                      .toUpperCase(),
                           ),
                         ),
                       ),
                     ),
-                ],
-              ),
+                  ),
+              ],
             ),
-          Text(
-            '${topic.replyCount} ${topic.replyCount == 1 ? 'reply' : 'replies'}',
-            style: style,
-          ),
-          if (row?.bumpedAt case final activity?) ...[
-            Text('·', style: style),
-            Text(switch (relativeTime(activity)) {
-              'now' => 'Last activity just now',
-              final age => 'Last activity $age ago',
-            }, style: style),
+            const SizedBox(height: 12),
           ],
+          Wrap(
+            spacing: 8,
+            runSpacing: 6,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              for (var i = 0; i < stats.length; i++)
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (i > 0) ...[
+                      Text('·', style: style),
+                      const SizedBox(width: 8),
+                    ],
+                    Flexible(child: stats[i]),
+                  ],
+                ),
+            ],
+          ),
         ],
       );
     },

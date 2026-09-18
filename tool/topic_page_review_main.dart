@@ -59,6 +59,19 @@ Future<void> main() async {
               title: topic.title,
               stream: [for (var i = 1; i <= 6; i++) topic.id * 10 + i],
               postsCount: 6,
+              views: 61,
+              likeCount: 29,
+              wordCount: 2000,
+              participants: const [
+                TopicParticipant(username: 'robin'),
+                TopicParticipant(username: 'nora'),
+                TopicParticipant(username: 'tom'),
+                TopicParticipant(username: 'pat'),
+              ],
+              links: [
+                for (var i = 0; i < 5; i++)
+                  TopicMapLink(url: 'https://example.com/$i'),
+              ],
               canCreatePost: true,
             ),
             posts: [
