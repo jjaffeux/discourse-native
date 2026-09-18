@@ -836,7 +836,6 @@ class _ComposerEditorState extends State<ComposerEditor> {
   static const _menuHeight = 44.0;
   static const _menuGap = 4.0;
   static const _imageMenuPreferredWidth = 310.0;
-  static const _imageMenuHeight = 98.0;
   static const _galleryMenuButtonExtent = DSpacing.touchTarget;
   static const _galleryMenuContentWidth = _galleryMenuButtonExtent * 4;
   static const _galleryMenuHeight = _galleryMenuButtonExtent;
@@ -855,7 +854,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
   late final _ComposerSelectionOverlay _selectionOverlay;
   final ValueNotifier<int> _mediaLayoutRevision = ValueNotifier(0);
   bool _mediaLayoutRefreshScheduled = false;
-  (double, double)? _lastImageMenuPosition;
+  Rect? _lastImageMenuAnchor;
   (double, double)? _lastGalleryMenuPosition;
   late final TextInputFormatter _selectedPillInputFormatter;
   late final TextInputFormatter _renderedEmojiInputFormatter;
@@ -875,7 +874,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
   void initState() {
     super.initState();
     SurfaceOpeningTrace.mark('composer.editorMount');
-    _scroll = ScrollController();
+    _scroll = ScrollController()..addListener(_scheduleMediaLayoutRefresh);
     _blockquoteFieldGeneration = widget.composer.fieldGeneration;
     widget.composer.text.addListener(_observeBlockquoteValue);
     _media = ComposerMediaEditingCoordinator(widget.composer)
@@ -956,7 +955,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
     _pointerDownPosition = null;
     _hoveringMention = false;
     _hoveringLink = false;
-    _lastImageMenuPosition = null;
+    _lastImageMenuAnchor = null;
     _lastGalleryMenuPosition = null;
     if (identical(oldWidget.composer.text.imageScrollController, _scroll)) {
       oldWidget.composer.text.imageScrollController = null;
@@ -978,6 +977,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
   @override
   void dispose() {
     _parentEditor?._nestedEditors.remove(this);
+    _parentEditor?._scheduleMediaLayoutRefresh();
     if (identical(_parentEditor?._nativeDropEditor, this)) {
       _parentEditor?._nativeDropEditor = null;
     }
@@ -1061,14 +1061,19 @@ class _ComposerEditorState extends State<ComposerEditor> {
   bool get _canPasteImages =>
       widget.composer.canUpload && widget.composer.text.selection.isValid;
 
-  void _scheduleMediaLayoutRefresh() {
-    if (_mediaLayoutRefreshScheduled || !_media.value.hasSelectedMedia) return;
+  void _scheduleMediaLayoutRefresh({bool descendantHasMedia = false}) {
+    final hasMedia = descendantHasMedia || _media.value.hasSelectedMedia;
+    _parentEditor?._scheduleMediaLayoutRefresh(descendantHasMedia: hasMedia);
+    if (_mediaLayoutRefreshScheduled ||
+        (!hasMedia &&
+            _lastImageMenuAnchor == null &&
+            _lastGalleryMenuPosition == null)) {
+      return;
+    }
     _mediaLayoutRefreshScheduled = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _mediaLayoutRefreshScheduled = false;
-      if (mounted && _media.value.hasSelectedMedia) {
-        _mediaLayoutRevision.value++;
-      }
+      if (mounted) _mediaLayoutRevision.value++;
     });
   }
 
@@ -1890,35 +1895,30 @@ class _ComposerEditorState extends State<ComposerEditor> {
     throw ArgumentError.value(pill, 'pill');
   }
 
-  (double, double)? _imageMenuPosition(
-    BoxConstraints constraints,
-    ComposerImageBlock? image,
-  ) {
+  _ComposerEditorState? get _imageMenuEditor {
+    if (!widget.composer.isEditing || !TickerMode.valuesOf(context).enabled) {
+      return null;
+    }
+    for (final nested in _nestedEditors) {
+      if (nested._imageMenuEditor case final editor?) return editor;
+    }
+    return _media.value.selectedImage == null ? null : this;
+  }
+
+  Rect? _imageMenuAnchor(_ComposerEditorState? editor) {
+    final image = editor?._media.value.selectedImage;
     if (image == null) {
-      _lastImageMenuPosition = null;
+      _lastImageMenuAnchor = null;
       return null;
     }
     final stack = _stackKey.currentContext?.findRenderObject();
-    final rect = widget.composer.text.collapsedImageGlobalRect(image);
+    final rect = editor!.widget.composer.text.collapsedImageGlobalRect(image);
     if (stack is! RenderBox || !stack.hasSize || rect == null) {
-      return _lastImageMenuPosition;
+      return _lastImageMenuAnchor;
     }
-    final topLeft = stack.globalToLocal(rect.topLeft);
-    final bottomRight = stack.globalToLocal(rect.bottomRight);
-    final width = math.min(_imageMenuPreferredWidth, constraints.maxWidth);
-    const height = _imageMenuHeight;
-    final left = topLeft.dx.clamp(
-      0.0,
-      constraints.maxWidth > width ? constraints.maxWidth - width : 0.0,
-    );
-    var top = topLeft.dy - height - _menuGap;
-    if (top < 0) top = bottomRight.dy + _menuGap;
-    return _lastImageMenuPosition = (
-      left,
-      top.clamp(
-        0.0,
-        constraints.maxHeight > height ? constraints.maxHeight - height : 0.0,
-      ),
+    return _lastImageMenuAnchor = Rect.fromPoints(
+      stack.globalToLocal(rect.topLeft),
+      stack.globalToLocal(rect.bottomRight),
     );
   }
 
@@ -1957,14 +1957,10 @@ class _ComposerEditorState extends State<ComposerEditor> {
   Widget _mediaOverlays(BoxConstraints constraints) {
     if (!widget.composer.isEditing) return const SizedBox.shrink();
     final state = _media.value;
-    final imageMenuPosition = _imageMenuPosition(
-      constraints,
-      state.selectedImage,
-    );
-    final imageMenuWidth = math.min(
-      _imageMenuPreferredWidth,
-      constraints.maxWidth,
-    );
+    // The enclosing composer owns image menus for all its content, outside
+    // the nested editors' clipping and text semantics.
+    final imageEditor = _parentEditor == null ? _imageMenuEditor : null;
+    final imageMenuAnchor = _imageMenuAnchor(imageEditor);
     final galleryMenuPosition = _galleryMenuPosition(
       constraints,
       state.selectedGallery,
@@ -1977,20 +1973,10 @@ class _ComposerEditorState extends State<ComposerEditor> {
       child: Stack(
         clipBehavior: Clip.none,
         children: [
-          if (imageMenuPosition case (final left, final top))
-            Positioned(
-              left: left,
-              top: top,
-              child: _ImageComposerMenu(
-                width: imageMenuWidth,
-                image: state.selectedImage!,
-                gallery: state.selectedImageGallery,
-                alt: _media.imageAlt,
-                onSaveAlt: _media.saveImageAlt,
-                onScale: _media.scaleImage,
-                onDelete: _media.deleteSelectedImage,
-                onDismiss: _media.dismissImage,
-              ),
+          if (imageMenuAnchor != null)
+            Positioned.fromRect(
+              rect: imageMenuAnchor,
+              child: _imageMenu(imageEditor!),
             ),
           if (galleryMenuPosition case (final left, final top))
             Positioned(
@@ -2045,6 +2031,53 @@ class _ComposerEditorState extends State<ComposerEditor> {
     );
   }
 
+  Widget _imageMenu(_ComposerEditorState editor) {
+    final media = editor._media;
+    final state = media.value;
+    // Give the passive anchor its own native accessibility boundary so it
+    // cannot merge with another editor overlay's traversal parent.
+    return Semantics(
+      container: true,
+      explicitChildNodes: true,
+      child: DPopover(
+        key: ObjectKey(editor),
+        open: true,
+        focusContentOnOpen: false,
+        restoreFocus: false,
+        transitionDuration: Duration.zero,
+        reverseTransitionDuration: Duration.zero,
+        onOpenChange: (open, reason) {
+          if (!open) {
+            media.dismissImage(
+              requestFocus: reason == DPopoverChangeReason.escape,
+            );
+          }
+        },
+        content: DPopoverContent(
+          semanticLabel: 'Image controls',
+          width: _imageMenuPreferredWidth,
+          side: DPopoverSide.top,
+          align: DPopoverAlign.start,
+          child: _ImageComposerMenu(
+            image: state.selectedImage!,
+            gallery: state.selectedImageGallery,
+            alt: media.imageAlt,
+            onSaveAlt: media.saveImageAlt,
+            onScale: media.scaleImage,
+            onDelete: media.deleteSelectedImage,
+          ),
+        ),
+        child: DPopoverAnchor(
+          child: Semantics(
+            container: true,
+            explicitChildNodes: true,
+            child: const SizedBox.expand(),
+          ),
+        ),
+      ),
+    );
+  }
+
   double _minimumLineHeight(BuildContext context) {
     final style = widget.textStyle ?? Theme.of(context).textTheme.bodyLarge!;
     // Empty paragraphs can include more strut leading than filled ones.
@@ -2062,83 +2095,86 @@ class _ComposerEditorState extends State<ComposerEditor> {
 
   @override
   Widget build(BuildContext context) => LayoutBuilder(
-    builder: (context, constraints) => OverlayPortal(
-      controller: _selectionOverlay.portal,
-      overlayChildBuilder: (context) => ValueListenableBuilder<Rect?>(
-        valueListenable: _selectionOverlay.anchor,
-        builder: (context, anchor, child) => CustomSingleChildLayout(
-          delegate: AnchoredLayout(
-            anchor: anchor,
-            maxWidth: _menuWidth,
-            gap: _menuGap,
-            preferAbove: true,
+    builder: (context, constraints) {
+      _scheduleMediaLayoutRefresh();
+      return OverlayPortal(
+        controller: _selectionOverlay.portal,
+        overlayChildBuilder: (context) => ValueListenableBuilder<Rect?>(
+          valueListenable: _selectionOverlay.anchor,
+          builder: (context, anchor, child) => CustomSingleChildLayout(
+            delegate: AnchoredLayout(
+              anchor: anchor,
+              maxWidth: _menuWidth,
+              gap: _menuGap,
+              preferAbove: true,
+            ),
+            child: child!,
           ),
-          child: child!,
+          child: _SelectionFormattingMenu(
+            composer: widget.composer,
+            onFocusChange: _selectionOverlay.focusChanged,
+          ),
         ),
-        child: _SelectionFormattingMenu(
-          composer: widget.composer,
-          onFocusChange: _selectionOverlay.focusChanged,
-        ),
-      ),
-      child: DropTarget(
-        enable:
-            widget.enableDropTarget &&
-            !context.isTouch &&
-            _parentEditor == null,
-        onDragEntered: (details) => _updateNativeDrop(details.globalPosition),
-        onDragUpdated: (details) => _updateNativeDrop(details.globalPosition),
-        onDragExited: (_) => _cancelNativeDrop(),
-        onDragDone: _dropFiles,
-        child: DragTarget<ComposerImageBlock>(
-          onWillAcceptWithDetails: (details) => widget.composer.isEditing,
-          onMove: (details) => _moveImageDropCaret(details.offset),
-          onAcceptWithDetails: (details) {
-            final offset = _imageDropOffset(details.offset);
-            if (offset != null) {
-              _media.moveImageToOffset(details.data, offset);
-            }
-          },
-          builder: (context, candidates, rejected) => Stack(
-            key: _stackKey,
-            clipBehavior: Clip.none,
-            children: [
-              Positioned.fill(
-                child: ValueListenableBuilder<TextEditingValue>(
-                  valueListenable: widget.composer.text,
-                  builder: (context, value, _) => value.text.isEmpty
-                      ? IgnorePointer(
-                          child: Align(
-                            alignment: Alignment.topLeft,
-                            child: Text(
-                              widget.hintText,
-                              style: widget.hintStyle,
+        child: DropTarget(
+          enable:
+              widget.enableDropTarget &&
+              !context.isTouch &&
+              _parentEditor == null,
+          onDragEntered: (details) => _updateNativeDrop(details.globalPosition),
+          onDragUpdated: (details) => _updateNativeDrop(details.globalPosition),
+          onDragExited: (_) => _cancelNativeDrop(),
+          onDragDone: _dropFiles,
+          child: DragTarget<ComposerImageBlock>(
+            onWillAcceptWithDetails: (details) => widget.composer.isEditing,
+            onMove: (details) => _moveImageDropCaret(details.offset),
+            onAcceptWithDetails: (details) {
+              final offset = _imageDropOffset(details.offset);
+              if (offset != null) {
+                _media.moveImageToOffset(details.data, offset);
+              }
+            },
+            builder: (context, candidates, rejected) => Stack(
+              key: _stackKey,
+              clipBehavior: Clip.none,
+              children: [
+                Positioned.fill(
+                  child: ValueListenableBuilder<TextEditingValue>(
+                    valueListenable: widget.composer.text,
+                    builder: (context, value, _) => value.text.isEmpty
+                        ? IgnorePointer(
+                            child: Align(
+                              alignment: Alignment.topLeft,
+                              child: Text(
+                                widget.hintText,
+                                style: widget.hintStyle,
+                              ),
                             ),
-                          ),
-                        )
-                      : const SizedBox.shrink(),
-                ),
-              ),
-              if (widget.expands)
-                Positioned.fill(child: _field())
-              else
-                ConstrainedBox(
-                  constraints: BoxConstraints(
-                    minHeight: _minimumLineHeight(context),
+                          )
+                        : const SizedBox.shrink(),
                   ),
-                  child: _field(),
                 ),
-              ListenableBuilder(
-                listenable: _media,
-                builder: (context, _) => ValueListenableBuilder<int>(
-                  valueListenable: _mediaLayoutRevision,
-                  builder: (context, _, _) => _mediaOverlays(constraints),
+                if (widget.expands)
+                  Positioned.fill(child: _field())
+                else
+                  ConstrainedBox(
+                    constraints: BoxConstraints(
+                      minHeight: _minimumLineHeight(context),
+                    ),
+                    child: _field(),
+                  ),
+                ListenableBuilder(
+                  listenable: _media,
+                  builder: (context, _) => ValueListenableBuilder<int>(
+                    valueListenable: _mediaLayoutRevision,
+                    builder: (context, _, _) => _mediaOverlays(constraints),
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
-      ),
-    ),
+      );
+    },
   );
 }
 
@@ -2425,102 +2461,75 @@ class _SelectionFormattingMenu extends StatelessWidget {
 
 class _ImageComposerMenu extends StatelessWidget {
   const _ImageComposerMenu({
-    required this.width,
     required this.image,
     required this.gallery,
     required this.alt,
     required this.onSaveAlt,
     required this.onScale,
     required this.onDelete,
-    required this.onDismiss,
   });
 
-  final double width;
   final ComposerImageBlock image;
   final ComposerImageGalleryBlock? gallery;
   final TextEditingController alt;
   final VoidCallback onSaveAlt;
   final void Function(int scale) onScale;
   final VoidCallback onDelete;
-  final VoidCallback onDismiss;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     const scales = [50, 75, 100];
     final scale = scales.contains(image.scale) ? image.scale! : 100;
     final scaleIndex = scales.indexOf(scale);
-    return CallbackShortcuts(
-      bindings: {const SingleActivator(LogicalKeyboardKey.escape): onDismiss},
-      child: Material(
-        elevation: 5,
-        color: theme.colorScheme.surfaceContainerHigh,
-        borderRadius: BorderRadius.circular(8),
-        clipBehavior: Clip.antiAlias,
-        child: SizedBox(
-          width: width,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(8, 4, 4, 6),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Row(
-                  children: [
-                    if (gallery == null) ...[
-                      DButton.iconOnly(
-                        onPressed: scaleIndex > 0
-                            ? () => onScale(scales[scaleIndex - 1])
-                            : null,
-                        variant: DButtonVariant.ghost,
-                        tooltip: 'Decrease image size',
-                        icon: const Icon(Icons.zoom_out),
-                      ),
-                      Text('$scale%', style: theme.textTheme.labelMedium),
-                      DButton.iconOnly(
-                        onPressed: scaleIndex < scales.length - 1
-                            ? () => onScale(scales[scaleIndex + 1])
-                            : null,
-                        variant: DButtonVariant.ghost,
-                        tooltip: 'Increase image size',
-                        icon: const Icon(Icons.zoom_in),
-                      ),
-                    ],
-                    const Spacer(),
-                    DButton.iconOnly(
-                      onPressed: onDelete,
-                      variant: DButtonVariant.ghost,
-                      tooltip: 'Delete image',
-                      icon: const Icon(Icons.delete_outline),
-                    ),
-                  ],
+    return TextFieldTapRegion(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            children: [
+              if (gallery == null) ...[
+                DButton.iconOnly(
+                  onPressed: scaleIndex > 0
+                      ? () => onScale(scales[scaleIndex - 1])
+                      : null,
+                  variant: DButtonVariant.ghost,
+                  tooltip: 'Decrease image size',
+                  icon: const Icon(Icons.zoom_out),
                 ),
-                SizedBox(
-                  height: 44,
-                  child: TextField(
-                    style: Theme.of(context).textTheme.bodyMedium,
-                    controller: alt,
-                    textInputAction: TextInputAction.done,
-                    onSubmitted: (_) => onSaveAlt(),
-                    decoration: InputDecoration(
-                      isDense: true,
-                      hintText: 'Add image description',
-                      suffixIconConstraints: const BoxConstraints.tightFor(
-                        width: 44,
-                        height: 44,
-                      ),
-                      suffixIcon: DButton.iconOnly(
-                        onPressed: onSaveAlt,
-                        variant: DButtonVariant.ghost,
-                        tooltip: 'Save alt text',
-                        icon: const Icon(Icons.check),
-                      ),
-                    ),
-                  ),
+                Text('$scale%', style: Theme.of(context).textTheme.labelMedium),
+                DButton.iconOnly(
+                  onPressed: scaleIndex < scales.length - 1
+                      ? () => onScale(scales[scaleIndex + 1])
+                      : null,
+                  variant: DButtonVariant.ghost,
+                  tooltip: 'Increase image size',
+                  icon: const Icon(Icons.zoom_in),
                 ),
               ],
+              const Spacer(),
+              DButton.iconOnly(
+                onPressed: onDelete,
+                variant: DButtonVariant.ghost,
+                tooltip: 'Delete image',
+                icon: const Icon(Icons.delete_outline),
+              ),
+            ],
+          ),
+          const SizedBox(height: DSpacing.xs),
+          DInput(
+            controller: alt,
+            semanticLabel: 'Image description',
+            hintText: 'Add image description',
+            textInputAction: TextInputAction.done,
+            onSubmitted: (_) => onSaveAlt(),
+            suffix: DButton.iconOnly(
+              onPressed: onSaveAlt,
+              variant: DButtonVariant.ghost,
+              tooltip: 'Save alt text',
+              icon: const Icon(Icons.check),
             ),
           ),
-        ),
+        ],
       ),
     );
   }

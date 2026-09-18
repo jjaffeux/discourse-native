@@ -42,6 +42,10 @@ pending uploads prevent submission and are stripped from persisted drafts.
 Collapsing a disclosure retains its uploads, while removing it cancels them.
 Only the outer editor registers native drops, routing each to the deepest
 body under the pointer. Embedded image hit testing accounts for outer scroll.
+Image controls use a Native popover owned by the outer composer and anchored
+to the selected image. Its resize/delete actions and description input remain
+outside the details body's clipping, follow scrolling, and close when the
+details are collapsed or removed.
 
 Recognition covers bare, quoted, smart-quoted and legacy unquoted summaries,
 single-line blocks and multiline nested blocks. Code examples, escaped tags,
@@ -82,3 +86,19 @@ flutter run -d macos -t tool/details_review_main.dart
 
 It includes post/composer, light/dark, wide/narrow and RTL controls, plus access
 to the component styleguide.
+
+## Image-control follow-up — 2026-09-18
+
+Regression coverage uses real pointer clicks on image controls in regular,
+small-image, nested/scaled and narrow RTL details. It checks description saves,
+resizing, deletion, switching between details bodies, outer scrolling,
+collapse/removal and accessibility-tree attachment. The macOS fixture was
+checked in light/wide and dark/narrow layouts: all controls were visible,
+description edits saved, resizing worked, and collapse dismissed the popover.
+The final native run reported no accessibility-bridge errors.
+
+Focused details/media/upload checks and static analysis pass. Broader upload
+panel and block-selection runs exposed seven existing failures; the same
+failures were reproduced on unchanged commit `022ad0ba`. They concern older
+image keyboard-selection assertions, gallery-control finders and table
+selection/teardown, and are outside this clipping fix.

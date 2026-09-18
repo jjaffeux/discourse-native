@@ -57,6 +57,7 @@ Future<({ComposerController root, List<_Upload> uploads})> _pump(
   bool panel = false,
   double width = 760,
   double scale = 1,
+  TextDirection direction = TextDirection.ltr,
   ComposerUploadFile? pickedFile,
 }) async {
   final uploads = <_Upload>[];
@@ -113,8 +114,11 @@ Future<({ComposerController root, List<_Upload> uploads})> _pump(
       home: Scaffold(
         body: MediaQuery(
           data: MediaQueryData(textScaler: TextScaler.linear(scale)),
-          child: Center(
-            child: SizedBox(width: width, child: content),
+          child: Directionality(
+            textDirection: direction,
+            child: Center(
+              child: SizedBox(width: width, child: content),
+            ),
           ),
         ),
       ),
@@ -421,12 +425,189 @@ void main() {
     await tester.tapAt(painted.center);
     await tester.pumpAndSettle();
     expect(_button('Delete image'), findsOneWidget);
-    final remove = tester.widget<DButton>(_button('Delete image'));
-    remove.onPressed!();
+    await tester.tap(_button('Delete image'));
     await tester.pumpAndSettle();
     expect(
       parseComposerDetails(fixture.root.raw).single.body,
       isNot(contains('upload://existing')),
+    );
+    expect(tester.takeException(), isNull);
+  });
+
+  for (final scenario in [
+    (
+      name: 'regular',
+      dimensions: '200x190',
+      width: 760.0,
+      scale: 1.0,
+      nested: false,
+      direction: TextDirection.ltr,
+    ),
+    (
+      name: 'small image',
+      dimensions: '80x60',
+      width: 760.0,
+      scale: 1.0,
+      nested: false,
+      direction: TextDirection.ltr,
+    ),
+    (
+      name: 'nested and scaled',
+      dimensions: '200x190',
+      width: 640.0,
+      scale: 1.4,
+      nested: true,
+      direction: TextDirection.ltr,
+    ),
+    (
+      name: 'narrow RTL',
+      dimensions: '200x190',
+      width: 340.0,
+      scale: 1.4,
+      nested: false,
+      direction: TextDirection.rtl,
+    ),
+  ]) {
+    testWidgets(
+      'image controls remain clickable beyond details (${scenario.name})',
+      (tester) async {
+        final details =
+            '[details="Photo"]\n![photo|${scenario.dimensions}](upload://existing)\n[/details]';
+        final fixture = await _pump(
+          tester,
+          source: scenario.nested
+              ? '[details="Outer"]\n$details\n[/details]'
+              : details,
+          width: scenario.width,
+          scale: scenario.scale,
+          direction: scenario.direction,
+        );
+        fixture.root.text.imageScrollController!.jumpTo(0);
+        await tester.pumpAndSettle();
+        await tester.tap(find.byType(ComposerImagePreview));
+        await tester.pumpAndSettle();
+
+        final description = find.byWidgetPredicate(
+          (widget) =>
+              widget is DInput && widget.semanticLabel == 'Image description',
+        );
+        expect(description.hitTestable(), findsOneWidget);
+        expect(_button('Save alt text').hitTestable(), findsOneWidget);
+        expect(
+          MediaQuery.textScalerOf(tester.element(description)).scale(10),
+          scenario.scale * 10,
+        );
+        await tester.tap(description);
+        await tester.enterText(description, 'A useful description');
+        await tester.tap(_button('Decrease image size'));
+        await tester.pumpAndSettle();
+        expect(fixture.root.raw, contains('${scenario.dimensions}, 75%'));
+        expect(
+          tester.widget<DInput>(description).controller!.text,
+          'A useful description',
+        );
+        await tester.tap(_button('Save alt text'));
+        await tester.pumpAndSettle();
+        expect(
+          fixture.root.raw,
+          contains('![A useful description|${scenario.dimensions}, 75%]'),
+        );
+        expect(description, findsNothing);
+
+        await tester.tap(find.byType(ComposerImagePreview));
+        await tester.pumpAndSettle();
+        await tester.tap(_button('Delete image'));
+        await tester.pumpAndSettle();
+        expect(fixture.root.raw, isNot(contains('upload://existing')));
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
+  testWidgets('image controls follow outer scrolling and close with details', (
+    tester,
+  ) async {
+    final fixture = await _pump(
+      tester,
+      source: '${'Intro\n' * 14}$_source\n${'After\n' * 20}',
+    );
+    final scroll = fixture.root.text.imageScrollController!;
+    scroll.jumpTo(120);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byType(ComposerImagePreview));
+    await tester.pumpAndSettle();
+    final before = tester.getRect(_button('Save alt text'));
+    scroll.jumpTo(150);
+    await tester.pumpAndSettle();
+    expect(
+      tester.getRect(_button('Save alt text')).top,
+      closeTo(before.top - 30, 1),
+    );
+    expect(_button('Save alt text').hitTestable(), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('details-disclosure')));
+    await tester.pumpAndSettle();
+    expect(_button('Save alt text'), findsNothing);
+    await tester.tap(find.byKey(const ValueKey('details-disclosure')));
+    await tester.pumpAndSettle();
+    expect(_button('Save alt text'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('removing details also removes the shared image popover', (
+    tester,
+  ) async {
+    final semantics = tester.ensureSemantics();
+    try {
+      final fixture = await _pump(tester);
+      await tester.tap(find.byType(ComposerImagePreview));
+      await tester.pumpAndSettle();
+      expect(_button('Save alt text').hitTestable(), findsOneWidget);
+      final tree = tester
+          .binding
+          .renderViews
+          .first
+          .owner!
+          .semanticsOwner!
+          .rootSemanticsNode!
+          .toStringDeep();
+      expect(tree, contains('Image controls'));
+      expect(tree, contains('Image description'));
+      fixture.root.text.value = const TextEditingValue(
+        text: 'Replacement draft',
+      );
+      await tester.pumpAndSettle();
+      expect(_button('Save alt text'), findsNothing);
+      expect(tester.takeException(), isNull);
+    } finally {
+      semantics.dispose();
+    }
+  });
+
+  testWidgets('shared image controls follow the selected details body', (
+    tester,
+  ) async {
+    final fixture = await _pump(
+      tester,
+      source:
+          '[details="First"]\n![first|100x80](upload://first)\n[/details]\n\n'
+          '[details="Second"]\n![second|100x80](upload://second)\n[/details]',
+    );
+    await tester.tap(find.byType(ComposerImagePreview).first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byType(ComposerImagePreview).last);
+    await tester.pumpAndSettle();
+    final description = find.byWidgetPredicate(
+      (widget) =>
+          widget is DInput && widget.semanticLabel == 'Image description',
+    );
+    expect(description, findsOneWidget);
+    await tester.enterText(description, 'Changed second image');
+    await tester.tap(_button('Save alt text'));
+    await tester.pumpAndSettle();
+    expect(fixture.root.raw, contains('![first|100x80](upload://first)'));
+    expect(
+      fixture.root.raw,
+      contains('![Changed second image|100x80](upload://second)'),
     );
     expect(tester.takeException(), isNull);
   });
