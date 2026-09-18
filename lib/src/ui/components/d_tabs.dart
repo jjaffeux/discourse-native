@@ -1164,7 +1164,7 @@ class _DDocumentTabState extends State<DDocumentTab> {
           DControlSize.regular,
           MediaQuery.textScalerOf(context),
         ),
-        padding: const EdgeInsets.symmetric(horizontal: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 2),
         decoration: ShapeDecoration(
           color: widget.selected || _hovered
               ? tokens.foreground.withValues(alpha: .06)
@@ -1216,6 +1216,7 @@ class _DDocumentTabState extends State<DDocumentTab> {
                                     widget.onTapCancel?.call(),
                                 child: DButton(
                                   onPressed: widget.onSelect,
+                                  size: DButtonSize.small,
                                   focusNode: _selectionFocus,
                                   variant: DButtonVariant.ghost,
                                   alignment: AlignmentDirectional.centerStart,

@@ -77,3 +77,18 @@ Verification:
   tabs styleguide in light/dark, wide and narrow windows. Mouse selection keeps
   one neutral surface. Platform overrides and enlarged/RTL layouts are widget
   tests, not mobile device verification.
+
+## Content sizing — September 19, 2026
+
+Forum tabs now use their intrinsic content width, capped at the existing 160px
+maximum. Short labels no longer stretch to an equal share or a fixed minimum;
+icons, emoji, badges and custom label decorations participate in layout. Long
+labels retain ellipsis, and the strip scrolls when its tabs exceed the viewport.
+Document tabs use the small Native selection-button preset (8px horizontal
+insets) and 2px outer insets. Close targets remain 24px, and drag feedback uses
+the rendered tab width.
+
+Verification: static analysis passes; 71 focused checks pass, including the new
+content-width, custom-suffix, padding and maximum-width regression. Five existing
+Forum Tabs Bar failures (two pixel samples, switcher hover color and two scaled
+switcher rows) reproduce on unchanged main.

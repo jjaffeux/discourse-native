@@ -97,6 +97,45 @@ void main() {
       );
     });
 
+    testWidgets('sizes tabs to content and preserves the maximum width', (
+      tester,
+    ) async {
+      final items = [
+        const ForumTabItem(id: 'short', title: 'A', icon: DIcons.layerGroup),
+        ForumTabItem(
+          id: 'suffix',
+          title: 'A',
+          icon: DIcons.layerGroup,
+          labelSuffixBuilder: (_, size) => SizedBox(width: 17, height: size),
+        ),
+        first,
+      ];
+      for (final viewportWidth in [560.0, 220.0]) {
+        await _pumpBar(
+          tester,
+          items: items,
+          selectedId: 'short',
+          width: viewportWidth,
+        );
+        final short = find.byKey(const ValueKey('forum-tab-item-short'));
+        final suffix = find.byKey(const ValueKey('forum-tab-item-suffix'));
+        final long = find.byKey(const ValueKey('forum-tab-item-topic-1'));
+        final label = find.descendant(of: short, matching: find.text('A'));
+        final close = find.byKey(const ValueKey('forum-tab-close-short'));
+        final labelRect = tester.getRect(label);
+        final closeRect = tester.getRect(close);
+        final tabRect = tester.getRect(short);
+
+        expect(tabRect.width, lessThan(136));
+        expect(tester.getSize(suffix).width, closeTo(tabRect.width + 17, .01));
+        expect(tester.getSize(long).width, ForumTabsBar.maximumTabWidth);
+        expect(labelRect.left - tabRect.left, 2 + 8 + 15 + 7);
+        expect(closeRect.left - labelRect.right, closeTo(8, .01));
+        expect(tabRect.right - closeRect.right, 2);
+        expect(tester.takeException(), isNull);
+      }
+    });
+
     testWidgets('matches shell geometry and places add after the final tab', (
       tester,
     ) async {

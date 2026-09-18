@@ -87,11 +87,9 @@ class ForumTabsBar extends StatefulWidget {
 
   static const double minimumActionTarget = DControlStyle.regularHeight;
 
-  static const double _tabContentInset = 4;
+  static const double _tabContentInset = 2;
 
-  static const double minimumTabWidth = 128 + 2 * _tabContentInset;
-
-  static const double maximumTabWidth = 152 + 2 * _tabContentInset;
+  static const double maximumTabWidth = 160;
 
   static const double closeTargetWidth = 24;
 
@@ -181,28 +179,7 @@ class _ForumTabsBarState extends State<ForumTabsBar> {
                     _lastViewportWidth = constraints.maxWidth;
                     _scheduleRevealSelected();
                   }
-                  const switcherWidth = ForumTabsBar.minimumActionTarget;
-                  final addWidth = widget.showAdd
-                      ? ForumTabsBar.minimumActionTarget
-                      : 0.0;
                   const newTabGap = 4.0;
-                  final tabViewportWidth = math.max(
-                    0.0,
-                    constraints.maxWidth -
-                        switcherWidth -
-                        _switcherGap -
-                        addWidth -
-                        newTabGap,
-                  );
-                  final gapsWidth =
-                      math.max(0, widget.items.length - 1) * _tabGap;
-                  final equalShare = widget.items.isEmpty
-                      ? 70.0
-                      : (tabViewportWidth - gapsWidth) / widget.items.length;
-                  final tabWidth = equalShare.clamp(
-                    ForumTabsBar.minimumTabWidth,
-                    ForumTabsBar.maximumTabWidth,
-                  );
 
                   return Row(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -238,17 +215,19 @@ class _ForumTabsBarState extends State<ForumTabsBar> {
                                         index < widget.items.length;
                                         index++
                                       ) ...[
-                                        SizedBox(
+                                        ConstrainedBox(
                                           key: _itemKeys.putIfAbsent(
                                             widget.items[index].id,
                                             GlobalKey.new,
                                           ),
-                                          width: tabWidth,
+                                          constraints: const BoxConstraints(
+                                            maxWidth:
+                                                ForumTabsBar.maximumTabWidth,
+                                          ),
                                           child: _ReorderableForumTab(
                                             item: widget.items[index],
                                             index: index,
                                             itemCount: widget.items.length,
-                                            width: tabWidth,
                                             selected:
                                                 widget.items[index].id ==
                                                 widget.selectedId,
@@ -821,7 +800,6 @@ class _ReorderableForumTab extends StatelessWidget {
     required this.item,
     required this.index,
     required this.itemCount,
-    required this.width,
     required this.selected,
     required this.onSelect,
     required this.onClose,
@@ -833,7 +811,6 @@ class _ReorderableForumTab extends StatelessWidget {
   final ForumTabItem item;
   final int index;
   final int itemCount;
-  final double width;
   final bool selected;
   final VoidCallback onSelect;
   final VoidCallback onClose;
@@ -862,7 +839,7 @@ class _ReorderableForumTab extends StatelessWidget {
       onPointerDown: (event) {
         if (event.buttons == kPrimaryButton &&
             event.localPosition.dx <
-                width -
+                (context.findRenderObject()! as RenderBox).size.width -
                     ForumTabsBar.closeTargetWidth -
                     ForumTabsBar._tabContentInset) {
           onSelect();
@@ -892,7 +869,12 @@ class _ReorderableForumTab extends StatelessWidget {
             data: item.id,
             axis: Axis.horizontal,
             dragAnchorStrategy: childDragAnchorStrategy,
-            feedback: _ForumTabDragFeedback(item: item, width: width),
+            feedback: Builder(
+              builder: (_) => _ForumTabDragFeedback(
+                item: item,
+                width: (context.findRenderObject()! as RenderBox).size.width,
+              ),
+            ),
             childWhenDragging: Opacity(opacity: 0.3, child: child),
             child: child,
           );
@@ -1258,48 +1240,62 @@ class _ForumTabState extends State<_ForumTab> {
 
   @override
   Widget build(BuildContext context) {
-    return _ForumTabActions(
-      tabId: widget.item.id,
-      selected: widget.selected,
-      label: _renaming ? null : _selectionSemanticsLabel,
-      onTap: widget.onSelect,
-      customSemanticsActions: {
-        if (widget.onRename != null) _renameAction: _startRenaming,
-        const CustomSemanticsAction(label: 'Move left'): ?widget.onMoveLeft,
-        const CustomSemanticsAction(label: 'Move right'): ?widget.onMoveRight,
-      },
-      onClose: widget.onClose,
-      onCloseOthers: widget.onCloseOthers,
-      child: DDocumentTab(
-        excludeSelectionSemantics: true,
-        surfaceKey: ValueKey('forum-tab-item-${widget.item.id}'),
-        pointerKey: ValueKey('forum-tab-pointer-${widget.item.id}'),
-        closeKey: ValueKey('forum-tab-close-${widget.item.id}'),
-        selected: widget.selected,
-        dropTarget: widget.dropTarget,
-        onSelect: _handleTap,
-        onTapDown: _handleTapDown,
-        onTapCancel: _handleTapCancel,
-        onDoubleTap: widget.onRename == null ? null : _startRenaming,
-        onClose: widget.onClose,
-        closeLabel: 'Close ${widget.item.title}',
-        closeShortcut: DShortcut(
-          primaryShortcutForPlatform(
-            Theme.of(context).platform,
-            LogicalKeyboardKey.keyW,
+    return LayoutBuilder(
+      builder: (context, constraints) => IntrinsicWidth(
+        child: _ForumTabActions(
+          tabId: widget.item.id,
+          selected: widget.selected,
+          label: _renaming ? null : _selectionSemanticsLabel,
+          onTap: widget.onSelect,
+          customSemanticsActions: {
+            if (widget.onRename != null) _renameAction: _startRenaming,
+            const CustomSemanticsAction(label: 'Move left'): ?widget.onMoveLeft,
+            const CustomSemanticsAction(label: 'Move right'):
+                ?widget.onMoveRight,
+          },
+          onClose: widget.onClose,
+          onCloseOthers: widget.onCloseOthers,
+          child: DDocumentTab(
+            excludeSelectionSemantics: true,
+            surfaceKey: ValueKey('forum-tab-item-${widget.item.id}'),
+            pointerKey: ValueKey('forum-tab-pointer-${widget.item.id}'),
+            closeKey: ValueKey('forum-tab-close-${widget.item.id}'),
+            selected: widget.selected,
+            dropTarget: widget.dropTarget,
+            onSelect: _handleTap,
+            onTapDown: _handleTapDown,
+            onTapCancel: _handleTapCancel,
+            onDoubleTap: widget.onRename == null ? null : _startRenaming,
+            onClose: widget.onClose,
+            closeLabel: 'Close ${widget.item.title}',
+            closeShortcut: DShortcut(
+              primaryShortcutForPlatform(
+                Theme.of(context).platform,
+                LogicalKeyboardKey.keyW,
+              ),
+            ),
+            editor: _renaming ? _contents(constraints) : null,
+            child: ExcludeSemantics(child: _contents(constraints)),
           ),
         ),
-        editor: _renaming ? _contents() : null,
-        child: ExcludeSemantics(child: _contents()),
       ),
     );
   }
 
-  Widget _contents() => LayoutBuilder(
-    builder: (context, constraints) => _tabContents(
+  Widget _contents(BoxConstraints constraints) => Builder(
+    builder: (context) => _tabContents(
       context,
       DefaultTextStyle.of(context).style.color!,
-      constraints,
+      // Intrinsic sizing needs the content tree without a nested LayoutBuilder.
+      // Badge visibility uses the available width after Native control insets.
+      constraints.deflate(
+        const EdgeInsets.symmetric(
+          horizontal:
+              ForumTabsBar._tabContentInset +
+              8 +
+              ForumTabsBar.closeTargetWidth / 2,
+        ),
+      ),
     ),
   );
 }
