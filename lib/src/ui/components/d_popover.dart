@@ -830,7 +830,7 @@ class DPopoverContent extends StatelessWidget {
       letterSpacing: 0,
       decoration: TextDecoration.none,
     );
-    const radius = DControlStyle.popupRadius;
+    final radius = tokens.controlRadius;
     final shadowColor = Colors.black.withValues(alpha: .125);
     final shadows = [
       BoxShadow(color: shadowColor, offset: const Offset(0, 3), blurRadius: 8),

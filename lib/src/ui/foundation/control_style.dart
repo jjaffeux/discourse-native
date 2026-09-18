@@ -21,7 +21,6 @@ abstract final class DControlStyle {
   static const labelFontSize = 13.0;
   static const rowHeight = 32.0;
   static const rowRadius = 8.0;
-  static const popupRadius = 12.0;
   static const focusWidth = 1.0;
   static const focusOffset = 2.0;
   static double height(DControlSize size) => switch (size) {
