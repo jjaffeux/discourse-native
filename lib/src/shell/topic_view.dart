@@ -3013,10 +3013,6 @@ class _TopicViewHeader extends StatelessWidget {
                 ],
               ),
             ),
-            if (topic != null && siteUrl != null) ...[
-              const SizedBox(width: 8),
-              TopicShareButton(siteUrl: siteUrl, topic: topic, route: route),
-            ],
             if (topic != null &&
                 siteUrl != null &&
                 controller.currentInstance?.user != null) ...[

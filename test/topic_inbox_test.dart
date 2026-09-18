@@ -637,7 +637,6 @@ void main() {
           .dy;
       for (final action in [
         find.byKey(const ValueKey('topic-status-button')),
-        find.byType(TopicShareButton),
       ]) {
         expect(
           tester.getCenter(action).dy,
@@ -648,7 +647,6 @@ void main() {
         for (final finder in [
           find.byKey(const ValueKey('topic-close-reader')),
           find.byKey(const ValueKey('topic-status-button')),
-          find.byType(TopicShareButton),
         ])
           (
             finder: finder,
@@ -1530,12 +1528,7 @@ void main() {
 
       for (final compact in [false, true]) {
         var wideTagCount = 0;
-        for (final (width, share) in [
-          (1200.0, true),
-          (780.0, true),
-          (600.0, true),
-          (390.0, false),
-        ]) {
+        for (final width in [1200.0, 780.0, 600.0, 390.0]) {
           await tester.pumpWidget(
             ShellScope(
               controller: shell,
@@ -1625,10 +1618,7 @@ void main() {
             findsNothing,
           );
           expect(find.byKey(const ValueKey('inbox-next-topic')), findsNothing);
-          expect(
-            find.byType(TopicShareButton),
-            share ? findsOneWidget : findsNothing,
-          );
+          expect(find.byType(TopicShareButton), findsNothing);
           final visibleTags = tags
               .where(
                 (tag) => find
