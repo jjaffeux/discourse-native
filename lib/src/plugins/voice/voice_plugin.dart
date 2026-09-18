@@ -138,6 +138,9 @@ final class VoicePlugin
       SidebarSection(
         id: 'voice-rooms',
         title: 'Voice rooms',
+        showHeader: false,
+        collapsible: false,
+        actionAboveHeader: true,
         actionIcon: DIcons.plus,
         actionLabel: 'Create voice room',
         onAction: directory.canCreateRoom
