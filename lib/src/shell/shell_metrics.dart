@@ -11,6 +11,19 @@ const double workspaceEdgeInset = 6;
 
 const double shellHeaderHeight = 52;
 const double readerHeaderHeight = 44;
+
+const double workspaceTabStripHeight = 38;
+const workspaceTabsPadding = EdgeInsets.fromLTRB(8, 8, 8, 4);
+
+double workspaceTabStripHeightFor(BuildContext context) {
+  final style = Theme.of(context).textTheme.labelMedium!;
+  final fontSize = style.fontSize!;
+  final growth =
+      (MediaQuery.textScalerOf(context).scale(fontSize) - fontSize) *
+      style.height!;
+  return workspaceTabStripHeight + math.max(0, growth);
+}
+
 const topicBottomBarPadding = EdgeInsets.all(8);
 
 double topicBottomBarControlHeight(BuildContext context) {

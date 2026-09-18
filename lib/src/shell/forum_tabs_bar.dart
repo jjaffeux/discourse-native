@@ -14,6 +14,7 @@ import '../theme/app_theme.dart';
 import '../theme/d_icons.dart';
 import 'avatar_image.dart';
 import 'emoji.dart';
+import 'shell_metrics.dart';
 import 'shell_scope.dart';
 import 'site_emoji_text.dart';
 
@@ -73,16 +74,10 @@ class ForumTabsBar extends StatefulWidget {
   }) : assert(items.isNotEmpty),
        assert(items.any((item) => item.id == selectedId));
 
-  static const double height = 38;
+  static const double height = workspaceTabStripHeight;
 
-  static double heightFor(BuildContext context) {
-    final style = Theme.of(context).textTheme.labelMedium!;
-    final fontSize = style.fontSize!;
-    final growth =
-        (MediaQuery.textScalerOf(context).scale(fontSize) - fontSize) *
-        style.height!;
-    return height + math.max(0, growth);
-  }
+  static double heightFor(BuildContext context) =>
+      workspaceTabStripHeightFor(context);
 
   static const double minimumActionTarget = DControlStyle.regularHeight;
 
