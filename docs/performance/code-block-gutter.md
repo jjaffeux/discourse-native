@@ -127,3 +127,15 @@ discard any run emitting `GUTTER_INVALID` or an exception. Repeat ABBA, then run
 `python3 tool/code_block_gutter_summarize.py a1.txt b1.txt b2.txt a2.txt`.
 Restore the production file before committing; the generated instrumentation
 is for the disposable capture checkout only.
+
+## Main integration
+
+Candidate `522ffe39` passed a fresh 44-test code-block/syntax run and targeted
+static analysis, including the final capture guards. It was merged from the
+repository's main checkout into clean main `c8cb3562` as `aa3f024b`, preserving
+the previously integrated HTML conversion optimization. The combined main then
+passed all 128 code-block, syntax and cooked-HTML tests; targeted static analysis
+again reported no issues. Raw `final-*` and `main-*` outputs are retained beside
+the capture evidence. No generated production instrumentation was merged, and
+nothing was pushed. This validation does not expand the callback-only timing
+claim into a native frame claim.

@@ -1,0 +1,61 @@
+Resolving dependencies...
+Downloading packages...
+  code_assets 2.0.0 (2.1.0 available)
+  equatable 2.1.0 (3.0.0 available)
+! flutter_webrtc 1.6.2 from path packages/discourse_voice/third_party/flutter_webrtc (overridden)
+! flutter_widget_from_html_core 0.17.4 from path packages/flutter_widget_from_html_core (overridden)
+  kalender 0.29.1 (0.30.0 available)
+  livekit_client 2.12.0 (2.13.0 available)
+  material_color_utilities 0.13.0 (0.13.1 available)
+  test_api 0.7.12 (0.7.14 available)
+! video_player_avfoundation 2.12.0 from path packages/video_player_avfoundation (overridden)
+  window_to_front 0.0.4 (1.0.0 available)
+Got dependencies!
+7 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+00:00 +0: loading /Users/joffreyjaffeux/.codex/worktrees/21af/discourse-native/test/code_block_test.dart
+00:00 +0: /Users/joffreyjaffeux/.codex/worktrees/21af/discourse-native/test/syntax_test.dart: highlightLines scopes a language it knows
+00:00 +1: /Users/joffreyjaffeux/.codex/worktrees/21af/discourse-native/test/syntax_test.dart: highlightLines resolves the aliases highlight.js registers
+00:00 +2: /Users/joffreyjaffeux/.codex/worktrees/21af/discourse-native/test/syntax_test.dart: highlightLines resolves the aliases it does not
+00:00 +3: /Users/joffreyjaffeux/.codex/worktrees/21af/discourse-native/test/syntax_test.dart: highlightLines leaves plaintext alone
+00:00 +4: /Users/joffreyjaffeux/.codex/worktrees/21af/discourse-native/test/syntax_test.dart: highlightLines leaves a language nobody has heard of alone
+00:00 +5: /Users/joffreyjaffeux/.codex/worktrees/21af/discourse-native/test/syntax_test.dart: highlightLines cuts a token that spans lines back onto its lines
+00:00 +6: /Users/joffreyjaffeux/.codex/worktrees/21af/discourse-native/test/syntax_test.dart: highlightLines never changes the text or the number of lines
+00:00 +7: /Users/joffreyjaffeux/.codex/worktrees/21af/discourse-native/test/syntax_test.dart: highlightLines detects a language when the markup says auto
+00:00 +8: /Users/joffreyjaffeux/.codex/worktrees/21af/discourse-native/test/code_block_test.dart: CodeBlockData reads a git blob onebox as numbered lines
+00:00 +9: /Users/joffreyjaffeux/.codex/worktrees/21af/discourse-native/test/code_block_test.dart: CodeBlockData reads a git blob onebox as numbered lines
+00:00 +10: /Users/joffreyjaffeux/.codex/worktrees/21af/discourse-native/test/code_block_test.dart: CodeBlockData reads a git blob onebox as numbered lines
+00:00 +11: /Users/joffreyjaffeux/.codex/worktrees/21af/discourse-native/test/code_block_test.dart: CodeBlockData reads a git blob onebox as numbered lines
+00:00 +12: /Users/joffreyjaffeux/.codex/worktrees/21af/discourse-native/test/code_block_test.dart: CodeBlockData reads a git blob onebox as numbered lines
+00:00 +13: /Users/joffreyjaffeux/.codex/worktrees/21af/discourse-native/test/code_block_test.dart: CodeBlockData reads a git blob onebox as numbered lines
+00:00 +14: /Users/joffreyjaffeux/.codex/worktrees/21af/discourse-native/test/code_block_test.dart: CodeBlockData reads a git blob onebox as numbered lines
+00:00 +15: /Users/joffreyjaffeux/.codex/worktrees/21af/discourse-native/test/code_block_test.dart: CodeBlockData keeps indentation, which is the whole point of a code block
+00:00 +16: /Users/joffreyjaffeux/.codex/worktrees/21af/discourse-native/test/code_block_test.dart: CodeBlockData marks the lines the link pointed at
+00:00 +17: /Users/joffreyjaffeux/.codex/worktrees/21af/discourse-native/test/code_block_test.dart: CodeBlockData reads the language off the code element
+00:00 +18: /Users/joffreyjaffeux/.codex/worktrees/21af/discourse-native/test/code_block_test.dart: CodeBlockData highlights, without disturbing the lines or their numbers
+00:00 +19: /Users/joffreyjaffeux/.codex/worktrees/21af/discourse-native/test/code_block_test.dart: CodeBlockData reads an ordinary code fence, unnumbered
+00:00 +20: /Users/joffreyjaffeux/.codex/worktrees/21af/discourse-native/test/code_block_test.dart: CodeBlockData drops the newlines the tags contribute, not the code
+00:00 +21: /Users/joffreyjaffeux/.codex/worktrees/21af/discourse-native/test/code_block_test.dart: CodeBlockData keeps the blank lines the author wrote
+00:00 +22: /Users/joffreyjaffeux/.codex/worktrees/21af/discourse-native/test/code_block_test.dart: CodeBlock line metadata reads stay linear (20, numbered: false)
+00:00 +23: /Users/joffreyjaffeux/.codex/worktrees/21af/discourse-native/test/code_block_test.dart: CodeBlock line metadata reads stay linear (100, numbered: false)
+00:00 +24: /Users/joffreyjaffeux/.codex/worktrees/21af/discourse-native/test/code_block_test.dart: CodeBlock line metadata reads stay linear (500, numbered: false)
+00:00 +25: /Users/joffreyjaffeux/.codex/worktrees/21af/discourse-native/test/code_block_test.dart: CodeBlock line metadata reads stay linear (1000, numbered: false)
+00:01 +26: /Users/joffreyjaffeux/.codex/worktrees/21af/discourse-native/test/code_block_test.dart: CodeBlock line metadata reads stay linear (20, numbered: true)
+00:01 +27: /Users/joffreyjaffeux/.codex/worktrees/21af/discourse-native/test/code_block_test.dart: CodeBlock line metadata reads stay linear (100, numbered: true)
+00:01 +28: /Users/joffreyjaffeux/.codex/worktrees/21af/discourse-native/test/code_block_test.dart: CodeBlock line metadata reads stay linear (500, numbered: true)
+00:01 +29: /Users/joffreyjaffeux/.codex/worktrees/21af/discourse-native/test/code_block_test.dart: CodeBlock line metadata reads stay linear (1000, numbered: true)
+00:01 +30: /Users/joffreyjaffeux/.codex/worktrees/21af/discourse-native/test/code_block_test.dart: CodeBlock mixed null and negative numbers share the widest gutter
+00:01 +31: /Users/joffreyjaffeux/.codex/worktrees/21af/discourse-native/test/code_block_test.dart: CodeBlock gutter follows replacement data and theme rebuilds
+00:01 +32: /Users/joffreyjaffeux/.codex/worktrees/21af/discourse-native/test/code_block_test.dart: CodeBlock deferred tokens preserve gutter and selected line geometry
+00:01 +33: /Users/joffreyjaffeux/.codex/worktrees/21af/discourse-native/test/code_block_test.dart: CodeBlock draws every line, with its number
+00:01 +34: /Users/joffreyjaffeux/.codex/worktrees/21af/discourse-native/test/code_block_test.dart: CodeBlock shows the language and flat actions in a header
+00:01 +35: /Users/joffreyjaffeux/.codex/worktrees/21af/discourse-native/test/code_block_test.dart: CodeBlock paints keywords in the theme colour
+00:01 +36: /Users/joffreyjaffeux/.codex/worktrees/21af/discourse-native/test/code_block_test.dart: CodeBlock uses the same code face as Discourse
+00:01 +37: /Users/joffreyjaffeux/.codex/worktrees/21af/discourse-native/test/code_block_test.dart: CodeBlock fills the width it is given, however short the code
+00:01 +38: /Users/joffreyjaffeux/.codex/worktrees/21af/discourse-native/test/code_block_test.dart: CodeBlock has no border, matching Discourse core
+00:01 +39: /Users/joffreyjaffeux/.codex/worktrees/21af/discourse-native/test/code_block_test.dart: CodeBlock scrolls sideways rather than cutting a long line off
+00:01 +40: /Users/joffreyjaffeux/.codex/worktrees/21af/discourse-native/test/code_block_test.dart: CodeBlock copies the source without line-number markup
+00:01 +41: /Users/joffreyjaffeux/.codex/worktrees/21af/discourse-native/test/code_block_test.dart: CodeBlock opens a full-screen viewer with copy and close controls
+00:02 +42: /Users/joffreyjaffeux/.codex/worktrees/21af/discourse-native/test/code_block_test.dart: CodeBlock closes the full-screen viewer on Escape
+00:02 +43: /Users/joffreyjaffeux/.codex/worktrees/21af/discourse-native/test/code_block_test.dart: CodeBlock a onebox containing code gets the native block
+00:02 +44: All tests passed!
