@@ -37,7 +37,8 @@ active fills match; CSS applies them immediately and fades the exit over 150ms.
   hover borders from the current forum palette. It also supplies the fallback
   for ordinary Material themes. Accent hover avoids reducing label contrast
   below 4.5:1 for the tested forum palettes.
-- `DButton` defaults to a pill; `hasPopup` triggers retain an 8px rectangle.
+- `DButton` and `DButton.iconOnly` use the theme's configured corner radius,
+  as do selectors and popup triggers. `hasPopup` never changes the shape.
   Outline/secondary actions share the neutral surface. `transparentBackground`
   gains the observed hover fill; `inline` stays clear for text-row compositions.
   Disabled/loading buttons block activation and presses do not move artwork.
@@ -56,7 +57,8 @@ active fills match; CSS applies them immediately and fades the exit over 150ms.
 Native adaptations retain the shared 24/28/32px size presets: regular selectors
 remain 28px rather than the web reference's 30px. Text scaling grows controls,
 48px touch targets remain intact, and layout follows RTL. Application fonts and
-forum/category colors remain authoritative. Hover exits clear immediately to
+forum/category colors and the configured control radius remain authoritative.
+Hover exits clear immediately to
 avoid simultaneous highlights on adjacent rows; switch motion remains 150ms
 and honors reduced motion. Joined controls retain shared seams and suppress
 individual shadows.
@@ -99,3 +101,33 @@ entitlements; strict signature verification passed. The final post-build source
 edits only corrected comments, tests and this evidence. Application provisioning
 was unchanged. Review apps and the reference tab were closed, and the desktop
 lease was released.
+
+## Theme radius correction
+
+The follow-up keeps the forum's configured `borderRadius` authoritative for
+buttons and selection controls. Display and Collapse topic both already used
+`DButton.iconOnly`; the initial Linear update made ordinary buttons pills but
+forced `hasPopup` buttons to an 8px radius, producing the mismatch.
+
+Both constructors now default to `DButtonShape.rounded`, and `hasPopup` only
+affects popup semantics. `AppTheme` passes the site radius into `DControlTheme`;
+fallback tokens also retain their radius. Removed obsolete pill overrides from
+the message inbox and assignment filter. The application styling guard now
+tracks shape overrides as well as explicit radii.
+
+Regression coverage checks the actual Display/Collapse buttons at rest and on
+hover, all three button sizes, square and rounded themes, live palette changes,
+and shared selector/filter geometry. All 470 focused tests pass, including the
+toolbar regression and four palette golden tests. The tab geometry assertions
+also reflect the 13px labels introduced by the initial styling update.
+All 12 replacement goldens were visually reviewed.
+`dart analyze --fatal-infos` and formatting passed.
+
+The isolated `/tmp/ThemeControlRadius96c5.app` launched successfully. Native
+inspection covered Dark settings and the Light/Forest/Plum control family;
+live theme changes changed action, icon, selector and trigger corners together
+to 4px, 6px and 12px. The actual topic-toolbar comparison is covered by the
+widget regression. The copied and built kernels matched SHA-256
+`8f0bc0900706cf10bf985c93de778c8d63ecff2fb93fbb0ab5fa0acc27110f35`.
+The permitted debug entitlements were read back and strict signature validation
+passed. Later edits only changed comments, tests and evidence.

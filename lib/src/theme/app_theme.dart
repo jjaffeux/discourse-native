@@ -597,9 +597,6 @@ abstract final class AppTheme {
   static ThemeData forPalette(ResolvedSitePalette palette) =>
       fromPalette(palette);
 
-  static DControlTheme _controlTheme(ColorScheme colors, Color background) =>
-      DControlTheme.linear(colors, background);
-
   static ThemeData _build(
     Brightness brightness,
     ShellColors shell,
@@ -716,7 +713,11 @@ abstract final class AppTheme {
           selectedForeground: shell.selectedForeground,
           successColor: discourse.success,
           radius: borderRadius,
-          controls: _controlTheme(resolvedColorScheme, shell.content),
+          controls: DControlTheme.linear(
+            resolvedColorScheme,
+            shell.content,
+            radius: borderRadius,
+          ),
         ),
         shell,
         code,

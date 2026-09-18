@@ -211,6 +211,22 @@ void main() {
     setup.controller.openTopicFromList(setup.rows.first);
     await tester.pumpAndSettle();
     final listPane = find.byKey(const ValueKey('inbox-topic-list-pane'));
+    final display = find.byKey(const ValueKey('topic-list-display'));
+    final radius = BorderRadius.circular(
+      DTokens.of(tester.element(close)).radius,
+    );
+    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    addTearDown(mouse.removePointer);
+    await mouse.addPointer(location: Offset.zero);
+    for (final control in [display, close]) {
+      expect(tester.widget(control), isA<DButton>());
+      expect(buttonSurface(tester, of: control).borderRadius, radius);
+      await mouse.moveTo(tester.getCenter(control));
+      await tester.pump();
+      expect(buttonSurface(tester, of: control).borderRadius, radius);
+    }
+    await mouse.moveTo(Offset.zero);
+    await tester.pump();
     expect(find.descendant(of: listPane, matching: close), findsOneWidget);
     expect(
       find.descendant(of: find.byType(TopicInboxHeader), matching: close),

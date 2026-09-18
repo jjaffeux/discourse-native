@@ -43,7 +43,11 @@ class DControlTheme {
   });
 
   /// Linear's neutral raised controls and solid actions, using the host palette.
-  factory DControlTheme.linear(ColorScheme colors, Color background) {
+  factory DControlTheme.linear(
+    ColorScheme colors,
+    Color background, {
+    required double radius,
+  }) {
     final dark = colors.brightness == Brightness.dark;
     Color mix(Color color, double amount) =>
         Color.lerp(background, color, amount)!;
@@ -70,7 +74,7 @@ class DControlTheme {
       )!;
     }
     return DControlTheme(
-      radius: 8,
+      radius: radius,
       outline: DControlSurface(
         background: dark ? mix(colors.onSurface, .045) : background,
         hover: mix(colors.onSurface, dark ? .085 : .035),

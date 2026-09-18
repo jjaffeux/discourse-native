@@ -10,7 +10,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'support/button_surface.dart';
 
 void main() {
-  testWidgets('button, field and production filter share dark outline paint', (
+  testWidgets('buttons, selectors and filters share live theme geometry', (
     tester,
   ) async {
     for (final palette in [StyleguideTheme.dark, StyleguideTheme.plum]) {
@@ -26,6 +26,20 @@ void main() {
                 DButton(
                   label: const Text('Action'),
                   variant: DButtonVariant.outline,
+                  onPressed: () {},
+                ),
+                DButton.iconOnly(
+                  tooltip: 'Toolbar action',
+                  icon: const Icon(Icons.close),
+                  variant: DButtonVariant.transparentBackground,
+                  onPressed: () {},
+                ),
+                DButton.iconOnly(
+                  tooltip: 'Toolbar menu action',
+                  icon: const Icon(Icons.tune),
+                  size: DButtonSize.large,
+                  variant: DButtonVariant.transparentBackground,
+                  hasPopup: true,
                   onPressed: () {},
                 ),
                 DSelect<String>(
@@ -51,6 +65,7 @@ void main() {
           ),
         ),
       );
+      await tester.pumpAndSettle();
       final action = buttonSurface(
         tester,
         of: find.widgetWithText(DButton, 'Action'),
@@ -66,9 +81,17 @@ void main() {
                   )
                   .decoration!
               as DButtonDecoration;
-      expect(action.borderRadius, BorderRadius.circular(14));
+      final radius = BorderRadius.circular(theme.extension<DTokens>()!.radius);
+      expect(action.borderRadius, radius);
+      for (final tooltip in ['Toolbar action', 'Toolbar menu action']) {
+        final button = find.ancestor(
+          of: find.byTooltip(tooltip),
+          matching: find.byType(DButton),
+        );
+        expect(buttonSurface(tester, of: button).borderRadius, radius);
+      }
       for (final surface in [filter, select]) {
-        expect(surface.borderRadius, BorderRadius.circular(8));
+        expect(surface.borderRadius, radius);
         expect(surface.borderColor, action.borderColor);
         expect(surface.color, action.color);
       }

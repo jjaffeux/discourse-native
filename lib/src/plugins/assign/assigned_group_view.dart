@@ -210,7 +210,6 @@ class AssignedGroupPresentationView extends StatelessWidget {
                     icon: const DIcon(DIcons.filter),
                     key: const ValueKey('assigned-query-menu'),
                     tooltip: 'Filter assignments',
-                    shape: DButtonShape.pill,
                     variant: DButtonVariant.secondary,
                     focusNode: trigger.focusNode,
                     hasPopup: true,
