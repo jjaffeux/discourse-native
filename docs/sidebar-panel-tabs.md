@@ -13,6 +13,12 @@ and a successful server directory response. An empty accessible Voice directory
 still exposes room creation when permitted. A Forum-only sidebar has no tab bar.
 The old separate-Chat-sidebar preference no longer changes this layout.
 
+The Chat tab shows a compact green unread-message count across public channels
+and direct messages, including watched-thread messages. Mentions are not added
+again, and unread-thread totals are not treated as message counts. The badge
+updates with live Chat state, disappears at zero, and displays 99+ above 99 while
+keeping the full count in its accessibility label.
+
 ## Verification (2026-09-18)
 
 - Compared the running localhost:5183 reference: its tabs change the sidebar

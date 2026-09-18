@@ -9,6 +9,7 @@ import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_module.dart';
 import 'package:discourse_native/src/plugins/chat/chat_notification_counter.dart';
 import 'package:discourse_native/src/plugins/chat/chat_plugin_data.dart';
+import 'package:discourse_native/src/plugins/chat/chat_services.dart';
 import 'package:discourse_native/src/plugins/voice/voice_module.dart';
 import 'package:discourse_native/src/plugins/voice/voice_services.dart';
 import 'package:discourse_native/src/plugins/voice/voice_settings.dart';
@@ -37,6 +38,7 @@ Future<ShellController> pumpTabs(
   bool connected = true,
   bool installed = true,
   bool rooms = true,
+  Map<String, ChatChannels>? channels,
 }) async {
   final config = SiteConfig(
     plugins: PluginData.none
@@ -68,18 +70,20 @@ Future<ShellController> pumpTabs(
       totals: chatNotificationTotals(available: chat),
       feeds: const {'/latest.json': []},
       siteConfigs: {site: config},
-      chatChannelsBySite: {
-        site: const ChatChannels(
-          public: [
-            ChatChannel(
-              id: 9,
-              title: 'General',
-              kind: ChatChannelKind.category,
-              membership: ChatMembership(following: true),
+      chatChannelsBySite:
+          channels ??
+          {
+            site: const ChatChannels(
+              public: [
+                ChatChannel(
+                  id: 9,
+                  title: 'General',
+                  kind: ChatChannelKind.category,
+                  membership: ChatMembership(following: true),
+                ),
+              ],
             ),
-          ],
-        ),
-      },
+          },
       pluginResponses: {
         if (voiceAccess)
           'GET /voice/rooms.json': {
@@ -110,6 +114,75 @@ Future<ShellController> pumpTabs(
 
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
+
+  testWidgets(
+    'chat tab counts unread messages and updates without navigation',
+    (tester) async {
+      final channels = {
+        site: const ChatChannels(
+          public: [
+            ChatChannel(
+              id: 9,
+              title: 'General',
+              kind: ChatChannelKind.category,
+              membership: ChatMembership(following: true),
+              tracking: ChatTracking(
+                unreadCount: 20,
+                mentionCount: 3,
+                watchedThreadsUnreadCount: 5,
+              ),
+            ),
+          ],
+          direct: [
+            ChatChannel(
+              id: 10,
+              title: 'Direct',
+              kind: ChatChannelKind.directMessage,
+              membership: ChatMembership(following: true),
+              tracking: ChatTracking(unreadCount: 7, mentionCount: 2),
+            ),
+          ],
+        ),
+      };
+      final shell = await pumpTabs(tester, channels: channels);
+      final chat = shell.pluginSession.require(chatControllerService);
+      await chat.loadChannels(site);
+      await tester.pumpAndSettle();
+      final badge = find.descendant(
+        of: tab('chat'),
+        matching: find.byType(DBadge),
+      );
+      expect(badge, findsOneWidget);
+      expect(
+        find.descendant(of: badge, matching: find.text('32')),
+        findsOneWidget,
+      );
+      expect(tester.widget<DBadge>(badge).semanticLabel, '32 unread messages');
+      final route = shell.currentContent;
+
+      channels[site] = ChatChannels(
+        public: [
+          channels[site]!.public.single.withTrackingState(
+            tracking: const ChatTracking(unreadCount: 1),
+          ),
+        ],
+      );
+      await chat.loadChannels(site, force: true);
+      await tester.pumpAndSettle();
+      expect(
+        find.descendant(of: badge, matching: find.text('1')),
+        findsOneWidget,
+      );
+      expect(tester.widget<DBadge>(badge).semanticLabel, '1 unread message');
+      expect(shell.currentContent, route);
+
+      channels[site] = const ChatChannels();
+      await chat.loadChannels(site, force: true);
+      await tester.pumpAndSettle();
+      expect(badge, findsNothing);
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   testWidgets(
     'three tabs partition destinations without navigating or joining',
