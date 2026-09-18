@@ -25,7 +25,6 @@ import 'title_bar.dart';
 import 'topic_actions.dart';
 import 'topic_category_picker.dart';
 import 'topic_header_tags.dart';
-import 'topic_presentation.dart';
 import 'topic_title.dart';
 import 'user_menu_button.dart';
 
@@ -183,8 +182,7 @@ class _TopicHeaderToolbar extends StatelessWidget {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                if (!header.keepTopicListOpen &&
-                    !TopicReaderPresentation.isSheetOf(context))
+                if (!header.keepTopicListOpen)
                   ConstrainedBox(
                     constraints: firstLineConstraints.copyWith(
                       minWidth: lane.padding.left + 4,
@@ -333,10 +331,6 @@ class _TopicHeaderActions extends StatelessWidget {
             ),
         ],
         if (ShellTitleBar.columnsCarryUserMenu) const UserMenuButton(),
-        const TopicPresentationButton(),
-        if (!header.keepTopicListOpen &&
-            TopicReaderPresentation.isSheetOf(context))
-          TopicCloseButton(canReturnToSidebar: header.canReturnToSidebar),
       ],
     );
   }
@@ -360,21 +354,13 @@ class TopicCloseButton extends StatelessWidget {
         : 'topic';
     return DButton.iconOnly(
       key: const ValueKey('topic-close-reader'),
-      icon: DIcon(
-        backToList
-            ? DIcons.arrowLeft
-            : TopicReaderPresentation.isSheetOf(context)
-            ? DIcons.xmark
-            : DNativeIcons.closeTopicPane,
-      ),
+      icon: DIcon(backToList ? DIcons.arrowLeft : DNativeIcons.closeTopicPane),
       tooltip: backToList ? 'Back to $content list' : 'Collapse $content',
       variant: DButtonVariant.transparentBackground,
       size: DButtonSize.regular,
       onPressed: () {
         final controller = ShellScope.read(context);
-        if (TopicReaderPresentation.isSheetOf(context)) {
-          controller.closeTopic();
-        } else if (controller.topicListContent != null) {
+        if (controller.topicListContent != null) {
           controller.closeTopicListReader();
         } else {
           controller.handleBack(canReturnToSidebar: canReturnToSidebar);

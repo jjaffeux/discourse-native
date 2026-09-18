@@ -47,6 +47,55 @@ void main() {
       .flagsCollection
       .isToggled;
 
+  testWidgets(
+    'inset choices retain selection when reopening selected options',
+    (tester) async {
+      final activated = <String>[];
+      final changed = <List<String>>[];
+      await mount(
+        tester,
+        DToggleGroup<String>(
+          inset: true,
+          initialValues: const ['dock'],
+          allowEmptySelection: false,
+          onItemActivated: activated.add,
+          onChanged: changed.add,
+          items: const [
+            DToggleGroupItem.iconOnly(
+              value: 'dock',
+              semanticLabel: 'Dock side',
+              icon: Icon(Icons.view_sidebar_outlined),
+            ),
+            DToggleGroupItem.iconOnly(
+              value: 'full',
+              semanticLabel: 'Full screen',
+              icon: Icon(Icons.fullscreen),
+            ),
+          ],
+        ),
+      );
+      final frame = find
+          .descendant(
+            of: find.byType(DToggleGroup<String>),
+            matching: find.byType(DecoratedBox),
+          )
+          .first;
+      expect(tester.getSize(frame).width, lessThan(100));
+      await tester.tap(toggle('Dock side'));
+      await tester.pump();
+      expect(activated, ['dock']);
+      expect(changed, isEmpty);
+      expect(toggled(tester, 'Dock side'), Tristate.isTrue);
+      await tester.tap(toggle('Full screen'));
+      await tester.pump();
+      expect(activated, ['dock', 'full']);
+      expect(changed, [
+        ['full'],
+      ]);
+      expect(toggled(tester, 'Full screen'), Tristate.isTrue);
+    },
+  );
+
   testWidgets('single selection is controlled, ordered and clearable', (
     tester,
   ) async {
@@ -522,6 +571,7 @@ void main() {
     (tester) async {
       expect(componentExamples['toggle-group'], same(toggleGroupExamples));
       expect(toggleGroupExamples.examples.map((example) => example.title), [
+        'Inset layout selector',
         'Default and composition',
         'Outline',
         'Size',

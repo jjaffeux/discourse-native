@@ -70,6 +70,7 @@ class ForumTabsBar extends StatefulWidget {
     this.recentlyClosedItems = const [],
     this.onReopen,
     this.onRename,
+    this.showAdd = true,
   }) : assert(items.isNotEmpty),
        assert(items.any((item) => item.id == selectedId));
 
@@ -94,6 +95,7 @@ class ForumTabsBar extends StatefulWidget {
 
   static const double closeTargetWidth = 24;
 
+  final bool showAdd;
   final String forumName;
   final List<ForumTabItem> items;
   final String selectedId;
@@ -141,7 +143,8 @@ class _ForumTabsBarState extends State<ForumTabsBar> {
   void _scheduleRevealSelected() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      final revealContext = widget.items.last.id == widget.selectedId
+      final revealContext =
+          widget.showAdd && widget.items.last.id == widget.selectedId
           ? _addKey.currentContext
           : _itemKeys[widget.selectedId]?.currentContext;
       if (revealContext == null) return;
@@ -179,7 +182,9 @@ class _ForumTabsBarState extends State<ForumTabsBar> {
                     _scheduleRevealSelected();
                   }
                   const switcherWidth = ForumTabsBar.minimumActionTarget;
-                  const addWidth = ForumTabsBar.minimumActionTarget;
+                  final addWidth = widget.showAdd
+                      ? ForumTabsBar.minimumActionTarget
+                      : 0.0;
                   const newTabGap = 4.0;
                   final tabViewportWidth = math.max(
                     0.0,
@@ -274,11 +279,15 @@ class _ForumTabsBarState extends State<ForumTabsBar> {
                                     ],
                                   ),
                                 ),
-                                const SizedBox(width: newTabGap),
-                                SizedBox(
-                                  key: _addKey,
-                                  child: _NewTabButton(onPressed: widget.onAdd),
-                                ),
+                                if (widget.showAdd) ...[
+                                  const SizedBox(width: newTabGap),
+                                  SizedBox(
+                                    key: _addKey,
+                                    child: _NewTabButton(
+                                      onPressed: widget.onAdd,
+                                    ),
+                                  ),
+                                ],
                               ],
                             ),
                           ),
@@ -1389,6 +1398,7 @@ final class _CurrentForumTabsSnapshot {
     required this.recentlyClosedTabs,
     required this.activeTabId,
     required this.presentationToken,
+    required this.listTabId,
   });
 
   final String? siteUrl;
@@ -1397,6 +1407,7 @@ final class _CurrentForumTabsSnapshot {
   final List<ForumTab> recentlyClosedTabs;
   final String? activeTabId;
   final Object? presentationToken;
+  final String? listTabId;
 
   @override
   bool operator ==(Object other) =>
@@ -1406,6 +1417,7 @@ final class _CurrentForumTabsSnapshot {
       identical(tabs, other.tabs) &&
       _sameTabs(recentlyClosedTabs, other.recentlyClosedTabs) &&
       activeTabId == other.activeTabId &&
+      listTabId == other.listTabId &&
       identical(presentationToken, other.presentationToken);
 
   static bool _sameTabs(List<ForumTab> left, List<ForumTab> right) {
@@ -1423,12 +1435,14 @@ final class _CurrentForumTabsSnapshot {
     identityHashCode(tabs),
     Object.hashAll(recentlyClosedTabs.map(identityHashCode)),
     activeTabId,
+    listTabId,
     identityHashCode(presentationToken),
   );
 }
 
 class CurrentForumTabsBar extends StatelessWidget {
-  const CurrentForumTabsBar({super.key});
+  const CurrentForumTabsBar({super.key, this.reading});
+  final bool? reading;
 
   @override
   Widget build(BuildContext context) =>
@@ -1441,6 +1455,7 @@ class CurrentForumTabsBar extends StatelessWidget {
             tabs: controller.tabsForCurrentForum,
             recentlyClosedTabs: controller.recentlyClosedTabsForCurrentForum,
             activeTabId: controller.activeTabId,
+            listTabId: controller.listPanelTab?.id,
             presentationToken: instance == null
                 ? null
                 : controller.presentationTokenFor(instance.url),
@@ -1458,6 +1473,16 @@ class CurrentForumTabsBar extends StatelessWidget {
           }
 
           final controller = ShellScope.read(context);
+          final tabs = state.tabs
+              .where(
+                (tab) =>
+                    reading == null || tab.currentContent.isTopic == reading,
+              )
+              .toList();
+          if (tabs.isEmpty) return const SizedBox.shrink();
+          final selectedId = reading == false
+              ? controller.listPanelTab?.id
+              : activeTabId;
           final registry = PluginScope.of(context).registry;
           return ListenableBuilder(
             listenable: Listenable.merge(
@@ -1505,18 +1530,34 @@ class CurrentForumTabsBar extends StatelessWidget {
               return ForumTabsBar(
                 key: ValueKey(('forum-tabs', siteUrl)),
                 forumName: forumName,
-                items: [for (final tab in state.tabs) itemFor(tab)],
+                showAdd: reading != true,
+                items: [for (final tab in tabs) itemFor(tab)],
                 recentlyClosedItems: [
-                  for (final tab in state.recentlyClosedTabs) itemFor(tab),
+                  for (final tab in state.recentlyClosedTabs)
+                    if (reading == null ||
+                        tab.currentContent.isTopic == reading)
+                      itemFor(tab),
                 ],
-                selectedId: activeTabId,
-                onAdd: controller.canCreateTab ? controller.createTab : null,
+                selectedId: tabs.any((tab) => tab.id == selectedId)
+                    ? selectedId!
+                    : tabs.first.id,
+                onAdd: reading != true && controller.canCreateTab
+                    ? controller.createTab
+                    : null,
                 onSelect: controller.selectTab,
                 onClose: controller.closeTab,
-                onReorder: controller.moveTab,
-                onCloseOthers: controller.closeOtherTabs,
+                onReorder: (id, index) => controller.moveTab(
+                  id,
+                  state.tabs.indexWhere((tab) => tab.id == tabs[index].id),
+                ),
+                onCloseOthers: (id) =>
+                    controller.closeOtherTabs(id, reading: reading),
                 onReopen: controller.canCreateTab
-                    ? (id) => controller.reopenClosedTab(id)
+                    ? (id) {
+                        if (controller.reopenClosedTab(id)) {
+                          controller.selectTab(id);
+                        }
+                      }
                     : null,
               );
             },

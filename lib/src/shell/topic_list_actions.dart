@@ -4,13 +4,11 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
 import '../models/topic_filter.dart';
-import '../models/topic_presentation.dart';
 import '../theme/d_native_icons.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';
 import 'topic_filter_controller.dart';
 import 'topic_filter_input.dart';
-import 'topic_presentation.dart';
 
 /// The same list presentation controls are used in every topic source.
 class TopicListActions extends StatelessWidget {
@@ -20,9 +18,6 @@ class TopicListActions extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final settings = ShellScope.maybeIdentityOf(context)?.appSettings;
-    final presentation = TopicPresentationPreferences.maybeControllerOf(
-      context,
-    );
     if (settings == null) return filter ?? const SizedBox.shrink();
     return ListenableBuilder(
       listenable: settings,
@@ -55,23 +50,6 @@ class TopicListActions extends StatelessWidget {
                       unawaited(settings.setTopicListShowAssignments(value)),
                   child: const Text('Show assignments'),
                 ),
-                if (presentation != null) ...[
-                  const DDropdownMenuSeparator(),
-                  const DDropdownMenuLabel(child: Text('Open topics')),
-                  for (final choice in [
-                    TopicPresentation.docked,
-                    TopicPresentation.sheet,
-                  ])
-                    DDropdownMenuCheckboxItem(
-                      checked: presentation.preference == choice,
-                      onChanged: (_) => presentation.select(choice),
-                      child: Text(
-                        choice == TopicPresentation.docked
-                            ? 'Beside the list'
-                            : 'In a dialog',
-                      ),
-                    ),
-                ],
               ],
             ),
             child: DDropdownMenuTrigger(

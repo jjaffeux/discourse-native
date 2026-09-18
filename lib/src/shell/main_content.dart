@@ -10,6 +10,7 @@ import '../models/category_feed.dart';
 import '../models/content_route.dart';
 import '../models/topic.dart';
 import '../models/topic_feed.dart';
+import '../models/topic_presentation.dart';
 import '../plugin_api/plugin_registry.dart';
 import '../plugin_api/plugin_scope.dart';
 import '../plugin_api/site_plugin_api.dart';
@@ -24,7 +25,6 @@ import 'content_reading_lane.dart';
 import 'desktop_topic_page.dart';
 import 'draft_list.dart';
 import 'forum_search.dart';
-import 'forum_tabs_bar.dart';
 import 'group_pages_coordinator.dart';
 import 'group_pages_host.dart';
 import 'group_pages_port.dart';
@@ -45,7 +45,6 @@ import 'shell_sheet.dart';
 import 'tags_page.dart';
 import 'title_bar.dart';
 import 'topic_create_button.dart';
-import 'topic_inbox_header.dart';
 import 'topic_list_actions.dart';
 import 'topic_list_bottom_bar.dart';
 import 'topic_list_layout.dart';
@@ -171,12 +170,9 @@ class _MainContentBody extends StatelessWidget {
           left: false,
           child: Column(
             children: [
-              if (forumTabsEnabled &&
-                  !TopicReaderPresentation.hasWorkspaceOf(context))
-                const CurrentForumTabsBar(),
               Expanded(
                 child: _TopicInboxWorkspace(
-                  key: ValueKey((state.siteUrl, state.activeTabId)),
+                  key: ValueKey(state.siteUrl),
                   layout: layout,
                   state: state,
                   sourceRoute: sourceRoute,
@@ -232,9 +228,7 @@ class _MainContentBody extends StatelessWidget {
         left: false,
         child: Column(
           children: [
-            if (forumTabsEnabled &&
-                !TopicReaderPresentation.hasWorkspaceOf(context))
-              const CurrentForumTabsBar(),
+            if (forumTabsEnabled) const TopicPanelTabs(),
             if (!pluginOwnsChrome &&
                 !route.isTopic &&
                 !(usesTopicToolbar && ShellTitleBar.isSupported))
@@ -338,17 +332,22 @@ class _TopicInboxWorkspaceState extends State<_TopicInboxWorkspace> {
         final sourceRoute = widget.sourceRoute;
         final registry = widget.registry;
         final topicOpen = state.route!.isTopic;
-        final sheet = TopicReaderPresentation.isSheetOf(context);
+        final preferences = TopicPresentationPreferences.maybeControllerOf(
+          context,
+        );
+        final wantsSplit = preferences?.preference != TopicPresentation.merged;
+        final readerOnLeft = preferences?.readerOnLeft ?? false;
         final minimumTopicWidth = context.isTouch
             ? 520.0
             : TopicPresentationController.minimumReaderWidth;
         final split =
             topicOpen &&
-            !sheet &&
+            wantsSplit &&
             constraints.maxWidth >=
                 (context.isTouch
                     ? 880
                     : _listWidth.minimumWidth + minimumTopicWidth);
+        controller.topicPanelsVisible = split;
         final maximumListWidth = (constraints.maxWidth - minimumTopicWidth)
             .clamp(304.0, 480.0);
         final listWidth = split
@@ -459,15 +458,6 @@ class _TopicInboxWorkspaceState extends State<_TopicInboxWorkspace> {
                         ),
                       ),
                     ),
-                    if (topicOpen && split)
-                      Padding(
-                        padding: EdgeInsetsDirectional.only(
-                          end: DResizableHandle.resolveHitExtent(context, 8),
-                        ),
-                        child: TopicCloseButton(
-                          canReturnToSidebar: layout.isCompact,
-                        ),
-                      ),
                   ],
                 ),
               ),
@@ -482,96 +472,120 @@ class _TopicInboxWorkspaceState extends State<_TopicInboxWorkspace> {
           );
         }
 
-        return Stack(
+        return Column(
           children: [
-            PositionedDirectional(
-              key: const ValueKey('inbox-topic-list-pane'),
-              start: 0,
-              top: 0,
-              bottom: 0,
-              width: listWidth,
-              child: ResizablePane(
-                controller: _listWidth,
-                resizeEnabled: split,
-                edge: ResizablePaneEdge.trailing,
-                resizeKey: 'inbox-list',
-                semanticsLabel: messages
-                    ? 'Resize message list'
-                    : 'Resize topic list',
-                maximumWidth: maximumListWidth,
-                // The resize handle owns the list/reader boundary. When the
-                // list fills the reader, the shell or composer owns its edge.
-                dividerWidth: 1,
-                child: _RetainedTopicListPane(
-                  key: ValueKey((
-                    state.siteUrl,
-                    controller.currentAccountIdentity,
-                    controller.activeTabId,
-                  )),
-                  hidden: topicOpen && !split && !sheet,
-                  child: Column(
-                    children: [
-                      Expanded(
-                        child: _FeedBackedContent(
-                          route: sourceRoute,
-                          siteUrl: state.siteUrl,
-                          inbox: true,
-                          keepTopicOpen: split,
-                          topicListHeadingBuilder: buildHeading,
-                        ),
-                      ),
-                      TopicListBottomBar(
-                        leading: Row(
-                          mainAxisSize: MainAxisSize.min,
+            if (!split) const TopicPanelTabs(),
+            Expanded(
+              child: Stack(
+                children: [
+                  PositionedDirectional(
+                    key: const ValueKey('inbox-topic-list-pane'),
+                    start: split && readerOnLeft ? null : 0,
+                    end: split && readerOnLeft ? 0 : null,
+                    top: 0,
+                    bottom: 0,
+                    width: listWidth,
+                    child: ResizablePane(
+                      controller: _listWidth,
+                      resizeEnabled: split,
+                      edge: readerOnLeft
+                          ? ResizablePaneEdge.leading
+                          : ResizablePaneEdge.trailing,
+                      resizeKey: 'inbox-list',
+                      semanticsLabel: messages
+                          ? 'Resize message list'
+                          : 'Resize topic list',
+                      maximumWidth: maximumListWidth,
+                      // The resize handle owns the list/reader boundary. When the
+                      // list fills the reader, the shell or composer owns its edge.
+                      dividerWidth: 1,
+                      child: _RetainedTopicListPane(
+                        key: ValueKey((
+                          state.siteUrl,
+                          controller.currentAccountIdentity,
+                          controller.desktopTopicTabs
+                              ? controller.listPanelTab?.id
+                              : controller.activeTabId,
+                        )),
+                        hidden: topicOpen && !split,
+                        child: Column(
                           children: [
-                            Flexible(child: createAction),
-                            if (state.isConnected &&
-                                state.siteUrl != null &&
-                                sourceRoute.categoryId != null) ...[
-                              const SizedBox(width: DSpacing.sm),
-                              CategoryNotificationLevelButton(
-                                siteUrl: state.siteUrl!,
-                                categoryId: sourceRoute.categoryId!,
-                                showLabel: listWidth >= 440 * buttonTextScale,
+                            if (split)
+                              const TopicPanelTabs(reading: false, split: true),
+                            Expanded(
+                              child: _FeedBackedContent(
+                                route: sourceRoute,
+                                siteUrl: state.siteUrl,
+                                inbox: true,
+                                keepTopicOpen: split,
+                                topicListHeadingBuilder: buildHeading,
                               ),
-                            ],
+                            ),
+                            TopicListBottomBar(
+                              leading: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Flexible(child: createAction),
+                                  if (state.isConnected &&
+                                      state.siteUrl != null &&
+                                      sourceRoute.categoryId != null) ...[
+                                    const SizedBox(width: DSpacing.sm),
+                                    CategoryNotificationLevelButton(
+                                      siteUrl: state.siteUrl!,
+                                      categoryId: sourceRoute.categoryId!,
+                                      showLabel:
+                                          listWidth >= 440 * buttonTextScale,
+                                    ),
+                                  ],
+                                ],
+                              ),
+                              // The footer padding already clears the desktop handle.
+                              trailingInset: split
+                                  ? DResizableHandle.resolveHitExtent(
+                                          context,
+                                          8,
+                                        ) -
+                                        topicBottomBarPadding.horizontal / 2
+                                  : 0,
+                            ),
                           ],
                         ),
-                        // The footer padding already clears the desktop handle.
-                        trailingInset: split
-                            ? DResizableHandle.resolveHitExtent(context, 8) -
-                                  topicBottomBarPadding.horizontal / 2
-                            : 0,
                       ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-            if (topicOpen)
-              PositionedDirectional(
-                key: const ValueKey('inbox-topic-reader-pane'),
-                start: split ? listWidth : 0,
-                end: 0,
-                top: 0,
-                bottom: 0,
-                child: TopicReaderPresentation(
-                  child: DesktopTopicPage(
-                    sourceListVisible: split,
-                    child: TopicView(
-                      key: ValueKey(state.route!.topicId),
-                      inbox: true,
-                      keepTopicListOpen: split,
-                      route: state.route!,
-                      canReturnToSidebar: layout.isCompact,
-                      canReply: state.canReply,
-                      bookmarkBusy: state.bookmarkBusy,
-                      isConnected: state.isConnected,
-                      registry: registry,
                     ),
                   ),
-                ),
+                  if (topicOpen)
+                    PositionedDirectional(
+                      key: const ValueKey('inbox-topic-reader-pane'),
+                      start: split && !readerOnLeft ? listWidth : 0,
+                      end: split && readerOnLeft ? listWidth : 0,
+                      top: 0,
+                      bottom: 0,
+                      child: Column(
+                        children: [
+                          if (split)
+                            const TopicPanelTabs(reading: true, split: true),
+                          Expanded(
+                            child: DesktopTopicPage(
+                              sourceListVisible: split,
+                              child: TopicView(
+                                key: ValueKey(state.route!.topicId),
+                                inbox: true,
+                                keepTopicListOpen: split,
+                                route: state.route!,
+                                canReturnToSidebar: layout.isCompact,
+                                canReply: state.canReply,
+                                bookmarkBusy: state.bookmarkBusy,
+                                isConnected: state.isConnected,
+                                registry: registry,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                ],
               ),
+            ),
           ],
         );
       },
@@ -717,17 +731,15 @@ class _ContentViewport extends StatelessWidget {
       );
     }
     if (route.isTopic) {
-      return TopicReaderPresentation(
-        child: DesktopTopicPage(
-          child: TopicView(
-            inbox: true,
-            canReturnToSidebar: layout.isCompact,
-            route: route,
-            canReply: canReply,
-            bookmarkBusy: bookmarkBusy,
-            isConnected: isConnected,
-            registry: registry,
-          ),
+      return DesktopTopicPage(
+        child: TopicView(
+          inbox: true,
+          canReturnToSidebar: layout.isCompact,
+          route: route,
+          canReply: canReply,
+          bookmarkBusy: bookmarkBusy,
+          isConnected: isConnected,
+          registry: registry,
         ),
       );
     }

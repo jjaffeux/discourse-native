@@ -226,49 +226,40 @@ class ComposerHeader extends StatelessWidget {
         DPopover(
           reverseTransitionDuration: Duration.zero,
           content: DPopoverContent(
-            semanticLabel: 'Composer options',
+            semanticLabel: 'Dock side',
             align: DPopoverAlign.end,
-            width: 264,
+            width: 250,
             child: DPopoverClose(
-              builder: (context, closeMenu) => Row(
+              builder: (context, close) => Row(
                 children: [
                   const Expanded(child: Text('Dock side')),
                   DToggleGroup<ComposerPlacement>(
+                    inset: true,
                     semanticLabel: 'Dock side',
                     values: [placement],
                     allowEmptySelection: false,
-                    spacing: 1,
-                    size: DToggleSize.regular,
                     onChanged: (values) {
-                      closeMenu();
+                      close();
                       onPlacementChanged!(values.single);
                     },
                     items: [
-                      for (final value in ComposerPlacement.values)
+                      for (final value in const [
+                        ComposerPlacement.left,
+                        ComposerPlacement.bottom,
+                        ComposerPlacement.right,
+                      ])
                         DToggleGroupItem.iconOnly(
                           value: value,
                           semanticLabel: value.label,
                           tooltip: value.label,
-                          icon: switch (value) {
-                            ComposerPlacement.left => const RotatedBox(
-                              quarterTurns: 2,
-                              child: Icon(
-                                Icons.view_sidebar_outlined,
-                                size: 18,
-                              ),
-                            ),
-                            ComposerPlacement.bottom => const RotatedBox(
-                              quarterTurns: 1,
-                              child: Icon(
-                                Icons.view_sidebar_outlined,
-                                size: 18,
-                              ),
-                            ),
-                            ComposerPlacement.right => const Icon(
-                              Icons.view_sidebar_outlined,
-                              size: 18,
-                            ),
-                          },
+                          icon: RotatedBox(
+                            quarterTurns: value == ComposerPlacement.left
+                                ? 2
+                                : value == ComposerPlacement.bottom
+                                ? 1
+                                : 0,
+                            child: const Icon(Icons.view_sidebar_outlined),
+                          ),
                         ),
                     ],
                   ),
@@ -277,24 +268,35 @@ class ComposerHeader extends StatelessWidget {
             ),
           ),
           child: DPopoverTrigger(
-            builder: (context, trigger) => DButton.iconOnly(
+            builder: (context, trigger) => DToggleGroup<bool>(
               key: const ValueKey('composer-options'),
-              icon: RotatedBox(
-                quarterTurns: switch (placement) {
-                  ComposerPlacement.left => 2,
-                  ComposerPlacement.bottom => 1,
-                  ComposerPlacement.right => 0,
-                },
-                child: const Icon(Icons.view_sidebar_outlined),
-              ),
-              tooltip: 'Composer options',
-              semanticLabel: 'Composer options',
-              hasPopup: true,
-              expanded: trigger.open,
-              focusNode: trigger.focusNode,
-              onPressed: trigger.toggle,
-              variant: DButtonVariant.transparentBackground,
-              size: DButtonSize.regular,
+              inset: true,
+              semanticLabel: 'Composer view',
+              values: [placement == ComposerPlacement.fullScreen],
+              allowEmptySelection: false,
+              onItemActivated: (fullScreen) {
+                if (!fullScreen) trigger.toggle();
+              },
+              onChanged: (values) {
+                if (values.single) {
+                  onPlacementChanged!(ComposerPlacement.fullScreen);
+                }
+              },
+              items: [
+                DToggleGroupItem.iconOnly(
+                  value: false,
+                  semanticLabel: 'Dock side',
+                  tooltip: 'Dock side',
+                  focusNode: trigger.focusNode,
+                  icon: const Icon(Icons.view_sidebar_outlined),
+                ),
+                const DToggleGroupItem.iconOnly(
+                  value: true,
+                  semanticLabel: 'Full screen',
+                  tooltip: 'Full screen',
+                  icon: Icon(Icons.fullscreen),
+                ),
+              ],
             ),
           ),
         ),

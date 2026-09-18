@@ -3275,7 +3275,10 @@ class _Footer extends StatelessWidget {
                 MediaQuery.textScalerOf(context).scale(14) /
                 14;
         final compactCreate =
-            compact && composer.target.isNewTopic && !composer.canRecheck;
+            compact &&
+            composer.target.isNewTopic &&
+            !composer.canRecheck &&
+            MediaQuery.textScalerOf(context).scale(14) <= 20;
         // Native image pickers outlive a resize, so the toolbar keeps its state.
         return ComposerFooterLayout(
           compact: compact,

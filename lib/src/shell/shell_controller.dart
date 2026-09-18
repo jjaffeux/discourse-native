@@ -1226,6 +1226,47 @@ class ShellController extends FrameSafeNotifier
 
   ForumWorkspace? workspaceFor(String siteUrl) => _forumWorkspaces[siteUrl];
 
+  bool _desktopTopicTabs = false;
+  bool get desktopTopicTabs => _desktopTopicTabs;
+  set desktopTopicTabs(bool value) {
+    if (_desktopTopicTabs == value) return;
+    _desktopTopicTabs = value;
+    if (value) {
+      for (final workspace in _forumWorkspaces.values.toList()) {
+        _putWorkspace(workspace);
+      }
+    }
+  }
+
+  /// Layout reports whether both panels fit, so narrow windows can select lists.
+  bool topicPanelsVisible = false;
+  bool _splitTopicPanels = true;
+  final _listPanelTabs = <(String, String), String>{};
+  final _readingPanelTabs = <(String, String), String>{};
+  (String, String)? get _panelOwner => currentWorkspace == null
+      ? null
+      : (currentWorkspace!.siteUrl, currentWorkspace!.accountIdentity);
+  bool get splitTopicPanels => desktopTopicTabs && _splitTopicPanels;
+  set splitTopicPanels(bool value) {
+    if (_splitTopicPanels == value) return;
+    _splitTopicPanels = value;
+    final reader = currentWorkspace?.tabById(
+      _readingPanelTabs[_panelOwner] ?? '',
+    );
+    if (value && reader?.currentContent.isTopic == true) selectTab(reader!.id);
+    _notify();
+  }
+
+  ForumTab? get listPanelTab {
+    final workspace = currentWorkspace;
+    if (workspace == null) return null;
+    final selected = workspace.tabById(_listPanelTabs[_panelOwner] ?? '');
+    if (selected != null && !selected.currentContent.isTopic) return selected;
+    return workspace.tabs
+        .where((tab) => !tab.currentContent.isTopic)
+        .firstOrNull;
+  }
+
   ForumTab? get activeTab => currentWorkspace?.activeTab;
   String? get activeTabId => currentWorkspace?.activeTabId;
   List<ForumTab> get tabsForCurrentForum => currentWorkspace?.tabs ?? const [];
@@ -1468,8 +1509,27 @@ class ShellController extends FrameSafeNotifier
   }
 
   ForumWorkspace _normalizeWorkspace(ForumWorkspace workspace) {
-    if (forumTabsEnabled || workspace.tabs.length == 1) return workspace;
-    return workspace.copyWith(tabs: [workspace.activeTab]);
+    if (!forumTabsEnabled && workspace.tabs.length > 1) {
+      return workspace.copyWith(tabs: [workspace.activeTab]);
+    }
+    if (desktopTopicTabs &&
+        forumTabsEnabled &&
+        workspace.tabs.every((tab) => tab.currentContent.isTopic) &&
+        workspace.tabs.length < ForumWorkspace.maximumTabs) {
+      final source = workspace.activeTab;
+      final routes = source.contentStack
+          .where((route) => !route.isTopic)
+          .toList();
+      final list = ForumTab(
+        id: _nextTabId(),
+        rootDestinationId: routes.isEmpty ? 'latest' : source.rootDestinationId,
+        contentStack: routes.isEmpty
+            ? [ContentRoute.topicList(TopicListMode.latest)]
+            : routes,
+      );
+      return workspace.copyWith(tabs: [list, ...workspace.tabs]);
+    }
+    return workspace;
   }
 
   ForumWorkspace _ensureWorkspace(
@@ -1491,6 +1551,14 @@ class ShellController extends FrameSafeNotifier
   void _putWorkspace(ForumWorkspace workspace, {bool persist = true}) {
     final normalized = _normalizeWorkspace(workspace);
     _forumWorkspaces[normalized.siteUrl] = normalized;
+    if (desktopTopicTabs) {
+      final owner = (normalized.siteUrl, normalized.accountIdentity);
+      if (normalized.activeTab.currentContent.isTopic) {
+        _readingPanelTabs[owner] = normalized.activeTabId;
+      } else {
+        _listPanelTabs[owner] = normalized.activeTabId;
+      }
+    }
     final liveTabIds = {for (final tab in normalized.tabs) tab.id};
     _mainPaneTabs.removeWhere(
       (key, _) =>
@@ -2676,6 +2744,10 @@ class ShellController extends FrameSafeNotifier
   }
 
   ContentRoute? get topicListContent {
+    if (splitTopicPanels && currentContent?.isTopic == true) {
+      final route = listPanelTab?.currentContent;
+      if (route?.isTopicList == true) return route;
+    }
     for (final route in contentStack.reversed) {
       if (route.isTopic) continue;
       return route.isTopicList ? route : null;
@@ -2684,6 +2756,12 @@ class ShellController extends FrameSafeNotifier
   }
 
   void closeTopicListReader() {
+    if (desktopTopicTabs && listPanelTab != null) {
+      _putWorkspace(currentWorkspace!.copyWith(activeTabId: listPanelTab!.id));
+      _syncTopicChannels();
+      _notify();
+      return;
+    }
     final active = activeTab;
     if (active == null ||
         topicListContent == null ||
@@ -2697,6 +2775,10 @@ class ShellController extends FrameSafeNotifier
 
   /// Returns from a conversation to its source, including direct topic links.
   void closeTopic() {
+    if (desktopTopicTabs && activeTab?.currentContent.isTopic == true) {
+      closeTab(activeTab!.id);
+      return;
+    }
     final active = activeTab;
     if (active == null || !active.currentContent.isTopic) return;
     _replaceActiveTab(_closeTopicRoute(active));
@@ -5345,7 +5427,38 @@ class ShellController extends FrameSafeNotifier
         persist: false,
       );
     }
-    if (replace) {
+    if (desktopTopicTabs && forumTabsEnabled && currentWorkspace != null) {
+      final workspace = currentWorkspace!;
+      final existing = workspace.tabs
+          .where((tab) => tab.currentContent.topicId == topicId)
+          .firstOrNull;
+      if (existing != null) {
+        selectTab(existing.id);
+      } else if (canCreateTab) {
+        final source = listPanelTab ?? activeTab!;
+        if (_panelOwner case final owner?) _listPanelTabs[owner] = source.id;
+        final opened = ForumTab(
+          id: _nextTabId(),
+          rootDestinationId: source.rootDestinationId,
+          contentStack: [
+            ...source.contentStack.where((item) => !item.isTopic),
+            route,
+          ],
+        );
+        if (_panelOwner case final owner?) _readingPanelTabs[owner] = opened.id;
+        _putWorkspace(
+          workspace.copyWith(
+            tabs: [...workspace.tabs, opened],
+            activeTabId: opened.id,
+          ),
+        );
+        _mobilePane = MobilePane.content;
+        _syncTopicChannels();
+        _notify();
+      } else {
+        replaceCurrentContent(route);
+      }
+    } else if (replace) {
       replaceCurrentContent(route);
     } else {
       pushContent(route);
@@ -13344,7 +13457,10 @@ class ShellController extends FrameSafeNotifier
     _preparePluginPaneForRoute(destination.id);
     final instance = currentInstance;
     if (instance == null) return;
-    final tab = _ensureWorkspace(instance).activeTab;
+    final workspace = _ensureWorkspace(instance);
+    final tab = desktopTopicTabs
+        ? listPanelTab ?? workspace.activeTab
+        : workspace.activeTab;
     // Tapping what you are already looking at asks for it again — the cache
     // otherwise holds a list for the life of the session, and a mouse cannot
     // pull to refresh. Only at the destination's root: a tap that is busy
@@ -13362,9 +13478,29 @@ class ShellController extends FrameSafeNotifier
             title: destination.label,
           )
         : ContentRoute.fromDestination(destination);
-    _replaceActiveTab(
-      tab.navigate(rootDestinationId: destination.id, contentStack: [content]),
+    final updated = tab.navigate(
+      rootDestinationId: destination.id,
+      contentStack: [content],
     );
+    if (desktopTopicTabs) {
+      if (_panelOwner case final owner?) _listPanelTabs[owner] = tab.id;
+      _putWorkspace(
+        workspace.copyWith(
+          tabs: [
+            for (final item in workspace.tabs)
+              if (item.id == tab.id) updated else item,
+          ],
+          activeTabId:
+              splitTopicPanels &&
+                  content.isTopicList &&
+                  activeTab?.currentContent.isTopic == true
+              ? activeTabId
+              : tab.id,
+        ),
+      );
+    } else {
+      _replaceActiveTab(updated);
+    }
     _mobilePane = MobilePane.content;
     _syncTopicChannels();
     _notify();
@@ -13549,6 +13685,22 @@ class ShellController extends FrameSafeNotifier
     ContentRoute route, {
     required bool keepTopicOpen,
   }) {
+    if (listPanelTab case final list? when splitTopicPanels) {
+      final workspace = currentWorkspace!;
+      final updated = list.navigate(
+        rootDestinationId: route.isMessages ? 'messages' : 'latest',
+        contentStack: [route],
+      );
+      _putWorkspace(
+        workspace.copyWith(
+          tabs: [
+            for (final tab in workspace.tabs)
+              if (tab.id == list.id) updated else tab,
+          ],
+        ),
+      );
+      return;
+    }
     final tab = activeTab;
     if (tab == null) return;
     final sourceIndex = tab.contentStack.lastIndexWhere(
@@ -13716,9 +13868,21 @@ class ShellController extends FrameSafeNotifier
     if (instance == null) return;
     final workspace = _ensureWorkspace(instance);
     final tab = _newDefaultTab(instance);
+    if (_panelOwner case final owner? when desktopTopicTabs) {
+      _listPanelTabs[owner] = tab.id;
+    }
     _putWorkspace(
-      workspace.copyWith(tabs: [...workspace.tabs, tab], activeTabId: tab.id),
+      workspace.copyWith(
+        tabs: [...workspace.tabs, tab],
+        activeTabId:
+            splitTopicPanels &&
+                topicPanelsVisible &&
+                activeTab?.currentContent.isTopic == true
+            ? activeTabId
+            : tab.id,
+      ),
     );
+    if (splitTopicPanels) unawaited(loadFeed(tab.currentContent.id));
     _mobilePane = MobilePane.content;
     _syncTopicChannels();
     _notify();
@@ -13731,7 +13895,23 @@ class ShellController extends FrameSafeNotifier
     final workspace = currentWorkspace;
     if (instance == null || workspace?.tabById(id) == null) return;
 
-    if (workspace!.activeTabId != id) {
+    final selected = workspace!.tabById(id)!;
+    if (_panelOwner case final owner? when desktopTopicTabs) {
+      if (selected.currentContent.isTopic) {
+        _readingPanelTabs[owner] = id;
+      } else {
+        _listPanelTabs[owner] = id;
+        final reader = workspace.tabById(_readingPanelTabs[owner] ?? '');
+        if (splitTopicPanels &&
+            topicPanelsVisible &&
+            selected.currentContent.isTopicList &&
+            reader?.currentContent.isTopic == true) {
+          id = reader!.id;
+          unawaited(loadFeed(selected.currentContent.id));
+        }
+      }
+    }
+    if (workspace.activeTabId != id) {
       // A desktop tab click is local navigation. Paint that state before
       // serialising every workspace or starting any cache/network hydration;
       // both otherwise share the pointer event's UI-isolate turn and can make
@@ -13833,10 +14013,30 @@ class ShellController extends FrameSafeNotifier
         for (final tab in workspace.tabs)
           if (tab.id != id) tab,
       ];
+      final reader = remaining
+          .where((tab) => tab.currentContent.isTopic)
+          .firstOrNull;
+      final list = remaining
+          .where((tab) => !tab.currentContent.isTopic)
+          .firstOrNull;
+      if (desktopTopicTabs && list == null) {
+        final fresh = _newDefaultTab(instance);
+        remaining.insert(0, fresh);
+      }
       final activeId = closedActive
-          ? remaining[index < remaining.length ? index : remaining.length - 1]
-                .id
+          ? (desktopTopicTabs
+                ? (reader ?? list ?? remaining.first).id
+                : remaining[index < remaining.length
+                          ? index
+                          : remaining.length - 1]
+                      .id)
           : workspace.activeTabId;
+      if (_panelOwner case final owner? when desktopTopicTabs) {
+        _readingPanelTabs[owner] = reader?.id ?? '';
+        if (_listPanelTabs[owner] == id) {
+          _listPanelTabs[owner] = (list ?? remaining.first).id;
+        }
+      }
       replacement = workspace.copyWith(tabs: remaining, activeTabId: activeId);
     }
 
@@ -13899,7 +14099,7 @@ class ShellController extends FrameSafeNotifier
     }
   }
 
-  void closeOtherTabs(String id) {
+  void closeOtherTabs(String id, {bool? reading}) {
     if (!forumTabsEnabled) return;
     final instance = currentInstance;
     final workspace = currentWorkspace;
@@ -13913,7 +14113,10 @@ class ShellController extends FrameSafeNotifier
     // first, and every reopen lands at the position it left.
     for (var index = workspace.tabs.length - 1; index >= 0; index--) {
       final tab = workspace.tabs[index];
-      if (tab.id == id) continue;
+      if (tab.id == id ||
+          (reading != null && tab.currentContent.isTopic != reading)) {
+        continue;
+      }
       _rememberClosedForumTab(
         siteUrl: workspace.siteUrl,
         accountIdentity: workspace.accountIdentity,
@@ -13922,7 +14125,22 @@ class ShellController extends FrameSafeNotifier
       );
     }
     final activeChanged = workspace.activeTabId != id;
-    _putWorkspace(workspace.copyWith(tabs: [kept], activeTabId: id));
+    _putWorkspace(
+      workspace.copyWith(
+        tabs: [
+          for (final tab in workspace.tabs)
+            if (tab.id == id ||
+                (reading != null && tab.currentContent.isTopic != reading))
+              tab,
+        ],
+        activeTabId:
+            reading == false &&
+                splitTopicPanels &&
+                activeTab?.currentContent.isTopic == true
+            ? activeTabId
+            : id,
+      ),
+    );
     if (activeChanged) {
       _syncTopicChannels();
       _hydrateActiveTab(instance);

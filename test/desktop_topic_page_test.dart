@@ -2,7 +2,6 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/data/topic_presentation_store.dart';
 import 'package:discourse_native/src/diagnostics/diagnostics.dart';
 import 'package:discourse_native/src/models/app_settings.dart';
-import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/topic.dart';
@@ -32,7 +31,6 @@ import 'support/topic_scroll_capture.dart';
 
 final _reader = find.byType(TopicView);
 final _allLists = find.byType(TopicListView, skipOffstage: false);
-final _back = find.byKey(const ValueKey('topic-close-reader'));
 
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
@@ -73,7 +71,7 @@ void main() {
       final presentation = TopicPresentationPreferences.maybeControllerOf(
         tester.element(_reader),
       )!;
-      presentation.select(TopicPresentation.sheet);
+      presentation.select(TopicPresentation.merged);
       await tester.pumpAndSettle();
       expect(
         find.byKey(const ValueKey('topic-card-1'), skipOffstage: false),
@@ -82,10 +80,10 @@ void main() {
       expect(h.shell.appSettings.topicListMode, TopicListDisplayMode.compact);
       expect(tester.state(_allLists), same(listState));
 
-      presentation.select(TopicPresentation.docked);
+      presentation.select(TopicPresentation.split);
       await tester.pumpAndSettle();
       expect(find.byKey(const ValueKey('topic-card-1')), findsOneWidget);
-      await tester.tap(_back);
+      h.shell.closeTopic();
       await tester.pumpAndSettle();
       expect(previous, findsNothing);
       expect(next, findsNothing);
@@ -97,31 +95,31 @@ void main() {
     variant: TargetPlatformVariant.only(TargetPlatform.macOS),
   );
 
-  testWidgets('sheet and editor retain accessible workspace navigation', (
-    tester,
-  ) async {
-    final semantics = tester.ensureSemantics();
-    try {
-      await const TopicPresentationStore().write(TopicPresentation.sheet);
-      final h = await _setup(tester, size: const Size(1280, 860));
-      expect(find.bySemanticsLabel('Forum navigation'), findsOneWidget);
-      h.shell.openTopicFromList(h.topics.first);
-      await tester.pumpAndSettle();
-      expect(find.bySemanticsLabel('Forum navigation'), findsOneWidget);
-      h.shell.openReply();
-      await tester.pumpAndSettle();
-      expect(find.bySemanticsLabel('Forum navigation'), findsOneWidget);
-      expect(h.shell.visibleComposer!.focus.hasFocus, isTrue);
-      expect(tester.takeException(), isNull);
-    } finally {
-      semantics.dispose();
-    }
-  }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
+  testWidgets(
+    'merged reader and editor retain accessible workspace navigation',
+    (tester) async {
+      final semantics = tester.ensureSemantics();
+      try {
+        await const TopicPresentationStore().write(TopicPresentation.merged);
+        final h = await _setup(tester, size: const Size(1280, 860));
+        expect(find.bySemanticsLabel('Forum navigation'), findsOneWidget);
+        h.shell.openTopicFromList(h.topics.first);
+        await tester.pumpAndSettle();
+        expect(find.bySemanticsLabel('Forum navigation'), findsOneWidget);
+        h.shell.openReply();
+        await tester.pumpAndSettle();
+        expect(find.bySemanticsLabel('Forum navigation'), findsOneWidget);
+        expect(h.shell.visibleComposer!.focus.hasFocus, isTrue);
+        expect(tester.takeException(), isNull);
+      } finally {
+        semantics.dispose();
+      }
+    },
+    variant: TargetPlatformVariant.only(TargetPlatform.macOS),
+  );
 
-  testWidgets('a new sheet reader mounts only inside its sheet', (
-    tester,
-  ) async {
-    await const TopicPresentationStore().write(TopicPresentation.sheet);
+  testWidgets('a merged reader never mounts a sheet', (tester) async {
+    await const TopicPresentationStore().write(TopicPresentation.merged);
     final h = await _setup(tester);
     await h.shell.loadTopic(h.topics.first.id, h.topics.first.slug);
     h.shell.openTopicFromList(h.topics.first);
@@ -136,8 +134,8 @@ void main() {
         });
         expect(
           inSheet,
-          isTrue,
-          reason: 'Reader built outside sheet on frame $frame',
+          isFalse,
+          reason: 'Reader built inside sheet on frame $frame',
         );
       }
     }
@@ -174,6 +172,7 @@ void main() {
   testWidgets('a hidden source list does not reflow when the composer opens', (
     tester,
   ) async {
+    await const TopicPresentationStore().write(TopicPresentation.merged);
     final h = await _setup(tester, size: const Size(1280, 860));
     final listState = tester.state(_allLists);
     final width = tester.getSize(_allLists).width;
@@ -262,13 +261,11 @@ void main() {
     await tester.pump(const Duration(seconds: 2));
     final editorState = tester.state(find.byType(ComposerEditor));
     for (final mode in [
-      TopicPresentation.sheet,
-      TopicPresentation.docked,
-      TopicPresentation.sheet,
-      TopicPresentation.docked,
+      TopicPresentation.merged,
+      TopicPresentation.split,
+      TopicPresentation.merged,
+      TopicPresentation.split,
     ]) {
-      await tester.tap(find.byKey(const ValueKey('topic-view-options')));
-      await tester.pumpAndSettle();
       await tester.tap(find.byTooltip(mode.label));
       await tester.pumpAndSettle();
       expect(tester.state(_reader), same(readerState));
@@ -280,223 +277,124 @@ void main() {
         const TextSelection(baseOffset: 2, extentOffset: 8),
       );
       expect(_readerScroll(tester).pixels, closeTo(readingOffset, 1));
-      expect(
-        find.byKey(const ValueKey('topic-sheet')),
-        mode == TopicPresentation.sheet ? findsOneWidget : findsNothing,
-      );
-      if (mode == TopicPresentation.sheet) {
-        final surface = tester.widget<Material>(
-          find
-              .descendant(
-                of: find.byKey(const ValueKey('topic-sheet')),
-                matching: find.byType(Material),
-              )
-              .first,
-        );
-        expect(surface.color, Theme.of(tester.element(_reader)).shell.content);
-      }
+      expect(find.byType(DSheetContent), findsNothing);
       expect(await const TopicPresentationStore().read(), mode);
       expect(tester.takeException(), isNull);
     }
   }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 
-  for (final closeWithEscape in [true, false]) {
-    testWidgets(
-      'direct topic sheet closes without a source list (Escape: $closeWithEscape)',
-      (tester) async {
-        await const TopicPresentationStore().write(TopicPresentation.sheet);
-        final h = await _setup(tester);
-        h.shell.replaceCurrentContent(
-          ContentRoute.topic(
-            topicId: 1,
-            slug: 'conversation-1',
-            title: 'Conversation 1',
-          ),
-        );
-        await tester.pumpAndSettle();
-        expect(h.shell.topicListContent, isNull);
-        expect(find.byKey(const ValueKey('topic-sheet')), findsOneWidget);
-        if (closeWithEscape) {
-          await tester.sendKeyEvent(LogicalKeyboardKey.escape);
-        } else {
-          await tester.tap(_back);
-        }
-        await tester.pumpAndSettle();
-        expect(h.shell.currentContent?.isTopicList, isTrue);
-        expect(find.byKey(const ValueKey('topic-sheet')), findsNothing);
-        expect(tester.takeException(), isNull);
-      },
-      variant: TargetPlatformVariant.only(TargetPlatform.macOS),
+  testWidgets('split panels scope tabs and swap without replacing the reader', (
+    tester,
+  ) async {
+    final h = await _setup(tester, size: const Size(2200, 1000));
+    final listId = h.shell.activeTabId!;
+    h.shell.openTopicFromList(h.topics.first);
+    await tester.pumpAndSettle();
+    final firstId = h.shell.activeTabId!;
+    h.shell.openTopicFromList(h.topics[1]);
+    await tester.pumpAndSettle();
+    final secondId = h.shell.activeTabId!;
+    final listPanel = find.byKey(const ValueKey('inbox-topic-list-pane'));
+    final readerPanel = find.byKey(const ValueKey('inbox-topic-reader-pane'));
+    expect(
+      find.descendant(
+        of: listPanel,
+        matching: find.byKey(ValueKey('forum-tab-item-$listId')),
+      ),
+      findsOneWidget,
     );
-  }
+    expect(
+      find.descendant(
+        of: readerPanel,
+        matching: find.byKey(ValueKey('forum-tab-item-$firstId')),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(
+        of: listPanel,
+        matching: find.byKey(ValueKey('forum-tab-item-$firstId')),
+      ),
+      findsNothing,
+    );
+    final readerState = tester.state(_reader);
+    expect(
+      tester.getRect(listPanel).left,
+      lessThan(tester.getRect(readerPanel).left),
+    );
+    await tester.tap(find.byKey(const ValueKey('swap-topic-panels-list')));
+    await tester.pumpAndSettle();
+    expect(
+      tester.getRect(readerPanel).left,
+      lessThan(tester.getRect(listPanel).left),
+    );
+    expect(tester.state(_reader), same(readerState));
+    await tester.tap(find.byKey(const ValueKey('swap-topic-panels-reader')));
+    await tester.pumpAndSettle();
+    expect(
+      tester.getRect(listPanel).left,
+      lessThan(tester.getRect(readerPanel).left),
+    );
+    h.shell.createTab();
+    await tester.pumpAndSettle();
+    final otherList = h.shell.listPanelTab!.id;
+    expect(otherList, isNot(listId));
+    expect(h.shell.currentContent?.topicId, 2);
+    h.shell.selectTab(listId);
+    await tester.pumpAndSettle();
+    expect(h.shell.listPanelTab!.id, listId);
+    expect(h.shell.currentContent?.topicId, 2);
+    h.shell.closeOtherTabs(secondId, reading: true);
+    await tester.pumpAndSettle();
+    expect(
+      h.shell.tabsForCurrentForum.map((tab) => tab.id),
+      containsAll([listId, otherList, secondId]),
+    );
+    expect(
+      h.shell.tabsForCurrentForum.map((tab) => tab.id),
+      isNot(contains(firstId)),
+    );
+    expect(tester.takeException(), isNull);
+  }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 
   testWidgets(
-    'saved sheet view restores and Escape returns to the source list',
+    'merged tabs retain lists and topics and remove obsolete display choices',
     (tester) async {
-      await const TopicPresentationStore().write(TopicPresentation.sheet);
-      final h = await _setup(tester, size: const Size(1800, 900));
+      final h = await _setup(tester);
+      final listId = h.shell.activeTabId!;
+      await tester.tap(find.byTooltip('Keep topic tabs with the list'));
+      await tester.pumpAndSettle();
       h.shell.openTopicFromList(h.topics.first);
       await tester.pumpAndSettle();
-      expect(find.byKey(const ValueKey('topic-sheet')), findsOneWidget);
-      final listState = tester.state(_allLists);
-      await tester.tap(find.byKey(const ValueKey('topic-view-options')));
+      final topicId = h.shell.activeTabId!;
+      expect(h.shell.tabsForCurrentForum, hasLength(2));
+      expect(find.byType(TopicPanelTabs), findsOneWidget);
+      expect(find.byType(TopicListView).hitTestable(), findsNothing);
+      h.shell.selectTab(listId);
       await tester.pumpAndSettle();
+      expect(find.byType(TopicListView).hitTestable(), findsOneWidget);
+      expect(
+        h.shell.tabsForCurrentForum.map((tab) => tab.id),
+        contains(topicId),
+      );
+      await tester.tap(find.byKey(const ValueKey('topic-list-display')));
+      await tester.pumpAndSettle();
+      expect(find.text('Open topics'), findsNothing);
+      expect(find.text('Beside the list'), findsNothing);
+      expect(find.text('In a dialog'), findsNothing);
       await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('Split with the list'));
       await tester.pumpAndSettle();
       expect(h.shell.currentContent?.topicId, 1);
-      expect(find.byType(DPopoverContent), findsNothing);
-      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
-      await tester.pumpAndSettle();
-      expect(h.shell.currentContent?.isTopicList, isTrue);
-      expect(tester.state(_allLists), same(listState));
-      h.shell.openTopicFromList(h.topics[1]);
-      await tester.pumpAndSettle();
-      expect(find.byKey(const ValueKey('topic-sheet')), findsOneWidget);
-      expect(
-        await const TopicPresentationStore().read(),
-        TopicPresentation.sheet,
-      );
-      await tester.tap(_reader, warnIfMissed: false);
-      await tester.sendKeyEvent(LogicalKeyboardKey.keyU);
-      await tester.pumpAndSettle();
-      expect(h.shell.currentContent?.isTopicList, isTrue);
+      expect(h.shell.listPanelTab!.id, listId);
       expect(tester.takeException(), isNull);
     },
     variant: TargetPlatformVariant.only(TargetPlatform.macOS),
   );
 
-  for (final composing in [false, true]) {
-    testWidgets(
-      'resizing during sheet dismissal keeps the reader and editor (composing: $composing)',
-      (tester) async {
-        await const TopicPresentationStore().write(TopicPresentation.sheet);
-        final h = await _setup(tester, size: const Size(800, 900));
-        h.shell.openTopicFromList(h.topics.first);
-        await tester.pumpAndSettle();
-        if (composing) {
-          h.shell.openReply();
-          await tester.pumpAndSettle();
-        }
-        final readerState = tester.state(_reader);
-        final editorState = composing
-            ? tester.state(find.byType(ComposerEditor))
-            : null;
-        await tester.tap(find.byKey(const ValueKey('topic-view-options')));
-        await tester.pumpAndSettle();
-        await tester.tap(find.byTooltip('Dock right'));
-        await tester.pump();
-        await tester.pump(const Duration(milliseconds: 50));
-        tester.view.physicalSize = const Size(2600, 900);
-        await tester.pump();
-        await tester.pump(const Duration(milliseconds: 50));
-        tester.view.physicalSize = const Size(800, 900);
-        await tester.pumpAndSettle();
-        expect(h.shell.currentContent?.topicId, 1);
-        expect(find.byKey(const ValueKey('topic-sheet')), findsNothing);
-        expect(find.byType(TopicListView).hitTestable(), findsNothing);
-        expect(tester.state(_reader), same(readerState));
-        if (composing) {
-          expect(tester.state(find.byType(ComposerEditor)), same(editorState));
-        }
-        expect(tester.takeException(), isNull);
-      },
-      variant: TargetPlatformVariant.only(TargetPlatform.macOS),
-    );
-  }
-
-  testWidgets('dock right stays inline across narrow and wide windows', (
-    tester,
-  ) async {
-    final h = await _setup(tester, size: const Size(800, 900));
-    h.shell.openTopicFromList(h.topics.first);
-    await tester.pumpAndSettle();
-    final readerState = tester.state(_reader);
-    final listState = tester.state(_allLists);
-    expect(find.byKey(const ValueKey('topic-sheet')), findsNothing);
-    expect(find.byType(TopicListView).hitTestable(), findsNothing);
-    expect(tester.getRect(_reader).right, 800);
-    expect(
-      tester.getRect(_reader).left,
-      tester.getRect(find.byType(InstanceRail)).right,
-    );
-    final preferences = await SharedPreferences.getInstance();
-    expect(preferences.getString(TopicPresentationStore.storageKey), isNull);
-    await tester.tap(find.byKey(const ValueKey('topic-view-options')));
-    await tester.pumpAndSettle();
-    await tester.tap(find.byTooltip('Sheet'));
-    await tester.pumpAndSettle();
-    expect(find.byKey(const ValueKey('topic-sheet')), findsOneWidget);
-    await tester.tap(find.byKey(const ValueKey('topic-view-options')));
-    await tester.pumpAndSettle();
-    await tester.tap(find.byTooltip('Dock right'));
-    await tester.pumpAndSettle();
-    expect(find.byKey(const ValueKey('topic-sheet')), findsNothing);
-    expect(find.byType(TopicListView).hitTestable(), findsNothing);
-    tester.view.physicalSize = const Size(1800, 900);
-    await tester.pumpAndSettle();
-    expect(find.byKey(const ValueKey('topic-sheet')), findsNothing);
-    expect(find.byType(TopicListView).hitTestable(), findsOneWidget);
-    expect(
-      tester.getRect(_reader).left,
-      greaterThanOrEqualTo(tester.getRect(find.byType(TopicListView)).right),
-    );
-    tester.view.physicalSize = const Size(800, 900);
-    await tester.pumpAndSettle();
-    expect(find.byKey(const ValueKey('topic-sheet')), findsNothing);
-    expect(find.byType(TopicListView).hitTestable(), findsNothing);
-    expect(tester.state(_reader), same(readerState));
-    expect(tester.state(_allLists), same(listState));
-    expect(
-      await const TopicPresentationStore().read(),
-      TopicPresentation.docked,
-    );
-    expect(tester.takeException(), isNull);
-  }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
-
-  testWidgets('sheet navigation and reply shortcuts respect nested dialogs', (
-    tester,
-  ) async {
-    await const TopicPresentationStore().write(TopicPresentation.sheet);
-    final h = await _setup(tester);
-    h.shell.openTopicFromList(h.topics.first);
-    await tester.pumpAndSettle();
-    await tester.tap(_reader, warnIfMissed: false);
-    await tester.sendKeyEvent(LogicalKeyboardKey.keyG);
-    await tester.sendKeyEvent(LogicalKeyboardKey.keyJ);
-    await tester.pumpAndSettle();
-    expect(h.shell.currentContent?.topicId, 2);
-    expect(find.byKey(const ValueKey('topic-sheet')), findsOneWidget);
-    final dialog = showDDialog<void>(
-      context: tester.element(_reader),
-      builder: (context, controller) => const DDialogContent(
-        children: [DDialogTitle(child: Text('Topic details'))],
-      ),
-    );
-    await tester.pumpAndSettle();
-    await _composeShortcut(tester, reply: true);
-    await tester.pumpAndSettle();
-    expect(h.shell.visibleComposer, isNull);
-    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
-    await tester.pumpAndSettle();
-    await dialog;
-    await tester.tap(_reader, warnIfMissed: false);
-    await _composeShortcut(tester, reply: true);
-    await tester.pumpAndSettle();
-    expect(h.shell.visibleComposer?.target.topicId, 2);
-    expect(h.shell.visibleComposer!.focus.hasFocus, isTrue);
-    final editorState = tester.state(find.byType(ComposerEditor));
-    h.shell.visibleComposer!.text.text = 'Keep this reply';
-    await tester.pump(const Duration(seconds: 2));
-    await tester.tap(_back);
-    await tester.pumpAndSettle();
-    expect(h.shell.currentContent?.isTopicList, isTrue);
-    expect(h.shell.visibleComposer?.raw, 'Keep this reply');
-    expect(tester.state(find.byType(ComposerEditor)), same(editorState));
-    expect(tester.takeException(), isNull);
-  }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
-
   testWidgets(
-    'list visibility reserves 825 pixels for the topic after composer sizing',
+    'list visibility reserves 520 pixels for the topic after composer sizing',
     (tester) async {
       final h = await _setup(tester, size: const Size(1800, 900));
       final chrome = 1800 - tester.getSize(find.byType(TopicListView)).width;
@@ -510,11 +408,11 @@ void main() {
       );
       await tester.pumpAndSettle();
       final preferredWidth = tester.getSize(find.byType(TopicListView)).width;
-      tester.view.physicalSize = Size(chrome + 304 + 825, 900);
+      tester.view.physicalSize = Size(chrome + 304 + 520, 900);
       await tester.pumpAndSettle();
       expect(find.byType(TopicListView), findsOneWidget);
-      expect(tester.getSize(_reader).width, closeTo(825, 0.01));
-      tester.view.physicalSize = Size(chrome + 304 + 824, 900);
+      expect(tester.getSize(_reader).width, greaterThanOrEqualTo(520));
+      tester.view.physicalSize = const Size(800, 900);
       await tester.pumpAndSettle();
       expect(find.byType(TopicListView).hitTestable(), findsNothing);
       expect(tester.state(_allLists), same(listState));
@@ -525,11 +423,14 @@ void main() {
       expect(tester.getSize(find.byType(TopicListView)).width, preferredWidth);
       h.shell.openReply();
       await tester.pumpAndSettle();
+      expect(find.byType(TopicListView).hitTestable(), findsOneWidget);
+      tester.view.physicalSize = const Size(1440, 900);
+      await tester.pumpAndSettle();
       expect(find.byType(TopicListView).hitTestable(), findsNothing);
       tester.view.physicalSize = const Size(2400, 900);
       await tester.pumpAndSettle();
       expect(find.byType(TopicListView), findsOneWidget);
-      expect(tester.getSize(_reader).width, greaterThanOrEqualTo(825));
+      expect(tester.getSize(_reader).width, greaterThanOrEqualTo(520));
       expect(tester.state(_reader), same(readerState));
       expect(tester.takeException(), isNull);
     },
@@ -562,7 +463,7 @@ void main() {
       } else {
         expect(reader.right, lessThanOrEqualTo(reducedList.left));
       }
-      expect(reader.width, greaterThanOrEqualTo(825));
+      expect(reader.width, greaterThanOrEqualTo(520));
       await tester.drag(
         find.byKey(const ValueKey('inbox-list-resize-handle')),
         Offset(direction == TextDirection.ltr ? 60 : -60, 0),
@@ -594,7 +495,8 @@ void main() {
       await tester.tap(previous);
       await tester.pumpAndSettle();
       expect(h.shell.currentContent?.topicId, 1);
-      await tester.tap(_back);
+      h.shell.splitTopicPanels = false;
+      h.shell.selectTab(h.shell.listPanelTab!.id);
       await tester.pumpAndSettle();
       expect(_reader, findsNothing);
       expect(find.byType(TopicListView), findsOneWidget);
@@ -626,7 +528,7 @@ void main() {
       await tester.pumpAndSettle();
       final readingOffset = _readerScroll(tester).pixels;
       expect(readingOffset, greaterThan(0));
-      await tester.tap(_back);
+      h.shell.selectTab(h.shell.listPanelTab!.id);
       await tester.pumpAndSettle();
       expect(listPosition.pixels, closeTo(listOffset, 1));
       h.shell.openTopicFromList(h.topics.first);
@@ -634,7 +536,7 @@ void main() {
       expect(_readerScroll(tester).pixels, closeTo(readingOffset, 1));
       h.shell.openTopicFromList(h.topics[1]);
       await tester.pumpAndSettle();
-      await tester.tap(_back);
+      h.shell.selectTab(h.shell.listPanelTab!.id);
       await tester.pumpAndSettle();
       expect(listPosition.pixels, closeTo(listOffset, 1));
       expect(tester.takeException(), isNull);
@@ -772,12 +674,12 @@ void main() {
       h.shell.openReply();
       await tester.pumpAndSettle();
       if (dock == 'right') {
-        await tester.tap(find.byKey(const ValueKey('composer-options')));
+        await tester.tap(find.byTooltip('Dock side'));
         await tester.pumpAndSettle();
         await tester.tap(find.byTooltip('Dock bottom'));
         await tester.pumpAndSettle();
       }
-      await tester.tap(find.byKey(const ValueKey('composer-options')));
+      await tester.tap(find.byTooltip('Dock side'));
       await tester.pumpAndSettle();
       await tester.tap(find.byTooltip('Dock $dock'));
       await tester.pumpAndSettle();
@@ -793,12 +695,48 @@ void main() {
     }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
   }
 
+  testWidgets(
+    'full-screen composer fills the desktop workspace and restores docking',
+    (tester) async {
+      final h = await _setup(tester);
+      h.shell.openTopicFromList(h.topics.first);
+      await tester.pumpAndSettle();
+      final workspace = tester.getRect(find.byType(TopicWorkspace));
+      h.shell.openReply();
+      await tester.pumpAndSettle();
+      final editor = tester.state(find.byType(ComposerEditor));
+      final composer = h.shell.visibleComposer!;
+      composer.text.text = 'A full-screen draft';
+      await tester.tap(find.byTooltip('Full screen'));
+      await tester.pumpAndSettle();
+      expect(tester.getRect(find.byType(ComposerPanel)), workspace);
+      expect(find.byTooltip('Dock side').hitTestable(), findsOneWidget);
+      expect(composer.raw, 'A full-screen draft');
+      expect(tester.state(find.byType(ComposerEditor)), same(editor));
+      await tester.tap(find.byTooltip('Dock side'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('Dock bottom'));
+      await tester.pumpAndSettle();
+      expect(
+        tester.getRect(find.byType(ComposerPanel)).bottom,
+        workspace.bottom,
+      );
+      expect(
+        tester.getSize(find.byType(ComposerPanel)).height,
+        lessThan(workspace.height),
+      );
+      expect(tester.state(find.byType(ComposerEditor)), same(editor));
+      expect(tester.takeException(), isNull);
+    },
+    variant: TargetPlatformVariant.only(TargetPlatform.macOS),
+  );
+
   testWidgets('tabs preserve each topic position and the active draft', (
     tester,
   ) async {
     final h = await _setup(tester);
-    final firstTab = h.shell.activeTabId!;
     h.shell.openTopicFromList(h.topics.first);
+    final firstTab = h.shell.activeTabId!;
     await tester.pumpAndSettle();
     await tester.drag(_reader, const Offset(0, -350));
     await tester.pumpAndSettle();
@@ -808,7 +746,7 @@ void main() {
     final composer = h.shell.visibleComposer!;
     composer.text.text = 'Draft in the first topic';
     await tester.pump(const Duration(seconds: 2));
-    await tester.tap(find.byKey(const ValueKey('forum-tabs-add')));
+    h.shell.createTab();
     await tester.pumpAndSettle();
     h.shell.openTopicFromList(h.topics[1]);
     await tester.pumpAndSettle();

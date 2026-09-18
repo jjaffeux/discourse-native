@@ -8,14 +8,21 @@ import '../models/topic_presentation.dart';
 class TopicPresentationController extends ChangeNotifier {
   TopicPresentationController({this.store = const TopicPresentationStore()});
 
-  static const minimumReaderWidth = 825.0;
+  static const minimumReaderWidth = 520.0;
 
   final TopicPresentationStore store;
-  TopicPresentation _preference = TopicPresentation.docked;
+  TopicPresentation _preference = TopicPresentation.split;
   bool _disposed = false;
   int _revision = 0;
 
   TopicPresentation get preference => _preference;
+  bool _readerOnLeft = false;
+  bool get readerOnLeft => _readerOnLeft;
+
+  void swapPanels() {
+    _readerOnLeft = !_readerOnLeft;
+    notifyListeners();
+  }
 
   Future<void> load() async {
     final revision = _revision;

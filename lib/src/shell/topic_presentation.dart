@@ -1,17 +1,12 @@
 import 'dart:async';
-
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
-
-import '../app_shortcuts.dart';
 import '../models/topic_presentation.dart';
 import 'composer_presentation.dart';
 import 'forum_tabs_bar.dart';
-import 'keyboard_navigation.dart';
 import 'platform.dart';
 import 'reader_content_bounds.dart';
 import 'shell_scope.dart';
-import 'topic_list_bottom_bar.dart';
 import 'topic_presentation_controller.dart';
 
 /// Owns the desktop preference across forums, tabs and workspace changes.
@@ -34,7 +29,20 @@ class _TopicPresentationPreferencesState
   @override
   void initState() {
     super.initState();
+    _controller.addListener(_syncNavigation);
     unawaited(_controller.load());
+  }
+
+  void _syncNavigation() {
+    if (!mounted) return;
+    ShellScope.read(context).splitTopicPanels =
+        _controller.preference == TopicPresentation.split;
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    ShellScope.read(context).desktopTopicTabs = !context.isTouch;
   }
 
   @override
@@ -50,312 +58,90 @@ class _TopicPresentationPreferencesState
 
 class _PreferenceScope extends InheritedNotifier<TopicPresentationController> {
   const _PreferenceScope({required super.notifier, required super.child});
-
-  static TopicPresentationController of(BuildContext context) =>
-      context.dependOnInheritedWidgetOfExactType<_PreferenceScope>()!.notifier!;
 }
 
-/// Bounds topic sheets to the workspace, leaving community navigation available.
+/// Composer docking surrounds both independently tabbed reading panels.
 class TopicWorkspace extends StatelessWidget {
   const TopicWorkspace({super.key, required this.child});
   final Widget child;
 
   @override
-  Widget build(BuildContext context) {
-    final controller = _PreferenceScope.of(context);
-    final shell = ShellScope.of(context);
-    return ListenableBuilder(
-      listenable: ComposerPresentationHost.layoutChangesOf(context),
-      builder: (context, _) => LayoutBuilder(
-        builder: (context, bounds) {
-          final sheet =
-              shell.currentContent?.isTopic == true &&
-              controller.preference == TopicPresentation.sheet;
-          return _TopicWorkspaceScope(
-            sheet: sheet,
-            width: bounds.maxWidth,
-            content: child,
-            child: Column(
-              children: [
-                if (shell.forumTabsEnabled) const CurrentForumTabsBar(),
-                Expanded(
-                  // Keep nested route semantics inside the workspace when
-                  // editor selection overlays appear in the root overlay.
-                  child: Semantics(
-                    container: true,
-                    explicitChildNodes: true,
-                    child: Navigator(
-                      onGenerateRoute: (_) => PageRouteBuilder<void>(
-                        settings: const ReadingRouteSettings(
-                          name: 'topic-workspace',
-                        ),
-                        pageBuilder: (context, _, _) =>
-                            const _TopicWorkspacePage(),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          );
-        },
-      ),
-    );
-  }
-}
-
-class _TopicWorkspacePage extends StatelessWidget {
-  const _TopicWorkspacePage();
-
-  @override
-  Widget build(BuildContext context) {
-    final sheet = TopicReaderPresentation.isSheetOf(context);
-    return ComposerDock(
-      key: ComposerPresentationHost.dockKeyOf(context),
-      appWorkspace: true,
-      enabled: !sheet,
-      child: ReaderContentBounds(
-        enabled: !sheet,
-        child: _TopicWorkspaceScope.of(context)!.content,
-      ),
-    );
-  }
-}
-
-class _TopicWorkspaceScope extends InheritedWidget {
-  const _TopicWorkspaceScope({
-    required this.sheet,
-    required this.width,
-    required this.content,
-    required super.child,
-  });
-
-  final bool sheet;
-  final double width;
-  final Widget content;
-
-  static _TopicWorkspaceScope? of(BuildContext context) =>
-      context.dependOnInheritedWidgetOfExactType<_TopicWorkspaceScope>();
-
-  @override
-  bool updateShouldNotify(_TopicWorkspaceScope oldWidget) =>
-      sheet != oldWidget.sheet ||
-      width != oldWidget.width ||
-      content != oldWidget.content;
-}
-
-/// Keeps one reader mounted while its sheet route is created or dismissed.
-class TopicReaderPresentation extends StatefulWidget {
-  const TopicReaderPresentation({super.key, required this.child});
-  final Widget child;
-
-  static bool isSheetOf(BuildContext context) =>
-      _TopicWorkspaceScope.of(context)?.sheet ?? false;
-
-  static bool hasWorkspaceOf(BuildContext context) =>
-      _TopicWorkspaceScope.of(context) != null;
-
-  @override
-  State<TopicReaderPresentation> createState() =>
-      _TopicReaderPresentationState();
-}
-
-class _TopicReaderPresentationState extends State<TopicReaderPresentation> {
-  final _readerKey = GlobalKey();
-  final _changes = ValueNotifier(0);
-  bool _outletReady = false;
-  bool _closing = false;
-
-  Widget get _reader => KeyedSubtree(key: _readerKey, child: widget.child);
-
-  void _refresh() {
-    if (!mounted) return;
-    setState(() {});
-    _changes.value++;
-  }
-
-  @override
-  void didUpdateWidget(TopicReaderPresentation oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _changes.value++;
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final workspace = _TopicWorkspaceScope.of(context);
-    if (workspace == null) return widget.child;
-    if (!workspace.sheet && _outletReady) _closing = true;
-    final inSheet = workspace.sheet && _outletReady && !_closing;
-    // Mount a new reader at its final constraints. Existing readers remain
-    // available for the GlobalKey handoff when changing presentation.
-    final awaitingSheet =
-        workspace.sheet && !_outletReady && _readerKey.currentContext == null;
-    final shell = ShellScope.read(context);
-    final topicId = shell.currentContent?.topicId;
-    return DSheet<void>(
-      routeSettings: const ReadingRouteSettings(name: 'topic-sheet'),
-      // A reversing route still owns its outlet. Wait for its disposal before
-      // reopening if the presentation changes again during dismissal.
-      open: workspace.sheet && !_closing,
-      onOpenChanged: (details) {
-        if (!details.open &&
-            mounted &&
-            TopicReaderPresentation.isSheetOf(context) &&
-            shell.currentContent?.topicId == topicId) {
-          shell.closeTopic();
-        }
-      },
-      barrierLabel: 'Close topic',
-      content: DSheetContent(
-        key: const ValueKey('topic-sheet'),
-        backgroundColor: DTokens.of(context).background,
-        side: DSheetSide.center,
-        inset: true,
-        sidePanelMaxWidth: workspace.width,
-        sidePanelWidth:
-            TopicPresentationController.minimumReaderWidth +
-            DSpacing.lg * 2 +
-            workspace.width -
-            ComposerPresentationHost.readerWidthOf(context, workspace.width),
-        showCloseButton: false,
-        scrollWholeSheet: false,
-        semanticLabel: 'Topic',
-        children: [Expanded(child: _SheetReaderOutlet(owner: this))],
-      ),
-      trigger: DSheetTrigger(
-        builder: (context, _) =>
-            inSheet || awaitingSheet ? const SizedBox.expand() : _reader,
-      ),
-    );
-  }
-
-  @override
-  void dispose() {
-    _changes.dispose();
-    super.dispose();
-  }
-}
-
-class _SheetReaderOutlet extends StatefulWidget {
-  const _SheetReaderOutlet({required this.owner});
-  final _TopicReaderPresentationState owner;
-
-  @override
-  State<_SheetReaderOutlet> createState() => _SheetReaderOutletState();
-}
-
-class _SheetReaderOutletState extends State<_SheetReaderOutlet> {
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || !widget.owner.mounted) return;
-      widget.owner._outletReady = true;
-      widget.owner._refresh();
-    });
-  }
-
-  @override
-  void dispose() {
-    widget.owner._outletReady = false;
-    widget.owner._closing = false;
-    WidgetsBinding.instance.addPostFrameCallback(
-      (_) => widget.owner._refresh(),
-    );
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) => ListenableBuilder(
-    listenable: widget.owner._changes,
-    builder: (context, _) {
-      final active =
-          TopicReaderPresentation.isSheetOf(context) && !widget.owner._closing;
-      return ComposerDock(
-        appWorkspace: true,
-        enabled: active,
-        child: ReaderContentBounds(
-          enabled: active,
-          child: ReadingShortcuts(
-            commands: {
-              ReadingCommand.openNextTopic: () =>
-                  openAdjacentTopic(context, next: true, fromKeyboard: true),
-              ReadingCommand.openPreviousTopic: () =>
-                  openAdjacentTopic(context, next: false, fromKeyboard: true),
-            },
-            child: active && widget.owner._outletReady
-                ? widget.owner._reader
-                : const SizedBox.expand(),
-          ),
-        ),
-      );
-    },
+  Widget build(BuildContext context) => ComposerDock(
+    key: ComposerPresentationHost.dockKeyOf(context),
+    appWorkspace: true,
+    child: ReaderContentBounds(child: child),
   );
+}
+
+/// The panel header scopes tab actions to the tabs actually shown in it.
+class TopicPanelTabs extends StatelessWidget {
+  const TopicPanelTabs({super.key, this.reading, this.split = false});
+  final bool? reading;
+  final bool split;
+
+  @override
+  Widget build(BuildContext context) {
+    final shell = ShellScope.of(context);
+    if (context.isTouch) return const SizedBox.shrink();
+    final preferences = TopicPresentationPreferences.maybeControllerOf(context);
+    return Row(
+      children: [
+        Expanded(
+          child: shell.forumTabsEnabled
+              ? CurrentForumTabsBar(reading: reading)
+              : const SizedBox.shrink(),
+        ),
+        if (reading != true && preferences != null && !context.isTouch)
+          const TopicPresentationButton(),
+        if (split && preferences != null)
+          DButton.iconOnly(
+            key: ValueKey(
+              reading == true
+                  ? 'swap-topic-panels-reader'
+                  : 'swap-topic-panels-list',
+            ),
+            icon: const Icon(Icons.swap_horiz),
+            tooltip: preferences.readerOnLeft
+                ? 'Move the reading panel right'
+                : 'Move the reading panel left',
+            variant: DButtonVariant.transparentBackground,
+            onPressed: preferences.swapPanels,
+          ),
+      ],
+    );
+  }
 }
 
 class TopicPresentationButton extends StatelessWidget {
   const TopicPresentationButton({super.key});
-
   @override
   Widget build(BuildContext context) {
-    if (context.isTouch || _TopicWorkspaceScope.of(context) == null) {
-      return const SizedBox.shrink();
-    }
-    final controller = _PreferenceScope.of(context);
-    final sheet = TopicReaderPresentation.isSheetOf(context);
-    return DPopover(
-      reverseTransitionDuration: Duration.zero,
-      content: DPopoverContent(
-        semanticLabel: 'Topic view',
-        align: DPopoverAlign.end,
-        width: 240,
-        child: DPopoverClose(
-          builder: (context, close) => Row(
-            children: [
-              const Expanded(child: Text('Topic view')),
-              DToggleGroup<TopicPresentation>(
-                semanticLabel: 'Topic view',
-                values: [controller.preference],
-                allowEmptySelection: false,
-                size: DToggleSize.regular,
-                spacing: 1,
-                onChanged: (values) {
-                  close();
-                  controller.select(values.single);
-                },
-                items: [
-                  for (final mode in TopicPresentation.values)
-                    DToggleGroupItem.iconOnly(
-                      value: mode,
-                      semanticLabel: mode.label,
-                      tooltip: mode.label,
-                      icon: _viewIcon(mode == TopicPresentation.sheet),
-                    ),
-                ],
-              ),
-            ],
+    final controller = TopicPresentationPreferences.maybeControllerOf(context);
+    if (context.isTouch || controller == null) return const SizedBox.shrink();
+    return DToggleGroup<TopicPresentation>(
+      key: const ValueKey('topic-view-options'),
+      semanticLabel: 'Topic view',
+      inset: true,
+      values: [controller.preference],
+      allowEmptySelection: false,
+      onChanged: (values) {
+        controller.select(values.single);
+        ShellScope.read(context).splitTopicPanels =
+            values.single == TopicPresentation.split;
+      },
+      items: [
+        for (final mode in TopicPresentation.values)
+          DToggleGroupItem.iconOnly(
+            value: mode,
+            semanticLabel: mode.label,
+            tooltip: mode.label,
+            icon: Icon(
+              mode == TopicPresentation.merged
+                  ? Icons.copy_outlined
+                  : Icons.view_column_outlined,
+            ),
           ),
-        ),
-      ),
-      child: DPopoverTrigger(
-        builder: (context, trigger) => DButton.iconOnly(
-          key: const ValueKey('topic-view-options'),
-          icon: _viewIcon(sheet),
-          tooltip: 'Topic view',
-          semanticLabel: 'Topic view',
-          variant: DButtonVariant.transparentBackground,
-          size: DButtonSize.regular,
-          focusNode: trigger.focusNode,
-          expanded: trigger.open,
-          hasPopup: true,
-          onPressed: trigger.toggle,
-        ),
-      ),
+      ],
     );
   }
-
-  static Widget _viewIcon(bool sheet) =>
-      Icon(sheet ? Icons.web_asset_outlined : Icons.view_sidebar_outlined);
 }

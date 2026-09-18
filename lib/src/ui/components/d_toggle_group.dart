@@ -103,6 +103,7 @@ class DToggleGroup<T extends Object> extends StatefulWidget {
     this.initialValues = const [],
     this.controller,
     this.onChanged,
+    this.onItemActivated,
     this.multiple = false,
     this.allowEmptySelection = true,
     this.enabled = true,
@@ -111,11 +112,14 @@ class DToggleGroup<T extends Object> extends StatefulWidget {
     this.variant = DToggleVariant.standard,
     this.size = DToggleSize.regular,
     this.spacing = 2,
+    this.inset = false,
     this.semanticLabel,
     this.scrollable = true,
   }) : assert(values == null || controller == null),
        assert(spacing >= 0);
 
+  /// Draw a shared recessed frame around the choices, as in layout selectors.
+  final bool inset;
   final List<DToggleGroupItem<T>> items;
 
   /// Parent-owned controlled selection. Values preserve item declaration order.
@@ -127,6 +131,10 @@ class DToggleGroup<T extends Object> extends StatefulWidget {
   /// Borrowed mutable selection; cannot be combined with [values].
   final DToggleGroupController<T>? controller;
   final ValueChanged<List<T>>? onChanged;
+
+  /// Called for every user activation, including the already selected item.
+  /// Useful when a choice also opens options without clearing its selection.
+  final ValueChanged<T>? onItemActivated;
   final bool multiple;
 
   /// Base UI permits deselecting the last item. Set false for required choices.
@@ -272,6 +280,7 @@ class _DToggleGroupState<T extends Object> extends State<DToggleGroup<T>> {
 
   void _toggleItem(T value) {
     if (!_groupInteractive) return;
+    widget.onItemActivated?.call(value);
     // The child reflects the last build and can still report its previous
     // pressed value when another input arrives before the scheduled rebuild.
     // Derive the transition from the group's already-updated selection.
@@ -423,7 +432,7 @@ class _DToggleGroupState<T extends Object> extends State<DToggleGroup<T>> {
       'DToggleGroup item values must be unique.',
     );
     final selected = _currentValues.toSet();
-    final gap = widget.spacing * 4;
+    final gap = widget.inset ? 2.0 : widget.spacing * 4;
     final connected = gap == 0;
     final children = <Widget>[];
     for (var index = 0; index < widget.items.length; index++) {
@@ -462,7 +471,9 @@ class _DToggleGroupState<T extends Object> extends State<DToggleGroup<T>> {
             )
           : baseStyle?.borderEdges ?? DToggleBorderEdges.all;
       final style = DToggleVisualStyle(
-        borderRadius: joinedRadius ?? baseStyle?.borderRadius,
+        borderRadius: widget.inset
+            ? BorderRadius.circular(6)
+            : joinedRadius ?? baseStyle?.borderRadius,
         borderEdges: edges,
       );
       final itemEnabled = _groupInteractive && item.enabled;
@@ -536,6 +547,23 @@ class _DToggleGroupState<T extends Object> extends State<DToggleGroup<T>> {
     if (widget.scrollable) {
       group = SingleChildScrollView(
         scrollDirection: widget.orientation,
+        child: group,
+      );
+    }
+    if (widget.inset) {
+      final tokens = DTokens.of(context);
+      group = DecoratedBox(
+        decoration: BoxDecoration(
+          color: tokens.background,
+          border: Border.all(color: tokens.border),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Padding(padding: const EdgeInsets.all(2), child: group),
+      );
+      group = Align(
+        alignment: AlignmentDirectional.centerStart,
+        widthFactor: 1,
+        heightFactor: 1,
         child: group,
       );
     }
