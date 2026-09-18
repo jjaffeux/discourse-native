@@ -17,6 +17,8 @@ Future<void> main() async {
   SharedPreferences.setPrefix('category_grid_profile.');
   MacOSLaunchScreen.dismissAfterFirstFlutterFrame();
   final semantics = binding.ensureSemantics();
+  final lifecycle = _CaptureLifecycle();
+  binding.addObserver(lifecycle);
   final frames = <ui.FrameTiming>[];
   binding.addTimingsCallback(frames.addAll);
   final results = <Map<String, Object?>>[];
@@ -73,6 +75,7 @@ Future<void> main() async {
             'Capture requires active app and enabled semantics: ${binding.lifecycleState}',
           );
         }
+        lifecycle.begin();
         frames.clear();
         final offsets = <double>[];
         final startUtc = DateTime.now().toUtc().toIso8601String();
@@ -88,12 +91,14 @@ Future<void> main() async {
           offsets.add(scroll!.offset);
         }
         final end = developer.Timeline.now;
-        if (binding.lifecycleState != AppLifecycleState.resumed) {
-          throw StateError('App lost focus during capture');
-        }
         final endGeometry = geometry();
         // Engine timings arrive in batches. Select by vsync time, not callback time.
         await Future<void>.delayed(const Duration(milliseconds: 1100));
+        final lostForeground = lifecycle.finish();
+        if (lostForeground ||
+            binding.lifecycleState != AppLifecycleState.resumed) {
+          throw StateError('App lost focus during capture or timing delivery');
+        }
         final selected = frames.where((frame) {
           final vsync = frame.timestampInMicroseconds(ui.FramePhase.vsyncStart);
           return vsync >= start && vsync <= end;
@@ -137,7 +142,31 @@ Future<void> main() async {
     await binding.endOfFrame;
     controller.dispose();
   }
+  binding.removeObserver(lifecycle);
   semantics.dispose();
   stdout.writeln('CATEGORY_PROFILE ${jsonEncode(results)}');
   exit(0);
+}
+
+/// Latches transient focus loss, including during batched timing delivery.
+class _CaptureLifecycle extends WidgetsBindingObserver {
+  bool _capturing = false;
+  bool _lostForeground = false;
+
+  void begin() {
+    _lostForeground = false;
+    _capturing = true;
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (_capturing && state != AppLifecycleState.resumed) {
+      _lostForeground = true;
+    }
+  }
+
+  bool finish() {
+    _capturing = false;
+    return _lostForeground;
+  }
 }

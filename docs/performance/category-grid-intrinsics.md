@@ -71,7 +71,9 @@ before restoring the fixed source. No production instrumentation is added.
 `tool/category_grid_profile_main.dart` runs the same production page in an
 isolated macOS fixture. It embeds the fixture at compile time (base64 avoids
 multiline compiler-define parsing), enables semantics, requires resumed app
-lifecycle and the requested actual page width, and records start/end card
+lifecycle and the requested actual page width. A lifecycle observer latches any
+non-resumed transition from the sample start through the 1100ms delivery drain;
+a later resume cannot make an interrupted sample valid. The harness records start/end card
 geometry plus every scroll offset. It performs 60 jumps of 90 logical pixels,
 returning to the beginning when the bottom is reached. One warmup and five
 measured repeats run for each dataset/width combination.
