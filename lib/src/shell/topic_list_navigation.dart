@@ -171,68 +171,11 @@ class _TopicListNavigationControls extends StatelessWidget {
       signedIn: state.signedIn,
       unreadCount: state.unreadCount,
       newCount: state.allCount,
+      unifiedNew: state.unifiedNew,
+      topicCount: state.topicCount,
+      replyCount: state.replyCount,
       onSelected: selectMode,
     );
-    Widget? contextualFor(bool wide) {
-      if (showsTabs && mode.isNew && state.unifiedNew) {
-        return DTabs<TopicListMode>.controlled(
-          value: mode,
-          onChanged: (value) {
-            if (value != null) selectMode(value);
-          },
-          children: [
-            Align(
-              alignment: wide
-                  ? AlignmentDirectional.centerEnd
-                  : AlignmentDirectional.centerStart,
-              child: DTabList<TopicListMode>(
-                key: const ValueKey('topic-list-new-segments'),
-                children: [
-                  const DTabTrigger(
-                    key: ValueKey('topic-list-new-all'),
-                    value: TopicListMode.newActivity,
-                    child: Text('All'),
-                  ),
-                  for (final tab in [
-                    (
-                      key: 'topics',
-                      label: 'Topics',
-                      value: TopicListMode.newTopics,
-                      count: state.topicCount,
-                    ),
-                    (
-                      key: 'replies',
-                      label: 'Replies',
-                      value: TopicListMode.newReplies,
-                      count: state.replyCount,
-                    ),
-                  ])
-                    DTabTrigger(
-                      key: ValueKey('topic-list-new-${tab.key}'),
-                      value: tab.value,
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(tab.label),
-                          if (tab.count > 0) ...[
-                            const SizedBox(width: 6),
-                            DBadge(
-                              variant: DBadgeVariant.secondary,
-                              child: Text('${tab.count}'),
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-                ],
-              ),
-            ),
-          ],
-        );
-      }
-      return null;
-    }
-
     final owner = state.filterOwner;
     final lease = state.siteUrl == null
         ? null
@@ -325,23 +268,13 @@ class _TopicListNavigationControls extends StatelessWidget {
               ],
             ),
           ),
-          if (contextualFor(false) case final contextual?)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(
-                topicListHorizontalPadding,
-                0,
-                topicListHorizontalPadding,
-                8,
-              ),
-              child: contextual,
-            ),
         ],
       ),
     );
   }
 }
 
-/// Shared feed menu: periods are direct choices beneath Top, never a second picker.
+/// Shared feed menu with direct choices for New subsets and Top periods.
 class TopicFeedMenu extends StatelessWidget {
   const TopicFeedMenu({
     super.key,
@@ -350,18 +283,22 @@ class TopicFeedMenu extends StatelessWidget {
     this.signedIn = true,
     this.unreadCount = 0,
     this.newCount = 0,
+    this.unifiedNew = false,
+    this.topicCount = 0,
+    this.replyCount = 0,
   });
   final TopicListMode mode;
   final ValueChanged<TopicListMode> onSelected;
   final bool signedIn;
-  final int unreadCount, newCount;
+  final bool unifiedNew;
+  final int unreadCount, newCount, topicCount, replyCount;
 
   static String label(TopicListMode mode) => switch (mode) {
     TopicListMode.latest => 'Latest',
     TopicListMode.unread => 'Unread',
-    TopicListMode.newActivity ||
-    TopicListMode.newTopics ||
-    TopicListMode.newReplies => 'New',
+    TopicListMode.newActivity => 'New',
+    TopicListMode.newTopics => 'New · Topics',
+    TopicListMode.newReplies => 'New · Replies',
     TopicListMode.unseen => 'Unseen',
     TopicListMode.popular => 'Trending',
     _ => 'Top · ${mode.topPeriod!.label}',
@@ -369,7 +306,13 @@ class TopicFeedMenu extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final selected = mode.isNew ? TopicListMode.newActivity : mode;
+    final selected = mode;
+    String itemLabel(TopicListMode value) => switch (value) {
+      TopicListMode.newActivity when unifiedNew => 'All',
+      TopicListMode.newTopics => 'Topics',
+      TopicListMode.newReplies => 'Replies',
+      _ => value.isTop ? value.topPeriod!.label : label(value),
+    };
     Widget item(
       TopicListMode value,
       String description, {
@@ -379,14 +322,18 @@ class TopicFeedMenu extends StatelessWidget {
         value.isTop
             ? 'topic-list-top-period-${value.topPeriod!.queryValue}'
             : 'topic-list-${value == TopicListMode.newActivity
-                  ? 'new'
+                  ? (unifiedNew ? 'new-all' : 'new')
+                  : value == TopicListMode.newTopics
+                  ? 'new-topics'
+                  : value == TopicListMode.newReplies
+                  ? 'new-replies'
                   : value == TopicListMode.popular
                   ? 'popular'
                   : value.name}',
       ),
       onPressed: () => onSelected(value),
       semanticLabel:
-          '${value.isTop ? value.topPeriod!.label : label(value)}${count > 0 ? ', $count topics' : ''}${selected == value ? ', selected' : ''}',
+          '${itemLabel(value)}${count > 0 ? ', $count topics' : ''}${selected == value ? ', selected' : ''}',
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -401,7 +348,7 @@ class TopicFeedMenu extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(value.isTop ? value.topPeriod!.label : label(value)),
+          Text(itemLabel(value)),
           if (description.isNotEmpty)
             Text(
               description,
@@ -414,6 +361,10 @@ class TopicFeedMenu extends StatelessWidget {
     );
     final count = mode == TopicListMode.unread
         ? unreadCount
+        : mode == TopicListMode.newTopics
+        ? topicCount
+        : mode == TopicListMode.newReplies
+        ? replyCount
         : mode.isNew
         ? newCount
         : 0;
@@ -429,11 +380,23 @@ class TopicFeedMenu extends StatelessWidget {
               'Replies in conversations you follow',
               count: unreadCount,
             ),
-            item(
-              TopicListMode.newActivity,
-              'New topics and replies',
-              count: newCount,
-            ),
+            if (unifiedNew) ...[
+              const DDropdownMenuLabel(child: Text('New')),
+              DDropdownMenuGroup(
+                showGuide: true,
+                semanticLabel: 'New activity',
+                children: [
+                  item(TopicListMode.newActivity, '', count: newCount),
+                  item(TopicListMode.newTopics, '', count: topicCount),
+                  item(TopicListMode.newReplies, '', count: replyCount),
+                ],
+              ),
+            ] else
+              item(
+                TopicListMode.newActivity,
+                'New topics and replies',
+                count: newCount,
+              ),
             item(TopicListMode.unseen, 'Topics you haven’t visited'),
           ],
           const DDropdownMenuLabel(child: Text('Top')),
@@ -461,7 +424,9 @@ class TopicFeedMenu extends StatelessWidget {
           label: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(label(mode)),
+              Flexible(
+                child: Text(label(mode), overflow: TextOverflow.ellipsis),
+              ),
               if (count > 0) ...[
                 const SizedBox(width: 8),
                 DBadge(variant: DBadgeVariant.secondary, child: Text('$count')),

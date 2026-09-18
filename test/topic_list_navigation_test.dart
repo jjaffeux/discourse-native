@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:ui' show Tristate;
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/app_settings.dart';
@@ -398,7 +397,7 @@ void main() {
           );
           expect(
             find.byKey(const ValueKey('topic-list-new-segments')),
-            findsOneWidget,
+            findsNothing,
           );
           for (final key in [
             'topic-list-category-filter',
@@ -996,6 +995,7 @@ void main() {
 
     expect(controller.topicListNewCounts, (all: 0, topics: 0, replies: 0));
     expect(controller.sidebarBadgeFor('latest').count, 1059);
+    await _openFeed(tester);
     for (final entry in {
       'all': 'All',
       'topics': 'Topics',
@@ -1136,6 +1136,7 @@ void main() {
       tester.widget<TopicFeedMenu>(find.byType(TopicFeedMenu)).newCount,
       2,
     );
+    await _openFeed(tester);
     expect(_tabText(tester, 'topic-list-new-all').data, 'All');
     expect(_tabText(tester, 'topic-list-new-topics').data, 'Topics');
     expect(
@@ -1169,7 +1170,7 @@ void main() {
       'payload': {'last_read_post_number': 8},
     });
     await tester.pumpAndSettle();
-    expect(_tabText(tester, 'topic-list-new-replies').data, 'Replies');
+    expect(find.text('New · Replies'), findsOneWidget);
     expect(controller.sidebarBadgeFor('latest').count, 3);
     expect(
       tester.widget<TopicFeedMenu>(find.byType(TopicFeedMenu)).newCount,
@@ -1252,19 +1253,32 @@ void main() {
     expect(controller.currentTopicListMode, TopicListMode.newActivity);
     expect(controller.activeTab?.rootDestinationId, 'latest');
     expect(controller.contentStack, hasLength(1));
+    await _openFeed(tester);
     expect(_tabText(tester, 'topic-list-new-all').data, 'All');
-    expect(find.text('1059'), findsOneWidget);
+    expect(find.text('1059'), findsNWidgets(2));
     expect(find.text('1054'), findsOneWidget);
-    expect(find.text('5'), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('topic-list-new-replies')),
+        matching: find.text('5'),
+      ),
+      findsOneWidget,
+    );
     expect(find.text('All new activity'), findsOneWidget);
 
     expect(
       find.descendant(
-        of: find.byKey(const ValueKey('topic-list-new-segments')),
+        of: find.byWidgetPredicate(
+          (widget) =>
+              widget is DDropdownMenuGroup &&
+              widget.semanticLabel == 'New activity',
+        ),
         matching: find.byType(DBadge),
       ),
-      findsNWidgets(2),
+      findsNWidgets(3),
     );
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
 
     FakeSiteTracker.built.single.deliverTopicTracking(const {
       'topic_id': 4000,
@@ -1278,9 +1292,16 @@ void main() {
 
     expect(find.text('1060'), findsOneWidget);
     expect(find.text('Unread (6)'), findsNothing);
+    await _openFeed(tester);
     expect(_tabText(tester, 'topic-list-new-all').data, 'All');
     expect(find.text('1054'), findsOneWidget);
-    expect(find.text('6'), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('topic-list-new-replies')),
+        matching: find.text('6'),
+      ),
+      findsOneWidget,
+    );
     expect(controller.sidebarBadgeFor('latest').count, 1060);
 
     await tester.tap(find.byKey(const ValueKey('topic-list-new-topics')));
@@ -1289,12 +1310,7 @@ void main() {
     expect(controller.currentTopicListMode, TopicListMode.newTopics);
     expect(find.text('New topic only'), findsOneWidget);
 
-    await tester.ensureVisible(
-      find.byKey(const ValueKey('topic-list-new-replies')),
-    );
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('topic-list-new-replies')));
-    await tester.pumpAndSettle();
+    await _selectFeed(tester, 'topic-list-new-replies');
 
     expect(controller.currentTopicListMode, TopicListMode.newReplies);
     expect(find.text('New reply only'), findsOneWidget);
@@ -1378,35 +1394,18 @@ void main() {
         final tabs = tester.getRect(
           find.byKey(const ValueKey('topic-list-feed-menu')),
         );
-        final segments = find.byKey(const ValueKey('topic-list-new-segments'));
-        final segmentRect = tester.getRect(segments);
         expect(tabs.left, topicListHorizontalPadding);
         expect(tabs.right, lessThanOrEqualTo(325 - topicListHorizontalPadding));
-        expect(segmentRect.left, tabs.left);
-        final filters = tester.getRect(
-          find.byKey(const ValueKey('topic-list-category-filter')),
-        );
-        expect(segmentRect.top, greaterThanOrEqualTo(filters.bottom));
         expect(
-          segmentRect.height,
-          inInclusiveRange(
-            DControlStyle.regularHeight,
-            DControlStyle.regularHeight + 8,
-          ),
+          find.byKey(const ValueKey('topic-list-new-segments')),
+          findsNothing,
         );
-        final all = find.byKey(const ValueKey('topic-list-new-all'));
+        await _openFeed(tester);
         final topics = find.byKey(const ValueKey('topic-list-new-topics'));
-        final replies = find.byKey(const ValueKey('topic-list-new-replies'));
-        expect(tester.getRect(all).left, greaterThan(segmentRect.left));
-        expect(
-          tester.widget<DTabList<TopicListMode>>(segments).variant,
-          DTabListVariant.defaultStyle,
-        );
         expect(
           find.descendant(of: topics, matching: find.byType(DBadge)),
           findsOneWidget,
         );
-        expect(find.text('All (1059)'), findsNothing);
         expect(tester.takeException(), isNull);
 
         await tester.ensureVisible(topics);
@@ -1416,15 +1415,18 @@ void main() {
         expect(setup.controller.currentTopicListMode, TopicListMode.newTopics);
         final semantics = tester.ensureSemantics();
         try {
-          expect(tester.getSemantics(topics).label, 'Topics\n1054');
+          await _openFeed(tester);
+          expect(
+            tester.getSemantics(topics).label,
+            'Topics, 1054 topics, selected',
+          );
+          await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+          await tester.pumpAndSettle();
         } finally {
           semantics.dispose();
         }
         await pump(2);
-        await tester.ensureVisible(replies);
-        await tester.pumpAndSettle();
-        await tester.tap(replies);
-        await tester.pumpAndSettle();
+        await _selectFeed(tester, 'topic-list-new-replies');
         expect(setup.controller.currentTopicListMode, TopicListMode.newReplies);
         expect(tester.takeException(), isNull);
       },
@@ -1471,7 +1473,7 @@ void main() {
   );
 
   testWidgets(
-    'wide toolbar keeps selectors before contextual controls without a table heading',
+    'wide toolbar keeps selectors in one row without secondary tabs',
     (tester) async {
       tester.view.physicalSize = const Size(1120, 700);
       tester.view.devicePixelRatio = 1;
@@ -1494,11 +1496,14 @@ void main() {
       final category = tester.getRect(
         find.byKey(const ValueKey('topic-list-category-filter')),
       );
-      final scope = tester.getRect(
-        find.byKey(const ValueKey('topic-list-new-segments')),
+      final feed = tester.getRect(
+        find.byKey(const ValueKey('topic-list-feed-menu')),
       );
-      expect(category.bottom, lessThanOrEqualTo(scope.top));
-      expect(category.center.dy, lessThan(scope.center.dy));
+      expect(category.center.dy, feed.center.dy);
+      expect(
+        find.byKey(const ValueKey('topic-list-new-segments')),
+        findsNothing,
+      );
       expect(
         find.byKey(const ValueKey('topic-list-ledger-header')),
         findsNothing,
@@ -1560,7 +1565,7 @@ void main() {
 
   for (final stacked in [false, true]) {
     testWidgets(
-      'new activity tabs preserve keyboard selection and route state ($stacked)',
+      'new activity menu preserves keyboard selection and route state ($stacked)',
       (tester) async {
         final setup = await _controller();
         addTearDown(setup.controller.dispose);
@@ -1585,24 +1590,13 @@ void main() {
           final all = find.byKey(const ValueKey('topic-list-new-all'));
           final topics = find.byKey(const ValueKey('topic-list-new-topics'));
           final replies = find.byKey(const ValueKey('topic-list-new-replies'));
-          bool selected(Finder tab) =>
-              tester.getSemantics(tab).flagsCollection.isSelected ==
-              Tristate.isTrue;
-          bool focused(Finder tab) => tester
-              .widget<FocusableActionDetector>(
-                find.descendant(
-                  of: tab,
-                  matching: find.byType(FocusableActionDetector),
-                ),
-              )
-              .focusNode!
-              .hasPrimaryFocus;
-
-          await tester.tap(all);
-          await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
-          await tester.pumpAndSettle();
-          expect(focused(topics), isTrue);
-          expect(selected(all), isTrue);
+          await _openFeed(tester);
+          expect(tester.getSemantics(all).label, 'All, 1059 topics, selected');
+          await tester.sendKeyEvent(LogicalKeyboardKey.home);
+          // Latest, Unread, All, Topics.
+          for (var i = 0; i < 3; i++) {
+            await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+          }
           expect(
             setup.controller.currentTopicListMode,
             TopicListMode.newActivity,
@@ -1613,22 +1607,34 @@ void main() {
             setup.controller.currentTopicListMode,
             TopicListMode.newTopics,
           );
-          expect(selected(topics), isTrue);
-          expect(focused(topics), isTrue);
-          await tester.sendKeyEvent(LogicalKeyboardKey.end);
-          await tester.sendKeyEvent(LogicalKeyboardKey.space);
+          expect(find.text('New · Topics'), findsOneWidget);
+          await _openFeed(tester);
+          expect(
+            tester.getSemantics(topics).label,
+            'Topics, 1054 topics, selected',
+          );
+          await tester.sendKeyEvent(LogicalKeyboardKey.home);
+          for (var i = 0; i < 4; i++) {
+            await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+          }
+          await tester.sendKeyEvent(LogicalKeyboardKey.enter);
           await tester.pumpAndSettle();
           expect(
             setup.controller.currentTopicListMode,
             TopicListMode.newReplies,
           );
-          expect(selected(replies), isTrue);
-          expect(focused(replies), isTrue);
-
-          await setup.controller.selectTopicListMode(TopicListMode.newActivity);
+          expect(find.text('New · Replies'), findsOneWidget);
+          await _openFeed(tester);
+          expect(
+            tester.getSemantics(replies).label,
+            'Replies, 5 topics, selected',
+          );
+          await tester.tap(all);
           await tester.pumpAndSettle();
-          expect(selected(all), isTrue);
-          expect(selected(replies), isFalse);
+          expect(
+            setup.controller.currentTopicListMode,
+            TopicListMode.newActivity,
+          );
           expect(tester.takeException(), isNull);
         } finally {
           semantics.dispose();
@@ -2386,10 +2392,19 @@ Future<void> _selectFeed(WidgetTester tester, String key) async {
   final trigger = find.byKey(const ValueKey('topic-list-feed-menu'));
   await tester.tap(trigger);
   await tester.pumpAndSettle();
+  if (key == 'topic-list-new' &&
+      find.byKey(const ValueKey('topic-list-new-all')).evaluate().isNotEmpty) {
+    key = 'topic-list-new-all';
+  }
   final choice = find.byKey(
     ValueKey(key == 'topic-list-top' ? 'topic-list-top-period-yearly' : key),
   );
   await tester.ensureVisible(choice);
   await tester.tap(choice);
+  await tester.pumpAndSettle();
+}
+
+Future<void> _openFeed(WidgetTester tester) async {
+  await tester.tap(find.byKey(const ValueKey('topic-list-feed-menu')));
   await tester.pumpAndSettle();
 }
