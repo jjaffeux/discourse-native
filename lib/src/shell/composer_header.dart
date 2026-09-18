@@ -74,7 +74,6 @@ class ComposerHeader extends StatelessWidget {
     final label = minimized && destination.isNotEmpty
         ? '$modeLabel · $destination'
         : modeLabel;
-    final color = DTokens.of(context).foreground;
     final canToggleWhisper =
         !minimized &&
         whisperer &&
@@ -170,8 +169,8 @@ class ComposerHeader extends StatelessWidget {
                 semanticLabel: composer.whisper
                     ? 'Whisper options'
                     : 'Reply options',
-                variant: DButtonVariant.transparentBackground,
-                size: DButtonSize.large,
+                variant: DButtonVariant.outline,
+                size: DButtonSize.regular,
                 icon: DIcon(
                   composer.whisper ? DIcons.farEyeSlash : DIcons.reply,
                 ),
@@ -186,25 +185,21 @@ class ComposerHeader extends StatelessWidget {
               ),
             ),
           )
-        : Padding(
-            padding: const EdgeInsets.only(left: 6),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (composer.whisper) ...[
-                  DIcon(DIcons.farEyeSlash, size: 14, color: color),
-                  const SizedBox(width: 6),
-                ],
-                Flexible(
-                  child: Text(
-                    label,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.labelMedium,
-                  ),
-                ),
-              ],
+        : DToggle(
+            key: const ValueKey('composer-mode'),
+            pressed: true,
+            readOnly: true,
+            variant: DToggleVariant.outline,
+            icon: DIcon(
+              composer.whisper
+                  ? DIcons.farEyeSlash
+                  : target.createsTopic
+                  ? DIcons.layerGroup
+                  : target.isEdit
+                  ? DIcons.pen
+                  : DIcons.reply,
             ),
+            child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
           );
 
     final controls = [
@@ -333,33 +328,50 @@ class ComposerHeader extends StatelessWidget {
       height: height,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 8),
-        child: Row(
-          children: [
-            Expanded(
-              child: LayoutBuilder(
-                builder: (context, constraints) => Row(
-                  children: [
-                    Expanded(
-                      child: minimized
-                          ? heading
-                          : Align(
-                              alignment: AlignmentDirectional.centerStart,
-                              child: heading,
-                            ),
-                    ),
-                    if (!minimized && composer.canSaveDraft && !target.isEdit)
-                      ConstrainedBox(
-                        constraints: BoxConstraints(
-                          maxWidth: constraints.maxWidth * 0.6,
-                        ),
-                        child: _DraftStatus(composer: composer),
+        child: LayoutBuilder(
+          builder: (context, headerConstraints) => Row(
+            children: [
+              Expanded(
+                child: LayoutBuilder(
+                  builder: (context, constraints) => Row(
+                    children: [
+                      Expanded(
+                        child: minimized
+                            ? heading
+                            : Align(
+                                alignment: AlignmentDirectional.centerStart,
+                                child: SingleChildScrollView(
+                                  scrollDirection: Axis.horizontal,
+                                  child: heading,
+                                ),
+                              ),
                       ),
-                  ],
+                      if (!minimized && composer.canSaveDraft && !target.isEdit)
+                        ConstrainedBox(
+                          constraints: BoxConstraints(
+                            maxWidth: constraints.maxWidth * 0.6,
+                          ),
+                          child: _DraftStatus(composer: composer),
+                        ),
+                    ],
+                  ),
                 ),
               ),
-            ),
-            ...controls,
-          ],
+              ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxWidth: headerConstraints.maxWidth * 0.6,
+                ),
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  reverse: true,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: controls,
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -421,29 +433,31 @@ class _DraftStatus extends StatelessWidget {
           child: SizedBox(
             // Reserve the same label space across save states, including zoom.
             width: showLabel ? 20 + textScaler.scale(72) : 14,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                if (saving)
-                  DSpinner(size: 14, color: color, semanticLabel: null)
-                else
-                  DIcon(
-                    failing ? DIcons.triangleExclamation : DIcons.check,
-                    size: 14,
-                    color: color,
-                  ),
-                if (showLabel) ...[
-                  const SizedBox(width: 6),
-                  Flexible(
-                    child: Text(
-                      label,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: style,
+            child: LayoutBuilder(
+              builder: (context, constraints) => Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  if (saving)
+                    DSpinner(size: 14, color: color, semanticLabel: null)
+                  else
+                    DIcon(
+                      failing ? DIcons.triangleExclamation : DIcons.check,
+                      size: 14,
+                      color: color,
                     ),
-                  ),
+                  if (showLabel && constraints.maxWidth >= 40) ...[
+                    const SizedBox(width: 6),
+                    Flexible(
+                      child: Text(
+                        label,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: style,
+                      ),
+                    ),
+                  ],
                 ],
-              ],
+              ),
             ),
           ),
         ),

@@ -199,8 +199,8 @@ class ComposerPanel extends StatelessWidget {
                                 MediaQuery.textScalerOf(context).scale(
                                   target.createsTopic ||
                                           target.editsTopicMetadata
-                                      ? 320
-                                      : 240,
+                                      ? 200
+                                      : 160,
                                 ),
                               ),
                               child: Column(
@@ -245,31 +245,43 @@ class ComposerPanel extends StatelessWidget {
                                         child: Text(target.targetRecipients!),
                                       ),
                                     ),
+                                  if (target.isNewTopic ||
+                                      target.editsTopicMetadata ||
+                                      target.isTaxonomyEdit)
+                                    _TopicTaxonomy(composer: composer),
                                   if (target.createsTopic ||
-                                      target.editsTopicMetadata)
+                                      target.editsTopicMetadata) ...[
                                     Padding(
                                       padding: const EdgeInsets.fromLTRB(
                                         16,
-                                        2,
+                                        4,
                                         16,
-                                        8,
+                                        10,
                                       ),
                                       child: DInput(
                                         key: const ValueKey(
                                           'composer-topic-title',
                                         ),
                                         controller: composer.title,
+                                        borderless: true,
                                         size: DControlSize.large,
                                         readOnly: !composer.isEditing,
-                                        labelText: 'Title',
+                                        semanticLabel: 'Title',
+                                        style: theme.textTheme.bodyLarge
+                                            ?.copyWith(
+                                              fontWeight: FontWeight.w600,
+                                            ),
                                         hintText: 'Give your topic a title',
                                         textInputAction: TextInputAction.next,
                                       ),
                                     ),
-                                  if (target.isNewTopic ||
-                                      target.editsTopicMetadata ||
-                                      target.isTaxonomyEdit)
-                                    _TopicTaxonomy(composer: composer),
+                                    const DSeparator(
+                                      indent: 16,
+                                      endIndent: 16,
+                                      space: 1,
+                                    ),
+                                    const SizedBox(height: 12),
+                                  ],
                                   if (target.mode == ComposerMode.postEdit)
                                     Padding(
                                       padding: const EdgeInsets.fromLTRB(
@@ -307,7 +319,6 @@ class ComposerPanel extends StatelessWidget {
                                       ),
                                     ),
                                   if (!target.isTaxonomyEdit) ...[
-                                    _FormattingToolbar(composer: composer),
                                     Expanded(
                                       child: Stack(
                                         fit: StackFit.expand,
@@ -526,7 +537,7 @@ class _TopicTaxonomy extends StatelessWidget {
           }
 
           return Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
             child: Align(
               alignment: AlignmentDirectional.centerStart,
               child: Wrap(
@@ -2776,69 +2787,61 @@ class _FormattingToolbar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final composer = this.composer.activeEditor;
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 0, 12, 4),
-      child: Align(
-        alignment: AlignmentDirectional.centerStart,
-        child: TextFieldTapRegion(
-          child: DButtonGroup(
-            key: const ValueKey('composer-formatting'),
-            semanticLabel: 'Formatting',
-            children: [
-              for (final (label, icon, mark, key) in [
-                (
-                  'Bold',
-                  DIcons.bold,
-                  ComposerMark.bold,
-                  LogicalKeyboardKey.keyB,
-                ),
-                (
-                  'Italic',
-                  DIcons.italic,
-                  ComposerMark.italic,
-                  LogicalKeyboardKey.keyI,
-                ),
-                (
-                  'Inline code',
-                  DIcons.code,
-                  ComposerMark.inlineCode,
-                  LogicalKeyboardKey.keyE,
-                ),
-              ])
-                DButton.iconOnly(
-                  key: ValueKey('composer-format-${mark.name}'),
-                  tooltip: label,
-                  shortcut: DShortcut(_formattingShortcut(key)),
-                  variant: DButtonVariant.transparentBackground,
-                  size: DButtonSize.regular,
-                  icon: DIcon(icon),
-                  onPressed: composer.isEditing && !composer.loadingBody
-                      ? () {
-                          composer.toggleMark(mark);
-                          composer.focus.requestFocus();
-                        }
-                      : null,
-                ),
+    return TextFieldTapRegion(
+      child: Semantics(
+        key: const ValueKey('composer-formatting'),
+        container: true,
+        label: 'Formatting',
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          spacing: 6,
+          children: [
+            for (final (label, icon, mark, key) in [
+              ('Bold', DIcons.bold, ComposerMark.bold, LogicalKeyboardKey.keyB),
+              (
+                'Italic',
+                DIcons.italic,
+                ComposerMark.italic,
+                LogicalKeyboardKey.keyI,
+              ),
+              (
+                'Inline code',
+                DIcons.code,
+                ComposerMark.inlineCode,
+                LogicalKeyboardKey.keyE,
+              ),
+            ])
               DButton.iconOnly(
-                key: const ValueKey('composer-format-link'),
-                tooltip: 'Link',
-                shortcut: DShortcut(
-                  _formattingShortcut(LogicalKeyboardKey.keyL),
-                ),
-                variant: DButtonVariant.transparentBackground,
+                key: ValueKey('composer-format-${mark.name}'),
+                tooltip: label,
+                shortcut: DShortcut(_formattingShortcut(key)),
+                variant: DButtonVariant.outline,
                 size: DButtonSize.regular,
-                icon: const DIcon(DIcons.link),
+                icon: DIcon(icon),
                 onPressed: composer.isEditing && !composer.loadingBody
-                    ? () => unawaited(
-                        showComposerLinkDialog(
-                          context: context,
-                          composer: composer,
-                        ),
-                      )
+                    ? () {
+                        composer.toggleMark(mark);
+                        composer.focus.requestFocus();
+                      }
                     : null,
               ),
-            ],
-          ),
+            DButton.iconOnly(
+              key: const ValueKey('composer-format-link'),
+              tooltip: 'Link',
+              shortcut: DShortcut(_formattingShortcut(LogicalKeyboardKey.keyL)),
+              variant: DButtonVariant.outline,
+              size: DButtonSize.regular,
+              icon: const DIcon(DIcons.link),
+              onPressed: composer.isEditing && !composer.loadingBody
+                  ? () => unawaited(
+                      showComposerLinkDialog(
+                        context: context,
+                        composer: composer,
+                      ),
+                    )
+                  : null,
+            ),
+          ],
         ),
       ),
     );
@@ -2875,6 +2878,8 @@ class _Toolbar extends StatelessWidget {
     final uploadsEnabled = composer.imageUploader != null;
     return _ComposerToolbarOverflow(
       children: [
+        _FormattingToolbar(composer: this.composer),
+        const DSeparator(orientation: Axis.vertical, length: 20),
         if (uploadsEnabled)
           _ComposerUploadButton(composer: composer, pickFiles: pickFiles),
         if (emojiEnabled)
@@ -2883,8 +2888,8 @@ class _Toolbar extends StatelessWidget {
               builder: (buttonContext) => DButton.iconOnly(
                 key: const ValueKey('composer-emoji-picker'),
                 tooltip: 'Add emoji',
-                variant: DButtonVariant.transparentBackground,
-                size: DButtonSize.large,
+                variant: DButtonVariant.outline,
+                size: DButtonSize.regular,
                 onPressed: !composer.isEditing
                     ? null
                     : () => unawaited(
@@ -2939,8 +2944,8 @@ class _Toolbar extends StatelessWidget {
                 hasPopup: true,
                 expanded: trigger.open,
                 focusNode: trigger.focusNode,
-                variant: DButtonVariant.transparentBackground,
-                size: DButtonSize.large,
+                variant: DButtonVariant.outline,
+                size: DButtonSize.regular,
                 onPressed: composer.isEditing ? trigger.toggle : null,
                 icon: const DIcon(DIcons.plus),
               ),
@@ -2961,8 +2966,8 @@ class _Toolbar extends StatelessWidget {
                 hasPopup: true,
                 expanded: trigger.open,
                 focusNode: trigger.focusNode,
-                variant: DButtonVariant.transparentBackground,
-                size: DButtonSize.large,
+                variant: DButtonVariant.outline,
+                size: DButtonSize.regular,
                 onPressed: composer.isEditing ? trigger.toggle : null,
                 icon: const DIcon(DIcons.ellipsis),
               ),
@@ -3047,7 +3052,11 @@ class _ComposerToolbarOverflowState extends State<_ComposerToolbarOverflow> {
           key: const ValueKey('composer-toolbar-scroll'),
           controller: _controller,
           scrollDirection: Axis.horizontal,
-          child: Row(mainAxisSize: MainAxisSize.min, children: widget.children),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            spacing: 6,
+            children: widget.children,
+          ),
         ),
         if (_canScrollBackward)
           PositionedDirectional(
@@ -3092,9 +3101,8 @@ class _ComposerToolbarScrollButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final pointsRight = forward == (textDirection == TextDirection.ltr);
-    final fadeColor = theme.shell.content;
+    final fadeColor = _composerFooterColor(context);
 
     return Container(
       width: 38,
@@ -3113,7 +3121,7 @@ class _ComposerToolbarScrollButton extends StatelessWidget {
             : 'Show previous composer tools',
         onPressed: onPressed,
         icon: DIcon(pointsRight ? DIcons.chevronRight : DIcons.chevronLeft),
-        variant: DButtonVariant.transparentBackground,
+        variant: DButtonVariant.outline,
         size: DButtonSize.regular,
       ),
     );
@@ -3185,8 +3193,8 @@ class _ComposerUploadButtonState extends State<_ComposerUploadButton> {
         ? null
         : () => unawaited(_pick()),
     icon: const DIcon(DIcons.paperclip),
-    variant: DButtonVariant.transparentBackground,
-    size: DButtonSize.large,
+    variant: DButtonVariant.outline,
+    size: DButtonSize.regular,
   );
 }
 
@@ -3215,6 +3223,11 @@ class ComposerUploadQueue extends StatelessWidget {
     );
   }
 }
+
+Color _composerFooterColor(BuildContext context) => Color.alphaBlend(
+  DTokens.of(context).foreground.withValues(alpha: 0.025),
+  Theme.of(context).shell.content,
+);
 
 class _Footer extends StatelessWidget {
   const _Footer({
@@ -3278,79 +3291,112 @@ class _Footer extends StatelessWidget {
             compact &&
             composer.target.isNewTopic &&
             !composer.canRecheck &&
-            MediaQuery.textScalerOf(context).scale(14) <= 20;
+            MediaQuery.textScalerOf(context).scale(14) <= 22;
         // Native image pickers outlive a resize, so the toolbar keeps its state.
         return ComposerFooterLayout(
           compact: compact,
-          child: Row(
+          child: Flex(
+            direction: constraints.maxWidth < 620
+                ? Axis.vertical
+                : Axis.horizontal,
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: constraints.maxWidth < 620
+                ? CrossAxisAlignment.stretch
+                : CrossAxisAlignment.center,
+            spacing: 8,
             children: [
-              Theme(
-                data: composer.whisper
-                    ? theme.copyWith(
-                        extensions: [
-                          ...theme.extensions.values.where(
-                            (extension) => extension is! DTokens,
-                          ),
-                          DTokens.of(context).copyWith(
-                            colors: theme.colorScheme.copyWith(
-                              primary: theme.colorScheme.tertiary,
-                              onPrimary: theme.colorScheme.onTertiary,
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Theme(
+                    data: composer.whisper
+                        ? theme.copyWith(
+                            extensions: [
+                              ...theme.extensions.values.where(
+                                (extension) => extension is! DTokens,
+                              ),
+                              DTokens.of(context).copyWith(
+                                colors: theme.colorScheme.copyWith(
+                                  primary: theme.colorScheme.tertiary,
+                                  onPrimary: theme.colorScheme.onTertiary,
+                                ),
+                              ),
+                            ],
+                          )
+                        : theme,
+                    child: compact && !compactCreate
+                        ? DButton.iconOnly(
+                            key: const ValueKey('composer-submit'),
+                            tooltip: label,
+                            semanticLabel: label,
+                            onPressed: busy ? null : onSubmit,
+                            loading: busy,
+                            icon: DIcon(
+                              composer.whisper
+                                  ? DIcons.farEyeSlash
+                                  : composer.target.isEdit
+                                  ? DIcons.check
+                                  : composer.target.isNewTopic
+                                  ? DIcons.farPenToSquare
+                                  : DIcons.reply,
                             ),
+                          )
+                        : DButton(
+                            key: const ValueKey('composer-submit'),
+                            onPressed: busy ? null : onSubmit,
+                            loading: busy,
+                            semanticLabel: label,
+                            tooltip: compactCreate ? label : null,
+                            icon: DIcon(
+                              composer.whisper
+                                  ? DIcons.farEyeSlash
+                                  : composer.target.isEdit
+                                  ? DIcons.check
+                                  : composer.target.isNewTopic
+                                  ? DIcons.plus
+                                  : DIcons.reply,
+                            ),
+                            label: Text(compactCreate ? 'Create' : label),
                           ),
-                        ],
-                      )
-                    : theme,
-                child: compact && !compactCreate
-                    ? DButton.iconOnly(
-                        key: const ValueKey('composer-submit'),
-                        tooltip: label,
-                        semanticLabel: label,
-                        onPressed: busy ? null : onSubmit,
-                        loading: busy,
-                        icon: DIcon(
-                          composer.whisper
-                              ? DIcons.farEyeSlash
-                              : composer.target.isEdit
-                              ? DIcons.check
-                              : composer.target.isNewTopic
-                              ? DIcons.farPenToSquare
-                              : DIcons.reply,
-                        ),
-                      )
-                    : DButton(
-                        key: const ValueKey('composer-submit'),
-                        onPressed: busy ? null : onSubmit,
-                        loading: busy,
-                        semanticLabel: label,
-                        tooltip: compactCreate ? label : null,
-                        icon: compactCreate
-                            ? const DIcon(DIcons.farPenToSquare)
-                            : null,
-                        label: Text(compactCreate ? 'Create' : label),
-                      ),
+                  ),
+                  const SizedBox(width: 8),
+                  Flexible(
+                    fit: FlexFit.loose,
+                    child: DButton(
+                      key: const ValueKey('composer-cancel'),
+                      onPressed: onCancel,
+                      variant: DButtonVariant.transparentBackground,
+                      label: const Text('Discard'),
+                    ),
+                  ),
+                  for (final control in pluginControls)
+                    Padding(
+                      padding: const EdgeInsetsDirectional.only(start: 8),
+                      child: control,
+                    ),
+                ],
               ),
-              const SizedBox(width: 8),
-              DButton(
-                key: const ValueKey('composer-cancel'),
-                onPressed: onCancel,
-                variant: DButtonVariant.transparentBackground,
-                label: const Text('Cancel'),
-              ),
-              for (final control in pluginControls)
-                Padding(
-                  padding: const EdgeInsetsDirectional.only(start: 8),
-                  child: control,
+              if (toolbar != null)
+                Flexible(
+                  flex: constraints.maxWidth < 620 ? 0 : 1,
+                  fit: constraints.maxWidth < 620
+                      ? FlexFit.loose
+                      : FlexFit.tight,
+                  child: toolbar,
                 ),
-              const SizedBox(width: 8),
-              if (toolbar != null) Expanded(child: toolbar) else const Spacer(),
             ],
           ),
         );
       },
     );
 
-    return Padding(
-      padding: EdgeInsets.fromLTRB(8, 0, 14, sideDocked ? 0 : 10),
+    return Container(
+      key: const ValueKey('composer-footer'),
+      decoration: BoxDecoration(
+        color: _composerFooterColor(context),
+        border: Border(top: BorderSide(color: theme.shell.divider)),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,

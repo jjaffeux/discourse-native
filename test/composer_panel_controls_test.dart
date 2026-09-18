@@ -494,44 +494,44 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets(
-      'keeps writing tools and submit visible without discard in the footer',
-      (tester) async {
-        final composer = ComposerController(
-          _newTopicTarget,
-          imageUploader:
-              (file, {required onProgress, required abortTrigger}) async =>
-                  throw StateError('The picker is not invoked by this test.'),
-        );
-        final shell = await _shell();
-        addTearDown(composer.dispose);
-        addTearDown(shell.dispose);
-        await _pumpPanel(tester, shell, composer, size: const Size(440, 600));
-        await tester.pump();
+    testWidgets('stacks writing tools below actions in a narrow footer', (
+      tester,
+    ) async {
+      final composer = ComposerController(
+        _newTopicTarget,
+        imageUploader:
+            (file, {required onProgress, required abortTrigger}) async =>
+                throw StateError('The picker is not invoked by this test.'),
+      );
+      final shell = await _shell();
+      addTearDown(composer.dispose);
+      addTearDown(shell.dispose);
+      await _pumpPanel(tester, shell, composer, size: const Size(440, 600));
+      await tester.pump();
 
-        final upload = tester.getCenter(
-          find.byKey(const ValueKey('composer-upload')),
-        );
-        final format = tester.getCenter(
-          find.byKey(const ValueKey('composer-formatting')),
-        );
-        final create = tester.getCenter(
-          find.widgetWithText(DButton, 'Create topic'),
-        );
-        expect(upload.dy, closeTo(create.dy, 1));
-        expect(
-          format.dy,
-          lessThan(tester.getRect(find.byType(ComposerEditor)).top),
-        );
-        expect(
-          find.byKey(const ValueKey('composer-toolbar-scroll-forward')),
-          findsNothing,
-        );
-        expect(find.byKey(const ValueKey('composer-discard')), findsNothing);
-        expect(find.byKey(const ValueKey('composer-options')), findsNothing);
-        expect(tester.takeException(), isNull);
-      },
-    );
+      final upload = tester.getCenter(
+        find.byKey(const ValueKey('composer-upload')),
+      );
+      final format = tester.getCenter(
+        find.byKey(const ValueKey('composer-formatting')),
+      );
+      final create = tester.getCenter(
+        find.widgetWithText(DButton, 'Create topic'),
+      );
+      expect(upload.dy, greaterThan(create.dy));
+      expect(format.dy, closeTo(upload.dy, 1));
+      expect(
+        format.dy,
+        greaterThan(tester.getRect(find.byType(ComposerEditor)).bottom),
+      );
+      expect(
+        find.byKey(const ValueKey('composer-toolbar-scroll-forward')),
+        findsNothing,
+      );
+      expect(find.byKey(const ValueKey('composer-discard')), findsNothing);
+      expect(find.byKey(const ValueKey('composer-options')), findsNothing);
+      expect(tester.takeException(), isNull);
+    });
 
     for (final (name, target, whisper, label, icon) in [
       ('reply', _replyTarget, false, 'Reply', DIcons.reply),
@@ -550,13 +550,7 @@ void main() {
         'Save',
         DIcons.check,
       ),
-      (
-        'new topic',
-        _newTopicTarget,
-        false,
-        'Create topic',
-        DIcons.farPenToSquare,
-      ),
+      ('new topic', _newTopicTarget, false, 'Create topic', DIcons.plus),
     ]) {
       testWidgets('narrow $name footer submits from its labeled icon', (
         tester,
@@ -574,7 +568,7 @@ void main() {
         );
 
         final submit = find.byKey(const ValueKey('composer-submit'));
-        final cancel = find.widgetWithText(DButton, 'Cancel');
+        final cancel = find.widgetWithText(DButton, 'Discard');
         expect(cancel.hitTestable(), findsOneWidget);
         expect(
           tester.getRect(cancel).left,
@@ -653,39 +647,40 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('places Create and Cancel on the left and tools on the right', (
-      tester,
-    ) async {
-      final composer = ComposerController(
-        _newTopicTarget,
-        imageUploader:
-            (file, {required onProgress, required abortTrigger}) async =>
-                throw StateError('The picker is not invoked by this test.'),
-      );
-      final shell = await _shell();
-      addTearDown(composer.dispose);
-      addTearDown(shell.dispose);
-      await _pumpPanel(tester, shell, composer);
-      await tester.pump();
+    testWidgets(
+      'places Create and Discard on the left and tools on the right',
+      (tester) async {
+        final composer = ComposerController(
+          _newTopicTarget,
+          imageUploader:
+              (file, {required onProgress, required abortTrigger}) async =>
+                  throw StateError('The picker is not invoked by this test.'),
+        );
+        final shell = await _shell();
+        addTearDown(composer.dispose);
+        addTearDown(shell.dispose);
+        await _pumpPanel(tester, shell, composer);
+        await tester.pump();
 
-      final panel = tester.getRect(find.byType(ComposerPanel));
-      final toolbar = tester.getRect(
-        find.byKey(const ValueKey('composer-toolbar-scroll')),
-      );
+        final panel = tester.getRect(find.byType(ComposerPanel));
+        final toolbar = tester.getRect(
+          find.byKey(const ValueKey('composer-toolbar-scroll')),
+        );
 
-      final submit = tester.getRect(
-        find.byKey(const ValueKey('composer-submit')),
-      );
-      final cancel = tester.getRect(
-        find.byKey(const ValueKey('composer-cancel')),
-      );
-      expect(submit.left, closeTo(panel.left + 8, 1));
-      expect(cancel.left, closeTo(submit.right + 8, 1));
-      expect(cancel.center.dy, closeTo(submit.center.dy, 1));
-      expect(toolbar.right, closeTo(panel.right - 14, 1));
-      expect(toolbar.left, greaterThan(cancel.right));
-      expect(tester.takeException(), isNull);
-    });
+        final submit = tester.getRect(
+          find.byKey(const ValueKey('composer-submit')),
+        );
+        final cancel = tester.getRect(
+          find.byKey(const ValueKey('composer-cancel')),
+        );
+        expect(submit.left, closeTo(panel.left + 12, 1));
+        expect(cancel.left, closeTo(submit.right + 8, 1));
+        expect(cancel.center.dy, closeTo(submit.center.dy, 1));
+        expect(toolbar.right, closeTo(panel.right - 12, 1));
+        expect(toolbar.left, greaterThan(cancel.right));
+        expect(tester.takeException(), isNull);
+      },
+    );
 
     for (final scale in [1.0, 2.0, 3.0]) {
       testWidgets(
@@ -824,7 +819,12 @@ void main() {
         findsOneWidget,
       );
       expect(find.text('tech-leads'), findsOneWidget);
-      expect(find.text('Title'), findsOneWidget);
+      expect(
+        tester
+            .widget<DInput>(find.byKey(const ValueKey('composer-topic-title')))
+            .semanticLabel,
+        'Title',
+      );
       expect(find.text('Send message'), findsOneWidget);
       expect(find.text('Category'), findsNothing);
       expect(find.text('Tags'), findsNothing);
