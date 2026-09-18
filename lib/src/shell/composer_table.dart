@@ -72,11 +72,19 @@ final class _TableProjection implements ComposerInteractiveSyntaxProjection {
   int caretAfter(String document) =>
       end < document.length && document[end] == '\n' ? end + 1 : end;
   @override
-  TextEditingValue moveCaretAfter(TextEditingValue document) =>
-      document.copyWith(
-        selection: TextSelection.collapsed(offset: caretAfter(document.text)),
-        composing: TextRange.empty,
-      );
+  TextEditingValue moveCaretAfter(TextEditingValue document) {
+    // The visual line below a terminal table still maps to its last source
+    // row. Give body text its own line before placing the caret there.
+    final text = end == document.text.length
+        ? '${document.text}\n'
+        : document.text;
+    return document.copyWith(
+      text: text,
+      selection: TextSelection.collapsed(offset: caretAfter(text)),
+      composing: TextRange.empty,
+    );
+  }
+
   @override
   List<InlineSpan> buildCollapsedSpans(ComposerSyntaxRenderContext context) {
     _editorKey = context.pillKey;

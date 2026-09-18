@@ -526,8 +526,9 @@ class MarkdownEditingController extends TextEditingController {
   }
 
   ComposerSyntaxOccurrence? collapsedBlockSyntaxBeforeGlobalPosition(
-    Offset globalPosition,
-  ) {
+    Offset globalPosition, {
+    int? sourceOffset,
+  }) {
     for (final block in _syntaxBlocksFor(text)) {
       if (!block.projection.protectsAdjacentDelete ||
           !isSyntaxCollapsed(block)) {
@@ -535,9 +536,13 @@ class MarkdownEditingController extends TextEditingController {
       }
       final rect = collapsedSyntaxGlobalRect(block);
       if (rect != null &&
-          globalPosition.dx >= rect.right &&
-          globalPosition.dy >= rect.top &&
-          globalPosition.dy < rect.bottom) {
+          ((globalPosition.dx >= rect.right &&
+                  globalPosition.dy >= rect.top &&
+                  globalPosition.dy < rect.bottom) ||
+              (globalPosition.dy >= rect.bottom &&
+                  sourceOffset != null &&
+                  sourceOffset > block.start &&
+                  sourceOffset <= block.end))) {
         return block;
       }
     }
