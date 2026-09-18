@@ -1369,6 +1369,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
     _pointerDownAfterBlockSyntax = !hasDirectHit
         ? widget.composer.text.collapsedBlockSyntaxBeforeGlobalPosition(
             position,
+            sourceOffset: _renderEditable?.getPositionForPoint(position).offset,
           )
         : null;
     if (!hasDirectHit && _pointerDownAfterBlockSyntax == null) {

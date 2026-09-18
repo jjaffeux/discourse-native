@@ -397,6 +397,47 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  for (final suffix in ['', '\n', '\n\n', '\n\nExisting body']) {
+    testWidgets(
+      'typing after clicking below a table inserts body text (${suffix.length})',
+      (tester) async {
+        final source = '| Name | Cost |\n| --- | --- |\n| Tea | 12 |$suffix';
+        final composer = await _pump(tester, source: source);
+        await tester.tap(_cell(1, 0), kind: PointerDeviceKind.mouse);
+        await tester.pump();
+        final table = tester.getRect(find.byType(ComposerTableEditor));
+        await tester.tapAt(
+          Offset(table.left + 2, table.bottom + 12),
+          kind: PointerDeviceKind.mouse,
+        );
+        await tester.pump();
+        expect(composer.focus.hasPrimaryFocus, isTrue);
+        expect(
+          composer.text.selection.extentOffset,
+          greaterThanOrEqualTo(parseComposerTables(source).single.end),
+        );
+        final value = composer.text.value;
+        final offset = value.selection.extentOffset;
+        tester.testTextInput.updateEditingValue(
+          TextEditingValue(
+            text: value.text.replaceRange(offset, offset, 'After'),
+            selection: TextSelection.collapsed(offset: offset + 5),
+          ),
+        );
+        await tester.pump();
+        expect(
+          composer.text.text,
+          '${parseComposerTables(source).single.source}\nAfter${suffix.isEmpty ? '' : suffix.substring(1)}',
+        );
+        expect(
+          parseComposerTables(composer.raw).single.source,
+          parseComposerTables(source).single.source,
+        );
+      },
+      variant: TargetPlatformVariant.only(TargetPlatform.macOS),
+    );
+  }
+
   testWidgets('mouse clicks retain cell focus on macOS', (tester) async {
     final composer = await _pump(tester);
     await tester.tap(_cell(1, 0), kind: PointerDeviceKind.mouse);
