@@ -4,7 +4,9 @@ Typing `/` at a word boundary opens a Native command menu in topic and chat
 composers. An empty query displays **Type to search** next to the caret.
 Continue typing to filter, use Up/Down and Return to choose, or Escape/outside
 click to dismiss. An unmatched query displays an empty state; Return cannot
-accidentally send chat while that menu is open. Escape leaves the draft intact.
+accidentally send chat while that menu is open. Escape and **Close menu** remove
+an unused `/`, while preserving `/query` when text has been typed. Space closes
+the menu and preserves the slash, query and space as literal draft text.
 URLs, paths, selections, IME composition and Markdown code do not open commands.
 
 The shared editor supplies Bold, Italic, Inline code and Link. Topic insertion
@@ -32,7 +34,7 @@ routing on `DCommandController`.
   offline production fixture: inline hint, filtered menu, retained typing focus,
   Return and arrow selection. Native chat was inspected in dark/wide and
   light/narrow layouts, including opening and cancelling date/time, menu
-  collision above the editor and Escape preserving the draft. The repeatable
+  collision above the editor and Escape dismissal. The repeatable
   offline chat fixture is `tool/composer_slash_review_main.dart`. 200% layout
   is covered by widget tests.
 - Five existing failures reproduced on unchanged main `fbcd8fb38`: four chat
