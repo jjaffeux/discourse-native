@@ -52,7 +52,8 @@ expanded state and activation.
 Use shared control geometry and paint from `foundation/control_style.dart`.
 Button-like controls must use the Button styleguide's shared `DControlSize`
 scale: `small` (24px), `regular` (28px), and `large` (32px). Small labels use
-12px text with 16px leading; regular and large labels use 13px with 20px leading.
+12px text with 16px leading; regular labels use 13px and large labels use 14px,
+both with 20px leading.
 Extra-small controls have been removed; use small for compact actions. See
 [the compact sizing update](compact-control-sizing.md).
 Component size names are aliases of this enum. Do not introduce alternate
