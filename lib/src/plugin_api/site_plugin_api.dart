@@ -590,7 +590,11 @@ final class SidebarPanelContribution {
     required this.onOpen,
     required this.onClose,
     this.selectedDestinationId,
+    this.badge,
   });
+
+  /// Optional plugin-owned status displayed beside the tab label.
+  final Widget? badge;
 
   final String label;
   final DIconData icon;

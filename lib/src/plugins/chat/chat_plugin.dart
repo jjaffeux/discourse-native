@@ -16,6 +16,7 @@ import '../../plugin_api/site_plugin_api.dart';
 import '../../shell/composer_controller.dart';
 import '../../shell/global_search_models.dart';
 import '../../shell/user_status.dart';
+import '../../theme/app_theme.dart';
 import '../../theme/d_icons.dart';
 import 'chat_browse_channels_view.dart';
 import 'chat_channel.dart';
@@ -390,8 +391,22 @@ class ChatPlugin
 
     if (!shell.chatAvailable(siteUrl)) return null;
 
+    final unreadCount = shell.chat.unreadMessageCount(siteUrl);
     return SidebarPanelContribution(
       label: 'Chat',
+      badge: unreadCount > 0
+          ? DBadge(
+              key: const ValueKey('chat-sidebar-unread-badge'),
+              size: DBadgeSize.compact,
+              backgroundColor: Theme.of(context).discourse.success,
+              foregroundColor: Theme.of(
+                context,
+              ).discourse.notificationForeground,
+              semanticLabel:
+                  '$unreadCount unread ${unreadCount == 1 ? 'message' : 'messages'}',
+              child: Text(unreadCount > 99 ? '99+' : '$unreadCount'),
+            )
+          : null,
       icon: DIcons.comment,
       active: ownsRouteId(shell.currentContent?.id),
       separateWhenActive: true,
@@ -417,8 +432,10 @@ class ChatPlugin
   }
 
   @override
-  Listenable sidebarPanelListenable(BuildContext context) =>
-      PluginUiScope.require(context, chatShellService);
+  Listenable sidebarPanelListenable(BuildContext context) => Listenable.merge([
+    PluginUiScope.require(context, chatShellService),
+    PluginUiScope.require(context, chatControllerService),
+  ]);
 
   @override
   Listenable sidebarListenable(BuildContext context) =>

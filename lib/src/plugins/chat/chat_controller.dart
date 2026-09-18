@@ -768,6 +768,17 @@ class ChatController extends FrameSafeNotifier {
   List<ChatChannel> directChannels(String siteUrl) =>
       _resolve(siteUrl, _directIds[siteUrl]);
 
+  /// Unread messages across channels and DMs, including watched threads.
+  /// Mentions overlap these counts; unread thread totals count threads, not messages.
+  int unreadMessageCount(String siteUrl) =>
+      [...publicChannels(siteUrl), ...directChannels(siteUrl)].fold(
+        0,
+        (count, channel) =>
+            count +
+            channel.tracking.unreadCount +
+            channel.tracking.watchedThreadsUnreadCount,
+      );
+
   /// Public channels in the web drawer's unread-first activity order.
   List<ChatChannel> activitySortedPublicChannels(String siteUrl) {
     final channels = [...publicChannels(siteUrl)];

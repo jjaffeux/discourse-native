@@ -562,7 +562,14 @@ class _SidebarPanelTabs extends StatelessWidget {
                     'sidebar-panel-switch-${candidate.owner.value}',
                   ),
                   value: candidate.owner.value,
-                  child: Text(candidate.panel.label),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    spacing: DSpacing.xs,
+                    children: [
+                      Text(candidate.panel.label),
+                      ?candidate.panel.badge,
+                    ],
+                  ),
                 ),
           ],
         ),
