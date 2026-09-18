@@ -15,7 +15,6 @@ import '../theme/d_native_icons.dart';
 import 'anchored_picker.dart';
 import 'avatar_image.dart';
 import 'category_icon.dart';
-import 'content_reading_lane.dart';
 import 'open_link.dart';
 import 'platform.dart';
 import 'relative_time.dart';
@@ -130,12 +129,9 @@ class _TopicHeaderReadingLane extends StatelessWidget {
   final Widget child;
 
   @override
-  Widget build(BuildContext context) => ContentReadingLaneBox(
-    padding: const EdgeInsets.symmetric(horizontal: 12),
-    child: Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: child,
-    ),
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.symmetric(horizontal: 16),
+    child: SizedBox(width: double.infinity, child: child),
   );
 }
 
@@ -148,7 +144,7 @@ class _TopicHeaderToolbar extends StatelessWidget {
   Widget build(BuildContext context) => LayoutBuilder(
     builder: (context, constraints) {
       final padding = EdgeInsets.symmetric(
-        horizontal: 12,
+        horizontal: 16,
         vertical: context.isTouch ? 4 : 12,
       );
       final firstLineConstraints = BoxConstraints(
@@ -163,11 +159,6 @@ class _TopicHeaderToolbar extends StatelessWidget {
           ),
         ),
       );
-      final lane = ContentReadingLane.geometryFor(
-        context,
-        availableWidth: constraints.maxWidth,
-        basePadding: const EdgeInsets.symmetric(horizontal: 12),
-      );
       return ColoredBox(
         color: Theme.of(context).shell.content,
         child: ConstrainedBox(
@@ -180,9 +171,7 @@ class _TopicHeaderToolbar extends StatelessWidget {
               children: [
                 if (!header.keepTopicListOpen)
                   ConstrainedBox(
-                    constraints: firstLineConstraints.copyWith(
-                      minWidth: lane.padding.left + 4,
-                    ),
+                    constraints: firstLineConstraints,
                     child: Padding(
                       padding: const EdgeInsetsDirectional.only(
                         end: DSpacing.sm,
@@ -197,9 +186,7 @@ class _TopicHeaderToolbar extends StatelessWidget {
                         ),
                       ),
                     ),
-                  )
-                else
-                  SizedBox(width: lane.padding.left + 4),
+                  ),
                 Expanded(
                   child: Padding(
                     padding: const EdgeInsetsDirectional.only(end: 8),

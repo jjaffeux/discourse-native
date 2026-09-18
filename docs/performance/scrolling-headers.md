@@ -42,3 +42,19 @@ layouts, including scrolling down/up and hidden/revealed header accessibility.
 Regression coverage checks stats, avatar stacking, separator geometry, retained
 scrolling behavior, loading metadata and title editing. Existing unrelated inbox
 failures documented above remain outside this change.
+
+## Full-width topic panels
+
+The topic header, activity area and post viewport follow the resizable panel's
+width without the former 825-pixel cap or desktop alignment margins. Measurements
+from the rendered local mockup at `http://localhost:5183/` show 16-pixel horizontal
+header/post padding and a further 39-pixel leading inset for the post body.
+The topic separator shares the 16-pixel insets. These fixed layout insets do not
+scale into a wider centered reading column when app text zoom changes.
+
+Geometry and interaction checks pass at 1200/2000-pixel desktop widths, 100/150%
+text settings, and narrow/enlarged-text layouts. Static analysis is clean. Broad
+inbox/rebuild checks retain existing unrelated failures, including the post-action
+spacing expectation reproduced on main.
+A clean native macOS fixture build was visually checked in a maximized light
+window (topic content wider than 825 pixels) and the dark 650-pixel layout.

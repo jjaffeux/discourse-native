@@ -1807,9 +1807,9 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     final readingLane = ContentReadingLane.geometryFor(
       context,
       availableWidth: topicContentWidth,
-      basePadding: widget.inbox
-          ? const EdgeInsets.symmetric(horizontal: 12)
-          : EdgeInsets.zero,
+      // The resizable panel owns the reading width. Posts supply their own
+      // 16-pixel padding; no extra centered column or outer gutter is added.
+      widthLimit: double.infinity,
     );
 
     final restoringSidebar =
@@ -2333,6 +2333,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
               : ScrollRetractingHeader(
                   identity: (siteUrl, snapshot.topicId, _scroll),
                   header: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       _TopicViewHeader(
                         inbox: widget.inbox,
@@ -4387,83 +4388,102 @@ class _PostTileState extends State<_PostTile> {
                     ),
                 ],
               ),
-              if (post.notice case final notice?) ...[
-                const SizedBox(height: 10),
-                _PostNoticeBanner(
-                  siteUrl: widget.siteUrl,
-                  post: post,
-                  notice: notice,
-                ),
-              ],
-              const SizedBox(height: 10),
-              ShellSelector<int?>(
-                select: (controller) =>
-                    controller.currentUserFor(widget.siteUrl)?.id,
-                builder: (context, _, _) =>
-                    (PluginScope.maybeOf(context)?.registry ??
+              Padding(
+                padding: const EdgeInsetsDirectional.only(start: 39),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    if (post.notice case final notice?) ...[
+                      const SizedBox(height: 10),
+                      _PostNoticeBanner(
+                        siteUrl: widget.siteUrl,
+                        post: post,
+                        notice: notice,
+                      ),
+                    ],
+                    const SizedBox(height: 10),
+                    ShellSelector<int?>(
+                      select: (controller) =>
+                          controller.currentUserFor(widget.siteUrl)?.id,
+                      builder: (context, _, _) =>
+                          (PluginScope.maybeOf(context)?.registry ??
+                                  PluginRegistry.empty)
+                              .transformPostBody(
+                                context,
+                                widget.siteUrl,
+                                post,
+                                topic: PluginContainingTopic(
+                                  id: widget.topic.id,
+                                  slug:
+                                      ShellScope.read(
+                                        context,
+                                      ).currentContent?.slug ??
+                                      'topic',
+                                  archived: widget.topic.archived,
+                                ),
+                                builder: (context, displayedCooked) =>
+                                    PostTextSelection(
+                                      siteUrl: widget.siteUrl,
+                                      post: post,
+                                      topicId: widget.topic.id,
+                                      displayedCooked: displayedCooked,
+                                      child: CookedHtml(
+                                        html: displayedCooked,
+                                        renderMode: const ProgressiveHtmlMode(),
+                                        buildAsync:
+                                            CookedHtml.buildsAsynchronously(
+                                              post.cooked,
+                                            ),
+                                        textStyle: post.isWhisper
+                                            ? theme.textTheme.bodyLarge
+                                                  ?.copyWith(
+                                                    color:
+                                                        theme.discourse.whisper,
+                                                    fontStyle: FontStyle.italic,
+                                                    height: DiscourseTypography
+                                                        .lineHeightCooked,
+                                                  )
+                                            : theme.textTheme.bodyLarge
+                                                  ?.copyWith(
+                                                    height: DiscourseTypography
+                                                        .lineHeightCooked,
+                                                  ),
+                                        siteUrl: widget.siteUrl,
+                                        post: post,
+                                        containingTopic: PluginContainingTopic(
+                                          id: widget.topic.id,
+                                          slug:
+                                              ShellScope.read(
+                                                context,
+                                              ).currentContent?.slug ??
+                                              'topic',
+                                          archived: widget.topic.archived,
+                                        ),
+                                        mentionedUserStatuses:
+                                            post.mentionedUserStatuses,
+                                      ),
+                                    ),
+                              ),
+                    ),
+                    ...(PluginScope.maybeOf(context)?.registry ??
                             PluginRegistry.empty)
-                        .transformPostBody(
+                        .postDecorations(
                           context,
                           widget.siteUrl,
+                          widget.topic,
                           post,
-                          topic: PluginContainingTopic(
-                            id: widget.topic.id,
-                            slug:
-                                ShellScope.read(context).currentContent?.slug ??
-                                'topic',
-                            archived: widget.topic.archived,
-                          ),
-                          builder: (context, displayedCooked) =>
-                              PostTextSelection(
-                                siteUrl: widget.siteUrl,
-                                post: post,
-                                topicId: widget.topic.id,
-                                displayedCooked: displayedCooked,
-                                child: CookedHtml(
-                                  html: displayedCooked,
-                                  renderMode: const ProgressiveHtmlMode(),
-                                  buildAsync: CookedHtml.buildsAsynchronously(
-                                    post.cooked,
-                                  ),
-                                  textStyle: post.isWhisper
-                                      ? theme.textTheme.bodyLarge?.copyWith(
-                                          color: theme.discourse.whisper,
-                                          fontStyle: FontStyle.italic,
-                                          height: DiscourseTypography
-                                              .lineHeightCooked,
-                                        )
-                                      : theme.textTheme.bodyLarge?.copyWith(
-                                          height: DiscourseTypography
-                                              .lineHeightCooked,
-                                        ),
-                                  siteUrl: widget.siteUrl,
-                                  post: post,
-                                  containingTopic: PluginContainingTopic(
-                                    id: widget.topic.id,
-                                    slug:
-                                        ShellScope.read(
-                                          context,
-                                        ).currentContent?.slug ??
-                                        'topic',
-                                    archived: widget.topic.archived,
-                                  ),
-                                  mentionedUserStatuses:
-                                      post.mentionedUserStatuses,
-                                ),
-                              ),
                         ),
-              ),
-              ...(PluginScope.maybeOf(context)?.registry ??
-                      PluginRegistry.empty)
-                  .postDecorations(context, widget.siteUrl, widget.topic, post),
-              PostFooter(siteUrl: widget.siteUrl, post: post),
-              if (post.inboundLinks.isNotEmpty)
-                _PostInboundLinks(
-                  siteUrl: widget.siteUrl,
-                  links: post.inboundLinks,
-                  expanded: _linksExpanded,
-                  onExpand: () => setState(() => _linksExpanded = true),
+                    PostFooter(siteUrl: widget.siteUrl, post: post),
+                    if (post.inboundLinks.isNotEmpty)
+                      _PostInboundLinks(
+                        siteUrl: widget.siteUrl,
+                        links: post.inboundLinks,
+                        expanded: _linksExpanded,
+                        onExpand: () => setState(() => _linksExpanded = true),
+                      ),
+                  ],
                 ),
+              ),
             ],
           ),
         ),
