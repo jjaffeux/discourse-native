@@ -16,7 +16,9 @@ final notificationLevelMenuExamples = ComponentExamples(
       'navigate; Escape dismisses and returns focus. Touch uses the same '
       'dropdown with scrolling and collision handling. Change the widget key '
       'when its target or account changes. Use variant to match an outlined '
-      'button group or another action surface. Background, border and interactive '
+      'button group or another action surface. Tracking and Watching retain '
+      'the chosen button variant; selection never adds a contextual tint. '
+      'Background, border and interactive '
       'background colors customize only the trigger. These examples save only local state.',
   examples: [
     StyleguideExample(

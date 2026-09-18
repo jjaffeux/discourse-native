@@ -55,6 +55,9 @@ active fills match; CSS applies them immediately and fades the exit over 150ms.
   `DMenubar` and `DNavigationMenu` share neutral row highlights and compact
   typography. Popups use the measured border, radius and layered shadow.
   Pointer highlight, keyboard focus and persistent selection remain separate.
+- `DNotificationLevelMenu` uses the chosen `DButton` variant without overlaying
+  the old Tracking/Watching accent tint. Labeled and explicitly outlined
+  triggers share the neutral surface, including in joined bookmark groups.
 - `DSwitch` uses the measured standard geometry and a 24×16px small variant
   with a 10px thumb. `DToggle` and groups inherit neutral surfaces, fine borders
   and the shared focus ring. `DItem` uses the measured spacing and typography,
@@ -194,3 +197,39 @@ Native review bundle: `/tmp/LargeControlType96c5.app`, identifier
 `org.discourse.large-control-type96c5`. Build and review-copy kernel SHA-256:
 `643de63c71fec2e6a409579670fcb79f50ab1a530dc0560511b9837e27077b81`.
 Strict signature verification and debug entitlement readback passed.
+
+### Notification trigger styling correction — 2026-09-18
+
+The joined Tracking control already rendered DButton, but its notification
+wrapper overrode the requested outline variant with the previous contextual
+accent fill, border and foreground. Removed that implicit override. DButton
+now owns rest, hover, focus, open and disabled paint; explicit caller colors
+remain supported. Emphasized icon-only controls without an explicit variant
+still default to primary. Saved bookmarks retain their independent selected fill.
+
+After integration with main `bd4d0999`, 96 focused tests passed: notification
+menus and adapters, selection/session ownership, live palettes, trigger variants,
+joined topic-footer actions, control consistency, style adoption and button
+groups. All twelve candidate goldens were visually reviewed before adoption.
+Integration also included main's themed popup radius; its three changed open
+images were reviewed and the golden comparisons passed. Formatting,
+`git diff --check`, and `dart analyze --fatal-infos` passed.
+
+The native macOS fixture mounted the actual topic footer and inspected dark and
+light Tracking, the saved bookmark, compact icon-only layout, the open menu and
+keyboard selection between Watching and Tracking. Automated pointer opening
+remained inconsistent as recorded in the original review; pointer interaction
+passes widget tests. The integrated build was inspected again in dark and light,
+wide and compact layouts, and confirmed the Watching selection update.
+
+Final bundle: `/tmp/NotificationControlStyle96c5Final.app`, identifier
+`org.discourse.notification-control-style96c5-final`. Build and copy kernel
+SHA-256: `6703272a858bdc7a84e3602906469503a1bd69e972d79765a14f88d54e2be271`.
+The bundle launched successfully; strict signature verification and permitted
+debug entitlement readback passed. Both isolated review apps were quit and
+the desktop lease was released. No mobile device or screen-reader run was made.
+
+Final integration with main `1b4800bb` retained the reviewed notification,
+button, group, popup and fixture sources unchanged. Its additional changes were
+limited to card hover corners and chat pinned-message loading. All 96 focused
+tests passed again on the final candidate.

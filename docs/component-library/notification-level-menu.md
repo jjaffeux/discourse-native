@@ -6,6 +6,12 @@ exported through `package:discourse_native/discourse_ui.dart`. It composes
 typed values, names, descriptions, bell artwork, and optional subscription
 emphasis. The component accepts controlled selection and a nullable callback.
 
+The trigger uses the shared `DButton` paint for its variant in every state.
+Tracking and Watching do not add a contextual accent tint to an explicit
+outline variant. Labeled triggers default to outline; icon-only triggers default
+to primary for emphasized options and ghost otherwise. Explicit trigger-color
+overrides remain available to callers with a documented design requirement.
+
 ## Application adoption
 
 - Topic header and footer controls use the icon and labeled trigger variants.
