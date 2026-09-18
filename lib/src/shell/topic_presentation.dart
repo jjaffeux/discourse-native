@@ -1,6 +1,8 @@
 import 'dart:async';
+
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
+
 import '../models/topic_presentation.dart';
 import 'composer_presentation.dart';
 import 'forum_tabs_bar.dart';
@@ -95,7 +97,8 @@ class TopicPanelTabs extends StatelessWidget {
           ),
           if (reading != true && preferences != null && !context.isTouch)
             const TopicPresentationButton(),
-          if (split && preferences != null)
+          if (split && preferences != null) ...[
+            if (reading != true) const SizedBox(width: DSpacing.sm),
             DButton.iconOnly(
               key: ValueKey(
                 reading == true
@@ -109,6 +112,7 @@ class TopicPanelTabs extends StatelessWidget {
               variant: DButtonVariant.transparentBackground,
               onPressed: preferences.swapPanels,
             ),
+          ],
         ],
       ),
     );
