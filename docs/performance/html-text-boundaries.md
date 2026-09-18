@@ -1,10 +1,11 @@
 # HTML text-boundary conversion investigation
 
-**Status: unmerged candidate, blocked on native validation.** The Mac was found
-locked before the boundary-scan candidate's native comparison. The parent audit
-paused native captures and requested an unlock. No unlock was attempted, no
-boundary-candidate native result is claimed, and this change must not be merged
-on the debug timings below alone.
+**Status: provisional matched native evidence; unmerged pending repeated process
+pairs, parent review and serialized integration.** One foreground-valid, semantics-matched process pair
+per workload confirms a large reduction in boundary matching and lower root
+conversion times. The planned second matched pairs could not complete because
+foreground validation rejected subsequent launches. Those failures and an
+initial semantics-mismatched pair remain explicitly excluded from acceptance.
 
 This follows [first-render profiling](long-post-first-render.md), the
 [default-style cache](html-default-style-cache.md), and
@@ -56,6 +57,43 @@ had no lifecycle/foreground gate or native-semantics marker. The Mac was later
 found locked. Treat them as exploratory synchronous CPU spans, not acceptance
 of a rendering or scrolling improvement. No frame-rate claim is made.
 
+## Native boundary-candidate results
+
+The Mac was subsequently unlocked and the gated acceptance bundle ran in an
+exclusive, CPU-quiet slot on 2026-09-18. The same binary selected legacy boundary
+regexes or direct ASCII edge scanning; internal matching and all other renderer
+behavior remained identical. Accepted captures were resumed throughout, had
+semantics disabled, and recorded a 2560 × 1720 physical viewport at DPR 2.
+Device, Flutter version and content width match the configuration above.
+
+Each accepted process completed four cycles of column, sliver and progressive
+rendering. Cycle zero is warmup; medians below use nine samples per process,
+three per mode. One matched baseline/candidate process pair is available for
+each workload. Exact conversion-operation counts match for every accepted
+mode/cycle, including nested quote conversions.
+
+| Phase, milliseconds | Varied baseline | Varied candidate | Plain baseline | Plain candidate |
+| --- | ---: | ---: | ---: | ---: |
+| Root synchronous conversion | 23.219 | 20.321 | 19.415 | 13.209 |
+| Leading boundary | 0.375 | 0.144 | 0.152 | 0.068 |
+| Trailing boundary | 3.659 | 0.135 | 5.323 | 0.063 |
+| All text normalization | 9.516 | 5.973 | 13.057 | 7.362 |
+
+The root-conversion medians fell **12.5%** for varied content and **32.0%** for
+plain paragraphs in these pairs. Root conversion improved in each of the three
+modes separately. The targeted trailing-boundary phase fell **96.3–98.8%**.
+These are observed CPU conversion savings from a limited matched sample, not
+precise universal speedups or evidence of smoother native frames. Conversion
+still takes roughly 13–20 ms here and remains synchronous.
+
+The initial varied pair is excluded: an AX inspection enabled native semantics
+only in its baseline launch. A later plain fixed launch lost foreground before
+any sample; an additional varied baseline timed out waiting for resumed. Both
+exited with code 2 and zero samples. The valid preceding plain baseline is
+retained as unpaired. No further retry was attempted after the second rejection.
+All valid, excluded and rejected records are in the measurement JSON. Accepted
+comparisons contain four process cohorts / 36 post-warmup samples in total.
+
 ## Proposed bounded change
 
 Subprobes identify avoidable boundary work: the trailing-whitespace regex searches
@@ -77,7 +115,8 @@ subphase to approximately 0.08–0.22 ms. Debug/JIT timings include probe overhe
 and concurrent-machine uncertainty; they establish a candidate to measure, not
 a native conversion speedup. All captured phase samples and explicit warmup
 markers are retained in [the measurements](html-text-boundaries.json), separately
-from the rejected regex variant. Native boundary-candidate results are absent.
+from the rejected regex variant. The native results above provide provisional comparison evidence; the debug
+probe is retained only as the diagnostic history.
 
 ## Reproduction
 
@@ -97,7 +136,7 @@ no sample is emitted until the gate validates completion. The harness also recor
 semantics state, physical viewport, DPR and successful foreground validation. Do not interpret its ancillary frame
 arrays as proof of smoother scrolling.
 
-For the exact remaining comparison, apply
+To repeat the comparison, apply
 [the optional probe patch](html-text-boundary-probe.patch) in an isolated checkout.
 It reinstates the legacy boundary regex behind `LONG_POST_OPTIMIZED=false` and
 selects direct boundary scanning with `LONG_POST_OPTIMIZED=true`. Both paths use
@@ -137,6 +176,7 @@ ungated boundary bundle must not be used for acceptance.
   provenance contracts, the probe-free candidate macOS profile build and the
   gated instrumented acceptance build passed.
 
-No fresh native accessibility or visual check was performed. Native
-before/after evidence for this boundary candidate, final acceptance and a
-serialized main merge remain outstanding.
+No fresh native accessibility or manual visual/selection check was performed;
+accepted captures had semantics disabled. The initial AX inspection is excluded
+from performance comparisons. Repeated matched process pairs, final parent acceptance, combined-main
+validation and a serialized main merge remain outstanding.
