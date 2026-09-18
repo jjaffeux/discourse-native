@@ -228,3 +228,8 @@ SHA-256: `6703272a858bdc7a84e3602906469503a1bd69e972d79765a14f88d54e2be271`.
 The bundle launched successfully; strict signature verification and permitted
 debug entitlement readback passed. Both isolated review apps were quit and
 the desktop lease was released. No mobile device or screen-reader run was made.
+
+Final integration with main `1b4800bb` retained the reviewed notification,
+button, group, popup and fixture sources unchanged. Its additional changes were
+limited to card hover corners and chat pinned-message loading. All 96 focused
+tests passed again on the final candidate.
