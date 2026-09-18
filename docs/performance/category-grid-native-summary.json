@@ -1,0 +1,1390 @@
+{
+  "device": "Apple M4 Pro, arm64 macOS",
+  "flutter": "3.47.4 / 9584c6713b",
+  "dart": "3.13.3",
+  "mode": "profile",
+  "renderer": "Skia on Metal",
+  "viewport": [
+    1280,
+    860
+  ],
+  "dpr": 2,
+  "reportedRefreshRateHz": 120,
+  "scrollSteps": 60,
+  "stepPixels": 90,
+  "warmupSeconds": 10,
+  "warmupRunsPerCombination": 1,
+  "measuredRunsPerCombination": 5,
+  "pairs": [
+    {
+      "processOrder": [
+        "baseline",
+        "fixed"
+      ],
+      "pairwiseParity": {
+        "offsets": true,
+        "startGeometry": true,
+        "endGeometry": true,
+        "viewWidth": true,
+        "viewHeight": true,
+        "devicePixelRatio": true,
+        "pageWidth": true,
+        "pageHeight": true,
+        "scrollExtent": true
+      },
+      "groups": [
+        {
+          "categories": 12,
+          "width": 390,
+          "baseline": {
+            "runs": [
+              {
+                "repeat": 1,
+                "startUtc": "2026-09-18T10:27:43.149835Z",
+                "frames": 60,
+                "uiTotalUs": 68263,
+                "rasterTotalUs": 63910,
+                "uiMeanUs": 1137.7166666666667,
+                "rasterMeanUs": 1065.1666666666667
+              },
+              {
+                "repeat": 2,
+                "startUtc": "2026-09-18T10:27:45.886256Z",
+                "frames": 60,
+                "uiTotalUs": 72568,
+                "rasterTotalUs": 82398,
+                "uiMeanUs": 1209.4666666666667,
+                "rasterMeanUs": 1373.3
+              },
+              {
+                "repeat": 3,
+                "startUtc": "2026-09-18T10:27:48.602939Z",
+                "frames": 60,
+                "uiTotalUs": 72043,
+                "rasterTotalUs": 73982,
+                "uiMeanUs": 1200.7166666666667,
+                "rasterMeanUs": 1233.0333333333333
+              },
+              {
+                "repeat": 4,
+                "startUtc": "2026-09-18T10:27:51.337045Z",
+                "frames": 60,
+                "uiTotalUs": 83712,
+                "rasterTotalUs": 84456,
+                "uiMeanUs": 1395.2,
+                "rasterMeanUs": 1407.6
+              },
+              {
+                "repeat": 5,
+                "startUtc": "2026-09-18T10:27:54.063165Z",
+                "frames": 60,
+                "uiTotalUs": 71887,
+                "rasterTotalUs": 81840,
+                "uiMeanUs": 1198.1166666666666,
+                "rasterMeanUs": 1364
+              }
+            ],
+            "meanUiTotalUs": 73694.6,
+            "meanRasterTotalUs": 77317.2,
+            "meanUiFrameUs": 1228.2433333333333,
+            "meanRasterFrameUs": 1288.62
+          },
+          "fixed": {
+            "runs": [
+              {
+                "repeat": 1,
+                "startUtc": "2026-09-18T10:30:09.789442Z",
+                "frames": 60,
+                "uiTotalUs": 67323,
+                "rasterTotalUs": 80719,
+                "uiMeanUs": 1122.05,
+                "rasterMeanUs": 1345.3166666666666
+              },
+              {
+                "repeat": 2,
+                "startUtc": "2026-09-18T10:30:12.519455Z",
+                "frames": 60,
+                "uiTotalUs": 69875,
+                "rasterTotalUs": 83130,
+                "uiMeanUs": 1164.5833333333333,
+                "rasterMeanUs": 1385.5
+              },
+              {
+                "repeat": 3,
+                "startUtc": "2026-09-18T10:30:15.233385Z",
+                "frames": 60,
+                "uiTotalUs": 62993,
+                "rasterTotalUs": 83547,
+                "uiMeanUs": 1049.8833333333334,
+                "rasterMeanUs": 1392.45
+              },
+              {
+                "repeat": 4,
+                "startUtc": "2026-09-18T10:30:17.950027Z",
+                "frames": 60,
+                "uiTotalUs": 66921,
+                "rasterTotalUs": 84977,
+                "uiMeanUs": 1115.35,
+                "rasterMeanUs": 1416.2833333333333
+              },
+              {
+                "repeat": 5,
+                "startUtc": "2026-09-18T10:30:20.666522Z",
+                "frames": 60,
+                "uiTotalUs": 64084,
+                "rasterTotalUs": 86940,
+                "uiMeanUs": 1068.0666666666666,
+                "rasterMeanUs": 1449
+              }
+            ],
+            "meanUiTotalUs": 66239.2,
+            "meanRasterTotalUs": 83862.6,
+            "meanUiFrameUs": 1103.9866666666667,
+            "meanRasterFrameUs": 1397.71
+          },
+          "uiTotalReductionPercent": 10.116616414228464
+        },
+        {
+          "categories": 12,
+          "width": 700,
+          "baseline": {
+            "runs": [
+              {
+                "repeat": 1,
+                "startUtc": "2026-09-18T10:27:59.543689Z",
+                "frames": 60,
+                "uiTotalUs": 78706,
+                "rasterTotalUs": 95684,
+                "uiMeanUs": 1311.7666666666667,
+                "rasterMeanUs": 1594.7333333333333
+              },
+              {
+                "repeat": 2,
+                "startUtc": "2026-09-18T10:28:02.270102Z",
+                "frames": 60,
+                "uiTotalUs": 91757,
+                "rasterTotalUs": 102188,
+                "uiMeanUs": 1529.2833333333333,
+                "rasterMeanUs": 1703.1333333333334
+              },
+              {
+                "repeat": 3,
+                "startUtc": "2026-09-18T10:28:04.994740Z",
+                "frames": 60,
+                "uiTotalUs": 86997,
+                "rasterTotalUs": 103020,
+                "uiMeanUs": 1449.95,
+                "rasterMeanUs": 1717
+              },
+              {
+                "repeat": 4,
+                "startUtc": "2026-09-18T10:28:07.722818Z",
+                "frames": 60,
+                "uiTotalUs": 90484,
+                "rasterTotalUs": 102138,
+                "uiMeanUs": 1508.0666666666666,
+                "rasterMeanUs": 1702.3
+              },
+              {
+                "repeat": 5,
+                "startUtc": "2026-09-18T10:28:10.455811Z",
+                "frames": 60,
+                "uiTotalUs": 89147,
+                "rasterTotalUs": 104997,
+                "uiMeanUs": 1485.7833333333333,
+                "rasterMeanUs": 1749.95
+              }
+            ],
+            "meanUiTotalUs": 87418.2,
+            "meanRasterTotalUs": 101605.4,
+            "meanUiFrameUs": 1456.97,
+            "meanRasterFrameUs": 1693.4233333333334
+          },
+          "fixed": {
+            "runs": [
+              {
+                "repeat": 1,
+                "startUtc": "2026-09-18T10:30:26.141225Z",
+                "frames": 60,
+                "uiTotalUs": 88749,
+                "rasterTotalUs": 104817,
+                "uiMeanUs": 1479.15,
+                "rasterMeanUs": 1746.95
+              },
+              {
+                "repeat": 2,
+                "startUtc": "2026-09-18T10:30:28.868638Z",
+                "frames": 60,
+                "uiTotalUs": 85469,
+                "rasterTotalUs": 104452,
+                "uiMeanUs": 1424.4833333333333,
+                "rasterMeanUs": 1740.8666666666666
+              },
+              {
+                "repeat": 3,
+                "startUtc": "2026-09-18T10:30:31.596196Z",
+                "frames": 60,
+                "uiTotalUs": 82373,
+                "rasterTotalUs": 107819,
+                "uiMeanUs": 1372.8833333333334,
+                "rasterMeanUs": 1796.9833333333333
+              },
+              {
+                "repeat": 4,
+                "startUtc": "2026-09-18T10:30:34.325608Z",
+                "frames": 60,
+                "uiTotalUs": 87131,
+                "rasterTotalUs": 105830,
+                "uiMeanUs": 1452.1833333333334,
+                "rasterMeanUs": 1763.8333333333333
+              },
+              {
+                "repeat": 5,
+                "startUtc": "2026-09-18T10:30:37.053191Z",
+                "frames": 60,
+                "uiTotalUs": 83627,
+                "rasterTotalUs": 105309,
+                "uiMeanUs": 1393.7833333333333,
+                "rasterMeanUs": 1755.15
+              }
+            ],
+            "meanUiTotalUs": 85469.8,
+            "meanRasterTotalUs": 105645.4,
+            "meanUiFrameUs": 1424.4966666666667,
+            "meanRasterFrameUs": 1760.7566666666667
+          },
+          "uiTotalReductionPercent": 2.2288264915086287
+        },
+        {
+          "categories": 12,
+          "width": 1100,
+          "baseline": {
+            "runs": [
+              {
+                "repeat": 1,
+                "startUtc": "2026-09-18T10:28:15.923896Z",
+                "frames": 60,
+                "uiTotalUs": 88639,
+                "rasterTotalUs": 98666,
+                "uiMeanUs": 1477.3166666666666,
+                "rasterMeanUs": 1644.4333333333334
+              },
+              {
+                "repeat": 2,
+                "startUtc": "2026-09-18T10:28:18.654594Z",
+                "frames": 60,
+                "uiTotalUs": 95480,
+                "rasterTotalUs": 104442,
+                "uiMeanUs": 1591.3333333333333,
+                "rasterMeanUs": 1740.7
+              },
+              {
+                "repeat": 3,
+                "startUtc": "2026-09-18T10:28:21.396153Z",
+                "frames": 60,
+                "uiTotalUs": 92304,
+                "rasterTotalUs": 98792,
+                "uiMeanUs": 1538.4,
+                "rasterMeanUs": 1646.5333333333333
+              },
+              {
+                "repeat": 4,
+                "startUtc": "2026-09-18T10:28:24.133029Z",
+                "frames": 60,
+                "uiTotalUs": 91464,
+                "rasterTotalUs": 104914,
+                "uiMeanUs": 1524.4,
+                "rasterMeanUs": 1748.5666666666666
+              },
+              {
+                "repeat": 5,
+                "startUtc": "2026-09-18T10:28:26.860939Z",
+                "frames": 60,
+                "uiTotalUs": 94237,
+                "rasterTotalUs": 102642,
+                "uiMeanUs": 1570.6166666666666,
+                "rasterMeanUs": 1710.7
+              }
+            ],
+            "meanUiTotalUs": 92424.8,
+            "meanRasterTotalUs": 101891.2,
+            "meanUiFrameUs": 1540.4133333333334,
+            "meanRasterFrameUs": 1698.1866666666667
+          },
+          "fixed": {
+            "runs": [
+              {
+                "repeat": 1,
+                "startUtc": "2026-09-18T10:30:42.519497Z",
+                "frames": 60,
+                "uiTotalUs": 92262,
+                "rasterTotalUs": 103093,
+                "uiMeanUs": 1537.7,
+                "rasterMeanUs": 1718.2166666666667
+              },
+              {
+                "repeat": 2,
+                "startUtc": "2026-09-18T10:30:45.244197Z",
+                "frames": 60,
+                "uiTotalUs": 89024,
+                "rasterTotalUs": 102503,
+                "uiMeanUs": 1483.7333333333333,
+                "rasterMeanUs": 1708.3833333333334
+              },
+              {
+                "repeat": 3,
+                "startUtc": "2026-09-18T10:30:47.976284Z",
+                "frames": 60,
+                "uiTotalUs": 90691,
+                "rasterTotalUs": 102550,
+                "uiMeanUs": 1511.5166666666667,
+                "rasterMeanUs": 1709.1666666666667
+              },
+              {
+                "repeat": 4,
+                "startUtc": "2026-09-18T10:30:50.707230Z",
+                "frames": 60,
+                "uiTotalUs": 90010,
+                "rasterTotalUs": 101532,
+                "uiMeanUs": 1500.1666666666667,
+                "rasterMeanUs": 1692.2
+              },
+              {
+                "repeat": 5,
+                "startUtc": "2026-09-18T10:30:53.445673Z",
+                "frames": 60,
+                "uiTotalUs": 87963,
+                "rasterTotalUs": 99056,
+                "uiMeanUs": 1466.05,
+                "rasterMeanUs": 1650.9333333333334
+              }
+            ],
+            "meanUiTotalUs": 89990,
+            "meanRasterTotalUs": 101746.8,
+            "meanUiFrameUs": 1499.8333333333333,
+            "meanRasterFrameUs": 1695.78
+          },
+          "uiTotalReductionPercent": 2.634357877972149
+        },
+        {
+          "categories": 60,
+          "width": 390,
+          "baseline": {
+            "runs": [
+              {
+                "repeat": 1,
+                "startUtc": "2026-09-18T10:28:32.306193Z",
+                "frames": 60,
+                "uiTotalUs": 71038,
+                "rasterTotalUs": 86715,
+                "uiMeanUs": 1183.9666666666667,
+                "rasterMeanUs": 1445.25
+              },
+              {
+                "repeat": 2,
+                "startUtc": "2026-09-18T10:28:35.027639Z",
+                "frames": 60,
+                "uiTotalUs": 73753,
+                "rasterTotalUs": 89804,
+                "uiMeanUs": 1229.2166666666667,
+                "rasterMeanUs": 1496.7333333333333
+              },
+              {
+                "repeat": 3,
+                "startUtc": "2026-09-18T10:28:37.748269Z",
+                "frames": 60,
+                "uiTotalUs": 73194,
+                "rasterTotalUs": 91786,
+                "uiMeanUs": 1219.9,
+                "rasterMeanUs": 1529.7666666666667
+              },
+              {
+                "repeat": 4,
+                "startUtc": "2026-09-18T10:28:40.473567Z",
+                "frames": 60,
+                "uiTotalUs": 73980,
+                "rasterTotalUs": 92182,
+                "uiMeanUs": 1233,
+                "rasterMeanUs": 1536.3666666666666
+              },
+              {
+                "repeat": 5,
+                "startUtc": "2026-09-18T10:28:43.198540Z",
+                "frames": 60,
+                "uiTotalUs": 71637,
+                "rasterTotalUs": 88628,
+                "uiMeanUs": 1193.95,
+                "rasterMeanUs": 1477.1333333333334
+              }
+            ],
+            "meanUiTotalUs": 72720.4,
+            "meanRasterTotalUs": 89823,
+            "meanUiFrameUs": 1212.0066666666667,
+            "meanRasterFrameUs": 1497.05
+          },
+          "fixed": {
+            "runs": [
+              {
+                "repeat": 1,
+                "startUtc": "2026-09-18T10:30:58.884989Z",
+                "frames": 60,
+                "uiTotalUs": 58300,
+                "rasterTotalUs": 83314,
+                "uiMeanUs": 971.6666666666666,
+                "rasterMeanUs": 1388.5666666666666
+              },
+              {
+                "repeat": 2,
+                "startUtc": "2026-09-18T10:31:01.603921Z",
+                "frames": 60,
+                "uiTotalUs": 61119,
+                "rasterTotalUs": 86271,
+                "uiMeanUs": 1018.65,
+                "rasterMeanUs": 1437.85
+              },
+              {
+                "repeat": 3,
+                "startUtc": "2026-09-18T10:31:04.322459Z",
+                "frames": 60,
+                "uiTotalUs": 59003,
+                "rasterTotalUs": 87367,
+                "uiMeanUs": 983.3833333333333,
+                "rasterMeanUs": 1456.1166666666666
+              },
+              {
+                "repeat": 4,
+                "startUtc": "2026-09-18T10:31:07.047339Z",
+                "frames": 60,
+                "uiTotalUs": 59306,
+                "rasterTotalUs": 88528,
+                "uiMeanUs": 988.4333333333333,
+                "rasterMeanUs": 1475.4666666666667
+              },
+              {
+                "repeat": 5,
+                "startUtc": "2026-09-18T10:31:09.776099Z",
+                "frames": 60,
+                "uiTotalUs": 55269,
+                "rasterTotalUs": 84607,
+                "uiMeanUs": 921.15,
+                "rasterMeanUs": 1410.1166666666666
+              }
+            ],
+            "meanUiTotalUs": 58599.4,
+            "meanRasterTotalUs": 86017.4,
+            "meanUiFrameUs": 976.6566666666666,
+            "meanRasterFrameUs": 1433.6233333333332
+          },
+          "uiTotalReductionPercent": 19.41821002084696
+        },
+        {
+          "categories": 60,
+          "width": 700,
+          "baseline": {
+            "runs": [
+              {
+                "repeat": 1,
+                "startUtc": "2026-09-18T10:28:48.671195Z",
+                "frames": 60,
+                "uiTotalUs": 85840,
+                "rasterTotalUs": 72610,
+                "uiMeanUs": 1430.6666666666667,
+                "rasterMeanUs": 1210.1666666666667
+              },
+              {
+                "repeat": 2,
+                "startUtc": "2026-09-18T10:28:51.406186Z",
+                "frames": 60,
+                "uiTotalUs": 96181,
+                "rasterTotalUs": 82813,
+                "uiMeanUs": 1603.0166666666667,
+                "rasterMeanUs": 1380.2166666666667
+              },
+              {
+                "repeat": 3,
+                "startUtc": "2026-09-18T10:28:54.137015Z",
+                "frames": 60,
+                "uiTotalUs": 92756,
+                "rasterTotalUs": 80559,
+                "uiMeanUs": 1545.9333333333334,
+                "rasterMeanUs": 1342.65
+              },
+              {
+                "repeat": 4,
+                "startUtc": "2026-09-18T10:28:56.864418Z",
+                "frames": 60,
+                "uiTotalUs": 94556,
+                "rasterTotalUs": 83688,
+                "uiMeanUs": 1575.9333333333334,
+                "rasterMeanUs": 1394.8
+              },
+              {
+                "repeat": 5,
+                "startUtc": "2026-09-18T10:28:59.592581Z",
+                "frames": 60,
+                "uiTotalUs": 87277,
+                "rasterTotalUs": 76708,
+                "uiMeanUs": 1454.6166666666666,
+                "rasterMeanUs": 1278.4666666666667
+              }
+            ],
+            "meanUiTotalUs": 91322,
+            "meanRasterTotalUs": 79275.6,
+            "meanUiFrameUs": 1522.0333333333333,
+            "meanRasterFrameUs": 1321.26
+          },
+          "fixed": {
+            "runs": [
+              {
+                "repeat": 1,
+                "startUtc": "2026-09-18T10:31:15.220712Z",
+                "frames": 60,
+                "uiTotalUs": 97862,
+                "rasterTotalUs": 82892,
+                "uiMeanUs": 1631.0333333333333,
+                "rasterMeanUs": 1381.5333333333333
+              },
+              {
+                "repeat": 2,
+                "startUtc": "2026-09-18T10:31:17.945991Z",
+                "frames": 60,
+                "uiTotalUs": 92178,
+                "rasterTotalUs": 83109,
+                "uiMeanUs": 1536.3,
+                "rasterMeanUs": 1385.15
+              },
+              {
+                "repeat": 3,
+                "startUtc": "2026-09-18T10:31:20.672234Z",
+                "frames": 60,
+                "uiTotalUs": 93601,
+                "rasterTotalUs": 81897,
+                "uiMeanUs": 1560.0166666666667,
+                "rasterMeanUs": 1364.95
+              },
+              {
+                "repeat": 4,
+                "startUtc": "2026-09-18T10:31:23.403885Z",
+                "frames": 60,
+                "uiTotalUs": 92386,
+                "rasterTotalUs": 81552,
+                "uiMeanUs": 1539.7666666666667,
+                "rasterMeanUs": 1359.2
+              },
+              {
+                "repeat": 5,
+                "startUtc": "2026-09-18T10:31:26.128223Z",
+                "frames": 60,
+                "uiTotalUs": 90444,
+                "rasterTotalUs": 82766,
+                "uiMeanUs": 1507.4,
+                "rasterMeanUs": 1379.4333333333334
+              }
+            ],
+            "meanUiTotalUs": 93294.2,
+            "meanRasterTotalUs": 82443.2,
+            "meanUiFrameUs": 1554.9033333333334,
+            "meanRasterFrameUs": 1374.0533333333333
+          },
+          "uiTotalReductionPercent": -2.159611046626231
+        },
+        {
+          "categories": 60,
+          "width": 1100,
+          "baseline": {
+            "runs": [
+              {
+                "repeat": 1,
+                "startUtc": "2026-09-18T10:29:05.058491Z",
+                "frames": 60,
+                "uiTotalUs": 92461,
+                "rasterTotalUs": 81729,
+                "uiMeanUs": 1541.0166666666667,
+                "rasterMeanUs": 1362.15
+              },
+              {
+                "repeat": 2,
+                "startUtc": "2026-09-18T10:29:07.790720Z",
+                "frames": 60,
+                "uiTotalUs": 93744,
+                "rasterTotalUs": 84990,
+                "uiMeanUs": 1562.4,
+                "rasterMeanUs": 1416.5
+              },
+              {
+                "repeat": 3,
+                "startUtc": "2026-09-18T10:29:10.527782Z",
+                "frames": 60,
+                "uiTotalUs": 84126,
+                "rasterTotalUs": 75239,
+                "uiMeanUs": 1402.1,
+                "rasterMeanUs": 1253.9833333333333
+              },
+              {
+                "repeat": 4,
+                "startUtc": "2026-09-18T10:29:13.260159Z",
+                "frames": 60,
+                "uiTotalUs": 96644,
+                "rasterTotalUs": 84702,
+                "uiMeanUs": 1610.7333333333333,
+                "rasterMeanUs": 1411.7
+              },
+              {
+                "repeat": 5,
+                "startUtc": "2026-09-18T10:29:15.990384Z",
+                "frames": 60,
+                "uiTotalUs": 75957,
+                "rasterTotalUs": 65259,
+                "uiMeanUs": 1265.95,
+                "rasterMeanUs": 1087.65
+              }
+            ],
+            "meanUiTotalUs": 88586.4,
+            "meanRasterTotalUs": 78383.8,
+            "meanUiFrameUs": 1476.44,
+            "meanRasterFrameUs": 1306.3966666666668
+          },
+          "fixed": {
+            "runs": [
+              {
+                "repeat": 1,
+                "startUtc": "2026-09-18T10:31:31.596851Z",
+                "frames": 60,
+                "uiTotalUs": 98763,
+                "rasterTotalUs": 83815,
+                "uiMeanUs": 1646.05,
+                "rasterMeanUs": 1396.9166666666667
+              },
+              {
+                "repeat": 2,
+                "startUtc": "2026-09-18T10:31:34.334238Z",
+                "frames": 60,
+                "uiTotalUs": 82895,
+                "rasterTotalUs": 71792,
+                "uiMeanUs": 1381.5833333333333,
+                "rasterMeanUs": 1196.5333333333333
+              },
+              {
+                "repeat": 3,
+                "startUtc": "2026-09-18T10:31:37.064849Z",
+                "frames": 60,
+                "uiTotalUs": 91443,
+                "rasterTotalUs": 76409,
+                "uiMeanUs": 1524.05,
+                "rasterMeanUs": 1273.4833333333333
+              },
+              {
+                "repeat": 4,
+                "startUtc": "2026-09-18T10:31:39.795326Z",
+                "frames": 60,
+                "uiTotalUs": 92129,
+                "rasterTotalUs": 78181,
+                "uiMeanUs": 1535.4833333333333,
+                "rasterMeanUs": 1303.0166666666667
+              },
+              {
+                "repeat": 5,
+                "startUtc": "2026-09-18T10:31:42.521694Z",
+                "frames": 60,
+                "uiTotalUs": 95716,
+                "rasterTotalUs": 81954,
+                "uiMeanUs": 1595.2666666666667,
+                "rasterMeanUs": 1365.9
+              }
+            ],
+            "meanUiTotalUs": 92189.2,
+            "meanRasterTotalUs": 78430.2,
+            "meanUiFrameUs": 1536.4866666666667,
+            "meanRasterFrameUs": 1307.17
+          },
+          "uiTotalReductionPercent": -4.066989966857215
+        }
+      ]
+    },
+    {
+      "processOrder": [
+        "fixed",
+        "baseline"
+      ],
+      "pairwiseParity": {
+        "offsets": true,
+        "startGeometry": true,
+        "endGeometry": true,
+        "viewWidth": true,
+        "viewHeight": true,
+        "devicePixelRatio": true,
+        "pageWidth": true,
+        "pageHeight": true,
+        "scrollExtent": true
+      },
+      "groups": [
+        {
+          "categories": 12,
+          "width": 390,
+          "baseline": {
+            "runs": [
+              {
+                "repeat": 1,
+                "startUtc": "2026-09-18T10:36:16.367317Z",
+                "frames": 60,
+                "uiTotalUs": 56473,
+                "rasterTotalUs": 54237,
+                "uiMeanUs": 941.2166666666667,
+                "rasterMeanUs": 903.95
+              },
+              {
+                "repeat": 2,
+                "startUtc": "2026-09-18T10:36:19.077569Z",
+                "frames": 60,
+                "uiTotalUs": 55809,
+                "rasterTotalUs": 50176,
+                "uiMeanUs": 930.15,
+                "rasterMeanUs": 836.2666666666667
+              },
+              {
+                "repeat": 3,
+                "startUtc": "2026-09-18T10:36:21.792852Z",
+                "frames": 60,
+                "uiTotalUs": 52990,
+                "rasterTotalUs": 54348,
+                "uiMeanUs": 883.1666666666666,
+                "rasterMeanUs": 905.8
+              },
+              {
+                "repeat": 4,
+                "startUtc": "2026-09-18T10:36:24.500573Z",
+                "frames": 60,
+                "uiTotalUs": 54160,
+                "rasterTotalUs": 53627,
+                "uiMeanUs": 902.6666666666666,
+                "rasterMeanUs": 893.7833333333333
+              },
+              {
+                "repeat": 5,
+                "startUtc": "2026-09-18T10:36:27.210197Z",
+                "frames": 60,
+                "uiTotalUs": 54881,
+                "rasterTotalUs": 54669,
+                "uiMeanUs": 914.6833333333333,
+                "rasterMeanUs": 911.15
+              }
+            ],
+            "meanUiTotalUs": 54862.6,
+            "meanRasterTotalUs": 53411.4,
+            "meanUiFrameUs": 914.3766666666667,
+            "meanRasterFrameUs": 890.1899999999999
+          },
+          "fixed": {
+            "runs": [
+              {
+                "repeat": 1,
+                "startUtc": "2026-09-18T10:33:38.777574Z",
+                "frames": 60,
+                "uiTotalUs": 46127,
+                "rasterTotalUs": 52395,
+                "uiMeanUs": 768.7833333333333,
+                "rasterMeanUs": 873.25
+              },
+              {
+                "repeat": 2,
+                "startUtc": "2026-09-18T10:33:41.492595Z",
+                "frames": 60,
+                "uiTotalUs": 49293,
+                "rasterTotalUs": 53316,
+                "uiMeanUs": 821.55,
+                "rasterMeanUs": 888.6
+              },
+              {
+                "repeat": 3,
+                "startUtc": "2026-09-18T10:33:44.201390Z",
+                "frames": 60,
+                "uiTotalUs": 46023,
+                "rasterTotalUs": 52999,
+                "uiMeanUs": 767.05,
+                "rasterMeanUs": 883.3166666666667
+              },
+              {
+                "repeat": 4,
+                "startUtc": "2026-09-18T10:33:46.919188Z",
+                "frames": 60,
+                "uiTotalUs": 47080,
+                "rasterTotalUs": 54704,
+                "uiMeanUs": 784.6666666666666,
+                "rasterMeanUs": 911.7333333333333
+              },
+              {
+                "repeat": 5,
+                "startUtc": "2026-09-18T10:33:49.633663Z",
+                "frames": 60,
+                "uiTotalUs": 45960,
+                "rasterTotalUs": 51965,
+                "uiMeanUs": 766,
+                "rasterMeanUs": 866.0833333333334
+              }
+            ],
+            "meanUiTotalUs": 46896.6,
+            "meanRasterTotalUs": 53075.8,
+            "meanUiFrameUs": 781.61,
+            "meanRasterFrameUs": 884.5966666666667
+          },
+          "uiTotalReductionPercent": 14.519909738145842
+        },
+        {
+          "categories": 12,
+          "width": 700,
+          "baseline": {
+            "runs": [
+              {
+                "repeat": 1,
+                "startUtc": "2026-09-18T10:36:32.646476Z",
+                "frames": 60,
+                "uiTotalUs": 59832,
+                "rasterTotalUs": 67328,
+                "uiMeanUs": 997.2,
+                "rasterMeanUs": 1122.1333333333334
+              },
+              {
+                "repeat": 2,
+                "startUtc": "2026-09-18T10:36:35.363282Z",
+                "frames": 60,
+                "uiTotalUs": 65526,
+                "rasterTotalUs": 71970,
+                "uiMeanUs": 1092.1,
+                "rasterMeanUs": 1199.5
+              },
+              {
+                "repeat": 3,
+                "startUtc": "2026-09-18T10:36:38.079240Z",
+                "frames": 60,
+                "uiTotalUs": 64164,
+                "rasterTotalUs": 67328,
+                "uiMeanUs": 1069.4,
+                "rasterMeanUs": 1122.1333333333334
+              },
+              {
+                "repeat": 4,
+                "startUtc": "2026-09-18T10:36:40.795867Z",
+                "frames": 60,
+                "uiTotalUs": 63408,
+                "rasterTotalUs": 70731,
+                "uiMeanUs": 1056.8,
+                "rasterMeanUs": 1178.85
+              },
+              {
+                "repeat": 5,
+                "startUtc": "2026-09-18T10:36:43.513427Z",
+                "frames": 60,
+                "uiTotalUs": 66485,
+                "rasterTotalUs": 71413,
+                "uiMeanUs": 1108.0833333333333,
+                "rasterMeanUs": 1190.2166666666667
+              }
+            ],
+            "meanUiTotalUs": 63883,
+            "meanRasterTotalUs": 69754,
+            "meanUiFrameUs": 1064.7166666666667,
+            "meanRasterFrameUs": 1162.5666666666666
+          },
+          "fixed": {
+            "runs": [
+              {
+                "repeat": 1,
+                "startUtc": "2026-09-18T10:33:55.063333Z",
+                "frames": 60,
+                "uiTotalUs": 60494,
+                "rasterTotalUs": 68075,
+                "uiMeanUs": 1008.2333333333333,
+                "rasterMeanUs": 1134.5833333333333
+              },
+              {
+                "repeat": 2,
+                "startUtc": "2026-09-18T10:33:57.783842Z",
+                "frames": 60,
+                "uiTotalUs": 65406,
+                "rasterTotalUs": 71812,
+                "uiMeanUs": 1090.1,
+                "rasterMeanUs": 1196.8666666666666
+              },
+              {
+                "repeat": 3,
+                "startUtc": "2026-09-18T10:34:00.494377Z",
+                "frames": 60,
+                "uiTotalUs": 60006,
+                "rasterTotalUs": 69582,
+                "uiMeanUs": 1000.1,
+                "rasterMeanUs": 1159.7
+              },
+              {
+                "repeat": 4,
+                "startUtc": "2026-09-18T10:34:03.213607Z",
+                "frames": 60,
+                "uiTotalUs": 62733,
+                "rasterTotalUs": 71614,
+                "uiMeanUs": 1045.55,
+                "rasterMeanUs": 1193.5666666666666
+              },
+              {
+                "repeat": 5,
+                "startUtc": "2026-09-18T10:34:05.928203Z",
+                "frames": 60,
+                "uiTotalUs": 62884,
+                "rasterTotalUs": 69127,
+                "uiMeanUs": 1048.0666666666666,
+                "rasterMeanUs": 1152.1166666666666
+              }
+            ],
+            "meanUiTotalUs": 62304.6,
+            "meanRasterTotalUs": 70042,
+            "meanUiFrameUs": 1038.4099999999999,
+            "meanRasterFrameUs": 1167.3666666666666
+          },
+          "uiTotalReductionPercent": 2.47076687068547
+        },
+        {
+          "categories": 12,
+          "width": 1100,
+          "baseline": {
+            "runs": [
+              {
+                "repeat": 1,
+                "startUtc": "2026-09-18T10:36:48.946081Z",
+                "frames": 60,
+                "uiTotalUs": 64905,
+                "rasterTotalUs": 66379,
+                "uiMeanUs": 1081.75,
+                "rasterMeanUs": 1106.3166666666666
+              },
+              {
+                "repeat": 2,
+                "startUtc": "2026-09-18T10:36:51.663746Z",
+                "frames": 60,
+                "uiTotalUs": 66093,
+                "rasterTotalUs": 66856,
+                "uiMeanUs": 1101.55,
+                "rasterMeanUs": 1114.2666666666667
+              },
+              {
+                "repeat": 3,
+                "startUtc": "2026-09-18T10:36:54.379898Z",
+                "frames": 60,
+                "uiTotalUs": 66194,
+                "rasterTotalUs": 68568,
+                "uiMeanUs": 1103.2333333333333,
+                "rasterMeanUs": 1142.8
+              },
+              {
+                "repeat": 4,
+                "startUtc": "2026-09-18T10:36:57.095964Z",
+                "frames": 60,
+                "uiTotalUs": 62381,
+                "rasterTotalUs": 66013,
+                "uiMeanUs": 1039.6833333333334,
+                "rasterMeanUs": 1100.2166666666667
+              },
+              {
+                "repeat": 5,
+                "startUtc": "2026-09-18T10:36:59.813412Z",
+                "frames": 60,
+                "uiTotalUs": 67230,
+                "rasterTotalUs": 70145,
+                "uiMeanUs": 1120.5,
+                "rasterMeanUs": 1169.0833333333333
+              }
+            ],
+            "meanUiTotalUs": 65360.6,
+            "meanRasterTotalUs": 67592.2,
+            "meanUiFrameUs": 1089.3433333333332,
+            "meanRasterFrameUs": 1126.5366666666666
+          },
+          "fixed": {
+            "runs": [
+              {
+                "repeat": 1,
+                "startUtc": "2026-09-18T10:34:11.362967Z",
+                "frames": 60,
+                "uiTotalUs": 66842,
+                "rasterTotalUs": 67490,
+                "uiMeanUs": 1114.0333333333333,
+                "rasterMeanUs": 1124.8333333333333
+              },
+              {
+                "repeat": 2,
+                "startUtc": "2026-09-18T10:34:14.077583Z",
+                "frames": 60,
+                "uiTotalUs": 66030,
+                "rasterTotalUs": 67660,
+                "uiMeanUs": 1100.5,
+                "rasterMeanUs": 1127.6666666666667
+              },
+              {
+                "repeat": 3,
+                "startUtc": "2026-09-18T10:34:16.796482Z",
+                "frames": 60,
+                "uiTotalUs": 64721,
+                "rasterTotalUs": 66584,
+                "uiMeanUs": 1078.6833333333334,
+                "rasterMeanUs": 1109.7333333333333
+              },
+              {
+                "repeat": 4,
+                "startUtc": "2026-09-18T10:34:19.513410Z",
+                "frames": 60,
+                "uiTotalUs": 68329,
+                "rasterTotalUs": 69128,
+                "uiMeanUs": 1138.8166666666666,
+                "rasterMeanUs": 1152.1333333333334
+              },
+              {
+                "repeat": 5,
+                "startUtc": "2026-09-18T10:34:22.228362Z",
+                "frames": 60,
+                "uiTotalUs": 68015,
+                "rasterTotalUs": 65296,
+                "uiMeanUs": 1133.5833333333333,
+                "rasterMeanUs": 1088.2666666666667
+              }
+            ],
+            "meanUiTotalUs": 66787.4,
+            "meanRasterTotalUs": 67231.6,
+            "meanUiFrameUs": 1113.1233333333332,
+            "meanRasterFrameUs": 1120.5266666666666
+          },
+          "uiTotalReductionPercent": -2.1829664966355855
+        },
+        {
+          "categories": 60,
+          "width": 390,
+          "baseline": {
+            "runs": [
+              {
+                "repeat": 1,
+                "startUtc": "2026-09-18T10:37:05.246990Z",
+                "frames": 60,
+                "uiTotalUs": 47495,
+                "rasterTotalUs": 55943,
+                "uiMeanUs": 791.5833333333334,
+                "rasterMeanUs": 932.3833333333333
+              },
+              {
+                "repeat": 2,
+                "startUtc": "2026-09-18T10:37:07.960221Z",
+                "frames": 60,
+                "uiTotalUs": 51311,
+                "rasterTotalUs": 57895,
+                "uiMeanUs": 855.1833333333333,
+                "rasterMeanUs": 964.9166666666666
+              },
+              {
+                "repeat": 3,
+                "startUtc": "2026-09-18T10:37:10.677689Z",
+                "frames": 60,
+                "uiTotalUs": 46910,
+                "rasterTotalUs": 57448,
+                "uiMeanUs": 781.8333333333334,
+                "rasterMeanUs": 957.4666666666667
+              },
+              {
+                "repeat": 4,
+                "startUtc": "2026-09-18T10:37:13.392801Z",
+                "frames": 60,
+                "uiTotalUs": 52322,
+                "rasterTotalUs": 60391,
+                "uiMeanUs": 872.0333333333333,
+                "rasterMeanUs": 1006.5166666666667
+              },
+              {
+                "repeat": 5,
+                "startUtc": "2026-09-18T10:37:16.102853Z",
+                "frames": 60,
+                "uiTotalUs": 52839,
+                "rasterTotalUs": 58991,
+                "uiMeanUs": 880.65,
+                "rasterMeanUs": 983.1833333333333
+              }
+            ],
+            "meanUiTotalUs": 50175.4,
+            "meanRasterTotalUs": 58133.6,
+            "meanUiFrameUs": 836.2566666666667,
+            "meanRasterFrameUs": 968.8933333333333
+          },
+          "fixed": {
+            "runs": [
+              {
+                "repeat": 1,
+                "startUtc": "2026-09-18T10:34:27.660538Z",
+                "frames": 60,
+                "uiTotalUs": 46973,
+                "rasterTotalUs": 58544,
+                "uiMeanUs": 782.8833333333333,
+                "rasterMeanUs": 975.7333333333333
+              },
+              {
+                "repeat": 2,
+                "startUtc": "2026-09-18T10:34:30.375001Z",
+                "frames": 60,
+                "uiTotalUs": 46169,
+                "rasterTotalUs": 58819,
+                "uiMeanUs": 769.4833333333333,
+                "rasterMeanUs": 980.3166666666667
+              },
+              {
+                "repeat": 3,
+                "startUtc": "2026-09-18T10:34:33.085554Z",
+                "frames": 60,
+                "uiTotalUs": 45513,
+                "rasterTotalUs": 59500,
+                "uiMeanUs": 758.55,
+                "rasterMeanUs": 991.6666666666666
+              },
+              {
+                "repeat": 4,
+                "startUtc": "2026-09-18T10:34:35.801048Z",
+                "frames": 60,
+                "uiTotalUs": 46120,
+                "rasterTotalUs": 59411,
+                "uiMeanUs": 768.6666666666666,
+                "rasterMeanUs": 990.1833333333333
+              },
+              {
+                "repeat": 5,
+                "startUtc": "2026-09-18T10:34:38.510712Z",
+                "frames": 60,
+                "uiTotalUs": 48701,
+                "rasterTotalUs": 59495,
+                "uiMeanUs": 811.6833333333333,
+                "rasterMeanUs": 991.5833333333334
+              }
+            ],
+            "meanUiTotalUs": 46695.2,
+            "meanRasterTotalUs": 59153.8,
+            "meanUiFrameUs": 778.2533333333333,
+            "meanRasterFrameUs": 985.8966666666666
+          },
+          "uiTotalReductionPercent": 6.936068272500073
+        },
+        {
+          "categories": 60,
+          "width": 700,
+          "baseline": {
+            "runs": [
+              {
+                "repeat": 1,
+                "startUtc": "2026-09-18T10:37:21.539021Z",
+                "frames": 60,
+                "uiTotalUs": 68374,
+                "rasterTotalUs": 54276,
+                "uiMeanUs": 1139.5666666666666,
+                "rasterMeanUs": 904.6
+              },
+              {
+                "repeat": 2,
+                "startUtc": "2026-09-18T10:37:24.256382Z",
+                "frames": 60,
+                "uiTotalUs": 65422,
+                "rasterTotalUs": 50930,
+                "uiMeanUs": 1090.3666666666666,
+                "rasterMeanUs": 848.8333333333334
+              },
+              {
+                "repeat": 3,
+                "startUtc": "2026-09-18T10:37:26.972690Z",
+                "frames": 60,
+                "uiTotalUs": 68241,
+                "rasterTotalUs": 53565,
+                "uiMeanUs": 1137.35,
+                "rasterMeanUs": 892.75
+              },
+              {
+                "repeat": 4,
+                "startUtc": "2026-09-18T10:37:29.686998Z",
+                "frames": 60,
+                "uiTotalUs": 66336,
+                "rasterTotalUs": 51982,
+                "uiMeanUs": 1105.6,
+                "rasterMeanUs": 866.3666666666667
+              },
+              {
+                "repeat": 5,
+                "startUtc": "2026-09-18T10:37:32.402487Z",
+                "frames": 60,
+                "uiTotalUs": 66041,
+                "rasterTotalUs": 50021,
+                "uiMeanUs": 1100.6833333333334,
+                "rasterMeanUs": 833.6833333333333
+              }
+            ],
+            "meanUiTotalUs": 66882.8,
+            "meanRasterTotalUs": 52154.8,
+            "meanUiFrameUs": 1114.7133333333334,
+            "meanRasterFrameUs": 869.2466666666667
+          },
+          "fixed": {
+            "runs": [
+              {
+                "repeat": 1,
+                "startUtc": "2026-09-18T10:34:43.944425Z",
+                "frames": 60,
+                "uiTotalUs": 62550,
+                "rasterTotalUs": 45282,
+                "uiMeanUs": 1042.5,
+                "rasterMeanUs": 754.7
+              },
+              {
+                "repeat": 2,
+                "startUtc": "2026-09-18T10:34:46.661221Z",
+                "frames": 60,
+                "uiTotalUs": 63935,
+                "rasterTotalUs": 46802,
+                "uiMeanUs": 1065.5833333333333,
+                "rasterMeanUs": 780.0333333333333
+              },
+              {
+                "repeat": 3,
+                "startUtc": "2026-09-18T10:34:49.378503Z",
+                "frames": 60,
+                "uiTotalUs": 63965,
+                "rasterTotalUs": 49060,
+                "uiMeanUs": 1066.0833333333333,
+                "rasterMeanUs": 817.6666666666666
+              },
+              {
+                "repeat": 4,
+                "startUtc": "2026-09-18T10:34:52.093923Z",
+                "frames": 60,
+                "uiTotalUs": 64180,
+                "rasterTotalUs": 47670,
+                "uiMeanUs": 1069.6666666666667,
+                "rasterMeanUs": 794.5
+              },
+              {
+                "repeat": 5,
+                "startUtc": "2026-09-18T10:34:54.810667Z",
+                "frames": 60,
+                "uiTotalUs": 67326,
+                "rasterTotalUs": 53813,
+                "uiMeanUs": 1122.1,
+                "rasterMeanUs": 896.8833333333333
+              }
+            ],
+            "meanUiTotalUs": 64391.2,
+            "meanRasterTotalUs": 48525.4,
+            "meanUiFrameUs": 1073.1866666666667,
+            "meanRasterFrameUs": 808.7566666666667
+          },
+          "uiTotalReductionPercent": 3.725322504440609
+        },
+        {
+          "categories": 60,
+          "width": 1100,
+          "baseline": {
+            "runs": [
+              {
+                "repeat": 1,
+                "startUtc": "2026-09-18T10:37:37.843056Z",
+                "frames": 60,
+                "uiTotalUs": 64206,
+                "rasterTotalUs": 51749,
+                "uiMeanUs": 1070.1,
+                "rasterMeanUs": 862.4833333333333
+              },
+              {
+                "repeat": 2,
+                "startUtc": "2026-09-18T10:37:40.559179Z",
+                "frames": 60,
+                "uiTotalUs": 67421,
+                "rasterTotalUs": 54151,
+                "uiMeanUs": 1123.6833333333334,
+                "rasterMeanUs": 902.5166666666667
+              },
+              {
+                "repeat": 3,
+                "startUtc": "2026-09-18T10:37:43.276465Z",
+                "frames": 60,
+                "uiTotalUs": 71944,
+                "rasterTotalUs": 59154,
+                "uiMeanUs": 1199.0666666666666,
+                "rasterMeanUs": 985.9
+              },
+              {
+                "repeat": 4,
+                "startUtc": "2026-09-18T10:37:45.991616Z",
+                "frames": 60,
+                "uiTotalUs": 68563,
+                "rasterTotalUs": 54425,
+                "uiMeanUs": 1142.7166666666667,
+                "rasterMeanUs": 907.0833333333334
+              },
+              {
+                "repeat": 5,
+                "startUtc": "2026-09-18T10:37:48.708711Z",
+                "frames": 60,
+                "uiTotalUs": 67771,
+                "rasterTotalUs": 54273,
+                "uiMeanUs": 1129.5166666666667,
+                "rasterMeanUs": 904.55
+              }
+            ],
+            "meanUiTotalUs": 67981,
+            "meanRasterTotalUs": 54750.4,
+            "meanUiFrameUs": 1133.0166666666667,
+            "meanRasterFrameUs": 912.5066666666667
+          },
+          "fixed": {
+            "runs": [
+              {
+                "repeat": 1,
+                "startUtc": "2026-09-18T10:35:00.250009Z",
+                "frames": 60,
+                "uiTotalUs": 65278,
+                "rasterTotalUs": 51898,
+                "uiMeanUs": 1087.9666666666667,
+                "rasterMeanUs": 864.9666666666667
+              },
+              {
+                "repeat": 2,
+                "startUtc": "2026-09-18T10:35:02.970085Z",
+                "frames": 60,
+                "uiTotalUs": 67392,
+                "rasterTotalUs": 53967,
+                "uiMeanUs": 1123.2,
+                "rasterMeanUs": 899.45
+              },
+              {
+                "repeat": 3,
+                "startUtc": "2026-09-18T10:35:05.691211Z",
+                "frames": 60,
+                "uiTotalUs": 66507,
+                "rasterTotalUs": 50423,
+                "uiMeanUs": 1108.45,
+                "rasterMeanUs": 840.3833333333333
+              },
+              {
+                "repeat": 4,
+                "startUtc": "2026-09-18T10:35:08.405327Z",
+                "frames": 60,
+                "uiTotalUs": 71404,
+                "rasterTotalUs": 55798,
+                "uiMeanUs": 1190.0666666666666,
+                "rasterMeanUs": 929.9666666666667
+              },
+              {
+                "repeat": 5,
+                "startUtc": "2026-09-18T10:35:11.125429Z",
+                "frames": 60,
+                "uiTotalUs": 66393,
+                "rasterTotalUs": 52156,
+                "uiMeanUs": 1106.55,
+                "rasterMeanUs": 869.2666666666667
+              }
+            ],
+            "meanUiTotalUs": 67394.8,
+            "meanRasterTotalUs": 52848.4,
+            "meanUiFrameUs": 1123.2466666666667,
+            "meanRasterFrameUs": 880.8066666666667
+          },
+          "uiTotalReductionPercent": 0.8622997602271143
+        }
+      ]
+    }
+  ]
+}
