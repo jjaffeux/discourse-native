@@ -61,17 +61,18 @@ class _ConversationTopicCard extends StatelessWidget {
       ascending: ascending,
       onSort: onSort,
     );
-    final taxonomy = Text.rich(
+    final taxonomyItems = <Widget>[
+      if (topic.privateMessage)
+        Text('Private conversation', style: textStyle)
+      else if (row.category != null)
+        _topicRowCategory(context, row),
+      ..._topicRowTags(context, row),
+      if (row.forum != null) Text(row.forum!.title, style: textStyle),
+    ];
+    final details = Text.rich(
       TextSpan(
         children: [
-          for (final child in <Widget>[
-            if (topic.privateMessage)
-              Text('Private conversation', style: textStyle)
-            else if (row.category != null)
-              _topicRowCategory(context, row),
-            ..._topicRowTags(context, row),
-            if (row.forum != null) Text(row.forum!.title, style: textStyle),
-          ])
+          for (final child in taxonomyItems)
             WidgetSpan(
               alignment: PlaceholderAlignment.baseline,
               baseline: TextBaseline.alphabetic,
@@ -80,13 +81,6 @@ class _ConversationTopicCard extends StatelessWidget {
                 child: child,
               ),
             ),
-        ],
-      ),
-      textScaler: TextScaler.noScaling,
-    );
-    final author = Text.rich(
-      TextSpan(
-        children: [
           if (topic.lastPosterUsername case final username?
               when shell?.appSettings.topicListShowLastPoster != false) ...[
             WidgetSpan(
@@ -184,34 +178,12 @@ class _ConversationTopicCard extends StatelessWidget {
                       overflow: largeText
                           ? TextOverflow.clip
                           : TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.bodySmall
-                          ?.copyWith(color: muted, height: 1.5),
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: muted,
+                        height: 1.5,
+                      ),
                     ),
-                  LayoutBuilder(
-                    builder: (context, constraints) {
-                      final stacked =
-                          constraints.maxWidth <
-                          540 * MediaQuery.textScalerOf(context).scale(12) / 12;
-                      return stacked
-                          ? Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              spacing: DSpacing.xs,
-                              children: [taxonomy, author],
-                            )
-                          : Row(
-                              children: [
-                                Expanded(child: taxonomy),
-                                const SizedBox(width: DSpacing.sm),
-                                ConstrainedBox(
-                                  constraints: BoxConstraints(
-                                    maxWidth: constraints.maxWidth * .55,
-                                  ),
-                                  child: author,
-                                ),
-                              ],
-                            );
-                    },
-                  ),
+                  details,
                   if (assignments.isNotEmpty)
                     Wrap(
                       spacing: DSpacing.xs,
@@ -252,8 +224,9 @@ class _TopicCardField extends StatelessWidget {
   Widget build(BuildContext context) => onSort == null
       ? Text(
           label,
-          style: Theme.of(context).textTheme.labelSmall
-              ?.copyWith(color: DTokens.of(context).mutedForeground),
+          style: Theme.of(context).textTheme.labelSmall?.copyWith(
+            color: DTokens.of(context).mutedForeground,
+          ),
         )
       : DButton(
           key: ValueKey('topic-sort-$column'),
