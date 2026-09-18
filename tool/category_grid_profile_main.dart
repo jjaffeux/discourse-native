@@ -40,7 +40,9 @@ Future<void> main() async {
     ),
   );
   await binding.endOfFrame;
-  stdout.writeln('CATEGORY_PROFILE_READY: activate this fixture and press Start');
+  stdout.writeln(
+    'CATEGORY_PROFILE_READY: activate this fixture and press Start',
+  );
   await startRequested.future;
   runApp(
     MaterialApp(
@@ -82,9 +84,12 @@ Future<void> main() async {
             ) when value.startsWith('category-card-')) {
               final box = element.findRenderObject()! as RenderBox;
               final origin = box.localToGlobal(Offset.zero);
-              if (!origin.dx.isFinite || !origin.dy.isFinite ||
-                  !box.size.width.isFinite || !box.size.height.isFinite ||
-                  box.size.width <= 0 || box.size.height <= 0) {
+              if (!origin.dx.isFinite ||
+                  !origin.dy.isFinite ||
+                  !box.size.width.isFinite ||
+                  !box.size.height.isFinite ||
+                  box.size.width <= 0 ||
+                  box.size.height <= 0) {
                 throw StateError('Invalid numeric category card geometry');
               }
               cards.add({
@@ -108,7 +113,8 @@ Future<void> main() async {
         if (startGeometry.isEmpty ||
             scroll == null ||
             pageSize.width != width ||
-            !pageSize.height.isFinite || pageSize.height <= 0) {
+            !pageSize.height.isFinite ||
+            pageSize.height <= 0) {
           throw StateError(
             'Production category fixture has unexpected geometry',
           );
@@ -140,7 +146,9 @@ Future<void> main() async {
             (key.currentContext!.findRenderObject()! as RenderBox).size;
         if (finalPageSize != pageSize ||
             !scroll!.position.maxScrollExtent.isFinite) {
-          throw StateError('Page geometry changed during capture or timing delivery');
+          throw StateError(
+            'Page geometry changed during capture or timing delivery',
+          );
         }
         final selected = frames.where((frame) {
           final vsync = frame.timestampInMicroseconds(ui.FramePhase.vsyncStart);
@@ -268,7 +276,9 @@ class _CaptureGuard extends WidgetsBindingObserver {
       );
     }
     if (_viewGeometry(binding) != expectedView) {
-      throw StateError('Viewport geometry/DPR changed from activation baseline');
+      throw StateError(
+        'Viewport geometry/DPR changed from activation baseline',
+      );
     }
   }
 

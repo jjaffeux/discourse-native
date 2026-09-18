@@ -1,6 +1,6 @@
 # Category grid intrinsic-layout audit
 
-**Status: pending native verification; not merged.**
+**Status: native improvement verified; awaiting merge.**
 
 The candidate change is limited to single-column category grids. Each row
 previously used `IntrinsicHeight` plus a stretching `Row`, even when it contained
@@ -118,14 +118,78 @@ these isolated executables under the shared desktop/profiling lease, with other
 audit builds/tests paused. Results are emitted as `CATEGORY_PROFILE` JSON to
 stdout. Do not replace or terminate the normal app.
 
-### Native result limitation
+### Retained native results
 
-No native timing claim is retained. At 2026-09-18 00:33 UTC, the corrected
-collector rejected startup because the app lifecycle was not resumed (`null`).
-The native computer-use tool then reported that the Mac was locked and automatic
-unlock was unavailable. The isolated fixture was stopped and the desktop lease
-released. An unlocked desktop is required to complete the corrected capture.
-Earlier callback-based measurements remain excluded regardless of their apparent
-improvement. Deterministic removal of redundant layout queries with unchanged behavior
-supports the candidate, but acceptance remains pending native profiling. It does
-not establish smoother native frames or a measured native CPU-time reduction.
+Device: Apple M4 Pro, arm64 macOS; Flutter 3.47.4 / Dart 3.13.3, profile mode,
+Skia on Metal. Every retained sample used a 1280×860 logical viewport, DPR 2,
+reported refresh rate 120Hz, explicit semantics and resumed lifecycle.
+LaunchServices opened exact-path isolated V2 bundles; an observed CUA container
+click activated the central Native Start button. The 10-second guarded warmup
+completed before capture. Both processes exited normally after each launch;
+the shared desktop lease was released after each pair.
+
+Four independent process launches provide two comparisons in opposite orders:
+
+- Baseline then fixed: first/last sample starts 10:27:40–10:29:15 UTC and
+  10:30:07–10:31:42 UTC on 2026-09-18.
+- Fixed then baseline: 10:33:36–10:35:11 UTC and 10:36:13–10:37:48 UTC,
+  using the same binaries, workload and guards. Exact per-sample timestamps
+  are preserved in the raw archives and summary below.
+
+All 120 measured runs selected exactly 60 build/raster/vsync frame records.
+One fixed 60-category/1100px **warmup** in the first pair had 61 frames; it is
+excluded, along with every other warmup. Pairwise start/end card positions,
+widths and heights, all 60 scroll offsets, scroll extents, viewport dimensions,
+page dimensions and DPR match exactly for all 36 runs in each pair.
+
+The table reports mean **total UI work per identical 60-step workload**, not
+elapsed wall time. Each cell summarizes five measured repeats. Frame means are
+reported separately in the machine-readable summary; the identical 60-frame
+measured denominators prevent idle/extra-frame dilution.
+
+| Categories | Width | Baseline→fixed order: UI ms before → after | Fixed→baseline order: UI ms before → after |
+| --- | --- | --- | --- |
+| 12 | 390 | 73.695 → 66.239 (−10.1%) | 54.863 → 46.897 (−14.5%) |
+| 12 | 700 | 87.418 → 85.470 | 63.883 → 62.305 |
+| 12 | 1100 | 92.425 → 89.990 | 65.361 → 66.787 |
+| 60 | 390 | 72.720 → 58.599 (−19.4%) | 50.175 → 46.695 (−6.9%) |
+| 60 | 700 | 91.322 → 93.294 | 66.883 → 64.391 |
+| 60 | 1100 | 88.586 → 92.189 | 67.981 → 67.395 |
+
+For the 390px target, mean UI work **per frame** was 1228.2→1104.0µs (12
+categories) and 1212.0→976.7µs (60) in the forward pair; 914.4→781.6µs and
+836.3→778.3µs respectively in the reverse pair.
+
+Absolute timings fell across the entire second pair, including the unchanged
+multi-column controls. This machine-wide variance prevents treating the pooled
+samples as one precise speedup. The narrower claim is supported: single-column
+UI work decreases in both process orders and both data sizes, consistent with
+eliminated intrinsic passes. Control differences change direction and remain
+smaller than the target reductions in their corresponding pair.
+
+Raster results are mixed. At 390px the forward pair's mean total raster work was
+77.317→83.863ms (12) and 89.823→86.017ms (60); the reverse pair was
+53.411→53.076ms and 58.134→59.154ms. No raster improvement, FPS improvement,
+or smoother-native-frame claim is made. No iPhone was profiled.
+
+Per-run distributions, totals, frame means, and parity checks:
+[category-grid-native-summary.json](category-grid-native-summary.json).
+Complete raw arrays and geometry, including excluded warmups, are stored as
+lossless gzip JSON:
+
+- [Forward baseline](category-grid-native-baseline.json.gz)
+- [Forward fixed](category-grid-native-fixed.json.gz)
+- [Reverse baseline](category-grid-native-baseline-reverse.json.gz)
+- [Reverse fixed](category-grid-native-fixed-reverse.json.gz)
+
+Read an archive using `json.load(gzip.open(path, 'rt'))` in Python. No VM-service
+URLs or authentication tokens from launch logs are included.
+
+### Excluded earlier attempts
+
+The earlier callback-time collector and its provisional results remain excluded.
+At 00:33 UTC the first timestamp-corrected attempt rejected startup because the
+app lifecycle was not resumed (`null`); the computer-use tool reported a locked
+Mac. That fixture was stopped and its lease released. Later guard revisions
+added sticky lifecycle/metrics/semantics validation and explicit activation.
+Only the V2 guarded captures described above support native acceptance.
