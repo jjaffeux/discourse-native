@@ -1093,6 +1093,7 @@ class DDocumentTab extends StatefulWidget {
     required this.onClose,
     required this.closeLabel,
     this.closeShortcut,
+    this.closeOnlyWhenSelected = false,
     this.onDoubleTap,
     this.onTapDown,
     this.onTapCancel,
@@ -1109,6 +1110,9 @@ class DDocumentTab extends StatefulWidget {
   final VoidCallback onSelect;
   final VoidCallback onClose;
   final String closeLabel;
+
+  /// Remove the close action and its space from inactive tabs.
+  final bool closeOnlyWhenSelected;
   final DShortcut? closeShortcut;
   final VoidCallback? onDoubleTap;
   final GestureTapDownCallback? onTapDown;
@@ -1234,30 +1238,32 @@ class _DDocumentTabState extends State<DDocumentTab> {
                         ),
                       ),
                 ),
-                ListenableBuilder(
-                  listenable: _closeFocus,
-                  builder: (context, _) => AnimatedOpacity(
-                    opacity: widget.selected || _hovered || _closeFocus.hasFocus
-                        ? 1
-                        : 0,
-                    alwaysIncludeSemantics: true,
-                    duration: DMotion.duration(context, DMotion.change),
-                    child: Center(
-                      widthFactor: 1,
-                      child: DButton.iconOnly(
-                        key: widget.closeKey,
-                        tooltip: widget.closeLabel,
-                        shortcut: widget.closeShortcut,
-                        focusNode: _closeFocus,
-                        size: DButtonSize.small,
-                        variant: DButtonVariant.ghost,
-                        foregroundColor: mix(.5),
-                        icon: const DIcon(DIcons.xmark),
-                        onPressed: widget.onClose,
+                if (!widget.closeOnlyWhenSelected || widget.selected)
+                  ListenableBuilder(
+                    listenable: _closeFocus,
+                    builder: (context, _) => AnimatedOpacity(
+                      opacity:
+                          widget.selected || _hovered || _closeFocus.hasFocus
+                          ? 1
+                          : 0,
+                      alwaysIncludeSemantics: true,
+                      duration: DMotion.duration(context, DMotion.change),
+                      child: Center(
+                        widthFactor: 1,
+                        child: DButton.iconOnly(
+                          key: widget.closeKey,
+                          tooltip: widget.closeLabel,
+                          shortcut: widget.closeShortcut,
+                          focusNode: _closeFocus,
+                          size: DButtonSize.small,
+                          variant: DButtonVariant.ghost,
+                          foregroundColor: mix(.5),
+                          icon: const DIcon(DIcons.xmark),
+                          onPressed: widget.onClose,
+                        ),
                       ),
                     ),
                   ),
-                ),
               ],
             ),
           ),

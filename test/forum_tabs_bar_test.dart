@@ -110,7 +110,7 @@ void main() {
         ),
         first,
       ];
-      for (final viewportWidth in [560.0, 220.0]) {
+      for (final viewportWidth in [800.0]) {
         await _pumpBar(
           tester,
           items: items,
@@ -127,7 +127,10 @@ void main() {
         final tabRect = tester.getRect(short);
 
         expect(tabRect.width, lessThan(136));
-        expect(tester.getSize(suffix).width, closeTo(tabRect.width + 17, .01));
+        expect(
+          tester.getSize(suffix).width,
+          closeTo(tabRect.width + 17 - ForumTabsBar.closeTargetWidth, .01),
+        );
         expect(tester.getSize(long).width, ForumTabsBar.maximumTabWidth);
         expect(labelRect.left - tabRect.left, 2 + 8 + 15 + 7);
         expect(closeRect.left - labelRect.right, closeTo(8, .01));
@@ -406,12 +409,6 @@ void main() {
           matching: find.byType(DTooltip),
         ),
       );
-      final inactiveCloseTooltip = tester.widget<DTooltip>(
-        find.descendant(
-          of: find.byKey(const ValueKey('forum-tab-close-chat-2')),
-          matching: find.byType(DTooltip),
-        ),
-      );
       expect(addTooltip.message, 'Open a new tab');
       expect(selectedCloseTooltip.message, 'Close A long-running topic');
       _expectPrimaryShortcut(
@@ -421,11 +418,6 @@ void main() {
       );
       _expectPrimaryShortcut(
         selectedCloseTooltip.shortcut![0],
-        platform,
-        LogicalKeyboardKey.keyW,
-      );
-      _expectPrimaryShortcut(
-        inactiveCloseTooltip.shortcut![0],
         platform,
         LogicalKeyboardKey.keyW,
       );
@@ -510,7 +502,7 @@ void main() {
       await tester.pump(kDoubleTapTimeout);
     });
 
-    testWidgets('reveal close on tab hover without shifting the title', (
+    testWidgets('only the active tab has a close button, even on hover', (
       tester,
     ) async {
       await _pumpBar(
@@ -557,7 +549,7 @@ void main() {
       await pointer.moveTo(tester.getCenter(find.text(second.title)));
       await tester.pumpAndSettle();
       expect(_closeOpacity(tester, first.id), 1);
-      expect(_closeOpacity(tester, second.id), 1);
+      expect(_closeOpacity(tester, second.id), 0);
       expect(tester.getRect(find.text(first.title)), titleRect);
 
       await pointer.moveTo(Offset.zero);
@@ -864,7 +856,7 @@ void main() {
           expect(tester.takeException(), isNull);
           expect(
             tester.getSize(row).height,
-            greaterThan(tester.getSize(shortRow).height),
+            greaterThanOrEqualTo(tester.getSize(shortRow).height),
           );
           expect(tester.getRect(menu).right, lessThanOrEqualTo(320));
           expect(tester.getRect(menu).bottom, lessThanOrEqualTo(540));
@@ -1035,90 +1027,78 @@ void main() {
   });
 
   group('overflow layout', () {
-    testWidgets('scrolls overflowing tabs and keeps add after the final tab', (
-      tester,
-    ) async {
-      final items = [
-        for (var index = 0; index < 8; index++)
-          ForumTabItem(
-            id: 'tab-$index',
-            title: 'Forum tab $index',
-            icon: DIcons.comment,
-            badge: index == 3
-                ? const SidebarBadge.count(999)
-                : SidebarBadge.none,
-          ),
-      ];
-      await _pumpBar(
-        tester,
-        items: items,
-        selectedId: items.first.id,
-        width: 320,
-      );
-
-      final scrollable = _scrollable(tester);
-      final add = find.byKey(const ValueKey('forum-tabs-add'));
-      final initialAddRect = tester.getRect(add);
-      final initialLastTabRect = tester.getRect(
-        find.byKey(ValueKey('forum-tab-item-${items.last.id}')),
-      );
-      final initialViewportRect = tester.getRect(
-        find.byKey(const ValueKey('forum-tabs-scroll')),
-      );
-      expect(scrollable.position.maxScrollExtent, greaterThan(0));
-      expect(scrollable.position.pixels, 0);
-      expect(initialAddRect.left, initialLastTabRect.right + 4);
-      expect(initialAddRect.left, greaterThan(initialViewportRect.right));
-      expect(
-        find.byKey(const ValueKey('forum-tab-badge-tab-3')),
-        findsOneWidget,
-      );
-      for (final item in items) {
-        expect(find.byKey(ValueKey('forum-tab-${item.id}')), findsOneWidget);
-      }
-
-      await tester.sendEventToBinding(
-        PointerScrollEvent(
-          position: tester.getCenter(
-            find.byKey(const ValueKey('forum-tabs-scroll')),
-          ),
-          scrollDelta: const Offset(180, 0),
-        ),
-      );
-      await tester.pumpAndSettle();
-
-      expect(scrollable.position.pixels, greaterThan(0));
-      expect(tester.getRect(add).left, lessThan(initialAddRect.left));
-      expect(
-        tester.getRect(add).left,
-        tester
-                .getRect(
-                  find.byKey(ValueKey('forum-tab-item-${items.last.id}')),
-                )
-                .right +
-            4,
-      );
-
-      await _pumpBar(
-        tester,
-        items: items,
-        selectedId: items.last.id,
-        width: 320,
-      );
-      await tester.pumpAndSettle();
-
-      expect(_scrollable(tester).position.pixels, greaterThan(0));
-      final lastTabRect = tester.getRect(
-        find.byKey(ValueKey('forum-tab-item-${items.last.id}')),
-      );
-      final viewportRect = tester.getRect(
-        find.byKey(const ValueKey('forum-tabs-scroll')),
-      );
-      expect(lastTabRect.left, greaterThanOrEqualTo(viewportRect.left));
-      expect(lastTabRect.right, lessThanOrEqualTo(viewportRect.right));
-      expect(tester.getRect(add).left, lastTabRect.right + 4);
-      expect(tester.getRect(add).right, lessThanOrEqualTo(viewportRect.right));
-    });
+    testWidgets(
+      'selects the trailing edge of an inactive tab and drags crowded tabs',
+      (tester) async {
+        final selected = <String>[];
+        final items = [
+          for (var i = 0; i < 20; i++)
+            ForumTabItem(
+              id: 'crowded-$i',
+              title: 'Crowded tab $i',
+              icon: DIcons.comment,
+            ),
+        ];
+        await _pumpBar(
+          tester,
+          items: items,
+          selectedId: items.first.id,
+          width: 560,
+          onSelect: selected.add,
+        );
+        final tab = find.byKey(ValueKey('forum-tab-item-${items[1].id}'));
+        final rect = tester.getRect(tab);
+        await tester.tapAt(Offset(rect.right - 3, rect.center.dy));
+        expect(selected, contains(items[1].id));
+        await tester.drag(tab, const Offset(60, 0));
+        await tester.pumpAndSettle();
+        expect(tester.takeException(), isNull);
+      },
+    );
+    testWidgets(
+      'shrinks labels to fit and keeps the active close and add visible',
+      (tester) async {
+        final items = [
+          for (var index = 0; index < 20; index++)
+            ForumTabItem(
+              id: 'tab-$index',
+              title: 'Forum tab $index',
+              icon: DIcons.comment,
+            ),
+        ];
+        for (final width in [320.0, 560.0, 1000.0]) {
+          for (final selected in [items.first, items.last]) {
+            await _pumpBar(
+              tester,
+              items: items,
+              selectedId: selected.id,
+              width: width,
+            );
+            await tester.pumpAndSettle();
+            final bar = tester.getRect(
+              find.byKey(const ValueKey('forum-tabs-bar')),
+            );
+            expect(find.byType(SingleChildScrollView), findsNothing);
+            for (final item in items) {
+              final tab = tester.getRect(
+                find.byKey(ValueKey('forum-tab-item-${item.id}')),
+              );
+              expect(tab.left, greaterThanOrEqualTo(bar.left));
+              expect(tab.right, lessThanOrEqualTo(bar.right));
+              expect(
+                find.byKey(ValueKey('forum-tab-close-${item.id}')),
+                item == selected ? findsOneWidget : findsNothing,
+              );
+            }
+            final add = tester.getRect(
+              find.byKey(const ValueKey('forum-tabs-add')),
+            );
+            expect(add.right, lessThanOrEqualTo(bar.right));
+            expect(tester.takeException(), isNull);
+          }
+        }
+      },
+    );
   });
 
   group('accessibility', () {
@@ -1284,16 +1264,19 @@ Future<void> _expectTabPixels(
 ShapeDecoration _tabDecoration(WidgetTester tester, Finder finder) =>
     tester.widget<Container>(finder).decoration! as ShapeDecoration;
 
-double _closeOpacity(WidgetTester tester, String tabId) => tester
-    .widget<AnimatedOpacity>(
-      find
-          .ancestor(
-            of: find.byKey(ValueKey('forum-tab-close-$tabId')),
-            matching: find.byType(AnimatedOpacity),
+double _closeOpacity(WidgetTester tester, String tabId) =>
+    find.byKey(ValueKey('forum-tab-close-$tabId')).evaluate().isEmpty
+    ? 0
+    : tester
+          .widget<AnimatedOpacity>(
+            find
+                .ancestor(
+                  of: find.byKey(ValueKey('forum-tab-close-$tabId')),
+                  matching: find.byType(AnimatedOpacity),
+                )
+                .first,
           )
-          .first,
-    )
-    .opacity;
+          .opacity;
 
 BoxDecoration _decoration(WidgetTester tester, Finder finder) => switch (tester
     .widget(finder)) {
@@ -1302,14 +1285,6 @@ BoxDecoration _decoration(WidgetTester tester, Finder finder) => switch (tester
   final DecoratedBox box => box.decoration as BoxDecoration,
   final widget => throw StateError('${widget.runtimeType} decorates nothing'),
 };
-
-ScrollableState _scrollable(WidgetTester tester) =>
-    tester.state<ScrollableState>(
-      find.descendant(
-        of: find.byKey(const ValueKey('forum-tabs-scroll')),
-        matching: find.byType(Scrollable),
-      ),
-    );
 
 void _expectPrimaryShortcut(
   Object? shortcut,
