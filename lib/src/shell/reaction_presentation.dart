@@ -90,6 +90,7 @@ class ReactionPill extends StatefulWidget {
     this.onTapHint,
     this.onToggle,
     this.visualKey,
+    this.size = DToggleSize.regular,
   });
 
   // Retained for the legacy post reaction-picker adapter. Native controls
@@ -112,6 +113,7 @@ class ReactionPill extends StatefulWidget {
   final WidgetBuilder reactorsBuilder;
 
   final Key? visualKey;
+  final DToggleSize size;
 
   @override
   State<ReactionPill> createState() => _ReactionPillState();
@@ -180,6 +182,7 @@ class _ReactionPillState extends State<ReactionPill> {
         closeDelay: const Duration(milliseconds: 500),
         builder: (context, state) => DToggle(
           key: widget.visualKey,
+          size: widget.size,
           focusNode: state.focusNode,
           pressed: widget.selected,
           enabled: widget.enabled && !_toggling,
@@ -193,7 +196,7 @@ class _ReactionPillState extends State<ReactionPill> {
           icon: SiteEmojiImage(
             siteUrl: widget.siteUrl,
             name: widget.reaction,
-            size: DToggle.iconDimensionFor(DToggleSize.regular),
+            size: DToggle.iconDimensionFor(widget.size),
             alt: ':${widget.reaction}:',
           ),
           child: Text('${widget.count}'),

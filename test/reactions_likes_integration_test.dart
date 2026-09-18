@@ -625,7 +625,7 @@ void _registerReactionAndLikeTests() {
       try {
         final launcher = find.bySemanticsLabel('Add reaction');
         expect(launcher, findsOneWidget);
-        expect(tester.getSize(launcher), const Size.square(44));
+        expect(tester.getSize(launcher), const Size.square(48));
         expect(
           tester.getSemantics(launcher),
           isSemantics(isButton: true, isFocusable: true, hasTapAction: true),
@@ -820,7 +820,12 @@ void _registerReactionAndLikeTests() {
       expect(
         tester
             .widget<EmojiImage>(
-              find.descendant(of: button, matching: find.byType(EmojiImage)),
+              find.descendant(
+                of: find
+                    .descendant(of: button, matching: find.byType(DToggle))
+                    .first,
+                matching: find.byType(EmojiImage),
+              ),
             )
             .alt,
         ':clap:',

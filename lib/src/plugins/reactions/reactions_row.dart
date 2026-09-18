@@ -1,3 +1,4 @@
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
 import '../../models/post.dart';
@@ -57,6 +58,7 @@ class ReactionsRow extends StatelessWidget {
         for (final entry in reactions.entries)
           ReactionPill(
             key: ValueKey('post-reaction-${post.id}-${entry.id}'),
+            size: DToggleSize.large,
             siteUrl: siteUrl,
             reaction: entry.id,
             count: entry.count,
