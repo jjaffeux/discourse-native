@@ -14,6 +14,7 @@ import '../diagnostics/diagnostics_scope.dart';
 import '../diagnostics/surface_opening_trace.dart';
 import '../diagnostics/topic_scroll_capture.dart';
 import '../foundation/calendar_day.dart';
+import '../foundation/frame_safe_notifier.dart';
 import '../models/content_route.dart';
 import '../models/post.dart';
 import '../models/post_flag.dart';
@@ -235,6 +236,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
   TopicPostIndexProjection? _postIndexProjection;
   final Map<int, BuildContext> _postContexts = {};
   final _postRetention = TopicPostRetention();
+  final _animatedPostIds = FrameSafeValueNotifier<Set<int>>(const {});
   final Map<int, _RetainedTopicPostExtent> _retainedPostExtents = {};
   bool _retainedGeometryRefreshScheduled = false;
   double _laidOutPostWidth = 0;
@@ -587,6 +589,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     _chatContextCurrentPostId = null;
     _postContexts.clear();
     _postRetention.clear();
+    _animatedPostIds.value = const {};
     _retainedPostExtents.clear();
     _laidOutPostWidth = 0;
     _extentGeneration = 0;
@@ -766,6 +769,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
   @override
   void dispose() {
     _postRetention.dispose();
+    _animatedPostIds.dispose();
     WidgetsBinding.instance.removeObserver(this);
     _controller?.clearVisibleTopicContext(_visibleTopicContextOwner);
     _sidebarRestoreGeneration++;
@@ -1380,6 +1384,24 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
   }
 
   void _onListLayoutChanged() {
+    // Use the laid-out range, including partially visible posts. Retained and
+    // cache-area rows keep their state and subscriptions, but not animation.
+    final snapshot = _laidOutSnapshot;
+    final range = _list?.isAttached == true ? _list!.visibleRange : null;
+    final visible = <int>{};
+    if (snapshot != null && range != null) {
+      final leading = snapshot.hasEarlier || snapshot.loadingEarlier ? 1 : 0;
+      for (var index = range.$1; index <= range.$2; index++) {
+        if (index.isOdd) continue;
+        final postIndex = index ~/ 2 - leading;
+        if (postIndex >= 0 && postIndex < snapshot.postIds.length) {
+          visible.add(snapshot.postIds[postIndex]);
+        }
+      }
+    }
+    if (!setEquals(_animatedPostIds.value, visible)) {
+      _animatedPostIds.value = visible;
+    }
     if (_isScrollCaptureRecording) {
       // This can notify more than once inside one layout. Keep the marker
       // cheap; _scheduleLook coalesces the full geometry read after the frame.
@@ -2105,6 +2127,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
           topicId: snapshot.topicId!,
           post: controller.postRef(siteUrl, postId),
           retention: _postRetention,
+          animatedPostIds: _animatedPostIds,
           scrollCapture: _scrollCapture,
           viewportState: _viewportState,
           retainedMinimumHeight: _retainedPostMinimumHeight(
@@ -3717,6 +3740,7 @@ class _TopicPostItem extends StatefulWidget {
     required this.topicId,
     required this.post,
     required this.retention,
+    required this.animatedPostIds,
     required this.scrollCapture,
     required this.viewportState,
     required this.retainedMinimumHeight,
@@ -3737,6 +3761,7 @@ class _TopicPostItem extends StatefulWidget {
   final int topicId;
   final ValueListenable<Post?> post;
   final TopicPostRetention retention;
+  final ValueListenable<Set<int>> animatedPostIds;
   final TopicScrollCaptureController? scrollCapture;
   final TopicViewportListenable viewportState;
   final double? retainedMinimumHeight;
@@ -3867,7 +3892,14 @@ class _TopicPostItemState extends State<_TopicPostItem>
             key: ValueKey(('topic-time-gap', widget.postId)),
             daysSince: daysSince,
           ),
-        widget.child,
+        ValueListenableBuilder<Set<int>>(
+          valueListenable: widget.animatedPostIds,
+          child: widget.child,
+          builder: (context, visible, child) => TickerMode(
+            enabled: visible.contains(widget.postId),
+            child: child!,
+          ),
+        ),
         if (widget.gapAfter.isNotEmpty)
           _PostGap(
             key: const ValueKey('post-gap-after'),
