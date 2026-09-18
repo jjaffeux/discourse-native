@@ -10,76 +10,74 @@ import 'package:flutter_test/flutter_test.dart';
 import 'support/button_surface.dart';
 
 void main() {
-  testWidgets(
-    'button, field and production filter share dark outline geometry',
-    (tester) async {
-      for (final palette in [StyleguideTheme.dark, StyleguideTheme.plum]) {
-        final theme = palette
-            .resolve(AppTheme.dark)
-            .copyWith(platform: TargetPlatform.macOS);
-        await tester.pumpWidget(
-          MaterialApp(
-            theme: theme,
-            home: Scaffold(
-              body: Column(
-                children: [
-                  DButton(
-                    label: const Text('Action'),
-                    variant: DButtonVariant.outline,
-                    onPressed: () {},
-                  ),
-                  DSelect<String>(
-                    width: 128,
-                    value: 'Recent',
-                    entries: const [
-                      DSelectItem(
-                        value: 'Recent',
-                        textValue: 'Recent',
-                        child: Text('Recent'),
-                      ),
-                    ],
-                    onChanged: (_) {},
-                  ),
-                  TopicTaxonomyButton(
-                    label: 'Tags',
-                    semanticLabel: 'Tags',
-                    onPressed: () {},
-                    maximumWidth: 200,
-                  ),
-                ],
-              ),
+  testWidgets('button, field and production filter share dark outline paint', (
+    tester,
+  ) async {
+    for (final palette in [StyleguideTheme.dark, StyleguideTheme.plum]) {
+      final theme = palette
+          .resolve(AppTheme.dark)
+          .copyWith(platform: TargetPlatform.macOS);
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: theme,
+          home: Scaffold(
+            body: Column(
+              children: [
+                DButton(
+                  label: const Text('Action'),
+                  variant: DButtonVariant.outline,
+                  onPressed: () {},
+                ),
+                DSelect<String>(
+                  width: 128,
+                  value: 'Recent',
+                  entries: const [
+                    DSelectItem(
+                      value: 'Recent',
+                      textValue: 'Recent',
+                      child: Text('Recent'),
+                    ),
+                  ],
+                  onChanged: (_) {},
+                ),
+                TopicTaxonomyButton(
+                  label: 'Tags',
+                  semanticLabel: 'Tags',
+                  onPressed: () {},
+                  maximumWidth: 200,
+                ),
+              ],
             ),
           ),
-        );
-        final action = buttonSurface(
-          tester,
-          of: find.widgetWithText(DButton, 'Action'),
-        );
-        final filter = buttonSurface(
-          tester,
-          of: find.byType(TopicTaxonomyButton),
-        );
-        final select =
-            tester
-                    .widget<AnimatedContainer>(
-                      find.byKey(const Key('d-select-trigger-visual')),
-                    )
-                    .decoration!
-                as DButtonDecoration;
-        for (final surface in [filter, select]) {
-          expect(surface.borderRadius, action.borderRadius);
-          expect(surface.borderColor, action.borderColor);
-          expect(surface.color, action.color);
-        }
-        expect(
+        ),
+      );
+      final action = buttonSurface(
+        tester,
+        of: find.widgetWithText(DButton, 'Action'),
+      );
+      final filter = buttonSurface(
+        tester,
+        of: find.byType(TopicTaxonomyButton),
+      );
+      final select =
           tester
-              .getSize(find.byKey(const Key('d-select-trigger-visual')))
-              .height,
-          tester.getSize(find.widgetWithText(FilledButton, 'Action')).height,
-        );
+                  .widget<AnimatedContainer>(
+                    find.byKey(const Key('d-select-trigger-visual')),
+                  )
+                  .decoration!
+              as DButtonDecoration;
+      expect(action.borderRadius, BorderRadius.circular(14));
+      for (final surface in [filter, select]) {
+        expect(surface.borderRadius, BorderRadius.circular(8));
+        expect(surface.borderColor, action.borderColor);
+        expect(surface.color, action.color);
       }
-    },
-  );
+      expect(
+        tester.getSize(find.byKey(const Key('d-select-trigger-visual'))).height,
+        tester.getSize(find.widgetWithText(FilledButton, 'Action')).height,
+      );
+    }
+  });
 
   testWidgets(
     'standard menu trigger owns one button and restores borrowed focus',

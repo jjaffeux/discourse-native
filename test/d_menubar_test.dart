@@ -152,7 +152,10 @@ void main() {
         matching: find.byType(AnimatedContainer),
       ),
     );
-    expect((trigger.decoration as BoxDecoration).color, menuHover);
+    final rowHover = DControlStyle.rowHover(
+      DTokens.of(tester.element(find.byType(DMenubarTrigger).first)),
+    );
+    expect((trigger.decoration as BoxDecoration).color, rowHover);
     final rowColors = tester
         .widgetList<Container>(
           find.ancestor(
@@ -161,7 +164,7 @@ void main() {
           ),
         )
         .map((widget) => (widget.decoration as BoxDecoration?)?.color);
-    expect(rowColors, contains(menuHover));
+    expect(rowColors, contains(rowHover));
   });
 
   testWidgets('Home End and RTL use logical top-level navigation', (

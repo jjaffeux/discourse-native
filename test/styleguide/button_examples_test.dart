@@ -21,6 +21,7 @@ void main() {
       'Reference demo',
       'Custom colors',
       'Transparent background',
+      'Linear settings controls',
     ]);
   });
 

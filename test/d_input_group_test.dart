@@ -38,7 +38,7 @@ void main() {
       await tester.pumpWidget(
         host(
           DInputGroup(
-            viewportHeight: 104,
+            viewportHeight: 112,
             children: [
               DInputGroupTextarea(controller: text, maxLines: null),
               const DInputGroupAddon(
@@ -54,7 +54,7 @@ void main() {
       await tester.pumpAndSettle();
       final group = find.byType(DInputGroup);
       final bounds = tester.getRect(group);
-      expect(bounds.height, 104);
+      expect(bounds.height, 112);
       final position = tester
           .state<ScrollableState>(
             find
@@ -216,7 +216,7 @@ void main() {
     );
 
     expect(tester.getSize(find.byType(DInputGroup)).height, 28);
-    expect(tester.getSize(find.byType(EditableText)).height, 16);
+    expect(tester.getSize(find.byType(EditableText)).height, 20);
   });
 
   testWidgets('inline addons hug their edges and leave width to the editor', (

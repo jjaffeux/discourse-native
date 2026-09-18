@@ -3,13 +3,14 @@ import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
 
 import '../../theme/discourse_typography.dart';
+import '../foundation/control_style.dart';
 import '../foundation/tokens.dart';
 import 'd_label.dart';
 
-/// The two base-nova switch sizes, in logical pixels.
+/// Compact and standard Linear switch sizes, in logical pixels.
 enum DSwitchSize { standard, small }
 
-/// A shadcn switch with native focus, keyboard and accessibility interaction.
+/// A switch with native focus, keyboard and accessibility interaction.
 ///
 /// Supply [value] for controlled state, or omit it to own state initialized by
 /// [initialValue]. A controlled switch with no [onChanged] is disabled unless
@@ -67,6 +68,7 @@ class _DSwitchState extends State<DSwitch> {
   late bool _value = widget.initialValue;
   bool _focusVisible = false;
   bool _hovered = false;
+  bool _pressed = false;
   final FocusNode _ownedFocus = FocusNode();
   FocusNode get _focus => widget.focusNode ?? _ownedFocus;
   @override
@@ -94,6 +96,7 @@ class _DSwitchState extends State<DSwitch> {
       size: widget.size,
       invalid: widget.invalid,
       focused: _focusVisible,
+      interactive: _enabled && !widget.readOnly && (_hovered || _pressed),
     );
     return MergeSemantics(
       child: Semantics(
@@ -133,6 +136,9 @@ class _DSwitchState extends State<DSwitch> {
           child: GestureDetector(
             behavior: HitTestBehavior.opaque,
             excludeFromSemantics: true,
+            onTapDown: _enabled ? (_) => setState(() => _pressed = true) : null,
+            onTapUp: _enabled ? (_) => setState(() => _pressed = false) : null,
+            onTapCancel: () => setState(() => _pressed = false),
             onTap: _enabled
                 ? () {
                     _focus.requestFocus();
@@ -167,16 +173,17 @@ class _SwitchArtwork extends StatelessWidget {
     required this.size,
     required this.invalid,
     required this.focused,
+    required this.interactive,
   });
   final bool checked;
   final DSwitchSize size;
   final bool invalid;
   final bool focused;
+  final bool interactive;
 
   @override
   Widget build(BuildContext context) {
     final tokens = DTokens.of(context);
-    final dark = Theme.of(context).brightness == Brightness.dark;
     final small = size == DSwitchSize.small;
     final ring = invalid ? tokens.destructive : tokens.focusRing;
     final duration = DMotion.duration(
@@ -186,28 +193,28 @@ class _SwitchArtwork extends StatelessWidget {
     return AnimatedContainer(
       duration: duration,
       curve: const Cubic(0.4, 0, 0.2, 1),
-      width: small ? 24 : 32,
-      height: small ? 14 : 18.4,
+      width: small ? 24 : 30,
+      height: small ? 16 : 20,
+      padding: const EdgeInsets.all(3),
       decoration: BoxDecoration(
         color: checked
-            ? tokens.primary
-            : _multiplyAlpha(tokens.colors.outlineVariant, dark ? 0.8 : 1),
+            ? (interactive
+                  ? tokens.controlTheme.primary.hover
+                  : tokens.controlTheme.primary.background)
+            : Color.lerp(
+                tokens.background,
+                tokens.mutedForeground,
+                interactive ? .85 : .70,
+              ),
         borderRadius: BorderRadius.circular(999),
-        border: Border.all(
-          color: invalid || focused
-              ? _multiplyAlpha(ring, invalid && dark ? 0.5 : 1)
-              : Colors.transparent,
-        ),
       ),
-      foregroundDecoration: BoxDecoration(
+      foregroundDecoration: DControlDecoration(
+        color: Colors.transparent,
+        borderColor: Colors.transparent,
         borderRadius: BorderRadius.circular(999),
-        border: Border.all(
-          width: 3,
-          strokeAlign: BorderSide.strokeAlignOutside,
-          color: invalid || focused
-              ? _multiplyAlpha(ring, invalid ? (dark ? 0.4 : 0.2) : 0.5)
-              : Colors.transparent,
-        ),
+        ringColor: invalid || focused ? ring : Colors.transparent,
+        ringWidth: DControlStyle.focusWidth,
+        ringOffset: DControlStyle.focusOffset,
       ),
       child: AnimatedAlign(
         duration: duration,
@@ -216,13 +223,11 @@ class _SwitchArtwork extends StatelessWidget {
             ? AlignmentDirectional.centerEnd
             : AlignmentDirectional.centerStart,
         child: SizedBox.square(
-          dimension: small ? 12 : 16,
-          child: DecoratedBox(
+          dimension: small ? 10 : 14,
+          child: const DecoratedBox(
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: dark
-                  ? (checked ? tokens.primaryForeground : tokens.foreground)
-                  : tokens.background,
+              color: Colors.white,
             ),
           ),
         ),

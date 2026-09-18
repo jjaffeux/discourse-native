@@ -159,7 +159,10 @@ void main() {
       );
       _near(
         _pixel(pixels, 20, 36),
-        theme.extension<DTokens>()!.controls!.outline.border,
+        Color.alphaBlend(
+          theme.extension<DTokens>()!.controlTheme.outline.border,
+          theme.extension<DTokens>()!.controlTheme.outline.background,
+        ),
       );
       expect(_pixel(pixels, 20, 36), isNot(_pixel(pixels, 10, 36)));
     },
@@ -180,7 +183,7 @@ void main() {
       _near(_pixel(defaultPixels, 280, 36), fill);
       _near(
         _pixel(defaultPixels, 20, 36),
-        Color.alphaBlend(Colors.white.withValues(alpha: .15), fill),
+        Color.alphaBlend(Colors.white.withValues(alpha: .167), fill),
       );
       final focus = FocusNode();
       addTearDown(focus.dispose);

@@ -6,7 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 
-import '../../theme/discourse_typography.dart';
+import '../foundation/control_style.dart';
 import '../foundation/joined_control.dart';
 import '../foundation/tokens.dart';
 
@@ -824,50 +824,35 @@ class DPopoverContent extends StatelessWidget {
     final tokens = DTokens.of(context);
     final style = Theme.of(context).textTheme.bodyMedium!.copyWith(
       color: tokens.foreground,
-      fontSize: DiscourseTypography.sm,
-      height: DiscourseTypography.lineHeightSmall,
+      fontSize: DControlStyle.labelFontSize,
+      height: 20 / DControlStyle.labelFontSize,
       fontWeight: FontWeight.w400,
       letterSpacing: 0,
       decoration: TextDecoration.none,
     );
-    final radius = tokens.radius;
-    final shadowColor = Colors.black.withValues(alpha: 0.10);
-    final shadows = switch (shadow) {
-      DPopoverShadow.medium => [
-        BoxShadow(
-          color: shadowColor,
-          offset: const Offset(0, 4),
-          blurRadius: 6,
-          spreadRadius: -1,
-        ),
-        BoxShadow(
-          color: shadowColor,
-          offset: const Offset(0, 2),
-          blurRadius: 4,
-          spreadRadius: -2,
-        ),
-      ],
-      DPopoverShadow.large => [
+    const radius = DControlStyle.popupRadius;
+    final shadowColor = Colors.black.withValues(alpha: .125);
+    final shadows = [
+      BoxShadow(color: shadowColor, offset: const Offset(0, 3), blurRadius: 8),
+      BoxShadow(color: shadowColor, offset: const Offset(0, 2), blurRadius: 5),
+      BoxShadow(color: shadowColor, offset: const Offset(0, 1), blurRadius: 1),
+      if (shadow == DPopoverShadow.large)
         BoxShadow(
           color: shadowColor,
           offset: const Offset(0, 10),
           blurRadius: 15,
           spreadRadius: -3,
         ),
-        BoxShadow(
-          color: shadowColor,
-          offset: const Offset(0, 4),
-          blurRadius: 6,
-          spreadRadius: -4,
-        ),
-      ],
-    };
+    ];
     final content = scrollable
         ? SingleChildScrollView(primary: false, padding: padding, child: child)
         : Padding(padding: padding, child: child);
     Widget decorate(Widget content) => CustomPaint(
       foregroundPainter: _PopoverRingPainter(
-        color: tokens.foreground.withValues(alpha: tokens.foreground.a * 0.10),
+        color: DControlStyle.outlineBorder(
+          tokens,
+          dark: Theme.of(context).brightness == Brightness.dark,
+        ),
         radius: radius,
       ),
       child: DecoratedBox(
@@ -944,11 +929,11 @@ class _PopoverRingPainter extends CustomPainter {
     final paint = Paint()
       ..color = color
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 1;
+      ..strokeWidth = .5;
     canvas.drawRRect(
       RRect.fromRectAndRadius(
-        (Offset.zero & size).inflate(0.5),
-        Radius.circular(radius + 0.5),
+        (Offset.zero & size).inflate(0.25),
+        Radius.circular(radius + 0.25),
       ),
       paint,
     );

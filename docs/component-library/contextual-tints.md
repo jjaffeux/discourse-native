@@ -1,5 +1,9 @@
 # Contextual tints
 
+Historical record. The [Linear controls update](linear-controls.md) supersedes
+the control appearance and sizing described here; forum palette ownership and
+the production compositions remain in use.
+
 The user selected **D** from the [button proposals](../mockups/button-directions/README.md)
 and approved extending the Native kit's shared control theme. This adopts the
 selected direction across the app using each forum's resolved palette.

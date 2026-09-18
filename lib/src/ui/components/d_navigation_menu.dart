@@ -989,8 +989,12 @@ class _NavigationActionState extends State<_NavigationAction> {
   Widget build(BuildContext context) {
     final tokens = DTokens.of(context);
     final interactive = !widget.disabled;
-    final highlighted = widget.active || _hovered || widget.forceHovered;
-    final radius = tokens.radius * (widget.triggerStyle ? 1 : .8);
+    final highlighted =
+        interactive &&
+        (widget.active || _hovered || _pressed || widget.forceHovered);
+    final radius = widget.triggerStyle
+        ? tokens.controlRadius
+        : DControlStyle.rowRadius;
     final touch = Theme.of(context).platform == TargetPlatform.iOS;
     final visualHeight = widget.triggerStyle
         ? DControlStyle.scaledHeight(
@@ -1001,6 +1005,7 @@ class _NavigationActionState extends State<_NavigationAction> {
     final action = Focus(
       canRequestFocus: false,
       onKeyEvent: (_, KeyEvent event) {
+        if (!interactive) return KeyEventResult.ignored;
         final result = widget.onKeyEvent?.call(event) ?? KeyEventResult.ignored;
         if (result == KeyEventResult.handled) return result;
         if (event is KeyDownEvent &&
@@ -1046,9 +1051,7 @@ class _NavigationActionState extends State<_NavigationAction> {
               child: CustomPaint(
                 foregroundPainter: _focused
                     ? _NavigationFocusRingPainter(
-                        color: tokens.focusRing.withValues(
-                          alpha: tokens.focusRing.a * .5,
-                        ),
+                        color: tokens.focusRing,
                         radius: radius,
                       )
                     : null,
@@ -1062,11 +1065,7 @@ class _NavigationActionState extends State<_NavigationAction> {
                       : const EdgeInsets.all(8),
                   decoration: BoxDecoration(
                     color: highlighted
-                        ? tokens.muted.withValues(
-                            alpha: widget.active
-                                ? tokens.muted.a * .5
-                                : tokens.muted.a,
-                          )
+                        ? DControlStyle.rowHover(tokens)
                         : Colors.transparent,
                     borderRadius: BorderRadius.circular(radius),
                   ),
@@ -1091,10 +1090,7 @@ class _NavigationActionState extends State<_NavigationAction> {
                           alpha: widget.disabled ? .5 : 1,
                         ),
                       ),
-                      child: Opacity(
-                        opacity: _pressed ? .85 : 1,
-                        child: widget.child,
-                      ),
+                      child: widget.child,
                     ),
                   ),
                 ),
@@ -1126,11 +1122,12 @@ class _NavigationFocusRingPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    const width = 3.0;
+    const width = DControlStyle.focusWidth;
+    const inset = DControlStyle.focusOffset + width / 2;
     canvas.drawRRect(
       RRect.fromRectAndRadius(
-        (Offset.zero & size).inflate(width / 2),
-        Radius.circular(radius + width / 2),
+        (Offset.zero & size).inflate(inset),
+        Radius.circular(radius + inset),
       ),
       Paint()
         ..style = PaintingStyle.stroke

@@ -1271,7 +1271,7 @@ class _DSelectBodyState<T> extends State<_DSelectBody<T>> {
         scaler.scale(DiscourseTypography.sm) *
         DiscourseTypography.lineHeightSmall;
     final itemHeight = math.max(
-      touch ? DSpacing.touchTarget : 28.0,
+      touch ? DSpacing.touchTarget : DControlStyle.rowHeight,
       scaledLineHeight + 8,
     );
     final labelHeight = math.max(
@@ -1389,12 +1389,18 @@ class _DSelectBodyState<T> extends State<_DSelectBody<T>> {
         ? tokens.foreground
         : tokens.mutedForeground;
     final dark = Theme.of(context).brightness == Brightness.dark;
-    final input = DControlStyle.outlineBorder(tokens, dark: dark, field: true);
+    final interactive = widget.enabled && (_triggerHovered || trigger.open);
+    final input = DControlStyle.outlineBorder(
+      tokens,
+      dark: dark,
+      field: true,
+      hovered: interactive,
+    );
     final background = DControlStyle.outlineFill(
       tokens,
       dark: dark,
       field: true,
-      hovered: _triggerHovered && widget.enabled,
+      hovered: interactive,
     );
     final border = invalid
         ? tokens.destructive.withValues(
@@ -1403,13 +1409,13 @@ class _DSelectBodyState<T> extends State<_DSelectBody<T>> {
         : input;
     final visual = AnimatedContainer(
       key: const Key('d-select-trigger-visual'),
-      duration: DMotion.duration(context, DControlStyle.duration),
+      duration: Duration.zero,
       curve: Curves.ease,
       height: visualHeight,
       width: popupWidth,
       padding: const EdgeInsetsDirectional.only(
-        start: 11,
-        end: 9,
+        start: 10,
+        end: 8,
         top: 1,
         bottom: 1,
       ),
@@ -1418,13 +1424,14 @@ class _DSelectBodyState<T> extends State<_DSelectBody<T>> {
         borderColor: border,
         borderRadius: radius,
         joinedAxis: (joined?.omitsLeadingBorder ?? false) ? joined?.axis : null,
-        ringColor: DControlStyle.alpha(
-          invalid ? tokens.destructive : tokens.focusRing,
-          invalid ? (dark ? .4 : .2) : .5,
-        ),
+        shadowColor: joined == null
+            ? DControlStyle.shadow(tokens)
+            : Colors.transparent,
+        ringColor: invalid ? tokens.destructive : tokens.focusRing,
+        ringOffset: DControlStyle.focusOffset,
         ringWidth:
             (_triggerFocused && DFocusHighlight.visibleOf(context)) || invalid
-            ? 3
+            ? DControlStyle.focusWidth
             : 0,
       ),
       child: Row(
@@ -1437,7 +1444,7 @@ class _DSelectBodyState<T> extends State<_DSelectBody<T>> {
                 color: foreground,
                 fontSize: fontSize,
                 height: lineHeight / fontSize,
-                fontWeight: FontWeight.w500,
+                fontWeight: FontWeight.w400,
                 letterSpacing: 0,
               ),
               child: _value(),
@@ -1446,7 +1453,7 @@ class _DSelectBodyState<T> extends State<_DSelectBody<T>> {
           SizedBox(width: DControlStyle.contentGap(controlSize)),
           IconTheme(
             data: IconThemeData(
-              color: tokens.foreground,
+              color: tokens.mutedForeground,
               size: DControlStyle.iconDimension(controlSize),
             ),
             child:
@@ -1553,8 +1560,8 @@ class _DSelectBodyState<T> extends State<_DSelectBody<T>> {
                   onTap: widget.enabled ? _focus.requestFocus : null,
                   child: DefaultTextStyle.merge(
                     style: const TextStyle(
-                      fontSize: DiscourseTypography.sm,
-                      height: DiscourseTypography.lineHeightSmall,
+                      fontSize: DControlStyle.labelFontSize,
+                      height: 20 / DControlStyle.labelFontSize,
                       fontWeight: FontWeight.w500,
                     ),
                     child: widget.label!,
@@ -1567,8 +1574,8 @@ class _DSelectBodyState<T> extends State<_DSelectBody<T>> {
                 const SizedBox(height: 6),
                 DefaultTextStyle.merge(
                   style: TextStyle(
-                    fontSize: DiscourseTypography.sm,
-                    height: DiscourseTypography.lineHeightSmall,
+                    fontSize: DControlStyle.labelFontSize,
+                    height: 20 / DControlStyle.labelFontSize,
                     color: tokens.mutedForeground,
                   ),
                   child: widget.description!,
@@ -1581,8 +1588,8 @@ class _DSelectBodyState<T> extends State<_DSelectBody<T>> {
                   child: Text(
                     error,
                     style: TextStyle(
-                      fontSize: DiscourseTypography.sm,
-                      height: DiscourseTypography.lineHeightSmall,
+                      fontSize: DControlStyle.labelFontSize,
+                      height: 20 / DControlStyle.labelFontSize,
                       color: tokens.destructive,
                     ),
                   ),
@@ -1660,18 +1667,18 @@ class _DSelectOptionRowState<T> extends State<_DSelectOptionRow<T>> {
     // Pointer feedback remains visible even if another control takes focus.
     // Keyboard input restores focus-based highlighting for the whole menu.
     final highlighted = enabled && (widget.pointerHighlighted ?? _focused);
-    final foreground = highlighted
-        ? tokens.selectedForeground
-        : tokens.foreground;
+    final foreground = tokens.foreground;
     // Highlight changes are atomic. Animating two independent row backgrounds
     // makes the previous and next options appear highlighted at the same time.
     Widget row = interactiveRowSurface(
       key: ValueKey(('d-select-item', widget.item.value)),
       height: widget.height,
-      padding: const EdgeInsetsDirectional.fromSTEB(6, 4, 8, 4),
+      padding: const EdgeInsetsDirectional.fromSTEB(8, 4, 8, 4),
       decoration: BoxDecoration(
-        color: highlighted ? Theme.of(context).hoverColor : Colors.transparent,
-        borderRadius: BorderRadius.circular(tokens.radius * 0.8),
+        color: highlighted
+            ? DControlStyle.rowHover(tokens)
+            : Colors.transparent,
+        borderRadius: BorderRadius.circular(DControlStyle.rowRadius),
       ),
       child: Row(
         children: [
@@ -1681,8 +1688,8 @@ class _DSelectOptionRowState<T> extends State<_DSelectOptionRow<T>> {
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
                 color: foreground,
-                fontSize: DiscourseTypography.sm,
-                height: DiscourseTypography.lineHeightSmall,
+                fontSize: DControlStyle.labelFontSize,
+                height: 20 / DControlStyle.labelFontSize,
                 fontWeight: FontWeight.w400,
               ),
               child: widget.item.child,

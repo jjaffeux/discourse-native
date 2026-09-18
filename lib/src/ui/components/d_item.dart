@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
 import '../../theme/discourse_typography.dart';
+import '../foundation/control_style.dart';
 import '../foundation/interactive_row.dart';
 import '../foundation/tokens.dart';
 import 'd_separator.dart';
@@ -92,6 +93,7 @@ class _DItemState extends State<DItem> {
   FocusNode? _ownedFocus;
   FocusNode get _focus => widget.focusNode ?? (_ownedFocus ??= FocusNode());
   bool _hover = false;
+  bool _pressed = false;
   bool _focusVisible = false;
   bool get _active => widget.enabled && widget.onPressed != null;
 
@@ -114,7 +116,7 @@ class _DItemState extends State<DItem> {
   Widget build(BuildContext context) {
     final tokens = DTokens.of(context);
     final xs = widget.size == DItemSize.xs;
-    final gap = xs ? 8.0 : 10.0;
+    final gap = xs ? 8.0 : 12.0;
     final described = widget.children.any(
       (child) =>
           child is DItemContent &&
@@ -125,19 +127,13 @@ class _DItemState extends State<DItem> {
         widget.selectionStyle == DItemSelectionStyle.outline;
     final neutralSelection =
         widget.selectionStyle == DItemSelectionStyle.neutral;
-    final radius =
-        tokens.radius *
-        (widget.shape == DItemShape.card
-            ? 1.4
-            : neutralSelection || outlineSelection
-            ? 2.5
-            : 1);
+    final radius = widget.shape == DItemShape.card ? 12.0 : 10.0;
     final borderRadius = BorderRadius.circular(radius);
     final background = widget.selected && !outlineSelection
         ? neutralSelection
               ? tokens.foreground.withValues(alpha: .05)
               : tokens.primary.withValues(alpha: .12)
-        : _active && _hover
+        : _active && (_hover || _pressed)
         ? outlineSelection
               ? tokens.foreground.withValues(
                   alpha: Theme.of(context).brightness == Brightness.light
@@ -146,9 +142,11 @@ class _DItemState extends State<DItem> {
                 )
               : neutralSelection
               ? tokens.foreground.withValues(alpha: .06)
-              : tokens.muted
+              : DControlStyle.rowHover(tokens)
         : widget.variant == DItemVariant.muted
-        ? tokens.muted.withValues(alpha: tokens.muted.a * .5)
+        ? tokens.surface
+        : widget.variant == DItemVariant.outline
+        ? tokens.surface
         : Colors.transparent;
     final touch = switch (Theme.of(context).platform) {
       TargetPlatform.iOS || TargetPlatform.android => true,
@@ -159,17 +157,15 @@ class _DItemState extends State<DItem> {
       described: described,
       child: DefaultTextStyle.merge(
         style: Theme.of(context).textTheme.bodyMedium!.copyWith(
-          fontSize: DiscourseTypography.sm,
-          height: 20 / 14,
+          fontSize: DControlStyle.labelFontSize,
+          height: 20 / DControlStyle.labelFontSize,
           fontWeight: FontWeight.w400,
           letterSpacing: 0,
           color: tokens.foreground,
         ),
         child: CustomPaint(
           foregroundPainter: _ItemRing(
-            focus
-                ? tokens.focusRing.withValues(alpha: tokens.focusRing.a * .5)
-                : Colors.transparent,
+            focus ? tokens.focusRing : Colors.transparent,
             radius,
           ),
           child: interactiveRowSurface(
@@ -184,6 +180,8 @@ class _DItemState extends State<DItem> {
               color: background,
               borderRadius: borderRadius,
               border: Border.all(
+                width: DControlDecoration.borderWidth,
+                strokeAlign: BorderSide.strokeAlignOutside,
                 color: focus
                     ? tokens.focusRing
                     : widget.selected && !neutralSelection
@@ -196,8 +194,16 @@ class _DItemState extends State<DItem> {
             padding:
                 widget.padding ??
                 EdgeInsets.symmetric(
-                  horizontal: xs ? 10 : 12,
-                  vertical: xs ? 8 : 10,
+                  horizontal: xs
+                      ? 10
+                      : widget.size == DItemSize.sm
+                      ? 12
+                      : 16,
+                  vertical: xs
+                      ? 8
+                      : widget.size == DItemSize.sm
+                      ? 10
+                      : 16,
                 ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -254,6 +260,9 @@ class _DItemState extends State<DItem> {
           child: GestureDetector(
             behavior: HitTestBehavior.opaque,
             excludeFromSemantics: true,
+            onTapDown: _active ? (_) => setState(() => _pressed = true) : null,
+            onTapUp: _active ? (_) => setState(() => _pressed = false) : null,
+            onTapCancel: () => setState(() => _pressed = false),
             onTap: _active
                 ? () {
                     _focus.requestFocus();
@@ -291,7 +300,7 @@ class _DItemState extends State<DItem> {
       label: widget.semanticLabel,
       selected: widget.selected ? true : null,
       onTap: _active ? widget.onPressed : null,
-      child: result,
+      child: widget.enabled ? result : Opacity(opacity: .5, child: result),
     );
   }
 }
@@ -576,8 +585,8 @@ class DItemTitle extends StatelessWidget {
     return DefaultTextStyle(
       style: DefaultTextStyle.of(context).style.merge(
         const TextStyle(
-          fontSize: DiscourseTypography.sm,
-          height: 1.375,
+          fontSize: DControlStyle.labelFontSize,
+          height: 1.2,
           fontWeight: FontWeight.w500,
           letterSpacing: 0,
         ),
@@ -596,7 +605,7 @@ class DItemDescription extends StatelessWidget {
     super.key,
     required this.child,
     this.maxLines = 2,
-    this.height = 1.5,
+    this.height = 1.2,
   });
   final Widget child;
   final int? maxLines;
@@ -609,9 +618,7 @@ class DItemDescription extends StatelessWidget {
     return DefaultTextStyle(
       style: DefaultTextStyle.of(context).style.merge(
         TextStyle(
-          fontSize: _ItemScope.sizeOf(context) == DItemSize.xs
-              ? DiscourseTypography.xs
-              : DiscourseTypography.sm,
+          fontSize: DiscourseTypography.xs,
           height: height,
           fontWeight: FontWeight.w400,
           color: DTokens.of(context).mutedForeground,
@@ -667,7 +674,11 @@ class _ItemRing extends CustomPainter {
       Offset.zero & size,
       Radius.circular(radius),
     );
-    canvas.drawDRRect(inner.inflate(3), inner, Paint()..color = color);
+    canvas.drawDRRect(
+      inner.inflate(3),
+      inner.inflate(2),
+      Paint()..color = color,
+    );
   }
 
   @override

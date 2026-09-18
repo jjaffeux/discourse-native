@@ -493,7 +493,7 @@ void main() {
       final surface = find.byType(AnimatedContainer);
       expect(
         tester.getTopLeft(find.byType(TextField)),
-        tester.getTopLeft(surface) + const Offset(11, 6),
+        tester.getTopLeft(surface) + const Offset(11, 4),
       );
       final padding = tester.getTopLeft(surface) + const Offset(4, 4);
       final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
@@ -622,7 +622,7 @@ void main() {
       await tester.pumpWidget(host(DInput(hintText: 'Email')));
       expect(tester.getSize(find.byType(DInput)).height, 28);
       final field = tester.widget<TextField>(find.byType(TextField));
-      expect(field.style!.fontSize, 12);
+      expect(field.style!.fontSize, 13);
       await tester.pumpWidget(
         host(
           Directionality(
@@ -648,7 +648,7 @@ void main() {
       await tester.pumpWidget(
         host(DFileInput(onPick: () async => null), scale: 2),
       );
-      expect(tester.getSize(find.byType(DFileInput)).height, 34);
+      expect(tester.getSize(find.byType(DFileInput)).height, 42);
       expect(tester.takeException(), isNull);
     },
   );

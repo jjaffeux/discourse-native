@@ -2,6 +2,7 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/macos_launch_screen.dart';
 import 'package:discourse_native/src/shell/topic_taxonomy_button.dart';
 import 'package:discourse_native/src/styleguide/examples/button_examples.dart';
+import 'package:discourse_native/src/styleguide/examples/linear_controls_example.dart';
 import 'package:discourse_native/src/styleguide/styleguide_theme.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
@@ -25,6 +26,7 @@ class _ReviewState extends State<_Review> {
   bool _narrow = false;
   bool _large = false;
   bool _rtl = false;
+  bool _linear = true;
 
   @override
   Widget build(BuildContext context) => MaterialApp(
@@ -51,6 +53,12 @@ class _ReviewState extends State<_Review> {
                       variant: DButtonVariant.outline,
                       onPressed: () => setState(() => _palette = palette),
                     ),
+                  DButton(
+                    label: Text(
+                      _linear ? 'Show control family' : 'Show Linear settings',
+                    ),
+                    onPressed: () => setState(() => _linear = !_linear),
+                  ),
                   DButton(
                     label: Text(_narrow ? 'Width: 320' : 'Width: 640'),
                     onPressed: () => setState(() => _narrow = !_narrow),
@@ -93,12 +101,15 @@ class _ReviewState extends State<_Review> {
                             ? TextDirection.rtl
                             : TextDirection.ltr,
                         child: Builder(
-                          builder: buttonExamples.examples
-                              .singleWhere(
-                                (example) =>
-                                    example.title == 'Control consistency',
-                              )
-                              .builder,
+                          builder: _linear
+                              ? (_) => const LinearControlsExample()
+                              : buttonExamples.examples
+                                    .singleWhere(
+                                      (example) =>
+                                          example.title ==
+                                          'Control consistency',
+                                    )
+                                    .builder,
                         ),
                       ),
                     ),
