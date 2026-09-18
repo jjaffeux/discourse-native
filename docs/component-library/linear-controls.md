@@ -33,6 +33,9 @@ active fills match; CSS applies them immediately and fades the exit over 150ms.
 
 ## Native mapping
 
+- Native presets retain 24/28/32px heights and 12/13/14px small/regular/large
+  labels. The large preset preserves the sidebar's established 14px text;
+  Linear's 13px action label does not flatten the native size hierarchy.
 - `DControlTheme.linear` derives solid actions, raised neutral surfaces and
   hover borders from the current forum palette. It also supplies the fallback
   for ordinary Material themes. Accent hover avoids reducing label contrast
@@ -170,3 +173,24 @@ Verification:
   SHA-256: `49f04200a642f7fb2e456d1adfb41f6d30e189d21e13c51d0471bbb979c28cab`.
   Strict ad-hoc signature verification passed and the permitted debug
   entitlements were read back. No production provisioning changes were made.
+
+### Restore large control typography — 2026-09-18
+
+The first Linear update inadvertently changed the large preset from 14px to
+13px alongside the intended regular change from 12px to 13px. Production sidebar
+identity, navigation and section buttons use large, so they inherited the
+reduction. Large is restored to 14px through the shared preset; heights remain
+24/28/32px and the app-wide DiscourseTypography roles are unchanged.
+
+Verification: 108 focused tests passed across shared size/typography at 100%
+and 200%, Sidebar/layout/styleguide, Button reference, Tabs, adoption and control
+consistency. All twelve candidate control-family images were visually reviewed
+before replacing the golden baselines; the baseline tests then passed. Static
+analysis passed. Built the existing production sidebar fixture and inspected
+light at 100%/200% and dark at 100% in native macOS, including the forum identity,
+selected navigation, section labels and custom destinations.
+
+Native review bundle: `/tmp/LargeControlType96c5.app`, identifier
+`org.discourse.large-control-type96c5`. Build and review-copy kernel SHA-256:
+`643de63c71fec2e6a409579670fcb79f50ab1a530dc0560511b9837e27077b81`.
+Strict signature verification and debug entitlement readback passed.

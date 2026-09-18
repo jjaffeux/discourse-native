@@ -1,5 +1,10 @@
 # Compact control sizing — 2026-09-13
 
+Current typography (2026-09-18): small/regular/large labels are 12/13/14px.
+The Linear styling update raised regular labels to 13px; large labels retain
+their original 14px size, including the sidebar. Heights remain 24/28/32px.
+The table below records the original September 13 sizing change.
+
 Normal buttons now have a 28px painted surface and 12px labels at 100% zoom.
 The user requested a smaller overall scale and removal of extra-small buttons.
 `DControlStyle` owns this intentional adaptation from the frozen shadcn sizing.

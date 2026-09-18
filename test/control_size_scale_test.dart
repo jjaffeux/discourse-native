@@ -5,10 +5,10 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   for (final scale in [1.0, 2.0]) {
-    for (final (size, baseHeight) in [
-      (DControlSize.small, 24.0),
-      (DControlSize.regular, 28.0),
-      (DControlSize.large, 32.0),
+    for (final (size, baseHeight, fontSize) in [
+      (DControlSize.small, 24.0, 12.0),
+      (DControlSize.regular, 28.0, 13.0),
+      (DControlSize.large, 32.0, 14.0),
     ]) {
       final height = DControlStyle.scaledHeight(size, TextScaler.linear(scale));
       assert(scale != 1 || height == baseHeight);
@@ -204,6 +204,15 @@ void main() {
               tester.getSize(find.byKey(Key(key))).height,
               height,
               reason: key,
+            );
+          }
+          for (final label in ['Button', 'Toggle', 'Menu', 'Sidebar']) {
+            expect(
+              DefaultTextStyle.of(
+                tester.element(find.text(label)),
+              ).style.fontSize,
+              fontSize,
+              reason: '$label inherits the ${size.name} typography preset',
             );
           }
           // Tabs inset their triggers; the list owns the shared minimum height.

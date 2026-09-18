@@ -31,7 +31,8 @@ abstract final class DControlStyle {
   };
   static double fontSize(DControlSize size) => switch (size) {
     DControlSize.small => DiscourseTypography.xs,
-    DControlSize.regular || DControlSize.large => labelFontSize,
+    DControlSize.regular => labelFontSize,
+    DControlSize.large => DiscourseTypography.sm,
   };
   static double lineHeight(DControlSize size) => switch (size) {
     DControlSize.small => 16,
