@@ -388,6 +388,7 @@ final class PluginRegistry
         actionLabel: section.actionLabel,
         actionShortcut: section.actionShortcut,
         onAction: section.onAction,
+        actionAboveHeader: section.actionAboveHeader,
         headerActionsBuilder: section.headerActionsBuilder == null
             ? null
             : (context) => _owned(
