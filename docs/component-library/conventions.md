@@ -74,7 +74,7 @@ shadows. Action buttons, selectors and popup triggers use the theme's configured
 corner radius, independent of size or popup semantics. Keep the default
 `DButtonShape.rounded` in application code; explicit pill shapes belong only to
 documented design exceptions. Menu rows use 32px minimum height and an 8px highlight radius inside
-12px popups. Keyboard focus uses a 1px ring separated by 2px. Hover, pressed and
+popups using the theme’s control radius, matching buttons. Keyboard focus uses a 1px ring separated by 2px. Hover, pressed and
 open fills change immediately, without translating the control. The `AppTheme`
 boundary derives colors from the current forum palette; category identity
 retains its own color. Standard topic filters, header triggers and bottom

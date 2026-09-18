@@ -28,7 +28,7 @@ examples.
 | base-nova source | Flutter mapping |
 | --- | --- |
 | Popup `min-w-32`, example `w-40`, `p-1` | 128px minimum, 160px example width, 4px content padding |
-| Popup `rounded-lg bg-popover text-popover-foreground` | `DTokens.radius × 1`, live `surface` and `foreground` |
+| Popup `rounded-lg bg-popover text-popover-foreground` | `DTokens.controlRadius`, matching buttons, live `surface` and `foreground` |
 | Popup `shadow-md ring-1 ring-foreground/10` | shared `DPopoverContent` two-part medium shadow and layout-neutral 1px exterior 10%-foreground ring |
 | Popup `sideOffset=4`, collision-aware positioning | shared `DPopover` placement, flip/shift and safe-area boundary |
 | Popup `max-h-(--available-height) overflow-y-auto` | static content when rows fit; one popup-local viewport and scrollbar only after actual vertical overflow |

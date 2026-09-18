@@ -16,7 +16,7 @@ The inspected Base UI behavior/API source is
 | --- | --- |
 | `w-72` | `DPopoverContent.width`, default 288 logical pixels; collision constraints reduce this for narrower bounds. |
 | `p-2.5`, `gap-2.5` | 10px content padding and documented composition gap. Header uses the source's `gap-0.5`, 2px. |
-| `rounded-lg` | `DTokens.radius × 1.0`; the live host radius remains the shadcn `lg` base. |
+| `rounded-lg` | `DTokens.controlRadius`; follows the live host theme, matching buttons. |
 | `bg-popover`, `text-popover-foreground` | Live `DTokens.surface` and `foreground`, including while the overlay is open. |
 | `text-sm` | Host-family text at 14px, 20px leading, weight 400, zero tracking. Title merges weight 500; description uses `mutedForeground`. Text scaling remains inherited. |
 | `ring-1 ring-foreground/10` | A 1px surface border using the existing foreground alpha multiplied by 10%; it does not tint the surface interior. |

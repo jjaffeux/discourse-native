@@ -141,7 +141,7 @@ class DDropdownMenuTrigger extends StatelessWidget {
 }
 
 /// The menu popup. Geometry follows base-nova: 128px minimum width, 4px
-/// internal padding, an `lg` radius, a 1px translucent ring, and 4px offset.
+/// internal padding, the theme’s control radius, a 1px translucent ring, and 4px offset.
 class DDropdownMenuContent extends StatefulWidget {
   const DDropdownMenuContent({
     super.key,
