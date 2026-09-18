@@ -58,10 +58,12 @@ class HoverActionButton extends StatelessWidget {
       variant: color == theme.colorScheme.error
           ? DButtonVariant.destructive
           : DButtonVariant.ghost,
-      icon: IconTheme.merge(
-        data: IconThemeData(color: color ?? theme.colorScheme.onSurfaceVariant),
-        child: icon,
-      ),
+      icon: color == null
+          ? icon
+          : IconTheme.merge(
+              data: IconThemeData(color: color),
+              child: icon,
+            ),
     );
   }
 }

@@ -482,6 +482,11 @@ class DButton extends StatelessWidget {
   };
 
   DButtonVariantStyle _referenceStyle(DTokens tokens, bool dark) {
+    // Forum metadata colors can be too faint for enabled actions on light
+    // surfaces. Keep their hue, but give controls more weight than metadata.
+    final subduedForeground = dark
+        ? tokens.mutedForeground
+        : Color.lerp(tokens.mutedForeground, tokens.foreground, .35)!;
     DButtonStateStyle state(
       Color background,
       Color foreground, [
@@ -537,13 +542,13 @@ class DButton extends StatelessWidget {
       DButtonVariant.outline || DButtonVariant.secondary => outline,
       DButtonVariant.ghost ||
       DButtonVariant.transparentBackground => DButtonVariantStyle(
-        enabled: state(Colors.transparent, tokens.mutedForeground),
+        enabled: state(Colors.transparent, subduedForeground),
         interactive: state(DControlStyle.rowHover(tokens), tokens.foreground),
         focused: state(Colors.transparent, tokens.foreground),
         expanded: state(DControlStyle.rowHover(tokens), tokens.foreground),
       ),
       DButtonVariant.inline => DButtonVariantStyle(
-        enabled: state(Colors.transparent, tokens.mutedForeground),
+        enabled: state(Colors.transparent, subduedForeground),
         interactive: state(Colors.transparent, tokens.foreground),
         focused: state(Colors.transparent, tokens.foreground),
         expanded: state(Colors.transparent, tokens.foreground),
