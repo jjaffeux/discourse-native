@@ -70,11 +70,19 @@ before restoring the fixed source. No production instrumentation is added.
 
 `tool/category_grid_profile_main.dart` runs the same production page in an
 isolated macOS fixture. It embeds the fixture at compile time (base64 avoids
-multiline compiler-define parsing), enables semantics, requires resumed app
-lifecycle and the requested actual page width. A lifecycle observer latches any
-non-resumed transition from the sample start through the 1100ms delivery drain;
-a later resume cannot make an interrupted sample valid. The harness records start/end card
-geometry plus every scroll offset. It performs 60 jumps of 90 logical pixels,
+multiline compiler-define parsing). An existing Native `DButton` explicitly starts
+the run after activation; a 10-second warmup requires uninterrupted resumed
+lifecycle, enabled semantics, and stable viewport metrics. The warmup records a
+numeric physical size, DPR and refresh rate baseline without hardcoding the
+machine's dimensions. Every sample must retain that baseline, enabled semantics,
+and its actual requested page width through the 1100ms timing-delivery drain.
+Observers latch any non-resumed transition, viewport metrics notification,
+semantics-state change or accessibility-feature change; returning to the original
+state cannot make an interrupted sample valid. Explicit post-drain checks verify
+semantics, lifecycle, viewport and page size. Baseline/fixed outputs must have
+matching numeric viewport/page dimensions and DPR before their timings can be
+compared. The harness records start/end card geometry plus every scroll offset.
+It performs 60 jumps of 90 logical pixels,
 returning to the beginning when the bottom is reached. One warmup and five
 measured repeats run for each dataset/width combination.
 
