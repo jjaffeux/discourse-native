@@ -88,26 +88,43 @@ final class _TableProjection implements ComposerInteractiveSyntaxProjection {
   @override
   List<InlineSpan> buildCollapsedSpans(ComposerSyntaxRenderContext context) {
     _editorKey = context.pillKey;
+    final hiddenEnd = source.length - (context.followedByLineBreak ? 0 : 1);
     return [
       WidgetSpan(
         alignment: PlaceholderAlignment.top,
         style: context.baseStyle,
-        child: ComposerBlockSelection(
-          selected: context.highlighted,
-          child: ComposerTableEditor(
-            key: context.pillKey,
-            composer: composer,
-            table: table,
-          ),
+        child: LayoutBuilder(
+          builder: (widgetContext, constraints) {
+            // RenderEditable reserves a one-pixel gap plus the cursor width for
+            // text, but measures inline widgets against the full viewport.
+            final caretMargin =
+                (widgetContext
+                        .findAncestorWidgetOfExactType<EditableText>()
+                        ?.cursorWidth ??
+                    2) +
+                1;
+            return SizedBox(
+              width: (constraints.maxWidth - caretMargin).clamp(
+                0,
+                double.infinity,
+              ),
+              child: ComposerBlockSelection(
+                selected: context.highlighted,
+                child: ComposerTableEditor(
+                  key: context.pillKey,
+                  composer: composer,
+                  table: table,
+                ),
+              ),
+            );
+          },
         ),
       ),
+      // The source's real newline ends the widget line when present. Hidden
+      // table rows must not introduce another apparent typing line below it.
       TextSpan(
-        text: '\n',
-        style: context.baseStyle.copyWith(color: Colors.transparent),
-      ),
-      TextSpan(
-        text: source.substring(2),
-        semanticsLabel: '\u200B' * (source.length - 2),
+        text: source.substring(1, hiddenEnd),
+        semanticsLabel: '\u200B' * (hiddenEnd - 1),
         style: const TextStyle(
           fontSize: 0,
           height: 0,
@@ -115,6 +132,11 @@ final class _TableProjection implements ComposerInteractiveSyntaxProjection {
           color: Colors.transparent,
         ),
       ),
+      if (!context.followedByLineBreak)
+        TextSpan(
+          text: '\n',
+          style: context.baseStyle.copyWith(color: Colors.transparent),
+        ),
     ];
   }
 
