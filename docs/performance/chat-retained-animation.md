@@ -140,3 +140,13 @@ not directly measured.
 Source inspection found a similar absence of a visibility ticker boundary in
 `_TopicPostItem` retention. That is a separate, unmeasured candidate; this change
 does not modify topic retention.
+
+## Main integration
+
+Merged from the main checkout with `--no-ff` as `5cc69088`, on top of
+`77ec5f8e`, preserving the accepted HTML conversion and code-block changes.
+On combined main, the four focused test files (animation regression, chat
+scroll performance, site images, and chat channel lifecycle) passed all 79
+cases. All six ordinary-scroll variants still reported zero held-message
+rebuilds. Focused analysis of the production change, regression, shared fixture
+and profile collector reported no issues. No push was performed.
