@@ -322,6 +322,10 @@ class ChatPlugin
         SidebarSection(
           id: 'chat-starred-channels',
           title: 'Starred channels',
+          unreadCount: chat.unreadMessageCount(
+            siteUrl,
+            section: ChatChannelListSection.starred,
+          ),
           headerActionsBuilder: (_) => actions(ChatChannelListSection.starred),
           destinations: [
             for (final channel in starred)
@@ -337,6 +341,10 @@ class ChatPlugin
         SidebarSection(
           id: 'chat',
           title: 'Chat',
+          unreadCount: chat.unreadMessageCount(
+            siteUrl,
+            section: ChatChannelListSection.channels,
+          ),
           headerActionsBuilder: (_) => actions(ChatChannelListSection.channels),
           destinations: [
             for (final channel in public)
@@ -354,6 +362,10 @@ class ChatPlugin
         SidebarSection(
           id: 'direct-messages',
           title: 'Direct messages',
+          unreadCount: chat.unreadMessageCount(
+            siteUrl,
+            section: ChatChannelListSection.directMessages,
+          ),
           headerActionsBuilder: (_) =>
               actions(ChatChannelListSection.directMessages),
           actionIcon: canCreateDirectMessage ? DIcons.plus : null,

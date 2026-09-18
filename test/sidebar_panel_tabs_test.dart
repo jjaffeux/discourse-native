@@ -184,6 +184,104 @@ void main() {
     },
   );
 
+  testWidgets('section unread totals stay visible when collapsed and update', (
+    tester,
+  ) async {
+    final channels = {
+      site: const ChatChannels(
+        public: [
+          ChatChannel(
+            id: 9,
+            title: 'General',
+            kind: ChatChannelKind.category,
+            membership: ChatMembership(following: true),
+            tracking: ChatTracking(
+              unreadCount: 20,
+              mentionCount: 3,
+              watchedThreadsUnreadCount: 5,
+            ),
+          ),
+          ChatChannel(
+            id: 11,
+            title: 'Starred public',
+            kind: ChatChannelKind.category,
+            membership: ChatMembership(following: true, starred: true),
+            tracking: ChatTracking(unreadCount: 2),
+          ),
+        ],
+        direct: [
+          ChatChannel(
+            id: 10,
+            title: 'Direct',
+            kind: ChatChannelKind.directMessage,
+            membership: ChatMembership(following: true),
+            tracking: ChatTracking(unreadCount: 7),
+          ),
+          ChatChannel(
+            id: 12,
+            title: 'Starred direct',
+            kind: ChatChannelKind.directMessage,
+            membership: ChatMembership(following: true, starred: true),
+            tracking: ChatTracking(unreadCount: 4),
+          ),
+        ],
+      ),
+    };
+    final shell = await pumpTabs(tester, channels: channels);
+    final chat = shell.pluginSession.require(chatControllerService);
+    await chat.loadChannels(site);
+    await tester.pumpAndSettle();
+    await tester.tap(tab('chat'));
+    await tester.pumpAndSettle();
+
+    Finder badge(String id) =>
+        find.byKey(ValueKey('sidebar-section-unread-$id'));
+    for (final (id, title, count) in [
+      ('chat-starred-channels', 'Starred channels', '6'),
+      ('chat', 'Chat', '25'),
+      ('direct-messages', 'Direct messages', '7'),
+    ]) {
+      await tester.ensureVisible(badge(id));
+      expect(
+        find.descendant(of: badge(id), matching: find.text(count)),
+        findsOneWidget,
+      );
+      await tester.tap(
+        find.ancestor(of: badge(id), matching: find.byType(DSidebarMenuButton)),
+      );
+      await tester.pumpAndSettle();
+      expect(badge(id), findsOneWidget);
+      final button = tester.widget<DSidebarMenuButton>(
+        find.ancestor(of: badge(id), matching: find.byType(DSidebarMenuButton)),
+      );
+      expect(button.expanded, isFalse);
+      expect(button.semanticLabel, 'Expand $title, $count unread messages');
+    }
+
+    channels[site] = ChatChannels(
+      public: [
+        for (final channel in channels[site]!.public)
+          channel.withTrackingState(tracking: const ChatTracking()),
+      ],
+      direct: [
+        for (final channel in channels[site]!.direct)
+          channel.withTrackingState(
+            tracking: const ChatTracking(unreadCount: 1),
+          ),
+      ],
+    );
+    await chat.loadChannels(site, force: true);
+    await tester.pumpAndSettle();
+    expect(badge('chat'), findsNothing);
+    for (final id in ['chat-starred-channels', 'direct-messages']) {
+      expect(
+        find.descendant(of: badge(id), matching: find.text('1')),
+        findsOneWidget,
+      );
+    }
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets(
     'three tabs partition destinations without navigating or joining',
     (tester) async {

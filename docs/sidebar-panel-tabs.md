@@ -34,3 +34,7 @@ keeping the full count in its accessibility label.
   two existing Chat integration failures reproduced on unchanged `1795898e`:
   `disappears while chat is active on a compact shell` and
   `stacks grouped channel details on a phone`.
+
+Chat section headers show the same unread-message badge while expanded or
+collapsed. Starred channels (including starred DMs), Chat, and Direct messages
+count their own unfiltered channels, so their totals do not overlap.
