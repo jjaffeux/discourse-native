@@ -71,6 +71,53 @@ const _gif = GifResult(
 
 void main() {
   testWidgets(
+    'slash dismissal removes unused chat triggers and space keeps literal text',
+    (tester) async {
+      final fixture = await _fixture(
+        pages: {FakeDiscourseApi.chatMessagesKey(9): _emptyPage},
+      );
+      addTearDown(fixture.shell.dispose);
+      await tester.pumpWidget(_TestView(shell: fixture.shell));
+      await tester.pumpAndSettle();
+      for (final closeButton in [false, true]) {
+        for (final query in ['', 'bold']) {
+          await tester.enterText(_composerField(), '/$query');
+          await tester.pumpAndSettle();
+          expect(find.text('Close menu'), findsOneWidget);
+          if (closeButton) {
+            await tester.tap(find.text('Close menu'));
+          } else {
+            await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+          }
+          await tester.pumpAndSettle();
+          expect(_text(tester), query.isEmpty ? '' : '/$query');
+          expect(find.text('Close menu'), findsNothing);
+          expect(_field(tester).focusNode!.hasFocus, isTrue);
+          await tester.enterText(_composerField(), '');
+          await tester.pumpAndSettle();
+        }
+      }
+      for (final query in ['', 'sometext']) {
+        await tester.enterText(_composerField(), '/$query');
+        await tester.pumpAndSettle();
+        await tester.sendKeyEvent(LogicalKeyboardKey.space);
+        await tester.pumpAndSettle();
+        expect(find.text('Close menu'), findsNothing);
+        tester.testTextInput.updateEditingValue(
+          TextEditingValue(
+            text: '/$query ',
+            selection: TextSelection.collapsed(offset: query.length + 2),
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(_text(tester), '/$query ');
+        expect(find.text('Close menu'), findsNothing);
+      }
+      expect(fixture.api.chatMessagesSent, isEmpty);
+    },
+  );
+
+  testWidgets(
     'slash commands filter chat actions and never send on selection',
     (tester) async {
       final fixture = await _fixture(

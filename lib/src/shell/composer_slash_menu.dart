@@ -37,7 +37,7 @@ ComposerSlashQuery? composerSlashQuery(TextEditingValue value) {
     return null;
   }
   final before = value.text.substring(0, selection.end);
-  final match = RegExp(r'(?:^|\s)/([a-zA-Z -]{0,40})$').firstMatch(before);
+  final match = RegExp(r'(?:^|\s)/([a-zA-Z-]{0,40})$').firstMatch(before);
   if (match == null) return null;
   final start = before.lastIndexOf('/');
   if (selection.end < value.text.length &&
@@ -164,8 +164,34 @@ class ComposerSlashMenuState extends State<ComposerSlashMenu> {
     });
   }
 
+  void _cancel() {
+    if (!mounted) return;
+    final query = _query;
+    final composer = widget.composer;
+    final value = composer.text.value;
+    _dismiss();
+    // Only an unused trigger is disposable. A typed query is ordinary draft
+    // text, and a delayed dismissal must never remove a newer edit.
+    if (query != null &&
+        query.query.isEmpty &&
+        composer.isEditing &&
+        composerSlashQuery(value) == query) {
+      composer.text.value = TextEditingValue(
+        text: value.text.replaceRange(query.start, query.end, ''),
+        selection: TextSelection.collapsed(offset: query.start),
+      );
+    }
+    if (composer.isEditing) composer.focus.requestFocus();
+  }
+
   KeyEventResult handleKeyEvent(KeyEvent event) {
     if (_query == null || !widget.composer.text.value.composing.isCollapsed) {
+      return KeyEventResult.ignored;
+    }
+    if ((event is KeyDownEvent || event is KeyRepeatEvent) &&
+        event.logicalKey == LogicalKeyboardKey.space) {
+      _dismiss();
+      // Leave insertion to the editor so the space and slash remain literal.
       return KeyEventResult.ignored;
     }
     final keyboard = HardwareKeyboard.instance;
@@ -219,8 +245,14 @@ class ComposerSlashMenuState extends State<ComposerSlashMenu> {
     return DDropdownMenu(
       open: query != null && caret != null,
       restoreFocus: false,
-      onOpenChange: (open, _) {
-        if (!open) _dismiss();
+      onOpenChange: (open, reason) {
+        if (!open) {
+          if (reason == DPopoverChangeReason.escape) {
+            _cancel();
+          } else {
+            _dismiss();
+          }
+        }
       },
       content: DDropdownMenuContent(
         semanticLabel: 'Composer commands',
@@ -232,7 +264,7 @@ class ComposerSlashMenuState extends State<ComposerSlashMenu> {
               controller: _command,
               query: query?.query ?? '',
               loop: true,
-              onEscape: _dismiss,
+              onEscape: _cancel,
               onSelected: (label) =>
                   _activate(actions.firstWhere((a) => a.label == label)),
               child: Column(
@@ -263,7 +295,7 @@ class ComposerSlashMenuState extends State<ComposerSlashMenu> {
                   DButton(
                     variant: DButtonVariant.ghost,
                     label: const Text('Close menu'),
-                    onPressed: _dismiss,
+                    onPressed: _cancel,
                   ),
                 ],
               ),

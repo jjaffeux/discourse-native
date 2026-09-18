@@ -16,6 +16,9 @@ void main() {
       '```\n/bold',
       '~~~\n/bold',
       '//',
+      '/ ',
+      '/sometext ',
+      '/inline code',
       '    /bold',
       '```\n~~~\n/bold',
     ]) {
@@ -42,11 +45,11 @@ void main() {
     expect(
       composerSlashQuery(
         const TextEditingValue(
-          text: 'Hi /inline code',
-          selection: TextSelection.collapsed(offset: 15),
+          text: 'Hi /inline',
+          selection: TextSelection.collapsed(offset: 10),
         ),
       ),
-      (start: 3, end: 15, query: 'inline code'),
+      (start: 3, end: 10, query: 'inline'),
     );
     expect(
       composerSlashQuery(
@@ -126,7 +129,7 @@ void main() {
           final capturedOffset = composer.text.text.indexOf('[event]');
           return [
             ComposerSlashAction(
-              label: 'Edit event',
+              label: 'Event',
               icon: DIcons.list,
               onInvoke: () {
                 invokedOffset = capturedOffset;
@@ -136,8 +139,8 @@ void main() {
         },
       );
       composer.text.value = const TextEditingValue(
-        text: '/edit event [event]',
-        selection: TextSelection.collapsed(offset: 11),
+        text: '/event [event]',
+        selection: TextSelection.collapsed(offset: 6),
       );
       composer.focus.requestFocus();
       await tester.pumpAndSettle();
@@ -183,10 +186,10 @@ void main() {
     await type(tester, '/');
     await tester.sendKeyEvent(LogicalKeyboardKey.escape);
     await tester.pumpAndSettle();
-    expect(composer.text.text, '/');
+    expect(composer.text.text, '');
     expect(find.text('Close menu'), findsNothing);
     await type(tester, '/bo');
-    expect(find.text('Close menu'), findsNothing);
+    expect(find.text('Close menu'), findsOneWidget);
     await type(tester, '');
     await type(tester, '/notacommand');
     expect(find.text('No matching commands.'), findsOneWidget);
@@ -198,6 +201,60 @@ void main() {
     expect(composer.text.text, contains('|'));
     expect(composer.text.text, isNot(contains('/table')));
   });
+
+  for (final closeButton in [false, true]) {
+    for (final query in ['', 'bold']) {
+      testWidgets(
+        '${closeButton ? 'Close button' : 'Escape'} removes only a bare slash ($query)',
+        (tester) async {
+          final composer = await pump(tester);
+          final source = 'Before /$query\nAfter';
+          composer.text.value = TextEditingValue(
+            text: source,
+            selection: TextSelection.collapsed(offset: 8 + query.length),
+          );
+          composer.focus.requestFocus();
+          await tester.pumpAndSettle();
+          expect(find.text('Close menu'), findsOneWidget);
+          if (closeButton) {
+            await tester.tap(find.text('Close menu'));
+          } else {
+            await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+          }
+          await tester.pumpAndSettle();
+          expect(composer.text.text, query.isEmpty ? 'Before \nAfter' : source);
+          expect(composer.text.selection.extentOffset, query.isEmpty ? 7 : 12);
+          expect(find.text('Close menu'), findsNothing);
+          expect(composer.focus.hasFocus, isTrue);
+        },
+      );
+    }
+  }
+
+  for (final query in ['', 'sometext']) {
+    testWidgets('Space closes /$query while preserving literal text', (
+      tester,
+    ) async {
+      final composer = await pump(tester);
+      await type(tester, '/$query');
+      expect(find.text('Close menu'), findsOneWidget);
+      await tester.sendKeyEvent(LogicalKeyboardKey.space);
+      await tester.pumpAndSettle();
+      expect(find.text('Close menu'), findsNothing);
+      // Widget tests deliver hardware keys and platform text input separately.
+      tester.testTextInput.updateEditingValue(
+        TextEditingValue(
+          text: '/$query ',
+          selection: TextSelection.collapsed(offset: query.length + 2),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(composer.text.text, '/$query ');
+      expect(find.text('Close menu'), findsNothing);
+      await type(tester, '/$query more');
+      expect(find.text('Close menu'), findsNothing);
+    });
+  }
 
   testWidgets('narrow scaled popup fits and dismisses outside', (tester) async {
     tester.view.physicalSize = const Size(360, 700);
