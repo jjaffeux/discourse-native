@@ -34,10 +34,23 @@ class TopicInboxRow extends StatelessWidget {
   final bool recommendation;
 
   @override
-  Widget build(BuildContext context) => ShellSelector<TopicCategory?>(
+  Widget build(BuildContext context) {
+    final settings = ShellScope.maybeIdentityOf(context)?.appSettings;
+    if (settings == null) return _buildRow(context);
+    return ListenableBuilder(
+      listenable: settings,
+      builder: (context, _) => _buildRow(context),
+    );
+  }
+
+  Widget _buildRow(BuildContext context) => ShellSelector<TopicCategory?>(
     select: (shell) => shell.categoryFor(topic.categoryId, siteUrl: siteUrl),
     builder: (context, category, _) {
       final theme = Theme.of(context);
+      final showTags =
+          ShellScope.maybeIdentityOf(context)?.appSettings.topicListShowTags ??
+          true;
+      final tags = showTags ? topic.tags : const <TopicTag>[];
       final muted = theme.colorScheme.onSurfaceVariant;
       final registry =
           PluginScope.maybeOf(context)?.registry ?? PluginRegistry.empty;
@@ -195,7 +208,7 @@ class TopicInboxRow extends StatelessWidget {
                             ],
                           ),
                         ),
-                        if (category != null || topic.tags.isNotEmpty) ...[
+                        if (category != null || tags.isNotEmpty) ...[
                           const SizedBox(height: 6),
                           Row(
                             children: [
@@ -216,7 +229,7 @@ class TopicInboxRow extends StatelessWidget {
                                   ),
                                 ),
                               ],
-                              for (final tag in topic.tags.take(2)) ...[
+                              for (final tag in tags.take(2)) ...[
                                 const SizedBox(width: 5),
                                 Flexible(
                                   child: Container(
@@ -237,15 +250,15 @@ class TopicInboxRow extends StatelessWidget {
                                   ),
                                 ),
                               ],
-                              if (topic.tags.length > 2) ...[
+                              if (tags.length > 2) ...[
                                 const SizedBox(width: 5),
                                 DTooltip(
-                                  message: topic.tags
+                                  message: tags
                                       .skip(2)
                                       .map((tag) => '# ${tag.name}')
                                       .join(', '),
                                   child: Text(
-                                    '+${topic.tags.length - 2}',
+                                    '+${tags.length - 2}',
                                     style: metadataStyle,
                                   ),
                                 ),

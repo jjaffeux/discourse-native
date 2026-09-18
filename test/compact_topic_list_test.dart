@@ -36,6 +36,64 @@ import 'support/fakes.dart';
 import 'support/media_pipeline.dart';
 
 void main() {
+  testWidgets('inbox rows honor live metadata choices', (tester) async {
+    final shell = await _setup(tester);
+    await tester.pumpWidget(
+      ShellScope(
+        controller: shell,
+        child: MaterialApp(
+          theme: AppTheme.light,
+          home: Scaffold(
+            body: TopicInboxRow(
+              topic: shell.store.read<Topic>(shell.currentInstance!.url, 1)!,
+              siteUrl: shell.currentInstance!.url,
+              onTap: () {},
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('mobile'), findsOneWidget);
+    await shell.appSettings.setTopicListShowTags(false);
+    await tester.pumpAndSettle();
+    expect(find.text('mobile'), findsNothing);
+    expect(find.text('Community'), findsOneWidget);
+    await shell.appSettings.setTopicListShowTags(true);
+    await tester.pumpAndSettle();
+    expect(find.text('mobile'), findsOneWidget);
+  });
+
+  testWidgets('metadata display choices update rows independently', (
+    tester,
+  ) async {
+    final shell = await _setup(tester, enableEvents: true);
+    final row = find.byKey(const ValueKey('topic-card-1'));
+    final tag = find.descendant(of: row, matching: find.text('design'));
+    final assignments = find.descendant(
+      of: row,
+      matching: find.text('Assigned to'),
+    );
+    expect(tag, findsOneWidget);
+    expect(assignments, findsOneWidget);
+    await shell.appSettings.setTopicListShowTags(false);
+    await tester.pumpAndSettle();
+    expect(tag, findsNothing);
+    expect(assignments, findsOneWidget);
+    await shell.appSettings.setTopicListShowAssignments(false);
+    await tester.pumpAndSettle();
+    expect(assignments, findsNothing);
+    expect(
+      find.descendant(of: row, matching: find.text('Community')),
+      findsOneWidget,
+    );
+    await shell.appSettings.setTopicListShowTags(true);
+    await shell.appSettings.setTopicListShowAssignments(true);
+    await tester.pumpAndSettle();
+    expect(tag, findsOneWidget);
+    expect(assignments, findsOneWidget);
+  });
+
   for (final (width, scale) in [(780.0, 1.0), (1200.0, 1.0), (1200.0, 2.0)]) {
     testWidgets('topic category and tags share a baseline at $width/$scale', (
       tester,
@@ -161,6 +219,18 @@ void main() {
       expect(find.text('Compact'), findsNothing);
       expect(find.text('Card'), findsNothing);
       expect(find.text('Larger text'), findsOneWidget);
+      expect(find.text('Show tags'), findsOneWidget);
+      expect(find.text('Show assignments'), findsOneWidget);
+      await tester.tap(find.text('Show tags'));
+      await tester.pumpAndSettle();
+      expect(shell.appSettings.topicListShowTags, isFalse);
+      if (find.text('Show assignments').evaluate().isEmpty) {
+        await tester.tap(find.byKey(const ValueKey('topic-list-display')));
+        await tester.pumpAndSettle();
+      }
+      await tester.tap(find.text('Show assignments'));
+      await tester.pumpAndSettle();
+      expect(shell.appSettings.topicListShowAssignments, isFalse);
       expect(tester.takeException(), isNull);
     });
   }

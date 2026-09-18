@@ -456,6 +456,14 @@ final class _GatedAppSettingsPersistence implements AppSettingsPersistence {
   Future<bool?> readTopicListLargerText() async => null;
   @override
   Future<bool> writeTopicListLargerText(bool value) async => true;
+  @override
+  Future<bool?> readTopicListShowTags() async => null;
+  @override
+  Future<bool> writeTopicListShowTags(bool value) async => true;
+  @override
+  Future<bool?> readTopicListShowAssignments() async => null;
+  @override
+  Future<bool> writeTopicListShowAssignments(bool value) async => true;
 
   final readGate = Completer<void>();
   final _delegate = MemoryAppSettingsPersistence(

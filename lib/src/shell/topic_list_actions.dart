@@ -43,6 +43,18 @@ class TopicListActions extends StatelessWidget {
                       unawaited(settings.setTopicListLargerText(value)),
                   child: const Text('Larger text'),
                 ),
+                DDropdownMenuCheckboxItem(
+                  checked: settings.topicListShowTags,
+                  onChanged: (value) =>
+                      unawaited(settings.setTopicListShowTags(value)),
+                  child: const Text('Show tags'),
+                ),
+                DDropdownMenuCheckboxItem(
+                  checked: settings.topicListShowAssignments,
+                  onChanged: (value) =>
+                      unawaited(settings.setTopicListShowAssignments(value)),
+                  child: const Text('Show assignments'),
+                ),
                 if (presentation != null) ...[
                   const DDropdownMenuSeparator(),
                   const DDropdownMenuLabel(child: Text('Open topics')),

@@ -17,6 +17,8 @@ final class AppSettingsController extends FrameSafeNotifier {
   AppTextScale get textScale => _settings.textScale;
   AppThemeMode get themeMode => _settings.themeMode;
   bool get topicListLargerText => _settings.topicListLargerText;
+  bool get topicListShowTags => _settings.topicListShowTags;
+  bool get topicListShowAssignments => _settings.topicListShowAssignments;
   TopicListDisplayMode get topicListMode => _settings.topicListMode;
   double get textScaleFactor => textScale.factor;
 
@@ -28,6 +30,8 @@ final class AppSettingsController extends FrameSafeNotifier {
   AppTextScale? _selectedTextScale;
   AppThemeMode? _selectedThemeMode;
   bool? _selectedTopicListLargerText;
+  bool? _selectedTopicListShowTags;
+  bool? _selectedTopicListShowAssignments;
   TopicListDisplayMode? _selectedTopicListMode;
   Future<void>? _loadTask;
 
@@ -55,6 +59,8 @@ final class AppSettingsController extends FrameSafeNotifier {
       textScale: _selectedTextScale,
       themeMode: _selectedThemeMode,
       topicListLargerText: _selectedTopicListLargerText,
+      topicListShowTags: _selectedTopicListShowTags,
+      topicListShowAssignments: _selectedTopicListShowAssignments,
       topicListMode: _selectedTopicListMode,
     );
     _loaded = true;
@@ -128,6 +134,34 @@ final class AppSettingsController extends FrameSafeNotifier {
     _selectedTopicListLargerText = value;
     _settings = _settings.copyWith(topicListLargerText: value);
     final saving = store.update(topicListLargerText: value);
+    unawaited(load());
+    notifySafely();
+    return saving;
+  }
+
+  Future<void> setTopicListShowTags(bool value) {
+    if (isDisposed ||
+        ((_loaded || _selectedTopicListShowTags != null) &&
+            value == topicListShowTags)) {
+      return Future<void>.value();
+    }
+    _selectedTopicListShowTags = value;
+    _settings = _settings.copyWith(topicListShowTags: value);
+    final saving = store.update(topicListShowTags: value);
+    unawaited(load());
+    notifySafely();
+    return saving;
+  }
+
+  Future<void> setTopicListShowAssignments(bool value) {
+    if (isDisposed ||
+        ((_loaded || _selectedTopicListShowAssignments != null) &&
+            value == topicListShowAssignments)) {
+      return Future<void>.value();
+    }
+    _selectedTopicListShowAssignments = value;
+    _settings = _settings.copyWith(topicListShowAssignments: value);
+    final saving = store.update(topicListShowAssignments: value);
     unawaited(load());
     notifySafely();
     return saving;
