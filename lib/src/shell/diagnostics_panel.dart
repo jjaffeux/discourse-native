@@ -15,7 +15,6 @@ import 'resizable_pane.dart';
 const double diagnosticsPanelWidth = 440;
 
 const double diagnosticsPanelMinWidth = 320;
-const double diagnosticsPanelMaxWidth = 720;
 
 const double diagnosticsPanelResizeHandleWidth = 12;
 
