@@ -1,6 +1,9 @@
+import 'dart:collection';
+
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/shell/code_block.dart';
 import 'package:discourse_native/src/shell/oneboxes/onebox.dart';
+import 'package:discourse_native/src/shell/syntax.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/material.dart';
@@ -111,6 +114,165 @@ void main() {
   });
 
   group('CodeBlock', () {
+    for (final numbered in [false, true]) {
+      for (final count in [20, 100, 500, 1000]) {
+        testWidgets(
+          'line metadata reads stay linear ($count, numbered: $numbered)',
+          (tester) async {
+            final markup = numbered
+                ? '<pre><code class="lang-text"><ol start="98">${List.generate(count, (i) => '<li>value $i</li>').join()}</ol></code></pre>'
+                : '<pre><code class="lang-text">${List.generate(count, (i) => 'value $i').join('\n')}</code></pre>';
+            final parsed = parseBlock(markup);
+            final lines = _CountingLines(parsed.lines);
+            await tester.pumpWidget(
+              MaterialApp(
+                theme: AppTheme.light,
+                home: Scaffold(
+                  body: SingleChildScrollView(
+                    child: CodeBlock(data: CodeBlockData(lines: lines)),
+                  ),
+                ),
+              ),
+            );
+            // Reading clipboard text, gutter metadata and row data may each
+            // traverse the list; no traversal may be repeated for every row.
+            expect(lines.reads, lessThanOrEqualTo(count * 6));
+            await tester.pumpWidget(const SizedBox());
+          },
+        );
+      }
+    }
+
+    testWidgets('mixed null and negative numbers share the widest gutter', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light,
+          home: const Scaffold(
+            body: CodeBlock(
+              data: CodeBlockData(
+                lines: [
+                  CodeLine(tokens: [CodeToken('missing')]),
+                  CodeLine(tokens: [CodeToken('negative')], number: -100),
+                  CodeLine(tokens: [CodeToken('small')], number: 2),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+      for (final text in ['missing', 'negative', 'small']) {
+        final row = tester.widget<Row>(
+          find.ancestor(of: find.text(text), matching: find.byType(Row)).first,
+        );
+        expect((row.children.first as SizedBox).width, 44);
+      }
+    });
+
+    testWidgets('gutter follows replacement data and theme rebuilds', (
+      tester,
+    ) async {
+      Future<void> pump(String markup, ThemeData theme) => tester.pumpWidget(
+        MaterialApp(
+          theme: theme,
+          home: Scaffold(body: CodeBlock(data: parseBlock(markup))),
+        ),
+      );
+      for (final theme in [AppTheme.light, AppTheme.dark]) {
+        await pump(
+          '<pre><code class="lang-text"><ol start="98"><li>first</li>'
+          '<li class="selected">second</li><li>third</li></ol></code></pre>',
+          theme,
+        );
+        await tester.pumpAndSettle();
+        final gutter = find
+            .ancestor(of: find.text('100'), matching: find.byType(SizedBox))
+            .first;
+        expect(tester.getSize(gutter).width, 36);
+        final selected = tester.widget<ColoredBox>(
+          find
+              .ancestor(
+                of: find.text('second'),
+                matching: find.byType(ColoredBox),
+              )
+              .first,
+        );
+        expect(selected.color, theme.colorScheme.tertiaryContainer);
+        await pump('<pre><code class="lang-text">plain</code></pre>', theme);
+        expect(find.text('100'), findsNothing);
+        final row = tester.widget<Row>(
+          find
+              .ancestor(of: find.text('plain'), matching: find.byType(Row))
+              .first,
+        );
+        expect(row.children.length, 3);
+      }
+    });
+
+    testWidgets('deferred tokens preserve gutter and selected line geometry', (
+      tester,
+    ) async {
+      final data = parseBlock(
+        '<pre><code class="lang-ruby"><ol start="98">'
+        '${List.generate(100, (i) => '<li class="${i == 0 ? 'selected' : ''}">def example_$i = "value"</li>').join()}'
+        '</ol></code></pre>',
+      );
+      expect(data.highlightDeferred, isTrue);
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light,
+          home: Scaffold(
+            body: SingleChildScrollView(child: CodeBlock(data: data)),
+          ),
+        ),
+      );
+      final code = find.text('def example_0 = "value"');
+      final before = tester.getRect(code);
+      bool hasKeyword() {
+        final text = tester.widget<Text>(code);
+        var found = false;
+        text.textSpan!.visitChildren((span) {
+          if (span is TextSpan &&
+              span.style?.color == CodeColors.light.keyword) {
+            found = true;
+          }
+          return true;
+        });
+        return found;
+      }
+
+      for (var attempt = 0; attempt < 100 && !hasKeyword(); attempt++) {
+        await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 20)),
+        );
+        await tester.pump();
+      }
+      expect(hasKeyword(), isTrue);
+      expect(tester.getRect(code), before);
+      expect(
+        tester
+            .getSize(
+              find
+                  .ancestor(
+                    of: find.text('197'),
+                    matching: find.byType(SizedBox),
+                  )
+                  .first,
+            )
+            .width,
+        36,
+      );
+      expect(
+        tester
+            .widget<ColoredBox>(
+              find.ancestor(of: code, matching: find.byType(ColoredBox)).first,
+            )
+            .color,
+        AppTheme.light.colorScheme.tertiaryContainer,
+      );
+    });
+
     testWidgets('draws every line, with its number', (tester) async {
       await tester.pumpWidget(
         MaterialApp(
@@ -411,4 +573,23 @@ void main() {
       expect(find.text('def self.get_from_url(url)'), findsOneWidget);
     });
   });
+}
+
+class _CountingLines extends ListBase<CodeLine> {
+  _CountingLines(this.source);
+  final List<CodeLine> source;
+  int reads = 0;
+  @override
+  int get length => source.length;
+  @override
+  set length(int value) => throw UnsupportedError('read only');
+  @override
+  CodeLine operator [](int index) {
+    reads++;
+    return source[index];
+  }
+
+  @override
+  void operator []=(int index, CodeLine value) =>
+      throw UnsupportedError('read only');
 }

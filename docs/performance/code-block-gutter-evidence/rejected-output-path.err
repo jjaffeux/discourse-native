@@ -1,0 +1,10 @@
+[IMPORTANT:flutter/shell/platform/darwin/macos/framework/Source/FlutterEngine.mm(685)] Using the Skia rendering backend (Metal).
+[ERROR:flutter/runtime/dart_vm_initializer.cc(40)] Unhandled Exception: PathAccessException: Cannot open file, path = '/tmp/gutter-baseline-1-frames.json' (OS Error: Operation not permitted, errno = 1)
+#0      _checkForErrorResponse (dart:io/common.dart:58)
+#1      _File.open.<anonymous closure> (dart:io/file_impl.dart:438)
+<asynchronous suspension>
+#2      _File.writeAsBytes.<anonymous closure> (dart:io/file_impl.dart:728)
+<asynchronous suspension>
+#3      main (file:///Users/joffreyjaffeux/.codex/worktrees/21af/discourse-native/tool/code_block_gutter_profile_main.dart:95)
+<asynchronous suspension>
+

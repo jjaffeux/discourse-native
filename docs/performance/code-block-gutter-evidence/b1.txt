@@ -1,0 +1,995 @@
+flutter: The Dart VM service is listening on http://127.0.0.1:62366/9KzDKtS5W5U=/
+GUTTER_METADATA {"mode":"fixed","flutter":"3.47.4-9584c6713b","dart":"3.13.3 (stable) (Tue Sep 1 01:07:17 2026 -0700) on \"macos_arm64\"","os":"Version 26.6.2 (Build 25G83)","dpr":2.0,"physicalWidth":3456.0,"physicalHeight":2098.0,"lifecycle":"AppLifecycleState.resumed","semanticsEnabled":true}
+GUTTER_CALLBACK 12 20
+GUTTER_CASE {"cycle":0,"lines":20,"numbered":false,"iteration":0,"retained":false,"semanticsEnabled":true}
+GUTTER_CALLBACK 1 20
+GUTTER_CASE {"cycle":0,"lines":20,"numbered":false,"iteration":1,"retained":false,"semanticsEnabled":true}
+GUTTER_CALLBACK 1 20
+GUTTER_CASE {"cycle":0,"lines":20,"numbered":false,"iteration":2,"retained":false,"semanticsEnabled":true}
+GUTTER_CALLBACK 3 20
+GUTTER_CASE {"cycle":0,"lines":20,"numbered":false,"iteration":3,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 1 20
+GUTTER_CASE {"cycle":0,"lines":20,"numbered":false,"iteration":4,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 1 20
+GUTTER_CASE {"cycle":0,"lines":20,"numbered":false,"iteration":5,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 1 20
+GUTTER_CASE {"cycle":0,"lines":20,"numbered":false,"iteration":6,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 1 20
+GUTTER_CASE {"cycle":0,"lines":20,"numbered":false,"iteration":7,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 2 20
+GUTTER_CASE {"cycle":0,"lines":20,"numbered":false,"iteration":8,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 1 20
+GUTTER_CASE {"cycle":0,"lines":20,"numbered":false,"iteration":9,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 1 20
+GUTTER_CASE {"cycle":0,"lines":20,"numbered":false,"iteration":10,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 1 20
+GUTTER_CASE {"cycle":0,"lines":20,"numbered":false,"iteration":11,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 0 20
+GUTTER_CASE {"cycle":0,"lines":20,"numbered":false,"iteration":12,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 2 20
+GUTTER_CASE {"cycle":0,"lines":20,"numbered":false,"iteration":13,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 0 20
+GUTTER_CASE {"cycle":0,"lines":20,"numbered":false,"iteration":14,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 1 20
+GUTTER_CALLBACK 1 20
+GUTTER_CASE {"cycle":0,"lines":20,"numbered":true,"iteration":0,"retained":false,"semanticsEnabled":true}
+GUTTER_CALLBACK 1 20
+GUTTER_CASE {"cycle":0,"lines":20,"numbered":true,"iteration":1,"retained":false,"semanticsEnabled":true}
+GUTTER_CALLBACK 2 20
+GUTTER_CASE {"cycle":0,"lines":20,"numbered":true,"iteration":2,"retained":false,"semanticsEnabled":true}
+GUTTER_CALLBACK 1 20
+GUTTER_CASE {"cycle":0,"lines":20,"numbered":true,"iteration":3,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 1 20
+GUTTER_CASE {"cycle":0,"lines":20,"numbered":true,"iteration":4,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 6 20
+GUTTER_CASE {"cycle":0,"lines":20,"numbered":true,"iteration":5,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 4 20
+GUTTER_CASE {"cycle":0,"lines":20,"numbered":true,"iteration":6,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 3 20
+GUTTER_CASE {"cycle":0,"lines":20,"numbered":true,"iteration":7,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 7 20
+GUTTER_CASE {"cycle":0,"lines":20,"numbered":true,"iteration":8,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 4 20
+GUTTER_CASE {"cycle":0,"lines":20,"numbered":true,"iteration":9,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 33 20
+GUTTER_CASE {"cycle":0,"lines":20,"numbered":true,"iteration":10,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 1 20
+GUTTER_CASE {"cycle":0,"lines":20,"numbered":true,"iteration":11,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 9 20
+GUTTER_CASE {"cycle":0,"lines":20,"numbered":true,"iteration":12,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 4 20
+GUTTER_CASE {"cycle":0,"lines":20,"numbered":true,"iteration":13,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 4 20
+GUTTER_CASE {"cycle":0,"lines":20,"numbered":true,"iteration":14,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 22 20
+GUTTER_CALLBACK 13 100
+GUTTER_CASE {"cycle":0,"lines":100,"numbered":false,"iteration":0,"retained":false,"semanticsEnabled":true}
+GUTTER_CALLBACK 2 100
+GUTTER_CASE {"cycle":0,"lines":100,"numbered":false,"iteration":1,"retained":false,"semanticsEnabled":true}
+GUTTER_CALLBACK 3 100
+GUTTER_CASE {"cycle":0,"lines":100,"numbered":false,"iteration":2,"retained":false,"semanticsEnabled":true}
+GUTTER_CALLBACK 4 100
+GUTTER_CASE {"cycle":0,"lines":100,"numbered":false,"iteration":3,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 3 100
+GUTTER_CASE {"cycle":0,"lines":100,"numbered":false,"iteration":4,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 4 100
+GUTTER_CASE {"cycle":0,"lines":100,"numbered":false,"iteration":5,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 4 100
+GUTTER_CASE {"cycle":0,"lines":100,"numbered":false,"iteration":6,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 4 100
+GUTTER_CASE {"cycle":0,"lines":100,"numbered":false,"iteration":7,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 9 100
+GUTTER_CASE {"cycle":0,"lines":100,"numbered":false,"iteration":8,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 10 100
+GUTTER_CASE {"cycle":0,"lines":100,"numbered":false,"iteration":9,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 9 100
+GUTTER_CASE {"cycle":0,"lines":100,"numbered":false,"iteration":10,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 8 100
+GUTTER_CASE {"cycle":0,"lines":100,"numbered":false,"iteration":11,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 2 100
+GUTTER_CASE {"cycle":0,"lines":100,"numbered":false,"iteration":12,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 4 100
+GUTTER_CASE {"cycle":0,"lines":100,"numbered":false,"iteration":13,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 4 100
+GUTTER_CASE {"cycle":0,"lines":100,"numbered":false,"iteration":14,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 8 100
+GUTTER_CALLBACK 12 100
+GUTTER_CASE {"cycle":0,"lines":100,"numbered":true,"iteration":0,"retained":false,"semanticsEnabled":true}
+GUTTER_CALLBACK 10 100
+GUTTER_CASE {"cycle":0,"lines":100,"numbered":true,"iteration":1,"retained":false,"semanticsEnabled":true}
+GUTTER_CALLBACK 4 100
+GUTTER_CASE {"cycle":0,"lines":100,"numbered":true,"iteration":2,"retained":false,"semanticsEnabled":true}
+GUTTER_CALLBACK 3 100
+GUTTER_CASE {"cycle":0,"lines":100,"numbered":true,"iteration":3,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 5 100
+GUTTER_CASE {"cycle":0,"lines":100,"numbered":true,"iteration":4,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 4 100
+GUTTER_CASE {"cycle":0,"lines":100,"numbered":true,"iteration":5,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 3 100
+GUTTER_CASE {"cycle":0,"lines":100,"numbered":true,"iteration":6,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 8 100
+GUTTER_CASE {"cycle":0,"lines":100,"numbered":true,"iteration":7,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 3 100
+GUTTER_CASE {"cycle":0,"lines":100,"numbered":true,"iteration":8,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 4 100
+GUTTER_CASE {"cycle":0,"lines":100,"numbered":true,"iteration":9,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 3 100
+GUTTER_CASE {"cycle":0,"lines":100,"numbered":true,"iteration":10,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 3 100
+GUTTER_CASE {"cycle":0,"lines":100,"numbered":true,"iteration":11,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 3 100
+GUTTER_CASE {"cycle":0,"lines":100,"numbered":true,"iteration":12,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 10 100
+GUTTER_CASE {"cycle":0,"lines":100,"numbered":true,"iteration":13,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 4 100
+GUTTER_CASE {"cycle":0,"lines":100,"numbered":true,"iteration":14,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 3 100
+GUTTER_CALLBACK 20 500
+GUTTER_CASE {"cycle":0,"lines":500,"numbered":false,"iteration":0,"retained":false,"semanticsEnabled":true}
+GUTTER_CALLBACK 9 500
+GUTTER_CASE {"cycle":0,"lines":500,"numbered":false,"iteration":1,"retained":false,"semanticsEnabled":true}
+GUTTER_CALLBACK 9 500
+GUTTER_CASE {"cycle":0,"lines":500,"numbered":false,"iteration":2,"retained":false,"semanticsEnabled":true}
+GUTTER_CALLBACK 12 500
+GUTTER_CASE {"cycle":0,"lines":500,"numbered":false,"iteration":3,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 32 500
+GUTTER_CASE {"cycle":0,"lines":500,"numbered":false,"iteration":4,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 12 500
+GUTTER_CASE {"cycle":0,"lines":500,"numbered":false,"iteration":5,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 14 500
+GUTTER_CASE {"cycle":0,"lines":500,"numbered":false,"iteration":6,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 12 500
+GUTTER_CASE {"cycle":0,"lines":500,"numbered":false,"iteration":7,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 12 500
+GUTTER_CASE {"cycle":0,"lines":500,"numbered":false,"iteration":8,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 15 500
+GUTTER_CASE {"cycle":0,"lines":500,"numbered":false,"iteration":9,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 12 500
+GUTTER_CASE {"cycle":0,"lines":500,"numbered":false,"iteration":10,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 13 500
+GUTTER_CASE {"cycle":0,"lines":500,"numbered":false,"iteration":11,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 16 500
+GUTTER_CASE {"cycle":0,"lines":500,"numbered":false,"iteration":12,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 16 500
+GUTTER_CASE {"cycle":0,"lines":500,"numbered":false,"iteration":13,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 13 500
+GUTTER_CASE {"cycle":0,"lines":500,"numbered":false,"iteration":14,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 15 500
+GUTTER_CALLBACK 22 500
+GUTTER_CASE {"cycle":0,"lines":500,"numbered":true,"iteration":0,"retained":false,"semanticsEnabled":true}
+GUTTER_CALLBACK 10 500
+GUTTER_CASE {"cycle":0,"lines":500,"numbered":true,"iteration":1,"retained":false,"semanticsEnabled":true}
+GUTTER_CALLBACK 9 500
+GUTTER_CASE {"cycle":0,"lines":500,"numbered":true,"iteration":2,"retained":false,"semanticsEnabled":true}
+GUTTER_CALLBACK 10 500
+GUTTER_CASE {"cycle":0,"lines":500,"numbered":true,"iteration":3,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 12 500
+GUTTER_CASE {"cycle":0,"lines":500,"numbered":true,"iteration":4,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 16 500
+GUTTER_CASE {"cycle":0,"lines":500,"numbered":true,"iteration":5,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 13 500
+GUTTER_CASE {"cycle":0,"lines":500,"numbered":true,"iteration":6,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 17 500
+GUTTER_CASE {"cycle":0,"lines":500,"numbered":true,"iteration":7,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 15 500
+GUTTER_CASE {"cycle":0,"lines":500,"numbered":true,"iteration":8,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 16 500
+GUTTER_CASE {"cycle":0,"lines":500,"numbered":true,"iteration":9,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 14 500
+GUTTER_CASE {"cycle":0,"lines":500,"numbered":true,"iteration":10,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 17 500
+GUTTER_CASE {"cycle":0,"lines":500,"numbered":true,"iteration":11,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 16 500
+GUTTER_CASE {"cycle":0,"lines":500,"numbered":true,"iteration":12,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 16 500
+GUTTER_CASE {"cycle":0,"lines":500,"numbered":true,"iteration":13,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 14 500
+GUTTER_CASE {"cycle":0,"lines":500,"numbered":true,"iteration":14,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 15 500
+GUTTER_CALLBACK 20 1000
+GUTTER_CASE {"cycle":0,"lines":1000,"numbered":false,"iteration":0,"retained":false,"semanticsEnabled":true}
+GUTTER_CALLBACK 13 1000
+GUTTER_CASE {"cycle":0,"lines":1000,"numbered":false,"iteration":1,"retained":false,"semanticsEnabled":true}
+GUTTER_CALLBACK 12 1000
+GUTTER_CASE {"cycle":0,"lines":1000,"numbered":false,"iteration":2,"retained":false,"semanticsEnabled":true}
+GUTTER_CALLBACK 215 1000
+GUTTER_CASE {"cycle":0,"lines":1000,"numbered":false,"iteration":3,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 17 1000
+GUTTER_CASE {"cycle":0,"lines":1000,"numbered":false,"iteration":4,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 21 1000
+GUTTER_CASE {"cycle":0,"lines":1000,"numbered":false,"iteration":5,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 18 1000
+GUTTER_CASE {"cycle":0,"lines":1000,"numbered":false,"iteration":6,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 19 1000
+GUTTER_CASE {"cycle":0,"lines":1000,"numbered":false,"iteration":7,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 19 1000
+GUTTER_CASE {"cycle":0,"lines":1000,"numbered":false,"iteration":8,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 18 1000
+GUTTER_CASE {"cycle":0,"lines":1000,"numbered":false,"iteration":9,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 18 1000
+GUTTER_CASE {"cycle":0,"lines":1000,"numbered":false,"iteration":10,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 19 1000
+GUTTER_CASE {"cycle":0,"lines":1000,"numbered":false,"iteration":11,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 17 1000
+GUTTER_CASE {"cycle":0,"lines":1000,"numbered":false,"iteration":12,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 18 1000
+GUTTER_CASE {"cycle":0,"lines":1000,"numbered":false,"iteration":13,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 18 1000
+GUTTER_CASE {"cycle":0,"lines":1000,"numbered":false,"iteration":14,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 37 1000
+GUTTER_CALLBACK 24 1000
+GUTTER_CASE {"cycle":0,"lines":1000,"numbered":true,"iteration":0,"retained":false,"semanticsEnabled":true}
+GUTTER_CALLBACK 16 1000
+GUTTER_CASE {"cycle":0,"lines":1000,"numbered":true,"iteration":1,"retained":false,"semanticsEnabled":true}
+GUTTER_CALLBACK 17 1000
+GUTTER_CASE {"cycle":0,"lines":1000,"numbered":true,"iteration":2,"retained":false,"semanticsEnabled":true}
+GUTTER_CALLBACK 18 1000
+GUTTER_CASE {"cycle":0,"lines":1000,"numbered":true,"iteration":3,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 17 1000
+GUTTER_CASE {"cycle":0,"lines":1000,"numbered":true,"iteration":4,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 1895 1000
+GUTTER_CASE {"cycle":0,"lines":1000,"numbered":true,"iteration":5,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 19 1000
+GUTTER_CASE {"cycle":0,"lines":1000,"numbered":true,"iteration":6,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 15 1000
+GUTTER_CASE {"cycle":0,"lines":1000,"numbered":true,"iteration":7,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 19 1000
+GUTTER_CASE {"cycle":0,"lines":1000,"numbered":true,"iteration":8,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 16 1000
+GUTTER_CASE {"cycle":0,"lines":1000,"numbered":true,"iteration":9,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 16 1000
+GUTTER_CASE {"cycle":0,"lines":1000,"numbered":true,"iteration":10,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 21 1000
+GUTTER_CASE {"cycle":0,"lines":1000,"numbered":true,"iteration":11,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 18 1000
+GUTTER_CASE {"cycle":0,"lines":1000,"numbered":true,"iteration":12,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 2227 1000
+GUTTER_CASE {"cycle":0,"lines":1000,"numbered":true,"iteration":13,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 16 1000
+GUTTER_CASE {"cycle":0,"lines":1000,"numbered":true,"iteration":14,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 16 1000
+GUTTER_CALLBACK 1 20
+GUTTER_CASE {"cycle":1,"lines":20,"numbered":false,"iteration":0,"retained":false,"semanticsEnabled":true}
+GUTTER_CALLBACK 0 20
+GUTTER_CASE {"cycle":1,"lines":20,"numbered":false,"iteration":1,"retained":false,"semanticsEnabled":true}
+GUTTER_CALLBACK 1 20
+GUTTER_CASE {"cycle":1,"lines":20,"numbered":false,"iteration":2,"retained":false,"semanticsEnabled":true}
+GUTTER_CALLBACK 0 20
+GUTTER_CASE {"cycle":1,"lines":20,"numbered":false,"iteration":3,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 0 20
+GUTTER_CASE {"cycle":1,"lines":20,"numbered":false,"iteration":4,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 1 20
+GUTTER_CASE {"cycle":1,"lines":20,"numbered":false,"iteration":5,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 1 20
+GUTTER_CASE {"cycle":1,"lines":20,"numbered":false,"iteration":6,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 0 20
+GUTTER_CASE {"cycle":1,"lines":20,"numbered":false,"iteration":7,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 0 20
+GUTTER_CASE {"cycle":1,"lines":20,"numbered":false,"iteration":8,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 0 20
+GUTTER_CASE {"cycle":1,"lines":20,"numbered":false,"iteration":9,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 1 20
+GUTTER_CASE {"cycle":1,"lines":20,"numbered":false,"iteration":10,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 2 20
+GUTTER_CASE {"cycle":1,"lines":20,"numbered":false,"iteration":11,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 0 20
+GUTTER_CASE {"cycle":1,"lines":20,"numbered":false,"iteration":12,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 1 20
+GUTTER_CASE {"cycle":1,"lines":20,"numbered":false,"iteration":13,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 1 20
+GUTTER_CASE {"cycle":1,"lines":20,"numbered":false,"iteration":14,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 1 20
+GUTTER_CALLBACK 2 20
+GUTTER_CASE {"cycle":1,"lines":20,"numbered":true,"iteration":0,"retained":false,"semanticsEnabled":true}
+GUTTER_CALLBACK 1 20
+GUTTER_CASE {"cycle":1,"lines":20,"numbered":true,"iteration":1,"retained":false,"semanticsEnabled":true}
+GUTTER_CALLBACK 3 20
+GUTTER_CASE {"cycle":1,"lines":20,"numbered":true,"iteration":2,"retained":false,"semanticsEnabled":true}
+GUTTER_CALLBACK 1 20
+GUTTER_CASE {"cycle":1,"lines":20,"numbered":true,"iteration":3,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 2 20
+GUTTER_CASE {"cycle":1,"lines":20,"numbered":true,"iteration":4,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 3 20
+GUTTER_CASE {"cycle":1,"lines":20,"numbered":true,"iteration":5,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 1 20
+GUTTER_CASE {"cycle":1,"lines":20,"numbered":true,"iteration":6,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 3 20
+GUTTER_CASE {"cycle":1,"lines":20,"numbered":true,"iteration":7,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 2 20
+GUTTER_CASE {"cycle":1,"lines":20,"numbered":true,"iteration":8,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 2 20
+GUTTER_CASE {"cycle":1,"lines":20,"numbered":true,"iteration":9,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 3 20
+GUTTER_CASE {"cycle":1,"lines":20,"numbered":true,"iteration":10,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 1 20
+GUTTER_CASE {"cycle":1,"lines":20,"numbered":true,"iteration":11,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 1 20
+GUTTER_CASE {"cycle":1,"lines":20,"numbered":true,"iteration":12,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 2 20
+GUTTER_CASE {"cycle":1,"lines":20,"numbered":true,"iteration":13,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 3 20
+GUTTER_CASE {"cycle":1,"lines":20,"numbered":true,"iteration":14,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 2 20
+GUTTER_CALLBACK 7 100
+GUTTER_CASE {"cycle":1,"lines":100,"numbered":false,"iteration":0,"retained":false,"semanticsEnabled":true}
+GUTTER_CALLBACK 3 100
+GUTTER_CASE {"cycle":1,"lines":100,"numbered":false,"iteration":1,"retained":false,"semanticsEnabled":true}
+GUTTER_CALLBACK 3 100
+GUTTER_CASE {"cycle":1,"lines":100,"numbered":false,"iteration":2,"retained":false,"semanticsEnabled":true}
+GUTTER_CALLBACK 4 100
+GUTTER_CASE {"cycle":1,"lines":100,"numbered":false,"iteration":3,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 4 100
+GUTTER_CASE {"cycle":1,"lines":100,"numbered":false,"iteration":4,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 3 100
+GUTTER_CASE {"cycle":1,"lines":100,"numbered":false,"iteration":5,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 3 100
+GUTTER_CASE {"cycle":1,"lines":100,"numbered":false,"iteration":6,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 8 100
+GUTTER_CASE {"cycle":1,"lines":100,"numbered":false,"iteration":7,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 8 100
+GUTTER_CASE {"cycle":1,"lines":100,"numbered":false,"iteration":8,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 9 100
+GUTTER_CASE {"cycle":1,"lines":100,"numbered":false,"iteration":9,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 7 100
+GUTTER_CASE {"cycle":1,"lines":100,"numbered":false,"iteration":10,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 8 100
+GUTTER_CASE {"cycle":1,"lines":100,"numbered":false,"iteration":11,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 6 100
+GUTTER_CASE {"cycle":1,"lines":100,"numbered":false,"iteration":12,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 12 100
+GUTTER_CASE {"cycle":1,"lines":100,"numbered":false,"iteration":13,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 7 100
+GUTTER_CASE {"cycle":1,"lines":100,"numbered":false,"iteration":14,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 10 100
+GUTTER_CALLBACK 2 100
+GUTTER_CASE {"cycle":1,"lines":100,"numbered":true,"iteration":0,"retained":false,"semanticsEnabled":true}
+GUTTER_CALLBACK 2 100
+GUTTER_CASE {"cycle":1,"lines":100,"numbered":true,"iteration":1,"retained":false,"semanticsEnabled":true}
+GUTTER_CALLBACK 3 100
+GUTTER_CASE {"cycle":1,"lines":100,"numbered":true,"iteration":2,"retained":false,"semanticsEnabled":true}
+GUTTER_CALLBACK 3 100
+GUTTER_CASE {"cycle":1,"lines":100,"numbered":true,"iteration":3,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 4 100
+GUTTER_CASE {"cycle":1,"lines":100,"numbered":true,"iteration":4,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 14 100
+GUTTER_CASE {"cycle":1,"lines":100,"numbered":true,"iteration":5,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 5 100
+GUTTER_CASE {"cycle":1,"lines":100,"numbered":true,"iteration":6,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 3 100
+GUTTER_CASE {"cycle":1,"lines":100,"numbered":true,"iteration":7,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 3 100
+GUTTER_CASE {"cycle":1,"lines":100,"numbered":true,"iteration":8,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 6 100
+GUTTER_CASE {"cycle":1,"lines":100,"numbered":true,"iteration":9,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 3 100
+GUTTER_CASE {"cycle":1,"lines":100,"numbered":true,"iteration":10,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 2 100
+GUTTER_CASE {"cycle":1,"lines":100,"numbered":true,"iteration":11,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 3 100
+GUTTER_CASE {"cycle":1,"lines":100,"numbered":true,"iteration":12,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 9 100
+GUTTER_CASE {"cycle":1,"lines":100,"numbered":true,"iteration":13,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 9 100
+GUTTER_CASE {"cycle":1,"lines":100,"numbered":true,"iteration":14,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 3 100
+GUTTER_CALLBACK 27 500
+GUTTER_CASE {"cycle":1,"lines":500,"numbered":false,"iteration":0,"retained":false,"semanticsEnabled":true}
+GUTTER_CALLBACK 9 500
+GUTTER_CASE {"cycle":1,"lines":500,"numbered":false,"iteration":1,"retained":false,"semanticsEnabled":true}
+GUTTER_CALLBACK 23 500
+GUTTER_CASE {"cycle":1,"lines":500,"numbered":false,"iteration":2,"retained":false,"semanticsEnabled":true}
+GUTTER_CALLBACK 9 500
+GUTTER_CASE {"cycle":1,"lines":500,"numbered":false,"iteration":3,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 12 500
+GUTTER_CASE {"cycle":1,"lines":500,"numbered":false,"iteration":4,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 11 500
+GUTTER_CASE {"cycle":1,"lines":500,"numbered":false,"iteration":5,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 12 500
+GUTTER_CASE {"cycle":1,"lines":500,"numbered":false,"iteration":6,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 11 500
+GUTTER_CASE {"cycle":1,"lines":500,"numbered":false,"iteration":7,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 11 500
+GUTTER_CASE {"cycle":1,"lines":500,"numbered":false,"iteration":8,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 13 500
+GUTTER_CASE {"cycle":1,"lines":500,"numbered":false,"iteration":9,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 15 500
+GUTTER_CASE {"cycle":1,"lines":500,"numbered":false,"iteration":10,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 11 500
+GUTTER_CASE {"cycle":1,"lines":500,"numbered":false,"iteration":11,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 13 500
+GUTTER_CASE {"cycle":1,"lines":500,"numbered":false,"iteration":12,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 11 500
+GUTTER_CASE {"cycle":1,"lines":500,"numbered":false,"iteration":13,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 12 500
+GUTTER_CASE {"cycle":1,"lines":500,"numbered":false,"iteration":14,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 12 500
+GUTTER_CALLBACK 19 500
+GUTTER_CASE {"cycle":1,"lines":500,"numbered":true,"iteration":0,"retained":false,"semanticsEnabled":true}
+GUTTER_CALLBACK 13 500
+GUTTER_CASE {"cycle":1,"lines":500,"numbered":true,"iteration":1,"retained":false,"semanticsEnabled":true}
+GUTTER_CALLBACK 9 500
+GUTTER_CASE {"cycle":1,"lines":500,"numbered":true,"iteration":2,"retained":false,"semanticsEnabled":true}
+GUTTER_CALLBACK 14 500
+GUTTER_CASE {"cycle":1,"lines":500,"numbered":true,"iteration":3,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 19 500
+GUTTER_CASE {"cycle":1,"lines":500,"numbered":true,"iteration":4,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 18 500
+GUTTER_CASE {"cycle":1,"lines":500,"numbered":true,"iteration":5,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 15 500
+GUTTER_CASE {"cycle":1,"lines":500,"numbered":true,"iteration":6,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 14 500
+GUTTER_CASE {"cycle":1,"lines":500,"numbered":true,"iteration":7,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 12 500
+GUTTER_CASE {"cycle":1,"lines":500,"numbered":true,"iteration":8,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 17 500
+GUTTER_CASE {"cycle":1,"lines":500,"numbered":true,"iteration":9,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 15 500
+GUTTER_CASE {"cycle":1,"lines":500,"numbered":true,"iteration":10,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 13 500
+GUTTER_CASE {"cycle":1,"lines":500,"numbered":true,"iteration":11,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 17 500
+GUTTER_CASE {"cycle":1,"lines":500,"numbered":true,"iteration":12,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 15 500
+GUTTER_CASE {"cycle":1,"lines":500,"numbered":true,"iteration":13,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 16 500
+GUTTER_CASE {"cycle":1,"lines":500,"numbered":true,"iteration":14,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 12 500
+GUTTER_CALLBACK 19 1000
+GUTTER_CASE {"cycle":1,"lines":1000,"numbered":false,"iteration":0,"retained":false,"semanticsEnabled":true}
+GUTTER_CALLBACK 13 1000
+GUTTER_CASE {"cycle":1,"lines":1000,"numbered":false,"iteration":1,"retained":false,"semanticsEnabled":true}
+GUTTER_CALLBACK 13 1000
+GUTTER_CASE {"cycle":1,"lines":1000,"numbered":false,"iteration":2,"retained":false,"semanticsEnabled":true}
+GUTTER_CALLBACK 42 1000
+GUTTER_CASE {"cycle":1,"lines":1000,"numbered":false,"iteration":3,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 24 1000
+GUTTER_CASE {"cycle":1,"lines":1000,"numbered":false,"iteration":4,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 19 1000
+GUTTER_CASE {"cycle":1,"lines":1000,"numbered":false,"iteration":5,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 21 1000
+GUTTER_CASE {"cycle":1,"lines":1000,"numbered":false,"iteration":6,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 28 1000
+GUTTER_CASE {"cycle":1,"lines":1000,"numbered":false,"iteration":7,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 22 1000
+GUTTER_CASE {"cycle":1,"lines":1000,"numbered":false,"iteration":8,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 25 1000
+GUTTER_CASE {"cycle":1,"lines":1000,"numbered":false,"iteration":9,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 18 1000
+GUTTER_CASE {"cycle":1,"lines":1000,"numbered":false,"iteration":10,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 22 1000
+GUTTER_CASE {"cycle":1,"lines":1000,"numbered":false,"iteration":11,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 20 1000
+GUTTER_CASE {"cycle":1,"lines":1000,"numbered":false,"iteration":12,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 22 1000
+GUTTER_CASE {"cycle":1,"lines":1000,"numbered":false,"iteration":13,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 19 1000
+GUTTER_CASE {"cycle":1,"lines":1000,"numbered":false,"iteration":14,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 26 1000
+GUTTER_CALLBACK 28 1000
+GUTTER_CASE {"cycle":1,"lines":1000,"numbered":true,"iteration":0,"retained":false,"semanticsEnabled":true}
+GUTTER_CALLBACK 19 1000
+GUTTER_CASE {"cycle":1,"lines":1000,"numbered":true,"iteration":1,"retained":false,"semanticsEnabled":true}
+GUTTER_CALLBACK 19 1000
+GUTTER_CASE {"cycle":1,"lines":1000,"numbered":true,"iteration":2,"retained":false,"semanticsEnabled":true}
+GUTTER_CALLBACK 18 1000
+GUTTER_CASE {"cycle":1,"lines":1000,"numbered":true,"iteration":3,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 19 1000
+GUTTER_CASE {"cycle":1,"lines":1000,"numbered":true,"iteration":4,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 24 1000
+GUTTER_CASE {"cycle":1,"lines":1000,"numbered":true,"iteration":5,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 20 1000
+GUTTER_CASE {"cycle":1,"lines":1000,"numbered":true,"iteration":6,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 17 1000
+GUTTER_CASE {"cycle":1,"lines":1000,"numbered":true,"iteration":7,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 17 1000
+GUTTER_CASE {"cycle":1,"lines":1000,"numbered":true,"iteration":8,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 39 1000
+GUTTER_CASE {"cycle":1,"lines":1000,"numbered":true,"iteration":9,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 17 1000
+GUTTER_CASE {"cycle":1,"lines":1000,"numbered":true,"iteration":10,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 19 1000
+GUTTER_CASE {"cycle":1,"lines":1000,"numbered":true,"iteration":11,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 19 1000
+GUTTER_CASE {"cycle":1,"lines":1000,"numbered":true,"iteration":12,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 1868 1000
+GUTTER_CASE {"cycle":1,"lines":1000,"numbered":true,"iteration":13,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 24 1000
+GUTTER_CASE {"cycle":1,"lines":1000,"numbered":true,"iteration":14,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 26 1000
+GUTTER_CALLBACK 1 20
+GUTTER_CASE {"cycle":2,"lines":20,"numbered":false,"iteration":0,"retained":false,"semanticsEnabled":true}
+GUTTER_CALLBACK 2 20
+GUTTER_CASE {"cycle":2,"lines":20,"numbered":false,"iteration":1,"retained":false,"semanticsEnabled":true}
+GUTTER_CALLBACK 2 20
+GUTTER_CASE {"cycle":2,"lines":20,"numbered":false,"iteration":2,"retained":false,"semanticsEnabled":true}
+GUTTER_CALLBACK 2 20
+GUTTER_CASE {"cycle":2,"lines":20,"numbered":false,"iteration":3,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 1 20
+GUTTER_CASE {"cycle":2,"lines":20,"numbered":false,"iteration":4,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 1 20
+GUTTER_CASE {"cycle":2,"lines":20,"numbered":false,"iteration":5,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 1 20
+GUTTER_CASE {"cycle":2,"lines":20,"numbered":false,"iteration":6,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 1 20
+GUTTER_CASE {"cycle":2,"lines":20,"numbered":false,"iteration":7,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 1 20
+GUTTER_CASE {"cycle":2,"lines":20,"numbered":false,"iteration":8,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 0 20
+GUTTER_CASE {"cycle":2,"lines":20,"numbered":false,"iteration":9,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 0 20
+GUTTER_CASE {"cycle":2,"lines":20,"numbered":false,"iteration":10,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 2 20
+GUTTER_CASE {"cycle":2,"lines":20,"numbered":false,"iteration":11,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 1 20
+GUTTER_CASE {"cycle":2,"lines":20,"numbered":false,"iteration":12,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 1 20
+GUTTER_CASE {"cycle":2,"lines":20,"numbered":false,"iteration":13,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 2 20
+GUTTER_CASE {"cycle":2,"lines":20,"numbered":false,"iteration":14,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 1 20
+GUTTER_CALLBACK 2 20
+GUTTER_CASE {"cycle":2,"lines":20,"numbered":true,"iteration":0,"retained":false,"semanticsEnabled":true}
+GUTTER_CALLBACK 16 20
+GUTTER_CASE {"cycle":2,"lines":20,"numbered":true,"iteration":1,"retained":false,"semanticsEnabled":true}
+GUTTER_CALLBACK 1 20
+GUTTER_CASE {"cycle":2,"lines":20,"numbered":true,"iteration":2,"retained":false,"semanticsEnabled":true}
+GUTTER_CALLBACK 1 20
+GUTTER_CASE {"cycle":2,"lines":20,"numbered":true,"iteration":3,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 1 20
+GUTTER_CASE {"cycle":2,"lines":20,"numbered":true,"iteration":4,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 2 20
+GUTTER_CASE {"cycle":2,"lines":20,"numbered":true,"iteration":5,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 0 20
+GUTTER_CASE {"cycle":2,"lines":20,"numbered":true,"iteration":6,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 1 20
+GUTTER_CASE {"cycle":2,"lines":20,"numbered":true,"iteration":7,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 1 20
+GUTTER_CASE {"cycle":2,"lines":20,"numbered":true,"iteration":8,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 1 20
+GUTTER_CASE {"cycle":2,"lines":20,"numbered":true,"iteration":9,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 2 20
+GUTTER_CASE {"cycle":2,"lines":20,"numbered":true,"iteration":10,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 0 20
+GUTTER_CASE {"cycle":2,"lines":20,"numbered":true,"iteration":11,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 3 20
+GUTTER_CASE {"cycle":2,"lines":20,"numbered":true,"iteration":12,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 3 20
+GUTTER_CASE {"cycle":2,"lines":20,"numbered":true,"iteration":13,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 6 20
+GUTTER_CASE {"cycle":2,"lines":20,"numbered":true,"iteration":14,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 5 20
+GUTTER_CALLBACK 9 100
+GUTTER_CASE {"cycle":2,"lines":100,"numbered":false,"iteration":0,"retained":false,"semanticsEnabled":true}
+GUTTER_CALLBACK 3 100
+GUTTER_CASE {"cycle":2,"lines":100,"numbered":false,"iteration":1,"retained":false,"semanticsEnabled":true}
+GUTTER_CALLBACK 2 100
+GUTTER_CASE {"cycle":2,"lines":100,"numbered":false,"iteration":2,"retained":false,"semanticsEnabled":true}
+GUTTER_CALLBACK 3 100
+GUTTER_CASE {"cycle":2,"lines":100,"numbered":false,"iteration":3,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 4 100
+GUTTER_CASE {"cycle":2,"lines":100,"numbered":false,"iteration":4,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 3 100
+GUTTER_CASE {"cycle":2,"lines":100,"numbered":false,"iteration":5,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 7 100
+GUTTER_CASE {"cycle":2,"lines":100,"numbered":false,"iteration":6,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 7 100
+GUTTER_CASE {"cycle":2,"lines":100,"numbered":false,"iteration":7,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 8 100
+GUTTER_CASE {"cycle":2,"lines":100,"numbered":false,"iteration":8,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 8 100
+GUTTER_CASE {"cycle":2,"lines":100,"numbered":false,"iteration":9,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 8 100
+GUTTER_CASE {"cycle":2,"lines":100,"numbered":false,"iteration":10,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 7 100
+GUTTER_CASE {"cycle":2,"lines":100,"numbered":false,"iteration":11,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 6 100
+GUTTER_CASE {"cycle":2,"lines":100,"numbered":false,"iteration":12,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 7 100
+GUTTER_CASE {"cycle":2,"lines":100,"numbered":false,"iteration":13,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 6 100
+GUTTER_CASE {"cycle":2,"lines":100,"numbered":false,"iteration":14,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 5 100
+GUTTER_CALLBACK 3 100
+GUTTER_CASE {"cycle":2,"lines":100,"numbered":true,"iteration":0,"retained":false,"semanticsEnabled":true}
+GUTTER_CALLBACK 2 100
+GUTTER_CASE {"cycle":2,"lines":100,"numbered":true,"iteration":1,"retained":false,"semanticsEnabled":true}
+GUTTER_CALLBACK 3 100
+GUTTER_CASE {"cycle":2,"lines":100,"numbered":true,"iteration":2,"retained":false,"semanticsEnabled":true}
+GUTTER_CALLBACK 3 100
+GUTTER_CASE {"cycle":2,"lines":100,"numbered":true,"iteration":3,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 3 100
+GUTTER_CASE {"cycle":2,"lines":100,"numbered":true,"iteration":4,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 3 100
+GUTTER_CASE {"cycle":2,"lines":100,"numbered":true,"iteration":5,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 3 100
+GUTTER_CASE {"cycle":2,"lines":100,"numbered":true,"iteration":6,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 2 100
+GUTTER_CASE {"cycle":2,"lines":100,"numbered":true,"iteration":7,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 3 100
+GUTTER_CASE {"cycle":2,"lines":100,"numbered":true,"iteration":8,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 3 100
+GUTTER_CASE {"cycle":2,"lines":100,"numbered":true,"iteration":9,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 8 100
+GUTTER_CASE {"cycle":2,"lines":100,"numbered":true,"iteration":10,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 3 100
+GUTTER_CASE {"cycle":2,"lines":100,"numbered":true,"iteration":11,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 9 100
+GUTTER_CASE {"cycle":2,"lines":100,"numbered":true,"iteration":12,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 3 100
+GUTTER_CASE {"cycle":2,"lines":100,"numbered":true,"iteration":13,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 5 100
+GUTTER_CASE {"cycle":2,"lines":100,"numbered":true,"iteration":14,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 3 100
+GUTTER_CALLBACK 34 500
+GUTTER_CASE {"cycle":2,"lines":500,"numbered":false,"iteration":0,"retained":false,"semanticsEnabled":true}
+GUTTER_CALLBACK 8 500
+GUTTER_CASE {"cycle":2,"lines":500,"numbered":false,"iteration":1,"retained":false,"semanticsEnabled":true}
+GUTTER_CALLBACK 6 500
+GUTTER_CASE {"cycle":2,"lines":500,"numbered":false,"iteration":2,"retained":false,"semanticsEnabled":true}
+GUTTER_CALLBACK 12 500
+GUTTER_CASE {"cycle":2,"lines":500,"numbered":false,"iteration":3,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 16 500
+GUTTER_CASE {"cycle":2,"lines":500,"numbered":false,"iteration":4,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 46 500
+GUTTER_CASE {"cycle":2,"lines":500,"numbered":false,"iteration":5,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 9 500
+GUTTER_CASE {"cycle":2,"lines":500,"numbered":false,"iteration":6,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 12 500
+GUTTER_CASE {"cycle":2,"lines":500,"numbered":false,"iteration":7,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 9 500
+GUTTER_CASE {"cycle":2,"lines":500,"numbered":false,"iteration":8,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 12 500
+GUTTER_CASE {"cycle":2,"lines":500,"numbered":false,"iteration":9,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 11 500
+GUTTER_CASE {"cycle":2,"lines":500,"numbered":false,"iteration":10,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 10 500
+GUTTER_CASE {"cycle":2,"lines":500,"numbered":false,"iteration":11,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 9 500
+GUTTER_CASE {"cycle":2,"lines":500,"numbered":false,"iteration":12,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 15 500
+GUTTER_CASE {"cycle":2,"lines":500,"numbered":false,"iteration":13,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 9 500
+GUTTER_CASE {"cycle":2,"lines":500,"numbered":false,"iteration":14,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 11 500
+GUTTER_CALLBACK 12 500
+GUTTER_CASE {"cycle":2,"lines":500,"numbered":true,"iteration":0,"retained":false,"semanticsEnabled":true}
+GUTTER_CALLBACK 12 500
+GUTTER_CASE {"cycle":2,"lines":500,"numbered":true,"iteration":1,"retained":false,"semanticsEnabled":true}
+GUTTER_CALLBACK 8 500
+GUTTER_CASE {"cycle":2,"lines":500,"numbered":true,"iteration":2,"retained":false,"semanticsEnabled":true}
+GUTTER_CALLBACK 21 500
+GUTTER_CASE {"cycle":2,"lines":500,"numbered":true,"iteration":3,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 8 500
+GUTTER_CASE {"cycle":2,"lines":500,"numbered":true,"iteration":4,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 14 500
+GUTTER_CASE {"cycle":2,"lines":500,"numbered":true,"iteration":5,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 12 500
+GUTTER_CASE {"cycle":2,"lines":500,"numbered":true,"iteration":6,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 23 500
+GUTTER_CASE {"cycle":2,"lines":500,"numbered":true,"iteration":7,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 13 500
+GUTTER_CASE {"cycle":2,"lines":500,"numbered":true,"iteration":8,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 17 500
+GUTTER_CASE {"cycle":2,"lines":500,"numbered":true,"iteration":9,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 17 500
+GUTTER_CASE {"cycle":2,"lines":500,"numbered":true,"iteration":10,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 13 500
+GUTTER_CASE {"cycle":2,"lines":500,"numbered":true,"iteration":11,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 22 500
+GUTTER_CASE {"cycle":2,"lines":500,"numbered":true,"iteration":12,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 13 500
+GUTTER_CASE {"cycle":2,"lines":500,"numbered":true,"iteration":13,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 18 500
+GUTTER_CASE {"cycle":2,"lines":500,"numbered":true,"iteration":14,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 15 500
+GUTTER_CALLBACK 29 1000
+GUTTER_CASE {"cycle":2,"lines":1000,"numbered":false,"iteration":0,"retained":false,"semanticsEnabled":true}
+GUTTER_CALLBACK 14 1000
+GUTTER_CASE {"cycle":2,"lines":1000,"numbered":false,"iteration":1,"retained":false,"semanticsEnabled":true}
+GUTTER_CALLBACK 13 1000
+GUTTER_CASE {"cycle":2,"lines":1000,"numbered":false,"iteration":2,"retained":false,"semanticsEnabled":true}
+GUTTER_CALLBACK 29 1000
+GUTTER_CASE {"cycle":2,"lines":1000,"numbered":false,"iteration":3,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 22 1000
+GUTTER_CASE {"cycle":2,"lines":1000,"numbered":false,"iteration":4,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 24 1000
+GUTTER_CASE {"cycle":2,"lines":1000,"numbered":false,"iteration":5,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 20 1000
+GUTTER_CASE {"cycle":2,"lines":1000,"numbered":false,"iteration":6,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 23 1000
+GUTTER_CASE {"cycle":2,"lines":1000,"numbered":false,"iteration":7,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 23 1000
+GUTTER_CASE {"cycle":2,"lines":1000,"numbered":false,"iteration":8,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 22 1000
+GUTTER_CASE {"cycle":2,"lines":1000,"numbered":false,"iteration":9,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 23 1000
+GUTTER_CASE {"cycle":2,"lines":1000,"numbered":false,"iteration":10,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 21 1000
+GUTTER_CASE {"cycle":2,"lines":1000,"numbered":false,"iteration":11,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 20 1000
+GUTTER_CASE {"cycle":2,"lines":1000,"numbered":false,"iteration":12,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 21 1000
+GUTTER_CASE {"cycle":2,"lines":1000,"numbered":false,"iteration":13,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 22 1000
+GUTTER_CASE {"cycle":2,"lines":1000,"numbered":false,"iteration":14,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 18 1000
+GUTTER_CALLBACK 26 1000
+GUTTER_CASE {"cycle":2,"lines":1000,"numbered":true,"iteration":0,"retained":false,"semanticsEnabled":true}
+GUTTER_CALLBACK 2882 1000
+GUTTER_CASE {"cycle":2,"lines":1000,"numbered":true,"iteration":1,"retained":false,"semanticsEnabled":true}
+GUTTER_CALLBACK 16 1000
+GUTTER_CASE {"cycle":2,"lines":1000,"numbered":true,"iteration":2,"retained":false,"semanticsEnabled":true}
+GUTTER_CALLBACK 20 1000
+GUTTER_CASE {"cycle":2,"lines":1000,"numbered":true,"iteration":3,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 22 1000
+GUTTER_CASE {"cycle":2,"lines":1000,"numbered":true,"iteration":4,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 18 1000
+GUTTER_CASE {"cycle":2,"lines":1000,"numbered":true,"iteration":5,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 16 1000
+GUTTER_CASE {"cycle":2,"lines":1000,"numbered":true,"iteration":6,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 21 1000
+GUTTER_CASE {"cycle":2,"lines":1000,"numbered":true,"iteration":7,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 17 1000
+GUTTER_CASE {"cycle":2,"lines":1000,"numbered":true,"iteration":8,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 22 1000
+GUTTER_CASE {"cycle":2,"lines":1000,"numbered":true,"iteration":9,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 19 1000
+GUTTER_CASE {"cycle":2,"lines":1000,"numbered":true,"iteration":10,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 17 1000
+GUTTER_CASE {"cycle":2,"lines":1000,"numbered":true,"iteration":11,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 17 1000
+GUTTER_CASE {"cycle":2,"lines":1000,"numbered":true,"iteration":12,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 16 1000
+GUTTER_CASE {"cycle":2,"lines":1000,"numbered":true,"iteration":13,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 2038 1000
+GUTTER_CASE {"cycle":2,"lines":1000,"numbered":true,"iteration":14,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 37 1000
+GUTTER_CALLBACK 1 20
+GUTTER_CASE {"cycle":3,"lines":20,"numbered":false,"iteration":0,"retained":false,"semanticsEnabled":true}
+GUTTER_CALLBACK 1 20
+GUTTER_CASE {"cycle":3,"lines":20,"numbered":false,"iteration":1,"retained":false,"semanticsEnabled":true}
+GUTTER_CALLBACK 2 20
+GUTTER_CASE {"cycle":3,"lines":20,"numbered":false,"iteration":2,"retained":false,"semanticsEnabled":true}
+GUTTER_CALLBACK 2 20
+GUTTER_CASE {"cycle":3,"lines":20,"numbered":false,"iteration":3,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 0 20
+GUTTER_CASE {"cycle":3,"lines":20,"numbered":false,"iteration":4,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 1 20
+GUTTER_CASE {"cycle":3,"lines":20,"numbered":false,"iteration":5,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 0 20
+GUTTER_CASE {"cycle":3,"lines":20,"numbered":false,"iteration":6,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 1 20
+GUTTER_CASE {"cycle":3,"lines":20,"numbered":false,"iteration":7,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 0 20
+GUTTER_CASE {"cycle":3,"lines":20,"numbered":false,"iteration":8,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 0 20
+GUTTER_CASE {"cycle":3,"lines":20,"numbered":false,"iteration":9,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 2 20
+GUTTER_CASE {"cycle":3,"lines":20,"numbered":false,"iteration":10,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 0 20
+GUTTER_CASE {"cycle":3,"lines":20,"numbered":false,"iteration":11,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 0 20
+GUTTER_CASE {"cycle":3,"lines":20,"numbered":false,"iteration":12,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 0 20
+GUTTER_CASE {"cycle":3,"lines":20,"numbered":false,"iteration":13,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 0 20
+GUTTER_CASE {"cycle":3,"lines":20,"numbered":false,"iteration":14,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 2 20
+GUTTER_CALLBACK 2 20
+GUTTER_CASE {"cycle":3,"lines":20,"numbered":true,"iteration":0,"retained":false,"semanticsEnabled":true}
+GUTTER_CALLBACK 1 20
+GUTTER_CASE {"cycle":3,"lines":20,"numbered":true,"iteration":1,"retained":false,"semanticsEnabled":true}
+GUTTER_CALLBACK 2 20
+GUTTER_CASE {"cycle":3,"lines":20,"numbered":true,"iteration":2,"retained":false,"semanticsEnabled":true}
+GUTTER_CALLBACK 1 20
+GUTTER_CASE {"cycle":3,"lines":20,"numbered":true,"iteration":3,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 0 20
+GUTTER_CASE {"cycle":3,"lines":20,"numbered":true,"iteration":4,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 1 20
+GUTTER_CASE {"cycle":3,"lines":20,"numbered":true,"iteration":5,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 1 20
+GUTTER_CASE {"cycle":3,"lines":20,"numbered":true,"iteration":6,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 1 20
+GUTTER_CASE {"cycle":3,"lines":20,"numbered":true,"iteration":7,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 2 20
+GUTTER_CASE {"cycle":3,"lines":20,"numbered":true,"iteration":8,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 0 20
+GUTTER_CASE {"cycle":3,"lines":20,"numbered":true,"iteration":9,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 1 20
+GUTTER_CASE {"cycle":3,"lines":20,"numbered":true,"iteration":10,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 0 20
+GUTTER_CASE {"cycle":3,"lines":20,"numbered":true,"iteration":11,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 1 20
+GUTTER_CASE {"cycle":3,"lines":20,"numbered":true,"iteration":12,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 3 20
+GUTTER_CASE {"cycle":3,"lines":20,"numbered":true,"iteration":13,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 2 20
+GUTTER_CASE {"cycle":3,"lines":20,"numbered":true,"iteration":14,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 2 20
+GUTTER_CALLBACK 8 100
+GUTTER_CASE {"cycle":3,"lines":100,"numbered":false,"iteration":0,"retained":false,"semanticsEnabled":true}
+GUTTER_CALLBACK 2 100
+GUTTER_CASE {"cycle":3,"lines":100,"numbered":false,"iteration":1,"retained":false,"semanticsEnabled":true}
+GUTTER_CALLBACK 3 100
+GUTTER_CASE {"cycle":3,"lines":100,"numbered":false,"iteration":2,"retained":false,"semanticsEnabled":true}
+GUTTER_CALLBACK 3 100
+GUTTER_CASE {"cycle":3,"lines":100,"numbered":false,"iteration":3,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 2 100
+GUTTER_CASE {"cycle":3,"lines":100,"numbered":false,"iteration":4,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 6 100
+GUTTER_CASE {"cycle":3,"lines":100,"numbered":false,"iteration":5,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 6 100
+GUTTER_CASE {"cycle":3,"lines":100,"numbered":false,"iteration":6,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 6 100
+GUTTER_CASE {"cycle":3,"lines":100,"numbered":false,"iteration":7,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 7 100
+GUTTER_CASE {"cycle":3,"lines":100,"numbered":false,"iteration":8,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 7 100
+GUTTER_CASE {"cycle":3,"lines":100,"numbered":false,"iteration":9,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 7 100
+GUTTER_CASE {"cycle":3,"lines":100,"numbered":false,"iteration":10,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 10 100
+GUTTER_CASE {"cycle":3,"lines":100,"numbered":false,"iteration":11,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 7 100
+GUTTER_CASE {"cycle":3,"lines":100,"numbered":false,"iteration":12,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 13 100
+GUTTER_CASE {"cycle":3,"lines":100,"numbered":false,"iteration":13,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 6 100
+GUTTER_CASE {"cycle":3,"lines":100,"numbered":false,"iteration":14,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 3 100
+GUTTER_CALLBACK 8 100
+GUTTER_CASE {"cycle":3,"lines":100,"numbered":true,"iteration":0,"retained":false,"semanticsEnabled":true}
+GUTTER_CALLBACK 4 100
+GUTTER_CASE {"cycle":3,"lines":100,"numbered":true,"iteration":1,"retained":false,"semanticsEnabled":true}
+GUTTER_CALLBACK 3 100
+GUTTER_CASE {"cycle":3,"lines":100,"numbered":true,"iteration":2,"retained":false,"semanticsEnabled":true}
+GUTTER_CALLBACK 3 100
+GUTTER_CASE {"cycle":3,"lines":100,"numbered":true,"iteration":3,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 3 100
+GUTTER_CASE {"cycle":3,"lines":100,"numbered":true,"iteration":4,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 5 100
+GUTTER_CASE {"cycle":3,"lines":100,"numbered":true,"iteration":5,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 3 100
+GUTTER_CASE {"cycle":3,"lines":100,"numbered":true,"iteration":6,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 6 100
+GUTTER_CASE {"cycle":3,"lines":100,"numbered":true,"iteration":7,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 5 100
+GUTTER_CASE {"cycle":3,"lines":100,"numbered":true,"iteration":8,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 4 100
+GUTTER_CASE {"cycle":3,"lines":100,"numbered":true,"iteration":9,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 7 100
+GUTTER_CASE {"cycle":3,"lines":100,"numbered":true,"iteration":10,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 3 100
+GUTTER_CASE {"cycle":3,"lines":100,"numbered":true,"iteration":11,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 4 100
+GUTTER_CASE {"cycle":3,"lines":100,"numbered":true,"iteration":12,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 3 100
+GUTTER_CASE {"cycle":3,"lines":100,"numbered":true,"iteration":13,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 3 100
+GUTTER_CASE {"cycle":3,"lines":100,"numbered":true,"iteration":14,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 3 100
+GUTTER_CALLBACK 24 500
+GUTTER_CASE {"cycle":3,"lines":500,"numbered":false,"iteration":0,"retained":false,"semanticsEnabled":true}
+GUTTER_CALLBACK 7 500
+GUTTER_CASE {"cycle":3,"lines":500,"numbered":false,"iteration":1,"retained":false,"semanticsEnabled":true}
+GUTTER_CALLBACK 7 500
+GUTTER_CASE {"cycle":3,"lines":500,"numbered":false,"iteration":2,"retained":false,"semanticsEnabled":true}
+GUTTER_CALLBACK 12 500
+GUTTER_CASE {"cycle":3,"lines":500,"numbered":false,"iteration":3,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 14 500
+GUTTER_CASE {"cycle":3,"lines":500,"numbered":false,"iteration":4,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 9 500
+GUTTER_CASE {"cycle":3,"lines":500,"numbered":false,"iteration":5,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 10 500
+GUTTER_CASE {"cycle":3,"lines":500,"numbered":false,"iteration":6,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 10 500
+GUTTER_CASE {"cycle":3,"lines":500,"numbered":false,"iteration":7,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 11 500
+GUTTER_CASE {"cycle":3,"lines":500,"numbered":false,"iteration":8,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 14 500
+GUTTER_CASE {"cycle":3,"lines":500,"numbered":false,"iteration":9,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 11 500
+GUTTER_CASE {"cycle":3,"lines":500,"numbered":false,"iteration":10,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 11 500
+GUTTER_CASE {"cycle":3,"lines":500,"numbered":false,"iteration":11,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 10 500
+GUTTER_CASE {"cycle":3,"lines":500,"numbered":false,"iteration":12,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 12 500
+GUTTER_CASE {"cycle":3,"lines":500,"numbered":false,"iteration":13,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 11 500
+GUTTER_CASE {"cycle":3,"lines":500,"numbered":false,"iteration":14,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 12 500
+GUTTER_CALLBACK 13 500
+GUTTER_CASE {"cycle":3,"lines":500,"numbered":true,"iteration":0,"retained":false,"semanticsEnabled":true}
+GUTTER_CALLBACK 8 500
+GUTTER_CASE {"cycle":3,"lines":500,"numbered":true,"iteration":1,"retained":false,"semanticsEnabled":true}
+GUTTER_CALLBACK 16 500
+GUTTER_CASE {"cycle":3,"lines":500,"numbered":true,"iteration":2,"retained":false,"semanticsEnabled":true}
+GUTTER_CALLBACK 8 500
+GUTTER_CASE {"cycle":3,"lines":500,"numbered":true,"iteration":3,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 13 500
+GUTTER_CASE {"cycle":3,"lines":500,"numbered":true,"iteration":4,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 14 500
+GUTTER_CASE {"cycle":3,"lines":500,"numbered":true,"iteration":5,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 19 500
+GUTTER_CASE {"cycle":3,"lines":500,"numbered":true,"iteration":6,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 17 500
+GUTTER_CASE {"cycle":3,"lines":500,"numbered":true,"iteration":7,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 42 500
+GUTTER_CASE {"cycle":3,"lines":500,"numbered":true,"iteration":8,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 15 500
+GUTTER_CASE {"cycle":3,"lines":500,"numbered":true,"iteration":9,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 14 500
+GUTTER_CASE {"cycle":3,"lines":500,"numbered":true,"iteration":10,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 15 500
+GUTTER_CASE {"cycle":3,"lines":500,"numbered":true,"iteration":11,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 18 500
+GUTTER_CASE {"cycle":3,"lines":500,"numbered":true,"iteration":12,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 13 500
+GUTTER_CASE {"cycle":3,"lines":500,"numbered":true,"iteration":13,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 15 500
+GUTTER_CASE {"cycle":3,"lines":500,"numbered":true,"iteration":14,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 18 500
+GUTTER_CALLBACK 25 1000
+GUTTER_CASE {"cycle":3,"lines":1000,"numbered":false,"iteration":0,"retained":false,"semanticsEnabled":true}
+GUTTER_CALLBACK 14 1000
+GUTTER_CASE {"cycle":3,"lines":1000,"numbered":false,"iteration":1,"retained":false,"semanticsEnabled":true}
+GUTTER_CALLBACK 17 1000
+GUTTER_CASE {"cycle":3,"lines":1000,"numbered":false,"iteration":2,"retained":false,"semanticsEnabled":true}
+GUTTER_CALLBACK 24 1000
+GUTTER_CASE {"cycle":3,"lines":1000,"numbered":false,"iteration":3,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 21 1000
+GUTTER_CASE {"cycle":3,"lines":1000,"numbered":false,"iteration":4,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 18 1000
+GUTTER_CASE {"cycle":3,"lines":1000,"numbered":false,"iteration":5,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 20 1000
+GUTTER_CASE {"cycle":3,"lines":1000,"numbered":false,"iteration":6,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 22 1000
+GUTTER_CASE {"cycle":3,"lines":1000,"numbered":false,"iteration":7,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 24 1000
+GUTTER_CASE {"cycle":3,"lines":1000,"numbered":false,"iteration":8,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 16 1000
+GUTTER_CASE {"cycle":3,"lines":1000,"numbered":false,"iteration":9,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 26 1000
+GUTTER_CASE {"cycle":3,"lines":1000,"numbered":false,"iteration":10,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 20 1000
+GUTTER_CASE {"cycle":3,"lines":1000,"numbered":false,"iteration":11,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 19 1000
+GUTTER_CASE {"cycle":3,"lines":1000,"numbered":false,"iteration":12,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 19 1000
+GUTTER_CASE {"cycle":3,"lines":1000,"numbered":false,"iteration":13,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 19 1000
+GUTTER_CASE {"cycle":3,"lines":1000,"numbered":false,"iteration":14,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 27 1000
+GUTTER_CALLBACK 27 1000
+GUTTER_CASE {"cycle":3,"lines":1000,"numbered":true,"iteration":0,"retained":false,"semanticsEnabled":true}
+GUTTER_CALLBACK 2792 1000
+GUTTER_CASE {"cycle":3,"lines":1000,"numbered":true,"iteration":1,"retained":false,"semanticsEnabled":true}
+GUTTER_CALLBACK 34 1000
+GUTTER_CASE {"cycle":3,"lines":1000,"numbered":true,"iteration":2,"retained":false,"semanticsEnabled":true}
+GUTTER_CALLBACK 17 1000
+GUTTER_CASE {"cycle":3,"lines":1000,"numbered":true,"iteration":3,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 17 1000
+GUTTER_CASE {"cycle":3,"lines":1000,"numbered":true,"iteration":4,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 26 1000
+GUTTER_CASE {"cycle":3,"lines":1000,"numbered":true,"iteration":5,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 16 1000
+GUTTER_CASE {"cycle":3,"lines":1000,"numbered":true,"iteration":6,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 19 1000
+GUTTER_CASE {"cycle":3,"lines":1000,"numbered":true,"iteration":7,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 17 1000
+GUTTER_CASE {"cycle":3,"lines":1000,"numbered":true,"iteration":8,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 22 1000
+GUTTER_CASE {"cycle":3,"lines":1000,"numbered":true,"iteration":9,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 16 1000
+GUTTER_CASE {"cycle":3,"lines":1000,"numbered":true,"iteration":10,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 23 1000
+GUTTER_CASE {"cycle":3,"lines":1000,"numbered":true,"iteration":11,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 22 1000
+GUTTER_CASE {"cycle":3,"lines":1000,"numbered":true,"iteration":12,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 17 1000
+GUTTER_CASE {"cycle":3,"lines":1000,"numbered":true,"iteration":13,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 2073 1000
+GUTTER_CASE {"cycle":3,"lines":1000,"numbered":true,"iteration":14,"retained":true,"semanticsEnabled":true}
+GUTTER_CALLBACK 21 1000
+GUTTER_DONE
