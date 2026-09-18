@@ -127,7 +127,7 @@ class _DItemState extends State<DItem> {
         widget.selectionStyle == DItemSelectionStyle.outline;
     final neutralSelection =
         widget.selectionStyle == DItemSelectionStyle.neutral;
-    final radius = widget.shape == DItemShape.card ? 12.0 : 10.0;
+    final radius = widget.shape == DItemShape.card ? tokens.radius * 1.4 : 10.0;
     final borderRadius = BorderRadius.circular(radius);
     final background = widget.selected && !outlineSelection
         ? neutralSelection

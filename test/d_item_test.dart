@@ -55,6 +55,56 @@ Widget sample(DItemSize size) => DItem(
 );
 
 void main() {
+  testWidgets('card hover follows its themed surface corners', (tester) async {
+    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    addTearDown(mouse.removePointer);
+    await mouse.addPointer(location: const Offset(700, 500));
+    for (final brightness in Brightness.values) {
+      for (final radius in [0.0, 4.0, 12.0]) {
+        final base = ThemeData(brightness: brightness);
+        await tester.pumpWidget(
+          host(
+            DCard(
+              spacing: 0,
+              child: DItem(
+                shape: DItemShape.card,
+                onPressed: () {},
+                children: const [
+                  DItemContent(children: [Text('Topic')]),
+                ],
+              ),
+            ),
+            theme: base.copyWith(
+              extensions: [DTokens.fromTheme(base).copyWith(radius: radius)],
+            ),
+          ),
+        );
+        await mouse.moveTo(tester.getCenter(find.text('Topic')));
+        await tester.pump();
+        final card = tester.widget<Material>(
+          find.descendant(
+            of: find.byType(DCard),
+            matching: find.byType(Material),
+          ),
+        );
+        final item = tester.widget<Container>(
+          find.descendant(
+            of: find.byType(DItem),
+            matching: find.byWidgetPredicate(
+              (widget) =>
+                  widget is Container && widget.decoration is BoxDecoration,
+            ),
+          ),
+        );
+        final decoration = item.decoration! as BoxDecoration;
+        expect(decoration.color!.a, greaterThan(0));
+        expect(decoration.borderRadius, card.borderRadius);
+        await mouse.moveTo(const Offset(700, 500));
+        await tester.pump();
+      }
+    }
+  });
+
   testWidgets('neutral rows keep hover subtle and selection borderless', (
     tester,
   ) async {
@@ -192,7 +242,9 @@ void main() {
         );
         expect(
           (surface(0).decoration! as BoxDecoration).borderRadius,
-          BorderRadius.circular(shape == DItemShape.card ? 12 : 10),
+          BorderRadius.circular(
+            shape == DItemShape.card ? tokens.radius * 1.4 : 10,
+          ),
         );
         await mouse.moveTo(tester.getCenter(find.text('Topic 1')));
         await tester.pump();
@@ -510,9 +562,8 @@ void main() {
     (tester) async {
       for (final radius in [4.0, 10.0]) {
         final theme = ThemeData();
-        final tokens = DTokens.fromTheme(
-          theme,
-        ).copyWith(radius: radius, muted: const Color(0x80664422));
+        final tokens = DTokens.fromTheme(theme)
+            .copyWith(radius: radius, muted: const Color(0x80664422));
         await tester.pumpWidget(
           host(
             const DItem(variant: DItemVariant.muted),
