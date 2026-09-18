@@ -51,6 +51,28 @@ final cardExamples = ComponentExamples(
       ),
     ),
     StyleguideExample(
+      title: 'Rounded footer',
+      description:
+          'Desktop workspace footers round their upper corners to match the card.',
+      code: """DCard(spacing: 0, children: [
+  DCardContent(child: Text('Reading surface')),
+], footer: DCardFooter(rounded: true, child: DButton(
+  onPressed: reply, label: Text('Reply'))))""",
+      builder: (_) => _Frame(
+        child: DCard(
+          spacing: 16,
+          footer: DCardFooter(
+            rounded: true,
+            child: Align(
+              alignment: AlignmentDirectional.centerStart,
+              child: DButton(onPressed: () {}, label: const Text('Reply')),
+            ),
+          ),
+          children: const [DCardContent(child: Text('Reading surface'))],
+        ),
+      ),
+    ),
+    StyleguideExample(
       title: 'Small',
       description:
           'Frozen scheduled reports composition, max width 320; 12px spacing and 14px title.',

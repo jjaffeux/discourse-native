@@ -253,20 +253,48 @@ class DCardFooter extends StatelessWidget {
     required this.child,
     this.border = true,
     this.muted = true,
+    this.rounded = false,
+    this.padding,
+    this.backgroundColor,
   });
   final Widget child;
   final bool border;
   final bool muted;
+
+  /// Rounds the upper edge using the enclosing card's radius scale.
+  final bool rounded;
+
+  /// Defaults to the enclosing card's shared spacing.
+  final EdgeInsetsGeometry? padding;
+  final Color? backgroundColor;
   @override
   Widget build(BuildContext context) {
     final tokens = DTokens.of(context);
-    return Container(
-      padding: EdgeInsets.all(_spacing(context)),
+    final radius = rounded
+        ? BorderRadius.vertical(top: Radius.circular(tokens.radius * 1.4))
+        : BorderRadius.zero;
+    return DecoratedBox(
+      position: DecorationPosition.foreground,
       decoration: BoxDecoration(
-        color: muted ? tokens.muted.withValues(alpha: .5) : null,
+        borderRadius: radius,
         border: border ? Border(top: BorderSide(color: tokens.border)) : null,
       ),
-      child: child,
+      child: ClipRRect(
+        borderRadius: radius,
+        child: ColoredBox(
+          color:
+              backgroundColor ??
+              (muted ? tokens.muted.withValues(alpha: .5) : Colors.transparent),
+          child: Padding(
+            padding:
+                padding ??
+                EdgeInsets.all(
+                  _spacing(context),
+                ).add(EdgeInsets.only(top: border ? 1 : 0)),
+            child: child,
+          ),
+        ),
+      ),
     );
   }
 }

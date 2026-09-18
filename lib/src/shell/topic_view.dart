@@ -32,6 +32,7 @@ import 'inline_action.dart';
 import 'keyboard_navigation.dart';
 import 'list_boundary_shortcuts.dart';
 import 'open_link.dart';
+import 'platform.dart';
 import 'post_actions.dart';
 import 'post_footer.dart';
 import 'post_revision_history.dart';
@@ -2407,82 +2408,79 @@ class _TopicBottomBar extends StatelessWidget {
     final showBookmark =
         hasTopic && ShellScope.read(context).currentInstance?.user != null;
     final showNotifications = hasTopic && isConnected;
-    return Material(
+    return DCardFooter(
       key: const ValueKey('topic-bottom-bar'),
-      color: topic == null ? theme.shell.panel : theme.shell.content,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          border: Border(top: BorderSide(color: theme.shell.divider)),
-        ),
-        child: LayoutBuilder(
-          builder: (context, constraints) => SizedBox(
-            height: topicBottomBarHeight(context),
-            child: Padding(
-              padding: topicBottomBarPadding,
-              child: Row(
-                children: [
-                  if (canReply || showBookmark || showNotifications)
-                    DButtonGroup(
-                      key: const ValueKey('topic-footer-actions'),
-                      semanticLabel: 'Topic actions',
-                      children: [
-                        if (canReply)
-                          DButtonGroup(
-                            children: [
-                              DButton(
-                                key: const ValueKey('topic-reply-button'),
-                                onPressed: onReplyPressed,
-                                icon: const DIcon(DIcons.reply),
-                                label: const Text('Reply'),
-                                tooltip: 'Reply to this topic',
-                                shortcut: const DShortcut(topicReplyShortcut),
-                                variant: DButtonVariant.primary,
+      backgroundColor: topic == null ? theme.shell.panel : theme.shell.content,
+      rounded: !context.isTouch,
+      padding: EdgeInsets.zero,
+      child: LayoutBuilder(
+        builder: (context, constraints) => SizedBox(
+          height: topicBottomBarHeight(context),
+          child: Padding(
+            padding: topicBottomBarPadding,
+            child: Row(
+              children: [
+                if (canReply || showBookmark || showNotifications)
+                  DButtonGroup(
+                    key: const ValueKey('topic-footer-actions'),
+                    semanticLabel: 'Topic actions',
+                    children: [
+                      if (canReply)
+                        DButtonGroup(
+                          children: [
+                            DButton(
+                              key: const ValueKey('topic-reply-button'),
+                              onPressed: onReplyPressed,
+                              icon: const DIcon(DIcons.reply),
+                              label: const Text('Reply'),
+                              tooltip: 'Reply to this topic',
+                              shortcut: const DShortcut(topicReplyShortcut),
+                              variant: DButtonVariant.primary,
+                              size: DButtonSize.regular,
+                            ),
+                          ],
+                        ),
+                      if (showBookmark || showNotifications)
+                        DButtonGroup(
+                          semanticLabel: 'Topic management',
+                          children: [
+                            if (showBookmark)
+                              TopicBookmarkButton(
+                                siteUrl: siteUrl!,
+                                topic: topic!,
+                                busy: bookmarkBusy,
+                                variant: DButtonVariant.outline,
                                 size: DButtonSize.regular,
                               ),
-                            ],
-                          ),
-                        if (showBookmark || showNotifications)
-                          DButtonGroup(
-                            semanticLabel: 'Topic management',
-                            children: [
-                              if (showBookmark)
-                                TopicBookmarkButton(
-                                  siteUrl: siteUrl!,
-                                  topic: topic!,
-                                  busy: bookmarkBusy,
-                                  variant: DButtonVariant.outline,
-                                  size: DButtonSize.regular,
-                                ),
-                              if (showNotifications)
-                                TopicNotificationLevelButton(
-                                  siteUrl: siteUrl!,
-                                  topic: topic!,
-                                  showLabel: constraints.maxWidth >= 580,
-                                  variant: DButtonVariant.outline,
-                                  size: DButtonSize.regular,
-                                ),
-                            ],
-                          ),
-                      ],
-                    ),
-                  if (progressPosition case final position?)
-                    Expanded(
-                      child: Align(
-                        alignment: AlignmentDirectional.centerEnd,
-                        child: Padding(
-                          padding: const EdgeInsetsDirectional.only(start: 8),
-                          child: TopicProgressPopover(
-                            controller: controller,
-                            position: position,
-                            total: totalPosts,
-                          ),
+                            if (showNotifications)
+                              TopicNotificationLevelButton(
+                                siteUrl: siteUrl!,
+                                topic: topic!,
+                                showLabel: constraints.maxWidth >= 580,
+                                variant: DButtonVariant.outline,
+                                size: DButtonSize.regular,
+                              ),
+                          ],
+                        ),
+                    ],
+                  ),
+                if (progressPosition case final position?)
+                  Expanded(
+                    child: Align(
+                      alignment: AlignmentDirectional.centerEnd,
+                      child: Padding(
+                        padding: const EdgeInsetsDirectional.only(start: 8),
+                        child: TopicProgressPopover(
+                          controller: controller,
+                          position: position,
+                          total: totalPosts,
                         ),
                       ),
-                    )
-                  else
-                    const Spacer(),
-                ],
-              ),
+                    ),
+                  )
+                else
+                  const Spacer(),
+              ],
             ),
           ),
         ),
