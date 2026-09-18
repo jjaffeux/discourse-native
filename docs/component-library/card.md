@@ -20,9 +20,9 @@ At a 16px root and 100% native text scale, CSS pixels map to logical pixels:
 
 | Reference | Flutter |
 | --- | --- |
-| `bg-card`, `text-card-foreground` | live `DTokens.surface`, `foreground` |
+| `bg-card`, `text-card-foreground` | live `DTokens.background`, `foreground` |
 | `rounded-xl` | configured large radius × 1.4 |
-| `ring-1 ring-foreground/10` | outside 1px spread, no blur/offset, foreground at 10%; no Material elevation/tint |
+| `ring-1 ring-foreground/10` | outside 1px spread, no blur/offset, semantic border color; no Material elevation/tint |
 | `--card-spacing: --spacing(4)` / small `--spacing(3)` | 16px normal / 12px small; finite nonnegative `spacing` overrides both |
 | root gap and vertical padding | shared spacing; leading image removes top inset, footer/trailing removes bottom inset |
 | `text-sm` | 14px / 20px, weight 400, zero tracking; host font family |
@@ -35,6 +35,19 @@ At a 16px root and 100% native text scale, CSS pixels map to logical pixels:
 | content negative bottom shared margin | `joinNext` removes the following root gap |
 | footer border-t, muted/50, shared padding | 1px semantic top border, 50% muted fill, spacing on four sides |
 | image first/last edge rounding, overflow hidden | explicit `leading` / `trailing` slots and surface anti-alias clipping |
+
+The September 18 color refinement uses the site's content background for cards
+instead of its floating surface. The outline shares the semantic divider color
+with the footer, whose muted 50% fill stays gently distinct from the body.
+This keeps light, dark and custom palettes theme-driven without changing layout.
+
+Verified the production topic cards in an offline macOS fixture at 390px using
+a light site palette, default dark, Forest and Plum, plus 1120px in Plum. Inspected
+the Card styleguide's login and composition examples in Plum and light themes.
+Formatting, static analysis and `git diff --check` passed. Focused Card,
+styleguide, topic-list, inbox, Groups, Poll and Events tests passed 187 cases;
+three unrelated style expectations (login-link leading, footer-button radius
+and arrow hover color) also failed with the original Card implementation.
 
 A direct `DCardFooter` in `children` also removes root bottom padding. The
 explicit `footer` slot works without searching through arbitrary Flutter wrapper

@@ -47,16 +47,11 @@ class DCard extends StatelessWidget {
         child: DecoratedBox(
           decoration: BoxDecoration(
             borderRadius: radius,
-            boxShadow: [
-              BoxShadow(
-                color: tokens.foreground.withValues(alpha: .1),
-                spreadRadius: 1,
-              ),
-            ],
+            boxShadow: [BoxShadow(color: tokens.border, spreadRadius: 1)],
           ),
           child: Material(
             animationDuration: Duration.zero,
-            color: tokens.surface,
+            color: tokens.background,
             borderRadius: radius,
             clipBehavior: Clip.antiAlias,
             textStyle: Theme.of(context).textTheme.bodyMedium!.copyWith(

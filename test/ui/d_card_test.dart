@@ -182,7 +182,7 @@ void main() {
             .descendant(of: find.byType(DCard), matching: find.byType(Material))
             .first,
       );
-      expect(material.color, DTokens.fromTheme(ThemeData.dark()).surface);
+      expect(material.color, DTokens.fromTheme(ThemeData.dark()).background);
       await tester.pumpWidget(const SizedBox());
       expect(focus.hasFocus, isFalse);
       controller.text = 'Still caller owned';
