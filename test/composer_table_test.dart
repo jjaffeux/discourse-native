@@ -416,6 +416,22 @@ void main() {
           composer.text.selection.extentOffset,
           greaterThanOrEqualTo(parseComposerTables(source).single.end),
         );
+        final editable = tester
+            .state<EditableTextState>(
+              find.byWidgetPredicate(
+                (widget) =>
+                    widget is EditableText &&
+                    identical(widget.controller, composer.text),
+              ),
+            )
+            .renderEditable;
+        final caret = editable.getLocalRectForCaret(
+          composer.text.selection.extent,
+        );
+        expect(
+          editable.localToGlobal(caret.center).dy,
+          closeTo(table.bottom + 12, 12),
+        );
         final value = composer.text.value;
         final offset = value.selection.extentOffset;
         tester.testTextInput.updateEditingValue(
