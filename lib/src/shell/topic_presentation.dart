@@ -8,6 +8,7 @@ import 'composer_presentation.dart';
 import 'forum_tabs_bar.dart';
 import 'platform.dart';
 import 'reader_content_bounds.dart';
+import 'shell_metrics.dart';
 import 'shell_scope.dart';
 import 'topic_presentation_controller.dart';
 
@@ -87,7 +88,7 @@ class TopicPanelTabs extends StatelessWidget {
     if (context.isTouch) return const SizedBox.shrink();
     final preferences = TopicPresentationPreferences.maybeControllerOf(context);
     return Padding(
-      padding: const EdgeInsets.fromLTRB(8, 8, 8, 4),
+      padding: workspaceTabsPadding,
       child: Row(
         children: [
           Expanded(

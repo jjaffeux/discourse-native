@@ -6,6 +6,7 @@ import '../plugin_api/plugin_registry.dart';
 import '../plugin_api/plugin_scope.dart';
 import '../theme/d_icons.dart';
 import 'composer_controller.dart';
+import 'platform.dart';
 import 'shell_metrics.dart';
 import 'shell_scope.dart';
 
@@ -323,11 +324,17 @@ class ComposerHeader extends StatelessWidget {
           size: DButtonSize.regular,
         ),
     ];
+    final alignWithTabs =
+        !minimized && !context.isTouch && placement != ComposerPlacement.bottom;
     return SizedBox(
       key: const ValueKey('composer-header'),
-      height: height,
+      height: alignWithTabs
+          ? workspaceTabStripHeightFor(context) + workspaceTabsPadding.vertical
+          : height,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 8),
+        padding: alignWithTabs
+            ? workspaceTabsPadding
+            : const EdgeInsets.symmetric(horizontal: 8),
         child: LayoutBuilder(
           builder: (context, headerConstraints) => Row(
             children: [
