@@ -256,8 +256,9 @@ void main() {
     (tester) async {
       await mount(tester, tabs());
       await tester.pumpAndSettle();
-      expect(tester.getSize(find.byType(DTabList<String>)).height, 28);
-      expect(tester.getSize(find.byType(DTabTrigger<String>).first).height, 21);
+      // The 20px label line grows the inset surface beyond its compact minimum.
+      expect(tester.getSize(find.byType(DTabList<String>)).height, 31);
+      expect(tester.getSize(find.byType(DTabTrigger<String>).first).height, 25);
 
       await mount(
         tester,

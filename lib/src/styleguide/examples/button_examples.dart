@@ -13,8 +13,8 @@ final buttonExamples = ComponentExamples(
   description: 'Actions and links, with variants for emphasis and intent.',
   status: ComponentStatus.implemented,
   notes:
-      'Linear-style actions use pill corners, 0.5px borders, subtle shadows and solid primary fills. '
-      'Popup triggers use 8px corners; menus use 12px corners and 32px rows. '
+      'Linear-style actions use the theme corner radius, 0.5px borders, subtle shadows and solid primary fills. '
+      'Actions and popup triggers share that radius; menus use 12px corners and 32px rows. '
       'Small controls are 24px with 12px labels; regular and large controls retain '
       '28px and 32px surfaces with 13px labels. Touch targets remain 48px. '
       'Hover, pressed and open fills update immediately; keyboard focus uses a 1px '

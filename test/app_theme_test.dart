@@ -349,6 +349,7 @@ void main() {
       final theme = AppTheme.fromPalette(source);
       final dialogShape = theme.dialogTheme.shape as RoundedRectangleBorder;
       final sheetShape = theme.bottomSheetTheme.shape as RoundedRectangleBorder;
+      expect(theme.extension<DTokens>()!.controlRadius, source.borderRadius);
 
       expect(theme.dialogTheme.backgroundColor, source.secondary);
       expect(

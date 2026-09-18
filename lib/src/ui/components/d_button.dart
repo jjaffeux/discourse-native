@@ -364,7 +364,7 @@ class DButton extends StatelessWidget {
     this.focusNode,
     this.autofocus = false,
     this.alignment = Alignment.center,
-    this.shape = DButtonShape.pill,
+    this.shape = DButtonShape.rounded,
     this.borderRadius,
     this.backgroundColor,
     this.foregroundColor,
@@ -386,7 +386,7 @@ class DButton extends StatelessWidget {
     this.focusNode,
     this.autofocus = false,
     this.alignment = Alignment.center,
-    this.shape = DButtonShape.pill,
+    this.shape = DButtonShape.rounded,
     this.borderRadius,
     this.backgroundColor,
     this.foregroundColor,
@@ -417,7 +417,7 @@ class DButton extends StatelessWidget {
   /// Validation styling and semantics for a form or popup trigger.
   final bool invalid;
 
-  /// Popup triggers use rounded rectangular corners and expose expanded state.
+  /// Exposes popup and expanded semantics without changing the button's shape.
   final bool hasPopup;
 
   /// Gives navigation callbacks a link role while retaining button styling.
@@ -438,6 +438,7 @@ class DButton extends StatelessWidget {
   final bool autofocus;
   final AlignmentGeometry alignment;
 
+  /// Defaults to the host theme radius; pill is an explicit geometry override.
   final DButtonShape shape;
   final BorderRadiusGeometry? borderRadius;
 
@@ -589,7 +590,7 @@ class DButton extends StatelessWidget {
     final baseRadius =
         borderRadius ??
         BorderRadius.circular(
-          shape == DButtonShape.pill && !hasPopup
+          shape == DButtonShape.pill
               ? visualDimension / 2
               : DControlStyle.radius(tokens, size),
         );

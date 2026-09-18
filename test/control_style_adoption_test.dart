@@ -86,9 +86,9 @@ void main() {
       final example = "DButton(padding: ignored)";
       DButton(label: Padding(padding: nested, child: label), onPressed: save,
         borderColor: colors.border, foregroundColor: colors.foreground);
-      DButton.iconOnly(icon: Icon(icon), padding: edge);
+      DButton.iconOnly(icon: Icon(icon), shape: DButtonShape.pill, padding: edge);
     '''),
-      {'borderColor': 1, 'foregroundColor': 1, 'padding': 1},
+      {'borderColor': 1, 'foregroundColor': 1, 'shape': 1, 'padding': 1},
     );
   });
 }

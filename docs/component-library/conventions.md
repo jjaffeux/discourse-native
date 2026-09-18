@@ -67,8 +67,10 @@ update its golden baselines only after visual review. See
 
 The app uses the measured **Linear controls** styling through `DTokens.controls`:
 solid primary actions, neutral raised controls, half-pixel borders and subtle
-shadows. Action buttons use pill shapes; selectors and popup triggers use an
-8px radius. Menu rows use 32px minimum height and an 8px highlight radius inside
+shadows. Action buttons, selectors and popup triggers use the theme's configured
+corner radius, independent of size or popup semantics. Keep the default
+`DButtonShape.rounded` in application code; explicit pill shapes belong only to
+documented design exceptions. Menu rows use 32px minimum height and an 8px highlight radius inside
 12px popups. Keyboard focus uses a 1px ring separated by 2px. Hover, pressed and
 open fills change immediately, without translating the control. The `AppTheme`
 boundary derives colors from the current forum palette; category identity

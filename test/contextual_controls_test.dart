@@ -69,9 +69,9 @@ void main() {
         }
         expect(tokens.focusRing, entry.value.colorScheme.primary);
         expect(controls.primary.background, tokens.primary);
-        expect(tokens.controlRadius, 8);
+        expect(tokens.controlRadius, tokens.radius);
       }
-      // The host's original radius still applies to non-control surfaces.
+      // Controls and other surfaces use the same host radius.
       expect(themes['dev dark']!.extension<DTokens>()!.radius, 4);
     },
   );
