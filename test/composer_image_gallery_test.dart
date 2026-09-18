@@ -1153,7 +1153,21 @@ void main() {
       await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
       await tester.pump();
       expect(composer.text.keyboardSelectedProjection, isNotNull);
+      final beforeEnter = composer.text.value;
       await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pump();
+      expect(
+        composer.text.text,
+        beforeEnter.text.replaceRange(gallery.start, gallery.start, '\n'),
+      );
+      expect(composer.text.selection.extentOffset, gallery.start);
+      expect(composer.text.keyboardSelectedProjection, isNull);
+      expect(_composerEditable(tester).showCursor, isTrue);
+      composer.text.value = beforeEnter.copyWith(
+        selection: TextSelection.collapsed(offset: gallery.end),
+      );
+      await tester.pump();
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
       await tester.pump();
       expect(composer.text.selection.extentOffset, gallery.end);
       expect(
@@ -1337,7 +1351,20 @@ void main() {
 
         if (caret < gallery.start) {
           expect(composer.text.keyboardSelectedProjection, isNotNull);
-          await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+          await tester.sendKeyEvent(LogicalKeyboardKey.numpadEnter);
+          await tester.pump();
+          expect(
+            composer.text.text,
+            source.replaceRange(gallery.start, gallery.start, '\n'),
+          );
+          expect(composer.text.selection.extentOffset, gallery.start);
+          expect(_composerEditable(tester).showCursor, isTrue);
+          composer.text.value = TextEditingValue(
+            text: source,
+            selection: TextSelection.collapsed(offset: gallery.end),
+          );
+          await tester.pump();
+          await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
           await tester.pump();
         }
         expect(composer.text.text, source);

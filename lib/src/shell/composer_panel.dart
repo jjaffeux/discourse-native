@@ -1589,6 +1589,21 @@ class _ComposerEditorState extends State<ComposerEditor> {
         keyboard.isControlPressed ||
         keyboard.isAltPressed ||
         keyboard.isShiftPressed;
+    final selectedComponent =
+        _media.value.selectedGallery ?? _keyboardSelectedPill;
+    if (selectedComponent != null &&
+        event is KeyDownEvent &&
+        isEnter &&
+        !hasModifier) {
+      final start = _pillStart(selectedComponent);
+      final value = widget.composer.text.value;
+      _clearKeyboardPillSelection();
+      widget.composer.text.value = TextEditingValue(
+        text: value.text.replaceRange(start, start, '\n'),
+        selection: TextSelection.collapsed(offset: start),
+      );
+      return KeyEventResult.handled;
+    }
     final mediaResult = _media.handleKeyEvent(
       event,
       hasModifier: hasModifier,
@@ -1629,15 +1644,6 @@ class _ComposerEditorState extends State<ComposerEditor> {
         } else {
           _moveCaretAfterPill(selectedPill);
         }
-        return KeyEventResult.handled;
-      }
-      final isPlainEnter =
-          event is KeyDownEvent &&
-          (event.logicalKey == LogicalKeyboardKey.enter ||
-              event.logicalKey == LogicalKeyboardKey.numpadEnter) &&
-          !hasModifier;
-      if (isPlainEnter) {
-        _editPill(selectedPill);
         return KeyEventResult.handled;
       }
       if (event is KeyDownEvent &&
@@ -1856,27 +1862,6 @@ class _ComposerEditorState extends State<ComposerEditor> {
   void _moveCaretAfterSyntax(ComposerSyntaxOccurrence syntax) {
     final text = widget.composer.text;
     text.value = syntax.projection.moveCaretAfter(text.value);
-  }
-
-  void _editPill(Object pill) {
-    if (!widget.composer.isEditing) return;
-    switch (pill) {
-      case ComposerImageBlock image:
-        _media.selectImageForKeyboard(image);
-        return;
-      case ComposerSyntaxOccurrence syntax:
-        unawaited(_editSyntax(syntax));
-        return;
-      case ComposerImageGalleryBlock gallery:
-        _clearKeyboardPillSelection();
-        _media.selectGallery(gallery);
-        return;
-      case ComposerQuoteBlock _:
-        _clearKeyboardPillSelection();
-        _moveCaretAfterPill(pill);
-        return;
-    }
-    throw ArgumentError.value(pill, 'pill');
   }
 
   void _removePill(Object pill) {
