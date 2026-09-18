@@ -364,7 +364,7 @@ void main() {
     tester,
   ) async {
     SharedPreferences.setMockInitialValues({
-      SidebarWidthStore.storageKey: AdaptiveShell.sidebarMaxWidth,
+      SidebarWidthStore.storageKey: 640.0,
     });
     final controller = await _controller();
     await _pumpShell(tester, controller, const Size(768, 800));
@@ -377,12 +377,12 @@ void main() {
       (await SharedPreferences.getInstance()).getDouble(
         SidebarWidthStore.storageKey,
       ),
-      AdaptiveShell.sidebarMaxWidth,
+      640.0,
     );
 
     tester.view.physicalSize = const Size(1200, 800);
     await tester.pumpAndSettle();
-    expect(_sidebarWidth(tester), AdaptiveShell.sidebarMaxWidth);
+    expect(_sidebarWidth(tester), 640.0);
   }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 
   testWidgets('live drag leaves the shell and pane content unrebuilt', (

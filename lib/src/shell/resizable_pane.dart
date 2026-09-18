@@ -19,11 +19,11 @@ final class PanelWidthController extends FrameSafeNotifier
   PanelWidthController({
     required double initialWidth,
     required this.minimumWidth,
-    required this.maximumWidth,
+    this.maximumWidth = double.infinity,
     this.readWidth,
     this.writeWidth,
   }) : assert(minimumWidth.isFinite),
-       assert(maximumWidth.isFinite),
+       assert(!maximumWidth.isNaN),
        assert(initialWidth.isFinite),
        assert(minimumWidth <= maximumWidth),
        _value = initialWidth.clamp(minimumWidth, maximumWidth).toDouble() {

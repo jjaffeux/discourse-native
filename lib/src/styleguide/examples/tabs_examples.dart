@@ -17,10 +17,10 @@ final tabsExamples = ComponentExamples(
     StyleguideExample(
       title: 'Document tabs',
       description:
-          'Workspace tabs compose Native buttons for selection and closing, with a shared neutral rounded surface. The selected tab keeps its close action visible; inactive tabs reveal it on hover or keyboard focus.',
+          'Workspace tabs compose Native buttons for selection and closing, with an 8px rounded, raised selected surface and a subtle outline. Inactive tabs stay transparent. The selected tab keeps its close action visible; inactive tabs give that space to their labels.',
       states: const ['Selected', 'Hover', 'Close', 'Keyboard'],
       code:
-          "DDocumentTab(selected: true, onSelect: select, onClose: close, closeLabel: 'Close Side chat', child: Text('Side chat'))",
+          "DDocumentTab(selected: true, closeOnlyWhenSelected: true, onSelect: select, onClose: close, closeLabel: 'Close Side chat', child: Text('Side chat'))",
       builder: (_) => const _DocumentTabs(),
     ),
     StyleguideExample(
@@ -551,6 +551,7 @@ class _DocumentTabsState extends State<_DocumentTabs> {
               Expanded(
                 child: DDocumentTab(
                   selected: _selected == title,
+                  closeOnlyWhenSelected: true,
                   onSelect: () => setState(() => _selected = title),
                   onClose: () => setState(() {
                     _tabs.remove(title);

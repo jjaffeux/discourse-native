@@ -299,7 +299,6 @@ class _TopicInboxWorkspaceState extends State<_TopicInboxWorkspace> {
     initialWidth: 325 + workspacePanelGap,
     // ResizablePane includes the gutter in its width.
     minimumWidth: 320 + workspacePanelGap,
-    maximumWidth: 480,
   );
 
   @override

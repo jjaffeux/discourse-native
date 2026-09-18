@@ -77,3 +77,55 @@ Verification:
   tabs styleguide in light/dark, wide and narrow windows. Mouse selection keeps
   one neutral surface. Platform overrides and enlarged/RTL layouts are widget
   tests, not mobile device verification.
+
+## Content sizing — September 19, 2026
+
+Forum tabs now use their intrinsic content width, capped at the existing 160px
+maximum. Short labels no longer stretch to an equal share or a fixed minimum;
+icons, emoji, badges and custom label decorations participate in layout. Long
+labels retain ellipsis, and the strip scrolls when its tabs exceed the viewport.
+Document tabs use the small Native selection-button preset (8px horizontal
+insets) and 2px outer insets. Close targets remain 24px, and drag feedback uses
+the rendered tab width.
+
+Verification: static analysis passes; 71 focused checks pass, including the new
+content-width, custom-suffix, padding and maximum-width regression. Five existing
+Forum Tabs Bar failures (two pixel samples, switcher hover color and two scaled
+switcher rows) reproduce on unchanged main.
+
+## HTML reference styling — September 19, 2026
+
+The user authorized updating `DDocumentTab` to match the document strip at
+`http://localhost:5183/`. The selected tab now has an 8px radius, a raised fill
+and a 1px outline. Colors use the reference's palette formulas: foreground
+mixed into the canvas at 10% for the fill, 22% for the border, 90% for selected
+text and 50% for inactive text and close icons. Inactive tabs stay transparent;
+hover retains immediate neutral paint, and the selected close action remains
+visible. These rules supersede the September 14 paint and radius description.
+
+The separately requested compact sizing remains: 28px shared regular height,
+content width capped at 160px, small Native selection and close buttons, and
+2px total outer horizontal inset including the border. A transparent inactive
+border reserves the same space so selection never moves the label or close
+button. The host's real icons, badges, menus, rename and drag handling remain.
+The HTML's 35.5px height and 170px maximum are intentionally adapted to the
+user's compact Native sizing. No application control is replaced.
+
+Verification:
+
+- Inspected the live HTML selected and inactive tabs and their computed palette
+  values. A local macOS fixture mounted the production `ForumTabsBar` and actual
+  Document tabs styleguide in light/dark and wide/narrow windows. Selection,
+  close, add and visible keyboard focus passed. The isolated debug bundle used
+  the existing local review entitlements, read back after signing; no release
+  configuration changed. No mobile-device run was performed.
+- `flutter analyze --no-pub`: no issues.
+- 73 focused checks pass across Document Tab, Forum Tabs Bar, Tabs, Tabs examples,
+  platform layout gates and control adoption. Rendered tests cover immediate
+  hover/press/release paint, border and radius, stable selection geometry,
+  keyboard activation and closing. Adapter checks cover rename, drag, overflow,
+  content sizing, decorations and semantics.
+- Five failures reproduced before the change on `eabd4a57a`: two obsolete tab
+  pixel expectations, switcher hover paint and two 200% switcher-row heights.
+  The tab paint checks now match the reference; the three unchanged switcher
+  checks remain excluded from the passing focused run.

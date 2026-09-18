@@ -6,6 +6,28 @@ import 'package:discourse_native/src/shell/resizable_pane.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test('uncapped widths restore and survive temporary layout limits', () async {
+    final writes = <double>[];
+    final controller = PanelWidthController(
+      initialWidth: 320,
+      minimumWidth: 320,
+      readWidth: () async => 1200,
+      writeWidth: (width) async => writes.add(width),
+    );
+    addTearDown(controller.dispose);
+    await controller.restored;
+
+    expect(controller.value, 1200);
+    expect(controller.effectiveWidth(maximum: 800), 800);
+    expect(controller.resizeBy(100, maximum: 800), isFalse);
+    expect(controller.effectiveWidth(maximum: 1600), 1200);
+    controller.resizeBy(200, maximum: 1600);
+    await controller.flush();
+    expect(writes, [1400]);
+    controller.resizeBy(-2000, maximum: 1600);
+    expect(controller.value, 320);
+  });
+
   test(
     'notifies synchronously and flushes without a scheduler binding',
     () async {

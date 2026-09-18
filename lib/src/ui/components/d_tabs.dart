@@ -1081,8 +1081,8 @@ class _DTabPanelState<T> extends State<DTabPanel<T>> {
 /// A controlled, closable document tab for application workspace strips.
 ///
 /// Unlike content tabs, document tabs may be reordered or renamed by their host.
-/// The host owns routing and drag handling; this control owns the neutral pill,
-/// selection interaction and the separately focusable close action. Supply an
+/// The host owns routing and drag handling; this control owns the raised,
+/// outlined selected surface, selection and separately focusable close action. Supply an
 /// [editor] while renaming to keep its field outside the selection gesture.
 class DDocumentTab extends StatefulWidget {
   const DDocumentTab({
@@ -1093,6 +1093,7 @@ class DDocumentTab extends StatefulWidget {
     required this.onClose,
     required this.closeLabel,
     this.closeShortcut,
+    this.closeOnlyWhenSelected = false,
     this.onDoubleTap,
     this.onTapDown,
     this.onTapCancel,
@@ -1109,6 +1110,9 @@ class DDocumentTab extends StatefulWidget {
   final VoidCallback onSelect;
   final VoidCallback onClose;
   final String closeLabel;
+
+  /// Remove the close action and its space from inactive tabs.
+  final bool closeOnlyWhenSelected;
   final DShortcut? closeShortcut;
   final VoidCallback? onDoubleTap;
   final GestureTapDownCallback? onTapDown;
@@ -1149,10 +1153,10 @@ class _DDocumentTabState extends State<DDocumentTab> {
   @override
   Widget build(BuildContext context) {
     final tokens = DTokens.of(context);
-    final foreground = widget.selected || _hovered
-        ? tokens.foreground
-        : tokens.mutedForeground;
-    final radius = BorderRadius.circular(tokens.controlRadius);
+    Color mix(double amount) =>
+        Color.lerp(tokens.background, tokens.foreground, amount)!;
+    final foreground = widget.selected || _hovered ? mix(.9) : mix(.5);
+    final radius = BorderRadius.circular(tokens.buttonTheme.radius);
     return MouseRegion(
       key: widget.pointerKey,
       cursor: SystemMouseCursors.click,
@@ -1164,16 +1168,18 @@ class _DDocumentTabState extends State<DDocumentTab> {
           DControlSize.regular,
           MediaQuery.textScalerOf(context),
         ),
-        padding: const EdgeInsets.symmetric(horizontal: 4),
+        // The outline supplies the other pixel of the compact outer inset.
+        padding: const EdgeInsets.symmetric(horizontal: 1),
         decoration: ShapeDecoration(
-          color: widget.selected || _hovered
-              ? tokens.foreground.withValues(alpha: .06)
-              : Colors.transparent,
+          color: widget.selected || _hovered ? mix(.10) : Colors.transparent,
           shape: RoundedRectangleBorder(
             borderRadius: radius,
             side: widget.dropTarget
                 ? BorderSide(color: tokens.focusRing, width: 2)
-                : BorderSide.none,
+                : BorderSide(
+                    color: widget.selected ? mix(.22) : Colors.transparent,
+                    strokeAlign: BorderSide.strokeAlignInside,
+                  ),
           ),
         ),
         child: IconTheme.merge(
@@ -1216,6 +1222,7 @@ class _DDocumentTabState extends State<DDocumentTab> {
                                     widget.onTapCancel?.call(),
                                 child: DButton(
                                   onPressed: widget.onSelect,
+                                  size: DButtonSize.small,
                                   focusNode: _selectionFocus,
                                   variant: DButtonVariant.ghost,
                                   alignment: AlignmentDirectional.centerStart,
@@ -1231,29 +1238,32 @@ class _DDocumentTabState extends State<DDocumentTab> {
                         ),
                       ),
                 ),
-                ListenableBuilder(
-                  listenable: _closeFocus,
-                  builder: (context, _) => AnimatedOpacity(
-                    opacity: widget.selected || _hovered || _closeFocus.hasFocus
-                        ? 1
-                        : 0,
-                    alwaysIncludeSemantics: true,
-                    duration: DMotion.duration(context, DMotion.change),
-                    child: Center(
-                      widthFactor: 1,
-                      child: DButton.iconOnly(
-                        key: widget.closeKey,
-                        tooltip: widget.closeLabel,
-                        shortcut: widget.closeShortcut,
-                        focusNode: _closeFocus,
-                        size: DButtonSize.small,
-                        variant: DButtonVariant.ghost,
-                        icon: const DIcon(DIcons.xmark),
-                        onPressed: widget.onClose,
+                if (!widget.closeOnlyWhenSelected || widget.selected)
+                  ListenableBuilder(
+                    listenable: _closeFocus,
+                    builder: (context, _) => AnimatedOpacity(
+                      opacity:
+                          widget.selected || _hovered || _closeFocus.hasFocus
+                          ? 1
+                          : 0,
+                      alwaysIncludeSemantics: true,
+                      duration: DMotion.duration(context, DMotion.change),
+                      child: Center(
+                        widthFactor: 1,
+                        child: DButton.iconOnly(
+                          key: widget.closeKey,
+                          tooltip: widget.closeLabel,
+                          shortcut: widget.closeShortcut,
+                          focusNode: _closeFocus,
+                          size: DButtonSize.small,
+                          variant: DButtonVariant.ghost,
+                          foregroundColor: mix(.5),
+                          icon: const DIcon(DIcons.xmark),
+                          onPressed: widget.onClose,
+                        ),
                       ),
                     ),
                   ),
-                ),
               ],
             ),
           ),

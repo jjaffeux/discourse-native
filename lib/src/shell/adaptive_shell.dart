@@ -73,7 +73,6 @@ class AdaptiveShell extends StatefulWidget {
   static const double sidebarWidth = 208 + workspacePanelGap;
   // ResizablePane includes the gutter in its width.
   static const double sidebarMinWidth = 200 + workspacePanelGap;
-  static const double sidebarMaxWidth = 480;
   static const double mainContentMinWidth = 320;
 
   @override
@@ -94,14 +93,12 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
     _diagnosticsWidth = PanelWidthController(
       initialWidth: diagnosticsPanelWidth,
       minimumWidth: diagnosticsPanelMinWidth,
-      maximumWidth: diagnosticsPanelMaxWidth,
       readWidth: _diagnosticsWidthStore.read,
       writeWidth: _diagnosticsWidthStore.write,
     );
     _sidebarWidth = PanelWidthController(
       initialWidth: AdaptiveShell.sidebarWidth,
       minimumWidth: AdaptiveShell.sidebarMinWidth,
-      maximumWidth: AdaptiveShell.sidebarMaxWidth,
       readWidth: _sidebarWidthStore.read,
       writeWidth: _sidebarWidthStore.write,
     );

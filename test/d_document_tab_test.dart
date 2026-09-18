@@ -12,7 +12,7 @@ import 'support/button_surface.dart';
 
 void main() {
   for (final dark in [false, true]) {
-    testWidgets('document tab keeps one neutral fill through clicks ($dark)', (
+    testWidgets('document tab keeps reference paint through clicks ($dark)', (
       tester,
     ) async {
       final theme = (dark ? AppTheme.dark : AppTheme.light).copyWith(
@@ -63,9 +63,27 @@ void main() {
       final pointer = await tester.createGesture(kind: PointerDeviceKind.mouse);
       await pointer.addPointer(location: Offset.zero);
       addTearDown(pointer.removePointer);
-      final fill = Color.alphaBlend(
-        DTokens.of(tester.element(tab)).foreground.withValues(alpha: .06),
-        theme.colorScheme.surface,
+      final tokens = DTokens.of(tester.element(tab));
+      final fill = Color.lerp(tokens.background, tokens.foreground, .10)!;
+      final border = Color.lerp(tokens.background, tokens.foreground, .22)!;
+      final before = tester.getRect(tab);
+      ShapeDecoration decoration() =>
+          tester
+                  .widget<Container>(
+                    find
+                        .descendant(of: tab, matching: find.byType(Container))
+                        .first,
+                  )
+                  .decoration!
+              as ShapeDecoration;
+      expect(decoration().color, Colors.transparent);
+      expect(
+        (decoration().shape as RoundedRectangleBorder).borderRadius,
+        BorderRadius.circular(8),
+      );
+      expect(
+        (decoration().shape as OutlinedBorder).side.color,
+        Colors.transparent,
       );
       await pointer.moveTo(tester.getCenter(buttons.first));
       await tester.pump();
@@ -87,6 +105,9 @@ void main() {
       await pointer.moveTo(Offset.zero);
       await tester.pumpAndSettle();
       await _expectFill(tester, fill);
+      expect(tester.getRect(tab), before);
+      expect((decoration().shape as OutlinedBorder).side.color, border);
+      expect((decoration().shape as OutlinedBorder).side.width, 1);
       await tester.sendKeyEvent(LogicalKeyboardKey.tab);
       await tester.pumpAndSettle();
       expect(

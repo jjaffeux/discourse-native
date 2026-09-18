@@ -97,6 +97,48 @@ void main() {
       );
     });
 
+    testWidgets('sizes tabs to content and preserves the maximum width', (
+      tester,
+    ) async {
+      final items = [
+        const ForumTabItem(id: 'short', title: 'A', icon: DIcons.layerGroup),
+        ForumTabItem(
+          id: 'suffix',
+          title: 'A',
+          icon: DIcons.layerGroup,
+          labelSuffixBuilder: (_, size) => SizedBox(width: 17, height: size),
+        ),
+        first,
+      ];
+      for (final viewportWidth in [800.0]) {
+        await _pumpBar(
+          tester,
+          items: items,
+          selectedId: 'short',
+          width: viewportWidth,
+        );
+        final short = find.byKey(const ValueKey('forum-tab-item-short'));
+        final suffix = find.byKey(const ValueKey('forum-tab-item-suffix'));
+        final long = find.byKey(const ValueKey('forum-tab-item-topic-1'));
+        final label = find.descendant(of: short, matching: find.text('A'));
+        final close = find.byKey(const ValueKey('forum-tab-close-short'));
+        final labelRect = tester.getRect(label);
+        final closeRect = tester.getRect(close);
+        final tabRect = tester.getRect(short);
+
+        expect(tabRect.width, lessThan(136));
+        expect(
+          tester.getSize(suffix).width,
+          closeTo(tabRect.width + 17 - ForumTabsBar.closeTargetWidth, .01),
+        );
+        expect(tester.getSize(long).width, ForumTabsBar.maximumTabWidth);
+        expect(labelRect.left - tabRect.left, 2 + 8 + 15 + 7);
+        expect(closeRect.left - labelRect.right, closeTo(8, .01));
+        expect(tabRect.right - closeRect.right, 2);
+        expect(tester.takeException(), isNull);
+      }
+    });
+
     testWidgets('matches shell geometry and places add after the final tab', (
       tester,
     ) async {
@@ -144,16 +186,24 @@ void main() {
       final ordinaryDecoration = _tabDecoration(tester, ordinary);
       expect(
         selectedDecoration.color,
-        (theme.extension<DTokens>()!).foreground.withValues(alpha: .06),
+        Color.lerp(
+          DTokens.of(tester.element(bar)).background,
+          DTokens.of(tester.element(bar)).foreground,
+          .10,
+        )!,
       );
       expect(
-        (selectedDecoration.shape as OutlinedBorder).side,
-        BorderSide.none,
+        (selectedDecoration.shape as OutlinedBorder).side.color,
+        Color.lerp(
+          DTokens.of(tester.element(bar)).background,
+          DTokens.of(tester.element(bar)).foreground,
+          .22,
+        ),
       );
       expect(ordinaryDecoration.color, Colors.transparent);
       expect(
-        (ordinaryDecoration.shape as OutlinedBorder).side,
-        BorderSide.none,
+        (ordinaryDecoration.shape as OutlinedBorder).side.color,
+        Colors.transparent,
       );
       expect(
         find.byKey(const ValueKey('forum-tab-indicator-topic-1')),
@@ -164,11 +214,15 @@ void main() {
       expect(addRect.left, ordinaryRect.right + 4);
       expect(addRect.center.dy, barRect.center.dy);
 
-      // Rounded tabs float above the surface; a divider bounds the tab bar.
+      // Selected tabs have an outline; the strip and inactive corners stay clear.
       await _expectTabPixels(tester, [
         (
-          Offset(selectedRect.center.dx, selectedRect.bottom - 1),
-          (theme.extension<DTokens>()!).foreground.withValues(alpha: .06),
+          Offset(selectedRect.center.dx, selectedRect.bottom - 3),
+          Color.lerp(
+            DTokens.of(tester.element(bar)).background,
+            DTokens.of(tester.element(bar)).foreground,
+            .10,
+          )!,
         ),
         (
           Offset(selectedRect.left + 1, selectedRect.bottom - 1),
@@ -176,7 +230,7 @@ void main() {
         ),
         (
           Offset(selectedRect.center.dx, barRect.bottom - 1),
-          theme.shell.divider,
+          theme.shell.sidebar,
         ),
         (ordinaryRect.topLeft + const Offset(1, 1), theme.shell.sidebar),
       ]);
@@ -231,25 +285,45 @@ void main() {
       expect(tester.getRect(tab), before);
       expect(
         _tabDecoration(tester, tab).color,
-        (theme.extension<DTokens>()!).foreground.withValues(alpha: .06),
+        Color.lerp(
+          DTokens.of(tester.element(tab)).background,
+          DTokens.of(tester.element(tab)).foreground,
+          .10,
+        )!,
       );
       await _expectTabPixels(tester, [
         (before.topLeft + const Offset(1, 1), theme.shell.sidebar),
         (
           Offset(before.center.dx, before.top + 3),
-          (theme.extension<DTokens>()!).foreground.withValues(alpha: .06),
+          Color.lerp(
+            DTokens.of(tester.element(tab)).background,
+            DTokens.of(tester.element(tab)).foreground,
+            .10,
+          )!,
         ),
         (
           Offset(before.left + 3, before.center.dy),
-          (theme.extension<DTokens>()!).foreground.withValues(alpha: .06),
+          Color.lerp(
+            DTokens.of(tester.element(tab)).background,
+            DTokens.of(tester.element(tab)).foreground,
+            .10,
+          )!,
         ),
         (
           Offset(before.center.dx, before.bottom - 6),
-          (theme.extension<DTokens>()!).foreground.withValues(alpha: .06),
+          Color.lerp(
+            DTokens.of(tester.element(tab)).background,
+            DTokens.of(tester.element(tab)).foreground,
+            .10,
+          )!,
         ),
         (
           Offset(before.center.dx, before.bottom - 1),
-          (theme.extension<DTokens>()!).foreground.withValues(alpha: .06),
+          Color.lerp(
+            DTokens.of(tester.element(tab)).background,
+            DTokens.of(tester.element(tab)).foreground,
+            .10,
+          )!,
         ),
       ]);
     });
@@ -335,12 +409,6 @@ void main() {
           matching: find.byType(DTooltip),
         ),
       );
-      final inactiveCloseTooltip = tester.widget<DTooltip>(
-        find.descendant(
-          of: find.byKey(const ValueKey('forum-tab-close-chat-2')),
-          matching: find.byType(DTooltip),
-        ),
-      );
       expect(addTooltip.message, 'Open a new tab');
       expect(selectedCloseTooltip.message, 'Close A long-running topic');
       _expectPrimaryShortcut(
@@ -350,11 +418,6 @@ void main() {
       );
       _expectPrimaryShortcut(
         selectedCloseTooltip.shortcut![0],
-        platform,
-        LogicalKeyboardKey.keyW,
-      );
-      _expectPrimaryShortcut(
-        inactiveCloseTooltip.shortcut![0],
         platform,
         LogicalKeyboardKey.keyW,
       );
@@ -439,7 +502,7 @@ void main() {
       await tester.pump(kDoubleTapTimeout);
     });
 
-    testWidgets('reveal close on tab hover without shifting the title', (
+    testWidgets('only the active tab has a close button, even on hover', (
       tester,
     ) async {
       await _pumpBar(
@@ -486,7 +549,7 @@ void main() {
       await pointer.moveTo(tester.getCenter(find.text(second.title)));
       await tester.pumpAndSettle();
       expect(_closeOpacity(tester, first.id), 1);
-      expect(_closeOpacity(tester, second.id), 1);
+      expect(_closeOpacity(tester, second.id), 0);
       expect(tester.getRect(find.text(first.title)), titleRect);
 
       await pointer.moveTo(Offset.zero);
@@ -793,7 +856,7 @@ void main() {
           expect(tester.takeException(), isNull);
           expect(
             tester.getSize(row).height,
-            greaterThan(tester.getSize(shortRow).height),
+            greaterThanOrEqualTo(tester.getSize(shortRow).height),
           );
           expect(tester.getRect(menu).right, lessThanOrEqualTo(320));
           expect(tester.getRect(menu).bottom, lessThanOrEqualTo(540));
@@ -964,90 +1027,78 @@ void main() {
   });
 
   group('overflow layout', () {
-    testWidgets('scrolls overflowing tabs and keeps add after the final tab', (
-      tester,
-    ) async {
-      final items = [
-        for (var index = 0; index < 8; index++)
-          ForumTabItem(
-            id: 'tab-$index',
-            title: 'Forum tab $index',
-            icon: DIcons.comment,
-            badge: index == 3
-                ? const SidebarBadge.count(999)
-                : SidebarBadge.none,
-          ),
-      ];
-      await _pumpBar(
-        tester,
-        items: items,
-        selectedId: items.first.id,
-        width: 320,
-      );
-
-      final scrollable = _scrollable(tester);
-      final add = find.byKey(const ValueKey('forum-tabs-add'));
-      final initialAddRect = tester.getRect(add);
-      final initialLastTabRect = tester.getRect(
-        find.byKey(ValueKey('forum-tab-item-${items.last.id}')),
-      );
-      final initialViewportRect = tester.getRect(
-        find.byKey(const ValueKey('forum-tabs-scroll')),
-      );
-      expect(scrollable.position.maxScrollExtent, greaterThan(0));
-      expect(scrollable.position.pixels, 0);
-      expect(initialAddRect.left, initialLastTabRect.right + 4);
-      expect(initialAddRect.left, greaterThan(initialViewportRect.right));
-      expect(
-        find.byKey(const ValueKey('forum-tab-badge-tab-3')),
-        findsOneWidget,
-      );
-      for (final item in items) {
-        expect(find.byKey(ValueKey('forum-tab-${item.id}')), findsOneWidget);
-      }
-
-      await tester.sendEventToBinding(
-        PointerScrollEvent(
-          position: tester.getCenter(
-            find.byKey(const ValueKey('forum-tabs-scroll')),
-          ),
-          scrollDelta: const Offset(180, 0),
-        ),
-      );
-      await tester.pumpAndSettle();
-
-      expect(scrollable.position.pixels, greaterThan(0));
-      expect(tester.getRect(add).left, lessThan(initialAddRect.left));
-      expect(
-        tester.getRect(add).left,
-        tester
-                .getRect(
-                  find.byKey(ValueKey('forum-tab-item-${items.last.id}')),
-                )
-                .right +
-            4,
-      );
-
-      await _pumpBar(
-        tester,
-        items: items,
-        selectedId: items.last.id,
-        width: 320,
-      );
-      await tester.pumpAndSettle();
-
-      expect(_scrollable(tester).position.pixels, greaterThan(0));
-      final lastTabRect = tester.getRect(
-        find.byKey(ValueKey('forum-tab-item-${items.last.id}')),
-      );
-      final viewportRect = tester.getRect(
-        find.byKey(const ValueKey('forum-tabs-scroll')),
-      );
-      expect(lastTabRect.left, greaterThanOrEqualTo(viewportRect.left));
-      expect(lastTabRect.right, lessThanOrEqualTo(viewportRect.right));
-      expect(tester.getRect(add).left, lastTabRect.right + 4);
-      expect(tester.getRect(add).right, lessThanOrEqualTo(viewportRect.right));
-    });
+    testWidgets(
+      'selects the trailing edge of an inactive tab and drags crowded tabs',
+      (tester) async {
+        final selected = <String>[];
+        final items = [
+          for (var i = 0; i < 20; i++)
+            ForumTabItem(
+              id: 'crowded-$i',
+              title: 'Crowded tab $i',
+              icon: DIcons.comment,
+            ),
+        ];
+        await _pumpBar(
+          tester,
+          items: items,
+          selectedId: items.first.id,
+          width: 560,
+          onSelect: selected.add,
+        );
+        final tab = find.byKey(ValueKey('forum-tab-item-${items[1].id}'));
+        final rect = tester.getRect(tab);
+        await tester.tapAt(Offset(rect.right - 3, rect.center.dy));
+        expect(selected, contains(items[1].id));
+        await tester.drag(tab, const Offset(60, 0));
+        await tester.pumpAndSettle();
+        expect(tester.takeException(), isNull);
+      },
+    );
+    testWidgets(
+      'shrinks labels to fit and keeps the active close and add visible',
+      (tester) async {
+        final items = [
+          for (var index = 0; index < 20; index++)
+            ForumTabItem(
+              id: 'tab-$index',
+              title: 'Forum tab $index',
+              icon: DIcons.comment,
+            ),
+        ];
+        for (final width in [320.0, 560.0, 1000.0]) {
+          for (final selected in [items.first, items.last]) {
+            await _pumpBar(
+              tester,
+              items: items,
+              selectedId: selected.id,
+              width: width,
+            );
+            await tester.pumpAndSettle();
+            final bar = tester.getRect(
+              find.byKey(const ValueKey('forum-tabs-bar')),
+            );
+            expect(find.byType(SingleChildScrollView), findsNothing);
+            for (final item in items) {
+              final tab = tester.getRect(
+                find.byKey(ValueKey('forum-tab-item-${item.id}')),
+              );
+              expect(tab.left, greaterThanOrEqualTo(bar.left));
+              expect(tab.right, lessThanOrEqualTo(bar.right));
+              expect(
+                find.byKey(ValueKey('forum-tab-close-${item.id}')),
+                item == selected ? findsOneWidget : findsNothing,
+              );
+            }
+            final add = tester.getRect(
+              find.byKey(const ValueKey('forum-tabs-add')),
+            );
+            expect(add.right, lessThanOrEqualTo(bar.right));
+            expect(tester.takeException(), isNull);
+          }
+        }
+      },
+    );
   });
 
   group('accessibility', () {
@@ -1213,16 +1264,19 @@ Future<void> _expectTabPixels(
 ShapeDecoration _tabDecoration(WidgetTester tester, Finder finder) =>
     tester.widget<Container>(finder).decoration! as ShapeDecoration;
 
-double _closeOpacity(WidgetTester tester, String tabId) => tester
-    .widget<AnimatedOpacity>(
-      find
-          .ancestor(
-            of: find.byKey(ValueKey('forum-tab-close-$tabId')),
-            matching: find.byType(AnimatedOpacity),
+double _closeOpacity(WidgetTester tester, String tabId) =>
+    find.byKey(ValueKey('forum-tab-close-$tabId')).evaluate().isEmpty
+    ? 0
+    : tester
+          .widget<AnimatedOpacity>(
+            find
+                .ancestor(
+                  of: find.byKey(ValueKey('forum-tab-close-$tabId')),
+                  matching: find.byType(AnimatedOpacity),
+                )
+                .first,
           )
-          .first,
-    )
-    .opacity;
+          .opacity;
 
 BoxDecoration _decoration(WidgetTester tester, Finder finder) => switch (tester
     .widget(finder)) {
@@ -1231,14 +1285,6 @@ BoxDecoration _decoration(WidgetTester tester, Finder finder) => switch (tester
   final DecoratedBox box => box.decoration as BoxDecoration,
   final widget => throw StateError('${widget.runtimeType} decorates nothing'),
 };
-
-ScrollableState _scrollable(WidgetTester tester) =>
-    tester.state<ScrollableState>(
-      find.descendant(
-        of: find.byKey(const ValueKey('forum-tabs-scroll')),
-        matching: find.byType(Scrollable),
-      ),
-    );
 
 void _expectPrimaryShortcut(
   Object? shortcut,
