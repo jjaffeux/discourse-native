@@ -17,7 +17,7 @@ final tabsExamples = ComponentExamples(
     StyleguideExample(
       title: 'Document tabs',
       description:
-          'Workspace tabs compose Native buttons for selection and closing, with a shared neutral rounded surface. The selected tab keeps its close action visible; inactive tabs reveal it on hover or keyboard focus.',
+          'Workspace tabs compose Native buttons for selection and closing, with an 8px rounded, raised selected surface and a subtle outline. Inactive tabs stay transparent. The selected tab keeps its close action visible; inactive tabs reveal it on hover or keyboard focus.',
       states: const ['Selected', 'Hover', 'Close', 'Keyboard'],
       code:
           "DDocumentTab(selected: true, onSelect: select, onClose: close, closeLabel: 'Close Side chat', child: Text('Side chat'))",
