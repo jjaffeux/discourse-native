@@ -64,6 +64,11 @@ class DTokens extends ThemeExtension<DTokens> {
   double get controlRadius => controlTheme.radius;
 
   Color get foreground => colors.onSurface;
+
+  /// Desktop footer surface and hairline from the HTML reference palette.
+  Color get footerBackground => Color.lerp(background, foreground, .05)!;
+  Color get footerBorder => Color.lerp(background, foreground, .12)!;
+
   Color get mutedForeground => colors.onSurfaceVariant;
   Color get primary => colors.primary;
   Color get primaryForeground => colors.onPrimary;

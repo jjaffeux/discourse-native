@@ -53,16 +53,20 @@ final cardExamples = ComponentExamples(
     StyleguideExample(
       title: 'Rounded footer',
       description:
-          'Desktop workspace footers round their upper corners to match the card.',
+          'Desktop footers use a 5% foreground tint, a 12% top hairline, and no shadow.',
       code: """DCard(spacing: 0, children: [
   DCardContent(child: Text('Reading surface')),
-], footer: DCardFooter(rounded: true, child: DButton(
+], footer: DCardFooter(rounded: true,
+  backgroundColor: DTokens.of(context).footerBackground,
+  borderColor: DTokens.of(context).footerBorder, child: DButton(
   onPressed: reply, label: Text('Reply'))))""",
-      builder: (_) => _Frame(
+      builder: (context) => _Frame(
         child: DCard(
           spacing: 16,
           footer: DCardFooter(
             rounded: true,
+            backgroundColor: DTokens.of(context).footerBackground,
+            borderColor: DTokens.of(context).footerBorder,
             child: Align(
               alignment: AlignmentDirectional.centerStart,
               child: DButton(onPressed: () {}, label: const Text('Reply')),

@@ -256,6 +256,7 @@ class DCardFooter extends StatelessWidget {
     this.rounded = false,
     this.padding,
     this.backgroundColor,
+    this.borderColor,
   });
   final Widget child;
   final bool border;
@@ -267,6 +268,7 @@ class DCardFooter extends StatelessWidget {
   /// Defaults to the enclosing card's shared spacing.
   final EdgeInsetsGeometry? padding;
   final Color? backgroundColor;
+  final Color? borderColor;
   @override
   Widget build(BuildContext context) {
     final tokens = DTokens.of(context);
@@ -277,7 +279,9 @@ class DCardFooter extends StatelessWidget {
       position: DecorationPosition.foreground,
       decoration: BoxDecoration(
         borderRadius: radius,
-        border: border ? Border(top: BorderSide(color: tokens.border)) : null,
+        border: border
+            ? Border(top: BorderSide(color: borderColor ?? tokens.border))
+            : null,
       ),
       child: ClipRRect(
         borderRadius: radius,

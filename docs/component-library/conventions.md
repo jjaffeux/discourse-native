@@ -83,8 +83,10 @@ supersede the earlier [contextual tint styling](contextual-tints.md).
 Desktop topic-list and reader footers use `DCardFooter(rounded: true)` for
 upper corners matching the Card radius. The kit clips the surface and paints
 the top outline above its contents. `padding` supports existing toolbar spacing
-and `backgroundColor` accepts the shell's semantic surface color; ordinary card
-footers retain their shared spacing and square upper edge.
+and `backgroundColor`/`borderColor` accept semantic colors. Desktop footers use
+`DTokens.footerBackground` (5% foreground mixed into background) and
+`DTokens.footerBorder` (12%), matching `--surface-footer` and `--border-subtle`
+in the September HTML reference. There is no shadow. Ordinary card footers retain their shared spacing and square upper edge.
 
 ## Theme, layout and interaction
 
