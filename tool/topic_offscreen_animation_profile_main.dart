@@ -14,6 +14,7 @@ import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/site_image.dart';
 import 'package:discourse_native/src/shell/topic_view.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/scheduler.dart';
@@ -29,6 +30,7 @@ Future<void> main() async {
   final lifecycleGuard = _LifecycleGuard();
   binding.addObserver(lifecycleGuard);
   final semantics = binding.ensureSemantics();
+  binding.addSemanticsEnabledListener(lifecycleGuard.semanticsChanged);
   final site = instance('meta.example');
   final bytes = base64Decode(
     'R0lGODlhAQABAIAAAAAAAP///yH/C05FVFNDQVBFMi4wAwEAAAAh+QQACgAAACw'
@@ -119,7 +121,7 @@ Future<void> main() async {
       await Future<void>.delayed(const Duration(milliseconds: 100));
     }
     lifecycleGuard.armed = true;
-    await Future<void>.delayed(const Duration(seconds: 3));
+    await Future<void>.delayed(const Duration(seconds: 10));
     lifecycleGuard.check();
     final elements = <Element>[];
     void visit(Element element) {
@@ -161,12 +163,10 @@ Future<void> main() async {
     report['imageUrl'] = (siteImage.widget as SiteImage).url;
     report['provider'] = provider.runtimeType.toString();
     report['dpr'] = binding.platformDispatcher.views.first.devicePixelRatio;
-    report['physicalViewport'] = binding
-        .platformDispatcher
-        .views
-        .first
-        .physicalSize
-        .toString();
+    report['physicalViewport'] = [
+      binding.platformDispatcher.views.first.physicalSize.width,
+      binding.platformDispatcher.views.first.physicalSize.height,
+    ];
     final listElement = elements.firstWhere(
       (element) => element.widget is SuperSliverList,
     );
@@ -193,8 +193,15 @@ Future<void> main() async {
           ? box.localToGlobal(Offset.zero) & box.size
           : null;
       return {
-        'imageRect': rect?.toString(),
-        'viewportRect': viewportRect.toString(),
+        'imageRect': rect == null
+            ? null
+            : [rect.left, rect.top, rect.width, rect.height],
+        'viewportRect': [
+          viewportRect.left,
+          viewportRect.top,
+          viewportRect.width,
+          viewportRect.height,
+        ],
         'imageIntersectsViewport': rect?.overlaps(viewportRect) ?? false,
         'mounted': image.mounted,
         'keptAlive': image.mounted
@@ -207,6 +214,12 @@ Future<void> main() async {
         'hasListeners': stream.hasListeners,
         'schedulerHasFrame': binding.hasScheduledFrame,
         'lifecycle': binding.lifecycleState?.name,
+        'semanticsEnabled': binding.semanticsEnabled,
+        'dpr': binding.platformDispatcher.views.first.devicePixelRatio,
+        'physicalViewport': [
+          binding.platformDispatcher.views.first.physicalSize.width,
+          binding.platformDispatcher.views.first.physicalSize.height,
+        ],
       };
     }
 
@@ -222,7 +235,21 @@ Future<void> main() async {
       lifecycleGuard.check();
       final before = state();
       void checkGeometry(Map<String, Object?> observation) {
-        if (observation['mounted'] != mounted ||
+        if (observation['semanticsEnabled'] != true ||
+            observation['dpr'] != report['dpr'] ||
+            !listEquals(
+              observation['physicalViewport'] as List<double>,
+              report['physicalViewport'] as List<double>,
+            ) ||
+            !listEquals(
+              observation['viewportRect'] as List<double>,
+              before['viewportRect'] as List<double>,
+            ) ||
+            !listEquals(
+              observation['imageRect'] as List<double>?,
+              before['imageRect'] as List<double>?,
+            ) ||
+            observation['mounted'] != mounted ||
             observation['firstPostVisible'] != visible ||
             (mounted && observation['keptAlive'] != keptAlive) ||
             (visible && observation['imageIntersectsViewport'] != true)) {
@@ -311,6 +338,7 @@ Future<void> main() async {
     report['stack'] = '$stack';
   } finally {
     report['lifecycleTransitions'] = lifecycleGuard.transitions;
+    report['semanticsTransitions'] = lifecycleGuard.semanticsTransitions;
     final file = File('${Directory.systemTemp.path}/topic-gif-$label.json');
     await file.writeAsString(
       const JsonEncoder.withIndent('  ').convert(report),
@@ -318,6 +346,7 @@ Future<void> main() async {
     stdout.writeln('TOPIC_GIF_RESULT ${file.path} valid=${report['valid']}');
     binding.removeTimingsCallback(collect);
     binding.removeObserver(lifecycleGuard);
+    binding.removeSemanticsEnabledListener(lifecycleGuard.semanticsChanged);
     semantics.dispose();
   }
 }
@@ -326,6 +355,21 @@ class _LifecycleGuard with WidgetsBindingObserver {
   bool armed = false;
   bool invalidated = false;
   final transitions = <Object?>[];
+  final semanticsTransitions = <Object?>[];
+
+  void semanticsChanged() {
+    semanticsTransitions.add({
+      'timeUs': developer.Timeline.now,
+      'enabled': WidgetsBinding.instance.semanticsEnabled,
+    });
+    if (armed) invalidated = true;
+  }
+
+  @override
+  void didChangeMetrics() {
+    if (armed) invalidated = true;
+  }
+
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     transitions.add({'timeUs': developer.Timeline.now, 'state': state.name});
@@ -334,8 +378,11 @@ class _LifecycleGuard with WidgetsBindingObserver {
 
   void check() {
     if (invalidated ||
+        !WidgetsBinding.instance.semanticsEnabled ||
         WidgetsBinding.instance.lifecycleState != AppLifecycleState.resumed) {
-      throw StateError('Background or inactive native sample rejected');
+      throw StateError(
+        'Lifecycle, semantics or viewport changed: native sample rejected',
+      );
     }
   }
 }
