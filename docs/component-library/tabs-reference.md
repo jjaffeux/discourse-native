@@ -2,6 +2,42 @@
 
 Frozen catalogue date: **2026-09-08**.
 
+## September 18 line-tab redesign
+
+The user's localhost:5183 sidebar reference supersedes the original horizontal
+line geometry below. Browser measurements: 13px labels, weight 600 selected / 400
+inactive, 20px gaps, zero horizontal padding, 10px vertical padding, a 2px active
+underline and a 1px full-width divider. The HTML row measured 41.5px high.
+
+Native horizontal line tabs use the shared size typography (regular 13/20),
+42px regular artwork and at least 48px touch height. Labels and composed badges
+own the underline width. Inactive labels use `mutedForeground`; the active rule
+uses `foreground`, and the divider uses `border`. They update from the current
+palette. The rule paints inside the trigger, so scrolling cannot clip it.
+Vertical line tabs and other variants retain their existing treatment.
+
+The existing sidebar, Chat information, user summary and topic recommendation
+consumers receive this change through `DTabListVariant.line`. The offline
+`tool/sidebar_review_main.dart` fixture now includes a Line tabs preview and 32
+unread Chat messages for comparison with the supplied reference.
+
+Verification:
+- 80 focused tests passed across Tabs, Tabs styleguide, sidebar panels, Chat
+  channel information and user summary. Geometry, selected weight, scrolling underline pixels,
+  touch, 200% text, RTL, keyboard navigation and sidebar switching are covered.
+- Native macOS fixture inspected in light and dark, with Forum/Chat switching,
+  the 32-message badge, and the actual Line styleguide example at regular size
+  and 260px/200%/RTL. Enlarged Analytics selection moved the underline correctly.
+  This is macOS review with simulated mobile metrics, not iOS device testing.
+- Root static analysis passed. The isolated debug bundle was copied with
+  framework symlinks preserved, signed without restricted identity/push
+  entitlements, verified, launched and closed; project signing was unchanged.
+- One broader recommendation integration case fails with a topic-header
+  overflow and missing related-topic body. The same failure reproduces with
+  the original Tabs implementation from `741b9a7c4`; the other case passes.
+  Logs: `/tmp/tabs-recommendation-tests.log` and
+  `/tmp/tabs-recommendation-baseline.log`.
+
 ## Sources
 
 - Frozen documentation: <https://ui.shadcn.com/docs/components/base/tabs.md>,

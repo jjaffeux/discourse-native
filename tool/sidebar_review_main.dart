@@ -14,6 +14,7 @@ import 'package:discourse_native/src/shell/adaptive_shell.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/styleguide/examples/sidebar_examples.dart';
+import 'package:discourse_native/src/styleguide/examples/tabs_examples.dart';
 import 'package:discourse_native/src/styleguide/styleguide_page.dart';
 import 'package:discourse_native/src/styleguide/styleguide_theme.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
@@ -149,7 +150,7 @@ Future<void> main() async {
                   following: true,
                   starred: index == 0,
                 ),
-                tracking: ChatTracking(mentionCount: index == 0 ? 1234 : 0),
+                tracking: ChatTracking(unreadCount: index == 0 ? 32 : 0),
               ),
           ],
           direct: const [
@@ -220,6 +221,7 @@ class _SidebarReviewState extends State<_SidebarReview> {
                   for (final surface in [
                     'Production',
                     'Lazy example',
+                    'Line tabs',
                     'Styleguide',
                   ])
                     DButton(
@@ -279,6 +281,19 @@ class _SidebarReviewState extends State<_SidebarReview> {
                                     .singleWhere(
                                       (example) =>
                                           example.title == 'Lazy navigation',
+                                    )
+                                    .builder,
+                              ),
+                            ),
+                          ),
+                          'Line tabs' => Align(
+                            alignment: Alignment.topCenter,
+                            child: SizedBox(
+                              width: _mobile ? 260 : 400,
+                              child: Builder(
+                                builder: tabsExamples.examples
+                                    .singleWhere(
+                                      (example) => example.title == 'Line',
                                     )
                                     .builder,
                               ),

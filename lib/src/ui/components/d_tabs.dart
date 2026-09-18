@@ -15,6 +15,8 @@ import 'd_kbd.dart';
 /// The visual treatment of a [DTabList].
 enum DTabListVariant {
   defaultStyle,
+
+  /// Content-width underline tabs with a shared divider and spaced labels.
   line,
 
   /// A transparent list with a rounded neutral fill on the selected trigger.
@@ -467,6 +469,8 @@ class DTabList<T> extends StatelessWidget {
       TargetPlatform.iOS || TargetPlatform.android => true,
       _ => false,
     };
+    final horizontalLine =
+        variant == DTabListVariant.line && root.orientation == Axis.horizontal;
     final decoration = BoxDecoration(
       color: variant == DTabListVariant.defaultStyle
           ? tokens.muted
@@ -490,7 +494,9 @@ class DTabList<T> extends StatelessWidget {
           for (var i = 0; i < children.length; i++) ...[
             if (i > 0 && variant != DTabListVariant.defaultStyle)
               SizedBox(
-                width: root.orientation == Axis.horizontal ? 4 : 0,
+                width: root.orientation == Axis.horizontal
+                    ? (horizontalLine ? 20 : 4)
+                    : 0,
                 height: root.orientation == Axis.vertical ? 4 : 0,
               ),
             children[i],
@@ -498,6 +504,23 @@ class DTabList<T> extends StatelessWidget {
         ],
       ),
     );
+
+    if (horizontalLine) {
+      return Semantics(
+        container: true,
+        explicitChildNodes: true,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            border: Border(bottom: BorderSide(color: tokens.border)),
+          ),
+          child: SingleChildScrollView(
+            controller: scrollController,
+            scrollDirection: Axis.horizontal,
+            child: scope,
+          ),
+        ),
+      );
+    }
 
     final textScaler = MediaQuery.textScalerOf(context);
     final textHeight =
@@ -559,10 +582,6 @@ class DTabList<T> extends StatelessWidget {
       visual = SingleChildScrollView(
         controller: scrollController,
         scrollDirection: Axis.horizontal,
-        // Keep the active rule's paint overflow inside the scrolling viewport.
-        padding: variant == DTabListVariant.line
-            ? const EdgeInsets.only(bottom: 6)
-            : EdgeInsets.zero,
         child: visual,
       );
     } else {
@@ -719,6 +738,7 @@ class _DTabTriggerState<T> extends State<DTabTrigger<T>> {
         originalSkip || !root.state.isTabStop(this) || !enabled;
     final dark = Theme.of(context).brightness == Brightness.dark;
     final line = list.variant == DTabListVariant.line;
+    final horizontalLine = line && root.orientation == Axis.horizontal;
     final pill = list.variant == DTabListVariant.pill;
     final plain = list.variant == DTabListVariant.plain;
     final flat = pill || plain;
@@ -734,21 +754,34 @@ class _DTabTriggerState<T> extends State<DTabTrigger<T>> {
         : tokens.background;
     final foreground = selected || _hovered
         ? tokens.foreground
-        : flat
+        : flat || horizontalLine
         ? tokens.mutedForeground
         : tokens.foreground.withValues(alpha: .6);
 
     final surface = AnimatedContainer(
-      duration: flat
+      duration: flat || horizontalLine
           ? Duration.zero
           : DMotion.duration(context, DMotion.change),
       curve: Curves.easeOut,
       constraints: BoxConstraints(
-        minHeight:
-            DControlStyle.scaledHeight(size, MediaQuery.textScalerOf(context)) -
-            (flat ? 0 : 7),
+        minHeight: horizontalLine
+            ? math.max(
+                touch ? DSpacing.touchTarget : 0,
+                DControlStyle.scaledHeight(
+                      size,
+                      MediaQuery.textScalerOf(context),
+                    ) +
+                    14,
+              )
+            : DControlStyle.scaledHeight(
+                    size,
+                    MediaQuery.textScalerOf(context),
+                  ) -
+                  (flat ? 0 : 7),
       ),
-      padding: flat
+      padding: horizontalLine
+          ? const EdgeInsets.symmetric(vertical: 11)
+          : flat
           ? const EdgeInsets.symmetric(horizontal: 10, vertical: 2)
           : const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
       decoration: BoxDecoration(
@@ -756,11 +789,13 @@ class _DTabTriggerState<T> extends State<DTabTrigger<T>> {
             ? selectedBackground
             : Colors.transparent,
         borderRadius: BorderRadius.circular(radius),
-        border: Border.all(
-          color: selected && !line && !plain && !pill && dark
-              ? tokens.colors.outlineVariant
-              : Colors.transparent,
-        ),
+        border: horizontalLine
+            ? null
+            : Border.all(
+                color: selected && !line && !plain && !pill && dark
+                    ? tokens.colors.outlineVariant
+                    : Colors.transparent,
+              ),
         boxShadow: selected && !line && !plain && !pill
             ? const [
                 BoxShadow(
@@ -778,7 +813,11 @@ class _DTabTriggerState<T> extends State<DTabTrigger<T>> {
           color: foreground,
           fontSize: DControlStyle.fontSize(size),
           height: DControlStyle.lineHeight(size) / DControlStyle.fontSize(size),
-          fontWeight: pill ? FontWeight.w600 : FontWeight.w500,
+          fontWeight: horizontalLine
+              ? (selected ? FontWeight.w600 : FontWeight.w400)
+              : pill
+              ? FontWeight.w600
+              : FontWeight.w500,
           letterSpacing: 0,
         ),
         child: IconTheme.merge(
@@ -927,7 +966,7 @@ class _DTabIndicatorPainter extends CustomPainter {
     if (!visible) return;
     final paint = Paint()..color = color;
     if (orientation == Axis.horizontal) {
-      canvas.drawRect(Rect.fromLTWH(0, size.height + 4, size.width, 2), paint);
+      canvas.drawRect(Rect.fromLTWH(0, size.height - 2, size.width, 2), paint);
     } else {
       final x = direction == TextDirection.ltr ? size.width + 4 : -6.0;
       canvas.drawRect(Rect.fromLTWH(x, 0, 2, size.height), paint);

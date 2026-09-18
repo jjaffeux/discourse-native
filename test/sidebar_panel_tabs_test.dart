@@ -298,7 +298,11 @@ void main() {
         ('main', 'Topics'),
       ]) {
         await tester.ensureVisible(tab(owner));
-        await tester.tap(tab(owner));
+        await tester.pumpAndSettle();
+        // The touch resize handle overlays the sidebar's trailing edge.
+        await tester.tapAt(
+          tester.getRect(tab(owner)).centerLeft + const Offset(8, 0),
+        );
         await tester.pumpAndSettle();
         expect(sidebarDestination(destination), findsOneWidget);
         expect(shell.currentContent, route);
@@ -384,7 +388,10 @@ void main() {
   ) async {
     await pumpTabs(tester, rooms: false);
     await tester.ensureVisible(tab('voice'));
-    await tester.tap(tab('voice'));
+    await tester.pumpAndSettle();
+    await tester.tapAt(
+      tester.getRect(tab('voice')).centerLeft + const Offset(8, 0),
+    );
     await tester.pumpAndSettle();
     expect(find.byTooltip('Create voice room'), findsOneWidget);
     expect(sidebarDestination('Topics'), findsNothing);

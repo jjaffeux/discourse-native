@@ -329,7 +329,24 @@ void main() {
       await tester.pumpAndSettle();
       final first = tester.getRect(find.byType(DTabTrigger<String>).first);
       final second = tester.getRect(find.byType(DTabTrigger<String>).last);
-      expect(second.left - first.right, 4);
+      expect(second.left - first.right, 20);
+      expect(first.height, 42);
+      expect(first.left, tester.getRect(find.byType(DTabList<String>)).left);
+      expect(first.width, tester.getSize(find.text('One')).width);
+      expect(
+        DefaultTextStyle.of(tester.element(find.text('One'))).style.fontWeight,
+        FontWeight.w600,
+      );
+      expect(
+        DefaultTextStyle.of(tester.element(find.text('Two'))).style.fontWeight,
+        FontWeight.w400,
+      );
+      await tester.tap(find.text('Two'));
+      await tester.pump();
+      expect(
+        DefaultTextStyle.of(tester.element(find.text('Two'))).style.fontWeight,
+        FontWeight.w600,
+      );
     },
   );
 
@@ -392,7 +409,7 @@ void main() {
               final x = bounds.center.dx.floor();
               for (
                 var y = bounds.bottom.ceil() + 3;
-                y < bounds.bottom.ceil() + 12;
+                y < bounds.bottom.ceil() + 18;
                 y++
               ) {
                 final offset = (y * image.width + x) * 4;
