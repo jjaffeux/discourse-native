@@ -9,6 +9,7 @@ import '../../models/topic.dart';
 import '../../plugin_api/plugin_scope.dart';
 import '../../plugin_api/site_plugin_api.dart';
 import '../../shell/post_action.dart';
+import '../../shell/shell_scope.dart';
 import '../../theme/d_icons.dart';
 import 'assign_data.dart';
 import 'assign_group_data.dart';
@@ -180,6 +181,12 @@ final class AssignPlugin
     String siteUrl,
     Topic topic,
   ) {
+    if (ShellScope.maybeIdentityOf(
+          context,
+        )?.appSettings.topicListShowAssignments ==
+        false) {
+      return const [];
+    }
     final assignments = topic.plugins.get(assignmentsDataKey);
     if (assignments == null || !assignments.hasAssignments) return const [];
     final style = Theme.of(context).textTheme.labelMedium;
@@ -244,6 +251,12 @@ final class AssignPlugin
     Topic topic,
     void Function({String? property}) onOpen,
   ) {
+    if (ShellScope.maybeIdentityOf(
+          context,
+        )?.appSettings.topicListShowAssignments ==
+        false) {
+      return const [];
+    }
     final assignments = topic.plugins.get(assignmentsDataKey);
     if (assignments == null || !assignments.hasAssignments) return const [];
     return [

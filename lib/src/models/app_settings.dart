@@ -30,6 +30,8 @@ final class AppSettings {
     this.textScale = AppTextScale.percent100,
     this.themeMode = AppThemeMode.system,
     this.topicListLargerText = false,
+    this.topicListShowTags = true,
+    this.topicListShowAssignments = true,
     this.topicListMode = TopicListDisplayMode.card,
   });
 
@@ -41,6 +43,8 @@ final class AppSettings {
   // Legacy app-wide choice used only to seed existing forums on migration.
   final AppThemeMode themeMode;
   final bool topicListLargerText;
+  final bool topicListShowTags;
+  final bool topicListShowAssignments;
   final TopicListDisplayMode topicListMode;
 
   AppSettings copyWith({
@@ -49,6 +53,8 @@ final class AppSettings {
     AppTextScale? textScale,
     AppThemeMode? themeMode,
     bool? topicListLargerText,
+    bool? topicListShowTags,
+    bool? topicListShowAssignments,
     TopicListDisplayMode? topicListMode,
   }) => AppSettings(
     contentAlignment: contentAlignment ?? this.contentAlignment,
@@ -56,6 +62,9 @@ final class AppSettings {
     textScale: textScale ?? this.textScale,
     themeMode: themeMode ?? this.themeMode,
     topicListLargerText: topicListLargerText ?? this.topicListLargerText,
+    topicListShowTags: topicListShowTags ?? this.topicListShowTags,
+    topicListShowAssignments:
+        topicListShowAssignments ?? this.topicListShowAssignments,
     topicListMode: topicListMode ?? this.topicListMode,
   );
 
@@ -67,6 +76,8 @@ final class AppSettings {
       other.textScale == textScale &&
       other.themeMode == themeMode &&
       other.topicListLargerText == topicListLargerText &&
+      other.topicListShowTags == topicListShowTags &&
+      other.topicListShowAssignments == topicListShowAssignments &&
       other.topicListMode == topicListMode;
 
   @override
@@ -76,6 +87,8 @@ final class AppSettings {
     textScale,
     themeMode,
     topicListLargerText,
+    topicListShowTags,
+    topicListShowAssignments,
     topicListMode,
   );
 }

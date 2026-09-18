@@ -5,13 +5,14 @@ Widget _topicRowCategory(BuildContext context, _TopicRowBody row) =>
       parent: row.parentCategory,
       category: row.category!,
       siteUrl: row.siteUrl,
-      onOpen: (category) => ShellScope.maybeRead(
-        context,
-      )?.openCategory(category, siteUrl: row.siteUrl),
+      onOpen: (category) =>
+          ShellScope.maybeRead(context)
+              ?.openCategory(category, siteUrl: row.siteUrl),
     );
 
 List<Widget> _topicRowTags(BuildContext context, _TopicRowBody row) {
   final controller = ShellScope.maybeRead(context);
+  if (controller?.appSettings.topicListShowTags == false) return [];
   return [
     for (final tag in row.topic.tags.take(2))
       _TopicTag(
@@ -73,9 +74,8 @@ class _TopicListTitle extends StatelessWidget {
             if (shown)
               SizedBox(
                 height:
-                    MediaQuery.textScalerOf(
-                      context,
-                    ).scale(style?.fontSize ?? DiscourseTypography.sm) *
+                    MediaQuery.textScalerOf(context)
+                        .scale(style?.fontSize ?? DiscourseTypography.sm) *
                     (style?.height ?? 1.5),
                 child: Center(
                   child: DIcon(

@@ -7,6 +7,25 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
+  test('topic metadata choices default on and persist independently', () async {
+    SharedPreferences.setMockInitialValues({});
+    final store = AppSettingsStore();
+    expect((await store.read()).topicListShowTags, isTrue);
+    expect((await store.read()).topicListShowAssignments, isTrue);
+    await store.update(topicListShowTags: false);
+    var restored = await AppSettingsStore().read();
+    expect(restored.topicListShowTags, isFalse);
+    expect(restored.topicListShowAssignments, isTrue);
+    await store.update(topicListShowAssignments: false);
+    restored = await AppSettingsStore().read();
+    expect(restored.topicListShowTags, isFalse);
+    expect(restored.topicListShowAssignments, isFalse);
+    await store.update(topicListShowTags: true, topicListShowAssignments: true);
+    restored = await AppSettingsStore().read();
+    expect(restored.topicListShowTags, isTrue);
+    expect(restored.topicListShowAssignments, isTrue);
+  });
+
   test(
     'topic list mode defaults to cards and survives a fresh store',
     () async {
@@ -429,6 +448,14 @@ final class _ControlledAppSettingsPersistence
   Future<bool?> readTopicListLargerText() async => null;
   @override
   Future<bool> writeTopicListLargerText(bool value) async => true;
+  @override
+  Future<bool?> readTopicListShowTags() async => null;
+  @override
+  Future<bool> writeTopicListShowTags(bool value) async => true;
+  @override
+  Future<bool?> readTopicListShowAssignments() async => null;
+  @override
+  Future<bool> writeTopicListShowAssignments(bool value) async => true;
 
   _ControlledAppSettingsPersistence({
     this.contentAlignment,
