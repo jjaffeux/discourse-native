@@ -231,7 +231,8 @@ DButtonGroup(children: [
     StyleguideExample(
       title: 'Transparent background',
       description:
-          'Subdued icons and text return to the normal foreground on hover, '
+          'Light themes give enabled icons and labels more weight than metadata. '
+          'Subdued actions return to the normal foreground on hover, '
           'focus or expansion. Hover and expansion add a subtle neutral fill. '
           'Use Tab to compare the keyboard focus ring.',
       states: const [

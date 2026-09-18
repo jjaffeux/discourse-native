@@ -1,4 +1,6 @@
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/src/models/site_appearance.dart';
+import 'package:discourse_native/src/styleguide/styleguide_theme.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/gestures.dart';
@@ -9,6 +11,88 @@ import 'package:flutter_test/flutter_test.dart';
 import 'support/button_surface.dart';
 
 void main() {
+  for (final variant in [
+    DButtonVariant.ghost,
+    DButtonVariant.transparentBackground,
+    DButtonVariant.inline,
+  ]) {
+    testWidgets('$variant separates enabled actions from pale metadata', (
+      tester,
+    ) async {
+      final forumLight = AppTheme.fromPalette(
+        ResolvedSitePalette.fromJson(const {
+          'brightness': 'light',
+          'primary': 0xFF222222,
+          'secondary': 0xFFFFFFFF,
+          'tertiary': 0xFF0088CC,
+          'metadataColor': 0xFF999999,
+        }),
+      );
+      for (final theme in [
+        forumLight,
+        AppTheme.light,
+        StyleguideTheme.forest.resolve(AppTheme.light),
+        AppTheme.dark,
+        StyleguideTheme.plum.resolve(AppTheme.light),
+        forumLight,
+      ]) {
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: theme,
+            home: Scaffold(
+              body: Row(
+                children: [
+                  DButton(
+                    label: const Text('Reply'),
+                    icon: const DIcon(DIcons.reply, key: ValueKey('enabled')),
+                    variant: variant,
+                    onPressed: () {},
+                  ),
+                  DButton.iconOnly(
+                    icon: const DIcon(DIcons.reply, key: ValueKey('disabled')),
+                    tooltip: 'Unavailable reply',
+                    variant: variant,
+                    onPressed: null,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        final tokens = DTokens.of(tester.element(find.text('Reply')));
+        final foreground = IconTheme.of(
+          tester.element(find.byKey(const ValueKey('enabled'))),
+        ).color!;
+        expect(
+          DefaultTextStyle.of(tester.element(find.text('Reply'))).style.color,
+          foreground,
+        );
+        expect(
+          IconTheme.of(
+            tester.element(find.byKey(const ValueKey('disabled'))),
+          ).color,
+          tokens.mutedForeground,
+        );
+        if (theme.brightness == Brightness.light) {
+          expect(
+            foreground.computeLuminance(),
+            lessThan(tokens.mutedForeground.computeLuminance()),
+          );
+          for (final surface in [tokens.background, tokens.surface]) {
+            expect(
+              (surface.computeLuminance() + .05) /
+                  (foreground.computeLuminance() + .05),
+              greaterThanOrEqualTo(4.5),
+            );
+          }
+        } else {
+          expect(foreground, tokens.mutedForeground);
+        }
+      }
+    });
+  }
+
   for (final dark in [false, true]) {
     for (final iconOnly in [false, true]) {
       testWidgets(
