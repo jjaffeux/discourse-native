@@ -30,6 +30,44 @@ void main() {
     SharedPreferences.setMockInitialValues({});
   });
 
+  testWidgets('rail toggle preserves sidebar width and content state', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({
+      SidebarWidthStore.storageKey: 260.0,
+    });
+    final controller = await _controller();
+    await _pumpShell(tester, controller, const Size(1200, 800));
+    final toggle = find.byKey(const ValueKey('rail-sidebar-toggle'));
+    final sidebarWidth = tester.getSize(find.byType(InstanceSidebar)).width;
+    final content = tester.element(find.byType(MainContent));
+    final contentWidth = tester.getSize(find.byType(MainContent)).width;
+    expect(
+      tester.getTopLeft(toggle).dy,
+      lessThan(
+        tester
+            .getTopLeft(find.byKey(const ValueKey('aggregate-rail-button')))
+            .dy,
+      ),
+    );
+    expect(tester.widget<DButton>(toggle).expanded, isTrue);
+
+    await tester.tap(toggle);
+    await tester.pumpAndSettle();
+    expect(find.byType(InstanceSidebar), findsNothing);
+    expect(
+      tester.getSize(find.byType(MainContent)).width,
+      greaterThan(contentWidth),
+    );
+    expect(tester.element(find.byType(MainContent)), same(content));
+    expect(tester.widget<DButton>(toggle).expanded, isFalse);
+
+    await tester.tap(toggle);
+    await tester.pumpAndSettle();
+    expect(tester.getSize(find.byType(InstanceSidebar)).width, sidebarWidth);
+    expect(tester.element(find.byType(MainContent)), same(content));
+  }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
+
   testWidgets('uses compact desktop navigation metrics', (tester) async {
     final controller = await _controller();
     await _pumpShell(tester, controller, const Size(1200, 800));

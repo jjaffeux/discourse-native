@@ -990,11 +990,18 @@ class _CompactShell extends StatelessWidget {
   }
 }
 
-class _WideShell extends StatelessWidget {
+class _WideShell extends StatefulWidget {
   const _WideShell({required this.layout, required this.sidebarWidth});
 
   final ShellLayout layout;
   final PanelWidthController sidebarWidth;
+
+  @override
+  State<_WideShell> createState() => _WideShellState();
+}
+
+class _WideShellState extends State<_WideShell> {
+  bool? _sidebarExpanded;
 
   @override
   Widget build(BuildContext context) {
@@ -1006,11 +1013,25 @@ class _WideShell extends StatelessWidget {
               AdaptiveShell.railWidth -
               AdaptiveShell.mainContentMinWidth,
         );
+        final sidebarExpanded =
+            _sidebarExpanded ??
+            (context.isTouch || constraints.maxWidth >= 1100);
         return Row(
           children: [
-            const SizedBox(
+            SizedBox(
               width: AdaptiveShell.railWidth,
-              child: InstanceRail(),
+              child: ShellSelector<bool>(
+                select: (controller) =>
+                    controller.hasInstances &&
+                    controller.rootMode == ShellRootMode.forum,
+                builder: (context, available, _) => InstanceRail(
+                  sidebarExpanded: sidebarExpanded,
+                  onToggleSidebar: available
+                      ? () =>
+                            setState(() => _sidebarExpanded = !sidebarExpanded)
+                      : null,
+                ),
+              ),
             ),
             Expanded(
               child: ShellPanel(
@@ -1027,41 +1048,42 @@ class _WideShell extends StatelessWidget {
                         hasInstances: controller.hasInstances,
                         rootMode: controller.rootMode,
                       ),
-                      builder: (context, state, _) => switch (state
-                          .loadStatus) {
-                        InstanceLoadStatus.loading =>
-                          const _ShellLoadProgress(),
-                        InstanceLoadStatus.failed => const _ShellLoadFailure(),
-                        InstanceLoadStatus.ready
-                            when state.hasInstances &&
-                                state.rootMode == ShellRootMode.aggregate =>
-                          const AggregateView(),
-                        InstanceLoadStatus.ready when state.hasInstances =>
-                          DesktopNavigation(
-                            compact:
-                                !context.isTouch && constraints.maxWidth < 1100,
-                            sidebar: ResizablePane(
-                              controller: sidebarWidth,
-                              edge: ResizablePaneEdge.trailing,
-                              resizeKey: 'sidebar',
-                              semanticsLabel: 'Resize sidebar',
-                              maximumWidth: windowMaximum,
-                              dividerWidth: 1,
-                              child: const InstanceSidebar(),
-                            ),
-                            child: _PageComposerDock(
-                              child: MainContent(
-                                key: ComposerPresentationHost.contentKeyOf(
-                                  context,
+                      builder: (context, state, _) =>
+                          switch (state.loadStatus) {
+                            InstanceLoadStatus.loading =>
+                              const _ShellLoadProgress(),
+                            InstanceLoadStatus.failed =>
+                              const _ShellLoadFailure(),
+                            InstanceLoadStatus.ready
+                                when state.hasInstances &&
+                                    state.rootMode == ShellRootMode.aggregate =>
+                              const AggregateView(),
+                            InstanceLoadStatus.ready when state.hasInstances =>
+                              DesktopNavigation(
+                                compact: !sidebarExpanded,
+                                showTrigger: _sidebarExpanded == null,
+                                sidebar: ResizablePane(
+                                  controller: widget.sidebarWidth,
+                                  edge: ResizablePaneEdge.trailing,
+                                  resizeKey: 'sidebar',
+                                  semanticsLabel: 'Resize sidebar',
+                                  maximumWidth: windowMaximum,
+                                  dividerWidth: 1,
+                                  child: const InstanceSidebar(),
                                 ),
-                                layout: context.isTouch
-                                    ? layout
-                                    : ShellLayout.expanded,
+                                child: _PageComposerDock(
+                                  child: MainContent(
+                                    key: ComposerPresentationHost.contentKeyOf(
+                                      context,
+                                    ),
+                                    layout: context.isTouch
+                                        ? widget.layout
+                                        : ShellLayout.expanded,
+                                  ),
+                                ),
                               ),
-                            ),
-                          ),
-                        InstanceLoadStatus.ready => const EmptyState(),
-                      },
+                            InstanceLoadStatus.ready => const EmptyState(),
+                          },
                     ),
               ),
             ),

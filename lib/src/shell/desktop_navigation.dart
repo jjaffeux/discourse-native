@@ -13,11 +13,13 @@ class DesktopNavigation extends StatefulWidget {
   const DesktopNavigation({
     super.key,
     required this.compact,
+    this.showTrigger = true,
     required this.sidebar,
     required this.child,
   });
 
   final bool compact;
+  final bool showTrigger;
   final Widget sidebar;
   final Widget child;
 
@@ -94,9 +96,9 @@ class _DesktopNavigationState extends State<DesktopNavigation> {
             child: Column(
               children: [
                 Offstage(
-                  offstage: !widget.compact,
+                  offstage: !widget.compact || !widget.showTrigger,
                   child: ExcludeFocus(
-                    excluding: !widget.compact,
+                    excluding: !widget.compact || !widget.showTrigger,
                     child: Align(
                       alignment: AlignmentDirectional.centerStart,
                       child: Padding(

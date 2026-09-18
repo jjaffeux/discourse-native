@@ -26,7 +26,14 @@ import 'update_controller.dart';
 import 'update_sheet.dart';
 
 class InstanceRail extends StatelessWidget {
-  const InstanceRail({super.key});
+  const InstanceRail({
+    super.key,
+    this.onToggleSidebar,
+    this.sidebarExpanded = true,
+  });
+
+  final VoidCallback? onToggleSidebar;
+  final bool sidebarExpanded;
 
   @override
   Widget build(BuildContext context) {
@@ -44,6 +51,21 @@ class InstanceRail extends StatelessWidget {
               right: false,
               child: Column(
                 children: [
+                  if (onToggleSidebar != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8, bottom: 4),
+                      child: DButton.iconOnly(
+                        key: const ValueKey('rail-sidebar-toggle'),
+                        icon: const Icon(Icons.menu),
+                        tooltip: sidebarExpanded
+                            ? 'Collapse sidebar'
+                            : 'Expand sidebar',
+                        expanded: sidebarExpanded,
+                        variant: DButtonVariant.ghost,
+                        size: DButtonSize.large,
+                        onPressed: onToggleSidebar,
+                      ),
+                    ),
                   if (state.loadStatus == InstanceLoadStatus.ready &&
                       state.instances.isNotEmpty) ...[
                     Padding(
