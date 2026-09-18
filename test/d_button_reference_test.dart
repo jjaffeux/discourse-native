@@ -219,12 +219,12 @@ void main() {
           expect(
             buttonSurface(tester).color,
             color?.withValues(alpha: color.a * .1) ??
-                tokens.controlTheme.outline.background,
+                tokens.buttonTheme.outline.background,
           );
           expect(
             buttonSurface(tester).borderColor,
             color?.withValues(alpha: color.a * .25) ??
-                tokens.controlTheme.outline.border,
+                tokens.buttonTheme.outline.border,
           );
         }
       }
@@ -310,7 +310,7 @@ void main() {
     },
   );
 
-  testWidgets('default button radii follow the theme at every size', (
+  testWidgets('default buttons use the mockup radius at every size', (
     tester,
   ) async {
     for (final baseRadius in [0.0, 4.0, 10.0, 14.0, 20.0]) {
@@ -348,7 +348,7 @@ void main() {
                       .shape!
                       .resolve({})!
                   as RoundedRectangleBorder;
-          final expected = baseRadius;
+          const expected = 8.0;
           final radius = shape.borderRadius.resolve(TextDirection.ltr);
           expect(radius.topLeft.x, closeTo(expected, .000001));
           expect(radius, BorderRadius.circular(radius.topLeft.x));
@@ -422,14 +422,14 @@ void main() {
       await tester.pumpAndSettle();
       expect(
         buttonSurface(tester).color,
-        tokens.controlTheme.outline.background,
+        tokens.buttonTheme.outline.background,
       );
       expect(
         buttonSurface(tester).borderColor,
-        tokens.controlTheme.outline.border,
+        tokens.buttonTheme.outline.border,
       );
       await hover(tester, find.byType(FilledButton));
-      expect(buttonSurface(tester).color, tokens.controlTheme.outline.hover);
+      expect(buttonSurface(tester).color, tokens.buttonTheme.outline.hover);
     },
   );
 
@@ -492,7 +492,9 @@ void main() {
       }
 
       final middle = bounds.center.dy;
-      final primary = tokensOf(tester).primary;
+      final primary = Color(
+        tokensOf(tester).buttonTheme.primary.background.toARGB32(),
+      );
       // Filled and outlined controls share the same visible outer bounds.
       expect(await pixel(bounds.right - 1, middle), primary);
       expect(await pixel(bounds.right - 2, middle), primary);
@@ -536,9 +538,9 @@ void main() {
           final tokens = tokensOf(tester);
           final expected = switch (variant) {
             DButtonVariant.outline ||
-            DButtonVariant.secondary => tokens.controlTheme.outline.hover,
-            DButtonVariant.ghost => DControlStyle.rowHover(tokens),
-            _ => tokens.controlTheme.primary.hover,
+            DButtonVariant.secondary => tokens.buttonTheme.outline.hover,
+            DButtonVariant.ghost => tokens.buttonTheme.accent.hover,
+            _ => tokens.buttonTheme.primary.hover,
           };
           expect(
             buttonSurface(tester).color,
@@ -561,7 +563,7 @@ void main() {
       await hover(tester, find.byType(FilledButton));
       expect(
         buttonSurface(tester).color,
-        tokensOf(tester).controlTheme.outline.hover,
+        tokensOf(tester).buttonTheme.outline.hover,
       );
     },
   );
@@ -592,7 +594,7 @@ void main() {
       expect(surface.ringColor, tokens.focusRing);
       expect(
         surface.borderColor,
-        tokens.controlTheme.outline.border,
+        tokens.buttonTheme.outline.border,
         reason: theme.brightness.name,
       );
       await tester.pumpWidget(const SizedBox());
@@ -622,8 +624,8 @@ void main() {
         expect(
           buttonSurface(tester).color,
           variant == DButtonVariant.primary
-              ? tokens.controlTheme.primary.hover
-              : tokens.controlTheme.outline.hover,
+              ? tokens.buttonTheme.primary.hover
+              : tokens.buttonTheme.outline.hover,
           reason: variant.name,
         );
         expect(tester.getTopLeft(find.text('Press')).dy, origin.dy);
@@ -682,7 +684,7 @@ void main() {
     expect(painted().ringWidth, 1);
     expect(container().duration, const Duration(milliseconds: 150));
     expect(container().curve, Curves.ease);
-    final primaryHover = tokensOf(tester).controlTheme.primary.hover;
+    final primaryHover = tokensOf(tester).buttonTheme.primary.hover;
     await hover(tester, find.byType(FilledButton));
     await tester.pump(const Duration(milliseconds: 75));
     expect(painted().color, primaryHover);

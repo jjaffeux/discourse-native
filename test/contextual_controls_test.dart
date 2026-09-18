@@ -97,7 +97,7 @@ void main() {
     );
     final trigger = find.byType(DButton);
     final tokens = DTokens.of(tester.element(trigger));
-    final surface = tokens.controls!.primary;
+    final surface = tokens.buttonTheme.primary;
     expect(buttonSurface(tester).color, surface.background);
     final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
     await mouse.addPointer(location: Offset.zero);
@@ -195,11 +195,11 @@ void main() {
         DTokens tokens() => DTokens.of(tester.element(trigger));
         expect(
           buttonSurface(tester, of: trigger).color,
-          tokens().controls!.outline.background,
+          tokens().buttonTheme.outline.background,
         );
         expect(
           buttonSurface(tester, of: trigger).borderColor,
-          tokens().controls!.outline.border,
+          tokens().buttonTheme.outline.border,
         );
         final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
         await mouse.addPointer(location: Offset.zero);
@@ -208,11 +208,11 @@ void main() {
         await tester.pumpAndSettle();
         expect(
           buttonSurface(tester, of: trigger).color,
-          tokens().controls!.outline.hover,
+          tokens().buttonTheme.outline.hover,
         );
         expect(
           buttonSurface(tester, of: trigger).borderColor,
-          tokens().controls!.outline.hoverBorder,
+          tokens().buttonTheme.outline.hoverBorder,
         );
         await mouse.moveTo(Offset.zero);
         await tester.pumpAndSettle();
@@ -223,15 +223,15 @@ void main() {
         expect(find.byType(DDropdownMenuContent), findsOneWidget);
         expect(
           buttonSurface(tester, of: trigger).color,
-          tokens().controls!.outline.hover,
+          tokens().buttonTheme.outline.hover,
         );
         expect(
           buttonSurface(tester, of: trigger).borderColor,
-          tokens().controls!.outline.hoverBorder,
+          tokens().buttonTheme.outline.hoverBorder,
         );
         expect(
           buttonSurface(tester, of: bookmark).color,
-          tokens().controls!.outline.background,
+          tokens().buttonTheme.outline.background,
         );
         expect(buttonSurface(tester, of: trigger).joinedAxis, Axis.horizontal);
         expect(tester.getRect(bookmark).right, tester.getRect(trigger).left);
@@ -247,7 +247,7 @@ void main() {
         expect(find.byTooltip('Notifications: Normal'), findsOneWidget);
         expect(
           buttonSurface(tester, of: trigger).color,
-          tokens().controls!.outline.background,
+          tokens().buttonTheme.outline.background,
         );
       },
     );

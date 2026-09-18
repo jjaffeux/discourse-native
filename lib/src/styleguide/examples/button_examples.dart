@@ -9,22 +9,52 @@ import 'control_comparison_example.dart';
 import 'linear_controls_example.dart';
 
 final buttonExamples = ComponentExamples(
-  topLevelExampleIndex: 10,
+  topLevelExampleIndex: 0,
   description: 'Actions and links, with variants for emphasis and intent.',
   status: ComponentStatus.implemented,
   notes:
-      'Linear-style actions use the theme corner radius, 0.5px borders, subtle shadows and solid primary fills. '
-      'Actions and popup triggers share that radius; menus use 12px corners and 32px rows. '
-      'Small controls are 24px with 12px labels; regular controls are 28px with '
-      '13px labels; large controls are 32px with 14px labels. Touch targets remain 48px. '
-      'Hover, pressed and open fills update immediately; keyboard focus uses a 1px '
-      'ring with a 2px gap. Actions stay in place on press. Disabled buttons use '
-      '60% opacity; disabled selectors and switches use 50%. '
-      'Transparent background actions reveal a subtle hover fill; inline text actions '
-      'stay clear. Rich labels may wrap. All colors follow the current forum palette. '
-      'Loading, navigation and asynchronous operations remain caller-owned. '
-      'See docs/component-library/linear-controls.md for the measured reference and verification.',
+      'The redesign has three button families: colored, outlined and transparent. '
+      'Colored actions use a 25% accent fill and accent-tinted foreground; '
+      'outlined actions use a 1px palette border; transparent actions have no resting fill or border. '
+      'Buttons use 8px corners and no shadows. The existing compact Native size scale '
+      'and 48px touch targets are retained. Hover and popup state remain visible, '
+      'with a separate keyboard focus ring. All colors follow the forum palette.',
   examples: [
+    StyleguideExample(
+      title: 'Redesign button families',
+      description:
+          'Colored primary actions, outlined secondary actions and transparent toolbar actions.',
+      code:
+          "DButton(label: Text('New topic'), variant: DButtonVariant.primary, onPressed: createTopic)",
+      builder: (_) => Wrap(
+        spacing: DSpacing.sm,
+        runSpacing: DSpacing.sm,
+        children: [
+          DButton(
+            label: const Text('New topic'),
+            icon: const DIcon(DIcons.plus),
+            onPressed: () {},
+          ),
+          DButton(
+            label: const Text('Assign'),
+            icon: const DIcon(DIcons.user),
+            variant: DButtonVariant.outline,
+            onPressed: () {},
+          ),
+          DButton(
+            label: const Text('Discard'),
+            variant: DButtonVariant.transparentBackground,
+            onPressed: () {},
+          ),
+          DButton.iconOnly(
+            icon: const DIcon(DIcons.xmark),
+            tooltip: 'Close',
+            variant: DButtonVariant.transparentBackground,
+            onPressed: () {},
+          ),
+        ],
+      ),
+    ),
     StyleguideExample(
       title: 'Pill toolbar action',
       description:

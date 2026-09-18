@@ -18,7 +18,7 @@ enum DButtonVariant {
   secondary,
   ghost,
 
-  /// A subdued foreground that brightens on interaction, with no surface fill.
+  /// Clear at rest, with a subdued foreground and a neutral interaction fill.
   transparentBackground,
 
   /// Transparent text action with no horizontal inset, for inline metadata.
@@ -438,7 +438,7 @@ class DButton extends StatelessWidget {
   final bool autofocus;
   final AlignmentGeometry alignment;
 
-  /// Defaults to the host theme radius; pill is an explicit geometry override.
+  /// Defaults to the redesign’s 8px radius; pill is an explicit geometry override.
   final DButtonShape shape;
   final BorderRadiusGeometry? borderRadius;
 
@@ -451,7 +451,7 @@ class DButton extends StatelessWidget {
   /// The focus ring retains its separate themed color.
   final Color? foregroundColor;
 
-  /// Overrides the hairline border in every state except [invalid]. The themed focus
+  /// Overrides the one-pixel border in every state except [invalid]. The themed focus
   /// ring remains visible, and joined groups still omit the shared border.
   final Color? borderColor;
 
@@ -482,11 +482,8 @@ class DButton extends StatelessWidget {
   };
 
   DButtonVariantStyle _referenceStyle(DTokens tokens, bool dark) {
-    // Forum metadata colors can be too faint for enabled actions on light
-    // surfaces. Keep their hue, but give controls more weight than metadata.
-    final subduedForeground = dark
-        ? tokens.mutedForeground
-        : Color.lerp(tokens.mutedForeground, tokens.foreground, .35)!;
+    final buttons = tokens.buttonTheme;
+    final subduedForeground = buttons.accent.foreground;
     DButtonStateStyle state(
       Color background,
       Color foreground, [
@@ -509,43 +506,42 @@ class DButton extends StatelessWidget {
       focused: state(background, foreground, border),
       expanded: state(expanded ?? background, foreground, border),
     );
-    final input = DControlStyle.outlineBorder(tokens, dark: dark);
     final outline = DButtonVariantStyle(
       enabled: state(
-        DControlStyle.outlineFill(tokens, dark: dark),
-        tokens.foreground,
-        input,
+        buttons.outline.background,
+        buttons.outline.foreground,
+        buttons.outline.border,
       ),
       interactive: state(
-        DControlStyle.outlineFill(tokens, dark: dark, hovered: true),
-        tokens.foreground,
-        DControlStyle.outlineBorder(tokens, dark: dark, hovered: true),
+        buttons.outline.hover,
+        buttons.outline.foreground,
+        buttons.outline.hoverBorder,
       ),
       focused: state(
-        DControlStyle.outlineFill(tokens, dark: dark),
-        tokens.foreground,
-        input,
+        buttons.outline.background,
+        buttons.outline.foreground,
+        buttons.outline.border,
       ),
       expanded: state(
-        DControlStyle.outlineFill(tokens, dark: dark, hovered: true),
-        tokens.foreground,
-        DControlStyle.outlineBorder(tokens, dark: dark, hovered: true),
+        buttons.outline.hover,
+        buttons.outline.foreground,
+        buttons.outline.hoverBorder,
       ),
     );
     return switch (_visualVariant) {
       DButtonVariant.primary => pair(
-        tokens.controlTheme.primary.background,
-        tokens.controlTheme.primary.hover,
-        tokens.controlTheme.primary.foreground,
-        expanded: tokens.controlTheme.primary.hover,
+        buttons.primary.background,
+        buttons.primary.hover,
+        buttons.primary.foreground,
+        expanded: buttons.primary.hover,
       ),
       DButtonVariant.outline || DButtonVariant.secondary => outline,
       DButtonVariant.ghost ||
       DButtonVariant.transparentBackground => DButtonVariantStyle(
         enabled: state(Colors.transparent, subduedForeground),
-        interactive: state(DControlStyle.rowHover(tokens), tokens.foreground),
+        interactive: state(buttons.accent.hover, tokens.foreground),
         focused: state(Colors.transparent, tokens.foreground),
-        expanded: state(DControlStyle.rowHover(tokens), tokens.foreground),
+        expanded: state(buttons.accent.hover, tokens.foreground),
       ),
       DButtonVariant.inline => DButtonVariantStyle(
         enabled: state(Colors.transparent, subduedForeground),
@@ -597,7 +593,7 @@ class DButton extends StatelessWidget {
         BorderRadius.circular(
           shape == DButtonShape.pill
               ? visualDimension / 2
-              : DControlStyle.radius(tokens, size),
+              : tokens.buttonTheme.radius,
         );
     final direction = Directionality.of(context);
     final joined = DJoinedControlScope.maybeOf(context);
@@ -691,7 +687,9 @@ class DButton extends StatelessWidget {
         (states) => theme.textTheme.labelLarge!.copyWith(
           fontSize: fontSize,
           height: DControlStyle.lineHeight(size) / fontSize,
-          fontWeight: FontWeight.w500,
+          fontWeight: _visualVariant == DButtonVariant.primary
+              ? FontWeight.w600
+              : FontWeight.w400,
           letterSpacing: 0,
           decoration:
               variant == DButtonVariant.link &&
@@ -756,13 +754,7 @@ class DButton extends StatelessWidget {
             ringColor: ringColor,
             ringWidth: focused || invalid ? DControlStyle.focusWidth : 0,
             ringOffset: DControlStyle.focusOffset,
-            shadowColor:
-                joined == null &&
-                    (_visualVariant == DButtonVariant.primary ||
-                        _visualVariant == DButtonVariant.outline ||
-                        _visualVariant == DButtonVariant.secondary)
-                ? DControlStyle.shadow(tokens)
-                : Colors.transparent,
+            strokeWidth: 1,
             joinedAxis: joined?.omitsLeadingBorder ?? false
                 ? joined!.axis
                 : null,
@@ -950,8 +942,8 @@ class _DButtonSurfaceState extends State<_DButtonSurface> {
   );
 }
 
-/// The painted button surface: a fill clipped to the padding box, a half-pixel
-/// border, subtle shadow and exterior focus or invalid ring.
+/// The painted button surface: a fill clipped to the padding box, a one-pixel
+/// border and exterior focus or invalid ring.
 ///
 /// A visible border surrounds the fill; borderless surfaces fill their bounds.
 /// [DControlDecoration.joinedAxis] names the axis along

@@ -97,6 +97,34 @@ class DControlTheme {
     );
   }
 
+  /// The HTML redesign's three button treatments, derived from the forum
+  /// foreground (primary), canvas (secondary) and accent (tertiary).
+  factory DControlTheme.buttons(ColorScheme colors, Color background) {
+    Color mix(Color color, double amount) =>
+        Color.lerp(background, color, amount)!;
+    final foreground = mix(colors.onSurface, .62);
+    return DControlTheme(
+      radius: 8,
+      primary: DControlSurface(
+        background: mix(colors.primary, .25),
+        hover: mix(colors.primary, .32),
+        foreground: Color.lerp(colors.onSurface, colors.primary, .5)!,
+      ),
+      outline: DControlSurface(
+        background: mix(colors.onSurface, .03),
+        hover: mix(colors.onSurface, .10),
+        foreground: foreground,
+        border: mix(colors.onSurface, .22),
+        hoverBorder: mix(colors.onSurface, .32),
+      ),
+      accent: DControlSurface(
+        background: Colors.transparent,
+        hover: colors.onSurface.withValues(alpha: .08),
+        foreground: foreground,
+      ),
+    );
+  }
+
   final DControlSurface outline;
   final DControlSurface primary;
   final DControlSurface accent;

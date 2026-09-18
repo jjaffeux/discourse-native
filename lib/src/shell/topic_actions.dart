@@ -56,7 +56,7 @@ class TopicBookmarkButton extends StatelessWidget {
     // A saved bookmark keeps the joined outline while taking the selected fill.
     final selectedSurface =
         topic.topicBookmark != null && buttonVariant == DButtonVariant.outline
-        ? DTokens.of(context).controls?.primary
+        ? DTokens.of(context).buttonTheme.primary
         : null;
     void open() => unawaited(
       showTopicBookmarkMenu(

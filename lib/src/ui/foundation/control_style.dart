@@ -114,7 +114,9 @@ class DControlDecoration extends Decoration {
     this.ringOffset = 0,
     this.shadowColor = const Color(0x00000000),
     this.joinedAxis,
-  }) : assert(ringWidth >= 0);
+    this.strokeWidth = borderWidth,
+  }) : assert(ringWidth >= 0),
+       assert(strokeWidth >= 0);
 
   static const double borderWidth = .5;
 
@@ -126,6 +128,9 @@ class DControlDecoration extends Decoration {
   final double ringOffset;
   final Color shadowColor;
   final Axis? joinedAxis;
+
+  /// Buttons use 1px; existing editable controls retain their 0.5px frame.
+  final double strokeWidth;
 
   @override
   BoxPainter createBoxPainter([VoidCallback? onChanged]) =>
@@ -142,6 +147,7 @@ class DControlDecoration extends Decoration {
           ringOffset: lerpDouble(a.ringOffset, ringOffset, t)!,
           shadowColor: Color.lerp(a.shadowColor, shadowColor, t)!,
           joinedAxis: t < .5 ? a.joinedAxis : joinedAxis,
+          strokeWidth: lerpDouble(a.strokeWidth, strokeWidth, t)!,
         )
       : super.lerpFrom(a, t);
 
@@ -152,6 +158,7 @@ class DControlDecoration extends Decoration {
   @override
   bool operator ==(Object other) =>
       other is DControlDecoration &&
+      other.strokeWidth == strokeWidth &&
       other.color == color &&
       other.borderColor == borderColor &&
       other.borderRadius == borderRadius &&
@@ -163,6 +170,7 @@ class DControlDecoration extends Decoration {
 
   @override
   int get hashCode => Object.hash(
+    strokeWidth,
     color,
     borderColor,
     borderRadius,
@@ -195,7 +203,7 @@ class _DControlPainter extends BoxPainter {
     }
     final direction = configuration.textDirection ?? TextDirection.ltr;
     final axis = decoration.joinedAxis;
-    const width = DControlDecoration.borderWidth;
+    final width = decoration.strokeWidth;
     final sharesStart = axis == Axis.horizontal;
     final inner = RRect.fromRectAndCorners(
       Rect.fromLTRB(

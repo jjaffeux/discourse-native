@@ -1,5 +1,9 @@
 # Button implementation and reference mapping
 
+Current application styling is defined by the [September 18 button redesign](button-redesign.md).
+It supersedes the historical appearance and geometry notes below; interaction
+and compatibility APIs remain in effect.
+
 Current sizing: [24/28/32px Native scale](compact-control-sizing.md), with
 12/13/14px small/regular/large labels and no extra-small controls. The frozen reference metrics
 below describe the original upstream implementation.
