@@ -157,7 +157,7 @@ void main() {
         final image = await box.toImage(pixelRatio: 2);
         final bytes = await image.toByteData(format: ImageByteFormat.rawRgba);
         final pixels = [
-          for (final dx in [-2, -1, 0])
+          for (final dx in [-3, -1, 0])
             bytes!.buffer
                 .asUint8List(
                   (first.height.toInt() * image.width +

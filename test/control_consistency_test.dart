@@ -10,97 +10,104 @@ import 'package:flutter_test/flutter_test.dart';
 import 'support/button_surface.dart';
 
 void main() {
-  testWidgets('buttons, selectors and filters share live theme geometry', (
-    tester,
-  ) async {
-    for (final palette in [StyleguideTheme.dark, StyleguideTheme.plum]) {
-      final theme = palette
-          .resolve(AppTheme.dark)
-          .copyWith(platform: TargetPlatform.macOS);
-      await tester.pumpWidget(
-        MaterialApp(
-          theme: theme,
-          home: Scaffold(
-            body: Column(
-              children: [
-                DButton(
-                  label: const Text('Action'),
-                  variant: DButtonVariant.outline,
-                  onPressed: () {},
-                ),
-                DButton.iconOnly(
-                  tooltip: 'Toolbar action',
-                  icon: const Icon(Icons.close),
-                  variant: DButtonVariant.transparentBackground,
-                  onPressed: () {},
-                ),
-                DButton.iconOnly(
-                  tooltip: 'Toolbar menu action',
-                  icon: const Icon(Icons.tune),
-                  size: DButtonSize.large,
-                  variant: DButtonVariant.transparentBackground,
-                  hasPopup: true,
-                  onPressed: () {},
-                ),
-                DSelect<String>(
-                  width: 128,
-                  value: 'Recent',
-                  entries: const [
-                    DSelectItem(
-                      value: 'Recent',
-                      textValue: 'Recent',
-                      child: Text('Recent'),
-                    ),
-                  ],
-                  onChanged: (_) {},
-                ),
-                TopicTaxonomyButton(
-                  label: 'Tags',
-                  semanticLabel: 'Tags',
-                  onPressed: () {},
-                  maximumWidth: 200,
-                ),
-              ],
+  testWidgets(
+    'buttons and filters share redesign surfaces while selectors retain field styling',
+    (tester) async {
+      for (final palette in [StyleguideTheme.dark, StyleguideTheme.plum]) {
+        final theme = palette
+            .resolve(AppTheme.dark)
+            .copyWith(platform: TargetPlatform.macOS);
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: theme,
+            home: Scaffold(
+              body: Column(
+                children: [
+                  DButton(
+                    label: const Text('Action'),
+                    variant: DButtonVariant.outline,
+                    onPressed: () {},
+                  ),
+                  DButton.iconOnly(
+                    tooltip: 'Toolbar action',
+                    icon: const Icon(Icons.close),
+                    variant: DButtonVariant.transparentBackground,
+                    onPressed: () {},
+                  ),
+                  DButton.iconOnly(
+                    tooltip: 'Toolbar menu action',
+                    icon: const Icon(Icons.tune),
+                    size: DButtonSize.large,
+                    variant: DButtonVariant.transparentBackground,
+                    hasPopup: true,
+                    onPressed: () {},
+                  ),
+                  DSelect<String>(
+                    width: 128,
+                    value: 'Recent',
+                    entries: const [
+                      DSelectItem(
+                        value: 'Recent',
+                        textValue: 'Recent',
+                        child: Text('Recent'),
+                      ),
+                    ],
+                    onChanged: (_) {},
+                  ),
+                  TopicTaxonomyButton(
+                    label: 'Tags',
+                    semanticLabel: 'Tags',
+                    onPressed: () {},
+                    maximumWidth: 200,
+                  ),
+                ],
+              ),
             ),
           ),
-        ),
-      );
-      await tester.pumpAndSettle();
-      final action = buttonSurface(
-        tester,
-        of: find.widgetWithText(DButton, 'Action'),
-      );
-      final filter = buttonSurface(
-        tester,
-        of: find.byType(TopicTaxonomyButton),
-      );
-      final select =
-          tester
-                  .widget<AnimatedContainer>(
-                    find.byKey(const Key('d-select-trigger-visual')),
-                  )
-                  .decoration!
-              as DButtonDecoration;
-      final radius = BorderRadius.circular(theme.extension<DTokens>()!.radius);
-      expect(action.borderRadius, radius);
-      for (final tooltip in ['Toolbar action', 'Toolbar menu action']) {
-        final button = find.ancestor(
-          of: find.byTooltip(tooltip),
-          matching: find.byType(DButton),
         );
-        expect(buttonSurface(tester, of: button).borderRadius, radius);
+        await tester.pumpAndSettle();
+        final action = buttonSurface(
+          tester,
+          of: find.widgetWithText(DButton, 'Action'),
+        );
+        final filter = buttonSurface(
+          tester,
+          of: find.byType(TopicTaxonomyButton),
+        );
+        final select =
+            tester
+                    .widget<AnimatedContainer>(
+                      find.byKey(const Key('d-select-trigger-visual')),
+                    )
+                    .decoration!
+                as DButtonDecoration;
+        const radius = BorderRadius.all(Radius.circular(8));
+        expect(action.borderRadius, radius);
+        for (final tooltip in ['Toolbar action', 'Toolbar menu action']) {
+          final button = find.ancestor(
+            of: find.byTooltip(tooltip),
+            matching: find.byType(DButton),
+          );
+          expect(buttonSurface(tester, of: button).borderRadius, radius);
+        }
+        for (final surface in [filter]) {
+          expect(surface.borderRadius, radius);
+          expect(surface.borderColor, action.borderColor);
+          expect(surface.color, action.color);
+        }
+        expect(
+          select.borderRadius,
+          BorderRadius.circular(theme.extension<DTokens>()!.controlRadius),
+        );
+        expect(
+          tester
+              .getSize(find.byKey(const Key('d-select-trigger-visual')))
+              .height,
+          tester.getSize(find.widgetWithText(FilledButton, 'Action')).height,
+        );
       }
-      for (final surface in [filter, select]) {
-        expect(surface.borderRadius, radius);
-        expect(surface.borderColor, action.borderColor);
-        expect(surface.color, action.color);
-      }
-      expect(
-        tester.getSize(find.byKey(const Key('d-select-trigger-visual'))).height,
-        tester.getSize(find.widgetWithText(FilledButton, 'Action')).height,
-      );
-    }
-  });
+    },
+  );
 
   testWidgets(
     'standard menu trigger owns one button and restores borrowed focus',
