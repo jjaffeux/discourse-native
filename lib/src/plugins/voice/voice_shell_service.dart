@@ -26,11 +26,13 @@ final class VoiceShellService
     required this.controller,
     required PluginRouteNavigationHost host,
     required VoiceRecordingEnabledReader recordingEnabled,
+    VoiceSiteFlagReader enabled = _siteDefaultOn,
     VoiceSiteFlagReader meshPrivacyWarningEnabled = _siteDefaultOn,
     VoiceSiteFlagReader autoStatusEnabled = _siteDefaultOn,
     VoiceUsernameReader currentUsername = _noUsername,
   }) : _host = host,
        _recordingEnabled = recordingEnabled,
+       _enabled = enabled,
        _meshPrivacyWarningEnabled = meshPrivacyWarningEnabled,
        _autoStatusEnabled = autoStatusEnabled,
        _currentUsername = currentUsername;
@@ -38,6 +40,7 @@ final class VoiceShellService
   final VoiceController controller;
   final PluginRouteNavigationHost _host;
   final VoiceRecordingEnabledReader _recordingEnabled;
+  final VoiceSiteFlagReader _enabled;
   final VoiceSiteFlagReader _meshPrivacyWarningEnabled;
   final VoiceSiteFlagReader _autoStatusEnabled;
   final VoiceUsernameReader _currentUsername;
@@ -47,6 +50,8 @@ final class VoiceShellService
   ContentRoute? get currentContent => _host.currentContent;
 
   int? currentUserIdFor(String siteUrl) => controller.currentUserIdFor(siteUrl);
+
+  bool enabledFor(String siteUrl) => _enabled(siteUrl);
 
   bool recordingEnabledFor(String siteUrl) => _recordingEnabled(siteUrl);
 

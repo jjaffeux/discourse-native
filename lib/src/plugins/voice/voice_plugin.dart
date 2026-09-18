@@ -20,6 +20,8 @@ final class VoicePlugin
     implements
         SitePlugin,
         SidebarPlugin,
+        SidebarPanelPlugin,
+        SidebarPanelListenablePlugin,
         ContentPlugin,
         ShellOverlayPlugin,
         NotificationTypePlugin,
@@ -90,14 +92,47 @@ final class VoicePlugin
   }
 
   @override
+  SidebarPanelContribution? sidebarPanel(BuildContext context) {
+    final controller = PluginUiScope.require(context, voiceControllerService);
+    final shell = PluginUiScope.require(context, voiceShellService);
+    final instance = shell.currentInstance;
+    if (!controller.supportedPlatform || instance?.isConnected != true) {
+      return null;
+    }
+    // A successful directory response is the server's access check.
+    if (!shell.enabledFor(instance!.url) ||
+        controller.directory(instance.url) == null) {
+      return null;
+    }
+    return SidebarPanelContribution(
+      label: 'Voice',
+      icon: DIcons.microphoneLines,
+      active: roomIdIn(shell.currentContent?.id ?? '') != null,
+      separateWhenActive: true,
+      includeSectionsWhenInactive: false,
+      showSwitch: true,
+      onOpen: () {},
+      onClose: () {},
+    );
+  }
+
+  @override
+  Listenable sidebarPanelListenable(BuildContext context) =>
+      PluginUiScope.require(context, voiceControllerService);
+
+  @override
   List<SidebarSection> sidebarSections(BuildContext context) {
     final controller = PluginUiScope.require(context, voiceControllerService);
     final shell = PluginUiScope.require(context, voiceShellService);
     if (!controller.supportedPlatform) return const [];
     final instance = shell.currentInstance;
-    if (instance == null || !instance.isConnected) return const [];
+    if (instance == null ||
+        !instance.isConnected ||
+        !shell.enabledFor(instance.url)) {
+      return const [];
+    }
     final directory = controller.directory(instance.url);
-    if (directory == null || directory.rooms.isEmpty) return const [];
+    if (directory == null) return const [];
 
     return [
       SidebarSection(

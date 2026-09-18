@@ -15,6 +15,7 @@ import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/models/user_status.dart';
 import 'package:discourse_native/src/plugin_api/plugin_data.dart';
 import 'package:discourse_native/src/plugin_api/plugin_runtime.dart';
+import 'package:discourse_native/src/plugin_api/plugin_scope.dart';
 import 'package:discourse_native/src/plugin_api/shell_extensions.dart';
 import 'package:discourse_native/src/plugin_api/site_plugin_api.dart'
     show SidebarPanelContribution, SidebarPanelPlugin, SitePlugin;
@@ -264,6 +265,18 @@ void _registerChatShellTests() {
           after: after,
         );
 
+    var startOnChatSidebar = false;
+    setUp(() => startOnChatSidebar = false);
+
+    Future<void> selectChatSidebar(WidgetTester tester) async {
+      final tab = find.byKey(const ValueKey('sidebar-panel-switch-chat'));
+      if (tab.evaluate().isNotEmpty) {
+        await tester.ensureVisible(tab);
+        await tester.tap(tab);
+        await tester.pumpAndSettle();
+      }
+    }
+
     Future<void> pumpChat(
       WidgetTester tester, {
       NotificationTotals? totals,
@@ -327,6 +340,7 @@ void _registerChatShellTests() {
         mediaClient: mediaClient,
       );
       await tester.pumpAndSettle();
+      if (startOnChatSidebar) await selectChatSidebar(tester);
     }
 
     /// `pumpAndSettle` does not advance an unscheduled dwell timer.
@@ -767,6 +781,10 @@ void _registerChatShellTests() {
           );
 
           final categoryRequests = api.categoryRequests.length;
+          await tester.tap(
+            find.byKey(const ValueKey('sidebar-panel-switch-main')),
+          );
+          await tester.pumpAndSettle();
           await tester.tap(sidebarDestination('Topics'));
           await tester.pumpAndSettle();
 
@@ -1311,6 +1329,7 @@ void _registerChatShellTests() {
           TextStyle sidebarLabelStyle() => DefaultTextStyle.of(
             tester.element(sidebarDestination('Bugs')),
           ).style;
+          await selectChatSidebar(tester);
           expect(sidebarLabelStyle().fontWeight, FontWeight.w400);
 
           await tester.tap(shortcut);
@@ -1336,6 +1355,7 @@ void _registerChatShellTests() {
 
           await tester.tap(find.byKey(ChatDrawerOverlay.collapseButtonKey));
           await tester.pumpAndSettle();
+          await selectChatSidebar(tester);
           expect(sidebarLabelStyle().fontWeight, FontWeight.w400);
 
           await tester.tap(find.byKey(ChatDrawerOverlay.headerKey));
@@ -1345,6 +1365,7 @@ void _registerChatShellTests() {
           await tester.tap(find.byKey(ChatDrawerOverlay.closeButtonKey));
           await tester.pumpAndSettle();
 
+          await selectChatSidebar(tester);
           expect(sidebarLabelStyle().fontWeight, FontWeight.w400);
         },
       );
@@ -2677,57 +2698,74 @@ void _registerChatShellTests() {
     });
 
     group('in the sidebar', () {
+      setUp(() => startOnChatSidebar = true);
       group('separate sidebar modes', () {
-        testWidgets('pads and centers the panel switcher at the bottom', (
+        setUp(() => startOnChatSidebar = false);
+
+        // Legacy pane handoffs remain supported by the navigation service;
+        // sidebar tabs themselves now only choose which destinations to show.
+        Future<void> switchPane(WidgetTester tester, String owner) async {
+          final context = tester.element(find.byType(InstanceSidebar));
+          final shell = ShellScope.read(context);
+          final panels = PluginScope.of(
+            context,
+          ).registry.sidebarPanels(context);
+          final panel = owner == 'main'
+              ? panels.firstWhere((panel) => panel.panel.active).panel
+              : panels.firstWhere((panel) => panel.owner.value == owner).panel;
+          shell.switchSidebarPanel(
+            owner == 'main' ? panel.onClose : panel.onOpen,
+          );
+          await tester.pumpAndSettle();
+        }
+
+        testWidgets('keeps both panel tabs above the sidebar destinations', (
           tester,
         ) async {
-          await pumpChat(
-            tester,
-            public: [channel(9)],
-            user: chatUser(separateSidebarMode: ChatSeparateSidebarMode.always),
-          );
-
-          final switcher = find.byKey(
-            const ValueKey('sidebar-panel-switch-chat'),
-          );
-          final switcherRect = tester.getRect(switcher);
-          final sidebarRect = tester.getRect(find.byType(InstanceSidebar));
-          final switcherContent = find.descendant(
-            of: switcher,
-            matching: find.byType(Row),
-          );
-
-          expect(switcherContent, findsOneWidget);
-          expect(switcherRect.center.dy, greaterThan(sidebarRect.center.dy));
-          expect(sidebarRect.bottom - switcherRect.bottom, 8);
-          expect(switcherRect.height, greaterThan(36));
+          await pumpChat(tester, public: [channel(9)]);
+          final tabs = find.byKey(const ValueKey('sidebar-panel-tabs'));
           expect(
-            tester.getRect(switcherContent).center.dx,
-            closeTo(switcherRect.center.dx - 1, .01),
+            find.byKey(const ValueKey('sidebar-panel-switch-main')),
+            findsOneWidget,
+          );
+          expect(
+            find.byKey(const ValueKey('sidebar-panel-switch-chat')),
+            findsOneWidget,
+          );
+          expect(
+            tester.getRect(tabs).bottom,
+            lessThanOrEqualTo(tester.getRect(sidebarDestination('Topics')).top),
+          );
+          expect(
+            find.descendant(
+              of: find.byType(InstanceSidebar),
+              matching: find.byType(DSidebarFooter),
+            ),
+            findsNothing,
           );
         });
 
         for (final scenario in [
           (
-            name: 'an explicit never preference overrides the site',
+            name: 'tabs replace an explicit never preference',
             userMode: ChatSeparateSidebarMode.never,
             siteMode: ChatSeparateSidebarMode.always,
             effectiveMode: ChatSeparateSidebarMode.never,
           ),
           (
-            name: 'an explicit always preference overrides the site',
+            name: 'tabs retain explicit always separation',
             userMode: ChatSeparateSidebarMode.always,
             siteMode: ChatSeparateSidebarMode.never,
             effectiveMode: ChatSeparateSidebarMode.always,
           ),
           (
-            name: 'fullscreen separates only after entering Chat',
+            name: 'tabs separate fullscreen Chat before entry',
             userMode: ChatSeparateSidebarMode.fullscreen,
             siteMode: ChatSeparateSidebarMode.never,
             effectiveMode: ChatSeparateSidebarMode.fullscreen,
           ),
           (
-            name: 'the default preference inherits the site setting',
+            name: 'tabs separate Chat with the default preference',
             userMode: ChatSeparateSidebarMode.siteDefault,
             siteMode: ChatSeparateSidebarMode.always,
             effectiveMode: ChatSeparateSidebarMode.always,
@@ -2744,47 +2782,23 @@ void _registerChatShellTests() {
 
             const chatSwitch = ValueKey('sidebar-panel-switch-chat');
             const forumSwitch = ValueKey('sidebar-panel-switch-main');
-            final separates =
-                scenario.effectiveMode != ChatSeparateSidebarMode.never;
-            final combinesOffChat =
-                scenario.effectiveMode != ChatSeparateSidebarMode.always;
 
             expect(sidebarDestination('Topics'), findsOneWidget);
-            expect(
-              sidebarDestination('Bugs'),
-              combinesOffChat ? findsOneWidget : findsNothing,
-            );
-            expect(
-              find.byKey(chatSwitch),
-              separates ? findsOneWidget : findsNothing,
-            );
-            expect(find.byKey(forumSwitch), findsNothing);
+            expect(sidebarDestination('Bugs'), findsNothing);
+            expect(find.byKey(chatSwitch), findsOneWidget);
+            expect(find.byKey(forumSwitch), findsOneWidget);
 
-            await tester.tap(
-              combinesOffChat
-                  ? sidebarDestination('Bugs')
-                  : find.byKey(chatSwitch),
-            );
+            await tester.tap(find.byKey(chatSwitch));
             await tester.pumpAndSettle();
 
             final shell = ShellScope.read(
               tester.element(find.byType(MainContent)),
             );
-            expect(shell.currentContent?.id, 'chat-c-9');
-            expect(
-              sidebarDestination('Topics'),
-              separates ? findsNothing : findsOneWidget,
-            );
+            expect(shell.currentContent?.id, 'latest');
+            expect(sidebarDestination('Topics'), findsNothing);
             expect(sidebarDestination('Bugs'), findsOneWidget);
-            expect(
-              find.byKey(forumSwitch),
-              separates ? findsOneWidget : findsNothing,
-            );
-            expect(find.byKey(chatSwitch), findsNothing);
-            expect(
-              find.byTooltip(separates ? 'Exit chat' : 'Chat'),
-              findsOneWidget,
-            );
+            expect(find.byKey(forumSwitch), findsOneWidget);
+            expect(find.byKey(chatSwitch), findsOneWidget);
           });
         }
 
@@ -2826,7 +2840,7 @@ void _registerChatShellTests() {
 
             expect(find.bySemanticsLabel('Chat navigation'), findsOneWidget);
             expect(find.bySemanticsLabel('Forum navigation'), findsNothing);
-            expect(shell.currentContent?.id, 'chat-c-9');
+            expect(shell.currentContent?.id, 'latest');
             expect(
               find.byKey(const ValueKey('sidebar-panel-switch-main')),
               findsOneWidget,
@@ -2842,7 +2856,7 @@ void _registerChatShellTests() {
           (mode: ChatSeparateSidebarMode.fullscreen, separates: true),
         ]) {
           testWidgets(
-            'anonymous public Chat honors site mode ${scenario.mode.wireName}',
+            'anonymous public Chat has tabs with site mode ${scenario.mode.wireName}',
             (tester) async {
               await pumpChat(
                 tester,
@@ -2859,29 +2873,30 @@ void _registerChatShellTests() {
 
               expect(shell.currentInstance?.user, isNull);
               expect(sidebarDestination('Topics'), findsOneWidget);
-              expect(sidebarDestination('Bugs'), findsOneWidget);
+              expect(sidebarDestination('Bugs'), findsNothing);
               expect(
                 find.byKey(const ValueKey('sidebar-panel-switch-chat')),
-                findsNothing,
+                findsOneWidget,
               );
               expect(
                 find.byKey(const ValueKey('sidebar-panel-switch-main')),
-                findsNothing,
+                findsOneWidget,
               );
               expect(find.byKey(ChatHeaderButton.buttonKey), findsNothing);
 
+              await tester.tap(
+                find.byKey(const ValueKey('sidebar-panel-switch-chat')),
+              );
+              await tester.pumpAndSettle();
               await tester.tap(sidebarDestination('Bugs'));
               await tester.pumpAndSettle();
 
               expect(shell.currentContent?.id, 'chat-c-9');
-              expect(
-                sidebarDestination('Topics'),
-                scenario.separates ? findsNothing : findsOneWidget,
-              );
+              expect(sidebarDestination('Topics'), findsNothing);
               expect(sidebarDestination('Bugs'), findsOneWidget);
               expect(
                 find.byKey(const ValueKey('sidebar-panel-switch-main')),
-                findsNothing,
+                findsOneWidget,
               );
               expect(find.byKey(ChatHeaderButton.buttonKey), findsNothing);
             },
@@ -2922,16 +2937,9 @@ void _registerChatShellTests() {
               final initialTabCount = shell.tabsForCurrentForum.length;
               expect(shell.currentContent?.id, 'forum-detail');
               expect(sidebarDestination('Topics'), findsOneWidget);
-              expect(
-                sidebarDestination('Bugs'),
-                mode == ChatSeparateSidebarMode.always
-                    ? findsNothing
-                    : findsOneWidget,
-              );
+              expect(sidebarDestination('Bugs'), findsNothing);
 
-              await tester.tap(
-                find.byKey(const ValueKey('sidebar-panel-switch-chat')),
-              );
+              await switchPane(tester, 'chat');
               await tester.pumpAndSettle();
               expect(shell.tabsForCurrentForum, hasLength(initialTabCount + 1));
               expect(shell.activeTabId, isNot(forumTab.id));
@@ -2952,9 +2960,7 @@ void _registerChatShellTests() {
               expect(find.byTooltip('Exit chat'), findsOneWidget);
 
               final chatTab = shell.activeTab!;
-              await tester.tap(
-                find.byKey(const ValueKey('sidebar-panel-switch-main')),
-              );
+              await switchPane(tester, 'main');
               await tester.pumpAndSettle();
               expect(shell.tabsForCurrentForum, hasLength(initialTabCount + 2));
               expect(shell.activeTabId, isNot(chatTab.id));
@@ -2965,16 +2971,9 @@ void _registerChatShellTests() {
               expect(shell.contentStack, forumTab.contentStack);
               expect(shell.currentContent?.id, 'forum-detail');
               expect(sidebarDestination('Topics'), findsOneWidget);
-              expect(
-                sidebarDestination('Bugs'),
-                mode == ChatSeparateSidebarMode.always
-                    ? findsNothing
-                    : findsOneWidget,
-              );
+              expect(sidebarDestination('Bugs'), findsNothing);
 
-              await tester.tap(
-                find.byKey(const ValueKey('sidebar-panel-switch-chat')),
-              );
+              await switchPane(tester, 'chat');
               await tester.pumpAndSettle();
               expect(shell.currentContent?.id, ChatPlugin.searchRouteId);
               expect(sidebarDestination('Topics'), findsNothing);
@@ -3009,9 +3008,7 @@ void _registerChatShellTests() {
               tester.element(find.byType(MainContent)),
             );
 
-            await tester.tap(
-              find.byKey(const ValueKey('sidebar-panel-switch-chat')),
-            );
+            await switchPane(tester, 'chat');
             await tester.pumpAndSettle();
             ShellScope.read(
               tester.element(find.byType(MainContent)),
@@ -3038,9 +3035,7 @@ void _registerChatShellTests() {
             expect(sidebarDestination('Topics'), findsOneWidget);
             expect(sidebarDestination('Bugs'), findsNothing);
 
-            await tester.tap(
-              find.byKey(const ValueKey('sidebar-panel-switch-chat')),
-            );
+            await switchPane(tester, 'chat');
             await tester.pumpAndSettle();
 
             expect(shell.currentContent?.id, ChatPlugin.searchRouteId);
@@ -3102,9 +3097,7 @@ void _registerChatShellTests() {
               expect(shell.handleBack(canReturnToSidebar: false), isFalse);
               expect(shell.currentContent?.id, ChatPlugin.searchRouteId);
 
-              await tester.tap(
-                find.byKey(const ValueKey('sidebar-panel-switch-main')),
-              );
+              await switchPane(tester, 'main');
               await tester.pumpAndSettle();
 
               expect(shell.currentContent, forumRoute);
@@ -3246,10 +3239,7 @@ void _registerChatShellTests() {
               find.byKey(const ValueKey('sidebar-panel-switch-beta')),
               findsOneWidget,
             );
-
-            await tester.tap(
-              find.byKey(const ValueKey('sidebar-panel-switch-beta')),
-            );
+            await switchPane(tester, 'beta');
             await tester.pumpAndSettle();
 
             expect(shell.currentContent?.id, 'beta-root');
@@ -3263,12 +3253,9 @@ void _registerChatShellTests() {
             );
             expect(
               find.byKey(const ValueKey('sidebar-panel-switch-beta')),
-              findsNothing,
+              findsOneWidget,
             );
-
-            await tester.tap(
-              find.byKey(const ValueKey('sidebar-panel-switch-main')),
-            );
+            await switchPane(tester, 'main');
             await tester.pumpAndSettle();
 
             expect(shell.currentContent?.id, 'latest');
@@ -3302,9 +3289,7 @@ void _registerChatShellTests() {
               'forum-detail-a',
             ]);
 
-            await tester.tap(
-              find.byKey(const ValueKey('sidebar-panel-switch-chat')),
-            );
+            await switchPane(tester, 'chat');
             await tester.pumpAndSettle();
             ShellScope.read(
               tester.element(find.byType(MainContent)),
@@ -3333,18 +3318,13 @@ void _registerChatShellTests() {
               isFalse,
             );
 
-            await tester.tap(
-              find.byKey(const ValueKey('sidebar-panel-switch-chat')),
-            );
+            await switchPane(tester, 'chat');
             await tester.pumpAndSettle();
             expect(shell.currentContent?.id, ChatPlugin.searchRouteId);
             expect(shell.contentStack.map((route) => route.id), [
               ChatPlugin.searchRouteId,
             ]);
-
-            await tester.tap(
-              find.byKey(const ValueKey('sidebar-panel-switch-main')),
-            );
+            await switchPane(tester, 'main');
             await tester.pumpAndSettle();
             expect(shell.currentContent?.id, 'forum-detail-b');
             expect(shell.contentStack.map((route) => route.id), [
@@ -3414,9 +3394,7 @@ void _registerChatShellTests() {
               isFalse,
             );
 
-            await tester.tap(
-              find.byKey(const ValueKey('sidebar-panel-switch-chat')),
-            );
+            await switchPane(tester, 'chat');
             await tester.pumpAndSettle();
 
             expect(shell.currentContent?.id, ChatPlugin.searchRouteId);
@@ -4626,6 +4604,7 @@ void _registerChatShellTests() {
     });
 
     group('a channel', () {
+      setUp(() => startOnChatSidebar = true);
       testWidgets(
         'shows a direct-message status after the channel star and its text on hover',
         (tester) async {

@@ -388,27 +388,15 @@ class ChatPlugin
     final siteUrl = shell.currentSiteUrl;
     if (siteUrl == null) return null;
 
-    final active = ownsRouteId(shell.currentContent?.id);
-    final available = shell.chatAvailable(siteUrl);
-    if (!available && !active) return null;
+    if (!shell.chatAvailable(siteUrl)) return null;
 
-    final mode = shell.separateSidebarMode;
-    final anonymous = shell.currentUser == null;
     return SidebarPanelContribution(
       label: 'Chat',
       icon: DIcons.comment,
-      active: active,
-      separateWhenActive: shell.drawerActive
-          ? mode == ChatSeparateSidebarMode.always
-          : mode != ChatSeparateSidebarMode.never,
-      // Anonymous visitors have no panel controls, so core leaves their Chat
-      // sections in the forum panel until they enter full-page Chat.
-      includeSectionsWhenInactive:
-          anonymous || mode != ChatSeparateSidebarMode.always,
-      showSwitch:
-          !anonymous &&
-          mode != ChatSeparateSidebarMode.never &&
-          !shell.drawerActive,
+      active: ownsRouteId(shell.currentContent?.id),
+      separateWhenActive: true,
+      includeSectionsWhenInactive: false,
+      showSwitch: true,
       selectedDestinationId: shell.drawerExpanded
           ? _drawerSidebarDestinationId(shell.drawerCurrentContent?.id)
           : null,
