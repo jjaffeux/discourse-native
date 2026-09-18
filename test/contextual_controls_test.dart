@@ -68,7 +68,7 @@ void main() {
           }
         }
         expect(tokens.focusRing, entry.value.colorScheme.primary);
-        expect(controls.primary.background, isNot(tokens.focusRing));
+        expect(controls.primary.background, tokens.primary);
         expect(tokens.controlRadius, 8);
       }
       // The host's original radius still applies to non-control surfaces.
@@ -76,7 +76,7 @@ void main() {
     },
   );
 
-  testWidgets('primary tint animates independently of its focus ring', (
+  testWidgets('primary hover is immediate and independent of keyboard focus', (
     tester,
   ) async {
     final focus = FocusNode();
@@ -120,18 +120,15 @@ void main() {
                 .decoration
             as DButtonDecoration;
     expect(painted.color, isNot(surface.background));
-    expect(painted.color, isNot(surface.hover));
+    expect(painted.color, surface.hover);
     await tester.pumpAndSettle();
     expect(buttonSurface(tester).color, surface.hover);
     await mouse.moveTo(Offset.zero);
     await tester.sendKeyEvent(LogicalKeyboardKey.tab);
     await tester.pumpAndSettle();
     expect(focus.hasFocus, isTrue);
-    expect(buttonSurface(tester).ringWidth, 3);
-    expect(
-      buttonSurface(tester).ringColor,
-      tokens.focusRing.withValues(alpha: tokens.focusRing.a * .5),
-    );
+    expect(buttonSurface(tester).ringWidth, 1);
+    expect(buttonSurface(tester).ringColor, tokens.focusRing);
     expect(buttonSurface(tester).color, surface.background);
   });
 

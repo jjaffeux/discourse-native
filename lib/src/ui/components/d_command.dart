@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
 import '../../theme/discourse_typography.dart';
+import '../foundation/control_style.dart';
 import '../foundation/focus_highlight.dart';
 import '../foundation/interactive_row.dart';
 import '../foundation/tokens.dart';
@@ -1002,12 +1003,14 @@ class _DCommandItemSurfaceState<T> extends State<_DCommandItemSurface<T>> {
       builder: (context, _) {
         final selected = widget.scope.controller.value == item.value;
         final interactive = item.enabled && selected;
-        final radius = BorderRadius.circular(tokens.radius);
+        final radius = BorderRadius.circular(DControlStyle.rowRadius);
         Widget row = interactiveRowSurface(
           constraints: const BoxConstraints(minHeight: 32),
           padding: const EdgeInsetsDirectional.symmetric(horizontal: 8),
           decoration: BoxDecoration(
-            color: interactive ? tokens.muted : Colors.transparent,
+            color: interactive
+                ? DControlStyle.rowHover(tokens)
+                : Colors.transparent,
             borderRadius: radius,
             border:
                 _focused && interactive && DFocusHighlight.visibleOf(context)
@@ -1021,8 +1024,8 @@ class _DCommandItemSurfaceState<T> extends State<_DCommandItemSurface<T>> {
             ),
             child: DefaultTextStyle(
               style: Theme.of(context).textTheme.bodyMedium!.copyWith(
-                fontSize: DiscourseTypography.sm,
-                height: 20 / 14,
+                fontSize: DControlStyle.labelFontSize,
+                height: 20 / DControlStyle.labelFontSize,
                 color: item.destructive
                     ? tokens.destructive
                     : tokens.foreground,

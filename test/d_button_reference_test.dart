@@ -10,8 +10,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'support/button_surface.dart';
 
-// The frozen shadcn reference remains available without the app's contextual
-// surfaces. App palette adoption is covered by contextual_controls_test.dart.
+// Exercise Linear styling with fallback tokens as well as the app palette.
 ThemeData _referenceTheme(ThemeData base) {
   final tokens = base.extension<DTokens>()!;
   return base.copyWith(
@@ -173,7 +172,7 @@ void main() {
           final tokens = tokensOf(tester);
           final surface = buttonSurface(tester);
           expect(surface.color, fill);
-          expect(surface.ringWidth, 3);
+          expect(surface.ringWidth, 1);
           expect(
             surface.borderColor,
             invalid
@@ -184,11 +183,7 @@ void main() {
           );
           expect(
             surface.ringColor,
-            invalid
-                ? tokens.destructive.withValues(
-                    alpha: theme.brightness == Brightness.dark ? .4 : .2,
-                  )
-                : tokens.focusRing.withValues(alpha: tokens.focusRing.a * .5),
+            invalid ? tokens.destructive : tokens.focusRing,
           );
         }
       }
@@ -221,20 +216,15 @@ void main() {
           );
           await tester.pumpAndSettle();
           final tokens = tokensOf(tester);
-          final dark = theme.brightness == Brightness.dark;
           expect(
             buttonSurface(tester).color,
             color?.withValues(alpha: color.a * .1) ??
-                (dark
-                    ? tokens.colors.outlineVariant.withValues(
-                        alpha: tokens.colors.outlineVariant.a * .3,
-                      )
-                    : tokens.background),
+                tokens.controlTheme.outline.background,
           );
           expect(
             buttonSurface(tester).borderColor,
             color?.withValues(alpha: color.a * .25) ??
-                (dark ? tokens.colors.outlineVariant : tokens.border),
+                tokens.controlTheme.outline.border,
           );
         }
       }
@@ -273,7 +263,7 @@ void main() {
           of: find.byType(FilledButton),
           matching: find.byType(Opacity),
         );
-        expect(tester.widget<Opacity>(opacity).opacity, .5);
+        expect(tester.widget<Opacity>(opacity).opacity, .6);
       }
     },
   );
@@ -282,7 +272,7 @@ void main() {
     'disabled opacity follows the scoped theme without enabling activation',
     (tester) async {
       final base = _referenceTheme(AppTheme.light);
-      expect(base.discourseButtons.disabledOpacity, .5);
+      expect(base.discourseButtons.disabledOpacity, .6);
       var presses = 0;
       for (final opacity in [.5, 1.0, .25]) {
         final theme = base.copyWith(
@@ -320,62 +310,54 @@ void main() {
     },
   );
 
-  testWidgets('small radii scale proportionally with size-specific caps', (
-    tester,
-  ) async {
-    for (final (baseRadius, smRadius) in [
-      (0.0, 0.0),
-      (4.0, 3.2),
-      (10.0, 8.0),
-      (14.0, 10.0),
-      (20.0, 10.0),
-    ]) {
-      final base = _referenceTheme(AppTheme.light);
-      final tokens = base.extension<DTokens>()!.copyWith(radius: baseRadius);
-      final theme = base.copyWith(
-        extensions: [
-          ...base.extensions.values.where((value) => value is! DTokens),
-          tokens,
-        ],
-      );
-      for (final size in DButtonSize.values) {
-        for (final iconOnly in [false, true]) {
-          await pump(
-            tester,
-            iconOnly
-                ? DButton.iconOnly(
-                    icon: const Icon(Icons.add),
-                    tooltip: 'Add',
-                    size: size,
-                    onPressed: () {},
-                  )
-                : DButton(
-                    label: const Text('Button'),
-                    size: size,
-                    onPressed: () {},
-                  ),
-            theme: theme,
-          );
-          await tester.pumpAndSettle();
-          final shape =
-              tester
-                      .widget<FilledButton>(find.byType(FilledButton))
-                      .style!
-                      .shape!
-                      .resolve({})!
-                  as RoundedRectangleBorder;
-          final expected = switch (size) {
-            DButtonSize.small => smRadius,
-            _ => baseRadius,
-          };
-          final radius = shape.borderRadius.resolve(TextDirection.ltr);
-          expect(radius.topLeft.x, closeTo(expected, .000001));
-          expect(radius, BorderRadius.circular(radius.topLeft.x));
-          expect(buttonSurface(tester).borderRadius, radius);
+  testWidgets(
+    'pill radii follow control height independently of the canvas radius',
+    (tester) async {
+      for (final baseRadius in [0.0, 4.0, 10.0, 14.0, 20.0]) {
+        final base = _referenceTheme(AppTheme.light);
+        final tokens = base.extension<DTokens>()!.copyWith(radius: baseRadius);
+        final theme = base.copyWith(
+          extensions: [
+            ...base.extensions.values.where((value) => value is! DTokens),
+            tokens,
+          ],
+        );
+        for (final size in DButtonSize.values) {
+          for (final iconOnly in [false, true]) {
+            await pump(
+              tester,
+              iconOnly
+                  ? DButton.iconOnly(
+                      icon: const Icon(Icons.add),
+                      tooltip: 'Add',
+                      size: size,
+                      onPressed: () {},
+                    )
+                  : DButton(
+                      label: const Text('Button'),
+                      size: size,
+                      onPressed: () {},
+                    ),
+              theme: theme,
+            );
+            await tester.pumpAndSettle();
+            final shape =
+                tester
+                        .widget<FilledButton>(find.byType(FilledButton))
+                        .style!
+                        .shape!
+                        .resolve({})!
+                    as RoundedRectangleBorder;
+            final expected = DButton.visualDimensionFor(size) / 2;
+            final radius = shape.borderRadius.resolve(TextDirection.ltr);
+            expect(radius.topLeft.x, closeTo(expected, .000001));
+            expect(radius, BorderRadius.circular(radius.topLeft.x));
+            expect(buttonSurface(tester).borderRadius, radius);
+          }
         }
       }
-    }
-  });
+    },
+  );
 
   testWidgets('small labels and leading loading icons use compact spacing', (
     tester,
@@ -411,39 +393,46 @@ void main() {
                   .padding!
                   .resolve({})!
               as EdgeInsetsDirectional;
-      expect(padding.start, position == DButtonIconPosition.start ? 7 : 11);
-      expect(padding.end, position == DButtonIconPosition.end ? 7 : 11);
+      expect(padding.start, position == DButtonIconPosition.start ? 8 : 12);
+      expect(padding.end, position == DButtonIconPosition.end ? 8 : 12);
     }
   });
 
-  testWidgets('dark outline preserves input token alpha through its overlays', (
-    tester,
-  ) async {
-    final base = _referenceTheme(AppTheme.dark);
-    const input = Color(0x26ffffff);
-    final tokens = base.extension<DTokens>()!.copyWith(
-      colors: base.colorScheme.copyWith(outlineVariant: input),
-    );
-    await pump(
-      tester,
-      DButton(
-        label: const Text('Outline'),
-        variant: DButtonVariant.outline,
-        onPressed: () {},
-      ),
-      theme: base.copyWith(
-        extensions: [
-          ...base.extensions.values.where((x) => x is! DTokens),
-          tokens,
-        ],
-      ),
-    );
-    await tester.pumpAndSettle();
-    expect(buttonSurface(tester).color.a, closeTo(input.a * .3, .0001));
-    expect(buttonSurface(tester).borderColor, input);
-    await hover(tester, find.byType(FilledButton));
-    expect(buttonSurface(tester).color.a, closeTo(input.a * .5, .0001));
-  });
+  testWidgets(
+    'dark outline uses raised neutral surfaces and strengthens its border on hover',
+    (tester) async {
+      final base = _referenceTheme(AppTheme.dark);
+      const input = Color(0x26ffffff);
+      final tokens = base.extension<DTokens>()!.copyWith(
+        colors: base.colorScheme.copyWith(outlineVariant: input),
+      );
+      await pump(
+        tester,
+        DButton(
+          label: const Text('Outline'),
+          variant: DButtonVariant.outline,
+          onPressed: () {},
+        ),
+        theme: base.copyWith(
+          extensions: [
+            ...base.extensions.values.where((x) => x is! DTokens),
+            tokens,
+          ],
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        buttonSurface(tester).color,
+        tokens.controlTheme.outline.background,
+      );
+      expect(
+        buttonSurface(tester).borderColor,
+        tokens.controlTheme.outline.border,
+      );
+      await hover(tester, find.byType(FilledButton));
+      expect(buttonSurface(tester).color, tokens.controlTheme.outline.hover);
+    },
+  );
 
   testWidgets(
     'the ring paints outside and transparent-border fills reach the bounds',
@@ -470,6 +459,7 @@ void main() {
                 child: DButton(
                   focusNode: focus,
                   label: const Text('Save'),
+                  borderRadius: BorderRadius.zero,
                   onPressed: () {},
                 ),
               ),
@@ -509,13 +499,13 @@ void main() {
       expect(await pixel(bounds.right - 2, middle), primary);
       expect(await pixel(bounds.center.dx, bounds.top), primary);
       expect(await pixel(bounds.center.dx, bounds.top + 1), primary);
-      expect(await pixel(bounds.right + 1, middle), Colors.white);
+      final outsideBefore = await pixel(bounds.right + 2, middle);
 
       focus.requestFocus();
       await tester.pumpAndSettle();
-      expect(buttonSurface(tester).ringWidth, 3);
-      expect(await pixel(bounds.right + 1, middle), isNot(Colors.white));
-      expect(await pixel(bounds.right + 3, middle), Colors.white);
+      expect(buttonSurface(tester).ringWidth, 1);
+      expect(await pixel(bounds.right + 2, middle), isNot(outsideBefore));
+      expect(await pixel(bounds.right + 6, middle), Colors.white);
     },
   );
 
@@ -526,7 +516,6 @@ void main() {
         _referenceTheme(AppTheme.light),
         _referenceTheme(AppTheme.dark),
       ]) {
-        final dark = theme.brightness == Brightness.dark;
         for (final variant in [
           DButtonVariant.outline,
           DButtonVariant.secondary,
@@ -546,17 +535,11 @@ void main() {
           );
           await tester.pumpAndSettle();
           final tokens = tokensOf(tester);
-          final input = tokens.colors.outlineVariant;
-          // A dark outline trigger keeps its resting input fill because
-          // dark:bg-input/30 outranks aria-expanded:bg-muted.
           final expected = switch (variant) {
-            DButtonVariant.outline when dark => input.withValues(
-              alpha: input.a * .3,
-            ),
             DButtonVariant.outline ||
-            DButtonVariant.secondary ||
-            DButtonVariant.ghost => tokens.muted,
-            _ => tokens.primary,
+            DButtonVariant.secondary => tokens.controlTheme.outline.hover,
+            DButtonVariant.ghost => DControlStyle.rowHover(tokens),
+            _ => tokens.controlTheme.primary.hover,
           };
           expect(
             buttonSurface(tester).color,
@@ -565,7 +548,7 @@ void main() {
           );
         }
       }
-      // aria-expanded:bg-secondary outranks the secondary hover mix.
+      // Open secondary actions retain their active surface while hovered.
       await pump(
         tester,
         DButton(
@@ -577,7 +560,10 @@ void main() {
         ),
       );
       await hover(tester, find.byType(FilledButton));
-      expect(buttonSurface(tester).color, tokensOf(tester).muted);
+      expect(
+        buttonSurface(tester).color,
+        tokensOf(tester).controlTheme.outline.hover,
+      );
     },
   );
 
@@ -588,7 +574,6 @@ void main() {
       _referenceTheme(AppTheme.light),
       _referenceTheme(AppTheme.dark),
     ]) {
-      final dark = theme.brightness == Brightness.dark;
       final focus = FocusNode();
       await pump(
         tester,
@@ -604,14 +589,11 @@ void main() {
       await tester.pumpAndSettle();
       final tokens = tokensOf(tester);
       final surface = buttonSurface(tester);
-      expect(surface.ringWidth, 3, reason: theme.brightness.name);
-      expect(
-        surface.ringColor,
-        tokens.focusRing.withValues(alpha: tokens.focusRing.a * .5),
-      );
+      expect(surface.ringWidth, 1, reason: theme.brightness.name);
+      expect(surface.ringColor, tokens.focusRing);
       expect(
         surface.borderColor,
-        dark ? tokens.colors.outlineVariant : tokens.focusRing,
+        tokens.controlTheme.outline.border,
         reason: theme.brightness.name,
       );
       await tester.pumpWidget(const SizedBox());
@@ -620,12 +602,9 @@ void main() {
   });
 
   testWidgets(
-    'a touch press keeps the reference fill including legacy aliases',
+    'touch presses highlight without translation, including legacy aliases',
     (tester) async {
-      for (final (variant, pressedFill) in [
-        (DButtonVariant.primary, false),
-        (DButtonVariant.standard, false),
-      ]) {
+      for (final variant in [DButtonVariant.primary, DButtonVariant.standard]) {
         await pump(
           tester,
           DButton(
@@ -640,13 +619,15 @@ void main() {
           tester.getCenter(find.text('Press')),
         );
         await tester.pumpAndSettle();
-        final theme = Theme.of(tester.element(find.byType(FilledButton)));
+        final tokens = tokensOf(tester);
         expect(
           buttonSurface(tester).color,
-          pressedFill ? theme.shell.hover : rest,
+          variant == DButtonVariant.primary
+              ? tokens.controlTheme.primary.hover
+              : tokens.controlTheme.outline.hover,
           reason: variant.name,
         );
-        expect(tester.getTopLeft(find.text('Press')).dy, origin.dy + 1);
+        expect(tester.getTopLeft(find.text('Press')).dy, origin.dy);
         await gesture.up();
         await tester.pumpAndSettle();
         expect(buttonSurface(tester).color, rest);
@@ -697,17 +678,17 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 75));
     expect(painted().ringWidth, greaterThan(0));
-    expect(painted().ringWidth, lessThan(3));
+    expect(painted().ringWidth, lessThan(1));
     await tester.pumpAndSettle();
-    expect(painted().ringWidth, 3);
+    expect(painted().ringWidth, 1);
     expect(container().duration, const Duration(milliseconds: 150));
     expect(container().curve, Curves.ease);
-    final primary = tokensOf(tester).primary;
+    final primaryHover = tokensOf(tester).controlTheme.primary.hover;
     await hover(tester, find.byType(FilledButton));
     await tester.pump(const Duration(milliseconds: 75));
-    expect(painted().color, primary.withValues(alpha: primary.a * .8));
+    expect(painted().color, primaryHover);
     await tester.pumpAndSettle();
-    expect(painted().color, primary.withValues(alpha: primary.a * .8));
+    expect(painted().color, primaryHover);
 
     await tester.pumpWidget(
       MaterialApp(
@@ -783,11 +764,8 @@ void main() {
       );
       final tokens = tokensOf(tester);
       final surface = buttonSurface(tester);
-      expect(surface.ringWidth, 3);
-      expect(
-        surface.ringColor,
-        tokens.destructive.withValues(alpha: tokens.destructive.a * .2),
-      );
+      expect(surface.ringWidth, 1);
+      expect(surface.ringColor, tokens.destructive);
       expect(surface.borderColor, tokens.destructive);
     } finally {
       handle.dispose();
@@ -1026,10 +1004,7 @@ void main() {
         tester.getCenter(find.text('Press')),
       );
       await tester.pumpAndSettle();
-      expect(
-        tester.getTopLeft(find.text('Press')).dy,
-        origin.dy + (popup ? 0 : 1),
-      );
+      expect(tester.getTopLeft(find.text('Press')).dy, origin.dy);
       await gesture.up();
       await tester.pumpAndSettle();
     }

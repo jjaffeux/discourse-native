@@ -192,9 +192,7 @@ void main() {
         );
         expect(
           (surface(0).decoration! as BoxDecoration).borderRadius,
-          BorderRadius.circular(
-            tokens.radius * (shape == DItemShape.card ? 1.4 : 2.5),
-          ),
+          BorderRadius.circular(shape == DItemShape.card ? 12 : 10),
         );
         await mouse.moveTo(tester.getCenter(find.text('Topic 1')));
         await tester.pump();
@@ -310,12 +308,12 @@ void main() {
   );
 
   testWidgets(
-    'base-nova sizes preserve border-box insets, type and media alignment',
+    'Linear sizes preserve border-box insets, type and media alignment',
     (tester) async {
       for (final (size, image, inset, gap, textSize, contentGap) in [
-        (DItemSize.standard, 40.0, 13.0, 10.0, 14.0, 4.0),
-        (DItemSize.sm, 32.0, 13.0, 10.0, 14.0, 4.0),
-        (DItemSize.xs, 24.0, 11.0, 8.0, 12.0, 0.0),
+        (DItemSize.standard, 40.0, 16.0, 12.0, 12.0, 4.0),
+        (DItemSize.sm, 32.0, 12.0, 12.0, 12.0, 4.0),
+        (DItemSize.xs, 24.0, 10.0, 8.0, 12.0, 0.0),
       ]) {
         await tester.pumpWidget(host(sample(size)));
         expect(tester.getSize(find.byKey(mediaKey)), Size.square(image));
@@ -323,7 +321,12 @@ void main() {
         expect(tester.getTopLeft(find.byKey(titleKey)).dx, inset + image + gap);
         expect(
           tester.getTopLeft(find.byKey(mediaKey)).dy,
-          (size == DItemSize.xs ? 9 : 11) + 2,
+          (size == DItemSize.xs
+                  ? 8
+                  : size == DItemSize.sm
+                  ? 10
+                  : 16) +
+              2,
         );
         final title = tester.renderObject<RenderParagraph>(
           find.byKey(titleKey),
@@ -331,10 +334,10 @@ void main() {
         final description = tester.renderObject<RenderParagraph>(
           find.byKey(descriptionKey),
         );
-        expect(title.text.style!.fontSize, 14);
-        expect(title.text.style!.height, 1.375);
+        expect(title.text.style!.fontSize, 13);
+        expect(title.text.style!.height, 1.2);
         expect(description.text.style!.fontSize, textSize);
-        expect(description.text.style!.height, 1.5);
+        expect(description.text.style!.height, 1.2);
         expect(
           tester.getTopLeft(find.byKey(descriptionKey)).dy -
               tester.getBottomLeft(find.byKey(titleKey)).dy,
@@ -503,7 +506,7 @@ void main() {
   );
 
   testWidgets(
-    'live translucent tokens multiply alpha and proportionally size radius',
+    'item surfaces follow live tokens with consistent Linear corners',
     (tester) async {
       for (final radius in [4.0, 10.0]) {
         final theme = ThemeData();
@@ -527,8 +530,8 @@ void main() {
           ),
         );
         final decoration = box.decoration! as BoxDecoration;
-        expect(decoration.color!.a, closeTo(tokens.muted.a * .5, .001));
-        expect(decoration.borderRadius, BorderRadius.circular(radius));
+        expect(decoration.color, tokens.surface);
+        expect(decoration.borderRadius, BorderRadius.circular(10));
       }
     },
   );
@@ -674,9 +677,9 @@ void main() {
         reason: 'focus must not tint translucent interior',
       );
       expect(
-        pixel(focused, 6, 18),
-        isNot(pixel(before, 6, 18)),
-        reason: '3px ring is exterior',
+        pixel(focused, 5, 24),
+        isNot(pixel(before, 5, 24)),
+        reason: '1px ring has a 2px exterior gap',
       );
       expect(
         pixel(focused, 4, 18),
@@ -686,7 +689,7 @@ void main() {
       await tester.pumpWidget(content(false));
       await tester.pumpAndSettle();
       final disabled = await pixels();
-      expect(pixel(disabled, 6, 18), pixel(before, 6, 18));
+      expect(pixel(disabled, 5, 24), pixel(before, 5, 24));
     },
   );
 
@@ -766,7 +769,7 @@ void main() {
       await tester.pumpWidget(
         host(sample(DItemSize.standard), direction: TextDirection.rtl),
       );
-      expect(tester.getTopRight(find.byKey(mediaKey)).dx, 448 - 13);
+      expect(tester.getTopRight(find.byKey(mediaKey)).dx, 448 - 16);
       expect(
         tester.getTopRight(find.byKey(titleKey)).dx,
         lessThan(tester.getTopLeft(find.byKey(mediaKey)).dx),

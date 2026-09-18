@@ -49,7 +49,7 @@ class DToggleVisualStyle {
   final DToggleBorderEdges borderEdges;
 }
 
-/// A shadcn two-state button with native pressed-toggle semantics.
+/// A two-state button with native pressed-toggle semantics.
 ///
 /// Supply [pressed] for controlled state, or omit it to own state initialized
 /// by [initialPressed]. [onPressedChanged] observes or updates that state but
@@ -236,14 +236,18 @@ class _DToggleState extends State<DToggle> {
         : _focusVisible
         ? tokens.focusRing
         : widget.variant == DToggleVariant.outline
-        ? DControlStyle.outlineBorder(tokens, dark: dark)
+        ? DControlStyle.outlineBorder(
+            tokens,
+            dark: dark,
+            hovered: activeSurface,
+          )
         : Colors.transparent;
     final ringColor = widget.invalid
         ? tokens.destructive.withValues(
             alpha: tokens.destructive.a * (dark ? .4 : .2),
           )
         : _focusVisible
-        ? tokens.focusRing.withValues(alpha: tokens.focusRing.a * .5)
+        ? tokens.focusRing
         : Colors.transparent;
     final direction = Directionality.of(context);
     final radius =
@@ -253,7 +257,10 @@ class _DToggleState extends State<DToggle> {
                 ))
             .resolve(direction);
     final edges = widget.visualStyle?.borderEdges ?? DToggleBorderEdges.all;
-    final borderSide = BorderSide(color: borderColor);
+    final borderSide = BorderSide(
+      color: borderColor,
+      width: DControlDecoration.borderWidth,
+    );
     const noBorder = BorderSide.none;
     final border = Border(
       top: edges.top ? borderSide : noBorder,
@@ -264,10 +271,6 @@ class _DToggleState extends State<DToggle> {
       right: (direction == TextDirection.ltr ? edges.end : edges.start)
           ? borderSide
           : noBorder,
-    );
-    final duration = DMotion.duration(
-      context,
-      const Duration(milliseconds: 150),
     );
 
     final effectiveIcon = _current
@@ -317,7 +320,7 @@ class _DToggleState extends State<DToggle> {
     );
 
     final artwork = AnimatedContainer(
-      duration: duration,
+      duration: Duration.zero,
       curve: const Cubic(.4, 0, .2, 1),
       constraints: BoxConstraints(
         minWidth: visualDimension,
@@ -332,21 +335,20 @@ class _DToggleState extends State<DToggle> {
             )),
       decoration: BoxDecoration(
         color: activeSurface
-            ? tokens.muted
-            : widget.variant == DToggleVariant.outline &&
-                  tokens.controls != null
+            ? DControlStyle.rowHover(tokens)
+            : widget.variant == DToggleVariant.outline
             ? DControlStyle.outlineFill(tokens, dark: dark)
             : Colors.transparent,
         borderRadius: radius,
         border: border,
       ),
-      foregroundDecoration: BoxDecoration(
+      foregroundDecoration: DControlDecoration(
+        color: Colors.transparent,
+        borderColor: Colors.transparent,
         borderRadius: radius,
-        border: Border.all(
-          color: ringColor,
-          width: 3,
-          strokeAlign: BorderSide.strokeAlignOutside,
-        ),
+        ringColor: ringColor,
+        ringWidth: DControlStyle.focusWidth,
+        ringOffset: DControlStyle.focusOffset,
       ),
       child: Center(widthFactor: 1, heightFactor: 1, child: content),
     );
@@ -421,7 +423,7 @@ class _DToggleState extends State<DToggle> {
                       _toggle();
                     }
                   : null,
-              child: Opacity(opacity: _enabled ? 1 : .5, child: target),
+              child: Opacity(opacity: _enabled ? 1 : .6, child: target),
             ),
           ),
         ),

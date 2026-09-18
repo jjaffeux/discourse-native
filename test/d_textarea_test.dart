@@ -486,17 +486,17 @@ void main() {
           )
           .foregroundPainter;
       expect(ring(), isNull);
-      expect(border(), tokens.colors.outlineVariant);
+      expect(border(), tokens.controlTheme.outline.border);
       focus.requestFocus();
       await tester.pump();
       await tester.pump();
       expect(ring(), isNotNull);
-      expect(border(), tokens.colors.outlineVariant);
+      expect(border(), tokens.controlTheme.outline.border);
       await tester.pump(const Duration(milliseconds: 75));
       expect(
         border(),
         Color.lerp(
-          tokens.colors.outlineVariant,
+          tokens.controlTheme.outline.border,
           tokens.focusRing,
           Curves.fastOutSlowIn.transform(.5),
         ),
@@ -509,7 +509,7 @@ void main() {
       expect(ring(), isNull);
       expect(border(), tokens.focusRing);
       await tester.pump(const Duration(milliseconds: 150));
-      expect(border(), tokens.colors.outlineVariant);
+      expect(border(), tokens.controlTheme.outline.border);
     },
   );
 }

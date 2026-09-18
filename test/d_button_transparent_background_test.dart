@@ -12,7 +12,7 @@ void main() {
   for (final dark in [false, true]) {
     for (final iconOnly in [false, true]) {
       testWidgets(
-        'transparent background changes foreground only (dark: $dark, icon: $iconOnly)',
+        'transparent actions reveal a subtle hover fill (dark: $dark, icon: $iconOnly)',
         (tester) async {
           final theme = (dark ? AppTheme.dark : AppTheme.light).copyWith(
             platform: TargetPlatform.macOS,
@@ -50,7 +50,7 @@ void main() {
           final tokens = DTokens.of(tester.element(find.byType(DButton)));
           Color foreground() =>
               IconTheme.of(tester.element(find.byType(DIcon))).color!;
-          void expectForeground(Color color) {
+          void expectForeground(Color color, {bool filled = false}) {
             expect(foreground(), color);
             if (!iconOnly) {
               expect(
@@ -60,7 +60,10 @@ void main() {
                 color,
               );
             }
-            expect(buttonSurface(tester).color, Colors.transparent);
+            expect(
+              buttonSurface(tester).color,
+              filled ? DControlStyle.rowHover(tokens) : Colors.transparent,
+            );
           }
 
           final resting = foreground();
@@ -73,10 +76,10 @@ void main() {
           await mouse.addPointer(location: Offset.zero);
           await mouse.moveTo(tester.getCenter(find.byType(DButton)));
           await tester.pumpAndSettle();
-          expectForeground(tokens.foreground);
+          expectForeground(tokens.foreground, filled: true);
           await mouse.down(tester.getCenter(find.byType(DButton)));
           await tester.pumpAndSettle();
-          expectForeground(tokens.foreground);
+          expectForeground(tokens.foreground, filled: true);
           await mouse.up();
           await tester.pumpAndSettle();
           expect(activations, 1);
@@ -89,13 +92,13 @@ void main() {
           await tester.pumpAndSettle();
           expect(focus.hasFocus, isTrue);
           expectForeground(tokens.foreground);
-          expect(buttonSurface(tester).ringWidth, 3);
+          expect(buttonSurface(tester).ringWidth, 1);
           await tester.sendKeyEvent(LogicalKeyboardKey.enter);
           expect(activations, 2);
           focus.unfocus();
           await pump(expanded: true);
           await tester.pumpAndSettle();
-          expectForeground(tokens.foreground);
+          expectForeground(tokens.foreground, filled: true);
           await pump();
           await tester.pumpAndSettle();
           expectForeground(resting);

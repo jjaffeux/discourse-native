@@ -183,8 +183,8 @@ void main() {
   testWidgets('Native text sizes retain compact surfaces', (tester) async {
     for (final (size, height, font, icon) in [
       (DButtonSize.small, 24.0, 12.0, 12.0),
-      (DButtonSize.regular, 28.0, 12.0, 14.0),
-      (DButtonSize.large, 32.0, 14.0, 16.0),
+      (DButtonSize.regular, 28.0, 13.0, 14.0),
+      (DButtonSize.large, 32.0, 13.0, 16.0),
     ]) {
       await tester.pumpWidget(
         MaterialApp(
@@ -265,7 +265,7 @@ void main() {
       expect(shape, isA<RoundedRectangleBorder>());
       expect(
         (shape! as RoundedRectangleBorder).borderRadius,
-        BorderRadius.circular(size == DButtonSize.small ? 3.2 : 4),
+        BorderRadius.circular(targetDimension / 2),
       );
       expect(buttonSurface(tester).color, Colors.transparent);
       final pointer = await tester.createGesture(kind: PointerDeviceKind.mouse);
@@ -274,7 +274,7 @@ void main() {
       await tester.pump();
       expect(
         buttonSurface(tester).color,
-        DTokens.of(tester.element(rendered)).muted,
+        DControlStyle.rowHover(DTokens.of(tester.element(rendered))),
       );
       await pointer.removePointer();
     }
@@ -320,7 +320,7 @@ void main() {
 
     expect(
       buttonSurface(tester).color,
-      DTokens.of(tester.element(rendered)).muted,
+      DControlStyle.rowHover(DTokens.of(tester.element(rendered))),
     );
 
     await tester.tapAt(paddedPoint);
@@ -354,7 +354,7 @@ void main() {
     expect((shape! as RoundedRectangleBorder).borderRadius, radius);
   });
 
-  testWidgets('buttons use pointer and forbidden cursors by enabled state', (
+  testWidgets('buttons use pointer and default cursors by enabled state', (
     tester,
   ) async {
     await tester.pumpWidget(
@@ -381,7 +381,7 @@ void main() {
       expect(button.style!.mouseCursor!.resolve({}), SystemMouseCursors.click);
       expect(
         button.style!.mouseCursor!.resolve({WidgetState.disabled}),
-        SystemMouseCursors.forbidden,
+        SystemMouseCursors.basic,
       );
     }
   });

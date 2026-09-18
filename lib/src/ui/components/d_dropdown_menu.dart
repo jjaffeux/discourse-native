@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../theme/discourse_typography.dart';
+import '../foundation/control_style.dart';
 import '../foundation/interactive_row.dart';
 import '../foundation/tokens.dart';
 import 'd_button.dart';
@@ -507,8 +508,8 @@ class _DDropdownMenuContentState extends State<DDropdownMenuContent> {
     final tokens = DTokens.of(context);
     final textStyle = Theme.of(context).textTheme.bodyMedium!.copyWith(
       color: tokens.foreground,
-      fontSize: DiscourseTypography.sm,
-      height: DiscourseTypography.lineHeightSmall,
+      fontSize: DControlStyle.labelFontSize,
+      height: 20 / DControlStyle.labelFontSize,
       fontWeight: FontWeight.w400,
       letterSpacing: 0,
       decoration: TextDecoration.none,
@@ -1279,23 +1280,20 @@ class _DropdownMenuItemSurfaceState extends State<_DropdownMenuItemSurface> {
                           ? 0.20
                           : 0.10),
                 )
-              // AppTheme derives this specifically against the floating menu
-              // surface, so active rows stay distinct even when the general
-              // shell hover token is nearly identical to that surface.
-              : Theme.of(context).hoverColor
+              // Resolve against the floating surface so adjacent rows retain
+              // a distinct neutral highlight in every forum palette.
+              : DControlStyle.rowHover(tokens)
         : Colors.transparent;
-    final foreground = destructive
-        ? tokens.destructive
-        : interactive
-        ? tokens.selectedForeground
-        : tokens.foreground;
+    final foreground = destructive ? tokens.destructive : tokens.foreground;
     final mobile =
         defaultTargetPlatform == TargetPlatform.iOS ||
         defaultTargetPlatform == TargetPlatform.android;
-    final visualHeight = mobile ? DSpacing.touchTarget : 28.0;
-    final startPadding = widget.inset ? 28.0 : 6.0;
-    final endPadding = widget.checked == null ? 6.0 : 8.0;
-    final trailingGap = widget.checked == null ? 6.0 : 8.0;
+    final visualHeight = mobile
+        ? DSpacing.touchTarget
+        : DControlStyle.rowHeight;
+    final startPadding = widget.inset ? 28.0 : 8.0;
+    const endPadding = 8.0;
+    const trailingGap = 8.0;
     // Active-row changes are atomic. Animating the previous row out while the
     // next row animates in briefly presents two highlighted menu choices.
     final row = interactiveRowSurface(
@@ -1303,7 +1301,7 @@ class _DropdownMenuItemSurfaceState extends State<_DropdownMenuItemSurface> {
       padding: EdgeInsetsDirectional.fromSTEB(startPadding, 4, endPadding, 4),
       decoration: BoxDecoration(
         color: background,
-        borderRadius: BorderRadius.circular(tokens.radius * 0.8),
+        borderRadius: BorderRadius.circular(DControlStyle.rowRadius),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.max,
@@ -1317,7 +1315,7 @@ class _DropdownMenuItemSurfaceState extends State<_DropdownMenuItemSurface> {
           ],
           Expanded(child: widget.child),
           if (widget.trailing != null) ...[
-            SizedBox(width: trailingGap),
+            const SizedBox(width: trailingGap),
             IconTheme.merge(
               data: IconThemeData(
                 color: destructive

@@ -5,6 +5,7 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/shell/keyboard_navigation.dart';
 import 'package:discourse_native/src/styleguide/examples/switch_examples.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
+import 'package:discourse_native/src/ui/foundation/control_style.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
@@ -67,7 +68,7 @@ void main() {
           final height = tester.getSize(find.byType(DSwitchTile)).height;
           final intrinsic = card
               ? (description ? 65.0 : 42.0)
-              : (description ? 42.25 : 18.4);
+              : (description ? 42.25 : 20.0);
           expect(height, closeTo(touch && intrinsic < 48 ? 48 : intrinsic, .3));
           await tester.tapAt(
             tester.getBottomLeft(find.byType(DSwitchTile)) +
@@ -147,7 +148,7 @@ void main() {
               card
                   ? Offset(bounds.center.dx, bounds.bottom - 5)
                   : Offset(bounds.right - 5, bounds.center.dy),
-              Offset(bounds.center.dx, bounds.top - 2),
+              Offset(bounds.center.dx, bounds.top - (card ? 2 : 2.5)),
             ];
             return (await tester.runAsync(() async {
               final image =
@@ -344,17 +345,17 @@ void main() {
         final thumb = find.descendant(
           of: track,
           matching: find.byWidgetPredicate(
-            (w) => w is SizedBox && w.width == (small ? 12 : 16),
+            (w) => w is SizedBox && w.width == (small ? 10 : 14),
           ),
         );
-        expect(tester.getSize(track), Size(small ? 24 : 32, small ? 14 : 18.4));
-        expect(tester.getSize(thumb), Size.square(small ? 12 : 16));
+        expect(tester.getSize(track), Size(small ? 24 : 30, small ? 16 : 20));
+        expect(tester.getSize(thumb), Size.square(small ? 10 : 14));
         final start = tester.getCenter(thumb).dx;
         update(() => checked = true);
         await tester.pump();
         expect(
           tester.getCenter(thumb).dx - start,
-          closeTo((small ? 10 : 14) * (rtl ? -1 : 1), .001),
+          closeTo((small ? 8 : 10) * (rtl ? -1 : 1), .001),
         );
         final target = find.descendant(
           of: find.byType(DSwitch),
@@ -582,8 +583,8 @@ void main() {
             )
             .last,
       );
-      final ring = track.foregroundDecoration! as BoxDecoration;
-      expect((ring.border! as Border).top.width, 3);
+      final ring = track.foregroundDecoration! as DControlDecoration;
+      expect(ring.ringWidth, 1);
       expect(
         tester
             .getSemantics(find.byType(DSwitch))
@@ -650,15 +651,10 @@ void main() {
         3,
       );
       expect(
-        ((tester
-                            .widget<AnimatedContainer>(containers.last)
-                            .foregroundDecoration!
-                        as BoxDecoration)
-                    .border!
-                as Border)
-            .top
-            .width,
-        3,
+        (tester.widget<AnimatedContainer>(containers.last).foregroundDecoration!
+                as DControlDecoration)
+            .ringWidth,
+        1,
       );
       await mouse.removePointer();
     },
@@ -705,55 +701,43 @@ void main() {
     await mouse.removePointer();
   });
 
-  testWidgets(
-    'input surface stays distinct from border and preserves translucent alpha',
-    (tester) async {
-      for (final dark in [false, true]) {
-        final base = dark ? AppTheme.dark : AppTheme.light;
-        final tokens = DTokens.fromTheme(base).copyWith(
-          border: const Color(0x66448822),
-          colors: base.colorScheme.copyWith(
-            outlineVariant: const Color(0x337733aa),
-            error: const Color(0x80dd2211),
-          ),
-        );
-        await mount(
-          tester,
-          const DSwitch(initialValue: false, invalid: true),
-          theme: base.copyWith(extensions: [tokens]),
-        );
-        await tester.pumpAndSettle();
-        final track = tester.widget<AnimatedContainer>(
-          find.descendant(
-            of: find.byType(DSwitch),
-            matching: find.byType(AnimatedContainer),
-          ),
-        );
-        final decoration = track.decoration! as BoxDecoration;
-        expect(
-          decoration.color,
-          tokens.colors.outlineVariant.withValues(
-            alpha: tokens.colors.outlineVariant.a * (dark ? .8 : 1),
-          ),
-        );
-        expect(decoration.color, isNot(tokens.border));
-        expect(
-          (decoration.border! as Border).top.color,
-          tokens.destructive.withValues(
-            alpha: tokens.destructive.a * (dark ? .5 : 1),
-          ),
-        );
-        expect(
-          ((track.foregroundDecoration! as BoxDecoration).border! as Border)
-              .top
-              .color,
-          tokens.destructive.withValues(
-            alpha: tokens.destructive.a * (dark ? .4 : .2),
-          ),
-        );
-      }
-    },
-  );
+  testWidgets('neutral switch track and invalid ring follow live tokens', (
+    tester,
+  ) async {
+    for (final dark in [false, true]) {
+      final base = dark ? AppTheme.dark : AppTheme.light;
+      final tokens = DTokens.fromTheme(base).copyWith(
+        border: const Color(0x66448822),
+        colors: base.colorScheme.copyWith(
+          outlineVariant: const Color(0x337733aa),
+          error: const Color(0x80dd2211),
+        ),
+      );
+      await mount(
+        tester,
+        const DSwitch(initialValue: false, invalid: true),
+        theme: base.copyWith(extensions: [tokens]),
+      );
+      await tester.pumpAndSettle();
+      final track = tester.widget<AnimatedContainer>(
+        find.descendant(
+          of: find.byType(DSwitch),
+          matching: find.byType(AnimatedContainer),
+        ),
+      );
+      final decoration = track.decoration! as BoxDecoration;
+      expect(
+        decoration.color,
+        Color.lerp(tokens.background, tokens.mutedForeground, .70),
+      );
+      expect(decoration.color, isNot(tokens.border));
+      expect(decoration.border, isNull);
+      expect(
+        (track.foregroundDecoration! as DControlDecoration).ringColor,
+        tokens.destructive,
+      );
+    }
+  });
 
   testWidgets(
     'choice card live radius and translucent selected hover focus tokens follow source',

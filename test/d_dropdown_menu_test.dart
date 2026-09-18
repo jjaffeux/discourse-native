@@ -650,53 +650,66 @@ void main() {
         .firstWhere((decoration) => decoration.boxShadow?.isNotEmpty == true);
     final rootShadow = surfaceDecoration(find.byType(DPopoverContent).first);
     final submenuShadow = surfaceDecoration(find.byType(DPopoverContent).last);
-    expect(rootShadow.boxShadow!.first.offset, const Offset(0, 4));
-    expect(rootShadow.boxShadow!.first.blurRadius, 6);
-    expect(submenuShadow.boxShadow!.first.offset, const Offset(0, 10));
-    expect(submenuShadow.boxShadow!.first.blurRadius, 15);
+    expect(rootShadow.boxShadow!.first.offset, const Offset(0, 3));
+    expect(rootShadow.boxShadow!.first.blurRadius, 8);
+    expect(submenuShadow.boxShadow!.last.offset, const Offset(0, 10));
+    expect(submenuShadow.boxShadow!.last.blurRadius, 15);
   });
 
-  testWidgets('active rows use the paired accent foreground', (tester) async {
-    const activeForeground = Color(0xFF006600);
-    const restingForeground = Color(0xFF111111);
-    const mutedForeground = Color(0xFF666666);
-    final base = ThemeData.light();
-    final colors = base.colorScheme.copyWith(
-      onSurface: restingForeground,
-      onSurfaceVariant: mutedForeground,
-    );
-    final theme = base.copyWith(
-      colorScheme: colors,
-      extensions: [
-        DTokens(
-          colors: colors,
-          background: Colors.white,
-          surface: Colors.white,
-          muted: const Color(0xFFF5F5F5),
-          border: const Color(0xFFE5E5E5),
-          hover: const Color(0xFFEEEEEE),
-          selected: const Color(0xFFEEEEEE),
-          selectedForeground: activeForeground,
-        ),
-      ],
-    );
-    await pumpMenu(tester, theme: theme, child: const _ShortcutColorHarness());
-    await open(tester);
+  testWidgets(
+    'active rows preserve neutral text and use a background highlight',
+    (tester) async {
+      const activeForeground = Color(0xFF006600);
+      const restingForeground = Color(0xFF111111);
+      const mutedForeground = Color(0xFF666666);
+      final base = ThemeData.light();
+      final colors = base.colorScheme.copyWith(
+        onSurface: restingForeground,
+        onSurfaceVariant: mutedForeground,
+      );
+      final theme = base.copyWith(
+        colorScheme: colors,
+        extensions: [
+          DTokens(
+            colors: colors,
+            background: Colors.white,
+            surface: Colors.white,
+            muted: const Color(0xFFF5F5F5),
+            border: const Color(0xFFE5E5E5),
+            hover: const Color(0xFFEEEEEE),
+            selected: const Color(0xFFEEEEEE),
+            selectedForeground: activeForeground,
+          ),
+        ],
+      );
+      await pumpMenu(
+        tester,
+        theme: theme,
+        child: const _ShortcutColorHarness(),
+      );
+      await open(tester);
 
-    expect(
-      DefaultTextStyle.of(tester.element(find.text('Profile'))).style.color,
-      activeForeground,
-    );
-    expect(tester.widget<Text>(find.text('⌘P')).style?.color, activeForeground);
+      expect(
+        DefaultTextStyle.of(tester.element(find.text('Profile'))).style.color,
+        restingForeground,
+      );
+      expect(
+        tester.widget<Text>(find.text('⌘P')).style?.color,
+        restingForeground,
+      );
 
-    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
-    await tester.pump();
-    expect(
-      DefaultTextStyle.of(tester.element(find.text('Profile'))).style.color,
-      restingForeground,
-    );
-    expect(tester.widget<Text>(find.text('⌘P')).style?.color, mutedForeground);
-  });
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.pump();
+      expect(
+        DefaultTextStyle.of(tester.element(find.text('Profile'))).style.color,
+        restingForeground,
+      );
+      expect(
+        tester.widget<Text>(find.text('⌘P')).style?.color,
+        mutedForeground,
+      );
+    },
+  );
 
   testWidgets('a fitting menu has no scroll viewport or scrollbar', (
     tester,
@@ -1130,7 +1143,7 @@ void main() {
       );
       final profile = tester.getRect(find.text('Profile').first);
       final billing = tester.getRect(find.text('Billing').first);
-      expect(billing.top - profile.top, closeTo(28, 0.1));
+      expect(billing.top - profile.top, closeTo(32, 0.1));
     } finally {
       debugDefaultTargetPlatformOverride = null;
     }

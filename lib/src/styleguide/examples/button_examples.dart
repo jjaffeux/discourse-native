@@ -6,33 +6,24 @@ import '../../theme/d_icons.dart';
 import '../styleguide_example.dart';
 import 'button_reference_icons.dart';
 import 'control_comparison_example.dart';
+import 'linear_controls_example.dart';
 
 final buttonExamples = ComponentExamples(
   topLevelExampleIndex: 10,
   description: 'Actions and links, with variants for emphasis and intent.',
   status: ComponentStatus.implemented,
   notes:
-      'Native surfaces use small 24px, default 28px and large 32px sizes. '
-      'Small and default labels use 12px text; large labels use 14px. Touch targets '
-      'expand invisibly to 48px. The app supplies colors and font. '
-      'Its contextual control theme uses an 8px radius, neutral outlines, '
-      'soft primary actions and active notification tints from the forum palette. '
-      'The fill stops at the 1px border like bg-clip-padding, and hover, '
-      'expanded, focus, invalid and pressed changes transition over 150ms. '
-      'Hover exit clears immediately so neighboring highlights never overlap. '
-      'Transparent background actions change only their foreground color, '
-      'with a subdued resting tint and the usual keyboard focus ring. '
-      'Inline actions share that treatment without horizontal insets, for '
-      'metadata that aligns with surrounding content. '
-      'Loading and asynchronous ownership remain controlled by the caller. '
-      'Navigation uses isLink and an application-owned callback. Pointer cursors '
-      'use a hand for enabled buttons and forbidden for disabled or loading buttons. '
-      'Rich labels may explicitly wrap. The Button '
-      'Group composition uses the public DButtonGroup and DDropdownMenu owners. '
-      'Optional backgroundColor, foregroundColor and borderColor preserve caller-supplied tints '
-      'across states; interactiveBackgroundColor controls hover/focus fills. '
-      'Custom borders retain the themed focus ring and yield to invalid styling. '
-      'Reference and native visual verification are recorded in the library documentation.',
+      'Linear-style actions use pill corners, 0.5px borders, subtle shadows and solid primary fills. '
+      'Popup triggers use 8px corners; menus use 12px corners and 32px rows. '
+      'Small controls are 24px with 12px labels; regular and large controls retain '
+      '28px and 32px surfaces with 13px labels. Touch targets remain 48px. '
+      'Hover, pressed and open fills update immediately; keyboard focus uses a 1px '
+      'ring with a 2px gap. Actions stay in place on press. Disabled buttons use '
+      '60% opacity; disabled selectors and switches use 50%. '
+      'Transparent background actions reveal a subtle hover fill; inline text actions '
+      'stay clear. Rich labels may wrap. All colors follow the current forum palette. '
+      'Loading, navigation and asynchronous operations remain caller-owned. '
+      'See docs/component-library/linear-controls.md for the measured reference and verification.',
   examples: [
     StyleguideExample(
       title: 'Pill toolbar action',
@@ -188,6 +179,7 @@ final buttonExamples = ComponentExamples(
       variant: DButtonVariant.outline,
       onPressed: submit,
     ),
+
   ],
 )''',
       builder: (_) => const _ButtonDemo(),
@@ -240,7 +232,7 @@ DButtonGroup(children: [
       title: 'Transparent background',
       description:
           'Subdued icons and text return to the normal foreground on hover, '
-          'focus or expansion. The background stays transparent. '
+          'focus or expansion. Hover and expansion add a subtle neutral fill. '
           'Use Tab to compare the keyboard focus ring.',
       states: const [
         'Text',
@@ -264,6 +256,25 @@ DButton(
   onPressed: sortReplies,
 )''',
       builder: (_) => const _ButtonTransparentBackground(),
+    ),
+    StyleguideExample(
+      title: 'Linear settings controls',
+      description:
+          'The integration, account and preference compositions. Compare hover, '
+          'press, Tab focus, disabled selectors, rich content and open menus.',
+      states: const [
+        'Primary',
+        'Small',
+        'Disabled',
+        'Rich content',
+        'Icon',
+        'Transparent',
+        'Switch',
+        'Item',
+      ],
+      code:
+          "DButton(label: Text('Enable'), size: DButtonSize.large, onPressed: enable)",
+      builder: (_) => const LinearControlsExample(),
     ),
   ],
 );

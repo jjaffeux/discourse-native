@@ -198,10 +198,16 @@ void main() {
           isA<Container>(),
         );
         expect(_rowBackground(tester, 'apple').a, 0);
-        expect(_rowBackground(tester, 'banana'), theme.hoverColor);
+        expect(
+          _rowBackground(tester, 'banana'),
+          DControlStyle.rowHover(theme.extension<DTokens>()!),
+        );
         FocusManager.instance.primaryFocus!.unfocus();
         await tester.pumpAndSettle();
-        expect(_rowBackground(tester, 'banana'), theme.hoverColor);
+        expect(
+          _rowBackground(tester, 'banana'),
+          DControlStyle.rowHover(theme.extension<DTokens>()!),
+        );
         await mouse.moveTo(const Offset(1, 1));
         await tester.pumpAndSettle();
         expect(_rowBackground(tester, 'banana'), Colors.transparent);

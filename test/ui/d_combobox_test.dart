@@ -52,7 +52,9 @@ void main() {
     await mouse.addPointer();
     await mouse.moveTo(tester.getCenter(find.text('Next.js')));
     await tester.pumpAndSettle();
-    final hover = DTokens.of(tester.element(find.text('Next.js'))).hover;
+    final hover = DControlStyle.rowHover(
+      DTokens.of(tester.element(find.text('Next.js'))),
+    );
     expect(_rowBackground(tester, 'next'), hover);
 
     await mouse.moveTo(tester.getCenter(find.text('SvelteKit')));

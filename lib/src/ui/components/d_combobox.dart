@@ -1237,11 +1237,15 @@ class DComboboxItem<T> extends StatelessWidget {
               : null,
           // Switch backgrounds immediately so two rows never cross-fade.
           child: interactiveRowSurface(
-            constraints: const BoxConstraints(minHeight: 28),
-            padding: const EdgeInsetsDirectional.fromSTEB(6, 4, 8, 4),
+            constraints: const BoxConstraints(
+              minHeight: DControlStyle.rowHeight,
+            ),
+            padding: const EdgeInsetsDirectional.fromSTEB(8, 4, 8, 4),
             decoration: BoxDecoration(
-              color: highlighted ? tokens.hover : Colors.transparent,
-              borderRadius: BorderRadius.circular(tokens.radius * .8),
+              color: highlighted
+                  ? DControlStyle.rowHover(tokens)
+                  : Colors.transparent,
+              borderRadius: BorderRadius.circular(DControlStyle.rowRadius),
             ),
             foregroundDecoration: itemEnabled
                 ? null
@@ -1630,8 +1634,8 @@ class DComboboxChipsInput<T> extends StatelessWidget {
     final root = _DComboboxScope.of<T>(context);
     final tokens = DTokens.of(context);
     final style = Theme.of(context).textTheme.bodyMedium!.copyWith(
-      fontSize: DiscourseTypography.sm,
-      height: 20 / DiscourseTypography.sm,
+      fontSize: DControlStyle.labelFontSize,
+      height: 20 / DControlStyle.labelFontSize,
       color: tokens.foreground,
     );
     return SizedBox(

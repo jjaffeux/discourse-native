@@ -40,8 +40,8 @@ Application buttons use primary, outline, secondary, ghost, destructive, link,
 inline and transparentBackground. Use inline for text actions in metadata rows
 that must align flush with surrounding content; it removes horizontal insets
 while preserving shared control heights, focus and touch targets.
-Use transparentBackground for subdued toolbar actions
-whose icon/text changes color on interaction without a background fill. Legacy
+Use transparentBackground for subdued toolbar actions with clear resting
+surfaces and a subtle neutral hover/pressed/open fill. Legacy
 enum names are compatibility aliases for external callers, not application
 choices. Ordinary dropdown triggers should use `DDropdownMenuTrigger.button`; richer compositions must
 render DButton or the appropriate existing kit control and pass through focus,
@@ -49,8 +49,8 @@ expanded state and activation.
 
 Use shared control geometry and paint from `foundation/control_style.dart`.
 Button-like controls must use the Button styleguide's shared `DControlSize`
-scale: `small` (24px), `regular` (28px), and `large` (32px). Small and regular labels
-use 12px text with 16px leading; large labels use 14px with 20px leading.
+scale: `small` (24px), `regular` (28px), and `large` (32px). Small labels use
+12px text with 16px leading; regular and large labels use 13px with 20px leading.
 Extra-small controls have been removed; use small for compact actions. See
 [the compact sizing update](compact-control-sizing.md).
 Component size names are aliases of this enum. Do not introduce alternate
@@ -65,14 +65,17 @@ example across palettes and states whenever changing a control foundation;
 update its golden baselines only after visual review. See
 [the migration and verification record](control-consistency.md).
 
-The app adopts **D — Contextual tints** through `DTokens.controls`: neutral
-outline surfaces, soft primary actions and accent notification states are
-derived at the `AppTheme` boundary from the current forum palette. Standard
-topic filters, header triggers and bottom actions use the regular 28px size
-and 8px control radius. The other size presets remain available for compact
-toolbars. Keep focus and link colors independent of the soft action fill.
-Category identity uses the category's own color with the same control geometry.
-See [the adoption and verification record](contextual-tints.md).
+The app uses the measured **Linear controls** styling through `DTokens.controls`:
+solid primary actions, neutral raised controls, half-pixel borders and subtle
+shadows. Action buttons use pill shapes; selectors and popup triggers use an
+8px radius. Menu rows use 32px minimum height and an 8px highlight radius inside
+12px popups. Keyboard focus uses a 1px ring separated by 2px. Hover, pressed and
+open fills change immediately, without translating the control. The `AppTheme`
+boundary derives colors from the current forum palette; category identity
+retains its own color. Standard topic filters, header triggers and bottom
+actions retain the regular 28px size, text scaling and 48px touch targets.
+See [the reference measurements and verification](linear-controls.md), which
+supersede the earlier [contextual tint styling](contextual-tints.md).
 
 ## Theme, layout and interaction
 

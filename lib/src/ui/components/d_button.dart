@@ -143,7 +143,7 @@ class DiscourseButtonTheme extends ThemeExtension<DiscourseButtonTheme> {
     required this.transparentDanger,
     required this.transparentSuccess,
     required this.link,
-    this.disabledOpacity = 0.5,
+    this.disabledOpacity = 0.6,
   });
 
   final double borderRadius;
@@ -332,7 +332,7 @@ extension DiscourseButtonThemeAccess on ThemeData {
       );
 }
 
-/// A compact shadcn button with application-owned activation and busy state.
+/// A compact Native button with application-owned activation and busy state.
 ///
 /// [loading] blocks activation; callbacks own asynchronous work and errors.
 /// [focusNode] is borrowed and never disposed. [label] accepts rich content;
@@ -364,7 +364,7 @@ class DButton extends StatelessWidget {
     this.focusNode,
     this.autofocus = false,
     this.alignment = Alignment.center,
-    this.shape = DButtonShape.rounded,
+    this.shape = DButtonShape.pill,
     this.borderRadius,
     this.backgroundColor,
     this.foregroundColor,
@@ -386,7 +386,7 @@ class DButton extends StatelessWidget {
     this.focusNode,
     this.autofocus = false,
     this.alignment = Alignment.center,
-    this.shape = DButtonShape.rounded,
+    this.shape = DButtonShape.pill,
     this.borderRadius,
     this.backgroundColor,
     this.foregroundColor,
@@ -417,7 +417,7 @@ class DButton extends StatelessWidget {
   /// Validation styling and semantics for a form or popup trigger.
   final bool invalid;
 
-  /// Popup triggers do not translate down when pressed.
+  /// Popup triggers use rounded rectangular corners and expose expanded state.
   final bool hasPopup;
 
   /// Gives navigation callbacks a link role while retaining button styling.
@@ -450,7 +450,7 @@ class DButton extends StatelessWidget {
   /// The focus ring retains its separate themed color.
   final Color? foregroundColor;
 
-  /// Overrides the 1px border in every state except [invalid]. The themed focus
+  /// Overrides the hairline border in every state except [invalid]. The themed focus
   /// ring remains visible, and joined groups still omit the shared border.
   final Color? borderColor;
 
@@ -504,45 +504,45 @@ class DButton extends StatelessWidget {
       expanded: state(expanded ?? background, foreground, border),
     );
     final input = DControlStyle.outlineBorder(tokens, dark: dark);
+    final outline = DButtonVariantStyle(
+      enabled: state(
+        DControlStyle.outlineFill(tokens, dark: dark),
+        tokens.foreground,
+        input,
+      ),
+      interactive: state(
+        DControlStyle.outlineFill(tokens, dark: dark, hovered: true),
+        tokens.foreground,
+        DControlStyle.outlineBorder(tokens, dark: dark, hovered: true),
+      ),
+      focused: state(
+        DControlStyle.outlineFill(tokens, dark: dark),
+        tokens.foreground,
+        input,
+      ),
+      expanded: state(
+        DControlStyle.outlineFill(tokens, dark: dark, hovered: true),
+        tokens.foreground,
+        DControlStyle.outlineBorder(tokens, dark: dark, hovered: true),
+      ),
+    );
     return switch (_visualVariant) {
       DButtonVariant.primary => pair(
-        tokens.controls?.primary.background ?? tokens.primary,
-        tokens.controls?.primary.hover ?? _alpha(tokens.primary, .8),
-        tokens.controls?.primary.foreground ?? tokens.primaryForeground,
+        tokens.controlTheme.primary.background,
+        tokens.controlTheme.primary.hover,
+        tokens.controlTheme.primary.foreground,
+        expanded: tokens.controlTheme.primary.hover,
       ),
-      // The uncustomized dark reference keeps its resting fill when expanded.
-      DButtonVariant.outline when dark => pair(
-        DControlStyle.outlineFill(tokens, dark: true),
-        DControlStyle.outlineFill(tokens, dark: true, hovered: true),
-        tokens.controls?.outline.foreground ?? tokens.foreground,
-        border: input,
-        expanded: tokens.controls?.outline.hover,
+      DButtonVariant.outline || DButtonVariant.secondary => outline,
+      DButtonVariant.ghost ||
+      DButtonVariant.transparentBackground => DButtonVariantStyle(
+        enabled: state(Colors.transparent, tokens.mutedForeground),
+        interactive: state(DControlStyle.rowHover(tokens), tokens.foreground),
+        focused: state(Colors.transparent, tokens.foreground),
+        expanded: state(DControlStyle.rowHover(tokens), tokens.foreground),
       ),
-      DButtonVariant.outline => pair(
-        DControlStyle.outlineFill(tokens, dark: false),
-        DControlStyle.outlineFill(tokens, dark: false, hovered: true),
-        tokens.controls?.outline.foreground ?? tokens.foreground,
-        border: input,
-        expanded: tokens.controls?.outline.hover ?? tokens.muted,
-      ),
-      DButtonVariant.secondary => pair(
-        tokens.muted,
-        Color.lerp(tokens.muted, tokens.foreground, .05)!,
-        tokens.foreground,
-        expanded: tokens.muted,
-      ),
-      DButtonVariant.ghost => pair(
-        Colors.transparent,
-        _alpha(tokens.muted, dark ? .5 : 1),
-        tokens.foreground,
-        expanded: tokens.muted,
-      ),
-      DButtonVariant.transparentBackground ||
       DButtonVariant.inline => DButtonVariantStyle(
-        enabled: state(
-          Colors.transparent,
-          Color.lerp(tokens.mutedForeground, tokens.foreground, .35)!,
-        ),
+        enabled: state(Colors.transparent, tokens.mutedForeground),
         interactive: state(Colors.transparent, tokens.foreground),
         focused: state(Colors.transparent, tokens.foreground),
         expanded: state(Colors.transparent, tokens.foreground),
@@ -589,7 +589,7 @@ class DButton extends StatelessWidget {
     final baseRadius =
         borderRadius ??
         BorderRadius.circular(
-          shape == DButtonShape.pill
+          shape == DButtonShape.pill && !hasPopup
               ? visualDimension / 2
               : DControlStyle.radius(tokens, size),
         );
@@ -599,18 +599,9 @@ class DButton extends StatelessWidget {
         joined?.resolveRadius(baseRadius, direction) ??
         baseRadius.resolve(direction);
     final animationDuration = DMotion.duration(context, DControlStyle.duration);
-    // dark:border-input is declared after focus-visible:border-ring in the
-    // reference stylesheet, so a focused dark outline keeps its input border.
-    final focusBorderColor = switch (_visualVariant) {
-      DButtonVariant.destructive => _alpha(tokens.destructive, .4),
-      DButtonVariant.outline when dark => null,
-      _ => tokens.focusRing,
-    };
     final destructiveRing =
         invalid || _visualVariant == DButtonVariant.destructive;
-    final ringColor = destructiveRing
-        ? _alpha(tokens.destructive, dark ? .4 : .2)
-        : _alpha(tokens.focusRing, .5);
+    final ringColor = destructiveRing ? tokens.destructive : tokens.focusRing;
 
     DButtonStateStyle withBackground(
       DButtonStateStyle state, {
@@ -630,14 +621,21 @@ class DButton extends StatelessWidget {
 
     DButtonStateStyle resolveState(Set<WidgetState> states) {
       if (states.contains(WidgetState.disabled)) {
-        return withBackground(variantStyle.enabled);
+        final base = withBackground(variantStyle.enabled);
+        return _visualVariant == DButtonVariant.primary ||
+                _visualVariant == DButtonVariant.destructive ||
+                foregroundColor != null
+            ? base
+            : DButtonStateStyle(
+                foregroundColor: tokens.mutedForeground,
+                iconColor: tokens.mutedForeground,
+                backgroundColor: base.backgroundColor,
+                border: base.border,
+              );
       }
-      // Reference hover surfaces sit behind a (hover: hover) media query, so
-      // a touch press only translates. Legacy names resolve to the same
-      // reference surfaces and interaction states.
-      final interactive = states.contains(WidgetState.hovered);
-      // aria-expanded:bg-secondary is declared after the secondary hover mix,
-      // so an open secondary trigger keeps its expanded surface while hovered.
+      final interactive =
+          states.contains(WidgetState.hovered) ||
+          states.contains(WidgetState.pressed);
       if (expanded &&
           (!interactive || _visualVariant == DButtonVariant.secondary)) {
         return withBackground(variantStyle.expanded);
@@ -672,13 +670,13 @@ class DButton extends StatelessWidget {
                 start:
                     (icon != null || (loading && loadingLabel != null)) &&
                         iconPosition == DButtonIconPosition.start
-                    ? (size == DButtonSize.large ? 9 : 7)
-                    : (size == DButtonSize.small ? 9 : 11),
+                    ? (size == DButtonSize.small ? 6 : 8)
+                    : (size == DButtonSize.small ? 8 : 12),
                 end:
                     (icon != null || (loading && loadingLabel != null)) &&
                         iconPosition == DButtonIconPosition.end
-                    ? (size == DButtonSize.large ? 9 : 7)
-                    : (size == DButtonSize.small ? 9 : 11),
+                    ? (size == DButtonSize.small ? 6 : 8)
+                    : (size == DButtonSize.small ? 8 : 12),
                 top: 1,
                 bottom: 1,
               )),
@@ -704,7 +702,7 @@ class DButton extends StatelessWidget {
         (states) => resolveState(states).iconColor,
       ),
       // The surface built below paints fill, border and ring so that they
-      // transition and translate together; the Material stays transparent.
+      // transition together; the Material stays transparent.
       backgroundColor: const WidgetStatePropertyAll(Colors.transparent),
       side: const WidgetStatePropertyAll(BorderSide.none),
       shape: WidgetStatePropertyAll(
@@ -722,7 +720,7 @@ class DButton extends StatelessWidget {
       splashFactory: NoSplash.splashFactory,
       mouseCursor: WidgetStateProperty.resolveWith(
         (states) => states.contains(WidgetState.disabled)
-            ? SystemMouseCursors.forbidden
+            ? SystemMouseCursors.basic
             : SystemMouseCursors.click,
       ),
       alignment: alignment,
@@ -735,26 +733,30 @@ class DButton extends StatelessWidget {
         final resolvedBorderColor = invalid
             ? _alpha(tokens.destructive, dark ? .5 : 1)
             : borderColor ??
-                  (focused && focusBorderColor != null
-                      ? focusBorderColor
-                      : border.style == BorderStyle.none || border.width == 0
+                  (border.style == BorderStyle.none || border.width == 0
                       ? Colors.transparent
                       : border.color);
         return _DButtonSurface(
           duration: animationDuration,
-          hovered: states.contains(WidgetState.hovered),
+          hovered:
+              states.contains(WidgetState.hovered) ||
+              states.contains(WidgetState.pressed),
           expanded: expanded,
-          transform: Matrix4.translationValues(
-            0,
-            states.contains(WidgetState.pressed) && !hasPopup ? 1 : 0,
-            0,
-          ),
+          transform: Matrix4.identity(),
           decoration: DButtonDecoration(
             color: state.backgroundColor,
             borderColor: resolvedBorderColor,
             borderRadius: radius,
             ringColor: ringColor,
-            ringWidth: focused || invalid ? 3 : 0,
+            ringWidth: focused || invalid ? DControlStyle.focusWidth : 0,
+            ringOffset: DControlStyle.focusOffset,
+            shadowColor:
+                joined == null &&
+                    (_visualVariant == DButtonVariant.primary ||
+                        _visualVariant == DButtonVariant.outline ||
+                        _visualVariant == DButtonVariant.secondary)
+                ? DControlStyle.shadow(tokens)
+                : Colors.transparent,
             joinedAxis: joined?.omitsLeadingBorder ?? false
                 ? joined!.axis
                 : null,
@@ -942,12 +944,11 @@ class _DButtonSurfaceState extends State<_DButtonSurface> {
   );
 }
 
-/// The painted button surface: a fill clipped to the padding box, a 1px
-/// border and an exterior focus or invalid ring.
+/// The painted button surface: a fill clipped to the padding box, a half-pixel
+/// border, subtle shadow and exterior focus or invalid ring.
 ///
-/// Like base-nova's `border border-transparent bg-clip-padding`, the fill
-/// stops at the border, so a transparent border leaves a one-pixel frame
-/// rather than showing the fill through it. [joinedAxis] names the axis along
+/// A visible border surrounds the fill; borderless surfaces fill their bounds.
+/// [DControlDecoration.joinedAxis] names the axis along
 /// which the leading edge is shared with a preceding control: that edge has no
 /// border and the fill reaches it. The ring is painted outside the bounds.
 typedef DButtonDecoration = DControlDecoration;

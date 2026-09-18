@@ -154,14 +154,14 @@ void main() {
         final box =
             boundary.currentContext!.findRenderObject()!
                 as RenderRepaintBoundary;
-        final image = await box.toImage(pixelRatio: 1);
+        final image = await box.toImage(pixelRatio: 2);
         final bytes = await image.toByteData(format: ImageByteFormat.rawRgba);
         final pixels = [
           for (final dx in [-2, -1, 0])
             bytes!.buffer
                 .asUint8List(
-                  ((first.height ~/ 2) * image.width +
-                          first.width.ceil() +
+                  (first.height.toInt() * image.width +
+                          (first.width * 2).ceil() +
                           dx) *
                       4,
                   4,
@@ -234,7 +234,7 @@ void main() {
       final image = await box.toImage(pixelRatio: 1);
       final bytes = await image.toByteData(format: ImageByteFormat.rawRgba);
       final index =
-          ((first.height ~/ 2) * image.width + first.width.ceil() + 1) * 4;
+          ((first.height ~/ 2) * image.width + first.width.ceil() + 2) * 4;
       final pixel = bytes!.getUint32(index);
       image.dispose();
       return pixel;
@@ -246,7 +246,7 @@ void main() {
     expect(focus.hasFocus, isTrue);
     expect(
       buttonSurface(tester, of: find.byType(FilledButton).first).ringWidth,
-      3,
+      1,
     );
     expect(
       buttonSurface(tester, of: find.byType(FilledButton).last).ringWidth,

@@ -18,18 +18,24 @@ abstract final class DControlStyle {
   static const duration = Duration(milliseconds: 150);
   static const iconSize = 16.0;
   static const gap = 6.0;
+  static const labelFontSize = 13.0;
+  static const rowHeight = 32.0;
+  static const rowRadius = 8.0;
+  static const popupRadius = 12.0;
+  static const focusWidth = 1.0;
+  static const focusOffset = 2.0;
   static double height(DControlSize size) => switch (size) {
     DControlSize.small => smallHeight,
     DControlSize.regular => regularHeight,
     DControlSize.large => largeHeight,
   };
   static double fontSize(DControlSize size) => switch (size) {
-    DControlSize.small || DControlSize.regular => DiscourseTypography.xs,
-    DControlSize.large => DiscourseTypography.sm,
+    DControlSize.small => DiscourseTypography.xs,
+    DControlSize.regular || DControlSize.large => labelFontSize,
   };
   static double lineHeight(DControlSize size) => switch (size) {
-    DControlSize.small || DControlSize.regular => 16,
-    DControlSize.large => 20,
+    DControlSize.small => 16,
+    DControlSize.regular || DControlSize.large => 20,
   };
   static double iconDimension(DControlSize size) => switch (size) {
     DControlSize.small => 12,
@@ -47,10 +53,16 @@ abstract final class DControlStyle {
         2,
   );
 
-  static double radius(DTokens tokens, DControlSize size) => switch (size) {
-    DControlSize.small => (tokens.controlRadius * .8).clamp(0, 10),
-    _ => tokens.controlRadius,
-  };
+  static double radius(DTokens tokens, DControlSize size) =>
+      tokens.controlRadius;
+  static Color shadow(DTokens tokens) => Colors.black.withValues(
+    alpha: tokens.colors.brightness == Brightness.dark ? .30 : .06,
+  );
+  static Color rowHover(DTokens tokens) => Color.lerp(
+    tokens.surface,
+    tokens.foreground,
+    tokens.colors.brightness == Brightness.dark ? .085 : .05,
+  )!;
   static Color alpha(Color color, double factor) =>
       color.withValues(alpha: color.a * factor);
   static Color outlineFill(
@@ -59,22 +71,19 @@ abstract final class DControlStyle {
     bool hovered = false,
     bool field = false,
   }) {
-    if (tokens.controls case final controls?) {
-      return hovered ? controls.outline.hover : controls.outline.background;
-    }
-    final input = tokens.colors.outlineVariant;
-    if (dark) return alpha(input, hovered ? .5 : .3);
-    if (field) return hovered ? alpha(input, .5) : Colors.transparent;
-    return hovered ? tokens.muted : tokens.background;
+    return hovered
+        ? tokens.controlTheme.outline.hover
+        : tokens.controlTheme.outline.background;
   }
 
   static Color outlineBorder(
     DTokens tokens, {
     required bool dark,
     bool field = false,
-  }) =>
-      tokens.controls?.outline.border ??
-      (dark || field ? tokens.colors.outlineVariant : tokens.border);
+    bool hovered = false,
+  }) => hovered
+      ? tokens.controlTheme.outline.hoverBorder
+      : tokens.controlTheme.outline.border;
 
   static Color fieldFill(
     DTokens tokens, {
@@ -102,16 +111,20 @@ class DControlDecoration extends Decoration {
     required this.borderRadius,
     this.ringColor = const Color(0x00000000),
     this.ringWidth = 0,
+    this.ringOffset = 0,
+    this.shadowColor = const Color(0x00000000),
     this.joinedAxis,
   }) : assert(ringWidth >= 0);
 
-  static const double borderWidth = 1;
+  static const double borderWidth = .5;
 
   final Color color;
   final Color borderColor;
   final BorderRadius borderRadius;
   final Color ringColor;
   final double ringWidth;
+  final double ringOffset;
+  final Color shadowColor;
   final Axis? joinedAxis;
 
   @override
@@ -126,6 +139,8 @@ class DControlDecoration extends Decoration {
           borderRadius: BorderRadius.lerp(a.borderRadius, borderRadius, t)!,
           ringColor: Color.lerp(a.ringColor, ringColor, t)!,
           ringWidth: lerpDouble(a.ringWidth, ringWidth, t)!,
+          ringOffset: lerpDouble(a.ringOffset, ringOffset, t)!,
+          shadowColor: Color.lerp(a.shadowColor, shadowColor, t)!,
           joinedAxis: t < .5 ? a.joinedAxis : joinedAxis,
         )
       : super.lerpFrom(a, t);
@@ -142,6 +157,8 @@ class DControlDecoration extends Decoration {
       other.borderRadius == borderRadius &&
       other.ringColor == ringColor &&
       other.ringWidth == ringWidth &&
+      other.ringOffset == ringOffset &&
+      other.shadowColor == shadowColor &&
       other.joinedAxis == joinedAxis;
 
   @override
@@ -151,6 +168,8 @@ class DControlDecoration extends Decoration {
     borderRadius,
     ringColor,
     ringWidth,
+    ringOffset,
+    shadowColor,
     joinedAxis,
   );
 }
@@ -164,6 +183,16 @@ class _DControlPainter extends BoxPainter {
   void paint(Canvas canvas, Offset offset, ImageConfiguration configuration) {
     final rect = offset & configuration.size!;
     final outer = decoration.borderRadius.toRRect(rect);
+    if (decoration.shadowColor.a > 0 && decoration.joinedAxis == null) {
+      const offset = Offset(0, .5);
+      final shadow = BoxShadow(
+        color: decoration.shadowColor,
+        blurRadius: 1,
+        spreadRadius: 1,
+        offset: offset,
+      );
+      canvas.drawRRect(outer.shift(offset).inflate(1), shadow.toPaint());
+    }
     final direction = configuration.textDirection ?? TextDirection.ltr;
     final axis = decoration.joinedAxis;
     const width = DControlDecoration.borderWidth;
@@ -183,8 +212,8 @@ class _DControlPainter extends BoxPainter {
     );
     if (decoration.ringWidth > 0 && decoration.ringColor.a > 0) {
       canvas.drawDRRect(
-        outer.inflate(decoration.ringWidth),
-        outer,
+        outer.inflate(decoration.ringWidth + decoration.ringOffset),
+        outer.inflate(decoration.ringOffset),
         Paint()..color = decoration.ringColor,
       );
     }

@@ -56,7 +56,9 @@ class DTokens extends ThemeExtension<DTokens> {
 
   final DControlTheme? controls;
 
-  double get controlRadius => controls?.radius ?? radius;
+  DControlTheme get controlTheme => controls ?? _referenceControls;
+
+  double get controlRadius => controlTheme.radius;
 
   Color get foreground => colors.onSurface;
   Color get mutedForeground => colors.onSurfaceVariant;
@@ -128,33 +130,8 @@ class DTokens extends ThemeExtension<DTokens> {
     );
   }
 
-  DControlTheme get _referenceControls {
-    final dark = colors.brightness == Brightness.dark;
-    final action = DControlSurface(
-      background: primary,
-      hover: primary.withValues(alpha: primary.a * .8),
-      foreground: primaryForeground,
-    );
-    return DControlTheme(
-      outline: DControlSurface(
-        background: dark
-            ? colors.outlineVariant.withValues(
-                alpha: colors.outlineVariant.a * .3,
-              )
-            : background,
-        hover: dark
-            ? colors.outlineVariant.withValues(
-                alpha: colors.outlineVariant.a * .5,
-              )
-            : muted,
-        foreground: foreground,
-        border: dark ? colors.outlineVariant : border,
-      ),
-      primary: action,
-      accent: action,
-      radius: radius,
-    );
-  }
+  DControlTheme get _referenceControls =>
+      DControlTheme.linear(colors, background);
 }
 
 /// Logical pixels; text continues to use the host's semantic TextTheme roles.

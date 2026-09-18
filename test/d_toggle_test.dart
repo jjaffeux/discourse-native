@@ -5,6 +5,7 @@ import 'package:discourse_native/src/styleguide/component_examples.dart';
 import 'package:discourse_native/src/styleguide/examples/toggle_examples.dart';
 import 'package:discourse_native/src/styleguide/styleguide_theme.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
+import 'package:discourse_native/src/ui/foundation/control_style.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart' show SemanticsValidationResult;
 import 'package:flutter/services.dart';
@@ -339,25 +340,25 @@ void main() {
       ),
     );
     BoxDecoration decoration() => artwork().decoration! as BoxDecoration;
-    BoxDecoration foreground() =>
-        artwork().foregroundDecoration! as BoxDecoration;
-    expect(decoration().border!.top.color, const Color(0xff654321));
-    expect(decoration().color, Colors.transparent);
+    DControlDecoration foreground() =>
+        artwork().foregroundDecoration! as DControlDecoration;
+    expect(decoration().border!.top.color, tokens.controlTheme.outline.border);
+    expect(decoration().color, tokens.controlTheme.outline.background);
 
     final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
     addTearDown(mouse.removePointer);
     await mouse.addPointer(location: Offset.zero);
     await mouse.moveTo(tester.getCenter(find.byType(DToggle)));
     await tester.pumpAndSettle();
-    expect(decoration().color, const Color(0xff123456));
+    expect(decoration().color, DControlStyle.rowHover(tokens));
     await mouse.moveTo(const Offset(1, 1));
     await tester.pumpAndSettle();
 
     focus.requestFocus();
     await tester.pumpAndSettle();
     expect(decoration().border!.top.color, const Color(0xff246813));
-    expect(foreground().border!.top.width, 3);
-    expect(foreground().border!.top.color.a, closeTo(.5, .01));
+    expect(foreground().ringWidth, 1);
+    expect(foreground().ringColor, tokens.focusRing);
 
     await mount(
       tester,
@@ -369,7 +370,7 @@ void main() {
       ),
       theme: theme,
     );
-    expect(decoration().color, const Color(0xff123456));
+    expect(decoration().color, DControlStyle.rowHover(tokens));
     expect(decoration().border!.top.color, const Color(0xffaa0011));
     expect(
       tester

@@ -545,7 +545,7 @@ class _DMenubarTriggerState extends State<DMenubarTrigger> {
                       widthFactor: 1,
                       heightFactor: 1,
                       child: AnimatedContainer(
-                        duration: DMotion.duration(context, DMotion.exit),
+                        duration: Duration.zero,
                         constraints: BoxConstraints(
                           minWidth: 0,
                           minHeight: height,
@@ -556,10 +556,10 @@ class _DMenubarTriggerState extends State<DMenubarTrigger> {
                         ),
                         decoration: BoxDecoration(
                           color: active
-                              ? Theme.of(context).hoverColor
+                              ? DControlStyle.rowHover(tokens)
                               : Colors.transparent,
                           borderRadius: BorderRadius.circular(
-                            tokens.radius * 0.6,
+                            DControlStyle.rowRadius,
                           ),
                         ),
                         child: DefaultTextStyle(
