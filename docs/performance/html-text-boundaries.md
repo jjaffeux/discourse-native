@@ -1,7 +1,6 @@
 # HTML text-boundary conversion investigation
 
-**Status: repeated matched native evidence accepted by the parent audit; final
-integration pending.** Two independent process pairs per workload show lower
+**Status: accepted and merged into local `main` at `ca7d0c50`.** Two independent process pairs per workload show lower
 boundary-matching and root-conversion times. Accessibility was disabled in the
 first cohort and enabled in the repeat; comparisons remain separate. Foreground
 failures and the initial semantics-mismatched pair are excluded.
@@ -221,5 +220,11 @@ ungated boundary bundle must not be used for acceptance.
 
 The repeat captures exercise native semantics, but do not constitute a manual
 accessibility or visual/selection audit. The initial mismatched AX inspection
-remains excluded. Combined-main validation and a serialized main merge remain
-outstanding.
+remains excluded. The branch was merged from the main checkout at `ca7d0c50` after serialized
+review. Combined-main validation passed all **129 focused/gate tests** with seed
+`391616`, root static analysis, and the HTML vendor provenance contract. The full
+provenance command also found two pre-existing, Git-ignored Xcode user scheme
+files under the voice and video vendors (`.swiftpm/xcode/xcuserdata/.../
+xcschemes/xcschememanagement.plist`, both dated September 1). Those unrelated
+local artifacts were preserved. All three provenance contracts passed in the
+clean feature worktree before merging. No push was performed.

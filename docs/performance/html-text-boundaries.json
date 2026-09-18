@@ -1,5 +1,5 @@
 {
-  "status": "repeated matched native evidence complete; pending parent acceptance and serialized integration; unmerged",
+  "status": "accepted and merged into local main; no push",
   "device": {
     "cpu": "Apple M4 Pro",
     "os": "macOS 26.6.2 (25G83)",
@@ -27403,5 +27403,17 @@
         }
       }
     ]
+  },
+  "integration": {
+    "mergeCommit": "ca7d0c50860b04cdfa5e1aa9d6341bab3f681119",
+    "featureCommit": "73a47e96",
+    "mainCheckout": "/Users/joffreyjaffeux/Code/discourse-native",
+    "focusedTestsPassed": 129,
+    "randomSeed": 391616,
+    "rootStaticAnalysis": "passed",
+    "htmlVendorProvenance": "passed",
+    "allVendorProvenanceOnCleanFeatureWorktree": "passed",
+    "allVendorProvenanceOnMain": "HTML passed; voice/video checks flag pre-existing ignored generated Xcode user scheme files, preserved unchanged",
+    "pushed": false
   }
 }
