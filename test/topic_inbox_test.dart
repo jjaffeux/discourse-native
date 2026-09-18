@@ -59,6 +59,90 @@ const _tag = TopicTag(id: 1, name: 'community');
 
 void main() {
   testWidgets(
+    'activity summary has stacked avatars, complete stats and a persistent inset separator',
+    (tester) async {
+      final setup = await _setup(
+        tester,
+        activityStats: true,
+        participants: const [
+          TopicParticipant(username: 'robin'),
+          TopicParticipant(username: 'nora'),
+          TopicParticipant(username: 'tom'),
+          TopicParticipant(username: 'pat'),
+        ],
+      );
+      setup.controller.openTopicFromList(setup.rows.first);
+      await tester.pumpAndSettle();
+      final activity = find.byKey(const ValueKey('topic-header-activity'));
+      final avatars = find.descendant(
+        of: activity,
+        matching: find.byType(DAvatarGroup),
+      );
+      expect(
+        find.descendant(of: avatars, matching: find.byType(DAvatar)),
+        findsNWidgets(4),
+      );
+      for (final label in [
+        '3 replies',
+        '61 views',
+        '29 likes',
+        '5 links',
+        '4 min read',
+      ]) {
+        expect(
+          find.descendant(
+            of: activity,
+            matching: find.text(label, findRichText: true),
+          ),
+          findsOneWidget,
+        );
+      }
+      final stats = find.descendant(
+        of: activity,
+        matching: find.text('3 replies', findRichText: true),
+      );
+      expect(
+        tester.getRect(stats).top,
+        greaterThan(tester.getRect(avatars).bottom),
+      );
+      final viewport = find.descendant(
+        of: find.byType(TopicView),
+        matching: find.byType(CustomScrollView),
+      );
+      final separator = find.byKey(const ValueKey('topic-scroll-separator'));
+      void verifySeparator() {
+        expect(separator, findsOneWidget);
+        final line = tester.getRect(separator);
+        final bounds = tester.getRect(viewport);
+        expect(line.left, greaterThan(bounds.left));
+        expect(line.right, lessThan(bounds.right));
+        expect(line.top, closeTo(bounds.top, 1));
+      }
+
+      verifySeparator();
+      await tester.sendEventToBinding(
+        PointerScrollEvent(
+          position: tester.getCenter(viewport),
+          scrollDelta: const Offset(0, 240),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(activity.hitTestable(), findsNothing);
+      verifySeparator();
+      await tester.sendEventToBinding(
+        PointerScrollEvent(
+          position: tester.getCenter(viewport),
+          scrollDelta: const Offset(0, -30),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(activity.hitTestable(), findsOneWidget);
+      verifySeparator();
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
     'topic and list headers retract independently and reveal on reversal',
     (tester) async {
       final setup = await _setup(tester);
@@ -179,7 +263,7 @@ void main() {
     expect(inHeader(find.text('Onboarding')), findsOneWidget);
     expect(inHeader(find.text('# cached-tag')), findsOneWidget);
     expect(inHeader(find.text('8 replies')), findsOneWidget);
-    expect(inHeader(find.textContaining('Last activity')), findsOneWidget);
+    expect(inHeader(find.textContaining('last activity')), findsOneWidget);
     expect(
       inHeader(find.byKey(const ValueKey('topic-header-closed'))),
       findsOneWidget,
@@ -449,7 +533,13 @@ void main() {
       );
       expect(
         viewportBounds.top,
-        closeTo(taxonomyBounds.bottom + DSpacing.sm, 1),
+        closeTo(
+          tester
+                  .getRect(find.byKey(const ValueKey('topic-header-activity')))
+                  .bottom +
+              20,
+          1,
+        ),
       );
       expect(tester.getRect(scrollbar), viewportBounds);
       final title = find.byKey(const ValueKey('topic-header-title-field'));
@@ -2059,7 +2149,7 @@ void main() {
         tester.getCenter(overflow).dy,
         closeTo(tester.getCenter(child).dy, 1),
       );
-      expect(find.text('Last activity 2m ago'), findsOneWidget);
+      expect(find.text('last activity 2m ago'), findsOneWidget);
 
       await tester.tap(overflow);
       await tester.pumpAndSettle();
@@ -3303,6 +3393,7 @@ _setup(
   Completer<void>? topicGate,
   PluginRegistry registry = PluginRegistry.empty,
   bool recommendations = false,
+  bool activityStats = false,
   bool canCreateTopic = false,
   List<TopicParticipant> participants = const [
     TopicParticipant(username: 'sam', name: 'Sam'),
@@ -3414,6 +3505,15 @@ _setup(
             stream: posts[row.id]!.map((post) => post.id).toList(),
             postsCount: 4,
             replyCount: 3,
+            views: activityStats ? 61 : 0,
+            likeCount: activityStats ? 29 : 0,
+            wordCount: activityStats ? 2000 : 0,
+            links: activityStats
+                ? [
+                    for (var i = 0; i < 5; i++)
+                      TopicMapLink(url: 'https://example.com/$i'),
+                  ]
+                : const [],
             participants: participants,
             recommendations: recommendations
                 ? TopicRecommendations(

@@ -2265,17 +2265,13 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
                         top: 0,
                         left: 0,
                         right: 0,
-                        child: ListenableBuilder(
-                          listenable: _scroll!,
-                          builder: (context, _) =>
-                              snapshot.hasEarlier ||
-                                  (_scroll!.hasClients &&
-                                      _scroll!.position.hasContentDimensions &&
-                                      _scroll!.position.extentBefore > 0)
-                              ? const DSeparator(
-                                  key: ValueKey('topic-scroll-separator'),
-                                )
-                              : const SizedBox.shrink(),
+                        child: Padding(
+                          padding: readingLane.padding.add(
+                            const EdgeInsets.symmetric(horizontal: 16),
+                          ),
+                          child: const DSeparator(
+                            key: ValueKey('topic-scroll-separator'),
+                          ),
                         ),
                       ),
                     ],
@@ -2336,23 +2332,37 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
                 )
               : ScrollRetractingHeader(
                   identity: (siteUrl, snapshot.topicId, _scroll),
-                  header: _TopicViewHeader(
-                    inbox: widget.inbox,
-                    keepTopicListOpen: widget.keepTopicListOpen,
-                    registry: widget.registry,
-                    title: snapshot.topic!.title,
-                    siteUrl: siteUrl,
-                    route: widget.route,
-                    topic: snapshot.topic!,
-                    scrollController: _scroll,
-                    hasEarlierPosts: snapshot.hasEarlier,
-                    isConnected: widget.isConnected,
-                    bookmarkBusy: widget.bookmarkBusy,
-                    canReturnToSidebar: widget.canReturnToSidebar,
-                    sidebarVisible: showPinnedSidebar || showOverlaySidebar,
-                    onToggleSidebar: showOverlaySidebar
-                        ? null
-                        : () => _toggleSidebar(canPinSidebar: canPinSidebar),
+                  header: Column(
+                    children: [
+                      _TopicViewHeader(
+                        inbox: widget.inbox,
+                        keepTopicListOpen: widget.keepTopicListOpen,
+                        registry: widget.registry,
+                        title: snapshot.topic!.title,
+                        siteUrl: siteUrl,
+                        route: widget.route,
+                        topic: snapshot.topic!,
+                        scrollController: _scroll,
+                        hasEarlierPosts: snapshot.hasEarlier,
+                        isConnected: widget.isConnected,
+                        bookmarkBusy: widget.bookmarkBusy,
+                        canReturnToSidebar: widget.canReturnToSidebar,
+                        sidebarVisible: showPinnedSidebar || showOverlaySidebar,
+                        onToggleSidebar: showOverlaySidebar
+                            ? null
+                            : () =>
+                                  _toggleSidebar(canPinSidebar: canPinSidebar),
+                      ),
+                      Padding(
+                        padding: readingLane.padding.add(
+                          const EdgeInsets.fromLTRB(16, 8, 16, 20),
+                        ),
+                        child: TopicActivitySummary(
+                          siteUrl: siteUrl,
+                          topic: snapshot.topic!,
+                        ),
+                      ),
+                    ],
                   ),
                   child: buildBody(const []),
                 ),

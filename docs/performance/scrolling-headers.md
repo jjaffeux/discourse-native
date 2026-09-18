@@ -26,3 +26,19 @@ Verification (2026-09-19, installed Flutter 3.47.4; project pin unchanged):
   return when revealed. Preview used an isolated ad-hoc bundle with restricted
   identity/push entitlements omitted; the app's signing files were unchanged.
 - No physical iOS or Android device testing performed.
+
+## Topic activity area
+
+The reader header now includes up to four participant avatars above replies,
+views, likes, links, estimated reading time and available last-activity metadata.
+Reading time uses the site's words-per-minute setting and the existing
+four-seconds-per-post estimate. Statistics wrap on narrow layouts. This area
+retracts together with the title and taxonomy, including when opening mid-topic.
+The viewport separator is always painted and follows the reading lane's text
+insets, instead of appearing only after scrolling across the full pane.
+
+Verified the production local-data macOS preview in light split and dark narrow
+layouts, including scrolling down/up and hidden/revealed header accessibility.
+Regression coverage checks stats, avatar stacking, separator geometry, retained
+scrolling behavior, loading metadata and title editing. Existing unrelated inbox
+failures documented above remain outside this change.
