@@ -18,6 +18,7 @@ import '../../shell/composer_drop.dart';
 import '../../shell/composer_link.dart';
 import '../../shell/composer_marks.dart';
 import '../../shell/composer_panel.dart';
+import '../../shell/composer_slash_menu.dart';
 import '../../shell/composer_upload_picker.dart';
 import '../../shell/content_reading_lane.dart';
 import '../../shell/emoji_composer.dart';
@@ -1030,6 +1031,47 @@ class _ChatComposerState extends State<ChatComposer> {
                         _handleEditLastMessage(event, composer),
                     child: ComposerEditor(
                       composer: composer,
+                      slashActions: (context) {
+                        final gifs = PluginUiScope.maybe(
+                          context,
+                          chatGifsService,
+                        );
+                        final enabled =
+                            !_pickingGif &&
+                            !_pickingFiles &&
+                            !_pickingEmoji &&
+                            !_savingEdit &&
+                            (_chat?.canSendMessageTo(widget.siteUrl, _target) ??
+                                false);
+                        return [
+                          if (enabled && composer.canUpload)
+                            ComposerSlashAction(
+                              label: 'Upload',
+                              icon: DIcons.paperclip,
+                              keywords: const ['image', 'file', 'attachment'],
+                              onInvoke: () => unawaited(_pickFiles()),
+                            ),
+                          if (enabled &&
+                              widget.editingMessage == null &&
+                              (gifs?.isAvailable(widget.siteUrl) ?? false))
+                            ComposerSlashAction(
+                              label: 'Insert GIF',
+                              icon: gifsPickerIcon,
+                              onInvoke: () => unawaited(_pickGif()),
+                            ),
+                          if (enabled &&
+                              host
+                                  .siteConfigFor(composer.target.siteUrl)
+                                  .emojiEnabled)
+                            ComposerSlashAction(
+                              label: 'Emoji',
+                              icon: DIcons.discourseEmojis,
+                              keywords: const ['reaction', 'smile'],
+                              onInvoke: () =>
+                                  unawaited(_pickEmoji(pickerContext: context)),
+                            ),
+                        ];
+                      },
                       expands: false,
                       enableDropTarget: widget.uploadDropController == null,
                       onSuggestionAction:

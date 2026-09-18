@@ -36,6 +36,7 @@ import 'composer_marks.dart';
 import 'composer_media_editing_coordinator.dart';
 import 'composer_quotes.dart';
 import 'composer_reply_context.dart';
+import 'composer_slash_menu.dart';
 import 'composer_suggestions.dart';
 import 'composer_table.dart';
 import 'composer_tag_removal_notice.dart';
@@ -817,6 +818,7 @@ class ComposerEditor extends StatefulWidget {
     this.pickImages = pickComposerImages,
     this.readClipboardFiles = readComposerClipboardFiles,
     this.onSuggestionAction,
+    this.slashActions,
   });
 
   final ComposerController composer;
@@ -834,12 +836,15 @@ class ComposerEditor extends StatefulWidget {
 
   final bool expands;
   final ComposerSuggestionActionHandler? onSuggestionAction;
+  final ComposerSlashActions? slashActions;
 
   @override
   State<ComposerEditor> createState() => _ComposerEditorState();
 }
 
 class _ComposerEditorState extends State<ComposerEditor> {
+  final _slashMenu = GlobalKey<ComposerSlashMenuState>();
+  bool _pickingSlashFiles = false;
   _ComposerEditorState? _parentEditor;
   _ComposerEditorState? _nativeDropEditor;
   final _nestedEditors = <_ComposerEditorState>{};
@@ -1107,12 +1112,125 @@ class _ComposerEditorState extends State<ComposerEditor> {
     });
   }
 
+  List<ComposerSlashAction> _slashActions(BuildContext context) {
+    final composer = widget.composer;
+    final shell = ShellScope.maybeRead(context);
+    final registry =
+        PluginScope.maybeOf(context)?.registry ?? PluginRegistry.empty;
+    return [
+      for (final (label, icon, mark) in [
+        ('Bold', DIcons.bold, ComposerMark.bold),
+        ('Italic', DIcons.italic, ComposerMark.italic),
+        ('Inline code', DIcons.code, ComposerMark.inlineCode),
+      ])
+        ComposerSlashAction(
+          label: label,
+          icon: icon,
+          group: 'Formatting',
+          onInvoke: () => composer.toggleMark(mark),
+        ),
+      ComposerSlashAction(
+        label: 'Link',
+        icon: DIcons.link,
+        group: 'Formatting',
+        onInvoke: () => unawaited(
+          showComposerLinkDialog(context: context, composer: composer),
+        ),
+      ),
+      if (!composer.target.isPlugin) ...[
+        ComposerSlashAction(
+          label: 'Table',
+          icon: DIcons.list,
+          onInvoke: () => insertComposerTable(composer),
+        ),
+        ComposerSlashAction(
+          label: 'Details',
+          icon: DIcons.list,
+          keywords: const ['summary', 'collapse'],
+          onInvoke: () => insertComposerDetails(composer),
+        ),
+        if (composer.canUpload)
+          ComposerSlashAction(
+            label: 'Upload',
+            icon: DIcons.paperclip,
+            keywords: const ['image', 'file', 'attachment'],
+            onInvoke: () => unawaited(_pickSlashFiles()),
+          ),
+        if (!composer.target.isTaxonomyEdit &&
+            (shell?.siteConfigFor(composer.target.siteUrl).emojiEnabled ??
+                false))
+          ComposerSlashAction(
+            label: 'Emoji',
+            icon: DIcons.discourseEmojis,
+            keywords: const ['reaction', 'smile'],
+            onInvoke: () => unawaited(
+              openEmojiPickerForTopicComposer(
+                context: context,
+                composer: composer,
+              ),
+            ),
+          ),
+      ],
+      for (final action in registry.composerToolbar(context, composer))
+        ComposerSlashAction(
+          label: action.label,
+          icon: action.icon,
+          onInvoke: action.onInvoke,
+        ),
+      ...?widget.slashActions?.call(context),
+    ];
+  }
+
+  Future<void> _pickSlashFiles() async {
+    final composer = widget.composer;
+    if (_pickingSlashFiles || !composer.canUpload) return;
+    _pickingSlashFiles = true;
+    final expected = composer.text.value;
+    try {
+      final files = await widget.pickFiles();
+      if (mounted &&
+          identical(widget.composer, composer) &&
+          composer.canUpload &&
+          composer.text.value == expected) {
+        composer.addFiles(files, expected.selection.extentOffset);
+      }
+    } catch (error, stackTrace) {
+      DiagnosticsSink.current.reportError(
+        error,
+        stackTrace,
+        operation: 'composer.pickFiles',
+        source: 'platform',
+        severity: DiagnosticSeverity.warning,
+        handled: true,
+        degraded: true,
+      );
+      if (mounted && identical(widget.composer, composer)) {
+        composer.showNotice("Couldn't open the file picker.");
+      }
+    } finally {
+      _pickingSlashFiles = false;
+      if (mounted &&
+          identical(widget.composer, composer) &&
+          composer.isEditing) {
+        composer.focus.requestFocus();
+      }
+    }
+  }
+
   Widget _field() => Semantics(
     container: true,
     explicitChildNodes: true,
     label: 'Composer editor',
     traversalParentIdentifier: widget.composer,
-    child: _textField(),
+    child: ComposerSlashMenu(
+      key: _slashMenu,
+      composer: widget.composer,
+      actions: _slashActions,
+      hintStyle: widget.hintStyle ?? widget.textStyle,
+      renderEditable: () => _renderEditable,
+      scroll: _scroll,
+      child: _textField(),
+    ),
   );
 
   Widget _textField() => MouseRegion(
@@ -1556,6 +1674,10 @@ class _ComposerEditorState extends State<ComposerEditor> {
   }
 
   KeyEventResult _onEditorKeyEvent(FocusNode _, KeyEvent event) {
+    if (_slashMenu.currentState?.handleKeyEvent(event) ==
+        KeyEventResult.handled) {
+      return KeyEventResult.handled;
+    }
     // Embedded cell editors own their selection, deletion and text shortcuts.
     if (!widget.composer.focus.hasPrimaryFocus) return KeyEventResult.ignored;
     if (!widget.composer.isEditing) return KeyEventResult.ignored;

@@ -35,6 +35,7 @@ class DCommandController<T> extends ChangeNotifier {
   List<_DCommandEntry<T>> _entries = const [];
   final Set<Object> _composingInputs = {};
   ValueChanged<T>? _activate;
+  KeyEventResult Function(KeyEvent)? _handleKey;
   ValueChanged<String>? _queryRequest;
   ValueChanged<T?>? _valueRequest;
 
@@ -65,11 +66,20 @@ class DCommandController<T> extends ChangeNotifier {
     if (target != null) _activate?.call(target);
   }
 
+  /// Routes keys from an external editor without moving focus into the menu.
+  /// Call before the editor's own shortcuts. IME composition stays with the
+  /// editor; detached controllers never consume events.
+  KeyEventResult handleKeyEvent(KeyEvent event, {bool isComposing = false}) =>
+      isComposing
+      ? KeyEventResult.ignored
+      : _handleKey?.call(event) ?? KeyEventResult.ignored;
+
   void _attach(
     Object attachment, {
     required ValueChanged<String> queryRequest,
     required ValueChanged<T?> valueRequest,
     required ValueChanged<T> activate,
+    required KeyEventResult Function(KeyEvent) handleKey,
   }) {
     assert(
       _attachment == null || identical(_attachment, attachment),
@@ -79,6 +89,7 @@ class DCommandController<T> extends ChangeNotifier {
     _queryRequest = queryRequest;
     _valueRequest = valueRequest;
     _activate = activate;
+    _handleKey = handleKey;
   }
 
   void _detach(Object attachment) {
@@ -87,6 +98,7 @@ class DCommandController<T> extends ChangeNotifier {
     _queryRequest = null;
     _valueRequest = null;
     _activate = null;
+    _handleKey = null;
     _entries = const [];
     _composingInputs.clear();
   }
@@ -180,6 +192,7 @@ class DCommandController<T> extends ChangeNotifier {
   void dispose() {
     _disposed = true;
     _attachment = null;
+    _handleKey = null;
     _entries = const [];
     _composingInputs.clear();
     super.dispose();
@@ -261,6 +274,7 @@ class _DCommandState<T> extends State<DCommand<T>> {
     queryRequest: _changeQuery,
     valueRequest: _changeValue,
     activate: _activate,
+    handleKey: _handleKey,
   );
 
   @override
@@ -305,7 +319,9 @@ class _DCommandState<T> extends State<DCommand<T>> {
     widget.onSelected?.call(value);
   }
 
-  KeyEventResult _onKey(FocusNode node, KeyEvent event) {
+  KeyEventResult _onKey(FocusNode node, KeyEvent event) => _handleKey(event);
+
+  KeyEventResult _handleKey(KeyEvent event) {
     if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
       return KeyEventResult.ignored;
     }

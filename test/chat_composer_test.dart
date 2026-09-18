@@ -70,6 +70,56 @@ const _gif = GifResult(
 );
 
 void main() {
+  testWidgets(
+    'slash commands filter chat actions and never send on selection',
+    (tester) async {
+      final fixture = await _fixture(
+        pages: {FakeDiscourseApi.chatMessagesKey(9): _emptyPage},
+        config: _gifsConfig,
+      );
+      addTearDown(fixture.shell.dispose);
+      await tester.pumpWidget(_TestView(shell: fixture.shell));
+      await tester.pumpAndSettle();
+      await tester.enterText(_composerField(), '/');
+      await tester.pumpAndSettle();
+      expect(find.text('Type to search'), findsOneWidget);
+      expect(find.text('Bold'), findsOneWidget);
+      expect(find.text('Insert GIF'), findsOneWidget);
+      expect(find.text('Emoji'), findsOneWidget);
+      expect(find.text('Insert date/time'), findsOneWidget);
+      expect(find.text('Table'), findsNothing);
+      await tester.enterText(_composerField(), '/bold');
+      await tester.pumpAndSettle();
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pumpAndSettle();
+      expect(_text(tester), '****');
+      expect(fixture.api.chatMessagesSent, isEmpty);
+      await tester.enterText(_composerField(), '/zzzzzz');
+      await tester.pumpAndSettle();
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pumpAndSettle();
+      expect(_text(tester), '/zzzzzz');
+      expect(fixture.api.chatMessagesSent, isEmpty);
+    },
+  );
+
+  testWidgets('slash actions respect disabled chat emoji and GIF settings', (
+    tester,
+  ) async {
+    final fixture = await _fixture(
+      pages: {FakeDiscourseApi.chatMessagesKey(9): _emptyPage},
+      config: const SiteConfig(emojiEnabled: false),
+    );
+    addTearDown(fixture.shell.dispose);
+    await tester.pumpWidget(_TestView(shell: fixture.shell));
+    await tester.pumpAndSettle();
+    await tester.enterText(_composerField(), '/');
+    await tester.pumpAndSettle();
+    expect(find.text('Bold'), findsOneWidget);
+    expect(find.text('Emoji'), findsNothing);
+    expect(find.text('Insert GIF'), findsNothing);
+  });
+
   for (final width in [360.0, 1024.0]) {
     for (final dark in [false, true]) {
       testWidgets(

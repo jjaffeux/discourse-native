@@ -92,6 +92,57 @@ Widget _command({
 );
 
 void main() {
+  testWidgets(
+    'external editor key routing retains focus and respects IME and detach',
+    (tester) async {
+      final controller = DCommandController<String>();
+      final focus = FocusNode();
+      addTearDown(controller.dispose);
+      addTearDown(focus.dispose);
+      String? selected;
+      await tester.pumpWidget(
+        _host(
+          Column(
+            children: [
+              TextField(focusNode: focus),
+              _command(
+                controller: controller,
+                onSelected: (value) => selected = value,
+              ),
+            ],
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      focus.requestFocus();
+      await tester.pump();
+      const down = KeyDownEvent(
+        physicalKey: PhysicalKeyboardKey.arrowDown,
+        logicalKey: LogicalKeyboardKey.arrowDown,
+        timeStamp: Duration.zero,
+      );
+      final initial = controller.value;
+      expect(
+        controller.handleKeyEvent(down, isComposing: true),
+        KeyEventResult.ignored,
+      );
+      expect(controller.value, initial);
+      expect(controller.handleKeyEvent(down), KeyEventResult.handled);
+      expect(controller.value, isNot(initial));
+      expect(focus.hasFocus, isTrue);
+      controller.handleKeyEvent(
+        const KeyDownEvent(
+          physicalKey: PhysicalKeyboardKey.enter,
+          logicalKey: LogicalKeyboardKey.enter,
+          timeStamp: Duration.zero,
+        ),
+      );
+      expect(selected, controller.value);
+      await tester.pumpWidget(const SizedBox.shrink());
+      expect(controller.handleKeyEvent(down), KeyEventResult.ignored);
+    },
+  );
+
   test(
     'detached controller retains imperative query and highlight updates',
     () {
