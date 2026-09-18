@@ -43,12 +43,15 @@ Future<ShellController> chatScrollController({
   bool directMessage = false,
   bool group = false,
   bool rich = false,
+  Uint8List? animatedBytes,
 }) async {
-  final imageBytes = rich
-      ? (await rootBundle.load(
-          'packages/discourse_native/src/styleguide/assets/item/model-lg.jpg',
-        )).buffer.asUint8List()
-      : null;
+  final imageBytes =
+      animatedBytes ??
+      (rich
+          ? (await rootBundle.load(
+              'packages/discourse_native/src/styleguide/assets/item/model-lg.jpg',
+            )).buffer.asUint8List()
+          : null);
   final controller = ShellController(
     siteImages: imageBytes == null
         ? null
@@ -72,7 +75,9 @@ Future<ShellController> chatScrollController({
               ChatMessage(
                 id: id,
                 channelId: 9,
-                cooked: rich
+                cooked: animatedBytes != null && id > count - 3
+                    ? '<p>Message $id</p><img src="$chatScrollSite/animated-$id.gif" width="100" height="100">'
+                    : rich
                     ? richChatScrollHtml(id)
                     : switch (id % 4) {
                         0 =>
