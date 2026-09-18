@@ -1,11 +1,10 @@
 # HTML text-boundary conversion investigation
 
-**Status: provisional matched native evidence; unmerged pending repeated process
-pairs, parent review and serialized integration.** One foreground-valid, semantics-matched process pair
-per workload confirms a large reduction in boundary matching and lower root
-conversion times. The planned second matched pairs could not complete because
-foreground validation rejected subsequent launches. Those failures and an
-initial semantics-mismatched pair remain explicitly excluded from acceptance.
+**Status: repeated matched native evidence accepted by the parent audit; final
+integration pending.** Two independent process pairs per workload show lower
+boundary-matching and root-conversion times. Accessibility was disabled in the
+first cohort and enabled in the repeat; comparisons remain separate. Foreground
+failures and the initial semantics-mismatched pair are excluded.
 
 This follows [first-render profiling](long-post-first-render.md), the
 [default-style cache](html-default-style-cache.md), and
@@ -62,14 +61,14 @@ of a rendering or scrolling improvement. No frame-rate claim is made.
 The Mac was subsequently unlocked and the gated acceptance bundle ran in an
 exclusive, CPU-quiet slot on 2026-09-18. The same binary selected legacy boundary
 regexes or direct ASCII edge scanning; internal matching and all other renderer
-behavior remained identical. Accepted captures were resumed throughout, had
+behavior remained identical. The first accepted cohort was resumed throughout, had
 semantics disabled, and recorded a 2560 × 1720 physical viewport at DPR 2.
 Device, Flutter version and content width match the configuration above.
 
 Each accepted process completed four cycles of column, sliver and progressive
 rendering. Cycle zero is warmup; medians below use nine samples per process,
-three per mode. One matched baseline/candidate process pair is available for
-each workload. Exact conversion-operation counts match for every accepted
+three per mode. The first cohort contains one matched baseline/candidate process
+pair for each workload. Exact conversion-operation counts match for every accepted
 mode/cycle, including nested quote conversions.
 
 | Phase, milliseconds | Varied baseline | Varied candidate | Plain baseline | Plain candidate |
@@ -90,9 +89,40 @@ The initial varied pair is excluded: an AX inspection enabled native semantics
 only in its baseline launch. A later plain fixed launch lost foreground before
 any sample; an additional varied baseline timed out waiting for resumed. Both
 exited with code 2 and zero samples. The valid preceding plain baseline is
-retained as unpaired. No further retry was attempted after the second rejection.
-All valid, excluded and rejected records are in the measurement JSON. Accepted
-comparisons contain four process cohorts / 36 post-warmup samples in total.
+retained as unpaired. A subsequent bounded retry also timed out with zero samples after raising the
+window. A later retry selected the running app through CUA and clicked its
+observed content container. That activation succeeded, enabling the repeated
+pairs below. All valid, excluded and rejected records remain in the measurement
+JSON.
+
+### Independent repeat with accessibility enabled
+
+All four repeated processes completed 12 foreground-valid samples. All nine
+post-warmup samples in each process had semantics enabled, matching viewport and
+DPR, and identical conversion-operation counts for every corresponding mode and
+cycle. App selection and container-click completion timestamps are retained in
+the JSON. There were no further UI actions during post-warmup capture.
+
+| Phase, milliseconds | Varied baseline | Varied candidate | Plain baseline | Plain candidate |
+| --- | ---: | ---: | ---: | ---: |
+| Root synchronous conversion | 24.815 | 17.862 | 14.677 | 13.163 |
+| Leading boundary | 0.356 | 0.111 | 0.117 | 0.059 |
+| Trailing boundary | 3.415 | 0.098 | 4.184 | 0.052 |
+| All text normalization | 8.853 | 4.504 | 9.543 | 6.975 |
+
+| Root conversion, milliseconds | Varied baseline | Varied candidate | Plain baseline | Plain candidate |
+| --- | ---: | ---: | ---: | ---: |
+| Column | 26.868 | 17.862 | 14.237 | 12.131 |
+| Sliver | 24.815 | 17.890 | 14.677 | 14.020 |
+| Progressive | 21.867 | 16.588 | 15.062 | 13.237 |
+
+Repeat root medians fell **28.0%** for varied content and **10.3%** for plain
+paragraphs; trailing-boundary cost fell **97.1–98.8%**. Both independent cohorts
+improve root conversion in every mode. Variation between process pairs limits
+any precise overall speedup claim; these cohorts are deliberately not pooled.
+Together the accepted comparisons contain eight processes / 72 post-warmup
+samples. The parent independently parsed the repeat records and accepted the
+bounded CPU improvement. No smoother-frame or mobile-performance claim follows.
 
 ## Proposed bounded change
 
@@ -115,7 +145,7 @@ subphase to approximately 0.08–0.22 ms. Debug/JIT timings include probe overhe
 and concurrent-machine uncertainty; they establish a candidate to measure, not
 a native conversion speedup. All captured phase samples and explicit warmup
 markers are retained in [the measurements](html-text-boundaries.json), separately
-from the rejected regex variant. The native results above provide provisional comparison evidence; the debug
+from the rejected regex variant. The native results above provide repeated comparison evidence; the debug
 probe is retained only as the diagnostic history.
 
 ## Reproduction
@@ -154,7 +184,7 @@ The gated driver is `/tmp/run-html-conversion-boundary-gated-0694.py`. It reject
 runs without 12 foreground-validated samples or a successful exit. The earlier
 ungated boundary bundle must not be used for acceptance.
 
-## Verification so far
+## Verification
 
 - Independent character-scanner oracle over 1,000 deterministic random strings,
   with ASCII whitespace, Unicode spaces, line separators and unpaired surrogates;
@@ -174,6 +204,10 @@ ungated boundary bundle must not be used for acceptance.
   selection behavior. The upstream `_addText` method was verified byte-for-byte
   equal to this repository's pre-change method. File SHA-256 values are retained
   in the measurement JSON; no upstream assertions or app dependencies changed.
+- Final branch validation reran the 125 focused application tests together with
+  the four foreground-gate tests: **129 passed** with seed `391616`. The vendor
+  provenance contracts, optional probe patch applicability and diff checks also
+  passed again after recording the repeated measurements.
 - Four foreground-gate tests passed: startup timeout/resume, per-capture
   requirements, prompt rejection of a stalled capture, and persistent invalidity
   when foreground is lost then restored.
@@ -185,7 +219,7 @@ ungated boundary bundle must not be used for acceptance.
   provenance contracts, the probe-free candidate macOS profile build and the
   gated instrumented acceptance build passed.
 
-No fresh native accessibility or manual visual/selection check was performed;
-accepted captures had semantics disabled. The initial AX inspection is excluded
-from performance comparisons. Repeated matched process pairs, final parent acceptance, combined-main
-validation and a serialized main merge remain outstanding.
+The repeat captures exercise native semantics, but do not constitute a manual
+accessibility or visual/selection audit. The initial mismatched AX inspection
+remains excluded. Combined-main validation and a serialized main merge remain
+outstanding.
