@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/data/app_settings_store.dart';
 import 'package:discourse_native/src/macos_launch_screen.dart';
-import 'package:discourse_native/src/models/app_settings.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/sidebar_tag.dart';
 import 'package:discourse_native/src/models/site_config.dart';
@@ -30,7 +29,7 @@ import 'package:flutter/material.dart';
 
 import '../test/support/fakes.dart';
 
-// Offline review of Card/Compact settings, event stamps, and assignments.
+// Offline review of full-width topic rows, event stamps, and assignments.
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   const user = DiscourseUser(
@@ -305,16 +304,6 @@ class _ReviewState extends State<_Review> {
                     DButton(
                       label: const Text('Settings'),
                       onPressed: () => showAppSettingsModal(context),
-                    ),
-                    DButton(
-                      label: const Text('Card'),
-                      onPressed: () => widget.shell.appSettings
-                          .setTopicListMode(TopicListDisplayMode.card),
-                    ),
-                    DButton(
-                      label: const Text('Compact'),
-                      onPressed: () => widget.shell.appSettings
-                          .setTopicListMode(TopicListDisplayMode.compact),
                     ),
                     DButton(
                       label: Text(_narrow ? 'Wide pane' : '390px pane'),

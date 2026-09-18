@@ -21,7 +21,6 @@ import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/site_emoji_image.dart';
 import 'package:discourse_native/src/shell/topic_inbox_row.dart';
 import 'package:discourse_native/src/shell/topic_list_actions.dart';
-import 'package:discourse_native/src/shell/topic_list_layout.dart';
 import 'package:discourse_native/src/shell/topic_list_view.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/gestures.dart';
@@ -38,7 +37,7 @@ import 'support/media_pipeline.dart';
 
 void main() {
   for (final (width, scale) in [(780.0, 1.0), (1200.0, 1.0), (1200.0, 2.0)]) {
-    testWidgets('compact category and tags share a baseline at $width/$scale', (
+    testWidgets('topic category and tags share a baseline at $width/$scale', (
       tester,
     ) async {
       await _setup(tester, width: width, scale: scale);
@@ -47,12 +46,12 @@ void main() {
         find.descendant(of: header, matching: find.text('Category')),
         findsNothing,
       );
-      final row = find.byKey(const ValueKey('topic-compact-1'));
+      final row = find.byKey(const ValueKey('topic-card-1'));
       final category = find.descendant(
         of: row,
         matching: find.text('Community'),
       );
-      final tag = find.descendant(of: row, matching: find.text('#design'));
+      final tag = find.descendant(of: row, matching: find.text('design'));
       double baseline(Finder finder) {
         final box = tester.renderObject<RenderBox>(finder);
         return box.localToGlobal(Offset.zero).dy +
@@ -116,7 +115,12 @@ void main() {
         tester
             .widgetList<SiteEmojiImage>(find.byType(SiteEmojiImage))
             .map((emoji) => emoji.name),
-        ['information_source', 'discourse2'],
+        [
+          'information_source',
+          'discourse2',
+          'information_source',
+          'discourse2',
+        ],
       );
       expect(
         tester
@@ -125,106 +129,40 @@ void main() {
         [
           'https://compact.example/images/emoji/twitter/information_source.png',
           'https://compact.example/uploads/custom-discourse.png',
+          'https://compact.example/images/emoji/twitter/information_source.png',
+          'https://compact.example/uploads/custom-discourse.png',
         ],
       );
-      expect(find.byType(Image), findsNWidgets(2));
+      expect(find.byType(Image), findsNWidgets(4));
       expect(tester.takeException(), isNull);
     });
   }
 
-  for (final standalone in [false, true]) {
-    testWidgets(
-      'cards follow the pane breakpoint without saving it ($standalone)',
-      (tester) async {
-        final shell = await _setup(tester);
-        final width = ValueNotifier<double>(320);
-        addTearDown(width.dispose);
-        final topic = shell.store.read<Topic>(shell.currentInstance!.url, 1)!;
-        await tester.pumpWidget(
-          ShellScope(
-            controller: shell,
-            child: MaterialApp(
-              theme: AppTheme.light,
-              home: Scaffold(
-                body: Align(
-                  alignment: Alignment.topLeft,
-                  child: ValueListenableBuilder<double>(
-                    valueListenable: width,
-                    builder: (context, width, child) =>
-                        SizedBox(width: width, child: child),
-                    child: TopicListLayout(
-                      child: Column(
-                        children: [
-                          const TopicListActions(),
-                          if (standalone) ...[
-                            const TopicListTableHeader(),
-                            Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                              ),
-                              child: TopicListRow(topic: topic, onTap: () {}),
-                            ),
-                          ] else
-                            Expanded(
-                              child: TopicListView(feed: shell.currentFeed!),
-                            ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
+  for (final width in [280.0, 640.0, 1200.0]) {
+    testWidgets('one full-width layout ignores legacy mode at $width', (
+      tester,
+    ) async {
+      final shell = await _setup(tester, width: width);
+      final row = find.byKey(const ValueKey('topic-card-1'));
+      expect(tester.getRect(row).left, 0);
+      expect(tester.getRect(row).width, width);
+      expect(find.byType(DTable), findsNothing);
+      await tester.pumpWidget(
+        ShellScope(
+          controller: shell,
+          child: MaterialApp(
+            theme: AppTheme.light,
+            home: const Scaffold(body: TopicListActions()),
           ),
-        );
-        await tester.pumpAndSettle();
-        expect(find.byKey(const ValueKey('topic-compact-1')), findsOneWidget);
-        expect(
-          find.byKey(const ValueKey('compact-topic-list-header')),
-          findsOneWidget,
-        );
-        final listState = standalone
-            ? null
-            : tester.state(find.byType(TopicListView));
-
-        width.value = 319;
-        await tester.pumpAndSettle();
-        expect(find.byKey(const ValueKey('topic-card-1')), findsOneWidget);
-        expect(
-          find.byKey(const ValueKey('compact-topic-list-header')),
-          findsNothing,
-        );
-        await tester.tap(find.byKey(const ValueKey('topic-list-display')));
-        await tester.pumpAndSettle();
-        expect(find.text('Show excerpts'), findsNothing);
-        expect(find.text('Larger text'), findsOneWidget);
-        final card = tester.widget<DDropdownMenuCheckboxItem>(
-          find.byKey(const ValueKey('topic-display-card')),
-        );
-        final compact = tester.widget<DDropdownMenuCheckboxItem>(
-          find.byKey(const ValueKey('topic-display-compact')),
-        );
-        expect(card.checked, isTrue);
-        expect(card.onChanged, isNull);
-        expect(compact.checked, isFalse);
-        expect(compact.onChanged, isNull);
-        await tester.sendKeyEvent(LogicalKeyboardKey.escape);
-        await tester.pumpAndSettle();
-
-        width.value = 320;
-        await tester.pumpAndSettle();
-        expect(find.byKey(const ValueKey('topic-compact-1')), findsOneWidget);
-        expect(
-          find.byKey(const ValueKey('compact-topic-list-header')),
-          findsOneWidget,
-        );
-        expect(shell.appSettings.topicListMode, TopicListDisplayMode.compact);
-        if (!standalone) {
-          expect(tester.state(find.byType(TopicListView)), same(listState));
-        }
-        expect(tester.takeException(), isNull);
-      },
-    );
+        ),
+      );
+      await tester.tap(find.byKey(const ValueKey('topic-list-display')));
+      await tester.pumpAndSettle();
+      expect(find.text('Compact'), findsNothing);
+      expect(find.text('Card'), findsNothing);
+      expect(find.text('Larger text'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
   }
 
   for (final (width, scale, direction) in [
@@ -233,7 +171,7 @@ void main() {
     (320.0, 2.0, TextDirection.rtl),
   ]) {
     testWidgets(
-      'conversation cards keep metadata and a separate footer at $width/$scale/$direction',
+      'conversation rows keep title, excerpt and metadata at $width/$scale/$direction',
       (tester) async {
         await _setup(
           tester,
@@ -253,14 +191,17 @@ void main() {
           of: card,
           matching: find.text('Features'),
         );
-        final tag = find.descendant(of: card, matching: find.text('#design'));
+        final tag = find.descendant(of: card, matching: find.text('design'));
         final title = find.descendant(
           of: card,
           matching: find.text(
             'Topic 1: a conversation about improving our community',
           ),
         );
-        expect(tester.getRect(tag).bottom, lessThan(tester.getRect(title).top));
+        expect(
+          tester.getRect(tag).top,
+          greaterThan(tester.getRect(title).bottom),
+        );
         if (width == 1200) {
           double baseline(Finder finder) {
             final box = tester.renderObject<RenderBox>(finder);
@@ -271,7 +212,7 @@ void main() {
           expect(baseline(tag), closeTo(baseline(category), 0.01));
           final secondTag = find.descendant(
             of: card,
-            matching: find.text('#mobile'),
+            matching: find.text('mobile'),
           );
           expect(baseline(secondTag), closeTo(baseline(tag), 0.01));
           expect(
@@ -283,62 +224,32 @@ void main() {
             greaterThan(tester.getRect(category).right),
           );
         }
-        final footer = find.descendant(
-          of: card,
-          matching: find.byType(DCardFooter),
+        expect(
+          find.descendant(of: card, matching: find.byType(DCardFooter)),
+          findsNothing,
         );
-        expect(footer, findsOneWidget);
         expect(
           find.ancestor(of: card, matching: find.byType(DCard)),
+          findsNothing,
+        );
+        expect(
+          find.descendant(of: card, matching: find.text('24 replies')),
           findsOneWidget,
         );
         expect(
-          find.descendant(of: card, matching: find.byType(DTable)),
-          findsNothing,
-        );
-        expect(
-          find.byKey(const ValueKey('compact-topic-list-header')),
-          findsNothing,
+          find.descendant(of: card, matching: find.text('Excerpt 1')),
+          findsOneWidget,
         );
         final replies = find.descendant(
-          of: footer,
-          matching: find.text('Replies'),
-        );
-        final replyCount = find.descendant(
-          of: footer,
-          matching: find.text('24'),
-        );
-        final labelRect = tester.getRect(replies);
-        final valueRect = tester.getRect(replyCount);
-        final rtl = direction == TextDirection.rtl;
-        expect(
-          rtl
-              ? labelRect.left - valueRect.right
-              : valueRect.left - labelRect.right,
-          closeTo(DSpacing.xs, 0.01),
-        );
-        if (width < 560) {
-          final contentRect = tester.getRect(
-            find.descendant(
-              of: card,
-              matching: find.byKey(
-                const ValueKey(('topic-row-parent-category', 1)),
-              ),
-            ),
-          );
-          expect(
-            rtl ? labelRect.right : labelRect.left,
-            closeTo(rtl ? contentRect.right : contentRect.left, 0.01),
-          );
-        }
-        expect(
-          find.descendant(of: footer, matching: find.text('Activity')),
-          findsOneWidget,
+          of: card,
+          matching: find.text('24 replies'),
         );
         expect(
-          tester.getRect(footer).top,
-          greaterThan(tester.getRect(card).top),
+          tester.getRect(replies).width,
+          closeTo(tester.getSize(replies).width, .01),
+          reason: 'Inline metadata must apply text scaling only once.',
         );
+        expect(tester.getRect(card).width, width);
         expect(tester.getRect(card).width, lessThanOrEqualTo(width));
         expect(tester.takeException(), isNull);
       },
@@ -347,17 +258,19 @@ void main() {
 
   for (final dark in [false, true]) {
     for (final mode in TopicListDisplayMode.values) {
-      testWidgets('topic tags stay transparent on hover in $mode/$dark', (
+      testWidgets('topic tags retain their outline on hover in $mode/$dark', (
         tester,
       ) async {
         await _setup(tester, dark: dark, mode: mode, focusPolicy: true);
-        final row = find.byKey(ValueKey('topic-${mode.name}-1'));
-        final tag = find.descendant(of: row, matching: find.text('#design'));
+        final row = find.byKey(const ValueKey('topic-card-1'));
+        final tag = find.descendant(of: row, matching: find.text('design'));
         final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
         addTearDown(mouse.removePointer);
         await mouse.addPointer(location: Offset.zero);
         for (final hovering in [true, false]) {
-          await mouse.moveTo(hovering ? tester.getCenter(tag) : Offset.zero);
+          await mouse.moveTo(
+            hovering ? tester.getCenter(tag) : const Offset(1300, 800),
+          );
           await tester.pump();
           for (final elapsed in [0, 50, 100, 150]) {
             await tester.pump(Duration(milliseconds: elapsed));
@@ -377,8 +290,7 @@ void main() {
                         )
                         .decoration
                     as BoxDecoration;
-            expect(surface.color, Colors.transparent);
-            expect(surface.border!.top.color, Colors.transparent);
+            expect(surface.border!.top.color.a, greaterThan(0));
             final rowSurface = tester.widget<Container>(
               find
                   .descendant(
@@ -396,40 +308,17 @@ void main() {
               hovering
                   ? DTokens.of(
                       tester.element(row),
-                    ).foreground.withValues(alpha: dark ? .05 : .09)
+                    ).primary.withValues(alpha: .06)
                   : Colors.transparent,
             );
-            if (mode == TopicListDisplayMode.card) {
-              expect(
-                find.descendant(of: row, matching: find.byType(DTable)),
-                findsNothing,
-              );
-              expect(
-                find.descendant(of: row, matching: find.byType(DCardFooter)),
-                findsOneWidget,
-              );
-            } else {
-              final tableSurface =
-                  tester
-                          .renderObject<RenderDecoratedBox>(
-                            find
-                                .descendant(
-                                  of: find.descendant(
-                                    of: row,
-                                    matching: find.byType(DTable),
-                                  ),
-                                  matching: find.byType(DecoratedBox),
-                                )
-                                .first,
-                          )
-                          .decoration
-                      as BoxDecoration;
-              expect(
-                tableSurface.color!.a,
-                0,
-                reason: 'The containing Item owns the entire row highlight.',
-              );
-            }
+            expect(
+              find.descendant(of: row, matching: find.byType(DTable)),
+              findsNothing,
+            );
+            expect(
+              find.descendant(of: row, matching: find.byType(DCardFooter)),
+              findsNothing,
+            );
           }
         }
       });
@@ -452,7 +341,7 @@ void main() {
         direction: direction,
         nestedCategories: true,
       );
-      final row = find.byKey(const ValueKey('topic-compact-1'));
+      final row = find.byKey(const ValueKey('topic-card-1'));
       Finder within(Finder finder) =>
           find.descendant(of: row, matching: finder);
       final parent = within(find.text('Discourse Native App'));
@@ -475,11 +364,7 @@ void main() {
         within(find.bySemanticsLabel('Category: Features')),
         findsOneWidget,
       );
-      if (width == 390) {
-        expect(
-          tester.renderObject<RenderParagraph>(parent).didExceedMaxLines,
-          isTrue,
-        );
+      if (tester.renderObject<RenderParagraph>(parent).didExceedMaxLines) {
         final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
         addTearDown(mouse.removePointer);
         final labelsBeforeHover = find
@@ -552,7 +437,7 @@ void main() {
   });
 
   testWidgets(
-    'switching list style preserves the lazy viewport and visible topic',
+    'legacy list settings preserve the lazy viewport and visible topic',
     (tester) async {
       final shell = await _setup(tester, mode: TopicListDisplayMode.card);
       final list = find.byType(SuperListView);
@@ -579,13 +464,13 @@ void main() {
       await tester.pumpAndSettle();
       expect(tester.widget<SuperListView>(list).controller, same(scroll));
       expect(
-        find.byKey(ValueKey('topic-compact-$id')).hitTestable(),
+        find.byKey(ValueKey('topic-card-$id')).hitTestable(),
         findsOneWidget,
       );
-      expect(find.byKey(const ValueKey('topic-compact-60')), findsNothing);
+      expect(find.byKey(const ValueKey('topic-card-60')), findsNothing);
       expect(
         find.byKey(const ValueKey('compact-topic-list-header')),
-        findsOneWidget,
+        findsNothing,
       );
 
       await shell.appSettings.setTopicListMode(TopicListDisplayMode.card);
@@ -599,36 +484,39 @@ void main() {
     },
   );
 
-  testWidgets('sparse assignments sit beside tags without reserving a column', (
-    tester,
-  ) async {
-    await _setup(tester);
-    final header = find.byKey(const ValueKey('compact-topic-list-header'));
-    expect(
-      find.descendant(of: header, matching: find.text('Assigned to')),
-      findsNothing,
-    );
-    expect(
-      find.descendant(of: header, matching: find.byType(DTableHead)),
-      findsNWidgets(4),
-    );
-    final assigned = find.byKey(const ValueKey('topic-compact-1'));
-    final unassigned = find.byKey(const ValueKey('topic-compact-2'));
-    expect(
-      find.descendant(of: assigned, matching: find.text('Assigned to')),
-      findsOneWidget,
-    );
-    expect(
-      find.descendant(of: unassigned, matching: find.text('Assigned to')),
-      findsNothing,
-    );
-    expect(find.bySemanticsLabel('Assigned to: none'), findsNothing);
-    final tag = find.descendant(of: assigned, matching: find.text('#mobile'));
-    final person = find.text('joffrey');
-    expect(tester.getCenter(person).dy, closeTo(tester.getCenter(tag).dy, 2));
-    expect(tester.getRect(person).left, greaterThan(tester.getRect(tag).right));
-    expect(tester.takeException(), isNull);
-  });
+  testWidgets(
+    'sparse assignments follow the metadata without reserving a column',
+    (tester) async {
+      await _setup(tester);
+      final header = find.byKey(const ValueKey('compact-topic-list-header'));
+      expect(
+        find.descendant(of: header, matching: find.text('Assigned to')),
+        findsNothing,
+      );
+      expect(
+        find.descendant(of: header, matching: find.byType(DTableHead)),
+        findsNothing,
+      );
+      final assigned = find.byKey(const ValueKey('topic-card-1'));
+      final unassigned = find.byKey(const ValueKey('topic-card-2'));
+      expect(
+        find.descendant(of: assigned, matching: find.text('Assigned to')),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(of: unassigned, matching: find.text('Assigned to')),
+        findsNothing,
+      );
+      expect(find.bySemanticsLabel('Assigned to: none'), findsNothing);
+      final tag = find.descendant(of: assigned, matching: find.text('mobile'));
+      final person = find.text('joffrey');
+      expect(
+        tester.getRect(person).top,
+        greaterThan(tester.getRect(tag).bottom),
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   for (final (width, scale, direction, dark) in [
     (1200.0, 1.0, TextDirection.ltr, false),
@@ -693,12 +581,12 @@ void main() {
     );
   }
 
-  testWidgets('compact assignment disclosure opens the owning topic', (
+  testWidgets('topic assignment disclosure opens the owning topic', (
     tester,
   ) async {
     final shell = await _setup(tester);
     expect(find.text('Assigned to'), findsOneWidget);
-    expect(find.text('Excerpt 1'), findsNothing);
+    expect(find.text('Excerpt 1'), findsOneWidget);
     expect(find.text('joffrey'), findsOneWidget);
     final disclosure = find.bySemanticsLabel(
       'Open topic to view all 2 assignments',
@@ -711,7 +599,7 @@ void main() {
       shell.consumeTopicProperty(shell.currentInstance!.url, 1, 'Assignments'),
       isTrue,
     );
-    await tester.tap(find.byKey(const ValueKey('topic-compact-2')));
+    await tester.tap(find.byKey(const ValueKey('topic-card-2')));
     await tester.pumpAndSettle();
     expect(shell.currentContent?.topicId, 2);
     expect(tester.takeException(), isNull);
@@ -723,13 +611,13 @@ void main() {
     (780.0, 1.0, TextDirection.rtl),
   ]) {
     testWidgets(
-      'compact rows retain metadata at width $width scale $scale $direction',
+      'topic rows retain metadata at width $width scale $scale $direction',
       (tester) async {
         await _setup(tester, width: width, scale: scale, direction: direction);
         expect(find.text('Assigned to'), findsOneWidget);
         expect(find.text('joffrey'), findsOneWidget);
-        expect(find.text('Excerpt 1'), findsNothing);
-        expect(find.byKey(const ValueKey('topic-compact-1')), findsOneWidget);
+        expect(find.text('Excerpt 1'), findsOneWidget);
+        expect(find.byKey(const ValueKey('topic-card-1')), findsOneWidget);
         expect(tester.takeException(), isNull);
       },
     );
@@ -741,11 +629,11 @@ void main() {
     await _setup(tester, enableAssignments: false);
     expect(find.text('Assigned to'), findsNothing);
     expect(find.text('Assigned to '), findsNothing);
-    expect(find.byKey(const ValueKey('topic-compact-1')), findsOneWidget);
+    expect(find.byKey(const ValueKey('topic-card-1')), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('compact assignment metadata updates with its topic record', (
+  testWidgets('topic assignment metadata updates with its topic record', (
     tester,
   ) async {
     final shell = await _setup(tester);
@@ -798,7 +686,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('compact keyboard navigation opens the selected topic', (
+  testWidgets('topic keyboard navigation opens the selected topic', (
     tester,
   ) async {
     final shell = await _setup(tester);
@@ -812,7 +700,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('standalone topic rows follow the same display preference', (
+  testWidgets('standalone topic rows ignore legacy display preferences', (
     tester,
   ) async {
     final shell = await _setup(tester, mode: TopicListDisplayMode.card);
@@ -828,12 +716,12 @@ void main() {
         ),
       ),
     );
-    expect(find.text('Excerpt 1'), findsNothing);
+    expect(find.text('Excerpt 1'), findsOneWidget);
     expect(find.byKey(const ValueKey('topic-card-1')), findsOneWidget);
     await shell.appSettings.setTopicListMode(TopicListDisplayMode.compact);
     await tester.pumpAndSettle();
-    expect(find.byKey(const ValueKey('topic-compact-1')), findsOneWidget);
-    expect(find.text('Excerpt 1'), findsNothing);
+    expect(find.byKey(const ValueKey('topic-card-1')), findsOneWidget);
+    expect(find.text('Excerpt 1'), findsOneWidget);
     expect(find.text('joffrey'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });

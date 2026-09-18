@@ -8,7 +8,6 @@ import '../../plugin_api/plugin_scope.dart';
 import '../../shell/avatar_image.dart';
 import '../../shell/topic_list_actions.dart';
 import '../../shell/topic_list_footer.dart';
-import '../../shell/topic_list_layout.dart';
 import '../../shell/topic_list_view.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/d_icons.dart';
@@ -171,8 +170,7 @@ class AssignedGroupPresentationView extends StatelessWidget {
   final ValueChanged<Topic> onOpenTopic;
 
   @override
-  Widget build(BuildContext context) =>
-      TopicListLayout(child: Builder(builder: _build));
+  Widget build(BuildContext context) => _build(context);
 
   Widget _build(BuildContext context) => Column(
     children: [
@@ -270,12 +268,6 @@ class AssignedGroupPresentationView extends StatelessWidget {
           ],
         ),
       ),
-      TopicListTableHeader(
-        showViews: true,
-        order: state.query.order?.wireName,
-        ascending: state.query.ascending,
-        onSort: _sortTopics,
-      ),
       Expanded(child: _buildFeed(horizontalPadding: 0)),
       TopicSourceFooter(
         onNext: state.topics.isEmpty
@@ -344,8 +336,7 @@ class AssignedGroupPresentationView extends StatelessWidget {
                     ),
                     sliver: SliverList.separated(
                       itemCount: topics.length,
-                      separatorBuilder: (context, _) =>
-                          const SizedBox(height: 1),
+                      separatorBuilder: (context, _) => const DSeparator(),
                       itemBuilder: (context, index) => TopicListRow(
                         topic: topics[index],
                         showViews: true,

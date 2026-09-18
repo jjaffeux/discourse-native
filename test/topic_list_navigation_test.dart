@@ -119,13 +119,10 @@ void main() {
           findsNothing,
         );
         for (final (column, label) in [
-          if (display == TopicListDisplayMode.compact) ('category', 'Category'),
           ('posts', 'Replies'),
           ('activity', 'Activity'),
         ]) {
-          final header = display == TopicListDisplayMode.compact
-              ? find.byKey(ValueKey('topic-sort-$column'))
-              : find.widgetWithText(DButton, label).first;
+          final header = find.byKey(ValueKey('topic-sort-$column')).first;
           for (final ascending in [false, true]) {
             await tester.tap(header);
             await tester.pumpAndSettle();

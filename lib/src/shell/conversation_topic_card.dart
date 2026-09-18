@@ -1,6 +1,6 @@
 part of 'topic_list_view.dart';
 
-/// A topic surface with its conversation metadata in a separate footer.
+/// A full-width conversation row, shared by every topic source.
 class _ConversationTopicCard extends StatelessWidget {
   const _ConversationTopicCard({required this.row});
   final _TopicRowBody row;
@@ -53,10 +53,7 @@ class _ConversationTopicCard extends StatelessWidget {
       fontFeatures: const [FontFeature.tabularFigures()],
     );
     final age = topic.bumpedAt == null ? '—' : relativeTime(topic.bumpedAt!);
-    final contentInsets =
-        (row.contentPadding ?? const EdgeInsets.all(DSpacing.md)).resolve(
-          Directionality.of(context),
-        );
+    final largeText = MediaQuery.textScalerOf(context).scale(14) > 21;
     Widget field(String label, String column) => _TopicCardField(
       label: label,
       column: column,
@@ -64,215 +61,174 @@ class _ConversationTopicCard extends StatelessWidget {
       ascending: ascending,
       onSort: onSort,
     );
-    Widget stat(String label, String column, String value, {Key? key}) => Row(
-      key: key,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        field(label, column),
-        const SizedBox(width: DSpacing.xs),
-        Text(value, style: textStyle),
-      ],
+    final taxonomy = Text.rich(
+      TextSpan(
+        children: [
+          for (final child in <Widget>[
+            if (topic.privateMessage)
+              Text('Private conversation', style: textStyle)
+            else if (row.category != null)
+              _topicRowCategory(context, row),
+            ..._topicRowTags(context, row),
+            if (row.forum != null) Text(row.forum!.title, style: textStyle),
+          ])
+            WidgetSpan(
+              alignment: PlaceholderAlignment.baseline,
+              baseline: TextBaseline.alphabetic,
+              child: Padding(
+                padding: const EdgeInsetsDirectional.only(end: DSpacing.xs),
+                child: child,
+              ),
+            ),
+        ],
+      ),
+      textScaler: TextScaler.noScaling,
     );
-    final author = Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        if (topic.lastPosterUsername != null) ...[
-          DAvatar(
-            dimension: 22,
-            decorative: true,
-            child: AvatarImage(
-              url: topic.lastPosterAvatarUrl,
-              size: 22,
-              fallback: DAvatarFallback(
-                child: Text(
-                  topic.lastPosterUsername!.characters.firstOrNull
-                          ?.toUpperCase() ??
-                      '',
+    final author = Text.rich(
+      TextSpan(
+        children: [
+          if (topic.lastPosterUsername case final username?) ...[
+            WidgetSpan(
+              alignment: PlaceholderAlignment.middle,
+              child: Padding(
+                padding: const EdgeInsetsDirectional.only(end: DSpacing.xs),
+                child: DAvatar(
+                  dimension: 22,
+                  decorative: true,
+                  child: AvatarImage(
+                    url: topic.lastPosterAvatarUrl,
+                    size: 22,
+                    fallback: DAvatarFallback(
+                      child: Text(
+                        username.characters.firstOrNull?.toUpperCase() ?? '',
+                      ),
+                    ),
+                  ),
                 ),
               ),
             ),
+            WidgetSpan(
+              alignment: PlaceholderAlignment.middle,
+              child: Text('Last post by $username · ', style: textStyle),
+            ),
+          ],
+          WidgetSpan(
+            alignment: PlaceholderAlignment.middle,
+            child: field('${topic.replyCount} replies', 'posts'),
           ),
-          const SizedBox(width: DSpacing.sm),
+          if (row.showViews) ...[
+            WidgetSpan(
+              alignment: PlaceholderAlignment.middle,
+              child: Text(' · ', style: textStyle),
+            ),
+            WidgetSpan(
+              alignment: PlaceholderAlignment.middle,
+              child: field('${topic.views} views', 'views'),
+            ),
+          ],
         ],
-        Flexible(
-          child: Text(
-            topic.lastPosterUsername == null
-                ? ''
-                : 'Last reply by ${topic.lastPosterUsername}',
-            style: textStyle,
-          ),
-        ),
-      ],
-    );
-    final stats = Wrap(
-      spacing: DSpacing.md,
-      runSpacing: DSpacing.xs,
-      crossAxisAlignment: WrapCrossAlignment.center,
-      children: [
-        stat('Replies', 'posts', '${topic.replyCount}'),
-        if (row.showViews) stat('Views', 'views', '${topic.views}'),
-        stat(
-          'Activity',
-          'activity',
-          age,
-          key: ValueKey('inbox-row-time-${topic.id}'),
-        ),
-      ],
+      ),
+      textScaler: TextScaler.noScaling,
+      textWidthBasis: TextWidthBasis.longestLine,
     );
     return Padding(
-      padding:
-          row.outerPadding ??
-          const EdgeInsets.symmetric(horizontal: topicListHorizontalPadding),
-      child: Padding(
-        padding: const EdgeInsets.only(bottom: DSpacing.md),
-        child: LinkTarget(
-          url:
-              '/t/${topic.slug}/${topic.id}/${topic.lastUnreadPostNumber ?? 1}',
-          title: topic.title,
-          siteUrl: row.siteUrl,
-          child: Semantics(
-            key: row.inbox ? ValueKey('inbox-row-${topic.id}') : null,
-            container: true,
+      padding: row.outerPadding ?? EdgeInsets.zero,
+      child: LinkTarget(
+        url: '/t/${topic.slug}/${topic.id}/${topic.lastUnreadPostNumber ?? 1}',
+        title: topic.title,
+        siteUrl: row.siteUrl,
+        child: Semantics(
+          key: row.inbox ? ValueKey('inbox-row-${topic.id}') : null,
+          container: true,
+          selected: selected,
+          child: DItem(
+            key: ValueKey('topic-card-${topic.id}'),
+            shape: DItemShape.fullWidth,
+            padding:
+                row.contentPadding ??
+                const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            link: true,
+            onPressed: row.onTap,
             selected: selected,
-            child: DCard(
-              spacing: 0,
-              child: DItem(
-                key: ValueKey('topic-card-${topic.id}'),
-                shape: DItemShape.card,
-                padding: EdgeInsets.zero,
-                link: true,
-                onPressed: row.onTap,
-                selected: selected,
-                selectionStyle: DItemSelectionStyle.outline,
-                showSelectionIndicator: false,
+            selectionStyle: DItemSelectionStyle.leadingAccent,
+            showSelectionIndicator: false,
+            children: [
+              DItemContent(
+                spacing: 6,
+                alignment: CrossAxisAlignment.stretch,
                 children: [
-                  DItemContent(
-                    spacing: 0,
-                    alignment: CrossAxisAlignment.stretch,
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Padding(
-                        padding: contentInsets,
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            if (row.category != null ||
-                                topic.tags.isNotEmpty ||
-                                row.forum != null ||
-                                topic.privateMessage) ...[
-                              Text.rich(
-                                TextSpan(
-                                  children: [
-                                    for (final child in <Widget>[
-                                      if (topic.privateMessage)
-                                        Text(
-                                          'Private conversation',
-                                          style: textStyle,
-                                        )
-                                      else if (row.category != null)
-                                        _topicRowCategory(context, row),
-                                      if (!topic.privateMessage &&
-                                          row.category != null &&
-                                          topic.tags.isNotEmpty)
-                                        const DSeparator(
-                                          orientation: Axis.vertical,
-                                          length: 12,
-                                        ),
-                                      ..._topicRowTags(context, row),
-                                      if (row.forum != null)
-                                        Text(
-                                          row.forum!.title,
-                                          style: textStyle,
-                                        ),
-                                    ])
-                                      WidgetSpan(
-                                        alignment: child is DSeparator
-                                            ? PlaceholderAlignment.middle
-                                            : PlaceholderAlignment.baseline,
-                                        baseline: TextBaseline.alphabetic,
-                                        child: Padding(
-                                          padding: child is _TopicTag
-                                              ? EdgeInsets.zero
-                                              : const EdgeInsetsDirectional.only(
-                                                  end: DSpacing.xs,
-                                                ),
-                                          child: child,
-                                        ),
-                                      ),
-                                  ],
-                                ),
-                                // Each Native component scales its own text.
-                                textScaler: TextScaler.noScaling,
-                              ),
-                              const SizedBox(height: DSpacing.sm),
-                            ],
-                            registry.decorateTopicListTitle(
-                              context,
-                              row.siteUrl,
-                              topic,
-                              _TopicListTitle(row: row),
-                            ),
-                            if (assignments.isNotEmpty) ...[
-                              const SizedBox(height: DSpacing.md),
-                              Wrap(
-                                spacing: DSpacing.xs,
-                                runSpacing: DSpacing.xs,
-                                crossAxisAlignment: WrapCrossAlignment.center,
-                                children: assignments,
-                              ),
-                            ],
-                            if (metadata.isNotEmpty) ...[
-                              const SizedBox(height: DSpacing.sm),
-                              Wrap(
-                                spacing: DSpacing.sm,
-                                runSpacing: DSpacing.xs,
-                                children: metadata,
-                              ),
-                            ],
-                          ],
+                      Expanded(
+                        child: registry.decorateTopicListTitle(
+                          context,
+                          row.siteUrl,
+                          topic,
+                          _TopicListTitle(row: row),
                         ),
                       ),
-                      DCardFooter(
-                        child: Padding(
-                          padding: contentInsets.copyWith(
-                            top: DSpacing.sm,
-                            bottom: DSpacing.sm,
-                          ),
-                          child: LayoutBuilder(
-                            builder: (context, constraints) {
-                              final stacked =
-                                  constraints.maxWidth <
-                                  560 *
-                                      MediaQuery.textScalerOf(
-                                        context,
-                                      ).scale(12) /
-                                      12;
-                              return stacked
-                                  ? Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        author,
-                                        const SizedBox(height: DSpacing.sm),
-                                        stats,
-                                      ],
-                                    )
-                                  : Row(
-                                      children: [
-                                        Expanded(child: author),
-                                        const SizedBox(width: DSpacing.lg),
-                                        stats,
-                                      ],
-                                    );
-                            },
-                          ),
-                        ),
+                      const SizedBox(width: DSpacing.sm),
+                      KeyedSubtree(
+                        key: ValueKey('inbox-row-time-${topic.id}'),
+                        child: field(age, 'activity'),
                       ),
                     ],
                   ),
+                  if (topic.excerpt case final excerpt? when excerpt.isNotEmpty)
+                    SiteEmojiText.plain(
+                      excerpt,
+                      siteUrl: row.siteUrl,
+                      maxLines: largeText ? null : 2,
+                      overflow: largeText
+                          ? TextOverflow.clip
+                          : TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: muted,
+                        height: 1.5,
+                      ),
+                    ),
+                  LayoutBuilder(
+                    builder: (context, constraints) {
+                      final stacked =
+                          constraints.maxWidth <
+                          540 * MediaQuery.textScalerOf(context).scale(12) / 12;
+                      return stacked
+                          ? Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              spacing: DSpacing.xs,
+                              children: [taxonomy, author],
+                            )
+                          : Row(
+                              children: [
+                                Expanded(child: taxonomy),
+                                const SizedBox(width: DSpacing.sm),
+                                ConstrainedBox(
+                                  constraints: BoxConstraints(
+                                    maxWidth: constraints.maxWidth * .55,
+                                  ),
+                                  child: author,
+                                ),
+                              ],
+                            );
+                    },
+                  ),
+                  if (assignments.isNotEmpty)
+                    Wrap(
+                      spacing: DSpacing.xs,
+                      runSpacing: DSpacing.xs,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: assignments,
+                    ),
+                  if (metadata.isNotEmpty)
+                    Wrap(
+                      spacing: DSpacing.sm,
+                      runSpacing: DSpacing.xs,
+                      children: metadata,
+                    ),
                 ],
               ),
-            ),
+            ],
           ),
         ),
       ),
@@ -302,11 +258,17 @@ class _TopicCardField extends StatelessWidget {
           ),
         )
       : DButton(
+          key: ValueKey('topic-sort-$column'),
           size: DButtonSize.small,
           variant: DButtonVariant.inline,
           label: Text(label),
           semanticLabel:
-              '$label, ${order == column ? (ascending ? 'ascending' : 'descending') : 'unsorted'}',
+              '${switch (column) {
+                'posts' => 'Replies',
+                'activity' => 'Activity',
+                'views' => 'Views',
+                _ => label,
+              }}, ${order == column ? (ascending ? 'ascending' : 'descending') : 'unsorted'}',
           icon: order == column
               ? RotatedBox(
                   quarterTurns: ascending ? 2 : 0,

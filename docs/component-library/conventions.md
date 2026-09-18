@@ -118,7 +118,12 @@ including context-menu and menubar consumers) use
 cross-fade row backgrounds: the outgoing and incoming highlights otherwise
 overlap. Choice lists have one accepted active row shared by pointer and keyboard
 navigation; local hover or focus must not paint a second active background.
-Keep persistent selection in its checkmark/checkbox. Regression tests must inspect
+Full-width topic rows use `DItemShape.fullWidth` with
+`DItemSelectionStyle.leadingAccent`: square edges, immediate accent hover, and
+a stronger selected tint with a directional leading border. The application
+composes title, excerpt and metadata inside Item; the kit owns its interaction
+paint. Other choice lists keep persistent selection in their checkmark/checkbox.
+Regression tests must inspect
 painted decorations immediately and during the next animation frames, without
 settling first.
 

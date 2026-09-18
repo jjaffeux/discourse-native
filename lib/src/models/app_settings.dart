@@ -4,6 +4,7 @@ enum AppThemeMode { system, light, dark }
 
 enum ContentAlignment { left, center, right }
 
+/// Legacy persisted preference. Topic lists now always use full-width rows.
 enum TopicListDisplayMode { card, compact }
 
 enum AppTextScale {

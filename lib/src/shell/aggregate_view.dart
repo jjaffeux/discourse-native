@@ -96,8 +96,7 @@ class AggregateViewState extends State<AggregateView> {
   }
 
   @override
-  Widget build(BuildContext context) =>
-      TopicListLayout(child: Builder(builder: _build));
+  Widget build(BuildContext context) => _build(context);
 
   Widget _build(BuildContext context) {
     final controller = ShellScope.read(context);
@@ -137,7 +136,6 @@ class AggregateViewState extends State<AggregateView> {
                   ),
                 ),
                 const DSeparator(key: ValueKey('topic-list-heading-separator')),
-                const TopicListTableHeader(),
                 Expanded(
                   child: ContentReadingLane(
                     widthLimit: topicListContentWidth,
@@ -189,8 +187,7 @@ class AggregateViewState extends State<AggregateView> {
                               padding: lane.padding.copyWith(top: 0),
                               sliver: SliverList.separated(
                                 itemCount: state.topics.length,
-                                separatorBuilder: (_, _) =>
-                                    const SizedBox(height: 1),
+                                separatorBuilder: (_, _) => const DSeparator(),
                                 itemBuilder: (_, index) {
                                   final reference = state.topics[index];
                                   return _AggregateTopicRow(
@@ -478,13 +475,6 @@ class _AggregateTopicRow extends StatelessWidget {
           topic: topic,
           forum: forum,
           itemVariant: DItemVariant.standard,
-          outerPadding: const EdgeInsets.symmetric(
-            horizontal: topicListHorizontalPadding,
-          ),
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: DSpacing.xl,
-            vertical: DSpacing.lg,
-          ),
           onTap: () {
             final result = controller.openAggregateTopic(
               reference.siteUrl,

@@ -437,7 +437,8 @@ void main() {
             order: AssignedGroupOrder.posts,
             ascending: true,
           ),
-          feed: const TopicFeed(loaded: true),
+          feed: const TopicFeed(topicIds: [42], loaded: true),
+          topics: const [_topic],
         ),
       );
       await _pumpView(tester, presentation);
@@ -475,7 +476,8 @@ void main() {
             ascending: true,
             search: 'incident',
           ),
-          feed: const TopicFeed(loaded: true),
+          feed: const TopicFeed(topicIds: [42], loaded: true),
+          topics: const [_topic],
         ),
       );
       await _pumpView(tester, presentation);
@@ -486,11 +488,14 @@ void main() {
       ]);
     });
 
-    testWidgets('tabs through assignment controls before leaving the toolbar', (
+    testWidgets('tabs between the reply and view sorting actions', (
       tester,
     ) async {
       final presentation = _FakeAssignedGroupPresentation(
-        _state(feed: const TopicFeed(loaded: true)),
+        _state(
+          feed: const TopicFeed(topicIds: [42], loaded: true),
+          topics: const [_topic],
+        ),
       );
       await _pumpView(tester, presentation);
 
@@ -498,7 +503,7 @@ void main() {
       final views = find.byKey(const ValueKey('topic-sort-views'));
       final focus = Focus.of(
         tester.element(
-          find.descendant(of: replies, matching: find.text('Replies')).first,
+          find.descendant(of: replies, matching: find.text('2 replies')).first,
         ),
       );
       focus.requestFocus();
@@ -528,7 +533,7 @@ void main() {
         findsNothing,
       );
       expect(find.byType(TopicListRow), findsOneWidget);
-      expect(find.text('91'), findsOneWidget);
+      expect(find.text('91 views'), findsOneWidget);
       expect(find.byKey(const ValueKey('topic-card-42')), findsOneWidget);
       await tester.tap(find.text(_topic.title));
       await tester.scrollUntilVisible(

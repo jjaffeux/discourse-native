@@ -14,10 +14,10 @@ enum DItemVariant { standard, outline, muted }
 
 enum DItemSize { standard, sm, xs }
 
-/// Card composition follows the Card surface corners, including selection.
-enum DItemShape { standard, card }
+/// Card follows Card surface corners; fullWidth keeps flush square edges.
+enum DItemShape { standard, card, fullWidth }
 
-enum DItemSelectionStyle { tinted, outline, neutral }
+enum DItemSelectionStyle { tinted, outline, neutral, leadingAccent }
 
 enum DItemMediaVariant { standard, icon, avatar, image }
 
@@ -64,6 +64,8 @@ class DItem extends StatefulWidget {
   /// The caller owns selection changes; activation only calls [onPressed].
   final bool selected;
 
+  /// Leading-accent selection uses an accent tint and a directional 3px edge,
+  /// with a fainter accent tint on hover. Combine with fullWidth for flush rows.
   /// Outline selection keeps the normal surface and paints a 2px accent border
   /// without moving the content, with a subtle neutral fill on hover. Neutral
   /// selection uses a subtle surface tint and no accent border. Both use broader
@@ -127,14 +129,22 @@ class _DItemState extends State<DItem> {
         widget.selectionStyle == DItemSelectionStyle.outline;
     final neutralSelection =
         widget.selectionStyle == DItemSelectionStyle.neutral;
-    final radius = widget.shape == DItemShape.card ? tokens.radius * 1.4 : 10.0;
+    final leadingSelection =
+        widget.selectionStyle == DItemSelectionStyle.leadingAccent;
+    final radius = switch (widget.shape) {
+      DItemShape.fullWidth => 0.0,
+      DItemShape.card => tokens.radius * 1.4,
+      DItemShape.standard => 10.0,
+    };
     final borderRadius = BorderRadius.circular(radius);
     final background = widget.selected && !outlineSelection
         ? neutralSelection
               ? tokens.foreground.withValues(alpha: .05)
               : tokens.primary.withValues(alpha: .12)
         : _active && (_hover || _pressed)
-        ? outlineSelection
+        ? leadingSelection
+              ? tokens.primary.withValues(alpha: _pressed ? .09 : .06)
+              : outlineSelection
               ? tokens.foreground.withValues(
                   alpha: Theme.of(context).brightness == Brightness.light
                       ? .09
@@ -170,7 +180,13 @@ class _DItemState extends State<DItem> {
           ),
           child: interactiveRowSurface(
             constraints: BoxConstraints(minHeight: touch && _active ? 48 : 0),
-            foregroundDecoration: widget.selected && outlineSelection
+            foregroundDecoration: widget.selected && leadingSelection
+                ? BoxDecoration(
+                    border: BorderDirectional(
+                      start: BorderSide(color: tokens.primary, width: 3),
+                    ),
+                  )
+                : widget.selected && outlineSelection
                 ? BoxDecoration(
                     borderRadius: borderRadius,
                     border: Border.all(color: tokens.primary, width: 2),
@@ -184,7 +200,7 @@ class _DItemState extends State<DItem> {
                 strokeAlign: BorderSide.strokeAlignOutside,
                 color: focus
                     ? tokens.focusRing
-                    : widget.selected && !neutralSelection
+                    : widget.selected && !neutralSelection && !leadingSelection
                     ? tokens.primary
                     : widget.variant == DItemVariant.outline
                     ? tokens.border
