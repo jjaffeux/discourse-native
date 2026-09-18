@@ -777,8 +777,6 @@ class UserProfileMenuItems extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const DDropdownMenuLabel(child: Text('Profile')),
-            const DDropdownMenuSeparator(),
             for (final row in rows)
               if (row.isHidePresence)
                 _HidePresenceTile(siteUrl: siteUrl, dropdown: true)
