@@ -2718,7 +2718,7 @@ void main() {
       expect(tester.getRect(footer), footerRect);
       await tester.drag(list, const Offset(0, 300));
       await tester.pumpAndSettle();
-      expect(tester.getSize(list).width, 325);
+      expect(tester.getSize(list).width, 325 + workspacePanelGap);
       final row = find.byKey(const ValueKey('inbox-row-1'));
       expect(tester.getRect(row).left, greaterThan(tester.getRect(list).left));
       expect(tester.getRect(row).right, lessThan(tester.getRect(list).right));

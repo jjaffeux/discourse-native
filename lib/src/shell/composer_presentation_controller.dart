@@ -9,7 +9,7 @@ import '../models/composer_placement.dart';
 class ComposerPresentationController extends ChangeNotifier {
   ComposerPresentationController({this.store = const ComposerLayoutStore()});
 
-  static const sideMinimum = 360.0;
+  static const sideMinimum = 320.0;
   static const readerMinimum = 320.0;
   static const sideBreakpoint = sideMinimum + readerMinimum + 1;
 

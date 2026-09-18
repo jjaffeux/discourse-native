@@ -8,7 +8,7 @@ import '../models/topic_presentation.dart';
 class TopicPresentationController extends ChangeNotifier {
   TopicPresentationController({this.store = const TopicPresentationStore()});
 
-  static const minimumReaderWidth = 520.0;
+  static const minimumReaderWidth = 320.0;
 
   final TopicPresentationStore store;
   TopicPresentation _preference = TopicPresentation.split;

@@ -51,14 +51,17 @@ class ComposerPresentationHost extends StatefulWidget {
     final placement = owner._presentation.effectivePlacement(
       mobile: false,
       width: width,
-      minimumReaderWidth: 480 + workspacePanelGap - 1,
+      minimumReaderWidth:
+          ComposerPresentationController.readerMinimum + workspacePanelGap - 1,
     );
     if (!placement.isSide) return width;
     final editorWidth = owner._presentation.preference.sideWidth.clamp(
       ComposerPresentationController.sideMinimum,
       math.max(
         ComposerPresentationController.sideMinimum,
-        width - 480 - workspacePanelGap,
+        width -
+            ComposerPresentationController.readerMinimum -
+            workspacePanelGap,
       ),
     );
     return width - editorWidth - workspacePanelGap;
@@ -400,9 +403,7 @@ class _ComposerDockState extends State<ComposerDock> {
           mobile: mobile,
           width: constraints.maxWidth,
           minimumReaderWidth:
-              (widget.appWorkspace
-                  ? 480
-                  : ComposerPresentationController.readerMinimum) +
+              ComposerPresentationController.readerMinimum +
               (mobile ? 0 : workspacePanelGap - 1),
         );
         if (entry == null) {
@@ -487,9 +488,7 @@ class _ComposerDockState extends State<ComposerDock> {
         final readerMin =
             panelInset +
             (side
-                ? (widget.appWorkspace
-                      ? 480.0
-                      : ComposerPresentationController.readerMinimum)
+                ? ComposerPresentationController.readerMinimum
                 : math.min(96.0, math.max(0.0, extent - 241)));
         final composerMin =
             panelInset +

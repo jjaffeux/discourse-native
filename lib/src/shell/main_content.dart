@@ -296,8 +296,9 @@ class _TopicInboxWorkspace extends StatefulWidget {
 
 class _TopicInboxWorkspaceState extends State<_TopicInboxWorkspace> {
   final _listWidth = PanelWidthController(
-    initialWidth: 325,
-    minimumWidth: 304,
+    initialWidth: 325 + workspacePanelGap,
+    // ResizablePane includes the gutter in its width.
+    minimumWidth: 320 + workspacePanelGap,
     maximumWidth: 480,
   );
 
@@ -352,7 +353,7 @@ class _TopicInboxWorkspaceState extends State<_TopicInboxWorkspace> {
                     : _listWidth.minimumWidth + minimumTopicWidth);
         controller.topicPanelsVisible = split;
         final maximumListWidth = (constraints.maxWidth - minimumTopicWidth)
-            .clamp(304.0, 480.0);
+            .clamp(_listWidth.minimumWidth, _listWidth.maximumWidth);
         final listWidth = split
             ? _listWidth.effectiveWidth(maximum: maximumListWidth)
             : constraints.maxWidth;

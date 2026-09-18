@@ -78,7 +78,7 @@ final class ChatDrawerPreferencesStore {
 
   static const double defaultWidth = 400;
   static const double defaultHeight = 530;
-  static const double minimumWidth = 250;
+  static const double minimumWidth = 320;
   static const double minimumHeight = 300;
 
   static const String preferredDisplayModeStorageKey =

@@ -70,8 +70,9 @@ class AdaptiveShell extends StatefulWidget {
 
   static const double railWidth = 48;
   static const double compactRailWidth = 48;
-  static const double sidebarWidth = 208;
-  static const double sidebarMinWidth = 200;
+  static const double sidebarWidth = 208 + workspacePanelGap;
+  // ResizablePane includes the gutter in its width.
+  static const double sidebarMinWidth = 200 + workspacePanelGap;
   static const double sidebarMaxWidth = 480;
   static const double mainContentMinWidth = 320;
 
