@@ -68,6 +68,25 @@ void main() {
     expect(tester.element(find.byType(MainContent)), same(content));
   }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 
+  testWidgets('Home keeps the rail toggle visible until a forum is selected', (
+    tester,
+  ) async {
+    final controller = await _controller();
+    controller.selectAggregate();
+    await _pumpShell(tester, controller, const Size(1200, 800));
+    final toggle = find.byKey(const ValueKey('rail-sidebar-toggle'));
+    expect(toggle, findsOneWidget);
+    expect(tester.widget<DButton>(toggle).onPressed, isNull);
+    expect(
+      tester.getTopLeft(toggle).dy,
+      lessThan(
+        tester
+            .getTopLeft(find.byKey(const ValueKey('aggregate-rail-button')))
+            .dy,
+      ),
+    );
+  }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
+
   testWidgets('uses compact desktop navigation metrics', (tester) async {
     final controller = await _controller();
     await _pumpShell(tester, controller, const Size(1200, 800));
