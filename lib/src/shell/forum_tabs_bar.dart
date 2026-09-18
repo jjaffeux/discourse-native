@@ -1116,7 +1116,10 @@ class _ForumTabState extends State<_ForumTab> {
     BoxConstraints constraints,
   ) {
     final theme = Theme.of(context);
-    final prefix = constraints.maxWidth >= 30
+    // Keep the title readable before spending narrow-tab space on adornments.
+    final compact =
+        constraints.maxWidth < MediaQuery.textScalerOf(context).scale(60);
+    final prefix = !compact
         ? _tabPrefix(context, widget.item, foreground)
         : null;
     final labelStyle = theme.textTheme.labelMedium?.copyWith(
@@ -1128,13 +1131,13 @@ class _ForumTabState extends State<_ForumTab> {
         widget.item.title,
         siteUrl: siteUrl,
         maxLines: 1,
-        overflow: TextOverflow.ellipsis,
+        overflow: compact ? TextOverflow.clip : TextOverflow.ellipsis,
         style: labelStyle,
       ),
       null => Text(
         widget.item.title,
         maxLines: 1,
-        overflow: TextOverflow.ellipsis,
+        overflow: compact ? TextOverflow.clip : TextOverflow.ellipsis,
         style: labelStyle,
       ),
     };
@@ -1172,10 +1175,11 @@ class _ForumTabState extends State<_ForumTab> {
               : Row(
                   children: [
                     Flexible(child: label),
-                    if (constraints.maxWidth >= 30)
+                    if (!compact)
                       if (widget.item.labelSuffixBuilder case final builder?)
                         builder(context, 13),
-                    if (widget.item.badge.dot &&
+                    if (!compact &&
+                        widget.item.badge.dot &&
                         _badgeFits(
                           context,
                           constraints.maxWidth,
@@ -1187,7 +1191,8 @@ class _ForumTabState extends State<_ForumTab> {
                   ],
                 ),
         ),
-        if (!_renaming &&
+        if (!compact &&
+            !_renaming &&
             !widget.item.badge.dot &&
             _badgeFits(
               context,
