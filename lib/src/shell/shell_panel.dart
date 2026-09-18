@@ -1,8 +1,11 @@
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
 import '../models/composer_placement.dart';
 import '../theme/app_theme.dart';
 import 'composer_presentation.dart';
+import 'platform.dart';
+import 'shell_metrics.dart';
 
 class ShellPanel extends StatelessWidget {
   const ShellPanel({super.key, required this.child});
@@ -54,4 +57,39 @@ class ShellPanel extends StatelessWidget {
       ),
     );
   }
+}
+
+/// A bounded desktop workspace surface, styled and clipped by the Native kit.
+class WorkspacePanel extends StatelessWidget {
+  const WorkspacePanel({super.key, required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => context.isTouch
+      ? child
+      : DCard(spacing: 0, child: Expanded(child: child));
+}
+
+/// Desktop breathing room around the workspace; touch retains its shell frame.
+class ShellWorkspace extends StatelessWidget {
+  const ShellWorkspace({super.key, required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => context.isTouch
+      ? ShellPanel(child: child)
+      : Padding(
+          padding: EdgeInsetsDirectional.only(
+            top: MediaQuery.paddingOf(context).top,
+            end: workspaceEdgeInset,
+            bottom: workspaceEdgeInset,
+          ),
+          child: MediaQuery.removePadding(
+            context: context,
+            removeTop: true,
+            child: child,
+          ),
+        );
 }

@@ -31,6 +31,7 @@ import 'main_content.dart';
 import 'platform.dart';
 import 'resizable_pane.dart';
 import 'shell_controller.dart';
+import 'shell_metrics.dart';
 import 'shell_panel.dart';
 import 'shell_scope.dart';
 import 'shell_search_controller.dart';
@@ -1035,7 +1036,7 @@ class _WideShellState extends State<_WideShell> {
               ),
             ),
             Expanded(
-              child: ShellPanel(
+              child: ShellWorkspace(
                 child:
                     ShellSelector<
                       ({
@@ -1070,7 +1071,13 @@ class _WideShellState extends State<_WideShell> {
                                   semanticsLabel: 'Resize sidebar',
                                   maximumWidth: windowMaximum,
                                   dividerWidth: 1,
-                                  child: const InstanceSidebar(),
+                                  gap: context.isTouch ? 0 : workspacePanelGap,
+                                  handleWidth: context.isTouch
+                                      ? 2
+                                      : workspacePanelGap,
+                                  child: const WorkspacePanel(
+                                    child: InstanceSidebar(),
+                                  ),
                                 ),
                                 child: _PageComposerDock(
                                   child: MainContent(

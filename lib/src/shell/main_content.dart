@@ -40,6 +40,7 @@ import 'preferences_page.dart';
 import 'resizable_pane.dart';
 import 'shell_controller.dart';
 import 'shell_metrics.dart';
+import 'shell_panel.dart';
 import 'shell_scope.dart';
 import 'shell_sheet.dart';
 import 'tags_page.dart';
@@ -165,7 +166,9 @@ class _MainContentBody extends StatelessWidget {
         sourceRoute != null &&
         (!sourceRoute.isMessages || state.isConnected)) {
       return Material(
-        color: theme.shell.content,
+        color: context.isTouch
+            ? theme.shell.content
+            : theme.scaffoldBackgroundColor,
         child: SafeArea(
           left: false,
           child: Column(
@@ -474,7 +477,6 @@ class _TopicInboxWorkspaceState extends State<_TopicInboxWorkspace> {
 
         return Column(
           children: [
-            if (!split) const TopicPanelTabs(),
             Expanded(
               child: Stack(
                 children: [
@@ -499,56 +501,63 @@ class _TopicInboxWorkspaceState extends State<_TopicInboxWorkspace> {
                       // The resize handle owns the list/reader boundary. When the
                       // list fills the reader, the shell or composer owns its edge.
                       dividerWidth: 1,
-                      child: _RetainedTopicListPane(
-                        key: ValueKey((
-                          state.siteUrl,
-                          controller.currentAccountIdentity,
-                          controller.desktopTopicTabs
-                              ? controller.listPanelTab?.id
-                              : controller.activeTabId,
-                        )),
-                        hidden: topicOpen && !split,
-                        child: Column(
-                          children: [
-                            if (split)
-                              const TopicPanelTabs(reading: false, split: true),
-                            Expanded(
-                              child: _FeedBackedContent(
-                                route: sourceRoute,
-                                siteUrl: state.siteUrl,
-                                inbox: true,
-                                keepTopicOpen: split,
-                                topicListHeadingBuilder: buildHeading,
+                      gap: context.isTouch ? 0 : workspacePanelGap,
+                      handleWidth: context.isTouch ? 2 : workspacePanelGap,
+                      child: WorkspacePanel(
+                        child: _RetainedTopicListPane(
+                          key: ValueKey((
+                            state.siteUrl,
+                            controller.currentAccountIdentity,
+                            controller.desktopTopicTabs
+                                ? controller.listPanelTab?.id
+                                : controller.activeTabId,
+                          )),
+                          hidden: topicOpen && !split,
+                          child: Column(
+                            children: [
+                              if (!topicOpen || split)
+                                TopicPanelTabs(
+                                  reading: split ? false : null,
+                                  split: split,
+                                ),
+                              Expanded(
+                                child: _FeedBackedContent(
+                                  route: sourceRoute,
+                                  siteUrl: state.siteUrl,
+                                  inbox: true,
+                                  keepTopicOpen: split,
+                                  topicListHeadingBuilder: buildHeading,
+                                ),
                               ),
-                            ),
-                            TopicListBottomBar(
-                              leading: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Flexible(child: createAction),
-                                  if (state.isConnected &&
-                                      state.siteUrl != null &&
-                                      sourceRoute.categoryId != null) ...[
-                                    const SizedBox(width: DSpacing.sm),
-                                    CategoryNotificationLevelButton(
-                                      siteUrl: state.siteUrl!,
-                                      categoryId: sourceRoute.categoryId!,
-                                      showLabel:
-                                          listWidth >= 440 * buttonTextScale,
-                                    ),
+                              TopicListBottomBar(
+                                leading: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Flexible(child: createAction),
+                                    if (state.isConnected &&
+                                        state.siteUrl != null &&
+                                        sourceRoute.categoryId != null) ...[
+                                      const SizedBox(width: DSpacing.sm),
+                                      CategoryNotificationLevelButton(
+                                        siteUrl: state.siteUrl!,
+                                        categoryId: sourceRoute.categoryId!,
+                                        showLabel:
+                                            listWidth >= 440 * buttonTextScale,
+                                      ),
+                                    ],
                                   ],
-                                ],
+                                ),
+                                // The footer padding already clears the desktop handle.
+                                trailingInset: split
+                                    ? DResizableHandle.resolveHitExtent(
+                                            context,
+                                            8,
+                                          ) -
+                                          topicBottomBarPadding.horizontal / 2
+                                    : 0,
                               ),
-                              // The footer padding already clears the desktop handle.
-                              trailingInset: split
-                                  ? DResizableHandle.resolveHitExtent(
-                                          context,
-                                          8,
-                                        ) -
-                                        topicBottomBarPadding.horizontal / 2
-                                  : 0,
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
                       ),
                     ),
@@ -560,27 +569,31 @@ class _TopicInboxWorkspaceState extends State<_TopicInboxWorkspace> {
                       end: split && readerOnLeft ? listWidth : 0,
                       top: 0,
                       bottom: 0,
-                      child: Column(
-                        children: [
-                          if (split)
-                            const TopicPanelTabs(reading: true, split: true),
-                          Expanded(
-                            child: DesktopTopicPage(
-                              sourceListVisible: split,
-                              child: TopicView(
-                                key: ValueKey(state.route!.topicId),
-                                inbox: true,
-                                keepTopicListOpen: split,
-                                route: state.route!,
-                                canReturnToSidebar: layout.isCompact,
-                                canReply: state.canReply,
-                                bookmarkBusy: state.bookmarkBusy,
-                                isConnected: state.isConnected,
-                                registry: registry,
+                      child: WorkspacePanel(
+                        child: Column(
+                          children: [
+                            TopicPanelTabs(
+                              reading: split ? true : null,
+                              split: split,
+                            ),
+                            Expanded(
+                              child: DesktopTopicPage(
+                                sourceListVisible: split,
+                                child: TopicView(
+                                  key: ValueKey(state.route!.topicId),
+                                  inbox: true,
+                                  keepTopicListOpen: split,
+                                  route: state.route!,
+                                  canReturnToSidebar: layout.isCompact,
+                                  canReply: state.canReply,
+                                  bookmarkBusy: state.bookmarkBusy,
+                                  isConnected: state.isConnected,
+                                  registry: registry,
+                                ),
                               ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                     ),
                 ],

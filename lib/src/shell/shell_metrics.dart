@@ -5,6 +5,10 @@ import 'package:flutter/material.dart';
 
 import 'platform.dart';
 
+// Measured from the desktop mockup. Gutters belong to the workspace layout.
+const double workspacePanelGap = 12;
+const double workspaceEdgeInset = 6;
+
 const double shellHeaderHeight = 52;
 const double readerHeaderHeight = 44;
 const topicBottomBarPadding = EdgeInsets.all(8);

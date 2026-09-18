@@ -1,9 +1,43 @@
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/shell/shell_panel.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  testWidgets('desktop workspace leaves six pixels at the bottom and end', (
+    tester,
+  ) async {
+    for (final direction in TextDirection.values) {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light.copyWith(platform: TargetPlatform.macOS),
+          home: Directionality(
+            textDirection: direction,
+            child: const ShellWorkspace(
+              child: WorkspacePanel(
+                child: SizedBox.expand(key: ValueKey('workspace-content')),
+              ),
+            ),
+          ),
+        ),
+      );
+      final frame = tester.getRect(find.byType(ShellWorkspace));
+      final content = tester.getRect(
+        find.byKey(const ValueKey('workspace-content')),
+      );
+      expect(frame.bottom - content.bottom, 6);
+      expect(
+        direction == TextDirection.ltr
+            ? frame.right - content.right
+            : content.left - frame.left,
+        6,
+      );
+      expect(find.byType(DCard), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    }
+  });
+
   testWidgets('rounds only the top-left corner', (tester) async {
     await tester.pumpWidget(
       MaterialApp(

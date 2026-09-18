@@ -82,6 +82,56 @@ void main() {
   }
 
   for (final direction in TextDirection.values) {
+    for (final edge in ResizablePaneEdge.values) {
+      testWidgets('gutter resizes without covering content: $direction $edge', (
+        tester,
+      ) async {
+        final writes = <double>[];
+        final controller = _controller(writes: writes);
+        addTearDown(controller.dispose);
+        const contentKey = ValueKey('gutter-content');
+        await _pumpPane(
+          tester,
+          controller: controller,
+          direction: direction,
+          edge: edge,
+          gap: 12,
+          platform: TargetPlatform.macOS,
+          child: const SizedBox.expand(key: contentKey),
+        );
+        final handle = find.byKey(const ValueKey('shared-resize-handle'));
+        final content = find.byKey(contentKey);
+        final contentRect = tester.getRect(content);
+        final handleRect = tester.getRect(handle);
+        expect(handleRect.width, 12);
+        expect(contentRect.width, 228);
+        expect(contentRect.overlaps(handleRect), isFalse);
+        final growsRight =
+            (edge == ResizablePaneEdge.trailing) ==
+            (direction == TextDirection.ltr);
+        await tester.drag(handle, Offset(growsRight ? 40 : -40, 0));
+        await tester.pumpAndSettle();
+        expect(tester.getSize(content).width, greaterThan(228));
+        expect(
+          tester.getRect(content).overlaps(tester.getRect(handle)),
+          isFalse,
+        );
+        expect(writes, isNotEmpty);
+        final width = controller.value;
+        await _requestResizeFocus(tester);
+        await tester.sendKeyEvent(
+          growsRight
+              ? LogicalKeyboardKey.arrowRight
+              : LogicalKeyboardKey.arrowLeft,
+        );
+        await tester.pumpAndSettle();
+        expect(controller.value, width + 16);
+        expect(tester.takeException(), isNull);
+      });
+    }
+  }
+
+  for (final direction in TextDirection.values) {
     testWidgets('resize edge and scrollbar stay independent in $direction', (
       tester,
     ) async {
@@ -466,6 +516,7 @@ Future<void> _pumpPane(
   TextDirection direction = TextDirection.ltr,
   double maximumWidth = double.infinity,
   double dividerWidth = 0,
+  double gap = 0,
   Widget sibling = const SizedBox.shrink(),
   Widget child = const ColoredBox(color: Colors.blue),
   TargetPlatform? platform,
@@ -489,6 +540,8 @@ Future<void> _pumpPane(
                 semanticsLabel: 'Resize shared pane',
                 maximumWidth: maximumWidth,
                 dividerWidth: dividerWidth,
+                gap: gap,
+                handleWidth: gap > 0 ? gap : 2,
                 child: child,
               ),
               sibling,
