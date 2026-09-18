@@ -421,7 +421,7 @@ void main() {
         find.descendant(of: toolbar, matching: find.text('Onboarding')),
         findsNothing,
       );
-      expect(tester.widget<TopicTitle>(_compactHeader).style!.fontSize, 18);
+      expect(tester.widget<TopicTitle>(_compactHeader).style!.fontSize, 20);
 
       for (final offset in [12.0, 200.0, 199.0, 300.0, 180.0]) {
         scroll.jumpTo(offset);
@@ -2986,7 +2986,7 @@ void main() {
       await tester.pumpAndSettle();
       final readerState = tester.state(find.byType(TopicView));
       final heading = find.byKey(const ValueKey('topic-list-title'));
-      expect(tester.widget<Text>(heading).data, 'Topics');
+      expect(tester.widget<Text>(heading).data, 'Latest topics');
       shell.selectTopicListCategory(_child, keepTopicOpen: true);
       await tester.pumpAndSettle();
       expect(tester.widget<Text>(heading).data, _child.name);

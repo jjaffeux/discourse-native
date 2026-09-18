@@ -18,7 +18,6 @@ import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/topic_create_button.dart';
 import 'package:discourse_native/src/shell/topic_list_filter_bar.dart';
-import 'package:discourse_native/src/shell/topic_list_layout.dart';
 import 'package:discourse_native/src/shell/topic_list_navigation.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/foundation.dart';
@@ -1391,8 +1390,8 @@ void main() {
         final tabs = tester.getRect(
           find.byKey(const ValueKey('topic-list-feed-menu')),
         );
-        expect(tabs.left, topicListHorizontalPadding);
-        expect(tabs.right, lessThanOrEqualTo(325 - topicListHorizontalPadding));
+        expect(tabs.left, 16);
+        expect(tabs.right, lessThanOrEqualTo(325 - 16));
         expect(
           find.byKey(const ValueKey('topic-list-new-segments')),
           findsNothing,
@@ -1891,7 +1890,7 @@ void main() {
         find.byKey(const ValueKey('topic-list-feed-row')),
       );
       expect(filters.left, greaterThanOrEqualTo(card.left));
-      expect(refinement.right, closeTo(card.right, 1));
+      expect(refinement.right, closeTo(card.right - 16, 1));
       if (width >= 1120) {
         final feed = tester.getRect(
           find.byKey(const ValueKey('topic-list-feed-menu')),
@@ -2019,7 +2018,7 @@ void main() {
       tester.widget<Text>(find.byKey(const ValueKey('topic-list-title'))).data,
       title,
     );
-    expectHeading('Topics');
+    expectHeading('Latest topics');
     controller.selectTopicListCategory(parent);
     await tester.pumpAndSettle();
     expect(controller.currentContent?.categoryId, parent.id);
@@ -2047,7 +2046,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(controller.currentContent?.feedPath, '/tag/ux.json');
     expect(controller.currentContent?.categoryId, isNull);
-    expectHeading('Topics');
+    expectHeading('Latest topics');
     expect(controller.currentContent?.tagName, ux.slug);
 
     controller.selectTopicListCategory(parent);
@@ -2098,7 +2097,7 @@ void main() {
       ContentRoute.topicList(TopicListMode.latest),
     );
     expect(find.text('Latest topic'), findsOneWidget);
-    expectHeading('Topics');
+    expectHeading('Latest topics');
     expect(find.textContaining('matching topics'), findsNothing);
     expect(tester.takeException(), isNull);
   });

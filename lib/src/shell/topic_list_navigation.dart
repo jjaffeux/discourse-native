@@ -7,6 +7,7 @@ import '../models/content_route.dart';
 import '../models/sidebar_tag.dart';
 import '../models/topic.dart';
 import '../theme/d_icons.dart';
+import 'platform.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';
 import 'topic_list_filter_bar.dart';
@@ -244,8 +245,8 @@ class _TopicListNavigationControls extends StatelessWidget {
               child: headingBuilder!(context, null),
             ),
           Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: topicListHorizontalPadding,
+            padding: EdgeInsets.symmetric(
+              horizontal: context.isTouch ? topicListHorizontalPadding : 16,
               vertical: 8,
             ),
             child: Row(

@@ -36,6 +36,51 @@ void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
   testWidgets(
+    'panel tabs and layout actions sit above a continuous page header',
+    (tester) async {
+      final h = await _setup(tester, size: const Size(1800, 1000));
+      final tabs = find.byKey(const ValueKey('forum-tabs-bar'));
+      final options = find.byKey(const ValueKey('topic-view-options'));
+      final title = find.byKey(const ValueKey('topic-list-title'));
+      final filters = find.byKey(const ValueKey('topic-list-feed-row'));
+      expect(tester.widget<Text>(title).data, 'Latest topics');
+      expect(
+        find.descendant(of: tabs, matching: find.byType(DSeparator)),
+        findsNothing,
+      );
+      expect(tester.getCenter(tabs).dy, tester.getCenter(options).dy);
+      expect(
+        tester.getRect(title).top,
+        greaterThan(tester.getRect(tabs).bottom),
+      );
+      expect(
+        tester.getRect(filters).top,
+        greaterThan(tester.getRect(title).bottom),
+      );
+      expect(
+        find.byKey(const ValueKey('topic-list-heading-separator')),
+        findsNothing,
+      );
+
+      h.shell.openTopicFromList(h.topics.first);
+      await tester.pumpAndSettle();
+      final listTabs = find.descendant(
+        of: find.byKey(const ValueKey('inbox-topic-list-pane')),
+        matching: tabs,
+      );
+      final swap = find.byKey(const ValueKey('swap-topic-panels-list'));
+      expect(tester.getCenter(listTabs).dy, tester.getCenter(options).dy);
+      expect(tester.getCenter(listTabs).dy, tester.getCenter(swap).dy);
+      expect(
+        tester.getRect(swap).left,
+        greaterThan(tester.getRect(options).left),
+      );
+      expect(tester.takeException(), isNull);
+    },
+    variant: TargetPlatformVariant.only(TargetPlatform.macOS),
+  );
+
+  testWidgets(
     'beside-list cards preserve the saved mode across presentation changes',
     (tester) async {
       final h = await _setup(tester, size: const Size(1800, 1000));
