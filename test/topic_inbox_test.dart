@@ -58,6 +58,59 @@ const _child = TopicCategory(
 const _tag = TopicTag(id: 1, name: 'community');
 
 void main() {
+  testWidgets(
+    'topic and list headers retract independently and reveal on reversal',
+    (tester) async {
+      final setup = await _setup(tester);
+      setup.controller.openTopicFromList(setup.rows.first);
+      await tester.pumpAndSettle();
+      await _scrollReaderToTop(tester);
+      final reader = find.descendant(
+        of: find.byType(TopicView),
+        matching: find.byType(CustomScrollView),
+      );
+      final list = find
+          .descendant(
+            of: find.byType(TopicListView),
+            matching: find.byType(Scrollable),
+          )
+          .first;
+      final title = find.byKey(const ValueKey('topic-header-title-field'));
+      final readerTop = tester.getTopLeft(reader).dy;
+      final listTop = tester.getTopLeft(find.byType(TopicListView)).dy;
+      final readerElement = tester.element(reader);
+      final listElement = tester.element(list);
+      Future<void> wheel(Finder target, double delta) async {
+        await tester.sendEventToBinding(
+          PointerScrollEvent(
+            position: tester.getCenter(target),
+            scrollDelta: Offset(0, delta),
+          ),
+        );
+        await tester.pumpAndSettle();
+      }
+
+      await wheel(reader, 240);
+      expect(title.hitTestable(), findsNothing);
+      expect(tester.getTopLeft(reader).dy, lessThan(readerTop));
+      expect(tester.getTopLeft(find.byType(TopicListView)).dy, listTop);
+      await wheel(reader, -30);
+      expect(title.hitTestable(), findsOneWidget);
+      expect(tester.getTopLeft(reader).dy, readerTop);
+      await wheel(list, 240);
+      expect(
+        tester.getTopLeft(find.byType(TopicListView)).dy,
+        lessThan(listTop),
+      );
+      expect(title.hitTestable(), findsOneWidget);
+      await wheel(list, -30);
+      expect(tester.getTopLeft(find.byType(TopicListView)).dy, listTop);
+      expect(tester.element(reader), same(readerElement));
+      expect(tester.element(list), same(listElement));
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   testWidgets('desktop panel gutter resizes while retaining list and reader', (
     tester,
   ) async {
@@ -372,7 +425,7 @@ void main() {
   }
 
   testWidgets(
-    'toolbar shows the topic title from the top without resizing or changing on scroll',
+    'programmatic topic scrolling preserves the header and viewport',
     (tester) async {
       final setup = await _setup(tester);
       setup.controller.openTopicFromList(setup.rows.first);

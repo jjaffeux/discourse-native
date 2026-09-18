@@ -19,6 +19,7 @@ import 'content_reading_lane.dart';
 import 'open_link.dart';
 import 'platform.dart';
 import 'relative_time.dart';
+import 'scroll_retracting_header.dart';
 import 'shell_metrics.dart';
 import 'shell_scope.dart';
 import 'title_bar.dart';
@@ -116,18 +117,14 @@ class TopicInboxHeader extends StatelessWidget {
         children: [toolbar, taxonomy, if (showActivity) activity],
       );
     }
-    return Column(
-      children: [
-        toolbar,
-        taxonomy,
-        Expanded(
-          child: bodyBuilder([
-            SliverToBoxAdapter(
-              child: showActivity ? activity : const SizedBox.shrink(),
-            ),
-          ]),
+    return ScrollRetractingHeader(
+      identity: (siteUrl, topic?.id, scrollController),
+      header: Column(children: [toolbar, taxonomy]),
+      child: bodyBuilder([
+        SliverToBoxAdapter(
+          child: showActivity ? activity : const SizedBox.shrink(),
         ),
-      ],
+      ]),
     );
   }
 }

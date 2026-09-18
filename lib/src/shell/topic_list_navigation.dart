@@ -8,6 +8,7 @@ import '../models/sidebar_tag.dart';
 import '../models/topic.dart';
 import '../theme/d_icons.dart';
 import 'platform.dart';
+import 'scroll_retracting_header.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';
 import 'topic_list_filter_bar.dart';
@@ -126,14 +127,17 @@ class TopicListNavigation extends StatelessWidget {
             stacked: stacked,
             keepTopicOpen: keepTopicOpen,
           );
-          return Column(
-            children: [
-              if (constraints.maxHeight < 320)
-                Flexible(child: DScrollArea(child: controls))
-              else
-                controls,
-              Expanded(child: child),
-            ],
+          return ScrollRetractingHeader(
+            identity: state.filterOwner,
+            header: constraints.maxHeight < 320
+                ? ConstrainedBox(
+                    constraints: BoxConstraints(
+                      maxHeight: constraints.maxHeight / 2,
+                    ),
+                    child: DScrollArea(child: controls),
+                  )
+                : controls,
+            child: child,
           );
         },
       );

@@ -39,6 +39,7 @@ import 'post_revision_history.dart';
 import 'post_text_selection.dart';
 import 'progressive_html_mode.dart';
 import 'relative_time.dart';
+import 'scroll_retracting_header.dart';
 import 'shell_controller.dart';
 import 'shell_metrics.dart';
 import 'shell_scope.dart';
@@ -2333,28 +2334,27 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
                   registry: widget.registry,
                   bodyBuilder: buildBody,
                 )
-              : Column(
-                  children: [
-                    _TopicViewHeader(
-                      inbox: widget.inbox,
-                      keepTopicListOpen: widget.keepTopicListOpen,
-                      registry: widget.registry,
-                      title: snapshot.topic!.title,
-                      siteUrl: siteUrl,
-                      route: widget.route,
-                      topic: snapshot.topic!,
-                      scrollController: _scroll,
-                      hasEarlierPosts: snapshot.hasEarlier,
-                      isConnected: widget.isConnected,
-                      bookmarkBusy: widget.bookmarkBusy,
-                      canReturnToSidebar: widget.canReturnToSidebar,
-                      sidebarVisible: showPinnedSidebar || showOverlaySidebar,
-                      onToggleSidebar: showOverlaySidebar
-                          ? null
-                          : () => _toggleSidebar(canPinSidebar: canPinSidebar),
-                    ),
-                    Expanded(child: buildBody(const [])),
-                  ],
+              : ScrollRetractingHeader(
+                  identity: (siteUrl, snapshot.topicId, _scroll),
+                  header: _TopicViewHeader(
+                    inbox: widget.inbox,
+                    keepTopicListOpen: widget.keepTopicListOpen,
+                    registry: widget.registry,
+                    title: snapshot.topic!.title,
+                    siteUrl: siteUrl,
+                    route: widget.route,
+                    topic: snapshot.topic!,
+                    scrollController: _scroll,
+                    hasEarlierPosts: snapshot.hasEarlier,
+                    isConnected: widget.isConnected,
+                    bookmarkBusy: widget.bookmarkBusy,
+                    canReturnToSidebar: widget.canReturnToSidebar,
+                    sidebarVisible: showPinnedSidebar || showOverlaySidebar,
+                    onToggleSidebar: showOverlaySidebar
+                        ? null
+                        : () => _toggleSidebar(canPinSidebar: canPinSidebar),
+                  ),
+                  child: buildBody(const []),
                 ),
         ),
         if (showPinnedSidebar)
