@@ -419,7 +419,7 @@ void main() {
       expect(find.bySemanticsLabel('Separate window'), findsNothing);
       expect(find.byIcon(Icons.open_in_new), findsNothing);
       expect(find.text('Save and close'), findsNothing);
-      expect(find.text('Discard'), findsNothing);
+      expect(find.text('Discard'), findsOneWidget);
       for (final placement in ComposerPlacement.values) {
         expect(find.byTooltip(placement.label), findsOneWidget);
       }

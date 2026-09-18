@@ -7,6 +7,7 @@ import 'package:discourse_native/src/macos_launch_screen.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/sidebar.dart';
+import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/shell/adaptive_shell.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
@@ -44,6 +45,10 @@ Future<void> main() async {
     ]),
     api: FakeDiscourseApi(
       user: user,
+      siteConfigs: const {
+        'https://first-review.invalid': SiteConfig(taggingEnabled: true),
+        'https://second-review.invalid': SiteConfig(taggingEnabled: true),
+      },
       feeds: {
         '/latest.json': topics,
         '/topics/private-messages/reviewer.json': topics,
@@ -56,6 +61,7 @@ Future<void> main() async {
               title: topic.title,
               stream: [topic.id],
               postsCount: 1,
+              canCreatePost: true,
             ),
             posts: [
               Post(
