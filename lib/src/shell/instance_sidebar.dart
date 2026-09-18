@@ -222,7 +222,7 @@ class InstanceSidebar extends StatelessWidget {
   );
 }
 
-class _SidebarPanelBody extends StatelessWidget {
+class _SidebarPanelBody extends StatefulWidget {
   const _SidebarPanelBody({
     required this.sidebar,
     required this.width,
@@ -234,6 +234,19 @@ class _SidebarPanelBody extends StatelessWidget {
   final double width;
   final bool showUserMenu;
   final SidebarSectionStore sectionStore;
+
+  @override
+  State<_SidebarPanelBody> createState() => _SidebarPanelBodyState();
+}
+
+class _SidebarPanelBodyState extends State<_SidebarPanelBody> {
+  String? _selectedOwner;
+  Object? _navigation;
+
+  _SidebarSnapshot get sidebar => widget.sidebar;
+  SidebarSectionStore get sectionStore => widget.sectionStore;
+  bool get showUserMenu => widget.showUserMenu;
+  double get width => widget.width;
 
   @override
   Widget build(BuildContext context) {
@@ -248,7 +261,8 @@ class _SidebarPanelBody extends StatelessWidget {
         select: (controller) {
           final instance = controller.currentInstance;
           return _SidebarPanelSnapshot(
-            contentId: controller.currentContent?.id,
+            contentId:
+                '${controller.activeTabId}:${controller.currentContent?.id}',
             presentation: instance == null
                 ? null
                 : (
@@ -268,23 +282,28 @@ class _SidebarPanelBody extends StatelessWidget {
     final controller = ShellScope.read(context);
     final registry = PluginScope.of(context).registry;
     final panels = registry.sidebarPanels(context);
-    OwnedSidebarPanel? selectedPanel;
-    OwnedSidebarPanel? activePanel;
-    for (final candidate in panels) {
-      if (!candidate.panel.active) continue;
-      selectedPanel ??= candidate;
-      if (candidate.panel.separateWhenActive) activePanel ??= candidate;
+    final routedPanel = panels.where((panel) => panel.panel.active).firstOrNull;
+    final navigation = (
+      sidebar.siteUrl,
+      controller.activeTabId,
+      controller.currentContent?.id,
+      routedPanel?.owner,
+    );
+    if (_navigation != navigation) {
+      _navigation = navigation;
+      _selectedOwner = routedPanel?.owner.value;
     }
+    final selectedPanel = panels
+        .where((panel) => panel.owner.value == _selectedOwner)
+        .firstOrNull;
+    // A revoked capability immediately falls back to Forum.
+    if (selectedPanel == null) _selectedOwner = null;
+    final activePanel = selectedPanel;
     final showCoreSections = activePanel == null;
 
     bool includePluginOwner(PluginId owner) {
       if (activePanel case final active?) return owner == active.owner;
-      for (final candidate in panels) {
-        if (candidate.owner == owner) {
-          return candidate.panel.includeSectionsWhenInactive;
-        }
-      }
-      return true;
+      return !panels.any((candidate) => candidate.owner == owner);
     }
 
     return DSidebar(
@@ -305,11 +324,15 @@ class _SidebarPanelBody extends StatelessWidget {
               accentColor: sidebar.accentColor!,
             ),
           ),
+          if (panels.any((panel) => panel.panel.showSwitch))
+            DSidebarHeader(
+              child: _SidebarPanelTabs(
+                panels: panels,
+                selectedPanel: selectedPanel,
+                onSelected: (owner) => setState(() => _selectedOwner = owner),
+              ),
+            ),
         ],
-      ),
-      footer: _SidebarPanelSwitchRow(
-        panels: panels,
-        selectedPanel: selectedPanel,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -506,52 +529,45 @@ class _SidebarSearchRow extends StatelessWidget {
   }
 }
 
-class _SidebarPanelSwitchRow extends StatelessWidget {
-  const _SidebarPanelSwitchRow({
+class _SidebarPanelTabs extends StatelessWidget {
+  const _SidebarPanelTabs({
     required this.panels,
     required this.selectedPanel,
+    required this.onSelected,
   });
 
   final List<OwnedSidebarPanel> panels;
   final OwnedSidebarPanel? selectedPanel;
+  final ValueChanged<String?> onSelected;
 
   @override
   Widget build(BuildContext context) {
-    final controller = ShellScope.read(context);
-    final canSwitch = !controller.forumTabsEnabled || controller.canCreateTab;
-    final active = selectedPanel;
-    final targets = <Widget>[
-      if (active?.panel.showSwitch == true)
-        Expanded(
-          child: DButton(
-            key: const ValueKey('sidebar-panel-switch-main'),
-            label: const Text('Forum'),
-            icon: const DIcon(DIcons.shuffle),
-            variant: DButtonVariant.outline,
-            onPressed: canSwitch
-                ? () => controller.switchSidebarPanel(active!.panel.onClose)
-                : null,
-            size: DButtonSize.large,
-          ),
-        ),
-      for (final candidate in panels)
-        if (!candidate.panel.active && candidate.panel.showSwitch)
-          Expanded(
-            child: DButton(
-              key: ValueKey('sidebar-panel-switch-${candidate.owner.value}'),
-              label: Text(candidate.panel.label),
-              icon: DIcon(candidate.panel.icon),
-              variant: DButtonVariant.outline,
-              onPressed: canSwitch
-                  ? () => controller.switchSidebarPanel(candidate.panel.onOpen)
-                  : null,
-              size: DButtonSize.large,
+    return DTabs<String>.controlled(
+      key: const ValueKey('sidebar-panel-tabs'),
+      value: selectedPanel?.owner.value ?? 'forum',
+      onChanged: (value) => onSelected(value == 'forum' ? null : value),
+      children: [
+        DTabList<String>(
+          variant: DTabListVariant.line,
+          children: [
+            const DTabTrigger(
+              key: ValueKey('sidebar-panel-switch-main'),
+              value: 'forum',
+              child: Text('Forum'),
             ),
-          ),
-    ];
-    if (targets.isEmpty) return const SizedBox.shrink();
-
-    return DSidebarFooter(child: Row(spacing: 6, children: targets));
+            for (final candidate in panels)
+              if (candidate.panel.showSwitch)
+                DTabTrigger(
+                  key: ValueKey(
+                    'sidebar-panel-switch-${candidate.owner.value}',
+                  ),
+                  value: candidate.owner.value,
+                  child: Text(candidate.panel.label),
+                ),
+          ],
+        ),
+      ],
+    );
   }
 }
 

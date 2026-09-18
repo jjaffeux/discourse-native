@@ -96,6 +96,8 @@ final class VoiceModule implements PluginModule {
         shell = VoiceShellService(
           controller: controller,
           host: host,
+          enabled: (siteUrl) =>
+              siteState.siteConfigFor(siteUrl).voiceSettings.enabled,
           recordingEnabled: (siteUrl) =>
               siteState.siteConfigFor(siteUrl).voiceSettings.recordingEnabled,
           meshPrivacyWarningEnabled: meshPrivacyWarningEnabled,
