@@ -1,3 +1,4 @@
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/chat_channel_list_preferences.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/plugin_api/plugin_data.dart';
@@ -93,6 +94,8 @@ Future<FakeDiscourseApi> _pump(
     ],
     authenticator: FakeAuthenticator()..keys[_site] = 'key',
   );
+  await tester.tap(find.byKey(const ValueKey('sidebar-panel-switch-chat')));
+  await tester.pumpAndSettle();
   return api;
 }
 
@@ -266,6 +269,32 @@ void main() {
         _sidebar(find.byTooltip('Start a direct message')),
         findsOneWidget,
       );
+      final action = find.byKey(
+        const ValueKey('sidebar-section-action-direct-messages'),
+      );
+      expect(tester.widget<DButton>(action).variant, DButtonVariant.primary);
+      final header = _sidebar(find.text('Direct messages'));
+      expect(
+        tester.getRect(action).bottom,
+        lessThanOrEqualTo(tester.getRect(header).top),
+      );
+      final headerRow = find.ancestor(
+        of: header,
+        matching: find.byType(DSidebarMenuItem),
+      );
+      expect(
+        find.descendant(
+          of: headerRow,
+          matching: find.byType(DSidebarMenuAction),
+        ),
+        findsNothing,
+      );
+      await tester.tap(header);
+      await tester.pumpAndSettle();
+      expect(action, findsOneWidget);
+      await tester.tap(action);
+      await tester.pumpAndSettle();
+      expect(find.text('Start a chat'), findsOneWidget);
       expect(api.userPreferenceUpdates, isEmpty);
     },
     variant: TargetPlatformVariant.only(TargetPlatform.macOS),

@@ -38,3 +38,6 @@ keeping the full count in its accessibility label.
 Chat section headers show the same unread-message badge while expanded or
 collapsed. Starred channels (including starred DMs), Chat, and Direct messages
 count their own unfiltered channels, so their totals do not overlap.
+
+The Direct messages compose action uses a primary Native button above its header,
+remaining available when collapsed and retaining the platform keyboard shortcut.

@@ -370,6 +370,7 @@ class ChatPlugin
               actions(ChatChannelListSection.directMessages),
           actionIcon: canCreateDirectMessage ? DIcons.plus : null,
           actionLabel: canCreateDirectMessage ? 'Start a direct message' : null,
+          actionAboveHeader: true,
           actionShortcut: canCreateDirectMessage
               ? newDirectMessageShortcutForPlatform(Theme.of(context).platform)
               : null,

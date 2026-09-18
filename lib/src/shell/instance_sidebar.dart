@@ -965,6 +965,23 @@ class _SectionState extends State<_Section> {
     final content = SliverMainAxisGroup(slivers: menus);
     final group = SliverMainAxisGroup(
       slivers: [
+        if (section.actionAboveHeader && section.onAction != null)
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.only(bottom: DSpacing.sm),
+              child: DButton(
+                key: ValueKey('sidebar-section-action-${section.id}'),
+                variant: DButtonVariant.primary,
+                label: Text(section.actionLabel ?? section.title),
+                icon: DIcon(section.actionIcon ?? DIcons.plus, size: 16),
+                tooltip: section.actionLabel ?? section.title,
+                shortcut: section.actionShortcut == null
+                    ? null
+                    : DShortcut(section.actionShortcut!),
+                onPressed: section.onAction,
+              ),
+            ),
+          ),
         if (section.showHeader)
           SliverToBoxAdapter(
             child: Padding(
@@ -1079,13 +1096,15 @@ class _SectionHeader extends StatelessWidget {
         ? DIcons.chevronLeft
         : DIcons.chevronRight;
     return DSidebarMenuItem(
-      action: section.headerActionsBuilder != null || section.onAction != null
+      action:
+          section.headerActionsBuilder != null ||
+              (!section.actionAboveHeader && section.onAction != null)
           ? Row(
               mainAxisSize: MainAxisSize.min,
               children: [
                 if (section.headerActionsBuilder != null)
                   section.headerActionsBuilder!(context),
-                if (section.onAction != null)
+                if (!section.actionAboveHeader && section.onAction != null)
                   DTooltip(
                     message: section.actionLabel ?? section.title,
                     shortcut: section.actionShortcut == null

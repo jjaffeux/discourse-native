@@ -128,6 +128,7 @@ class SidebarSection {
     this.actionLabel,
     this.actionShortcut,
     this.onAction,
+    this.actionAboveHeader = false,
     this.headerActionsBuilder,
     this.unreadCount = 0,
   }) : assert(showHeader || !collapsible);
@@ -208,6 +209,9 @@ class SidebarSection {
   final String? actionLabel;
   final SingleActivator? actionShortcut;
   final VoidCallback? onAction;
+
+  /// Show the action as a Native button before the section header.
+  final bool actionAboveHeader;
 
   /// Unread messages across the section, independent of its collapsed state.
   final int unreadCount;
