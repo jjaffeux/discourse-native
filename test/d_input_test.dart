@@ -19,6 +19,37 @@ Widget host(Widget child, {double scale = 1, ThemeData? theme}) => MaterialApp(
   ),
 );
 void main() {
+  testWidgets('borderless title keeps its height when typing and clearing', (
+    tester,
+  ) async {
+    for (final scale in [1.0, 2.0]) {
+      await tester.pumpWidget(
+        host(
+          DInput(
+            borderless: true,
+            size: DControlSize.large,
+            style: AppTheme.dark.textTheme.bodyLarge?.copyWith(
+              fontWeight: FontWeight.w600,
+            ),
+            hintText: 'Give your topic a title',
+          ),
+          scale: scale,
+          theme: AppTheme.dark,
+        ),
+      );
+      final input = find.byType(DInput);
+      await tester.pumpAndSettle();
+      final emptySize = tester.getSize(input);
+      await tester.enterText(find.byType(TextField), 'dazdzad');
+      await tester.pumpAndSettle();
+      expect(tester.getSize(input), emptySize);
+      await tester.enterText(find.byType(TextField), '');
+      await tester.pumpAndSettle();
+      expect(tester.getSize(input), emptySize);
+      await tester.pumpWidget(const SizedBox.shrink());
+    }
+  });
+
   testWidgets('semanticLabel names the editor without a visible label', (
     tester,
   ) async {

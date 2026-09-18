@@ -302,9 +302,6 @@ class _DInputState extends FormFieldState<String> {
                 style: style,
                 maxLines: input.maxLines,
                 minLines: input.borderless ? 1 : null,
-                strutStyle: input.borderless
-                    ? StrutStyle.fromTextStyle(style)
-                    : null,
                 scrollPadding: input.borderless
                     ? EdgeInsets.zero
                     : const EdgeInsets.all(20),
