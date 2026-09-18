@@ -1025,7 +1025,8 @@ class _WideShellState extends State<_WideShell> {
                     controller.hasInstances &&
                     controller.rootMode == ShellRootMode.forum,
                 builder: (context, available, _) => InstanceRail(
-                  sidebarExpanded: sidebarExpanded,
+                  showSidebarToggle: true,
+                  sidebarExpanded: available && sidebarExpanded,
                   onToggleSidebar: available
                       ? () =>
                             setState(() => _sidebarExpanded = !sidebarExpanded)

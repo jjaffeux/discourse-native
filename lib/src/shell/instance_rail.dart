@@ -29,10 +29,12 @@ class InstanceRail extends StatelessWidget {
   const InstanceRail({
     super.key,
     this.onToggleSidebar,
+    this.showSidebarToggle = false,
     this.sidebarExpanded = true,
   });
 
   final VoidCallback? onToggleSidebar;
+  final bool showSidebarToggle;
   final bool sidebarExpanded;
 
   @override
@@ -51,13 +53,15 @@ class InstanceRail extends StatelessWidget {
               right: false,
               child: Column(
                 children: [
-                  if (onToggleSidebar != null)
+                  if (showSidebarToggle)
                     Padding(
                       padding: const EdgeInsets.only(top: 8, bottom: 4),
                       child: DButton.iconOnly(
                         key: const ValueKey('rail-sidebar-toggle'),
                         icon: const Icon(Icons.menu),
-                        tooltip: sidebarExpanded
+                        tooltip: onToggleSidebar == null
+                            ? 'Select a forum to toggle its sidebar'
+                            : sidebarExpanded
                             ? 'Collapse sidebar'
                             : 'Expand sidebar',
                         expanded: sidebarExpanded,
