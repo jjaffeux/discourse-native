@@ -1,0 +1,257 @@
+--- a/packages/flutter_widget_from_html_core/lib/src/internal/core_build_tree.dart
++++ b/packages/flutter_widget_from_html_core/lib/src/internal/core_build_tree.dart
+@@ -10,17 +10,21 @@
+ import '../core_helpers.dart';
+ import '../core_widget_factory.dart';
+ import 'core_ops.dart';
++import 'conversion_probe.dart';
+ import 'default_styles_cache.dart';
+ import 'flattener.dart';
+ 
+ // https://infra.spec.whatwg.org/#ascii-whitespace
+ const _asciiWhitespace = r'[\u{0009}\u{000A}\u{000C}\u{000D}\u{0020}]';
++final _regExpSpaceLeading = RegExp('^$_asciiWhitespace+', unicode: true);
++final _regExpSpaceTrailing = RegExp('$_asciiWhitespace+\$', unicode: true);
+ final _regExpSpaces = RegExp('$_asciiWhitespace+', unicode: true);
+ 
++
+ bool _isAsciiWhitespace(int codeUnit) => switch (codeUnit) {
+-      0x09 || 0x0A || 0x0C || 0x0D || 0x20 => true,
+-      _ => false,
+-    };
++  0x09 || 0x0A || 0x0C || 0x0D || 0x20 => true,
++  _ => false,
++};
+ 
+ final _logger = Logger('fwfh.CoreBuildTree');
+ final _rootElement = dom.Element.tag('root');
+@@ -86,7 +90,9 @@
+   }
+ 
+   @override
+-  WidgetPlaceholder? build() {
++  WidgetPlaceholder? build() => ConversionProbe.measure('flattenAndBuild', _buildMeasured);
++
++  WidgetPlaceholder? _buildMeasured() {
+     final children = Flattener(wf, this).widgets;
+ 
+     final Iterable<_CoreBuildOp> ops = _buildOps ?? const [];
+@@ -221,7 +227,7 @@
+     }
+ 
+     final element = domNode as dom.Element;
+-    final customWidget = wf.customWidgetBuilder(element);
++    final customWidget = ConversionProbe.measure('customWidget', () => wf.customWidgetBuilder(element));
+     if (customWidget != null) {
+       if (customWidget is InlineCustomWidget) {
+         append(
+@@ -267,17 +273,25 @@
+     }
+   }
+ 
+-  void _addText(String data) {
+-    // Inspect only the edges: a trailing-whitespace regex scans the entire
+-    // string even when ordinary prose ends in a non-whitespace character.
+-    var start = 0;
+-    while (start < data.length && _isAsciiWhitespace(data.codeUnitAt(start))) {
+-      start++;
+-    }
+-    var end = data.length;
+-    while (end > start && _isAsciiWhitespace(data.codeUnitAt(end - 1))) {
+-      end--;
+-    }
++  void _addText(String data) => ConversionProbe.measure('textNormalization', () => _addTextMeasured(data));
++
++  void _addTextMeasured(String data) {
++    final start = ConversionProbe.measure('leadingWhitespace', () {
++      if (!ConversionProbe.optimized) return _regExpSpaceLeading.firstMatch(data)?.end ?? 0;
++      var start = 0;
++      while (start < data.length && _isAsciiWhitespace(data.codeUnitAt(start))) {
++        start++;
++      }
++      return start;
++    });
++    final end = ConversionProbe.measure('trailingWhitespace', () {
++      if (!ConversionProbe.optimized) return _regExpSpaceTrailing.firstMatch(data)?.start ?? data.length;
++      var end = data.length;
++      while (end > start && _isAsciiWhitespace(data.codeUnitAt(end - 1))) {
++        end--;
++      }
++      return end;
++    });
+ 
+     if (end <= start) {
+       // the string contains all spaces
+@@ -291,6 +305,7 @@
+ 
+     final contents = data.substring(start, end);
+     final spaces = _regExpSpaces.allMatches(contents);
++    if (ConversionProbe.countMatches) ConversionProbe.counts.update('textCharacters', (n) => n + data.length, ifAbsent: () => data.length);
+     var offset = 0;
+     for (final space in [...spaces, null]) {
+       if (space == null) {
+@@ -301,8 +316,10 @@
+         }
+         break;
+       } else {
++        if (ConversionProbe.countMatches) ConversionProbe.counts.update('whitespaceMatches', (n) => n + 1, ifAbsent: () => 1);
+         final spaceData = space.group(0)!;
+         if (spaceData == ' ') {
++          if (ConversionProbe.countMatches) ConversionProbe.counts.update('discardedSingleSpaces', (n) => n + 1, ifAbsent: () => 1);
+           // micro optimization: ignore single space (ASCII 32)
+           continue;
+         }
+@@ -334,8 +351,10 @@
+     _styles.addAll(customStyles);
+   }
+ 
+-  void _parseEverything() {
+-    wf.parse(this);
++  void _parseEverything() => ConversionProbe.measure('parseEverything', _parseEverythingMeasured);
++
++  void _parseEverythingMeasured() {
++    ConversionProbe.measure('factoryParse', () => wf.parse(this));
+ 
+     for (final op in _parentOps) {
+       op.onVisitChild(this);
+@@ -344,16 +363,16 @@
+     final scopedBuildOps = _buildOps;
+     if (scopedBuildOps != null) {
+       for (final op in scopedBuildOps) {
+-        final defaultStyles = op.defaultStyles;
++        final defaultStyles = ConversionProbe.measure('defaultStyles', () => op.defaultStyles);
+         if (defaultStyles != null) {
+           _styles.addAll(defaultStyles);
+         }
+       }
+     }
+ 
+-    _customStylesBuilder();
+-
+-    final elementStyles = element.styles;
++    ConversionProbe.measure('customStyles', _customStylesBuilder);
++
++    final elementStyles = ConversionProbe.measure('inlineStyles', () => element.styles);
+     if (elementStyles.isNotEmpty) {
+       _styles.addAll(elementStyles);
+     }
+@@ -362,11 +381,11 @@
+     final values = _styles._values;
+     if (values != null) {
+       for (final style in values.toList(growable: false)) {
+-        wf.parseStyle(this, style);
+-      }
+-    }
+-
+-    wf.parseStyleDisplay(this, getStyle(kCssDisplay)?.term);
++        ConversionProbe.measure('parseStyle', () => wf.parseStyle(this, style));
++      }
++    }
++
++    ConversionProbe.measure('displayStyles', () => wf.parseStyleDisplay(this, getStyle(kCssDisplay)?.term));
+   }
+ }
+ 
+--- /dev/null
++++ b/packages/flutter_widget_from_html_core/lib/src/internal/conversion_probe.dart
+@@ -0,0 +1,22 @@
++// Temporary investigation instrumentation; not shipping code.
++class ConversionProbe {
++  static bool optimized = false;
++  static bool countMatches = false;
++  static final conversions = <int>[];
++  static final ticks = <String, int>{};
++  static final counts = <String, int>{};
++  static T measure<T>(String name, T Function() body) {
++    final timer = Stopwatch()..start();
++    try { return body(); } finally {
++      if (name == 'conversion') conversions.add(timer.elapsedTicks);
++      ticks.update(name, (n) => n + timer.elapsedTicks, ifAbsent: () => timer.elapsedTicks);
++      counts.update(name, (n) => n + 1, ifAbsent: () => 1);
++    }
++  }
++  static void reset() { ticks.clear(); counts.clear(); conversions.clear(); }
++  static Map<String, Object> snapshot() => {
++    'conversionUs': conversions.map((n) => n * 1000000 / Stopwatch().frequency).toList(),
++    'us': ticks.map((key, value) => MapEntry(key, value * 1000000 / Stopwatch().frequency)),
++    'counts': Map<String, int>.of(counts),
++  };
++}
+--- a/packages/flutter_widget_from_html_core/lib/src/core_html_widget.dart
++++ b/packages/flutter_widget_from_html_core/lib/src/core_html_widget.dart
+@@ -1,3 +1,4 @@
++import 'internal/conversion_probe.dart';
+ import 'dart:async';
+ import 'dart:developer';
+ 
+@@ -313,7 +314,9 @@
+       resolved == null || resolved != oldWidget.resolved;
+ }
+ 
+-Widget _buildBody(HtmlWidgetState state, dom.NodeList domNodes) {
++Widget _buildBody(HtmlWidgetState state, dom.NodeList domNodes) => ConversionProbe.measure('conversion', () => _buildBodyMeasured(state, domNodes));
++
++Widget _buildBodyMeasured(HtmlWidgetState state, dom.NodeList domNodes) {
+   _logger.fine('Building body...');
+   final wf = state._wf;
+   wf.reset(state);
+--- a/packages/flutter_widget_from_html_core/lib/src/internal/default_styles_cache.dart
++++ b/packages/flutter_widget_from_html_core/lib/src/internal/default_styles_cache.dart
+@@ -1,3 +1,4 @@
++import 'conversion_probe.dart';
+ import 'package:csslib/parser.dart' as css;
+ import 'package:csslib/visitor.dart' as css;
+ 
+@@ -17,6 +18,7 @@
+     if (existing != null) {
+       return existing.map(_clone).toList();
+     }
++    ConversionProbe.counts.update('cssParse:$styles', (n) => n + 1, ifAbsent: () => 1);
+     final declarations = css.parse('*{$styles}').collectDeclarations();
+     if (_templates.length < 64 &&
+         styles.length <= 4096 &&
+--- a/tool/long_post_render_profile_main.dart
++++ b/tool/long_post_render_profile_main.dart
+@@ -17,6 +17,9 @@
+ import 'package:vm_service/vm_service.dart' as vm;
+ import 'package:vm_service/vm_service_io.dart';
+ 
++// ignore: implementation_imports
++import 'package:flutter_widget_from_html_core/src/internal/conversion_probe.dart';
++
+ import 'long_post_fixture.dart';
+ import 'profile_foreground_gate.dart';
+ 
+@@ -36,6 +39,7 @@
+ }
+ 
+ Future<void> _runProfile() async {
++  ConversionProbe.optimized = Platform.environment['LONG_POST_OPTIMIZED'] == 'true';
+   final binding = WidgetsFlutterBinding.ensureInitialized();
+   final foreground = ProfileForegroundGate();
+   try {
+@@ -76,6 +80,7 @@
+           await Future<void>.delayed(const Duration(milliseconds: 200));
+           _frames.clear();
+           _layouts.clear();
++          ConversionProbe.reset();
+           final start = developer.Timeline.now;
+           final html = Platform.environment['LONG_POST_VARIETY'] == 'true'
+               ? variedLongPostHtml()
+@@ -159,6 +164,7 @@
+               )
+               .toList();
+           final coldLayouts = List.of(_layouts);
++          final coldProbe = ConversionProbe.snapshot();
+           _frames.clear();
+           _layouts.clear();
+           for (var i = 0; i < 60; i++) {
+@@ -167,6 +173,8 @@
+           }
+           await Future<void>.delayed(const Duration(milliseconds: 150));
+           final result = <String, Object?>{
++            'probe': coldProbe,
++            'variant': ConversionProbe.optimized ? 'ascii-boundaries' : 'baseline',
+             'foregroundValidated': true,
+             'lifecycleStart': AppLifecycleState.resumed.name,
+             'lifecycleEnd': AppLifecycleState.resumed.name,
