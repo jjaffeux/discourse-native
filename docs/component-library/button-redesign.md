@@ -76,3 +76,8 @@ notification-menu component).
   base `1795898e` in `/tmp/discourse-buttons-baseline`; no new integration failure
   was introduced. Logs: `/tmp/button-redesign-tests2.log` and
   `/tmp/button-baseline-tests.log`.
+- Integration candidate includes main’s sidebar update `cc828324`. Sidebar and
+  adoption checks passed 12 cases; the scaled-sidebar-title spacing assertion
+  fails identically on unchanged `cc828324` (expected 591, actual 587). Evidence:
+  `/tmp/button-redesign-integration-tests.log` and
+  `/tmp/button-sidebar-baseline-tests.log`. No sidebar code was changed here.
