@@ -37,7 +37,7 @@ void main() {
     expect(find.text('Settings'), findsOneWidget);
     expect(find.text('Appearance'), findsNothing);
     expect(find.text('System'), findsNothing);
-    expect(find.text('Content alignment'), findsOneWidget);
+    expect(find.text('Limit content size'), findsOneWidget);
     expect(find.text('Text size'), findsOneWidget);
     expect(find.text('Topic list'), findsNothing);
     expect(find.text('100%'), findsOneWidget);
@@ -48,22 +48,22 @@ void main() {
     );
     expect(find.textContaining('Save'), findsNothing);
 
-    var segmented = tester.widget<DToggleGroup<ContentAlignment>>(
-      find.byKey(const ValueKey('content-alignment-segmented-button')),
+    var segmented = tester.widget<DSwitchTile>(
+      find.byKey(const ValueKey('limit-content-size-switch')),
     );
-    expect(segmented.values, [ContentAlignment.center]);
+    expect(segmented.value, false);
 
     expect(find.byKey(const ValueKey('topic-list-mode-toggle')), findsNothing);
 
-    await tester.tap(find.text('Left'));
+    await tester.tap(find.text('Limit content size'));
     await tester.pump();
 
-    expect(controller.appSettings.contentAlignment, ContentAlignment.left);
-    expect(persistence.contentAlignment, 'left');
-    segmented = tester.widget<DToggleGroup<ContentAlignment>>(
-      find.byKey(const ValueKey('content-alignment-segmented-button')),
+    expect(controller.appSettings.limitContentSize, true);
+    expect(persistence.limitContentSize, true);
+    segmented = tester.widget<DSwitchTile>(
+      find.byKey(const ValueKey('limit-content-size-switch')),
     );
-    expect(segmented.values, [ContentAlignment.left]);
+    expect(segmented.value, true);
 
     await tester.tap(find.byKey(const ValueKey('text-size-increase')));
     await tester.pump();
@@ -115,18 +115,14 @@ void main() {
       await _pumpPage(tester, controller);
 
       expect(find.bySemanticsLabel('Close settings'), findsOneWidget);
-      for (final (label, level) in [
-        ('Settings', 1),
-        ('Content alignment', 2),
-        ('Text size', 2),
-      ]) {
+      for (final (label, level) in [('Settings', 1), ('Text size', 2)]) {
         expect(
           tester.getSemantics(find.text(label)).getSemanticsData().headingLevel,
           level,
         );
       }
       expect(
-        find.bySemanticsLabel('Content alignment options'),
+        find.bySemanticsLabel(RegExp('Limit content size')),
         findsOneWidget,
       );
       expect(find.bySemanticsLabel('Decrease text size'), findsOneWidget);
@@ -136,9 +132,6 @@ void main() {
         find.bySemanticsLabel(RegExp('Disable GIF animations')),
         findsOneWidget,
       );
-      for (final label in ['Left', 'Center', 'Right']) {
-        expect(find.bySemanticsLabel(label), findsOneWidget);
-      }
 
       await tester.tap(find.byKey(const ValueKey('app-settings-close')));
       await tester.pumpAndSettle();
@@ -239,8 +232,8 @@ void main() {
     void expectHome(ThemeData expected) {
       for (final finder in [
         find.byType(DDialogContent),
-        find.byType(DToggleGroup<ContentAlignment>),
-        find.byType(DSwitchTile),
+        find.byKey(const ValueKey('limit-content-size-switch')),
+        find.byKey(const ValueKey('disable-gif-animations-switch')),
         find.byKey(const ValueKey('text-size-increase')),
       ]) {
         final context = tester.element(finder);
@@ -276,10 +269,10 @@ void main() {
         rtl: true,
       );
       expect(tester.takeException(), isNull);
-      await tester.ensureVisible(find.text('Left'));
-      await tester.tap(find.text('Left'));
+      await tester.ensureVisible(find.text('Limit content size'));
+      await tester.tap(find.text('Limit content size'));
       await tester.pumpAndSettle();
-      expect(controller.appSettings.contentAlignment, ContentAlignment.left);
+      expect(controller.appSettings.limitContentSize, true);
       await tester.ensureVisible(
         find.byKey(const ValueKey('text-size-increase')),
       );

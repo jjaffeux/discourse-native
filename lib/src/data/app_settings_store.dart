@@ -5,9 +5,9 @@ import 'serial_operation_queue.dart';
 import 'store_diagnostics.dart';
 
 abstract interface class AppSettingsPersistence {
-  Future<String?> readContentAlignment();
+  Future<bool?> readLimitContentSize();
 
-  Future<bool> writeContentAlignment(String value);
+  Future<bool> writeLimitContentSize(bool value);
 
   Future<bool?> readDisableGifAnimations();
 
@@ -104,15 +104,15 @@ final class SharedPreferencesAppSettingsPersistence
       );
 
   @override
-  Future<String?> readContentAlignment() async =>
-      (await SharedPreferences.getInstance()).getString(
-        AppSettingsStore.contentAlignmentKey,
+  Future<bool?> readLimitContentSize() async =>
+      (await SharedPreferences.getInstance()).getBool(
+        AppSettingsStore.limitContentSizeKey,
       );
 
   @override
-  Future<bool> writeContentAlignment(String value) async =>
-      (await SharedPreferences.getInstance()).setString(
-        AppSettingsStore.contentAlignmentKey,
+  Future<bool> writeLimitContentSize(bool value) async =>
+      (await SharedPreferences.getInstance()).setBool(
+        AppSettingsStore.limitContentSizeKey,
         value,
       );
 
@@ -158,7 +158,7 @@ final class SharedPreferencesAppSettingsPersistence
 
 final class MemoryAppSettingsPersistence implements AppSettingsPersistence {
   MemoryAppSettingsPersistence({
-    this.contentAlignment,
+    this.limitContentSize,
     this.disableGifAnimations,
     this.textScale,
     this.themeMode,
@@ -169,7 +169,7 @@ final class MemoryAppSettingsPersistence implements AppSettingsPersistence {
     this.topicListMode,
   });
 
-  String? contentAlignment;
+  bool? limitContentSize;
   bool? disableGifAnimations;
   String? textScale;
   String? themeMode;
@@ -223,11 +223,11 @@ final class MemoryAppSettingsPersistence implements AppSettingsPersistence {
   }
 
   @override
-  Future<String?> readContentAlignment() async => contentAlignment;
+  Future<bool?> readLimitContentSize() async => limitContentSize;
 
   @override
-  Future<bool> writeContentAlignment(String value) async {
-    contentAlignment = value;
+  Future<bool> writeLimitContentSize(bool value) async {
+    limitContentSize = value;
     return true;
   }
 
@@ -263,8 +263,8 @@ final class AppSettingsStore {
   AppSettingsStore({AppSettingsPersistence? persistence})
     : _persistence = persistence ?? _defaultPersistence;
 
-  static const String contentAlignmentKey =
-      'discourse_native.content_alignment';
+  static const String limitContentSizeKey =
+      'discourse_native.limit_content_size';
   static const String disableGifAnimationsKey =
       'discourse_native.disable_gif_animations';
   static const String textScaleKey = 'discourse_native.text_scale';
@@ -285,7 +285,7 @@ final class AppSettingsStore {
       ReadAfterWriteOperationQueue();
 
   final AppSettingsPersistence _persistence;
-  ContentAlignment? _sessionContentAlignment;
+  bool? _sessionLimitContentSize;
   bool? _sessionDisableGifAnimations;
   AppTextScale? _sessionTextScale;
   AppThemeMode? _sessionThemeMode;
@@ -297,7 +297,7 @@ final class AppSettingsStore {
   AppSettings? _lastReadSettings;
 
   bool get _hasSessionChanges =>
-      _sessionContentAlignment != null ||
+      _sessionLimitContentSize != null ||
       _sessionDisableGifAnimations != null ||
       _sessionTextScale != null ||
       _sessionThemeMode != null ||
@@ -312,7 +312,7 @@ final class AppSettingsStore {
     if (_hasSessionChanges && known != null) {
       return _withSessionSettings(known);
     }
-    if (_sessionContentAlignment != null &&
+    if (_sessionLimitContentSize != null &&
         _sessionDisableGifAnimations != null &&
         _sessionTextScale != null &&
         _sessionThemeMode != null &&
@@ -338,7 +338,7 @@ final class AppSettingsStore {
   }
 
   AppSettings _withSessionSettings(AppSettings settings) => settings.copyWith(
-    contentAlignment: _sessionContentAlignment,
+    limitContentSize: _sessionLimitContentSize,
     disableGifAnimations: _sessionDisableGifAnimations,
     textScale: _sessionTextScale,
     themeMode: _sessionThemeMode,
@@ -350,7 +350,7 @@ final class AppSettingsStore {
   );
 
   Future<AppSettings> _read() async {
-    var contentAlignment = ContentAlignment.center;
+    var limitContentSize = false;
     var disableGifAnimations = false;
     var textScale = AppTextScale.percent100;
     var themeMode = AppThemeMode.system;
@@ -360,13 +360,12 @@ final class AppSettingsStore {
     var topicListShowAssignments = true;
     var topicListMode = TopicListDisplayMode.card;
     try {
-      final stored = await _persistence.readContentAlignment();
-      contentAlignment = _contentAlignmentByName(stored);
+      limitContentSize = await _persistence.readLimitContentSize() ?? false;
     } catch (error, stackTrace) {
       reportStorageFailure(
         error,
         stackTrace,
-        'appSettings.readContentAlignment',
+        'appSettings.readLimitContentSize',
       );
     }
     try {
@@ -443,7 +442,7 @@ final class AppSettingsStore {
       );
     }
     return AppSettings(
-      contentAlignment: contentAlignment,
+      limitContentSize: limitContentSize,
       disableGifAnimations: disableGifAnimations,
       textScale: textScale,
       themeMode: themeMode,
@@ -456,7 +455,7 @@ final class AppSettingsStore {
   }
 
   Future<void> write(AppSettings settings) => update(
-    contentAlignment: settings.contentAlignment,
+    limitContentSize: settings.limitContentSize,
     disableGifAnimations: settings.disableGifAnimations,
     textScale: settings.textScale,
     themeMode: settings.themeMode,
@@ -470,7 +469,7 @@ final class AppSettingsStore {
   /// Saves explicit choices without replacing preferences still being read.
   /// Session choices also override late reads when persistence fails.
   Future<void> update({
-    ContentAlignment? contentAlignment,
+    bool? limitContentSize,
     bool? disableGifAnimations,
     AppTextScale? textScale,
     AppThemeMode? themeMode,
@@ -480,7 +479,7 @@ final class AppSettingsStore {
     bool? topicListShowAssignments,
     TopicListDisplayMode? topicListMode,
   }) {
-    _sessionContentAlignment = contentAlignment ?? _sessionContentAlignment;
+    _sessionLimitContentSize = limitContentSize ?? _sessionLimitContentSize;
     _sessionDisableGifAnimations =
         disableGifAnimations ?? _sessionDisableGifAnimations;
     _sessionTextScale = textScale ?? _sessionTextScale;
@@ -497,7 +496,7 @@ final class AppSettingsStore {
       owner: _persistence,
       key: _operationKey,
       operation: () => _persist(
-        contentAlignment: contentAlignment,
+        limitContentSize: limitContentSize,
         disableGifAnimations: disableGifAnimations,
         textScale: textScale,
         themeMode: themeMode,
@@ -511,7 +510,7 @@ final class AppSettingsStore {
   }
 
   Future<void> _persist({
-    ContentAlignment? contentAlignment,
+    bool? limitContentSize,
     bool? disableGifAnimations,
     AppTextScale? textScale,
     AppThemeMode? themeMode,
@@ -574,15 +573,15 @@ final class AppSettingsStore {
       );
     }
     try {
-      if (contentAlignment != null &&
-          !await _persistence.writeContentAlignment(contentAlignment.name)) {
-        throw StateError('Could not persist the app content alignment.');
+      if (limitContentSize != null &&
+          !await _persistence.writeLimitContentSize(limitContentSize)) {
+        throw StateError('Could not persist the content size limit.');
       }
     } catch (error, stackTrace) {
       reportStorageFailure(
         error,
         stackTrace,
-        'appSettings.writeContentAlignment',
+        'appSettings.writeLimitContentSize',
       );
     }
     try {
@@ -622,13 +621,6 @@ final class AppSettingsStore {
       reportStorageFailure(error, stackTrace, 'appSettings.writeTopicListMode');
     }
   }
-}
-
-ContentAlignment _contentAlignmentByName(String? name) {
-  for (final alignment in ContentAlignment.values) {
-    if (alignment.name == name) return alignment;
-  }
-  return ContentAlignment.center;
 }
 
 AppTextScale _appTextScaleByName(String? name) {

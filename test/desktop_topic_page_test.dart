@@ -958,7 +958,7 @@ Future<({ShellController shell, List<Topic> topics})> _setup(
             textDirection: direction,
             child: settings == null
                 ? const AdaptiveShell()
-                : ContentAlignmentScope(
+                : ContentSettingsScope(
                     controller: settings,
                     child: const AdaptiveShell(),
                   ),

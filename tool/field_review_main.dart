@@ -67,7 +67,7 @@ class _FieldReviewState extends State<_FieldReview> {
   }
 
   @override
-  Widget build(BuildContext context) => ContentAlignmentScope(
+  Widget build(BuildContext context) => ContentSettingsScope(
     controller: widget.shell.appSettings,
     child: ShellScope(
       controller: widget.shell,

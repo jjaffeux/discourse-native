@@ -65,10 +65,18 @@ class AppSettingsModal extends StatelessWidget {
             builder: (context, _) => DFieldGroup(
               key: const ValueKey('app-settings-form'),
               children: [
-                _ContentAlignmentSetting(
-                  alignment: appSettings.contentAlignment,
-                  onChanged: (alignment) =>
-                      unawaited(appSettings.setContentAlignment(alignment)),
+                DSwitchTile(
+                  key: const ValueKey('limit-content-size-switch'),
+                  contentPadding: EdgeInsets.zero,
+                  title: const DLabel(child: Text('Limit content size')),
+                  subtitle: const DFieldDescription(
+                    child: Text(
+                      'Center content in each panel with a maximum width of 825 px.',
+                    ),
+                  ),
+                  value: appSettings.limitContentSize,
+                  onChanged: (value) =>
+                      unawaited(appSettings.setLimitContentSize(value)),
                 ),
                 const DFieldSeparator(),
                 _TextSizeSetting(
@@ -240,34 +248,4 @@ class _TextSizeSetting extends StatelessWidget {
       ],
     );
   }
-}
-
-class _ContentAlignmentSetting extends StatelessWidget {
-  const _ContentAlignmentSetting({
-    required this.alignment,
-    required this.onChanged,
-  });
-
-  final ContentAlignment alignment;
-  final ValueChanged<ContentAlignment> onChanged;
-
-  @override
-  Widget build(BuildContext context) => _SettingsField(
-    title: 'Content alignment',
-    description: 'Position forum content in your window.',
-    control: DToggleGroup<ContentAlignment>(
-      key: const ValueKey('content-alignment-segmented-button'),
-      semanticLabel: 'Content alignment options',
-      items: const [
-        DToggleGroupItem(value: ContentAlignment.left, child: Text('Left')),
-        DToggleGroupItem(value: ContentAlignment.center, child: Text('Center')),
-        DToggleGroupItem(value: ContentAlignment.right, child: Text('Right')),
-      ],
-      values: [alignment],
-      allowEmptySelection: false,
-      variant: DToggleVariant.outline,
-      spacing: 0,
-      onChanged: (selection) => onChanged(selection.single),
-    ),
-  );
 }

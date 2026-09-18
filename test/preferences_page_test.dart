@@ -4,7 +4,6 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/data/discourse_api_contracts.dart';
 import 'package:discourse_native/src/data/instance_store.dart';
 import 'package:discourse_native/src/foundation/timezone_environment.dart';
-import 'package:discourse_native/src/models/app_settings.dart';
 import 'package:discourse_native/src/models/bookmark.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
@@ -110,7 +109,7 @@ Future<void> _pumpPage(
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
   await tester.pumpWidget(
-    ContentAlignmentScope(
+    ContentSettingsScope(
       controller: fixture.shell.appSettings,
       child: ShellScope(
         controller: fixture.shell,
@@ -199,39 +198,36 @@ void main() {
       expect(_primaryFocusIsWithin(linkedPosts), isTrue);
     });
 
-    testWidgets('compact form follows physical desktop alignment', (
-      tester,
-    ) async {
-      final previousPlatform = debugDefaultTargetPlatformOverride;
-      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
-      try {
-        final fixture = await _fixture();
-        await _pumpPage(tester, fixture, width: 740);
-        final form = find.byKey(
-          const ValueKey((
-            'preferences-section',
-            PreferenceSection.notifications,
-          )),
-        );
+    testWidgets(
+      'compact form stays centered with either content size setting',
+      (tester) async {
+        final previousPlatform = debugDefaultTargetPlatformOverride;
+        debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+        try {
+          final fixture = await _fixture();
+          await _pumpPage(tester, fixture, width: 740);
+          final form = find.byKey(
+            const ValueKey((
+              'preferences-section',
+              PreferenceSection.notifications,
+            )),
+          );
 
-        expect(tester.getSize(form).width, 680);
-        expect(tester.getTopLeft(form).dx, 30);
+          expect(tester.getSize(form).width, 680);
+          expect(tester.getTopLeft(form).dx, 30);
 
-        await fixture.shell.appSettings.setContentAlignment(
-          ContentAlignment.left,
-        );
-        await tester.pump();
-        expect(tester.getTopLeft(form).dx, 16);
+          await fixture.shell.appSettings.setLimitContentSize(false);
+          await tester.pump();
+          expect(tester.getTopLeft(form).dx, 30);
 
-        await fixture.shell.appSettings.setContentAlignment(
-          ContentAlignment.right,
-        );
-        await tester.pump();
-        expect(tester.getTopLeft(form).dx, 44);
-      } finally {
-        debugDefaultTargetPlatformOverride = previousPlatform;
-      }
-    });
+          await fixture.shell.appSettings.setLimitContentSize(true);
+          await tester.pump();
+          expect(tester.getTopLeft(form).dx, 30);
+        } finally {
+          debugDefaultTargetPlatformOverride = previousPlatform;
+        }
+      },
+    );
 
     testWidgets('adapts the picker between narrow and wide layouts', (
       tester,

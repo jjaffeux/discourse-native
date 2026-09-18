@@ -65,7 +65,7 @@ Future<void> _pumpPage(
   addTearDown(tester.view.reset);
 
   await tester.pumpWidget(
-    ContentAlignmentScope(
+    ContentSettingsScope(
       controller: controller.appSettings,
       child: ShellScope(
         controller: controller,
@@ -450,10 +450,7 @@ void main() {
       try {
         await _pumpPage(tester, controller, width: 1200);
         expect(tester.getTopLeft(_card(1)).dy, tester.getTopLeft(_card(2)).dy);
-        expect(
-          tester.getTopLeft(_card(3)).dy,
-          greaterThan(tester.getTopLeft(_card(2)).dy),
-        );
+        expect(tester.getTopLeft(_card(3)).dy, tester.getTopLeft(_card(2)).dy);
 
         await controller.appSettings.setTextScale(AppTextScale.percent200);
         await tester.pumpAndSettle();
@@ -565,6 +562,7 @@ void main() {
           categoryPages: {1: firstPage, 2: secondPage, 3: const []},
         );
         final controller = await _loadCategories(api);
+        await controller.appSettings.setLimitContentSize(true);
         final siteUrl = controller.currentInstance!.url;
         final semantics = tester.ensureSemantics();
         try {

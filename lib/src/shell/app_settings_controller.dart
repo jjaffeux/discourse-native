@@ -12,7 +12,7 @@ final class AppSettingsController extends FrameSafeNotifier {
 
   AppSettings _settings = AppSettings.defaults;
   AppSettings get settings => _settings;
-  ContentAlignment get contentAlignment => _settings.contentAlignment;
+  bool get limitContentSize => _settings.limitContentSize;
   bool get disableGifAnimations => _settings.disableGifAnimations;
   AppTextScale get textScale => _settings.textScale;
   AppThemeMode get themeMode => _settings.themeMode;
@@ -26,7 +26,7 @@ final class AppSettingsController extends FrameSafeNotifier {
   bool _loaded = false;
   bool get loaded => _loaded;
 
-  ContentAlignment? _selectedContentAlignment;
+  bool? _selectedLimitContentSize;
   bool? _selectedDisableGifAnimations;
   AppTextScale? _selectedTextScale;
   AppThemeMode? _selectedThemeMode;
@@ -56,7 +56,7 @@ final class AppSettingsController extends FrameSafeNotifier {
     if (isDisposed) return;
     // A choice can arrive even after the store's read future has completed.
     _settings = loaded.copyWith(
-      contentAlignment: _selectedContentAlignment,
+      limitContentSize: _selectedLimitContentSize,
       disableGifAnimations: _selectedDisableGifAnimations,
       textScale: _selectedTextScale,
       themeMode: _selectedThemeMode,
@@ -70,16 +70,16 @@ final class AppSettingsController extends FrameSafeNotifier {
     notifySafely();
   }
 
-  Future<void> setContentAlignment(ContentAlignment alignment) {
+  Future<void> setLimitContentSize(bool enabled) {
     if (isDisposed ||
-        ((_loaded || _selectedContentAlignment != null) &&
-            alignment == contentAlignment)) {
+        ((_loaded || _selectedLimitContentSize != null) &&
+            enabled == limitContentSize)) {
       return Future<void>.value();
     }
 
-    _selectedContentAlignment = alignment;
-    _settings = _settings.copyWith(contentAlignment: alignment);
-    final saving = store.update(contentAlignment: alignment);
+    _selectedLimitContentSize = enabled;
+    _settings = _settings.copyWith(limitContentSize: enabled);
+    final saving = store.update(limitContentSize: enabled);
     unawaited(load());
     notifySafely();
     return saving;

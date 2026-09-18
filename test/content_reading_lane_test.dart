@@ -17,7 +17,7 @@ void main() {
         final controller = _controller();
         await tester.pumpWidget(
           MaterialApp(
-            home: ContentAlignmentScope(
+            home: ContentSettingsScope(
               controller: controller,
               child: Directionality(
                 textDirection: direction,
@@ -48,15 +48,11 @@ void main() {
           AppTextScale.percent200,
         ]) {
           await controller.setTextScale(scale);
-          for (final alignment in ContentAlignment.values) {
-            await controller.setContentAlignment(alignment);
+          for (final alignment in [false, true]) {
+            await controller.setLimitContentSize(alignment);
             await tester.pump();
-            final width = 825 * controller.textScaleFactor;
-            final left = switch (alignment) {
-              ContentAlignment.left => 16.0,
-              ContentAlignment.center => (2000 - width) / 2,
-              ContentAlignment.right => 1984 - width,
-            };
+            final width = alignment ? 825.0 : 1968.0;
+            final left = alignment ? (2000 - width) / 2 : 16.0;
             final rtl = direction == TextDirection.rtl;
             final viewport = tester.getRect(find.byKey(_viewportKey));
             expect(rtl ? viewport.left : viewport.right, rtl ? 0 : 2000);
@@ -72,29 +68,27 @@ void main() {
     });
   }
 
-  testWidgets('caps only the child lane and applies each physical alignment', (
-    tester,
-  ) async {
-    await _withPlatform(TargetPlatform.macOS, () async {
-      await _setViewport(tester, const Size(1200, 600));
-      final controller = _controller();
+  testWidgets(
+    'fills the panel by default and centers the enabled content limit',
+    (tester) async {
+      await _withPlatform(TargetPlatform.macOS, () async {
+        await _setViewport(tester, const Size(1200, 600));
+        final controller = _controller();
 
-      await tester.pumpWidget(_harness(controller));
+        await tester.pumpWidget(_harness(controller));
 
-      expect(tester.getSize(find.byKey(_viewportKey)).width, 1200);
-      _expectLane(tester, left: 182.5, width: 825);
-
-      await controller.setContentAlignment(ContentAlignment.left);
-      await tester.pump();
-      expect(tester.getSize(find.byKey(_viewportKey)).width, 1200);
-      _expectLane(tester, left: 10, width: 825);
-
-      await controller.setContentAlignment(ContentAlignment.right);
-      await tester.pump();
-      expect(tester.getSize(find.byKey(_viewportKey)).width, 1200);
-      _expectLane(tester, left: 355, width: 825);
-    });
-  });
+        expect(tester.getSize(find.byKey(_viewportKey)).width, 1200);
+        _expectLane(tester, left: 10, width: 1170);
+        await controller.setLimitContentSize(true);
+        await tester.pump();
+        expect(tester.getSize(find.byKey(_viewportKey)).width, 1200);
+        _expectLane(tester, left: 182.5, width: 825);
+        await controller.setLimitContentSize(false);
+        await tester.pump();
+        _expectLane(tester, left: 10, width: 1170);
+      });
+    },
+  );
 
   testWidgets('does not widen a narrow desktop lane', (tester) async {
     await _withPlatform(TargetPlatform.macOS, () async {
@@ -104,14 +98,20 @@ void main() {
       await tester.pumpWidget(_harness(controller));
 
       _expectLane(tester, left: 10, width: 670);
+      await controller.setLimitContentSize(true);
+      await tester.pump();
+      _expectLane(tester, left: 10, width: 670);
     });
   });
 
-  testWidgets('scales the desktop lane cap with app text zoom', (tester) async {
+  testWidgets('keeps the enabled limit at 825 px regardless of text zoom', (
+    tester,
+  ) async {
     await _withPlatform(TargetPlatform.macOS, () async {
       await _setViewport(tester, const Size(2000, 600));
       final controller = _controller();
       late double breakpointWidth;
+      await controller.setLimitContentSize(true);
 
       await tester.pumpWidget(
         _harness(
@@ -121,9 +121,9 @@ void main() {
       );
 
       for (final (scale, expectedWidth) in [
-        (AppTextScale.percent80, 660.0),
-        (AppTextScale.percent150, 1237.5),
-        (AppTextScale.percent200, 1650.0),
+        (AppTextScale.percent80, 825.0),
+        (AppTextScale.percent150, 825.0),
+        (AppTextScale.percent200, 825.0),
       ]) {
         await controller.setTextScale(scale);
         await tester.pump();
@@ -133,17 +133,17 @@ void main() {
           left: 10 + (1970 - expectedWidth) / 2,
           width: expectedWidth,
         );
-        expect(breakpointWidth, 825);
+        expect(breakpointWidth, 825 / scale.factor);
       }
 
       await _setViewport(tester, const Size(1200, 600));
       await tester.pump();
-      _expectLane(tester, left: 10, width: 1170);
-      expect(breakpointWidth, 585);
+      _expectLane(tester, left: 182.5, width: 825);
+      expect(breakpointWidth, 412.5);
     });
   });
 
-  testWidgets('physically aligns content with a narrower existing limit', (
+  testWidgets('keeps narrower content centered with either size setting', (
     tester,
   ) async {
     await _withPlatform(TargetPlatform.macOS, () async {
@@ -153,13 +153,13 @@ void main() {
       await tester.pumpWidget(_narrowHarness(controller));
       _expectNarrowContent(tester, left: 390);
 
-      await controller.setContentAlignment(ContentAlignment.left);
+      await controller.setLimitContentSize(false);
       await tester.pump();
-      _expectNarrowContent(tester, left: 0);
+      _expectNarrowContent(tester, left: 390);
 
-      await controller.setContentAlignment(ContentAlignment.right);
+      await controller.setLimitContentSize(true);
       await tester.pump();
-      _expectNarrowContent(tester, left: 780);
+      _expectNarrowContent(tester, left: 390);
     });
   });
 
@@ -169,6 +169,7 @@ void main() {
     await _withPlatform(TargetPlatform.macOS, () async {
       await _setViewport(tester, const Size(1400, 600));
       final controller = _controller();
+      await controller.setLimitContentSize(true);
 
       await tester.pumpWidget(
         _harness(controller, basePadding: const EdgeInsets.only(right: 344)),
@@ -180,7 +181,9 @@ void main() {
     });
   });
 
-  testWidgets('does not cap content on mobile platforms', (tester) async {
+  testWidgets('fills mobile panels while the limit is disabled', (
+    tester,
+  ) async {
     await _withPlatform(TargetPlatform.iOS, () async {
       await _setViewport(tester, const Size(1200, 600));
       final controller = _controller();
@@ -206,11 +209,11 @@ void main() {
       await _setViewport(tester, const Size(1200, 600));
       final controller = _controller();
 
-      await controller.setContentAlignment(ContentAlignment.left);
+      await controller.setLimitContentSize(false);
       await tester.pumpWidget(_narrowHarness(controller));
       _expectNarrowContent(tester, left: 390);
 
-      await controller.setContentAlignment(ContentAlignment.right);
+      await controller.setLimitContentSize(true);
       await tester.pump();
       _expectNarrowContent(tester, left: 390);
     });
@@ -234,7 +237,7 @@ Widget _harness(
   EdgeInsets basePadding = const EdgeInsets.fromLTRB(10, 2, 20, 4),
   ValueChanged<double>? onBreakpointWidth,
 }) => MaterialApp(
-  home: ContentAlignmentScope(
+  home: ContentSettingsScope(
     controller: controller,
     child: Scaffold(
       body: ContentReadingLane(
@@ -263,7 +266,7 @@ Widget _harness(
 );
 
 Widget _narrowHarness(AppSettingsController controller) => MaterialApp(
-  home: ContentAlignmentScope(
+  home: ContentSettingsScope(
     controller: controller,
     child: Scaffold(
       body: ContentReadingLane(

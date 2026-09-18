@@ -15,6 +15,7 @@ import '../theme/d_native_icons.dart';
 import 'anchored_picker.dart';
 import 'avatar_image.dart';
 import 'category_icon.dart';
+import 'content_reading_lane.dart';
 import 'open_link.dart';
 import 'platform.dart';
 import 'relative_time.dart';
@@ -129,9 +130,11 @@ class _TopicHeaderReadingLane extends StatelessWidget {
   final Widget child;
 
   @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.symmetric(horizontal: 16),
-    child: SizedBox(width: double.infinity, child: child),
+  Widget build(BuildContext context) => ContentReadingLaneBox(
+    child: Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: SizedBox(width: double.infinity, child: child),
+    ),
   );
 }
 
@@ -143,9 +146,15 @@ class _TopicHeaderToolbar extends StatelessWidget {
   @override
   Widget build(BuildContext context) => LayoutBuilder(
     builder: (context, constraints) {
-      final padding = EdgeInsets.symmetric(
-        horizontal: 16,
-        vertical: context.isTouch ? 4 : 12,
+      final lane = ContentReadingLane.geometryFor(
+        context,
+        availableWidth: constraints.maxWidth,
+      );
+      final padding = lane.padding.add(
+        EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: context.isTouch ? 4 : 12,
+        ),
       );
       final firstLineConstraints = BoxConstraints(
         minHeight: math.max(

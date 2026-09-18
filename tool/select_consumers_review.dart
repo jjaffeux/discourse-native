@@ -162,7 +162,7 @@ class _ReviewState extends State<_Review> {
         MaterialPageRoute(
           builder: (_) => Scaffold(
             appBar: AppBar(title: Text(title)),
-            body: ContentAlignmentScope(
+            body: ContentSettingsScope(
               controller: widget.shell.appSettings,
               child: child,
             ),

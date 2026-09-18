@@ -2,8 +2,6 @@ import 'package:flutter/foundation.dart';
 
 enum AppThemeMode { system, light, dark }
 
-enum ContentAlignment { left, center, right }
-
 /// Legacy persisted preference. Topic lists now always use full-width rows.
 enum TopicListDisplayMode { card, compact }
 
@@ -25,7 +23,7 @@ enum AppTextScale {
 @immutable
 final class AppSettings {
   const AppSettings({
-    this.contentAlignment = ContentAlignment.center,
+    this.limitContentSize = false,
     this.disableGifAnimations = false,
     this.textScale = AppTextScale.percent100,
     this.themeMode = AppThemeMode.system,
@@ -38,7 +36,7 @@ final class AppSettings {
 
   static const AppSettings defaults = AppSettings();
 
-  final ContentAlignment contentAlignment;
+  final bool limitContentSize;
   final bool disableGifAnimations;
   final AppTextScale textScale;
   // Legacy app-wide choice used only to seed existing forums on migration.
@@ -50,7 +48,7 @@ final class AppSettings {
   final TopicListDisplayMode topicListMode;
 
   AppSettings copyWith({
-    ContentAlignment? contentAlignment,
+    bool? limitContentSize,
     bool? disableGifAnimations,
     AppTextScale? textScale,
     AppThemeMode? themeMode,
@@ -60,7 +58,7 @@ final class AppSettings {
     bool? topicListShowAssignments,
     TopicListDisplayMode? topicListMode,
   }) => AppSettings(
-    contentAlignment: contentAlignment ?? this.contentAlignment,
+    limitContentSize: limitContentSize ?? this.limitContentSize,
     disableGifAnimations: disableGifAnimations ?? this.disableGifAnimations,
     textScale: textScale ?? this.textScale,
     themeMode: themeMode ?? this.themeMode,
@@ -76,7 +74,7 @@ final class AppSettings {
   @override
   bool operator ==(Object other) =>
       other is AppSettings &&
-      other.contentAlignment == contentAlignment &&
+      other.limitContentSize == limitContentSize &&
       other.disableGifAnimations == disableGifAnimations &&
       other.textScale == textScale &&
       other.themeMode == themeMode &&
@@ -88,7 +86,7 @@ final class AppSettings {
 
   @override
   int get hashCode => Object.hash(
-    contentAlignment,
+    limitContentSize,
     disableGifAnimations,
     textScale,
     themeMode,

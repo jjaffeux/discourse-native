@@ -1,6 +1,5 @@
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/data/app_settings_store.dart';
-import 'package:discourse_native/src/models/app_settings.dart';
 import 'package:discourse_native/src/models/found_user.dart';
 import 'package:discourse_native/src/models/group.dart';
 import 'package:discourse_native/src/models/group_route.dart';
@@ -60,7 +59,7 @@ void main() {
       addTearDown(settings.dispose);
       await _pump(
         tester,
-        ContentAlignmentScope(
+        ContentSettingsScope(
           controller: settings,
           child: GroupPage(
             siteUrl: 'https://meta.discourse.org',
@@ -92,14 +91,10 @@ void main() {
         ),
         size: const Size(1600, 550),
       );
-      for (final alignment in ContentAlignment.values) {
-        await settings.setContentAlignment(alignment);
+      for (final alignment in [false, true]) {
+        await settings.setLimitContentSize(alignment);
         await tester.pumpAndSettle();
-        final left = switch (alignment) {
-          ContentAlignment.left => 16.0,
-          ContentAlignment.center => 387.5,
-          ContentAlignment.right => 759.0,
-        };
+        final left = alignment ? 387.5 : 16.0;
         expect(
           tester.getRect(find.byKey(ValueKey('group-$section-sidebar'))).left,
           left,
@@ -113,7 +108,7 @@ void main() {
     }, variant: const TargetPlatformVariant({TargetPlatform.macOS}));
   }
 
-  for (final (width, contentWidth) in [
+  for (final (width, limitedWidth) in [
     (1400.0, 825.0),
     (700.0, 668.0),
     (390.0, 358.0),
@@ -129,7 +124,7 @@ void main() {
         late StateSetter update;
         await _pump(
           tester,
-          ContentAlignmentScope(
+          ContentSettingsScope(
             controller: settings,
             child: StatefulBuilder(
               builder: (context, setState) {
@@ -155,15 +150,12 @@ void main() {
           size: Size(width, 900),
         );
 
-        for (final alignment in ContentAlignment.values) {
-          await settings.setContentAlignment(alignment);
+        for (final alignment in [false, true]) {
+          await settings.setLimitContentSize(alignment);
           update(() => route = GroupRoute.detail('support'));
           await tester.pump();
-          final left = switch (alignment) {
-            ContentAlignment.left => 16.0,
-            ContentAlignment.center => (width - contentWidth) / 2,
-            ContentAlignment.right => width - 16 - contentWidth,
-          };
+          final contentWidth = alignment ? limitedWidth : width - 32;
+          final left = (width - contentWidth) / 2;
           final right = left + contentWidth;
           expect(tester.getTopLeft(find.text('Support Team')).dx, left);
           final primaryTabs = tester.getRect(

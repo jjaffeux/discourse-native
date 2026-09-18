@@ -1807,8 +1807,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     final readingLane = ContentReadingLane.geometryFor(
       context,
       availableWidth: topicContentWidth,
-      // The resizable panel owns the reading width. Posts supply their own
-      // 16-pixel padding; no extra centered column or outer gutter is added.
+      // Posts supply their own 16-pixel padding inside the optional limit.
       widthLimit: double.infinity,
     );
 

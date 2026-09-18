@@ -84,7 +84,7 @@ void main() {
   ) async {
     final appSettingsStore = AppSettingsStore(
       persistence: MemoryAppSettingsPersistence(
-        contentAlignment: 'right',
+        limitContentSize: true,
         textScale: AppTextScale.percent125.name,
         themeMode: AppThemeMode.dark.name,
       ),
@@ -97,10 +97,7 @@ void main() {
       appSettingsStore: appSettingsStore,
     );
 
-    expect(
-      _controller(tester).appSettings.contentAlignment,
-      ContentAlignment.right,
-    );
+    expect(_controller(tester).appSettings.limitContentSize, true);
     expect(_controller(tester).appSettings.textScale, AppTextScale.percent125);
     expect(_materialApp(tester).themeMode, ThemeMode.system);
     expect(

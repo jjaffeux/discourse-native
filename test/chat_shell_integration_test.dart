@@ -4952,23 +4952,23 @@ void _registerChatShellTests() {
         expect(tester.getSize(settingsLane).width, 760);
         expect(tabsRect.width, greaterThan(825));
 
-        await shell.appSettings.setContentAlignment(ContentAlignment.left);
+        await shell.appSettings.setLimitContentSize(false);
         await tester.pump();
         expect(
           tester.getTopLeft(settingsLane).dx,
-          lessThan(centeredSettingsLeft),
+          closeTo(centeredSettingsLeft, 0.001),
         );
         expect(tester.getRect(tabs), tabsRect);
 
-        await shell.appSettings.setContentAlignment(ContentAlignment.right);
+        await shell.appSettings.setLimitContentSize(true);
         await tester.pump();
         expect(
           tester.getTopLeft(settingsLane).dx,
-          greaterThan(centeredSettingsLeft),
+          closeTo(centeredSettingsLeft, 0.001),
         );
         expect(tester.getRect(tabs), tabsRect);
 
-        await shell.appSettings.setContentAlignment(ContentAlignment.center);
+        await shell.appSettings.setLimitContentSize(false);
         await tester.pump();
 
         await tester.tap(
@@ -4999,28 +4999,31 @@ void _registerChatShellTests() {
         expect(tester.getSize(memberList).width, tabsRect.width);
         expect(tester.getRect(tabs), tabsRect);
 
-        await shell.appSettings.setContentAlignment(ContentAlignment.left);
+        await shell.appSettings.setLimitContentSize(false);
         await tester.pump();
         expect(
           tester.getTopLeft(memberFilterLane).dx,
-          lessThan(centeredFilterLeft),
-        );
-        expect(tester.getTopLeft(firstMember).dx, lessThan(centeredMemberLeft));
-        expect(tester.getRect(tabs), tabsRect);
-
-        await shell.appSettings.setContentAlignment(ContentAlignment.right);
-        await tester.pump();
-        expect(
-          tester.getTopLeft(memberFilterLane).dx,
-          greaterThan(centeredFilterLeft),
+          closeTo(centeredFilterLeft, 0.001),
         );
         expect(
           tester.getTopLeft(firstMember).dx,
-          greaterThan(centeredMemberLeft),
+          closeTo(centeredMemberLeft, 0.001),
         );
         expect(tester.getRect(tabs), tabsRect);
 
-        await shell.appSettings.setContentAlignment(ContentAlignment.center);
+        await shell.appSettings.setLimitContentSize(true);
+        await tester.pump();
+        expect(
+          tester.getTopLeft(memberFilterLane).dx,
+          closeTo(centeredFilterLeft, 0.001),
+        );
+        expect(
+          tester.getTopLeft(firstMember).dx,
+          closeTo(centeredMemberLeft, 0.001),
+        );
+        expect(tester.getRect(tabs), tabsRect);
+
+        await shell.appSettings.setLimitContentSize(false);
         await tester.pump();
         debugDefaultTargetPlatformOverride = previousPlatform;
 

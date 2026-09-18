@@ -61,7 +61,7 @@ void main() {
     expect(await platformStore.read(), AppSettings.defaults);
 
     SharedPreferences.setMockInitialValues({
-      AppSettingsStore.contentAlignmentKey: 'justify',
+      AppSettingsStore.limitContentSizeKey: 'justify',
       AppSettingsStore.textScaleKey: 'percent137',
       AppSettingsStore.themeModeKey: 'sepia',
       AppSettingsStore.topicListModeKey: 'table',
@@ -113,19 +113,28 @@ void main() {
     expect(await store.read(), const AppSettings(disableGifAnimations: true));
   });
 
-  test('round-trips every alignment through one app-wide key', () async {
+  test('legacy alignment does not enable the new content size limit', () async {
+    SharedPreferences.setMockInitialValues({
+      'discourse_native.content_alignment': 'right',
+    });
+    expect((await AppSettingsStore().read()).limitContentSize, isFalse);
+    await AppSettingsStore().update(limitContentSize: true);
+    expect((await AppSettingsStore().read()).limitContentSize, isTrue);
+  });
+
+  test('round-trips the content size limit through one app-wide key', () async {
     final store = AppSettingsStore();
 
-    for (final alignment in ContentAlignment.values) {
-      await store.write(AppSettings(contentAlignment: alignment));
+    for (final alignment in [false, true]) {
+      await store.write(AppSettings(limitContentSize: alignment));
 
       expect(
-        (await SharedPreferences.getInstance()).getString(
-          AppSettingsStore.contentAlignmentKey,
+        (await SharedPreferences.getInstance()).getBool(
+          AppSettingsStore.limitContentSizeKey,
         ),
-        alignment.name,
+        alignment,
       );
-      expect(await store.read(), AppSettings(contentAlignment: alignment));
+      expect(await store.read(), AppSettings(limitContentSize: alignment));
     }
   });
 
@@ -179,28 +188,28 @@ void main() {
     final first = AppSettingsStore(persistence: persistence);
     final replacement = AppSettingsStore(persistence: persistence);
 
-    final writingLeft = first.write(
+    final writingDisabled = first.write(
       const AppSettings(
-        contentAlignment: ContentAlignment.left,
+        limitContentSize: false,
         textScale: AppTextScale.percent90,
       ),
     );
     await persistence.firstWriteStarted.future;
-    final writingRight = replacement.write(
+    final writingEnabled = replacement.write(
       const AppSettings(
-        contentAlignment: ContentAlignment.right,
+        limitContentSize: true,
         textScale: AppTextScale.percent150,
       ),
     );
 
     await Future<void>.delayed(Duration.zero);
-    expect(persistence.attemptedWrites, ['left']);
+    expect(persistence.attemptedWrites, [false]);
 
     persistence.firstWriteGate!.complete();
-    await Future.wait([writingLeft, writingRight]);
+    await Future.wait([writingDisabled, writingEnabled]);
 
-    expect(persistence.attemptedWrites, ['left', 'right']);
-    expect(persistence.contentAlignment, 'right');
+    expect(persistence.attemptedWrites, [false, true]);
+    expect(persistence.limitContentSize, true);
     expect(persistence.attemptedTextScaleWrites, [
       AppTextScale.percent90.name,
       AppTextScale.percent150.name,
@@ -217,7 +226,7 @@ void main() {
 
     final writing = first.write(
       const AppSettings(
-        contentAlignment: ContentAlignment.left,
+        limitContentSize: false,
         textScale: AppTextScale.percent125,
       ),
     );
@@ -232,7 +241,7 @@ void main() {
     expect(
       await reading,
       const AppSettings(
-        contentAlignment: ContentAlignment.left,
+        limitContentSize: false,
         textScale: AppTextScale.percent125,
       ),
     );
@@ -249,33 +258,31 @@ void main() {
       final replacement = AppSettingsStore(persistence: persistence);
       final writing = first.write(
         const AppSettings(
-          contentAlignment: ContentAlignment.left,
+          limitContentSize: false,
           disableGifAnimations: true,
           textScale: AppTextScale.percent175,
         ),
       );
       await persistence.firstWriteStarted.future;
-      final updating = replacement.update(
-        contentAlignment: ContentAlignment.right,
-      );
+      final updating = replacement.update(limitContentSize: true);
       final reading = replacement.read();
       final fresh = AppSettingsStore(persistence: persistence).read();
 
       await Future<void>.delayed(Duration.zero);
       expect(persistence.readCount, 0);
-      expect(persistence.attemptedWrites, ['left']);
+      expect(persistence.attemptedWrites, [false]);
 
       persistence.firstWriteGate!.complete();
       await Future.wait([writing, updating]);
 
       const expected = AppSettings(
-        contentAlignment: ContentAlignment.right,
+        limitContentSize: true,
         disableGifAnimations: true,
         textScale: AppTextScale.percent175,
       );
       expect(await reading, expected);
       expect(await fresh, expected);
-      expect(persistence.attemptedWrites, ['left', 'right']);
+      expect(persistence.attemptedWrites, [false, true]);
       expect(persistence.attemptedGifAnimationWrites, [true]);
       expect(persistence.attemptedTextScaleWrites, [
         AppTextScale.percent175.name,
@@ -291,7 +298,7 @@ void main() {
           'app-settings-patch-failure',
         );
         final persistence = _ControlledAppSettingsPersistence(
-          contentAlignment: 'left',
+          limitContentSize: false,
           disableGifAnimations: true,
           textScale: AppTextScale.percent175.name,
           acceptWrites: false,
@@ -299,12 +306,12 @@ void main() {
         );
         final store = AppSettingsStore(persistence: persistence);
 
-        await store.update(contentAlignment: ContentAlignment.right);
+        await store.update(limitContentSize: true);
 
         expect(
           await store.read(),
           const AppSettings(
-            contentAlignment: ContentAlignment.right,
+            limitContentSize: true,
             disableGifAnimations: true,
             textScale: AppTextScale.percent175,
           ),
@@ -312,7 +319,7 @@ void main() {
         expect(
           await AppSettingsStore(persistence: persistence).read(),
           const AppSettings(
-            contentAlignment: ContentAlignment.left,
+            limitContentSize: false,
             disableGifAnimations: true,
             textScale: AppTextScale.percent175,
           ),
@@ -320,13 +327,13 @@ void main() {
         expect(persistence.attemptedGifAnimationWrites, isEmpty);
         expect(persistence.attemptedTextScaleWrites, isEmpty);
         expect(diagnostics.events.whereType<ErrorDiagnosticEvent>(), [
-          _isStorageFailure('appSettings.writeContentAlignment', 'StateError'),
+          _isStorageFailure('appSettings.writeLimitContentSize', 'StateError'),
         ]);
 
         persistence.acceptWrites = true;
         persistence.throwWrites = false;
         await store.update(disableGifAnimations: false);
-        expect((await store.read()).contentAlignment, ContentAlignment.right);
+        expect((await store.read()).limitContentSize, true);
         expect(persistence.disableGifAnimations, isFalse);
       },
     );
@@ -336,7 +343,7 @@ void main() {
     'session edits retain hydrated fields if storage becomes unavailable',
     () async {
       final persistence = _ControlledAppSettingsPersistence(
-        contentAlignment: 'left',
+        limitContentSize: false,
         disableGifAnimations: true,
         textScale: AppTextScale.percent175.name,
       );
@@ -345,12 +352,12 @@ void main() {
       persistence.failReads = true;
       persistence.acceptWrites = false;
 
-      await store.update(contentAlignment: ContentAlignment.right);
+      await store.update(limitContentSize: true);
 
       expect(
         await store.read(),
         const AppSettings(
-          contentAlignment: ContentAlignment.right,
+          limitContentSize: true,
           disableGifAnimations: true,
           textScale: AppTextScale.percent175,
         ),
@@ -366,7 +373,7 @@ void main() {
         'app-settings-partial-read',
       );
       final persistence = _ControlledAppSettingsPersistence(
-        contentAlignment: 'left',
+        limitContentSize: false,
         disableGifAnimations: true,
         textScale: AppTextScale.percent175.name,
         failTextScaleRead: true,
@@ -376,14 +383,11 @@ void main() {
       final loaded = await store.read();
       expect(
         loaded,
-        const AppSettings(
-          contentAlignment: ContentAlignment.left,
-          disableGifAnimations: true,
-        ),
+        const AppSettings(limitContentSize: false, disableGifAnimations: true),
       );
-      await store.update(contentAlignment: ContentAlignment.right);
+      await store.update(limitContentSize: true);
 
-      expect(persistence.contentAlignment, 'right');
+      expect(persistence.limitContentSize, true);
       expect(persistence.disableGifAnimations, isTrue);
       expect(persistence.textScale, AppTextScale.percent175.name);
       expect(persistence.attemptedTextScaleWrites, isEmpty);
@@ -402,18 +406,16 @@ void main() {
     final store = AppSettingsStore(persistence: persistence);
 
     expect(await store.read(), AppSettings.defaults);
-    await store.write(
-      const AppSettings(contentAlignment: ContentAlignment.right),
-    );
+    await store.write(const AppSettings(limitContentSize: true));
 
     expect(
       diagnostics.events.whereType<ErrorDiagnosticEvent>(),
       containsAll([
-        _isStorageFailure('appSettings.readContentAlignment', 'StateError'),
+        _isStorageFailure('appSettings.readLimitContentSize', 'StateError'),
         _isStorageFailure('appSettings.readDisableGifAnimations', 'StateError'),
         _isStorageFailure('appSettings.readTextScale', 'StateError'),
         _isStorageFailure('appSettings.readThemeMode', 'StateError'),
-        _isStorageFailure('appSettings.writeContentAlignment', 'StateError'),
+        _isStorageFailure('appSettings.writeLimitContentSize', 'StateError'),
         _isStorageFailure(
           'appSettings.writeDisableGifAnimations',
           'StateError',
@@ -471,7 +473,7 @@ final class _ControlledAppSettingsPersistence
   Future<bool> writeTopicListShowAssignments(bool value) async => true;
 
   _ControlledAppSettingsPersistence({
-    this.contentAlignment,
+    this.limitContentSize,
     this.disableGifAnimations,
     this.textScale,
     this.firstWriteGate,
@@ -481,7 +483,7 @@ final class _ControlledAppSettingsPersistence
     this.throwWrites = false,
   });
 
-  String? contentAlignment;
+  bool? limitContentSize;
   bool? disableGifAnimations;
   String? textScale;
   String? themeMode;
@@ -492,17 +494,17 @@ final class _ControlledAppSettingsPersistence
   bool acceptWrites;
   bool throwWrites;
   final Completer<void> firstWriteStarted = Completer<void>();
-  final List<String> attemptedWrites = [];
+  final List<bool> attemptedWrites = [];
   final List<bool> attemptedGifAnimationWrites = [];
   final List<String> attemptedTextScaleWrites = [];
   final List<String> attemptedThemeModeWrites = [];
   int readCount = 0;
 
   @override
-  Future<String?> readContentAlignment() async {
+  Future<bool?> readLimitContentSize() async {
     readCount++;
     if (failReads) throw StateError('preferences unavailable');
-    return contentAlignment;
+    return limitContentSize;
   }
 
   @override
@@ -526,7 +528,7 @@ final class _ControlledAppSettingsPersistence
   }
 
   @override
-  Future<bool> writeContentAlignment(String value) async {
+  Future<bool> writeLimitContentSize(bool value) async {
     attemptedWrites.add(value);
     if (attemptedWrites.length == 1) {
       firstWriteStarted.complete();
@@ -534,7 +536,7 @@ final class _ControlledAppSettingsPersistence
     }
     if (throwWrites) throw StateError('preferences unavailable');
     if (!acceptWrites) return false;
-    contentAlignment = value;
+    limitContentSize = value;
     return true;
   }
 
