@@ -19,6 +19,9 @@ enum DTabListVariant {
 
   /// A transparent list with a rounded neutral fill on the selected trigger.
   pill,
+
+  /// Text-only selection without a background, border, shadow or indicator.
+  plain,
 }
 
 /// Why a tabs root changed its active value.
@@ -74,6 +77,7 @@ class DTabs<T> extends StatefulWidget {
     this.initialValue,
     this.controller,
     this.onChanged,
+    this.onActivated,
     this.onSelectionChanged,
     this.orientation = Axis.horizontal,
     this.enabled = true,
@@ -86,6 +90,7 @@ class DTabs<T> extends StatefulWidget {
     required this.children,
     required this.value,
     this.onChanged,
+    this.onActivated,
     this.onSelectionChanged,
     this.orientation = Axis.horizontal,
     this.enabled = true,
@@ -99,6 +104,9 @@ class DTabs<T> extends StatefulWidget {
   final T? value;
   final DTabController<T>? controller;
   final ValueChanged<T?>? onChanged;
+
+  /// Called for every user activation, including the already-selected tab.
+  final ValueChanged<T>? onActivated;
   final ValueChanged<DTabChange<T>>? onSelectionChanged;
   final Axis orientation;
   final bool enabled;
@@ -260,6 +268,7 @@ class _DTabsState<T> extends State<DTabs<T>> {
         .firstOrNull;
     if (!widget.enabled || trigger == null || !trigger.isEnabled) return;
     _setValue(value, reason: DTabChangeReason.user);
+    widget.onActivated?.call(value);
   }
 
   void _setValue(T? next, {required DTabChangeReason reason}) {
@@ -711,7 +720,9 @@ class _DTabTriggerState<T> extends State<DTabTrigger<T>> {
     final dark = Theme.of(context).brightness == Brightness.dark;
     final line = list.variant == DTabListVariant.line;
     final pill = list.variant == DTabListVariant.pill;
-    final radius = pill
+    final plain = list.variant == DTabListVariant.plain;
+    final flat = pill || plain;
+    final radius = flat
         ? DControlStyle.radius(tokens, size)
         : tokens.radius * .8;
     final selectedBackground = pill
@@ -723,32 +734,34 @@ class _DTabTriggerState<T> extends State<DTabTrigger<T>> {
         : tokens.background;
     final foreground = selected || _hovered
         ? tokens.foreground
-        : pill
+        : flat
         ? tokens.mutedForeground
         : tokens.foreground.withValues(alpha: .6);
 
     final surface = AnimatedContainer(
-      duration: pill
+      duration: flat
           ? Duration.zero
           : DMotion.duration(context, DMotion.change),
       curve: Curves.easeOut,
       constraints: BoxConstraints(
         minHeight:
             DControlStyle.scaledHeight(size, MediaQuery.textScalerOf(context)) -
-            (pill ? 0 : 7),
+            (flat ? 0 : 7),
       ),
-      padding: pill
+      padding: flat
           ? const EdgeInsets.symmetric(horizontal: 10, vertical: 2)
           : const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
       decoration: BoxDecoration(
-        color: selected && !line ? selectedBackground : Colors.transparent,
+        color: selected && !line && !plain
+            ? selectedBackground
+            : Colors.transparent,
         borderRadius: BorderRadius.circular(radius),
         border: Border.all(
-          color: selected && !line && !pill && dark
+          color: selected && !line && !plain && !pill && dark
               ? tokens.colors.outlineVariant
               : Colors.transparent,
         ),
-        boxShadow: selected && !line && !pill
+        boxShadow: selected && !line && !plain && !pill
             ? const [
                 BoxShadow(
                   color: Color(0x1A000000),

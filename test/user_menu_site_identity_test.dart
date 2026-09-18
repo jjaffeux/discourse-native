@@ -590,10 +590,12 @@ void main() {
 }
 
 Future<void> _focusTab(WidgetTester tester, Finder tab) async {
-  final focusChild = find
-      .descendant(of: tab, matching: find.byType(MouseRegion))
-      .first;
-  final focus = Focus.of(tester.element(focusChild));
+  final control = tester.widget<FocusableActionDetector>(
+    find
+        .descendant(of: tab, matching: find.byType(FocusableActionDetector))
+        .first,
+  );
+  final focus = control.focusNode!;
   focus.requestFocus();
   await tester.pumpAndSettle();
   expect(focus.hasPrimaryFocus, isTrue);

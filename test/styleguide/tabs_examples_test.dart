@@ -7,7 +7,7 @@ void main() {
   testWidgets('all Tabs examples render at narrow 200 percent RTL', (
     tester,
   ) async {
-    expect(tabsExamples.examples, hasLength(9));
+    expect(tabsExamples.examples, hasLength(10));
     for (final example in tabsExamples.examples) {
       await tester.pumpWidget(
         MaterialApp(
