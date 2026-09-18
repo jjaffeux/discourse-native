@@ -1028,6 +1028,27 @@ void main() {
 
   group('overflow layout', () {
     testWidgets(
+      'narrow tabs reserve their label space for visible title text',
+      (tester) async {
+        await _pumpBar(
+          tester,
+          items: const [first, second],
+          selectedId: first.id,
+          width: 220,
+        );
+        for (final item in [first, second]) {
+          final title = find.text(item.title);
+          expect(tester.widget<Text>(title).overflow, TextOverflow.clip);
+          expect(tester.getSize(title).width, greaterThan(28));
+          expect(
+            find.byKey(ValueKey('forum-tab-prefix-${item.id}')),
+            findsNothing,
+          );
+        }
+        expect(tester.takeException(), isNull);
+      },
+    );
+    testWidgets(
       'selects the trailing edge of an inactive tab and drags crowded tabs',
       (tester) async {
         final selected = <String>[];
