@@ -1,10 +1,12 @@
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/macos_launch_screen.dart';
+import 'package:discourse_native/src/models/site_appearance.dart';
+import 'package:discourse_native/src/shell/hover_action_toolbar.dart';
 import 'package:discourse_native/src/shell/topic_taxonomy_button.dart';
 import 'package:discourse_native/src/styleguide/examples/button_examples.dart';
-import 'package:discourse_native/src/styleguide/examples/linear_controls_example.dart';
 import 'package:discourse_native/src/styleguide/styleguide_theme.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
+import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/material.dart';
 
 /// Mounts the control comparison and production taxonomy triggers with local data.
@@ -26,12 +28,22 @@ class _ReviewState extends State<_Review> {
   bool _narrow = false;
   bool _large = false;
   bool _rtl = false;
-  bool _linear = true;
+  bool _forumLight = true;
+  String _example = 'Transparent background';
+  final _forumLightTheme = AppTheme.fromPalette(
+    ResolvedSitePalette.fromJson(const {
+      'brightness': 'light',
+      'primary': 0xFF222222,
+      'secondary': 0xFFFFFFFF,
+      'tertiary': 0xFF0088CC,
+      'metadataColor': 0xFF999999,
+    }),
+  );
 
   @override
   Widget build(BuildContext context) => MaterialApp(
     debugShowCheckedModeBanner: false,
-    theme: _palette.resolve(AppTheme.light),
+    theme: _forumLight ? _forumLightTheme : _palette.resolve(AppTheme.light),
     home: Scaffold(
       body: SafeArea(
         child: SingleChildScrollView(
@@ -51,14 +63,26 @@ class _ReviewState extends State<_Review> {
                     DButton(
                       label: Text(palette.label),
                       variant: DButtonVariant.outline,
-                      onPressed: () => setState(() => _palette = palette),
+                      onPressed: () => setState(() {
+                        _palette = palette;
+                        _forumLight = false;
+                      }),
                     ),
                   DButton(
-                    label: Text(
-                      _linear ? 'Show control family' : 'Show Linear settings',
-                    ),
-                    onPressed: () => setState(() => _linear = !_linear),
+                    label: const Text('Light forum'),
+                    variant: DButtonVariant.outline,
+                    onPressed: () => setState(() => _forumLight = true),
                   ),
+                  for (final title in [
+                    'Linear settings controls',
+                    'Control consistency',
+                    'Transparent background',
+                  ])
+                    DButton(
+                      label: Text(title),
+                      variant: DButtonVariant.outline,
+                      onPressed: () => setState(() => _example = title),
+                    ),
                   DButton(
                     label: Text(_narrow ? 'Width: 320' : 'Width: 640'),
                     onPressed: () => setState(() => _narrow = !_narrow),
@@ -85,6 +109,20 @@ class _ReviewState extends State<_Review> {
                       maximumWidth: 240,
                       onPressed: () {},
                     ),
+                  HoverActionToolbar(
+                    children: [
+                      HoverActionButton(
+                        tooltip: 'Post reply',
+                        icon: const DIcon(DIcons.reply),
+                        onPressed: () {},
+                      ),
+                      const HoverActionButton(
+                        tooltip: 'Unavailable post reply',
+                        icon: DIcon(DIcons.reply),
+                        onPressed: null,
+                      ),
+                    ],
+                  ),
                 ],
               ),
               const SizedBox(height: DSpacing.xl),
@@ -101,15 +139,11 @@ class _ReviewState extends State<_Review> {
                             ? TextDirection.rtl
                             : TextDirection.ltr,
                         child: Builder(
-                          builder: _linear
-                              ? (_) => const LinearControlsExample()
-                              : buttonExamples.examples
-                                    .singleWhere(
-                                      (example) =>
-                                          example.title ==
-                                          'Control consistency',
-                                    )
-                                    .builder,
+                          builder: buttonExamples.examples
+                              .singleWhere(
+                                (example) => example.title == _example,
+                              )
+                              .builder,
                         ),
                       ),
                     ),

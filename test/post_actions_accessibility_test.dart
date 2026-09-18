@@ -48,15 +48,21 @@ void main() {
     });
     expect(hoverShape, isA<RoundedRectangleBorder>());
     final tokens = DTokens.of(tester.element(button));
+    final icon = find.descendant(of: button, matching: find.byType(DIcon));
+    expect(
+      IconTheme.of(tester.element(icon)).color!.computeLuminance(),
+      lessThan(tokens.mutedForeground.computeLuminance()),
+    );
     expect(
       (hoverShape! as RoundedRectangleBorder).borderRadius,
       BorderRadius.circular(tokens.controlRadius),
     );
     await pointer.moveTo(tester.getCenter(action));
-    await tester.pump();
+    await tester.pumpAndSettle();
+    expect(IconTheme.of(tester.element(icon)).color, tokens.foreground);
     expect(
       buttonSurface(tester, of: button).color,
-      DTokens.of(tester.element(button)).muted,
+      DControlStyle.rowHover(tokens),
     );
     expect(
       filledButton.style!.fixedSize!.resolve({}),

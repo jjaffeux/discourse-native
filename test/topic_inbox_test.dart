@@ -221,8 +221,15 @@ void main() {
     for (final control in [display, close]) {
       expect(tester.widget(control), isA<DButton>());
       expect(buttonSurface(tester, of: control).borderRadius, radius);
+      final icon = find.descendant(of: control, matching: find.byType(DIcon));
+      final tokens = DTokens.of(tester.element(control));
+      expect(
+        IconTheme.of(tester.element(icon)).color!.computeLuminance(),
+        lessThan(tokens.mutedForeground.computeLuminance()),
+      );
       await mouse.moveTo(tester.getCenter(control));
-      await tester.pump();
+      await tester.pumpAndSettle();
+      expect(IconTheme.of(tester.element(icon)).color, tokens.foreground);
       expect(buttonSurface(tester, of: control).borderRadius, radius);
     }
     await mouse.moveTo(Offset.zero);

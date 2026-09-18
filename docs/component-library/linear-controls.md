@@ -42,6 +42,12 @@ active fills match; CSS applies them immediately and fades the exit over 150ms.
   Outline/secondary actions share the neutral surface. `transparentBackground`
   gains the observed hover fill; `inline` stays clear for text-row compositions.
   Disabled/loading buttons block activation and presses do not move artwork.
+- Enabled ghost, transparent-background and inline actions blend their resting
+  foreground 35% toward the theme's normal foreground in light palettes. This
+  separates interactive icons and labels from pale forum metadata. Dark resting
+  colors and disabled metadata colors remain unchanged. Hover, focus and open
+  states still use the normal foreground. The post/chat hover toolbar inherits
+  this paint from DButton, retaining explicit semantic action tints.
 - `DSelect`, `DCombobox`, `DDropdownMenu`, `DContextMenu`, `DCommand`,
   `DMenubar` and `DNavigationMenu` share neutral row highlights and compact
   typography. Popups use the measured border, radius and layered shadow.
@@ -131,3 +137,36 @@ widget regression. The copied and built kernels matched SHA-256
 `8f0bc0900706cf10bf985c93de778c8d63ecff2fb93fbb0ab5fa0acc27110f35`.
 The permitted debug entitlements were read back and strict signature validation
 passed. Later edits only changed comments, tests and evidence.
+
+### Light-theme action contrast follow-up — 2026-09-18
+
+The reported forum used pale metadata ink for enabled toolbar/post actions.
+The shared DButton adjustment preserves palette hues and metadata text while
+strengthening enabled controls. The post hover adapter no longer supplies a
+metadata override; the shared post/chat toolbar only overrides explicit action
+tints such as an existing bookmark or like.
+
+Verification:
+
+- 124 focused tests covering Button states/reference/adoption, control-style
+  guard, all twelve unchanged control-family golden images, post-action
+  accessibility, navigation, Button examples and Linear settings passed.
+- The production Display/Collapse regression verifies actual rendered icon
+  colors at rest and on hover. The post hover regression likewise inspects the
+  icon's inherited color, so a nested IconTheme cannot silently undo the kit.
+- After removing the hover toolbar override, all seven post-action tests and
+  seven chat hover tests passed, including reply, reaction, bookmark and pending
+  bookmark states. The adoption guard and 31 chat message model tests passed.
+- `dart analyze --fatal-infos` passed. `flutter build macos --debug --no-pub -t
+  tool/control_consistency_review_main.dart` passed.
+- Native macOS review inspected the enabled/disabled action comparison in a
+  light forum with `#999999` metadata, default light/dark and Forest palettes,
+  copy-link activation, and the control-family comparison. The final fixture
+  also mounts the production post/chat hover toolbar: its resting, pointer and
+  live dark-theme states were inspected. Topic-reader and chat-message
+  integration was exercised in widget tests; native review used local fixtures.
+- Final isolated bundle: `/tmp/LightControlIconsAdoption96c5.app`, identifier
+  `org.discourse.light-control-icons-adoption96c5`. Build and review-copy kernel
+  SHA-256: `49f04200a642f7fb2e456d1adfb41f6d30e189d21e13c51d0471bbb979c28cab`.
+  Strict ad-hoc signature verification passed and the permitted debug
+  entitlements were read back. No production provisioning changes were made.

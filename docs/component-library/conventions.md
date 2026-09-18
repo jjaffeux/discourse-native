@@ -41,7 +41,9 @@ inline and transparentBackground. Use inline for text actions in metadata rows
 that must align flush with surrounding content; it removes horizontal insets
 while preserving shared control heights, focus and touch targets.
 Use transparentBackground for subdued toolbar actions with clear resting
-surfaces and a subtle neutral hover/pressed/open fill. Legacy
+surfaces and a subtle neutral hover/pressed/open fill. Enabled ghost,
+transparent-background and inline actions have stronger foregrounds than
+metadata in light themes; the kit owns this distinction and disabled styling. Legacy
 enum names are compatibility aliases for external callers, not application
 choices. Ordinary dropdown triggers should use `DDropdownMenuTrigger.button`; richer compositions must
 render DButton or the appropriate existing kit control and pass through focus,

@@ -878,9 +878,7 @@ class _PostActionsMenu extends StatelessWidget {
                 tooltip: action.tooltip,
                 color:
                     action.tint ??
-                    (action.destructive
-                        ? theme.colorScheme.error
-                        : theme.colorScheme.onSurfaceVariant),
+                    (action.destructive ? theme.colorScheme.error : null),
               ),
             ),
           if (collapse)
@@ -959,9 +957,7 @@ class _PostActionsMenu extends StatelessWidget {
                 tooltip: action.tooltip,
                 color:
                     action.tint ??
-                    (action.destructive
-                        ? theme.colorScheme.error
-                        : theme.colorScheme.onSurfaceVariant),
+                    (action.destructive ? theme.colorScheme.error : null),
               ),
             ),
         ],
