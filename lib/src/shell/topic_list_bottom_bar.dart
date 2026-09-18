@@ -8,6 +8,7 @@ import '../models/topic.dart';
 import '../theme/app_theme.dart';
 import '../theme/d_icons.dart';
 import 'keyboard_navigation.dart';
+import 'platform.dart';
 import 'shell_controller.dart';
 import 'shell_metrics.dart';
 import 'shell_scope.dart';
@@ -102,39 +103,36 @@ class TopicListBottomBar extends StatelessWidget {
   final double trailingInset;
 
   @override
-  Widget build(BuildContext context) => ColoredBox(
+  Widget build(BuildContext context) => DCardFooter(
     key: const ValueKey('topic-list-bottom-bar'),
-    color: Theme.of(context).shell.content,
-    child: DecoratedBox(
-      decoration: BoxDecoration(
-        border: Border(top: BorderSide(color: Theme.of(context).shell.divider)),
-      ),
-      child: ConstrainedBox(
-        constraints: BoxConstraints(minHeight: topicBottomBarHeight(context)),
-        child: Padding(
-          padding: topicBottomBarPadding.add(
-            EdgeInsetsDirectional.only(end: trailingInset),
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.start,
-            children: [
-              if (leading case final action?)
-                Expanded(
-                  child: Align(
-                    alignment: AlignmentDirectional.centerStart,
-                    child: action,
-                  ),
-                )
-              else
-                const Spacer(),
-              ShellSelector<bool>(
-                select: (shell) => shell.currentContent?.isTopic == true,
-                builder: (context, topicOpen, _) => topicOpen
-                    ? const TopicNavigationButtons()
-                    : const SizedBox.shrink(),
-              ),
-            ],
-          ),
+    backgroundColor: Theme.of(context).shell.content,
+    rounded: !context.isTouch,
+    padding: EdgeInsets.zero,
+    child: ConstrainedBox(
+      constraints: BoxConstraints(minHeight: topicBottomBarHeight(context)),
+      child: Padding(
+        padding: topicBottomBarPadding.add(
+          EdgeInsetsDirectional.only(end: trailingInset),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.start,
+          children: [
+            if (leading case final action?)
+              Expanded(
+                child: Align(
+                  alignment: AlignmentDirectional.centerStart,
+                  child: action,
+                ),
+              )
+            else
+              const Spacer(),
+            ShellSelector<bool>(
+              select: (shell) => shell.currentContent?.isTopic == true,
+              builder: (context, topicOpen, _) => topicOpen
+                  ? const TopicNavigationButtons()
+                  : const SizedBox.shrink(),
+            ),
+          ],
         ),
       ),
     ),
