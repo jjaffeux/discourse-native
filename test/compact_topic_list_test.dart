@@ -22,6 +22,7 @@ import 'package:discourse_native/src/shell/site_emoji_image.dart';
 import 'package:discourse_native/src/shell/topic_inbox_row.dart';
 import 'package:discourse_native/src/shell/topic_list_actions.dart';
 import 'package:discourse_native/src/shell/topic_list_view.dart';
+import 'package:discourse_native/src/shell/topic_title.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
@@ -36,6 +37,54 @@ import 'support/fakes.dart';
 import 'support/media_pipeline.dart';
 
 void main() {
+  for (final width in [280.0, 500.0, 900.0]) {
+    for (final scale in [1.0, 2.0]) {
+      testWidgets('sparse cards hug content at $width/$scale', (tester) async {
+        await tester.binding.setSurfaceSize(Size(width, 700));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+        Future<void> render(List<TopicTag> tags) => tester.pumpWidget(
+          MaterialApp(
+            theme: AppTheme.light.copyWith(platform: TargetPlatform.macOS),
+            home: MediaQuery(
+              data: MediaQueryData(textScaler: TextScaler.linear(scale)),
+              child: Scaffold(
+                body: Align(
+                  alignment: Alignment.topCenter,
+                  child: TopicListRow(
+                    topic: Topic(
+                      id: 1,
+                      title: 'Short title',
+                      slug: 'short',
+                      replyCount: 2,
+                      tags: tags,
+                    ),
+                    siteUrl: 'https://compact.example',
+                    onTap: () {},
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+        await render(const []);
+        final titleBottom = tester.getBottomLeft(find.byType(TopicTitle)).dy;
+        final repliesTop = tester.getTopLeft(find.text('2 replies')).dy;
+        expect(repliesTop - titleBottom, lessThanOrEqualTo(12));
+        final sparseHeight = tester
+            .getSize(find.byKey(const ValueKey('topic-card-1')))
+            .height;
+        await render(const [TopicTag(name: 'design')]);
+        if (width >= 500 && scale == 1) {
+          expect(
+            tester.getSize(find.byKey(const ValueKey('topic-card-1'))).height,
+            lessThanOrEqualTo(sparseHeight + 8),
+          );
+        }
+        expect(tester.takeException(), isNull);
+      });
+    }
+  }
+
   testWidgets('inbox rows honor live metadata choices', (tester) async {
     final shell = await _setup(tester);
     await tester.pumpWidget(
