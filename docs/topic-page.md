@@ -1,93 +1,49 @@
 # Desktop topic workspace
 
-The topic header's **Topic view** popover offers **Sheet** and **Dock right**.
-The last explicit choice is stored locally in
-`discourse_native.topic_presentation`, shared across forums and tabs, and
-restored on restart. Docking is the initial default. Mobile retains its inline
-reader and does not show the chooser.
+The inset **Topic view** toggle in the tab bar offers **Keep topic tabs with the
+list** and **Split with the list**. The preference is stored locally in
+`discourse_native.topic_presentation`. Existing Sheet preferences migrate to
+merged tabs; Dock right preferences migrate to split tabs. The old topic
+popover and Display menu's “Open topics” section are removed.
 
-## Presentation and available space
+In merged mode, list and topic tabs share one bar. Opening a topic retains its
+source list tab. Selecting that list returns to it without closing the topic.
 
-Docking keeps a reduced, resizable source list beside the reader. The list uses
-its current width between 304 and 480 logical pixels, shrinking as needed to
-preserve an 825-pixel reader. Below 1129 pixels of available reader workspace,
-the source list is hidden and the topic fills the inline content area. Widening
-restores the list beside it. Dock right always stays inline, including while
-resizing or composing; only explicitly choosing Sheet opens a topic sheet.
+In split mode, list tabs belong to the list panel and topic tabs belong to the
+reading panel. Selecting another list keeps the selected topic open. Each
+panel has a double-arrow action that swaps the panel positions. Tab switchers,
+reordering, recently closed tabs, and “Close other tabs” use the panel's scope.
+The reading panel does not display a new-list-tab action.
 
-A sheet is centered above the browsing workspace, with an inset supplied by the
-Native Sheet component. Its width follows the existing reading lane and expands
-to include a side composer when there is room. Narrow windows use nearly the
-full workspace width. Forum tabs, the community rail and navigation remain
-outside the sheet. The source list remains mounted beneath it.
+The list resizes between 304 and 480 logical pixels. A split requires at least
+520 pixels for the reader. Narrow windows use one combined tab bar, where list
+tabs remain selectable. The split preference is retained for wider windows.
+Switching mode or swapping positions retains the reader, list, and composer;
+reading anchors and draft contents remain owned by their tabs and draft.
+Touch platforms retain their existing inline topic navigation.
 
-## Navigation and retained state
-
-- Switching presentation retains the reader, current post, scroll position,
-  editor, text selection and draft. The list keeps its filters and position.
-- The header collapse control returns to the source. Sheets also support
-  Escape and backdrop dismissal. A direct topic with no source returns to
-  Topics when its sheet closes.
-- Previous/next buttons remain in the visible list footer. Keyboard sequences
-  navigate the same source list in either presentation; **U** returns to it.
-  Nested menus and dialogs keep their own keyboard handling.
-- Navigating while writing preserves the draft and its original destination.
-  Closing a sheet moves the composer back to the browsing workspace. Its
-  return-to-topic action remains available when reading another destination.
-
-## Composer and navigation
-
-The composer docks inside the active presentation. Side docking requires a
-480-pixel reader plus a 360-pixel editor and divider. When these cannot fit,
-the editor moves below the reader, restoring its preferred side when space
-returns. The draft, editor selection and reader survive these transitions.
-
-The rail remains visible. Below 1100 logical pixels, the sidebar is accessible
-through a **Navigation** popover beside the rail. It closes after navigation
-and when the permanent sidebar returns. Touch layouts retain their existing
-split-view and bottom-composer behavior.
-
-## Implementation
-
-`TopicPresentationController` persists the selected presentation.
-`TopicWorkspace` supplies a local Navigator below the forum tabs.
-`TopicReaderPresentation` retains the reader until its sheet outlet is mounted,
-then moves the same keyed subtree between that outlet and the inline workspace.
-A new sheet waits for a closing outlet to finish dismissing if the presentation
-changes again during the transition.
-The existing composer host retains the editor through the corresponding dock
-handoff. Explicit reading-route settings allow navigation shortcuts inside the
-workspace and sheet while other popup routes continue to block them.
-
-Application UI uses `DPopover`, `DToggleGroup`, `DButton` and centered `DSheet`
-through `package:discourse_native/discourse_ui.dart`. No generic UI-kit component
-was added or extended.
+The composer surrounds both panels and supports left, bottom, right, and
+full-screen placement. Its **Dock side / Full screen** selector uses the same
+Native inset Toggle Group treatment. Dock side opens the three physical dock
+choices. Full screen occupies the content workspace, leaving forum navigation
+available; returning to a dock preserves the draft and selection.
 
 ## Verification
 
-The final focused run passed 89 desktop, preference, composer and keyboard
-tests. Coverage includes repeated view switching, reader and
-editor identity, selection and scroll retention, restart preferences, stale
-preference loads, inline narrow layouts and interrupted transitions, direct
-links, Escape and nested-dialog behavior, source navigation, tabs, composer
-docking, RTL and mobile behavior.
+`test/desktop_topic_page_test.dart` covers scoped tabs, swapping, merged lists,
+narrow fallback, retained positions, composer placement, full-screen bounds,
+shortcuts, and mobile navigation. `test/composer_docking_test.dart` exercises
+editor retention, physical docking, and full screen. Toggle Group and preference
+store tests cover the shared component and legacy preference migration.
 
-The broader composer, keyboard, navigation, topic-inbox, plugin-chrome and
-shell-panel run passed 229 tests. Its 27 forum-tab integration failures were
-reproduced with identical test names and missing-sidebar assertions on unchanged
-`71246b96`: that older fixture requires the permanent sidebar at narrow widths.
-The new desktop tests cover tab access and retained drafts through sheets.
+`tool/topic_panels_review_main.dart` mounts production widgets with local fake
+data and provides light/dark, narrow-window, and inset-toggle styleguide controls.
+No account data is required.
 
-Root and full-profile static analysis passed. The macOS review-fixture build
-passed. Native inspection of `tool/topic_page_review_main.dart` used an isolated,
-ad-hoc-signed copy with local fake data and separate preferences. It verified
-centered sheet and docked views, the two-option chooser, switching with a typed
-draft, light/dark themes, narrow bottom docking, and closing the sheet while
-keeping the draft. The review app was quit afterward. The subsequent direct-link
-close fallback and interrupted-dismissal guard have widget coverage; the inspected source-list close behavior is
-unchanged. No live forum data was modified. Mobile behavior has widget coverage
-only; Linux and Windows were not inspected on devices.
-
-The subsequent correction keeping Dock right inline at narrow widths passed
-the 89 focused tests and root static analysis. Native inspection was not
-repeated for that correction.
+Verified on September 18, 2026: static analysis is clean; 60 focused widget and
+preference tests pass. The native macOS local-data fixture was inspected in
+light/dark palettes for split tabs, swapping, merged tabs, the inset styleguide
+control, full-screen composition, and returning to the bottom dock with retained
+text. iOS behavior was exercised through widget tests, not a device run.
+The broader forum-tabs bar/integration suites have 32 existing failures; the
+same 32 were reproduced in an unchanged checkout of main at `6a00b42a7`.

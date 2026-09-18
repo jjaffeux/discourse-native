@@ -2,7 +2,8 @@
 enum ComposerPlacement {
   left('Dock left'),
   bottom('Dock bottom'),
-  right('Dock right');
+  right('Dock right'),
+  fullScreen('Full screen');
 
   const ComposerPlacement(this.label);
   final String label;

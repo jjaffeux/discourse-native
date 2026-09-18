@@ -14,7 +14,7 @@ void main() {
     test('explicit $mode preference survives a new controller', () async {
       final controller = TopicPresentationController();
       addTearDown(controller.dispose);
-      controller.select(TopicPresentation.sheet);
+      controller.select(TopicPresentation.merged);
       controller.select(mode);
       final restored = TopicPresentationController();
       addTearDown(restored.dispose);
@@ -23,13 +23,25 @@ void main() {
     });
   }
 
-  test('invalid stored mode uses the docking default', () async {
+  test('legacy sheet and dock modes migrate to merged and split', () async {
+    for (final (stored, expected) in [
+      ('sheet', TopicPresentation.merged),
+      ('docked', TopicPresentation.split),
+    ]) {
+      SharedPreferences.setMockInitialValues({
+        TopicPresentationStore.storageKey: stored,
+      });
+      expect(await const TopicPresentationStore().read(), expected);
+    }
+  });
+
+  test('invalid stored mode uses the split default', () async {
     SharedPreferences.setMockInitialValues({
       TopicPresentationStore.storageKey: 'unknown',
     });
     expect(
       await const TopicPresentationStore().read(),
-      TopicPresentation.docked,
+      TopicPresentation.split,
     );
   });
 
@@ -41,11 +53,11 @@ void main() {
       final controller = TopicPresentationController(store: store);
       addTearDown(controller.dispose);
       final loading = controller.load();
-      controller.select(TopicPresentation.docked);
+      controller.select(TopicPresentation.split);
       persistence.result.complete('sheet');
       await loading;
-      expect(controller.preference, TopicPresentation.docked);
-      expect(await store.read(), TopicPresentation.docked);
+      expect(controller.preference, TopicPresentation.split);
+      expect(await store.read(), TopicPresentation.split);
     },
   );
 }

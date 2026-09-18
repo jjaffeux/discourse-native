@@ -19,6 +19,46 @@ import 'support/fakes.dart';
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
+  testWidgets(
+    'full screen retains draft and reader and restores the chosen dock',
+    (tester) async {
+      final h = await _Harness.create(tester);
+      final editor = tester.state(find.byType(ComposerEditor));
+      final composer = h.shell.visibleComposer!;
+      composer.text.text = 'Keep this draft and selection';
+      composer.text.selection = const TextSelection(
+        baseOffset: 2,
+        extentOffset: 8,
+      );
+      h.presentation.dock(ComposerPlacement.left);
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('Full screen'));
+      await tester.pumpAndSettle();
+      expect(tester.getSize(find.byType(ComposerPanel)), const Size(1000, 700));
+      expect(
+        find.byKey(const ValueKey('reader-list')).hitTestable(),
+        findsNothing,
+      );
+      expect(tester.state(find.byType(ComposerEditor)), same(editor));
+      expect(composer.raw, 'Keep this draft and selection');
+      expect(
+        composer.text.selection,
+        const TextSelection(baseOffset: 2, extentOffset: 8),
+      );
+      await tester.tap(find.byTooltip('Dock side'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('Dock left'));
+      await tester.pumpAndSettle();
+      expect(h.presentation.preference.placement, ComposerPlacement.left);
+      expect(
+        find.byKey(const ValueKey('reader-list')).hitTestable(),
+        findsOneWidget,
+      );
+      expect(tester.state(find.byType(ComposerEditor)), same(editor));
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   testWidgets('reader position reports do not rebuild the editor', (
     tester,
   ) async {
@@ -322,7 +362,7 @@ void main() {
       );
       final semantics = tester.ensureSemantics();
 
-      await tester.tap(find.byKey(const ValueKey('composer-options')));
+      await tester.tap(find.byTooltip('Dock side'));
       await tester.pumpAndSettle();
       expect(find.text('Dock side'), findsOneWidget);
       expect(find.bySemanticsLabel('Separate window'), findsNothing);
@@ -363,7 +403,7 @@ void main() {
         tester.getSize(find.byType(ComposerEditor)).height,
         greaterThan(30),
       );
-      expect(find.byKey(const ValueKey('composer-options')), findsNothing);
+      expect(find.byTooltip('Dock side'), findsNothing);
       expect(find.text('Dock side'), findsNothing);
       expect(tester.takeException(), isNull);
     },

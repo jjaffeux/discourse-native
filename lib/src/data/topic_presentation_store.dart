@@ -21,11 +21,16 @@ class TopicPresentationStore {
       );
 
   Future<TopicPresentation> read() async {
-    final value = await _repository.read();
+    final stored = await _repository.read();
+    final value = stored == 'sheet'
+        ? 'merged'
+        : stored == 'docked'
+        ? 'split'
+        : stored;
     return TopicPresentation.values
             .where((mode) => mode.name == value)
             .firstOrNull ??
-        TopicPresentation.docked;
+        TopicPresentation.split;
   }
 
   Future<void> write(TopicPresentation mode) => _repository.write(mode.name);

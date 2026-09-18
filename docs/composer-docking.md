@@ -1,12 +1,13 @@
 # Composer docking — design A
 
-The amended design has exactly three positions: **left, bottom, and right**.
+The composer supports **left, bottom, right, and full screen**.
 Composers stay inside the main application window. Separate windows are out of
 scope.
 
 ## Behavior
 
-- The compact Native overflow popup shows **Dock side** followed by left,
+- The inset Native toggle offers **Dock side** and **Full screen**. Dock side
+  opens a popup with left,
   bottom, and right icons. Each has a tooltip, accessible name, and selected
   state. The popup contains only placement choices. Save/close, minimize, and
   restore remain in the header; closing an unsaved edit retains its confirmation.
@@ -41,7 +42,10 @@ The reader's scroll ancestry remains stable when the composer opens or closes.
 Application controls use the Native UI kit through
 `package:discourse_native/discourse_ui.dart`: `DPopover`, `DToggleGroup`,
 `DButton`, `DTooltip`, `DResizablePanelGroup`, and `DScrollArea`.
-No new generic Native component is needed for the amended design.
+The shared `DToggleGroup.inset` treatment owns the recessed frame and spacing.
+`onItemActivated` lets the selected Dock side choice reopen its options.
+Full screen fills the content workspace while retaining the hidden reader and
+editor; selecting a physical dock restores the reader.
 
 Submission and recheck actions explicitly target their composer. Closing or
 explicitly discarding a composer respects pending saves, uploads, submissions,

@@ -435,6 +435,22 @@ class _ComposerDockState extends State<ComposerDock> {
             ],
           );
         }
+        if (placement == ComposerPlacement.fullScreen) {
+          return Stack(
+            fit: StackFit.expand,
+            children: [
+              Offstage(offstage: true, child: readerViewport()),
+              Positioned.fill(
+                child: owner._surface(
+                  entry,
+                  placement: placement,
+                  mobile: mobile,
+                  size: Size(constraints.maxWidth, constraints.maxHeight),
+                ),
+              ),
+            ],
+          );
+        }
         final side = placement.isSide;
         // The divider's hit region extends into both panels. Reserve its
         // editor half so touch resizing never intercepts header buttons.
