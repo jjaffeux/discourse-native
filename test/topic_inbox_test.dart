@@ -1309,7 +1309,7 @@ void main() {
   }
 
   testWidgets(
-    'title and pinned taxonomy retain the reading lane across desktop zoom levels',
+    'topic header and posts fill the panel with mockup padding across zoom levels',
     (tester) async {
       final setup = await _setup(tester);
       final shell = setup.controller;
@@ -1332,6 +1332,27 @@ void main() {
         final close = tester.getRect(
           find.byKey(const ValueKey('topic-header-common-actions')),
         );
+        final viewport = tester.getRect(
+          find.descendant(
+            of: find.byType(TopicView),
+            matching: find.byType(CustomScrollView),
+          ),
+        );
+        final summary = tester.getRect(
+          find.byKey(const ValueKey('topic-header-activity')),
+        );
+        final divider = tester.getRect(
+          find.byKey(const ValueKey('topic-scroll-separator')),
+        );
+        expect(before.left, closeTo(viewport.left + 16, 1));
+        expect(before.right, closeTo(viewport.right - 16, 1));
+        expect(summary.left, closeTo(viewport.left + 16, 1));
+        expect(summary.right, closeTo(viewport.right - 16, 1));
+        expect(divider.left, closeTo(viewport.left + 16, 1));
+        expect(divider.right, closeTo(viewport.right - 16, 1));
+        final postBody = tester.getRect(find.byType(CookedHtml).first);
+        expect(postBody.left, closeTo(viewport.left + 16 + 39, 1));
+        expect(postBody.right, closeTo(viewport.right - 16, 1));
         expect(before.left, closeTo(title.left, 1));
         expect(before.top, greaterThan(title.bottom));
         _readerScroll(tester).jumpTo(300);
@@ -1977,7 +1998,7 @@ void main() {
     expect(separator.right, lessThan(properties.left));
     expect(
       tester.getRect(find.byType(CookedHtml).first).left,
-      closeTo(title.left, 1),
+      closeTo(title.left + 39, 1),
     );
     final footer = find.byKey(const ValueKey('topic-bottom-bar'));
     expect(
@@ -2029,7 +2050,7 @@ void main() {
       );
       expect(
         lockRect.left,
-        closeTo(tester.getRect(find.byType(CookedHtml).first).left, 1),
+        closeTo(tester.getRect(find.byType(CookedHtml).first).left - 39, 1),
       );
       expect(
         lockRect.left,
