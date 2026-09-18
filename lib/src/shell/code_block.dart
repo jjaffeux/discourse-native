@@ -395,40 +395,43 @@ class _CodeBlockState extends State<CodeBlock> {
           // since wrapping makes indentation lie about structure. The
           // scrollbar stays up whenever there is somewhere to scroll.
           LayoutBuilder(
-            builder: (context, constraints) => DScrollBar(
-              backgroundColor: theme.code.blockBackground,
-              axis: Axis.horizontal,
-              controller: _horizontal,
-              thumbVisibility: true,
-              child: SingleChildScrollView(
+            builder: (context, constraints) {
+              final gutterWidth = _gutterWidth;
+              return DScrollBar(
+                backgroundColor: theme.code.blockBackground,
+                axis: Axis.horizontal,
                 controller: _horizontal,
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.only(
-                  top: 4,
-                  bottom: CodeBlock._scrollbarLane,
-                ),
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(minWidth: constraints.maxWidth),
-                  child: IntrinsicWidth(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        for (final line in data.lines)
-                          _Line(
-                            line: line,
-                            style: style,
-                            gutterStyle: gutterStyle,
-                            gutterWidth: _gutterWidth,
-                            highlight: theme.colorScheme.tertiaryContainer,
-                            scopeColor: (scope) =>
-                                scopeColor(scope, theme.code),
-                          ),
-                      ],
+                thumbVisibility: true,
+                child: SingleChildScrollView(
+                  controller: _horizontal,
+                  scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.only(
+                    top: 4,
+                    bottom: CodeBlock._scrollbarLane,
+                  ),
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(minWidth: constraints.maxWidth),
+                    child: IntrinsicWidth(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          for (final line in data.lines)
+                            _Line(
+                              line: line,
+                              style: style,
+                              gutterStyle: gutterStyle,
+                              gutterWidth: gutterWidth,
+                              highlight: theme.colorScheme.tertiaryContainer,
+                              scopeColor: (scope) =>
+                                  scopeColor(scope, theme.code),
+                            ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
-              ),
-            ),
+              );
+            },
           ),
         ],
       ),
