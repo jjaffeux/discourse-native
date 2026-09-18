@@ -6,6 +6,7 @@ import '../plugin_api/plugin_registry.dart';
 import '../plugin_api/plugin_scope.dart';
 import '../theme/d_icons.dart';
 import 'composer_controller.dart';
+import 'composer_recent_drafts.dart';
 import 'platform.dart';
 import 'shell_metrics.dart';
 import 'shell_scope.dart';
@@ -349,7 +350,10 @@ class ComposerHeader extends StatelessWidget {
                                 alignment: AlignmentDirectional.centerStart,
                                 child: SingleChildScrollView(
                                   scrollDirection: Axis.horizontal,
-                                  child: heading,
+                                  child: ComposerRecentDrafts(
+                                    composer: composer,
+                                    heading: heading,
+                                  ),
                                 ),
                               ),
                       ),
