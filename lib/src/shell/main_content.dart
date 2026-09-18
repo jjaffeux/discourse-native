@@ -398,6 +398,7 @@ class _TopicInboxWorkspaceState extends State<_TopicInboxWorkspace> {
                           : _TopicListHeadingTitle(
                               siteUrl: state.siteUrl,
                               categoryId: sourceRoute.categoryId,
+                              pageTitle: sourceRoute.title,
                             ),
                     ),
                   ),
@@ -431,10 +432,9 @@ class _TopicInboxWorkspaceState extends State<_TopicInboxWorkspace> {
                     : shellHeaderHeight,
               ),
               child: Padding(
-                padding: sourceRoute.isTopicListFilter
-                    ? const EdgeInsets.symmetric(vertical: DSpacing.sm)
-                    // Match the sidebar account header's baseline.
-                    : EdgeInsets.zero,
+                padding: context.isTouch
+                    ? EdgeInsets.zero
+                    : const EdgeInsets.only(top: 16, bottom: 8),
                 child: Row(
                   children: [
                     Expanded(
@@ -450,10 +450,12 @@ class _TopicInboxWorkspaceState extends State<_TopicInboxWorkspace> {
                             width: lane.width,
                             child: Padding(
                               padding: EdgeInsetsDirectional.only(
-                                start: topicListHorizontalPadding,
-                                end: split
-                                    ? topicInboxDividerInset
-                                    : topicListHorizontalPadding,
+                                start: context.isTouch
+                                    ? topicListHorizontalPadding
+                                    : 16,
+                                end: context.isTouch
+                                    ? topicListHorizontalPadding
+                                    : 16,
                               ),
                               child: heading(navigation),
                             ),
@@ -470,7 +472,8 @@ class _TopicInboxWorkspaceState extends State<_TopicInboxWorkspace> {
             mainAxisSize: MainAxisSize.min,
             children: [
               toolbar,
-              const DSeparator(key: ValueKey('topic-list-heading-separator')),
+              if (context.isTouch)
+                const DSeparator(key: ValueKey('topic-list-heading-separator')),
             ],
           );
         }
@@ -1098,10 +1101,12 @@ class _TopicListHeadingTitle extends StatelessWidget {
   const _TopicListHeadingTitle({
     required this.siteUrl,
     required this.categoryId,
+    required this.pageTitle,
   });
 
   final String? siteUrl;
   final int? categoryId;
+  final String pageTitle;
 
   @override
   Widget build(BuildContext context) {
@@ -1112,11 +1117,16 @@ class _TopicListHeadingTitle extends StatelessWidget {
       overflow: TextOverflow.ellipsis,
       style: Theme.of(
         context,
-      ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+      ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
     );
 
     final categoryId = this.categoryId;
-    if (categoryId == null) return title('Topics');
+    if (categoryId == null) {
+      final mode = ShellScope.of(context).currentTopicListMode;
+      return title(
+        mode == null ? pageTitle : '${TopicFeedMenu.label(mode)} topics',
+      );
+    }
     final siteUrl = this.siteUrl;
     if (siteUrl == null) return title('Category');
     return ValueListenableBuilder<TopicCategory?>(

@@ -299,12 +299,6 @@ class _ForumTabsBarState extends State<ForumTabsBar> {
               ),
             ),
           ),
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
-            child: DSeparator(color: Theme.of(context).shell.divider),
-          ),
         ],
       ),
     );

@@ -16,6 +16,7 @@ import 'package:discourse_native/src/shell/adaptive_shell.dart';
 import 'package:discourse_native/src/shell/main_content.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
+import 'package:discourse_native/src/shell/topic_presentation.dart';
 import 'package:discourse_native/src/styleguide/styleguide_page.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
@@ -181,7 +182,7 @@ Future<void> main() async {
     authenticator: FakeAuthenticator()..keys[site.url] = 'local-fixture',
     drafts: FakeDraftStore(),
     forumTabs: FakeForumTabStore(),
-    forumTabsEnabled: false,
+    forumTabsEnabled: true,
     trackers: FakeSiteTracker.reset(),
     updater: FakeUpdater(),
     updateStore: FakeUpdateStore(),
@@ -297,9 +298,12 @@ class _ReviewState extends State<_Review> {
                               : TextDirection.ltr,
                           child: Navigator(
                             onGenerateRoute: (_) => MaterialPageRoute<void>(
-                              builder: (_) => const MainContent(
-                                layout: ShellLayout.expanded,
-                              ),
+                              builder: (_) =>
+                                  const TopicPresentationPreferences(
+                                    child: MainContent(
+                                      layout: ShellLayout.expanded,
+                                    ),
+                                  ),
                             ),
                           ),
                         ),

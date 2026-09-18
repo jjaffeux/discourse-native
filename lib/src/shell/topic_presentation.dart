@@ -84,30 +84,33 @@ class TopicPanelTabs extends StatelessWidget {
     final shell = ShellScope.of(context);
     if (context.isTouch) return const SizedBox.shrink();
     final preferences = TopicPresentationPreferences.maybeControllerOf(context);
-    return Row(
-      children: [
-        Expanded(
-          child: shell.forumTabsEnabled
-              ? CurrentForumTabsBar(reading: reading)
-              : const SizedBox.shrink(),
-        ),
-        if (reading != true && preferences != null && !context.isTouch)
-          const TopicPresentationButton(),
-        if (split && preferences != null)
-          DButton.iconOnly(
-            key: ValueKey(
-              reading == true
-                  ? 'swap-topic-panels-reader'
-                  : 'swap-topic-panels-list',
-            ),
-            icon: const Icon(Icons.swap_horiz),
-            tooltip: preferences.readerOnLeft
-                ? 'Move the reading panel right'
-                : 'Move the reading panel left',
-            variant: DButtonVariant.transparentBackground,
-            onPressed: preferences.swapPanels,
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(8, 8, 8, 4),
+      child: Row(
+        children: [
+          Expanded(
+            child: shell.forumTabsEnabled
+                ? CurrentForumTabsBar(reading: reading)
+                : const SizedBox.shrink(),
           ),
-      ],
+          if (reading != true && preferences != null && !context.isTouch)
+            const TopicPresentationButton(),
+          if (split && preferences != null)
+            DButton.iconOnly(
+              key: ValueKey(
+                reading == true
+                    ? 'swap-topic-panels-reader'
+                    : 'swap-topic-panels-list',
+              ),
+              icon: const Icon(Icons.swap_horiz),
+              tooltip: preferences.readerOnLeft
+                  ? 'Move the reading panel right'
+                  : 'Move the reading panel left',
+              variant: DButtonVariant.transparentBackground,
+              onPressed: preferences.swapPanels,
+            ),
+        ],
+      ),
     );
   }
 }

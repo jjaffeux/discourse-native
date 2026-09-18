@@ -154,7 +154,10 @@ class _TopicHeaderToolbar extends StatelessWidget {
   @override
   Widget build(BuildContext context) => LayoutBuilder(
     builder: (context, constraints) {
-      const padding = EdgeInsets.symmetric(horizontal: 12, vertical: 4);
+      final padding = EdgeInsets.symmetric(
+        horizontal: 12,
+        vertical: context.isTouch ? 4 : 12,
+      );
       final firstLineConstraints = BoxConstraints(
         minHeight: math.max(
           readerHeaderHeight - padding.vertical,
@@ -243,7 +246,7 @@ class _TopicHeaderTitle extends StatelessWidget {
     final siteUrl = header.siteUrl;
     final style = Theme.of(
       context,
-    ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600);
+    ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700);
     final Widget title;
     if (topic?.canEdit == true && siteUrl != null) {
       title = InlineTopicTitleEditor(
