@@ -39,6 +39,57 @@ void main() {
     ),
   );
 
+  testWidgets('plain tabs stay unpainted and notify repeated activation', (
+    tester,
+  ) async {
+    final activations = <String>[];
+    final changes = <String?>[];
+    await mount(
+      tester,
+      DTabs<String>(
+        initialValue: 'one',
+        orientation: Axis.vertical,
+        onActivated: activations.add,
+        onChanged: changes.add,
+        children: const [
+          DTabList<String>(
+            variant: DTabListVariant.plain,
+            children: [
+              DTabTrigger(value: 'one', child: Text('One')),
+              DTabTrigger(value: 'two', child: Text('Two')),
+              DTabTrigger(
+                value: 'disabled',
+                enabled: false,
+                child: Text('Disabled'),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+    await tester.pumpAndSettle();
+    for (final surface in tester.widgetList<AnimatedContainer>(
+      find.descendant(
+        of: find.byType(DTabTrigger<String>),
+        matching: find.byType(AnimatedContainer),
+      ),
+    )) {
+      final decoration = surface.decoration! as BoxDecoration;
+      expect(decoration.color, Colors.transparent);
+      expect(decoration.boxShadow, isNull);
+      expect((decoration.border! as Border).top.color, Colors.transparent);
+    }
+    await tester.tap(find.text('Two'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Two'));
+    await tester.pumpAndSettle();
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Disabled'));
+    expect(activations, ['two', 'two', 'two']);
+    expect(changes, ['two']);
+  });
+
   Widget tabs({
     String? initialValue = 'one',
     bool selectFirst = true,

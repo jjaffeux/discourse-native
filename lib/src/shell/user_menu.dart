@@ -473,16 +473,27 @@ class _TabRailState extends State<_TabRail> {
                   children: [
                     SingleChildScrollView(
                       padding: const EdgeInsets.symmetric(vertical: 8),
-                      child: Column(
-                        children: [
-                          for (final section in widget.sections)
-                            if (!section.isProfile)
-                              _TabButton(
-                                section: section,
-                                selected: section.id == widget.selectedId,
-                                onTap: () => widget.onSelect(section.id),
-                              ),
-                        ],
+                      child: LayoutBuilder(
+                        builder: (context, constraints) =>
+                            DTabs<String>.controlled(
+                              value: widget.selectedId,
+                              orientation: Axis.vertical,
+                              onActivated: widget.onSelect,
+                              children: [
+                                DTabList<String>(
+                                  variant: DTabListVariant.plain,
+                                  size: DControlSize.large,
+                                  children: [
+                                    for (final section in widget.sections)
+                                      if (!section.isProfile)
+                                        _SectionTab(
+                                          section: section,
+                                          compact: constraints.maxWidth < 100,
+                                        ),
+                                  ],
+                                ),
+                              ],
+                            ),
                       ),
                     ),
                     if (_canScrollUp)
@@ -556,80 +567,50 @@ class _RailScrollCue extends StatelessWidget {
   );
 }
 
-class _TabButton extends StatelessWidget {
-  const _TabButton({
-    required this.section,
-    required this.selected,
-    required this.onTap,
-  });
+class _SectionTab extends StatelessWidget {
+  const _SectionTab({required this.section, required this.compact});
 
   final UserMenuSection section;
-  final bool selected;
-  final VoidCallback onTap;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final compact = constraints.maxWidth < 100;
-        final icon = DIcon(section.icon, size: 16);
-        final variant = selected
-            ? DButtonVariant.secondary
-            : DButtonVariant.ghost;
-        return Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-          child: MergeSemantics(
-            key: ValueKey('user-menu-tab-${section.id}'),
-            child: Semantics(
-              selected: selected,
-              child: compact
-                  ? DButton.iconOnly(
-                      icon: Stack(
-                        clipBehavior: Clip.none,
-                        children: [
-                          icon,
-                          if (section.badge > 0)
-                            PositionedDirectional(
-                              top: -10,
-                              end: -10,
-                              child: ExcludeSemantics(
-                                child: _Badge(count: section.badge),
-                              ),
-                            ),
-                        ],
+    final icon = DIcon(section.icon, size: 16);
+    final tab = DTabTrigger<String>(
+      key: ValueKey('user-menu-tab-${section.id}'),
+      value: section.id,
+      semanticLabel: section.badge > 0
+          ? '${section.label}, ${section.badge} unread'
+          : section.label,
+      child: ExcludeSemantics(
+        child: compact
+            ? Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  icon,
+                  if (section.badge > 0)
+                    PositionedDirectional(
+                      top: -10,
+                      end: -10,
+                      child: ExcludeSemantics(
+                        child: _Badge(count: section.badge),
                       ),
-                      tooltip: section.label,
-                      semanticLabel: section.badge > 0
-                          ? '${section.label}, ${section.badge} unread'
-                          : section.label,
-                      variant: variant,
-                      size: DButtonSize.large,
-                      onPressed: onTap,
-                    )
-                  : DButton(
-                      variant: variant,
-                      size: DButtonSize.large,
-                      alignment: AlignmentDirectional.centerStart,
-                      icon: icon,
-                      label: Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              section.label,
-                              maxLines: 2,
-                              softWrap: true,
-                            ),
-                          ),
-                          if (section.badge > 0) _Badge(count: section.badge),
-                        ],
-                      ),
-                      onPressed: onTap,
                     ),
-            ),
-          ),
-        );
-      },
+                ],
+              )
+            : Row(
+                children: [
+                  icon,
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(section.label, maxLines: 2, softWrap: true),
+                  ),
+                  if (section.badge > 0) _Badge(count: section.badge),
+                ],
+              ),
+      ),
     );
+    return compact ? DTooltip(message: section.label, child: tab) : tab;
   }
 }
 

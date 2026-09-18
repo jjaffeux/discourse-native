@@ -98,6 +98,29 @@ final tabsExamples = ComponentExamples(
       ),
     ),
     StyleguideExample(
+      title: 'Plain',
+      description:
+          'Text-only vertical tabs for the notification menu. Selection brightens the label without a background, border, shadow or indicator.',
+      states: const ['Plain', 'Vertical', 'Keyboard'],
+      code:
+          "DTabList<String>(variant: DTabListVariant.plain, children: [/* triggers */])",
+      builder: (_) => const DTabs<String>(
+        initialValue: 'notifications',
+        orientation: Axis.vertical,
+        children: [
+          DTabList<String>(
+            variant: DTabListVariant.plain,
+            size: DControlSize.large,
+            children: [
+              DTabTrigger(value: 'notifications', child: Text('Notifications')),
+              DTabTrigger(value: 'replies', child: Text('Replies')),
+              DTabTrigger(value: 'likes', child: Text('Likes')),
+            ],
+          ),
+        ],
+      ),
+    ),
+    StyleguideExample(
       title: 'Vertical',
       description:
           'Vertical orientation changes layout and arrow-key navigation while panels remain composable.',
