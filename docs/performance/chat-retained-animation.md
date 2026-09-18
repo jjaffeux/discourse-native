@@ -80,9 +80,18 @@ Verification completed:
   removed; required debug capabilities were preserved. Static signature
   verification alone does not establish successful native execution.
 
-Native execution is pending: the shared desktop was locked during this audit,
-and the coordinator paused native captures until the user unlocks it. No native
-result or timing improvement is claimed, and no merge has been performed.
+Native comparison remains unaccepted. The desktop was initially locked. After
+unlock on 2026-09-18, the coordinator granted an activation diagnostic slot.
+The baseline bundle launched through normal LaunchServices (`open -n -a`,
+without background flags), with output and its run label passed through the
+supported `--stdout`, `--stderr`, and `--env` options. CUA inspected the actual
+production chat window showing messages 98–100 and three Pause GIF controls,
+and invoked the window's exposed Raise action. Nevertheless, the collector's
+60-second foreground gate ended with `CHAT_ANIMATION invalid: app did not
+enter resumed lifecycle`. No timing JSON was accepted and the after bundle was
+not launched. The remaining fixture process was stopped and the desktop lease
+released. No lifecycle override was applied. Native timing improvement is not
+claimed, and no merge has been performed.
 
 ## Scope and limits
 
