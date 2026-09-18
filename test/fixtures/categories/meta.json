@@ -1,0 +1,409 @@
+[
+  {
+    "id": 207,
+    "name": "News and Events",
+    "color": "00AEEF",
+    "slug": "news-and-events",
+    "notification_level": 1,
+    "style_type": "icon",
+    "icon": "rocket",
+    "emoji": null,
+    "topics": [
+      {
+        "id": 412529,
+        "title": "Category hashtag floating cards and subcategory hashtag display improvements :balloon:",
+        "slug": "category-hashtag-floating-cards-and-subcategory-hashtag-display-improvements",
+        "pinned": false,
+        "closed": false,
+        "archived": false
+      },
+      {
+        "id": 291850,
+        "title": "Daily Summary (9pm UTC)",
+        "slug": "daily-summary-9pm-utc",
+        "pinned": false,
+        "closed": false,
+        "archived": false
+      },
+      {
+        "id": 407068,
+        "title": "Easier account signup using email codes",
+        "slug": "easier-account-signup-using-email-codes",
+        "pinned": false,
+        "closed": false,
+        "archived": false
+      }
+    ]
+  },
+  {
+    "id": 65,
+    "name": "Community Building",
+    "color": "12A89D",
+    "slug": "community-building",
+    "notification_level": 1,
+    "style_type": "icon",
+    "icon": "handshake-angle",
+    "emoji": null,
+    "topics": [
+      {
+        "id": 412639,
+        "title": "Best Way to Structure a Discourse Community for BYDFi Users?",
+        "slug": "best-way-to-structure-a-discourse-community-for-bydfi-users",
+        "pinned": false,
+        "closed": false,
+        "archived": false
+      },
+      {
+        "id": 411945,
+        "title": "Using Discourse to Build a Blog, Reddit, X or Facebook-Style Scrolling Platform",
+        "slug": "using-discourse-to-build-a-blog-reddit-x-or-facebook-style-scrolling-platform",
+        "pinned": false,
+        "closed": false,
+        "archived": false
+      },
+      {
+        "id": 226140,
+        "title": "Bringing Icebreakers into Discourse",
+        "slug": "bringing-icebreakers-into-discourse",
+        "pinned": false,
+        "closed": false,
+        "archived": false
+      }
+    ]
+  },
+  {
+    "id": 124,
+    "name": "General",
+    "color": "25AAE2",
+    "slug": "general",
+    "notification_level": 1,
+    "style_type": "emoji",
+    "icon": null,
+    "emoji": "blue_book",
+    "topics": [
+      {
+        "id": 412440,
+        "title": "Just sharing the design! This is a showcase, not a public theme release",
+        "slug": "just-sharing-the-design-this-is-a-showcase-not-a-public-theme-release",
+        "pinned": false,
+        "closed": false,
+        "archived": false
+      },
+      {
+        "id": 412316,
+        "title": "About Zoom in Discourse Webinars (and plugins)",
+        "slug": "about-zoom-in-discourse-webinars-and-plugins",
+        "pinned": false,
+        "closed": false,
+        "archived": false
+      },
+      {
+        "id": 408132,
+        "title": "A Social Mobile & Desktop Client for Communities (2)",
+        "slug": "a-social-mobile-desktop-client-for-communities-2",
+        "pinned": false,
+        "closed": false,
+        "archived": false
+      }
+    ]
+  },
+  {
+    "id": 6,
+    "name": "Support",
+    "color": "ce96c9",
+    "slug": "support",
+    "notification_level": 1,
+    "style_type": "icon",
+    "icon": "circle-question",
+    "emoji": null,
+    "topics": [
+      {
+        "id": 412713,
+        "title": "Two issues I can't figure out why they are ocurring",
+        "slug": "two-issues-i-cant-figure-out-why-they-are-ocurring",
+        "pinned": false,
+        "closed": false,
+        "archived": false
+      },
+      {
+        "id": 412652,
+        "title": "Chat windows opens in full when using a tag URL",
+        "slug": "chat-windows-opens-in-full-when-using-a-tag-url",
+        "pinned": false,
+        "closed": false,
+        "archived": false
+      },
+      {
+        "id": 412695,
+        "title": "API permission required for triggering topic timer",
+        "slug": "api-permission-required-for-triggering-topic-timer",
+        "pinned": false,
+        "closed": false,
+        "archived": false
+      }
+    ]
+  },
+  {
+    "id": 208,
+    "name": "Contribute",
+    "color": "0088CC",
+    "slug": "contribute",
+    "notification_level": 1,
+    "style_type": "icon",
+    "icon": "comments",
+    "emoji": null,
+    "topics": [
+      {
+        "id": 412711,
+        "title": "Swipe the gallery items without opening the image viewer",
+        "slug": "swipe-the-gallery-items-without-opening-the-image-viewer",
+        "pinned": false,
+        "closed": false,
+        "archived": false
+      },
+      {
+        "id": 412657,
+        "title": "The default locale detector agent has conflicting instructions",
+        "slug": "the-default-locale-detector-agent-has-conflicting-instructions",
+        "pinned": false,
+        "closed": false,
+        "archived": false
+      },
+      {
+        "id": 412679,
+        "title": "Sobre tradu\u00e7\u00f5es no Blog",
+        "slug": "sobre-traducoes-no-blog",
+        "pinned": false,
+        "closed": false,
+        "archived": false
+      }
+    ]
+  },
+  {
+    "id": 209,
+    "name": "Customization",
+    "color": "8080FF",
+    "slug": "customization",
+    "notification_level": 1,
+    "style_type": "icon",
+    "icon": "wand-magic-sparkles",
+    "emoji": null,
+    "topics": [
+      {
+        "id": 118164,
+        "title": "Kanban Board",
+        "slug": "kanban-board",
+        "pinned": false,
+        "closed": false,
+        "archived": false
+      },
+      {
+        "id": 101937,
+        "title": "Discourse Affiliate",
+        "slug": "discourse-affiliate",
+        "pinned": false,
+        "closed": false,
+        "archived": false
+      },
+      {
+        "id": 411414,
+        "title": "Discourse Boards",
+        "slug": "discourse-boards",
+        "pinned": false,
+        "closed": false,
+        "archived": false
+      }
+    ]
+  },
+  {
+    "id": 10,
+    "name": "Documentation",
+    "color": "ED207B",
+    "slug": "documentation",
+    "notification_level": 1,
+    "style_type": "icon",
+    "icon": "book",
+    "emoji": "page_with_curl",
+    "topics": [
+      {
+        "id": 60951,
+        "title": "Configure your hosted Discourse site to run at the root or apex domain (e.g. example.com)",
+        "slug": "configure-your-hosted-discourse-site-to-run-at-the-root-or-apex-domain-e-g-example-com",
+        "pinned": false,
+        "closed": false,
+        "archived": false
+      },
+      {
+        "id": 35171,
+        "title": "Understanding user statuses, roles, and permissions",
+        "slug": "understanding-user-statuses-roles-and-permissions",
+        "pinned": false,
+        "closed": false,
+        "archived": false
+      },
+      {
+        "id": 21827,
+        "title": "Configure your domain name for hosted Discourse",
+        "slug": "configure-your-domain-name-for-hosted-discourse",
+        "pinned": false,
+        "closed": false,
+        "archived": false
+      }
+    ]
+  },
+  {
+    "id": 177,
+    "name": "Wiki",
+    "color": "31ceb7",
+    "slug": "wiki",
+    "notification_level": 1,
+    "style_type": "icon",
+    "icon": "file-lines",
+    "emoji": null,
+    "topics": [
+      {
+        "id": 412414,
+        "title": "Mutisite and Cloudflare R2 Objects",
+        "slug": "mutisite-and-cloudflare-r2-objects",
+        "pinned": false,
+        "closed": false,
+        "archived": false
+      },
+      {
+        "id": 411981,
+        "title": "How to clear the Windows Task Bar badge for the PWA",
+        "slug": "how-to-clear-the-windows-task-bar-badge-for-the-pwa",
+        "pinned": false,
+        "closed": false,
+        "archived": false
+      },
+      {
+        "id": 124346,
+        "title": "Copy backups to another server with rsync and cron",
+        "slug": "copy-backups-to-another-server-with-rsync-and-cron",
+        "pinned": false,
+        "closed": false,
+        "archived": false
+      }
+    ]
+  },
+  {
+    "id": 7,
+    "name": "Development",
+    "color": "292929",
+    "slug": "dev",
+    "notification_level": 1,
+    "style_type": "icon",
+    "icon": "code",
+    "emoji": null,
+    "topics": [
+      {
+        "id": 19392,
+        "title": "Discourse GitHub commit prefix convention",
+        "slug": "discourse-github-commit-prefix-convention",
+        "pinned": true,
+        "closed": false,
+        "archived": false
+      },
+      {
+        "id": 412460,
+        "title": "Introducing `@discourse/update-skeleton`",
+        "slug": "introducing-discourse-update-skeleton",
+        "pinned": false,
+        "closed": false,
+        "archived": false
+      },
+      {
+        "id": 411774,
+        "title": "Increase DEditor width to post width?",
+        "slug": "increase-deditor-width-to-post-width",
+        "pinned": false,
+        "closed": true,
+        "archived": false
+      }
+    ]
+  },
+  {
+    "id": 14,
+    "name": "Marketplace",
+    "color": "8c6220",
+    "slug": "marketplace",
+    "notification_level": 1,
+    "style_type": "emoji",
+    "icon": null,
+    "emoji": "shopping_cart",
+    "topics": [
+      {
+        "id": 91252,
+        "title": "HIRING: Voice Chat/Call Feature",
+        "slug": "hiring-voice-chat-call-feature",
+        "pinned": false,
+        "closed": true,
+        "archived": false
+      },
+      {
+        "id": 408040,
+        "title": "[RFP] Discourse UX Overhaul, Theme Customization & Plugin Audit",
+        "slug": "rfp-discourse-ux-overhaul-theme-customization-plugin-audit",
+        "pinned": false,
+        "closed": true,
+        "archived": false
+      },
+      {
+        "id": 407637,
+        "title": "Development Online Platform",
+        "slug": "development-online-platform",
+        "pinned": false,
+        "closed": true,
+        "archived": false
+      }
+    ]
+  },
+  {
+    "id": 17,
+    "name": "Uncategorized",
+    "color": "AB9364",
+    "slug": "uncategorized",
+    "notification_level": 1,
+    "style_type": "square",
+    "icon": null,
+    "emoji": null,
+    "topics": []
+  },
+  {
+    "id": 213,
+    "name": "Nested Replies Testing",
+    "color": "00ff34",
+    "slug": "nested-replies-testing",
+    "notification_level": 1,
+    "style_type": "icon",
+    "icon": "square-full",
+    "emoji": null,
+    "topics": [
+      {
+        "id": 398759,
+        "title": "Testing Nested Replies on Meta",
+        "slug": "testing-nested-replies-on-meta",
+        "pinned": false,
+        "closed": false,
+        "archived": false
+      },
+      {
+        "id": 398842,
+        "title": "What is the Pin mean here?",
+        "slug": "what-is-the-pin-mean-here",
+        "pinned": false,
+        "closed": false,
+        "archived": false
+      },
+      {
+        "id": 398826,
+        "title": "Was ist deine Lieblingsserie",
+        "slug": "was-ist-deine-lieblingsserie",
+        "pinned": false,
+        "closed": false,
+        "archived": false
+      }
+    ]
+  }
+]

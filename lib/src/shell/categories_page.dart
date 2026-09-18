@@ -233,28 +233,38 @@ class _CategoryGrid extends StatelessWidget {
         final start = rowIndex * columns;
         return Padding(
           padding: EdgeInsets.only(top: rowIndex == 0 ? 0 : gap),
-          child: IntrinsicHeight(
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                for (var column = 0; column < columns; column++) ...[
-                  if (column > 0) SizedBox(width: gap),
-                  SizedBox(
-                    width: cardWidth,
-                    child: start + column < categoryIds.length
-                        ? _CategoryCardSlot(
-                            key: ValueKey(
-                              'category-card-${categoryIds[start + column]}',
-                            ),
-                            siteUrl: siteUrl,
-                            categoryId: categoryIds[start + column],
-                          )
-                        : null,
+          // Only peer cards need an intrinsic pass to equalize row heights.
+          child: columns == 1
+              ? SizedBox(
+                  width: cardWidth,
+                  child: _CategoryCardSlot(
+                    key: ValueKey('category-card-${categoryIds[start]}'),
+                    siteUrl: siteUrl,
+                    categoryId: categoryIds[start],
                   ),
-                ],
-              ],
-            ),
-          ),
+                )
+              : IntrinsicHeight(
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      for (var column = 0; column < columns; column++) ...[
+                        if (column > 0) SizedBox(width: gap),
+                        SizedBox(
+                          width: cardWidth,
+                          child: start + column < categoryIds.length
+                              ? _CategoryCardSlot(
+                                  key: ValueKey(
+                                    'category-card-${categoryIds[start + column]}',
+                                  ),
+                                  siteUrl: siteUrl,
+                                  categoryId: categoryIds[start + column],
+                                )
+                              : null,
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
         );
       },
     );

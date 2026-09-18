@@ -360,7 +360,7 @@ void main() {
         final controller = await _loadCategories(api);
         final semantics = tester.ensureSemantics();
         try {
-          await _pumpPage(tester, controller);
+          await _pumpPage(tester, controller, width: 390);
 
           final topic = _featuredTopic(101);
           expect(tester.getSize(topic).height, greaterThanOrEqualTo(44));
