@@ -2510,6 +2510,9 @@ class _RetainedChatMessage extends StatefulWidget {
 class _RetainedChatMessageState extends State<_RetainedChatMessage>
     with AutomaticKeepAliveClientMixin {
   bool _retained = true;
+  // Newly built rows are visible (the sliver does not prefetch). Keep their
+  // animations active until the post-layout visible range says otherwise.
+  bool _visible = true;
   // Cached sliver children remain mounted but may rebuild without layout.
   // They must stay out of keyboard traversal until visible and laid out.
   final _focus = FocusNode(
@@ -2528,6 +2531,8 @@ class _RetainedChatMessageState extends State<_RetainedChatMessage>
 
   void setVisible(bool visible) {
     _focus.descendantsAreFocusable = visible;
+    if (_visible == visible) return;
+    setState(() => _visible = visible);
   }
 
   void release() {
@@ -2562,7 +2567,10 @@ class _RetainedChatMessageState extends State<_RetainedChatMessage>
     return Focus.withExternalFocusNode(
       focusNode: _focus,
       includeSemantics: false,
-      child: widget.child,
+      // Retention preserves row state for reversals, not animation work.
+      // Reuse the child so visibility transitions only update this boundary
+      // and descendants that actually depend on TickerMode (including Image).
+      child: TickerMode(enabled: _visible, child: widget.child),
     );
   }
 }
