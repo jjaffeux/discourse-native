@@ -19312,5 +19312,21 @@
     "gateUnitTests": 4,
     "gatedInstrumentedBuild": "passed",
     "nativeRun": "Seven complete launches; four matched-process cohorts accepted, two excluded for semantics mismatch, one unpaired. Two further launches rejected by gates with zero samples."
+  },
+  "upstreamRegression": {
+    "repository": "https://github.com/daohoangson/flutter_widget_from_html",
+    "revision": "33d2db32a1e882a632891b40a48a5c1e4d01a8d2",
+    "coreVersion": "0.17.4",
+    "textNormalizationMatchesVendoredBaseline": true,
+    "testFilesSha256": {
+      "selection_test.dart": "38a80c0bab54ab98ea0c7bef20fef921e6b76c5706aa8227bbbabb236ab60910",
+      "_.dart": "ad3110abc5b7f6b3fa2096e72ad84d5435a3161de155f653b1dbd630f74fc2da",
+      "_constants.dart": "cc24b8f423c53152b0475f1201097a25a3a5fd42058dd2a7f7a14e48533ddc91",
+      "core_test.dart": "27826ac8526b2d955e710b00a80e40ac7251204bb957a7ff07781a4cfbb25902"
+    },
+    "passed": 183,
+    "command": "flutter test --no-pub --test-randomize-ordering-seed=391616 test/core_test.dart test/selection_test.dart",
+    "mode": "Flutter test debug",
+    "dependency": "actual patched vendored package via absolute path; application dependencies unchanged"
   }
 }

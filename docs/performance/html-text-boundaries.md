@@ -165,6 +165,15 @@ ungated boundary bundle must not be used for acceptance.
 - 125 focused application tests passed with seed `391616`, including cooked
   markup, plugin/theme updates, details/tables/quotes, selection and formatted
   quote behavior, progressive geometry, disposal and edits.
+- 183 untouched upstream core/selection tests passed against the patched vendor
+  through a standalone temporary test package, with seed `391616`. Sources are
+  pinned to upstream core 0.17.4 at
+  [33d2db32](https://github.com/daohoangson/flutter_widget_from_html/tree/33d2db32a1e882a632891b40a48a5c1e4d01a8d2/packages/core/test):
+  `core_test.dart`, `selection_test.dart`, `_.dart` and `_constants.dart`.
+  Their checks include existing whitespace, `pre`, `nowrap`, line breaks and
+  selection behavior. The upstream `_addText` method was verified byte-for-byte
+  equal to this repository's pre-change method. File SHA-256 values are retained
+  in the measurement JSON; no upstream assertions or app dependencies changed.
 - Four foreground-gate tests passed: startup timeout/resume, per-capture
   requirements, prompt rejection of a stalled capture, and persistent invalidity
   when foreground is lost then restored.
