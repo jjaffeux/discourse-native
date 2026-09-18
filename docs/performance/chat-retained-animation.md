@@ -29,7 +29,8 @@ assertion before the production fix.
 
 `tool/chat_retained_animation_profile_main.dart` runs the same production
 fixture natively in profile mode. Each idle sample lasts three seconds after
-a one-second grace period. It records existing completers' `hasListeners`,
+a one-second grace period, following a ten-second activation warmup. A held
+semantics handle enables semantics consistently in both variants. It records existing completers' `hasListeners`,
 delivered image-frame identity changes, scheduler frames, UI frame count and
 aggregate UI build time. Timing samples use exact `Timeline.now` start/end
 bounds, wait 1100 ms for batched timing delivery, and retain only frames whose
@@ -44,9 +45,12 @@ at every phase's start, so initial observations and scrolling/grace-period
 changes are not counted. At both sample endpoints it rejects a phase unless all
 three original rows/images are mounted and visible, mounted and retained, or
 fully evicted as appropriate. Re-entry therefore requires the original elements.
-The observer adds no image listeners and schedules no frames itself. It tracks the original visible rows through retention, re-entry
+The observer adds no image listeners and schedules no frames itself. It tracks
+the original visible rows through retention, re-entry
 and eviction. It waits for a resumed app lifecycle before starting and marks
-a sample invalid if a lifecycle observer sees the app leave the foreground.
+a sample invalid if a lifecycle observer sees the app leave the foreground
+during sampling or the timing drain. Semantics changes and viewport geometry
+changes invalidate the sample as well.
 Image identity observations are delivered frames, not direct
 codec-call instrumentation; an already in-flight decode may finish when the
 last listener is removed.
@@ -80,18 +84,49 @@ Verification completed:
   removed; required debug capabilities were preserved. Static signature
   verification alone does not establish successful native execution.
 
-Native comparison remains unaccepted. The desktop was initially locked. After
-unlock on 2026-09-18, the coordinator granted an activation diagnostic slot.
-The baseline bundle launched through normal LaunchServices (`open -n -a`,
-without background flags), with output and its run label passed through the
-supported `--stdout`, `--stderr`, and `--env` options. CUA inspected the actual
-production chat window showing messages 98–100 and three Pause GIF controls,
-and invoked the window's exposed Raise action. Nevertheless, the collector's
-60-second foreground gate ended with `CHAT_ANIMATION invalid: app did not
-enter resumed lifecycle`. No timing JSON was accepted and the after bundle was
-not launched. The remaining fixture process was stopped and the desktop lease
-released. No lifecycle override was applied. Native timing improvement is not
-claimed, and no merge has been performed.
+## Accepted native comparison
+
+The repeated baseline–after–after–baseline sequence ran on macOS 26.6.2 / arm64
+on 2026-09-18 under the exclusive profiling and desktop lease, after both builds
+completed. Each app was launched through LaunchServices, selected by its exact
+bundle path in CUA, and activated by clicking the observed window container.
+No lifecycle state was injected or overridden. All 16 phase samples passed
+foreground-through-drain, semantics, exact target, retained/visible/evicted,
+and stable viewport geometry checks. All fixture processes exited and the
+lease was released before other tasks resumed heavy work.
+
+The complete selected frame arrays, phase endpoint states, collector hash,
+source revisions, and rejected exploratory samples are preserved in
+[chat-retained-animation.json](chat-retained-animation.json).
+
+Each cell below is **image listeners / delivered image changes / UI frames**
+for a three-second sample. Scheduler-frame counts equal the UI-frame counts.
+
+| Phase | Baseline 1 | After 1 | After 2 | Baseline 2 |
+| --- | --- | --- | --- | --- |
+| Visible | 3 / 84 / 56 | 3 / 84 / 56 | 3 / 84 / 56 | 3 / 84 / 56 |
+| Retained offscreen | 3 / 84 / 97 | 0 / 0 / 0 | 0 / 0 / 0 | 3 / 84 / 56 |
+| Re-entered | 3 / 81 / 54 | 3 / 81 / 108 | 3 / 81 / 60 | 3 / 84 / 56 |
+| Evicted | 0 / 0 / 0 | 0 / 0 / 0 | 0 / 0 / 0 | 0 / 0 / 0 |
+
+The accepted improvement is elimination of sustained animation work in retained
+offscreen rows while keeping the original three row/image elements mounted.
+Baseline retained UI build totals were 25,046 and 12,989 microseconds over each
+three-second interval; both after intervals had zero UI frames/build work.
+Visible image delivery was unchanged. Re-entry resumed image delivery, but
+scheduler/UI frame counts varied and the first after run had more re-entry
+frames than baseline. This is not a claim of general frame-rate, per-frame
+latency, or re-entry performance improvement. Snapshot `hasScheduledFrame`
+values alone do not establish idleness: the baseline's animation timers could
+schedule later frames even when that instantaneous value was false.
+
+Earlier activation attempts failed the strict resumed gate despite a visible
+window and Raise action; no samples from them were accepted. The first
+exploratory pair after container-click activation is also excluded: its
+collector did not record semantics through drain, and its after-visible sample
+failed foreground validity. Those exploratory raw samples are retained with
+rejection reasons in the JSON. The collector was corrected and both variants
+rebuilt before the accepted sequence above.
 
 ## Scope and limits
 

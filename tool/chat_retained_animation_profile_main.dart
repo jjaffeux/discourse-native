@@ -17,6 +17,7 @@ import '../test/support/chat_scroll_fixture.dart';
 
 Future<void> main() async {
   final binding = WidgetsFlutterBinding.ensureInitialized();
+  final semanticsHandle = binding.ensureSemantics();
   MacOSLaunchScreen.dismissAfterFirstFlutterFrame();
   final controller = await chatScrollController(
     count: 100,
@@ -41,7 +42,7 @@ Future<void> main() async {
     }
     await Future<void>.delayed(const Duration(milliseconds: 100));
   }
-  await Future<void>.delayed(const Duration(seconds: 3));
+  await Future<void>.delayed(const Duration(seconds: 10));
   final rows = <Element>[];
   ScrollableState? scrollable;
   void visit(Element element) {
@@ -95,7 +96,7 @@ Future<void> main() async {
       'Expected multi-frame image completers for the three GIFs',
     );
   }
-  Map<String, int> phaseState(String phase) {
+  Map<String, num> phaseState(String phase) {
     var keptAlive = 0;
     var visible = 0;
     final viewport = scrollable!.context.findRenderObject()! as RenderBox;
@@ -129,6 +130,10 @@ Future<void> main() async {
       'mountedImages': trackedImages.where((e) => e.mounted).length,
       'keptAliveRows': keptAlive,
       'visibleRows': visible,
+      'viewportWidth': viewportRect.width,
+      'viewportHeight': viewportRect.height,
+      'devicePixelRatio':
+          binding.platformDispatcher.views.first.devicePixelRatio,
     };
     final expectedMounted = phase == 'evicted' ? 0 : 3;
     final expectedKeptAlive = phase == 'retained' ? 3 : 0;
@@ -178,6 +183,11 @@ Future<void> main() async {
   Future<void> measure(String phase) async {
     await Future<void>.delayed(const Duration(seconds: 1));
     final startState = phaseState(phase);
+    final semanticsStart = binding.semanticsEnabled;
+    if (!semanticsStart) throw StateError('Expected semantics enabled');
+    var semanticsChanged = false;
+    void onSemanticsChanged() => semanticsChanged = true;
+    binding.addSemanticsEnabledListener(onSemanticsChanged);
     foreground.lost = binding.lifecycleState != AppLifecycleState.resumed;
     // Reset to the actual frame displayed at this phase's start. Work during
     // scrolling/grace and the first observation must not count as idle changes.
@@ -199,8 +209,7 @@ Future<void> main() async {
     final endUs = developer.Timeline.now;
     sampling = false;
     final endState = phaseState(phase);
-    final foregroundValid = !foreground.lost;
-    final lifecycle = binding.lifecycleState?.name;
+
     final transientCallbacks = binding.transientCallbackCount;
     final hasScheduledFrame = binding.hasScheduledFrame;
     // This isolated collector reads diagnostic state without adding listeners.
@@ -210,6 +219,16 @@ Future<void> main() async {
     // measurement, then select only frames whose vsync started inside it.
     await Future<void>.delayed(const Duration(milliseconds: 1100));
     binding.removeTimingsCallback(onTimings);
+    binding.removeSemanticsEnabledListener(onSemanticsChanged);
+    final foregroundValid = !foreground.lost;
+    final lifecycle = binding.lifecycleState?.name;
+    final drainState = phaseState(phase);
+    final geometryStable = startState.keys.every(
+      (key) =>
+          startState[key] == endState[key] &&
+          startState[key] == drainState[key],
+    );
+    final semanticsEnd = binding.semanticsEnabled;
     final selected = timings.where((frame) {
       final vsyncUs = frame.timestampInMicroseconds(ui.FramePhase.vsyncStart);
       return vsyncUs >= startUs && vsyncUs < endUs;
@@ -218,6 +237,12 @@ Future<void> main() async {
       'phase': phase,
       'foregroundValid': foregroundValid,
       'lifecycle': lifecycle,
+      'semanticsStart': semanticsStart,
+      'semanticsEnd': semanticsEnd,
+      'semanticsStable': !semanticsChanged,
+      'geometryStable': geometryStable,
+      'drainState': drainState,
+      'messageIds': [98, 99, 100],
       'startUs': startUs,
       'endUs': endUs,
       'durationUs': endUs - startUs,
@@ -266,6 +291,7 @@ Future<void> main() async {
   }
   runApp(const SizedBox.shrink());
   await binding.endOfFrame;
+  semanticsHandle.dispose();
   await diagnostics.close();
   controller.dispose();
   exit(0);
