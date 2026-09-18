@@ -313,11 +313,7 @@ class TopicFeedMenu extends StatelessWidget {
       TopicListMode.newReplies => 'Replies',
       _ => value.isTop ? value.topPeriod!.label : label(value),
     };
-    Widget item(
-      TopicListMode value,
-      String description, {
-      int count = 0,
-    }) => DDropdownMenuItem(
+    Widget item(TopicListMode value, {int count = 0}) => DDropdownMenuItem(
       key: ValueKey(
         value.isTop
             ? 'topic-list-top-period-${value.topPeriod!.queryValue}'
@@ -344,20 +340,7 @@ class TopicFeedMenu extends StatelessWidget {
           ],
         ],
       ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(itemLabel(value)),
-          if (description.isNotEmpty)
-            Text(
-              description,
-              style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                color: DTokens.of(context).mutedForeground,
-              ),
-            ),
-        ],
-      ),
+      child: Text(itemLabel(value)),
     );
     final count = mode == TopicListMode.unread
         ? unreadCount
@@ -373,31 +356,23 @@ class TopicFeedMenu extends StatelessWidget {
         width: 304,
         semanticLabel: 'Choose topic feed',
         children: [
-          item(TopicListMode.latest, 'Recently active conversations'),
+          item(TopicListMode.latest),
           if (signedIn) ...[
-            item(
-              TopicListMode.unread,
-              'Replies in conversations you follow',
-              count: unreadCount,
-            ),
+            item(TopicListMode.unread, count: unreadCount),
             if (unifiedNew) ...[
               const DDropdownMenuLabel(child: Text('New')),
               DDropdownMenuGroup(
                 showGuide: true,
                 semanticLabel: 'New activity',
                 children: [
-                  item(TopicListMode.newActivity, '', count: newCount),
-                  item(TopicListMode.newTopics, '', count: topicCount),
-                  item(TopicListMode.newReplies, '', count: replyCount),
+                  item(TopicListMode.newActivity, count: newCount),
+                  item(TopicListMode.newTopics, count: topicCount),
+                  item(TopicListMode.newReplies, count: replyCount),
                 ],
               ),
             ] else
-              item(
-                TopicListMode.newActivity,
-                'New topics and replies',
-                count: newCount,
-              ),
-            item(TopicListMode.unseen, 'Topics you haven’t visited'),
+              item(TopicListMode.newActivity, count: newCount),
+            item(TopicListMode.unseen),
           ],
           const DDropdownMenuLabel(child: Text('Top')),
           DDropdownMenuGroup(
@@ -412,10 +387,10 @@ class TopicFeedMenu extends StatelessWidget {
                 TopPeriod.daily,
                 TopPeriod.all,
               ])
-                item(TopicListMode.top(period), ''),
+                item(TopicListMode.top(period)),
             ],
           ),
-          item(TopicListMode.popular, 'Conversations gaining momentum'),
+          item(TopicListMode.popular),
         ],
       ),
       child: DDropdownMenuTrigger(
