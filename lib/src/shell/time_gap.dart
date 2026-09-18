@@ -31,7 +31,7 @@ class TimeGapNotice extends StatelessWidget {
     return SizedBox(
       height: height,
       child: Padding(
-        padding: const EdgeInsets.only(left: 58, right: 16),
+        padding: const EdgeInsets.symmetric(horizontal: 16),
         child: Align(
           alignment: Alignment.centerLeft,
           child: Text(
