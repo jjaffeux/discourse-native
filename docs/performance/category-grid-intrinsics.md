@@ -1,6 +1,6 @@
 # Category grid intrinsic-layout audit
 
-**Status: native improvement verified; awaiting merge.**
+**Status: merged into main as `91992007`.**
 
 The candidate change is limited to single-column category grids. Each row
 previously used `IntrinsicHeight` plus a stretching `Row`, even when it contained
@@ -193,3 +193,16 @@ app lifecycle was not resumed (`null`); the computer-use tool reported a locked
 Mac. That fixture was stopped and its lease released. Later guard revisions
 added sticky lifecycle/metrics/semantics validation and explicit activation.
 Only the V2 guarded captures described above support native acceptance.
+
+## Main integration
+
+Candidate tip `ff8f6ec4` was merged with `--no-ff` from the main checkout at
+`/Users/joffreyjaffeux/Code/discourse-native` as
+`919920070e549f747d688da9d4ad50235f38cdcb`. Prior main tip `76013e02` remains
+an ancestor, preserving the previously integrated performance fixes.
+
+On the combined main result, all 13 tests in `categories_page_test.dart` and
+`category_grid_geometry_test.dart` passed. Targeted analysis of the production
+page, those tests, the trace test, fixture helper and native harness found no
+issues. No push was performed. Native evidence remains the guarded paired
+captures above; combined-main validation does not imply a new native capture.
