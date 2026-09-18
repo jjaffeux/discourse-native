@@ -88,8 +88,13 @@ LONG_POST_VARIETY=true LONG_POST_EXIT=true flutter run --profile -d macos \
   -t tool/long_post_render_profile_main.dart
 ```
 
-Omit `LONG_POST_VARIETY` for the original plain fixture. The harness also records
-semantics state, physical viewport and DPR. Do not interpret its ancillary frame
+Omit `LONG_POST_VARIETY` for the original plain fixture. The harness now waits up to 20 seconds for `AppLifecycleState.resumed` before
+startup. Every capture independently requires resumed; any non-resumed event
+invalidates the entire sample, even if the app resumes before completion. The
+loss races pending frame futures, so a stalled backgrounded capture aborts
+immediately. Invalid runs print `LONG_POST_RENDER_INVALID` and exit with code 2;
+no sample is emitted until the gate validates completion. The harness also records
+semantics state, physical viewport, DPR and successful foreground validation. Do not interpret its ancillary frame
 arrays as proof of smoother scrolling.
 
 For the exact remaining comparison, apply
@@ -105,7 +110,10 @@ unpatched source afterward; no probe or runtime bypass belongs in shipping code.
 Native captures and main integration must be serialized through the parent audit
 and the desktop/main leases. Do not launch while the Mac remains locked. A ready
 instrumented bundle was retained locally as
-`/tmp/html-conversion-boundary-0694.app`; it is not a repository artifact.
+`/tmp/html-conversion-boundary-gated-0694.app`; it is not a repository artifact.
+The gated driver is `/tmp/run-html-conversion-boundary-gated-0694.py`. It rejects
+runs without 12 foreground-validated samples or a successful exit. The earlier
+ungated boundary bundle must not be used for acceptance.
 
 ## Verification so far
 
@@ -118,12 +126,16 @@ instrumented bundle was retained locally as
 - 125 focused application tests passed with seed `391616`, including cooked
   markup, plugin/theme updates, details/tables/quotes, selection and formatted
   quote behavior, progressive geometry, disposal and edits.
+- Four foreground-gate tests passed: startup timeout/resume, per-capture
+  requirements, prompt rejection of a stalled capture, and persistent invalidity
+  when foreground is lost then restored.
 - All 11 vendored-package tests passed. Root static analysis and analysis of the
   changed vendor files passed. Full vendor analysis reports two pre-existing
   diagnostics in unchanged `default_styles_rendering_test.dart` (nullable access
   and control-body formatting); no unrelated repair is included.
 - Formatting, `git diff --check`, optional patch applicability, all three archive
-  provenance contracts and the final probe-free macOS profile build passed.
+  provenance contracts, the probe-free candidate macOS profile build and the
+  gated instrumented acceptance build passed.
 
 No fresh native accessibility or visual check was performed. Native
 before/after evidence for this boundary candidate, final acceptance and a

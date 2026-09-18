@@ -220,73 +220,38 @@
 +import 'package:flutter_widget_from_html_core/src/internal/conversion_probe.dart';
 +
  import 'long_post_fixture.dart';
+ import 'profile_foreground_gate.dart';
  
- final _body = ValueNotifier<Widget>(const SizedBox.shrink());
-@@ -24,6 +27,7 @@
- final _frames = <ui.FrameTiming>[];
+@@ -36,6 +39,7 @@
+ }
  
- Future<void> main() async {
+ Future<void> _runProfile() async {
 +  ConversionProbe.optimized = Platform.environment['LONG_POST_OPTIMIZED'] == 'true';
    final binding = WidgetsFlutterBinding.ensureInitialized();
-   MacOSLaunchScreen.dismissAfterFirstFlutterFrame();
-   binding.addTimingsCallback(_frames.addAll);
-@@ -60,16 +64,15 @@
-       await Future<void>.delayed(const Duration(milliseconds: 200));
-       _frames.clear();
-       _layouts.clear();
-+      ConversionProbe.reset();
-       final start = developer.Timeline.now;
--      final html = Platform.environment['LONG_POST_VARIETY'] == 'true'
--          ? variedLongPostHtml()
--          : List.generate(
--              450,
--              (i) =>
--                  '<p>Paragraph $i: This local paragraph '
--                  'exercises the production HTML renderer with variable post heights. '
--                  'Scrolling through a long discussion should remain responsive.</p>',
--            ).join();
-+      final html = Platform.environment['LONG_POST_VARIETY'] == 'true' ? variedLongPostHtml() : List.generate(
-+        450,
-+        (i) =>
-+            '<p>Paragraph $i: This local paragraph '
-+            'exercises the production HTML renderer with variable post heights. '
-+            'Scrolling through a long discussion should remain responsive.</p>',
-+      ).join();
-       Future<void>? mounting;
-       final cooked = CookedHtml(
-         html: html,
-@@ -137,6 +140,7 @@
-           )
-           .toList();
-       final coldLayouts = List.of(_layouts);
-+      final coldProbe = ConversionProbe.snapshot();
-       _frames.clear();
-       _layouts.clear();
-       for (var i = 0; i < 60; i++) {
-@@ -145,16 +149,12 @@
-       }
-       await Future<void>.delayed(const Duration(milliseconds: 150));
-       final result = <String, Object?>{
--        'fixture': Platform.environment['LONG_POST_VARIETY'] == 'true'
--            ? 'varied'
--            : 'plain',
-+        'probe': coldProbe,
-+        'variant': ConversionProbe.optimized ? 'ascii-boundaries' : 'baseline',
-         'semanticsEnabled': binding.platformDispatcher.semanticsEnabled,
--        'devicePixelRatio':
--            binding.platformDispatcher.views.first.devicePixelRatio,
--        'physicalWidth':
--            binding.platformDispatcher.views.first.physicalSize.width,
--        'physicalHeight':
--            binding.platformDispatcher.views.first.physicalSize.height,
-+        'devicePixelRatio': binding.platformDispatcher.views.first.devicePixelRatio,
-+        'physicalWidth': binding.platformDispatcher.views.first.physicalSize.width,
-+        'physicalHeight': binding.platformDispatcher.views.first.physicalSize.height,
-         'run': run,
-         'mode': mode == RenderMode.column
-             ? 'column'
-@@ -247,3 +247,4 @@
-     _layouts.add(timer.elapsedMicroseconds);
-   }
- }
-+
+   final foreground = ProfileForegroundGate();
+   try {
+@@ -76,6 +80,7 @@
+           await Future<void>.delayed(const Duration(milliseconds: 200));
+           _frames.clear();
+           _layouts.clear();
++          ConversionProbe.reset();
+           final start = developer.Timeline.now;
+           final html = Platform.environment['LONG_POST_VARIETY'] == 'true'
+               ? variedLongPostHtml()
+@@ -159,6 +164,7 @@
+               )
+               .toList();
+           final coldLayouts = List.of(_layouts);
++          final coldProbe = ConversionProbe.snapshot();
+           _frames.clear();
+           _layouts.clear();
+           for (var i = 0; i < 60; i++) {
+@@ -167,6 +173,8 @@
+           }
+           await Future<void>.delayed(const Duration(milliseconds: 150));
+           final result = <String, Object?>{
++            'probe': coldProbe,
++            'variant': ConversionProbe.optimized ? 'ascii-boundaries' : 'baseline',
+             'foregroundValidated': true,
+             'lifecycleStart': AppLifecycleState.resumed.name,
+             'lifecycleEnd': AppLifecycleState.resumed.name,

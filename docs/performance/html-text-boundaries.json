@@ -5153,5 +5153,13 @@
       }
     ]
   },
-  "boundaryCandidateNative": null
+  "boundaryCandidateNative": null,
+  "boundaryCandidateCollection": {
+    "startupRequires": "AppLifecycleState.resumed within 20 seconds",
+    "perCaptureRequires": "resumed before start and no non-resumed event through completion",
+    "lossPolicy": "latch invalidity and reject immediately, including stalled frame futures; exit 2, no sample emitted",
+    "gateUnitTests": 4,
+    "gatedInstrumentedBuild": "passed",
+    "nativeRun": "not launched; still blocked on unlock"
+  }
 }
