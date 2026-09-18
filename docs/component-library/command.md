@@ -64,3 +64,18 @@ Native CUA inspected the exact isolated `f0ae622b` bundle. Literal AZERTY-safe t
 Eighty-six randomized affected tests passed after latest-main reconciliation with seed `927417`, including Command, Dialog, DInput, narrow 200% RTL examples and the production group-member adapter. Root and full-profile analysis passed with no diagnostics; the affected topic hover/viewport regression passed independently. Exact hashes and bundle identity are recorded in `progress.json`.
 
 No spoken VoiceOver or iOS/Linux device run is claimed. macOS accessibility exposed named editors, results, enabled/disabled actions and live status text. Touch behavior, Ctrl-N/J/P/K and IME-composing preservation are covered by focused widget tests; the AZERTY host's CUA Ctrl-key injection did not provide a visible native signal.
+
+## External editor keyboard routing
+
+`DCommandController.handleKeyEvent(event, isComposing: ...)` lets an external
+editor keep focus while the Command component owns highlight, navigation,
+scrolling and activation. A detached controller ignores events. Forward keys
+before the editor's editing/submission shortcuts; pass the editor's composing
+state so IME input retains ownership. The existing Command input uses the same
+handler. Applications retain responsibility for deciding which modified
+shortcuts belong to their editor.
+
+The topic and chat slash-menu adapter composes `DDropdownMenu` with
+`autofocus: false`, `DCommand`, groups and a scrollable list. It forwards editor
+keys through this API, filters from the slash query, and executes the existing
+composer actions after removing the query. See `docs/composer-slash-menu.md`.
