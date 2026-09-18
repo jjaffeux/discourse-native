@@ -44,7 +44,7 @@ void main() {
       await h.shell.appSettings.setTopicListMode(TopicListDisplayMode.compact);
       await tester.pumpAndSettle();
       final listState = tester.state(_allLists);
-      expect(find.byKey(const ValueKey('topic-compact-1')), findsOneWidget);
+      expect(find.byKey(const ValueKey('topic-card-1')), findsOneWidget);
       final previous = find.byKey(const ValueKey('inbox-previous-topic'));
       final next = find.byKey(const ValueKey('inbox-next-topic'));
       expect(previous, findsNothing);
@@ -55,7 +55,7 @@ void main() {
       expect(previous, findsOneWidget);
       expect(next, findsOneWidget);
       expect(find.byKey(const ValueKey('topic-card-1')), findsOneWidget);
-      expect(find.byType(DCardFooter), findsWidgets);
+      expect(find.byType(DCardFooter), findsNothing);
       expect(
         find.byKey(const ValueKey('compact-topic-list-header')),
         findsNothing,
@@ -65,16 +65,8 @@ void main() {
 
       await tester.tap(find.byKey(const ValueKey('topic-list-display')));
       await tester.pumpAndSettle();
-      final cardChoice = tester.widget<DDropdownMenuCheckboxItem>(
-        find.byKey(const ValueKey('topic-display-card')),
-      );
-      final compactChoice = tester.widget<DDropdownMenuCheckboxItem>(
-        find.byKey(const ValueKey('topic-display-compact')),
-      );
-      expect(cardChoice.checked, isTrue);
-      expect(compactChoice.checked, isFalse);
-      expect(compactChoice.onChanged, isNull);
-      expect(cardChoice.onChanged, isNull);
+      expect(find.byKey(const ValueKey('topic-display-card')), findsNothing);
+      expect(find.byKey(const ValueKey('topic-display-compact')), findsNothing);
       await tester.sendKeyEvent(LogicalKeyboardKey.escape);
       await tester.pumpAndSettle();
 
@@ -84,7 +76,7 @@ void main() {
       presentation.select(TopicPresentation.sheet);
       await tester.pumpAndSettle();
       expect(
-        find.byKey(const ValueKey('topic-compact-1'), skipOffstage: false),
+        find.byKey(const ValueKey('topic-card-1'), skipOffstage: false),
         findsOneWidget,
       );
       expect(h.shell.appSettings.topicListMode, TopicListDisplayMode.compact);
@@ -97,7 +89,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(previous, findsNothing);
       expect(next, findsNothing);
-      expect(find.byKey(const ValueKey('topic-compact-1')), findsOneWidget);
+      expect(find.byKey(const ValueKey('topic-card-1')), findsOneWidget);
       expect(h.shell.appSettings.topicListMode, TopicListDisplayMode.compact);
       expect(tester.state(_allLists), same(listState));
       expect(tester.takeException(), isNull);

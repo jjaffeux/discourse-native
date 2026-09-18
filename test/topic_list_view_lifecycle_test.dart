@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:ui' as ui;
 
 import 'package:discourse_native/discourse_ui.dart'
-    show DButton, DSpinner, DCard, DPullToRefresh, DEmpty, DTable;
+    show DButton, DSpinner, DItem, DPullToRefresh, DEmpty, DSeparator;
 import 'package:discourse_native/src/data/discourse_api_contracts.dart';
 import 'package:discourse_native/src/data/store.dart';
 import 'package:discourse_native/src/models/app_settings.dart';
@@ -86,16 +86,7 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(find.text('Updated topic'), findsOneWidget);
-      expect(
-        find.byKey(
-          ValueKey(
-            mode == TopicListDisplayMode.card
-                ? 'topic-compact-1'
-                : 'topic-card-1',
-          ),
-        ),
-        findsOneWidget,
-      );
+      expect(find.byKey(const ValueKey('topic-card-1')), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
   }
@@ -195,49 +186,46 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('table headings remain fixed without a divider while scrolling', (
-    tester,
-  ) async {
-    final api = _ControlledPagingApi();
-    final controller = await _controlledShell(api, sites.first);
-    addTearDown(controller.dispose);
-    await controller.appSettings.setTopicListMode(TopicListDisplayMode.compact);
-    api.requests.single.response.complete(TopicList(topics: _topics(1, 40)));
-    await tester.pumpWidget(_LiveTestList(controller: controller));
-    await tester.pumpAndSettle();
-
-    final separator = find.byKey(const ValueKey('topic-list-header-separator'));
-    final header = find.byKey(const ValueKey('compact-topic-list-header'));
-    void expectNoTableDivider() {
-      expect(separator, findsNothing);
-      expect(
-        find.byKey(const ValueKey('topic-list-scroll-separator')),
-        findsNothing,
+  testWidgets(
+    'full-width rows retain separators without table headings while scrolling',
+    (tester) async {
+      final api = _ControlledPagingApi();
+      final controller = await _controlledShell(api, sites.first);
+      addTearDown(controller.dispose);
+      await controller.appSettings.setTopicListMode(
+        TopicListDisplayMode.compact,
       );
-      expect(
-        tester
-            .widget<DTable>(
-              find.byKey(const ValueKey('compact-topic-list-header')),
-            )
-            .borderColor,
-        Colors.transparent,
+      api.requests.single.response.complete(TopicList(topics: _topics(1, 40)));
+      await tester.pumpWidget(_LiveTestList(controller: controller));
+      await tester.pumpAndSettle();
+
+      final separator = find.byKey(
+        const ValueKey('topic-list-header-separator'),
       );
-    }
+      final header = find.byKey(const ValueKey('compact-topic-list-header'));
+      void expectNoTableDivider() {
+        expect(separator, findsNothing);
+        expect(
+          find.byKey(const ValueKey('topic-list-scroll-separator')),
+          findsNothing,
+        );
+        expect(header, findsNothing);
+      }
 
-    expectNoTableDivider();
-    final originalBounds = tester.getRect(header);
-    final scroll = tester
-        .state<ScrollableState>(find.byType(Scrollable))
-        .position;
-    scroll.jumpTo(100);
-    await tester.pumpAndSettle();
+      expectNoTableDivider();
+      final scroll = tester
+          .state<ScrollableState>(find.byType(Scrollable))
+          .position;
+      scroll.jumpTo(100);
+      await tester.pumpAndSettle();
 
-    expectNoTableDivider();
-    expect(tester.getRect(header), originalBounds);
-    scroll.jumpTo(scroll.minScrollExtent);
-    await tester.pumpAndSettle();
-    expectNoTableDivider();
-  });
+      expectNoTableDivider();
+      expect(find.byType(DSeparator), findsWidgets);
+      scroll.jumpTo(scroll.minScrollExtent);
+      await tester.pumpAndSettle();
+      expectNoTableDivider();
+    },
+  );
 
   testWidgets(
     'incoming button keeps its label while loading and reveals updates',
@@ -373,7 +361,7 @@ void main() {
       expect(
         find.descendant(
           of: find.byKey(const ValueKey('topic-list-loading-skeleton')),
-          matching: find.byType(DCard),
+          matching: find.byType(DItem),
         ),
         findsWidgets,
       );
@@ -454,8 +442,8 @@ void main() {
       tester.getSize(contextualRow).width,
       tester.getSize(compactRow).width,
     );
-    expect(find.text('#design'), findsOneWidget);
-    expect(find.text('582'), findsOneWidget);
+    expect(find.text('design'), findsOneWidget);
+    expect(find.text('582 replies'), findsOneWidget);
     expect(find.text('13800'), findsNothing);
     expect(tester.takeException(), isNull);
   });
@@ -501,7 +489,7 @@ void main() {
 
     final topicColumn = find.byKey(const ValueKey('topic-card-7'));
     expect(topicColumn, findsOneWidget);
-    expect(find.text('2'), findsOneWidget);
+    expect(find.text('2 replies'), findsOneWidget);
     expect(tester.getSize(topicColumn).width, lessThanOrEqualTo(390));
     expect(tester.takeException(), isNull);
   });
@@ -548,7 +536,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.text('5'), findsOneWidget);
+      expect(find.text('5 replies'), findsOneWidget);
       expect(find.text('309'), findsNothing);
       expect(tester.takeException(), isNull);
     } finally {

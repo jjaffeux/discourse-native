@@ -27,12 +27,7 @@ class MessageInboxPage extends StatelessWidget {
       ?heading,
       _MessageListNavigation(keepTopicOpen: keepTopicOpen),
       Expanded(
-        child: TopicListView(
-          feed: feed,
-          inbox: true,
-          showHeader: false,
-          forceCard: keepTopicOpen,
-        ),
+        child: TopicListView(feed: feed, inbox: true, showHeader: false),
       ),
     ],
   );

@@ -3,27 +3,22 @@ import 'dart:async';
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
-import '../models/app_settings.dart';
 import '../models/topic_filter.dart';
 import '../models/topic_presentation.dart';
-import '../theme/d_icons.dart';
 import '../theme/d_native_icons.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';
 import 'topic_filter_controller.dart';
 import 'topic_filter_input.dart';
-import 'topic_list_layout.dart';
 import 'topic_presentation.dart';
 
 /// The same list presentation controls are used in every topic source.
 class TopicListActions extends StatelessWidget {
-  const TopicListActions({super.key, this.filter, this.forceCard = false});
-  final bool forceCard;
+  const TopicListActions({super.key, this.filter});
   final Widget? filter;
 
   @override
   Widget build(BuildContext context) {
-    final forceCard = this.forceCard || TopicListLayout.forceCardOf(context);
     final settings = ShellScope.maybeIdentityOf(context)?.appSettings;
     final presentation = TopicPresentationPreferences.maybeControllerOf(
       context,
@@ -42,30 +37,6 @@ class TopicListActions extends StatelessWidget {
               semanticLabel: 'Display topics',
               children: [
                 const DDropdownMenuLabel(child: Text('Display')),
-                for (final mode in [
-                  TopicListDisplayMode.compact,
-                  TopicListDisplayMode.card,
-                ])
-                  DDropdownMenuCheckboxItem(
-                    key: ValueKey('topic-display-${mode.name}'),
-                    checked:
-                        (forceCard
-                            ? TopicListDisplayMode.card
-                            : settings.topicListMode) ==
-                        mode,
-                    onChanged: forceCard
-                        ? null
-                        : (_) => unawaited(settings.setTopicListMode(mode)),
-                    leading: DIcon(
-                      mode == TopicListDisplayMode.compact
-                          ? DIcons.list
-                          : DIcons.layerGroup,
-                    ),
-                    child: Text(
-                      mode == TopicListDisplayMode.compact ? 'Compact' : 'Card',
-                    ),
-                  ),
-                const DDropdownMenuSeparator(),
                 DDropdownMenuCheckboxItem(
                   checked: settings.topicListLargerText,
                   onChanged: (value) =>

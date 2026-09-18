@@ -20,6 +20,15 @@ final itemExamples = ComponentExamples(
       'Dropdown Menu primitives with actual passive xs Items.',
   examples: [
     StyleguideExample(
+      title: 'Full-width rows',
+      description:
+          'Flush rows use a faint accent hover and a stronger selected tint with a leading edge. The edge follows the reading direction.',
+      code:
+          "DItem(shape: DItemShape.fullWidth, selectionStyle: DItemSelectionStyle.leadingAccent, selected: selected, showSelectionIndicator: false, onPressed: select, children: [DItemContent(children: [DItemTitle(child: Text('Topic'))])])",
+      builder: (_) =>
+          const _SelectionExample(style: DItemSelectionStyle.leadingAccent),
+    ),
+    StyleguideExample(
       title: 'Card composition',
       description:
           'Card owns the surface and divided footer. Item owns hover, activation and an outline that follows the card corners.',
@@ -168,6 +177,9 @@ class _SelectionExampleState extends State<_SelectionExample> {
         'Moving heavy query workload to accessible SQL replica',
       ].indexed)
         DItem(
+          shape: widget.style == DItemSelectionStyle.leadingAccent
+              ? DItemShape.fullWidth
+              : DItemShape.standard,
           selected: index == selected,
           selectionStyle: widget.style,
           showSelectionIndicator: false,

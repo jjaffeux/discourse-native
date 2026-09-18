@@ -92,8 +92,8 @@ describe different navigation or assignment layouts.
 | Feed refinements | Unified New scopes/counts; All time, Year, Quarter, Month, Week, Today | `lib/src/models/content_route.dart`, `topic_list_navigation.dart` |
 | Taxonomy filters | Parent category, dependent subcategory, All options, multiple searchable tags | `lib/src/shell/topic_list_filter_bar.dart` |
 | Search/filter input | Search belongs to the app bar; list keeps advanced query entry combined with taxonomy/feed, clear/reset | `lib/src/shell/topic_filter_input.dart`, `lib/src/models/content_route.dart` |
-| Topic rows | Topic title, read/unread styling, unread counts, new-topic/new-reply markers, closed/pinned/bookmarked states | `lib/src/shell/compact_topic_list.dart`, `topic_list_view.dart`, `topic_list_indicators.dart` |
-| Row metadata | Parent/child category links, two tags plus overflow, last author, replies, relative activity | `lib/src/shell/compact_topic_list.dart`, `topic_list_view.dart` |
+| Topic rows | Topic title, read/unread styling, unread counts, new-topic/new-reply markers, closed/pinned/bookmarked states | `lib/src/shell/topic_row_content.dart`, `topic_list_view.dart`, `topic_list_indicators.dart` |
+| Row metadata | Parent/child category links, two tags plus overflow, last author, replies, relative activity | `lib/src/shell/topic_row_content.dart`, `topic_list_view.dart` |
 | Assignments | Optional person/group, full name, topic/post target, extra-assignment disclosure, long-name wrapping | `lib/src/plugins/assign/assignment_topic_list.dart` |
 | Events | Calendar stamp, event schedule label, timed/all-day/range, full schedule and timezone | `lib/src/plugins/discourse_events/event_topic_title.dart` |
 | Creation/drafts | New topic, four recent drafts, all drafts, remaining count, topic/reply/message/voice draft identities | `lib/src/shell/topic_create_button.dart` |

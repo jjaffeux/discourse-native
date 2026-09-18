@@ -1818,7 +1818,7 @@ void _registerTopicReadingTests() {
       await tester.tap(sidebarDestination('Topics'));
       await tester.pumpAndSettle();
 
-      expect(find.text('#design'), findsOneWidget);
+      expect(find.text('design'), findsOneWidget);
       expect(find.textContaining(longName), findsOneWidget);
       expect(find.text('+3'), findsOneWidget);
       expect(
