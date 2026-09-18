@@ -4494,6 +4494,7 @@ class _PostNoticeBanner extends StatelessWidget {
     return DAlert(
       key: ValueKey('post-notice-${post.id}'),
       liveRegion: false,
+      descriptionColor: DTokens.of(context).foreground,
       icon: DIcon(
         notice.type == 'new_user' || notice.type == 'returning_user'
             ? DIcons.hand
