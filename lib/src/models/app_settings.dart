@@ -31,6 +31,7 @@ final class AppSettings {
     this.themeMode = AppThemeMode.system,
     this.topicListLargerText = false,
     this.topicListShowTags = true,
+    this.topicListShowLastPoster = true,
     this.topicListShowAssignments = true,
     this.topicListMode = TopicListDisplayMode.card,
   });
@@ -44,6 +45,7 @@ final class AppSettings {
   final AppThemeMode themeMode;
   final bool topicListLargerText;
   final bool topicListShowTags;
+  final bool topicListShowLastPoster;
   final bool topicListShowAssignments;
   final TopicListDisplayMode topicListMode;
 
@@ -54,6 +56,7 @@ final class AppSettings {
     AppThemeMode? themeMode,
     bool? topicListLargerText,
     bool? topicListShowTags,
+    bool? topicListShowLastPoster,
     bool? topicListShowAssignments,
     TopicListDisplayMode? topicListMode,
   }) => AppSettings(
@@ -63,6 +66,8 @@ final class AppSettings {
     themeMode: themeMode ?? this.themeMode,
     topicListLargerText: topicListLargerText ?? this.topicListLargerText,
     topicListShowTags: topicListShowTags ?? this.topicListShowTags,
+    topicListShowLastPoster:
+        topicListShowLastPoster ?? this.topicListShowLastPoster,
     topicListShowAssignments:
         topicListShowAssignments ?? this.topicListShowAssignments,
     topicListMode: topicListMode ?? this.topicListMode,
@@ -77,6 +82,7 @@ final class AppSettings {
       other.themeMode == themeMode &&
       other.topicListLargerText == topicListLargerText &&
       other.topicListShowTags == topicListShowTags &&
+      other.topicListShowLastPoster == topicListShowLastPoster &&
       other.topicListShowAssignments == topicListShowAssignments &&
       other.topicListMode == topicListMode;
 
@@ -88,6 +94,7 @@ final class AppSettings {
     themeMode,
     topicListLargerText,
     topicListShowTags,
+    topicListShowLastPoster,
     topicListShowAssignments,
     topicListMode,
   );

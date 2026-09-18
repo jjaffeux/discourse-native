@@ -50,6 +50,11 @@ class TopicInboxRow extends StatelessWidget {
       final showTags =
           ShellScope.maybeIdentityOf(context)?.appSettings.topicListShowTags ??
           true;
+      final showLastPoster =
+          ShellScope.maybeIdentityOf(context)
+              ?.appSettings
+              .topicListShowLastPoster ??
+          true;
       final tags = showTags ? topic.tags : const <TopicTag>[];
       final muted = theme.colorScheme.onSurfaceVariant;
       final registry =
@@ -71,7 +76,7 @@ class TopicInboxRow extends StatelessWidget {
       final age = topic.bumpedAt == null ? null : relativeTime(topic.bumpedAt!);
       final preview =
           topic.excerpt ??
-          (topic.lastPosterUsername == null
+          (!showLastPoster || topic.lastPosterUsername == null
               ? null
               : 'Last post by @${topic.lastPosterUsername}');
       Widget replies() => Semantics(
@@ -281,7 +286,8 @@ class TopicInboxRow extends StatelessWidget {
                               else ...[
                                 if (topic.lastPosterUsername
                                     case final username?
-                                    when topic.excerpt == null) ...[
+                                    when showLastPoster &&
+                                        topic.excerpt == null) ...[
                                   DTooltip(
                                     message: '@$username',
                                     child: DAvatar.frame(
@@ -295,7 +301,8 @@ class TopicInboxRow extends StatelessWidget {
                                     ),
                                   ),
                                   const SizedBox(width: 5),
-                                ] else if (preview == null &&
+                                ] else if (showLastPoster &&
+                                    preview == null &&
                                     topic.posterAvatars.isNotEmpty) ...[
                                   for (final avatar in topic.posterAvatars.take(
                                     3,

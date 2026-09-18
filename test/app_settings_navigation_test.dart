@@ -459,7 +459,11 @@ final class _GatedAppSettingsPersistence implements AppSettingsPersistence {
   @override
   Future<bool?> readTopicListShowTags() async => null;
   @override
+  Future<bool?> readTopicListShowLastPoster() async => null;
+  @override
   Future<bool> writeTopicListShowTags(bool value) async => true;
+  @override
+  Future<bool> writeTopicListShowLastPoster(bool value) async => true;
   @override
   Future<bool?> readTopicListShowAssignments() async => null;
   @override

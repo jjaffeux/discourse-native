@@ -23,10 +23,12 @@ abstract interface class AppSettingsPersistence {
 
   Future<bool?> readTopicListLargerText();
   Future<bool?> readTopicListShowTags();
+  Future<bool?> readTopicListShowLastPoster();
   Future<bool?> readTopicListShowAssignments();
 
   Future<bool> writeTopicListLargerText(bool value);
   Future<bool> writeTopicListShowTags(bool value);
+  Future<bool> writeTopicListShowLastPoster(bool value);
   Future<bool> writeTopicListShowAssignments(bool value);
 
   Future<String?> readTopicListMode();
@@ -56,11 +58,22 @@ final class SharedPreferencesAppSettingsPersistence
       (await SharedPreferences.getInstance()).getBool(
         AppSettingsStore.topicListShowTagsKey,
       );
+  @override
+  Future<bool?> readTopicListShowLastPoster() async =>
+      (await SharedPreferences.getInstance()).getBool(
+        AppSettingsStore.topicListShowLastPosterKey,
+      );
 
   @override
   Future<bool> writeTopicListShowTags(bool value) async =>
       (await SharedPreferences.getInstance()).setBool(
         AppSettingsStore.topicListShowTagsKey,
+        value,
+      );
+  @override
+  Future<bool> writeTopicListShowLastPoster(bool value) async =>
+      (await SharedPreferences.getInstance()).setBool(
+        AppSettingsStore.topicListShowLastPosterKey,
         value,
       );
 
@@ -151,6 +164,7 @@ final class MemoryAppSettingsPersistence implements AppSettingsPersistence {
     this.themeMode,
     this.topicListLargerText,
     this.topicListShowTags,
+    this.topicListShowLastPoster,
     this.topicListShowAssignments,
     this.topicListMode,
   });
@@ -161,6 +175,7 @@ final class MemoryAppSettingsPersistence implements AppSettingsPersistence {
   String? themeMode;
   bool? topicListLargerText;
   bool? topicListShowTags;
+  bool? topicListShowLastPoster;
   bool? topicListShowAssignments;
   String? topicListMode;
 
@@ -168,6 +183,8 @@ final class MemoryAppSettingsPersistence implements AppSettingsPersistence {
   Future<bool?> readTopicListLargerText() async => topicListLargerText;
   @override
   Future<bool?> readTopicListShowTags() async => topicListShowTags;
+  @override
+  Future<bool?> readTopicListShowLastPoster() async => topicListShowLastPoster;
   @override
   Future<bool?> readTopicListShowAssignments() async =>
       topicListShowAssignments;
@@ -181,6 +198,12 @@ final class MemoryAppSettingsPersistence implements AppSettingsPersistence {
   @override
   Future<bool> writeTopicListShowTags(bool value) async {
     topicListShowTags = value;
+    return true;
+  }
+
+  @override
+  Future<bool> writeTopicListShowLastPoster(bool value) async {
+    topicListShowLastPoster = value;
     return true;
   }
 
@@ -250,6 +273,8 @@ final class AppSettingsStore {
       'discourse_native.topic_list_larger_text';
   static const String topicListShowTagsKey =
       'discourse_native.topic_list_show_tags';
+  static const String topicListShowLastPosterKey =
+      'discourse_native.topic_list_show_last_poster';
   static const String topicListShowAssignmentsKey =
       'discourse_native.topic_list_show_assignments';
   static const String topicListModeKey = 'discourse_native.topic_list_mode';
@@ -266,6 +291,7 @@ final class AppSettingsStore {
   AppThemeMode? _sessionThemeMode;
   bool? _sessionTopicListLargerText;
   bool? _sessionTopicListShowTags;
+  bool? _sessionTopicListShowLastPoster;
   bool? _sessionTopicListShowAssignments;
   TopicListDisplayMode? _sessionTopicListMode;
   AppSettings? _lastReadSettings;
@@ -277,6 +303,7 @@ final class AppSettingsStore {
       _sessionThemeMode != null ||
       _sessionTopicListLargerText != null ||
       _sessionTopicListShowTags != null ||
+      _sessionTopicListShowLastPoster != null ||
       _sessionTopicListShowAssignments != null ||
       _sessionTopicListMode != null;
 
@@ -291,6 +318,7 @@ final class AppSettingsStore {
         _sessionThemeMode != null &&
         _sessionTopicListLargerText != null &&
         _sessionTopicListShowTags != null &&
+        _sessionTopicListShowLastPoster != null &&
         _sessionTopicListShowAssignments != null &&
         _sessionTopicListMode != null) {
       return _withSessionSettings(AppSettings.defaults);
@@ -316,6 +344,7 @@ final class AppSettingsStore {
     themeMode: _sessionThemeMode,
     topicListLargerText: _sessionTopicListLargerText,
     topicListShowTags: _sessionTopicListShowTags,
+    topicListShowLastPoster: _sessionTopicListShowLastPoster,
     topicListShowAssignments: _sessionTopicListShowAssignments,
     topicListMode: _sessionTopicListMode,
   );
@@ -327,6 +356,7 @@ final class AppSettingsStore {
     var themeMode = AppThemeMode.system;
     var topicListLargerText = false;
     var topicListShowTags = true;
+    var topicListShowLastPoster = true;
     var topicListShowAssignments = true;
     var topicListMode = TopicListDisplayMode.card;
     try {
@@ -393,6 +423,16 @@ final class AppSettingsStore {
       );
     }
     try {
+      topicListShowLastPoster =
+          await _persistence.readTopicListShowLastPoster() ?? true;
+    } catch (error, stackTrace) {
+      reportStorageFailure(
+        error,
+        stackTrace,
+        'appSettings.readTopicListShowLastPoster',
+      );
+    }
+    try {
       topicListShowAssignments =
           await _persistence.readTopicListShowAssignments() ?? true;
     } catch (error, stackTrace) {
@@ -409,6 +449,7 @@ final class AppSettingsStore {
       themeMode: themeMode,
       topicListLargerText: topicListLargerText,
       topicListShowTags: topicListShowTags,
+      topicListShowLastPoster: topicListShowLastPoster,
       topicListShowAssignments: topicListShowAssignments,
       topicListMode: topicListMode,
     );
@@ -421,6 +462,7 @@ final class AppSettingsStore {
     themeMode: settings.themeMode,
     topicListLargerText: settings.topicListLargerText,
     topicListShowTags: settings.topicListShowTags,
+    topicListShowLastPoster: settings.topicListShowLastPoster,
     topicListShowAssignments: settings.topicListShowAssignments,
     topicListMode: settings.topicListMode,
   );
@@ -434,6 +476,7 @@ final class AppSettingsStore {
     AppThemeMode? themeMode,
     bool? topicListLargerText,
     bool? topicListShowTags,
+    bool? topicListShowLastPoster,
     bool? topicListShowAssignments,
     TopicListDisplayMode? topicListMode,
   }) {
@@ -445,6 +488,8 @@ final class AppSettingsStore {
     _sessionTopicListLargerText =
         topicListLargerText ?? _sessionTopicListLargerText;
     _sessionTopicListShowTags = topicListShowTags ?? _sessionTopicListShowTags;
+    _sessionTopicListShowLastPoster =
+        topicListShowLastPoster ?? _sessionTopicListShowLastPoster;
     _sessionTopicListShowAssignments =
         topicListShowAssignments ?? _sessionTopicListShowAssignments;
     _sessionTopicListMode = topicListMode ?? _sessionTopicListMode;
@@ -458,6 +503,7 @@ final class AppSettingsStore {
         themeMode: themeMode,
         topicListLargerText: topicListLargerText,
         topicListShowTags: topicListShowTags,
+        topicListShowLastPoster: topicListShowLastPoster,
         topicListShowAssignments: topicListShowAssignments,
         topicListMode: topicListMode,
       ),
@@ -471,6 +517,7 @@ final class AppSettingsStore {
     AppThemeMode? themeMode,
     bool? topicListLargerText,
     bool? topicListShowTags,
+    bool? topicListShowLastPoster,
     bool? topicListShowAssignments,
     TopicListDisplayMode? topicListMode,
   }) async {
@@ -496,6 +543,20 @@ final class AppSettingsStore {
         error,
         stackTrace,
         'appSettings.writeTopicListShowTags',
+      );
+    }
+    try {
+      if (topicListShowLastPoster != null &&
+          !await _persistence.writeTopicListShowLastPoster(
+            topicListShowLastPoster,
+          )) {
+        throw StateError('Could not persist topicListShowLastPoster.');
+      }
+    } catch (error, stackTrace) {
+      reportStorageFailure(
+        error,
+        stackTrace,
+        'appSettings.writeTopicListShowLastPoster',
       );
     }
     try {

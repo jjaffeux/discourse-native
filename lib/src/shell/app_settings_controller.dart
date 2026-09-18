@@ -18,6 +18,7 @@ final class AppSettingsController extends FrameSafeNotifier {
   AppThemeMode get themeMode => _settings.themeMode;
   bool get topicListLargerText => _settings.topicListLargerText;
   bool get topicListShowTags => _settings.topicListShowTags;
+  bool get topicListShowLastPoster => _settings.topicListShowLastPoster;
   bool get topicListShowAssignments => _settings.topicListShowAssignments;
   TopicListDisplayMode get topicListMode => _settings.topicListMode;
   double get textScaleFactor => textScale.factor;
@@ -31,6 +32,7 @@ final class AppSettingsController extends FrameSafeNotifier {
   AppThemeMode? _selectedThemeMode;
   bool? _selectedTopicListLargerText;
   bool? _selectedTopicListShowTags;
+  bool? _selectedTopicListShowLastPoster;
   bool? _selectedTopicListShowAssignments;
   TopicListDisplayMode? _selectedTopicListMode;
   Future<void>? _loadTask;
@@ -60,6 +62,7 @@ final class AppSettingsController extends FrameSafeNotifier {
       themeMode: _selectedThemeMode,
       topicListLargerText: _selectedTopicListLargerText,
       topicListShowTags: _selectedTopicListShowTags,
+      topicListShowLastPoster: _selectedTopicListShowLastPoster,
       topicListShowAssignments: _selectedTopicListShowAssignments,
       topicListMode: _selectedTopicListMode,
     );
@@ -148,6 +151,20 @@ final class AppSettingsController extends FrameSafeNotifier {
     _selectedTopicListShowTags = value;
     _settings = _settings.copyWith(topicListShowTags: value);
     final saving = store.update(topicListShowTags: value);
+    unawaited(load());
+    notifySafely();
+    return saving;
+  }
+
+  Future<void> setTopicListShowLastPoster(bool value) {
+    if (isDisposed ||
+        ((_loaded || _selectedTopicListShowLastPoster != null) &&
+            value == topicListShowLastPoster)) {
+      return Future<void>.value();
+    }
+    _selectedTopicListShowLastPoster = value;
+    _settings = _settings.copyWith(topicListShowLastPoster: value);
+    final saving = store.update(topicListShowLastPoster: value);
     unawaited(load());
     notifySafely();
     return saving;

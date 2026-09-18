@@ -45,6 +45,12 @@ class TopicListActions extends StatelessWidget {
                   child: const Text('Show tags'),
                 ),
                 DDropdownMenuCheckboxItem(
+                  checked: settings.topicListShowLastPoster,
+                  onChanged: (value) =>
+                      unawaited(settings.setTopicListShowLastPoster(value)),
+                  child: const Text('Show last poster'),
+                ),
+                DDropdownMenuCheckboxItem(
                   checked: settings.topicListShowAssignments,
                   onChanged: (value) =>
                       unawaited(settings.setTopicListShowAssignments(value)),

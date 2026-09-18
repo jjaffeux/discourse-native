@@ -76,6 +76,28 @@ void main() {
     );
     expect(tag, findsOneWidget);
     expect(assignments, findsOneWidget);
+    final poster = find.descendant(
+      of: row,
+      matching: find.text('Last post by sam · '),
+    );
+    final avatar = find.descendant(
+      of: row,
+      matching: find.byWidgetPredicate(
+        (widget) => widget is DAvatar && widget.dimension == 22,
+      ),
+    );
+    expect(poster, findsOneWidget);
+    expect(avatar, findsOneWidget);
+    await shell.appSettings.setTopicListShowLastPoster(false);
+    await tester.pumpAndSettle();
+    expect(poster, findsNothing);
+    expect(avatar, findsNothing);
+    expect(tag, findsOneWidget);
+    expect(assignments, findsOneWidget);
+    await shell.appSettings.setTopicListShowLastPoster(true);
+    await tester.pumpAndSettle();
+    expect(poster, findsOneWidget);
+    expect(avatar, findsOneWidget);
     await shell.appSettings.setTopicListShowTags(false);
     await tester.pumpAndSettle();
     expect(tag, findsNothing);
@@ -220,6 +242,13 @@ void main() {
       expect(find.text('Card'), findsNothing);
       expect(find.text('Larger text'), findsOneWidget);
       expect(find.text('Show tags'), findsOneWidget);
+      expect(find.text('Show last poster'), findsOneWidget);
+      await tester.tap(find.text('Show last poster'));
+      await tester.pumpAndSettle();
+      expect(shell.appSettings.topicListShowLastPoster, isFalse);
+      await tester.tap(find.text('Show last poster'));
+      await tester.pumpAndSettle();
+      expect(shell.appSettings.topicListShowLastPoster, isTrue);
       expect(find.text('Show assignments'), findsOneWidget);
       await tester.tap(find.text('Show tags'));
       await tester.pumpAndSettle();

@@ -87,7 +87,8 @@ class _ConversationTopicCard extends StatelessWidget {
     final author = Text.rich(
       TextSpan(
         children: [
-          if (topic.lastPosterUsername case final username?) ...[
+          if (topic.lastPosterUsername case final username?
+              when shell?.appSettings.topicListShowLastPoster != false) ...[
             WidgetSpan(
               alignment: PlaceholderAlignment.middle,
               child: Padding(
@@ -183,10 +184,8 @@ class _ConversationTopicCard extends StatelessWidget {
                       overflow: largeText
                           ? TextOverflow.clip
                           : TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: muted,
-                        height: 1.5,
-                      ),
+                      style: Theme.of(context).textTheme.bodySmall
+                          ?.copyWith(color: muted, height: 1.5),
                     ),
                   LayoutBuilder(
                     builder: (context, constraints) {
@@ -253,9 +252,8 @@ class _TopicCardField extends StatelessWidget {
   Widget build(BuildContext context) => onSort == null
       ? Text(
           label,
-          style: Theme.of(context).textTheme.labelSmall?.copyWith(
-            color: DTokens.of(context).mutedForeground,
-          ),
+          style: Theme.of(context).textTheme.labelSmall
+              ?.copyWith(color: DTokens.of(context).mutedForeground),
         )
       : DButton(
           key: ValueKey('topic-sort-$column'),
