@@ -66,7 +66,7 @@ Widget categoryGridHost(
   Key? pageKey,
 }) {
   const siteUrl = 'https://meta.discourse.org';
-  return ContentAlignmentScope(
+  return ContentSettingsScope(
     controller: controller.appSettings,
     child: ShellScope(
       controller: controller,

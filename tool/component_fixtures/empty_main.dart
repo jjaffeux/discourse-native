@@ -67,7 +67,7 @@ class _EmptyReviewAppState extends State<EmptyReviewApp> {
     theme: _theme.resolve(ThemeData.light()),
     home: ShellScope(
       controller: widget.controller,
-      child: ContentAlignmentScope(
+      child: ContentSettingsScope(
         controller: widget.controller.appSettings,
         child: Scaffold(
           body: SafeArea(

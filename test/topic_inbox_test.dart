@@ -15,6 +15,7 @@ import 'package:discourse_native/src/plugin_api/site_plugin_api.dart';
 import 'package:discourse_native/src/plugins/assign/assign_plugin.dart';
 import 'package:discourse_native/src/shell/adaptive_shell.dart';
 import 'package:discourse_native/src/shell/avatar_image.dart';
+import 'package:discourse_native/src/shell/content_reading_lane.dart';
 import 'package:discourse_native/src/shell/cooked_html.dart';
 import 'package:discourse_native/src/shell/main_content.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
@@ -1307,19 +1308,23 @@ void main() {
   }
 
   testWidgets(
-    'topic header and posts fill the panel with mockup padding across zoom levels',
+    'topic header and posts share the optional 825 px limit across zoom levels',
     (tester) async {
       final setup = await _setup(tester);
       final shell = setup.controller;
       shell.openTopicFromList(setup.rows.first);
       await tester.pumpAndSettle();
-      for (final (width, zoom) in [
-        (1200.0, AppTextScale.percent100),
-        (2000.0, AppTextScale.percent100),
-        (2000.0, AppTextScale.percent150),
+      for (final (width, zoom, limited) in [
+        (1200.0, AppTextScale.percent100, false),
+        (1200.0, AppTextScale.percent100, true),
+        (2000.0, AppTextScale.percent100, false),
+        (2000.0, AppTextScale.percent100, true),
+        (2000.0, AppTextScale.percent150, false),
+        (2000.0, AppTextScale.percent150, true),
       ]) {
         tester.view.physicalSize = Size(width, 800);
         await shell.appSettings.setTextScale(zoom);
+        await shell.appSettings.setLimitContentSize(limited);
         await tester.pumpAndSettle();
         await _scrollReaderToTop(tester);
         final title = tester.getRect(
@@ -1342,15 +1347,18 @@ void main() {
         final divider = tester.getRect(
           find.byKey(const ValueKey('topic-scroll-separator')),
         );
-        expect(before.left, closeTo(viewport.left + 16, 1));
-        expect(before.right, closeTo(viewport.right - 16, 1));
-        expect(summary.left, closeTo(viewport.left + 16, 1));
-        expect(summary.right, closeTo(viewport.right - 16, 1));
-        expect(divider.left, closeTo(viewport.left + 16, 1));
-        expect(divider.right, closeTo(viewport.right - 16, 1));
+        final inset = limited && viewport.width > 825
+            ? (viewport.width - 825) / 2
+            : 0.0;
+        expect(before.left, closeTo(viewport.left + inset + 16, 1));
+        expect(before.right, closeTo(viewport.right - inset - 16, 1));
+        expect(summary.left, closeTo(viewport.left + inset + 16, 1));
+        expect(summary.right, closeTo(viewport.right - inset - 16, 1));
+        expect(divider.left, closeTo(viewport.left + inset + 16, 1));
+        expect(divider.right, closeTo(viewport.right - inset - 16, 1));
         final postBody = tester.getRect(find.byType(CookedHtml).first);
-        expect(postBody.left, closeTo(viewport.left + 16 + 39, 1));
-        expect(postBody.right, closeTo(viewport.right - 16, 1));
+        expect(postBody.left, closeTo(viewport.left + inset + 16 + 39, 1));
+        expect(postBody.right, closeTo(viewport.right - inset - 16, 1));
         expect(before.left, closeTo(title.left, 1));
         expect(before.top, greaterThan(title.bottom));
         _readerScroll(tester).jumpTo(300);
@@ -3574,12 +3582,15 @@ _setup(
   await shell.load();
   await shell.loadFeed('latest');
   await tester.pumpWidget(
-    ShellScope(
-      controller: shell,
-      child: MaterialApp(
-        theme: theme ?? AppTheme.light,
-        home: Scaffold(
-          body: MainContent(layout: ShellLayout.expanded, registry: registry),
+    ContentSettingsScope(
+      controller: shell.appSettings,
+      child: ShellScope(
+        controller: shell,
+        child: MaterialApp(
+          theme: theme ?? AppTheme.light,
+          home: Scaffold(
+            body: MainContent(layout: ShellLayout.expanded, registry: registry),
+          ),
         ),
       ),
     ),

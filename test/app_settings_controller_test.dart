@@ -12,7 +12,7 @@ void main() {
       () async {
         final gate = Completer<void>();
         final persistence = _ControlledAppSettingsPersistence(
-          contentAlignment: 'right',
+          limitContentSize: true,
           themeMode: 'dark',
           topicListMode: 'compact',
           readGate: gate,
@@ -28,7 +28,7 @@ void main() {
           controller,
           persistence,
           AppSettings(
-            contentAlignment: ContentAlignment.right,
+            limitContentSize: true,
             themeMode: AppThemeMode.dark,
             topicListMode: mode,
           ),
@@ -77,7 +77,7 @@ void main() {
     test('choosing $mode during hydration preserves saved fields', () async {
       final readGate = Completer<void>();
       final persistence = _ControlledAppSettingsPersistence(
-        contentAlignment: 'left',
+        limitContentSize: false,
         disableGifAnimations: true,
         textScale: AppTextScale.percent175.name,
         themeMode: 'dark',
@@ -96,7 +96,7 @@ void main() {
         controller,
         persistence,
         AppSettings(
-          contentAlignment: ContentAlignment.left,
+          limitContentSize: false,
           disableGifAnimations: true,
           textScale: AppTextScale.percent175,
           themeMode: mode,
@@ -137,7 +137,7 @@ void main() {
 
   test('loads once and exposes the stored settings', () async {
     final persistence = _ControlledAppSettingsPersistence(
-      contentAlignment: 'left',
+      limitContentSize: false,
       disableGifAnimations: true,
       textScale: AppTextScale.percent125.name,
     );
@@ -156,12 +156,12 @@ void main() {
     expect(
       controller.settings,
       const AppSettings(
-        contentAlignment: ContentAlignment.left,
+        limitContentSize: false,
         disableGifAnimations: true,
         textScale: AppTextScale.percent125,
       ),
     );
-    expect(controller.contentAlignment, ContentAlignment.left);
+    expect(controller.limitContentSize, false);
     expect(controller.disableGifAnimations, isTrue);
     expect(controller.textScale, AppTextScale.percent125);
     expect(controller.textScaleFactor, 1.25);
@@ -172,7 +172,7 @@ void main() {
   test('a local selection wins over a stale hydration read', () async {
     final readGate = Completer<void>();
     final persistence = _ControlledAppSettingsPersistence(
-      contentAlignment: 'left',
+      limitContentSize: false,
       disableGifAnimations: true,
       textScale: AppTextScale.percent175.name,
       readGate: readGate,
@@ -181,21 +181,21 @@ void main() {
 
     final loading = controller.load();
     await persistence.readStarted.future;
-    final saving = controller.setContentAlignment(ContentAlignment.right);
+    final saving = controller.setLimitContentSize(true);
 
     expect(controller.loaded, isFalse);
-    expect(controller.contentAlignment, ContentAlignment.right);
+    expect(controller.limitContentSize, true);
 
     readGate.complete();
     await Future.wait([loading, saving]);
 
-    expect(controller.contentAlignment, ContentAlignment.right);
-    expect(persistence.contentAlignment, 'right');
+    expect(controller.limitContentSize, true);
+    expect(persistence.limitContentSize, true);
     await _expectSettings(
       controller,
       persistence,
       const AppSettings(
-        contentAlignment: ContentAlignment.right,
+        limitContentSize: true,
         disableGifAnimations: true,
         textScale: AppTextScale.percent175,
       ),
@@ -208,9 +208,8 @@ void main() {
           (String, Future<void> Function(AppSettingsController), AppSettings)
         >[
           (
-            'alignment',
-            (controller) =>
-                controller.setContentAlignment(ContentAlignment.center),
+            'content size limit',
+            (controller) => controller.setLimitContentSize(false),
             const AppSettings(
               disableGifAnimations: true,
               textScale: AppTextScale.percent175,
@@ -220,7 +219,7 @@ void main() {
             'GIF animations',
             (controller) => controller.setDisableGifAnimations(false),
             const AppSettings(
-              contentAlignment: ContentAlignment.left,
+              limitContentSize: true,
               textScale: AppTextScale.percent175,
             ),
           ),
@@ -228,7 +227,7 @@ void main() {
             'text scale',
             (controller) => controller.setTextScale(AppTextScale.percent100),
             const AppSettings(
-              contentAlignment: ContentAlignment.left,
+              limitContentSize: true,
               disableGifAnimations: true,
             ),
           ),
@@ -239,7 +238,7 @@ void main() {
         () async {
           final readGate = Completer<void>();
           final persistence = _ControlledAppSettingsPersistence(
-            contentAlignment: 'left',
+            limitContentSize: true,
             disableGifAnimations: true,
             textScale: AppTextScale.percent175.name,
             readGate: readGate,
@@ -267,7 +266,7 @@ void main() {
     () async {
       final readGate = Completer<void>();
       final persistence = _ControlledAppSettingsPersistence(
-        contentAlignment: 'left',
+        limitContentSize: false,
         disableGifAnimations: true,
         textScale: AppTextScale.percent175.name,
         readGate: readGate,
@@ -277,15 +276,15 @@ void main() {
       await persistence.readStarted.future;
 
       final saves = [
-        controller.setContentAlignment(ContentAlignment.right),
+        controller.setLimitContentSize(true),
         controller.setDisableGifAnimations(true),
-        controller.setContentAlignment(ContentAlignment.center),
+        controller.setLimitContentSize(false),
         controller.setDisableGifAnimations(false),
       ];
       expect(controller.settings, AppSettings.defaults);
       // A slow hydration read must not delay persistence of explicit choices.
       await Future.wait(saves);
-      expect(persistence.contentAlignment, 'center');
+      expect(persistence.limitContentSize, false);
       expect(persistence.disableGifAnimations, isFalse);
       expect(persistence.textScale, AppTextScale.percent175.name);
 
@@ -305,28 +304,28 @@ void main() {
     () async {
       final readGate = Completer<void>();
       final persistence = _ControlledAppSettingsPersistence(
-        contentAlignment: 'left',
+        limitContentSize: true,
         readGate: readGate,
       );
       final controller = _controller(persistence);
 
       final loading = controller.load();
       await persistence.readStarted.future;
-      final saving = controller.setContentAlignment(ContentAlignment.center);
+      final saving = controller.setLimitContentSize(false);
 
       readGate.complete();
       await Future.wait([loading, saving]);
 
-      expect(controller.contentAlignment, ContentAlignment.center);
-      expect(persistence.contentAlignment, 'center');
-      expect(persistence.attemptedWrites, ['center']);
+      expect(controller.limitContentSize, false);
+      expect(persistence.limitContentSize, false);
+      expect(persistence.attemptedWrites, [false]);
     },
   );
 
   test('a local text scale wins over a stale hydration read', () async {
     final readGate = Completer<void>();
     final persistence = _ControlledAppSettingsPersistence(
-      contentAlignment: 'left',
+      limitContentSize: false,
       disableGifAnimations: true,
       textScale: AppTextScale.percent175.name,
       readGate: readGate,
@@ -350,7 +349,7 @@ void main() {
       controller,
       persistence,
       const AppSettings(
-        contentAlignment: ContentAlignment.left,
+        limitContentSize: false,
         disableGifAnimations: true,
         textScale: AppTextScale.percent90,
       ),
@@ -381,7 +380,7 @@ void main() {
   test('relative text changes hydrate before saving', () async {
     final readGate = Completer<void>();
     final persistence = _ControlledAppSettingsPersistence(
-      contentAlignment: ContentAlignment.left.name,
+      limitContentSize: false,
       disableGifAnimations: true,
       textScale: AppTextScale.percent125.name,
       readGate: readGate,
@@ -401,12 +400,12 @@ void main() {
     expect(
       controller.settings,
       const AppSettings(
-        contentAlignment: ContentAlignment.left,
+        limitContentSize: false,
         disableGifAnimations: true,
         textScale: AppTextScale.percent175,
       ),
     );
-    expect(persistence.contentAlignment, ContentAlignment.left.name);
+    expect(persistence.limitContentSize, false);
     expect(persistence.disableGifAnimations, isTrue);
     expect(persistence.attemptedTextScaleWrites, [
       AppTextScale.percent150.name,
@@ -415,11 +414,11 @@ void main() {
   });
 
   test(
-    'an alignment edit does not make the initial text scale authoritative',
+    'a content size limit edit does not make the initial text scale authoritative',
     () async {
       final readGate = Completer<void>();
       final persistence = _ControlledAppSettingsPersistence(
-        contentAlignment: 'left',
+        limitContentSize: false,
         disableGifAnimations: true,
         textScale: AppTextScale.percent125.name,
         readGate: readGate,
@@ -428,12 +427,12 @@ void main() {
       final loading = controller.load();
       await persistence.readStarted.future;
 
-      final alignment = controller.setContentAlignment(ContentAlignment.right);
+      final sizeLimit = controller.setLimitContentSize(true);
       final firstIncrease = controller.increaseTextScale();
       final secondIncrease = controller.increaseTextScale();
-      expect(controller.contentAlignment, ContentAlignment.right);
+      expect(controller.limitContentSize, true);
       expect(controller.textScale, AppTextScale.percent100);
-      await alignment;
+      await sizeLimit;
       expect(persistence.attemptedTextScaleWrites, isEmpty);
 
       readGate.complete();
@@ -443,7 +442,7 @@ void main() {
         controller,
         persistence,
         const AppSettings(
-          contentAlignment: ContentAlignment.right,
+          limitContentSize: true,
           disableGifAnimations: true,
           textScale: AppTextScale.percent175,
         ),
@@ -456,7 +455,7 @@ void main() {
     () async {
       final readGate = Completer<void>();
       final persistence = _ControlledAppSettingsPersistence(
-        contentAlignment: 'left',
+        limitContentSize: false,
         disableGifAnimations: true,
         textScale: AppTextScale.percent175.name,
         readGate: readGate,
@@ -480,10 +479,7 @@ void main() {
       await _expectSettings(
         controller,
         persistence,
-        const AppSettings(
-          contentAlignment: ContentAlignment.left,
-          disableGifAnimations: true,
-        ),
+        const AppSettings(limitContentSize: false, disableGifAnimations: true),
       );
     },
   );
@@ -494,30 +490,29 @@ void main() {
       final firstWriteGate = Completer<void>();
       final persistence = _ControlledAppSettingsPersistence(
         firstWriteGate: firstWriteGate,
+        limitContentSize: true,
       );
       final controller = _controller(persistence);
       await controller.load();
       var notifications = 0;
       controller.addListener(() => notifications++);
 
-      final savingLeft = controller.setContentAlignment(ContentAlignment.left);
+      final savingDisabled = controller.setLimitContentSize(false);
       await persistence.firstWriteStarted.future;
-      final savingRight = controller.setContentAlignment(
-        ContentAlignment.right,
-      );
+      final savingEnabled = controller.setLimitContentSize(true);
 
-      expect(controller.contentAlignment, ContentAlignment.right);
+      expect(controller.limitContentSize, true);
       expect(notifications, 2);
-      expect(persistence.attemptedWrites, ['left']);
+      expect(persistence.attemptedWrites, [false]);
 
       firstWriteGate.complete();
-      await Future.wait([savingLeft, savingRight]);
+      await Future.wait([savingDisabled, savingEnabled]);
 
-      expect(persistence.attemptedWrites, ['left', 'right']);
-      expect(persistence.contentAlignment, 'right');
+      expect(persistence.attemptedWrites, [false, true]);
+      expect(persistence.limitContentSize, true);
 
-      await controller.setContentAlignment(ContentAlignment.right);
-      expect(persistence.attemptedWrites, ['left', 'right']);
+      await controller.setLimitContentSize(true);
+      expect(persistence.attemptedWrites, [false, true]);
       expect(notifications, 2);
     },
   );
@@ -605,13 +600,13 @@ void main() {
     final persistence = _ControlledAppSettingsPersistence(acceptWrites: false);
     final controller = _controller(persistence);
 
-    await controller.setContentAlignment(ContentAlignment.right);
+    await controller.setLimitContentSize(true);
     await controller.load();
 
     expect(controller.loaded, isTrue);
-    expect(controller.contentAlignment, ContentAlignment.right);
-    expect(persistence.contentAlignment, isNull);
-    expect(persistence.attemptedWrites, ['right']);
+    expect(controller.limitContentSize, true);
+    expect(persistence.limitContentSize, isNull);
+    expect(persistence.attemptedWrites, [true]);
   });
 
   test('updates the GIF animation preference optimistically', () async {
@@ -629,7 +624,7 @@ void main() {
 
   test('a replacement controller retains a rejected session choice', () async {
     final persistence = _ControlledAppSettingsPersistence(
-      contentAlignment: 'left',
+      limitContentSize: false,
       disableGifAnimations: true,
       textScale: AppTextScale.percent175.name,
       acceptWrites: false,
@@ -637,7 +632,7 @@ void main() {
     final store = AppSettingsStore(persistence: persistence);
     final first = AppSettingsController(store: store);
 
-    await first.setContentAlignment(ContentAlignment.right);
+    await first.setLimitContentSize(true);
     first.dispose();
 
     final replacement = AppSettingsController(store: store);
@@ -647,13 +642,13 @@ void main() {
     expect(
       replacement.settings,
       const AppSettings(
-        contentAlignment: ContentAlignment.right,
+        limitContentSize: true,
         disableGifAnimations: true,
         textScale: AppTextScale.percent175,
       ),
     );
-    expect(persistence.contentAlignment, 'left');
-    expect(persistence.attemptedWrites, ['right']);
+    expect(persistence.limitContentSize, false);
+    expect(persistence.attemptedWrites, [true]);
     expect(await store.read(), replacement.settings);
   });
 
@@ -665,24 +660,24 @@ void main() {
     final first = _controller(persistence, dispose: false);
     final replacement = _controller(persistence);
 
-    final savingLeft = first.setContentAlignment(ContentAlignment.left);
+    final savingDisabled = first.setLimitContentSize(false);
     await persistence.firstWriteStarted.future;
-    final savingRight = replacement.setContentAlignment(ContentAlignment.right);
+    final savingEnabled = replacement.setLimitContentSize(true);
 
-    expect(persistence.attemptedWrites, ['left']);
+    expect(persistence.attemptedWrites, [false]);
     first.dispose();
     firstWriteGate.complete();
-    await Future.wait([savingLeft, savingRight]);
+    await Future.wait([savingDisabled, savingEnabled]);
 
-    expect(persistence.attemptedWrites, ['left', 'right']);
-    expect(persistence.contentAlignment, 'right');
-    expect(replacement.contentAlignment, ContentAlignment.right);
+    expect(persistence.attemptedWrites, [false, true]);
+    expect(persistence.limitContentSize, true);
+    expect(replacement.limitContentSize, true);
   });
 
   test('dispose ignores a late read and rejects later selections', () async {
     final readGate = Completer<void>();
     final persistence = _ControlledAppSettingsPersistence(
-      contentAlignment: 'left',
+      limitContentSize: false,
       readGate: readGate,
     );
     final controller = _controller(persistence, dispose: false);
@@ -692,10 +687,10 @@ void main() {
     controller.dispose();
     readGate.complete();
     await loading;
-    await controller.setContentAlignment(ContentAlignment.right);
+    await controller.setLimitContentSize(true);
 
     expect(controller.loaded, isFalse);
-    expect(controller.contentAlignment, ContentAlignment.center);
+    expect(controller.limitContentSize, false);
     expect(persistence.attemptedWrites, isEmpty);
   });
 
@@ -705,7 +700,7 @@ void main() {
       final readGate = Completer<void>();
       final firstWriteGate = Completer<void>();
       final persistence = _ControlledAppSettingsPersistence(
-        contentAlignment: 'left',
+        limitContentSize: false,
         disableGifAnimations: true,
         textScale: AppTextScale.percent175.name,
         readGate: readGate,
@@ -716,12 +711,12 @@ void main() {
       controller.addListener(() => notifications++);
       final loading = controller.load();
       await persistence.readStarted.future;
-      final saving = controller.setContentAlignment(ContentAlignment.right);
+      final saving = controller.setLimitContentSize(true);
       await persistence.firstWriteStarted.future;
       expect(notifications, 1);
 
       controller.dispose();
-      await controller.setContentAlignment(ContentAlignment.center);
+      await controller.setLimitContentSize(false);
       await controller.setDisableGifAnimations(false);
       await controller.setTextScale(AppTextScale.percent100);
       await controller.increaseTextScale();
@@ -733,18 +728,15 @@ void main() {
 
       expect(notifications, 1);
       expect(controller.loaded, isFalse);
-      expect(
-        controller.settings,
-        const AppSettings(contentAlignment: ContentAlignment.right),
-      );
+      expect(controller.settings, const AppSettings(limitContentSize: true));
       const expected = AppSettings(
-        contentAlignment: ContentAlignment.right,
+        limitContentSize: true,
         disableGifAnimations: true,
         textScale: AppTextScale.percent175,
       );
       expect(await controller.store.read(), expected);
       expect(await AppSettingsStore(persistence: persistence).read(), expected);
-      expect(persistence.attemptedWrites, ['right']);
+      expect(persistence.attemptedWrites, [true]);
       expect(persistence.attemptedGifAnimationWrites, isEmpty);
       expect(persistence.attemptedTextScaleWrites, isEmpty);
     },
@@ -792,7 +784,7 @@ final class _ControlledAppSettingsPersistence
   Future<bool> writeTopicListShowAssignments(bool value) async => true;
 
   _ControlledAppSettingsPersistence({
-    this.contentAlignment,
+    this.limitContentSize,
     this.disableGifAnimations,
     this.textScale,
     this.themeMode,
@@ -802,7 +794,7 @@ final class _ControlledAppSettingsPersistence
     this.acceptWrites = true,
   });
 
-  String? contentAlignment;
+  bool? limitContentSize;
   bool? disableGifAnimations;
   String? textScale;
   String? themeMode;
@@ -812,7 +804,7 @@ final class _ControlledAppSettingsPersistence
   final bool acceptWrites;
   final Completer<void> readStarted = Completer<void>();
   final Completer<void> firstWriteStarted = Completer<void>();
-  final List<String> attemptedWrites = [];
+  final List<bool> attemptedWrites = [];
   final List<bool> attemptedGifAnimationWrites = [];
   final List<String> attemptedTextScaleWrites = [];
   final List<String> attemptedThemeModeWrites = [];
@@ -820,9 +812,9 @@ final class _ControlledAppSettingsPersistence
   int readCount = 0;
 
   @override
-  Future<String?> readContentAlignment() async {
+  Future<bool?> readLimitContentSize() async {
     readCount++;
-    final value = contentAlignment;
+    final value = limitContentSize;
     if (!readStarted.isCompleted) readStarted.complete();
     await readGate?.future;
     return value;
@@ -838,11 +830,11 @@ final class _ControlledAppSettingsPersistence
   Future<String?> readThemeMode() async => themeMode;
 
   @override
-  Future<bool> writeContentAlignment(String value) async {
+  Future<bool> writeLimitContentSize(bool value) async {
     attemptedWrites.add(value);
     await _waitForFirstWrite();
     if (!acceptWrites) return false;
-    contentAlignment = value;
+    limitContentSize = value;
     return true;
   }
 

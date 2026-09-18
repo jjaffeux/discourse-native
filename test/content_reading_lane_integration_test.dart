@@ -1,4 +1,3 @@
-import 'package:discourse_native/src/models/app_settings.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
@@ -94,11 +93,14 @@ void main() {
         await tester.pumpAndSettle();
         final viewport = find.byType(SuperListView);
         final scroll = tester.widget<SuperListView>(viewport).controller!;
-        for (final alignment in ContentAlignment.values) {
-          await controller.appSettings.setContentAlignment(alignment);
+        for (final alignment in [false, true]) {
+          await controller.appSettings.setLimitContentSize(alignment);
           scroll.jumpTo(0);
           await tester.pumpAndSettle();
-          expect(tester.getSize(find.byKey(const ValueKey(1))).width, 634);
+          expect(
+            tester.getSize(find.byKey(const ValueKey(1))).width,
+            alignment ? 634 : 1577,
+          );
           await expectPageEdgeScrolling(
             tester,
             viewport: viewport,
@@ -136,13 +138,19 @@ void main() {
 
       final viewport = find.byType(SuperListView);
       final scroll = tester.widget<SuperListView>(viewport).controller!;
-      for (final alignment in ContentAlignment.values) {
-        await controller.appSettings.setContentAlignment(alignment);
+      for (final alignment in [false, true]) {
+        await controller.appSettings.setLimitContentSize(alignment);
         await tester.pump();
         final row = find.byKey(const ValueKey(1));
         expect(tester.getSize(viewport).width, 1200);
-        expect(tester.getSize(row).width, closeTo(1200, 0.001));
-        expect(tester.getTopLeft(row).dx, closeTo(0, 0.001));
+        expect(
+          tester.getSize(row).width,
+          closeTo(alignment ? 825 : 1200, 0.001),
+        );
+        expect(
+          tester.getTopLeft(row).dx,
+          closeTo(_laneLeft(1200, alignment), 0.001),
+        );
         expect(tester.widget<SuperListView>(viewport).controller, same(scroll));
       }
 
@@ -150,8 +158,8 @@ void main() {
       await tester.pumpAndSettle();
       final offset = scroll.offset;
       expect(offset, greaterThan(0));
-      for (final alignment in ContentAlignment.values) {
-        await controller.appSettings.setContentAlignment(alignment);
+      for (final alignment in [false, true]) {
+        await controller.appSettings.setLimitContentSize(alignment);
         await tester.pump();
         expect(tester.widget<SuperListView>(viewport).controller, same(scroll));
         expect(scroll.offset, closeTo(offset, 0.001));
@@ -210,17 +218,20 @@ void main() {
         expect(tester.getSize(sidebar).width, 344);
         expect(tester.getTopLeft(sidebar).dx, closeTo(1056, 0.001));
         expect(tester.getSize(list).width, 1056);
-        expect(tester.getSize(post).width, closeTo(825, 0.001));
+        expect(tester.getSize(post).width, closeTo(1056, 0.001));
 
         final scroll = topicPostList(tester).controller!;
-        for (final alignment in ContentAlignment.values) {
-          await controller.appSettings.setContentAlignment(alignment);
+        for (final alignment in [false, true]) {
+          await controller.appSettings.setLimitContentSize(alignment);
           await tester.pump();
           expect(
             tester.getTopLeft(post).dx,
             closeTo(_laneLeft(1056, alignment), 0.001),
           );
-          expect(tester.getSize(post).width, closeTo(825, 0.001));
+          expect(
+            tester.getSize(post).width,
+            closeTo(alignment ? 825 : 1056, 0.001),
+          );
           expect(topicPostList(tester).controller, same(scroll));
         }
 
@@ -228,8 +239,8 @@ void main() {
         await tester.pumpAndSettle();
         final offset = scroll.offset;
         expect(offset, greaterThan(0));
-        for (final alignment in ContentAlignment.values) {
-          await controller.appSettings.setContentAlignment(alignment);
+        for (final alignment in [false, true]) {
+          await controller.appSettings.setLimitContentSize(alignment);
           await tester.pump();
           expect(topicPostList(tester).controller, same(scroll));
           expect(scroll.offset, closeTo(offset, 0.001));
@@ -285,15 +296,21 @@ void main() {
         final card = find.byKey(ValueKey('aggregate-topic-card-${one.url}-42'));
         final toolbar = find.byKey(const ValueKey('aggregate-tabs'));
         expect(tester.getSize(viewport).width, 1400);
-        expect(tester.getSize(card).width, closeTo(1384, 0.001));
-        expect(tester.getTopLeft(card).dx, closeTo(8, 0.001));
+        expect(tester.getSize(card).width, closeTo(1400, 0.001));
+        expect(tester.getTopLeft(card).dx, closeTo(0, 0.001));
         expect(tester.getSize(toolbar).width, 1400);
 
-        for (final alignment in ContentAlignment.values) {
-          await controller.appSettings.setContentAlignment(alignment);
+        for (final alignment in [false, true]) {
+          await controller.appSettings.setLimitContentSize(alignment);
           await tester.pump();
-          expect(tester.getSize(card).width, closeTo(1384, 0.001));
-          expect(tester.getTopLeft(card).dx, closeTo(8, 0.001));
+          expect(
+            tester.getSize(card).width,
+            closeTo(alignment ? 825 : 1400, 0.001),
+          );
+          expect(
+            tester.getTopLeft(card).dx,
+            closeTo(_laneLeft(1400, alignment), 0.001),
+          );
           expect(tester.getSize(toolbar).width, 1400);
         }
 
@@ -301,8 +318,8 @@ void main() {
         await tester.drag(viewport, const Offset(0, -300));
         await tester.pumpAndSettle();
         final offset = scroll.offset;
-        for (final alignment in ContentAlignment.values) {
-          await controller.appSettings.setContentAlignment(alignment);
+        for (final alignment in [false, true]) {
+          await controller.appSettings.setLimitContentSize(alignment);
           await tester.pump();
           expect(tester.getSize(toolbar).width, 1400);
           expect(
@@ -363,12 +380,15 @@ void main() {
         final tile = find.byKey(const ValueKey('chat-message-40'));
         final scroll = tester.widget<SuperListView>(viewport).controller!;
         expect(tester.getSize(viewport).width, 1000);
-        expect(tester.getSize(tile).width, closeTo(825, 0.001));
+        expect(tester.getSize(tile).width, closeTo(1000, 0.001));
 
-        for (final alignment in ContentAlignment.values) {
-          await controller.appSettings.setContentAlignment(alignment);
+        for (final alignment in [false, true]) {
+          await controller.appSettings.setLimitContentSize(alignment);
           await tester.pump();
-          expect(tester.getSize(tile).width, closeTo(825, 0.001));
+          expect(
+            tester.getSize(tile).width,
+            closeTo(alignment ? 825 : 1000, 0.001),
+          );
           expect(
             tester.getTopLeft(tile).dx,
             closeTo(_laneLeft(1000, alignment), 0.001),
@@ -380,8 +400,8 @@ void main() {
         final offset = scroll.offset;
         expect(offset, greaterThan(0));
 
-        for (final alignment in ContentAlignment.values) {
-          await controller.appSettings.setContentAlignment(alignment);
+        for (final alignment in [false, true]) {
+          await controller.appSettings.setLimitContentSize(alignment);
           await tester.pump();
           expect(
             tester.widget<SuperListView>(viewport).controller,
@@ -418,7 +438,7 @@ Future<ShellController> _shell(
 }
 
 Widget _shellSurface(ShellController controller, Widget child) =>
-    ContentAlignmentScope(
+    ContentSettingsScope(
       controller: controller.appSettings,
       child: ShellScope(
         controller: controller,
@@ -447,15 +467,11 @@ Future<void> _withDesktop(
 
 double _laneLeft(
   double availableWidth,
-  ContentAlignment alignment, {
+  bool alignment, {
   double width = ContentReadingLane.maxWidth,
 }) {
   final extra = availableWidth - width;
-  return switch (alignment) {
-    ContentAlignment.left => 0,
-    ContentAlignment.center => extra / 2,
-    ContentAlignment.right => extra,
-  };
+  return alignment ? extra / 2 : 0;
 }
 
 ChatMessage _chatMessage(int id) => ChatMessage(

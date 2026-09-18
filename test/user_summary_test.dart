@@ -3,7 +3,6 @@ import 'dart:ui' show SemanticsAction;
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/app.dart';
-import 'package:discourse_native/src/models/app_settings.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/forum_workspace.dart';
@@ -242,34 +241,41 @@ void main() {
   });
 
   group('content states', () {
-    testWidgets('scrollbar stays at the page edge for each content alignment', (
-      tester,
-    ) async {
-      final fixture = await _pump(tester, size: const Size(2200, 650));
-      await _openSummaryFromMenu(tester);
-      await _selectSummaryTab(tester, 'Reading');
-      final page = find.byType(UserSummaryView);
-      final viewport = find.byKey(const PageStorageKey('user-summary-scroll'));
-      final profile = find.byKey(const ValueKey('user-summary-profile'));
-      final table = find.byType(DTable);
-      for (final alignment in ContentAlignment.values) {
-        await fixture.controller.appSettings.setContentAlignment(alignment);
-        await tester.pumpAndSettle();
-        final pageBounds = tester.getRect(page);
-        final left = switch (alignment) {
-          ContentAlignment.left => pageBounds.left + 16,
-          ContentAlignment.center => pageBounds.center.dx - 568,
-          ContentAlignment.right => pageBounds.right - 16 - 1136,
-        };
-        expect(tester.getRect(profile).left, closeTo(left + 1, 0.001));
-        expect(tester.getSize(table).width, 822);
-        await expectPageEdgeScrolling(
-          tester,
-          viewport: viewport,
-          right: pageBounds.right,
+    testWidgets(
+      'scrollbar stays at the page edge with and without the content size limit',
+      (tester) async {
+        final fixture = await _pump(tester, size: const Size(2200, 650));
+        await _openSummaryFromMenu(tester);
+        await _selectSummaryTab(tester, 'Reading');
+        final page = find.byType(UserSummaryView);
+        final viewport = find.byKey(
+          const PageStorageKey('user-summary-scroll'),
         );
-      }
-    }, variant: const TargetPlatformVariant({TargetPlatform.macOS}));
+        final profile = find.byKey(const ValueKey('user-summary-profile'));
+        final table = find.byType(DTable);
+        for (final alignment in [false, true]) {
+          await fixture.controller.appSettings.setLimitContentSize(alignment);
+          await tester.pumpAndSettle();
+          final pageBounds = tester.getRect(page);
+          final contentWidth = alignment ? 825.0 : pageBounds.width - 32;
+          final left = pageBounds.center.dx - contentWidth / 2;
+          expect(tester.getRect(profile).left, closeTo(left + 1, 0.001));
+          expect(
+            tester.getSize(table).width,
+            closeTo(
+              contentWidth - (alignment ? 208 : 248) - DSpacing.xxl - 34,
+              0.001,
+            ),
+          );
+          await expectPageEdgeScrolling(
+            tester,
+            viewport: viewport,
+            right: pageBounds.right,
+          );
+        }
+      },
+      variant: const TargetPlatformVariant({TargetPlatform.macOS}),
+    );
 
     testWidgets('exposes meaningful button and value semantics', (
       tester,

@@ -46,15 +46,15 @@ void main() {
       expect(controller.mobilePane, MobilePane.sidebar);
     });
 
-    test('alignment changes do not notify the shell controller', () async {
+    test('size limit changes do not notify the shell controller', () async {
       final controller = _controller(instanceStore: FakeInstanceStore());
       addTearDown(controller.dispose);
       var shellNotifications = 0;
       controller.addListener(() => shellNotifications++);
 
-      await controller.appSettings.setContentAlignment(ContentAlignment.right);
+      await controller.appSettings.setLimitContentSize(true);
 
-      expect(controller.appSettings.contentAlignment, ContentAlignment.right);
+      expect(controller.appSettings.limitContentSize, true);
       expect(shellNotifications, 0);
     });
 
@@ -220,7 +220,7 @@ void main() {
       expect(find.byType(AppSettingsModal, skipOffstage: false), findsNothing);
       expect(
         find.byKey(
-          const ValueKey('content-alignment-segmented-button'),
+          const ValueKey('limit-content-size-switch'),
           skipOffstage: false,
         ),
         findsNothing,
@@ -270,7 +270,7 @@ void main() {
   });
 
   group('Settings modal availability', () {
-    testWidgets('startup alignment edits retain saved GIF and text settings', (
+    testWidgets('startup size limit edits retain saved GIF and text settings', (
       tester,
     ) async {
       final persistence = _GatedAppSettingsPersistence();
@@ -297,18 +297,18 @@ void main() {
 
       await tester.tap(find.byKey(const ValueKey('settings-rail-button')));
       await tester.pump(const Duration(milliseconds: 300));
-      await tester.tap(find.text('Right'));
+      await tester.tap(find.text('Limit content size'));
       await tester.pump();
 
       expect(
         tester
-            .widget<DToggleGroup<ContentAlignment>>(
-              find.byKey(const ValueKey('content-alignment-segmented-button')),
+            .widget<DSwitchTile>(
+              find.byKey(const ValueKey('limit-content-size-switch')),
             )
-            .values,
-        [ContentAlignment.right],
+            .value,
+        true,
       );
-      expect(controller.appSettings.contentAlignment, ContentAlignment.right);
+      expect(controller.appSettings.limitContentSize, true);
 
       persistence.readGate.complete();
       await tester.pump();
@@ -316,7 +316,7 @@ void main() {
       await tester.pump();
 
       const expected = AppSettings(
-        contentAlignment: ContentAlignment.right,
+        limitContentSize: true,
         disableGifAnimations: true,
         textScale: AppTextScale.percent175,
       );
@@ -432,7 +432,7 @@ Future<void> _openSettingsFromRail(
 
   expect(controller.appSettingsModalOpen, isTrue);
   expect(find.byType(AppSettingsModal), findsOneWidget);
-  expect(find.text('Content alignment'), findsOneWidget);
+  expect(find.text('Limit content size'), findsOneWidget);
 
   await tester.tap(find.byKey(const ValueKey('app-settings-close')));
   await tester.pump(const Duration(milliseconds: 300));
@@ -471,14 +471,14 @@ final class _GatedAppSettingsPersistence implements AppSettingsPersistence {
 
   final readGate = Completer<void>();
   final _delegate = MemoryAppSettingsPersistence(
-    contentAlignment: ContentAlignment.left.name,
+    limitContentSize: false,
     disableGifAnimations: true,
     textScale: AppTextScale.percent175.name,
   );
 
   @override
-  Future<String?> readContentAlignment() async {
-    final stored = await _delegate.readContentAlignment();
+  Future<bool?> readLimitContentSize() async {
+    final stored = await _delegate.readLimitContentSize();
     await readGate.future;
     return stored;
   }
@@ -504,8 +504,8 @@ final class _GatedAppSettingsPersistence implements AppSettingsPersistence {
   Future<bool> writeThemeMode(String value) => _delegate.writeThemeMode(value);
 
   @override
-  Future<bool> writeContentAlignment(String value) =>
-      _delegate.writeContentAlignment(value);
+  Future<bool> writeLimitContentSize(bool value) =>
+      _delegate.writeLimitContentSize(value);
 
   @override
   Future<bool> writeDisableGifAnimations(bool value) =>

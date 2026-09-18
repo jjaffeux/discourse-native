@@ -4,12 +4,10 @@ import 'dart:async';
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/data/app_settings_store.dart';
 import 'package:discourse_native/src/macos_launch_screen.dart';
-import 'package:discourse_native/src/models/app_settings.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/shell/adaptive_shell.dart';
-import 'package:discourse_native/src/shell/app_settings_controller.dart';
 import 'package:discourse_native/src/shell/content_reading_lane.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
@@ -41,6 +39,9 @@ Future<void> main() async {
       ),
   ];
   final shell = ShellController(
+    appSettingsStore: AppSettingsStore(
+      persistence: MemoryAppSettingsPersistence(),
+    ),
     instanceStore: FakeInstanceStore([
       instance(
         'topic-page.invalid',
@@ -87,14 +88,12 @@ Future<void> main() async {
   await shell.loadFeed('latest');
   shell.desktopTopicTabs = true;
   shell.openTopicFromList(topics.first);
-  final settings = AppSettingsController(
-    store: AppSettingsStore(persistence: MemoryAppSettingsPersistence()),
-  );
+  final settings = shell.appSettings;
   var dark = false;
   var narrow = false;
   var styleguide = false;
   runApp(
-    ContentAlignmentScope(
+    ContentSettingsScope(
       controller: settings,
       child: ShellScope(
         controller: shell,
@@ -114,29 +113,16 @@ Future<void> main() async {
                     child: Wrap(
                       spacing: 8,
                       children: [
-                        DToggleGroup<ContentAlignment>(
-                          values: [settings.contentAlignment],
-                          allowEmptySelection: false,
-                          onChanged: (values) => setState(() {
-                            unawaited(
-                              settings.setContentAlignment(values.single),
-                            );
-                          }),
-                          items: const [
-                            DToggleGroupItem(
-                              value: ContentAlignment.left,
-                              child: Text('Left'),
-                            ),
-                            DToggleGroupItem(
-                              value: ContentAlignment.center,
-                              child: Text('Center'),
-                            ),
-                            DToggleGroupItem(
-                              value: ContentAlignment.right,
-                              child: Text('Right'),
-                            ),
-                          ],
+                        ListenableBuilder(
+                          listenable: settings,
+                          builder: (context, _) => DSwitch(
+                            value: settings.limitContentSize,
+                            semanticLabel: 'Limit content size',
+                            onChanged: (value) =>
+                                unawaited(settings.setLimitContentSize(value)),
+                          ),
                         ),
+                        const Text('Limit content size'),
                         DButton(
                           label: Text(dark ? 'Light' : 'Dark'),
                           onPressed: () => setState(() => dark = !dark),

@@ -1166,7 +1166,7 @@ final class _TestList extends StatelessWidget {
   final TopicFeed feed;
 
   @override
-  Widget build(BuildContext context) => ContentAlignmentScope(
+  Widget build(BuildContext context) => ContentSettingsScope(
     controller: controller.appSettings,
     child: ShellScope(
       controller: controller,

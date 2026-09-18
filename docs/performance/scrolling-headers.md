@@ -46,10 +46,12 @@ failures documented above remain outside this change.
 ## Full-width topic panels
 
 The topic header, activity area and post viewport follow the resizable panel's
-width without the former 825-pixel cap or desktop alignment margins. Measurements
+width by default. The app-wide **Limit content size** switch optionally centers
+content in each panel at a fixed maximum of 825 logical pixels. It defaults to off;
+legacy alignment preferences do not enable it. Measurements
 from the rendered local mockup at `http://localhost:5183/` show 16-pixel horizontal
 header/post padding and a further 39-pixel leading inset for the post body.
-The topic separator shares the 16-pixel insets. These fixed layout insets do not
+The topic separator shares the 16-pixel insets inside the same optional limit. These fixed layout insets do not
 scale into a wider centered reading column when app text zoom changes.
 
 Geometry and interaction checks pass at 1200/2000-pixel desktop widths, 100/150%

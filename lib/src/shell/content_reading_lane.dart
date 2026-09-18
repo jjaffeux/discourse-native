@@ -3,28 +3,27 @@ import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 
-import '../models/app_settings.dart';
 import 'app_settings_controller.dart';
 
 typedef ContentReadingLaneBuilder =
     Widget Function(BuildContext context, ContentReadingLaneGeometry lane);
 
-class ContentAlignmentScope extends InheritedNotifier<AppSettingsController> {
-  const ContentAlignmentScope({
+class ContentSettingsScope extends InheritedNotifier<AppSettingsController> {
+  const ContentSettingsScope({
     super.key,
     required AppSettingsController controller,
     required super.child,
   }) : super(notifier: controller);
 
-  static ContentAlignment of(BuildContext context) {
-    return _controllerOf(context)?.contentAlignment ?? ContentAlignment.center;
+  static bool limitContentSizeOf(BuildContext context) {
+    return _controllerOf(context)?.limitContentSize ?? false;
   }
 
   static double appTextScaleFactorOf(BuildContext context) =>
       _controllerOf(context)?.textScaleFactor ?? 1.0;
 
   static AppSettingsController? _controllerOf(BuildContext context) => context
-      .dependOnInheritedWidgetOfExactType<ContentAlignmentScope>()
+      .dependOnInheritedWidgetOfExactType<ContentSettingsScope>()
       ?.notifier;
 }
 
@@ -56,8 +55,8 @@ class ContentReadingLaneGeometry {
 /// full-width chrome.
 ///
 /// The scroll viewport remains full width, so wheel and trackpad events in the
-/// empty space still reach it. Only its children are constrained to the
-/// text-zoom-adjusted [maxWidth].
+/// empty space still reach it. When enabled, only its children are constrained
+/// to [maxWidth], independently of text zoom.
 class ContentReadingLane extends StatelessWidget {
   const ContentReadingLane({
     super.key,
@@ -66,7 +65,7 @@ class ContentReadingLane extends StatelessWidget {
     required this.builder,
   });
 
-  /// Reading-lane width at 100% app text zoom.
+  /// Maximum content width when the size limit is enabled.
   static const double maxWidth = 825;
 
   final EdgeInsets basePadding;
@@ -84,21 +83,16 @@ class ContentReadingLane extends StatelessWidget {
       0.0,
       availableWidth - reserved.horizontal - basePadding.horizontal,
     );
-    final constrained = _usesDesktopLane && contentWidth.isFinite;
-    final appTextScaleFactor = constrained
-        ? ContentAlignmentScope.appTextScaleFactorOf(context)
-        : 1.0;
+    final constrained =
+        ContentSettingsScope.limitContentSizeOf(context) &&
+        contentWidth.isFinite;
     final width = constrained
-        ? math.min(widthLimit * appTextScaleFactor, contentWidth)
+        ? math.min(math.min(widthLimit, maxWidth), contentWidth)
         : contentWidth;
     final extra = constrained ? contentWidth - width : 0.0;
-    final (leftInset, rightInset, alignment) = constrained
-        ? switch (ContentAlignmentScope.of(context)) {
-            ContentAlignment.left => (0.0, extra, Alignment.centerLeft),
-            ContentAlignment.center => (extra / 2, extra / 2, Alignment.center),
-            ContentAlignment.right => (extra, 0.0, Alignment.centerRight),
-          }
-        : (0.0, 0.0, Alignment.center);
+    final leftInset = extra / 2;
+    final rightInset = extra / 2;
+    const alignment = Alignment.center;
     return ContentReadingLaneGeometry(
       width: width,
       leftInset: leftInset + reserved.left,
@@ -123,7 +117,7 @@ class ContentReadingLane extends StatelessWidget {
     BuildContext context,
     double width,
   ) => _usesDesktopLane && width.isFinite
-      ? ContentAlignmentScope.appTextScaleFactorOf(context)
+      ? ContentSettingsScope.appTextScaleFactorOf(context)
       : 1.0;
 
   @override

@@ -522,7 +522,7 @@ class _DiscourseAppState extends State<DiscourseApp>
     // Navigator, can still reach the controller.
     final app = ShellScope(
       controller: _controller,
-      child: ContentAlignmentScope(
+      child: ContentSettingsScope(
         controller: _controller.appSettings,
         child: ShellSelector<_AppThemeSelection>(
           select: _AppThemeSelection.from,
