@@ -45,9 +45,12 @@ class DCard extends StatelessWidget {
       child: Semantics(
         container: true,
         child: DecoratedBox(
+          // Panels clip to their bounds and edge-to-edge children can be opaque.
+          // Paint the outline inside those bounds, above the child surface.
+          position: DecorationPosition.foreground,
           decoration: BoxDecoration(
             borderRadius: radius,
-            boxShadow: [BoxShadow(color: tokens.border, spreadRadius: 1)],
+            border: Border.all(color: tokens.border),
           ),
           child: Material(
             animationDuration: Duration.zero,
