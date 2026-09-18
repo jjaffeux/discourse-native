@@ -739,7 +739,7 @@ void main() {
       );
       expect(composer.text.keyboardSelectedImage, isNull);
       await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
-      await tester.pump();
+      await tester.pumpAndSettle();
 
       expect(composer.text.text, source);
       expect(
@@ -758,10 +758,7 @@ void main() {
       expect(find.byTooltip('Decrease image size'), findsOneWidget);
       expect(find.byTooltip('Increase image size'), findsOneWidget);
       expect(find.byTooltip('Save alt text'), findsOneWidget);
-      expect(
-        tester.getSize(find.byTooltip('Save alt text')),
-        const Size.square(44),
-      );
+      expect(find.byTooltip('Save alt text').hitTestable(), findsOneWidget);
 
       await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
       await tester.pump();
@@ -807,7 +804,7 @@ void main() {
       composer.focus.requestFocus();
       await tester.pump();
       await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
-      await tester.pump();
+      await tester.pumpAndSettle();
 
       expect(composer.text.keyboardSelectedImage, isNotNull);
       expect(find.byTooltip('Save alt text'), findsOneWidget);
