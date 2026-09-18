@@ -1,7 +1,8 @@
-import 'dart:ui' show SemanticsAction;
+import 'dart:ui' show ImageByteFormat, SemanticsAction;
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -29,6 +30,67 @@ Widget host(
 );
 
 void main() {
+  testWidgets(
+    'clipped edge-to-edge cards paint all four borders over content',
+    (tester) async {
+      const captureKey = ValueKey('card-border-capture');
+      const border = Color(0xFFFF0000);
+      const content = Color(0xFF00FFFF);
+      for (final theme in [ThemeData.light(), ThemeData.dark()]) {
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: theme.copyWith(
+              extensions: [DTokens.fromTheme(theme).copyWith(border: border)],
+            ),
+            home: const Center(
+              child: RepaintBoundary(
+                key: captureKey,
+                child: SizedBox(
+                  width: 128,
+                  height: 96,
+                  child: ClipRect(
+                    child: DCard(
+                      spacing: 0,
+                      child: Expanded(child: ColoredBox(color: content)),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        final boundary = tester.renderObject<RenderRepaintBoundary>(
+          find.byKey(captureKey),
+        );
+        await tester.runAsync(() async {
+          final image = await boundary.toImage(pixelRatio: 1);
+          try {
+            final pixels = (await image.toByteData(
+              format: ImageByteFormat.rawRgba,
+            ))!;
+            int pixel(int x, int y) =>
+                pixels.getUint32((y * image.width + x) * 4);
+            for (final point in [(64, 0), (127, 48), (64, 95), (0, 48)]) {
+              expect(
+                pixel(point.$1, point.$2),
+                0xFF0000FF,
+                reason: 'Visible border at $point in ${theme.brightness}',
+              );
+            }
+            expect(
+              pixel(64, 48),
+              0x00FFFFFF,
+              reason: 'The outline does not tint the content',
+            );
+          } finally {
+            image.dispose();
+          }
+        });
+      }
+    },
+  );
+
   for (final direction in TextDirection.values) {
     testWidgets(
       'compact action reaches $direction end and title uses remaining width',
