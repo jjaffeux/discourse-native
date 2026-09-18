@@ -249,7 +249,7 @@ The test description was:
 00:11 +208 -1: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/keyboard_navigation_test.dart: G K opens the first listed topic from an unlisted topic at 390.0px [E]
   Test failed. See exception logs above.
   The test description was: G K opens the first listed topic from an unlisted topic at 390.0px
-  
+
 00:11 +208 -1: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/keyboard_navigation_test.dart: G J opens the first listed topic from an unlisted topic at 390.0px
 ══╡ EXCEPTION CAUGHT BY FLUTTER TEST FRAMEWORK ╞════════════════════════════════════════════════════
 The following TestFailure was thrown running a test:
@@ -277,7 +277,7 @@ The test description was:
 00:12 +208 -2: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/keyboard_navigation_test.dart: G J opens the first listed topic from an unlisted topic at 390.0px [E]
   Test failed. See exception logs above.
   The test description was: G J opens the first listed topic from an unlisted topic at 390.0px
-  
+
 00:12 +208 -2: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/keyboard_navigation_test.dart: G J and G K open adjacent topics at 390.0px
 00:12 +209 -2: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/keyboard_navigation_test.dart: Previous button opens the first listed topic from an unlisted topic
 00:12 +210 -2: /Users/joffreyjaffeux/.codex/worktrees/35bf/discourse-native/test/keyboard_navigation_test.dart: Next button opens the first listed topic from an unlisted topic

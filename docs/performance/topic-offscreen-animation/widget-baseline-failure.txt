@@ -39,7 +39,7 @@ The test description was:
 00:01 +0 -1: retained topic GIF stops listening offscreen (inbox: false) [E]
   Test failed. See exception logs above.
   The test description was: retained topic GIF stops listening offscreen (inbox: false)
-  
+
 00:01 +0 -1: retained topic GIF stops listening offscreen (inbox: true)
 ══╡ EXCEPTION CAUGHT BY FLUTTER TEST FRAMEWORK ╞════════════════════════════════════════════════════
 The following TestFailure was thrown running a test:
@@ -65,7 +65,7 @@ The test description was:
 00:02 +0 -2: retained topic GIF stops listening offscreen (inbox: true) [E]
   Test failed. See exception logs above.
   The test description was: retained topic GIF stops listening offscreen (inbox: true)
-  
+
 00:02 +0 -2: Some tests failed.
 
 Failing tests:

@@ -41,7 +41,7 @@ The test description was:
 00:02 +0 -1: G K opens the first listed topic from an unlisted topic at 390.0px [E]
   Test failed. See exception logs above.
   The test description was: G K opens the first listed topic from an unlisted topic at 390.0px
-  
+
 Warning: At least one test in this suite creates an HttpClient. When running a test suite that uses
 TestWidgetsFlutterBinding, all HTTP requests will return status code 400, and no network request
 will actually be made. Any test expecting a real network connection and status code will fail.
@@ -74,7 +74,7 @@ The test description was:
 00:02 +0 -2: G J opens the first listed topic from an unlisted topic at 390.0px [E]
   Test failed. See exception logs above.
   The test description was: G J opens the first listed topic from an unlisted topic at 390.0px
-  
+
 00:02 +0 -2: Some tests failed.
 
 Failing tests:

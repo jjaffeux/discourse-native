@@ -39,7 +39,7 @@ The test description was:
 00:01 +0 -1: TopicView viewport and read-position lifecycle keyboard navigation scrolls and jumps through the topic [E]
   Test failed. See exception logs above.
   The test description was: keyboard navigation scrolls and jumps through the topic
-  
+
 
 Warning: At least one test in this suite creates an HttpClient. When running a test suite that uses
 TestWidgetsFlutterBinding, all HTTP requests will return status code 400, and no network request
