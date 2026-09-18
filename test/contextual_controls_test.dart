@@ -134,7 +134,7 @@ void main() {
 
   for (final showLabel in [false, true]) {
     testWidgets(
-      'active notification tint follows selection and live palette (label: $showLabel)',
+      'outlined notifications retain shared states and live palette (label: $showLabel)',
       (tester) async {
         final trigger = find.byKey(const ValueKey('notification-trigger'));
         final bookmark = find.byKey(const ValueKey('bookmark-trigger'));
@@ -195,12 +195,27 @@ void main() {
         DTokens tokens() => DTokens.of(tester.element(trigger));
         expect(
           buttonSurface(tester, of: trigger).color,
-          tokens().controls!.accent.background,
+          tokens().controls!.outline.background,
         );
         expect(
           buttonSurface(tester, of: trigger).borderColor,
-          tokens().controls!.accent.border,
+          tokens().controls!.outline.border,
         );
+        final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+        await mouse.addPointer(location: Offset.zero);
+        addTearDown(mouse.removePointer);
+        await mouse.moveTo(tester.getCenter(trigger));
+        await tester.pumpAndSettle();
+        expect(
+          buttonSurface(tester, of: trigger).color,
+          tokens().controls!.outline.hover,
+        );
+        expect(
+          buttonSurface(tester, of: trigger).borderColor,
+          tokens().controls!.outline.hoverBorder,
+        );
+        await mouse.moveTo(Offset.zero);
+        await tester.pumpAndSettle();
         await tester.tap(trigger);
         await tester.pumpAndSettle();
         theme.value = themes['meta light']!;
@@ -208,11 +223,15 @@ void main() {
         expect(find.byType(DDropdownMenuContent), findsOneWidget);
         expect(
           buttonSurface(tester, of: trigger).color,
-          tokens().controls!.accent.background,
+          tokens().controls!.outline.hover,
         );
         expect(
           buttonSurface(tester, of: trigger).borderColor,
-          buttonSurface(tester, of: bookmark).borderColor,
+          tokens().controls!.outline.hoverBorder,
+        );
+        expect(
+          buttonSurface(tester, of: bookmark).color,
+          tokens().controls!.outline.background,
         );
         expect(buttonSurface(tester, of: trigger).joinedAxis, Axis.horizontal);
         expect(tester.getRect(bookmark).right, tester.getRect(trigger).left);

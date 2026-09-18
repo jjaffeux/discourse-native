@@ -2484,11 +2484,15 @@ void main() {
         );
         expect(
           buttonSurface(tester, of: reply).borderRadius.topRight,
-          const Radius.circular(8),
+          Radius.circular(DTokens.of(tester.element(reply)).controlRadius),
         );
         expect(
           buttonSurface(tester, of: bookmark).borderRadius,
-          const BorderRadius.horizontal(left: Radius.circular(8)),
+          BorderRadius.horizontal(
+            left: Radius.circular(
+              DTokens.of(tester.element(bookmark)).controlRadius,
+            ),
+          ),
         );
         expect(
           buttonSurface(tester, of: notifications).borderRadius.topLeft,
@@ -2567,7 +2571,13 @@ void main() {
             );
             expect(
               surface.borderRadius,
-              const BorderRadius.horizontal(left: Radius.circular(8)),
+              BorderRadius.horizontal(
+                left: Radius.circular(tokens.controlRadius),
+              ),
+            );
+            expect(
+              buttonSurface(tester, of: notifications).color,
+              controls.outline.background,
             );
             expect(tester.getSize(bookmark), unselectedSize);
             expect(
@@ -2596,7 +2606,7 @@ void main() {
               );
               expect(
                 buttonSurface(tester, of: notifications).color,
-                controls.accent.background,
+                controls.outline.background,
               );
               await mouse.moveTo(Offset.zero);
               await tester.pumpAndSettle();

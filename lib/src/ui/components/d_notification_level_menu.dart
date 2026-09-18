@@ -25,7 +25,8 @@ class DNotificationLevelOption<T> {
   /// Inherits the trigger or menu row's icon size and color.
   final Widget icon;
 
-  /// Tints the trigger for an active subscription, with or without its label.
+  /// Uses the primary variant for an active icon-only trigger when no explicit
+  /// variant is supplied. Labeled triggers show the level on an outline surface.
   final bool emphasized;
 }
 
@@ -62,8 +63,8 @@ class DNotificationLevelMenu<T> extends StatelessWidget {
   final DButtonSize size;
 
   /// Overrides the trigger style for compositions such as an outlined group.
-  /// When null, labeled triggers are outlined and emphasized triggers use the
-  /// host's contextual accent surface when available.
+  /// When null, labeled triggers are outlined; icon-only triggers use primary
+  /// for emphasized options and ghost otherwise. DButton owns every surface.
   final DButtonVariant? variant;
 
   /// Overrides the trigger fill without changing the dropdown surface.
@@ -81,13 +82,6 @@ class DNotificationLevelMenu<T> extends StatelessWidget {
   Widget build(BuildContext context) {
     final selected = options.singleWhere((option) => option.value == value);
     final label = '$semanticLabel: ${selected.label}';
-    final accent =
-        selected.emphasized &&
-            (variant == null ||
-                variant == DButtonVariant.outline ||
-                variant == DButtonVariant.primary)
-        ? DTokens.of(context).controls?.accent
-        : null;
     return DDropdownMenu(
       content: DDropdownMenuContent(
         semanticLabel: semanticLabel,
@@ -143,11 +137,9 @@ class DNotificationLevelMenu<T> extends StatelessWidget {
                 hasPopup: true,
                 expanded: state.open,
                 variant: variant ?? DButtonVariant.outline,
-                backgroundColor: backgroundColor ?? accent?.background,
-                foregroundColor: accent?.foreground,
-                borderColor: borderColor ?? accent?.border,
-                interactiveBackgroundColor:
-                    interactiveBackgroundColor ?? accent?.hover,
+                backgroundColor: backgroundColor,
+                borderColor: borderColor,
+                interactiveBackgroundColor: interactiveBackgroundColor,
                 size: size,
               )
             : DButton.iconOnly(
@@ -164,11 +156,9 @@ class DNotificationLevelMenu<T> extends StatelessWidget {
                     (selected.emphasized
                         ? DButtonVariant.primary
                         : DButtonVariant.ghost),
-                backgroundColor: backgroundColor ?? accent?.background,
-                foregroundColor: accent?.foreground,
-                borderColor: borderColor ?? accent?.border,
-                interactiveBackgroundColor:
-                    interactiveBackgroundColor ?? accent?.hover,
+                backgroundColor: backgroundColor,
+                borderColor: borderColor,
+                interactiveBackgroundColor: interactiveBackgroundColor,
                 size: size,
               ),
       ),

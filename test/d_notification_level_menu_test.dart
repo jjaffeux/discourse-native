@@ -41,6 +41,52 @@ Finder _option(int value) => find.byWidgetPredicate(
 
 void main() {
   for (final showLabel in [false, true]) {
+    testWidgets(
+      'notification variants use shared button paint (label: $showLabel)',
+      (tester) async {
+        for (final theme in [AppTheme.light, AppTheme.dark]) {
+          for (final (variant, expected) in [
+            (DButtonVariant.outline, DButtonVariant.outline),
+            (DButtonVariant.primary, DButtonVariant.primary),
+            (null, showLabel ? DButtonVariant.outline : DButtonVariant.primary),
+          ]) {
+            await tester.pumpWidget(
+              MaterialApp(
+                theme: theme,
+                home: Scaffold(
+                  body: DNotificationLevelMenu<int>(
+                    value: 3,
+                    options: _options,
+                    semanticLabel: 'Topic notifications',
+                    showLabel: showLabel,
+                    variant: variant,
+                    onChanged: (_) {},
+                  ),
+                ),
+              ),
+            );
+            await tester.pumpAndSettle();
+            final trigger = find.byType(DButton);
+            final button = tester.widget<DButton>(trigger);
+            final tokens = DTokens.of(tester.element(trigger));
+            expect(button.variant, expected);
+            final surface = expected == DButtonVariant.primary
+                ? tokens.controlTheme.primary
+                : tokens.controlTheme.outline;
+            expect(buttonSurface(tester).color, surface.background);
+            expect(buttonSurface(tester).borderColor, surface.border);
+            final icon = find
+                .descendant(of: trigger, matching: find.byType(Icon))
+                .first;
+            expect(
+              IconTheme.of(tester.element(icon)).color,
+              surface.foreground,
+            );
+          }
+        }
+      },
+    );
+
     testWidgets('custom outlined trigger selects a level (label: $showLabel)', (
       tester,
     ) async {
