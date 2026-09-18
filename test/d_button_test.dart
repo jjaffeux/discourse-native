@@ -218,7 +218,7 @@ void main() {
     }
   });
 
-  testWidgets('flat icon buttons follow the standard size scale', (
+  testWidgets('flat icon buttons follow the theme radius and standard sizes', (
     tester,
   ) async {
     for (final (radius, size) in [
@@ -227,9 +227,11 @@ void main() {
       (0.0, DButtonSize.large),
     ]) {
       final base = AppTheme.light.copyWith(platform: TargetPlatform.macOS);
-      final buttons = base.discourseButtons.copyWith(borderRadius: radius);
       final theme = base.copyWith(
-        extensions: [base.shell, base.code, base.discourse, buttons],
+        extensions: [
+          ...base.extensions.values.where((value) => value is! DTokens),
+          DTokens.fromTheme(base).copyWith(radius: radius),
+        ],
       );
 
       await tester.pumpWidget(
@@ -265,7 +267,7 @@ void main() {
       expect(shape, isA<RoundedRectangleBorder>());
       expect(
         (shape! as RoundedRectangleBorder).borderRadius,
-        BorderRadius.circular(targetDimension / 2),
+        BorderRadius.circular(radius),
       );
       expect(buttonSurface(tester).color, Colors.transparent);
       final pointer = await tester.createGesture(kind: PointerDeviceKind.mouse);

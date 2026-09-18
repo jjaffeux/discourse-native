@@ -310,54 +310,53 @@ void main() {
     },
   );
 
-  testWidgets(
-    'pill radii follow control height independently of the canvas radius',
-    (tester) async {
-      for (final baseRadius in [0.0, 4.0, 10.0, 14.0, 20.0]) {
-        final base = _referenceTheme(AppTheme.light);
-        final tokens = base.extension<DTokens>()!.copyWith(radius: baseRadius);
-        final theme = base.copyWith(
-          extensions: [
-            ...base.extensions.values.where((value) => value is! DTokens),
-            tokens,
-          ],
-        );
-        for (final size in DButtonSize.values) {
-          for (final iconOnly in [false, true]) {
-            await pump(
-              tester,
-              iconOnly
-                  ? DButton.iconOnly(
-                      icon: const Icon(Icons.add),
-                      tooltip: 'Add',
-                      size: size,
-                      onPressed: () {},
-                    )
-                  : DButton(
-                      label: const Text('Button'),
-                      size: size,
-                      onPressed: () {},
-                    ),
-              theme: theme,
-            );
-            await tester.pumpAndSettle();
-            final shape =
-                tester
-                        .widget<FilledButton>(find.byType(FilledButton))
-                        .style!
-                        .shape!
-                        .resolve({})!
-                    as RoundedRectangleBorder;
-            final expected = DButton.visualDimensionFor(size) / 2;
-            final radius = shape.borderRadius.resolve(TextDirection.ltr);
-            expect(radius.topLeft.x, closeTo(expected, .000001));
-            expect(radius, BorderRadius.circular(radius.topLeft.x));
-            expect(buttonSurface(tester).borderRadius, radius);
-          }
+  testWidgets('default button radii follow the theme at every size', (
+    tester,
+  ) async {
+    for (final baseRadius in [0.0, 4.0, 10.0, 14.0, 20.0]) {
+      final base = _referenceTheme(AppTheme.light);
+      final tokens = base.extension<DTokens>()!.copyWith(radius: baseRadius);
+      final theme = base.copyWith(
+        extensions: [
+          ...base.extensions.values.where((value) => value is! DTokens),
+          tokens,
+        ],
+      );
+      for (final size in DButtonSize.values) {
+        for (final iconOnly in [false, true]) {
+          await pump(
+            tester,
+            iconOnly
+                ? DButton.iconOnly(
+                    icon: const Icon(Icons.add),
+                    tooltip: 'Add',
+                    size: size,
+                    onPressed: () {},
+                  )
+                : DButton(
+                    label: const Text('Button'),
+                    size: size,
+                    onPressed: () {},
+                  ),
+            theme: theme,
+          );
+          await tester.pumpAndSettle();
+          final shape =
+              tester
+                      .widget<FilledButton>(find.byType(FilledButton))
+                      .style!
+                      .shape!
+                      .resolve({})!
+                  as RoundedRectangleBorder;
+          final expected = baseRadius;
+          final radius = shape.borderRadius.resolve(TextDirection.ltr);
+          expect(radius.topLeft.x, closeTo(expected, .000001));
+          expect(radius, BorderRadius.circular(radius.topLeft.x));
+          expect(buttonSurface(tester).borderRadius, radius);
         }
       }
-    },
-  );
+    }
+  });
 
   testWidgets('small labels and leading loading icons use compact spacing', (
     tester,

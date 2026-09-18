@@ -131,7 +131,7 @@ class DTokens extends ThemeExtension<DTokens> {
   }
 
   DControlTheme get _referenceControls =>
-      DControlTheme.linear(colors, background);
+      DControlTheme.linear(colors, background, radius: radius);
 }
 
 /// Logical pixels; text continues to use the host's semantic TextTheme roles.
