@@ -183,16 +183,24 @@ void main() {
       final ordinaryDecoration = _tabDecoration(tester, ordinary);
       expect(
         selectedDecoration.color,
-        (theme.extension<DTokens>()!).foreground.withValues(alpha: .06),
+        Color.lerp(
+          DTokens.of(tester.element(bar)).background,
+          DTokens.of(tester.element(bar)).foreground,
+          .10,
+        )!,
       );
       expect(
-        (selectedDecoration.shape as OutlinedBorder).side,
-        BorderSide.none,
+        (selectedDecoration.shape as OutlinedBorder).side.color,
+        Color.lerp(
+          DTokens.of(tester.element(bar)).background,
+          DTokens.of(tester.element(bar)).foreground,
+          .22,
+        ),
       );
       expect(ordinaryDecoration.color, Colors.transparent);
       expect(
-        (ordinaryDecoration.shape as OutlinedBorder).side,
-        BorderSide.none,
+        (ordinaryDecoration.shape as OutlinedBorder).side.color,
+        Colors.transparent,
       );
       expect(
         find.byKey(const ValueKey('forum-tab-indicator-topic-1')),
@@ -203,11 +211,15 @@ void main() {
       expect(addRect.left, ordinaryRect.right + 4);
       expect(addRect.center.dy, barRect.center.dy);
 
-      // Rounded tabs float above the surface; a divider bounds the tab bar.
+      // Selected tabs have an outline; the strip and inactive corners stay clear.
       await _expectTabPixels(tester, [
         (
-          Offset(selectedRect.center.dx, selectedRect.bottom - 1),
-          (theme.extension<DTokens>()!).foreground.withValues(alpha: .06),
+          Offset(selectedRect.center.dx, selectedRect.bottom - 3),
+          Color.lerp(
+            DTokens.of(tester.element(bar)).background,
+            DTokens.of(tester.element(bar)).foreground,
+            .10,
+          )!,
         ),
         (
           Offset(selectedRect.left + 1, selectedRect.bottom - 1),
@@ -215,7 +227,7 @@ void main() {
         ),
         (
           Offset(selectedRect.center.dx, barRect.bottom - 1),
-          theme.shell.divider,
+          theme.shell.sidebar,
         ),
         (ordinaryRect.topLeft + const Offset(1, 1), theme.shell.sidebar),
       ]);
@@ -270,25 +282,45 @@ void main() {
       expect(tester.getRect(tab), before);
       expect(
         _tabDecoration(tester, tab).color,
-        (theme.extension<DTokens>()!).foreground.withValues(alpha: .06),
+        Color.lerp(
+          DTokens.of(tester.element(tab)).background,
+          DTokens.of(tester.element(tab)).foreground,
+          .10,
+        )!,
       );
       await _expectTabPixels(tester, [
         (before.topLeft + const Offset(1, 1), theme.shell.sidebar),
         (
           Offset(before.center.dx, before.top + 3),
-          (theme.extension<DTokens>()!).foreground.withValues(alpha: .06),
+          Color.lerp(
+            DTokens.of(tester.element(tab)).background,
+            DTokens.of(tester.element(tab)).foreground,
+            .10,
+          )!,
         ),
         (
           Offset(before.left + 3, before.center.dy),
-          (theme.extension<DTokens>()!).foreground.withValues(alpha: .06),
+          Color.lerp(
+            DTokens.of(tester.element(tab)).background,
+            DTokens.of(tester.element(tab)).foreground,
+            .10,
+          )!,
         ),
         (
           Offset(before.center.dx, before.bottom - 6),
-          (theme.extension<DTokens>()!).foreground.withValues(alpha: .06),
+          Color.lerp(
+            DTokens.of(tester.element(tab)).background,
+            DTokens.of(tester.element(tab)).foreground,
+            .10,
+          )!,
         ),
         (
           Offset(before.center.dx, before.bottom - 1),
-          (theme.extension<DTokens>()!).foreground.withValues(alpha: .06),
+          Color.lerp(
+            DTokens.of(tester.element(tab)).background,
+            DTokens.of(tester.element(tab)).foreground,
+            .10,
+          )!,
         ),
       ]);
     });
