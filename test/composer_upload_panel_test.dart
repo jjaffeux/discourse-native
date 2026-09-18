@@ -1719,6 +1719,50 @@ void main() {
       },
     );
 
+    for (final source in [
+      '![image](upload://image)',
+      '[grid]\n![image](upload://image)\n[/grid]',
+    ]) {
+      for (final prefix in ['', 'Before\n']) {
+        testWidgets('Enter inserts a line before selected $prefix$source', (
+          tester,
+        ) async {
+          final composer = ComposerController(
+            _target,
+            resolveUploadUrls: (_) async => const {},
+          );
+          final shell = await _InteractionTrackingShellController.create();
+          addTearDown(composer.dispose);
+          addTearDown(shell.dispose);
+          composer.text.value = TextEditingValue(
+            text: '$prefix$source',
+            selection: TextSelection.collapsed(
+              offset: prefix.length + source.length,
+            ),
+          );
+          await _pumpPanel(tester, shell, composer);
+          composer.focus.requestFocus();
+          await tester.pump();
+          await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+          await tester.pump();
+          await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+          await tester.pump();
+          expect(composer.text.text, '$prefix\n$source');
+          expect(
+            composer.text.selection,
+            TextSelection.collapsed(offset: prefix.length),
+          );
+          expect(composer.text.keyboardSelectedProjection, isNull);
+          expect(
+            find.byKey(const ValueKey('composer-gallery-toolbar')),
+            findsNothing,
+          );
+          expect(shell.submitCalls, 0);
+          composer.draftSettled();
+        });
+      }
+    }
+
     testWidgets('Ctrl+Enter submits while gallery controls are selected', (
       tester,
     ) async {
