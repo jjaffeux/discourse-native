@@ -841,6 +841,14 @@ class ShellController extends FrameSafeNotifier
         _composerDrafts.deleteListedDraft(siteUrl, draft, isCurrent),
   );
 
+  // Keep the composer preview separate from the paginated Drafts screen.
+  late final DraftListController recentComposerDrafts = DraftListController(
+    api: api.drafts,
+    credentials: authenticator,
+    lifecycle: lifecycle,
+    limit: 5,
+  );
+
   late final UserSummaryController userSummary = UserSummaryController(
     api: api.userSummaries,
     credentials: authenticator,
@@ -2134,6 +2142,7 @@ class ShellController extends FrameSafeNotifier
         .drafts
         .any((draft) => draft.key == draftKey);
     draftList.recordDeleted(siteUrl, draftKey);
+    recentComposerDrafts.recordDeleted(siteUrl, draftKey);
     if (!knownToExist || wasListed) return;
     final instance = _instanceAt(siteUrl);
     if (instance?.isConnected == true) {
@@ -7227,6 +7236,12 @@ class ShellController extends FrameSafeNotifier
     SurfaceOpeningTrace.mark('composer.publish');
     final target = composer.target;
     _composers[target.siteUrl] = composer;
+    if (composer.canSaveDraft) {
+      final instance = instanceFor(target.siteUrl);
+      if (instance != null) {
+        unawaited(recentComposerDrafts.load(instance, refresh: true));
+      }
+    }
   }
 
   bool _ownsComposer(ComposerController? composer) {
@@ -12962,6 +12977,7 @@ class ShellController extends FrameSafeNotifier
     aggregate.forget(siteUrl);
     accountActivity.forget(siteUrl);
     draftList.forget(siteUrl);
+    recentComposerDrafts.forget(siteUrl);
     userSummary.forget(siteUrl);
     groups.forget(siteUrl);
     userDirectory.forget(siteUrl);
@@ -14197,8 +14213,13 @@ class ShellController extends FrameSafeNotifier
     pushContent(ContentRoute.userActivity());
   }
 
-  Future<void> resumeDraft(String siteUrl, UserDraft draft) async {
-    if (!draft.canResume) return;
+  Future<void> resumeDraft(
+    String siteUrl,
+    UserDraft draft, {
+    bool Function()? sourceIsCurrent,
+  }) async {
+    bool isCurrent() => sourceIsCurrent?.call() ?? true;
+    if (!draft.canResume || !isCurrent()) return;
     final index = _instances.indexWhere((instance) => instance.url == siteUrl);
     if (index < 0) return;
     if (index != _instanceIndex) selectInstance(index);
@@ -14215,7 +14236,9 @@ class ShellController extends FrameSafeNotifier
         selectDestination(destination);
       }
       await loadFeed(destination.id);
-      if (currentInstance?.url != siteUrl || destinationId != destination.id) {
+      if (!isCurrent() ||
+          currentInstance?.url != siteUrl ||
+          destinationId != destination.id) {
         return;
       }
       await _openNewTopic(
@@ -14236,7 +14259,9 @@ class ShellController extends FrameSafeNotifier
       ),
     );
     await loadTopic(topicId, draft.slug ?? '');
-    if (currentInstance?.url != siteUrl || currentContent?.topicId != topicId) {
+    if (!isCurrent() ||
+        currentInstance?.url != siteUrl ||
+        currentContent?.topicId != topicId) {
       return;
     }
     openReply(
@@ -14562,6 +14587,7 @@ class ShellController extends FrameSafeNotifier
     accountActivity.dispose();
     doNotDisturb.dispose();
     draftList.dispose();
+    recentComposerDrafts.dispose();
     userSummary.dispose();
     groups.dispose();
     userDirectory.dispose();

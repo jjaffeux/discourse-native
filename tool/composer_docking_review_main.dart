@@ -4,11 +4,13 @@ import 'dart:async';
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/macos_launch_screen.dart';
+import 'package:discourse_native/src/models/composer_draft.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/sidebar.dart';
 import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/models/topic.dart';
+import 'package:discourse_native/src/models/user_draft.dart';
 import 'package:discourse_native/src/shell/adaptive_shell.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
@@ -45,6 +47,16 @@ Future<void> main() async {
     ]),
     api: FakeDiscourseApi(
       user: user,
+      userDraftList: [
+        for (var id = 1; id <= 5; id++)
+          UserDraft(
+            key: 'topic_$id',
+            sequence: 1,
+            topicId: id,
+            title: 'Draft for topic $id',
+            data: ComposerDraft(reply: 'An unfinished reply to topic $id.'),
+          ),
+      ],
       siteConfigs: const {
         'https://first-review.invalid': SiteConfig(taggingEnabled: true),
         'https://second-review.invalid': SiteConfig(taggingEnabled: true),

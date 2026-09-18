@@ -51,6 +51,7 @@ final class _RecordingDraftsApi implements DraftsApi {
 final class _GatedDraftsApi implements DraftsApi {
   final List<Completer<List<UserDraft>>> pages = [];
   final List<int> offsets = [];
+  final List<int> limits = [];
   final List<(String, String)> deletions = [];
 
   @override
@@ -64,6 +65,7 @@ final class _GatedDraftsApi implements DraftsApi {
     final page = Completer<List<UserDraft>>();
     pages.add(page);
     offsets.add(offset);
+    limits.add(limit);
     final drafts = await page.future;
     return UserDraftPage(drafts: drafts, rawItemCount: drafts.length);
   }
@@ -101,6 +103,32 @@ final class _GatedApiKeys implements SiteApiKeyReader {
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+
+  test(
+    'a composer preview requests five rows without changing list pagination',
+    () async {
+      final api = _GatedDraftsApi();
+      final controller = DraftListController(
+        api: api,
+        credentials: _ReadyApiKeys(),
+        lifecycle: SiteLifecycle(),
+        limit: 5,
+      );
+      addTearDown(controller.dispose);
+      final pending = controller.load(_instance, refresh: true);
+      await Future<void>.delayed(Duration.zero);
+      expect(api.offsets, [0]);
+      expect(api.limits, [5]);
+      api.pages.single.complete([
+        for (var i = 0; i < 5; i++)
+          UserDraft(key: 'topic_$i', sequence: 1, data: null),
+      ]);
+      await pending;
+      expect(controller.feedFor(_siteUrl).drafts, hasLength(5));
+      expect(controller.feedFor(_siteUrl).nextOffset, 5);
+      expect(DraftListController.pageSize, 30);
+    },
+  );
 
   group('server page boundaries', () {
     test('invalid raw rows do not hide subsequent valid drafts', () async {

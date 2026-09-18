@@ -26,9 +26,12 @@ final class DraftListController extends FrameSafeNotifier {
     required this.credentials,
     required this.lifecycle,
     this.deleteDraft,
-  });
+    this.limit = pageSize,
+  }) : assert(limit > 0);
 
   static const int pageSize = 30;
+
+  final int limit;
 
   final DraftsApi api;
   final SiteApiKeyReader credentials;
@@ -112,7 +115,7 @@ final class DraftListController extends FrameSafeNotifier {
         siteUrl: siteUrl,
         apiKey: apiKey,
         offset: feedFor(siteUrl).nextOffset,
-        limit: pageSize,
+        limit: limit,
       );
       // The commit must build on the feed as it stands now, not the [held]
       // snapshot: a delete that landed during the request already removed its
@@ -135,7 +138,7 @@ final class DraftListController extends FrameSafeNotifier {
             ],
             rawItemCount: page.rawItemCount,
           ),
-          limit: pageSize,
+          limit: limit,
           reportedCount: instance.user?.draftCount,
           deletedCount: deletedFromPage.length,
         );
