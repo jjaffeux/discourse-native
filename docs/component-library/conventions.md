@@ -80,6 +80,12 @@ actions retain the regular 28px size, text scaling and 48px touch targets.
 See [the reference measurements and verification](linear-controls.md), which
 supersede the earlier [contextual tint styling](contextual-tints.md).
 
+Desktop topic-list and reader footers use `DCardFooter(rounded: true)` for
+upper corners matching the Card radius. The kit clips the surface and paints
+the top outline above its contents. `padding` supports existing toolbar spacing
+and `backgroundColor` accepts the shell's semantic surface color; ordinary card
+footers retain their shared spacing and square upper edge.
+
 ## Theme, layout and interaction
 
 `DTokens.of(context)` supplies semantic colors and radius, with a fallback for

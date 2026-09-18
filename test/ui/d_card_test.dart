@@ -31,6 +31,65 @@ Widget host(
 
 void main() {
   testWidgets(
+    'rounded footer clips opaque children and keeps its top outline',
+    (tester) async {
+      const captureKey = ValueKey('footer-capture');
+      for (final theme in [ThemeData.light(), ThemeData.dark()]) {
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: theme.copyWith(
+              extensions: [
+                DTokens.fromTheme(
+                  theme,
+                ).copyWith(border: const Color(0xFFFF0000)),
+              ],
+            ),
+            home: const Center(
+              child: RepaintBoundary(
+                key: captureKey,
+                child: ColoredBox(
+                  color: Color(0xFF0000FF),
+                  child: SizedBox(
+                    width: 128,
+                    height: 48,
+                    child: DCardFooter(
+                      rounded: true,
+                      padding: EdgeInsets.zero,
+                      child: ColoredBox(color: Color(0xFF00FFFF)),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        final boundary = tester.renderObject<RenderRepaintBoundary>(
+          find.byKey(captureKey),
+        );
+        await tester.runAsync(() async {
+          final image = await boundary.toImage(pixelRatio: 1);
+          try {
+            final pixels = (await image.toByteData(
+              format: ImageByteFormat.rawRgba,
+            ))!;
+            int pixel(int x, int y) =>
+                pixels.getUint32((y * image.width + x) * 4);
+            expect(pixel(0, 0), 0x0000FFFF);
+            expect(pixel(127, 0), 0x0000FFFF);
+            expect(pixel(64, 0), 0xFF0000FF);
+            expect(pixel(64, 24), 0x00FFFFFF);
+            expect(pixel(0, 47), 0x00FFFFFF);
+          } finally {
+            image.dispose();
+          }
+        });
+        expect(tester.takeException(), isNull);
+      }
+    },
+  );
+
+  testWidgets(
     'clipped edge-to-edge cards paint all four borders over content',
     (tester) async {
       const captureKey = ValueKey('card-border-capture');
