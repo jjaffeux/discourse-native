@@ -1,3 +1,4 @@
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/post_likers.dart';
@@ -14,7 +15,7 @@ import 'support/fakes.dart';
 const _siteUrl = 'https://meta.example';
 
 void main() {
-  testWidgets('the like pill is a named 44 pixel keyboard target', (
+  testWidgets('the like pill is a named large Native keyboard target', (
     tester,
   ) async {
     final api = FakeDiscourseApi();
@@ -65,16 +66,17 @@ void main() {
 
       final target = find.descendant(
         of: find.byType(PostLikes),
-        matching: find.byType(InkWell),
+        matching: find.byType(DToggle),
       );
       expect(target, findsOneWidget);
-      expect(tester.getSize(target).height, greaterThanOrEqualTo(44));
-      expect(tester.getSize(target).width, greaterThanOrEqualTo(44));
+      expect(tester.widget<DToggle>(target).size, DToggleSize.large);
+      expect(tester.getSize(target).height, 32);
+      expect(tester.getSize(target).width, greaterThanOrEqualTo(32));
       expect(
         tester.getSemantics(target),
         isSemantics(
           label: '1 like, from someone else',
-          onTapHint: 'like this post',
+          hint: 'like this post',
           isButton: true,
           isFocusable: true,
           hasTapAction: true,
@@ -157,7 +159,7 @@ void main() {
         tester.getSemantics(target),
         isSemantics(
           label: '1 like, from someone else',
-          onTapHint: 'show who liked this post',
+          hint: 'show who liked this post',
           isButton: true,
           isFocusable: true,
           hasTapAction: true,

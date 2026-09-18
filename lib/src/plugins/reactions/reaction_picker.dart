@@ -11,7 +11,6 @@ import '../../shell/emoji_picker.dart';
 import '../../shell/hover_panel.dart';
 import '../../shell/reaction_presentation.dart';
 import '../../shell/shell_sheet.dart';
-import '../../theme/app_theme.dart';
 import '../../theme/d_icons.dart';
 import 'reaction.dart';
 import 'reactions_controller.dart';
@@ -39,7 +38,6 @@ class PostReactionButton extends StatefulWidget {
 
 class _PostReactionButtonState extends State<PostReactionButton> {
   final GlobalKey<HoverPanelState> _panel = GlobalKey();
-  final WidgetStatesController _states = WidgetStatesController();
   Object? _operation;
 
   bool get _busy => _operation != null;
@@ -59,12 +57,6 @@ class _PostReactionButtonState extends State<PostReactionButton> {
       _operation = null;
       unawaited(_loadSettings());
     }
-  }
-
-  @override
-  void dispose() {
-    _states.dispose();
-    super.dispose();
   }
 
   bool _isCurrent(ReactionPickerSession session) =>
@@ -147,7 +139,6 @@ class _PostReactionButtonState extends State<PostReactionButton> {
   Widget build(BuildContext context) => ListenableBuilder(
     listenable: widget.controller,
     builder: (context, _) {
-      final theme = Theme.of(context);
       final controller = widget.controller;
       final settings = controller
           .siteConfigFor(widget.siteUrl)
@@ -194,74 +185,22 @@ class _PostReactionButtonState extends State<PostReactionButton> {
               ),
               child: FocusTraversalOrder(
                 order: const NumericFocusOrder(0),
-                child: Semantics(
-                  container: true,
-                  button: true,
+                child: DToggle.iconOnly(
+                  pressed: mine != null,
                   enabled: enabled,
-                  selected: mine != null,
-                  label: label,
-                  onLongPressHint: 'choose a reaction',
-                  child: Material(
-                    type: MaterialType.transparency,
-                    child: InkWell(
-                      statesController: _states,
-                      onTap: enabled ? () => _toggle(buttonContext) : null,
-                      onLongPress: enabled
-                          ? () => _panel.currentState?.open()
-                          : null,
-                      mouseCursor: enabled
-                          ? SystemMouseCursors.click
-                          : SystemMouseCursors.basic,
-                      borderRadius: BorderRadius.circular(14),
-                      overlayColor: const WidgetStatePropertyAll(
-                        Colors.transparent,
-                      ),
-                      splashFactory: NoSplash.splashFactory,
-                      child: ExcludeSemantics(
-                        child: SizedBox.square(
-                          dimension: ReactionPill.minTarget,
-                          child: Center(
-                            child: ValueListenableBuilder<Set<WidgetState>>(
-                              valueListenable: _states,
-                              builder: (context, states, child) {
-                                final highlighted =
-                                    enabled &&
-                                    (states.contains(WidgetState.hovered) ||
-                                        states.contains(WidgetState.focused) ||
-                                        states.contains(WidgetState.pressed));
-                                return Container(
-                                  width: 28,
-                                  height: 28,
-                                  alignment: Alignment.center,
-                                  decoration: BoxDecoration(
-                                    color: highlighted
-                                        ? theme.shell.hover
-                                        : Colors.transparent,
-                                    borderRadius: BorderRadius.circular(14),
-                                  ),
-                                  child: child,
-                                );
-                              },
-                              child: mine != null
-                                  ? EmojiImage(
-                                      url: controller.emojiUrlFor(
-                                        widget.siteUrl,
-                                        mine,
-                                      ),
-                                      size: 16,
-                                      alt: ':$mine:',
-                                    )
-                                  : DIcon(
-                                      icon,
-                                      size: 18,
-                                      color: theme.colorScheme.onSurfaceVariant,
-                                    ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
+                  size: DToggleSize.large,
+                  variant: DToggleVariant.outline,
+                  semanticLabel: label,
+                  semanticLongPressHint: 'choose a reaction',
+                  onPressedChanged: (_) => _toggle(buttonContext),
+                  onLongPress: () => _panel.currentState?.open(),
+                  icon: mine != null
+                      ? EmojiImage(
+                          url: controller.emojiUrlFor(widget.siteUrl, mine),
+                          size: DToggle.iconDimensionFor(DToggleSize.large),
+                          alt: ':$mine:',
+                        )
+                      : DIcon(icon),
                 ),
               ),
             ),

@@ -31,9 +31,8 @@ class _PostLikesState extends State<PostLikes> {
   final GlobalKey<HoverPanelState> _panel = GlobalKey<HoverPanelState>();
 
   void _load() => unawaited(
-    ShellScope.read(
-      context,
-    ).loadLikers(widget.post.id, siteUrl: widget.siteUrl),
+    ShellScope.read(context)
+        .loadLikers(widget.post.id, siteUrl: widget.siteUrl),
   );
 
   void _openPanel() => _panel.currentState?.open();
@@ -118,64 +117,19 @@ class _LikeCount extends StatelessWidget {
     final theme = Theme.of(context);
     final toggle = onToggle;
 
-    return Semantics(
-      button: true,
-      label: post.likeCount == 1
+    return DToggle(
+      pressed: post.liked,
+      size: DToggleSize.large,
+      variant: DToggleVariant.outline,
+      semanticLabel: post.likeCount == 1
           ? '1 like, from ${post.liked ? 'you' : 'someone else'}'
           : '${post.likeCount} likes',
-      // The count is what it says; what pressing it does is a different
-      // question, and the answer changes with the state of the post.
-      onTapHint: toggle == null
+      semanticHint: toggle == null
           ? 'show who liked this post'
           : (post.liked ? 'remove your like' : 'like this post'),
-      child: MouseRegion(
-        cursor: SystemMouseCursors.click,
-        child: InkWell(
-          onTap: toggle ?? onOpen,
-          borderRadius: BorderRadius.circular(22),
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
-            child: Center(
-              widthFactor: 1,
-              heightFactor: 1,
-              child: ExcludeSemantics(
-                child: Container(
-                  padding: const EdgeInsets.fromLTRB(8, 4, 9, 4),
-                  decoration: BoxDecoration(
-                    color: theme.shell.floating,
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(
-                      color: post.liked
-                          ? theme.colorScheme.primary
-                          : theme.shell.divider,
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      DIcon(
-                        DIcons.heart,
-                        size: 15,
-                        color: theme.discourse.love,
-                      ),
-                      const SizedBox(width: 5),
-                      Text(
-                        '${post.likeCount}',
-                        style: theme.textTheme.labelMedium?.copyWith(
-                          color: post.liked
-                              ? theme.colorScheme.primary
-                              : theme.colorScheme.onSurfaceVariant,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
+      onPressedChanged: (_) => (toggle ?? onOpen)(),
+      icon: DIcon(DIcons.heart, color: theme.discourse.love),
+      child: Text('${post.likeCount}'),
     );
   }
 }

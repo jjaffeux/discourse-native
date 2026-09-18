@@ -1008,6 +1008,7 @@ class PostActionsFooter extends StatelessWidget {
           padding: const EdgeInsets.only(top: 10),
           child: Row(
             mainAxisSize: MainAxisSize.min,
+            spacing: 6,
             children: [
               for (final action in actions)
                 Builder(
@@ -1031,16 +1032,16 @@ class PostActionsFooter extends StatelessWidget {
                             icon: icon,
                             label: Text(action.label),
                             tooltip: action.tooltip,
-                            variant: DButtonVariant.ghost,
-                            size: DButtonSize.small,
+                            variant: DButtonVariant.outline,
+                            size: DButtonSize.large,
                             onPressed: onPressed,
                           )
                         : DButton.iconOnly(
                             key: key,
                             icon: icon,
                             tooltip: action.tooltip,
-                            variant: DButtonVariant.ghost,
-                            size: DButtonSize.small,
+                            variant: DButtonVariant.outline,
+                            size: DButtonSize.large,
                             onPressed: onPressed,
                           );
                   },
@@ -1119,8 +1120,8 @@ class PostMoreActionsButton extends StatelessWidget {
             icon: const DIcon(DIcons.ellipsis),
             tooltip: 'More actions for post ${scope.postNumber}',
             semanticLabel: 'More actions for post ${scope.postNumber}',
-            variant: DButtonVariant.ghost,
-            size: DButtonSize.small,
+            variant: DButtonVariant.outline,
+            size: DButtonSize.large,
             onPressed: state.toggle,
           ),
         ),
