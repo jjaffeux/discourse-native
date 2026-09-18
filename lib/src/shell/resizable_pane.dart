@@ -1,10 +1,10 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:discourse_native/discourse_ui.dart' show DResizableHandle;
 import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:flutter/material.dart';
 
-import '../../discourse_ui.dart' show DResizableHandle;
 import '../foundation/frame_safe_notifier.dart';
 
 typedef PanelWidthReader = Future<double?> Function();
@@ -132,8 +132,10 @@ class ResizablePane extends StatefulWidget {
     this.handleWidth = 2,
     this.keyboardStep = 16,
     this.dividerWidth = 0,
+    this.gap = 0,
     this.focusedDividerWidth = 3,
   }) : assert(!maximumWidth.isNaN),
+       assert(gap.isFinite && gap >= 0),
        assert(handleWidth.isFinite && handleWidth > 0),
        assert(keyboardStep.isFinite && keyboardStep > 0),
        assert(dividerWidth.isFinite && dividerWidth >= 0),
@@ -150,6 +152,9 @@ class ResizablePane extends StatefulWidget {
   final double handleWidth;
   final double keyboardStep;
   final double dividerWidth;
+
+  /// Workspace space reserved inside the resizing edge.
+  final double gap;
   final double focusedDividerWidth;
 
   @override
@@ -186,12 +191,32 @@ class _ResizablePaneState extends State<ResizablePane> {
         width: width,
         child: Stack(
           children: [
-            Positioned.fill(child: child!),
-            // Hit-test the border before content without reserving a gutter.
+            Positioned.fill(
+              child: Padding(
+                padding: EdgeInsetsDirectional.only(
+                  start:
+                      widget.resizeEnabled &&
+                          widget.edge == ResizablePaneEdge.leading
+                      ? widget.gap
+                      : 0,
+                  end:
+                      widget.resizeEnabled &&
+                          widget.edge == ResizablePaneEdge.trailing
+                      ? widget.gap
+                      : 0,
+                ),
+                child: child!,
+              ),
+            ),
+            // The kit owns pointer, keyboard, focus and handle painting.
             if (widget.resizeEnabled)
               PositionedDirectional(
-                start: widget.edge == ResizablePaneEdge.leading ? 0 : null,
-                end: widget.edge == ResizablePaneEdge.trailing ? 0 : null,
+                start: widget.edge == ResizablePaneEdge.leading
+                    ? (widget.gap > 0 ? (widget.gap - handleExtent) / 2 : 0)
+                    : null,
+                end: widget.edge == ResizablePaneEdge.trailing
+                    ? (widget.gap > 0 ? (widget.gap - handleExtent) / 2 : 0)
+                    : null,
                 top: 0,
                 bottom: 0,
                 width: handleExtent,
@@ -215,9 +240,12 @@ class _ResizablePaneState extends State<ResizablePane> {
                   ),
                   reverse: widget.edge == ResizablePaneEdge.leading,
                   keyboardStep: widget.keyboardStep,
-                  dividerThickness: widget.dividerWidth,
+                  withHandle: widget.gap > 0,
+                  dividerThickness: widget.gap > 0 ? 0 : widget.dividerWidth,
                   focusedDividerThickness: widget.focusedDividerWidth,
-                  dividerAlignment: widget.edge == ResizablePaneEdge.leading
+                  dividerAlignment: widget.gap > 0
+                      ? Alignment.center
+                      : widget.edge == ResizablePaneEdge.leading
                       ? AlignmentDirectional.centerStart
                       : AlignmentDirectional.centerEnd,
                   valueFormatter: (value) => '${value.round()} pixels wide',

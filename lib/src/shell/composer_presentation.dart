@@ -15,6 +15,8 @@ import 'composer_panel.dart';
 import 'composer_presentation_controller.dart';
 import 'platform.dart';
 import 'shell_controller.dart';
+import 'shell_metrics.dart';
+import 'shell_panel.dart';
 import 'shell_scope.dart';
 
 /// Retains each forum's editor while its dock placement or visibility changes.
@@ -49,14 +51,17 @@ class ComposerPresentationHost extends StatefulWidget {
     final placement = owner._presentation.effectivePlacement(
       mobile: false,
       width: width,
-      minimumReaderWidth: 480,
+      minimumReaderWidth: 480 + workspacePanelGap - 1,
     );
     if (!placement.isSide) return width;
     final editorWidth = owner._presentation.preference.sideWidth.clamp(
       ComposerPresentationController.sideMinimum,
-      math.max(ComposerPresentationController.sideMinimum, width - 481),
+      math.max(
+        ComposerPresentationController.sideMinimum,
+        width - 480 - workspacePanelGap,
+      ),
     );
-    return width - editorWidth - 1;
+    return width - editorWidth - workspacePanelGap;
   }
 
   @override
@@ -394,9 +399,11 @@ class _ComposerDockState extends State<ComposerDock> {
         final placement = owner._presentation.effectivePlacement(
           mobile: mobile,
           width: constraints.maxWidth,
-          minimumReaderWidth: widget.appWorkspace
-              ? 480
-              : ComposerPresentationController.readerMinimum,
+          minimumReaderWidth:
+              (widget.appWorkspace
+                  ? 480
+                  : ComposerPresentationController.readerMinimum) +
+              (mobile ? 0 : workspacePanelGap - 1),
         );
         if (entry == null) {
           // Keep the reader in the same panel ancestry when the editor opens.
@@ -411,7 +418,10 @@ class _ComposerDockState extends State<ComposerDock> {
                   id: 'reader',
                   child: DDirection(
                     textDirection: DDirection.of(context),
-                    child: readerViewport(),
+                    child: Padding(
+                      padding: EdgeInsets.zero,
+                      child: readerViewport(),
+                    ),
                   ),
                 ),
               ],
@@ -423,6 +433,7 @@ class _ComposerDockState extends State<ComposerDock> {
           return Column(
             children: [
               Expanded(child: readerViewport()),
+              if (!mobile) const SizedBox(height: workspacePanelGap),
               SizedBox(
                 height: ComposerHeader.height,
                 child: owner._surface(
@@ -452,31 +463,51 @@ class _ComposerDockState extends State<ComposerDock> {
           );
         }
         final side = placement.isSide;
+        // The group reserves a 1px seam; padding supplies the rest of the gutter.
+        final panelInset = mobile ? 0.0 : (workspacePanelGap - 1) / 2;
+        final readerPadding = side
+            ? EdgeInsets.only(
+                left: placement == ComposerPlacement.left ? panelInset : 0,
+                right: placement == ComposerPlacement.right ? panelInset : 0,
+              )
+            : EdgeInsets.only(bottom: panelInset);
+        final editorPadding = side
+            ? EdgeInsets.only(
+                right: placement == ComposerPlacement.left ? panelInset : 0,
+                left: placement == ComposerPlacement.right ? panelInset : 0,
+              )
+            : EdgeInsets.only(top: panelInset);
         // The divider's hit region extends into both panels. Reserve its
         // editor half so touch resizing never intercepts header buttons.
-        final dividerInset = side ? 0.0 : (mobile ? 24.0 : 12.0);
+        final dividerInset = side ? 0.0 : (mobile ? 24.0 : 12.0 - panelInset);
         final topic =
             composer!.target.createsTopic || composer.target.editsTopicMetadata;
         final preference = owner._presentation.preference;
         final extent = side ? constraints.maxWidth : constraints.maxHeight;
-        final readerMin = side
-            ? (widget.appWorkspace
-                  ? 480.0
-                  : ComposerPresentationController.readerMinimum)
-            : math.min(96.0, math.max(0.0, extent - 241));
-        final composerMin = side
-            ? ComposerPresentationController.sideMinimum
-            : math.min(
-                240.0 + dividerInset,
-                math.max(0.0, extent - readerMin - 1),
-              );
-        final preferred = side
-            ? preference.sideWidth
-            : composer.target.isTaxonomyEdit
-            ? 190.0 + dividerInset
-            : topic
-            ? preference.topicHeight + dividerInset
-            : preference.replyHeight + dividerInset;
+        final readerMin =
+            panelInset +
+            (side
+                ? (widget.appWorkspace
+                      ? 480.0
+                      : ComposerPresentationController.readerMinimum)
+                : math.min(96.0, math.max(0.0, extent - 241)));
+        final composerMin =
+            panelInset +
+            (side
+                ? ComposerPresentationController.sideMinimum
+                : math.min(
+                    240.0 + dividerInset,
+                    math.max(0.0, extent - readerMin - 1 - panelInset),
+                  ));
+        final preferred =
+            panelInset +
+            (side
+                ? preference.sideWidth
+                : composer.target.isTaxonomyEdit
+                ? 190.0 + dividerInset
+                : topic
+                ? preference.topicHeight + dividerInset
+                : preference.replyHeight + dividerInset);
         final size = preferred
             .clamp(composerMin, math.max(composerMin, extent - readerMin - 1))
             .toDouble();
@@ -485,9 +516,12 @@ class _ComposerDockState extends State<ComposerDock> {
           minSize: DResizableSize.pixels(readerMin),
           child: DDirection(
             textDirection: DDirection.of(context),
-            child: readerViewport(
-              bottomDocked: !side,
-              workspacePlacement: placement,
+            child: Padding(
+              padding: readerPadding,
+              child: readerViewport(
+                bottomDocked: !side,
+                workspacePlacement: placement,
+              ),
             ),
           ),
         );
@@ -497,23 +531,28 @@ class _ComposerDockState extends State<ComposerDock> {
           minSize: DResizableSize.pixels(composerMin),
           child: DDirection(
             textDirection: direction,
-            child: Container(
-              color: Theme.of(context).shell.content,
-              padding: EdgeInsets.only(top: dividerInset),
-              child: LayoutBuilder(
-                builder: (context, bounds) => Column(
-                  children: [
-                    Expanded(
-                      child: LayoutBuilder(
-                        builder: (context, bounds) => owner._surface(
-                          entry,
-                          placement: placement,
-                          mobile: mobile,
-                          size: bounds.biggest,
+            child: Padding(
+              padding: editorPadding,
+              child: WorkspacePanel(
+                child: Container(
+                  color: Theme.of(context).shell.content,
+                  padding: EdgeInsets.only(top: dividerInset),
+                  child: LayoutBuilder(
+                    builder: (context, bounds) => Column(
+                      children: [
+                        Expanded(
+                          child: LayoutBuilder(
+                            builder: (context, bounds) => owner._surface(
+                              entry,
+                              placement: placement,
+                              mobile: mobile,
+                              size: bounds.biggest,
+                            ),
+                          ),
                         ),
-                      ),
+                      ],
                     ),
-                  ],
+                  ),
                 ),
               ),
             ),
@@ -534,7 +573,7 @@ class _ComposerDockState extends State<ComposerDock> {
               _resizeProposal = proposal;
               owner._presentation.resize(
                 placement: placement,
-                extent: proposal - dividerInset,
+                extent: proposal - dividerInset - panelInset,
                 topic: topic,
                 persist: false,
               );
@@ -545,7 +584,7 @@ class _ComposerDockState extends State<ComposerDock> {
               _resizeProposal = null;
               owner._presentation.resize(
                 placement: placement,
-                extent: proposal - dividerInset,
+                extent: proposal - dividerInset - panelInset,
                 topic: topic,
               );
             },
@@ -554,7 +593,12 @@ class _ComposerDockState extends State<ComposerDock> {
                 editorPanel
               else
                 readerPanel,
-              const DResizableHandle(semanticLabel: 'Resize composer'),
+              DResizableHandle(
+                semanticLabel: 'Resize composer',
+                withHandle: !mobile,
+                dividerThickness: mobile ? 1 : 0,
+                focusedDividerThickness: 3,
+              ),
               if (placement == ComposerPlacement.left)
                 readerPanel
               else

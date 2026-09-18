@@ -7,6 +7,7 @@ import 'package:discourse_native/src/shell/composer_panel.dart';
 import 'package:discourse_native/src/shell/composer_presentation.dart';
 import 'package:discourse_native/src/shell/composer_presentation_controller.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
+import 'package:discourse_native/src/shell/shell_panel.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
@@ -338,6 +339,56 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
+
+  for (final direction in TextDirection.values) {
+    for (final placement in [
+      ComposerPlacement.left,
+      ComposerPlacement.right,
+      ComposerPlacement.bottom,
+    ]) {
+      testWidgets(
+        'composer gutter stays open during resize: $direction $placement',
+        (tester) async {
+          final harness = await _Harness.create(tester, direction: direction);
+          harness.presentation.dock(placement);
+          await tester.pumpAndSettle();
+          final reader = find.byWidgetPredicate(
+            (w) => w is DResizablePanel && w.id == 'reader',
+          );
+          final editor = find.byType(ComposerPanel);
+          final editorState = tester.state(find.byType(ComposerEditor));
+          double gap() {
+            final r = tester.getRect(reader);
+            final e = tester.getRect(find.byType(WorkspacePanel));
+            return switch (placement) {
+              ComposerPlacement.left => r.left + 5.5 - e.right,
+              ComposerPlacement.right => e.left - (r.right - 5.5),
+              _ => e.top - (r.bottom - 5.5),
+            };
+          }
+
+          expect(gap(), 12);
+          final before = tester.getSize(editor);
+          await tester.drag(
+            find.byType(DResizableHandle),
+            placement.isSide
+                ? Offset(placement == ComposerPlacement.left ? 40 : -40, 0)
+                : const Offset(0, -40),
+          );
+          await tester.pumpAndSettle();
+          expect(gap(), 12);
+          expect(
+            placement.isSide
+                ? tester.getSize(editor).width
+                : tester.getSize(editor).height,
+            greaterThan(placement.isSide ? before.width : before.height),
+          );
+          expect(tester.state(find.byType(ComposerEditor)), same(editorState));
+          expect(tester.takeException(), isNull);
+        },
+      );
+    }
+  }
 
   testWidgets('divider resizes and persists the composer width', (
     tester,

@@ -58,6 +58,42 @@ const _child = TopicCategory(
 const _tag = TopicTag(id: 1, name: 'community');
 
 void main() {
+  testWidgets('desktop panel gutter resizes while retaining list and reader', (
+    tester,
+  ) async {
+    final setup = await _setup(
+      tester,
+      theme: AppTheme.light.copyWith(platform: TargetPlatform.macOS),
+    );
+    setup.controller.openTopicFromList(setup.rows.first);
+    await tester.pumpAndSettle();
+    final list = find.byType(TopicListView);
+    final reader = find.byKey(const ValueKey('inbox-topic-reader-pane'));
+    final listState = tester.state(list);
+    final readerState = tester.state(find.byType(TopicView));
+    double gap() => tester.getRect(reader).left - tester.getRect(list).right;
+    expect(gap(), 12);
+    final width = tester.getSize(list).width;
+    final handle = find.byKey(const ValueKey('inbox-list-resize-handle'));
+    expect(tester.getSize(handle).width, 12);
+    await tester.drag(handle, const Offset(50, 0));
+    await tester.pumpAndSettle();
+    expect(tester.getSize(list).width, greaterThan(width));
+    expect(gap(), 12);
+    expect(tester.state(list), same(listState));
+    expect(tester.state(find.byType(TopicView)), same(readerState));
+    final resizedWidth = tester.getSize(list).width;
+    tester.view.physicalSize = const Size(600, 800);
+    await tester.pumpAndSettle();
+    expect(handle, findsNothing);
+    tester.view.physicalSize = const Size(1100, 800);
+    await tester.pumpAndSettle();
+    expect(tester.getSize(list).width, resizedWidth);
+    expect(gap(), 12);
+    expect(tester.state(list), same(listState));
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('loading reader shows cached metadata until details arrive', (
     tester,
   ) async {
