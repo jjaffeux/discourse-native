@@ -568,8 +568,21 @@ void main() {
 
       expect(find.byType(ForumTabsBar), findsOneWidget);
       expect(_bar(tester).forumName, 'One');
-      expect(_bar(tester).items.single.title, 'Topics');
+      expect(_bar(tester).items.single.title, 'Latest');
       expect(_bar(tester).selectedId, originalId);
+
+      controller.pushContent(ContentRoute.topicList(TopicListMode.topYearly));
+      await tester.pumpAndSettle();
+      expect(_bar(tester).items.single.title, 'Top - year');
+
+      controller.pushContent(
+        ContentRoute.filteredTopicList(
+          TopicListMode.topMonthly,
+          tags: const ['design'],
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(_bar(tester).items.single.title, 'Top - month');
 
       await tester.tap(find.byKey(const ValueKey('forum-tabs-add')));
       await tester.pumpAndSettle();
@@ -865,7 +878,7 @@ void main() {
           );
           expect(find.byType(CurrentForumTabsBar), findsOneWidget);
           expect(find.byKey(const ValueKey('forum-tabs-add')), findsOneWidget);
-          expect(_bar(tester).items.single.title, 'Topics');
+          expect(_bar(tester).items.single.title, 'Latest');
         }
       }),
     );

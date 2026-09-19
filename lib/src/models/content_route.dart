@@ -389,6 +389,22 @@ class ContentRoute {
 
   final String id;
   final String title;
+
+  String get tabTitle {
+    if (isAdvancedTopicFilter) return title;
+    return switch (TopicListMode.fromRoute(this)) {
+      TopicListMode.latest => 'Latest',
+      TopicListMode.newActivity => 'New',
+      TopicListMode.newTopics => 'New - topics',
+      TopicListMode.newReplies => 'New - replies',
+      TopicListMode.unread => 'Unread',
+      TopicListMode.unseen => 'Unseen',
+      TopicListMode.popular => 'Trending',
+      final mode? => 'Top - ${mode.topPeriod!.label.toLowerCase()}',
+      null => title,
+    };
+  }
+
   final DIconData icon;
   final String? subtitle;
   final Color? color;

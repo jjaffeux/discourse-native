@@ -6,6 +6,34 @@ import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test(
+    'tab titles describe topic modes, including restored and filtered tabs',
+    () {
+      final route = ContentRoute.topicList(TopicListMode.topYearly);
+      expect(route.tabTitle, 'Top - year');
+      expect(ContentRoute.fromJson(route.toJson()).tabTitle, 'Top - year');
+      expect(
+        ContentRoute.filteredTopicList(
+          TopicListMode.topMonthly,
+          categoryId: 42,
+          tags: ['design'],
+        ).tabTitle,
+        'Top - month',
+      );
+      expect(ContentRoute.topicList(TopicListMode.latest).tabTitle, 'Latest');
+      expect(ContentRoute.topicList(TopicListMode.unread).tabTitle, 'Unread');
+      expect(ContentRoute.topicFilter('status:open').tabTitle, 'Topics');
+      expect(
+        ContentRoute.topic(
+          topicId: 42,
+          slug: 'design',
+          title: 'Design',
+        ).tabTitle,
+        'Design',
+      );
+    },
+  );
+
   group('topic list sorting', () {
     test('preserves filters and mode, resets pagination, and round trips', () {
       for (final mode in TopicListMode.values) {

@@ -1483,7 +1483,7 @@ class CurrentForumTabsBar extends StatelessWidget {
 
                 return ForumTabItem(
                   id: tab.id,
-                  title: route.title,
+                  title: route.tabTitle,
                   siteUrl: siteUrl,
                   icon: route.icon,
                   color: route.color,
