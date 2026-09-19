@@ -289,6 +289,7 @@ class _InlineTopicTitleEditorState extends State<InlineTopicTitleEditor> {
             cursor: SystemMouseCursors.text,
             child: DTooltip(
               message: 'Edit topic title',
+              align: DTooltipAlign.start,
               // Hide the editing hint while the editor owns keyboard focus.
               disabled: focused || _saving,
               child: Stack(
