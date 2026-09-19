@@ -7,6 +7,7 @@ import '../models/content_route.dart';
 import '../models/sidebar_tag.dart';
 import '../models/topic.dart';
 import '../theme/d_icons.dart';
+import 'content_reading_lane.dart';
 import 'platform.dart';
 import 'scroll_retracting_header.dart';
 import 'shell_controller.dart';
@@ -248,29 +249,34 @@ class _TopicListNavigationControls extends StatelessWidget {
               key: const ValueKey('topic-list-primary-row'),
               child: headingBuilder!(context, null),
             ),
-          Padding(
-            padding: EdgeInsets.symmetric(
-              horizontal: context.isTouch ? topicListHorizontalPadding : 16,
-              vertical: 8,
-            ),
-            child: Row(
-              key: const ValueKey('topic-list-feed-row'),
-              children: [
-                Expanded(
-                  child: Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    crossAxisAlignment: WrapCrossAlignment.center,
-                    children: [
-                      if (filters != null)
-                        filters
-                      else if (showsTabs)
-                        navigation,
-                    ],
+          ContentReadingLaneBox(
+            child: Padding(
+              padding: EdgeInsets.symmetric(
+                horizontal: context.isTouch ? topicListHorizontalPadding : 16,
+                vertical: 8,
+              ),
+              child: Row(
+                key: const ValueKey('topic-list-feed-row'),
+                children: [
+                  Expanded(
+                    child: Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        if (filters != null)
+                          filters
+                        else if (showsTabs)
+                          navigation,
+                      ],
+                    ),
                   ),
-                ),
-                if (trailing != null) ...[const SizedBox(width: 8), trailing!],
-              ],
+                  if (trailing != null) ...[
+                    const SizedBox(width: 8),
+                    trailing!,
+                  ],
+                ],
+              ),
             ),
           ),
         ],
