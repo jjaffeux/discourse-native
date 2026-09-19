@@ -25,7 +25,7 @@ features and are outside this module's scope.
 ## Topic calendars
 
 The first post's dynamic `[calendar]` block renders with
-[Kalender](https://pub.dev/packages/kalender), pinned to `0.29.1`:
+[Kalender](https://pub.dev/packages/kalender), pinned to `0.31.3`:
 
 ```markdown
 [calendar weekends=true tzPicker="true" showAddToCalendar="false" fullDay="true"]

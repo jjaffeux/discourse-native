@@ -377,10 +377,10 @@ packages:
     dependency: "direct main"
     description:
       name: flutter_secure_storage_darwin
-      sha256: d0b136b1e21fd4081170fc394e64197046ce889e8f63f2370a13e41b832cc044
+      sha256: a031ceac9b070e62ef183cd7f7d1a8798ebde402d5049f0fe6eb3a51bd797a21
       url: "https://pub.dev"
     source: hosted
-    version: "0.4.2"
+    version: "0.4.3"
   flutter_staggered_grid_view:
     dependency: "direct main"
     description:
@@ -555,10 +555,10 @@ packages:
     dependency: "direct main"
     description:
       name: kalender
-      sha256: b3b62a2e314dd376595dbf7babd7adc0cbbd56fc4870e6be209c712c4561b03e
+      sha256: "063ba85318478ceb4205d44cb5fb21765a95bcc4a87ad9056dfb4887745b6d7a"
       url: "https://pub.dev"
     source: hosted
-    version: "0.29.1"
+    version: "0.31.3"
   leak_tracker:
     dependency: transitive
     description:
@@ -1176,10 +1176,10 @@ packages:
     dependency: transitive
     description:
       name: vector_math
-      sha256: f36f9f3be64c6198714492bb455c11056e33e2f85d9a0b676a48301e44fdcf47
+      sha256: "92b9910f66ed1057fd4da7b040ae7c74cafacf885bdc81be496928d5049b032d"
       url: "https://pub.dev"
     source: hosted
-    version: "2.4.2"
+    version: "2.4.3"
   video_player:
     dependency: "direct main"
     description:

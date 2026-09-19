@@ -49,11 +49,11 @@ final class EventCalendar extends StatefulWidget {
 
 final class _EventCalendarState extends State<EventCalendar> {
   static final _localeData = initializeDateFormatting();
-  final _calendar = kalender.CalendarController();
+  final _calendar = kalender.KalenderController();
   final _events = kalender.DefaultEventsController();
   final _monthScroll = ScrollController();
   late kalender.ViewConfiguration _configuration;
-  static final _interaction = kalender.CalendarInteraction(
+  static final _interaction = kalender.KalenderInteraction(
     allowEventCreation: false,
     allowRescheduling: false,
     allowResizing: false,
@@ -81,6 +81,11 @@ final class _EventCalendarState extends State<EventCalendar> {
         oldWidget.location != widget.location ||
         oldWidget.firstDay != widget.firstDay) {
       _configure();
+      // initialDateTime only applies at first mount. Route and toolbar changes
+      // must also navigate an existing view after its configuration updates.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _calendar.jumpToDate(_inCalendar(widget.page.date));
+      });
       if (_monthScroll.hasClients) _monthScroll.jumpTo(0);
     }
     if (oldWidget.events != widget.events) _events.replaceEvents(widget.events);
@@ -88,7 +93,7 @@ final class _EventCalendarState extends State<EventCalendar> {
 
   void _configure() {
     final date = _inCalendar(widget.page.date);
-    final range = DateTimeRange(
+    final range = kalender.KalenderDateTimeRange(
       start: _inCalendar(DateTime.utc(1900)),
       end: _inCalendar(DateTime.utc(2200)),
     );
@@ -96,28 +101,36 @@ final class _EventCalendarState extends State<EventCalendar> {
     _configuration = switch (_view) {
       EventCalendarView.month => kalender.MonthViewConfiguration.singleMonth(
         initialDateTime: date,
+        dateResolver: (_) =>
+            kalender.FloatingDateTime.fromDateTime(widget.page.date),
         displayRange: range,
         firstDayOfWeek: firstDay,
         nowCallback: _now,
       ),
       EventCalendarView.week => kalender.MultiDayViewConfiguration.week(
         initialDateTime: date,
+        dateResolver: (_) =>
+            kalender.FloatingDateTime.fromDateTime(widget.page.date),
         displayRange: range,
         firstDayOfWeek: firstDay,
-        initialTimeOfDay: const TimeOfDay(hour: 8, minute: 0),
+        initialTimeOfDay: const kalender.KalenderTime(hour: 8, minute: 0),
         nowCallback: _now,
       ),
       EventCalendarView.day => kalender.MultiDayViewConfiguration.singleDay(
         initialDateTime: date,
+        dateResolver: (_) =>
+            kalender.FloatingDateTime.fromDateTime(widget.page.date),
         displayRange: range,
-        initialTimeOfDay: const TimeOfDay(hour: 8, minute: 0),
+        initialTimeOfDay: const kalender.KalenderTime(hour: 8, minute: 0),
         nowCallback: _now,
       ),
       // Core's Year button is FullCalendar listYear: an agenda for that year.
       EventCalendarView.year => kalender.ScheduleViewConfiguration.continuous(
         name: 'Year',
         initialDateTime: _inCalendar(_days.start),
-        displayRange: DateTimeRange(
+        dateResolver: (_) =>
+            kalender.FloatingDateTime.fromDateTime(_days.start),
+        displayRange: kalender.KalenderDateTimeRange(
           start: _inCalendar(_days.start),
           end: _inCalendar(_days.end),
         ),
@@ -126,7 +139,7 @@ final class _EventCalendarState extends State<EventCalendar> {
     };
   }
 
-  void _pageChanged(DateTimeRange range) {
+  void _pageChanged(kalender.KalenderDateTimeRange range) {
     if (_view == EventCalendarView.year) return;
     final start = DateTime.utc(
       range.start.year,
@@ -341,7 +354,7 @@ final class _EventCalendarState extends State<EventCalendar> {
             ),
           ),
     );
-    final body = kalender.CalendarBody(
+    final body = kalender.KalenderBody(
       interaction: _interaction,
       monthTileComponents: tiles,
       multiDayTileComponents: kalender.TileComponents(
@@ -366,12 +379,12 @@ final class _EventCalendarState extends State<EventCalendar> {
       compactMonthLayout: false,
       child: kalender.KalenderView(
         eventsController: _events,
-        calendarController: _calendar,
+        kalenderController: _calendar,
         viewConfiguration: _configuration,
         location: widget.location,
         locale: Localizations.localeOf(context),
-        callbacks: kalender.CalendarCallbacks(onPageChanged: _pageChanged),
-        components: kalender.CalendarComponents(
+        callbacks: kalender.KalenderCallbacks(onPageChanged: _pageChanged),
+        components: kalender.KalenderComponents(
           monthComponents: kalender.MonthComponents(
             headerComponents: kalender.MonthHeaderComponents(
               weekDayHeaderBuilder: (context, date) => SizedBox(
@@ -410,7 +423,7 @@ final class _EventCalendarState extends State<EventCalendar> {
             ),
           ),
         ),
-        header: kalender.CalendarHeader(
+        header: kalender.KalenderHeader(
           interaction: _interaction,
           multiDayTileComponents: tiles,
           multiDayHeaderConfiguration: kalender.MultiDayHeaderConfiguration(
@@ -546,8 +559,8 @@ final class _EventCalendarState extends State<EventCalendar> {
 
   Widget _tile(
     BuildContext context,
-    kalender.CalendarEvent raw,
-    DateTimeRange range, {
+    kalender.KalenderEvent raw,
+    kalender.KalenderDateTimeRange range, {
     bool timeline = false,
   }) {
     final event = raw as EventCalendarEntry;

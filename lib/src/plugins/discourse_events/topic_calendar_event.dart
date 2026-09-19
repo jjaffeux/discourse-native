@@ -1,11 +1,10 @@
-import 'package:flutter/material.dart';
 import 'package:kalender/kalender.dart' as kalender;
 import 'package:timezone/timezone.dart' as tz;
 
 import 'topic_calendar_data.dart';
 
 /// Keeps Discourse's reply metadata alongside Kalender's layout data.
-final class TopicCalendarEvent extends kalender.CalendarEvent {
+final class TopicCalendarEvent extends kalender.KalenderEvent {
   factory TopicCalendarEvent({
     required String id,
     required CalendarOccurrence occurrence,
@@ -20,17 +19,16 @@ final class TopicCalendarEvent extends kalender.CalendarEvent {
     return TopicCalendarEvent._(
       id: id,
       occurrence: occurrence,
-      dateTimeRange: DateTimeRange(
-        start: inCalendar(occurrence.start),
-        end: inCalendar(occurrence.end),
-      ),
+      start: inCalendar(occurrence.start),
+      end: inCalendar(occurrence.end),
     );
   }
 
   TopicCalendarEvent._({
     super.id,
     required this.occurrence,
-    required super.dateTimeRange,
+    required super.start,
+    required super.end,
   }) : super(
          isAllDay: occurrence.allDay,
          interaction: kalender.EventInteraction.allowNone(),
@@ -39,14 +37,13 @@ final class TopicCalendarEvent extends kalender.CalendarEvent {
   final CalendarOccurrence occurrence;
 
   @override
-  TopicCalendarEvent copyWithData({required DateTimeRange dateTimeRange}) =>
-      TopicCalendarEvent._(
-        occurrence: occurrence,
-        dateTimeRange: dateTimeRange,
-      );
+  TopicCalendarEvent copyWithData({
+    required DateTime start,
+    required DateTime end,
+  }) => TopicCalendarEvent._(occurrence: occurrence, start: start, end: end);
 
   @override
-  bool layoutEquals(kalender.CalendarEvent other) =>
+  bool layoutEquals(kalender.KalenderEvent other) =>
       super.layoutEquals(other) &&
       other is TopicCalendarEvent &&
       other.occurrence == occurrence;

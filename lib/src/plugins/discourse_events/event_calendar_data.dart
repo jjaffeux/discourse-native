@@ -95,7 +95,7 @@ final class EventCalendarPage {
 
 /// Server-expanded occurrences supply recurrence and exception dates. Kalender
 /// owns clipping and overlap placement, never recurrence generation or writes.
-final class EventCalendarEntry extends kalender.CalendarEvent {
+final class EventCalendarEntry extends kalender.KalenderEvent {
   static EventCalendarEntry? decode(
     PostEvent event, {
     required PluginTimezoneHost zones,
@@ -150,7 +150,8 @@ final class EventCalendarEntry extends kalender.CalendarEvent {
       location: location,
       title: title,
       color: _color(event, settings) ?? categoryColor,
-      dateTimeRange: DateTimeRange(start: start, end: end),
+      start: start,
+      end: end,
       isAllDay: allDay,
     );
   }
@@ -161,7 +162,8 @@ final class EventCalendarEntry extends kalender.CalendarEvent {
     required this.location,
     required this.title,
     required this.color,
-    required super.dateTimeRange,
+    required super.start,
+    required super.end,
     required super.isAllDay,
   }) : super(interaction: kalender.EventInteraction.allowNone());
 
@@ -190,16 +192,19 @@ final class EventCalendarEntry extends kalender.CalendarEvent {
   }
 
   @override
-  EventCalendarEntry copyWithData({required DateTimeRange dateTimeRange}) =>
-      EventCalendarEntry._(
-        id: id,
-        event: event,
-        location: location,
-        title: title,
-        color: color,
-        isAllDay: isAllDay,
-        dateTimeRange: dateTimeRange,
-      );
+  EventCalendarEntry copyWithData({
+    required DateTime start,
+    required DateTime end,
+  }) => EventCalendarEntry._(
+    id: id,
+    event: event,
+    location: location,
+    title: title,
+    color: color,
+    isAllDay: isAllDay,
+    start: start,
+    end: end,
+  );
   @override
   bool spansMultipleDays({
     required tz.Location? location,
@@ -207,7 +212,7 @@ final class EventCalendarEntry extends kalender.CalendarEvent {
   }) => isAllDay;
 
   @override
-  bool layoutEquals(kalender.CalendarEvent other) =>
+  bool layoutEquals(kalender.KalenderEvent other) =>
       super.layoutEquals(other) &&
       other is EventCalendarEntry &&
       event == other.event &&
@@ -269,13 +274,13 @@ final class EventCalendarLayout extends kalender.MultiDayLayoutStrategy {
   const EventCalendarLayout();
   @override
   kalender.MultiDayLayoutFrame generateFrame({
-    required kalender.InternalDateTimeRange visibleDateTimeRange,
-    required List<kalender.CalendarEvent> events,
+    required kalender.FloatingDateTimeRange visibleRange,
+    required List<kalender.KalenderEvent> events,
     required TextDirection textDirection,
     required tz.Location? location,
     required kalender.MultiDayLayoutFrameCache? cache,
   }) => kalender.defaultMultiDayFrameGenerator(
-    visibleDateTimeRange: visibleDateTimeRange,
+    visibleRange: visibleRange,
     events: events,
     textDirection: textDirection,
     location: location,
