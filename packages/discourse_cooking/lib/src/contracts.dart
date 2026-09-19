@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'package:crypto/crypto.dart';
 import 'configuration.dart';
+import 'context.dart';
+export 'context.dart';
 export 'configuration.dart';
 
 /// Selects an explicit cooking feature profile, independent of the renderer.
@@ -18,6 +20,7 @@ final class CookingSnapshot {
     required String accountId,
     String baseUrl = '',
     int accountGeneration = 0,
+    CookingContext context = const CookingContext(),
     Map<String, Object?> mentions = const {},
     Map<String, Object?> pluginContext = const {},
     Map<String, Object?> provenance = const {},
@@ -29,6 +32,16 @@ final class CookingSnapshot {
     Map<String, Object?> oneboxes = const {},
     Map<String, Object?> inlineOneboxes = const {},
     Map<String, Object?> topics = const {},
+    Map<String, Object?> primaryGroups = const {},
+    Map<String, Object?> media = const {},
+    Map<String, Object?> hashtagPriorities = const {},
+    Map<String, Object?> hashtagIcons = const {},
+    Map<String, Object?> watchedWordsReplace = const {},
+    Map<String, Object?> watchedWordsLink = const {},
+    Map<String, Object?> unicodeEmoji = const {},
+    List<String> emojiDenyList = const [],
+    List<String> allowedMediaOrigins = const [],
+    List<Object?> censoredRegexp = const [],
     Map<String, Object?> avatars = const {},
   }) => CookingSnapshot._(
     _freezeMap({
@@ -36,6 +49,7 @@ final class CookingSnapshot {
       'accountId': accountId,
       'baseUrl': baseUrl,
       'accountGeneration': accountGeneration,
+      'context': context.toJson(),
       'mentions': mentions,
       'pluginContext': pluginContext,
       'provenance': provenance,
@@ -47,6 +61,16 @@ final class CookingSnapshot {
       'oneboxes': oneboxes,
       'inlineOneboxes': inlineOneboxes,
       'topics': topics,
+      'primaryGroups': primaryGroups,
+      'media': media,
+      'hashtagPriorities': hashtagPriorities,
+      'hashtagIcons': hashtagIcons,
+      'watchedWordsReplace': watchedWordsReplace,
+      'watchedWordsLink': watchedWordsLink,
+      'unicodeEmoji': unicodeEmoji,
+      'emojiDenyList': emojiDenyList,
+      'allowedMediaOrigins': allowedMediaOrigins,
+      'censoredRegexp': censoredRegexp,
       'avatars': avatars,
     }, _SnapshotBudget()),
   );
@@ -56,6 +80,9 @@ final class CookingSnapshot {
       accountId = json['accountId']! as String,
       baseUrl = json['baseUrl']! as String,
       accountGeneration = json['accountGeneration']! as int,
+      context = CookingContext.fromJson(
+        (json['context']! as Map).cast<String, Object?>(),
+      ),
       mentions = json['mentions']! as Map<String, Object?>,
       pluginContext = json['pluginContext']! as Map<String, Object?>,
       provenance = json['provenance']! as Map<String, Object?>,
@@ -68,6 +95,18 @@ final class CookingSnapshot {
       oneboxes = json['oneboxes']! as Map<String, Object?>,
       inlineOneboxes = json['inlineOneboxes']! as Map<String, Object?>,
       topics = json['topics']! as Map<String, Object?>,
+      primaryGroups = json['primaryGroups']! as Map<String, Object?>,
+      media = json['media']! as Map<String, Object?>,
+      hashtagPriorities = json['hashtagPriorities']! as Map<String, Object?>,
+      hashtagIcons = json['hashtagIcons']! as Map<String, Object?>,
+      watchedWordsReplace =
+          json['watchedWordsReplace']! as Map<String, Object?>,
+      watchedWordsLink = json['watchedWordsLink']! as Map<String, Object?>,
+      unicodeEmoji = json['unicodeEmoji']! as Map<String, Object?>,
+      emojiDenyList = (json['emojiDenyList']! as List).cast<String>(),
+      allowedMediaOrigins = (json['allowedMediaOrigins']! as List)
+          .cast<String>(),
+      censoredRegexp = (json['censoredRegexp']! as List).cast<Object?>(),
       avatars = json['avatars']! as Map<String, Object?>;
 
   factory CookingSnapshot.fromJson(Map<String, Object?> json) {
@@ -78,6 +117,7 @@ final class CookingSnapshot {
       accountId: json['accountId']! as String,
       baseUrl: json['baseUrl'] as String? ?? '',
       accountGeneration: json['accountGeneration'] as int? ?? 0,
+      context: CookingContext.fromJson(field('context')),
       mentions: field('mentions'),
       pluginContext: field('pluginContext'),
       provenance: field('provenance'),
@@ -89,6 +129,19 @@ final class CookingSnapshot {
       oneboxes: field('oneboxes'),
       inlineOneboxes: field('inlineOneboxes'),
       topics: field('topics'),
+      primaryGroups: field('primaryGroups'),
+      media: field('media'),
+      hashtagPriorities: field('hashtagPriorities'),
+      hashtagIcons: field('hashtagIcons'),
+      watchedWordsReplace: field('watchedWordsReplace'),
+      watchedWordsLink: field('watchedWordsLink'),
+      unicodeEmoji: field('unicodeEmoji'),
+      emojiDenyList:
+          (json['emojiDenyList'] as List?)?.cast<String>() ?? const [],
+      censoredRegexp:
+          (json['censoredRegexp'] as List?)?.cast<Object?>() ?? const [],
+      allowedMediaOrigins:
+          (json['allowedMediaOrigins'] as List?)?.cast<String>() ?? const [],
       avatars: field('avatars'),
     );
   }
@@ -97,6 +150,7 @@ final class CookingSnapshot {
   final String accountId;
   final String baseUrl;
   final int accountGeneration;
+  final CookingContext context;
   final Map<String, Object?> mentions, pluginContext, provenance;
   final Map<String, Object?> siteSettings;
   final Map<String, Object?> uploads;
@@ -106,6 +160,16 @@ final class CookingSnapshot {
   final Map<String, Object?> oneboxes;
   final Map<String, Object?> inlineOneboxes;
   final Map<String, Object?> topics;
+  final Map<String, Object?> primaryGroups;
+  final Map<String, Object?> media;
+  final Map<String, Object?> hashtagPriorities;
+  final Map<String, Object?> hashtagIcons;
+  final Map<String, Object?> watchedWordsReplace;
+  final Map<String, Object?> watchedWordsLink;
+  final Map<String, Object?> unicodeEmoji;
+  final List<String> emojiDenyList;
+  final List<String> allowedMediaOrigins;
+  final List<Object?> censoredRegexp;
   final Map<String, Object?> avatars;
 
   Map<String, Object?> toJson() => {
@@ -113,6 +177,7 @@ final class CookingSnapshot {
     'accountId': accountId,
     'baseUrl': baseUrl,
     'accountGeneration': accountGeneration,
+    'context': context.toJson(),
     'mentions': mentions,
     'pluginContext': pluginContext,
     'provenance': provenance,
@@ -124,6 +189,16 @@ final class CookingSnapshot {
     'oneboxes': oneboxes,
     'inlineOneboxes': inlineOneboxes,
     'topics': topics,
+    'primaryGroups': primaryGroups,
+    'media': media,
+    'hashtagPriorities': hashtagPriorities,
+    'hashtagIcons': hashtagIcons,
+    'watchedWordsReplace': watchedWordsReplace,
+    'watchedWordsLink': watchedWordsLink,
+    'unicodeEmoji': unicodeEmoji,
+    'emojiDenyList': emojiDenyList,
+    'allowedMediaOrigins': allowedMediaOrigins,
+    'censoredRegexp': censoredRegexp,
     'avatars': avatars,
   };
 }

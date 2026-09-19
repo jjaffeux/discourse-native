@@ -20,9 +20,16 @@ final class _CookingPlugin implements CookingPlugin {
   @override
   String get name => 'cooking';
   @override
-  List<CookingModule> get cookingModules => const [
+  List<CookingModule> get cookingModules => [
     CookingModule.spoiler,
     CookingModule.missingUploads,
+    for (final (index, id) in [
+      'cooking-links',
+      'cooking-bidi',
+      'cooking-media',
+      'cooking-mentions',
+    ].indexed)
+      CookingModule(id: id, owner: 'cooking', version: '1', order: 100 + index),
   ];
   @override
   List<CookingProfile> get cookingProfiles => const [];

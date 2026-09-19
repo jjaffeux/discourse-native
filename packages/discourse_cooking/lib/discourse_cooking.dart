@@ -4,3 +4,5 @@ library;
 export 'src/contracts.dart';
 export 'src/host_service.dart';
 export 'src/service.dart';
+
+export 'src/cached_metadata.dart';

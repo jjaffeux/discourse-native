@@ -12,6 +12,8 @@ void main() {
   test('Local Dates plugin decodes its site-settings wire keys', () {
     final config = SiteConfig.fromSettings(const {
       'discourse_local_dates_enabled': true,
+      'discourse_local_dates_email_format': 'YYYY-MM-DD HH:mm z',
+      'discourse_local_dates_email_timezone': 'America/New_York',
       'discourse_local_dates_default_formats': 'LLL|YYYY-MM-DD [at] HH:mm',
       'discourse_local_dates_default_timezones': 'Etc/UTC|Asia/Tokyo',
     }, extensions: _registry);
@@ -20,6 +22,8 @@ void main() {
       config.localDatesSettings,
       const LocalDatesSettings(
         enabled: true,
+        emailFormat: 'YYYY-MM-DD HH:mm z',
+        emailTimezone: 'America/New_York',
         formats: ['LLL', 'YYYY-MM-DD [at] HH:mm'],
         timezones: ['Etc/UTC', 'Asia/Tokyo'],
       ),
@@ -45,6 +49,8 @@ void main() {
     expect(stored['plugins'], {
       localDatesSettingsDataKey.id: {
         'enabled': true,
+        'emailFormat': 'llll z',
+        'emailTimezone': 'Etc/UTC',
         'formats': ['LLL', 'YYYY'],
         'timezones': ['Etc/UTC', 'Europe/Paris'],
       },
@@ -74,6 +80,8 @@ void main() {
       expect(config.toJson(extensions: _registry)['plugins'], {
         localDatesSettingsDataKey.id: {
           'enabled': true,
+          'emailFormat': 'llll z',
+          'emailTimezone': 'Etc/UTC',
           'formats': ['LLL', 'YYYY'],
           'timezones': ['Etc/UTC', 'Asia/Tokyo'],
         },

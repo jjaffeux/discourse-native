@@ -1,0 +1,1117 @@
+[
+  {
+    "name": "empty shrug",
+    "raw": "/shrug",
+    "profile": "chat",
+    "context": {},
+    "snapshot": {},
+    "html": "<p>¯\\_(ツ)_/¯</p>"
+  },
+  {
+    "name": "empty tableflip",
+    "raw": "/tableflip",
+    "profile": "chat",
+    "context": {},
+    "snapshot": {},
+    "html": "<p>(╯°□°)╯︵ ┻━┻</p>"
+  },
+  {
+    "name": "formatted action",
+    "raw": "/me **waves**",
+    "profile": "chat",
+    "context": {
+      "authorUsername": "Alice"
+    },
+    "snapshot": {},
+    "includes": [
+      "<em class=\"chat-message-action\">Alice <strong>waves</strong></em>"
+    ]
+  },
+  {
+    "name": "malicious author",
+    "raw": "/me waves",
+    "profile": "chat",
+    "context": {
+      "authorUsername": "<img src=x onerror=bad()>"
+    },
+    "snapshot": {},
+    "includes": [
+      "&lt;img src=x onerror=bad()&gt; waves"
+    ],
+    "excludes": [
+      "<img"
+    ]
+  },
+  {
+    "name": "nonmatching '/me'",
+    "raw": "/me",
+    "profile": "chat",
+    "context": {
+      "authorUsername": "Alice"
+    },
+    "snapshot": {},
+    "includes": [
+      "/me"
+    ],
+    "excludes": [
+      "chat-message-action",
+      "¯\\_(ツ)_/¯"
+    ]
+  },
+  {
+    "name": "nonmatching '/ME waves'",
+    "raw": "/ME waves",
+    "profile": "chat",
+    "context": {
+      "authorUsername": "Alice"
+    },
+    "snapshot": {},
+    "includes": [
+      "/ME waves"
+    ],
+    "excludes": [
+      "chat-message-action",
+      "¯\\_(ツ)_/¯"
+    ]
+  },
+  {
+    "name": "nonmatching '/me waves\\n'",
+    "raw": "/me waves\n",
+    "profile": "chat",
+    "context": {
+      "authorUsername": "Alice"
+    },
+    "snapshot": {},
+    "includes": [
+      "/me waves"
+    ],
+    "excludes": [
+      "chat-message-action",
+      "¯\\_(ツ)_/¯"
+    ]
+  },
+  {
+    "name": "nonmatching '/me one\\ntwo'",
+    "raw": "/me one\ntwo",
+    "profile": "chat",
+    "context": {
+      "authorUsername": "Alice"
+    },
+    "snapshot": {},
+    "includes": [
+      "/me one"
+    ],
+    "excludes": [
+      "chat-message-action",
+      "¯\\_(ツ)_/¯"
+    ]
+  },
+  {
+    "name": "nonmatching '/shrug\\n'",
+    "raw": "/shrug\n",
+    "profile": "chat",
+    "context": {
+      "authorUsername": "Alice"
+    },
+    "snapshot": {},
+    "includes": [
+      "/shrug"
+    ],
+    "excludes": [
+      "chat-message-action",
+      "¯\\_(ツ)_/¯"
+    ]
+  },
+  {
+    "name": "nonmatching ' /shrug'",
+    "raw": " /shrug",
+    "profile": "chat",
+    "context": {
+      "authorUsername": "Alice"
+    },
+    "snapshot": {},
+    "includes": [
+      "/shrug"
+    ],
+    "excludes": [
+      "chat-message-action",
+      "¯\\_(ツ)_/¯"
+    ]
+  },
+  {
+    "name": "action list",
+    "raw": "/me - item",
+    "profile": "chat",
+    "context": {
+      "authorUsername": "Alice"
+    },
+    "snapshot": {},
+    "includes": [
+      "<ul>"
+    ],
+    "excludes": [
+      "chat-message-action"
+    ]
+  },
+  {
+    "name": "command separator consumes spaces",
+    "raw": "/me     code",
+    "profile": "chat",
+    "context": {
+      "authorUsername": "Alice"
+    },
+    "snapshot": {},
+    "includes": [
+      "<em class=\"chat-message-action\">Alice code</em>"
+    ]
+  },
+  {
+    "name": "shrug formatted",
+    "raw": "/shrug **wow**",
+    "profile": "chat",
+    "context": {},
+    "snapshot": {},
+    "includes": [
+      "<strong>wow</strong> ¯\\_(ツ)_/¯"
+    ]
+  },
+  {
+    "name": "raw indented code",
+    "raw": "    /shrug",
+    "profile": "chat",
+    "context": {},
+    "snapshot": {},
+    "includes": [
+      "<pre><code>/shrug"
+    ],
+    "excludes": [
+      "¯\\_(ツ)_/¯"
+    ]
+  },
+  {
+    "name": "submission normalization",
+    "raw": " /shrug​ ",
+    "profile": "chat",
+    "context": {
+      "sourcePolicy": "submission"
+    },
+    "snapshot": {},
+    "html": "<p>¯\\_(ツ)_/¯</p>"
+  },
+  {
+    "name": "bot heading",
+    "raw": "# Heading",
+    "profile": "chat",
+    "context": {
+      "authorId": -1
+    },
+    "snapshot": {},
+    "includes": [
+      "<h1>",
+      "Heading</h1>"
+    ]
+  },
+  {
+    "name": "normal heading",
+    "raw": "# Heading",
+    "profile": "chat",
+    "context": {},
+    "snapshot": {},
+    "html": "<p># Heading</p>"
+  },
+  {
+    "name": "post-only [details=Title]body[/details]",
+    "raw": "[details=Title]body[/details]",
+    "profile": "chat",
+    "context": {},
+    "snapshot": {},
+    "excludes": [
+      "<details",
+      "class=\"poll",
+      "class=\"event",
+      "data-wrap"
+    ]
+  },
+  {
+    "name": "post-only [poll]\n* Yes\n* No\n[/poll]",
+    "raw": "[poll]\n* Yes\n* No\n[/poll]",
+    "profile": "chat",
+    "context": {},
+    "snapshot": {},
+    "excludes": [
+      "<details",
+      "class=\"poll",
+      "class=\"event",
+      "data-wrap"
+    ]
+  },
+  {
+    "name": "post-only [event]body[/event]",
+    "raw": "[event]body[/event]",
+    "profile": "chat",
+    "context": {},
+    "snapshot": {},
+    "excludes": [
+      "<details",
+      "class=\"poll",
+      "class=\"event",
+      "data-wrap"
+    ]
+  },
+  {
+    "name": "post-only [wrap=test]body[/wrap]",
+    "raw": "[wrap=test]body[/wrap]",
+    "profile": "chat",
+    "context": {},
+    "snapshot": {},
+    "excludes": [
+      "<details",
+      "class=\"poll",
+      "class=\"event",
+      "data-wrap"
+    ]
+  },
+  {
+    "name": "restricted html",
+    "raw": "<kbd onclick=\"bad()\">K</kbd> <mark>M</mark>",
+    "profile": "chat",
+    "context": {},
+    "snapshot": {},
+    "includes": [
+      "<kbd>K</kbd> <mark>M</mark>"
+    ],
+    "excludes": [
+      "onclick"
+    ]
+  },
+  {
+    "name": "script and event",
+    "raw": "<script>alert(1)</script><img src=\"https://a.test/i\" onerror=\"bad()\">",
+    "profile": "chat",
+    "context": {},
+    "snapshot": {},
+    "excludes": [
+      "<script",
+      "<img"
+    ]
+  },
+  {
+    "name": "protected syntax",
+    "raw": "`[date=2026-3-29] @alice :smile: /shrug`",
+    "profile": "chat",
+    "context": {},
+    "snapshot": {},
+    "includes": [
+      "<code>[date=2026-3-29] @alice :smile: /shrug</code>"
+    ],
+    "excludes": [
+      "discourse-local-date",
+      "<img",
+      "class=\"mention"
+    ]
+  },
+  {
+    "name": "DST gap",
+    "raw": "[date=2026-3-29 time=02:30:00 timezone=\"Europe/Paris\"]",
+    "profile": "chat",
+    "context": {},
+    "snapshot": {},
+    "includes": [
+      "data-date=\"2026-03-29\"",
+      "2026-03-29T01:30:00Z"
+    ]
+  },
+  {
+    "name": "DST overlap",
+    "raw": "[date=2026-10-25 time=02:30:00 timezone=\"Europe/Paris\"]",
+    "profile": "chat",
+    "context": {},
+    "snapshot": {},
+    "includes": [
+      "2026-10-25T00:30:00Z"
+    ]
+  },
+  {
+    "name": "timezone alias",
+    "raw": "[date=2026-1-1 time=12:00:00 timezone=\"IST\"]",
+    "profile": "chat",
+    "context": {},
+    "snapshot": {},
+    "includes": [
+      "2026-01-01T06:30:00Z"
+    ]
+  },
+  {
+    "name": "invalid zone fallback",
+    "raw": "[date=2026-1-1 time=12:00:00 timezone=\"Invalid/Zone\"]",
+    "profile": "chat",
+    "context": {},
+    "snapshot": {},
+    "includes": [
+      "2026-01-01T12:00:00Z"
+    ],
+    "excludes": [
+      "data-timezone"
+    ]
+  },
+  {
+    "name": "date range",
+    "raw": "[date-range from=2026-1-1T12:00:00 to=2026-1-2T12:00:00 timezone=\"Etc/UTC\"]",
+    "profile": "chat",
+    "context": {},
+    "snapshot": {},
+    "includes": [
+      "data-range=\"from\"",
+      "data-range=\"to\"",
+      "→"
+    ]
+  },
+  {
+    "name": "French locale",
+    "raw": "[date=2026-3-29 format=\"LL\"]",
+    "profile": "chat",
+    "context": {
+      "locale": "fr",
+      "asOfEpochMilliseconds": 0
+    },
+    "snapshot": {},
+    "includes": [
+      "29 mars 2026"
+    ]
+  },
+  {
+    "name": "English isolation",
+    "raw": "[date=2026-3-29 format=\"LL\"]",
+    "profile": "chat",
+    "context": {
+      "locale": "en",
+      "asOfEpochMilliseconds": 0
+    },
+    "snapshot": {},
+    "includes": [
+      "March 29, 2026"
+    ]
+  },
+  {
+    "name": "known mention",
+    "raw": "@ALICE",
+    "profile": "chat",
+    "context": {},
+    "snapshot": {
+      "mentions": {
+        "alice": {
+          "kind": "user",
+          "username": "Alice",
+          "href": "/u/alice"
+        }
+      }
+    },
+    "includes": [
+      "<a class=\"mention\" href=\"/u/alice\">@Alice</a>"
+    ]
+  },
+  {
+    "name": "known group",
+    "raw": "@Team",
+    "profile": "chat",
+    "context": {},
+    "snapshot": {
+      "mentions": {
+        "team": {
+          "kind": "group-mentionable",
+          "username": "Team",
+          "href": "/groups/team"
+        }
+      }
+    },
+    "includes": [
+      "class=\"mention-group notify\"",
+      "href=\"/groups/team\""
+    ]
+  },
+  {
+    "name": "boolean mention unresolved",
+    "raw": "@alice",
+    "profile": "chat",
+    "context": {},
+    "snapshot": {
+      "mentions": {
+        "alice": true
+      }
+    },
+    "includes": [
+      "<span class=\"mention\">@alice</span>"
+    ],
+    "excludes": [
+      "href="
+    ]
+  },
+  {
+    "name": "custom emoji",
+    "raw": ":custom:",
+    "profile": "chat",
+    "context": {},
+    "snapshot": {
+      "customEmoji": {
+        "custom": "https://a.test/custom.png"
+      }
+    },
+    "includes": [
+      "https://a.test/custom.png",
+      "emoji-custom"
+    ]
+  },
+  {
+    "name": "denied emoji",
+    "raw": ":smile:",
+    "profile": "chat",
+    "context": {},
+    "snapshot": {
+      "emojiDenyList": [
+        "smile"
+      ]
+    },
+    "excludes": [
+      "<img"
+    ]
+  },
+  {
+    "name": "unicode emoji",
+    "raw": "😀",
+    "profile": "chat",
+    "context": {},
+    "snapshot": {},
+    "includes": [
+      "grinning_face"
+    ]
+  },
+  {
+    "name": "bidi code",
+    "raw": "`x‮y`",
+    "profile": "chat",
+    "context": {},
+    "snapshot": {},
+    "includes": [
+      "bidi-warning",
+      "&lt;U+202E&gt;",
+      "title="
+    ]
+  },
+  {
+    "name": "bidi text",
+    "raw": "x‮y",
+    "profile": "chat",
+    "context": {},
+    "snapshot": {},
+    "excludes": [
+      "bidi-warning"
+    ]
+  },
+  {
+    "name": "external rel",
+    "raw": "[link](https://external.test)",
+    "profile": "chat",
+    "context": {},
+    "snapshot": {
+      "siteSettings": {
+        "add_rel_nofollow_to_user_content": true
+      }
+    },
+    "includes": [
+      "rel=\"noopener nofollow ugc\""
+    ]
+  },
+  {
+    "name": "internal rel",
+    "raw": "[link](https://sub.a.test)",
+    "profile": "chat",
+    "context": {},
+    "snapshot": {
+      "siteSettings": {
+        "add_rel_nofollow_to_user_content": true
+      }
+    },
+    "excludes": [
+      "nofollow"
+    ]
+  },
+  {
+    "name": "allowlisted rel",
+    "raw": "[link](https://sub.external.test)",
+    "profile": "chat",
+    "context": {},
+    "snapshot": {
+      "siteSettings": {
+        "add_rel_nofollow_to_user_content": true,
+        "exclude_rel_nofollow_domains": "external.test"
+      }
+    },
+    "excludes": [
+      "nofollow"
+    ]
+  },
+  {
+    "name": "blocked media",
+    "raw": "![x](https://external.test/x.png)",
+    "profile": "chat",
+    "context": {},
+    "snapshot": {
+      "siteSettings": {
+        "block_hotlinked_media": true
+      }
+    },
+    "includes": [
+      "data-blocked-hotlinked-src=\"https://external.test/x.png\""
+    ],
+    "excludes": [
+      " src="
+    ]
+  },
+  {
+    "name": "missing upload",
+    "raw": "![file](upload://unknown.png)",
+    "profile": "chat",
+    "context": {},
+    "snapshot": {},
+    "includes": [
+      "file"
+    ],
+    "excludes": [
+      "/404",
+      "upload://"
+    ]
+  },
+  {
+    "name": "missing transcript metadata",
+    "raw": "[chat]body[/chat]",
+    "profile": "chat",
+    "context": {},
+    "snapshot": {},
+    "excludes": [
+      "class=\"chat-transcript\""
+    ]
+  },
+  {
+    "name": "nested transcript",
+    "raw": "[chat quote=\"Alice;1;2026-01-01\" channelId=\"2\" threadId=\"3\"]\nHi\n[chat quote=\"Bob;2;2026-01-02\" channelId=\"2\" chained=\"true\"]\n# Heading\n[/chat]\n[/chat]",
+    "profile": "chat",
+    "context": {},
+    "snapshot": {},
+    "includes": [
+      "<details>",
+      "data-thread-id=\"3\"",
+      "chat-transcript-chained",
+      "<p># Heading</p>"
+    ]
+  },
+  {
+    "name": "unknown mention",
+    "raw": "@nobody",
+    "includes": [
+      "<span class=\"mention\">@nobody</span>"
+    ],
+    "excludes": [],
+    "profile": "chat",
+    "context": {},
+    "snapshot": {}
+  },
+  {
+    "name": "video without thumbnail",
+    "raw": "![clip|video](https://a.test/v.mp4)",
+    "includes": [
+      "data-video-src=\"https://a.test/v.mp4\""
+    ],
+    "excludes": [
+      "data-thumbnail-src"
+    ],
+    "profile": "chat",
+    "context": {},
+    "snapshot": {}
+  },
+  {
+    "name": "compound cloud emoji",
+    "raw": "😶‍🌫️",
+    "includes": [
+      "face_in_clouds"
+    ],
+    "excludes": [
+      "face_without_mouth",
+      "‍"
+    ],
+    "profile": "chat",
+    "context": {},
+    "snapshot": {}
+  },
+  {
+    "name": "skin tone emoji",
+    "raw": "👍🏽",
+    "includes": [
+      "+1:t4"
+    ],
+    "excludes": [
+      "🏽"
+    ],
+    "profile": "chat",
+    "context": {},
+    "snapshot": {}
+  },
+  {
+    "name": "family emoji",
+    "raw": "👨‍👩‍👧‍👦",
+    "includes": [
+      "family_man_woman_girl_boy"
+    ],
+    "excludes": [
+      "‍"
+    ],
+    "profile": "chat",
+    "context": {},
+    "snapshot": {}
+  },
+  {
+    "name": "adjacent variation selector",
+    "raw": "x☀️y",
+    "includes": [
+      "sun.png"
+    ],
+    "excludes": [
+      "️"
+    ],
+    "profile": "chat",
+    "context": {},
+    "snapshot": {}
+  },
+  {
+    "name": "blocked video without thumbnail",
+    "raw": "![clip|video](https://external.test/v.mp4)",
+    "includes": [
+      "data-blocked-hotlinked-src"
+    ],
+    "excludes": [
+      "data-video-src"
+    ],
+    "profile": "chat",
+    "context": {},
+    "snapshot": {
+      "siteSettings": {
+        "block_hotlinked_media": true
+      }
+    }
+  },
+  {
+    "name": "human editor of bot message",
+    "raw": "# Heading",
+    "html": "<p># Heading</p>",
+    "profile": "chat",
+    "context": {
+      "authorId": -1,
+      "editorId": 7
+    },
+    "snapshot": {}
+  },
+  {
+    "name": "bot editor of human message",
+    "raw": "# Heading",
+    "includes": [
+      "<h1>"
+    ],
+    "profile": "chat",
+    "context": {
+      "authorId": 7,
+      "editorId": -1
+    },
+    "snapshot": {}
+  },
+  {
+    "name": "email format and timezone",
+    "raw": "[date=2026-1-1 time=12:00:00 timezone=\"Etc/UTC\"]",
+    "includes": [
+      "data-email-preview=\"2026-01-01 07:00 EST\""
+    ],
+    "excludes": [],
+    "profile": "chat",
+    "context": {},
+    "snapshot": {
+      "pluginContext": {
+        "discourse-local-dates": {
+          "settings": {
+            "discourse_local_dates_enabled": true,
+            "discourse_local_dates_email_format": "YYYY-MM-DD HH:mm z",
+            "discourse_local_dates_email_timezone": "America/New_York"
+          }
+        }
+      }
+    }
+  },
+  {
+    "name": "cached CDN upload allowed",
+    "raw": "![photo](upload://known.png)",
+    "includes": [
+      "src=\"https://cdn.test/known.png\""
+    ],
+    "excludes": [
+      "data-blocked-hotlinked-src"
+    ],
+    "profile": "chat",
+    "context": {},
+    "snapshot": {
+      "siteSettings": {
+        "block_hotlinked_media": true
+      },
+      "uploads": {
+        "upload://known.png": {
+          "url": "https://cdn.test/known.png",
+          "short_path": "/uploads/short-url/known.png"
+        }
+      },
+      "allowedMediaOrigins": [
+        "https://cdn.test"
+      ]
+    }
+  },
+  {
+    "name": "poisoned watched word html",
+    "raw": "bad",
+    "includes": [
+      "safe"
+    ],
+    "excludes": [
+      "<script",
+      "onerror="
+    ],
+    "profile": "chat",
+    "context": {},
+    "snapshot": {
+      "watchedWordsReplace": {
+        "(bad)": {
+          "regexp": "bad",
+          "replacement": "<script>bad()</script><b>safe</b>",
+          "html": true,
+          "case_sensitive": false
+        }
+      }
+    }
+  },
+  {
+    "name": "censor snapshot",
+    "raw": "bad",
+    "includes": [
+      "■■■"
+    ],
+    "excludes": [],
+    "profile": "chat",
+    "context": {},
+    "snapshot": {
+      "censoredRegexp": [
+        {
+          "(bad)": {
+            "case_sensitive": false
+          }
+        }
+      ]
+    }
+  },
+  {
+    "name": "cached video thumbnail",
+    "raw": "![clip|video](https://a.test/v.mp4)",
+    "includes": [
+      "data-thumbnail-src=\"https://a.test/thumb.png\"",
+      "data-video-base62-sha1=\"abcd.mp4\""
+    ],
+    "excludes": [],
+    "profile": "chat",
+    "context": {},
+    "snapshot": {
+      "media": {
+        "https://a.test/v.mp4": {
+          "thumbnailUrl": "https://a.test/thumb.png",
+          "videoBase62Sha1": "abcd.mp4"
+        }
+      }
+    }
+  },
+  {
+    "name": "poisoned media metadata",
+    "raw": "![clip|video](https://a.test/v.mp4)",
+    "includes": [],
+    "excludes": [
+      "javascript:",
+      "data-thumbnail-src"
+    ],
+    "profile": "chat",
+    "context": {},
+    "snapshot": {
+      "media": {
+        "https://a.test/v.mp4": {
+          "thumbnailUrl": "javascript:alert(1)"
+        }
+      }
+    }
+  },
+  {
+    "name": "chained transcript metadata",
+    "raw": "[chat quote=\"Alice;1;2026-01-01\" channel=\"General\" channelId=\"2\" multiQuote=\"true\" chained=\"true\"]\nHi\n[/chat]",
+    "includes": [
+      "data-multiquote=\"true\"",
+      "data-chained=\"true\"",
+      "<a href=\"https://a.test/chat/c/-/2\">#General</a>"
+    ],
+    "excludes": [],
+    "profile": "chat",
+    "context": {},
+    "snapshot": {}
+  },
+  {
+    "name": "internal link with userinfo",
+    "raw": "[link](https://user@a.test/x)",
+    "profile": "chat",
+    "context": {},
+    "snapshot": {
+      "siteSettings": {
+        "add_rel_nofollow_to_user_content": true
+      }
+    },
+    "excludes": [
+      "nofollow"
+    ]
+  },
+  {
+    "name": "cached inline onebox",
+    "raw": "Look https://a.test/item",
+    "profile": "chat",
+    "context": {},
+    "snapshot": {
+      "inlineOneboxes": {
+        "https://a.test/item": {
+          "title": "Cached title",
+          "css_class": "known"
+        }
+      }
+    },
+    "includes": [
+      "Cached title"
+    ]
+  },
+  {
+    "name": "target blank gets noopener",
+    "raw": "https://external.test/item",
+    "profile": "chat",
+    "context": {},
+    "snapshot": {
+      "siteSettings": {
+        "add_rel_nofollow_to_user_content": false
+      }
+    },
+    "includes": [
+      "target=\"_blank\"",
+      "rel=\"noopener\""
+    ]
+  },
+  {
+    "name": "bot image carousel",
+    "raw": "[grid mode=carousel]\n![a](https://a.test/a.png)\n![b](https://a.test/b.png)\n[/grid]",
+    "profile": "chat",
+    "context": {
+      "authorId": -1
+    },
+    "snapshot": {},
+    "includes": [
+      "class=\"d-image-grid\"",
+      "data-mode=\"carousel\""
+    ]
+  },
+  {
+    "name": "ordinary chat excludes image grid",
+    "raw": "[grid mode=carousel]\n![a](https://a.test/a.png)\n![b](https://a.test/b.png)\n[/grid]",
+    "profile": "chat",
+    "context": {},
+    "snapshot": {},
+    "excludes": [
+      "class=\"d-image-grid\""
+    ]
+  },
+  {
+    "name": "fence metadata is constrained",
+    "raw": "```mermaid height=300,arbitrary=bad\ngraph TD;A-->B\n```",
+    "profile": "chat",
+    "context": {},
+    "snapshot": {},
+    "includes": [
+      "data-code-wrap=\"mermaid\"",
+      "data-code-height=\"300\""
+    ],
+    "excludes": [
+      "data-code-arbitrary"
+    ]
+  },
+  {
+    "name": "cached template content receives cleanup before sanitizer unwraps it",
+    "raw": "https://external.test/card",
+    "profile": "chat",
+    "context": {},
+    "snapshot": {
+      "siteSettings": {
+        "block_hotlinked_media": true,
+        "add_rel_nofollow_to_user_content": true
+      },
+      "oneboxes": {
+        "https://external.test/card": "<template><img src=\"https://external.test/image.png\"><a href=\"https://external.test\">external</a></template>"
+      }
+    },
+    "includes": [
+      "data-blocked-hotlinked-src=\"https://external.test/image.png\"",
+      "rel=\"noopener nofollow ugc\""
+    ],
+    "excludes": [
+      "<template",
+      " src="
+    ]
+  },
+  {
+    "name": "cached opaque xmp body cannot become active media",
+    "raw": "https://external.test/card",
+    "profile": "chat",
+    "context": {},
+    "snapshot": {
+      "siteSettings": {
+        "block_hotlinked_media": true
+      },
+      "oneboxes": {
+        "https://external.test/card": "<xmp><img src=\"https://external.test/image.png\"></xmp>"
+      }
+    },
+    "excludes": [
+      "<img",
+      "https://external.test/image.png"
+    ]
+  },
+  {
+    "name": "cached opaque plaintext body cannot become active media",
+    "raw": "https://external.test/card",
+    "profile": "chat",
+    "context": {},
+    "snapshot": {
+      "siteSettings": {
+        "block_hotlinked_media": true
+      },
+      "oneboxes": {
+        "https://external.test/card": "<plaintext><img src=\"https://external.test/image.png\"></plaintext>"
+      }
+    },
+    "excludes": [
+      "<img",
+      "https://external.test/image.png"
+    ]
+  },
+  {
+    "name": "cached opaque noembed body cannot become active media",
+    "raw": "https://external.test/card",
+    "profile": "chat",
+    "context": {},
+    "snapshot": {
+      "siteSettings": {
+        "block_hotlinked_media": true
+      },
+      "oneboxes": {
+        "https://external.test/card": "<noembed><img src=\"https://external.test/image.png\"></noembed>"
+      }
+    },
+    "excludes": [
+      "<img",
+      "https://external.test/image.png"
+    ]
+  },
+  {
+    "name": "cached opaque noframes body cannot become active media",
+    "raw": "https://external.test/card",
+    "profile": "chat",
+    "context": {},
+    "snapshot": {
+      "siteSettings": {
+        "block_hotlinked_media": true
+      },
+      "oneboxes": {
+        "https://external.test/card": "<noframes><img src=\"https://external.test/image.png\"></noframes>"
+      }
+    },
+    "excludes": [
+      "<img",
+      "https://external.test/image.png"
+    ]
+  },
+  {
+    "name": "cached opaque noscript body cannot become active media",
+    "raw": "https://external.test/card",
+    "profile": "chat",
+    "context": {},
+    "snapshot": {
+      "siteSettings": {
+        "block_hotlinked_media": true
+      },
+      "oneboxes": {
+        "https://external.test/card": "<noscript><img src=\"https://external.test/image.png\"></noscript>"
+      }
+    },
+    "excludes": [
+      "<img",
+      "https://external.test/image.png"
+    ]
+  },
+  {
+    "name": "cached opaque textarea body cannot become active media",
+    "raw": "https://external.test/card",
+    "profile": "chat",
+    "context": {},
+    "snapshot": {
+      "siteSettings": {
+        "block_hotlinked_media": true
+      },
+      "oneboxes": {
+        "https://external.test/card": "<textarea><img src=\"https://external.test/image.png\"></textarea>"
+      }
+    },
+    "excludes": [
+      "<img",
+      "https://external.test/image.png"
+    ]
+  },
+  {
+    "name": "cached opaque title body cannot become active media",
+    "raw": "https://external.test/card",
+    "profile": "chat",
+    "context": {},
+    "snapshot": {
+      "siteSettings": {
+        "block_hotlinked_media": true
+      },
+      "oneboxes": {
+        "https://external.test/card": "<title><img src=\"https://external.test/image.png\"></title>"
+      }
+    },
+    "excludes": [
+      "<img",
+      "https://external.test/image.png"
+    ]
+  },
+  {
+    "name": "blocked video cannot use native original-source fallback",
+    "raw": "https://external.test/card",
+    "profile": "chat",
+    "context": {},
+    "snapshot": {
+      "siteSettings": {
+        "block_hotlinked_media": true
+      },
+      "oneboxes": {
+        "https://external.test/card": "<div class=\"video-placeholder-container\" data-orig-src=\"https://external.test/video.mp4\"></div>"
+      }
+    },
+    "includes": [
+      "data-blocked-hotlinked-src=\"https://external.test/video.mp4\""
+    ],
+    "excludes": [
+      "data-orig-src=",
+      "data-video-src="
+    ]
+  }
+]

@@ -1,0 +1,90 @@
+{
+  "README.md": {
+    "bytes": 5605,
+    "sha256": "4ad200557590869d33e8ee14746e8cbcfbd6954a79a4f3d8903261118005deb9"
+  },
+  "bundle-verification.log": {
+    "bytes": 130,
+    "sha256": "0356be98e80a2733df20cbb21406b43ca99a6a558eea993be481e3a7b586ce3f"
+  },
+  "embedded-frameworks.log": {
+    "bytes": 798,
+    "sha256": "041459cfd84fbb88282e16b470dab803cb948cc703bc4b80bb0f183a84beb164"
+  },
+  "focused-application.log.gz": {
+    "bytes": 1322,
+    "sha256": "74fc54ec00b67f7a85a5ca68aa4915feb32ac3bffd9622f9a8dc1468bb08d108"
+  },
+  "full-ios-build.log": {
+    "bytes": 231,
+    "sha256": "9486b59f70abf36cd0fff8a3029a3af954ddf58be026f027b0a28f4b114a3300"
+  },
+  "full-macos-build.log.gz": {
+    "bytes": 39235,
+    "sha256": "0d87676c974f4040cb716ba9f4f5c91191ae97e97c6888c1a506a8961af15e6d"
+  },
+  "full-root-suite.log.gz": {
+    "bytes": 77457,
+    "sha256": "5f1373aa727ffd49d4e4b5649210c91e97c5a944565b868d3df91f55d78d3ece"
+  },
+  "full-wrapper-analysis.log": {
+    "bytes": 96,
+    "sha256": "b579f4b7e68e9a10e024ed8553a4a61c06b051e538134d7bbf18dfb821b2933e"
+  },
+  "full-wrapper-lockfile.log": {
+    "bytes": 608,
+    "sha256": "bdb876707e88d239c24b1d9cb8fcd80b17d08f8f9f782368ecff63b9282abff9"
+  },
+  "initial-full-suite.log.gz": {
+    "bytes": 79002,
+    "sha256": "576b053314a23df16cf618eb895eb1956270dc005cdd69665777405b97847914"
+  },
+  "javascript.log.gz": {
+    "bytes": 1999,
+    "sha256": "511a82a885086c3a950f3c219618bf30c10481fc4b7290852ab8f34ec6020ad7"
+  },
+  "native-package.log.gz": {
+    "bytes": 1384,
+    "sha256": "e57abba6032159c4167b732643f361e0c0c4c6fda511a5d672b3cb41372f9000"
+  },
+  "npm-ci.log": {
+    "bytes": 143,
+    "sha256": "72b8eae2b73a0bd8105863c50e596307077cc4fe8b4e80e577fad1c6d52a5882"
+  },
+  "package-analysis.log": {
+    "bytes": 48,
+    "sha256": "67b20c344433c1419f20a7c2054d935668e91f36bbeb0f6df073bc68140dff1f"
+  },
+  "package-format.log": {
+    "bytes": 48,
+    "sha256": "dd41adfb60f6ff336c97ab5b6a8ca20a2d48e7c7c28ade24a30da4b2a130950d"
+  },
+  "package-lockfile.log": {
+    "bytes": 68,
+    "sha256": "d4cb7a3c68b4133b4f6e58c67ff5bfd13725d8021e930388cdc98da8a575919d"
+  },
+  "quickjs-verification.log": {
+    "bytes": 70,
+    "sha256": "ac33b59306244136a4566fc519d84ff1f088a6c2125ff5a551687c59cade1617"
+  },
+  "root-analysis.log": {
+    "bytes": 97,
+    "sha256": "c3b6454bc90a9a4db588e6d939b5ad3754b0d9d1ddc71b2fb8f4a9af8e821706"
+  },
+  "root-format.log": {
+    "bytes": 50,
+    "sha256": "6effe85a5ec38627764e84fc4bc1d57a0f302e738404e7258a3dffdf25c85007"
+  },
+  "root-ios-build.log": {
+    "bytes": 231,
+    "sha256": "6ae91488760c340f4fbe0045d1d16cc7d343114b41e7f80c64cf707591b21d08"
+  },
+  "root-lockfile.log": {
+    "bytes": 556,
+    "sha256": "c6fd5661c1e2915ae5643dccb5b39f0f4d04edd05549f9c5715143c32bf82ad0"
+  },
+  "root-macos-build.log.gz": {
+    "bytes": 39109,
+    "sha256": "cd428ef00738e482e1b117fa5216076aa4633121b26a4639045b4c9353e96cc8"
+  }
+}

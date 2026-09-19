@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:discourse_cooking/discourse_cooking.dart';
+
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:html/dom.dart' as dom;
@@ -11,6 +13,7 @@ import '../../models/content_route.dart';
 import '../../models/forum_workspace.dart';
 import '../../models/sidebar.dart';
 import '../../models/user_card.dart';
+import '../../plugin_api/cooking_plugin.dart';
 import '../../plugin_api/plugin_scope.dart';
 import '../../plugin_api/site_plugin_api.dart';
 import '../../shell/composer_controller.dart';
@@ -56,6 +59,7 @@ const chatIconCatalog = PluginIconCatalog(
 class ChatPlugin
     implements
         SitePlugin,
+        CookingPlugin,
         IconCatalogPlugin,
         SidebarPlugin,
         SidebarPanelPlugin,
@@ -122,6 +126,46 @@ class ChatPlugin
           routeId == myThreadsRouteId ||
           routeId == searchRouteId ||
           channelIdFromThreadsRoute(routeId) != null);
+
+  @override
+  List<CookingProfile> get cookingProfiles => const [];
+  @override
+  List<CookingModule> get cookingModules => [
+    CookingModule(
+      id: 'chat-source',
+      owner: 'chat',
+      version: '1',
+      profiles: const ['chat'],
+      enabledSetting: 'chat_enabled',
+    ),
+    CookingModule(
+      id: 'chat-html-inline',
+      owner: 'chat',
+      version: '1',
+      enabledSetting: 'chat_enabled',
+    ),
+    CookingModule(
+      id: 'chat-transcript',
+      owner: 'chat',
+      version: '1',
+      enabledSetting: 'chat_enabled',
+    ),
+    CookingModule(
+      id: 'chat-slash-format',
+      owner: 'chat',
+      version: '1',
+      profiles: const ['chat'],
+      dependencies: const ['chat-source'],
+      enabledSetting: 'chat_enabled',
+    ),
+  ];
+  @override
+  Map<String, Object?> projectCookingContext(CookingPluginData data) {
+    final settings = data.read(chatSettingsDataKey);
+    return {
+      'settings': {'chat_enabled': settings?.chatEnabled ?? true},
+    };
+  }
 
   @override
   String get name => 'chat';
