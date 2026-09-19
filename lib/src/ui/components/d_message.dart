@@ -53,6 +53,7 @@ class DMessage extends StatelessWidget {
     this.spacing = DSpacing.sm,
     this.semanticLabel,
     this.liveRegion = false,
+    this.footer,
   });
 
   final List<Widget> children;
@@ -61,6 +62,11 @@ class DMessage extends StatelessWidget {
   final double spacing;
   final String? semanticLabel;
   final bool liveRegion;
+
+  /// Content below the avatar/body row, such as reactions or a thread link.
+  /// It shares message alignment without changing the avatar's bottom anchor.
+  /// The caller supplies any avatar-column inset, usually around DMessageContent.
+  final Widget? footer;
 
   @override
   Widget build(BuildContext context) {
@@ -82,12 +88,20 @@ class DMessage extends StatelessWidget {
     );
     Widget row = DefaultTextStyle(
       style: style,
-      child: Row(
-        crossAxisAlignment: avatarAlignment == DMessageAvatarAlignment.bottom
-            ? CrossAxisAlignment.end
-            : CrossAxisAlignment.start,
-        spacing: spacing,
-        children: laidOutChildren,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            crossAxisAlignment:
+                avatarAlignment == DMessageAvatarAlignment.bottom
+                ? CrossAxisAlignment.end
+                : CrossAxisAlignment.start,
+            spacing: spacing,
+            children: laidOutChildren,
+          ),
+          ?footer,
+        ],
       ),
     );
     if (semanticLabel != null || liveRegion) {
@@ -281,7 +295,8 @@ class _DMessageContentScope extends InheritedWidget {
 
 /// Sender or context metadata above a message surface.
 ///
-/// A header always follows logical start, including for end-aligned messages.
+/// Headers follow logical start by default. [followMessageAlignment] places
+/// outgoing sender metadata at logical end, matching its message surface.
 class DMessageHeader extends StatelessWidget {
   const DMessageHeader({
     super.key,
@@ -289,16 +304,22 @@ class DMessageHeader extends StatelessWidget {
     this.spacing = 0,
     this.runSpacing = DSpacing.xs,
     this.semanticLabel,
+    this.followMessageAlignment = false,
   });
 
   final List<Widget> children;
   final double spacing;
   final double runSpacing;
   final String? semanticLabel;
+  final bool followMessageAlignment;
 
   @override
   Widget build(BuildContext context) => _DMessageMetadata(
-    alignment: WrapAlignment.start,
+    alignment:
+        followMessageAlignment &&
+            _DMessageScope.of(context).align == DMessageAlign.end
+        ? WrapAlignment.end
+        : WrapAlignment.start,
     semanticLabel: semanticLabel,
     spacing: spacing,
     runSpacing: runSpacing,

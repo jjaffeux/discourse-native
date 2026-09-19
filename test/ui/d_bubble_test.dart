@@ -415,6 +415,78 @@ void main() {
     );
   });
 
+  testWidgets(
+    'quote navigation and corner menu have independent accessible targets',
+    (tester) async {
+      final semantics = tester.ensureSemantics();
+      try {
+        var jumps = 0;
+        var replies = 0;
+        await tester.pumpWidget(
+          host(
+            DBubble(
+              variant: DBubbleVariant.accent,
+              children: [
+                DBubbleContent(
+                  key: const ValueKey('surface'),
+                  trailingAction: DDropdownMenu(
+                    content: DDropdownMenuContent(
+                      children: [
+                        DDropdownMenuItem(
+                          onPressed: () => replies++,
+                          child: const Text('Reply'),
+                        ),
+                      ],
+                    ),
+                    child: DDropdownMenuTrigger(
+                      builder: (context, state) => DButton.iconOnly(
+                        icon: const Icon(Icons.keyboard_arrow_down),
+                        tooltip: 'Message options',
+                        size: DButtonSize.small,
+                        focusNode: state.focusNode,
+                        onPressed: state.toggle,
+                      ),
+                    ),
+                  ),
+                  quote: DBubbleQuote(
+                    author: const Text('Olivia'),
+                    semanticLabel: 'Jump to original message from Olivia',
+                    onPressed: () => jumps++,
+                    child: const Text('Original message'),
+                  ),
+                  child: const Text('A reply'),
+                ),
+              ],
+            ),
+          ),
+        );
+        final source = find.bySemanticsLabel(
+          'Jump to original message from Olivia',
+        );
+        final quoteBounds = tester.getRect(find.byType(DBubbleQuote));
+        expect(
+          quoteBounds.bottom,
+          lessThan(tester.getTopLeft(find.text('A reply')).dy),
+        );
+        await tester.tap(source);
+        expect(jumps, 1);
+        await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+        expect(jumps, 2);
+        await tester.tap(find.byTooltip('Message options'));
+        await tester.pumpAndSettle();
+        final menu = tester.getSemantics(find.text('Reply'));
+        expect(menu.flagsCollection.isHidden, isFalse);
+        await tester.tap(find.text('Reply'));
+        await tester.pumpAndSettle();
+        expect(replies, 1);
+        expect(jumps, 2);
+        expect(tester.getRect(find.byType(DBubbleQuote)), quoteBounds);
+      } finally {
+        semantics.dispose();
+      }
+    },
+  );
+
   testWidgets('link uses Enter while disabled and busy state stay truthful', (
     tester,
   ) async {

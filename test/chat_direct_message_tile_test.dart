@@ -212,7 +212,7 @@ void main() {
       expect(provisional.html, html);
       expect(provisional.siteUrl, _site);
       expect(provisional.compactParagraphs, isTrue);
-      expect(provisional.contentSized, kind == ChatChannelKind.directMessage);
+      expect(provisional.contentSized, isTrue);
       expect(find.text('Raw fallback'), findsNothing);
       expect(find.byType(LocalDateInline), findsOneWidget);
       expect(
@@ -281,7 +281,7 @@ void main() {
           expect(find.byType(CookedHtml), findsNothing);
           expect(find.text('Raw fallback'), findsNothing);
           expect(find.text('Legacy preview'), findsNothing);
-          expect(find.byType(DBubble), findsNothing);
+          expect(find.byType(DBubble), findsOneWidget);
           expect(find.text('notes.pdf'), findsOneWidget);
           expect(tester.takeException(), isNull);
         },
@@ -308,29 +308,20 @@ void main() {
             right ? bubble.right : bubble.left,
             closeTo(right ? content.right : content.left, .01),
           );
-          if (group) {
-            final avatar = tester.getRect(find.byType(ChatUserAvatar));
-            expect(
-              right ? avatar.left > bubble.right : avatar.right < bubble.left,
-              isTrue,
-            );
-            expect(avatar.size, const Size.square(32));
-          } else {
-            expect(find.byType(ChatUserAvatar), findsNothing);
-            expect(find.byType(DMessageAvatar), findsNothing);
-            expect(find.text('user1'), findsNothing);
-            expect(find.text('user2'), findsNothing);
-            expect(content.width, tester.getSize(find.byType(DMessage)).width);
-          }
+          final avatar = tester.getRect(find.byType(ChatUserAvatar));
           expect(
-            find.byType(DMessageHeader),
-            group && !outgoing ? findsOneWidget : findsNothing,
+            right ? avatar.left > bubble.right : avatar.right < bubble.left,
+            isTrue,
           );
+          expect(avatar.size, const Size.square(28));
+          expect(avatar.bottom, closeTo(bubble.bottom, .01));
+          expect(find.byType(DMessageHeader), findsOneWidget);
+          expect(find.text(outgoing ? 'you' : 'user2'), findsOneWidget);
           expect(
             tester.widget<DBubble>(find.byType(DBubble)).variant,
-            outgoing ? DBubbleVariant.primary : DBubbleVariant.muted,
+            outgoing ? DBubbleVariant.accent : DBubbleVariant.neutral,
           );
-          expect(bubble.width, lessThanOrEqualTo(content.width * .8));
+          expect(bubble.width, lessThanOrEqualTo(content.width * .88));
         });
       }
     }
@@ -402,25 +393,26 @@ void main() {
               await tester.pump();
               expect(reaction.hitTestable(), findsOneWidget);
               final control = tester.getRect(trigger);
+              expect(bubble.contains(control.topLeft), isTrue);
+              expect(bubble.contains(control.bottomRight), isTrue);
+              expect(control.top, closeTo(bubble.top + 9, .01));
               expect(
-                onRight
-                    ? control.right <= bubble.left
-                    : control.left >= bubble.right,
-                isTrue,
+                direction == TextDirection.ltr ? control.right : control.left,
+                closeTo(
+                  direction == TextDirection.ltr
+                      ? bubble.right - 13
+                      : bubble.left + 13,
+                  .01,
+                ),
               );
-              expect(control.center.dy, closeTo(bubble.center.dy, .01));
               expect(reactionRect.center.dy, closeTo(bubble.center.dy, .01));
-              if (!group) {
-                final row = tester.getRect(find.byKey(_bodyKey));
-                expect(row.center.dy, closeTo(bubble.center.dy, .01));
-              }
               await tester.tap(trigger);
               await tester.pumpAndSettle();
               expect(find.byType(DDropdownMenuContent), findsOneWidget);
               expect(find.text('Reply'), findsOneWidget);
               expect(
-                find.widgetWithText(DDropdownMenuItem, 'Add reaction'),
-                findsNothing,
+                find.widgetWithText(DDropdownMenuItem, 'React'),
+                findsOneWidget,
               );
               expect(find.text('Bookmark'), findsOneWidget);
               await mouse.moveTo(const Offset(790, 590));
@@ -488,7 +480,7 @@ void main() {
         );
         await tester.pumpAndSettle();
         await hover(tester);
-        expect(find.byType(DBubble), findsNothing);
+        expect(find.byType(DBubble), findsOneWidget);
         expect(find.byType(DDropdownMenu), findsOneWidget);
         final semantics = tester.ensureSemantics();
         expect(find.bySemanticsLabel('More message actions'), findsOneWidget);
@@ -558,7 +550,7 @@ void main() {
         await tester.pumpAndSettle();
         for (final label in [
           'Reply',
-          'Add reaction',
+          'React',
           'Bookmark',
           'Pin',
           'Edit',
@@ -630,46 +622,58 @@ void main() {
     );
   });
 
-  testWidgets('category channels retain the compact unboxed presentation', (
-    tester,
-  ) async {
-    final controller = await _controller(
-      _message(),
-      channel: _channel(kind: ChatChannelKind.category),
-    );
-    await tester.pumpWidget(_tile(controller));
-    await tester.pumpAndSettle();
-    expect(find.byType(DBubble), findsNothing);
-    expect(tester.getSize(find.byType(ChatUserAvatar)), const Size.square(28));
-    expect(
-      tester.widget<DMessage>(find.byType(DMessage)).avatarAlignment,
-      DMessageAvatarAlignment.top,
-    );
-  });
+  for (final kind in ChatChannelKind.values) {
+    testWidgets('$kind uses the shared conversation presentation', (
+      tester,
+    ) async {
+      final controller = await _controller(
+        _message(),
+        channel: _channel(kind: kind),
+      );
+      await tester.pumpWidget(_tile(controller));
+      await tester.pumpAndSettle();
+      expect(find.byType(DBubble), findsOneWidget);
+      expect(
+        tester.getSize(find.byType(ChatUserAvatar)),
+        const Size.square(28),
+      );
+      expect(
+        tester.widget<DMessage>(find.byType(DMessage)).align,
+        DMessageAlign.end,
+      );
+      expect(find.text('you'), findsOneWidget);
+    });
+  }
 
-  testWidgets('unknown channel updates to DM styling when its record arrives', (
-    tester,
-  ) async {
-    final controller = await _controller(
-      _message(author: 2),
-      putChannel: false,
-    );
-    await tester.pumpWidget(_tile(controller));
-    await tester.pumpAndSettle();
-    expect(find.byType(DBubble), findsNothing);
-    controller.chatRecords.put(_site, _channel());
-    await tester.pumpAndSettle();
-    expect(find.byType(DBubble), findsOneWidget);
-    expect(find.byType(DMessageAvatar), findsNothing);
-    expect(find.byType(DMessageHeader), findsNothing);
-    controller.chatRecords.put(_site, _channel(group: true));
-    await tester.pumpAndSettle();
-    expect(find.byType(ChatUserAvatar), findsOneWidget);
-    expect(find.text('user2'), findsOneWidget);
-    controller.chatRecords.put(_site, _channel(kind: ChatChannelKind.category));
-    await tester.pumpAndSettle();
-    expect(find.byType(DBubble), findsNothing);
-  });
+  testWidgets(
+    'channel metadata changes preserve bubble and selection identity',
+    (tester) async {
+      final controller = await _controller(
+        _message(author: 2),
+        putChannel: false,
+      );
+      await tester.pumpWidget(_tile(controller));
+      await tester.pumpAndSettle();
+      final body = tester.element(
+        find.byKey(ChatMessageTile.bodySelectionKey(7)),
+      );
+      for (final channel in [
+        _channel(),
+        _channel(group: true),
+        _channel(kind: ChatChannelKind.category),
+      ]) {
+        controller.chatRecords.put(_site, channel);
+        await tester.pumpAndSettle();
+        expect(find.byType(DBubble), findsOneWidget);
+        expect(find.byType(ChatUserAvatar), findsOneWidget);
+        expect(find.text('user2'), findsOneWidget);
+        expect(
+          tester.element(find.byKey(ChatMessageTile.bodySelectionKey(7))),
+          same(body),
+        );
+      }
+    },
+  );
 
   testWidgets('ownership comes from the message site', (tester) async {
     final controller = await _controller(_message(author: 2));
@@ -700,7 +704,7 @@ void main() {
       await tester.pumpWidget(_tile(controller, endsGroup: false));
       await tester.pumpAndSettle();
       expect(find.byKey(ChatMessageTile.timestampKey(7)), findsNothing);
-      expect(find.byType(ChatUserAvatar), findsNothing);
+      expect(find.byType(ChatUserAvatar), findsOneWidget);
       expect(find.text('(edited)'), findsOneWidget);
       expect(find.text('Failed to send: Offline'), findsOneWidget);
       expect(
@@ -710,7 +714,7 @@ void main() {
       await tester.pumpWidget(_tile(controller, chained: true));
       await tester.pumpAndSettle();
       expect(find.byKey(ChatMessageTile.timestampKey(7)), findsNothing);
-      expect(find.byType(ChatUserAvatar), findsOneWidget);
+      expect(find.byType(ChatUserAvatar), findsNothing);
     },
   );
 
@@ -807,7 +811,7 @@ void main() {
         await tester.pumpWidget(_tile(controller));
         await tester.pumpAndSettle();
         expect(find.text('Draft'), findsOneWidget);
-        expect(find.text('Sending'), findsOneWidget);
+        expect(find.text('Sending'), findsNothing);
         final body = tester.element(
           find.byKey(ChatMessageTile.bodySelectionKey(7)),
         );
@@ -832,7 +836,7 @@ void main() {
   }
 
   testWidgets(
-    'failed sends announce the error and attachment-only messages have no empty bubble',
+    'failed attachment messages announce errors and retain a single surface',
     (tester) async {
       final controller = await _controller(
         _message(
@@ -844,14 +848,15 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Failed to send: Offline'), findsOneWidget);
       expect(find.text('notes.pdf'), findsOneWidget);
-      expect(find.byType(DBubble), findsNothing);
+      expect(find.byType(DBubble), findsOneWidget);
       final file = tester.getRect(find.byType(DAttachment));
-      final content = tester.getRect(find.byType(DMessageContent));
-      expect(file.right, closeTo(content.right, .01));
+      final bubble = tester.getRect(find.byType(DBubbleContent));
+      expect(bubble.contains(file.topLeft), isTrue);
+      expect(bubble.contains(file.bottomRight), isTrue);
     },
   );
 
-  testWidgets('pending attachment-only previews omit the empty bubble', (
+  testWidgets('pending attachment-only previews retain one message surface', (
     tester,
   ) async {
     final controller = await _controller(
@@ -869,9 +874,9 @@ void main() {
     );
     await tester.pumpWidget(_tile(controller));
     await tester.pumpAndSettle();
-    expect(find.byType(DBubble), findsNothing);
+    expect(find.byType(DBubble), findsOneWidget);
     expect(find.text('notes.pdf'), findsOneWidget);
-    expect(find.text('Sending'), findsOneWidget);
+    expect(find.text('Sending'), findsNothing);
   });
 
   for (final palette in [
@@ -892,12 +897,15 @@ void main() {
         await tester.pumpAndSettle();
         final tokens = DTokens.of(tester.element(find.byType(DBubbleContent)));
         final html = tester.widget<CookedHtml>(find.byType(CookedHtml));
-        expect(html.textStyle!.color, tokens.primaryForeground);
-        expect(html.textStyle!.fontSize, 14);
-        expect(html.linkStyle!.color, tokens.primaryForeground);
+        expect(html.textStyle!.color, tokens.buttonTheme.primary.foreground);
+        expect(html.textStyle!.fontSize, 13.5);
+        expect(html.linkStyle!.color, tokens.buttonTheme.primary.foreground);
         expect(html.linkStyle!.decoration, TextDecoration.underline);
         expect(html.linkStyle!.fontWeight, FontWeight.w500);
-        expect(html.linkStyle!.decorationColor, tokens.primaryForeground);
+        expect(
+          html.linkStyle!.decorationColor,
+          tokens.buttonTheme.primary.foreground,
+        );
         expect(html.textStyle!.color, isNot(tokens.primary));
       },
     );
@@ -1012,10 +1020,7 @@ void main() {
         );
         expect(
           find.byKey(const ValueKey('chat-reaction-picker-7')),
-          kind == ChatChannelKind.directMessage &&
-                  platform == TargetPlatform.macOS
-              ? findsNothing
-              : findsOneWidget,
+          findsNothing,
         );
       });
     }
@@ -1036,7 +1041,7 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(find.text('Copy link'), findsOneWidget);
-    expect(find.text('Add reaction'), findsOneWidget);
-    expect(find.byKey(const ValueKey('chat-message-react-7')), findsNothing);
+    expect(find.text('React'), findsOneWidget);
+    expect(find.byKey(const ValueKey('chat-message-react-7')), findsOneWidget);
   });
 }

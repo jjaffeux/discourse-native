@@ -46,7 +46,6 @@ import 'package:discourse_native/src/shell/emoji_picker.dart';
 import 'package:discourse_native/src/shell/forum_search.dart';
 import 'package:discourse_native/src/shell/forum_tabs_bar.dart';
 import 'package:discourse_native/src/shell/global_search_models.dart';
-import 'package:discourse_native/src/shell/hover_action_toolbar.dart';
 import 'package:discourse_native/src/shell/instance_rail.dart';
 import 'package:discourse_native/src/shell/instance_sidebar.dart';
 import 'package:discourse_native/src/shell/main_content.dart';
@@ -5647,13 +5646,9 @@ void _registerChatShellTests() {
             find.byKey(const ValueKey('chat-loading-skeleton')),
             findsNothing,
           );
-          final loadedMessage = minimumHeightAncestors(
-            find.byKey(const ValueKey('chat-message-1')),
-            ChatMessageTile.minimumUnchainedHeight,
-          );
           expect(
-            tester.getSize(loadedMessage.first).height,
-            greaterThanOrEqualTo(ChatMessageTile.minimumUnchainedHeight),
+            find.byKey(const ValueKey('chat-message-bubble-1')),
+            findsOneWidget,
           );
           expect(shellNotifications, 0);
           expect(tester.takeException(), isNull);
@@ -5706,9 +5701,10 @@ void _registerChatShellTests() {
         await mouse.moveTo(tester.getCenter(renderedText('Newer')));
         await tester.pump();
 
-        expect(find.byType(HoverActionToolbar), findsOneWidget);
+        final more = find.byKey(const ValueKey('chat-message-more-actions-2'));
+        expect(more.hitTestable(), findsOneWidget);
         expect(
-          tester.getRect(find.byType(HoverActionToolbar)).bottom,
+          tester.getRect(more).bottom,
           lessThanOrEqualTo(
             tester.getRect(find.byKey(const ValueKey('chat-composer'))).top,
           ),
@@ -5760,35 +5756,26 @@ void _registerChatShellTests() {
         expect(find.byType(DMessage), findsNWidgets(2));
         expect(find.byType(DMessageContent), findsNWidgets(2));
 
-        expect(ChatMessageTile.gutter, 42);
         expect(
           tester
               .widget<Padding>(find.byKey(const ValueKey('chat-message-1')))
               .padding,
-          const EdgeInsets.fromLTRB(16, 10.4, 16, 2.4),
+          const EdgeInsetsDirectional.fromSTEB(16, 16, 16, 0),
         );
         expect(
           tester
               .widget<Padding>(find.byKey(const ValueKey('chat-message-2')))
               .padding,
-          const EdgeInsets.fromLTRB(16, 2.4, 16, 2.4),
+          const EdgeInsetsDirectional.fromSTEB(16, 4, 16, 8),
         );
-        final firstMessage = minimumHeightAncestors(
-          find.byKey(const ValueKey('chat-message-1')),
-          ChatMessageTile.minimumUnchainedHeight,
+        final first = tester.getRect(
+          find.byKey(const ValueKey('chat-message-bubble-1')),
         );
-        final secondMessage = minimumHeightAncestors(
-          find.byKey(const ValueKey('chat-message-2')),
-          ChatMessageTile.minimumChainedHeight,
+        final second = tester.getRect(
+          find.byKey(const ValueKey('chat-message-bubble-2')),
         );
-        expect(
-          tester.getSize(firstMessage.first).height,
-          greaterThanOrEqualTo(ChatMessageTile.minimumUnchainedHeight),
-        );
-        expect(
-          tester.getSize(secondMessage.first).height,
-          greaterThanOrEqualTo(ChatMessageTile.minimumChainedHeight),
-        );
+        expect(second.top - first.bottom, 4);
+        expect(first.left, second.left);
       });
 
       testWidgets('shows the name again once somebody else speaks', (
@@ -6040,6 +6027,15 @@ void _registerChatShellTests() {
           await tester.tap(sidebarDestination('Bugs'));
           await tester.pumpAndSettle();
 
+          final mouse = await tester.createGesture(
+            kind: PointerDeviceKind.mouse,
+          );
+          await mouse.addPointer(location: Offset.zero);
+          addTearDown(mouse.removePointer);
+          await mouse.moveTo(
+            tester.getCenter(find.byType(ChatMessageTile).first),
+          );
+          await tester.pump();
           final launcher = find.bySemanticsLabel('Add reaction');
           expect(launcher, findsOneWidget);
           expect(tester.getSize(launcher), const Size.square(28));
@@ -6094,7 +6090,7 @@ void _registerChatShellTests() {
         await tester.tap(sidebarDestination('Bugs'));
         await tester.pumpAndSettle();
         final controller = ShellScope.read(
-          tester.element(find.byType(ReactionPills)),
+          tester.element(find.byType(ChatMessageTile).first),
         );
 
         await tester.tap(find.bySemanticsLabel('Add reaction'));
@@ -6553,7 +6549,7 @@ void _registerChatShellTests() {
         await tester.tap(sidebarDestination('Bugs'));
         await tester.pumpAndSettle();
 
-        final button = find.dIcon(DIcons.chevronDown);
+        final button = find.bySemanticsLabel('Jump to latest messages');
         expect(button, findsOneWidget);
 
         await tester.tap(button);

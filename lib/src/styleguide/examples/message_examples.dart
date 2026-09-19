@@ -13,8 +13,28 @@ final messageExamples = ComponentExamples(
       'Use matching DMessageAlign and DBubbleAlign values because Bubble owns its own content alignment. '
       'Icon-only actions retain independent labels. DMessageStatus and DMarker live regions are opt-in status announcements. '
       'The app adapter may explicitly keep top-anchored avatars and existing spacing; the default remains the reference bottom anchoring. '
-      'All seven compositions use accepted shared owners and passed independent source, official rendered-reference and native macOS review. Exact build provenance and platform limits are recorded in the Message review evidence.',
+      'The original compositions retain their accepted reference behavior. The conversation example adds neutral/accent bubbles, an inset reply quote, and independent menu and reaction controls.',
   examples: [
+    StyleguideExample(
+      title: 'Conversation bubbles and quoted replies',
+      description:
+          'The chat composition uses a corner menu, a separate reaction button, an inset source quote and metadata aligned with each sender.',
+      states: const ['Incoming', 'Outgoing', 'Reply quote', 'Menu', 'React'],
+      code: '''DMessage(align: DMessageAlign.end, children: [
+  DMessageAvatar(child: DAvatar(...)),
+  DMessageContent(children: [
+    DMessageHeader(followMessageAlignment: true, children: [Text('you · 10:16 am')]),
+    DBubble(variant: DBubbleVariant.accent, align: DBubbleAlign.end, children: [
+      DBubbleContent(
+        trailingAction: DDropdownMenu(...),
+        quote: DBubbleQuote(author: Text('Olivia'), child: Text('Where should this live?'), onPressed: jump),
+        child: Text('Let’s put it in the docs.'),
+      ),
+    ]),
+  ]),
+])''',
+      builder: (_) => const _QuotedConversationExample(),
+    ),
     StyleguideExample(
       title: 'Message hover',
       description:
@@ -793,5 +813,123 @@ class _Avatar extends StatelessWidget {
   Widget build(BuildContext context) => DAvatar(
     semanticLabel: name,
     fallback: DAvatarFallback(child: Text(label)),
+  );
+}
+
+class _QuotedConversationExample extends StatefulWidget {
+  const _QuotedConversationExample();
+  @override
+  State<_QuotedConversationExample> createState() =>
+      _QuotedConversationExampleState();
+}
+
+class _QuotedConversationExampleState
+    extends State<_QuotedConversationExample> {
+  String result = 'Choose an action or follow the quoted message.';
+  void show(String value) => setState(() => result = value);
+
+  @override
+  Widget build(BuildContext context) => Column(
+    mainAxisSize: MainAxisSize.min,
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    spacing: DSpacing.lg,
+    children: [
+      const DMessage(
+        children: [
+          DMessageAvatar(
+            child: DAvatar(child: DAvatarFallback(child: Text('O'))),
+          ),
+          DMessageContent(
+            spacing: 4,
+            flushMetadata: true,
+            children: [
+              DMessageHeader(children: [Text('Olivia · 10:12 am')]),
+              DBubble(
+                variant: DBubbleVariant.neutral,
+                children: [
+                  DBubbleContent(child: Text('Where should this live?')),
+                ],
+              ),
+            ],
+          ),
+        ],
+      ),
+      DMessage(
+        align: DMessageAlign.end,
+        children: [
+          const DMessageAvatar(
+            child: DAvatar(child: DAvatarFallback(child: Text('Y'))),
+          ),
+          DMessageContent(
+            spacing: 4,
+            flushMetadata: true,
+            children: [
+              const DMessageHeader(
+                followMessageAlignment: true,
+                children: [Text('you · 10:16 am')],
+              ),
+              DBubble(
+                variant: DBubbleVariant.accent,
+                align: DBubbleAlign.end,
+                maximumWidthFactor: 1,
+                children: [
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    spacing: DSpacing.controlGap,
+                    children: [
+                      DButton.iconOnly(
+                        icon: const Icon(Icons.add_reaction_outlined),
+                        tooltip: 'React to message',
+                        size: DButtonSize.small,
+                        variant: DButtonVariant.transparentBackground,
+                        onPressed: () => show('Reaction added'),
+                      ),
+                      Flexible(
+                        child: DBubbleContent(
+                          trailingAction: DDropdownMenu(
+                            content: DDropdownMenuContent(
+                              children: [
+                                DDropdownMenuItem(
+                                  onPressed: () => show('Reply selected'),
+                                  child: const Text('Reply'),
+                                ),
+                                DDropdownMenuItem(
+                                  onPressed: () => show('Reaction added'),
+                                  child: const Text('React'),
+                                ),
+                              ],
+                            ),
+                            child: DDropdownMenuTrigger(
+                              builder: (context, state) => DButton.iconOnly(
+                                icon: const Icon(Icons.keyboard_arrow_down),
+                                tooltip: 'Message options',
+                                size: DButtonSize.small,
+                                variant: DButtonVariant.transparentBackground,
+                                focusNode: state.focusNode,
+                                hasPopup: true,
+                                expanded: state.open,
+                                onPressed: state.toggle,
+                              ),
+                            ),
+                          ),
+                          quote: DBubbleQuote(
+                            author: const Text('Olivia'),
+                            semanticLabel: 'Jump to Olivia’s message',
+                            onPressed: () => show('Original message selected'),
+                            child: const Text('Where should this live?'),
+                          ),
+                          child: const Text('Let’s put it in the docs.'),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ],
+      ),
+      Text(result),
+    ],
   );
 }

@@ -65,7 +65,7 @@ class ChatMessageTile extends StatelessWidget {
   final bool chained;
 
   /// Whether this is the last visible message in a consecutive-sender run.
-  /// DMs show their optional avatar here; channel rows ignore it.
+  /// Adds breathing room after the final bubble; avatars mark the first row.
   final bool endsGroup;
   final bool followsReactions;
 
@@ -132,10 +132,7 @@ class ChatMessageTile extends StatelessWidget {
       builder: (context, message, _) {
         // The stream may lag one frame behind permanent deletion.
         if (message == null) return const SizedBox.shrink();
-        Widget tile([
-          Widget? directMessageActions,
-          Widget? directMessageReaction,
-        ]) => _Tile(
+        Widget tile([Widget? messageActions, Widget? messageReaction]) => _Tile(
           siteUrl: siteUrl,
           message: message,
           chained: chained,
@@ -144,8 +141,8 @@ class ChatMessageTile extends StatelessWidget {
           onOpenThread: onOpenThread,
           onJumpToMessage: onJumpToMessage,
           showThreadSummary: showThreadSummary,
-          directMessageActions: directMessageActions,
-          directMessageReaction: directMessageReaction,
+          messageActions: messageActions,
+          messageReaction: messageReaction,
         );
         if (selecting) {
           return DMessageSurface(
@@ -214,9 +211,10 @@ class ChatMessageTile extends StatelessWidget {
                 siteUrl: siteUrl,
                 message: message,
                 contextThreadId: contextThreadId,
-                onReply: canReply ? () => onReply!(message) : null,
+                onReply: onReply != null && contextThreadId == null
+                    ? () => onReply!(message)
+                    : null,
                 onEdit: onEdit,
-                canBookmark: canBookmark,
                 canCopyLink: canCopyLink,
                 canCopyText: canCopyText,
                 flagTypes: flagTypes,
@@ -241,7 +239,6 @@ class _ChatMessageActions extends StatefulWidget {
     required this.contextThreadId,
     required this.onReply,
     required this.onEdit,
-    required this.canBookmark,
     required this.canCopyLink,
     required this.canCopyText,
     required this.flagTypes,
@@ -255,15 +252,11 @@ class _ChatMessageActions extends StatefulWidget {
   final int? contextThreadId;
   final VoidCallback? onReply;
   final ValueChanged<ChatMessage>? onEdit;
-  final bool canBookmark;
   final bool canCopyLink;
   final bool canCopyText;
   final List<PostFlagType> flagTypes;
   final VoidCallback? onSelect;
-  final Widget Function(
-    Widget? directMessageActions,
-    Widget? directMessageReaction,
-  )
+  final Widget Function(Widget? messageActions, Widget? messageReaction)
   childBuilder;
 
   @override
@@ -280,6 +273,7 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
   bool _pinning = false;
   bool _rebaking = false;
   bool _restoring = false;
+  final _menuReactionAnchor = GlobalKey();
   bool _reactionPickerOpening = false;
   ScrollPosition? _scroll;
 
@@ -310,7 +304,7 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
   void _hideHoverForScroll() {
     _hoverSuppressed = true;
     _moreActionsOpen = false;
-    if (!_hovered && !_dropdown.isOpen) return;
+    if (!_hovered && !_focused && !_dropdown.isOpen) return;
     _hovered = false;
 
     void refresh() {
@@ -349,15 +343,6 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
     if (_hovered) setState(() => _hovered = false);
   }
 
-  void _moreActionsOpened() {
-    _moreActionsOpen = true;
-  }
-
-  void _moreActionsClosed() {
-    _moreActionsOpen = false;
-    if (!_pointerInside && _hovered) setState(() => _hovered = false);
-  }
-
   @override
   void dispose() {
     _detachScroll();
@@ -366,7 +351,12 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
   }
 
   void _reply() {
-    widget.onReply?.call();
+    if (PluginUiScope.require(
+      context,
+      chatControllerService,
+    ).canReplyToMessage(widget.siteUrl, widget.message)) {
+      widget.onReply?.call();
+    }
   }
 
   String get _messageUrl {
@@ -502,212 +492,6 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
     );
   }
 
-  Future<void> _showActions() {
-    final bookmarkHost = PluginUiScope.require(
-      context,
-      chatBookmarkHostService,
-    );
-    final chat = PluginUiScope.require(context, chatControllerService);
-    final canEdit = chat.canEditMessage(widget.siteUrl, widget.message);
-    final canDelete = chat.canDeleteMessage(widget.siteUrl, widget.message);
-    final canRestore = chat.canRestoreMessage(widget.siteUrl, widget.message);
-    final canPin = chat.canPinMessage(widget.siteUrl, widget.message);
-    final canRebake = chat.canRebakeMessage(widget.siteUrl, widget.message);
-    final canAddReaction = chat.canAddReactionToMessage(
-      widget.siteUrl,
-      widget.message,
-    );
-    final flagTypes = chat.availableChatFlagTypes(
-      widget.siteUrl,
-      widget.message,
-      widget.flagTypes,
-    );
-    final bookmarkBusy = bookmarkHost.bookmarkWriteInFlight(
-      siteUrl: widget.siteUrl,
-      targetId: widget.message.id,
-    );
-    final bookmarkLabel = widget.message.bookmark == null
-        ? 'Bookmark'
-        : 'Edit bookmark';
-    return showShellSheet<void>(
-      context: context,
-      title: 'Message actions',
-      padding: EdgeInsets.zero,
-      builder: (sheetContext) => Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (chat
-                  .channel(widget.siteUrl, widget.message.channelId)
-                  ?.isDirectMessage ==
-              true)
-            if (widget.message.createdAt case final at?)
-              DDropdownMenuLabel(
-                child: Text(
-                  _messageDate(context, at),
-                  key: ChatMessageTile.timestampKey(widget.message.id),
-                ),
-              ),
-          if (canAddReaction)
-            ListTile(
-              minTileHeight: 52,
-              leading: const DIcon(DIcons.farFaceSmile, size: 18),
-              title: const Text('Add reaction'),
-              enabled: !_reactionPickerOpening,
-              onTap: _reactionPickerOpening
-                  ? null
-                  : () {
-                      Navigator.of(sheetContext).pop();
-                      unawaited(_pickReaction());
-                    },
-            ),
-          if (widget.onReply != null)
-            ListTile(
-              minTileHeight: 52,
-              leading: const DIcon(DIcons.reply, size: 18),
-              title: const Text('Reply'),
-              onTap: () {
-                Navigator.of(sheetContext).pop();
-                _reply();
-              },
-            ),
-          if (widget.canCopyLink)
-            ListTile(
-              minTileHeight: 52,
-              leading: const DIcon(DIcons.link, size: 18),
-              title: const Text('Copy link'),
-              onTap: () {
-                Navigator.of(sheetContext).pop();
-                unawaited(_copyLink());
-              },
-            ),
-          if (widget.canCopyText)
-            ListTile(
-              minTileHeight: 52,
-              leading: const DIcon(DIcons.copy, size: 18),
-              title: const Text('Copy text'),
-              onTap: () {
-                Navigator.of(sheetContext).pop();
-                unawaited(_copyText());
-              },
-            ),
-          if (canEdit)
-            ListTile(
-              minTileHeight: 52,
-              leading: const DIcon(DIcons.pencil, size: 18),
-              title: const Text('Edit'),
-              onTap: () {
-                Navigator.of(sheetContext).pop();
-                _edit();
-              },
-            ),
-          if (widget.onSelect != null)
-            ListTile(
-              minTileHeight: 52,
-              leading: const DIcon(DIcons.list, size: 18),
-              title: const Text('Select'),
-              onTap: () {
-                Navigator.of(sheetContext).pop();
-                widget.onSelect!();
-              },
-            ),
-          if (widget.canBookmark)
-            ListTile(
-              minTileHeight: 52,
-              leading: bookmarkBusy
-                  ? const SizedBox.square(dimension: 18, child: DSpinner())
-                  : DIcon(_bookmarkIcon(widget.message.bookmark), size: 18),
-              title: Text(bookmarkLabel),
-              subtitle: bookmarkBusy ? const Text('Saving…') : null,
-              enabled: !bookmarkBusy,
-              onTap: bookmarkBusy
-                  ? null
-                  : () {
-                      Navigator.of(sheetContext).pop();
-                      unawaited(_bookmark());
-                    },
-            ),
-          if (canPin)
-            ListTile(
-              minTileHeight: 52,
-              leading: _pinning
-                  ? const SizedBox.square(dimension: 18, child: DSpinner())
-                  : const DIcon(DIcons.thumbtack, size: 18),
-              title: Text(widget.message.pinned ? 'Unpin' : 'Pin'),
-              subtitle: _pinning ? const Text('Saving…') : null,
-              enabled: !_pinning,
-              onTap: _pinning
-                  ? null
-                  : () {
-                      Navigator.of(sheetContext).pop();
-                      unawaited(_togglePin());
-                    },
-            ),
-          if (flagTypes.isNotEmpty)
-            ListTile(
-              minTileHeight: 52,
-              leading: const DIcon(DIcons.flag, size: 18),
-              title: const Text('Flag'),
-              onTap: () {
-                Navigator.of(sheetContext).pop();
-                unawaited(_flag(flagTypes));
-              },
-            ),
-          if (canDelete)
-            ListTile(
-              minTileHeight: 52,
-              leading: DIcon(
-                DIcons.trashCan,
-                size: 18,
-                color: Theme.of(sheetContext).colorScheme.error,
-              ),
-              title: Text(
-                'Delete',
-                style: TextStyle(
-                  color: Theme.of(sheetContext).colorScheme.error,
-                ),
-              ),
-              onTap: () {
-                Navigator.of(sheetContext).pop();
-                unawaited(_delete());
-              },
-            ),
-          if (canRestore)
-            ListTile(
-              minTileHeight: 52,
-              leading: _restoring
-                  ? const SizedBox.square(dimension: 18, child: DSpinner())
-                  : const DIcon(DIcons.arrowRotateLeft, size: 18),
-              title: const Text('Restore deleted message'),
-              subtitle: _restoring ? const Text('Restoring…') : null,
-              enabled: !_restoring,
-              onTap: _restoring
-                  ? null
-                  : () {
-                      Navigator.of(sheetContext).pop();
-                      unawaited(_restore());
-                    },
-            ),
-          if (canRebake)
-            ListTile(
-              minTileHeight: 52,
-              leading: _rebaking
-                  ? const SizedBox.square(dimension: 18, child: DSpinner())
-                  : const DIcon(DIcons.arrowsRotate, size: 18),
-              title: const Text('Rebuild HTML'),
-              subtitle: _rebaking ? const Text('Starting…') : null,
-              enabled: !_rebaking,
-              onTap: _rebaking
-                  ? null
-                  : () {
-                      Navigator.of(sheetContext).pop();
-                      unawaited(_rebake());
-                    },
-            ),
-        ],
-      ),
-    );
-  }
-
   void _runDropdownAction(VoidCallback action) {
     _dropdown.close();
     // Let the menu restore focus before an action opens another overlay or
@@ -717,11 +501,12 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
     });
   }
 
-  Widget _directMessageReaction({required bool enabled}) {
+  Widget _messageReaction({required bool enabled}) {
     final visible =
         enabled &&
-        !_hoverSuppressed &&
-        (_hovered || _focused || _reactionPickerOpening);
+        (context.isTouch ||
+            _reactionPickerOpening ||
+            (!_hoverSuppressed && (_hovered || _focused)));
     return Opacity(
       opacity: visible ? 1 : 0,
       child: IgnorePointer(
@@ -747,7 +532,8 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
     );
   }
 
-  Widget _directMessageDropdown({
+  Widget _messageDropdown({
+    required Widget Function(Widget trigger) childBuilder,
     required bool bookmarkBusy,
     required bool canEdit,
     required bool canDelete,
@@ -779,103 +565,112 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
       child: Text(label),
     );
 
-    return EmojiPickerAnchor(
-      child: Builder(
-        builder: (anchorContext) => DDropdownMenu(
-          controller: _dropdown,
-          onOpenChange: (open, _) {
-            setState(() {
-              _moreActionsOpen = open;
-              if (!open && !_pointerInside) _hovered = false;
-            });
-          },
-          content: DDropdownMenuContent(
-            semanticLabel: 'Message actions',
-            align: DPopoverAlign.end,
-            width: 220,
-            children: [
-              if (widget.message.createdAt case final at?) ...[
-                DDropdownMenuLabel(
-                  child: Text(
-                    _messageDate(context, at),
-                    key: ChatMessageTile.timestampKey(widget.message.id),
-                  ),
-                ),
-                const DDropdownMenuSeparator(),
-              ],
-              if (canReply) item('reply', 'Reply', DIcons.reply, _reply),
-              if (canBookmark)
-                item(
-                  'bookmark',
-                  widget.message.bookmark == null
-                      ? 'Bookmark'
-                      : 'Edit bookmark',
-                  _bookmarkIcon(widget.message.bookmark),
-                  () => unawaited(_bookmark()),
-                  busy: bookmarkBusy,
-                ),
-              if (canPin)
-                item(
-                  'pin',
-                  widget.message.pinned ? 'Unpin' : 'Pin',
-                  DIcons.thumbtack,
-                  () => unawaited(_togglePin()),
-                  busy: _pinning,
-                ),
-              if (widget.canCopyLink)
-                item(
-                  'copy-link',
-                  'Copy link',
-                  DIcons.link,
-                  () => unawaited(_copyLink()),
-                ),
-              if (widget.canCopyText)
-                item(
-                  'copy-text',
-                  'Copy text',
-                  DIcons.copy,
-                  () => unawaited(_copyText()),
-                ),
-              if (canEdit && widget.onEdit != null)
-                item('edit', 'Edit', DIcons.pencil, _edit),
-              if (flagTypes.isNotEmpty)
-                item(
-                  'flag',
-                  'Flag',
-                  DIcons.flag,
-                  () => unawaited(_flag(flagTypes)),
-                ),
-              if (canRestore)
-                item(
-                  'restore',
-                  'Restore deleted message',
-                  DIcons.arrowRotateLeft,
-                  () => unawaited(_restore()),
-                  busy: _restoring,
-                ),
-              if (canRebake)
-                item(
-                  'rebake',
-                  'Rebuild HTML',
-                  DIcons.arrowsRotate,
-                  () => unawaited(_rebake()),
-                  busy: _rebaking,
-                ),
-              if (canDelete)
-                item(
-                  'delete',
-                  'Delete',
-                  DIcons.trashCan,
-                  () => unawaited(_delete()),
-                  destructive: true,
-                ),
-              if (widget.onSelect case final select?)
-                item('select', 'Select', DIcons.list, select),
-            ],
-          ),
+    return DDropdownMenu(
+      controller: _dropdown,
+      onOpenChange: (open, _) {
+        setState(() {
+          _moreActionsOpen = open;
+          if (!open && !_pointerInside) _hovered = false;
+        });
+      },
+      content: DDropdownMenuContent(
+        semanticLabel: 'Message actions',
+        align: DPopoverAlign.end,
+        width: 220,
+        children: [
+          if (widget.message.createdAt case final at?) ...[
+            DDropdownMenuLabel(
+              child: Text(
+                _messageDate(context, at),
+                key: ChatMessageTile.timestampKey(widget.message.id),
+              ),
+            ),
+            const DDropdownMenuSeparator(),
+          ],
+          if (canReply) item('reply', 'Reply', DIcons.reply, _reply),
+          if (chat.canAddReactionToMessage(widget.siteUrl, widget.message))
+            item(
+              'react-menu',
+              'React',
+              DIcons.farFaceSmile,
+              () =>
+                  unawaited(_pickReaction(_menuReactionAnchor.currentContext)),
+              busy: _reactionPickerOpening,
+            ),
+          if (canBookmark)
+            item(
+              'bookmark',
+              widget.message.bookmark == null ? 'Bookmark' : 'Edit bookmark',
+              _bookmarkIcon(widget.message.bookmark),
+              () => unawaited(_bookmark()),
+              busy: bookmarkBusy,
+            ),
+          if (canPin)
+            item(
+              'pin',
+              widget.message.pinned ? 'Unpin' : 'Pin',
+              DIcons.thumbtack,
+              () => unawaited(_togglePin()),
+              busy: _pinning,
+            ),
+          if (widget.canCopyLink)
+            item(
+              'copy-link',
+              'Copy link',
+              DIcons.link,
+              () => unawaited(_copyLink()),
+            ),
+          if (widget.canCopyText)
+            item(
+              'copy-text',
+              'Copy text',
+              DIcons.copy,
+              () => unawaited(_copyText()),
+            ),
+          if (canEdit && widget.onEdit != null)
+            item('edit', 'Edit', DIcons.pencil, _edit),
+          if (flagTypes.isNotEmpty)
+            item(
+              'flag',
+              'Flag',
+              DIcons.flag,
+              () => unawaited(_flag(flagTypes)),
+            ),
+          if (canRestore)
+            item(
+              'restore',
+              'Restore deleted message',
+              DIcons.arrowRotateLeft,
+              () => unawaited(_restore()),
+              busy: _restoring,
+            ),
+          if (canRebake)
+            item(
+              'rebake',
+              'Rebuild HTML',
+              DIcons.arrowsRotate,
+              () => unawaited(_rebake()),
+              busy: _rebaking,
+            ),
+          if (canDelete)
+            item(
+              'delete',
+              'Delete',
+              DIcons.trashCan,
+              () => unawaited(_delete()),
+              destructive: true,
+            ),
+          if (widget.onSelect case final select?)
+            item('select', 'Select', DIcons.list, select),
+        ],
+      ),
+      child: childBuilder(
+        EmojiPickerAnchor(
+          key: _menuReactionAnchor,
           child: DDropdownMenuTrigger(
             builder: (context, state) {
               final visible =
+                  context.isTouch ||
                   _moreActionsOpen ||
                   (!_hoverSuppressed && (_hovered || _focused));
               // Preserve the trailing slot and keyboard access while hidden;
@@ -893,7 +688,7 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
                       tooltip: 'More message actions',
                       icon: const DIcon(DIcons.chevronDown),
                       size: DButtonSize.small,
-                      variant: DButtonVariant.secondary,
+                      variant: DButtonVariant.transparentBackground,
                       focusNode: state.focusNode,
                       hasPopup: true,
                       expanded: state.open,
@@ -929,9 +724,11 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
         builder: (context, bookmarkBusy, _) {
           return _build(
             context,
-            useDropdown: channel?.isDirectMessage == true && !context.isTouch,
+
             bookmarkBusy: bookmarkBusy,
-            canEdit: chat.canEditMessage(widget.siteUrl, widget.message),
+            canEdit:
+                widget.onEdit != null &&
+                chat.canEditMessage(widget.siteUrl, widget.message),
             canDelete: chat.canDeleteMessage(widget.siteUrl, widget.message),
             canRestore: chat.canRestoreMessage(widget.siteUrl, widget.message),
             canPin: chat.canPinMessage(widget.siteUrl, widget.message),
@@ -949,7 +746,6 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
 
   Widget _build(
     BuildContext context, {
-    required bool useDropdown,
     required bool bookmarkBusy,
     required bool canEdit,
     required bool canDelete,
@@ -966,20 +762,12 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
       widget.siteUrl,
       widget.message,
     );
-    final hasSecondaryActions =
-        widget.canCopyLink ||
-        canEdit ||
-        widget.onSelect != null ||
-        canPin ||
-        flagTypes.isNotEmpty ||
-        canDelete ||
-        canRestore ||
-        canRebake;
     final semanticsActions = <CustomSemanticsAction, VoidCallback>{
       if (canAddReaction && !_reactionPickerOpening)
         const CustomSemanticsAction(label: 'Add reaction'): () =>
             unawaited(_pickReaction()),
-      if (widget.onReply != null)
+      if (widget.onReply != null &&
+          chat.canReplyToMessage(widget.siteUrl, widget.message))
         const CustomSemanticsAction(label: 'Reply'): _reply,
       if (widget.canCopyLink)
         const CustomSemanticsAction(label: 'Copy link'): () =>
@@ -1004,11 +792,12 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
       if (flagTypes.isNotEmpty)
         const CustomSemanticsAction(label: 'Flag'): () =>
             unawaited(_flag(flagTypes)),
-      if (widget.canBookmark && !bookmarkBusy)
+      if (chat.canBookmarkMessage(widget.siteUrl, widget.message) &&
+          !bookmarkBusy)
         CustomSemanticsAction(label: bookmarkLabel): () =>
             unawaited(_bookmark()),
     };
-    final result = Shortcuts(
+    Widget messageRow(Widget messageActions) => Shortcuts(
       shortcuts: const {
         SingleActivator(LogicalKeyboardKey.f10, shift: true):
             _OpenChatMessageActionsIntent(),
@@ -1020,24 +809,18 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
           _OpenChatMessageActionsIntent:
               CallbackAction<_OpenChatMessageActionsIntent>(
                 onInvoke: (_) {
-                  if (useDropdown) {
-                    _dropdown.open(DPopoverInteraction.keyboard);
-                  } else {
-                    unawaited(_showActions());
-                  }
+                  _dropdown.open(DPopoverInteraction.keyboard);
                   return null;
                 },
               ),
         },
         child: Focus(
           key: widget.focusKey,
-          onFocusChange: useDropdown
-              ? (focused) {
-                  if (mounted && _focused != focused) {
-                    setState(() => _focused = focused);
-                  }
-                }
-              : null,
+          onFocusChange: (focused) {
+            if (mounted && _focused != focused) {
+              setState(() => _focused = focused);
+            }
+          },
           child: Semantics(
             customSemanticsActions: semanticsActions,
             child: MouseRegion(
@@ -1047,252 +830,12 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
               child: GestureDetector(
                 behavior: HitTestBehavior.translucent,
                 onLongPress: context.isTouch
-                    ? () => unawaited(_showActions())
+                    ? () => _dropdown.open(DPopoverInteraction.touch)
                     : null,
-                onSecondaryTap: useDropdown
-                    ? () => _dropdown.open(DPopoverInteraction.mouse)
-                    : () => unawaited(_showActions()),
-                child: Stack(
-                  // Desktop action targets may be taller than chained rows.
-                  clipBehavior: Clip.none,
-                  children: [
-                    widget.childBuilder(
-                      useDropdown
-                          ? _directMessageDropdown(
-                              bookmarkBusy: bookmarkBusy,
-                              canEdit: canEdit,
-                              canDelete: canDelete,
-                              canRestore: canRestore,
-                              canPin: canPin,
-                              canRebake: canRebake,
-                              flagTypes: flagTypes,
-                            )
-                          : null,
-                      useDropdown
-                          ? _directMessageReaction(enabled: canAddReaction)
-                          : null,
-                    ),
-                    if (_hovered && !useDropdown)
-                      Positioned(
-                        top: ChatMessageTile.hoverActionsTop,
-                        right: 12,
-                        child: HoverActionToolbar(
-                          children: [
-                            if (canAddReaction)
-                              EmojiPickerAnchor(
-                                child: Builder(
-                                  builder: (anchorContext) => HoverActionButton(
-                                    tooltip: 'Add reaction',
-                                    onPressed: _reactionPickerOpening
-                                        ? null
-                                        : () => unawaited(
-                                            _pickReaction(anchorContext),
-                                          ),
-                                    icon: const DIcon(
-                                      DIcons.farFaceSmile,
-                                      size: 16,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            if (widget.canBookmark)
-                              HoverActionButton(
-                                tooltip: bookmarkLabel,
-                                onPressed: bookmarkBusy
-                                    ? null
-                                    : () => unawaited(_bookmark()),
-                                color: widget.message.bookmark == null
-                                    ? null
-                                    : Theme.of(context).colorScheme.primary,
-                                icon: bookmarkBusy
-                                    ? const SizedBox.square(
-                                        dimension: 16,
-                                        child: DSpinner(),
-                                      )
-                                    : DIcon(
-                                        _bookmarkIcon(widget.message.bookmark),
-                                        size: 16,
-                                      ),
-                              ),
-                            if (widget.onReply != null)
-                              HoverActionButton(
-                                tooltip: 'Reply',
-                                onPressed: _reply,
-                                icon: const DIcon(DIcons.reply, size: 16),
-                              ),
-                            if (hasSecondaryActions)
-                              Semantics(
-                                container: true,
-                                explicitChildNodes: true,
-                                child: DDropdownMenu(
-                                  onOpenChange: (open, reason) {
-                                    if (open) {
-                                      (_moreActionsOpened)();
-                                    }
-                                    if (!open) {
-                                      (_moreActionsClosed)();
-                                    }
-                                  },
-                                  content: DDropdownMenuContent(
-                                    semanticLabel: 'Actions',
-                                    width: 300,
-                                    constraints: const BoxConstraints(
-                                      maxHeight: 440,
-                                    ),
-                                    children: [
-                                      if (widget.canCopyLink)
-                                        DDropdownMenuItem(
-                                          key: ValueKey(
-                                            'chat-message-copy-link-${widget.message.id}',
-                                          ),
-                                          onPressed: () =>
-                                              unawaited(_copyLink()),
-                                          leading: const DIcon(
-                                            DIcons.link,
-                                            size: 16,
-                                          ),
-                                          child: const Text('Copy link'),
-                                        ),
-                                      if (canEdit)
-                                        DDropdownMenuItem(
-                                          key: ValueKey(
-                                            'chat-message-edit-${widget.message.id}',
-                                          ),
-                                          onPressed: _edit,
-                                          leading: const DIcon(
-                                            DIcons.pencil,
-                                            size: 16,
-                                          ),
-                                          child: const Text('Edit'),
-                                        ),
-                                      if (widget.onSelect != null)
-                                        DDropdownMenuItem(
-                                          key: ValueKey(
-                                            'chat-message-select-${widget.message.id}',
-                                          ),
-                                          onPressed: widget.onSelect,
-                                          leading: const DIcon(
-                                            DIcons.list,
-                                            size: 16,
-                                          ),
-                                          child: const Text('Select'),
-                                        ),
-                                      if (canPin)
-                                        DDropdownMenuItem(
-                                          key: ValueKey(
-                                            'chat-message-pin-${widget.message.id}',
-                                          ),
-                                          onPressed: _pinning
-                                              ? null
-                                              : () => unawaited(_togglePin()),
-                                          leading: _pinning
-                                              ? const SizedBox.square(
-                                                  dimension: 16,
-                                                  child: DSpinner(),
-                                                )
-                                              : const DIcon(
-                                                  DIcons.thumbtack,
-                                                  size: 16,
-                                                ),
-                                          child: Text(
-                                            widget.message.pinned
-                                                ? 'Unpin'
-                                                : 'Pin',
-                                          ),
-                                        ),
-                                      if (flagTypes.isNotEmpty)
-                                        DDropdownMenuItem(
-                                          key: ValueKey(
-                                            'chat-message-flag-${widget.message.id}',
-                                          ),
-                                          onPressed: () =>
-                                              unawaited(_flag(flagTypes)),
-                                          leading: const DIcon(
-                                            DIcons.flag,
-                                            size: 16,
-                                          ),
-                                          child: const Text('Flag'),
-                                        ),
-                                      if (canDelete)
-                                        DDropdownMenuItem(
-                                          key: ValueKey(
-                                            'chat-message-delete-${widget.message.id}',
-                                          ),
-                                          onPressed: () => unawaited(_delete()),
-                                          leading: const DIcon(
-                                            DIcons.trashCan,
-                                            size: 16,
-                                          ),
-                                          variant: DDropdownMenuItemVariant
-                                              .destructive,
-                                          child: const Text('Delete'),
-                                        ),
-                                      if (canRestore)
-                                        DDropdownMenuItem(
-                                          key: ValueKey(
-                                            'chat-message-restore-${widget.message.id}',
-                                          ),
-                                          onPressed: _restoring
-                                              ? null
-                                              : () => unawaited(_restore()),
-                                          leading: _restoring
-                                              ? const SizedBox.square(
-                                                  dimension: 16,
-                                                  child: DSpinner(),
-                                                )
-                                              : const DIcon(
-                                                  DIcons.arrowRotateLeft,
-                                                  size: 16,
-                                                ),
-                                          child: const Text(
-                                            'Restore deleted message',
-                                          ),
-                                        ),
-                                      if (canRebake)
-                                        DDropdownMenuItem(
-                                          key: ValueKey(
-                                            'chat-message-rebake-${widget.message.id}',
-                                          ),
-                                          onPressed: _rebaking
-                                              ? null
-                                              : () => unawaited(_rebake()),
-                                          leading: _rebaking
-                                              ? const SizedBox.square(
-                                                  dimension: 16,
-                                                  child: DSpinner(),
-                                                )
-                                              : const DIcon(
-                                                  DIcons.arrowsRotate,
-                                                  size: 16,
-                                                ),
-                                          child: const Text('Rebuild HTML'),
-                                        ),
-                                    ],
-                                  ),
-                                  child: DDropdownMenuTrigger(
-                                    builder: (triggerContext, state) =>
-                                        DButton.iconOnly(
-                                          focusNode: state.focusNode,
-                                          hasPopup: true,
-                                          expanded: state.open,
-                                          variant: DButtonVariant.ghost,
-                                          key: ValueKey(
-                                            'chat-message-more-actions-${widget.message.id}',
-                                          ),
-                                          tooltip: 'More message actions',
-                                          onPressed: state.toggle,
-                                          icon: const DIcon(
-                                            DIcons.ellipsisVertical,
-                                            size: 16,
-                                          ),
-                                        ),
-                                  ),
-                                ),
-                              ),
-                          ],
-                        ),
-                      ),
-                  ],
+                onSecondaryTap: () => _dropdown.open(DPopoverInteraction.mouse),
+                child: widget.childBuilder(
+                  messageActions,
+                  canAddReaction ? _messageReaction(enabled: true) : null,
                 ),
               ),
             ),
@@ -1300,7 +843,19 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
         ),
       ),
     );
-    return DMessageSurface(hovered: _hovered, child: result);
+    // The popup belongs outside the message's semantic grouping. Its trigger
+    // remains in the bubble, while the menu keeps independent native AX nodes.
+    return _messageDropdown(
+      bookmarkBusy: bookmarkBusy,
+      canEdit: canEdit,
+      canDelete: canDelete,
+      canRestore: canRestore,
+      canPin: canPin,
+      canRebake: canRebake,
+      flagTypes: flagTypes,
+      childBuilder: (trigger) =>
+          DMessageSurface(hovered: _hovered, child: messageRow(trigger)),
+    );
   }
 }
 
@@ -1314,8 +869,8 @@ class _Tile extends StatelessWidget {
     required this.onOpenThread,
     required this.onJumpToMessage,
     required this.showThreadSummary,
-    this.directMessageActions,
-    this.directMessageReaction,
+    this.messageActions,
+    this.messageReaction,
   });
 
   final String siteUrl;
@@ -1326,28 +881,19 @@ class _Tile extends StatelessWidget {
   final ValueChanged<ChatThreadPreview>? onOpenThread;
   final ValueChanged<int>? onJumpToMessage;
   final bool showThreadSummary;
-  final Widget? directMessageActions;
-  final Widget? directMessageReaction;
+  final Widget? messageActions;
+  final Widget? messageReaction;
 
   @override
-  Widget build(BuildContext context) {
-    final chat = PluginUiScope.require(context, chatControllerService);
-    return ValueListenableBuilder<ChatChannel?>(
-      valueListenable: chat.channelRef(siteUrl, message.channelId),
-      builder: (context, channel, _) {
-        if (channel?.isDirectMessage != true) return _channelMessage(context);
-        return PluginServiceSelector<ChatController, int?>(
-          service: chatControllerService,
-          select: (chat) => chat.currentUserFor(siteUrl)?.id,
-          builder: (context, userId, _) => _directMessage(
-            context,
-            outgoing: userId != null && userId == message.author.id,
-            showIdentity: channel!.isGroup,
-          ),
-        );
-      },
-    );
-  }
+  Widget build(BuildContext context) =>
+      PluginServiceSelector<ChatController, int?>(
+        service: chatControllerService,
+        select: (chat) => chat.currentUserFor(siteUrl)?.id,
+        builder: (context, userId, _) => _conversationMessage(
+          context,
+          outgoing: userId != null && userId == message.author.id,
+        ),
+      );
 
   Widget? _body(
     BuildContext context, {
@@ -1395,185 +941,9 @@ class _Tile extends StatelessWidget {
     };
   }
 
-  Widget _channelMessage(BuildContext context) {
+  Widget _conversationMessage(BuildContext context, {required bool outgoing}) {
     final theme = Theme.of(context);
-    final messageBody = _body(context);
-
-    final tile = Padding(
-      key: ValueKey('chat-message-${message.id}'),
-      // Match core's speaker and chained-message spacing.
-      padding: EdgeInsets.fromLTRB(16, chained ? 2.4 : 10.4, 16, 2.4),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (message.replyTo case final reply? when !chained)
-            _ReplyIndicator(
-              siteUrl: siteUrl,
-              reply: reply,
-              onJump: onJumpToMessage == null
-                  ? null
-                  : () => onJumpToMessage!(reply.id),
-            ),
-          DMessage(
-            avatarAlignment: DMessageAvatarAlignment.top,
-            spacing: 0,
-            children: [
-              DMessageAvatar(
-                minimumExtent: 0,
-                shiftForFooter: false,
-                child: SizedBox(
-                  width: ChatMessageTile.gutter,
-                  // Align loosens the gutter's tight width before sizing the
-                  // avatar; SizedBox alone would be clamped back to gutter width.
-                  child: chained
-                      ? const SizedBox.shrink()
-                      : Align(
-                          alignment: Alignment.topLeft,
-                          child: Padding(
-                            padding: const EdgeInsets.only(top: 2),
-                            child: UserCardTarget.avatar(
-                              username: message.author.username,
-                              siteUrl: siteUrl,
-                              semanticLabel: message.author.flair == null
-                                  ? null
-                                  : 'View profile for @${message.author.username}, ${message.author.flair!.label}',
-                              child: ChatUserAvatar(
-                                siteUrl: siteUrl,
-                                userId: message.author.id,
-                                url: message.author.avatarUrl,
-                                flair: message.author.flair,
-                                size: 28,
-                                fallback: ColoredBox(
-                                  color: theme.shell.floating,
-                                  child: Center(
-                                    child: Text(
-                                      message.author.username.isEmpty
-                                          ? '?'
-                                          : message
-                                                .author
-                                                .username
-                                                .characters
-                                                .first
-                                                .toUpperCase(),
-                                      style: theme.textTheme.labelSmall
-                                          ?.copyWith(
-                                            fontWeight: FontWeight.w700,
-                                          ),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                ),
-              ),
-              DMessageContent(
-                spacing: 0,
-                alignChildren: false,
-                flushMetadata: true,
-                children: [
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            if (!chained)
-                              _Header(siteUrl: siteUrl, message: message),
-                            if (messageBody != null)
-                              _MessageBodySelection(
-                                selectionKey: ChatMessageTile.bodySelectionKey(
-                                  message.id,
-                                ),
-                                child: messageBody,
-                              ),
-                            if (message.uploads.isNotEmpty)
-                              ChatUploads(
-                                siteUrl: siteUrl,
-                                uploads: message.uploads,
-                              ),
-                            if (message.edited)
-                              Text(
-                                key: ChatMessageTile.editedIndicatorKey(
-                                  message.id,
-                                ),
-                                '(edited)',
-                                style: theme.textTheme.labelSmall?.copyWith(
-                                  color: theme.discourse.whisper,
-                                ),
-                              ),
-                            if (message.reactions.isNotEmpty)
-                              _Reactions(siteUrl: siteUrl, message: message),
-                            if (message.thread case final thread?
-                                when showThreadSummary && thread.replyCount > 0)
-                              _ThreadSummaryCard(
-                                siteUrl: siteUrl,
-                                thread: thread,
-                                onOpen: onOpenThread == null
-                                    ? null
-                                    : () => onOpenThread!(thread),
-                              ),
-                            if (message.delivery == ChatMessageDelivery.failed)
-                              _DeliveryStatus(message: message),
-                          ],
-                        ),
-                      ),
-                      if (message.pinned)
-                        Padding(
-                          padding: const EdgeInsets.only(left: 6, top: 2),
-                          child: Semantics(
-                            label: 'Pinned chat message',
-                            child: DIcon(
-                              DIcons.thumbtack,
-                              size: 14,
-                              color: theme.colorScheme.primary,
-                            ),
-                          ),
-                        ),
-                      if (message.bookmark case final bookmark?)
-                        Padding(
-                          padding: const EdgeInsets.only(left: 6, top: 2),
-                          child: Semantics(
-                            label: bookmark.reminderAt == null
-                                ? 'Bookmarked chat message'
-                                : 'Chat message bookmarked with a reminder',
-                            child: DIcon(
-                              _bookmarkIcon(bookmark),
-                              size: 14,
-                              color: theme.colorScheme.primary,
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-
-    return ConstrainedBox(
-      constraints: BoxConstraints(
-        minHeight: chained
-            ? ChatMessageTile.minimumChainedHeight
-            : ChatMessageTile.minimumUnchainedHeight,
-      ),
-      child: tile,
-    );
-  }
-
-  Widget _directMessage(
-    BuildContext context, {
-    required bool outgoing,
-    required bool showIdentity,
-  }) {
-    final theme = Theme.of(context);
-    // Keep the confirmed message's action geometry while sending.
-    final reserveActions = message.isOptimistic && !context.isTouch;
+    final reserveActions = message.isOptimistic;
     Widget? pendingAction(DIconData icon, DButtonSize size, String label) =>
         reserveActions
         ? Visibility(
@@ -1590,15 +960,15 @@ class _Tile extends StatelessWidget {
             ),
           )
         : null;
-    final messageActions =
-        directMessageActions ??
+    final more =
+        messageActions ??
         pendingAction(
           DIcons.chevronDown,
           DButtonSize.small,
           'More message actions',
         );
-    final messageReaction =
-        directMessageReaction ??
+    final react =
+        messageReaction ??
         pendingAction(DIcons.farFaceSmile, DButtonSize.regular, 'Add reaction');
     final bubbleAlign = outgoing ? DBubbleAlign.end : DBubbleAlign.start;
     final hasBody = message.canonicalReceived
@@ -1608,86 +978,118 @@ class _Tile extends StatelessWidget {
                 ProjectedPreview(:final document) => document.nodes.isNotEmpty,
                 _ => message.optimisticRaw?.isNotEmpty == true,
               };
-    final hasMetadata =
-        message.edited ||
-        message.pinned ||
-        message.bookmark != null ||
-        message.delivery == ChatMessageDelivery.failed;
-
-    final bubbleContent = DBubbleContent(
-      compact: true,
-      child: Builder(
-        builder: (context) {
-          final style = DefaultTextStyle.of(context).style;
-          final body = _MessageBodySelection(
-            selectionKey: ChatMessageTile.bodySelectionKey(message.id),
-            child: _body(
-              context,
-              textStyle: style,
-              contentSized: true,
-              linkStyle: DText.linkStyleOf(context).copyWith(
-                color: outgoing ? style.color : null,
-                decorationColor: outgoing ? style.color : null,
+    final hasSurface =
+        hasBody || message.uploads.isNotEmpty || message.replyTo != null;
+    final footer = <Widget>[
+      if (message.reactions.isNotEmpty)
+        _Reactions(siteUrl: siteUrl, message: message),
+      if (message.thread case final thread?
+          when showThreadSummary && thread.replyCount > 0)
+        _ThreadSummaryCard(
+          siteUrl: siteUrl,
+          thread: thread,
+          onOpen: onOpenThread == null ? null : () => onOpenThread!(thread),
+          bubbleAlign: bubbleAlign,
+        ),
+      if (message.edited ||
+          message.pinned ||
+          message.bookmark != null ||
+          message.delivery == ChatMessageDelivery.failed)
+        DMessageFooter(
+          spacing: DSpacing.sm,
+          children: [
+            if (message.edited)
+              Text(
+                '(edited)',
+                key: ChatMessageTile.editedIndicatorKey(message.id),
               ),
-            )!,
-          );
-          return body;
-        },
-      ),
-    );
+            if (message.pinned)
+              Semantics(
+                label: 'Pinned chat message',
+                child: const DIcon(DIcons.thumbtack, size: 14),
+              ),
+            if (message.bookmark case final bookmark?)
+              Semantics(
+                label: bookmark.reminderAt == null
+                    ? 'Bookmarked chat message'
+                    : 'Chat message bookmarked with a reminder',
+                child: DIcon(_bookmarkIcon(bookmark), size: 14),
+              ),
+            if (message.delivery == ChatMessageDelivery.failed)
+              DMessageStatus(
+                state: DMessageDeliveryState.failed,
+                label: message.sendError == null || message.sendError!.isEmpty
+                    ? null
+                    : 'Failed to send: ${message.sendError}',
+              ),
+          ],
+        ),
+    ];
 
-    final verticalGap = !context.isTouch && followsReactions
-        ? DSpacing.xs
-        : chained
-        ? DSpacing.sm
-        : DSpacing.lg;
     return Padding(
       key: ValueKey('chat-message-${message.id}'),
       padding: EdgeInsetsDirectional.fromSTEB(
         DSpacing.lg,
-        verticalGap / 2,
+        chained ? (followsReactions ? 2 : 4) : 16,
         DSpacing.lg,
-        verticalGap / 2,
+        endsGroup ? 8 : 0,
       ),
       child: DMessage(
         align: outgoing ? DMessageAlign.end : DMessageAlign.start,
+        footer: footer.isEmpty
+            ? null
+            : Padding(
+                padding: EdgeInsetsDirectional.only(
+                  start: outgoing ? 0 : 36,
+                  end: outgoing ? 36 : 0,
+                  top: 4,
+                ),
+                child: DMessageContent(
+                  flushMetadata: true,
+                  spacing: DSpacing.xs,
+                  children: footer,
+                ),
+              ),
         children: [
-          if (showIdentity)
-            DMessageAvatar(
-              child: !endsGroup
-                  ? null
-                  : UserCardTarget.avatar(
-                      username: message.author.username,
+          DMessageAvatar(
+            minimumExtent: 28,
+            shiftForFooter: false,
+            child: chained
+                ? const SizedBox.square(dimension: 28)
+                : UserCardTarget.avatar(
+                    username: message.author.username,
+                    siteUrl: siteUrl,
+                    semanticLabel: message.author.flair == null
+                        ? null
+                        : 'View profile for @${message.author.username}, ${message.author.flair!.label}',
+                    child: ChatUserAvatar(
                       siteUrl: siteUrl,
-                      semanticLabel: message.author.flair == null
-                          ? null
-                          : 'View profile for @${message.author.username}, ${message.author.flair!.label}',
-                      child: ChatUserAvatar(
-                        siteUrl: siteUrl,
-                        userId: message.author.id,
-                        url: message.author.avatarUrl,
-                        flair: message.author.flair,
-                        size: 32,
-                        fallback: _AvatarFallback(
-                          name: message.author.displayName,
-                          background: theme.shell.floating,
-                        ),
+                      userId: message.author.id,
+                      url: message.author.avatarUrl,
+                      flair: message.author.flair,
+                      size: 28,
+                      fallback: _AvatarFallback(
+                        name: message.author.displayName,
+                        background: theme.shell.floating,
                       ),
                     ),
-            ),
+                  ),
+          ),
           DMessageContent(
-            spacing: !context.isTouch && message.reactions.isNotEmpty
-                ? DSpacing.xs
-                : 10,
+            spacing: DSpacing.xs,
+            flushMetadata: true,
             children: [
-              if (showIdentity && !outgoing && !chained)
+              if (!chained)
                 DMessageHeader(
+                  followMessageAlignment: true,
                   spacing: DSpacing.xs,
                   children: [
                     UserCardTarget(
                       username: message.author.username,
                       siteUrl: siteUrl,
-                      child: Text(message.author.displayName),
+                      child: Text(
+                        outgoing ? 'you' : message.author.displayName,
+                      ),
                     ),
                     UserStatusMessage(
                       siteUrl: siteUrl,
@@ -1703,152 +1105,101 @@ class _Tile extends StatelessWidget {
                         color: theme.discourse.primaryVeryHigh,
                         isBot: true,
                       ),
+                    if (message.createdAt case final at?) ...[
+                      const Text('·'),
+                      Text(
+                        MaterialLocalizations.of(context).formatTimeOfDay(
+                          TimeOfDay.fromDateTime(at.toLocal()),
+                          alwaysUse24HourFormat:
+                              MediaQuery.alwaysUse24HourFormatOf(context),
+                        ),
+                        key: ValueKey('chat-message-time-${message.id}'),
+                      ),
+                    ],
                   ],
                 ),
-              if (message.replyTo case final reply? when !chained)
-                _ReplyIndicator(
-                  siteUrl: siteUrl,
-                  reply: reply,
-                  onJump: onJumpToMessage == null
-                      ? null
-                      : () => onJumpToMessage!(reply.id),
-                  bubbleAlign: bubbleAlign,
-                ),
-              if (hasBody)
+              if (hasSurface)
                 DBubble(
                   align: bubbleAlign,
+                  maximumWidthFactor: .88,
                   variant: outgoing
-                      ? DBubbleVariant.primary
-                      : DBubbleVariant.muted,
+                      ? DBubbleVariant.accent
+                      : DBubbleVariant.neutral,
                   children: [
-                    if (messageReaction == null && messageActions == null)
-                      bubbleContent
-                    else
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        spacing: DSpacing.sm,
-                        children: [
-                          if (outgoing && messageActions != null)
-                            messageActions,
-                          if (outgoing && messageReaction != null)
-                            messageReaction,
-                          Flexible(child: bubbleContent),
-                          if (!outgoing && messageReaction != null)
-                            messageReaction,
-                          if (!outgoing && messageActions != null)
-                            messageActions,
-                        ],
-                      ),
-                  ],
-                ),
-              if (message.uploads.isNotEmpty)
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  spacing: DSpacing.xs,
-                  children: [
-                    if (!hasBody && outgoing && messageReaction != null)
-                      messageReaction,
-                    Flexible(
-                      child: ChatUploads(
-                        siteUrl: siteUrl,
-                        uploads: message.uploads,
-                        alignment: outgoing
-                            ? CrossAxisAlignment.end
-                            : CrossAxisAlignment.start,
-                      ),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      spacing: DSpacing.controlGap,
+                      children: [
+                        if (outgoing && react != null) react,
+                        Flexible(
+                          child: DBubbleContent(
+                            key: ValueKey('chat-message-bubble-${message.id}'),
+                            trailingAction: more,
+                            quote: switch (message.replyTo) {
+                              final reply? => _ReplyIndicator(
+                                siteUrl: siteUrl,
+                                reply: reply,
+                                onJump: onJumpToMessage == null
+                                    ? null
+                                    : () => onJumpToMessage!(reply.id),
+                              ),
+                              null => null,
+                            },
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                if (hasBody)
+                                  Builder(
+                                    builder: (context) {
+                                      final style = DefaultTextStyle.of(
+                                        context,
+                                      ).style;
+                                      return _MessageBodySelection(
+                                        selectionKey:
+                                            ChatMessageTile.bodySelectionKey(
+                                              message.id,
+                                            ),
+                                        child: _body(
+                                          context,
+                                          textStyle: style,
+                                          contentSized: true,
+                                          linkStyle: DText.linkStyleOf(context)
+                                              .copyWith(
+                                                color: outgoing
+                                                    ? style.color
+                                                    : null,
+                                                decorationColor: outgoing
+                                                    ? style.color
+                                                    : null,
+                                              ),
+                                        )!,
+                                      );
+                                    },
+                                  ),
+                                if (message.uploads.isNotEmpty)
+                                  ChatUploads(
+                                    siteUrl: siteUrl,
+                                    uploads: message.uploads,
+                                    alignment: outgoing
+                                        ? CrossAxisAlignment.end
+                                        : CrossAxisAlignment.start,
+                                  ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        if (!outgoing && react != null) react,
+                      ],
                     ),
-                    if (!hasBody && messageActions != null) messageActions,
-                    if (!hasBody && !outgoing && messageReaction != null)
-                      messageReaction,
                   ],
                 ),
-              if (!hasBody && message.uploads.isEmpty && messageActions != null)
-                messageActions,
-              if (message.reactions.isNotEmpty)
-                _Reactions(
-                  siteUrl: siteUrl,
-                  message: message,
-                  messageFooter: true,
-                ),
-              if (message.thread case final thread?
-                  when showThreadSummary && thread.replyCount > 0)
-                _ThreadSummaryCard(
-                  siteUrl: siteUrl,
-                  thread: thread,
-                  onOpen: onOpenThread == null
-                      ? null
-                      : () => onOpenThread!(thread),
-                  bubbleAlign: bubbleAlign,
-                ),
-              if (hasMetadata)
-                DMessageFooter(
-                  spacing: DSpacing.sm,
-                  children: [
-                    if (message.edited)
-                      Text(
-                        '(edited)',
-                        key: ChatMessageTile.editedIndicatorKey(message.id),
-                      ),
-                    if (message.pinned)
-                      Semantics(
-                        label: 'Pinned chat message',
-                        child: const DIcon(DIcons.thumbtack, size: 14),
-                      ),
-                    if (message.bookmark case final bookmark?)
-                      Semantics(
-                        label: bookmark.reminderAt == null
-                            ? 'Bookmarked chat message'
-                            : 'Chat message bookmarked with a reminder',
-                        child: DIcon(_bookmarkIcon(bookmark), size: 14),
-                      ),
-                    if (message.delivery == ChatMessageDelivery.failed)
-                      DMessageStatus(
-                        state: DMessageDeliveryState.failed,
-                        label:
-                            message.sendError == null ||
-                                message.sendError!.isEmpty
-                            ? null
-                            : 'Failed to send: ${message.sendError}',
-                      ),
-                  ],
-                ),
+              if (!hasSurface && more != null) more,
             ],
           ),
         ],
       ),
     );
-  }
-}
-
-class _DeliveryStatus extends StatelessWidget {
-  const _DeliveryStatus({required this.message});
-
-  final ChatMessage message;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return switch (message.delivery) {
-      ChatMessageDelivery.failed => Padding(
-        padding: const EdgeInsets.only(top: 2),
-        child: Row(
-          children: [
-            if (message.sendError case final error?)
-              Flexible(
-                child: Text(
-                  error,
-                  style: theme.textTheme.labelSmall?.copyWith(
-                    color: theme.colorScheme.error,
-                  ),
-                ),
-              ),
-          ],
-        ),
-      ),
-      ChatMessageDelivery.sending ||
-      ChatMessageDelivery.sent => const SizedBox.shrink(),
-    };
   }
 }
 
@@ -1883,153 +1234,32 @@ class _MessageBodySelectionState extends State<_MessageBodySelection> {
   );
 }
 
-class _Header extends StatelessWidget {
-  const _Header({required this.siteUrl, required this.message});
-
-  final String siteUrl;
-  final ChatMessage message;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return Row(
-      children: [
-        Flexible(
-          child: UserCardTarget(
-            username: message.author.username,
-            siteUrl: siteUrl,
-            child: Text(
-              message.author.displayName,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: theme.textTheme.bodyLarge?.copyWith(
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
-        ),
-        UserStatusMessage(
-          siteUrl: siteUrl,
-          userId: message.author.id,
-          status: message.author.status,
-          size: 15,
-          leadingGap: 4,
-        ),
-        if (message.author.isStaff) ...[
-          const SizedBox(width: 4),
-          _Tag(label: 'staff', color: theme.colorScheme.primary),
-        ],
-        if (message.isWebhook) ...[
-          const SizedBox(width: 4),
-          _Tag(
-            label: 'bot',
-            color: theme.discourse.primaryVeryHigh,
-            isBot: true,
-          ),
-        ],
-        if (message.createdAt case final at?) ...[
-          const SizedBox(width: 4),
-          Text(
-            relativeTime(at),
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.discourse.primaryHigh,
-            ),
-          ),
-        ],
-      ],
-    );
-  }
-}
-
 class _ReplyIndicator extends StatelessWidget {
   const _ReplyIndicator({
     required this.siteUrl,
     required this.reply,
     required this.onJump,
-    this.bubbleAlign,
   });
-
   final String siteUrl;
   final ChatReplyTo reply;
   final VoidCallback? onJump;
-  final DBubbleAlign? bubbleAlign;
 
   @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    final preview = Row(
-      children: [
-        DIcon(
-          DIcons.share,
-          size: DiscourseTypography.sm,
-          color: theme.discourse.primaryLowMid,
-        ),
-        const SizedBox(width: 8),
-        ChatUserAvatar(
-          siteUrl: siteUrl,
-          userId: reply.userId,
-          url: reply.avatarUrl,
-          flair: reply.flair,
-          size: 20,
-          fallback: ColoredBox(color: theme.shell.floating),
-        ),
-        const SizedBox(width: 8),
-        Flexible(
-          child: SiteEmojiText.plain(
-            reply.excerpt,
-            siteUrl: siteUrl,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: theme.discourse.primaryHigh,
-            ),
-          ),
-        ),
-      ],
-    );
-    final label =
+  Widget build(BuildContext context) => DBubbleQuote(
+    key: ChatMessageTile.replyIndicatorKey(reply.id),
+    semanticLabel:
         'Jump to message from @${reply.username}'
-        '${reply.flair == null ? '' : ', ${reply.flair!.label}'}: ${reply.excerpt}';
-    if (bubbleAlign case final align?) {
-      return DBubble(
-        align: align,
-        variant: DBubbleVariant.outline,
-        children: [
-          DBubbleContent(
-            key: ChatMessageTile.replyIndicatorKey(reply.id),
-            action: DBubbleContentAction.link,
-            onPressed: onJump,
-            semanticLabel: label,
-            child: preview,
-          ),
-        ],
-      );
-    }
-    return Semantics(
-      link: onJump != null,
-      enabled: onJump != null,
-      label: label,
-      onTap: onJump,
-      child: ExcludeSemantics(
-        child: Padding(
-          padding: const EdgeInsets.only(
-            left: ChatMessageTile.gutter,
-            bottom: 2,
-          ),
-          child: InkWell(
-            key: ChatMessageTile.replyIndicatorKey(reply.id),
-            onTap: onJump,
-            mouseCursor: onJump == null
-                ? MouseCursor.defer
-                : SystemMouseCursors.click,
-            child: preview,
-          ),
-        ),
-      ),
-    );
-  }
+        '${reply.flair == null ? '' : ', ${reply.flair!.label}'}: ${reply.excerpt}',
+    onPressed: onJump,
+    author: Text(reply.username, maxLines: 1, overflow: TextOverflow.ellipsis),
+    child: SiteEmojiText.plain(
+      reply.excerpt.isEmpty ? 'Original message' : reply.excerpt,
+      siteUrl: siteUrl,
+      maxLines: 2,
+      overflow: TextOverflow.ellipsis,
+      style: const TextStyle(height: 1.4),
+    ),
+  );
 }
 
 Future<void> _pickChatMessageReaction({
@@ -2092,15 +1322,10 @@ Future<void> _pickChatMessageReaction({
 }
 
 class _Reactions extends StatelessWidget {
-  const _Reactions({
-    required this.siteUrl,
-    required this.message,
-    this.messageFooter = false,
-  });
+  const _Reactions({required this.siteUrl, required this.message});
 
   final String siteUrl;
   final ChatMessage message;
-  final bool messageFooter;
 
   @override
   Widget build(BuildContext context) {
@@ -2152,29 +1377,13 @@ class _Reactions extends StatelessWidget {
           ),
           visualKey: ValueKey('chat-reaction-${reaction.emoji}'),
         ),
-      if (canAdd && (!messageFooter || context.isTouch))
-        ReactionPickerButton(
-          key: ValueKey('chat-reaction-picker-${message.id}'),
-          onOpenPicker: _pickReaction,
-        ),
     ];
-    return messageFooter
-        ? DMessageFooter(
-            key: const ValueKey('chat-reactions'),
-            spacing: DSpacing.xs,
-            children: children,
-          )
-        : ReactionPills(
-            key: const ValueKey('chat-reactions'),
-            children: children,
-          );
+    return DMessageFooter(
+      key: const ValueKey('chat-reactions'),
+      spacing: DSpacing.xs,
+      children: children,
+    );
   }
-
-  Future<void> _pickReaction(BuildContext context) => _pickChatMessageReaction(
-    context: context,
-    siteUrl: siteUrl,
-    message: message,
-  );
 }
 
 class _ChatReactorList extends StatelessWidget {
@@ -2241,73 +1450,24 @@ class _ThreadSummaryCard extends StatelessWidget {
   final VoidCallback? onOpen;
   final DBubbleAlign? bubbleAlign;
 
-  static const double _maximumWidth = 600;
-  static const double _minimumHeight = 44;
-  static const double _latestAvatarSize = 32;
-
   @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final radius = BorderRadius.circular(10);
-    final label = _semanticsLabel;
-
-    if (bubbleAlign case final align?) {
-      return DBubble(
-        align: align,
-        variant: DBubbleVariant.outline,
-        children: [
-          DBubbleContent(
-            key: ChatMessageTile.threadPreviewKey(thread.threadId),
-            action: DBubbleContentAction.link,
-            onPressed: onOpen,
-            semanticLabel: label,
-            child: _ThreadSummaryContents(siteUrl: siteUrl, thread: thread),
-          ),
-        ],
-      );
-    }
-    return Padding(
-      padding: const EdgeInsets.only(top: 4),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: _maximumWidth),
-        child: SizedBox(
-          width: double.infinity,
-          child: Semantics(
-            key: ChatMessageTile.threadPreviewKey(thread.threadId),
-            container: true,
-            link: onOpen != null,
-            label: label,
-            child: Material(
-              color: theme.colorScheme.surfaceContainerHighest,
-              borderRadius: radius,
-              clipBehavior: Clip.antiAlias,
-              child: InkWell(
-                mouseCursor: onOpen == null
-                    ? MouseCursor.defer
-                    : SystemMouseCursors.click,
-                borderRadius: radius,
-                hoverColor: theme.shell.hover,
-                focusColor: theme.shell.hover,
-                onTap: onOpen,
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(minHeight: _minimumHeight),
-                  child: Padding(
-                    padding: const EdgeInsets.all(8),
-                    child: ExcludeSemantics(
-                      child: _ThreadSummaryContents(
-                        siteUrl: siteUrl,
-                        thread: thread,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
+  Widget build(BuildContext context) => DBubble(
+    align: bubbleAlign ?? DBubbleAlign.start,
+    variant: DBubbleVariant.neutral,
+    maximumWidthFactor: .95,
+    children: [
+      DBubbleContent(
+        compact: true,
+        key: ChatMessageTile.threadPreviewKey(thread.threadId),
+        action: DBubbleContentAction.link,
+        onPressed: onOpen,
+        semanticLabel: _semanticsLabel,
+        child: ExcludeSemantics(
+          child: _ThreadSummaryContents(siteUrl: siteUrl, thread: thread),
         ),
       ),
-    );
-  }
+    ],
+  );
 
   String get _semanticsLabel {
     final replies = _replyCountLabel(thread.replyCount);
@@ -2347,101 +1507,46 @@ class _ThreadSummaryContents extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final user = thread.lastReplyUser;
-    final name =
-        _nonEmpty(user?.displayName) ?? _nonEmpty(thread.lastReplyUsername);
-    final avatarUrl = user?.avatarUrl ?? thread.lastReplyAvatarUrl;
-
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        ChatUserAvatar(
-          siteUrl: siteUrl,
-          userId: user?.id ?? 0,
-          url: avatarUrl,
-          flair: user?.flair,
-          size: _ThreadSummaryCard._latestAvatarSize,
-          fallback: _AvatarFallback(
-            name: name,
-            background: theme.shell.floating,
-          ),
-        ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              OverflowBar(
-                alignment: MainAxisAlignment.spaceBetween,
-                overflowAlignment: OverflowBarAlignment.start,
-                spacing: 8,
-                overflowSpacing: 4,
-                children: [
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      if (name != null)
-                        Flexible(
-                          child: Text(
-                            name,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                      UserStatusMessage(
-                        siteUrl: siteUrl,
-                        userId: user?.id,
-                        status: user?.status,
-                        size: 14,
-                        leadingGap: 4,
-                      ),
-                      if (name != null && thread.lastReplyAt != null)
-                        const SizedBox(width: 4),
-                      if (thread.lastReplyAt case final at?)
-                        Text(
-                          relativeTime(at),
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.discourse.primaryHigh,
-                          ),
-                        ),
-                    ],
-                  ),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 4,
-                    crossAxisAlignment: WrapCrossAlignment.center,
-                    children: [
-                      if (_participantTotal(thread) > 0)
-                        _ThreadParticipants(siteUrl: siteUrl, thread: thread),
-                      Text(
-                        _replyCountLabel(thread.replyCount),
-                        style: theme.textTheme.labelMedium?.copyWith(
-                          color: theme.colorScheme.primary,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-              if (_nonEmpty(thread.lastReplyExcerpt) case final excerpt?) ...[
-                const SizedBox(height: 2),
-                SiteEmojiText.plain(
+    final tokens = DTokens.of(context);
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final compact =
+            constraints.maxWidth < MediaQuery.textScalerOf(context).scale(280);
+        return Row(
+          mainAxisSize: MainAxisSize.min,
+          spacing: DSpacing.sm,
+          children: [
+            const DIcon(DIcons.chevronRight, size: 12),
+            if (!compact && _participantTotal(thread) > 0)
+              _ThreadParticipants(siteUrl: siteUrl, thread: thread),
+            if (_nonEmpty(thread.lastReplyExcerpt) case final excerpt?
+                when !compact)
+              Flexible(
+                child: SiteEmojiText.plain(
                   excerpt,
                   siteUrl: siteUrl,
-                  maxLines: 2,
+                  maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.bodyMedium,
+                  style: TextStyle(
+                    color: tokens.mutedForeground,
+                    fontSize: DiscourseTypography.xs,
+                  ),
                 ),
-              ],
-            ],
-          ),
-        ),
-      ],
+              ),
+            Flexible(
+              flex: compact ? 1 : 0,
+              child: Text(
+                _replyCountLabel(thread.replyCount),
+                style: TextStyle(
+                  color: tokens.primary,
+                  fontWeight: FontWeight.w600,
+                  fontSize: DiscourseTypography.xs,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 }
@@ -2452,66 +1557,26 @@ class _ThreadParticipants extends StatelessWidget {
   final String siteUrl;
   final ChatThreadPreview thread;
 
-  static const double _avatarSize = 22;
-  static const double _avatarStep = 14;
-
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final users = _visibleParticipants(thread.participantUsers);
     final hidden = (_participantTotal(thread) - users.length).clamp(0, 1 << 31);
-    final stackWidth = users.isEmpty
-        ? 0.0
-        : _avatarSize + ((users.length - 1) * _avatarStep);
-
-    return Row(
-      mainAxisSize: MainAxisSize.min,
+    return DAvatarGroup(
+      size: DAvatarSize.sm,
       children: [
-        if (users.isNotEmpty)
-          SizedBox(
-            width: stackWidth,
-            height: _avatarSize,
-            child: Stack(
-              children: [
-                for (final (index, user) in users.indexed)
-                  Positioned(
-                    left: index * _avatarStep,
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        color: theme.colorScheme.surfaceContainerHighest,
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: theme.colorScheme.surfaceContainerHighest,
-                        ),
-                      ),
-                      child: Padding(
-                        padding: const EdgeInsets.all(1),
-                        child: ChatUserAvatar(
-                          siteUrl: siteUrl,
-                          userId: user.id,
-                          url: user.avatarUrl,
-                          flair: user.flair,
-                          size: _avatarSize - 4,
-                          fallback: _AvatarFallback(
-                            name: user.displayName,
-                            background: theme.shell.floating,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-              ],
+        for (final user in users)
+          ChatUserAvatar(
+            siteUrl: siteUrl,
+            userId: user.id,
+            url: user.avatarUrl,
+            flair: user.flair,
+            size: 24,
+            fallback: _AvatarFallback(
+              name: user.displayName,
+              background: Theme.of(context).shell.floating,
             ),
           ),
-        if (hidden > 0) ...[
-          if (users.isNotEmpty) const SizedBox(width: 4),
-          Text(
-            '+$hidden',
-            style: theme.textTheme.labelSmall?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
-          ),
-        ],
+        if (hidden > 0) DAvatarGroupCount(child: Text('+$hidden')),
       ],
     );
   }

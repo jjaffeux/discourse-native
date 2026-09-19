@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:ui' show Tristate;
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/bookmark.dart';
@@ -163,45 +164,46 @@ void main() {
     );
   }
 
-  testWidgets('thread preview and reply indicator carry each author flair', (
-    tester,
-  ) async {
-    const user = ChatMessageAuthor(
-      id: -4000,
-      username: 'helper',
-      flair: aiFlair,
-    );
-    const preview = ChatThreadPreview(
-      threadId: 3,
-      replyCount: 1,
-      lastReplyId: 42,
-      lastReplyUser: user,
-      participantUsers: [user],
-    );
-    const reply = ChatReplyTo(
-      id: 6,
-      userId: -4000,
-      excerpt: 'Earlier',
-      username: 'helper',
-      flair: aiFlair,
-    );
-    final controller = await _controller(_message(preview, replyTo: reply));
-    addTearDown(controller.dispose);
-    await tester.pumpWidget(
-      _TestTile(
-        controller: controller,
-        onOpenThread: (_) {},
-        onJumpToMessage: (_) {},
-      ),
-    );
-    await tester.pumpAndSettle();
-    expect(find.byType(GroupFlairBadge), findsNWidgets(3));
-    final flairedAvatars = tester
-        .widgetList<ChatUserAvatar>(find.byType(ChatUserAvatar))
-        .where((avatar) => avatar.userId == -4000);
-    expect(flairedAvatars, hasLength(3));
-    expect(flairedAvatars.every((avatar) => avatar.flair == aiFlair), isTrue);
-  });
+  testWidgets(
+    'thread avatars and reply attribution retain author flair context',
+    (tester) async {
+      const user = ChatMessageAuthor(
+        id: -4000,
+        username: 'helper',
+        flair: aiFlair,
+      );
+      const preview = ChatThreadPreview(
+        threadId: 3,
+        replyCount: 1,
+        lastReplyId: 42,
+        lastReplyUser: user,
+        participantUsers: [user],
+      );
+      const reply = ChatReplyTo(
+        id: 6,
+        userId: -4000,
+        excerpt: 'Earlier',
+        username: 'helper',
+        flair: aiFlair,
+      );
+      final controller = await _controller(_message(preview, replyTo: reply));
+      addTearDown(controller.dispose);
+      await tester.pumpWidget(
+        _TestTile(
+          controller: controller,
+          onOpenThread: (_) {},
+          onJumpToMessage: (_) {},
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.byType(GroupFlairBadge), findsOneWidget);
+      final flairedAvatars = tester
+          .widgetList<ChatUserAvatar>(find.byType(ChatUserAvatar))
+          .where((avatar) => avatar.userId == -4000);
+      expect(flairedAvatars, hasLength(1));
+      expect(flairedAvatars.every((avatar) => avatar.flair == aiFlair), isTrue);
+    },
+  );
 
   testWidgets(
     'flair leaves the live presence ring and avatar geometry intact',
@@ -246,7 +248,7 @@ void main() {
 
   group('message and thread presentation', () {
     testWidgets(
-      'direct-reply indicator matches core and jumps to the referenced message',
+      'inset reply quote attributes and jumps to the referenced message',
       (tester) async {
         const reply = ChatReplyTo(
           id: 6,
@@ -273,40 +275,20 @@ void main() {
             ChatMessageTile.replyIndicatorKey(reply.id),
           );
           expect(target, findsOneWidget);
-          expect(tester.getSize(target).height, 20);
+          expect(find.byType(DBubbleQuote), findsOneWidget);
+          final bubble = tester.getRect(
+            find.byKey(const ValueKey('chat-message-bubble-7')),
+          );
+          final quote = tester.getRect(target);
+          expect(bubble.contains(quote.topLeft), isTrue);
+          expect(bubble.contains(quote.bottomRight), isTrue);
+          expect(find.text('kris'), findsOneWidget);
           expect(
-            tester.widget<InkWell>(target).mouseCursor,
-            SystemMouseCursors.click,
+            quote.bottom,
+            lessThan(tester.getTopLeft(find.byType(CookedHtml)).dy),
           );
-
-          final iconFinder = find.descendant(
-            of: target,
-            matching: find.byType(DIcon),
-          );
-          final icon = tester.widget<DIcon>(iconFinder);
-          expect(icon.icon, DIcons.share);
-          expect(icon.size, DiscourseTypography.sm);
-          expect(
-            icon.color,
-            Theme.of(tester.element(target)).discourse.primaryLowMid,
-          );
-
-          final avatarFinder = find.descendant(
-            of: target,
-            matching: find.byType(ChatUserAvatar),
-          );
-          final avatar = tester.widget<ChatUserAvatar>(avatarFinder);
-          expect(avatar.size, 20);
-          expect(
-            tester.getTopLeft(avatarFinder).dx -
-                tester.getTopRight(iconFinder).dx,
-            8,
-          );
-
           final excerpt = tester.widget<Text>(find.text(reply.excerpt));
-          final theme = Theme.of(tester.element(target));
-          expect(excerpt.style?.fontSize, DiscourseTypography.sm);
-          expect(excerpt.style?.color, theme.discourse.primaryHigh);
+          expect(excerpt.maxLines, 2);
           expect(
             tester.getSemantics(
               find.bySemanticsLabel(
@@ -400,15 +382,15 @@ void main() {
             ChatMessageTile.threadPreviewKey(thread.threadId),
           );
           expect(target, findsOneWidget);
-          expect(tester.getSize(target).height, greaterThanOrEqualTo(44));
-          expect(tester.getSize(target).width, lessThanOrEqualTo(600));
-          expect(find.text('Kris'), findsOneWidget);
+          expect(tester.getSize(target).height, greaterThanOrEqualTo(28));
+          expect(tester.getSize(target).width, lessThanOrEqualTo(654));
+          expect(find.text('Kris'), findsNothing);
           expect(find.text('5 replies'), findsOneWidget);
           expect(find.text('It works'), findsOneWidget);
           expect(find.text('+3'), findsOneWidget);
           expect(
             tester.getTopRight(find.text('5 replies')).dx,
-            closeTo(tester.getTopRight(target).dx - 8, 0.01),
+            closeTo(tester.getTopRight(target).dx - 13, 0.01),
           );
 
           final avatars = tester
@@ -419,7 +401,7 @@ void main() {
                 ),
               )
               .map((avatar) => avatar.userId);
-          expect(avatars, [10, 1, 2, 5]);
+          expect(avatars, [1, 2, 5]);
 
           expect(
             tester.getSemantics(target),
@@ -520,11 +502,13 @@ void main() {
 
         final cooked = tester.widget<CookedHtml>(find.byType(CookedHtml));
         expect(cooked.compactParagraphs, isTrue);
-        expect(cooked.textStyle?.fontSize, 16);
-        expect(cooked.textStyle?.height, DiscourseTypography.lineHeightBody);
-        final author = tester.widget<Text>(find.text('Root author'));
-        expect(author.style?.fontSize, 16);
-        expect(author.style?.fontWeight, FontWeight.w700);
+        expect(cooked.textStyle?.fontSize, 13.5);
+        expect(cooked.textStyle?.height, 1.5);
+        final authorStyle = DefaultTextStyle.of(
+          tester.element(find.text('Root author')),
+        ).style;
+        expect(authorStyle.fontSize, 12);
+        expect(authorStyle.fontWeight, FontWeight.w500);
       },
     );
 
@@ -550,25 +534,27 @@ void main() {
           final target = find.byKey(
             ChatMessageTile.threadPreviewKey(thread.threadId),
           );
-          await tester.sendKeyEvent(LogicalKeyboardKey.tab);
-          await tester.pump();
-          expect(
-            tester.getSemantics(
-              find.byKey(ChatMessageTile.actionsKey(_message(null).id)),
-            ),
-            isSemantics(isFocusable: true, isFocused: true),
-          );
-          await tester.sendKeyEvent(LogicalKeyboardKey.tab);
-          await tester.pump();
+          for (var step = 0; step < 12; step++) {
+            if (tester.getSemantics(target).flagsCollection.isFocused ==
+                Tristate.isTrue) {
+              break;
+            }
+            await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+            await tester.pump();
+          }
           expect(
             tester.getSemantics(target),
             isSemantics(isFocusable: true, isFocused: true),
           );
-
           await tester.sendKeyEvent(activation.key);
           await tester.pump();
 
-          expect(opened, [same(thread)]);
+          expect(
+            opened,
+            activation.key == LogicalKeyboardKey.enter
+                ? [same(thread)]
+                : isEmpty,
+          );
         } finally {
           semantics.dispose();
         }
@@ -618,7 +604,7 @@ void main() {
           }
           await tester.pumpAndSettle();
 
-          expect(find.text('Message actions'), findsOneWidget);
+          expect(find.byType(DDropdownMenuContent), findsOneWidget);
           expect(find.text('Reply'), findsOneWidget);
         },
       );
@@ -685,11 +671,14 @@ void main() {
             ChatMessageTile.editedIndicatorKey(message.id),
           );
           final text = tester.widget<Text>(marker);
-          final theme = Theme.of(tester.element(marker));
 
           expect(text.data, '(edited)');
-          expect(text.style?.fontSize, DiscourseTypography.xs);
-          expect(text.style?.color, theme.discourse.whisper);
+          final style = DefaultTextStyle.of(tester.element(marker)).style;
+          expect(style.fontSize, DiscourseTypography.xs);
+          expect(
+            style.color,
+            DTokens.of(tester.element(marker)).mutedForeground,
+          );
           expect(
             tester.getTopLeft(marker).dy,
             greaterThanOrEqualTo(
@@ -770,7 +759,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Copy'), findsOneWidget);
-      expect(find.text('Message actions'), findsNothing);
+      expect(find.byType(DDropdownMenuContent), findsNothing);
     });
 
     testWidgets('reaction permissions follow live channel changes', (
@@ -788,6 +777,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
+      await _hoverMessage(tester);
       expect(find.bySemanticsLabel('Add reaction'), findsOneWidget);
       expect(
         tester.getSemantics(find.bySemanticsLabel('2 clap reactions')),
@@ -814,7 +804,7 @@ void main() {
     });
 
     testWidgets(
-      'hover toolbar adds the first reaction through the emoji picker',
+      'standalone action adds the first reaction through the emoji picker',
       (tester) async {
         final api = FakeDiscourseApi(
           emojisBySite: const {
@@ -932,29 +922,16 @@ void main() {
 
       await _hoverMessage(tester);
 
-      final action = find.byTooltip('Reply');
+      await tester.tap(find.byTooltip('More message actions').hitTestable());
+      await tester.pumpAndSettle();
+      final action = find.widgetWithText(DDropdownMenuItem, 'Reply');
       expect(action, findsOneWidget);
-      expect(tester.getSize(action), HoverActionButton.size);
-      final actionButton = find.ancestor(
-        of: action,
-        matching: find.byType(DButton),
-      );
-      expect(actionButton, findsOneWidget);
       expect(
-        tester.getSemantics(actionButton),
-        isSemantics(
-          label: 'Reply',
-          isButton: true,
-          hasEnabledState: true,
-          isEnabled: true,
-          isFocusable: true,
-          hasTapAction: true,
-          hasFocusAction: true,
-        ),
+        tester.getSemantics(action),
+        isSemantics(label: 'Reply', hasTapAction: true),
       );
-
       await tester.tap(action);
-      await tester.pump();
+      await tester.pumpAndSettle();
 
       expect(replies, [same(message)]);
     });
@@ -1007,7 +984,10 @@ void main() {
         addTearDown(mouse.removePointer);
         await mouse.moveTo(tester.getCenter(find.byKey(_messageTileKey)));
         await tester.pump();
-        expect(find.byTooltip('More message actions'), findsOneWidget);
+        expect(
+          find.byTooltip('More message actions').hitTestable(),
+          findsOneWidget,
+        );
         Color background() => tester
             .widget<ColoredBox>(
               find
@@ -1036,14 +1016,23 @@ void main() {
         expect(scroll.position.isScrollingNotifier.value, isTrue);
         expect(tester.takeException(), isNull);
         await tester.pump();
-        expect(find.byTooltip('More message actions'), findsNothing);
+        expect(
+          find.byTooltip('More message actions').hitTestable(),
+          findsNothing,
+        );
         expect(background(), Colors.transparent);
 
         await tester.pumpAndSettle();
-        expect(find.byTooltip('More message actions'), findsNothing);
+        expect(
+          find.byTooltip('More message actions').hitTestable(),
+          findsNothing,
+        );
         await mouse.moveBy(const Offset(0, 1));
         await tester.pump();
-        expect(find.byTooltip('More message actions'), findsOneWidget);
+        expect(
+          find.byTooltip('More message actions').hitTestable(),
+          findsOneWidget,
+        );
         expect(background(), hoverTint);
         await mouse.moveTo(const Offset(700, 500));
         await tester.pump();
@@ -1071,37 +1060,28 @@ void main() {
       await pointer.moveTo(tester.getCenter(find.byKey(_messageTileKey)));
       await tester.pump();
 
-      final toolbar = find.byType(HoverActionToolbar);
-      expect(
-        tester
-            .widgetList<DButton>(
-              find.descendant(of: toolbar, matching: find.byType(DButton)),
-            )
-            .map((button) => button.tooltip),
-        ['Add reaction', 'Bookmark', 'Reply', 'More message actions'],
-      );
-      expect(
-        tester.getSize(toolbar),
-        const Size(HoverActionButton.width * 4, HoverActionButton.height),
-      );
-      expect(find.byTooltip('Copy link'), findsNothing);
-
-      final more = find.byTooltip('More message actions');
+      expect(find.byType(HoverActionToolbar), findsNothing);
+      expect(find.byTooltip('Add reaction').hitTestable(), findsOneWidget);
+      final more = find.byTooltip('More message actions').hitTestable();
       expect(
         tester
             .widget<DIcon>(
               find.descendant(of: more, matching: find.byType(DIcon)),
             )
             .icon,
-        DIcons.ellipsisVertical,
+        DIcons.chevronDown,
       );
       await tester.tap(more);
       await tester.pumpAndSettle();
 
       final copyLink = find.widgetWithText(DDropdownMenuItem, 'Copy link');
       expect(copyLink, findsOneWidget);
-      expect(find.widgetWithText(DDropdownMenuItem, 'Bookmark'), findsNothing);
-      expect(find.widgetWithText(DDropdownMenuItem, 'Reply'), findsNothing);
+      expect(
+        find.widgetWithText(DDropdownMenuItem, 'Bookmark'),
+        findsOneWidget,
+      );
+      expect(find.widgetWithText(DDropdownMenuItem, 'Reply'), findsOneWidget);
+      expect(find.widgetWithText(DDropdownMenuItem, 'React'), findsOneWidget);
 
       final pointerTarget = tester.getRect(copyLink);
       await pointer.moveTo(tester.getCenter(copyLink));
@@ -1125,13 +1105,13 @@ void main() {
       addTearDown(mouse.removePointer);
       await mouse.moveTo(tester.getCenter(find.byKey(_messageTileKey)));
       await tester.pump();
-      await tester.tap(find.byTooltip('More message actions'));
+      await tester.tap(find.byTooltip('More message actions').hitTestable());
       await tester.pumpAndSettle();
 
       await mouse.moveTo(Offset.zero);
       await tester.pump();
 
-      expect(find.byType(HoverActionToolbar), findsOneWidget);
+      expect(find.byType(DDropdownMenuContent), findsOneWidget);
       expect(
         find.widgetWithText(DDropdownMenuItem, 'Copy link'),
         findsOneWidget,
@@ -1156,20 +1136,16 @@ void main() {
 
       await _hoverMessage(tester);
 
-      final action = find.byTooltip('Reply');
-      final actionStack = find.ancestor(
-        of: action,
-        matching: find.byWidgetPredicate(
-          (widget) =>
-              widget is Stack &&
-              widget.children.any((child) => child is Positioned),
-        ),
+      final action = find.byTooltip('More message actions').hitTestable();
+      final bubble = tester.getRect(
+        find.byKey(const ValueKey('chat-message-bubble-7')),
       );
-      expect(
-        tester.getSize(action).height,
-        greaterThanOrEqualTo(ChatMessageTile.minimumChainedHeight),
-      );
-      expect(tester.widget<Stack>(actionStack).clipBehavior, Clip.none);
+      final control = tester.getRect(action);
+      expect(bubble.contains(control.topLeft), isTrue);
+      expect(bubble.contains(control.bottomRight), isTrue);
+      await tester.tap(action);
+      await tester.pumpAndSettle();
+      expect(find.widgetWithText(DDropdownMenuItem, 'Reply'), findsOneWidget);
     });
 
     testWidgets('copies the canonical channel message link', (tester) async {
@@ -1188,8 +1164,8 @@ void main() {
       await _hoverMessage(tester);
 
       expect(find.byTooltip('Copy link'), findsNothing);
-      final more = find.byTooltip('More message actions');
-      expect(tester.getSize(more), HoverActionButton.size);
+      final more = find.byTooltip('More message actions').hitTestable();
+      expect(tester.getSize(more), const Size.square(24));
       await tester.tap(more);
       await tester.pumpAndSettle();
 
@@ -1306,9 +1282,11 @@ void main() {
       await tester.pumpAndSettle();
       await _hoverMessage(tester);
 
-      final action = find.byTooltip('Bookmark');
+      await tester.tap(find.byTooltip('More message actions').hitTestable());
+      await tester.pumpAndSettle();
+      final action = find.widgetWithText(DDropdownMenuItem, 'Bookmark');
       expect(action, findsOneWidget);
-      expect(tester.getSize(action), HoverActionButton.size);
+      expect(tester.widget<DDropdownMenuItem>(action).onPressed, isNotNull);
 
       await tester.tap(action);
       await tester.pumpAndSettle();
@@ -1371,7 +1349,7 @@ void main() {
       await tester.longPress(find.byKey(_messageTileKey));
       await tester.pumpAndSettle();
 
-      expect(find.text('Message actions'), findsOneWidget);
+      expect(find.byType(DDropdownMenuContent), findsOneWidget);
       expect(find.text('Edit'), findsOneWidget);
       await tester.tap(find.text('Edit'));
       await tester.pumpAndSettle();
@@ -1400,7 +1378,7 @@ void main() {
       await tester.longPress(find.byKey(_messageTileKey));
       await tester.pumpAndSettle();
 
-      expect(find.text('Message actions'), findsOneWidget);
+      expect(find.byType(DDropdownMenuContent), findsOneWidget);
       expect(find.text('Edit'), findsNothing);
     });
 
@@ -1461,7 +1439,7 @@ void main() {
       await _hoverMessage(tester);
 
       expect(find.byTooltip('Delete'), findsNothing);
-      await tester.tap(find.byTooltip('More message actions'));
+      await tester.tap(find.byTooltip('More message actions').hitTestable());
       await tester.pumpAndSettle();
       await tester.tap(find.widgetWithText(DDropdownMenuItem, 'Delete'));
       await tester.pumpAndSettle();
@@ -1494,7 +1472,7 @@ void main() {
       await _hoverMessage(tester);
 
       expect(find.byTooltip('Pin'), findsNothing);
-      await tester.tap(find.byTooltip('More message actions'));
+      await tester.tap(find.byTooltip('More message actions').hitTestable());
       await tester.pumpAndSettle();
       await tester.tap(find.widgetWithText(DDropdownMenuItem, 'Pin'));
       await tester.pumpAndSettle();
@@ -1508,7 +1486,7 @@ void main() {
       );
       expect(_pinnedBadge(), findsOneWidget);
 
-      await tester.tap(find.byTooltip('More message actions'));
+      await tester.tap(find.byTooltip('More message actions').hitTestable());
       await tester.pumpAndSettle();
       await tester.tap(find.widgetWithText(DDropdownMenuItem, 'Unpin'));
       await tester.pumpAndSettle();
@@ -1565,7 +1543,7 @@ void main() {
       await _hoverMessage(tester);
 
       expect(find.byTooltip('Rebuild HTML'), findsNothing);
-      await tester.tap(find.byTooltip('More message actions'));
+      await tester.tap(find.byTooltip('More message actions').hitTestable());
       await tester.pumpAndSettle();
       await tester.tap(find.widgetWithText(DDropdownMenuItem, 'Rebuild HTML'));
       await tester.pumpAndSettle();
@@ -1605,7 +1583,7 @@ void main() {
       await _hoverMessage(tester);
 
       expect(find.byTooltip('Flag'), findsNothing);
-      await tester.tap(find.byTooltip('More message actions'));
+      await tester.tap(find.byTooltip('More message actions').hitTestable());
       await tester.pumpAndSettle();
       await tester.tap(find.widgetWithText(DDropdownMenuItem, 'Flag'));
       await tester.pumpAndSettle();
@@ -1660,17 +1638,10 @@ void main() {
       );
 
       await _hoverMessage(tester);
-      final action = find.byTooltip('Edit bookmark');
+      await tester.tap(find.byTooltip('More message actions').hitTestable());
+      await tester.pumpAndSettle();
+      final action = find.widgetWithText(DDropdownMenuItem, 'Edit bookmark');
       expect(action, findsOneWidget);
-      expect(tester.getSize(action), HoverActionButton.size);
-      final toolbarButton = tester.widget<HoverActionButton>(
-        find.ancestor(of: action, matching: find.byType(HoverActionButton)),
-      );
-      expect(
-        toolbarButton.color,
-        Theme.of(tester.element(action)).colorScheme.primary,
-      );
-
       await tester.tap(action);
       await tester.pumpAndSettle();
 
@@ -1713,11 +1684,12 @@ void main() {
         await tester.pump();
         await _hoverMessage(tester);
 
-        final action = find.byTooltip('Bookmark');
+        await tester.tap(find.byTooltip('More message actions').hitTestable());
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 300));
+        final action = find.widgetWithText(DDropdownMenuItem, 'Bookmark');
         expect(action, findsOneWidget);
-        final button = tester.widget<DButton>(
-          find.ancestor(of: action, matching: find.byType(DButton)),
-        );
+        final button = tester.widget<DDropdownMenuItem>(action);
         expect(button.onPressed, isNull);
         expect(
           find.descendant(of: action, matching: find.byType(DSpinner)),
@@ -1854,7 +1826,7 @@ void main() {
         shift: false,
       ),
     ]) {
-      testWidgets('${activation.name} opens the message actions sheet', (
+      testWidgets('${activation.name} opens the message actions menu', (
         tester,
       ) async {
         final thread = _thread();
@@ -1891,7 +1863,7 @@ void main() {
         }
         await tester.pumpAndSettle();
 
-        expect(find.text('Message actions'), findsOneWidget);
+        expect(find.byType(DDropdownMenuContent), findsOneWidget);
         final action = find.text('Reply');
         expect(action, findsOneWidget);
 
@@ -1899,11 +1871,11 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(replies, [same(message)]);
-        expect(find.text('Message actions'), findsNothing);
+        expect(find.byType(DDropdownMenuContent), findsNothing);
       });
     }
 
-    testWidgets('a touch long press opens the message actions sheet', (
+    testWidgets('a touch long press opens the message actions menu', (
       tester,
     ) async {
       final message = _message(_thread());
@@ -1924,7 +1896,7 @@ void main() {
       await tester.longPress(find.byKey(_messageTileKey));
       await tester.pumpAndSettle();
 
-      expect(find.text('Message actions'), findsOneWidget);
+      expect(find.byType(DDropdownMenuContent), findsOneWidget);
       final action = find.text('Reply');
       expect(action, findsOneWidget);
 
@@ -1932,7 +1904,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(replies, [same(message)]);
-      expect(find.text('Message actions'), findsNothing);
+      expect(find.byType(DDropdownMenuContent), findsNothing);
     });
 
     testWidgets('a desktop long press does not open message actions', (
@@ -1954,7 +1926,7 @@ void main() {
       await tester.longPress(find.byKey(_messageTileKey));
       await tester.pumpAndSettle();
 
-      expect(find.text('Message actions'), findsNothing);
+      expect(find.byType(DDropdownMenuContent), findsNothing);
     });
 
     testWidgets('a signed-in touch long press offers bookmarking', (
@@ -1975,7 +1947,7 @@ void main() {
       await tester.longPress(find.byKey(_messageTileKey));
       await tester.pumpAndSettle();
 
-      expect(find.text('Message actions'), findsOneWidget);
+      expect(find.byType(DDropdownMenuContent), findsOneWidget);
       expect(find.text('Bookmark'), findsOneWidget);
     });
   });
