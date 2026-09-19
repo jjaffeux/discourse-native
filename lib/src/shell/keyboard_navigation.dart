@@ -35,6 +35,14 @@ bool navigationShortcutsAllowed(
   final focus = FocusManager.instance.primaryFocus;
   final focusContext = focus?.context;
   if (focusContext == null) return true;
+  // A focused element can remain mounted while deactivated during reparenting.
+  // Its render tree is detached, and ancestor lookups are unsafe until it is
+  // attached again. Inspect Element.renderObject without an ancestor lookup.
+  if (!focusContext.mounted ||
+      (focusContext is Element &&
+          focusContext.renderObject?.attached != true)) {
+    return false;
+  }
   final focusRoute = ModalRoute.of(focusContext);
   if (matchFocusRoute &&
       focusRoute != null &&
