@@ -14088,10 +14088,14 @@ class ShellController extends FrameSafeNotifier
         for (final tab in workspace.tabs)
           if (tab.id != id) tab,
       ];
-      final reader = remaining
+      final neighbours = [
+        ...workspace.tabs.skip(index + 1),
+        ...workspace.tabs.take(index).toList().reversed,
+      ];
+      final reader = neighbours
           .where((tab) => tab.currentContent.isTopic)
           .firstOrNull;
-      final list = remaining
+      final list = neighbours
           .where((tab) => !tab.currentContent.isTopic)
           .firstOrNull;
       if (desktopTopicTabs && list == null) {

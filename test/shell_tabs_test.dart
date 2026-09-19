@@ -444,6 +444,30 @@ void main() {
     });
 
     group('tab lifecycle', () {
+      test('desktop topic tabs select the next topic after closing', () {
+        controller.desktopTopicTabs = true;
+        final listTabId = controller.activeTabId!;
+        final topicTabIds = <String>[];
+        for (final topicId in [101, 202, 303, 404]) {
+          controller.openTopicUrl('/t/topic/$topicId');
+          topicTabIds.add(controller.activeTabId!);
+        }
+
+        controller.selectTab(topicTabIds[1]);
+        controller.closeTab(topicTabIds[1]);
+        expect(controller.activeTabId, topicTabIds[2]);
+
+        controller.selectTab(topicTabIds[3]);
+        controller.closeTab(topicTabIds[3]);
+        expect(controller.activeTabId, topicTabIds[2]);
+
+        controller.closeTab(topicTabIds[2]);
+        expect(controller.activeTabId, topicTabIds[0]);
+
+        controller.closeTab(topicTabIds[0]);
+        expect(controller.activeTabId, listTabId);
+      });
+
       test(
         'selects the nearest surviving neighbour after an active tab closes',
         () {
