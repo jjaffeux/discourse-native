@@ -349,21 +349,32 @@ class _ForumThemeEditorState extends State<ForumThemeEditor> {
               child: Text('Text contrast is below 4.5:1.'),
             ),
           ),
-        Wrap(
+        OverflowBar(
+          alignment: MainAxisAlignment.spaceBetween,
+          overflowAlignment: OverflowBarAlignment.end,
           spacing: DSpacing.controlGap,
-          runSpacing: DSpacing.sm,
+          overflowSpacing: DSpacing.sm,
           children: [
-            DButton(
-              label: const Text('Import'),
-              onPressed: enabled ? _import : null,
-            ),
-            DButton(
-              label: const Text('Export'),
-              onPressed: enabled && valid ? _export : null,
-            ),
-            DButton(
-              label: const Text('Surprise me'),
-              onPressed: enabled ? _surprise : null,
+            Wrap(
+              spacing: DSpacing.controlGap,
+              runSpacing: DSpacing.sm,
+              children: [
+                DButton(
+                  variant: DButtonVariant.outline,
+                  label: const Text('Import'),
+                  onPressed: enabled ? _import : null,
+                ),
+                DButton(
+                  variant: DButtonVariant.outline,
+                  label: const Text('Export'),
+                  onPressed: enabled && valid ? _export : null,
+                ),
+                DButton(
+                  variant: DButtonVariant.outline,
+                  label: const Text('Surprise me'),
+                  onPressed: enabled ? _surprise : null,
+                ),
+              ],
             ),
             DButton(
               key: const ValueKey('save-custom-theme'),
