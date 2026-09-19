@@ -44,6 +44,7 @@ class _ForumThemeEditorState extends State<ForumThemeEditor> {
   late final TextEditingController _name;
   late final Map<String, TextEditingController> _colors;
   late Brightness _brightness;
+  late final Map<String, Color> _lastColors;
   String? _notice;
   bool _transferring = false;
   static const _jsonTypes = [
@@ -72,6 +73,12 @@ class _ForumThemeEditorState extends State<ForumThemeEditor> {
     _baseId = theme.id;
     _brightness = theme.brightness;
     final colors = theme.toJson()['colors'] as Map<String, String>;
+    _lastColors = {
+      for (final key in _roles.keys)
+        key: Color(
+          0xff000000 | int.parse(colors[key]!.substring(1), radix: 16),
+        ),
+    };
     _colors = {
       for (final key in _roles.keys)
         key: TextEditingController(text: colors[key]),
@@ -103,6 +110,13 @@ class _ForumThemeEditorState extends State<ForumThemeEditor> {
   }
 
   void _changed(String _) {
+    for (final entry in _colors.entries) {
+      if (RegExp(r'^#[a-fA-F0-9]{6}$').hasMatch(entry.value.text)) {
+        _lastColors[entry.key] = Color(
+          0xff000000 | int.parse(entry.value.text.substring(1), radix: 16),
+        );
+      }
+    }
     setState(() => _notice = null);
     final theme = _theme;
     if (theme != null) widget.onChanged(theme);
@@ -311,23 +325,28 @@ class _ForumThemeEditorState extends State<ForumThemeEditor> {
                       controller: entry.value,
                       labelText: _roles[entry.key],
                       semanticLabel: '${_roles[entry.key]} color',
-                      prefix:
-                          RegExp(
-                            r'^#[a-fA-F0-9]{6}$',
-                          ).hasMatch(entry.value.text)
-                          ? SizedBox.square(
-                              dimension: 16,
-                              child: ColoredBox(
-                                color: Color(
-                                  0xff000000 |
-                                      int.parse(
-                                        entry.value.text.substring(1),
-                                        radix: 16,
-                                      ),
-                                ),
-                              ),
-                            )
-                          : null,
+                      prefix: DColorPicker(
+                        semanticLabel:
+                            'Choose ${_roles[entry.key]!.toLowerCase()} color',
+                        value:
+                            RegExp(
+                              r'^#[a-fA-F0-9]{6}$',
+                            ).hasMatch(entry.value.text)
+                            ? Color(
+                                0xff000000 |
+                                    int.parse(
+                                      entry.value.text.substring(1),
+                                      radix: 16,
+                                    ),
+                              )
+                            : _lastColors[entry.key]!,
+                        onChanged: enabled
+                            ? (color) {
+                                entry.value.text = ForumTheme.hex(color);
+                                _changed('');
+                              }
+                            : null,
+                      ),
                       textDirection: TextDirection.ltr,
                       enabled: enabled,
                       autocorrect: false,
