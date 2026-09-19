@@ -1,4 +1,3 @@
-import 'dart:math' as math;
 import 'dart:ui' show Tristate;
 
 import 'package:discourse_native/discourse_ui.dart';
@@ -93,10 +92,22 @@ void main() {
         expect(style.height, 16 / 12);
         expect(style.fontWeight, FontWeight.w400);
         expect(style.letterSpacing, 0);
-        expect(style.color, theme.extension<DTokens>()!.background);
+        final tokens = theme.extension<DTokens>()!;
+        expect(style.color, tokens.foreground);
+        expect(
+          tester.renderObject(find.byType(Overlay)),
+          paints
+            ..path(color: tokens.surface, style: PaintingStyle.fill)
+            ..path(
+              color: tokens.border,
+              style: PaintingStyle.stroke,
+              strokeWidth: 1,
+            ),
+        );
         expect(tester.getSize(_surface(_hint)).height, 32);
         final kbd = tester.element(find.byType(DKbd));
         expect(DKbdTheme.maybeOf(kbd)!.foregroundColor, style.color);
+        expect(DKbdTheme.maybeOf(kbd)!.backgroundColor, tokens.muted);
         expect(
           tester.getTopLeft(_hint).dx - tester.getTopLeft(_surface(_hint)).dx,
           12,
@@ -955,7 +966,6 @@ void main() {
   testWidgets(
     'side arrows sit at the popup middle while top arrows follow the anchor',
     (tester) async {
-      const arrow = Rect.fromLTWH(-5, -5, 10, 10);
       for (final side in [DTooltipSide.left, DTooltipSide.top]) {
         await _pump(
           tester,
@@ -990,12 +1000,22 @@ void main() {
         expect(popup.height, greaterThan(anchor.height));
         expect(
           tester.renderObject(find.byType(Overlay)),
-          paints
-            ..translate(x: tip.dx, y: tip.dy)
-            ..rotate(angle: math.pi / 4)
-            ..rrect(
-              rrect: RRect.fromRectAndRadius(arrow, const Radius.circular(2)),
-            ),
+          paints..path(
+            includes: [
+              popup.center,
+              tip +
+                  (side == DTooltipSide.left
+                      ? const Offset(5, 0)
+                      : const Offset(0, 5)),
+            ],
+            excludes: [
+              tip +
+                  (side == DTooltipSide.left
+                      ? const Offset(8, 0)
+                      : const Offset(0, 8)),
+            ],
+            style: PaintingStyle.fill,
+          ),
           reason: side.name,
         );
       }
@@ -1039,44 +1059,6 @@ void main() {
       await tester.pump();
       expect(_hint, findsOneWidget);
       expect(tester.renderObject(ring), ringPaint);
-    },
-  );
-
-  testWidgets(
-    'keycap tint multiplies the background alpha by its light and dark factors',
-    (tester) async {
-      const background = Color(0x80FFFFFF);
-      for (final (theme, factor) in [
-        (AppTheme.light, .2),
-        (AppTheme.dark, .1),
-      ]) {
-        final tokens = theme.extension<DTokens>()!;
-        await _pump(
-          tester,
-          DTooltip(
-            key: ValueKey(theme.brightness),
-            message: 'Information',
-            defaultOpen: true,
-            shortcut: const DShortcut(SingleActivator(LogicalKeyboardKey.keyS)),
-            child: _target,
-          ),
-          theme: theme.copyWith(
-            extensions: [
-              ...theme.extensions.values.where((e) => e is! DTokens),
-              tokens.copyWith(background: background),
-            ],
-          ),
-          still: true,
-        );
-        await tester.pump();
-        final keycaps = DKbdTheme.maybeOf(tester.element(find.byType(DKbd)))!;
-        expect(keycaps.foregroundColor, background);
-        expect(
-          keycaps.backgroundColor,
-          background.withValues(alpha: background.a * factor),
-          reason: theme.brightness.name,
-        );
-      }
     },
   );
 

@@ -10,6 +10,25 @@ Supporting [Base UI behavior/API documentation](https://base-ui.com/react/compon
 was inspected, including controlled state, shared handles, hoverable content,
 cursor tracking, disabled triggers, placement and timing.
 
+## Theme adaptation — 2026-09-19
+
+The user requested that all tooltips follow the active app theme. This supersedes
+only the frozen reference's inverted colors and borderless appearance: tooltips
+now use `DTokens.surface`, `DTokens.foreground`, a 1px `DTokens.border` outline,
+and `DTokens.muted` shortcut backgrounds. The body and arrow share one continuous
+outline. Highlighted shortcut keys retain the palette's primary colors. Geometry,
+placement and interactions are unchanged. Rail avatar fallbacks use the same
+surface when calculating contrast.
+
+Verification: `flutter analyze --no-pub` passed. The Tooltip, Button and Tooltip
+styleguide widget suites passed 108 tests; the focused shell forum-tooltip hover
+test also passed. These checks cover live palette changes, shortcut colors,
+arrow geometry, interaction, narrow/wide previews, text scaling and RTL.
+An isolated macOS build of `tool/sidebar_review_main.dart` was inspected with
+Aggregate in the light palette and forum tooltips in dark and Plum palettes.
+The body, continuous arrow border and shortcut badges followed those palettes.
+No mobile device run was performed for this appearance change.
+
 ## Reference measurements
 
 The official page was inspected in a hidden in-app browser at 1280×720 CSS px,
@@ -31,9 +50,9 @@ corresponding web theme variables.
 | Width | Intrinsic, at most 320px | `maxWidth: 320`, bounded by the nearest overlay |
 | One-line body | 97.492×28px for “Add to library” | 28px height; width follows the configured native font metrics |
 | Radius | 8px, `rounded-md` with a 10px theme radius | Host `DTokens.radius × 0.8` |
-| Colors, Light | Black surface, white text | `DTokens.foreground` surface / `DTokens.background` text |
-| Colors, Dark | Near-white surface (`lab(98.26 0 0)`), dark text | Same inverted token roles, updated while open |
-| Border/shadow | None | None |
+| Colors, Light | Black surface, white text | `DTokens.surface` / `DTokens.foreground` text |
+| Colors, Dark | Near-white surface (`lab(98.26 0 0)`), dark text | Same theme surface/text roles, updated while open |
+| Border/shadow | None | 1px `DTokens.border` outline, no shadow |
 | Arrow | 10×10px rounded square rotated 45°, 2px radius | Same painted geometry and surface color |
 | Arrow attachment | Top body center at h−2; bottom at y=2; side center at w−1 / x=1 | Same offsets; anchor follows trigger and clamps away from corners |
 | Enter | 150ms ease, fade 0→1, scale .95→1, 8px slide from trigger side | Same values; side-aware paint transform |

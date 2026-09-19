@@ -870,7 +870,8 @@ class DTooltipState extends State<DTooltip>
               direction: Directionality.of(context),
               cursor: cursor,
               animation: _curve,
-              color: DTokens.of(context).foreground,
+              color: DTokens.of(context).surface,
+              borderColor: DTokens.of(context).border,
               radius: DTokens.of(context).radius * 0.8,
               child: IgnorePointer(
                 ignoring: widget.disableHoverablePopup,
@@ -1004,7 +1005,7 @@ class _TooltipContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tokens = DTokens.of(context);
-    final foreground = tokens.background;
+    final foreground = tokens.foreground;
     final style = Theme.of(context).textTheme.bodySmall!.copyWith(
       color: foreground,
       fontSize: DiscourseTypography.xs,
@@ -1021,11 +1022,7 @@ class _TooltipContent extends StatelessWidget {
         data: IconThemeData(color: foreground, size: 16),
         child: DKbdTheme(
           foregroundColor: foreground,
-          backgroundColor: foreground.withValues(
-            alpha:
-                foreground.a *
-                (Theme.of(context).brightness == Brightness.dark ? 0.10 : 0.20),
-          ),
+          backgroundColor: tokens.muted,
           child: Padding(
             padding: EdgeInsetsDirectional.fromSTEB(
               12,
@@ -1059,6 +1056,7 @@ class _TooltipPositioner extends SingleChildRenderObjectWidget {
     required this.cursor,
     required this.animation,
     required this.color,
+    required this.borderColor,
     required this.radius,
     required super.child,
   });
@@ -1070,6 +1068,7 @@ class _TooltipPositioner extends SingleChildRenderObjectWidget {
   final Offset? cursor;
   final Animation<double> animation;
   final Color color;
+  final Color borderColor;
   final double radius;
 
   @override
@@ -1282,23 +1281,37 @@ class _RenderTooltip extends RenderShiftedBox {
       ) {
         final canvas = context.canvas;
         final body = (offset + origin) & child!.size;
-        final paint = Paint()..color = c.color;
+        var outline = Path()
+          ..addRRect(RRect.fromRectAndRadius(body, Radius.circular(c.radius)));
         if (c.tooltip.showArrow) {
-          canvas.save();
-          canvas.translate(body.left + _arrow.dx, body.top + _arrow.dy);
-          canvas.rotate(math.pi / 4);
-          canvas.drawRRect(
-            RRect.fromRectAndRadius(
-              const Rect.fromLTWH(-5, -5, 10, 10),
-              const Radius.circular(2),
-            ),
-            paint,
+          final arrow = Path()
+            ..addRRect(
+              RRect.fromRectAndRadius(
+                const Rect.fromLTWH(-5, -5, 10, 10),
+                const Radius.circular(2),
+              ),
+            );
+          final transform = Matrix4.identity()
+            ..translateByDouble(
+              body.left + _arrow.dx,
+              body.top + _arrow.dy,
+              0,
+              1,
+            )
+            ..rotateZ(math.pi / 4);
+          outline = Path.combine(
+            PathOperation.union,
+            outline,
+            arrow.transform(transform.storage),
           );
-          canvas.restore();
         }
-        canvas.drawRRect(
-          RRect.fromRectAndRadius(body, Radius.circular(c.radius)),
-          paint,
+        canvas.drawPath(outline, Paint()..color = c.color);
+        canvas.drawPath(
+          outline,
+          Paint()
+            ..color = c.borderColor
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 1,
         );
         context.paintChild(child!, offset + origin);
       });
