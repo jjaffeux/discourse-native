@@ -134,8 +134,10 @@ the picker, sidebar ordering, Chat rows, and channel-list preferences. A further
 27 tests pass after adopting existing typography tokens in the picker, including
 all 18 iOS/Android mobile cases and the typography adoption check.
 
-The randomized full-suite run uses seed `2313302827`. Its outstanding failures
-were independently reproduced on pre-mobile base `b1321009f`:
+The randomized full-suite run uses seed `2313302827` and completes with 12,143
+passing tests, seven skipped, and 11 failures. One failure is fixed by the
+typography token follow-up below; the remaining ten were independently
+reproduced on pre-mobile base `b1321009f`:
 
 - Five Chat composer cases: edit/draft restoration, GIF failure, reply action
   selection, uncertain network failure, and definitive send refusal.
