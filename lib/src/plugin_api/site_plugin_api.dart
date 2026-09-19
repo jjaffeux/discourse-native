@@ -591,10 +591,16 @@ final class SidebarPanelContribution {
     required this.onClose,
     this.selectedDestinationId,
     this.badge,
+    this.mobileBuilder,
   });
 
   /// Optional plugin-owned status displayed beside the tab label.
   final Widget? badge;
+
+  /// Optional mobile root presentation of this sidebar's existing data.
+  /// Route commands still use the shared navigation host; the mobile shell
+  /// supplies its header and bottom navigation around this bounded content.
+  final WidgetBuilder? mobileBuilder;
 
   final String label;
   final DIconData icon;

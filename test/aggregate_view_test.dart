@@ -110,6 +110,8 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    await tester.tap(find.byKey(const ValueKey('aggregate-rail-button')));
+    await tester.pumpAndSettle();
     final emoji = tester.widget<SiteEmojiImage>(find.byType(SiteEmojiImage));
     expect(emoji.name, 'megaphone');
     expect(emoji.siteUrl, forum.url);
@@ -573,6 +575,8 @@ _pumpMixedAggregateView(WidgetTester tester, {bool empty = false}) async {
       updateStore: FakeUpdateStore(),
     ),
   );
+  await tester.pumpAndSettle();
+  await tester.tap(find.byKey(const ValueKey('aggregate-rail-button')));
   await tester.pumpAndSettle();
   expect(find.byType(TopicFilterInput), findsNothing);
   return (forumUrls: forums.map((forum) => forum.url).toList(), api: api);

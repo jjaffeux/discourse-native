@@ -5,7 +5,7 @@ import 'package:discourse_native/src/data/discourse_api.dart';
 import 'package:discourse_native/src/models/app_settings.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/topic.dart';
-import 'package:discourse_native/src/shell/main_content.dart';
+import 'package:discourse_native/src/shell/adaptive_shell.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/topic_create_button.dart';
@@ -42,7 +42,9 @@ Future<ShellController> _openCategory(
     api: api,
     authenticator: authenticator,
   );
-  final controller = ShellScope.read(tester.element(find.byType(MainContent)));
+  final controller = ShellScope.read(
+    tester.element(find.byType(AdaptiveShell)),
+  );
   expect(controller.openListUrl('/c/support/5'), isTrue);
   await tester.pumpAndSettle();
   return controller;
@@ -84,12 +86,13 @@ void main() {
     expect(button, findsOneWidget);
     expect(tester.takeException(), isNull);
 
-    tester.view.physicalSize = laptop;
+    tester.view.physicalSize = phone;
     await controller.appSettings.setTextScale(AppTextScale.percent200);
     await tester.pumpAndSettle();
     expect(triggerLabel, findsNothing);
     expect(tester.takeException(), isNull);
 
+    tester.view.physicalSize = laptop;
     await controller.appSettings.setTextScale(AppTextScale.percent100);
     await tester.pumpAndSettle();
     expect(triggerLabel, findsOneWidget);
@@ -129,7 +132,7 @@ void main() {
 
     gate.complete();
     await tester.pumpAndSettle();
-  });
+  }, variant: TargetPlatformVariant.only(TargetPlatform.android));
 
   testWidgets('rolls the selected level back when the server rejects it', (
     tester,
@@ -163,7 +166,7 @@ void main() {
       CategoryNotificationLevel.normal,
     );
     expect(find.byTooltip('Category notifications: Normal'), findsOneWidget);
-  });
+  }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
   testWidgets('does not show the category bell while signed out', (
     tester,
@@ -179,5 +182,5 @@ void main() {
       find.byKey(const ValueKey('category-notification-level-button')),
       findsNothing,
     );
-  });
+  }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 }

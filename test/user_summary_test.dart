@@ -131,17 +131,20 @@ void main() {
             await tester.tap(find.byTooltip('Back'));
             await tester.pumpAndSettle();
             expect(find.byType(UserSummaryView), findsNothing);
-            expect(fixture.controller.currentContent?.id, 'latest');
             if (layout.name == 'compact') {
-              expect(fixture.controller.mobilePane, MobilePane.content);
-              await tester.tap(find.byTooltip('Back'));
-              await tester.pumpAndSettle();
               expect(fixture.controller.mobilePane, MobilePane.sidebar);
+            } else {
+              expect(fixture.controller.currentContent?.id, 'latest');
             }
           } finally {
             semantics.dispose();
           }
         },
+        variant: TargetPlatformVariant.only(
+          layout.name == 'compact'
+              ? TargetPlatform.android
+              : TargetPlatform.linux,
+        ),
       );
     }
 
@@ -178,7 +181,7 @@ void main() {
       expect(fixture.api.userSummaryRequests, [
         (siteUrl: _siteUrl, username: 'reader'),
       ]);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('reloads a mounted view after the account generation rotates', (
       tester,
@@ -195,7 +198,7 @@ void main() {
         (siteUrl: _siteUrl, username: 'reader'),
         (siteUrl: _siteUrl, username: 'reader'),
       ]);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
   });
 
   group('native destinations', () {
@@ -221,7 +224,7 @@ void main() {
         hasLength(1),
         reason: 'the account-scoped summary stays cached when returning',
       );
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('category counts enter the web-equivalent search filters', (
       tester,
@@ -237,7 +240,7 @@ void main() {
 
       expect(fixture.controller.search.query, '@reader #support in:first');
       expect(fixture.controller.search.mode, SearchMode.topics);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
   });
 
   group('content states', () {
@@ -319,7 +322,7 @@ void main() {
       } finally {
         semantics.dispose();
       }
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('announces loading and supports retry after failure', (
       tester,
@@ -367,7 +370,7 @@ void main() {
       } finally {
         semantics.dispose();
       }
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('shows a focused empty state in each summary tab', (
       tester,
@@ -388,7 +391,7 @@ void main() {
       expect(find.text('No links yet.'), findsOneWidget);
       expect(find.text('recent read time'), findsNothing);
       expect(find.text('Bookmarks'), findsNothing);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('keeps contribution lists when account stats are unavailable', (
       tester,
@@ -409,7 +412,7 @@ void main() {
       await _selectSummaryTab(tester, 'Reading');
       expect(find.text('Time well spent'), findsNothing);
       expect(find.text('No links yet.'), findsOneWidget);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets(
       'retains the selected tab through refresh and window resizing',
@@ -429,6 +432,7 @@ void main() {
         expect(find.text('Top native reply'), findsNothing);
         expect(tester.takeException(), isNull);
       },
+      variant: TargetPlatformVariant.only(TargetPlatform.linux),
     );
 
     for (final size in [const Size(320, 844), const Size(768, 900)]) {
@@ -462,7 +466,7 @@ void main() {
         expect(find.text('Your activity in this community.'), findsNothing);
         expect(find.text('All time, in one place.'), findsNothing);
         expect(find.text('Ideas you started'), findsNothing);
-      });
+      }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
     }
 
     testWidgets('returns to Reading after opening a linked topic', (
@@ -481,7 +485,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Time well spent'), findsOneWidget);
       expect(fixture.api.userSummaryRequests, hasLength(1));
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
   });
 }
 

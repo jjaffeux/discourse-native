@@ -37,6 +37,12 @@ Use `testWidgets` when the contract needs Flutter rendering, semantics, focus,
 input, layout, or the binding's deterministic clock. Promote a case to an
 integration test only when a platform implementation is the thing under test.
 
+Shell widget tests choose their platform with `TargetPlatformVariant`. A wide
+viewport does not imply desktop navigation: iOS and Android retain the mobile
+shell on tablets, and Flutter's implicit test platform is Android. Desktop
+fixtures use an explicit desktop variant; mobile fixtures open destinations
+from Home before interacting with their content.
+
 Repository-structure tests may inspect imports, manifests, lockfiles, or
 generated registrants when source ownership or the resolved build graph is the
 contract. A source-text assertion must not stand in for behavior that can be

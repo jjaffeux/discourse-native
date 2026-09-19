@@ -879,7 +879,9 @@ class _ContentHeader extends StatelessWidget {
       child: LayoutBuilder(
         builder: (context, constraints) {
           final carriesSearch =
-              !ShellTitleBar.isSupported && !(layout.isCompact && !isConnected);
+              !controller.mobileNavigationEnabled &&
+              !ShellTitleBar.isSupported &&
+              !(layout.isCompact && !isConnected);
           final showRouteIdentity =
               !searchOnly &&
               ((route.isMessages && isConnected) ||
@@ -1075,7 +1077,8 @@ class _ContentHeader extends StatelessWidget {
                   !route.isBadges &&
                   showCreateTopicAction)
                 _TopicCreateAction(controller: controller),
-              if (ShellTitleBar.columnsCarryUserMenu) ...[
+              if (!controller.mobileNavigationEnabled &&
+                  ShellTitleBar.columnsCarryUserMenu) ...[
                 ...registry.shellHeaderActions(
                   context,
                   surface: PluginHeaderSurface.content,

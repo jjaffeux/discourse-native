@@ -112,10 +112,16 @@ Future<ShellController> pumpTabs(
   return shell;
 }
 
+void _desktopTest(String name, WidgetTesterCallback callback) => testWidgets(
+  name,
+  callback,
+  variant: TargetPlatformVariant.only(TargetPlatform.macOS),
+);
+
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
-  testWidgets(
+  _desktopTest(
     'chat tab counts unread messages and updates without navigation',
     (tester) async {
       final channels = {
@@ -184,7 +190,7 @@ void main() {
     },
   );
 
-  testWidgets('section unread totals stay visible when collapsed and update', (
+  _desktopTest('section unread totals stay visible when collapsed and update', (
     tester,
   ) async {
     final channels = {
@@ -282,7 +288,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets(
+  _desktopTest(
     'three tabs partition destinations without navigating or joining',
     (tester) async {
       final shell = await pumpTabs(tester);
@@ -367,7 +373,7 @@ void main() {
       hasVoice: true,
     ),
   ]) {
-    testWidgets(scenario.name, (tester) async {
+    _desktopTest(scenario.name, (tester) async {
       await pumpTabs(
         tester,
         chat: scenario.chat,
@@ -383,7 +389,7 @@ void main() {
     });
   }
 
-  testWidgets('empty accessible Voice directory retains room creation', (
+  _desktopTest('empty accessible Voice directory retains room creation', (
     tester,
   ) async {
     await pumpTabs(tester, rooms: false);
@@ -397,7 +403,7 @@ void main() {
     expect(sidebarDestination('Topics'), findsNothing);
   });
 
-  testWidgets(
+  _desktopTest(
     'route navigation selects Voice and revoked access falls back to Forum',
     (tester) async {
       final shell = await pumpTabs(tester);
@@ -418,7 +424,7 @@ void main() {
     },
   );
 
-  testWidgets('revoking Chat access removes its selected tab', (tester) async {
+  _desktopTest('revoking Chat access removes its selected tab', (tester) async {
     final shell = await pumpTabs(tester);
     await tester.tap(tab('chat'));
     await tester.pumpAndSettle();
@@ -434,7 +440,7 @@ void main() {
     expect(sidebarDestination('Topics'), findsOneWidget);
   });
 
-  testWidgets('keyboard moves between sidebar tabs', (tester) async {
+  _desktopTest('keyboard moves between sidebar tabs', (tester) async {
     await pumpTabs(tester);
     await tester.tap(tab('main'));
     await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);

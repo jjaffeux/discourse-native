@@ -24,6 +24,11 @@ enum DTabListVariant {
 
   /// Text-only selection without a background, border, shadow or indicator.
   plain,
+
+  /// A horizontal, full-width navigation bar with equal slots and a short top
+  /// selection marker. Icon-only triggers must supply a semantic label. Other
+  /// children may be independent actions; they receive the same slot width.
+  navigation,
 }
 
 /// Why a tabs root changed its active value.
@@ -471,6 +476,48 @@ class DTabList<T> extends StatelessWidget {
     };
     final horizontalLine =
         variant == DTabListVariant.line && root.orientation == Axis.horizontal;
+    if (variant == DTabListVariant.navigation) {
+      assert(
+        root.orientation == Axis.horizontal,
+        'Navigation tabs require horizontal orientation.',
+      );
+      return LayoutBuilder(
+        builder: (context, constraints) {
+          final minimumWidth = children.length * DSpacing.touchTarget;
+          final width = constraints.hasBoundedWidth
+              ? math.max(constraints.maxWidth, minimumWidth)
+              : minimumWidth;
+          return Semantics(
+            container: true,
+            explicitChildNodes: true,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: tokens.muted,
+                borderRadius: BorderRadius.circular(tokens.radius * 1.4),
+              ),
+              child: SingleChildScrollView(
+                controller: scrollController,
+                scrollDirection: Axis.horizontal,
+                child: SizedBox(
+                  width: width,
+                  child: _DTabListScope<T>(
+                    variant: variant,
+                    size: size,
+                    activateOnFocus: activateOnFocus,
+                    loopFocus: loopFocus,
+                    child: Row(
+                      children: [
+                        for (final child in children) Expanded(child: child),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          );
+        },
+      );
+    }
     final decoration = BoxDecoration(
       color: variant == DTabListVariant.defaultStyle
           ? tokens.muted
@@ -741,7 +788,8 @@ class _DTabTriggerState<T> extends State<DTabTrigger<T>> {
     final horizontalLine = line && root.orientation == Axis.horizontal;
     final pill = list.variant == DTabListVariant.pill;
     final plain = list.variant == DTabListVariant.plain;
-    final flat = pill || plain;
+    final navigation = list.variant == DTabListVariant.navigation;
+    final flat = pill || plain || navigation;
     final radius = flat
         ? DControlStyle.radius(tokens, size)
         : tokens.radius * .8;
@@ -764,7 +812,9 @@ class _DTabTriggerState<T> extends State<DTabTrigger<T>> {
           : DMotion.duration(context, DMotion.change),
       curve: Curves.easeOut,
       constraints: BoxConstraints(
-        minHeight: horizontalLine
+        minHeight: navigation
+            ? 56
+            : horizontalLine
             ? math.max(
                 touch ? DSpacing.touchTarget : 0,
                 DControlStyle.scaledHeight(
@@ -779,24 +829,27 @@ class _DTabTriggerState<T> extends State<DTabTrigger<T>> {
                   ) -
                   (flat ? 0 : 7),
       ),
-      padding: horizontalLine
+      padding: navigation
+          ? const EdgeInsets.symmetric(horizontal: 8, vertical: 14)
+          : horizontalLine
           ? const EdgeInsets.symmetric(vertical: 11)
           : flat
           ? const EdgeInsets.symmetric(horizontal: 10, vertical: 2)
           : const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
       decoration: BoxDecoration(
-        color: selected && !line && !plain
+        color: selected && !line && !plain && !navigation
             ? selectedBackground
             : Colors.transparent,
         borderRadius: BorderRadius.circular(radius),
         border: horizontalLine
             ? null
             : Border.all(
-                color: selected && !line && !plain && !pill && dark
+                color:
+                    selected && !line && !plain && !pill && !navigation && dark
                     ? tokens.colors.outlineVariant
                     : Colors.transparent,
               ),
-        boxShadow: selected && !line && !plain && !pill
+        boxShadow: selected && !line && !plain && !pill && !navigation
             ? const [
                 BoxShadow(
                   color: Color(0x1A000000),
@@ -821,7 +874,7 @@ class _DTabTriggerState<T> extends State<DTabTrigger<T>> {
           letterSpacing: 0,
         ),
         child: IconTheme.merge(
-          data: IconThemeData(color: foreground, size: 16),
+          data: IconThemeData(color: foreground, size: navigation ? 22 : 16),
           child: Align(
             alignment: root.orientation == Axis.horizontal
                 ? Alignment.center
@@ -838,7 +891,8 @@ class _DTabTriggerState<T> extends State<DTabTrigger<T>> {
       foregroundPainter: _DTabIndicatorPainter(
         color: tokens.foreground,
         orientation: root.orientation,
-        visible: line && selected,
+        visible: (line || navigation) && selected,
+        topMarker: navigation,
         direction: Directionality.of(context),
       ),
       child: surface,
@@ -955,16 +1009,29 @@ class _DTabIndicatorPainter extends CustomPainter {
     required this.orientation,
     required this.visible,
     required this.direction,
+    this.topMarker = false,
   });
   final Color color;
   final Axis orientation;
   final bool visible;
   final TextDirection direction;
+  final bool topMarker;
 
   @override
   void paint(Canvas canvas, Size size) {
     if (!visible) return;
     final paint = Paint()..color = color;
+    if (topMarker) {
+      final width = math.min(24.0, size.width);
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          Rect.fromLTWH((size.width - width) / 2, 0, width, 4),
+          const Radius.circular(2),
+        ),
+        paint,
+      );
+      return;
+    }
     if (orientation == Axis.horizontal) {
       canvas.drawRect(Rect.fromLTWH(0, size.height - 2, size.width, 2), paint);
     } else {
@@ -978,6 +1045,7 @@ class _DTabIndicatorPainter extends CustomPainter {
       color != oldDelegate.color ||
       orientation != oldDelegate.orientation ||
       visible != oldDelegate.visible ||
+      topMarker != oldDelegate.topMarker ||
       direction != oldDelegate.direction;
 }
 

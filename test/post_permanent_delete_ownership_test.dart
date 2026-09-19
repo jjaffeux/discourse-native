@@ -75,6 +75,7 @@ void main() {
           expect(controller.currentContent?.topicId, 7);
         }
       },
+      variant: TargetPlatformVariant.only(TargetPlatform.linux),
     );
 
     for (final stage in ['check', 'confirmation', 'write']) {
@@ -127,7 +128,7 @@ void main() {
         expect(controller.currentTopic, same(otherTopic));
         expect(controller.store.read<Post>(_siteB, postId), same(otherPost));
         expect(find.byKey(_dialogKey), findsNothing);
-      });
+      }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
     }
 
     for (final stage in ['check', 'confirmation', 'credential']) {
@@ -169,7 +170,7 @@ void main() {
           find.byKey(_dialogKey),
           stage == 'check' ? findsNothing : findsOneWidget,
         );
-      });
+      }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
     }
 
     for (final stage in ['check', 'confirmation', 'credential']) {
@@ -241,7 +242,7 @@ void main() {
             stage == 'check' ? findsNothing : findsOneWidget,
           );
           expect(_writeInFlight(controller, postId), isFalse);
-        });
+        }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
       }
     }
 
@@ -258,7 +259,7 @@ void main() {
       expect(find.byKey(_dialogKey), findsNothing);
       expect(api.topicDeletes, isEmpty);
       expect(api.postDeletes, isEmpty);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('$targetName surfaces a failed deletion and permits retry', (
       tester,
@@ -282,7 +283,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.byKey(_dialogKey), findsNothing);
       expect(controller.store.read<Post>(_siteA, postId), isNull);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets(
       '$targetName obsolete completion preserves a replacement write',
@@ -323,6 +324,7 @@ void main() {
         expect(find.text(_obsolete), findsOneWidget);
         expect(api.topicDeletes.length + api.postDeletes.length, 2);
       },
+      variant: TargetPlatformVariant.only(TargetPlatform.linux),
     );
   }
 
@@ -355,7 +357,7 @@ void main() {
         find.text(change == 'account' ? _obsolete : _forbidden),
         findsOneWidget,
       );
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
   }
 
   testWidgets('reply refresh cannot remove a replacement account post', (
@@ -380,7 +382,7 @@ void main() {
     expect(controller.currentTopic?.stream, contains(2));
     expect(find.text(_obsolete), findsOneWidget);
     expect(find.byKey(_dialogKey), findsOneWidget);
-  });
+  }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 }
 
 Future<ShellController> _openTopic(

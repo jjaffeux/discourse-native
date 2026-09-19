@@ -927,7 +927,7 @@ void main() {
       );
       expect(tester.widget<AvatarImage>(logo).fit, BoxFit.contain);
       final clip = tester.widget<ClipRRect>(
-        find.ancestor(of: logo, matching: find.byType(ClipRRect)),
+        find.ancestor(of: logo, matching: find.byType(ClipRRect)).first,
       );
       expect(clip.borderRadius, BorderRadius.circular(8));
       expect(

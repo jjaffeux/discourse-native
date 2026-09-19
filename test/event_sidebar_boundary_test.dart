@@ -9,6 +9,7 @@ import 'package:discourse_native/src/plugins/discourse_events/discourse_events_m
 import 'package:discourse_native/src/plugins/discourse_events/event_directory.dart';
 import 'package:discourse_native/src/shell/instance_sidebar.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
+import 'package:flutter/foundation.dart' show TargetPlatform;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -176,7 +177,7 @@ void main() {
     controller.selectInstance(0);
     await tester.pumpAndSettle();
     expect(sidebarDestination('Upcoming events'), findsOneWidget);
-  });
+  }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
   testWidgets('the event link appears when site settings finish loading', (
     tester,
@@ -198,7 +199,7 @@ void main() {
       },
     );
     expect(sidebarDestination('Upcoming events'), findsOneWidget);
-  });
+  }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 }
 
 Map<String, Object> _query({bool mine = false}) => {

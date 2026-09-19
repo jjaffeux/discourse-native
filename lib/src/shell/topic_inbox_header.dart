@@ -333,18 +333,21 @@ class TopicCloseButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final content =
-        ShellScope.read(context).topicListContent?.isMessages == true
+    final controller = ShellScope.read(context);
+    final content = controller.topicListContent?.isMessages == true
         ? 'message'
         : 'topic';
     return DButton.iconOnly(
       key: const ValueKey('topic-close-reader'),
       icon: DIcon(backToList ? DIcons.arrowLeft : DNativeIcons.closeTopicPane),
-      tooltip: backToList ? 'Back to $content list' : 'Collapse $content',
+      tooltip: controller.mobileNavigationEnabled
+          ? 'Back'
+          : backToList
+          ? 'Back to $content list'
+          : 'Collapse $content',
       variant: DButtonVariant.transparentBackground,
       size: DButtonSize.regular,
       onPressed: () {
-        final controller = ShellScope.read(context);
         if (controller.topicListContent != null) {
           controller.closeTopicListReader();
         } else {

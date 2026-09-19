@@ -179,6 +179,7 @@ void main() {
       expect(api.writes, isEmpty);
       expect(shell.currentTopic?.closed, isTrue);
     },
+    variant: TargetPlatformVariant.only(TargetPlatform.linux),
   );
 
   for (final destination in ['topic', 'forum']) {

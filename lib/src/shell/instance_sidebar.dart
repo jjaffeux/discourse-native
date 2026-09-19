@@ -148,10 +148,16 @@ class InstanceSidebar extends StatelessWidget {
     super.key,
     this.showUserMenu = false,
     this.sectionStore,
+    this.mobile = false,
+    this.panelOwner,
   });
 
   final bool showUserMenu;
   final SidebarSectionStore? sectionStore;
+
+  /// Mobile roots own their header and select sidebar modes in the bottom bar.
+  final bool mobile;
+  final String? panelOwner;
 
   @override
   Widget build(BuildContext context) => ForumSidebarTheme(
@@ -210,11 +216,15 @@ class InstanceSidebar extends StatelessWidget {
             mobileBreakpoint: 0,
             open: true,
             child: SafeArea(
+              top: !mobile,
+              bottom: !mobile,
               left: false,
               child: _SidebarPanelBody(
                 sidebar: sidebar,
                 width: constraints.maxWidth,
                 showUserMenu: showUserMenu,
+                mobile: mobile,
+                panelOwner: panelOwner,
                 sectionStore:
                     sectionStore ?? ShellScope.read(context).sidebarSections,
               ),
@@ -232,12 +242,16 @@ class _SidebarPanelBody extends StatefulWidget {
     required this.width,
     required this.showUserMenu,
     required this.sectionStore,
+    required this.mobile,
+    required this.panelOwner,
   });
 
   final _SidebarSnapshot sidebar;
   final double width;
   final bool showUserMenu;
   final SidebarSectionStore sectionStore;
+  final bool mobile;
+  final String? panelOwner;
 
   @override
   State<_SidebarPanelBody> createState() => _SidebarPanelBodyState();
@@ -297,6 +311,7 @@ class _SidebarPanelBodyState extends State<_SidebarPanelBody> {
       _navigation = navigation;
       _selectedOwner = routedPanel?.owner.value;
     }
+    if (widget.mobile) _selectedOwner = widget.panelOwner;
     final selectedPanel = panels
         .where((panel) => panel.owner.value == _selectedOwner)
         .firstOrNull;
@@ -304,6 +319,11 @@ class _SidebarPanelBodyState extends State<_SidebarPanelBody> {
     if (selectedPanel == null) _selectedOwner = null;
     final activePanel = selectedPanel;
     final showCoreSections = activePanel == null;
+
+    if (activePanel?.panel.mobileBuilder case final builder?
+        when widget.mobile) {
+      return PluginUiScope.own(activePanel!.owner, Builder(builder: builder));
+    }
 
     bool includePluginOwner(PluginId owner) {
       if (activePanel case final active?) return owner == active.owner;
@@ -314,30 +334,33 @@ class _SidebarPanelBodyState extends State<_SidebarPanelBody> {
       width: width,
       collapsible: DSidebarCollapsible.none,
       semanticLabel: '${activePanel?.panel.label ?? 'Forum'} navigation',
-      header: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          if (showUserMenu) const _SidebarUserHeader(),
-          DSidebarHeader(
-            padding: const EdgeInsets.fromLTRB(8, 8, 8, 0),
-            child: _ForumIdentityHeader(
-              siteUrl: sidebar.siteUrl!,
-              name: sidebar.name!,
-              iconUrl: sidebar.iconUrl,
-              monogram: sidebar.monogram!,
-              accentColor: sidebar.accentColor!,
+      header: widget.mobile
+          ? null
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if (showUserMenu) const _SidebarUserHeader(),
+                DSidebarHeader(
+                  padding: const EdgeInsets.fromLTRB(8, 8, 8, 0),
+                  child: ForumIdentityHeader(
+                    siteUrl: sidebar.siteUrl!,
+                    name: sidebar.name!,
+                    iconUrl: sidebar.iconUrl,
+                    monogram: sidebar.monogram!,
+                    accentColor: sidebar.accentColor!,
+                  ),
+                ),
+                if (panels.any((panel) => panel.panel.showSwitch))
+                  DSidebarHeader(
+                    child: _SidebarPanelTabs(
+                      panels: panels,
+                      selectedPanel: selectedPanel,
+                      onSelected: (owner) =>
+                          setState(() => _selectedOwner = owner),
+                    ),
+                  ),
+              ],
             ),
-          ),
-          if (panels.any((panel) => panel.panel.showSwitch))
-            DSidebarHeader(
-              child: _SidebarPanelTabs(
-                panels: panels,
-                selectedPanel: selectedPanel,
-                onSelected: (owner) => setState(() => _selectedOwner = owner),
-              ),
-            ),
-        ],
-      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -611,19 +634,22 @@ class _SidebarUserHeader extends StatelessWidget {
   }
 }
 
-class _ForumIdentityHeader extends StatelessWidget {
-  const _ForumIdentityHeader({
+class ForumIdentityHeader extends StatelessWidget {
+  const ForumIdentityHeader({
+    super.key,
     required this.siteUrl,
     required this.name,
     required this.iconUrl,
     required this.monogram,
     required this.accentColor,
+    this.compact = false,
   });
   final String siteUrl;
   final String name;
   final String? iconUrl;
   final String monogram;
   final Color accentColor;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
@@ -698,16 +724,17 @@ class _ForumIdentityHeader extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(name, maxLines: 1, overflow: TextOverflow.ellipsis),
-                    Text(
-                      siteUrl.replaceFirst(RegExp(r'^https?://'), ''),
-                      key: const ValueKey('forum-identity-url'),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: DiscourseTypography.xs,
-                        height: 16 / 12,
+                    if (!compact)
+                      Text(
+                        siteUrl.replaceFirst(RegExp(r'^https?://'), ''),
+                        key: const ValueKey('forum-identity-url'),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: DiscourseTypography.xs,
+                          height: 16 / 12,
+                        ),
                       ),
-                    ),
                   ],
                 ),
               ),

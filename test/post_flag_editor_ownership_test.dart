@@ -123,6 +123,7 @@ void main() {
             ]);
             expect(find.byType(PostFlagEditor), findsNothing);
           },
+          variant: TargetPlatformVariant.only(TargetPlatform.linux),
         );
       }
 
@@ -184,6 +185,7 @@ void main() {
               );
             }
           },
+          variant: TargetPlatformVariant.only(TargetPlatform.linux),
         );
       }
     }
