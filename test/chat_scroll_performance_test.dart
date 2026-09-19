@@ -250,10 +250,7 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    expect(
-      find.byType(DBubble),
-      layouts.currentValue!.directMessage ? findsWidgets : findsNothing,
-    );
+    expect(find.byType(DBubble), findsWidgets);
     final scrollable = find.descendant(
       of: find.byType(ChatMessageStream),
       matching: find.byWidgetPredicate(
@@ -360,7 +357,7 @@ void main() {
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     final controller = await chatScrollController(
-      count: 16,
+      count: 14,
       directMessage: true,
     );
     final capture = topicScrollCaptureWithoutVm();
@@ -386,7 +383,7 @@ void main() {
     final secondDay = ValueKey(('chat-floating-day', DateTime(2026, 8, 2)));
     expect(find.byKey(firstDay), findsOneWidget);
     capture.start();
-    final original = controller.chat.messageRef(chatScrollSite, 16).value!;
+    final original = controller.chat.messageRef(chatScrollSite, 14).value!;
     controller.chatRecords.put(
       chatScrollSite,
       ChatMessage(

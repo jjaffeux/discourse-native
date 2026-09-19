@@ -50,8 +50,51 @@ void main() {
   const firstSite = 'https://one.example';
   const secondSite = 'https://two.example';
 
+  for (final target in const <ChatStreamTarget>[
+    ChatChannelTarget(9),
+    ChatThreadTarget(channelId: 9, threadId: 3),
+  ]) {
+    testWidgets('transcript $target is always centered at a maximum of 825px', (
+      tester,
+    ) async {
+      final controller = await _controller(
+        _ChatApi(openPages: const {}),
+        sites: const [firstSite],
+      );
+      addTearDown(controller.dispose);
+      final messages = [_message(1)];
+      controller.chatRecords
+        ..put(firstSite, _channel(lastRead: 1))
+        ..putAll(firstSite, messages);
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      for (final width in [1200.0, 600.0]) {
+        await tester.binding.setSurfaceSize(Size(width, 600));
+        await tester.pumpWidget(
+          _TestStreamView(
+            controller: controller,
+            messages: messages,
+            target: target,
+            stream: const ChatStreamState(
+              messageIds: [1],
+              fetchedOnce: true,
+              fetches: 1,
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        final row = tester.getRect(find.byType(ChatMessageTile));
+        expect(row.width, width > 825 ? 825 : width);
+        expect(row.center.dx, width / 2);
+        expect(tester.getSize(find.byType(SuperListView)).width, width);
+        expect(tester.takeException(), isNull);
+      }
+    });
+  }
+
   group('DM sender groups', () {
-    testWidgets('compact rows share one avatar after the last bubble', (
+    testWidgets('compact rows show the avatar on the first bubble', (
       tester,
     ) async {
       final api = _ChatApi(
@@ -77,7 +120,7 @@ void main() {
       for (final bubble in find.byType(DBubbleContent).evaluate()) {
         expect(
           tester.getSize(find.byWidget(bubble.widget)).width,
-          lessThan(200),
+          lessThan(240),
         );
       }
       final tiles = find.byType(ChatMessageTile);
@@ -99,8 +142,7 @@ void main() {
         );
         expect(
           tester.getTopLeft(next).dy - tester.getBottomLeft(current).dy,
-          // Each row now centers its bubble between half of its own gap.
-          closeTo(id == 1 ? (DSpacing.lg + DSpacing.sm) / 2 : DSpacing.sm, .01),
+          closeTo(4, .01),
         );
       }
     });
@@ -155,9 +197,7 @@ void main() {
               of: find.byKey(ValueKey('chat-message-$id')),
               matching: find.byType(ChatUserAvatar),
             ),
-            id == 1 && platform == TargetPlatform.macOS
-                ? findsNothing
-                : findsOneWidget,
+            findsOneWidget,
           );
         }
         expect(
@@ -173,10 +213,7 @@ void main() {
             matching: find.byType(DBubbleContent),
           ),
         );
-        expect(
-          reactions.top - bubble.bottom,
-          closeTo(platform == TargetPlatform.macOS ? 4 : 10, .01),
-        );
+        expect(reactions.top - bubble.bottom, closeTo(4, .01));
         if (platform == TargetPlatform.macOS) {
           final nextRow = tester.getRect(
             find.descendant(
@@ -184,10 +221,7 @@ void main() {
               matching: find.byType(DMessage),
             ),
           );
-          expect(
-            nextRow.top - reactions.bottom,
-            closeTo((DSpacing.lg + DSpacing.xs) / 2, .01),
-          );
+          expect(nextRow.top - reactions.bottom, closeTo(16, .01));
         }
       });
     }
@@ -948,8 +982,11 @@ void main() {
         await tester.pumpWidget(_TestView(controller: controller));
         await tester.pumpAndSettle();
 
-        final icon = find.byWidgetPredicate(
-          (widget) => widget is DIcon && widget.icon == DIcons.chevronDown,
+        final icon = find.descendant(
+          of: find.bySemanticsLabel('Jump to latest messages'),
+          matching: find.byWidgetPredicate(
+            (widget) => widget is DIcon && widget.icon == DIcons.chevronDown,
+          ),
         );
         expect(icon, findsOneWidget);
         final target = find
@@ -1487,7 +1524,11 @@ void main() {
             addTearDown(mouse.removePointer);
             await mouse.moveTo(tester.getCenter(find.byType(ChatMessageTile)));
             await tester.pump();
-            await tester.tap(find.byTooltip('Reply'));
+            await tester.tap(
+              find.byTooltip('More message actions').hitTestable(),
+            );
+            await tester.pumpAndSettle();
+            await tester.tap(find.widgetWithText(DDropdownMenuItem, 'Reply'));
             await tester.pumpAndSettle();
 
             expect(
@@ -1581,11 +1622,17 @@ void main() {
         expect(replyActionFor(1), findsNothing);
         expect(replyActionFor(2), findsNothing);
 
+        controller.chatRecords.put(firstSite, _channel(lastRead: 0));
+        await tester.pump();
+        expect(replyActionFor(1), findsOneWidget);
+        expect(replyActionFor(2), findsOneWidget);
+
         final threadPreview = find.byKey(ChatMessageTile.threadPreviewKey(3));
-        expect(tester.widget<Semantics>(threadPreview).properties.link, isTrue);
-        await tester.tap(
-          find.descendant(of: threadPreview, matching: find.byType(InkWell)),
+        expect(
+          tester.widget<DBubbleContent>(threadPreview).action,
+          DBubbleContentAction.link,
         );
+        await tester.tap(threadPreview);
         await tester.pumpAndSettle();
 
         expect(controller.currentContent?.id, 'chat-c-9-t-3');
@@ -1681,51 +1728,64 @@ void main() {
     testWidgets(
       'scrolling hides message actions until the pointer moves again',
       (tester) async {
-        final api = _ChatApi(openPages: const {});
-        final controller = await _controller(api, sites: const [firstSite]);
-        addTearDown(controller.dispose);
-        final messages = [for (var id = 1; id <= 40; id++) _message(id)];
-        controller.chatRecords
-          ..put(firstSite, _channel(lastRead: 40))
-          ..putAll(firstSite, messages);
+        final semantics = tester.ensureSemantics();
+        try {
+          final api = _ChatApi(openPages: const {});
+          final controller = await _controller(api, sites: const [firstSite]);
+          addTearDown(controller.dispose);
+          final messages = [for (var id = 1; id <= 40; id++) _message(id)];
+          controller.chatRecords
+            ..put(firstSite, _channel(lastRead: 40))
+            ..putAll(firstSite, messages);
 
-        await tester.pumpWidget(
-          _TestStreamView(
-            controller: controller,
-            messages: messages,
-            stream: ChatStreamState(
-              messageIds: [for (final message in messages) message.id],
-              fetchedOnce: true,
-              fetches: 1,
+          await tester.pumpWidget(
+            _TestStreamView(
+              controller: controller,
+              theme: AppTheme.light.copyWith(platform: TargetPlatform.macOS),
+              messages: messages,
+              stream: ChatStreamState(
+                messageIds: [for (final message in messages) message.id],
+                fetchedOnce: true,
+                fetches: 1,
+              ),
             ),
-          ),
-        );
-        await tester.pumpAndSettle();
+          );
+          await tester.pumpAndSettle();
 
-        final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
-        await mouse.addPointer(location: Offset.zero);
-        addTearDown(mouse.removePointer);
-        final hoveredMessage = find.byType(ChatMessageTile).hitTestable().first;
-        final pointerPosition = tester.getCenter(hoveredMessage);
-        await mouse.moveTo(pointerPosition);
-        await tester.pump();
-        expect(find.byTooltip('More message actions'), findsOneWidget);
+          final mouse = await tester.createGesture(
+            kind: PointerDeviceKind.mouse,
+          );
+          await mouse.addPointer(location: Offset.zero);
+          addTearDown(mouse.removePointer);
+          final hoveredMessage = find
+              .byType(ChatMessageTile)
+              .hitTestable()
+              .first;
+          final pointerPosition = tester.getCenter(hoveredMessage);
+          await mouse.moveTo(pointerPosition);
+          await tester.pump();
+          expect(find.bySemanticsLabel('More message actions'), findsOneWidget);
 
-        final scroll = await tester.startGesture(pointerPosition);
-        await scroll.moveBy(const Offset(0, 200));
-        await tester.pump();
-        expect(find.byTooltip('More message actions'), findsNothing);
-        await mouse.moveBy(const Offset(0, 1));
-        await tester.pump();
-        expect(find.byTooltip('More message actions'), findsNothing);
+          final scroll = await tester.startGesture(pointerPosition);
+          await scroll.moveBy(const Offset(0, 200));
+          await tester.pump();
+          expect(find.bySemanticsLabel('More message actions'), findsNothing);
+          await mouse.moveBy(const Offset(0, 1));
+          await tester.pump();
+          expect(find.bySemanticsLabel('More message actions'), findsNothing);
 
-        await scroll.up();
-        await tester.pumpAndSettle();
-        expect(find.byTooltip('More message actions'), findsNothing);
+          await scroll.up();
+          await tester.pumpAndSettle();
+          expect(find.bySemanticsLabel('More message actions'), findsNothing);
 
-        await mouse.moveBy(const Offset(0, 1));
-        await tester.pump();
-        expect(find.byTooltip('More message actions'), findsOneWidget);
+          await mouse.moveTo(
+            tester.getCenter(find.byType(ChatMessageTile).hitTestable().last),
+          );
+          await tester.pump();
+          expect(find.bySemanticsLabel('More message actions'), findsOneWidget);
+        } finally {
+          semantics.dispose();
+        }
       },
     );
 

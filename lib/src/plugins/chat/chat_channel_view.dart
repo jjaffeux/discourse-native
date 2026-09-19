@@ -11,7 +11,6 @@ import '../../diagnostics/diagnostics.dart';
 import '../../foundation/frame_safe_notifier.dart';
 import '../../plugin_api/plugin_scope.dart';
 import '../../shell/adaptive_dialog_action.dart';
-import '../../shell/content_reading_lane.dart';
 import '../../shell/list_boundary_shortcuts.dart';
 import '../../shell/platform.dart';
 import '../../shell/stream_day_separator.dart';
@@ -271,7 +270,8 @@ class _ChatChannelBodyState extends State<_ChatChannelBody> {
         autofocus: widget.autofocusMessageStream,
       );
     } else if (stream.loading) {
-      content = const ContentReadingLaneBox(
+      content = const DPageReadingLaneBox(
+        limitContentSize: true,
         child: _ChatLoadingSkeleton(key: ValueKey('chat-loading-skeleton')),
       );
     } else if (stream.error case final error?) {
@@ -1376,7 +1376,10 @@ class _StreamState extends State<ChatMessageStream>
     final leading = _leadingRows;
     final lastRow = leading + items.length - 1;
 
-    return ContentReadingLane(
+    return DPageReadingLane(
+      // Chat keeps a readable, centered transcript independently of the forum's
+      // optional content-width preference. The scroll viewport stays full width.
+      limitContentSize: true,
       basePadding: _streamPadding,
       builder: (context, lane) => DMessageScrollerProvider(
         controller: _messageScroller,

@@ -171,6 +171,62 @@ void main() {
     expect(tester.getRect(find.byKey(const ValueKey('avatar'))).left, 0);
   });
 
+  testWidgets('separate footer leaves the avatar anchored to the bubble', (
+    tester,
+  ) async {
+    for (final align in DMessageAlign.values) {
+      for (final direction in TextDirection.values) {
+        await tester.pumpWidget(
+          host(
+            DMessage(
+              align: align,
+              footer: const SizedBox(height: 80, child: Text('Thread preview')),
+              children: [
+                const DMessageAvatar(
+                  child: SizedBox.square(
+                    key: ValueKey('avatar'),
+                    dimension: 32,
+                  ),
+                ),
+                DMessageContent(
+                  flushMetadata: true,
+                  children: [
+                    const DMessageHeader(
+                      followMessageAlignment: true,
+                      children: [Text('Sender and time')],
+                    ),
+                    DBubble(
+                      align: align == DMessageAlign.end
+                          ? DBubbleAlign.end
+                          : DBubbleAlign.start,
+                      children: const [
+                        DBubbleContent(
+                          key: ValueKey('surface'),
+                          child: Text('Message'),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ],
+            ),
+            direction: direction,
+          ),
+        );
+        final avatar = tester.getRect(find.byKey(const ValueKey('avatar')));
+        final bubble = tester.getRect(find.byKey(const ValueKey('surface')));
+        final header = tester.getRect(find.text('Sender and time'));
+        expect(avatar.bottom, bubble.bottom);
+        final rightAligned =
+            (align == DMessageAlign.end) == (direction == TextDirection.ltr);
+        expect(
+          rightAligned ? header.right : header.left,
+          rightAligned ? bubble.right : bubble.left,
+        );
+      }
+    }
+  });
+
   testWidgets('preserves direct-child order and intrinsic auxiliary width', (
     tester,
   ) async {

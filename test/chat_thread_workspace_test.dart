@@ -278,8 +278,14 @@ void main() {
             tester.widget<SuperListView>(channelStream).padding! as EdgeInsets;
         final threadPadding =
             tester.widget<SuperListView>(threadStream).padding! as EdgeInsets;
-        const channelInset = 0.0;
-        const threadInset = 0.0;
+        final channelInset = ((channelWidth - 825) / 2).clamp(
+          0.0,
+          double.infinity,
+        );
+        final threadInset = ((threadWidth - 825) / 2).clamp(
+          0.0,
+          double.infinity,
+        );
         expect(tester.getSize(channelStream).width, channelWidth);
         expect(tester.getSize(threadStream).width, threadWidth);
         expect(channelPadding.left, closeTo(channelInset, 0.001));

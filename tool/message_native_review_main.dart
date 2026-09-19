@@ -160,7 +160,7 @@ final _directMessages = [
     'Consecutive messages now sit close together.',
     'Each bubble still has its own actions.',
     'Short replies work too.',
-    'One avatar and timestamp finish the group.',
+    'One avatar and timestamp start the group.',
   ].indexed)
     ChatMessage(
       id: 202 + index,
@@ -235,7 +235,7 @@ class _MessageNativeReviewAppState extends State<_MessageNativeReviewApp> {
   var largeText = false;
   var rtl = false;
   var reducedMotion = false;
-  var showProduction = false;
+  var showProduction = true;
   var showDirectMessages = false;
   var showDropdownExample = false;
   var groupDirectMessages = true;
@@ -272,20 +272,27 @@ class _MessageNativeReviewAppState extends State<_MessageNativeReviewApp> {
             : AppTheme.light,
         home: Builder(
           builder: (context) => Scaffold(
-            appBar: AppBar(
-              title: const Text('Message Review 8953'),
-              actions: [
-                IconButton(
-                  tooltip: 'Scroll preview up',
-                  onPressed: () => _scrollBy(-500),
-                  icon: const Icon(Icons.arrow_upward),
+            appBar: PreferredSize(
+              preferredSize: const Size.fromHeight(56),
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Row(
+                  spacing: DSpacing.controlGap,
+                  children: [
+                    const Expanded(child: Text('Chat conversation review')),
+                    DButton.iconOnly(
+                      tooltip: 'Scroll preview up',
+                      onPressed: () => _scrollBy(-500),
+                      icon: const Icon(Icons.arrow_upward),
+                    ),
+                    DButton.iconOnly(
+                      tooltip: 'Scroll preview down',
+                      onPressed: () => _scrollBy(500),
+                      icon: const Icon(Icons.arrow_downward),
+                    ),
+                  ],
                 ),
-                IconButton(
-                  tooltip: 'Scroll preview down',
-                  onPressed: () => _scrollBy(500),
-                  icon: const Icon(Icons.arrow_downward),
-                ),
-              ],
+              ),
             ),
             body: ListView(
               controller: _scrollController,
@@ -334,7 +341,7 @@ class _MessageNativeReviewAppState extends State<_MessageNativeReviewApp> {
                 const SizedBox(height: 24),
                 Center(
                   child: SizedBox(
-                    width: narrow ? 360 : 640,
+                    width: narrow ? 360 : 825,
                     child: MediaQuery(
                       data: MediaQuery.of(context).copyWith(
                         textScaler: TextScaler.linear(largeText ? 2 : 1),
