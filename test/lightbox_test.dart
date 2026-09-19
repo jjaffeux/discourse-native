@@ -6,6 +6,7 @@ import 'package:discourse_native/src/shell/lightbox.dart';
 import 'package:discourse_native/src/shell/site_image.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
@@ -896,6 +897,34 @@ void main() {
       expect(downloader.siteUrl, 'https://meta.discourse.org');
       expect(downloader.calls, 1);
       expect(find.text('Saved screenshot.png.'), findsOneWidget);
+    });
+
+    testWidgets('toolbar clears macOS chrome and stays outside the image', (
+      tester,
+    ) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+      await pumpGallery(
+        tester,
+        images: LightboxImage.galleryFor(anchorIn(threeImages)),
+      );
+      final counter = find.text('1 / 3');
+      final toolbar = find.byType(DCard);
+      final imageViewport = tester.getRect(find.byType(PageView));
+      expect(tester.getRect(counter).left, greaterThanOrEqualTo(88));
+      expect(
+        tester.getRect(toolbar).bottom,
+        lessThanOrEqualTo(imageViewport.top),
+      );
+      final context = tester.element(counter);
+      expect(
+        tester.widget<Text>(counter).style!.color,
+        DTokens.of(context).foreground,
+      );
+      await tester.tap(galleryButton('Zoom in'));
+      await tester.pump();
+      expect(tester.getRect(find.byType(PageView)), imageViewport);
+      expect(tester.takeException(), isNull);
+      debugDefaultTargetPlatformOverride = null;
     });
 
     testWidgets('puts top controls on dark surfaces', (tester) async {
