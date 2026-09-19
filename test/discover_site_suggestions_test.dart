@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/data/discover_sites.dart';
+import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/shell/add_instance_sheet.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
@@ -117,7 +118,7 @@ void main() {
   );
 
   testWidgets(
-    'selection fills the address and connects through the existing lookup',
+    'clicking a suggestion connects immediately without a selected state',
     (tester) async {
       var fetches = 0;
       final source = DiscoverSites(
@@ -126,13 +127,14 @@ void main() {
           return batch();
         }),
       );
-      final api = FakeDiscourseApi(
-        results: {'https://community1.example': instance('community1.example')},
-      );
+      final api = _GatedLookupApi();
       final controller = await open(tester, source, api: api);
       await tester.pumpAndSettle();
       await tester.tap(find.text('Community 1'));
       await tester.pump();
+      expect(api.lookups, ['https://community1.example']);
+      expect(tester.widget<DInput>(find.byType(DInput)).enabled, isFalse);
+      expect(find.byKey(const ValueKey('add-site-valid')), findsNothing);
       expect(
         tester.widget<EditableText>(find.byType(EditableText)).controller.text,
         'https://community1.example',
@@ -145,10 +147,16 @@ void main() {
               ),
             )
             .selected,
-        isTrue,
+        isFalse,
       );
-      await tester.tap(find.text('Connect'));
+      await tester.tap(find.text('Community 2'));
+      await tester.pump(addInstanceLookupDebounce);
+      expect(api.lookups, ['https://community1.example']);
+      api.lookupGate.complete();
+      await tester.pump();
+      expect(find.byKey(const ValueKey('add-site-valid')), findsNothing);
       await tester.pumpAndSettle();
+      expect(find.byType(DDialogContent), findsNothing);
       expect(api.lookups, ['https://community1.example']);
       expect(
         controller.instances.any(
@@ -165,6 +173,37 @@ void main() {
       expect(find.byType(DItem), findsNWidgets(10));
     },
   );
+
+  testWidgets('a failed connection leaves suggestions available to retry', (
+    tester,
+  ) async {
+    final source = DiscoverSites(client: MockClient((_) async => batch()));
+    final api = FakeDiscourseApi(results: {});
+    final controller = await open(tester, source, api: api);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Community 1'));
+    await tester.pumpAndSettle();
+    expect(api.lookups, ['https://community1.example']);
+    expect(tester.widget<DInput>(find.byType(DInput)).errorText, isNotEmpty);
+    expect(tester.widget<DInput>(find.byType(DInput)).enabled, isTrue);
+    expect(
+      tester
+          .widgetList<DItem>(find.byType(DItem))
+          .every((item) => item.enabled && !item.selected),
+      isTrue,
+    );
+
+    api.results['https://community1.example'] = instance('community1.example');
+    await tester.tap(find.text('Community 1'));
+    await tester.pumpAndSettle();
+    expect(api.lookups, [
+      'https://community1.example',
+      'https://community1.example',
+    ]);
+    expect(controller.contains('https://community1.example'), isTrue);
+    expect(find.byType(DDialogContent), findsNothing);
+  });
 
   testWidgets('failure can be retried and dismissal ignores late results', (
     tester,
@@ -223,5 +262,16 @@ void main() {
         expect(tester.takeException(), isNull);
       },
     );
+  }
+}
+
+class _GatedLookupApi extends FakeDiscourseApi {
+  final lookupGate = Completer<void>();
+
+  @override
+  Future<DiscourseInstance> lookup(String term) async {
+    lookups.add(term);
+    await lookupGate.future;
+    return instance('community1.example');
   }
 }
