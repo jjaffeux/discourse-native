@@ -40,7 +40,6 @@ import 'preferences_page.dart';
 import 'resizable_pane.dart';
 import 'shell_controller.dart';
 import 'shell_metrics.dart';
-import 'shell_panel.dart';
 import 'shell_scope.dart';
 import 'tags_page.dart';
 import 'title_bar.dart';
@@ -228,45 +227,47 @@ class _MainContentBody extends StatelessWidget {
       color: theme.shell.content,
       child: SafeArea(
         left: false,
-        child: Column(
-          children: [
-            if (forumTabsEnabled) const TopicPanelTabs(),
-            if (!pluginOwnsChrome &&
-                !route.isTopic &&
-                !(usesTopicToolbar && ShellTitleBar.isSupported))
-              _ContentHeader(
-                layout: layout,
-                route: route,
-                siteUrl: state.siteUrl,
-                canPop: state.canPop,
-                showCreateTopicAction:
-                    pluginContent == null && !usesTopicToolbar,
-                searchOnly: usesTopicToolbar,
-                isConnected: state.isConnected,
-                registry: registry,
-                groupPages: groupPages,
-              ),
-            Expanded(
-              child: KeyedSubtree(
-                key: contentKey,
-                child: _ContentViewport(
+        child: DPageSurface(
+          identity: contentKey,
+          hideHeaderOnScroll: route.isTopicList || route.isTopic,
+          framed: !context.isTouch && !pluginOwnsChrome,
+          limitContentSize: ContentSettingsScope.limitContentSizeOf(context),
+          tabs: forumTabsEnabled ? const TopicPanelTabs() : null,
+          header:
+              !pluginOwnsChrome &&
+                  !route.isTopic &&
+                  !(usesTopicToolbar && ShellTitleBar.isSupported)
+              ? _ContentHeader(
                   layout: layout,
                   route: route,
                   siteUrl: state.siteUrl,
+                  canPop: state.canPop,
+                  showCreateTopicAction:
+                      pluginContent == null && !usesTopicToolbar,
+                  searchOnly: usesTopicToolbar,
                   isConnected: state.isConnected,
-                  canReply: state.canReply,
-                  bookmarkBusy: state.bookmarkBusy,
                   registry: registry,
-                  pluginContent: pluginContent,
-                  filterCategories: state.filterCategories,
-                  categoryFeed: state.categoryFeed,
                   groupPages: groupPages,
-                  groupPagesPort: groupPagesPort,
-                  topicListActions: topicListActions,
-                ),
-              ),
+                )
+              : null,
+          child: KeyedSubtree(
+            key: contentKey,
+            child: _ContentViewport(
+              layout: layout,
+              route: route,
+              siteUrl: state.siteUrl,
+              isConnected: state.isConnected,
+              canReply: state.canReply,
+              bookmarkBusy: state.bookmarkBusy,
+              registry: registry,
+              pluginContent: pluginContent,
+              filterCategories: state.filterCategories,
+              categoryFeed: state.categoryFeed,
+              groupPages: groupPages,
+              groupPagesPort: groupPagesPort,
+              topicListActions: topicListActions,
             ),
-          ],
+          ),
         ),
       ),
     );
@@ -505,60 +506,58 @@ class _TopicInboxWorkspaceState extends State<_TopicInboxWorkspace> {
                       dividerWidth: 1,
                       gap: context.isTouch ? 0 : workspacePanelGap,
                       handleWidth: context.isTouch ? 2 : workspacePanelGap,
-                      child: WorkspacePanel(
-                        child: _RetainedTopicListPane(
-                          key: ValueKey((
-                            state.siteUrl,
-                            controller.currentAccountIdentity,
-                            controller.desktopTopicTabs
-                                ? controller.listPanelTab?.id
-                                : controller.activeTabId,
-                          )),
-                          hidden: topicOpen && !split,
-                          child: Column(
-                            children: [
-                              if (!topicOpen || split)
-                                TopicPanelTabs(
+                      child: _RetainedTopicListPane(
+                        key: ValueKey((
+                          state.siteUrl,
+                          controller.currentAccountIdentity,
+                          controller.desktopTopicTabs
+                              ? controller.listPanelTab?.id
+                              : controller.activeTabId,
+                        )),
+                        hidden: topicOpen && !split,
+                        child: DPageSurface(
+                          framed: !context.isTouch,
+                          limitContentSize:
+                              ContentSettingsScope.limitContentSizeOf(context),
+                          tabs: !topicOpen || split
+                              ? TopicPanelTabs(
                                   reading: split ? false : null,
                                   split: split,
-                                ),
-                              Expanded(
-                                child: _FeedBackedContent(
-                                  route: sourceRoute,
-                                  siteUrl: state.siteUrl,
-                                  inbox: true,
-                                  keepTopicOpen: split,
-                                  topicListHeadingBuilder: buildHeading,
-                                ),
-                              ),
-                              TopicListBottomBar(
-                                leading: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Flexible(child: createAction),
-                                    if (state.isConnected &&
-                                        state.siteUrl != null &&
-                                        sourceRoute.categoryId != null) ...[
-                                      const SizedBox(width: DSpacing.sm),
-                                      CategoryNotificationLevelButton(
-                                        siteUrl: state.siteUrl!,
-                                        categoryId: sourceRoute.categoryId!,
-                                        showLabel:
-                                            listWidth >= 440 * buttonTextScale,
-                                      ),
-                                    ],
-                                  ],
-                                ),
-                                // The footer padding already clears the desktop handle.
-                                trailingInset: split
-                                    ? DResizableHandle.resolveHitExtent(
-                                            context,
-                                            8,
-                                          ) -
-                                          topicBottomBarPadding.horizontal / 2
-                                    : 0,
-                              ),
-                            ],
+                                )
+                              : null,
+                          footer: TopicListBottomBar(
+                            leading: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Flexible(child: createAction),
+                                if (state.isConnected &&
+                                    state.siteUrl != null &&
+                                    sourceRoute.categoryId != null) ...[
+                                  const SizedBox(width: DSpacing.sm),
+                                  CategoryNotificationLevelButton(
+                                    siteUrl: state.siteUrl!,
+                                    categoryId: sourceRoute.categoryId!,
+                                    showLabel:
+                                        listWidth >= 440 * buttonTextScale,
+                                  ),
+                                ],
+                              ],
+                            ),
+                            // The footer padding already clears the desktop handle.
+                            trailingInset: split
+                                ? DResizableHandle.resolveHitExtent(
+                                        context,
+                                        8,
+                                      ) -
+                                      topicBottomBarPadding.horizontal / 2
+                                : 0,
+                          ),
+                          child: _FeedBackedContent(
+                            route: sourceRoute,
+                            siteUrl: state.siteUrl,
+                            inbox: true,
+                            keepTopicOpen: split,
+                            topicListHeadingBuilder: buildHeading,
                           ),
                         ),
                       ),
@@ -571,30 +570,27 @@ class _TopicInboxWorkspaceState extends State<_TopicInboxWorkspace> {
                       end: split && readerOnLeft ? listWidth : 0,
                       top: 0,
                       bottom: 0,
-                      child: WorkspacePanel(
-                        child: Column(
-                          children: [
-                            TopicPanelTabs(
-                              reading: split ? true : null,
-                              split: split,
-                            ),
-                            Expanded(
-                              child: DesktopTopicPage(
-                                sourceListVisible: split,
-                                child: TopicView(
-                                  key: ValueKey(state.route!.topicId),
-                                  inbox: true,
-                                  keepTopicListOpen: split,
-                                  route: state.route!,
-                                  canReturnToSidebar: layout.isCompact,
-                                  canReply: state.canReply,
-                                  bookmarkBusy: state.bookmarkBusy,
-                                  isConnected: state.isConnected,
-                                  registry: registry,
-                                ),
-                              ),
-                            ),
-                          ],
+                      child: DPageSurface(
+                        framed: !context.isTouch,
+                        limitContentSize:
+                            ContentSettingsScope.limitContentSizeOf(context),
+                        tabs: TopicPanelTabs(
+                          reading: split ? true : null,
+                          split: split,
+                        ),
+                        child: DesktopTopicPage(
+                          sourceListVisible: split,
+                          child: TopicView(
+                            key: ValueKey(state.route!.topicId),
+                            inbox: true,
+                            keepTopicListOpen: split,
+                            route: state.route!,
+                            canReturnToSidebar: layout.isCompact,
+                            canReply: state.canReply,
+                            bookmarkBusy: state.bookmarkBusy,
+                            isConnected: state.isConnected,
+                            registry: registry,
+                          ),
                         ),
                       ),
                     ),

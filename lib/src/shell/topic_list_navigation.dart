@@ -9,7 +9,6 @@ import '../models/topic.dart';
 import '../theme/d_icons.dart';
 import 'content_reading_lane.dart';
 import 'platform.dart';
-import 'scroll_retracting_header.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';
 import 'topic_list_filter_bar.dart';
@@ -128,7 +127,9 @@ class TopicListNavigation extends StatelessWidget {
             stacked: stacked,
             keepTopicOpen: keepTopicOpen,
           );
-          return ScrollRetractingHeader(
+          return DPageSurface(
+            hideHeaderOnScroll: true,
+            framed: false,
             identity: state.filterOwner,
             header: constraints.maxHeight < 320
                 ? ConstrainedBox(

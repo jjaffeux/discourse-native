@@ -87,6 +87,9 @@ class TopicPanelTabs extends StatelessWidget {
     final shell = ShellScope.of(context);
     if (context.isTouch) return const SizedBox.shrink();
     final preferences = TopicPresentationPreferences.maybeControllerOf(context);
+    final route = shell.currentContent;
+    final showTopicControls =
+        route != null && (route.isTopicList || route.isTopic);
     return Padding(
       padding: workspaceTabsPadding,
       child: Row(
@@ -96,9 +99,9 @@ class TopicPanelTabs extends StatelessWidget {
                 ? CurrentForumTabsBar(reading: reading)
                 : const SizedBox.shrink(),
           ),
-          if (reading != true && preferences != null && !context.isTouch)
+          if (showTopicControls && reading != true && preferences != null)
             const TopicPresentationButton(),
-          if (split && preferences != null) ...[
+          if (showTopicControls && split && preferences != null) ...[
             if (reading != true) const SizedBox(width: DSpacing.controlGap),
             DButton.iconOnly(
               key: ValueKey(

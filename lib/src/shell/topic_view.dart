@@ -39,7 +39,6 @@ import 'post_revision_history.dart';
 import 'post_text_selection.dart';
 import 'progressive_html_mode.dart';
 import 'relative_time.dart';
-import 'scroll_retracting_header.dart';
 import 'shell_controller.dart';
 import 'shell_metrics.dart';
 import 'shell_scope.dart';
@@ -2328,7 +2327,9 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
                   registry: widget.registry,
                   bodyBuilder: buildBody,
                 )
-              : ScrollRetractingHeader(
+              : DPageSurface(
+                  hideHeaderOnScroll: true,
+                  framed: false,
                   identity: (siteUrl, snapshot.topicId, _scroll),
                   header: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,

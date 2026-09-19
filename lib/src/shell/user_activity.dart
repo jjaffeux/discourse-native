@@ -152,10 +152,10 @@ class _ActivityList extends StatelessWidget {
           padding: lane.padding,
           itemCount: feed.items.length + (hasFooter ? 1 : 0),
           separatorBuilder: (context, index) => index < feed.items.length - 1
-              ? Center(
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 1000),
-                    child: const DSeparator(space: 1),
+              ? const Center(
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: DSeparator(space: 1),
                   ),
                 )
               : const SizedBox.shrink(),
@@ -163,8 +163,8 @@ class _ActivityList extends StatelessWidget {
             if (index < feed.items.length) {
               final item = feed.items[index];
               return Center(
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 1000),
+                child: SizedBox(
+                  width: double.infinity,
                   child: UserActivityRow(
                     siteUrl: siteUrl,
                     item: item,
@@ -384,8 +384,8 @@ class _LoadMoreError extends StatelessWidget {
   final VoidCallback onRetry;
   @override
   Widget build(BuildContext context) => Center(
-    child: ConstrainedBox(
-      constraints: const BoxConstraints(maxWidth: 1000),
+    child: SizedBox(
+      width: double.infinity,
       child: Padding(
         padding: const EdgeInsets.only(top: 12),
         child: DAlert(
@@ -420,7 +420,10 @@ class _ActivityLoadingSkeleton extends StatelessWidget {
         separatorBuilder: (context, index) => const DSeparator(space: 1),
         itemBuilder: (context, index) => Center(
           child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 976, minHeight: 112),
+            constraints: const BoxConstraints(
+              minWidth: double.infinity,
+              minHeight: 112,
+            ),
             child: Padding(
               padding: const EdgeInsets.symmetric(vertical: 18),
               child: Row(

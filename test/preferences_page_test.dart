@@ -199,7 +199,7 @@ void main() {
     });
 
     testWidgets(
-      'compact form stays centered with either content size setting',
+      'compact form fills the available reading lane with either size setting',
       (tester) async {
         final previousPlatform = debugDefaultTargetPlatformOverride;
         debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
@@ -213,16 +213,16 @@ void main() {
             )),
           );
 
-          expect(tester.getSize(form).width, 680);
-          expect(tester.getTopLeft(form).dx, 30);
+          expect(tester.getSize(form).width, 708);
+          expect(tester.getTopLeft(form).dx, 16);
 
           await fixture.shell.appSettings.setLimitContentSize(false);
           await tester.pump();
-          expect(tester.getTopLeft(form).dx, 30);
+          expect(tester.getTopLeft(form).dx, 16);
 
           await fixture.shell.appSettings.setLimitContentSize(true);
           await tester.pump();
-          expect(tester.getTopLeft(form).dx, 30);
+          expect(tester.getTopLeft(form).dx, 16);
         } finally {
           debugDefaultTargetPlatformOverride = previousPlatform;
         }

@@ -56,7 +56,7 @@ class _MessageListNavigation extends StatelessWidget {
             constraints: const BoxConstraints(minHeight: 38),
             child: Padding(
               padding: const EdgeInsets.symmetric(
-                horizontal: topicListHorizontalPadding,
+                horizontal: DSpacing.lg,
                 vertical: 8,
               ),
               child: Align(

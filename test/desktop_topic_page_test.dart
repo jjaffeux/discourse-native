@@ -83,6 +83,53 @@ void main() {
   );
 
   testWidgets(
+    'topic layout controls are absent from other pages while tabs remain',
+    (tester) async {
+      final h = await _setup(tester);
+      final options = find.byKey(const ValueKey('topic-view-options'));
+      expect(options, findsOneWidget);
+      for (final id in ['users', 'drafts', 'upcoming-events', 'groups']) {
+        h.shell.selectDestination(
+          SidebarDestination(id: id, label: id, icon: DIcons.folder),
+        );
+        await tester.pumpAndSettle();
+        expect(find.byKey(const ValueKey('forum-tabs-bar')), findsOneWidget);
+        expect(options, findsNothing, reason: id);
+        expect(
+          find.byKey(const ValueKey('swap-topic-panels-list')),
+          findsNothing,
+        );
+        expect(
+          find.byKey(const ValueKey('swap-topic-panels-reader')),
+          findsNothing,
+        );
+      }
+      h.shell.selectDestination(
+        const SidebarDestination(
+          id: 'latest',
+          label: 'Latest',
+          icon: DIcons.folder,
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(options, findsOneWidget);
+      h.shell.openTopicFromList(h.topics.first);
+      await tester.pumpAndSettle();
+      expect(options, findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('swap-topic-panels-list')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('swap-topic-panels-reader')),
+        findsOneWidget,
+      );
+      expect(tester.takeException(), isNull);
+    },
+    variant: TargetPlatformVariant.only(TargetPlatform.macOS),
+  );
+
+  testWidgets(
     'beside-list cards preserve the saved mode across presentation changes',
     (tester) async {
       final h = await _setup(tester, size: const Size(1800, 1000));

@@ -1,5 +1,4 @@
 import 'package:discourse_native/discourse_ui.dart';
-import 'package:discourse_native/src/shell/scroll_retracting_header.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -20,7 +19,9 @@ Future<void> _mount(
       home: MediaQuery(
         data: MediaQueryData(disableAnimations: reducedMotion),
         child: Scaffold(
-          body: ScrollRetractingHeader(
+          body: DPageSurface(
+            hideHeaderOnScroll: true,
+            framed: false,
             identity: identity,
             header: SizedBox(
               key: _header,

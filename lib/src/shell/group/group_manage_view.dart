@@ -183,8 +183,8 @@ class _GroupManageFormState extends State<_GroupManageForm> {
                 children: [
                   Align(
                     alignment: lane.alignment,
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 760),
+                    child: SizedBox(
+                      width: double.infinity,
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
@@ -636,8 +636,8 @@ class _GroupLogs extends StatelessWidget {
             }
             final log = page!.logs[index];
             return Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 900),
+              child: SizedBox(
+                width: double.infinity,
                 child: ListTile(
                   leading: const DIcon(DIcons.farClock, size: 17),
                   title: Text(_humanizeLog(log.action)),

@@ -94,6 +94,10 @@ void main() {
           tester.getRect(navigation).top,
           greaterThan(tester.getRect(picker).bottom),
         );
+        final folder = tester.getRect(
+          find.byKey(const ValueKey('message-list-menu')),
+        );
+        expect(folder.left - tester.getRect(navigation).left, DSpacing.lg);
         expect(find.byType(ForumSearch), findsNothing);
         expect(tester.takeException(), isNull);
 

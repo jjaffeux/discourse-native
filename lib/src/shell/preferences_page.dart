@@ -176,8 +176,8 @@ class _PreferencesPageState extends State<PreferencesPage> {
                 child: _SectionScroller(
                   key: ValueKey((state!.accountIdentity, selected)),
                   padding: const EdgeInsets.fromLTRB(32, 28, 32, 48),
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 720),
+                  child: SizedBox(
+                    width: double.infinity,
                     child: _buildSection(
                       context,
                       shell,
@@ -198,8 +198,8 @@ class _PreferencesPageState extends State<PreferencesPage> {
         return _SectionScroller(
           key: ValueKey((state!.accountIdentity, selected)),
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 40),
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 680),
+          child: SizedBox(
+            width: double.infinity,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [

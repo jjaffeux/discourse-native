@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:timezone/timezone.dart' as tz;
 
 import '../../plugin_api/timezone_host.dart';
+import '../../shell/content_reading_lane.dart';
 import '../../shell/external_link.dart';
 import '../../shell/site_url.dart';
 import 'event_calendar.dart';
@@ -457,78 +458,80 @@ class _EventDirectoryState extends State<EventDirectory> {
   }
 
   @override
-  Widget build(BuildContext context) => EventCalendar(
-    page: _page,
-    events: _events,
-    location: _location,
-    firstDay: _firstDay,
-    display: _settings.calendarDisplay,
-    clock: widget.controller.api.clock,
-    mine: widget.mine,
-    onMineChanged:
-        widget.controller.accounts.isConnected(widget.site) || widget.mine
-        ? (mine) => widget.navigation.openDirectory(
-            mine: mine,
-            page: _page,
-            replace: true,
-          )
-        : null,
-    onPageChanged: _navigate,
-    onOpen: (entry) => widget.navigation.openEvent(widget.site, entry.event),
-    actions: _actions(),
-    status: Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        if (_searchVisible)
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-            child: TextField(
-              style: Theme.of(context).textTheme.bodyMedium,
-              controller: _search,
-              onSubmitted: (_) => _load(),
-              decoration: InputDecoration(
-                labelText: 'Search events',
-                suffixIcon: DButton.iconOnly(
-                  onPressed: _load,
-                  variant: DButtonVariant.ghost,
-                  tooltip: 'Search events',
-                  icon: const Icon(Icons.search),
+  Widget build(BuildContext context) => ContentReadingLaneBox(
+    child: EventCalendar(
+      page: _page,
+      events: _events,
+      location: _location,
+      firstDay: _firstDay,
+      display: _settings.calendarDisplay,
+      clock: widget.controller.api.clock,
+      mine: widget.mine,
+      onMineChanged:
+          widget.controller.accounts.isConnected(widget.site) || widget.mine
+          ? (mine) => widget.navigation.openDirectory(
+              mine: mine,
+              page: _page,
+              replace: true,
+            )
+          : null,
+      onPageChanged: _navigate,
+      onOpen: (entry) => widget.navigation.openEvent(widget.site, entry.event),
+      actions: _actions(),
+      status: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (_searchVisible)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+              child: TextField(
+                style: Theme.of(context).textTheme.bodyMedium,
+                controller: _search,
+                onSubmitted: (_) => _load(),
+                decoration: InputDecoration(
+                  labelText: 'Search events',
+                  suffixIcon: DButton.iconOnly(
+                    onPressed: _load,
+                    variant: DButtonVariant.ghost,
+                    tooltip: 'Search events',
+                    icon: const Icon(Icons.search),
+                  ),
                 ),
               ),
             ),
-          ),
-        if (_error != null)
-          Semantics(
-            liveRegion: true,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Row(
-                children: [
-                  Expanded(child: Text(_error!)),
-                  DButton(
-                    variant: DButtonVariant.outline,
-                    onPressed: _load,
-                    label: const Text('Retry'),
-                  ),
-                ],
+          if (_error != null)
+            Semantics(
+              liveRegion: true,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Row(
+                  children: [
+                    Expanded(child: Text(_error!)),
+                    DButton(
+                      variant: DButtonVariant.outline,
+                      onPressed: _load,
+                      label: const Text('Retry'),
+                    ),
+                  ],
+                ),
               ),
             ),
-          ),
-        if (!_loading && _error == null && _events.isEmpty)
-          const Padding(
-            padding: EdgeInsets.all(8),
-            child: Text(
-              'No events in this period.',
-              textAlign: TextAlign.center,
+          if (!_loading && _error == null && _events.isEmpty)
+            const Padding(
+              padding: EdgeInsets.all(8),
+              child: Text(
+                'No events in this period.',
+                textAlign: TextAlign.center,
+              ),
             ),
+          SizedBox(
+            height: 2,
+            child: _loading
+                ? const DProgress(semanticsLabel: 'Loading events')
+                : null,
           ),
-        SizedBox(
-          height: 2,
-          child: _loading
-              ? const DProgress(semanticsLabel: 'Loading events')
-              : null,
-        ),
-      ],
+        ],
+      ),
     ),
   );
 }

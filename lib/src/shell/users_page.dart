@@ -12,6 +12,7 @@ import '../models/user_directory.dart';
 import '../theme/d_icons.dart';
 import '../utils/pagination.dart';
 import 'avatar_image.dart';
+import 'content_reading_lane.dart';
 import 'shell_scope.dart';
 import 'user_card.dart';
 import 'user_directory_controller.dart';
@@ -565,7 +566,7 @@ class _UsersPageState extends State<UsersPage> {
     return ColoredBox(
       key: const ValueKey('users-page'),
       color: DTokens.of(context).background,
-      child: Padding(
+      child: ContentReadingLaneBox(
         padding: const EdgeInsets.all(DSpacing.lg),
         child: LayoutBuilder(
           builder: (context, constraints) {

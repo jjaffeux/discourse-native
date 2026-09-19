@@ -45,6 +45,7 @@ import 'examples/message_scroller_examples.dart';
 import 'examples/navigation_menu_examples.dart';
 import 'examples/notification_dot_examples.dart';
 import 'examples/notification_level_menu_examples.dart';
+import 'examples/page_surface_examples.dart';
 import 'examples/pagination_examples.dart';
 import 'examples/popover_examples.dart';
 import 'examples/progress_examples.dart';
@@ -80,6 +81,7 @@ final componentExamples = <String, ComponentExamples>{
   'image-preview': imagePreviewExamples,
   'message-inbox-menu': messageInboxMenuExamples,
   'notification-level-menu': notificationLevelMenuExamples,
+  'page-surface': pageSurfaceExamples,
   'notification-dot': notificationDotExamples,
   'category-selector': categorySelectorExamples,
   'tag-selector': tagSelectorExamples,

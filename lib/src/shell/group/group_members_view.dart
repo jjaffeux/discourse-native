@@ -513,8 +513,8 @@ class _MemberCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Center(
-    child: ConstrainedBox(
-      constraints: const BoxConstraints(maxWidth: 900),
+    child: SizedBox(
+      width: double.infinity,
       child: DCard(
         spacing: 0,
         child: InkWell(

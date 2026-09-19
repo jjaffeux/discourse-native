@@ -216,8 +216,8 @@ class _DraftListLoadingSkeleton extends StatelessWidget {
                   child: Padding(
                     padding: lane.padding,
                     child: Center(
-                      child: ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 1200),
+                      child: SizedBox(
+                        width: double.infinity,
                         child: Column(
                           key: const ValueKey(
                             'draft-list-loading-skeleton-content',
@@ -395,8 +395,8 @@ class _Drafts extends StatelessWidget {
                     final draft = feed.drafts[index];
                     return Center(
                       key: ValueKey(draft.key),
-                      child: ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 1200),
+                      child: SizedBox(
+                        width: double.infinity,
                         child: Column(
                           children: [
                             _DraftRow(

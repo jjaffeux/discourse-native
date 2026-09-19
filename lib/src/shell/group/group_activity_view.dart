@@ -182,8 +182,8 @@ class _ActivityRows extends StatelessWidget {
           }
           final post = page!.posts[index];
           return Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 900),
+            child: SizedBox(
+              width: double.infinity,
               child: DCard(
                 spacing: 0,
                 child: InkWell(
@@ -285,8 +285,8 @@ class _RequestsSection extends StatelessWidget {
           }
           final requester = page!.requesters[index];
           return Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 900),
+            child: SizedBox(
+              width: double.infinity,
               child: DCard(
                 spacing: 0,
                 child: Padding(
@@ -495,8 +495,8 @@ class _PermissionsSection extends StatelessWidget {
             GroupPermissionType.unknown => 'Custom access',
           };
           return Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 900),
+            child: SizedBox(
+              width: double.infinity,
               child: ListTile(
                 tileColor: Theme.of(context).colorScheme.surfaceContainerLow,
                 shape: RoundedRectangleBorder(

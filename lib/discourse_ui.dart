@@ -52,6 +52,8 @@ export 'src/ui/components/d_message_scroller.dart';
 export 'src/ui/components/d_navigation_menu.dart';
 export 'src/ui/components/d_notification_dot.dart';
 export 'src/ui/components/d_notification_level_menu.dart';
+export 'src/ui/components/d_page_reading_lane.dart';
+export 'src/ui/components/d_page_surface.dart';
 export 'src/ui/components/d_pagination.dart';
 export 'src/ui/components/d_popover.dart';
 export 'src/ui/components/d_progress.dart';
