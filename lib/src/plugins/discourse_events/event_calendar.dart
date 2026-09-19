@@ -192,10 +192,12 @@ final class _EventCalendarState extends State<EventCalendar> {
   Widget _toolbar(BuildContext context, BoxConstraints constraints) {
     final scale = MediaQuery.textScalerOf(context).scale(14) / 14;
     final wide = constraints.maxWidth >= 1100 * scale;
-    final scopes = _segments(
-      const {false: 'All events', true: 'My events'},
-      widget.mine,
-      widget.onMineChanged,
+    final scopes = DButton(
+      variant: DButtonVariant.link,
+      label: Text(widget.mine ? 'All events' : 'My events'),
+      onPressed: widget.onMineChanged == null
+          ? null
+          : () => widget.onMineChanged!(!widget.mine),
     );
     final views = _segments(
       {for (final view in EventCalendarView.values) view: view.label},
