@@ -69,12 +69,10 @@ void main() {
           find.byKey(const ValueKey('appearance-theme-select')),
         );
         await tester.pumpAndSettle();
-        await tester.tap(find.byKey(const ValueKey('appearance-theme-select')));
-        await tester.pumpAndSettle();
         await tester.tap(
           find
               .descendant(
-                of: find.byType(DPopoverContent),
+                of: find.byKey(const ValueKey('appearance-theme-select')),
                 matching: find.text('Dark'),
               )
               .last,

@@ -96,47 +96,65 @@ class _ForumAppearanceSettingsState extends State<ForumAppearanceSettings> {
               DField(
                 children: [
                   const DFieldLabel(child: Text('Color mode')),
-                  DSelect<AppThemeMode>.controlled(
-                    key: const ValueKey('appearance-theme-select'),
-                    semanticLabel: 'Color mode',
-                    value: mode,
-                    isExpanded: true,
-                    entries: const [
-                      DSelectOption(
-                        value: AppThemeMode.system,
-                        label: 'System',
-                        child: Text('System'),
+                  LayoutBuilder(
+                    builder: (context, bounds) => DToggleGroup<AppThemeMode>(
+                      key: const ValueKey('appearance-theme-select'),
+                      values: [mode],
+                      inset: true,
+                      allowEmptySelection: false,
+                      orientation:
+                          bounds.maxWidth < 300 &&
+                              MediaQuery.textScalerOf(context).scale(14) > 20
+                          ? Axis.vertical
+                          : Axis.horizontal,
+                      items: const [
+                        DToggleGroupItem(
+                          value: AppThemeMode.light,
+                          icon: Icon(Icons.light_mode_outlined),
+                          child: Text('Light'),
+                        ),
+                        DToggleGroupItem(
+                          value: AppThemeMode.dark,
+                          icon: Icon(Icons.dark_mode_outlined),
+                          child: Text('Dark'),
+                        ),
+                        DToggleGroupItem(
+                          value: AppThemeMode.system,
+                          icon: DIcon(DIcons.display),
+                          child: Text('System'),
+                        ),
+                      ],
+                      onChanged: (values) => unawaited(
+                        settings.setThemeMode(widget.siteUrl, values.single),
                       ),
-                      DSelectOption(
-                        value: AppThemeMode.light,
-                        label: 'Light',
-                        child: Text('Light'),
-                      ),
-                      DSelectOption(
-                        value: AppThemeMode.dark,
-                        label: 'Dark',
-                        child: Text('Dark'),
-                      ),
-                    ],
-                    onChanged: (value) {
-                      if (value != null) {
-                        unawaited(settings.setThemeMode(widget.siteUrl, value));
-                      }
-                    },
+                    ),
                   ),
                 ],
               ),
-              DToggle(
-                key: const ValueKey('forum-default-theme'),
-                pressed: preferences.selectedTheme == null && _tab != 'custom',
-                enabled: !_saving,
-                variant: DToggleVariant.outline,
-                icon: const DIcon(DIcons.house),
-                selectedIcon: const DIcon(DIcons.check),
-                onPressedChanged: (_) =>
-                    unawaited(_save(preferences.select(null))),
-                child: const Row(
-                  children: [Expanded(child: Text('Forum default'))],
+              DCard(
+                spacing: 0,
+                child: DItem(
+                  key: const ValueKey('forum-default-theme'),
+                  selected:
+                      preferences.selectedTheme == null && _tab != 'custom',
+                  enabled: !_saving,
+                  variant: DItemVariant.outline,
+                  selectionStyle: DItemSelectionStyle.outline,
+                  onPressed: () => unawaited(_save(preferences.select(null))),
+                  children: const [
+                    DItemMedia(
+                      variant: DItemMediaVariant.icon,
+                      child: DIcon(DIcons.house),
+                    ),
+                    DItemContent(
+                      children: [
+                        DItemTitle(child: Text('Forum default')),
+                        DItemDescription(
+                          child: Text('Follow this forum’s colors.'),
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
               ),
               DTabs<String>.controlled(
@@ -190,7 +208,11 @@ class _ForumAppearanceSettingsState extends State<ForumAppearanceSettings> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             spacing: DSpacing.md,
             children: [
-              const DLabel(child: Text('Preview')),
+              Text(
+                selected?.name ?? 'Forum default',
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
+              ThemePaletteStrip(theme: previewTheme),
               ForumThemePreview(theme: previewTheme, siteUrl: widget.siteUrl),
             ],
           );
@@ -217,9 +239,12 @@ class _ForumAppearanceSettingsState extends State<ForumAppearanceSettings> {
               ),
               Expanded(
                 flex: 6,
-                child: SingleChildScrollView(
-                  padding: const EdgeInsetsDirectional.fromSTEB(0, 0, 24, 24),
-                  child: preview,
+                child: ColoredBox(
+                  color: DTokens.of(context).muted.withValues(alpha: .35),
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.all(DSpacing.xl),
+                    child: preview,
+                  ),
                 ),
               ),
             ],
@@ -256,20 +281,25 @@ class _ForumAppearanceSettingsState extends State<ForumAppearanceSettings> {
                 for (final theme in themes)
                   SizedBox(
                     width: width,
-                    child: DToggle(
-                      key: ValueKey('forum-theme-${theme.id}'),
-                      semanticLabel: theme.name,
-                      selectedIcon: const DIcon(DIcons.check),
-                      pressed: preferences.selectedId == theme.id,
-                      enabled: !_saving,
-                      variant: DToggleVariant.outline,
-                      onPressedChanged: (_) =>
-                          unawaited(_save(preferences.select(theme.id))),
-                      child: Row(
-                        spacing: DSpacing.sm,
+                    child: DCard(
+                      spacing: 0,
+                      child: DItem(
+                        key: ValueKey('forum-theme-${theme.id}'),
+                        selected: preferences.selectedId == theme.id,
+                        enabled: !_saving,
+                        variant: DItemVariant.outline,
+                        selectionStyle: DItemSelectionStyle.outline,
+                        shape: DItemShape.card,
+                        size: DItemSize.sm,
+                        onPressed: () =>
+                            unawaited(_save(preferences.select(theme.id))),
                         children: [
-                          ThemeSwatch(theme: theme),
-                          Flexible(child: Text(theme.name)),
+                          ThemeThumbnail(theme: theme),
+                          DItemContent(
+                            children: [
+                              DItemTitle(maxLines: 2, child: Text(theme.name)),
+                            ],
+                          ),
                         ],
                       ),
                     ),
@@ -313,18 +343,99 @@ class _ForumAppearanceSettingsState extends State<ForumAppearanceSettings> {
   }
 }
 
-class ThemeSwatch extends StatelessWidget {
-  const ThemeSwatch({super.key, required this.theme});
+/// Decorative miniature, not an interactive replacement for a Native control.
+class ThemeThumbnail extends StatelessWidget {
+  const ThemeThumbnail({super.key, required this.theme});
   final ForumTheme theme;
 
   @override
   Widget build(BuildContext context) => ExcludeSemantics(
-    child: Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        for (final color in [theme.secondary, theme.tertiary, theme.primary])
-          SizedBox(width: 7, height: 16, child: ColoredBox(color: color)),
-      ],
+    child: SizedBox(
+      width: 44,
+      height: 36,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(DTokens.of(context).radius),
+        child: ColoredBox(
+          color: theme.secondary,
+          child: Padding(
+            padding: const EdgeInsets.all(4),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                SizedBox(
+                  width: 9,
+                  child: ColoredBox(
+                    color: Color.lerp(theme.secondary, theme.tertiary, .2)!,
+                  ),
+                ),
+                const SizedBox(width: 3),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    spacing: 3,
+                    children: [
+                      for (var i = 0; i < 4; i++)
+                        FractionallySizedBox(
+                          alignment: AlignmentDirectional.centerStart,
+                          widthFactor: i.isEven ? 1 : .6,
+                          child: SizedBox(
+                            height: 3,
+                            child: ColoredBox(
+                              color: i == 0
+                                  ? theme.tertiary
+                                  : theme.primary.withValues(alpha: .24),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     ),
   );
+}
+
+class ThemePaletteStrip extends StatelessWidget {
+  const ThemePaletteStrip({super.key, required this.theme});
+  final ThemeData theme;
+
+  @override
+  Widget build(BuildContext context) {
+    final tokens = theme.extension<DTokens>() ?? DTokens.fromTheme(theme);
+    final discourse = theme.extension<DiscourseColors>()!;
+    return Wrap(
+      spacing: DSpacing.sm,
+      runSpacing: DSpacing.sm,
+      children: [
+        for (final color in [
+          tokens.background,
+          tokens.foreground,
+          theme.colorScheme.primary,
+          theme.colorScheme.secondary,
+          discourse.success,
+          theme.colorScheme.error,
+          discourse.love,
+        ])
+          Semantics(
+            label:
+                '#${color.toARGB32().toRadixString(16).substring(2).toUpperCase()}',
+            child: SizedBox(
+              width: 24,
+              height: 24,
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: color,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: DTokens.of(context).border),
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
 }

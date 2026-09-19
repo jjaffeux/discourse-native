@@ -56,24 +56,9 @@ void main() {
     await _openForumSettings(tester);
 
     await tester.tap(
-      find.byKey(const ValueKey('appearance-theme-select')),
-      kind: PointerDeviceKind.mouse,
-    );
-    await tester.pumpAndSettle();
-    await tester.sendKeyEvent(LogicalKeyboardKey.escape, character: '\x1b');
-    await tester.pumpAndSettle();
-    expect(find.byType(DPopoverContent), findsNothing);
-    expect(find.byType(ForumSettingsDialog), findsOneWidget);
-
-    await tester.tap(
-      find.byKey(const ValueKey('appearance-theme-select')),
-      kind: PointerDeviceKind.mouse,
-    );
-    await tester.pumpAndSettle();
-    await tester.tap(
       find
           .descendant(
-            of: find.byType(DPopoverContent),
+            of: find.byKey(const ValueKey('appearance-theme-select')),
             matching: find.text('Dark'),
           )
           .last,
@@ -200,12 +185,10 @@ void main() {
       ),
       findsOneWidget,
     );
-    await tester.tap(find.byKey(const ValueKey('appearance-theme-select')));
-    await tester.pumpAndSettle();
     await tester.tap(
       find
           .descendant(
-            of: find.byType(DPopoverContent),
+            of: find.byKey(const ValueKey('appearance-theme-select')),
             matching: find.text('Dark'),
           )
           .last,
@@ -225,12 +208,10 @@ void main() {
       findsOneWidget,
     );
     expect(find.text('System'), findsOneWidget);
-    await tester.tap(find.byKey(const ValueKey('appearance-theme-select')));
-    await tester.pumpAndSettle();
     await tester.tap(
       find
           .descendant(
-            of: find.byType(DPopoverContent),
+            of: find.byKey(const ValueKey('appearance-theme-select')),
             matching: find.text('Light'),
           )
           .last,
@@ -471,12 +452,10 @@ void main() {
         ('Light', Brightness.light),
         ('System', Brightness.light),
       ]) {
-        await tester.tap(find.byKey(const ValueKey('appearance-theme-select')));
-        await tester.pumpAndSettle();
         await tester.tap(
           find
               .descendant(
-                of: find.byType(DPopoverContent),
+                of: find.byKey(const ValueKey('appearance-theme-select')),
                 matching: find.text(label),
               )
               .last,
@@ -503,12 +482,10 @@ void main() {
         Theme.of(tester.element(find.byType(ForumSettingsDialog))).brightness,
         Brightness.dark,
       );
-      await tester.tap(find.byKey(const ValueKey('appearance-theme-select')));
-      await tester.pumpAndSettle();
       await tester.tap(
         find
             .descendant(
-              of: find.byType(DPopoverContent),
+              of: find.byKey(const ValueKey('appearance-theme-select')),
               matching: find.text('Light'),
             )
             .last,
