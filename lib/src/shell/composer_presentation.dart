@@ -83,6 +83,7 @@ class _ComposerEntry {
 
 class _ComposerPresentationHostState extends State<ComposerPresentationHost> {
   final _entries = <ComposerController, _ComposerEntry>{};
+  ComposerPlacement _previousDockPlacement = ComposerPlacement.right;
   final _contentKey = GlobalKey();
   final _dockKey = GlobalKey();
   final _docks = <_ComposerDockState>{};
@@ -150,6 +151,10 @@ class _ComposerPresentationHostState extends State<ComposerPresentationHost> {
       await WidgetsBinding.instance.endOfFrame;
       if (!mounted || entry.composer.isDisposed) return;
       setState(() => entry.minimized = false);
+      final previous = _presentation.preference.placement;
+      if (previous != ComposerPlacement.fullScreen) {
+        _previousDockPlacement = previous;
+      }
       _presentation.dock(placement);
       await WidgetsBinding.instance.endOfFrame;
     } finally {
@@ -177,6 +182,7 @@ class _ComposerPresentationHostState extends State<ComposerPresentationHost> {
       mobile: mobile,
       size: size,
       onPlacement: (value) => unawaited(_place(entry, value)),
+      onExitFullScreen: () => unawaited(_place(entry, _previousDockPlacement)),
       onMinimize: () {
         entry.composer.focus.unfocus();
         setState(() => entry.minimized = true);
@@ -619,6 +625,7 @@ class _ComposerSurface extends StatelessWidget {
     required this.mobile,
     required this.size,
     required this.onPlacement,
+    required this.onExitFullScreen,
     required this.onMinimize,
     required this.onRestore,
   });
@@ -627,7 +634,7 @@ class _ComposerSurface extends StatelessWidget {
   final bool mobile;
   final Size size;
   final ValueChanged<ComposerPlacement> onPlacement;
-  final VoidCallback onMinimize, onRestore;
+  final VoidCallback onMinimize, onRestore, onExitFullScreen;
 
   @override
   Widget build(BuildContext context) {
@@ -654,6 +661,7 @@ class _ComposerSurface extends StatelessWidget {
                     height: minimized ? entry.size.height : size.height,
                     placement: placement,
                     onPlacementChanged: mobile ? null : onPlacement,
+                    onExitFullScreen: onExitFullScreen,
                     onMinimize: onMinimize,
                   ),
                 ),

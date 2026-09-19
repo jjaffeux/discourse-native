@@ -70,6 +70,7 @@ class ComposerPanel extends StatelessWidget {
     this.onRestore,
     this.placement = ComposerPlacement.right,
     this.onPlacementChanged,
+    this.onExitFullScreen,
     this.pickFiles = pickComposerFiles,
     this.pickImages = pickComposerImages,
     this.readClipboardFiles = readComposerClipboardFiles,
@@ -82,6 +83,7 @@ class ComposerPanel extends StatelessWidget {
   final VoidCallback? onRestore;
   final ComposerPlacement placement;
   final ValueChanged<ComposerPlacement>? onPlacementChanged;
+  final VoidCallback? onExitFullScreen;
   final ComposerFilePicker pickFiles;
   final ComposerImagePicker pickImages;
   final ComposerClipboardFileReader readClipboardFiles;
@@ -134,7 +136,11 @@ class ComposerPanel extends StatelessWidget {
                 control: true,
               ): () =>
                   controller.submitComposer(composer: composer),
-              const SingleActivator(LogicalKeyboardKey.escape): close,
+              const SingleActivator(
+                LogicalKeyboardKey.escape,
+              ): placement == ComposerPlacement.fullScreen
+                  ? onExitFullScreen ?? close
+                  : close,
               const SingleActivator(LogicalKeyboardKey.keyW, meta: true): close,
               const SingleActivator(LogicalKeyboardKey.keyW, control: true):
                   close,

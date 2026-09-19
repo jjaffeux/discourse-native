@@ -835,6 +835,44 @@ void main() {
     variant: TargetPlatformVariant.only(TargetPlatform.macOS),
   );
 
+  for (final dock in ['left', 'bottom', 'right']) {
+    testWidgets(
+      'Escape restores the $dock composer from full screen without closing it',
+      (tester) async {
+        final h = await _setup(tester);
+        h.shell.openTopicFromList(h.topics.first);
+        await tester.pumpAndSettle();
+        h.shell.openReply();
+        await tester.pumpAndSettle();
+        if (dock == 'right') {
+          await tester.tap(find.byTooltip('Dock side'));
+          await tester.pumpAndSettle();
+          await tester.tap(find.byTooltip('Dock bottom'));
+          await tester.pumpAndSettle();
+        }
+        await tester.tap(find.byTooltip('Dock side'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byTooltip('Dock $dock'));
+        await tester.pumpAndSettle();
+        final docked = tester.getRect(find.byType(ComposerPanel));
+        final editor = tester.state(find.byType(ComposerEditor));
+        final composer = h.shell.visibleComposer!;
+        composer.text.text = 'Keep this draft';
+        await tester.tap(find.byTooltip('Full screen'));
+        await tester.pumpAndSettle();
+        await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+        await tester.pumpAndSettle();
+        expect(h.shell.visibleComposer, same(composer));
+        expect(composer.raw, 'Keep this draft');
+        expect(tester.getRect(find.byType(ComposerPanel)), docked);
+        expect(tester.state(find.byType(ComposerEditor)), same(editor));
+        expect(composer.focus.hasFocus, isTrue);
+        expect(tester.takeException(), isNull);
+      },
+      variant: TargetPlatformVariant.only(TargetPlatform.macOS),
+    );
+  }
+
   testWidgets('tabs preserve each topic position and the active draft', (
     tester,
   ) async {
