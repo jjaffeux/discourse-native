@@ -231,11 +231,22 @@ void main() {
 
       addTearDown(disposeSemantics);
       try {
+        String semanticsTree() => tester
+            .binding
+            .renderViews
+            .single
+            .owner!
+            .semanticsOwner!
+            .rootSemanticsNode!
+            .toStringDeep();
         await pumpPoll(tester, poll(title: '<strong>First title</strong>'));
-        expect(find.bySemanticsLabel('Poll: First title'), findsOneWidget);
+        expect(find.bySemanticsLabel('Poll'), findsOneWidget);
+        expect(semanticsTree(), contains('First title'));
 
         await pumpPoll(tester, poll(title: '<em>Second &amp; final</em>'));
-        expect(find.bySemanticsLabel('Poll: Second & final'), findsOneWidget);
+        expect(find.bySemanticsLabel('Poll'), findsOneWidget);
+        expect(semanticsTree(), contains('Second & final'));
+        expect(semanticsTree(), isNot(contains('First title')));
       } finally {
         disposeSemantics();
       }

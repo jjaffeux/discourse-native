@@ -43,6 +43,36 @@ Future<void> _pump(
 }
 
 void main() {
+  testWidgets('plain summary labels preserve concealment', (tester) async {
+    final semantics = tester.ensureSemantics();
+    try {
+      await _pump(
+        tester,
+        '<details><summary>Visible <span class="spoiler">SECRET '
+        '<span class="spoiler">NESTED</span></span>'
+        '<span class="hidden">PRIVATE</span></summary>'
+        '<p>Body</p></details>',
+      );
+      expect(find.text('Visible Spoiler'), findsOneWidget);
+      final tree = tester
+          .binding
+          .renderViews
+          .single
+          .owner!
+          .semanticsOwner!
+          .rootSemanticsNode!
+          .toStringDeep();
+      expect(tree, isNot(contains('SECRET')));
+      expect(tree, isNot(contains('NESTED')));
+      expect(tree, isNot(contains('PRIVATE')));
+      await tester.tap(find.text('Visible Spoiler'));
+      await tester.pumpAndSettle();
+      expect(find.text('Body', findRichText: true), findsOneWidget);
+    } finally {
+      semantics.dispose();
+    }
+  });
+
   testWidgets('details collapse, expand and keep rich body and site context', (
     tester,
   ) async {

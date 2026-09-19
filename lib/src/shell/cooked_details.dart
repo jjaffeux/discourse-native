@@ -12,7 +12,7 @@ Widget? cookedDetailsWidgetBuilder(
   final summary = element.children
       .where((child) => child.localName == 'summary')
       .firstOrNull;
-  final title = summary?.text.trim() ?? '';
+  final title = _summaryLabel(summary);
   final body = dom.Element.tag('div');
   for (final node in element.nodes) {
     if (!identical(node, summary)) body.append(node.clone(true));
@@ -43,4 +43,19 @@ Widget? cookedDetailsWidgetBuilder(
       ),
     ],
   );
+}
+
+// The trigger uses plain text. Flattening concealed descendants would expose
+// content before its disclosure, including through the accessibility label.
+String _summaryLabel(dom.Element? summary) {
+  if (summary == null) return '';
+  final visible = summary.clone(true);
+  for (final hidden in visible.querySelectorAll('div.hidden, span.hidden')) {
+    hidden.remove();
+  }
+  for (final spoiler
+      in visible.querySelectorAll('div.spoiler, span.spoiler').reversed) {
+    spoiler.replaceWith(dom.Text(' Spoiler '));
+  }
+  return visible.text.trim().replaceAll(RegExp(r'\s+'), ' ');
 }

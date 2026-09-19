@@ -170,15 +170,31 @@ class LightboxImage {
       root = root.parentNode!;
     }
 
-    final anchors = switch (root) {
-      dom.Document() => root.querySelectorAll('a.lightbox'),
-      dom.DocumentFragment() => root.querySelectorAll('a.lightbox'),
-      dom.Element() => root.querySelectorAll('a.lightbox'),
-      _ => <dom.Element>[anchor],
-    };
+    final anchors = <dom.Element>[];
+    final pending = <dom.Node>[root];
+    while (pending.isNotEmpty) {
+      final node = pending.removeLast();
+      if (node is dom.Element) {
+        // Native disclosures parse their revealed content as a separate HTML
+        // fragment. Their original descendants never belong to the outer
+        // gallery, and Events hidden content must never become a gallery item.
+        if (node.localName == 'details' ||
+            (const {'div', 'span'}.contains(node.localName) &&
+                (node.classes.contains('spoiler') ||
+                    node.classes.contains('hidden')))) {
+          continue;
+        }
+        if (node.localName == 'a' && node.classes.contains('lightbox')) {
+          anchors.add(node);
+        }
+      }
+      pending.addAll(node.nodes.reversed);
+    }
 
-    final images = [for (final el in anchors) ?LightboxImage.from(el)];
-    return images.isEmpty ? [LightboxImage.from(anchor)!] : images;
+    // A caller still holding an unrevealed descendant must not reopen it via
+    // an empty-gallery fallback or accidentally open an unrelated image.
+    if (!anchors.contains(anchor)) return const [];
+    return [for (final el in anchors) ?LightboxImage.from(el)];
   }
 }
 
@@ -322,6 +338,7 @@ class LightboxTile extends StatelessWidget {
 
   void open(BuildContext context) {
     final gallery = LightboxImage.galleryFor(anchor);
+    if (gallery.isEmpty) return;
     final index = gallery.indexWhere((i) => i.heroTag == image.heroTag);
 
     unawaited(

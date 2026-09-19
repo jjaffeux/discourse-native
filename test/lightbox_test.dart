@@ -1,5 +1,7 @@
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/data/site_image_repository.dart';
+import 'package:discourse_native/src/plugin_api/plugin_registry.dart';
+import 'package:discourse_native/src/plugins/discourse_events/discourse_events_plugin.dart';
 import 'package:discourse_native/src/shell/cooked_html.dart';
 import 'package:discourse_native/src/shell/image_download.dart';
 import 'package:discourse_native/src/shell/lightbox.dart';
@@ -41,11 +43,14 @@ const String sizelessImage = '''
 
 const String threeImages = '''
 <div class="lightbox-wrapper"><a class="lightbox" href="https://example.com/one.png" title="one.png"><img src="https://example.com/one-t.png" width="100" height="100"><div class="meta"><span class="informations">1000×1000 1 MB</span></div></a></div>
-<div class="spoiler">
-  <div class="lightbox-wrapper"><a class="lightbox" href="https://example.com/two.png" title="two.png"><img src="https://example.com/two-t.png" width="100" height="100"><div class="meta"><span class="informations">1000×1000 1 MB</span></div></a></div>
-</div>
+<div class="lightbox-wrapper"><a class="lightbox" href="https://example.com/two.png" title="two.png"><img src="https://example.com/two-t.png" width="100" height="100"><div class="meta"><span class="informations">1000×1000 1 MB</span></div></a></div>
 <div class="lightbox-wrapper"><a class="lightbox" href="https://example.com/three.png" title="three.png"><img src="https://example.com/three-t.png" width="100" height="100"><div class="meta"><span class="informations">1000×1000 1 MB</span></div></a></div>
 ''';
+
+String galleryImage(String name) =>
+    '<a class="lightbox" href="https://example.com/$name.png" '
+    'title="$name"><img src="https://example.com/$name-t.png" '
+    'width="80" height="80"></a>';
 
 dom.Element anchorIn(String source, {int index = 0}) =>
     html.parse(source).querySelectorAll('a.lightbox')[index];
@@ -276,11 +281,46 @@ void main() {
   });
 
   group('LightboxImage.galleryFor', () {
-    test('collects every image, including spoilers, in written order', () {
-      // The web selector also matches lightboxes nested inside spoilers.
+    test('collects ordinary images in written order', () {
       final gallery = LightboxImage.galleryFor(anchorIn(threeImages));
 
       expect(gallery.map((i) => i.title), ['one.png', 'two.png', 'three.png']);
+    });
+
+    for (final boundary in const [
+      ('div', 'class="spoiler"'),
+      ('span', 'class="spoiler"'),
+      ('div', 'class="hidden"'),
+      ('span', 'class="hidden"'),
+      ('details', ''),
+      ('details', 'open'),
+    ]) {
+      test('excludes ${boundary.$1} ${boundary.$2} descendants', () {
+        final document = html.parseFragment(
+          '${galleryImage('before')}'
+          '<${boundary.$1} ${boundary.$2}>'
+          '${galleryImage('concealed')}'
+          '</${boundary.$1}>'
+          '${galleryImage('after')}',
+        );
+        final anchors = document.querySelectorAll('a.lightbox');
+
+        expect(
+          LightboxImage.galleryFor(anchors.first).map((image) => image.title),
+          ['before', 'after'],
+        );
+        expect(LightboxImage.galleryFor(anchors[1]), isEmpty);
+        expect(
+          LightboxImage.galleryFor(anchors.last).map((image) => image.title),
+          ['before', 'after'],
+        );
+      });
+    }
+
+    test('keeps an ordinary detached anchor as its own gallery', () {
+      final anchor = anchorIn(singleImage).clone(true);
+
+      expect(LightboxImage.galleryFor(anchor).single.title, 'screenshot.png');
     });
 
     test('is the same gallery whichever image it is asked about', () {
@@ -420,6 +460,98 @@ void main() {
       expect(photoViewAt(2), findsOneWidget);
       expect(find.text('3 / 3'), findsOneWidget);
       expect(find.text('three.png'), findsOneWidget);
+    });
+
+    testWidgets('galleries respect closed and revealed spoiler boundaries', (
+      tester,
+    ) async {
+      await pumpCooked(
+        tester,
+        '${galleryImage('before')}'
+        '<div class="spoiler">'
+        '${galleryImage('revealed-one')}${galleryImage('revealed-two')}'
+        '<span class="spoiler">${galleryImage('nested-secret')}</span>'
+        '<span class="hidden">${galleryImage('event-secret')}</span>'
+        '</div>'
+        '<div class="hidden">${galleryImage('hidden-secret')}</div>'
+        '${galleryImage('after')}',
+        registry: const PluginRegistry([DiscourseEventsPlugin()]),
+      );
+      expect(find.byType(LightboxThumbnail), findsNWidgets(2));
+
+      await tester.tap(thumbnail());
+      await tester.pumpAndSettle();
+      expect(
+        tester
+            .widget<LightboxGallery>(find.byType(LightboxGallery))
+            .images
+            .map((image) => image.title),
+        ['before', 'after'],
+      );
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+      await tester.pumpAndSettle();
+      expect(find.text('after'), findsOneWidget);
+      await tester.tap(find.dIcon(DIcons.xmark));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Spoiler'));
+      await tester.pumpAndSettle();
+      expect(find.byType(LightboxThumbnail), findsNWidgets(4));
+      final revealed = find.byWidgetPredicate(
+        (widget) =>
+            widget is LightboxThumbnail && widget.image.title == 'revealed-one',
+      );
+      await tester.tap(
+        find.descendant(of: revealed, matching: find.byType(InkWell)),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        tester
+            .widget<LightboxGallery>(find.byType(LightboxGallery))
+            .images
+            .map((image) => image.title),
+        ['revealed-one', 'revealed-two'],
+      );
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+      await tester.pumpAndSettle();
+      expect(find.text('revealed-two'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('details images open only within their revealed fragment', (
+      tester,
+    ) async {
+      await pumpCooked(
+        tester,
+        '${galleryImage('outside')}'
+        '<details><summary>More images</summary>'
+        '${galleryImage('inside')}</details>',
+      );
+      await tester.tap(thumbnail());
+      await tester.pumpAndSettle();
+      expect(
+        tester
+            .widget<LightboxGallery>(find.byType(LightboxGallery))
+            .images
+            .single
+            .title,
+        'outside',
+      );
+      await tester.tap(find.dIcon(DIcons.xmark));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('More images'));
+      await tester.pumpAndSettle();
+      await tester.tap(thumbnail(1));
+      await tester.pumpAndSettle();
+      expect(
+        tester
+            .widget<LightboxGallery>(find.byType(LightboxGallery))
+            .images
+            .single
+            .title,
+        'inside',
+      );
+      expect(tester.takeException(), isNull);
     });
 
     testWidgets('shows the caption Discourse wrote into the markup', (

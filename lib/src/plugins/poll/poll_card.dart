@@ -68,7 +68,6 @@ class PollCard extends StatefulWidget {
 
 class _PollCardState extends State<PollCard> {
   late Set<String> _selection;
-  String? _plainTitle;
   Timer? _closeTimer;
   var _submitting = false;
 
@@ -106,7 +105,6 @@ class _PollCardState extends State<PollCard> {
   void initState() {
     super.initState();
     _selection = _savedSelection;
-    _plainTitle = _poll.title == null ? null : _plainText(_poll.title!);
     _scheduleCloseRefresh();
   }
 
@@ -119,10 +117,6 @@ class _PollCardState extends State<PollCard> {
         oldWidget.now != widget.now ||
         oldWidget.clock != widget.clock) {
       _scheduleCloseRefresh();
-    }
-
-    if (oldWidget.poll.title != _poll.title) {
-      _plainTitle = _poll.title == null ? null : _plainText(_poll.title!);
     }
 
     final oldSaved = oldWidget.poll.selectedOptionIds.toSet();
@@ -324,7 +318,7 @@ class _PollCardState extends State<PollCard> {
 
     return Semantics(
       container: true,
-      label: _plainTitle == null ? 'Poll' : 'Poll: $_plainTitle',
+      label: 'Poll',
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 8),
         child: DCard(
@@ -592,11 +586,67 @@ class _PollOptionRow extends StatelessWidget {
     final whisper =
         theme.extension<DiscourseColors>()?.whisper ??
         theme.colorScheme.onSurfaceVariant;
-    final plain = option.plainText;
+    final accessible = _accessiblePollHtml(option, option.html);
+    final plain = accessible.label;
     final votes = option.votes;
     final resultLabel = votes == null || percentage == null
         ? ''
         : ', ${votes == 1 ? '1 vote' : '$votes votes'}, $percentage percent';
+
+    if (accessible.hasDisclosure) {
+      // Native choice labels own one hit/semantics target. Disclosures need
+      // their own target so revealing content cannot activate the vote.
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 7),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (multiple)
+              DCheckbox(
+                value: selected,
+                onChanged: canSelect ? (_) => onTap() : null,
+                semanticLabel: '$plain$resultLabel',
+              )
+            else
+              DRadioGroupItem<String>(
+                value: option.id,
+                toggleable: true,
+                enabled: canSelect,
+                semanticLabel: '$plain$resultLabel',
+              ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  CookedHtml(
+                    html: option.html,
+                    siteUrl: siteUrl,
+                    textStyle: theme.textTheme.bodyLarge,
+                  ),
+                  if (votes != null && percentage != null)
+                    ExcludeSemantics(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Text(
+                            '${votes == 1 ? '1 vote' : '$votes votes'}, $percentage%',
+                          ),
+                          const SizedBox(height: 4),
+                          DChartBar(
+                            fraction: (percentage! / 100).clamp(0.0, 1.0),
+                            backgroundColor: DTokens.of(context).muted,
+                          ),
+                        ],
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
 
     if (!multiple) {
       return Padding(
@@ -717,9 +767,13 @@ class _RankedChoiceBody extends StatelessWidget {
         for (final option in poll.options)
           Semantics(
             label: ranks[option.id] == null
-                ? option.plainText
-                : '${option.plainText}, ranked ${ranks[option.id]}',
+                ? _accessiblePollHtml(option, option.html).label
+                : '${_accessiblePollHtml(option, option.html).label}, ranked ${ranks[option.id]}',
             child: ExcludeSemantics(
+              excluding: !_accessiblePollHtml(
+                option,
+                option.html,
+              ).hasDisclosure,
               child: Padding(
                 padding: const EdgeInsets.symmetric(vertical: 5),
                 child: Row(
@@ -763,8 +817,12 @@ class _RankedCandidatesSummary extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Semantics(
     label:
-        '$label ${candidates.map((candidate) => candidate.plainText).join(', ')}',
+        '$label ${candidates.map((candidate) => _accessiblePollHtml(candidate, candidate.html).label).join(', ')}',
     child: ExcludeSemantics(
+      excluding: !candidates.any(
+        (candidate) =>
+            _accessiblePollHtml(candidate, candidate.html).hasDisclosure,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -860,9 +918,7 @@ class PollFallbackCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Semantics(
     container: true,
-    label: title == null
-        ? 'Poll, read only'
-        : 'Poll: ${_plainText(title!)}, read only',
+    label: 'Poll, read only',
     child: Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: DCard(
@@ -980,9 +1036,46 @@ String _formatAverage(double? value) {
   return fixed.replaceFirst(RegExp(r'\.?0+$'), '');
 }
 
-String _plainText(String html) => (html_parser.parseFragment(html).text ?? html)
-    .trim()
-    .replaceAll(RegExp(r'\s+'), ' ');
+// Options/candidates are immutable; weak identity keys avoid retaining old
+// poll snapshots or repeatedly parsing HTML on selection/count rebuilds.
+final _pollHtmlAccessibility = Expando<_PollHtmlAccessibility>();
+
+_PollHtmlAccessibility _accessiblePollHtml(Object owner, String html) =>
+    _pollHtmlAccessibility[owner] ??= _PollHtmlAccessibility.fromHtml(html);
+
+class _PollHtmlAccessibility {
+  const _PollHtmlAccessibility(this.label, this.hasDisclosure);
+
+  factory _PollHtmlAccessibility.fromHtml(String html) {
+    final fragment = html_parser.parseFragment(html);
+    for (final hidden in fragment.querySelectorAll('div.hidden, span.hidden')) {
+      hidden.remove();
+    }
+    final disclosures = fragment.querySelectorAll(
+      'div.spoiler, span.spoiler, details',
+    );
+    final hasDisclosure = disclosures.isNotEmpty;
+    for (final disclosure in disclosures.reversed) {
+      if (disclosure.localName != 'details') {
+        disclosure.replaceWith(dom.Text(' Spoiler '));
+      } else {
+        final summary = disclosure.children
+            .where((child) => child.localName == 'summary')
+            .firstOrNull;
+        disclosure.nodes
+          ..clear()
+          ..add(summary?.clone(true) ?? dom.Text('Details'));
+      }
+    }
+    return _PollHtmlAccessibility(
+      (fragment.text ?? '').trim().replaceAll(RegExp(r'\s+'), ' '),
+      hasDisclosure,
+    );
+  }
+
+  final String label;
+  final bool hasDisclosure;
+}
 
 String _humanList(Iterable<String> values) {
   final names = values
