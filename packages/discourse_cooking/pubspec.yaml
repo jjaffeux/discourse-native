@@ -5,6 +5,7 @@ publish_to: none
 environment:
   sdk: ^3.12.2
 dependencies:
+  crypto: ^3.0.6
   ffi: ^2.2.0
   hooks: ^2.2.0
   code_assets: ^2.0.0

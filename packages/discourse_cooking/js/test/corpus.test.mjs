@@ -54,3 +54,15 @@ test('normalized URL policy also covers original-URL metadata',()=>{
   assert.ok(allowed.includes('src="https://safe.test/img.png"'));
   assert.ok(allowed.includes('data-orig-src="https://safe.test/img.png"'));
 });
+test('bundled fixture has syntax and constrained final policy without ambient IO',()=>{
+ const result=JSON.parse(context.cook(JSON.stringify({raw:'==TOKEN==',profile:'post',snapshot:{pluginContext:{'cooking-fixture':{replace:'changed',append:'<mark data-fixture="tail" onclick="bad()">tail</mark><script>bad()</script>'}}},configuration:{modules:[{id:'fixture-mark',owner:'cooking-fixture',version:'1'},{id:'fixture-tokens',owner:'cooking-fixture',version:'1'},{id:'fixture-document',owner:'cooking-fixture',version:'1'}]}})));
+ assert.ok(result.html.includes('<mark data-fixture="bundled">changed</mark>'),result.html);
+ assert.ok(result.html.includes('<mark data-fixture="tail">tail</mark>'));
+ assert.ok(!result.html.includes('onclick'));
+ assert.ok(!result.html.includes('<script'));
+ assert.equal(attempts,0);
+});
+test('unresolved references reflect parser lookup, excluding protected code',()=>{
+ assert.deepEqual(cook('`upload://missing.png`').unresolvedReferences,[]);
+ assert.deepEqual(cook('![missing](upload://missing.png)').unresolvedReferences,[{kind:'upload',key:'upload://missing.png'}]);
+});

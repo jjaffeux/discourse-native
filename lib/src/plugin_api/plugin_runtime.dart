@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import '../models/bookmark.dart';
+import 'cooking_plugin.dart';
 import 'discourse_model_codec.dart';
 import 'plugin_manifest.dart';
 import 'plugin_registry.dart';
@@ -82,6 +83,17 @@ final class PluginInstaller {
     final capabilities = <PluginCapability>[
       for (final registration in registrations) ...registration.capabilities,
     ];
+    try {
+      cookingConfiguration([
+        for (final registration in registrations)
+          ...registration.cookingPlugins,
+      ]);
+    } catch (error) {
+      throw PluginInstallationException(
+        'Cooking capability validation failed.',
+        error,
+      );
+    }
     final staticContributions = _InstalledStaticContributions.validate(
       registrations,
     );
@@ -336,6 +348,9 @@ final class InstalledPlugins {
 
   final List<_PluginRegistration> _registrations;
   final _InstalledStaticContributions _staticContributions;
+  late final List<InstalledCookingPlugin> cookingPlugins = List.unmodifiable([
+    for (final registration in _registrations) ...registration.cookingPlugins,
+  ]);
   final List<PluginDescriptor> descriptors;
   final PluginRegistry registry;
   final DiscourseModelCodec models;
@@ -887,6 +902,7 @@ final class _PluginRegistrar implements PluginRegistrar {
   final PluginDescriptor descriptor;
   final int manifestIndex;
   final List<PluginCapability> _capabilities = [];
+  final List<InstalledCookingPlugin> _cookingPlugins = [];
   final List<_AppLifecycleRegistration> _appLifecycles = [];
   final List<_SessionRegistration> _sessions = [];
   final Set<String> _routeNamespaces = {};
@@ -908,6 +924,11 @@ final class _PluginRegistrar implements PluginRegistrar {
       throw PluginInstallationException(
         '${descriptor.id} registered record ${recordPlugin.record.id}, '
         'which is owned by ${recordPlugin.record.owner}.',
+      );
+    }
+    if (capability is CookingPlugin) {
+      _cookingPlugins.add(
+        InstalledCookingPlugin(descriptor.id.value, capability),
       );
     }
     _capabilities.add(capability);
@@ -1031,6 +1052,7 @@ final class _PluginRegistrar implements PluginRegistrar {
       descriptor,
       manifestIndex,
       List.unmodifiable(_capabilities),
+      List.unmodifiable(_cookingPlugins),
       List.unmodifiable(_appLifecycles),
       List.unmodifiable(_sessions),
       List.unmodifiable(_staticPoints),
@@ -1072,6 +1094,7 @@ final class _PluginRegistration {
     this.descriptor,
     this.manifestIndex,
     this.capabilities,
+    this.cookingPlugins,
     this.appLifecycles,
     this.sessions,
     this.staticPoints,
@@ -1081,6 +1104,7 @@ final class _PluginRegistration {
   final PluginDescriptor descriptor;
   final int manifestIndex;
   final List<PluginCapability> capabilities;
+  final List<InstalledCookingPlugin> cookingPlugins;
   final List<_AppLifecycleRegistration> appLifecycles;
   final List<_SessionRegistration> sessions;
   final List<_StaticPointRegistration> staticPoints;

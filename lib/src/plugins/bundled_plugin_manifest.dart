@@ -1,6 +1,7 @@
 import '../plugin_api/plugin_manifest.dart';
 import 'assign/assign_module.dart';
 import 'chat/chat_module.dart';
+import 'cooking/cooking_module.dart';
 import 'discourse_ai/discourse_ai_module.dart';
 import 'discourse_events/discourse_events_module.dart';
 import 'discourse_github/discourse_github_module.dart';
@@ -15,6 +16,7 @@ import 'reactions/reactions_module.dart';
 import 'voice/voice_module.dart';
 
 final PluginManifest bundledPluginManifest = PluginManifest([
+  cookingModule,
   localDatesModule,
   discourseGithubModule,
   discourseLazyVideosModule,
@@ -32,6 +34,7 @@ final PluginManifest bundledPluginManifest = PluginManifest([
 ]);
 
 final PluginManifest bundledPluginManifestWithoutDiagnostics = PluginManifest([
+  cookingModule,
   localDatesModule,
   discourseGithubModule,
   discourseLazyVideosModule,

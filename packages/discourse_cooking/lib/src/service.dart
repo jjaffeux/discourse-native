@@ -49,7 +49,14 @@ final class CookingLimits {
 /// Call [start] to prewarm, or let the first [cook] start the worker. Each cook
 /// carries its complete immutable snapshot. Never share mutable engine context
 /// between requests. Call [dispose] when the application service is released.
-final class OfflineCookingService {
+abstract interface class CookingRuntimePort {
+  Future<bool> start();
+  Future<CookingResult> cook(CookingRequest request);
+  Future<void> dispose();
+  bool get isHealthy;
+}
+
+final class OfflineCookingService implements CookingRuntimePort {
   OfflineCookingService({this.limits = const CookingLimits()}) {
     limits.validate();
   }
@@ -64,12 +71,16 @@ final class OfflineCookingService {
   Completer<void>? _stopped;
   Future<void>? _disposing;
   bool _disposed = false;
+  bool _healthy = true;
+  @override
+  bool get isHealthy => !_disposed && _healthy;
   int _sequence = 0;
   int _admitted = 0;
 
   /// Measured worker creation plus bundle initialization, excluding package build.
   int startupMicroseconds = 0;
 
+  @override
   Future<bool> start() {
     if (_disposed) return Future.value(false);
     return _starting ??= _spawn();
@@ -99,7 +110,20 @@ final class OfflineCookingService {
     }
   }
 
-  Future<CookingResult> cook(CookingRequest request) async {
+  @override
+  Future<CookingResult> cook(CookingRequest request) async =>
+      request.raw.length > limits.maxRawCodeUnits
+      ? readableFallback(request.raw, CookingFailure.inputLimit)
+      : (await _cook(request)).forRequest(request);
+
+  Future<CookingResult> _cook(CookingRequest request) async {
+    if (!request.effectiveConfiguration.profiles.any(
+      (p) =>
+          cookingFingerprint(p.toJson()) ==
+          cookingFingerprint(request.profile.toJson()),
+    )) {
+      throw ArgumentError('Profile is not installed');
+    }
     if (_disposed) {
       return readableFallback(request.raw, CookingFailure.disposed);
     }
@@ -176,6 +200,7 @@ final class OfflineCookingService {
   }
 
   void _terminate([CookingFailure reason = CookingFailure.unavailable]) {
+    _healthy = false;
     _commands = null;
     _worker?.kill(priority: Isolate.immediate);
     _worker = null;
@@ -193,6 +218,7 @@ final class OfflineCookingService {
   }
 
   /// Cancels callers immediately, then awaits worker-side native disposal.
+  @override
   Future<void> dispose() => _disposing ??= _dispose();
 
   Future<void> _dispose() async {
@@ -287,6 +313,8 @@ void _workerMain((SendPort, CookingLimits) args) async {
         );
         final result = (jsonDecode(output) as Map).cast<String, Object?>();
         if (result['failure'] != null) {
+          runtime.dispose();
+          runtime = null;
           events.send({'id': id, 'failure': CookingFailure.engine.name});
           continue;
         }

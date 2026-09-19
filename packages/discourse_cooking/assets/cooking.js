@@ -16105,8 +16105,8 @@
     feature("bbcode-block", bbcode_block_exports),
     feature("anchor", anchor_exports)
   ];
-  function feature(id, { setup: setup24, priority: priority3 = 0 }) {
-    return { id, setup: setup24, priority: priority3 };
+  function feature(id, { setup: setup25, priority: priority3 = 0 }) {
+    return { id, setup: setup25, priority: priority3 };
   }
 
   // vendor/frontend/discourse-markdown-it/src/options.js
@@ -16288,19 +16288,19 @@
       if (options.setup) {
         return;
       }
-      const setup24 = new _Setup(options);
+      const setup25 = new _Setup(options);
       features.sort((a, b) => a.priority - b.priority);
       for (const feature2 of features) {
-        setup24.#setupFeature(feature2.id, feature2.setup);
+        setup25.#setupFeature(feature2.id, feature2.setup);
       }
       for (const entry of Object.entries(state.allowListed ?? {})) {
-        setup24.allowList(entry);
+        setup25.allowList(entry);
       }
-      setup24.#runOptionsCallbacks(siteSettings, state);
-      setup24.#enableMarkdownFeatures();
-      setup24.#finalizeGetOptions(siteSettings);
-      setup24.#makeEngine();
-      setup24.#buildCookFunctions();
+      setup25.#runOptionsCallbacks(siteSettings, state);
+      setup25.#enableMarkdownFeatures();
+      setup25.#finalizeGetOptions(siteSettings);
+      setup25.#makeEngine();
+      setup25.#buildCookFunctions();
     }
     #context;
     #options;
@@ -16455,17 +16455,17 @@
     #context;
     #setup;
     #deprecate;
-    constructor(featureName, context, setup24) {
+    constructor(featureName, context, setup25) {
       this.#name = featureName;
       this.#context = context;
-      this.#setup = setup24;
+      this.#setup = setup25;
       this.#deprecate = (methodName, ...args) => {
         if (window.console && window.console.log) {
           window.console.log(
             featureName + ": " + methodName + " is deprecated, please use the new markdown it APIs"
           );
         }
-        return setup24(methodName, ...args);
+        return setup25(methodName, ...args);
       };
     }
     get markdownIt() {
@@ -16589,6 +16589,12 @@
     }
   };
 
+  // catalog:catalog
+  init_environment();
+
+  // src/modules/spoiler.js
+  init_environment();
+
   // vendor/plugins/spoiler-alert/assets/javascripts/lib/discourse-markdown/spoiler-alert.js
   init_environment();
   function setup22(helper) {
@@ -16607,6 +16613,9 @@
       });
     });
   }
+
+  // src/modules/missing-uploads.js
+  init_environment();
 
   // src/missing-uploads.js
   init_environment();
@@ -16633,11 +16642,59 @@
     });
   }
 
+  // src/modules/fixture-mark.js
+  init_environment();
+  function setup24(helper) {
+    helper.registerOptions((options) => {
+      options.features["fixture-mark"] = true;
+    });
+    helper.allowList(["mark[data-fixture]"]);
+    helper.registerPlugin((md) => {
+      md.inline.ruler.before("emphasis", "fixture-mark", (state, silent) => {
+        if (state.src.slice(state.pos, state.pos + 2) !== "==") return false;
+        const end = state.src.indexOf("==", state.pos + 2);
+        if (end < 0) return false;
+        if (!silent) {
+          const open = state.push("fixture_open", "mark", 1);
+          open.attrSet("data-fixture", "bundled");
+          const text2 = state.push("text", "", 0);
+          text2.content = state.src.slice(state.pos + 2, end);
+          state.push("fixture_close", "mark", -1);
+        }
+        state.pos = end + 2;
+        return true;
+      });
+    });
+  }
+
+  // src/modules/fixture-tokens.js
+  init_environment();
+  function transform(tokens, context) {
+    for (const token of tokens) {
+      if (token.children) transform(token.children, context);
+      if (token.type === "text" && context.replace) token.content = token.content.replaceAll("TOKEN", context.replace);
+    }
+  }
+
+  // src/modules/fixture-document.js
+  init_environment();
+  function transform2(html, context) {
+    return html + (context.append || "");
+  }
+
+  // catalog:catalog
+  if (typeof setup22 !== "function") throw Error("Invalid module implementation: spoiler-alert");
+  if (typeof setup23 !== "function") throw Error("Invalid module implementation: offline-missing-uploads");
+  if (typeof setup24 !== "function") throw Error("Invalid module implementation: fixture-mark");
+  if (typeof transform !== "function") throw Error("Invalid module implementation: fixture-tokens");
+  if (typeof transform2 !== "function") throw Error("Invalid module implementation: fixture-document");
+  var bundledModules = { "spoiler-alert": { ...{ "id": "spoiler-alert", "owner": "cooking", "version": "1", "source": "spoiler.js", "stage": "syntax", "policy": {} }, implementation: { setup: setup22 } }, "offline-missing-uploads": { ...{ "id": "offline-missing-uploads", "owner": "cooking", "version": "1", "source": "missing-uploads.js", "stage": "syntax", "policy": {} }, implementation: { setup: setup23 } }, "fixture-mark": { ...{ "id": "fixture-mark", "owner": "cooking-fixture", "version": "1", "source": "fixture-mark.js", "stage": "syntax", "policy": { "mark": ["data-fixture"] } }, implementation: { setup: setup24 } }, "fixture-tokens": { ...{ "id": "fixture-tokens", "owner": "cooking-fixture", "version": "1", "source": "fixture-tokens.js", "stage": "token", "policy": {} }, implementation: { transform } }, "fixture-document": { ...{ "id": "fixture-document", "owner": "cooking-fixture", "version": "1", "source": "fixture-document.js", "stage": "document", "policy": {} }, implementation: { transform: transform2 } } };
+
   // src/final-sanitize.js
   init_environment();
   var import_xss3 = __toESM(require_lib2(), 1);
   var attributes = {
-    a: ["href", "title", "class", "target", "rel", "name", "data-orig-href", "data-type", "data-slug", "data-ref", "data-id"],
+    a: ["href", "title", "class", "target", "rel", "name", "data-orig-href", "data-type", "data-slug", "data-ref", "data-id", "data-style-type", "data-icon", "data-emoji"],
     img: ["src", "alt", "title", "class", "width", "height", "loading", "role", "data-orig-src", "data-base62-sha1"],
     aside: ["class", "data-topic", "data-post", "data-username"],
     div: ["class", "dir", "lang"],
@@ -16654,9 +16711,17 @@
     track: ["src", "kind", "label", "srclang"]
   };
   for (const tag of "p br hr strong em b i s del ins strike u blockquote ul dl dt dd h1 h2 h3 h4 h5 h6 table thead tbody tr tfoot caption kbd mark sub sup small ruby rb rp rt".split(" ")) attributes[tag] ||= [];
-  function finalSanitize(html) {
+  function finalSanitize(html, additions = []) {
+    const policy = Object.fromEntries(Object.entries(attributes).map(([tag, attrs]) => [tag, [...attrs]]));
+    for (const addition of additions) for (const [tag, attrs] of Object.entries(addition)) {
+      if (!/^(?:mark|span|div|details|summary|time|kbd|abbr|a|pre|code|aside|li|p|ol|ul|blockquote|table|td|th)$/.test(tag)) throw Error("Unsafe policy tag");
+      for (const attr3 of attrs) {
+        if (!/^(?:class|title|datetime|data-[a-z0-9-]+|aria-[a-z0-9-]+)$/.test(attr3) || /^data-.*(?:url|href|src)/.test(attr3) && !["data-orig-href", "data-orig-src"].includes(attr3)) throw Error("Unsafe policy attribute");
+      }
+      policy[tag] = [.../* @__PURE__ */ new Set([...policy[tag] || [], ...attrs])];
+    }
     return (0, import_xss3.default)(html, {
-      whiteList: attributes,
+      whiteList: policy,
       stripIgnoreTag: true,
       stripIgnoreTagBody: ["script", "style", "iframe", "object", "embed", "svg", "math"],
       onTagAttr(tag, name, value, isWhiteAttr) {
@@ -16710,48 +16775,69 @@
   function cook2(serializedRequest) {
     let raw = "";
     try {
+      let lookup = function(map2, key, kind) {
+        const value = own2(map2, key);
+        if (value === void 0 && !unresolvedReferences.some((r) => r.kind === kind && r.key === key)) unresolvedReferences.push({ kind, key });
+        return value;
+      };
       if (typeof serializedRequest !== "string" || serializedRequest.length > 524288) throw Error("Request exceeds limit");
       const request = JSON.parse(serializedRequest);
       if (typeof request.raw !== "string") throw Error("raw must be a string");
       raw = request.raw;
       if (raw.length > 65536) throw Error("Input exceeds limit");
-      if (!["post", "chat"].includes(request.profile)) throw Error("Unknown profile");
+      if (typeof request.profile === "string" && !["post", "chat"].includes(request.profile)) throw Error("Unknown profile");
+      const profile = typeof request.profile === "string" ? request.profile === "chat" ? { features: chatFeatures, rules: chatRules, forceQuoteLink: true } : {} : request.profile;
+      const declarations = request.configuration?.modules || [{ id: "spoiler-alert" }, { id: "offline-missing-uploads" }];
+      let modules = declarations.map((d) => {
+        const m = bundledModules[d.id];
+        if (!m || d.owner && d.owner !== m.owner || d.version && d.version !== m.version) throw Error("Invalid module");
+        return m;
+      });
       const snapshot2 = freeze(request.snapshot || {});
-      const settings = { ...defaults };
+      const settings = { ...defaults, ...profile.settings };
       for (const key of settingsAllowed) {
         const value = own2(snapshot2.siteSettings, key);
         if (value !== void 0) settings[key] = value;
       }
+      modules = modules.filter((m, i) => (!declarations[i].profiles?.length || declarations[i].profiles.includes(profile.name || request.profile)) && (!declarations[i].enabledSetting || (snapshot2.pluginContext?.[m.owner]?.settings?.[declarations[i].enabledSetting] ?? settings[declarations[i].enabledSetting]) === true));
+      const active = new Set(modules.map((m) => m.id));
+      for (const d of declarations) if (active.has(d.id) && (d.dependencies || []).some((id) => !active.has(id))) active.delete(d.id);
+      modules = modules.filter((m) => active.has(m.id));
+      const unresolvedReferences = [];
       const baseUrl = /^https?:\/\/[^/]+(?:\/[^?#]*)?$/.test(snapshot2.baseUrl || "") ? snapshot2.baseUrl.replace(/\/$/, "") : "";
       const options = {
         siteSettings: settings,
         getURL: (path) => path.startsWith("/") ? baseUrl + path : path,
-        lookupUploadUrls: (urls) => Object.fromEntries(urls.map((url) => [url, own2(snapshot2.uploads, url)])),
-        hashtagLookup: (slug) => own2(snapshot2.hashtags, slug),
-        getTopicInfo: (id) => own2(snapshot2.topics, String(id)),
-        lookupAvatar: (name) => own2(snapshot2.avatars, name),
+        lookupUploadUrls: (urls) => Object.fromEntries(urls.map((url) => [url, lookup(snapshot2.uploads, url, "upload")])),
+        hashtagLookup: (slug) => lookup(snapshot2.hashtags, slug, "hashtag"),
+        getTopicInfo: (id) => lookup(snapshot2.topics, String(id), "topic"),
+        lookupAvatar: (name) => lookup(snapshot2.avatars, name, "mention"),
         lookupPrimaryUserGroup: () => void 0,
         formatUsername: (name) => name,
         customEmoji: snapshot2.customEmoji,
         customEmojiTranslation: snapshot2.customEmojiTranslation,
         allowedIframes: []
       };
-      if (request.profile === "chat") {
-        options.featuresOverride = [...chatFeatures, "offline-missing-uploads"];
+      if (profile.features) {
+        options.featuresOverride = [.../* @__PURE__ */ new Set([...profile.features, ...modules.filter((m) => m.stage !== "document").map((m) => m.id)])];
         if (settings.enable_emoji_shortcuts) options.featuresOverride.push("emojiShortcuts");
-        options.markdownItRules = chatRules;
-        options.forceQuoteLink = true;
       }
+      if (profile.rules) options.markdownItRules = profile.rules;
+      options.forceQuoteLink = profile.forceQuoteLink === true;
       resetTranslationTree();
       const html = withSnapshot(snapshot2, () => {
-        const engine = DiscourseMarkdownIt.withCustomFeatures([
-          { id: "spoiler-alert", setup: setup22, priority: 0 },
-          { id: "offline-missing-uploads", setup: setup23, priority: 10 }
-        ], []).withOptions(options);
-        return finalSanitize(engine.cook(raw));
+        const syntax = modules.filter((m) => m.stage === "syntax").map((m, i) => ({ id: m.id, setup: (helper) => m.implementation.setup(helper, snapshot2.pluginContext?.[m.owner] || {}), priority: i }));
+        const transforms = modules.filter((m) => m.stage === "token");
+        for (const m of transforms) syntax.push({ id: m.id, priority: syntax.length, setup(helper) {
+          helper.registerPlugin((md) => md.core.ruler.push(m.id, (state) => m.implementation.transform(state.tokens, snapshot2.pluginContext?.[m.owner] || {})));
+        } });
+        const engine = DiscourseMarkdownIt.withCustomFeatures(syntax, []).withOptions(options);
+        let output = engine.cook(raw);
+        for (const m of modules.filter((m2) => m2.stage === "document")) output = m.implementation.transform(output, snapshot2.pluginContext?.[m.owner] || {});
+        return finalSanitize(output, modules.map((m) => m.policy));
       });
       if (html.length > 1048576) throw Error("Output exceeds limit");
-      return JSON.stringify({ html, warnings: [] });
+      return JSON.stringify({ html, warnings: [], unresolvedReferences });
     } catch (_error) {
       return JSON.stringify({ html: `<p>${escape2(raw.slice(0, 65536)).replace(/\n/g, "<br>")}</p>`, warnings: ["cooking-failed"], failure: "engine" });
     } finally {

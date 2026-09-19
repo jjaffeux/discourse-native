@@ -1,6 +1,8 @@
 /// Plugin compatibility boundary; plugins must not import the package's `src`.
 library;
 
+export 'package:discourse_cooking/discourse_cooking.dart';
+
 export 'src/data/app_release.dart';
 export 'src/data/discourse_api_contracts.dart'
     hide
@@ -36,6 +38,7 @@ export 'src/models/json.dart';
 export 'src/models/sidebar.dart';
 export 'src/models/site_config.dart';
 export 'src/plugin_api/background_retention.dart';
+export 'src/plugin_api/cooking_plugin.dart';
 export 'src/plugin_api/core_plugin_host.dart';
 export 'src/plugin_api/hashtag_kind.dart';
 export 'src/plugin_api/live_channels.dart';

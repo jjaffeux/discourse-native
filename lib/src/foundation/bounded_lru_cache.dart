@@ -8,6 +8,8 @@ final class BoundedLruCache<K, V> {
 
   int get length => _values.length;
 
+  Map<K, V> get snapshot => Map.unmodifiable(_values);
+
   bool containsKey(K key) => _values.containsKey(key);
 
   V? read(K key) {

@@ -5,6 +5,7 @@ import 'package:discourse_native/src/plugin_api/site_plugin_api.dart';
 import 'package:discourse_native/src/plugins/assign/assign_module.dart';
 import 'package:discourse_native/src/plugins/chat/chat_api.dart';
 import 'package:discourse_native/src/plugins/chat/chat_module.dart';
+import 'package:discourse_native/src/plugins/cooking/cooking_module.dart';
 import 'package:discourse_native/src/plugins/discourse_ai/discourse_ai_module.dart';
 import 'package:discourse_native/src/plugins/discourse_events/discourse_events_module.dart';
 import 'package:discourse_native/src/plugins/discourse_github/discourse_github_module.dart';
@@ -32,6 +33,7 @@ PollsApi _pollsApi(PluginApiTransport transport) => transport as PollsApi;
 ) => (reads: transport as ReactionsApi, writes: transport as ReactionsWriteApi);
 
 final PluginManifest _testBundledPluginManifest = PluginManifest([
+  cookingModule,
   localDatesModule,
   discourseGithubModule,
   discourseLazyVideosModule,
