@@ -94,3 +94,9 @@ and both channel kinds. Scroll-only passes retained zero message-widget rebuilds
 
 Validation includes `dart analyze` and a debug macOS build. Touch behavior is
 covered by Flutter widget tests; no physical iOS or Android device was used.
+
+The integration candidate based on main `997ea3731` passed all 411 selected
+component, example and integration tests. The final typography cleanup passed
+113 targeted tests, including the typography adoption guard; the four control
+adoption checks passed separately. Root static analysis is clean. The macOS
+debug build succeeds with existing dependency warnings.

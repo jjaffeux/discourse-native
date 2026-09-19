@@ -1257,7 +1257,7 @@ class _ReplyIndicator extends StatelessWidget {
       siteUrl: siteUrl,
       maxLines: 2,
       overflow: TextOverflow.ellipsis,
-      style: const TextStyle(fontSize: 13, height: 1.4),
+      style: const TextStyle(height: 1.4),
     ),
   );
 }
@@ -1529,7 +1529,7 @@ class _ThreadSummaryContents extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     color: tokens.mutedForeground,
-                    fontSize: 12.5,
+                    fontSize: DiscourseTypography.xs,
                   ),
                 ),
               ),
@@ -1540,7 +1540,7 @@ class _ThreadSummaryContents extends StatelessWidget {
                 style: TextStyle(
                   color: tokens.primary,
                   fontWeight: FontWeight.w600,
-                  fontSize: 12.5,
+                  fontSize: DiscourseTypography.xs,
                 ),
               ),
             ),
