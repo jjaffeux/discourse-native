@@ -157,7 +157,8 @@ class InstanceSidebar extends StatelessWidget {
     select: (controller) {
       final instance = controller.currentInstance;
       final currentContent = controller.currentContent;
-      var selectedDestinationId = controller.destinationId;
+      // The split list can change while the reader retains its original route.
+      var selectedDestinationId = controller.topicListTab?.rootDestinationId;
       if (currentContent?.groupRoute != null) {
         selectedDestinationId = 'groups';
       } else if (currentContent?.isBadges == true) {
