@@ -18,7 +18,7 @@ export function finalSanitize(html, additions = []) {
   const policy=Object.fromEntries(Object.entries(attributes).map(([tag,attrs])=>[tag,[...attrs]]));
   for(const addition of additions) for(const [tag,attrs] of Object.entries(addition)) {
     if(!/^(?:img|em|mark|span|div|details|summary|time|kbd|abbr|a|pre|code|aside|li|p|ol|ul|blockquote|table|td|th)$/.test(tag)) throw Error('Unsafe policy tag');
-    for(const attr of attrs) { if(!/^(?:class|title|datetime|data-[a-z0-9-]+|aria-[a-z0-9-]+)$/.test(attr) || (/^data-.*(?:url|href|src)/.test(attr) && !['data-orig-href','data-orig-src','data-video-src','data-thumbnail-src','data-blocked-hotlinked-src'].includes(attr))) throw Error('Unsafe policy attribute'); }
+    for(const attr of attrs) { if(!(attr==='open' && tag==='details') && !/^(?:class|title|datetime|data-[a-z0-9-]+|aria-[a-z0-9-]+)$/.test(attr) || (/^data-.*(?:url|href|src)/.test(attr) && !['data-url','data-orig-href','data-orig-src','data-video-src','data-thumbnail-src','data-blocked-hotlinked-src'].includes(attr))) throw Error('Unsafe policy attribute'); }
     policy[tag]=[...new Set([...(policy[tag]||[]),...attrs])];
   }
   return xss(html, {
@@ -28,7 +28,7 @@ export function finalSanitize(html, additions = []) {
     stripIgnoreTagBody: ['script','style','iframe','object','embed','svg','math',
       'xmp','plaintext','noembed','noframes','noscript','textarea','title'],
     onTagAttr(tag, name, value, isWhiteAttr) {
-      if (['href','src','data-orig-src','data-orig-href','data-video-src','data-thumbnail-src','data-blocked-hotlinked-src'].includes(name)) {
+      if (['href','src','data-url','data-image','data-orig-src','data-orig-href','data-video-src','data-thumbnail-src','data-blocked-hotlinked-src'].includes(name)) {
         // xss calls this hook BEFORE normalization. Validate the normalized
         // value, then emit it escaped exactly once instead of letting a second
         // default normalization change the URL after the policy check.

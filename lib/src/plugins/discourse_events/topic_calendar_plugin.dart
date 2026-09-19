@@ -6,10 +6,13 @@ import 'package:html/dom.dart' as dom;
 
 import '../../plugin_api/plugin_scope.dart';
 import '../../plugin_api/site_plugin_api.dart';
+import '../../shell/cooked_html.dart';
 import '../../shell/external_link.dart';
 import '../../shell/site_url.dart';
 import 'event_controller.dart';
+import 'event_cooked_visibility.dart';
 import 'event_navigation.dart';
+import 'group_timezones_fallback.dart';
 import 'topic_calendar.dart';
 import 'topic_calendar_data.dart';
 
@@ -56,6 +59,9 @@ final class TopicCalendarPlugin
 
   @override
   Widget? postBodyElement(PluginPostBodyContext context, dom.Element element) {
+    final fragment =
+        eventHiddenCookedElement(element) ?? groupTimezonesFallback(element);
+    if (fragment != null) return fragment;
     final calendar = _calendar(element);
     if (calendar == null) return null;
     final data = context.post.plugins.get(topicCalendarKey);
@@ -69,7 +75,8 @@ final class TopicCalendarPlugin
     }
 
     Widget fallback() => TopicCalendarFallback(
-      text: calendar.text.trim(),
+      html: eventVisibleCookedElement(calendar).innerHtml.trim(),
+      siteUrl: context.siteUrl,
       onOpenWeb: topicId == null ? null : openWeb,
     );
     for (var parent = element.parent; parent != null; parent = parent.parent) {
@@ -124,10 +131,16 @@ final class TopicCalendarPlugin
 
   @override
   Widget? cookedElement(String? siteUrl, dom.Element element) {
+    final fallback =
+        eventHiddenCookedElement(element) ?? groupTimezonesFallback(element);
+    if (fallback != null) return fallback;
     final calendar = _calendar(element);
     return calendar == null
         ? null
-        : TopicCalendarFallback(text: calendar.text.trim());
+        : TopicCalendarFallback(
+            html: eventVisibleCookedElement(calendar).innerHtml.trim(),
+            siteUrl: siteUrl,
+          );
   }
 
   @override
@@ -138,8 +151,16 @@ final class TopicCalendarPlugin
 }
 
 final class TopicCalendarFallback extends StatelessWidget {
-  const TopicCalendarFallback({super.key, required this.text, this.onOpenWeb});
+  const TopicCalendarFallback({
+    super.key,
+    this.text = '',
+    this.html,
+    this.siteUrl,
+    this.onOpenWeb,
+  });
   final String text;
+  final String? html;
+  final String? siteUrl;
   final VoidCallback? onOpenWeb;
 
   @override
@@ -149,7 +170,14 @@ final class TopicCalendarFallback extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text('Topic calendar'),
-        if (text.isNotEmpty) Text(text),
+        if (html case final content? when content.isNotEmpty)
+          CookedHtml(
+            html: content,
+            siteUrl: siteUrl,
+            textStyle: DefaultTextStyle.of(context).style,
+          )
+        else if (text.isNotEmpty)
+          Text(text),
         if (onOpenWeb != null)
           DButton(
             variant: DButtonVariant.link,

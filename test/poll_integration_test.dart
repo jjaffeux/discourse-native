@@ -144,12 +144,15 @@ void main() {
       }, extensions: pluginRegistry);
 
       expect(absent.pollMaximumOptions, 20);
+      expect(absent.pollSettings.enabled, isTrue);
       expect(absent.pollDefaultPublic, isTrue);
       expect(invalid.pollMaximumOptions, 20);
+      expect(invalid.pollSettings.enabled, isTrue);
     });
 
     test('reads and persists the poll builder settings', () {
       final configured = SiteConfig.fromSettings(const {
+        'poll_enabled': false,
         'poll_maximum_options': 37,
         'poll_default_public': false,
       }, extensions: pluginRegistry);
@@ -160,6 +163,7 @@ void main() {
       );
 
       expect(configured.pollMaximumOptions, 37);
+      expect(configured.pollSettings.enabled, isFalse);
       expect(configured.pollDefaultPublic, isFalse);
       expect(restored, configured);
     });
@@ -171,6 +175,7 @@ void main() {
       );
 
       expect(restored.pollMaximumOptions, 20);
+      expect(restored.pollSettings.enabled, isTrue);
       expect(restored.pollDefaultPublic, isTrue);
     });
 
@@ -181,8 +186,36 @@ void main() {
       }, extensions: pluginRegistry);
 
       expect(restored.pollMaximumOptions, 1);
+      expect(restored.pollSettings.enabled, isTrue);
       expect(restored.pollDefaultPublic, isFalse);
     });
+
+    test(
+      'stored Poll settings without enabled retain the upstream default',
+      () {
+        final restored = pollSettingsPersistenceCodec.decode(const {
+          'maximumOptions': 37,
+          'defaultPublic': false,
+        })!;
+        expect(restored.enabled, isTrue);
+        expect(pollSettingsPersistenceCodec.encode(restored), {
+          'enabled': true,
+          'maximumOptions': 37,
+          'defaultPublic': false,
+        });
+        expect(
+          pollSettingsPersistenceCodec.decode(const {'enabled': false}),
+          const PollSettings(enabled: false),
+        );
+        expect(
+          pollSettingsPersistenceCodec.decodeLegacy(const {
+            'pollEnabled': false,
+          }),
+          const PollSettings(enabled: false),
+        );
+        expect(const PollSettings(enabled: false), isNot(const PollSettings()));
+      },
+    );
   });
 
   group('topic archived state', () {

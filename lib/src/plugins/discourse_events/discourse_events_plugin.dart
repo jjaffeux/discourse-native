@@ -13,6 +13,7 @@ import 'event_card.dart';
 import 'event_composer.dart';
 import 'event_composer_parser.dart';
 import 'event_controller.dart';
+import 'event_cooked_visibility.dart';
 import 'event_data.dart';
 import 'event_directory.dart';
 import 'event_navigation.dart';
@@ -73,6 +74,8 @@ final class DiscourseEventsPlugin
 
   @override
   Widget? postBodyElement(PluginPostBodyContext context, dom.Element element) {
+    final hidden = eventHiddenCookedElement(element);
+    if (hidden != null) return hidden;
     PostEvent? event;
     final record = context.post.plugins.get(eventPostKey);
     if (element.classes.contains('discourse-post-event')) {
@@ -84,14 +87,17 @@ final class DiscourseEventsPlugin
         if (parent.localName == 'blockquote' ||
             parent.localName == 'pre' ||
             parent.localName == 'aside') {
-          return EventCookedFallback(element: element);
+          return EventCookedFallback(
+            element: element,
+            siteUrl: context.siteUrl,
+          );
         }
       }
       event = record?.event;
       if (event == null ||
           event.id != context.post.id ||
           context.post.postNumber != 1) {
-        return EventCookedFallback(element: element);
+        return EventCookedFallback(element: element, siteUrl: context.siteUrl);
       }
     } else if (element.localName == 'aside' &&
         element.classes.contains('quote') &&
@@ -112,7 +118,7 @@ final class DiscourseEventsPlugin
       eventNavigationKey,
     );
     if (controller == null || navigation == null) {
-      return EventCookedFallback(element: element);
+      return EventCookedFallback(element: element, siteUrl: context.siteUrl);
     }
     return PostEventCard(
       site: context.siteUrl,
@@ -124,9 +130,10 @@ final class DiscourseEventsPlugin
 
   @override
   Widget? cookedElement(String? siteUrl, dom.Element element) =>
-      element.classes.contains('discourse-post-event')
-      ? EventCookedFallback(element: element)
-      : null;
+      eventHiddenCookedElement(element) ??
+      (element.classes.contains('discourse-post-event')
+          ? EventCookedFallback(element: element, siteUrl: siteUrl)
+          : null);
 
   @override
   List<ComposerToolbarContribution> composerToolbar(

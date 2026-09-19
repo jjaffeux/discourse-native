@@ -2152,7 +2152,7 @@ const String cookingBundle = r'''// Discourse 07a0e7b94717b45207749578df1f0bd2dd
           return isArray(this._monthsShort) ? this._monthsShort[m.month()] : this._monthsShort[MONTHS_IN_FORMAT.test(format3) ? "format" : "standalone"][m.month()];
         }
         function handleStrictParse(monthName, format3, strict) {
-          var i, ii, mom, llc = monthName.toLocaleLowerCase();
+          var i, ii2, mom, llc = monthName.toLocaleLowerCase();
           if (!this._monthsParse) {
             this._monthsParse = [];
             this._longMonthsParse = [];
@@ -2168,27 +2168,27 @@ const String cookingBundle = r'''// Discourse 07a0e7b94717b45207749578df1f0bd2dd
           }
           if (strict) {
             if (format3 === "MMM") {
-              ii = indexOf.call(this._shortMonthsParse, llc);
-              return ii !== -1 ? ii : null;
+              ii2 = indexOf.call(this._shortMonthsParse, llc);
+              return ii2 !== -1 ? ii2 : null;
             } else {
-              ii = indexOf.call(this._longMonthsParse, llc);
-              return ii !== -1 ? ii : null;
+              ii2 = indexOf.call(this._longMonthsParse, llc);
+              return ii2 !== -1 ? ii2 : null;
             }
           } else {
             if (format3 === "MMM") {
-              ii = indexOf.call(this._shortMonthsParse, llc);
-              if (ii !== -1) {
-                return ii;
+              ii2 = indexOf.call(this._shortMonthsParse, llc);
+              if (ii2 !== -1) {
+                return ii2;
               }
-              ii = indexOf.call(this._longMonthsParse, llc);
-              return ii !== -1 ? ii : null;
+              ii2 = indexOf.call(this._longMonthsParse, llc);
+              return ii2 !== -1 ? ii2 : null;
             } else {
-              ii = indexOf.call(this._longMonthsParse, llc);
-              if (ii !== -1) {
-                return ii;
+              ii2 = indexOf.call(this._longMonthsParse, llc);
+              if (ii2 !== -1) {
+                return ii2;
               }
-              ii = indexOf.call(this._shortMonthsParse, llc);
-              return ii !== -1 ? ii : null;
+              ii2 = indexOf.call(this._shortMonthsParse, llc);
+              return ii2 !== -1 ? ii2 : null;
             }
           }
         }
@@ -2492,7 +2492,7 @@ const String cookingBundle = r'''// Discourse 07a0e7b94717b45207749578df1f0bd2dd
           return m === true ? shiftWeekdays(this._weekdaysMin, this._week.dow) : m ? this._weekdaysMin[m.day()] : this._weekdaysMin;
         }
         function handleStrictParse$1(weekdayName, format3, strict) {
-          var i, ii, mom, llc = weekdayName.toLocaleLowerCase();
+          var i, ii2, mom, llc = weekdayName.toLocaleLowerCase();
           if (!this._weekdaysParse) {
             this._weekdaysParse = [];
             this._shortWeekdaysParse = [];
@@ -2512,49 +2512,49 @@ const String cookingBundle = r'''// Discourse 07a0e7b94717b45207749578df1f0bd2dd
           }
           if (strict) {
             if (format3 === "dddd") {
-              ii = indexOf.call(this._weekdaysParse, llc);
-              return ii !== -1 ? ii : null;
+              ii2 = indexOf.call(this._weekdaysParse, llc);
+              return ii2 !== -1 ? ii2 : null;
             } else if (format3 === "ddd") {
-              ii = indexOf.call(this._shortWeekdaysParse, llc);
-              return ii !== -1 ? ii : null;
+              ii2 = indexOf.call(this._shortWeekdaysParse, llc);
+              return ii2 !== -1 ? ii2 : null;
             } else {
-              ii = indexOf.call(this._minWeekdaysParse, llc);
-              return ii !== -1 ? ii : null;
+              ii2 = indexOf.call(this._minWeekdaysParse, llc);
+              return ii2 !== -1 ? ii2 : null;
             }
           } else {
             if (format3 === "dddd") {
-              ii = indexOf.call(this._weekdaysParse, llc);
-              if (ii !== -1) {
-                return ii;
+              ii2 = indexOf.call(this._weekdaysParse, llc);
+              if (ii2 !== -1) {
+                return ii2;
               }
-              ii = indexOf.call(this._shortWeekdaysParse, llc);
-              if (ii !== -1) {
-                return ii;
+              ii2 = indexOf.call(this._shortWeekdaysParse, llc);
+              if (ii2 !== -1) {
+                return ii2;
               }
-              ii = indexOf.call(this._minWeekdaysParse, llc);
-              return ii !== -1 ? ii : null;
+              ii2 = indexOf.call(this._minWeekdaysParse, llc);
+              return ii2 !== -1 ? ii2 : null;
             } else if (format3 === "ddd") {
-              ii = indexOf.call(this._shortWeekdaysParse, llc);
-              if (ii !== -1) {
-                return ii;
+              ii2 = indexOf.call(this._shortWeekdaysParse, llc);
+              if (ii2 !== -1) {
+                return ii2;
               }
-              ii = indexOf.call(this._weekdaysParse, llc);
-              if (ii !== -1) {
-                return ii;
+              ii2 = indexOf.call(this._weekdaysParse, llc);
+              if (ii2 !== -1) {
+                return ii2;
               }
-              ii = indexOf.call(this._minWeekdaysParse, llc);
-              return ii !== -1 ? ii : null;
+              ii2 = indexOf.call(this._minWeekdaysParse, llc);
+              return ii2 !== -1 ? ii2 : null;
             } else {
-              ii = indexOf.call(this._minWeekdaysParse, llc);
-              if (ii !== -1) {
-                return ii;
+              ii2 = indexOf.call(this._minWeekdaysParse, llc);
+              if (ii2 !== -1) {
+                return ii2;
               }
-              ii = indexOf.call(this._weekdaysParse, llc);
-              if (ii !== -1) {
-                return ii;
+              ii2 = indexOf.call(this._weekdaysParse, llc);
+              if (ii2 !== -1) {
+                return ii2;
               }
-              ii = indexOf.call(this._shortWeekdaysParse, llc);
-              return ii !== -1 ? ii : null;
+              ii2 = indexOf.call(this._shortWeekdaysParse, llc);
+              return ii2 !== -1 ? ii2 : null;
             }
           }
         }
@@ -27040,21 +27040,21 @@ const String cookingBundle = r'''// Discourse 07a0e7b94717b45207749578df1f0bd2dd
     /** @internal */
     __compile__() {
       const chains = /* @__PURE__ */ new Set();
-      this.__rules__.forEach((rule5) => {
-        if (!rule5.enabled) return;
-        rule5.alt.forEach((altName) => {
+      this.__rules__.forEach((rule8) => {
+        if (!rule8.enabled) return;
+        rule8.alt.forEach((altName) => {
           if (altName) chains.add(altName);
         });
       });
       this.__cache__ = /* @__PURE__ */ Object.create(null);
       this.__cache__[""] = [];
-      this.__rules__.forEach((rule5) => {
-        if (rule5.enabled) this.__cache__[""].push(rule5.fn);
+      this.__rules__.forEach((rule8) => {
+        if (rule8.enabled) this.__cache__[""].push(rule8.fn);
       });
       chains.forEach((chain) => {
         this.__cache__[chain] = [];
-        this.__rules__.forEach((rule5) => {
-          if (rule5.enabled && rule5.alt.indexOf(chain) >= 0) this.__cache__[chain].push(rule5.fn);
+        this.__rules__.forEach((rule8) => {
+          if (rule8.enabled && rule8.alt.indexOf(chain) >= 0) this.__cache__[chain].push(rule8.fn);
         });
       });
     }
@@ -27183,8 +27183,8 @@ const String cookingBundle = r'''// Discourse 07a0e7b94717b45207749578df1f0bd2dd
     */
     enableOnly(list2, ignoreInvalid = false) {
       if (!Array.isArray(list2)) list2 = [list2];
-      this.__rules__.forEach((rule5) => {
-        rule5.enabled = false;
+      this.__rules__.forEach((rule8) => {
+        rule8.enabled = false;
       });
       this.enable(list2, ignoreInvalid);
     }
@@ -30758,7 +30758,7 @@ const String cookingBundle = r'''// Discourse 07a0e7b94717b45207749578df1f0bd2dd
     return closeTag;
   }
   function applyBBCode(state, startLine, endLine, silent, md) {
-    let nextLine, oldParent, oldLineMax, rule5, start = state.bMarks[startLine] + state.tShift[startLine], initial = start, max = state.eMarks[startLine];
+    let nextLine, oldParent, oldLineMax, rule8, start = state.bMarks[startLine] + state.tShift[startLine], initial = start, max = state.eMarks[startLine];
     if (91 !== state.src.charCodeAt(start)) {
       return false;
     }
@@ -30770,7 +30770,7 @@ const String cookingBundle = r'''// Discourse 07a0e7b94717b45207749578df1f0bd2dd
     if (!ruleInfo) {
       return false;
     }
-    rule5 = ruleInfo.rule;
+    rule8 = ruleInfo.rule;
     if (silent) {
       return true;
     }
@@ -30792,19 +30792,19 @@ const String cookingBundle = r'''// Discourse 07a0e7b94717b45207749578df1f0bd2dd
     oldParent = state.parentType;
     oldLineMax = state.lineMax;
     state.lineMax = nextLine;
-    if (rule5.replace) {
+    if (rule8.replace) {
       let content;
       if (startLine === nextLine) {
         content = state.src.slice(start + info.length, closeTag.start);
       } else {
         content = state.getLines(startLine + 1, nextLine, 0, false);
       }
-      if (!rule5.replace.call(this, state, info, content)) {
+      if (!rule8.replace.call(this, state, info, content)) {
         return false;
       }
     } else {
-      if (rule5.before) {
-        rule5.before.call(
+      if (rule8.before) {
+        rule8.before.call(
           this,
           state,
           info,
@@ -30812,19 +30812,19 @@ const String cookingBundle = r'''// Discourse 07a0e7b94717b45207749578df1f0bd2dd
         );
       }
       let wrapTag;
-      if (rule5.wrap) {
+      if (rule8.wrap) {
         let token;
-        if (typeof rule5.wrap === "function") {
+        if (typeof rule8.wrap === "function") {
           token = new state.Token("wrap_bbcode", "div", 1);
           token.level = state.level + 1;
-          if (!rule5.wrap(token, info)) {
+          if (!rule8.wrap(token, info)) {
             return false;
           }
           state.tokens.push(token);
           state.level = token.level;
           wrapTag = token.tag;
         } else {
-          let split = rule5.wrap.split(".");
+          let split = rule8.wrap.split(".");
           wrapTag = split[0];
           let className = split.slice(1).join(" ");
           token = state.push("wrap_bbcode", wrapTag, 1);
@@ -30846,11 +30846,11 @@ const String cookingBundle = r'''// Discourse 07a0e7b94717b45207749578df1f0bd2dd
         token.content = state.src.slice(start + info.length, closeTag.start);
         state.push("paragraph_close", "p", -1);
       }
-      if (rule5.wrap) {
+      if (rule8.wrap) {
         state.push("wrap_bbcode", wrapTag, -1);
       }
-      if (rule5.after) {
-        rule5.after.call(
+      if (rule8.after) {
+        rule8.after.call(
           this,
           state,
           lastToken,
@@ -30944,8 +30944,8 @@ const String cookingBundle = r'''// Discourse 07a0e7b94717b45207749578df1f0bd2dd
       }
     }
     // TODO validate inputs
-    push(name, rule5) {
-      this.rules.push({ name, rule: rule5 });
+    push(name, rule8) {
+      this.rules.push({ name, rule: rule8 });
       this.matcher = null;
     }
   };
@@ -31298,8 +31298,8 @@ const String cookingBundle = r'''// Discourse 07a0e7b94717b45207749578df1f0bd2dd
         this.cache[info.rule.tag] = info;
       }
     }
-    push(name, rule5) {
-      this.rules.push({ name, rule: rule5 });
+    push(name, rule8) {
+      this.rules.push({ name, rule: rule8 });
       this.cache = null;
     }
   };
@@ -31375,13 +31375,13 @@ const String cookingBundle = r'''// Discourse 07a0e7b94717b45207749578df1f0bd2dd
     if (!tagInfo) {
       return false;
     }
-    let rule5, i;
+    let rule8, i;
     let ruleInfo = ruler.getRuleForTag(tagInfo.tag);
     if (!ruleInfo) {
       return false;
     }
-    rule5 = ruleInfo.rule;
-    if (rule5.replace) {
+    rule8 = ruleInfo.rule;
+    if (rule8.replace) {
       if (tagInfo.closing) {
         return false;
       }
@@ -31397,14 +31397,14 @@ const String cookingBundle = r'''// Discourse 07a0e7b94717b45207749578df1f0bd2dd
         return false;
       }
       let content = state.src.slice(state.pos + tagInfo.length, i);
-      if (rule5.replace(state, tagInfo, content)) {
+      if (rule8.replace(state, tagInfo, content)) {
         state.pos = i + closeTag.length;
         return true;
       } else {
         return false;
       }
     } else {
-      tagInfo.rule = rule5;
+      tagInfo.rule = rule8;
       if (tagInfo.closing && state.tokens.at(-1)?.meta === "bbcode") {
         state.push("text", "", 0);
       }
@@ -32260,11 +32260,11 @@ const String cookingBundle = r'''// Discourse 07a0e7b94717b45207749578df1f0bd2dd
   }
   function setup10(helper) {
     helper.registerPlugin((md) => {
-      const rule5 = {
+      const rule8 = {
         matcher: MATCHER,
         onMatch: addHashtag
       };
-      md.core.textPostProcess.ruler.push("hashtag-autocomplete", rule5);
+      md.core.textPostProcess.ruler.push("hashtag-autocomplete", rule8);
     });
     helper.allowList([
       "a.hashtag-cooked",
@@ -32645,11 +32645,11 @@ const String cookingBundle = r'''// Discourse 07a0e7b94717b45207749578df1f0bd2dd
       opts.features.unicodeUsernames = !!siteSettings.unicode_usernames;
     });
     helper.registerPlugin((md) => {
-      const rule5 = {
+      const rule8 = {
         matcher: mentionRegex(md.options.discourse.unicodeUsernames),
         onMatch: addMention
       };
-      md.core.textPostProcess.ruler.push("mentions", rule5);
+      md.core.textPostProcess.ruler.push("mentions", rule8);
     });
   }
 
@@ -33512,8 +33512,8 @@ const String cookingBundle = r'''// Discourse 07a0e7b94717b45207749578df1f0bd2dd
     feature("bbcode-block", bbcode_block_exports),
     feature("anchor", anchor_exports)
   ];
-  function feature(id, { setup: setup29, priority: priority3 = 0 }) {
-    return { id, setup: setup29, priority: priority3 };
+  function feature(id, { setup: setup38, priority: priority3 = 0 }) {
+    return { id, setup: setup38, priority: priority3 };
   }
 
   // vendor/frontend/discourse-markdown-it/src/options.js
@@ -33695,19 +33695,19 @@ const String cookingBundle = r'''// Discourse 07a0e7b94717b45207749578df1f0bd2dd
       if (options.setup) {
         return;
       }
-      const setup29 = new _Setup(options);
+      const setup38 = new _Setup(options);
       features.sort((a, b) => a.priority - b.priority);
       for (const feature2 of features) {
-        setup29.#setupFeature(feature2.id, feature2.setup);
+        setup38.#setupFeature(feature2.id, feature2.setup);
       }
       for (const entry of Object.entries(state.allowListed ?? {})) {
-        setup29.allowList(entry);
+        setup38.allowList(entry);
       }
-      setup29.#runOptionsCallbacks(siteSettings, state);
-      setup29.#enableMarkdownFeatures();
-      setup29.#finalizeGetOptions(siteSettings);
-      setup29.#makeEngine();
-      setup29.#buildCookFunctions();
+      setup38.#runOptionsCallbacks(siteSettings, state);
+      setup38.#enableMarkdownFeatures();
+      setup38.#finalizeGetOptions(siteSettings);
+      setup38.#makeEngine();
+      setup38.#buildCookFunctions();
     }
     #context;
     #options;
@@ -33863,17 +33863,17 @@ const String cookingBundle = r'''// Discourse 07a0e7b94717b45207749578df1f0bd2dd
     #context;
     #setup;
     #deprecate;
-    constructor(featureName, context, setup29) {
+    constructor(featureName, context, setup38) {
       this.#name = featureName;
       this.#context = context;
-      this.#setup = setup29;
+      this.#setup = setup38;
       this.#deprecate = (methodName, ...args) => {
         if (window.console && window.console.log) {
           window.console.log(
             featureName + ": " + methodName + " is deprecated, please use the new markdown it APIs"
           );
         }
-        return setup29(methodName, ...args);
+        return setup38(methodName, ...args);
       };
     }
     get markdownIt() {
@@ -34462,7 +34462,7 @@ const String cookingBundle = r'''// Discourse 07a0e7b94717b45207749578df1f0bd2dd
         return true;
       }
     };
-    function setup29(helper) {
+    function setup38(helper) {
       helper.allowList([
         "svg[class=fa d-icon d-icon-discourse-threads svg-icon svg-node]",
         "use[href=#discourse-threads]",
@@ -34517,12 +34517,12 @@ const String cookingBundle = r'''// Discourse 07a0e7b94717b45207749578df1f0bd2dd
         );
       });
     }
-    return setup29;
+    return setup38;
   }
 
   // src/modules/chat-transcript.js
   function setup26(helper, context, api) {
-    const setup29 = createSetup((key, values) => i18n(key, values, api.context.locale));
+    const setup38 = createSetup((key, values) => i18n(key, values, api.context.locale));
     helper.allowList([
       "div[data-chained]",
       "div[data-reactions]",
@@ -34544,18 +34544,18 @@ const String cookingBundle = r'''// Discourse 07a0e7b94717b45207749578df1f0bd2dd
         hashtag_configurations: { "chat-composer": api.hashtagPriorities.chat || ["channel", "category", "tag"] }
       } };
     });
-    setup29({
+    setup38({
       allowList: (values) => helper.allowList(values),
       registerOptions: (callback) => helper.registerOptions((options) => callback(options, { chat_enabled: true })),
       registerPlugin: (callback) => helper.registerPlugin((md) => {
         const ruler = md.block.bbcode.ruler, push = ruler.push;
-        ruler.push = function(name, rule5) {
-          push.call(this, name, { ...rule5, replace(state, tag, content) {
+        ruler.push = function(name, rule8) {
+          push.call(this, name, { ...rule8, replace(state, tag, content) {
             const attrs = { ...tag.attrs };
             for (const key of ["channel", "threadTitle"]) if (attrs[key]) attrs[key] = escape(attrs[key]);
             for (const key of ["channelId", "threadId"]) if (attrs[key] && !/^[1-9][0-9]*$/.test(attrs[key])) delete attrs[key];
             if (attrs.reactions && !attrs.reactions.split(";").every((r) => /^[^:;]+:[^:;]+$/.test(r))) delete attrs.reactions;
-            return rule5.replace(state, { ...tag, attrs }, content);
+            return rule8.replace(state, { ...tag, attrs }, content);
           } });
         };
         try {
@@ -42877,6 +42877,622 @@ const String cookingBundle = r'''// Discourse 07a0e7b94717b45207749578df1f0bd2dd
     return serialize(doc);
   }
 
+  // src/modules/details.js
+  init_environment();
+
+  // vendor/plugins/discourse-details/assets/javascripts/lib/discourse-markdown/details.js
+  init_environment();
+  var rule5 = {
+    tag: "details",
+    before(state, tagInfo) {
+      const attrs = tagInfo.attrs;
+      const details = state.push("bbcode_open", "details", 1);
+      state.push("bbcode_open", "summary", 1);
+      if (attrs.open === "") {
+        details.attrs = [["open", ""]];
+      }
+      let token = state.push("text", "", 0);
+      token.content = attrs["_default"] || "";
+      state.push("bbcode_close", "summary", -1);
+    },
+    after(state) {
+      state.push("bbcode_close", "details", -1);
+    }
+  };
+  function setup29(helper) {
+    helper.allowList([
+      "summary",
+      "summary[title]",
+      "details",
+      "details[open]",
+      "details.elided"
+    ]);
+    helper.registerPlugin((md) => {
+      md.block.bbcode.ruler.push("details", rule5);
+    });
+  }
+
+  // src/modules/d-wrap.js
+  init_environment();
+  function transform9(html) {
+    return html;
+  }
+
+  // src/modules/poll.js
+  init_environment();
+
+  // vendor/plugins/poll/assets/javascripts/lib/discourse-markdown/poll.js
+  init_environment();
+  var DATA_PREFIX = "data-poll-";
+  var DEFAULT_POLL = { name: "poll", status: "open" };
+  var DEFAULT_MAXIMUM_OPTIONS = 20;
+  var ALLOWED_ATTRIBUTES = [
+    "chartType",
+    "close",
+    "groups",
+    "max",
+    "min",
+    "name",
+    "order",
+    "public",
+    "results",
+    "status",
+    "step",
+    "type",
+    "dynamic"
+  ];
+  function addNumberListItems(state, pollTokens, min, max, step, maximumOptions) {
+    pollTokens.push(new state.Token("bullet_list_open", "ul", 1));
+    const maximumGeneratedOptions = maximumOptions + 1;
+    for (let i = min, count = 0; i <= max && count < maximumGeneratedOptions; i += step, count++) {
+      pollTokens.push(new state.Token("list_item_open", "li", 1));
+      let token = new state.Token("paragraph_open", "p", 1);
+      token.hidden = true;
+      pollTokens.push(token);
+      token = new state.Token("text", "", 0);
+      token.content = String(i);
+      pollTokens.push(token);
+      token = new state.Token("paragraph_close", "p", -1);
+      token.hidden = true;
+      pollTokens.push(token);
+      pollTokens.push(new state.Token("list_item_close", "li", -1));
+    }
+    pollTokens.push(new state.Token("bullet_list_close", "ul", -1));
+  }
+  function addPollContainer(state, titleTokens, pollTokens) {
+    let token = state.push("poll_container_open", "div", 1);
+    token.attrs = [["class", "poll-container"]];
+    if (titleTokens.length > 0) {
+      token = state.push("poll_title_open", "div", 1);
+      token.attrs = [["class", "poll-title"]];
+      state.tokens.push(...titleTokens);
+      state.push("poll_title_close", "div", -1);
+    }
+    for (let i = 0; i < pollTokens.length; i++) {
+      if (pollTokens[i].type === "list_item_open") {
+        let listItemCloseIndex = pollTokens.findIndex(
+          (t, j) => j > i && t.type === "list_item_close"
+        );
+        if (listItemCloseIndex === -1) {
+          continue;
+        }
+        let text3 = pollTokens.slice(i, listItemCloseIndex + 1).filter((c) => c.type === "text" || c.type === "inline").map((c) => c.content).join(" ");
+        let hash = md5(JSON.stringify([text3]));
+        pollTokens[i].attrs ||= [];
+        pollTokens[i].attrs.push([DATA_PREFIX + "option-id", hash]);
+      }
+    }
+    state.tokens.push(...pollTokens);
+    state.push("poll_container_close", "div", -1);
+  }
+  function addPollInfo(state) {
+    let token = state.push("poll_info_open", "div", 1);
+    token.attrs = [["class", "poll-info"]];
+    token = state.push("poll_info_counts_open", "div", 1);
+    token.attrs = [["class", "poll-info_counts"]];
+    token = state.push("poll_info_counts_count_open", "div", 1);
+    token.attrs = [["class", "poll-info_counts-count"]];
+    token = state.push("poll_info_number_open", "span", 1);
+    token.attrs = [["class", "info-number"]];
+    token.block = false;
+    token = state.push("text", "", 0);
+    token.content = "0";
+    state.push("poll_info_number_close", "span", -1);
+    token = state.push("poll_info_label_open", "span", 1);
+    token.attrs = [["class", "info-label"]];
+    token.block = false;
+    token = state.push("text", "", 0);
+    token.content = i18n("poll.voters", { count: 0 });
+    state.push("poll_info_label_close", "span", -1);
+    state.push("poll_info_counts_count_close", "div", -1);
+    state.push("poll_info_counts_close", "div", -1);
+    state.push("poll_info_close", "div", -1);
+  }
+  var rule6 = {
+    tag: "poll",
+    before(state, { attrs }) {
+      let open = state.tokens.filter((t) => t.type === "poll_open").length;
+      let closed = state.tokens.filter((t) => t.type === "poll_close").length;
+      if (open > closed) {
+        return;
+      }
+      let token = state.push("poll_open", "div", 1);
+      token.poll_attrs = { ...DEFAULT_POLL, ...attrs };
+    },
+    after(state, openToken) {
+      if (openToken.type !== "poll_open") {
+        return;
+      }
+      let attrs = openToken.poll_attrs;
+      let openTokenIndex = state.tokens.indexOf(openToken);
+      let pollTokens = state.tokens.slice(openTokenIndex + 1);
+      let titleTokens = [];
+      if (pollTokens.length > 0 && pollTokens[0].type === "heading_open") {
+        let idx = pollTokens.findIndex((t) => t.type === "heading_close");
+        if (idx !== -1) {
+          titleTokens = pollTokens.splice(0, idx + 1).slice(1, -1);
+          state.tokens.splice(openTokenIndex + 1, idx + 1);
+        }
+      }
+      if (attrs.type === "number") {
+        let min = parseInt(attrs.min, 10);
+        let max = parseInt(attrs.max, 10);
+        let step = parseInt(attrs.step, 10);
+        let maximumOptions = parseInt(
+          state.md.options.discourse.pollMaximumOptions,
+          10
+        );
+        if (isNaN(maximumOptions) || maximumOptions < 1) {
+          maximumOptions = DEFAULT_MAXIMUM_OPTIONS;
+        }
+        if (isNaN(min)) {
+          min = 1;
+        }
+        if (isNaN(max)) {
+          max = maximumOptions;
+        }
+        if (isNaN(step) || step < 1) {
+          step = 1;
+        }
+        if (pollTokens.length > 0) {
+          state.tokens.splice(openTokenIndex, 1);
+          return;
+        } else if (min <= max) {
+          addNumberListItems(state, pollTokens, min, max, step, maximumOptions);
+        }
+      }
+      state.tokens.splice(openTokenIndex + 1);
+      openToken.attrs ||= [];
+      openToken.attrs.push(["class", "poll"]);
+      for (let n of ALLOWED_ATTRIBUTES) {
+        if (attrs[n]) {
+          openToken.attrs.push([DATA_PREFIX + n, attrs[n]]);
+        }
+      }
+      if (pollTokens.length > 0) {
+        if (!pollTokens[0].type.endsWith("_list_open")) {
+          return;
+        }
+      }
+      addPollContainer(state, titleTokens, pollTokens);
+      addPollInfo(state);
+      state.push("poll_close", "div", -1);
+    }
+  };
+  function setup30(helper) {
+    helper.allowList([
+      "a.button.cast-votes",
+      "a.button.toggle-results",
+      "div.poll-buttons",
+      "div.poll-container",
+      "div.poll-info_counts-count",
+      "div.poll-info_counts",
+      "div.poll-info",
+      "div.poll-title",
+      "div.poll",
+      "div[data-*]",
+      "li[data-*]",
+      "span.info-label",
+      "span.info-number",
+      "span.info-text"
+    ]);
+    helper.registerOptions((opts, siteSettings) => {
+      opts.features.poll = siteSettings.poll_enabled;
+      opts.pollMaximumOptions = siteSettings.poll_maximum_options;
+    });
+    helper.registerPlugin((md) => md.block.bbcode.ruler.push("poll", rule6));
+  }
+  /*!
+   * Joseph Myer's md5() algorithm wrapped in a self-invoked function to prevent
+   * global namespace pollution, modified to hash unicode characters as UTF-8.
+   *
+   * Copyright 1999-2010, Joseph Myers, Paul Johnston, Greg Holt, Will Bond <will@wbond.net>
+   * http://www.myersdaily.org/joseph/javascript/md5-text.html
+   * http://pajhome.org.uk/crypt/md5
+   *
+   * Released under the BSD license
+   * http://www.opensource.org/licenses/bsd-license
+   */
+  function md5cycle(x, k) {
+    let a = x[0], b = x[1], c = x[2], d = x[3];
+    a = ff(a, b, c, d, k[0], 7, -680876936);
+    d = ff(d, a, b, c, k[1], 12, -389564586);
+    c = ff(c, d, a, b, k[2], 17, 606105819);
+    b = ff(b, c, d, a, k[3], 22, -1044525330);
+    a = ff(a, b, c, d, k[4], 7, -176418897);
+    d = ff(d, a, b, c, k[5], 12, 1200080426);
+    c = ff(c, d, a, b, k[6], 17, -1473231341);
+    b = ff(b, c, d, a, k[7], 22, -45705983);
+    a = ff(a, b, c, d, k[8], 7, 1770035416);
+    d = ff(d, a, b, c, k[9], 12, -1958414417);
+    c = ff(c, d, a, b, k[10], 17, -42063);
+    b = ff(b, c, d, a, k[11], 22, -1990404162);
+    a = ff(a, b, c, d, k[12], 7, 1804603682);
+    d = ff(d, a, b, c, k[13], 12, -40341101);
+    c = ff(c, d, a, b, k[14], 17, -1502002290);
+    b = ff(b, c, d, a, k[15], 22, 1236535329);
+    a = gg(a, b, c, d, k[1], 5, -165796510);
+    d = gg(d, a, b, c, k[6], 9, -1069501632);
+    c = gg(c, d, a, b, k[11], 14, 643717713);
+    b = gg(b, c, d, a, k[0], 20, -373897302);
+    a = gg(a, b, c, d, k[5], 5, -701558691);
+    d = gg(d, a, b, c, k[10], 9, 38016083);
+    c = gg(c, d, a, b, k[15], 14, -660478335);
+    b = gg(b, c, d, a, k[4], 20, -405537848);
+    a = gg(a, b, c, d, k[9], 5, 568446438);
+    d = gg(d, a, b, c, k[14], 9, -1019803690);
+    c = gg(c, d, a, b, k[3], 14, -187363961);
+    b = gg(b, c, d, a, k[8], 20, 1163531501);
+    a = gg(a, b, c, d, k[13], 5, -1444681467);
+    d = gg(d, a, b, c, k[2], 9, -51403784);
+    c = gg(c, d, a, b, k[7], 14, 1735328473);
+    b = gg(b, c, d, a, k[12], 20, -1926607734);
+    a = hh(a, b, c, d, k[5], 4, -378558);
+    d = hh(d, a, b, c, k[8], 11, -2022574463);
+    c = hh(c, d, a, b, k[11], 16, 1839030562);
+    b = hh(b, c, d, a, k[14], 23, -35309556);
+    a = hh(a, b, c, d, k[1], 4, -1530992060);
+    d = hh(d, a, b, c, k[4], 11, 1272893353);
+    c = hh(c, d, a, b, k[7], 16, -155497632);
+    b = hh(b, c, d, a, k[10], 23, -1094730640);
+    a = hh(a, b, c, d, k[13], 4, 681279174);
+    d = hh(d, a, b, c, k[0], 11, -358537222);
+    c = hh(c, d, a, b, k[3], 16, -722521979);
+    b = hh(b, c, d, a, k[6], 23, 76029189);
+    a = hh(a, b, c, d, k[9], 4, -640364487);
+    d = hh(d, a, b, c, k[12], 11, -421815835);
+    c = hh(c, d, a, b, k[15], 16, 530742520);
+    b = hh(b, c, d, a, k[2], 23, -995338651);
+    a = ii(a, b, c, d, k[0], 6, -198630844);
+    d = ii(d, a, b, c, k[7], 10, 1126891415);
+    c = ii(c, d, a, b, k[14], 15, -1416354905);
+    b = ii(b, c, d, a, k[5], 21, -57434055);
+    a = ii(a, b, c, d, k[12], 6, 1700485571);
+    d = ii(d, a, b, c, k[3], 10, -1894986606);
+    c = ii(c, d, a, b, k[10], 15, -1051523);
+    b = ii(b, c, d, a, k[1], 21, -2054922799);
+    a = ii(a, b, c, d, k[8], 6, 1873313359);
+    d = ii(d, a, b, c, k[15], 10, -30611744);
+    c = ii(c, d, a, b, k[6], 15, -1560198380);
+    b = ii(b, c, d, a, k[13], 21, 1309151649);
+    a = ii(a, b, c, d, k[4], 6, -145523070);
+    d = ii(d, a, b, c, k[11], 10, -1120210379);
+    c = ii(c, d, a, b, k[2], 15, 718787259);
+    b = ii(b, c, d, a, k[9], 21, -343485551);
+    x[0] = add32(a, x[0]);
+    x[1] = add32(b, x[1]);
+    x[2] = add32(c, x[2]);
+    x[3] = add32(d, x[3]);
+  }
+  function cmn(q, a, b, x, s, t) {
+    a = add32(add32(a, q), add32(x, t));
+    return add32(a << s | a >>> 32 - s, b);
+  }
+  function ff(a, b, c, d, x, s, t) {
+    return cmn(b & c | ~b & d, a, b, x, s, t);
+  }
+  function gg(a, b, c, d, x, s, t) {
+    return cmn(b & d | c & ~d, a, b, x, s, t);
+  }
+  function hh(a, b, c, d, x, s, t) {
+    return cmn(b ^ c ^ d, a, b, x, s, t);
+  }
+  function ii(a, b, c, d, x, s, t) {
+    return cmn(c ^ (b | ~d), a, b, x, s, t);
+  }
+  function md51(s) {
+    s = unescape(encodeURI(s));
+    let n = s.length, state = [1732584193, -271733879, -1732584194, 271733878], i;
+    for (i = 64; i <= s.length; i += 64) {
+      md5cycle(state, md5blk(s.substring(i - 64, i)));
+    }
+    s = s.substring(i - 64);
+    let tail = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+    for (i = 0; i < s.length; i++) {
+      tail[i >> 2] |= s.charCodeAt(i) << (i % 4 << 3);
+    }
+    tail[i >> 2] |= 128 << (i % 4 << 3);
+    if (i > 55) {
+      md5cycle(state, tail);
+      for (i = 0; i < 16; i++) {
+        tail[i] = 0;
+      }
+    }
+    tail[14] = n * 8;
+    md5cycle(state, tail);
+    return state;
+  }
+  function md5blk(s) {
+    let md5blks = [], i;
+    for (i = 0; i < 64; i += 4) {
+      md5blks[i >> 2] = s.charCodeAt(i) + (s.charCodeAt(i + 1) << 8) + (s.charCodeAt(i + 2) << 16) + (s.charCodeAt(i + 3) << 24);
+    }
+    return md5blks;
+  }
+  var hex_chr = "0123456789abcdef".split("");
+  function rhex(n) {
+    let s = "", j = 0;
+    for (; j < 4; j++) {
+      s += hex_chr[n >> j * 8 + 4 & 15] + hex_chr[n >> j * 8 & 15];
+    }
+    return s;
+  }
+  function hex(x) {
+    for (let i = 0; i < x.length; i++) {
+      x[i] = rhex(x[i]);
+    }
+    return x.join("");
+  }
+  function add32(a, b) {
+    return a + b & 4294967295;
+  }
+  function md5(s) {
+    return hex(md51(s));
+  }
+
+  // src/modules/poll.js
+  function setup31(helper, context) {
+    setup30({
+      allowList: (values) => helper.allowList(values),
+      registerOptions: (callback) => helper.registerOptions((options) => callback(options, context.settings || {})),
+      registerPlugin: (callback) => helper.registerPlugin(callback)
+    });
+  }
+
+  // src/modules/post-event.js
+  init_environment();
+
+  // vendor/plugins/discourse-events/assets/javascripts/discourse/lib/discourse-markdown/discourse-post-event-block.js
+  init_environment();
+  var rule7 = {
+    tag: "event",
+    wrap(token, info) {
+      if (!info.attrs.start) {
+        return false;
+      }
+      token.attrs = [["class", "discourse-post-event"]];
+      Object.keys(info.attrs).forEach((key) => {
+        const value = info.attrs[key];
+        if (typeof value !== "undefined") {
+          token.attrs.push([`data-${dasherize(key)}`, value]);
+        }
+      });
+      return true;
+    }
+  };
+  function dasherize(input) {
+    return input.replace(/[A-Z]/g, function(char, index) {
+      return (index !== 0 ? "-" : "") + char.toLowerCase();
+    });
+  }
+  function setup32(helper) {
+    helper.allowList(["div.discourse-post-event"]);
+    helper.registerOptions((opts, siteSettings) => {
+      opts.features.discourse_post_event = siteSettings.discourse_events_enabled && siteSettings.discourse_post_event_enabled;
+    });
+    helper.registerPlugin(
+      (md) => md.block.bbcode.ruler.push("discourse-post-event", rule7)
+    );
+  }
+
+  // src/modules/post-event.js
+  function setup33(helper, context) {
+    setup32({
+      allowList: (values) => helper.allowList(values),
+      registerOptions: (callback) => helper.registerOptions((options) => callback(options, context.settings || {})),
+      registerPlugin: (callback) => helper.registerPlugin(callback)
+    });
+  }
+
+  // src/modules/calendar.js
+  init_environment();
+
+  // vendor/plugins/discourse-events/assets/javascripts/discourse/lib/discourse-markdown/discourse-calendar.js
+  init_environment();
+  var calendarRule = {
+    tag: "calendar",
+    before: function(state, info) {
+      let wrapperDivToken = state.push("div_calendar_wrap", "div", 1);
+      wrapperDivToken.attrs = [["class", "discourse-calendar-wrap"]];
+      let mainCalendarDivToken = state.push("div_calendar", "div", 1);
+      mainCalendarDivToken.attrs = [
+        ["class", "calendar"],
+        ["data-calendar-type", info.attrs.type || "dynamic"],
+        ["data-calendar-default-timezone", info.attrs.defaultTimezone]
+      ];
+      if (info.attrs.defaultView) {
+        mainCalendarDivToken.attrs.push([
+          "data-calendar-default-view",
+          info.attrs.defaultView
+        ]);
+      }
+      if (info.attrs.weekends) {
+        mainCalendarDivToken.attrs.push(["data-weekends", info.attrs.weekends]);
+      }
+      if (info.attrs.showAddToCalendar) {
+        mainCalendarDivToken.attrs.push([
+          "data-calendar-show-add-to-calendar",
+          info.attrs.showAddToCalendar === "true"
+        ]);
+      }
+      if (info.attrs.fullDay) {
+        mainCalendarDivToken.attrs.push([
+          "data-calendar-full-day",
+          info.attrs.fullDay === "true"
+        ]);
+      }
+      if (info.attrs.hiddenDays) {
+        mainCalendarDivToken.attrs.push([
+          "data-hidden-days",
+          info.attrs.hiddenDays
+        ]);
+      }
+    },
+    after: function(state) {
+      state.push("div_calendar", "div", -1);
+      state.push("div_calendar_wrap", "div", -1);
+    }
+  };
+  var groupTimezoneRule = {
+    tag: "timezones",
+    before: function(state, info) {
+      const wrapperDivToken = state.push("div_group_timezones", "div", 1);
+      wrapperDivToken.attrs = [
+        ["class", "group-timezones"],
+        ["data-group", info.attrs.group],
+        ["data-size", info.attrs.size || "medium"]
+      ];
+    },
+    after: function(state) {
+      state.push("div_group_timezones", "div", -1);
+    }
+  };
+  function setup34(helper) {
+    helper.allowList([
+      "div.calendar",
+      "div.discourse-calendar-wrap",
+      "select.discourse-calendar-timezone-picker",
+      "span.discourse-calendar-timezone-wrap",
+      "h2.discourse-calendar-title",
+      "div[data-calendar-type]",
+      "div[data-calendar-default-view]",
+      "div[data-calendar-default-timezone]",
+      "div[data-weekends]",
+      "div[data-hidden-days]",
+      "div.group-timezones",
+      "div[data-group]",
+      "div[data-size]"
+    ]);
+    helper.registerOptions((opts, siteSettings) => {
+      opts.features["discourse-calendar-enabled"] = !!siteSettings.discourse_events_enabled;
+    });
+    helper.registerPlugin((md) => {
+      const features = md.options.discourse.features;
+      if (features["discourse-calendar-enabled"]) {
+        md.block.bbcode.ruler.push("discourse-calendar", calendarRule);
+        md.block.bbcode.ruler.push(
+          "discourse-group-timezones",
+          groupTimezoneRule
+        );
+      }
+    });
+  }
+
+  // src/modules/calendar.js
+  function setup35(helper, context) {
+    setup34({
+      allowList: (values) => helper.allowList(values),
+      registerOptions: (callback) => helper.registerOptions((options) => callback(options, context.settings || {})),
+      registerPlugin: (callback) => helper.registerPlugin(callback)
+    });
+  }
+
+  // src/modules/livestream-preview.js
+  init_environment();
+
+  // vendor/plugins/discourse-events/assets/javascripts/discourse/lib/discourse-markdown/livestream-preview.js
+  init_environment();
+  function setupMarkdownIt(helper) {
+    helper.registerOptions((opts) => {
+      opts.features["livestream-preview"] = true;
+    });
+    helper.registerPlugin((md) => {
+      if (!md.options.discourse.features["livestream-preview"]) {
+        return;
+      }
+      md.inline.bbcode.ruler.push("preview", {
+        tag: "preview",
+        wrap: "span.preview"
+      });
+      md.block.bbcode.ruler.push("preview", {
+        tag: "preview",
+        wrap: "div.preview"
+      });
+      md.inline.bbcode.ruler.push("hidden", {
+        tag: "hidden",
+        wrap: "span.hidden"
+      });
+      md.block.bbcode.ruler.push("hidden", {
+        tag: "hidden",
+        wrap: "div.hidden"
+      });
+    });
+  }
+  function setup36(helper) {
+    helper.allowList([
+      "span.preview",
+      "div.preview",
+      "span.hidden",
+      "div.hidden"
+    ]);
+    if (helper.markdownIt) {
+      setupMarkdownIt(helper);
+    }
+  }
+
+  // src/modules/livestream-preview.js
+  function setup37(helper) {
+    setup36(helper);
+  }
+
+  // src/modules/livestream-visibility.js
+  init_environment();
+  function transform10(html) {
+    const document = parseFragment(html);
+    walk(document, (node) => {
+      if (!["div", "span"].includes(node.tagName) || !(attr3(node, "class") || "").split(/\s+/).includes("hidden")) return;
+      const parent = node.parentNode;
+      if (parent) parent.childNodes = parent.childNodes.filter((child) => child !== node);
+    });
+    let hiddenDepth = 0;
+    function visit(parent) {
+      parent.childNodes = (parent.childNodes || []).filter((node) => {
+        if (["div", "span"].includes(node.tagName) && (attr3(node, "class") || "").split(/\s+/).includes("hidden")) return false;
+        if (node.nodeName === "#text") {
+          const markers = /\[(\/?)hidden(?:[ \t][^\]\r\n]*)?\]/gi;
+          let value = "", offset = 0;
+          for (const match of node.value.matchAll(markers)) {
+            if (!hiddenDepth) value += node.value.slice(offset, match.index);
+            hiddenDepth = match[1] ? Math.max(0, hiddenDepth - 1) : hiddenDepth + 1;
+            offset = match.index + match[0].length;
+          }
+          if (!hiddenDepth) value += node.value.slice(offset);
+          node.value = value;
+          return value.length > 0;
+        }
+        if (["pre", "code"].includes(node.tagName) || (attr3(node, "class") || "").split(/\s+/).includes("chat-transcript")) {
+          return !hiddenDepth;
+        }
+        const startedHidden = hiddenDepth > 0;
+        visit(node);
+        if (node.content) visit(node.content);
+        return !startedHidden || (node.childNodes || []).length > 0;
+      });
+    }
+    visit(document);
+    return serialize(document);
+  }
+
   // catalog:catalog
   if (typeof setup22 !== "function") throw Error("Invalid module implementation: spoiler-alert");
   if (typeof setup23 !== "function") throw Error("Invalid module implementation: offline-missing-uploads");
@@ -42892,7 +43508,14 @@ const String cookingBundle = r'''// Discourse 07a0e7b94717b45207749578df1f0bd2dd
   if (typeof transform6 !== "function") throw Error("Invalid module implementation: cooking-bidi");
   if (typeof transform7 !== "function") throw Error("Invalid module implementation: cooking-media");
   if (typeof transform8 !== "function") throw Error("Invalid module implementation: cooking-mentions");
-  var bundledModules = { "spoiler-alert": { ...{ "id": "spoiler-alert", "owner": "cooking", "version": "1", "source": "spoiler.js", "stage": "syntax", "policy": {} }, implementation: { setup: setup22 } }, "offline-missing-uploads": { ...{ "id": "offline-missing-uploads", "owner": "cooking", "version": "1", "source": "missing-uploads.js", "stage": "syntax", "policy": {} }, implementation: { setup: setup23 } }, "fixture-mark": { ...{ "id": "fixture-mark", "owner": "cooking-fixture", "version": "1", "source": "fixture-mark.js", "stage": "syntax", "policy": { "mark": ["data-fixture"] } }, implementation: { setup: setup24 } }, "fixture-tokens": { ...{ "id": "fixture-tokens", "owner": "cooking-fixture", "version": "1", "source": "fixture-tokens.js", "stage": "token", "policy": {} }, implementation: { transform } }, "fixture-document": { ...{ "id": "fixture-document", "owner": "cooking-fixture", "version": "1", "source": "fixture-document.js", "stage": "document", "policy": {} }, implementation: { transform: transform2 } }, "chat-source": { ...{ "id": "chat-source", "owner": "chat", "version": "1", "source": "chat-source.js", "stage": "source", "policy": {} }, implementation: { transform: transform3 } }, "chat-html-inline": { ...{ "id": "chat-html-inline", "owner": "chat", "version": "1", "source": "chat-html-inline.js", "stage": "syntax", "policy": {} }, implementation: { setup: setup25 } }, "chat-transcript": { ...{ "id": "chat-transcript", "owner": "chat", "version": "1", "source": "chat-transcript.js", "stage": "syntax", "policy": { "div": ["data-message-id", "data-channel-name", "data-channel-id", "data-username", "data-datetime", "data-chained", "data-reactions", "data-multiquote", "data-thread-id", "data-thread-title"], "details": ["class"], "summary": [], "span": ["title"] } }, implementation: { setup: setup26 } }, "chat-slash-format": { ...{ "id": "chat-slash-format", "owner": "chat", "version": "1", "source": "chat-slash-format.js", "stage": "document", "policy": { "em": ["class"] } }, implementation: { transform: transform4 } }, "discourse-local-dates": { ...{ "id": "discourse-local-dates", "owner": "discourse-local-dates", "version": "1", "source": "discourse-local-dates.js", "stage": "syntax", "policy": { "span": ["data-calendar", "data-countdown", "data-date", "data-displayed-timezone", "data-email-preview", "data-format", "data-ics", "data-recurring", "data-time", "data-timezone", "data-timezones", "data-range"] } }, implementation: { setup: setup28 } }, "cooking-links": { ...{ "id": "cooking-links", "owner": "cooking", "version": "1", "source": "cooking-links.js", "stage": "document", "policy": {} }, implementation: { transform: transform5 } }, "cooking-bidi": { ...{ "id": "cooking-bidi", "owner": "cooking", "version": "1", "source": "cooking-bidi.js", "stage": "document", "policy": { "span": ["title"], "pre": ["data-code-wrap", "data-code-height"] } }, implementation: { transform: transform6 } }, "cooking-media": { ...{ "id": "cooking-media", "owner": "cooking", "version": "1", "source": "cooking-media.js", "stage": "document", "policy": { "div": ["data-video-src", "data-thumbnail-src", "data-video-base62-sha1", "data-blocked-hotlinked-src", "data-mode"], "img": ["data-blocked-hotlinked-src"] } }, implementation: { transform: transform7 } }, "cooking-mentions": { ...{ "id": "cooking-mentions", "owner": "cooking", "version": "1", "source": "cooking-mentions.js", "stage": "document", "policy": {} }, implementation: { transform: transform8 } } };
+  if (typeof setup29 !== "function") throw Error("Invalid module implementation: details");
+  if (typeof transform9 !== "function") throw Error("Invalid module implementation: d-wrap");
+  if (typeof setup31 !== "function") throw Error("Invalid module implementation: poll");
+  if (typeof setup33 !== "function") throw Error("Invalid module implementation: post-event");
+  if (typeof setup35 !== "function") throw Error("Invalid module implementation: calendar");
+  if (typeof setup37 !== "function") throw Error("Invalid module implementation: livestream-preview");
+  if (typeof transform10 !== "function") throw Error("Invalid module implementation: livestream-visibility");
+  var bundledModules = { "spoiler-alert": { ...{ "id": "spoiler-alert", "owner": "cooking", "version": "1", "source": "spoiler.js", "stage": "syntax", "policy": {} }, implementation: { setup: setup22 } }, "offline-missing-uploads": { ...{ "id": "offline-missing-uploads", "owner": "cooking", "version": "1", "source": "missing-uploads.js", "stage": "syntax", "policy": {} }, implementation: { setup: setup23 } }, "fixture-mark": { ...{ "id": "fixture-mark", "owner": "cooking-fixture", "version": "1", "source": "fixture-mark.js", "stage": "syntax", "policy": { "mark": ["data-fixture"] } }, implementation: { setup: setup24 } }, "fixture-tokens": { ...{ "id": "fixture-tokens", "owner": "cooking-fixture", "version": "1", "source": "fixture-tokens.js", "stage": "token", "policy": {} }, implementation: { transform } }, "fixture-document": { ...{ "id": "fixture-document", "owner": "cooking-fixture", "version": "1", "source": "fixture-document.js", "stage": "document", "policy": {} }, implementation: { transform: transform2 } }, "chat-source": { ...{ "id": "chat-source", "owner": "chat", "version": "1", "source": "chat-source.js", "stage": "source", "policy": {} }, implementation: { transform: transform3 } }, "chat-html-inline": { ...{ "id": "chat-html-inline", "owner": "chat", "version": "1", "source": "chat-html-inline.js", "stage": "syntax", "policy": {} }, implementation: { setup: setup25 } }, "chat-transcript": { ...{ "id": "chat-transcript", "owner": "chat", "version": "1", "source": "chat-transcript.js", "stage": "syntax", "policy": { "div": ["data-message-id", "data-channel-name", "data-channel-id", "data-username", "data-datetime", "data-chained", "data-reactions", "data-multiquote", "data-thread-id", "data-thread-title"], "details": ["class"], "summary": [], "span": ["title"] } }, implementation: { setup: setup26 } }, "chat-slash-format": { ...{ "id": "chat-slash-format", "owner": "chat", "version": "1", "source": "chat-slash-format.js", "stage": "document", "policy": { "em": ["class"] } }, implementation: { transform: transform4 } }, "discourse-local-dates": { ...{ "id": "discourse-local-dates", "owner": "discourse-local-dates", "version": "1", "source": "discourse-local-dates.js", "stage": "syntax", "policy": { "span": ["data-calendar", "data-countdown", "data-date", "data-displayed-timezone", "data-email-preview", "data-format", "data-ics", "data-recurring", "data-time", "data-timezone", "data-timezones", "data-range"] } }, implementation: { setup: setup28 } }, "cooking-links": { ...{ "id": "cooking-links", "owner": "cooking", "version": "1", "source": "cooking-links.js", "stage": "document", "policy": {} }, implementation: { transform: transform5 } }, "cooking-bidi": { ...{ "id": "cooking-bidi", "owner": "cooking", "version": "1", "source": "cooking-bidi.js", "stage": "document", "policy": { "span": ["title"], "pre": ["data-code-wrap", "data-code-height"] } }, implementation: { transform: transform6 } }, "cooking-media": { ...{ "id": "cooking-media", "owner": "cooking", "version": "1", "source": "cooking-media.js", "stage": "document", "policy": { "div": ["data-video-src", "data-thumbnail-src", "data-video-base62-sha1", "data-blocked-hotlinked-src", "data-mode"], "img": ["data-blocked-hotlinked-src"] } }, implementation: { transform: transform7 } }, "cooking-mentions": { ...{ "id": "cooking-mentions", "owner": "cooking", "version": "1", "source": "cooking-mentions.js", "stage": "document", "policy": {} }, implementation: { transform: transform8 } }, "details": { ...{ "id": "details", "owner": "cooking", "version": "1", "source": "details.js", "stage": "syntax", "policy": { "details": ["open"], "summary": ["title"] } }, implementation: { setup: setup29 } }, "d-wrap": { ...{ "id": "d-wrap", "owner": "cooking", "version": "1", "source": "d-wrap.js", "stage": "document", "policy": { "div": ["data-wrap", "data-key", "data-description", "data-delimiter", "data-default", "data-defaults"], "span": ["data-wrap", "data-key", "data-description", "data-delimiter", "data-default", "data-defaults"] } }, implementation: { transform: transform9 } }, "poll": { ...{ "id": "poll", "owner": "poll", "version": "1", "source": "poll.js", "stage": "syntax", "policy": { "div": ["data-poll-charttype", "data-poll-close", "data-poll-groups", "data-poll-max", "data-poll-min", "data-poll-name", "data-poll-order", "data-poll-public", "data-poll-results", "data-poll-status", "data-poll-step", "data-poll-type", "data-poll-dynamic"], "li": ["data-poll-option-id"] } }, implementation: { setup: setup31 } }, "post-event": { ...{ "id": "post-event", "owner": "discourse-events", "version": "1", "source": "post-event.js", "stage": "syntax", "policy": { "div": ["data-name", "data-start", "data-end", "data-timezone", "data-recurrence", "data-recurrence-until", "data-allowed-groups", "data-url", "data-location", "data-max-attendees", "data-reminders", "data-image", "data-all-day", "data-show-local-time", "data-minimal", "data-closed", "data-chat-enabled", "data-livestream", "data-status"] } }, implementation: { setup: setup33 } }, "calendar": { ...{ "id": "calendar", "owner": "discourse-events", "version": "1", "source": "calendar.js", "stage": "syntax", "policy": { "div": ["data-calendar-type", "data-calendar-default-timezone", "data-calendar-default-view", "data-weekends", "data-calendar-show-add-to-calendar", "data-calendar-full-day", "data-hidden-days", "data-group", "data-size"] } }, implementation: { setup: setup35 } }, "livestream-preview": { ...{ "id": "livestream-preview", "owner": "discourse-events", "version": "1", "source": "livestream-preview.js", "stage": "syntax", "policy": {} }, implementation: { setup: setup37 } }, "livestream-visibility": { ...{ "id": "livestream-visibility", "owner": "discourse-events", "version": "1", "source": "livestream-visibility.js", "stage": "document", "policy": {} }, implementation: { transform: transform10 } } };
 
   // src/final-sanitize.js
   init_environment();
@@ -42920,7 +43543,7 @@ const String cookingBundle = r'''// Discourse 07a0e7b94717b45207749578df1f0bd2dd
     for (const addition of additions) for (const [tag, attrs] of Object.entries(addition)) {
       if (!/^(?:img|em|mark|span|div|details|summary|time|kbd|abbr|a|pre|code|aside|li|p|ol|ul|blockquote|table|td|th)$/.test(tag)) throw Error("Unsafe policy tag");
       for (const attr4 of attrs) {
-        if (!/^(?:class|title|datetime|data-[a-z0-9-]+|aria-[a-z0-9-]+)$/.test(attr4) || /^data-.*(?:url|href|src)/.test(attr4) && !["data-orig-href", "data-orig-src", "data-video-src", "data-thumbnail-src", "data-blocked-hotlinked-src"].includes(attr4)) throw Error("Unsafe policy attribute");
+        if (!(attr4 === "open" && tag === "details") && !/^(?:class|title|datetime|data-[a-z0-9-]+|aria-[a-z0-9-]+)$/.test(attr4) || /^data-.*(?:url|href|src)/.test(attr4) && !["data-url", "data-orig-href", "data-orig-src", "data-video-src", "data-thumbnail-src", "data-blocked-hotlinked-src"].includes(attr4)) throw Error("Unsafe policy attribute");
       }
       policy[tag] = [.../* @__PURE__ */ new Set([...policy[tag] || [], ...attrs])];
     }
@@ -42945,7 +43568,7 @@ const String cookingBundle = r'''// Discourse 07a0e7b94717b45207749578df1f0bd2dd
         "title"
       ],
       onTagAttr(tag, name, value, isWhiteAttr) {
-        if (["href", "src", "data-orig-src", "data-orig-href", "data-video-src", "data-thumbnail-src", "data-blocked-hotlinked-src"].includes(name)) {
+        if (["href", "src", "data-url", "data-image", "data-orig-src", "data-orig-href", "data-video-src", "data-thumbnail-src", "data-blocked-hotlinked-src"].includes(name)) {
           if (!isWhiteAttr) return "";
           const normalized = import_xss3.default.friendlyAttrValue(value);
           if (!/^(?:https?:\/\/|\/(?!\/)|#|mailto:)/i.test(normalized)) return "";

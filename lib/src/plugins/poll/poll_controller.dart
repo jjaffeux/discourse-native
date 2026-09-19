@@ -55,8 +55,9 @@ class PollController extends FrameSafeNotifier
       _freshAccount.profileFor(siteUrl);
 
   bool canCreatePollFor(String siteUrl) =>
+      siteConfigFor(siteUrl).pollSettings.enabled &&
       _freshAccount.recordFor(siteUrl, pollCurrentUserDataKey)?.canCreatePoll ==
-      true;
+          true;
 
   bool isConnected(String siteUrl) => _accounts.isConnected(siteUrl);
 

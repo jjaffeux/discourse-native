@@ -10,6 +10,7 @@ import '../plugin_api/site_plugin_api.dart';
 import '../theme/app_theme.dart';
 import 'code_block.dart';
 import 'cooked_details.dart';
+import 'cooked_spoiler.dart';
 import 'cooked_table.dart';
 import 'emoji.dart';
 import 'hashtag.dart';
@@ -96,7 +97,12 @@ class CookedHtml extends StatelessWidget {
         _decorateLinkCount(element, linkCounts);
       }
 
-      return _pluginWidget(
+      return cookedSpoilerWidgetBuilder(
+            element,
+            contentBuilder: (context, html) =>
+                nestedContentBuilder(context, html, textStyle),
+          ) ??
+          _pluginWidget(
             context,
             element,
             siteUrl,

@@ -43,10 +43,10 @@ DiscourseUser _pollUser({
 );
 
 final class _GatedCurrentUserApi extends FakeDiscourseApi {
-  _GatedCurrentUserApi()
+  _GatedCurrentUserApi({SiteConfig config = const SiteConfig.unknown()})
     : super(
         feeds: const {'/latest.json': <Topic>[]},
-        siteConfigs: const {_site: SiteConfig.unknown()},
+        siteConfigs: {_site: config},
       );
 
   final response = Completer<DiscourseUser>();
@@ -232,6 +232,42 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   group('session hydration', () {
+    test(
+      'disabled Poll settings override a refreshed creation permission',
+      () async {
+        final api = _GatedCurrentUserApi(
+          config: SiteConfig(
+            plugins: PluginData.none.withValue(
+              pollSettingsDataKey,
+              const PollSettings(enabled: false),
+            ),
+          ),
+        );
+        api.response.complete(_pollUser(id: 1, username: 'reader'));
+        final shell = ShellController(
+          plugins: installedPlugins,
+          instanceStore: FakeInstanceStore([
+            instance(
+              'meta.discourse.org',
+            ).copyWith(user: _pollUser(id: 1, username: 'reader')),
+          ]),
+          api: api,
+          authenticator: FakeAuthenticator()..keys[_site] = 'api-key',
+          drafts: FakeDraftStore(),
+          trackers: FakeSiteTracker.reset(),
+        );
+        addTearDown(shell.dispose);
+        await shell.load();
+        await pumpEventQueue();
+        expect(shell.freshCurrentUserFor(_site)?.canCreatePoll, isTrue);
+        expect(
+          _polls(shell).siteConfigFor(_site).pollSettings.enabled,
+          isFalse,
+        );
+        expect(_polls(shell).canCreatePollFor(_site), isFalse);
+      },
+    );
+
     test(
       'does not treat persisted account data as fresh session data',
       () async {

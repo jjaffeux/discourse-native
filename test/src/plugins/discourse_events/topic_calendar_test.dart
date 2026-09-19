@@ -520,7 +520,7 @@ void main() {
           ),
         );
         expect(find.byType(TopicCalendarFallback), findsOneWidget);
-        expect(find.text(element.text), findsOneWidget);
+        expect(find.text(element.text, findRichText: true), findsOneWidget);
         expect(find.byType(TopicCalendar), findsNothing);
       }
       await tester.pumpWidget(

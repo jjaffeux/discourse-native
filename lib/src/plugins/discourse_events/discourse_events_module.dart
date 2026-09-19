@@ -1,5 +1,6 @@
 import '../../plugin_api/core_plugin_host.dart';
 import '../../plugin_api/plugin_manifest.dart';
+import 'discourse_events_cooking.dart';
 import 'discourse_events_plugin.dart';
 import 'event_api.dart';
 import 'event_composer.dart';
@@ -24,6 +25,7 @@ final class DiscourseEventsModule implements PluginModule {
   @override
   void register(PluginRegistrar registrar) {
     registrar.addCapability(const DiscourseEventsPlugin());
+    registrar.addCapability(const DiscourseEventsCookingPlugin());
     registrar.addCapability(const EventTopicPlugin());
     registrar.addCapability(const TopicCalendarPlugin());
     registrar.addSyntaxId(eventSyntaxKind.id);

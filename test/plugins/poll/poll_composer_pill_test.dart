@@ -150,7 +150,7 @@ void main() {
         pollComposerSyntaxKind,
       )!;
 
-      expect(policy.projectionState, 37);
+      expect(policy.projectionState, (true, 37));
       expect(policy.canCreate(controller), isFalse);
 
       freshUser = const PollCurrentUser(canCreatePoll: true);
@@ -159,6 +159,35 @@ void main() {
       freshUser = const PollCurrentUser(canCreatePoll: false);
       expect(policy.canCreate(controller), isFalse);
     });
+
+    test(
+      'disabled settings retire poll controls while preserving raw source',
+      () {
+        var settings = const PollSettings(maximumOptions: 20);
+        final policy = PollComposerSyntaxPolicy(
+          settingsReader: () => settings,
+          freshUserReader: () => const PollCurrentUser(canCreatePoll: true),
+        );
+        final controller = ComposerController(
+          const ComposerTarget(
+            siteUrl: 'https://example.com',
+            topicId: 1,
+            slug: 'topic',
+            topicTitle: 'Topic',
+          ),
+          syntaxPolicies: [policy],
+        );
+        addTearDown(controller.dispose);
+        expect(policy.canCreate(controller), isTrue);
+        expect(policy.parse(source), hasLength(1));
+        final previousProjection = policy.projectionState;
+        settings = const PollSettings(enabled: false, maximumOptions: 20);
+        expect(policy.canCreate(controller), isFalse);
+        expect(policy.parse(source), isEmpty);
+        expect(policy.projectionState, isNot(previousProjection));
+        expect(parsePollComposerBlocks(source).single.source, source);
+      },
+    );
   });
 
   group('collapsed poll projection, layout, and caret', () {

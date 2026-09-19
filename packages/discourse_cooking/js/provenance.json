@@ -51,6 +51,14 @@
     "plugins/chat/assets/javascripts/lib/discourse-markdown/chat-transcript.js": "e31834814d72e8df4b56b287c538a6a6e105e779147ac6d6e35d604b21febd06",
     "plugins/discourse-local-dates/assets/javascripts/lib/discourse-markdown/discourse-local-dates.js": "13c4f16ca2de36b2900de5fae13e04fb28ca2a4c48aa3a73df058712ad7d3653",
     "lib/pretty_text.rb": "4536c80328ed5fa23ea83988886cd3bcab5b488433414d96f7f739e97c68dfd1",
-    "lib/text_cleaner.rb": "79410d0c02c60dff8e368e4308d41b4fdbbbb130afab1b1648c921ff7a4dc67a"
+    "lib/text_cleaner.rb": "79410d0c02c60dff8e368e4308d41b4fdbbbb130afab1b1648c921ff7a4dc67a",
+    "plugins/discourse-details/assets/javascripts/lib/discourse-markdown/details.js": "6b4eefc15eda4d7d3a3b17c137bc1240e77672029049b5d5b16aeed13aa0977b",
+    "plugins/poll/assets/javascripts/lib/discourse-markdown/poll.js": "35e119043e8cf87da16c199bc00325f58784ef453a6bcf8a9f53d4cb1619bca2",
+    "plugins/discourse-events/assets/javascripts/discourse/lib/discourse-markdown/discourse-post-event-block.js": "5197af23c126ea1d1229bb0fb1ad894f6092218f41547d55913d721ce13e534d",
+    "plugins/discourse-events/assets/javascripts/discourse/lib/discourse-markdown/discourse-calendar.js": "704f3756d29218d0c5498d9838192c58a700b606591f1cc8ad884a44874ec22f",
+    "plugins/discourse-events/assets/javascripts/discourse/lib/discourse-markdown/livestream-preview.js": "9d60a168e8e501fbdbf7d223d33f6d59d09a8bf8ab907281e90b70e6ab4082e4",
+    "plugins/discourse-events/assets/javascripts/discourse/initializers/livestream-chat-overrides.js": "ef08eb5fae5030a45320eb7710da24c9530cff90073c92db4489612a13b7e349",
+    "plugins/poll/spec/lib/pretty_text_spec.rb": "1aedfefe4115191cdd3fbcf5130dcb33a1419ab239b411fa474b8ef6cde9ac94",
+    "plugins/discourse-details/spec/components/pretty_text_spec.rb": "e36d7befa4541d75663da28b23893bf1105ba86706db874318384a9190d41c1a"
   }
 }

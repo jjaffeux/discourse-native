@@ -159,4 +159,49 @@ void main() {
       isNot(const EventSettings(enabled: true, showUpcomingEvents: false)),
     );
   });
+
+  for (final eventsEnabled in [false, true]) {
+    for (final postEventEnabled in [false, true]) {
+      test(
+        'independent event settings survive storage: $eventsEnabled/$postEventEnabled',
+        () {
+          final wire = {
+            'discourse_events_enabled': eventsEnabled,
+            'discourse_post_event_enabled': postEventEnabled,
+          };
+          final settings = EventSettings.decode(wire);
+          expect(settings.eventsEnabled, eventsEnabled);
+          expect(settings.postEventEnabled, postEventEnabled);
+          expect(settings.enabled, eventsEnabled && postEventEnabled);
+          const codec = EventSettingsCodec();
+          final encoded = codec.encode(settings) as Map;
+          expect(encoded['discourse_events_enabled'], eventsEnabled);
+          expect(encoded['discourse_post_event_enabled'], postEventEnabled);
+          final restored = codec.decode(encoded)!;
+          expect(restored, settings);
+          expect(restored.hashCode, settings.hashCode);
+        },
+      );
+    }
+  }
+
+  test('legacy enabled constructor still controls both event switches', () {
+    const enabled = EventSettings(enabled: true);
+    expect(enabled.eventsEnabled, isTrue);
+    expect(enabled.postEventEnabled, isTrue);
+    expect(enabled.enabled, isTrue);
+    expect(EventSettings.decode(const {}), const EventSettings());
+    expect(
+      const EventSettings(eventsEnabled: true),
+      isNot(const EventSettings()),
+    );
+    expect(
+      const EventSettings(postEventEnabled: true),
+      isNot(const EventSettings()),
+    );
+    expect(
+      const EventSettings(eventsEnabled: true, postEventEnabled: true),
+      enabled,
+    );
+  });
 }

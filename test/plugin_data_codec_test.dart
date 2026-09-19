@@ -36,7 +36,11 @@ void main() {
         'enabled': true,
         'nested': [1, 'two', null],
       },
-      pollSettingsDataKey.id: {'maximumOptions': 37, 'defaultPublic': false},
+      pollSettingsDataKey.id: {
+        'enabled': true,
+        'maximumOptions': 37,
+        'defaultPublic': false,
+      },
     });
   });
 
@@ -65,7 +69,11 @@ void main() {
       );
       expect(merged.toJson(extensions: _registry)['plugins'], {
         _futureSiteNamespace: {'token': 'opaque'},
-        pollSettingsDataKey.id: {'maximumOptions': 48, 'defaultPublic': false},
+        pollSettingsDataKey.id: {
+          'enabled': true,
+          'maximumOptions': 48,
+          'defaultPublic': false,
+        },
       });
     },
   );

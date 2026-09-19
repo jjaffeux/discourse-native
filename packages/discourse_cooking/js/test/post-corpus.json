@@ -1,0 +1,684 @@
+{
+  "configuration": {
+    "modules": [
+      {
+        "id": "details",
+        "owner": "cooking",
+        "version": "1",
+        "profiles": [
+          "post"
+        ],
+        "order": 0,
+        "dependencies": []
+      },
+      {
+        "id": "poll",
+        "owner": "poll",
+        "version": "1",
+        "profiles": [
+          "post"
+        ],
+        "order": 0,
+        "dependencies": [],
+        "enabledSetting": "poll_enabled"
+      },
+      {
+        "id": "post-event",
+        "owner": "discourse-events",
+        "version": "1",
+        "profiles": [
+          "post"
+        ],
+        "order": 0,
+        "dependencies": [],
+        "enabledSetting": "discourse_post_event_enabled"
+      },
+      {
+        "id": "calendar",
+        "owner": "discourse-events",
+        "version": "1",
+        "profiles": [
+          "post"
+        ],
+        "order": 0,
+        "dependencies": [],
+        "enabledSetting": "discourse_events_enabled"
+      },
+      {
+        "id": "livestream-preview",
+        "owner": "discourse-events",
+        "version": "1",
+        "profiles": [
+          "post"
+        ],
+        "order": 0,
+        "dependencies": [],
+        "enabledSetting": "discourse_events_enabled"
+      },
+      {
+        "id": "chat-transcript",
+        "owner": "chat",
+        "version": "1",
+        "profiles": [],
+        "order": 0,
+        "dependencies": []
+      },
+      {
+        "id": "cooking-bidi",
+        "owner": "cooking",
+        "version": "1",
+        "profiles": [],
+        "order": 100,
+        "dependencies": []
+      },
+      {
+        "id": "cooking-media",
+        "owner": "cooking",
+        "version": "1",
+        "profiles": [],
+        "order": 101,
+        "dependencies": []
+      },
+      {
+        "id": "d-wrap",
+        "owner": "cooking",
+        "version": "1",
+        "profiles": [
+          "post"
+        ],
+        "order": 110,
+        "dependencies": []
+      },
+      {
+        "id": "livestream-visibility",
+        "owner": "discourse-events",
+        "version": "1",
+        "profiles": [
+          "post"
+        ],
+        "order": 200,
+        "dependencies": [
+          "livestream-preview"
+        ],
+        "enabledSetting": "discourse_events_enabled"
+      }
+    ]
+  },
+  "snapshot": {
+    "siteId": "a",
+    "accountId": "7",
+    "baseUrl": "https://a.test",
+    "pluginContext": {
+      "poll": {
+        "settings": {
+          "poll_enabled": true,
+          "poll_maximum_options": 20
+        }
+      },
+      "discourse-events": {
+        "settings": {
+          "discourse_events_enabled": true,
+          "discourse_post_event_enabled": true
+        }
+      }
+    }
+  },
+  "fixtures": [
+    {
+      "name": "details closed and escaped summary",
+      "raw": "[details=\"<b>Summary</b>\"]\n**Body**\n[/details]",
+      "profile": "post",
+      "html": "<details>\n<summary>\n&lt;b&gt;Summary&lt;/b&gt;</summary>\n<p><strong>Body</strong></p>\n</details>"
+    },
+    {
+      "name": "details open is an explicit boolean",
+      "raw": "[details=\"More\" open]\nBody\n[/details]",
+      "profile": "post",
+      "includes": [
+        "<details open>",
+        "<summary>\nMore</summary>"
+      ]
+    },
+    {
+      "name": "details open value is not a boolean flag",
+      "raw": "[details=\"More\" open=true]\nBody\n[/details]",
+      "profile": "post",
+      "includes": [
+        "<details>"
+      ],
+      "excludes": [
+        "<details open"
+      ]
+    },
+    {
+      "name": "poll upstream Ruby option IDs",
+      "raw": "[poll type=multiple]\n1. test 1 :) <b>test</b>\n2. test 2\n[/poll]",
+      "profile": "post",
+      "includes": [
+        "data-poll-option-id=\"b6475cbf6acb8676b20c60582cfc487a\"",
+        "data-poll-option-id=\"7158af352698eb1443d709818df097d4\"",
+        "data-poll-type=\"multiple\""
+      ]
+    },
+    {
+      "name": "poll UTF8 text IDs and title",
+      "raw": "[poll]\n# Pick **one**\n* Café\n* 猫 😺\n[/poll]",
+      "profile": "post",
+      "includes": [
+        "<div class=\"poll-title\">Pick <strong>one</strong></div>",
+        "data-poll-option-id=\"3604416adb5f6e46cb70ffcaa5aa0624\"",
+        "data-poll-option-id=\"50bbf81ad3e0ce0db2a3e28019a6f59f\""
+      ]
+    },
+    {
+      "name": "poll numeric default range and stable ID",
+      "raw": "[poll type=number]\n[/poll]",
+      "profile": "post",
+      "includes": [
+        "data-poll-option-id=\"4d8a15e3cc35750f016ce15a43937620\">1</li>",
+        ">20</li>"
+      ],
+      "counts": {
+        "data-poll-option-id=": 20
+      }
+    },
+    {
+      "name": "poll numeric step and bounded overflow for server validation",
+      "raw": "[poll type=number min=2 max=999999999 step=2]\n[/poll]",
+      "profile": "post",
+      "pluginSettings": {
+        "poll": {
+          "poll_maximum_options": 3
+        }
+      },
+      "includes": [
+        ">2</li>",
+        ">4</li>",
+        ">6</li>",
+        ">8</li>"
+      ],
+      "counts": {
+        "data-poll-option-id=": 4
+      }
+    },
+    {
+      "name": "poll invalid numeric settings use upstream defaults",
+      "raw": "[poll type=number min=bad max=bad step=0]\n[/poll]",
+      "profile": "post",
+      "pluginSettings": {
+        "poll": {
+          "poll_maximum_options": 0
+        }
+      },
+      "counts": {
+        "data-poll-option-id=": 20
+      }
+    },
+    {
+      "name": "poll numeric does not consume arbitrary content",
+      "raw": "[poll type=number]\nnot options\n[/poll]",
+      "profile": "post",
+      "includes": [
+        "not options"
+      ],
+      "excludes": [
+        "class=\"poll\"",
+        "data-poll-option-id"
+      ]
+    },
+    {
+      "name": "poll metadata finite allowlist",
+      "raw": "[poll name=survey type=multiple min=1 max=3 public=true results=always status=closed close=\"2026-09-20\" groups=staff order=asc chartType=bar dynamic=true onclick=bad unknown=secret]\n* A\n* B\n[/poll]",
+      "profile": "post",
+      "includes": [
+        "data-poll-name=\"survey\"",
+        "data-poll-charttype=\"bar\"",
+        "data-poll-close=\"2026-09-20\"",
+        "data-poll-dynamic=\"true\"",
+        "data-poll-groups=\"staff\"",
+        "data-poll-order=\"asc\"",
+        "data-poll-public=\"true\"",
+        "data-poll-results=\"always\"",
+        "data-poll-status=\"closed\""
+      ],
+      "excludes": [
+        "onclick",
+        "data-poll-unknown",
+        "secret"
+      ]
+    },
+    {
+      "name": "poll loose and tight option IDs match upstream",
+      "raw": "[poll type=multiple]\n\n1. test 1 :) <b>test</b>\n\n2. test 2\n\n[/poll]",
+      "profile": "post",
+      "includes": [
+        "data-poll-option-id=\"b6475cbf6acb8676b20c60582cfc487a\"",
+        "data-poll-option-id=\"7158af352698eb1443d709818df097d4\""
+      ]
+    },
+    {
+      "name": "poll disabled owner remains readable syntax",
+      "raw": "[poll]\n* A\n* B\n[/poll]",
+      "profile": "post",
+      "pluginSettings": {
+        "poll": {
+          "poll_enabled": false
+        }
+      },
+      "includes": [
+        "[poll]",
+        "A",
+        "B"
+      ],
+      "excludes": [
+        "class=\"poll\"",
+        "data-poll-option-id"
+      ]
+    },
+    {
+      "name": "poll absent installation remains readable syntax",
+      "raw": "[poll]\n* A\n* B\n[/poll]",
+      "profile": "post",
+      "omitModules": [
+        "poll"
+      ],
+      "includes": [
+        "[poll]",
+        "A"
+      ],
+      "excludes": [
+        "class=\"poll\""
+      ]
+    },
+    {
+      "name": "event preserves complete native fallback metadata",
+      "raw": "[event name=\"Demo\" start=\"2026-09-21 18:00\" end=\"2026-09-21 19:00\" timezone=\"Europe/Paris\" recurrence=weekly recurrenceUntil=2026-10-20 allowedGroups=staff url=\"https://a.test/event\" location=\"Paris\" maxAttendees=20 reminders=\"10.minutes\" image=\"https://a.test/banner.png\" allDay=false showLocalTime=true minimal=true closed=false chatEnabled=true livestream=true status=public unknown=DROP]\n**Description**\n[/event]",
+      "profile": "post",
+      "includes": [
+        "class=\"discourse-post-event\"",
+        "data-name=\"Demo\"",
+        "data-start=\"2026-09-21 18:00\"",
+        "data-end=\"2026-09-21 19:00\"",
+        "data-timezone=\"Europe/Paris\"",
+        "data-recurrence=\"weekly\"",
+        "data-recurrence-until=\"2026-10-20\"",
+        "data-allowed-groups=\"staff\"",
+        "data-url=\"https://a.test/event\"",
+        "data-location=\"Paris\"",
+        "data-max-attendees=\"20\"",
+        "data-reminders=\"10.minutes\"",
+        "data-image=\"https://a.test/banner.png\"",
+        "data-all-day=\"false\"",
+        "data-show-local-time=\"true\"",
+        "data-minimal=\"true\"",
+        "data-closed=\"false\"",
+        "data-chat-enabled=\"true\"",
+        "data-livestream=\"true\"",
+        "data-status=\"public\"",
+        "<strong>Description</strong>"
+      ],
+      "excludes": [
+        "data-unknown",
+        "DROP"
+      ]
+    },
+    {
+      "name": "event requires start",
+      "raw": "[event name=\"No start\"]\nBody\n[/event]",
+      "profile": "post",
+      "includes": [
+        "[event",
+        "Body"
+      ],
+      "excludes": [
+        "class=\"discourse-post-event\""
+      ]
+    },
+    {
+      "name": "post events disabled independently from calendar",
+      "raw": "[event start=2026-09-21]\nBody\n[/event]\n\n[calendar]\n[/calendar]",
+      "profile": "post",
+      "pluginSettings": {
+        "discourse-events": {
+          "discourse_post_event_enabled": false
+        }
+      },
+      "includes": [
+        "[event",
+        "class=\"calendar\""
+      ],
+      "excludes": [
+        "class=\"discourse-post-event\""
+      ]
+    },
+    {
+      "name": "base events gate disables calendar and livestream",
+      "raw": "[calendar]\n[/calendar]\n\n[preview]Public[/preview]",
+      "profile": "post",
+      "pluginSettings": {
+        "discourse-events": {
+          "discourse_events_enabled": false,
+          "discourse_post_event_enabled": false
+        }
+      },
+      "includes": [
+        "[calendar]",
+        "[preview]Public[/preview]"
+      ],
+      "excludes": [
+        "class=\"calendar\"",
+        "class=\"preview\""
+      ]
+    },
+    {
+      "name": "calendar preserves all pinned configuration attrs",
+      "raw": "[calendar type=static defaultTimezone=\"Europe/Paris\" defaultView=week weekends=false fullDay=true showAddToCalendar=false hiddenDays=\"1,2\"]\nDescription\n[/calendar]",
+      "profile": "post",
+      "includes": [
+        "class=\"discourse-calendar-wrap\"",
+        "class=\"calendar\"",
+        "data-calendar-type=\"static\"",
+        "data-calendar-default-timezone=\"Europe/Paris\"",
+        "data-calendar-default-view=\"week\"",
+        "data-weekends=\"false\"",
+        "data-calendar-full-day=\"true\"",
+        "data-calendar-show-add-to-calendar=\"false\"",
+        "data-hidden-days=\"1,2\"",
+        "Description"
+      ]
+    },
+    {
+      "name": "group timezones retain group and size without inventing members",
+      "raw": "[timezones group=staff size=large]\nTeam availability\n[/timezones]",
+      "profile": "post",
+      "html": "<div class=\"group-timezones\" data-group=\"staff\" data-size=\"large\">\n<p>Team availability</p>\n</div>"
+    },
+    {
+      "name": "d-wrap exposes finite placeholder policy only",
+      "raw": "[wrap=placeholder key=name description=\"Your name\" delimiter=\"|\" default=\"Ada\" defaults=\"Ada|Grace\" nativePlaceholderField=secret onclick=bad unknown=DROP]\nName\n[/wrap]",
+      "profile": "post",
+      "includes": [
+        "class=\"d-wrap\"",
+        "data-wrap=\"placeholder\"",
+        "data-key=\"name\"",
+        "data-description=\"Your name\"",
+        "data-delimiter=\"|\"",
+        "data-default=\"Ada\"",
+        "data-defaults=\"Ada|Grace\""
+      ],
+      "excludes": [
+        "data-native-placeholder-field",
+        "secret",
+        "onclick",
+        "data-unknown",
+        "DROP"
+      ]
+    },
+    {
+      "name": "inline d-wrap shares same policy",
+      "raw": "Hello [wrap=placeholder key=name default=Ada]Name[/wrap]",
+      "profile": "post",
+      "includes": [
+        "<span class=\"d-wrap\"",
+        "data-key=\"name\"",
+        "data-default=\"Ada\""
+      ]
+    },
+    {
+      "name": "d-wrap core rule exists without policy descriptor",
+      "raw": "[wrap=placeholder key=name]Name[/wrap]",
+      "profile": "post",
+      "omitModules": [
+        "d-wrap"
+      ],
+      "includes": [
+        "class=\"d-wrap\"",
+        "Name"
+      ],
+      "excludes": [
+        "data-key",
+        "data-wrap"
+      ]
+    },
+    {
+      "name": "Mermaid existing fence metadata survives",
+      "raw": "```mermaid height=400\ngraph TD; A-->B\n```",
+      "profile": "post",
+      "includes": [
+        "data-code-wrap=\"mermaid\"",
+        "data-code-height=\"400\"",
+        "lang-mermaid",
+        "graph TD; A--&gt;B"
+      ]
+    },
+    {
+      "name": "livestream inline hidden is omitted preview remains",
+      "raw": "Before [hidden]SECRET[/hidden] [preview]Public[/preview] after",
+      "profile": "post",
+      "includes": [
+        "Before",
+        "class=\"preview\"",
+        "Public",
+        "after"
+      ],
+      "excludes": [
+        "SECRET",
+        "class=\"hidden\""
+      ]
+    },
+    {
+      "name": "livestream block hidden is omitted",
+      "raw": "[hidden]\nSECRET **body**\n[/hidden]\n\n[preview]\nPublic **body**\n[/preview]",
+      "profile": "post",
+      "includes": [
+        "class=\"preview\"",
+        "Public <strong>body</strong>"
+      ],
+      "excludes": [
+        "SECRET",
+        "class=\"hidden\""
+      ]
+    },
+    {
+      "name": "malformed hidden opener suppresses rest across blocks",
+      "raw": "Before [hidden]SECRET\n\n# SECRET2\n\n![SECRET3](https://a.test/SECRET.png)",
+      "profile": "post",
+      "includes": [
+        "Before"
+      ],
+      "excludes": [
+        "SECRET"
+      ]
+    },
+    {
+      "name": "malformed hidden nesting remains conservative",
+      "raw": "[hidden]\nSECRET [hidden] SECRET2 [/hidden]\nSECRET3",
+      "profile": "post",
+      "excludes": [
+        "SECRET"
+      ]
+    },
+    {
+      "name": "hidden code examples stay literal",
+      "raw": "`[hidden]inline sample[/hidden]`\n\n```\n[hidden]block sample\n```",
+      "profile": "post",
+      "includes": [
+        "<code>[hidden]inline sample[/hidden]</code>",
+        "[hidden]block sample"
+      ]
+    },
+    {
+      "name": "hidden source does not leak into following request",
+      "raw": "Public next request",
+      "profile": "post",
+      "html": "<p>Public next request</p>"
+    },
+    {
+      "name": "cached hidden subtrees removed including template and encoded classes",
+      "raw": "https://example.com/post",
+      "profile": "post",
+      "snapshot": {
+        "oneboxes": {
+          "https://example.com/post": "<div class=\"preview\">Public</div><div class=\"hidd&#101;n\">SECRET1</div><template><span class=\"hidden\">SECRET2</span><span class=\"preview\">Template public</span></template><span class=\"hidden\"><img src=\"https://a.test/SECRET3\"></span>"
+        }
+      },
+      "includes": [
+        "Public",
+        "Template public"
+      ],
+      "excludes": [
+        "SECRET",
+        "class=\"hidden\""
+      ]
+    },
+    {
+      "name": "cached hidden malformed tags cannot expose children",
+      "raw": "https://example.com/post",
+      "profile": "post",
+      "snapshot": {
+        "oneboxes": {
+          "https://example.com/post": "<div class=\"hidden\"><p>SECRET</div><div class=\"preview\">Public</div>"
+        }
+      },
+      "includes": [
+        "Public"
+      ],
+      "excludes": [
+        "SECRET"
+      ]
+    },
+    {
+      "name": "event URL attributes reject entity and protocol attacks",
+      "raw": "https://example.com/post",
+      "profile": "post",
+      "snapshot": {
+        "oneboxes": {
+          "https://example.com/post": "<div class=\"discourse-post-event\" data-start=\"2026-09-21\" data-url=\"jav&amp;#x61;script:alert(1)\" data-image=\"/&#x2f;evil.test/img\" onclick=\"SECRET\" data-onclick=\"SECRET\" style=\"SECRET\">Safe</div><details open onclick=\"SECRET\"><summary>More</summary>Safe</details><div open=\"SECRET\">Safe</div>"
+        }
+      },
+      "includes": [
+        "data-start=\"2026-09-21\"",
+        "<details open>",
+        "Safe"
+      ],
+      "excludes": [
+        "data-url=",
+        "data-image=",
+        "javascript:",
+        "SECRET",
+        "<div open"
+      ]
+    },
+    {
+      "name": "event URL attributes retain normalized safe URLs",
+      "raw": "https://example.com/post",
+      "profile": "post",
+      "snapshot": {
+        "oneboxes": {
+          "https://example.com/post": "<div class=\"discourse-post-event\" data-url=\"https://a.test/event?a=1&amp;b=2\" data-image=\"/images/banner.png\">Safe</div>"
+        }
+      },
+      "includes": [
+        "data-url=\"https://a.test/event?a=1&amp;b=2\"",
+        "data-image=\"/images/banner.png\""
+      ]
+    },
+    {
+      "name": "all new post behaviors excluded from Chat",
+      "raw": "[details=More]\nDetails\n[/details]\n\n[poll]\n* A\n* B\n[/poll]\n\n[event start=2026-09-21]\nEvent\n[/event]\n\n[calendar]\n[/calendar]\n\n[wrap=placeholder key=x]Wrap[/wrap]\n\n[preview]Public[/preview]\n\n[hidden]Literal Chat[/hidden]",
+      "profile": "chat",
+      "includes": [
+        "[details=More]",
+        "[poll]",
+        "[event start=",
+        "[calendar]",
+        "[wrap=placeholder",
+        "[preview]Public[/preview]",
+        "[hidden]Literal Chat[/hidden]"
+      ],
+      "excludes": [
+        "<details",
+        "class=\"poll\"",
+        "class=\"discourse-post-event\"",
+        "class=\"calendar\"",
+        "class=\"d-wrap\"",
+        "class=\"preview\"",
+        "class=\"hidden\""
+      ]
+    },
+    {
+      "name": "all new post behaviors excluded inside nested Chat",
+      "raw": "[chat quote=\"Alice;1;2026-01-01\" channelId=\"2\"]\n[details=More]\nDetails\n[/details]\n\n[poll]\n* A\n* B\n[/poll]\n\n[event start=2026-09-21]\nEvent\n[/event]\n\n[calendar]\n[/calendar]\n\n[wrap=placeholder key=x]Wrap[/wrap]\n\n[preview]Public[/preview]\n\n[hidden]Literal Chat[/hidden]\n[/chat]",
+      "profile": "post",
+      "includes": [
+        "class=\"chat-transcript\"",
+        "[details=More]",
+        "[poll]",
+        "[event start=",
+        "[calendar]",
+        "[wrap=placeholder",
+        "[preview]Public[/preview]",
+        "[hidden]Literal Chat[/hidden]"
+      ],
+      "excludes": [
+        "class=\"poll\"",
+        "class=\"discourse-post-event\"",
+        "class=\"calendar\"",
+        "class=\"d-wrap\"",
+        "class=\"preview\"",
+        "class=\"hidden\""
+      ]
+    },
+    {
+      "name": "cached hidden nodes cannot bypass via forged transcript wrapper",
+      "raw": "https://example.com/post",
+      "profile": "post",
+      "snapshot": {
+        "oneboxes": {
+          "https://example.com/post": "<div class=\"chat-transcript\"><span class=\"hidden\">SECRET</span>Public</div>"
+        }
+      },
+      "includes": [
+        "Public"
+      ],
+      "excludes": [
+        "SECRET",
+        "class=\"hidden\""
+      ]
+    },
+    {
+      "name": "cached hidden nodes cannot bypass via code wrapper",
+      "raw": "https://example.com/post",
+      "profile": "post",
+      "snapshot": {
+        "oneboxes": {
+          "https://example.com/post": "<pre><code><span class=\"hidden\">SECRET</span>[hidden]literal sample</code></pre>"
+        }
+      },
+      "includes": [
+        "literal sample"
+      ],
+      "excludes": [
+        "SECRET",
+        "class=\"hidden\""
+      ]
+    },
+    {
+      "name": "cached hidden nodes cannot bypass via nested code template wrapper",
+      "raw": "https://example.com/post",
+      "profile": "post",
+      "snapshot": {
+        "oneboxes": {
+          "https://example.com/post": "<code><template><div class=\"hidden\">SECRET</div>Public</template></code>"
+        }
+      },
+      "includes": [
+        "Public"
+      ],
+      "excludes": [
+        "SECRET",
+        "class=\"hidden\""
+      ]
+    }
+  ]
+}

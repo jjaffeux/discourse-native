@@ -172,5 +172,138 @@
     "source": "cooking-mentions.js",
     "stage": "document",
     "policy": {}
+  },
+  {
+    "id": "details",
+    "owner": "cooking",
+    "version": "1",
+    "source": "details.js",
+    "stage": "syntax",
+    "policy": {
+      "details": [
+        "open"
+      ],
+      "summary": [
+        "title"
+      ]
+    }
+  },
+  {
+    "id": "d-wrap",
+    "owner": "cooking",
+    "version": "1",
+    "source": "d-wrap.js",
+    "stage": "document",
+    "policy": {
+      "div": [
+        "data-wrap",
+        "data-key",
+        "data-description",
+        "data-delimiter",
+        "data-default",
+        "data-defaults"
+      ],
+      "span": [
+        "data-wrap",
+        "data-key",
+        "data-description",
+        "data-delimiter",
+        "data-default",
+        "data-defaults"
+      ]
+    }
+  },
+  {
+    "id": "poll",
+    "owner": "poll",
+    "version": "1",
+    "source": "poll.js",
+    "stage": "syntax",
+    "policy": {
+      "div": [
+        "data-poll-charttype",
+        "data-poll-close",
+        "data-poll-groups",
+        "data-poll-max",
+        "data-poll-min",
+        "data-poll-name",
+        "data-poll-order",
+        "data-poll-public",
+        "data-poll-results",
+        "data-poll-status",
+        "data-poll-step",
+        "data-poll-type",
+        "data-poll-dynamic"
+      ],
+      "li": [
+        "data-poll-option-id"
+      ]
+    }
+  },
+  {
+    "id": "post-event",
+    "owner": "discourse-events",
+    "version": "1",
+    "source": "post-event.js",
+    "stage": "syntax",
+    "policy": {
+      "div": [
+        "data-name",
+        "data-start",
+        "data-end",
+        "data-timezone",
+        "data-recurrence",
+        "data-recurrence-until",
+        "data-allowed-groups",
+        "data-url",
+        "data-location",
+        "data-max-attendees",
+        "data-reminders",
+        "data-image",
+        "data-all-day",
+        "data-show-local-time",
+        "data-minimal",
+        "data-closed",
+        "data-chat-enabled",
+        "data-livestream",
+        "data-status"
+      ]
+    }
+  },
+  {
+    "id": "calendar",
+    "owner": "discourse-events",
+    "version": "1",
+    "source": "calendar.js",
+    "stage": "syntax",
+    "policy": {
+      "div": [
+        "data-calendar-type",
+        "data-calendar-default-timezone",
+        "data-calendar-default-view",
+        "data-weekends",
+        "data-calendar-show-add-to-calendar",
+        "data-calendar-full-day",
+        "data-hidden-days",
+        "data-group",
+        "data-size"
+      ]
+    }
+  },
+  {
+    "id": "livestream-preview",
+    "owner": "discourse-events",
+    "version": "1",
+    "source": "livestream-preview.js",
+    "stage": "syntax",
+    "policy": {}
+  },
+  {
+    "id": "livestream-visibility",
+    "owner": "discourse-events",
+    "version": "1",
+    "source": "livestream-visibility.js",
+    "stage": "document",
+    "policy": {}
   }
 ]

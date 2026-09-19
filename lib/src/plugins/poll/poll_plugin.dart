@@ -36,6 +36,7 @@ class PollPlugin
         CurrentUserPlugin<PollCurrentUser>,
         PostRecordPlugin<Polls>,
         PostBodyPlugin,
+        CookedElementPlugin,
         ComposerSyntaxPlugin,
         ComposerToolbarPlugin,
         TopicLivePlugin {
@@ -112,6 +113,13 @@ class PollPlugin
           );
   }
 
+  /// Cooked fragments carry definitions, never voting authority or totals.
+  @override
+  Widget? cookedElement(String? siteUrl, dom.Element element) =>
+      element.classes.contains('poll')
+      ? PollFallbackCard.fromCooked(element, siteUrl: siteUrl)
+      : null;
+
   @override
   List<ComposerToolbarContribution> composerToolbar(
     BuildContext context,
@@ -171,12 +179,14 @@ final class PollComposerSyntaxPolicy implements ComposerSyntaxPolicy {
 
   @override
   List<ComposerSyntaxProjection> parse(String source) => [
-    for (final block in parsePollComposerBlocks(source))
-      PollComposerSyntaxProjection(policy: this, block: block),
+    if (currentSettings.enabled)
+      for (final block in parsePollComposerBlocks(source))
+        PollComposerSyntaxProjection(policy: this, block: block),
   ];
 
   @override
-  Object get projectionState => settings.maximumOptions;
+  Object get projectionState =>
+      (currentSettings.enabled, currentSettings.maximumOptions);
 
   @override
   TextInputFormatter get inputFormatter => const PollComposerInputFormatter();
@@ -185,7 +195,9 @@ final class PollComposerSyntaxPolicy implements ComposerSyntaxPolicy {
 
   /// Only a refreshed session may authorize creation.
   bool canCreate(ComposerEditorHost editor) =>
-      editor.isCurrent && freshUserReader?.call()?.canCreatePoll == true;
+      editor.isCurrent &&
+      currentSettings.enabled &&
+      freshUserReader?.call()?.canCreatePoll == true;
 
   bool get freshUserIsStaff => freshUserIsStaffReader?.call() == true;
 
@@ -259,7 +271,7 @@ final class PollComposerSyntaxProjection
         block: block,
         baseStyle: context.baseStyle,
         pillKey: context.pillKey,
-        maximumOptions: policy.settings.maximumOptions,
+        maximumOptions: policy.currentSettings.maximumOptions,
         highlighted: context.highlighted,
         hovered: context.hovered,
         followedByLineBreak: context.followedByLineBreak,
@@ -282,6 +294,7 @@ Future<void> openPollComposer(
 }) async {
   if (!editor.isCurrent ||
       !editor.isEditing ||
+      !policy.currentSettings.enabled ||
       (block == null && !policy.canCreate(editor))) {
     return;
   }
@@ -312,6 +325,7 @@ Future<void> openPollComposer(
       context.mounted &&
       editor.isCurrent &&
       editor.isEditing &&
+      policy.currentSettings.enabled &&
       editor.value.text == expectedDocument &&
       (block != null || policy.canCreate(editor));
 
@@ -383,7 +397,11 @@ Future<void> removePollComposer(
   PollComposerSyntaxPolicy policy,
   PollComposerBlock block,
 ) async {
-  if (!editor.isCurrent || !editor.isEditing) return;
+  if (!editor.isCurrent ||
+      !editor.isEditing ||
+      !policy.currentSettings.enabled) {
+    return;
+  }
 
   final expectedValue = editor.value;
   final expectedDocument = expectedValue.text;
@@ -398,6 +416,7 @@ Future<void> removePollComposer(
       context.mounted &&
       editor.isCurrent &&
       editor.isEditing &&
+      policy.currentSettings.enabled &&
       editor.value.text == expectedDocument;
 
   if (published) {

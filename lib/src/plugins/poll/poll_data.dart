@@ -28,6 +28,7 @@ extension PollPluginDataRead on PluginData {
 @immutable
 final class PollSettings {
   const PollSettings({
+    this.enabled = true,
     this.maximumOptions = defaultMaximumOptions,
     this.defaultPublic = true,
   });
@@ -35,21 +36,24 @@ final class PollSettings {
   static const int defaultMaximumOptions = 20;
 
   factory PollSettings.fromWire(Map<String, dynamic> json) => PollSettings(
+    enabled: json['poll_enabled'] != false,
     maximumOptions: _wireMaximumOptions(json['poll_maximum_options']),
     defaultPublic: json['poll_default_public'] != false,
   );
 
+  final bool enabled;
   final int maximumOptions;
   final bool defaultPublic;
 
   @override
   bool operator ==(Object other) =>
       other is PollSettings &&
+      other.enabled == enabled &&
       other.maximumOptions == maximumOptions &&
       other.defaultPublic == defaultPublic;
 
   @override
-  int get hashCode => Object.hash(maximumOptions, defaultPublic);
+  int get hashCode => Object.hash(enabled, maximumOptions, defaultPublic);
 }
 
 @immutable
@@ -83,6 +87,7 @@ final class PollSettingsPersistenceCodec
     final json = jsonObjectFields(value);
     if (json == null) return null;
     return PollSettings(
+      enabled: json['enabled'] != false,
       maximumOptions: _storedMaximumOptions(json['maximumOptions']),
       defaultPublic: json['defaultPublic'] != false,
     );
@@ -90,17 +95,20 @@ final class PollSettingsPersistenceCodec
 
   @override
   Object encode(PollSettings value) => <String, Object?>{
+    'enabled': value.enabled,
     'maximumOptions': value.maximumOptions,
     'defaultPublic': value.defaultPublic,
   };
 
   @override
   PollSettings? decodeLegacy(Map<String, dynamic> json) {
-    if (!json.containsKey('pollMaximumOptions') &&
+    if (!json.containsKey('pollEnabled') &&
+        !json.containsKey('pollMaximumOptions') &&
         !json.containsKey('pollDefaultPublic')) {
       return null;
     }
     return PollSettings(
+      enabled: json['pollEnabled'] != false,
       maximumOptions: _storedMaximumOptions(json['pollMaximumOptions']),
       defaultPublic: json['pollDefaultPublic'] != false,
     );

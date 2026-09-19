@@ -207,7 +207,7 @@ void main() {
         ),
       );
       expect(result, isA<EventCookedFallback>());
-      expect(find.text('Quoted'), findsOneWidget);
+      expect(find.text('Quoted', findRichText: true), findsOneWidget);
     },
   );
 

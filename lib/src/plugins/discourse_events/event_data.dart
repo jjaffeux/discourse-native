@@ -263,7 +263,9 @@ final class EventTopicData {
 @immutable
 final class EventSettings {
   const EventSettings({
-    this.enabled = false,
+    bool enabled = false,
+    bool? eventsEnabled,
+    bool? postEventEnabled,
     this.showUpcomingEvents = true,
     this.buttons = const ['going', 'interested', 'not_going'],
     this.displayTopicDate = true,
@@ -271,11 +273,11 @@ final class EventSettings {
     this.calendarView = EventCalendarView.month,
     this.calendarDisplay = 'auto',
     this.calendarColors = const [],
-  });
+  }) : eventsEnabled = eventsEnabled ?? enabled,
+       postEventEnabled = postEventEnabled ?? enabled;
   factory EventSettings.decode(Map<String, Object?> json) => EventSettings(
-    enabled:
-        json['discourse_events_enabled'] == true &&
-        json['discourse_post_event_enabled'] == true,
+    eventsEnabled: json['discourse_events_enabled'] == true,
+    postEventEnabled: json['discourse_post_event_enabled'] == true,
     showUpcomingEvents: json['sidebar_show_upcoming_events'] != false,
     buttons: List.unmodifiable(
       _settingList(
@@ -300,7 +302,11 @@ final class EventSettings {
     },
     calendarColors: _calendarColors(json['map_events_to_color']),
   );
-  final bool enabled;
+  final bool eventsEnabled;
+  final bool postEventEnabled;
+
+  /// Post Event surfaces require both independent server settings.
+  bool get enabled => eventsEnabled && postEventEnabled;
   final bool showUpcomingEvents;
   final List<String> buttons;
   final bool displayTopicDate;
@@ -311,7 +317,8 @@ final class EventSettings {
   @override
   bool operator ==(Object other) =>
       other is EventSettings &&
-      enabled == other.enabled &&
+      eventsEnabled == other.eventsEnabled &&
+      postEventEnabled == other.postEventEnabled &&
       showUpcomingEvents == other.showUpcomingEvents &&
       displayTopicDate == other.displayTopicDate &&
       listEquals(buttons, other.buttons) &&
@@ -321,7 +328,8 @@ final class EventSettings {
       deepJsonEquals(calendarColors, other.calendarColors);
   @override
   int get hashCode => Object.hash(
-    enabled,
+    eventsEnabled,
+    postEventEnabled,
     showUpcomingEvents,
     displayTopicDate,
     Object.hashAll(buttons),
@@ -376,8 +384,8 @@ final class EventSettingsCodec
   };
   @override
   Object encode(EventSettings value) => {
-    'discourse_events_enabled': value.enabled,
-    'discourse_post_event_enabled': value.enabled,
+    'discourse_events_enabled': value.eventsEnabled,
+    'discourse_post_event_enabled': value.postEventEnabled,
     'sidebar_show_upcoming_events': value.showUpcomingEvents,
     'event_participation_buttons': value.buttons,
     'display_post_event_date_on_topic_title': value.displayTopicDate,

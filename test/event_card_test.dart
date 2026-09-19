@@ -220,7 +220,7 @@ void main() {
       ),
     );
     expect(find.text('Planning'), findsOneWidget);
-    expect(find.text('Read the agenda.'), findsOneWidget);
+    expect(find.text('Read the agenda.', findRichText: true), findsOneWidget);
     expect(find.text('Going'), findsNothing);
     expect(ports.transport.requests, isEmpty);
   });

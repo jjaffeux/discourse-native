@@ -23,6 +23,13 @@ final class _CookingPlugin implements CookingPlugin {
   List<CookingModule> get cookingModules => [
     CookingModule.spoiler,
     CookingModule.missingUploads,
+    for (final id in ['details', 'd-wrap'])
+      CookingModule(
+        id: id,
+        owner: 'cooking',
+        version: '1',
+        profiles: const ['post'],
+      ),
     for (final (index, id) in [
       'cooking-links',
       'cooking-bidi',

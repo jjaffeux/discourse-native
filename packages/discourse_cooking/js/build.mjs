@@ -16,7 +16,7 @@ for(const m of modules) {
  if(ids.has(m.id)||!m.id||!m.owner||!m.version||!['source','syntax','token','document'].includes(m.stage)||!/^[a-z-]+\.js$/.test(m.source)) throw Error('Invalid module catalog');
  ids.add(m.id);
  for(const [tag,attrs] of Object.entries(m.policy)) {
-  if(!/^(?:img|em|mark|span|div|details|summary|time|kbd|abbr|a|pre|code|aside|li|p|ol|ul|blockquote|table|td|th)$/.test(tag)||!attrs.every(a=>/^(?:class|title|datetime|data-[a-z0-9-]+|aria-[a-z0-9-]+)$/.test(a) && (!/^data-.*(?:url|href|src)/.test(a) || ['data-orig-href','data-orig-src','data-video-src','data-thumbnail-src','data-blocked-hotlinked-src'].includes(a)))) throw Error('Unsafe module HTML policy');
+  if(!/^(?:img|em|mark|span|div|details|summary|time|kbd|abbr|a|pre|code|aside|li|p|ol|ul|blockquote|table|td|th)$/.test(tag)||!attrs.every(a=>(a==='open' && tag==='details' || /^(?:class|title|datetime|data-[a-z0-9-]+|aria-[a-z0-9-]+)$/.test(a)) && (!/^data-.*(?:url|href|src)/.test(a) || ['data-url','data-orig-href','data-orig-src','data-video-src','data-thumbnail-src','data-blocked-hotlinked-src'].includes(a)))) throw Error('Unsafe module HTML policy');
  }
 }
 const moduleSource=assembleModules(modules);
@@ -73,6 +73,9 @@ for (const name of names) {
   if (!licenses.length) throw Error(`No license file for ${name}`);
   for(const file of licenses) notices.push(readFileSync(join(dir,file),'utf8')+'\n');
 }
+// Preserve the embedded poll MD5 attribution in the distributable notices too.
+const pollSource=readFileSync(join(root,'vendor/plugins/poll/assets/javascripts/lib/discourse-markdown/poll.js'),'utf8');
+notices.push('\n=== Poll UTF-8 MD5 implementation ===\n'+pollSource.match(/\/\*!([\s\S]*?)\*\//)[0]+'\n');
 // Flutter discovers licenses at a package's root. Keep all redistributed
 // engine/dependency terms there, not only in nested source directories.
 const packageLicense = [

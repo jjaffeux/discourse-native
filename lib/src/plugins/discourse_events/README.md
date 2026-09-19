@@ -75,6 +75,12 @@ existing events module. Calendar rendering works without the post-event RSVP
 setting and without installing Local Dates, Poll, or Chat. Date authoring still
 uses the existing Local Dates composer when that module is installed.
 
+Offline cooking preserves the base `discourse_events_enabled` switch separately
+from `discourse_post_event_enabled`, so calendar syntax works when Post Events
+are disabled. Older app versions persisted only their conjunction: cached
+calendar-only configurations from those versions recover their base switch on
+the next normal site-settings refresh. No additional request is made by cooking.
+
 The source contract was checked against Discourse `2e9dc47bd88`: the post
 serializer in `plugins/discourse-events/plugin.rb`,
 `app/models/discourse_events/calendar/event.rb`, the calendar Markdown rule,

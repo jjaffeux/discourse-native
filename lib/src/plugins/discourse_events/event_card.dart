@@ -13,6 +13,7 @@ import '../../shell/open_link.dart';
 import '../../shell/site_image.dart';
 import '../../shell/site_url.dart';
 import 'event_controller.dart';
+import 'event_cooked_visibility.dart';
 import 'event_data.dart';
 import 'event_export.dart';
 import 'event_navigation.dart';
@@ -994,13 +995,34 @@ class EventUnavailableCard extends StatelessWidget {
 
 /// Cooked HTML alone cannot grant attendance access (quotes, chat, previews).
 class EventCookedFallback extends StatelessWidget {
-  EventCookedFallback({super.key, required dom.Element element})
-    : title = element.attributes['data-name'] ?? 'Event',
-      start = element.attributes['data-start'],
-      description = element.text.trim();
+  factory EventCookedFallback({
+    Key? key,
+    required dom.Element element,
+    String? siteUrl,
+  }) {
+    final visible = eventVisibleCookedElement(element);
+    return EventCookedFallback._(
+      key: key,
+      title: visible.attributes['data-name'] ?? 'Event',
+      start: visible.attributes['data-start'],
+      description: visible.text.trim(),
+      descriptionHtml: visible.innerHtml.trim(),
+      siteUrl: siteUrl,
+    );
+  }
+  const EventCookedFallback._({
+    super.key,
+    required this.title,
+    required this.start,
+    required this.description,
+    required this.descriptionHtml,
+    this.siteUrl,
+  });
   final String title;
   final String? start;
   final String description;
+  final String descriptionHtml;
+  final String? siteUrl;
   @override
   Widget build(BuildContext context) => DCard(
     spacing: 0,
@@ -1011,7 +1033,14 @@ class EventCookedFallback extends StatelessWidget {
         children: [
           DText(title, variant: DTextVariant.large, headingLevel: 2),
           if (start != null) Text(start!),
-          if (description.isNotEmpty) Text(description),
+          if (descriptionHtml.isNotEmpty)
+            Builder(
+              builder: (context) => CookedHtml(
+                html: descriptionHtml,
+                siteUrl: siteUrl,
+                textStyle: DefaultTextStyle.of(context).style,
+              ),
+            ),
         ],
       ),
     ),

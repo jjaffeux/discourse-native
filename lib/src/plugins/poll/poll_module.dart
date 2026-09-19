@@ -3,6 +3,7 @@ import '../../plugin_api/core_plugin_host.dart';
 import '../../plugin_api/plugin_manifest.dart';
 import 'poll_api.dart';
 import 'poll_controller.dart';
+import 'poll_cooking.dart';
 import 'poll_plugin.dart';
 import 'poll_services.dart';
 import 'polls_api.dart';
@@ -24,6 +25,7 @@ final class PollModule implements PluginModule {
   void register(PluginRegistrar registrar) {
     const plugin = PollPlugin();
     registrar.addCapability(plugin);
+    registrar.addCapability(const PollCookingPlugin());
     registrar.addSyntaxId(plugin.composerSyntaxKind.id);
     registrar.addSession(
       (bindings, _) {
