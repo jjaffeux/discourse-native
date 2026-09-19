@@ -108,6 +108,8 @@ class SiteAppearance {
 @immutable
 class ResolvedSitePalette {
   const ResolvedSitePalette({
+    this.windowGradient = false,
+    this.darkerSidebars = false,
     this.borderRadius = defaultDiscourseBorderRadius,
     this.avatarBorderRadius = defaultDiscourseAvatarBorderRadius,
     required this.brightness,
@@ -165,6 +167,8 @@ class ResolvedSitePalette {
     final danger = _color(json['danger']) ?? const Color(0xFFC80001);
 
     return ResolvedSitePalette(
+      windowGradient: json['windowGradient'] == true,
+      darkerSidebars: json['darkerSidebars'] == true,
       borderRadius:
           _nonNegativeDouble(json['borderRadius']) ??
           defaultDiscourseBorderRadius,
@@ -224,6 +228,8 @@ class ResolvedSitePalette {
     );
   }
 
+  final bool windowGradient;
+  final bool darkerSidebars;
   final double borderRadius;
   final AvatarBorderRadius avatarBorderRadius;
   final Brightness brightness;
@@ -276,6 +282,8 @@ class ResolvedSitePalette {
   final Color codeMeta;
 
   Map<String, dynamic> toJson() => {
+    'windowGradient': windowGradient,
+    'darkerSidebars': darkerSidebars,
     'borderRadius': borderRadius,
     'avatarBorderRadius': avatarBorderRadius.toJson(),
     'brightness': brightness.name,
@@ -322,6 +330,8 @@ class ResolvedSitePalette {
   @override
   bool operator ==(Object other) =>
       other is ResolvedSitePalette &&
+      other.windowGradient == windowGradient &&
+      other.darkerSidebars == darkerSidebars &&
       other.borderRadius == borderRadius &&
       other.avatarBorderRadius == avatarBorderRadius &&
       other.brightness == brightness &&
@@ -366,6 +376,8 @@ class ResolvedSitePalette {
 
   @override
   int get hashCode => Object.hashAll([
+    windowGradient,
+    darkerSidebars,
     borderRadius,
     avatarBorderRadius,
     brightness,

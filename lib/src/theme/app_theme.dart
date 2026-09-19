@@ -1,6 +1,7 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
+import '../models/forum_theme.dart';
 import '../models/site_appearance.dart';
 import '../ui/components/d_button.dart';
 import '../ui/components/d_scroll_area.dart';
@@ -597,7 +598,7 @@ abstract final class AppTheme {
           surfaceTint: palette.tertiary,
         );
 
-    return _build(
+    final theme = _build(
       palette.brightness,
       shell,
       code,
@@ -606,6 +607,59 @@ abstract final class AppTheme {
       colorScheme: colorScheme,
       borderRadius: palette.borderRadius,
       avatarBorderRadius: palette.avatarBorderRadius,
+    );
+    if (!palette.windowGradient && !palette.darkerSidebars) return theme;
+    ThemeData? sidebarTheme;
+    if (palette.darkerSidebars) {
+      final background = Color.lerp(
+        palette.secondary,
+        Colors.black,
+        palette.brightness == Brightness.light ? .86 : .35,
+      )!;
+      // Selected rows mix up to 20% of a lighter accent into this surface.
+      // Choose text against that brightest possible row, not just the canvas.
+      final foreground = contrastSafeForeground(
+        background: Color.lerp(background, Colors.white, .20)!,
+        backdrop: Colors.black,
+        preferred: [palette.primary, palette.secondary],
+      );
+      final sidebarPalette = ForumTheme(
+        id: 'sidebar',
+        name: 'Sidebar',
+        brightness: Brightness.dark,
+        primary: foreground,
+        secondary: background,
+        tertiary: contrastSafeForeground(
+          background: background,
+          backdrop: Colors.black,
+          preferred: [
+            palette.tertiary,
+            for (final amount in [.25, .5, .75])
+              Color.lerp(palette.tertiary, foreground, amount),
+            foreground,
+          ],
+        ),
+        quaternary: palette.quaternary,
+        danger: palette.danger,
+        success: palette.success,
+        love: palette.love,
+      ).resolve(Brightness.dark, forumPalette: palette);
+      sidebarTheme = fromPalette(sidebarPalette, fontFamily: fontFamily);
+    }
+    return theme.copyWith(
+      extensions: [
+        ...theme.extensions.values,
+        ForumThemeEffects(
+          windowGradient: palette.windowGradient
+              ? LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [palette.secondary, palette.selected],
+                )
+              : null,
+          sidebarTheme: sidebarTheme,
+        ),
+      ],
     );
   }
 
@@ -956,4 +1010,29 @@ abstract final class AppTheme {
       surfaceTint: primary,
     );
   }
+}
+
+/// App-owned custom-theme effects, resolved once with the palette.
+@immutable
+class ForumThemeEffects extends ThemeExtension<ForumThemeEffects> {
+  const ForumThemeEffects({this.windowGradient, this.sidebarTheme});
+
+  final Gradient? windowGradient;
+  final ThemeData? sidebarTheme;
+
+  @override
+  ForumThemeEffects copyWith({
+    Gradient? windowGradient,
+    ThemeData? sidebarTheme,
+  }) => ForumThemeEffects(
+    windowGradient: windowGradient ?? this.windowGradient,
+    sidebarTheme: sidebarTheme ?? this.sidebarTheme,
+  );
+
+  @override
+  ForumThemeEffects lerp(ForumThemeEffects? other, double t) =>
+      ForumThemeEffects(
+        windowGradient: Gradient.lerp(windowGradient, other?.windowGradient, t),
+        sidebarTheme: t < .5 ? sidebarTheme : other?.sidebarTheme,
+      );
 }

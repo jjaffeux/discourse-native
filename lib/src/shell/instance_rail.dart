@@ -48,7 +48,9 @@ class InstanceRail extends StatelessWidget {
         return ListenableBuilder(
           listenable: controller.accountActivity.totalsListenable,
           builder: (context, _) => ColoredBox(
-            color: theme.shell.rail,
+            color: theme.extension<ForumThemeEffects>()?.windowGradient != null
+                ? Colors.transparent
+                : theme.shell.rail,
             child: SafeArea(
               right: false,
               child: Column(

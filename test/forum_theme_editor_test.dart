@@ -8,6 +8,7 @@ import 'package:discourse_native/src/shell/forum_appearance_settings.dart';
 import 'package:discourse_native/src/shell/forum_settings_dialog.dart';
 import 'package:discourse_native/src/shell/forum_theme_editor.dart';
 import 'package:discourse_native/src/shell/forum_theme_preview.dart';
+import 'package:discourse_native/src/shell/forum_theme_surfaces.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/topic_list_view.dart';
@@ -25,6 +26,137 @@ Finder input(String key) => find.descendant(
 );
 
 void main() {
+  testWidgets('surface toggles update the draft, save and reopen', (
+    tester,
+  ) async {
+    ForumTheme? saved;
+    ForumTheme? draft;
+    final initial = forumThemePresets.first;
+    Widget editor(ForumTheme theme) => MaterialApp(
+      theme: AppTheme.light,
+      home: SingleChildScrollView(
+        child: DCard(
+          child: ForumThemeEditor(
+            key: ValueKey(theme),
+            initialTheme: theme,
+            customThemes: const [],
+            onChanged: (value) => draft = value,
+            onSave: (value) async => saved = value,
+          ),
+        ),
+      ),
+    );
+    await tester.pumpWidget(editor(initial));
+    for (final key in ['window-gradient', 'darker-sidebars']) {
+      final toggle = find.byKey(ValueKey('custom-theme-$key'));
+      await tester.ensureVisible(toggle);
+      await tester.tap(toggle);
+      await tester.pumpAndSettle();
+    }
+    expect(draft!.windowGradient, isTrue);
+    expect(draft!.darkerSidebars, isTrue);
+    final save = find.byKey(const ValueKey('save-custom-theme'));
+    await tester.ensureVisible(save);
+    await tester.tap(save);
+    expect(saved, draft);
+    await tester.pumpWidget(editor(saved!));
+    for (final key in ['window-gradient', 'darker-sidebars']) {
+      expect(
+        tester
+            .widget<DToggle>(find.byKey(ValueKey('custom-theme-$key')))
+            .pressed,
+        isTrue,
+      );
+    }
+  });
+
+  testWidgets('preview scopes dark navigation and paints the window gradient', (
+    tester,
+  ) async {
+    for (final mode in Brightness.values) {
+      final source = forumThemePresets.first;
+      final themed = ForumTheme.fromJson({
+        ...source.toJson(),
+        'windowGradient': true,
+        'darkerSidebars': true,
+      }, id: 'custom-effects');
+      final theme = AppTheme.fromPalette(themed.resolve(mode));
+      await tester.pumpWidget(
+        MaterialApp(
+          home: SingleChildScrollView(
+            child: ForumThemePreview(
+              theme: theme,
+              siteUrl: 'https://example.com',
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final sidebarContext = tester.element(
+        find.byKey(const ValueKey('theme-preview-sidebar')),
+      );
+      final contentContext = tester.element(find.text('Latest topics'));
+      final navigation = Theme.of(sidebarContext);
+      expect(navigation.brightness, Brightness.dark);
+      expect(Theme.of(contentContext).colorScheme, theme.colorScheme);
+      expect(
+        navigation.shell.sidebar.computeLuminance(),
+        lessThan(theme.shell.sidebar.computeLuminance()),
+      );
+      final tokens = DTokens.of(sidebarContext);
+      double contrast(Color foreground, Color background) {
+        final a = foreground.computeLuminance();
+        final b = background.computeLuminance();
+        return ((a > b ? a : b) + .05) / ((a < b ? a : b) + .05);
+      }
+
+      expect(
+        contrast(tokens.foreground, tokens.muted),
+        greaterThanOrEqualTo(4.5),
+      );
+      expect(
+        contrast(tokens.selectedForeground, tokens.selected),
+        greaterThanOrEqualTo(4.5),
+      );
+      final canvas = tester.widget<DecoratedBox>(
+        find
+            .descendant(
+              of: find.byType(ForumWindowBackground),
+              matching: find.byType(DecoratedBox),
+            )
+            .first,
+      );
+      expect((canvas.decoration as BoxDecoration).gradient, isNotNull);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: SingleChildScrollView(
+            child: ForumThemePreview(
+              theme: AppTheme.fromPalette(source.resolve(mode)),
+              siteUrl: 'https://example.com',
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        Theme.of(
+          tester.element(find.byKey(const ValueKey('theme-preview-sidebar'))),
+        ).brightness,
+        mode,
+      );
+      final plain = tester.widget<DecoratedBox>(
+        find
+            .descendant(
+              of: find.byType(ForumWindowBackground),
+              matching: find.byType(DecoratedBox),
+            )
+            .first,
+      );
+      expect((plain.decoration as BoxDecoration).gradient, isNull);
+    }
+  });
+
   testWidgets(
     'invalid colors disable saving and valid edits emit a portable theme',
     (tester) async {
@@ -147,10 +279,14 @@ void main() {
           .firstWhere((theme) => theme.id == 'dracula')
           .toJson(),
       'name': 'Imported night',
+      'windowGradient': true,
+      'darkerSidebars': true,
     });
     await tester.tap(find.text('Import'));
     await tester.pumpAndSettle();
     expect(draft?.name, 'Imported night');
+    expect(draft?.windowGradient, isTrue);
+    expect(draft?.darkerSidebars, isTrue);
     expect(
       draft?.tertiary,
       forumThemePresets.firstWhere((theme) => theme.id == 'dracula').tertiary,
@@ -191,6 +327,12 @@ void main() {
         ),
       ),
     );
+    for (final key in ['window-gradient', 'darker-sidebars']) {
+      final toggle = find.byKey(ValueKey('custom-theme-$key'));
+      await tester.ensureVisible(toggle);
+      await tester.tap(toggle);
+      await tester.pumpAndSettle();
+    }
     await tester.ensureVisible(find.text('Export'));
     await tester.tap(find.text('Export'));
     await tester.pumpAndSettle();
@@ -214,6 +356,8 @@ void main() {
             as Map<String, dynamic>;
     final exported = ForumTheme.fromJson(json, id: 'exported');
     expect(exported.name, 'Dracula custom');
+    expect(exported.windowGradient, isTrue);
+    expect(exported.darkerSidebars, isTrue);
     expect(
       exported.tertiary,
       forumThemePresets.firstWhere((theme) => theme.id == 'dracula').tertiary,

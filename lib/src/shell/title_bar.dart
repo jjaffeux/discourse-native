@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 
 import '../plugin_api/plugin_scope.dart';
 import '../plugin_api/site_plugin_api.dart';
+import '../theme/app_theme.dart';
 import 'aggregate_branding.dart';
 import 'forum_search.dart';
 import 'shell_controller.dart';
@@ -86,7 +87,13 @@ class ShellTitleBar extends StatelessWidget {
           return SizedBox(
             height: stacked ? height * 2 : height,
             child: ColoredBox(
-              color: surface,
+              color:
+                  Theme.of(
+                        context,
+                      ).extension<ForumThemeEffects>()?.windowGradient !=
+                      null
+                  ? Colors.transparent
+                  : surface,
               child: Stack(
                 fit: StackFit.expand,
                 children: [

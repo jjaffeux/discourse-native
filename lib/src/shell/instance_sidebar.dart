@@ -16,6 +16,7 @@ import 'emoji.dart';
 import 'external_link.dart';
 import 'forum_search.dart';
 import 'forum_settings_dialog.dart';
+import 'forum_theme_surfaces.dart';
 import 'instance_actions.dart';
 import 'open_link.dart';
 import 'platform.dart';
@@ -153,73 +154,75 @@ class InstanceSidebar extends StatelessWidget {
   final SidebarSectionStore? sectionStore;
 
   @override
-  Widget build(BuildContext context) => ShellSelector<_SidebarSnapshot>(
-    select: (controller) {
-      final instance = controller.currentInstance;
-      final currentContent = controller.currentContent;
-      // The split list can change while the reader retains its original route.
-      var selectedDestinationId = controller.topicListTab?.rootDestinationId;
-      if (currentContent?.groupRoute != null) {
-        selectedDestinationId = 'groups';
-      } else if (currentContent?.isBadges == true) {
-        selectedDestinationId = 'badges';
-      } else if (currentContent?.isTopic == true &&
-          selectedDestinationId == 'drafts') {
-        // Reply drafts keep Drafts in their back stack, but the topic itself
-        // is not the Drafts route.
-        selectedDestinationId = null;
-      }
-      final categorySection = instance == null
-          ? null
-          : controller.categorySidebarSectionFor(instance.url);
-      final tagSection = instance == null
-          ? null
-          : controller.tagSidebarSectionFor(instance.url);
-      return _SidebarSnapshot(
-        siteUrl: instance?.url,
-        name: instance?.title,
-        iconUrl: instance?.iconUrl,
-        monogram: instance?.monogram,
-        accentColor: instance?.accentColor,
-        destinationId: selectedDestinationId,
-        draftCount: instance?.user?.draftCount ?? 0,
-        canCreateTopic: instance?.user?.canCreateTopic ?? false,
-        navigationLoading:
-            instance != null &&
-            controller.sidebarNavigationLoadingFor(instance.url),
-        presentationToken: instance == null
+  Widget build(BuildContext context) => ForumSidebarTheme(
+    child: ShellSelector<_SidebarSnapshot>(
+      select: (controller) {
+        final instance = controller.currentInstance;
+        final currentContent = controller.currentContent;
+        // The split list can change while the reader retains its original route.
+        var selectedDestinationId = controller.topicListTab?.rootDestinationId;
+        if (currentContent?.groupRoute != null) {
+          selectedDestinationId = 'groups';
+        } else if (currentContent?.isBadges == true) {
+          selectedDestinationId = 'badges';
+        } else if (currentContent?.isTopic == true &&
+            selectedDestinationId == 'drafts') {
+          // Reply drafts keep Drafts in their back stack, but the topic itself
+          // is not the Drafts route.
+          selectedDestinationId = null;
+        }
+        final categorySection = instance == null
             ? null
-            : controller.presentationTokenFor(instance.url),
-        topicTrackingRevision: instance == null
-            ? 0
-            : controller.topicTrackingRevisionFor(instance.url),
-        sections: instance == null
-            ? const <SidebarSection>[]
-            : controller.sidebarSectionsFor(instance),
-        navigationSections: [?categorySection, ?tagSection],
-      );
-    },
-    builder: (context, sidebar, _) {
-      if (sidebar.siteUrl == null) {
-        return ColoredBox(color: DTokens.of(context).muted);
-      }
-      return LayoutBuilder(
-        builder: (context, constraints) => DSidebarProvider(
-          mobileBreakpoint: 0,
-          open: true,
-          child: SafeArea(
-            left: false,
-            child: _SidebarPanelBody(
-              sidebar: sidebar,
-              width: constraints.maxWidth,
-              showUserMenu: showUserMenu,
-              sectionStore:
-                  sectionStore ?? ShellScope.read(context).sidebarSections,
+            : controller.categorySidebarSectionFor(instance.url);
+        final tagSection = instance == null
+            ? null
+            : controller.tagSidebarSectionFor(instance.url);
+        return _SidebarSnapshot(
+          siteUrl: instance?.url,
+          name: instance?.title,
+          iconUrl: instance?.iconUrl,
+          monogram: instance?.monogram,
+          accentColor: instance?.accentColor,
+          destinationId: selectedDestinationId,
+          draftCount: instance?.user?.draftCount ?? 0,
+          canCreateTopic: instance?.user?.canCreateTopic ?? false,
+          navigationLoading:
+              instance != null &&
+              controller.sidebarNavigationLoadingFor(instance.url),
+          presentationToken: instance == null
+              ? null
+              : controller.presentationTokenFor(instance.url),
+          topicTrackingRevision: instance == null
+              ? 0
+              : controller.topicTrackingRevisionFor(instance.url),
+          sections: instance == null
+              ? const <SidebarSection>[]
+              : controller.sidebarSectionsFor(instance),
+          navigationSections: [?categorySection, ?tagSection],
+        );
+      },
+      builder: (context, sidebar, _) {
+        if (sidebar.siteUrl == null) {
+          return ColoredBox(color: DTokens.of(context).muted);
+        }
+        return LayoutBuilder(
+          builder: (context, constraints) => DSidebarProvider(
+            mobileBreakpoint: 0,
+            open: true,
+            child: SafeArea(
+              left: false,
+              child: _SidebarPanelBody(
+                sidebar: sidebar,
+                width: constraints.maxWidth,
+                showUserMenu: showUserMenu,
+                sectionStore:
+                    sectionStore ?? ShellScope.read(context).sidebarSections,
+              ),
             ),
           ),
-        ),
-      );
-    },
+        );
+      },
+    ),
   );
 }
 

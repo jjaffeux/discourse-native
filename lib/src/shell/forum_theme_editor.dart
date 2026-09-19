@@ -44,6 +44,8 @@ class _ForumThemeEditorState extends State<ForumThemeEditor> {
   late final TextEditingController _name;
   late final Map<String, TextEditingController> _colors;
   late Brightness _brightness;
+  late bool _windowGradient;
+  late bool _darkerSidebars;
   late final Map<String, Color> _lastColors;
   String? _notice;
   bool _transferring = false;
@@ -72,6 +74,8 @@ class _ForumThemeEditorState extends State<ForumThemeEditor> {
     );
     _baseId = theme.id;
     _brightness = theme.brightness;
+    _windowGradient = theme.windowGradient;
+    _darkerSidebars = theme.darkerSidebars;
     final colors = theme.toJson()['colors'] as Map<String, String>;
     _lastColors = {
       for (final key in _roles.keys)
@@ -98,6 +102,8 @@ class _ForumThemeEditorState extends State<ForumThemeEditor> {
     try {
       return ForumTheme.fromJson({
         'version': 1,
+        'windowGradient': _windowGradient,
+        'darkerSidebars': _darkerSidebars,
         'name': _name.text,
         'mode': _brightness.name,
         'colors': {
@@ -130,6 +136,8 @@ class _ForumThemeEditorState extends State<ForumThemeEditor> {
       _name.text = theme.name;
     }
     _brightness = theme.brightness;
+    _windowGradient = theme.windowGradient;
+    _darkerSidebars = theme.darkerSidebars;
     final colors = theme.toJson()['colors'] as Map<String, String>;
     for (final entry in _colors.entries) {
       entry.value.text = colors[entry.key]!;
@@ -364,6 +372,36 @@ class _ForumThemeEditorState extends State<ForumThemeEditor> {
             );
           },
         ),
+        Align(
+          alignment: AlignmentDirectional.centerStart,
+          child: DToggle(
+            key: const ValueKey('custom-theme-window-gradient'),
+            pressed: _windowGradient,
+            enabled: enabled,
+            variant: DToggleVariant.outline,
+            onPressedChanged: (value) {
+              _windowGradient = value;
+              _changed('');
+            },
+            child: const Text('Window gradient'),
+          ),
+        ),
+        const Text('Blend Background and Accent in the window background.'),
+        Align(
+          alignment: AlignmentDirectional.centerStart,
+          child: DToggle(
+            key: const ValueKey('custom-theme-darker-sidebars'),
+            pressed: _darkerSidebars,
+            enabled: enabled,
+            variant: DToggleVariant.outline,
+            onPressedChanged: (value) {
+              _darkerSidebars = value;
+              _changed('');
+            },
+            child: const Text('Darker sidebars'),
+          ),
+        ),
+        const Text('Use darker backgrounds for forum and chat navigation.'),
         if (theme != null && _contrast(theme) < 4.5)
           const DAlert(
             description: DAlertDescription(

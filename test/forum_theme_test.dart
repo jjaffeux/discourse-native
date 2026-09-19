@@ -9,6 +9,7 @@ import 'package:discourse_native/src/models/forum_theme_preferences.dart';
 import 'package:discourse_native/src/models/forum_theme_presets.dart';
 import 'package:discourse_native/src/models/site_appearance.dart';
 import 'package:discourse_native/src/shell/forum_settings_controller.dart';
+import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -18,6 +19,79 @@ void main() {
     ...dracula.toJson(),
     'name': 'My night',
   }, id: 'custom-night');
+
+  test('surface effects remain independent for every preset and mode', () {
+    for (final source in forumThemePresets) {
+      for (final mode in Brightness.values) {
+        final original = AppTheme.fromPalette(source.resolve(mode));
+        for (final gradient in [false, true]) {
+          for (final darker in [false, true]) {
+            final custom = ForumTheme.fromJson({
+              ...source.toJson(),
+              'windowGradient': gradient,
+              'darkerSidebars': darker,
+            }, id: 'custom-effects');
+            final theme = AppTheme.fromPalette(custom.resolve(mode));
+            final effects = theme.extension<ForumThemeEffects>();
+            expect(effects?.windowGradient != null, gradient);
+            expect(effects?.sidebarTheme != null, darker);
+            expect(theme.shell.content, original.shell.content);
+            expect(theme.shell.panel, original.shell.panel);
+            if (effects?.sidebarTheme case final sidebar?) {
+              expect(
+                sidebar.shell.sidebar.computeLuminance(),
+                lessThanOrEqualTo(original.shell.sidebar.computeLuminance()),
+              );
+              final a = sidebar.shell.selected.computeLuminance();
+              final b = sidebar.shell.selectedForeground.computeLuminance();
+              expect(
+                ((a > b ? a : b) + .05) / ((a < b ? a : b) + .05),
+                greaterThanOrEqualTo(4.5),
+                reason: '${source.id} $mode selected text',
+              );
+            }
+          }
+        }
+      }
+    }
+  });
+
+  test(
+    'surface options round trip and survive mode conversion and resolution',
+    () {
+      final themed = ForumTheme.fromJson({
+        ...dracula.toJson(),
+        'windowGradient': true,
+        'darkerSidebars': true,
+      }, id: 'custom-effects');
+      expect(ForumTheme.fromJson(themed.toJson(), id: themed.id), themed);
+      expect(
+        ForumThemePreferences.fromJson(
+          ForumThemePreferences().save(themed).toJson(),
+        ).selectedTheme,
+        themed,
+      );
+      for (final mode in Brightness.values) {
+        expect(themed.forBrightness(mode).windowGradient, isTrue);
+        expect(themed.forBrightness(mode).darkerSidebars, isTrue);
+        final palette = themed.resolve(mode);
+        expect(palette.windowGradient, isTrue);
+        expect(palette.darkerSidebars, isTrue);
+        expect(ResolvedSitePalette.fromJson(palette.toJson()), palette);
+        expect(palette, isNot(dracula.resolve(mode)));
+      }
+      final legacy = Map<String, dynamic>.of(dracula.toJson())
+        ..remove('windowGradient')
+        ..remove('darkerSidebars');
+      expect(ForumTheme.fromJson(legacy, id: dracula.id), dracula);
+      for (final key in ['windowGradient', 'darkerSidebars']) {
+        expect(
+          () => ForumTheme.fromJson({...legacy, key: 'yes'}, id: 'bad'),
+          throwsFormatException,
+        );
+      }
+    },
+  );
 
   test(
     'font survives theme edits and older or unknown preferences default safely',

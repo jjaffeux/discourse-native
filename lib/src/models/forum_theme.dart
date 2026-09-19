@@ -19,6 +19,8 @@ final class ForumTheme {
     required this.success,
     required this.love,
     this.alternate,
+    this.windowGradient = false,
+    this.darkerSidebars = false,
   });
 
   factory ForumTheme.fromJson(Map<String, dynamic> json, {required String id}) {
@@ -41,6 +43,12 @@ final class ForumTheme {
       return Color(0xff000000 | int.parse(value.substring(1), radix: 16));
     }
 
+    for (final key in ['windowGradient', 'darkerSidebars']) {
+      if (json.containsKey(key) && json[key] is! bool) {
+        throw FormatException('Invalid $key option.');
+      }
+    }
+
     final rawAlternate = json['alternate'];
     ForumTheme? alternate;
     if (rawAlternate != null) {
@@ -54,6 +62,8 @@ final class ForumTheme {
       }
     }
     return ForumTheme(
+      windowGradient: json['windowGradient'] == true,
+      darkerSidebars: json['darkerSidebars'] == true,
       alternate: alternate,
       id: id,
       name: name.trim(),
@@ -79,6 +89,8 @@ final class ForumTheme {
   final Color success;
   final Color love;
   final ForumTheme? alternate;
+  final bool windowGradient;
+  final bool darkerSidebars;
 
   static String hex(Color color) =>
       '#${(color.toARGB32() & 0xffffff).toRadixString(16).padLeft(6, '0').toUpperCase()}';
@@ -86,6 +98,8 @@ final class ForumTheme {
   Map<String, dynamic> toJson() => {
     if (alternate != null) 'alternate': alternate!.toJson(),
     'version': 1,
+    'windowGradient': windowGradient,
+    'darkerSidebars': darkerSidebars,
     'name': name,
     'mode': brightness.name,
     'colors': {
@@ -105,6 +119,8 @@ final class ForumTheme {
     return ForumTheme(
       id: id,
       name: name,
+      windowGradient: windowGradient,
+      darkerSidebars: darkerSidebars,
       brightness: target,
       primary: source.brightness == target ? source.primary : source.secondary,
       secondary: source.brightness == target
@@ -124,7 +140,7 @@ final class ForumTheme {
     ResolvedSitePalette? forumPalette,
   }) {
     if (alternate?.brightness == target) {
-      return alternate!.resolve(target, forumPalette: forumPalette);
+      return forBrightness(target).resolve(target, forumPalette: forumPalette);
     }
     final foreground = target == brightness ? primary : secondary;
     final background = target == brightness ? secondary : primary;
@@ -132,6 +148,8 @@ final class ForumTheme {
         Color.lerp(background, color, amount)!;
     return ResolvedSitePalette.fromJson({
       'brightness': target.name,
+      'windowGradient': windowGradient,
+      'darkerSidebars': darkerSidebars,
       'borderRadius':
           forumPalette?.borderRadius ?? defaultDiscourseBorderRadius,
       'avatarBorderRadius':
@@ -192,7 +210,9 @@ final class ForumTheme {
       other.danger == danger &&
       other.success == success &&
       other.love == love &&
-      other.alternate == alternate;
+      other.alternate == alternate &&
+      other.windowGradient == windowGradient &&
+      other.darkerSidebars == darkerSidebars;
 
   @override
   int get hashCode => Object.hash(
@@ -207,5 +227,7 @@ final class ForumTheme {
     success,
     love,
     alternate,
+    windowGradient,
+    darkerSidebars,
   );
 }
