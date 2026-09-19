@@ -1357,6 +1357,9 @@ class _ChatComposerState extends State<ChatComposer> {
                       label: Text(
                         widget.editingMessage == null ? 'Send' : 'Save',
                       ),
+                      loadingLabel: Text(
+                        widget.editingMessage == null ? 'Send' : 'Save',
+                      ),
                       onPressed:
                           _pickingGif ||
                               _pickingFiles ||
