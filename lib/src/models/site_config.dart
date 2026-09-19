@@ -8,6 +8,16 @@ import 'json.dart';
 class SiteConfig {
   const SiteConfig({
     this.emojiEnabled = true,
+    this.emojiShortcutsEnabled = true,
+    this.inlineEmojiTranslationEnabled = false,
+    this.unicodeUsernames = false,
+    this.traditionalMarkdownLinebreaks = false,
+    this.markdownTypographerEnabled = true,
+    this.markdownTypographerQuotationMarks = '“|”|‘|’',
+    this.defaultCodeLang = 'auto',
+    this.secureUploads = false,
+    this.cookingKnownSettings = const {},
+    this.cookingSettingsStale = false,
     this.userStatusEnabled = false,
     this.emojiSet = defaultEmojiSet,
     this.externalEmojiUrl,
@@ -122,6 +132,18 @@ class SiteConfig {
   }) {
     return SiteConfig(
       emojiEnabled: json['enable_emoji'] != false,
+      emojiShortcutsEnabled: json['enable_emoji_shortcuts'] != false,
+      inlineEmojiTranslationEnabled:
+          json['enable_inline_emoji_translation'] == true,
+      unicodeUsernames: json['unicode_usernames'] == true,
+      traditionalMarkdownLinebreaks:
+          json['traditional_markdown_linebreaks'] == true,
+      markdownTypographerEnabled: json['enable_markdown_typographer'] != false,
+      markdownTypographerQuotationMarks:
+          jsonText(json['markdown_typographer_quotation_marks']) ?? '“|”|‘|’',
+      defaultCodeLang: jsonText(json['default_code_lang']) ?? 'auto',
+      secureUploads: json['secure_uploads'] == true,
+      cookingKnownSettings: _knownCookingSettings(json, wire: true),
       userStatusEnabled: json['enable_user_status'] == true,
       emojiSet: jsonText(json['emoji_set']) ?? defaultEmojiSet,
       externalEmojiUrl: _trimSlash(jsonText(json['external_emoji_url'])),
@@ -201,6 +223,19 @@ class SiteConfig {
     PluginDataDecoder extensions = const EmptyPluginDataDecoder(),
   }) => SiteConfig(
     emojiEnabled: json['emojiEnabled'] != false,
+    emojiShortcutsEnabled: json['emojiShortcutsEnabled'] != false,
+    inlineEmojiTranslationEnabled:
+        json['inlineEmojiTranslationEnabled'] == true,
+    unicodeUsernames: json['unicodeUsernames'] == true,
+    traditionalMarkdownLinebreaks:
+        json['traditionalMarkdownLinebreaks'] == true,
+    markdownTypographerEnabled: json['markdownTypographerEnabled'] != false,
+    markdownTypographerQuotationMarks:
+        jsonText(json['markdownTypographerQuotationMarks']) ?? '“|”|‘|’',
+    defaultCodeLang: jsonText(json['defaultCodeLang']) ?? 'auto',
+    secureUploads: json['secureUploads'] == true,
+    cookingKnownSettings: _knownCookingSettings(json, wire: false),
+    cookingSettingsStale: json['cookingSettingsStale'] == true,
     userStatusEnabled: json['userStatusEnabled'] == true,
     emojiSet: jsonText(json['emojiSet']) ?? defaultEmojiSet,
     externalEmojiUrl: jsonText(json['externalEmojiUrl']),
@@ -276,6 +311,16 @@ class SiteConfig {
     final pluginJson = extensions.writeStoredSiteSettings(plugins);
     return {
       'emojiEnabled': emojiEnabled,
+      'emojiShortcutsEnabled': emojiShortcutsEnabled,
+      'inlineEmojiTranslationEnabled': inlineEmojiTranslationEnabled,
+      'unicodeUsernames': unicodeUsernames,
+      'traditionalMarkdownLinebreaks': traditionalMarkdownLinebreaks,
+      'markdownTypographerEnabled': markdownTypographerEnabled,
+      'markdownTypographerQuotationMarks': markdownTypographerQuotationMarks,
+      'defaultCodeLang': defaultCodeLang,
+      'secureUploads': secureUploads,
+      'cookingKnownSettings': cookingKnownSettings.toList()..sort(),
+      'cookingSettingsStale': cookingSettingsStale,
       'userStatusEnabled': userStatusEnabled,
       'emojiSet': emojiSet,
       'externalEmojiUrl': externalEmojiUrl,
@@ -320,6 +365,39 @@ class SiteConfig {
   /// Existing shortcode content remains renderable when this is false; this
   /// setting only gates authoring surfaces such as autocomplete and the picker.
   final bool emojiEnabled;
+  final bool emojiShortcutsEnabled;
+  final bool inlineEmojiTranslationEnabled;
+  final bool unicodeUsernames;
+  final bool traditionalMarkdownLinebreaks;
+  final bool markdownTypographerEnabled;
+  final String markdownTypographerQuotationMarks;
+  final String defaultCodeLang;
+  final bool secureUploads;
+
+  /// Valid core settings received from site initialization, by wire key.
+  /// Missing or malformed fields retain defaults without claiming knowledge.
+  final Set<String> cookingKnownSettings;
+
+  /// Set by the cache owner when these values have not been refreshed.
+  final bool cookingSettingsStale;
+
+  /// A bounded projection of core data only; plugin bags never enter the worker.
+  Map<String, Object?> get cookingSettings => Map.unmodifiable({
+    'enable_emoji': emojiEnabled,
+    'enable_mentions': mentionsEnabled,
+    'emoji_set': emojiSet,
+    'external_emoji_url': externalEmojiUrl,
+    'enable_markdown_linkify': enableMarkdownLinkify,
+    'markdown_linkify_tlds': markdownLinkifyTlds.join('|'),
+    'enable_emoji_shortcuts': emojiShortcutsEnabled,
+    'enable_inline_emoji_translation': inlineEmojiTranslationEnabled,
+    'unicode_usernames': unicodeUsernames,
+    'traditional_markdown_linebreaks': traditionalMarkdownLinebreaks,
+    'enable_markdown_typographer': markdownTypographerEnabled,
+    'markdown_typographer_quotation_marks': markdownTypographerQuotationMarks,
+    'default_code_lang': defaultCodeLang,
+    'secure_uploads': secureUploads,
+  });
 
   final bool userStatusEnabled;
 
@@ -430,52 +508,77 @@ class SiteConfig {
       ? null
       : (value.endsWith('/') ? value.substring(0, value.length - 1) : value);
 
-  SiteConfig withPlugins(PluginData value) => SiteConfig(
-    emojiEnabled: emojiEnabled,
-    userStatusEnabled: userStatusEnabled,
-    emojiSet: emojiSet,
-    externalEmojiUrl: externalEmojiUrl,
-    authorizedExtensions: authorizedExtensions,
-    authorizedExtensionsForStaff: authorizedExtensionsForStaff,
-    simultaneousUploads: simultaneousUploads,
-    maxImageWidth: maxImageWidth,
-    maxImageHeight: maxImageHeight,
-    enableAutoGridImages: enableAutoGridImages,
-    enableMarkdownLinkify: enableMarkdownLinkify,
-    markdownLinkifyTlds: markdownLinkifyTlds,
-    minSearchTermLength: minSearchTermLength,
-    logSearchQueries: logSearchQueries,
-    groupDirectoryEnabled: groupDirectoryEnabled,
-    userDirectoryEnabled: userDirectoryEnabled,
-    mentionsEnabled: mentionsEnabled,
-    smtpEnabled: smtpEnabled,
-    taggingEnabled: taggingEnabled,
-    maxTagSearchResults: maxTagSearchResults,
-    usePgHeadlinesForExcerpt: usePgHeadlinesForExcerpt,
-    showTimeGapDays: showTimeGapDays,
-    fixedCategoryPositions: fixedCategoryPositions,
-    allowUncategorizedTopics: allowUncategorizedTopics,
-    defaultNavigationMenuCategoryIds: defaultNavigationMenuCategoryIds,
-    defaultHomepage: defaultHomepage,
-    topMenu: topMenu,
-    topPageDefaultPeriod: topPageDefaultPeriod,
-    badgesEnabled: badgesEnabled,
-    allowUsernameInShareLinks: allowUsernameInShareLinks,
-    readTimeWordCount: readTimeWordCount,
-    minPersonalMessagePostLength: minPersonalMessagePostLength,
-    allowAllUsersToFlagIllegalContent: allowAllUsersToFlagIllegalContent,
-    contactEmail: contactEmail,
-    illegalContentReportEmail: illegalContentReportEmail,
-    suggestWeekendsInDatePickers: suggestWeekendsInDatePickers,
-    fastEditEnabled: fastEditEnabled,
-    invites: invites,
-    plugins: value,
-  );
+  SiteConfig withCookingSettingsStale(bool stale) =>
+      withPlugins(plugins, cookingSettingsStale: stale);
+
+  SiteConfig withPlugins(PluginData value, {bool? cookingSettingsStale}) =>
+      SiteConfig(
+        emojiEnabled: emojiEnabled,
+        emojiShortcutsEnabled: emojiShortcutsEnabled,
+        inlineEmojiTranslationEnabled: inlineEmojiTranslationEnabled,
+        unicodeUsernames: unicodeUsernames,
+        traditionalMarkdownLinebreaks: traditionalMarkdownLinebreaks,
+        markdownTypographerEnabled: markdownTypographerEnabled,
+        markdownTypographerQuotationMarks: markdownTypographerQuotationMarks,
+        defaultCodeLang: defaultCodeLang,
+        secureUploads: secureUploads,
+        cookingKnownSettings: cookingKnownSettings,
+        cookingSettingsStale: cookingSettingsStale ?? this.cookingSettingsStale,
+        userStatusEnabled: userStatusEnabled,
+        emojiSet: emojiSet,
+        externalEmojiUrl: externalEmojiUrl,
+        authorizedExtensions: authorizedExtensions,
+        authorizedExtensionsForStaff: authorizedExtensionsForStaff,
+        simultaneousUploads: simultaneousUploads,
+        maxImageWidth: maxImageWidth,
+        maxImageHeight: maxImageHeight,
+        enableAutoGridImages: enableAutoGridImages,
+        enableMarkdownLinkify: enableMarkdownLinkify,
+        markdownLinkifyTlds: markdownLinkifyTlds,
+        minSearchTermLength: minSearchTermLength,
+        logSearchQueries: logSearchQueries,
+        groupDirectoryEnabled: groupDirectoryEnabled,
+        userDirectoryEnabled: userDirectoryEnabled,
+        mentionsEnabled: mentionsEnabled,
+        smtpEnabled: smtpEnabled,
+        taggingEnabled: taggingEnabled,
+        maxTagSearchResults: maxTagSearchResults,
+        usePgHeadlinesForExcerpt: usePgHeadlinesForExcerpt,
+        showTimeGapDays: showTimeGapDays,
+        fixedCategoryPositions: fixedCategoryPositions,
+        allowUncategorizedTopics: allowUncategorizedTopics,
+        defaultNavigationMenuCategoryIds: defaultNavigationMenuCategoryIds,
+        defaultHomepage: defaultHomepage,
+        topMenu: topMenu,
+        topPageDefaultPeriod: topPageDefaultPeriod,
+        badgesEnabled: badgesEnabled,
+        allowUsernameInShareLinks: allowUsernameInShareLinks,
+        readTimeWordCount: readTimeWordCount,
+        minPersonalMessagePostLength: minPersonalMessagePostLength,
+        allowAllUsersToFlagIllegalContent: allowAllUsersToFlagIllegalContent,
+        contactEmail: contactEmail,
+        illegalContentReportEmail: illegalContentReportEmail,
+        suggestWeekendsInDatePickers: suggestWeekendsInDatePickers,
+        fastEditEnabled: fastEditEnabled,
+        invites: invites,
+        plugins: value,
+      );
 
   @override
   bool operator ==(Object other) =>
       other is SiteConfig &&
       other.emojiEnabled == emojiEnabled &&
+      other.emojiShortcutsEnabled == emojiShortcutsEnabled &&
+      other.inlineEmojiTranslationEnabled == inlineEmojiTranslationEnabled &&
+      other.unicodeUsernames == unicodeUsernames &&
+      other.traditionalMarkdownLinebreaks == traditionalMarkdownLinebreaks &&
+      other.markdownTypographerEnabled == markdownTypographerEnabled &&
+      other.markdownTypographerQuotationMarks ==
+          markdownTypographerQuotationMarks &&
+      other.defaultCodeLang == defaultCodeLang &&
+      other.secureUploads == secureUploads &&
+      setEquals(other.cookingKnownSettings, cookingKnownSettings) &&
+      other.cookingSettingsStale == cookingSettingsStale &&
       other.userStatusEnabled == userStatusEnabled &&
       other.emojiSet == emojiSet &&
       other.externalEmojiUrl == externalEmojiUrl &&
@@ -525,6 +628,16 @@ class SiteConfig {
   @override
   int get hashCode => Object.hashAll([
     emojiEnabled,
+    emojiShortcutsEnabled,
+    inlineEmojiTranslationEnabled,
+    unicodeUsernames,
+    traditionalMarkdownLinebreaks,
+    markdownTypographerEnabled,
+    markdownTypographerQuotationMarks,
+    defaultCodeLang,
+    secureUploads,
+    Object.hashAllUnordered(cookingKnownSettings),
+    cookingSettingsStale,
     userStatusEnabled,
     emojiSet,
     externalEmojiUrl,
@@ -564,6 +677,49 @@ class SiteConfig {
     invites,
     plugins,
   ]);
+
+  static Set<String> _knownCookingSettings(
+    Map<String, dynamic> json, {
+    required bool wire,
+  }) {
+    const types = <String, String>{
+      'enable_emoji_shortcuts': 'bool',
+      'enable_inline_emoji_translation': 'bool',
+      'unicode_usernames': 'bool',
+      'traditional_markdown_linebreaks': 'bool',
+      'enable_markdown_typographer': 'bool',
+      'markdown_typographer_quotation_marks': 'String',
+      'default_code_lang': 'String',
+      'secure_uploads': 'bool',
+      'enable_emoji': 'bool',
+      'enable_mentions': 'bool',
+      'emoji_set': 'String',
+      'external_emoji_url': 'String',
+      'enable_markdown_linkify': 'bool',
+      'markdown_linkify_tlds': 'list',
+    };
+    if (!wire) {
+      final raw = json['cookingKnownSettings'];
+      return Set.unmodifiable(
+        raw is List
+            ? raw.whereType<String>().where(types.containsKey)
+            : const <String>[],
+      );
+    }
+    return Set.unmodifiable([
+      for (final entry in types.entries)
+        if (switch (entry.value) {
+          'bool' => json[entry.key] is bool,
+          'String' => json[entry.key] is String,
+          'list' =>
+            json[entry.key] is String ||
+                (json[entry.key] is List &&
+                    (json[entry.key] as List).every((v) => v is String)),
+          _ => false,
+        })
+          entry.key,
+    ]);
+  }
 
   static String _topPagePeriod(Object? raw) {
     final value = jsonText(raw);

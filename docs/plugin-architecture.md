@@ -541,3 +541,24 @@ flutter run -d macos
 composition, Dart/native ownership, vendored provenance, and the tracked
 iOS/macOS/Linux registrants. CI builds both wrappers and requires WebRTC and
 LiveKit registration markers in both artifacts.
+
+## Offline cooking contributions
+
+`CookingPlugin` is a compiler capability, separate from native cooked rendering.
+The installed `cooking` module owns the application's bundled compiler adapters;
+a core-only manifest does not acquire a fictitious core-owned catalog. Other
+installed owners register their own bundled module selections and profiles and
+project only their own typed settings through `CookingPluginData`. Installation
+freezes declarations and ownership before application/session construction.
+
+Compiler implementations live in individual trusted JS source modules assembled
+from the cooking package's checked-in catalog. Native registration selects a
+bundled ID/version and cannot supply executable source. Syntax, token and
+document stages are distinct; all resulting HTML passes the authoritative final
+sanitizer, including plugin output and cached upstream HTML hoists. Compiler
+modules never own widgets, network access or host service callbacks.
+
+The session host snapshots existing metadata and exposes provisional cooking for
+future consumers; it does not change current message or composer rendering. See
+[cooking milestone 2](cooking/milestone-2.md) for the production API, complete
+extension example, account generations, cache/recovery limits and validation.

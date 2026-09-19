@@ -42,13 +42,36 @@ Optional immutable snapshot maps:
 - `oneboxes`: URL to cached HTML; `inlineOneboxes`: URL to `{title, css_class}`.
 - `topics`: topic ID to quote metadata; `avatars`: username to quote avatar HTML. These are untrusted HTML inputs subject to the final policy.
 
-Missing mentions/hashtags remain readable, missing oneboxes remain links, and unknown Markdown upload images become `[filename]` through a parsed-token rule that leaves code untouched. Raw HTML upload placeholders still follow upstream behavior. No lookup ever fetches missing data. Each call creates a fresh engine, freezes its snapshot, resets the upstream emoji shortcut trie, and clears the temporary onebox snapshot in `finally`. Shared tables contain only bundled immutable public data. `siteId` and `accountId` are identifying contract fields; no cross-request cache is keyed or populated in this milestone.
+Missing mentions/hashtags remain readable, missing oneboxes remain links, and unknown Markdown upload images become `[filename]` through a parsed-token rule that leaves code untouched. Raw HTML upload placeholders still follow upstream behavior. No lookup ever fetches missing data. Each call creates a fresh engine, freezes its snapshot, resets the upstream emoji shortcut trie, and clears the temporary onebox snapshot in `finally`. Shared tables contain only bundled immutable public data. `siteId`, `accountId`, and `accountGeneration` identify the session. `CookingHostService` owns a bounded cache outside JS, keyed by deterministic source/context/configuration/engine/bundle fingerprints.
+
+## Bundled modules and profiles
+
+Production callers use `CookingRequest`, `CookingSnapshot`, `CookingProfile`, and
+`CookingConfiguration`; the string profile in the example remains a JS corpus
+compatibility format. Profiles declare parser features/rules and scalar settings.
+Configuration validates installed owners, versions, duplicate IDs, dependencies,
+cycles, and stage ordering before sending any request. Module declarations may
+restrict profile names and select an enabling setting from their owner's projected
+settings. Only immutable JSON snapshots cross the worker boundary.
+
+Add one behavior source and a declaration to `src/modules/catalog.json`, then
+rebuild. The build generates the import catalog and matching Dart metadata;
+`src/entry.js` never gains a per-plugin import or switch. Sources export `setup`
+for syntax or `transform` for token/document stages. Each receives only its
+owner's `snapshot.pluginContext[owner]` as additional context. Document output
+always passes through the final sanitizer. Policy additions live in the trusted
+catalog and are limited to safe tags/attributes; dangerous URI metadata names
+cannot be introduced. Fixtures `fixture-mark`, `fixture-tokens`, and
+`fixture-document` demonstrate all three stages without being enabled by default.
+
+See [milestone 2](../../../docs/cooking/milestone-2.md) for the complete native
+contribution example, application lifecycle, cache semantics, and verification.
 
 ## Trust and parity
 
 Upstream sanitizes before reinserting `html_raw` hoists. `src/final-sanitize.js` therefore runs a separate closed policy **after** `engine.cook()`. It removes executable/embedded tags, SVG/MathML, event/style attributes, data URLs, and unapproved schemes even from cached oneboxes, quote metadata, or plugin output. This intentionally narrows upstream HTML (including some classes/data attributes). Rendering/fetch policy for allowed image/link URLs belongs to the consumer; this JS program never dereferences them.
 
-Post uses the upstream default core feature collection plus the unmodified upstream spoiler plugin. Chat uses the pinned Ruby rule/feature profile, with only locally present counterparts enabled. The small corpus covers exact upstream-common outputs, protected text, chat/post differences, BBCode, missing/known metadata, failures, final trust, and identity isolation. The readable missing-upload behavior and final security policy are deliberate divergences. This is **not complete server parity**: Ruby cleanup, slash commands, chat transcript/local-date/chat-html-inline counterparts, full translations, bot variants, authoritative server permissions, and plugin catalog integration are later milestones. No arbitrary Ruby callbacks or caller-supplied JS can execute.
+Post uses the upstream default core feature collection plus the unmodified upstream spoiler plugin. Chat uses the pinned Ruby rule/feature profile, with only locally present counterparts enabled. The small corpus covers exact upstream-common outputs, protected text, chat/post differences, BBCode, missing/known metadata, failures, final trust, and identity isolation. The readable missing-upload behavior and final security policy are deliberate divergences. This is **not complete server parity**: Ruby cleanup, slash commands, chat transcript/local-date/chat-html-inline counterparts, full translations, bot variants, authoritative server permissions are later milestones. No arbitrary Ruby callbacks or caller-supplied JS can execute.
 
 ## Licensing
 

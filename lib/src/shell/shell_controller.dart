@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:ui' show Color, Rect;
 
+import 'package:discourse_cooking/discourse_cooking.dart';
 import 'package:flutter/foundation.dart'
     show ChangeNotifier, Listenable, ValueListenable, listEquals;
 import 'package:flutter/scheduler.dart';
@@ -8,6 +9,7 @@ import 'package:flutter/scheduler.dart';
 import '../data/account_session_coordinator.dart';
 import '../data/aggregate_preferences_store.dart';
 import '../data/app_settings_store.dart';
+import '../data/application_cooking.dart';
 import '../data/authenticator.dart';
 import '../data/badges_api.dart';
 import '../data/discourse_api_contracts.dart';
@@ -81,6 +83,7 @@ import '../models/user_preferences.dart';
 import '../models/user_status.dart';
 import '../models/user_summary.dart';
 import '../plugin_api/bookmark_host.dart';
+import '../plugin_api/cooking_plugin.dart';
 import '../plugin_api/core_plugin_host.dart';
 import '../plugin_api/core_plugin_manifest.dart';
 import '../plugin_api/emoji_preferences.dart';
@@ -300,6 +303,7 @@ class ShellController extends FrameSafeNotifier
     ),
     ShellRootMode initialRootMode = ShellRootMode.forum,
     InstalledPlugins? plugins,
+    CookingServicePort? cookingService,
     PluginDiagnosticsReporter? pluginDiagnosticsReporter,
   }) : api = ShellApiPorts.fromCapabilities(api),
        forumTabs = forumTabs ?? ForumTabStore.memory(),
@@ -323,6 +327,7 @@ class ShellController extends FrameSafeNotifier
        _providedSiteImages = siteImages,
        _providedVideoThumbnails = videoThumbnails,
        _rootMode = initialRootMode,
+       _providedCookingService = cookingService,
        _ownsPlugins = plugins == null,
        _pluginDiagnosticsReporter =
            pluginDiagnosticsReporter ??
@@ -332,6 +337,54 @@ class ShellController extends FrameSafeNotifier
          updater: updater,
          store: updateStore ?? UpdateStore(),
        );
+
+  final CookingServicePort? _providedCookingService;
+  late final ApplicationCooking cooking = ApplicationCooking(
+    plugins: plugins,
+    service: _providedCookingService,
+  );
+
+  CookingRequest cookingRequest({
+    required String siteUrl,
+    required String raw,
+    CookingProfile profile = CookingProfile.post,
+  }) {
+    if (raw.length > 65536) {
+      return cooking.request(
+        siteUrl: siteUrl,
+        accountId: _instanceAt(siteUrl)?.user?.id.toString() ?? 'anonymous',
+        raw: raw,
+        profile: profile,
+        config: const SiteConfig.unknown(),
+      );
+    }
+    return cooking.request(
+      siteUrl: siteUrl,
+      accountId: _instanceAt(siteUrl)?.user?.id.toString() ?? 'anonymous',
+      raw: raw,
+      profile: profile,
+      config: siteConfigFor(siteUrl),
+      staleSettings: _presentation.cookingSettingsAreStale(siteUrl),
+      mentions: _mentioned[siteUrl]?.snapshot ?? const {},
+      hashtags: {
+        for (final entry in (_hashtags[siteUrl]?.snapshot ?? {}).entries)
+          if (entry.value case final FoundHashtag hashtag)
+            entry.key: {
+              'type': hashtag.type,
+              'ref': hashtag.ref,
+              'slug': hashtag.slug,
+              'text': hashtag.text,
+              'relative_url': hashtag.relativeUrl,
+              'icon': hashtag.icon,
+              'id': hashtag.id,
+              'style_type': hashtag.styleType,
+              'emoji': hashtag.emoji,
+              'colors': hashtag.colors,
+            },
+      },
+      customEmoji: _presentation.cachedCustomEmojiFor(siteUrl),
+    );
+  }
 
   final InstanceStore instanceStore;
   final ForumTabStore forumTabs;
@@ -517,6 +570,10 @@ class ShellController extends FrameSafeNotifier
         () => currentInstance?.url,
       ),
       PluginHostPort<Object>(corePluginPostFlagCatalogPort, postFlagTypesFor),
+      PluginHostPort<Object>(
+        corePluginCookingPort,
+        PluginCookingHost(request: cookingRequest, cook: cooking.cook),
+      ),
       _pluginAccountEventsHostPort(),
       _pluginTargetHostPort(),
       _pluginFreshAccountHostPort(),
@@ -1677,6 +1734,7 @@ class ShellController extends FrameSafeNotifier
   }
 
   Future<void> _load() async {
+    unawaited(cooking.start());
     final settingsLoad = appSettings.load();
     final storedWorkspaces = forumTabs.load();
     final List<DiscourseInstance> stored;
@@ -12403,6 +12461,7 @@ class ShellController extends FrameSafeNotifier
   }
 
   Future<void> _persistSiteConfig(String siteUrl, SiteConfig config) async {
+    cooking.service.invalidate();
     if (currentInstance?.url == siteUrl) {
       search.selectSite(
         siteUrl,
@@ -12913,6 +12972,7 @@ class ShellController extends FrameSafeNotifier
     final held = _instanceAt(replacement.url);
     if (held == null) return null;
 
+    if (held.user?.id != replacement.user?.id) cooking.forget(replacement.url);
     var applied = replacement;
     if (phase == AccountSessionPhase.connected && replacement.user != null) {
       final user = _acceptDoNotDisturbSnapshot(
@@ -12960,6 +13020,7 @@ class ShellController extends FrameSafeNotifier
   }
 
   void _forgetSiteState(String siteUrl, {bool invalidateLifecycle = true}) {
+    cooking.forget(siteUrl);
     if (invalidateLifecycle) lifecycle.invalidate(siteUrl);
     siteImages.forget(siteUrl);
     videoThumbnails.forget(siteUrl);
@@ -14524,6 +14585,7 @@ class ShellController extends FrameSafeNotifier
       _composerDrafts.preservePendingLocally(composer);
     }
     _discoverSites?.dispose();
+    unawaited(cooking.dispose());
 
     // A window can close in the frame immediately after a selection or a
     // scroll. Keep the latest local choice and anchor durable, but never start

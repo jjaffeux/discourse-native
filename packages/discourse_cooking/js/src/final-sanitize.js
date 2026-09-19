@@ -3,7 +3,7 @@ import xss from 'xss';
 // quotes, plugins). Neither site settings nor plugin callbacks may weaken it.
 // No iframe, SVG, MathML, style, event handlers, or arbitrary URL schemes.
 const attributes = {
-  a: ['href','title','class','target','rel','name','data-orig-href','data-type','data-slug','data-ref','data-id'],
+  a: ['href','title','class','target','rel','name','data-orig-href','data-type','data-slug','data-ref','data-id','data-style-type','data-icon','data-emoji'],
   img: ['src','alt','title','class','width','height','loading','role','data-orig-src','data-base62-sha1'],
   aside: ['class','data-topic','data-post','data-username'],
   div: ['class','dir','lang'], span: ['class','lang'],
@@ -14,9 +14,15 @@ const attributes = {
   source: ['src','type'], track: ['src','kind','label','srclang'],
 };
 for (const tag of 'p br hr strong em b i s del ins strike u blockquote ul dl dt dd h1 h2 h3 h4 h5 h6 table thead tbody tr tfoot caption kbd mark sub sup small ruby rb rp rt'.split(' ')) attributes[tag] ||= [];
-export function finalSanitize(html) {
+export function finalSanitize(html, additions = []) {
+  const policy=Object.fromEntries(Object.entries(attributes).map(([tag,attrs])=>[tag,[...attrs]]));
+  for(const addition of additions) for(const [tag,attrs] of Object.entries(addition)) {
+    if(!/^(?:mark|span|div|details|summary|time|kbd|abbr|a|pre|code|aside|li|p|ol|ul|blockquote|table|td|th)$/.test(tag)) throw Error('Unsafe policy tag');
+    for(const attr of attrs) { if(!/^(?:class|title|datetime|data-[a-z0-9-]+|aria-[a-z0-9-]+)$/.test(attr) || (/^data-.*(?:url|href|src)/.test(attr) && !['data-orig-href','data-orig-src'].includes(attr))) throw Error('Unsafe policy attribute'); }
+    policy[tag]=[...new Set([...(policy[tag]||[]),...attrs])];
+  }
   return xss(html, {
-    whiteList: attributes,
+    whiteList: policy,
     stripIgnoreTag: true,
     stripIgnoreTagBody: ['script','style','iframe','object','embed','svg','math'],
     onTagAttr(tag, name, value, isWhiteAttr) {

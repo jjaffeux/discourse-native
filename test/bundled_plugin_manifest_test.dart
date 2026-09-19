@@ -21,6 +21,7 @@ void main() {
     addTearDown(installed.close);
 
     expect(installed.descriptors.map((descriptor) => descriptor.id.value), [
+      'cooking',
       'discourse-local-dates',
       'discourse-github',
       'discourse-lazy-videos',

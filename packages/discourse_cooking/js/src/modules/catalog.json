@@ -1,0 +1,46 @@
+[
+  {
+    "id": "spoiler-alert",
+    "owner": "cooking",
+    "version": "1",
+    "source": "spoiler.js",
+    "stage": "syntax",
+    "policy": {}
+  },
+  {
+    "id": "offline-missing-uploads",
+    "owner": "cooking",
+    "version": "1",
+    "source": "missing-uploads.js",
+    "stage": "syntax",
+    "policy": {}
+  },
+  {
+    "id": "fixture-mark",
+    "owner": "cooking-fixture",
+    "version": "1",
+    "source": "fixture-mark.js",
+    "stage": "syntax",
+    "policy": {
+      "mark": [
+        "data-fixture"
+      ]
+    }
+  },
+  {
+    "id": "fixture-tokens",
+    "owner": "cooking-fixture",
+    "version": "1",
+    "source": "fixture-tokens.js",
+    "stage": "token",
+    "policy": {}
+  },
+  {
+    "id": "fixture-document",
+    "owner": "cooking-fixture",
+    "version": "1",
+    "source": "fixture-document.js",
+    "stage": "document",
+    "policy": {}
+  }
+]

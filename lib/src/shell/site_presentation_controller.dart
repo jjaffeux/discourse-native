@@ -128,6 +128,11 @@ final class SitePresentationController extends FrameSafeNotifier {
       readPersistedConfig(siteUrl) ??
       const SiteConfig.unknown();
 
+  Map<String, String> cachedCustomEmojiFor(String siteUrl) =>
+      _customEmojis[siteUrl] ?? const {};
+
+  bool cookingSettingsAreStale(String siteUrl) => _configs[siteUrl] == null;
+
   Future<void> ensureAppearance(String siteUrl) =>
       _ensureAppearance(siteUrl, refresh: false);
 

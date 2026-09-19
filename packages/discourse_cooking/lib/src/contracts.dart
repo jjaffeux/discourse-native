@@ -1,7 +1,9 @@
 import 'dart:convert';
+import 'package:crypto/crypto.dart';
+import 'configuration.dart';
+export 'configuration.dart';
 
 /// Selects an explicit cooking feature profile, independent of the renderer.
-enum CookingProfile { post, chat }
 
 /// Immutable context captured for one site/account. No live service references.
 ///
@@ -15,6 +17,10 @@ final class CookingSnapshot {
     required String siteId,
     required String accountId,
     String baseUrl = '',
+    int accountGeneration = 0,
+    Map<String, Object?> mentions = const {},
+    Map<String, Object?> pluginContext = const {},
+    Map<String, Object?> provenance = const {},
     Map<String, Object?> siteSettings = const {},
     Map<String, Object?> uploads = const {},
     Map<String, Object?> hashtags = const {},
@@ -29,6 +35,10 @@ final class CookingSnapshot {
       'siteId': siteId,
       'accountId': accountId,
       'baseUrl': baseUrl,
+      'accountGeneration': accountGeneration,
+      'mentions': mentions,
+      'pluginContext': pluginContext,
+      'provenance': provenance,
       'siteSettings': siteSettings,
       'uploads': uploads,
       'hashtags': hashtags,
@@ -45,6 +55,10 @@ final class CookingSnapshot {
     : siteId = json['siteId']! as String,
       accountId = json['accountId']! as String,
       baseUrl = json['baseUrl']! as String,
+      accountGeneration = json['accountGeneration']! as int,
+      mentions = json['mentions']! as Map<String, Object?>,
+      pluginContext = json['pluginContext']! as Map<String, Object?>,
+      provenance = json['provenance']! as Map<String, Object?>,
       siteSettings = json['siteSettings']! as Map<String, Object?>,
       uploads = json['uploads']! as Map<String, Object?>,
       hashtags = json['hashtags']! as Map<String, Object?>,
@@ -63,6 +77,10 @@ final class CookingSnapshot {
       siteId: json['siteId']! as String,
       accountId: json['accountId']! as String,
       baseUrl: json['baseUrl'] as String? ?? '',
+      accountGeneration: json['accountGeneration'] as int? ?? 0,
+      mentions: field('mentions'),
+      pluginContext: field('pluginContext'),
+      provenance: field('provenance'),
       siteSettings: field('siteSettings'),
       uploads: field('uploads'),
       hashtags: field('hashtags'),
@@ -78,6 +96,8 @@ final class CookingSnapshot {
   final String siteId;
   final String accountId;
   final String baseUrl;
+  final int accountGeneration;
+  final Map<String, Object?> mentions, pluginContext, provenance;
   final Map<String, Object?> siteSettings;
   final Map<String, Object?> uploads;
   final Map<String, Object?> hashtags;
@@ -92,6 +112,10 @@ final class CookingSnapshot {
     'siteId': siteId,
     'accountId': accountId,
     'baseUrl': baseUrl,
+    'accountGeneration': accountGeneration,
+    'mentions': mentions,
+    'pluginContext': pluginContext,
+    'provenance': provenance,
     'siteSettings': siteSettings,
     'uploads': uploads,
     'hashtags': hashtags,
@@ -109,6 +133,7 @@ final class CookingRequest {
     required this.raw,
     required this.snapshot,
     this.profile = CookingProfile.post,
+    this.configuration,
   });
 
   factory CookingRequest.fromJson(Map<String, Object?> json) => CookingRequest(
@@ -116,16 +141,34 @@ final class CookingRequest {
     snapshot: CookingSnapshot.fromJson(
       (json['snapshot']! as Map).cast<String, Object?>(),
     ),
-    profile: CookingProfile.values.byName(json['profile']! as String),
+    profile: CookingProfile.fromJson(json['profile']),
+    configuration: json['configuration'] == null
+        ? null
+        : CookingConfiguration.fromJson(
+            (json['configuration']! as Map).cast<String, Object?>(),
+          ),
   );
 
   final String raw;
   final CookingProfile profile;
   final CookingSnapshot snapshot;
+  final CookingConfiguration? configuration;
+  CookingConfiguration get effectiveConfiguration =>
+      configuration ?? CookingConfiguration();
+  String get contextFingerprint => cookingFingerprint({
+    'snapshot': snapshot.toJson(),
+    'profile': profile.toJson(),
+    'configuration': effectiveConfiguration.toJson(),
+    'engine': cookingEngineRevision,
+    'bundle': cookingBundleRevision,
+  });
+  String get fingerprint =>
+      cookingFingerprint({'context': contextFingerprint, 'raw': raw});
 
   Map<String, Object?> toJson() => {
     'raw': raw,
-    'profile': profile.name,
+    'profile': profile.toJson(),
+    'configuration': effectiveConfiguration.toJson(),
     'snapshot': snapshot.toJson(),
   };
 }
@@ -138,6 +181,7 @@ enum CookingFailure {
   engine,
   busy,
   disposed,
+  stale,
 }
 
 /// HTML is always provisional. Normal server responses remain authoritative.
@@ -148,10 +192,32 @@ final class CookingResult {
     List<String> warnings = const [],
     this.elapsedMicroseconds = 0,
     this.memoryUsageBytes = 0,
-  }) : warnings = List.unmodifiable(warnings);
+    this.requestFingerprint,
+    this.contextFingerprint,
+    this.provisional = true,
+    List<CookingDiagnostic> diagnostics = const [],
+    List<CookingUnresolvedReference> unresolvedReferences = const [],
+  }) : warnings = List.unmodifiable(warnings),
+       diagnostics = List.unmodifiable(diagnostics),
+       unresolvedReferences = List.unmodifiable(unresolvedReferences);
 
   factory CookingResult.fromJson(Map<String, Object?> json) => CookingResult(
     html: json['html']! as String,
+    requestFingerprint: json['requestFingerprint'] as String?,
+    contextFingerprint: json['contextFingerprint'] as String?,
+    provisional: json['provisional'] as bool? ?? true,
+    diagnostics: (json['diagnostics'] as List? ?? [])
+        .map(
+          (v) => CookingDiagnostic.fromJson((v as Map).cast<String, Object?>()),
+        )
+        .toList(),
+    unresolvedReferences: (json['unresolvedReferences'] as List? ?? [])
+        .map(
+          (v) => CookingUnresolvedReference.fromJson(
+            (v as Map).cast<String, Object?>(),
+          ),
+        )
+        .toList(),
     failure: json['failure'] == null
         ? null
         : CookingFailure.values.byName(json['failure']! as String),
@@ -161,6 +227,22 @@ final class CookingResult {
   );
 
   final String html;
+  final String? requestFingerprint, contextFingerprint;
+  final bool provisional;
+  final List<CookingDiagnostic> diagnostics;
+  final List<CookingUnresolvedReference> unresolvedReferences;
+  CookingResult forRequest(CookingRequest request) => CookingResult(
+    html: html,
+    failure: failure,
+    warnings: warnings,
+    elapsedMicroseconds: elapsedMicroseconds,
+    memoryUsageBytes: memoryUsageBytes,
+    requestFingerprint: request.fingerprint,
+    contextFingerprint: request.contextFingerprint,
+    provisional: provisional,
+    diagnostics: diagnostics,
+    unresolvedReferences: unresolvedReferences,
+  );
   final CookingFailure? failure;
   final List<String> warnings;
   final int elapsedMicroseconds;
@@ -169,6 +251,13 @@ final class CookingResult {
 
   Map<String, Object?> toJson() => {
     'html': html,
+    'requestFingerprint': requestFingerprint,
+    'contextFingerprint': contextFingerprint,
+    'provisional': provisional,
+    'diagnostics': diagnostics.map((v) => v.toJson()).toList(),
+    'unresolvedReferences': unresolvedReferences
+        .map((v) => v.toJson())
+        .toList(),
     'failure': failure?.name,
     'warnings': warnings,
     'elapsedMicroseconds': elapsedMicroseconds,
@@ -197,10 +286,13 @@ Map<String, Object?> _freezeMap(
     throw ArgumentError('Snapshot exceeds 65,536 values');
   }
   return Map.unmodifiable(
-    value.map((key, value) {
-      budget.consume(key, depth + 1);
-      return MapEntry(key, _freeze(value, budget, depth + 1));
-    }),
+    Map.fromEntries(
+      (value.keys.toList()..sort()).map((key) {
+        final item = value[key];
+        budget.consume(key, depth + 1);
+        return MapEntry(key, _freeze(item, budget, depth + 1));
+      }),
+    ),
   );
 }
 
@@ -235,5 +327,55 @@ CookingResult readableFallback(String raw, CookingFailure failure) {
     html: '<pre>$text${truncated ? '\n…' : ''}</pre>',
     failure: failure,
     warnings: ['offline-cooking-${failure.name}'],
+    diagnostics: [
+      CookingDiagnostic(
+        'offline-cooking-${failure.name}',
+        severity: CookingDiagnosticSeverity.error,
+      ),
+    ],
   );
+}
+
+String cookingFingerprint(Object? value) =>
+    sha256.convert(utf8.encode(jsonEncode(_canonical(value)))).toString();
+Object? _canonical(Object? value) {
+  if (value is Map) {
+    final keys = value.keys.cast<String>().toList()..sort();
+    return {for (final key in keys) key: _canonical(value[key])};
+  }
+  if (value is List) return value.map(_canonical).toList();
+  return value;
+}
+
+enum CookingDiagnosticSeverity { info, warning, error }
+
+final class CookingDiagnostic {
+  const CookingDiagnostic(
+    this.code, {
+    this.severity = CookingDiagnosticSeverity.warning,
+  });
+  final String code;
+  final CookingDiagnosticSeverity severity;
+  factory CookingDiagnostic.fromJson(Map<String, Object?> json) =>
+      CookingDiagnostic(
+        json['code']! as String,
+        severity: CookingDiagnosticSeverity.values.byName(
+          json['severity']! as String,
+        ),
+      );
+  Map<String, Object?> toJson() => {'code': code, 'severity': severity.name};
+}
+
+enum CookingReferenceKind { upload, mention, hashtag, topic, onebox }
+
+final class CookingUnresolvedReference {
+  const CookingUnresolvedReference(this.kind, this.key);
+  final CookingReferenceKind kind;
+  final String key;
+  factory CookingUnresolvedReference.fromJson(Map<String, Object?> json) =>
+      CookingUnresolvedReference(
+        CookingReferenceKind.values.byName(json['kind']! as String),
+        json['key']! as String,
+      );
+  Map<String, Object?> toJson() => {'kind': kind.name, 'key': key};
 }
