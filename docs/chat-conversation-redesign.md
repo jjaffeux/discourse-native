@@ -100,3 +100,10 @@ component, example and integration tests. The final typography cleanup passed
 113 targeted tests, including the typography adoption guard; the four control
 adoption checks passed separately. Root static analysis is clean. The macOS
 debug build succeeds with existing dependency warnings.
+
+Final reconciliation includes main `03f2913b2` and its tooltip updates. All 154
+affected tooltip, message and typography checks passed, followed by clean root
+analysis, a successful macOS build, and a final native check of light/dark
+surfaces, quote navigation, the accessible message menu and Reply activation.
+The inspected source candidate was `594d4b71`; the final documentation commit
+does not change that application source.
