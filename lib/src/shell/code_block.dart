@@ -567,24 +567,35 @@ class _CodeBlockHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    final languageLabel = Row(
-      key: languageKey,
-      mainAxisSize: centerLanguage ? MainAxisSize.min : MainAxisSize.max,
-      children: [
-        DIcon(DIcons.code, size: 18, color: theme.colorScheme.onSurfaceVariant),
-        const SizedBox(width: 8),
-        Flexible(
-          child: Text(
-            codeLanguageLabel(language),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: theme.textTheme.labelLarge?.copyWith(
-              color: theme.discourse.primaryVeryHigh,
-              fontWeight: FontWeight.w600,
+    final languageLabel = LayoutBuilder(
+      builder: (context, constraints) => Row(
+        key: languageKey,
+        mainAxisSize: centerLanguage ? MainAxisSize.min : MainAxisSize.max,
+        children: [
+          // A chat bubble can leave only a few pixels beside the code actions.
+          // Keep the language available to semantics without a fixed icon/gap
+          // overflowing that remaining space.
+          if (constraints.maxWidth >= 64) ...[
+            DIcon(
+              DIcons.code,
+              size: 18,
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+            const SizedBox(width: 8),
+          ],
+          Flexible(
+            child: Text(
+              codeLanguageLabel(language),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.labelLarge?.copyWith(
+                color: theme.discourse.primaryVeryHigh,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
 
     if (centerLanguage) {

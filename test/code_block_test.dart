@@ -114,6 +114,29 @@ void main() {
   });
 
   group('CodeBlock', () {
+    testWidgets('header fits a narrow chat bubble without losing its actions', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light.copyWith(platform: TargetPlatform.macOS),
+          home: Scaffold(
+            body: Align(
+              alignment: Alignment.topLeft,
+              child: SizedBox(
+                width: 125,
+                child: CodeBlock(data: parseBlock(codeFence)),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      expect(find.byTooltip('Copy code'), findsOneWidget);
+      expect(find.byTooltip('View code full screen'), findsOneWidget);
+    });
+
     for (final numbered in [false, true]) {
       for (final count in [20, 100, 500, 1000]) {
         testWidgets(

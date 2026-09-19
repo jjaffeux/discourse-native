@@ -7,6 +7,12 @@ import 'd_spinner.dart';
 
 enum DBubbleVariant {
   primary,
+
+  /// Muted accent fill with the conversation's 12px corners and 13.5px text.
+  accent,
+
+  /// Raised neutral fill with the same geometry as [accent].
+  neutral,
   secondary,
   muted,
   tinted,
@@ -28,10 +34,12 @@ class _DBubbleScope extends InheritedWidget {
     required this.variant,
     required this.align,
     required super.child,
+    this.quote = false,
   });
 
   final DBubbleVariant variant;
   final DBubbleAlign align;
+  final bool quote;
 
   static _DBubbleScope of(BuildContext context) {
     final scope = context.dependOnInheritedWidgetOfExactType<_DBubbleScope>();
@@ -41,7 +49,9 @@ class _DBubbleScope extends InheritedWidget {
 
   @override
   bool updateShouldNotify(_DBubbleScope oldWidget) =>
-      variant != oldWidget.variant || align != oldWidget.align;
+      variant != oldWidget.variant ||
+      align != oldWidget.align ||
+      quote != oldWidget.quote;
 }
 
 /// A content-sized conversational surface aligned within its available row.
@@ -174,6 +184,8 @@ class DBubbleContent extends StatefulWidget {
     super.key,
     required this.child,
     this.compact = false,
+    this.trailingAction,
+    this.quote,
     this.action,
     this.onPressed,
     this.disabled = false,
@@ -188,9 +200,18 @@ class DBubbleContent extends StatefulWidget {
     this.autofocus = false,
   }) : assert(action != null || onPressed == null),
        assert(!busy || action != null),
-       assert(!selected || action != null);
+       assert(!selected || action != null),
+       assert(action == null || (trailingAction == null && quote == null));
 
   final Widget child;
+
+  /// An independently interactive control at the top trailing corner. Reserve
+  /// its slot with a hidden control when revealing actions on hover or focus.
+  /// Whole-surface actions must not contain another action.
+  final Widget? trailingAction;
+
+  /// An inset reply reference above the body, normally a [DBubbleQuote].
+  final Widget? quote;
 
   /// Uses 4px vertical padding instead of 8px for compact conversations.
   /// Horizontal padding remains 12px; ghost bubbles remain unpadded.
@@ -254,6 +275,22 @@ class _DBubbleContentState extends State<DBubbleContent> {
     final secondary = mix(tokens.muted, tokens.foreground, .01);
 
     var style = switch (scope.variant) {
+      DBubbleVariant.neutral => _ContentStyle(
+        background: mix(
+          tokens.background,
+          tokens.foreground,
+          active ? .10 : .06,
+        ),
+        foreground: tokens.foreground,
+        border: mix(tokens.background, tokens.foreground, .12),
+      ),
+      DBubbleVariant.accent => _ContentStyle(
+        background: active
+            ? tokens.buttonTheme.primary.hover
+            : tokens.buttonTheme.primary.background,
+        foreground: tokens.buttonTheme.primary.foreground,
+        border: Colors.transparent,
+      ),
       DBubbleVariant.primary => _ContentStyle(
         background: active
             ? tokens.primary.withValues(alpha: tokens.primary.a * .8)
@@ -310,6 +347,17 @@ class _DBubbleContentState extends State<DBubbleContent> {
         border: Colors.transparent,
       ),
     };
+    if (scope.quote) {
+      style = _ContentStyle(
+        background: mix(
+          tokens.background,
+          tokens.foreground,
+          active ? .08 : .035,
+        ),
+        foreground: tokens.foreground,
+        border: tokens.primary,
+      );
+    }
     if (widget.invalid) {
       style = _ContentStyle(
         background: style.background,
@@ -325,9 +373,13 @@ class _DBubbleContentState extends State<DBubbleContent> {
     final tokens = DTokens.of(context);
     final style = _style(context, interactive);
     final ghost = scope.variant == DBubbleVariant.ghost;
+    final conversation =
+        scope.quote ||
+        scope.variant == DBubbleVariant.accent ||
+        scope.variant == DBubbleVariant.neutral;
     final radius = ghost
         ? BorderRadius.zero
-        : BorderRadius.circular(tokens.radius * 1.4);
+        : BorderRadius.circular(conversation ? 12 : tokens.radius * 1.4);
     final status = widget.busy
         ? DSpinner(size: 14, semanticLabel: null, color: style.foreground)
         : widget.invalid
@@ -337,14 +389,16 @@ class _DBubbleContentState extends State<DBubbleContent> {
         : null;
     final textStyle = Theme.of(context).textTheme.bodyMedium?.copyWith(
       color: style.foreground,
-      fontSize: DiscourseTypography.sm,
-      height: 1.625,
+      fontSize: conversation ? 13.5 : DiscourseTypography.sm,
+      height: conversation ? 1.5 : 1.625,
     );
 
     return AnimatedContainer(
       duration: DMotion.duration(context, DMotion.change),
       curve: Curves.easeOut,
-      clipBehavior: Clip.antiAlias,
+      // Corner controls may own popovers whose accessibility subtree must
+      // remain visible beyond the bubble's rounded surface.
+      clipBehavior: widget.trailingAction == null ? Clip.antiAlias : Clip.none,
       padding: ghost
           ? EdgeInsets.zero
           : EdgeInsets.symmetric(
@@ -354,25 +408,69 @@ class _DBubbleContentState extends State<DBubbleContent> {
       decoration: BoxDecoration(
         color: style.background,
         borderRadius: radius,
-        border: Border.all(color: style.border),
+        border: scope.quote
+            ? BorderDirectional(
+                start: BorderSide(color: style.border, width: 3),
+              )
+            : Border.all(color: style.border),
       ),
       child: DefaultTextStyle.merge(
         style: textStyle,
         child: IconTheme.merge(
           data: IconThemeData(color: style.foreground, size: 16),
-          child: status == null
-              ? widget.child
-              : Row(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    Flexible(child: widget.child),
-                    const SizedBox(width: 8),
-                    status,
-                  ],
-                ),
+          child: _contents(context, status),
         ),
       ),
+    );
+  }
+
+  Widget _contents(BuildContext context, Widget? status) {
+    if (widget.trailingAction == null && widget.quote == null) {
+      if (status == null) return widget.child;
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        spacing: DSpacing.sm,
+        children: [
+          Flexible(child: widget.child),
+          status,
+        ],
+      );
+    }
+    final body = Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      spacing: DSpacing.sm,
+      children: [?widget.quote, widget.child],
+    );
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // Give the corner action its own line when scaled content needs the full
+        // bubble width, keeping quotes and attachments readable in narrow panes.
+        if (constraints.maxWidth <
+            MediaQuery.textScalerOf(context).scale(160)) {
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            spacing: DSpacing.xs,
+            children: [
+              if (widget.trailingAction case final action?)
+                Align(alignment: AlignmentDirectional.centerEnd, child: action),
+              body,
+              ?status,
+            ],
+          );
+        }
+        return Row(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          spacing: DSpacing.xs,
+          children: [
+            Flexible(child: body),
+            ?status,
+            ?widget.trailingAction,
+          ],
+        );
+      },
     );
   }
 
@@ -448,6 +546,8 @@ class _DBubbleContentState extends State<DBubbleContent> {
               minHeight: touch ? DSpacing.touchTarget : 0,
             ),
             child: Align(
+              widthFactor: 1,
+              heightFactor: 1,
               alignment: AlignmentDirectional.centerStart,
               child: CustomPaint(
                 foregroundPainter: _BubbleFocusPainter(
@@ -455,6 +555,10 @@ class _DBubbleContentState extends State<DBubbleContent> {
                   color: tokens.focusRing,
                   radius: scope.variant == DBubbleVariant.ghost
                       ? 0
+                      : scope.quote ||
+                            scope.variant == DBubbleVariant.accent ||
+                            scope.variant == DBubbleVariant.neutral
+                      ? 12
                       : tokens.radius * 1.4,
                 ),
                 child: SelectionContainer.disabled(
@@ -473,6 +577,51 @@ class _DBubbleContentState extends State<DBubbleContent> {
       ),
     );
   }
+}
+
+/// A quoted reply inside [DBubbleContent.quote]. Author and excerpt are
+/// caller-owned widgets; navigation and source-message lookup stay with the app.
+/// The surface reuses Bubble's link focus, touch target and disabled behavior.
+class DBubbleQuote extends StatelessWidget {
+  const DBubbleQuote({
+    super.key,
+    required this.author,
+    required this.child,
+    this.onPressed,
+    this.semanticLabel,
+  });
+
+  final Widget author;
+  final Widget child;
+  final VoidCallback? onPressed;
+  final String? semanticLabel;
+
+  @override
+  Widget build(BuildContext context) => _DBubbleScope(
+    variant: DBubbleVariant.muted,
+    align: DBubbleAlign.start,
+    quote: true,
+    child: DBubbleContent(
+      action: onPressed == null ? null : DBubbleContentAction.link,
+      onPressed: onPressed,
+      semanticLabel: semanticLabel,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        spacing: DSpacing.xs,
+        children: [
+          DefaultTextStyle.merge(
+            style: TextStyle(
+              color: DTokens.of(context).primary,
+              fontWeight: FontWeight.w600,
+            ),
+            child: author,
+          ),
+          child,
+        ],
+      ),
+    ),
+  );
 }
 
 class _BubbleFocusPainter extends CustomPainter {
