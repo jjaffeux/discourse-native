@@ -368,7 +368,7 @@ class _AddInstanceFormState extends State<_AddInstanceForm> {
           semanticLabel: 'Forum address',
           hintText: 'meta.discourse.org',
           prefix: const DIcon(DIcons.globe, size: 16),
-          suffix: _siteCheckIcon(theme),
+          suffix: _connecting ? null : _siteCheckIcon(theme),
           errorText: _error,
         ),
         const SizedBox(height: 16),
@@ -381,7 +381,6 @@ class _AddInstanceFormState extends State<_AddInstanceForm> {
         const SizedBox(height: DSpacing.xl),
         DiscoverSiteSuggestions(
           source: widget.discoverSites,
-          address: _field.text,
           enabled: !_connecting,
           onSelected: (site) {
             _field.value = TextEditingValue(
@@ -389,6 +388,7 @@ class _AddInstanceFormState extends State<_AddInstanceForm> {
               selection: TextSelection.collapsed(offset: site.url.length),
             );
             _addressChanged(site.url);
+            unawaited(_connect());
           },
         ),
       ],

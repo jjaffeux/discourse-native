@@ -13,13 +13,11 @@ class DiscoverSiteSuggestions extends StatefulWidget {
     super.key,
     required this.source,
     required this.onSelected,
-    required this.address,
     this.enabled = true,
   });
 
   final DiscoverSites source;
   final ValueChanged<DiscoverSite> onSelected;
-  final String address;
   final bool enabled;
 
   @override
@@ -112,9 +110,6 @@ class _DiscoverSiteSuggestionsState extends State<DiscoverSiteSuggestions> {
                                 key: ValueKey('discover-site-${site.url}'),
                                 size: DItemSize.xs,
                                 variant: DItemVariant.outline,
-                                selected:
-                                    DiscoverSite.identity(widget.address) ==
-                                    site.address,
                                 enabled: widget.enabled,
                                 onPressed: () => widget.onSelected(site),
                                 children: [
