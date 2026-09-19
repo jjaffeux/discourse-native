@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'dart:io';
-import 'dart:typed_data';
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/forum_theme.dart';
@@ -15,6 +14,7 @@ import 'package:discourse_native/src/shell/topic_list_view.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:file_selector_platform_interface/file_selector_platform_interface.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/fakes.dart';
@@ -337,6 +337,25 @@ void main() {
       const Color(0xff39845b),
     );
     expect(tester.takeException(), isNull);
+    await tester.ensureVisible(find.bySemanticsLabel('Choose accent color'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.bySemanticsLabel('Choose accent color'));
+    await tester.pumpAndSettle();
+    final plane = find.byKey(const ValueKey('color-picker-plane'));
+    await tester.tapAt(tester.getCenter(plane));
+    await tester.pumpAndSettle();
+    final chosen = tester
+        .widget<EditableText>(input('custom-theme-tertiary'))
+        .controller
+        .text;
+    expect(chosen, isNot('#BD93F9'));
+    expect(
+      ForumTheme.hex(Theme.of(tester.element(preview)).colorScheme.primary),
+      chosen,
+    );
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+    expect(find.byType(ForumSettingsDialog), findsOneWidget);
     await tester.enterText(input('custom-theme-tertiary'), '#39845B');
     await tester.pumpAndSettle();
     await tester.ensureVisible(find.byKey(const ValueKey('save-custom-theme')));

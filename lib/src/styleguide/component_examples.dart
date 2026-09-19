@@ -15,6 +15,7 @@ import 'examples/carousel_examples.dart';
 import 'examples/chart_examples.dart';
 import 'examples/checkbox_examples.dart';
 import 'examples/collapsible_examples.dart';
+import 'examples/color_picker_examples.dart';
 import 'examples/combobox_examples.dart';
 import 'examples/command_examples.dart';
 import 'examples/context_menu_examples.dart';
@@ -73,6 +74,7 @@ import 'styleguide_example.dart';
 
 /// Each component task replaces its baseline or adds its own example file.
 final componentExamples = <String, ComponentExamples>{
+  'color-picker': colorPickerExamples,
   'pull-to-refresh': pullToRefreshExamples,
   'mermaid': mermaidExamples,
   'image-preview': imagePreviewExamples,

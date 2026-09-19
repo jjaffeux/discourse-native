@@ -4,6 +4,11 @@ import 'styleguide_example.dart';
 /// component reference catalogue.
 const applicationComponentCatalogue = <ComponentReference>[
   ComponentReference(
+    id: 'color-picker',
+    name: 'Color picker',
+    sections: ['Live color', 'Disabled'],
+  ),
+  ComponentReference(
     id: 'pull-to-refresh',
     name: 'Pull to refresh',
     sections: ['Topics', 'Short list', 'Empty list', 'Disabled'],
