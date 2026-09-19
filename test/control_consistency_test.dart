@@ -11,7 +11,7 @@ import 'support/button_surface.dart';
 
 void main() {
   testWidgets(
-    'buttons and filters share redesign surfaces while selectors retain field styling',
+    'buttons, filters and selectors share redesigned outlined surfaces',
     (tester) async {
       for (final palette in [StyleguideTheme.dark, StyleguideTheme.plum]) {
         final theme = palette
@@ -90,15 +90,13 @@ void main() {
           );
           expect(buttonSurface(tester, of: button).borderRadius, radius);
         }
-        for (final surface in [filter]) {
+        for (final surface in [filter, select]) {
           expect(surface.borderRadius, radius);
           expect(surface.borderColor, action.borderColor);
           expect(surface.color, action.color);
         }
-        expect(
-          select.borderRadius,
-          BorderRadius.circular(theme.extension<DTokens>()!.controlRadius),
-        );
+        expect(select.strokeWidth, 1);
+        expect(select.shadowColor.a, 0);
         expect(
           tester
               .getSize(find.byKey(const Key('d-select-trigger-visual')))
