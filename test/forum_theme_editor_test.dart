@@ -1,4 +1,6 @@
 import 'dart:convert';
+import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/forum_theme.dart';
@@ -11,6 +13,7 @@ import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/topic_list_view.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
+import 'package:file_selector_platform_interface/file_selector_platform_interface.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -109,6 +112,10 @@ void main() {
   testWidgets('imports validated JSON into the editor without applying it', (
     tester,
   ) async {
+    final previous = FileSelectorPlatform.instance;
+    final files = _ThemeFiles();
+    FileSelectorPlatform.instance = files;
+    addTearDown(() => FileSelectorPlatform.instance = previous);
     ForumTheme? draft;
     await tester.pumpWidget(
       MaterialApp(
@@ -126,26 +133,81 @@ void main() {
       ),
     );
     await tester.ensureVisible(find.text('Import'));
+    files.contents = '{invalid';
     await tester.tap(find.text('Import'));
     await tester.pumpAndSettle();
-    await tester.enterText(input('import-theme-json'), '{invalid');
-    await tester.tap(find.byKey(const ValueKey('confirm-import-theme')));
-    await tester.pumpAndSettle();
-    expect(find.text('Paste a valid exported theme.'), findsOneWidget);
+    expect(find.text('Choose a valid theme JSON file.'), findsOneWidget);
     expect(draft, isNull);
-    final payload = {
+    files.contents = jsonEncode({
       ...forumThemePresets[9].toJson(),
       'name': 'Imported night',
-    };
-    await tester.enterText(input('import-theme-json'), jsonEncode(payload));
-    await tester.tap(find.byKey(const ValueKey('confirm-import-theme')));
+    });
+    await tester.tap(find.text('Import'));
     await tester.pumpAndSettle();
-    expect(find.byKey(const ValueKey('import-theme-json')), findsNothing);
     expect(draft?.name, 'Imported night');
     expect(draft?.tertiary, forumThemePresets[9].tertiary);
     expect(draft?.id, startsWith('custom-'));
+    final imported = draft;
+    files.contents = null;
+    await tester.tap(find.text('Import'));
+    await tester.pumpAndSettle();
+    expect(draft, imported);
+    expect(files.types!.single.extensions, ['json']);
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('exports a JSON file and cancelling export writes nothing', (
+    tester,
+  ) async {
+    final previous = FileSelectorPlatform.instance;
+    final files = _ThemeFiles();
+    FileSelectorPlatform.instance = files;
+    addTearDown(() => FileSelectorPlatform.instance = previous);
+    final directory = Directory.systemTemp.createTempSync('theme-export-test-');
+    addTearDown(() => directory.deleteSync(recursive: true));
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light,
+        home: SingleChildScrollView(
+          child: DCard(
+            child: ForumThemeEditor(
+              initialTheme: forumThemePresets[9],
+              customThemes: const [],
+              onChanged: (_) {},
+              onSave: (_) async {},
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.ensureVisible(find.text('Export'));
+    await tester.tap(find.text('Export'));
+    await tester.pumpAndSettle();
+    expect(directory.listSync(), isEmpty);
+    files.destination = '${directory.path}/palette.json';
+    await tester.runAsync(() async {
+      await tester.tap(find.text('Export'));
+      // Let the real XFile filesystem write complete outside the fake clock.
+      for (
+        var attempt = 0;
+        attempt < 100 && find.text('Theme exported.').evaluate().isEmpty;
+        attempt++
+      ) {
+        await Future<void>.delayed(const Duration(milliseconds: 10));
+        await tester.pump();
+      }
+    });
+    await tester.pumpAndSettle();
+    final json =
+        jsonDecode(File(files.destination!).readAsStringSync())
+            as Map<String, dynamic>;
+    final exported = ForumTheme.fromJson(json, id: 'exported');
+    expect(exported.name, 'Dracula custom');
+    expect(exported.tertiary, forumThemePresets[9].tertiary);
+    expect(files.suggestedName, 'Dracula-custom.json');
+    expect(find.text('Theme exported.'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 
   testWidgets('sidebar, presets, and custom preview use real components', (
     tester,
@@ -278,4 +340,35 @@ void main() {
     );
     expect(tester.takeException(), isNull);
   });
+}
+
+final class _ThemeFiles extends FileSelectorPlatform {
+  String? contents;
+  String? destination;
+  String? suggestedName;
+  List<XTypeGroup>? types;
+  @override
+  Future<XFile?> openFile({
+    List<XTypeGroup>? acceptedTypeGroups,
+    String? initialDirectory,
+    String? confirmButtonText,
+  }) async {
+    types = acceptedTypeGroups;
+    return contents == null
+        ? null
+        : XFile.fromData(
+            Uint8List.fromList(utf8.encode(contents!)),
+            name: 'theme.json',
+          );
+  }
+
+  @override
+  Future<FileSaveLocation?> getSaveLocation({
+    List<XTypeGroup>? acceptedTypeGroups,
+    SaveDialogOptions options = const SaveDialogOptions(),
+  }) async {
+    types = acceptedTypeGroups;
+    suggestedName = options.suggestedName;
+    return destination == null ? null : FileSaveLocation(destination!);
+  }
 }
