@@ -164,9 +164,8 @@ class _MainContentBody extends StatelessWidget {
         sourceRoute != null &&
         (!sourceRoute.isMessages || state.isConnected)) {
       return Material(
-        color: context.isTouch
-            ? theme.shell.content
-            : theme.scaffoldBackgroundColor,
+        type: context.isTouch ? MaterialType.canvas : MaterialType.transparency,
+        color: context.isTouch ? theme.shell.content : null,
         child: SafeArea(
           left: false,
           child: Column(
@@ -224,7 +223,8 @@ class _MainContentBody extends StatelessWidget {
     }
 
     return Material(
-      color: theme.shell.content,
+      type: context.isTouch ? MaterialType.canvas : MaterialType.transparency,
+      color: context.isTouch ? theme.shell.content : null,
       child: SafeArea(
         left: false,
         child: DPageSurface(
