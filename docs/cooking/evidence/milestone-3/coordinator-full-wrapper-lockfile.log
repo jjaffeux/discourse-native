@@ -1,0 +1,18 @@
+Resolving dependencies...
+Downloading packages...
+  archive 4.2.0 (4.3.0 available)
+  dbus 0.7.15 (0.8.0 available)
+  equatable 2.1.0 (3.0.0 available)
+  flutter_secure_storage_darwin 0.4.2 (0.4.3 available)
+! flutter_webrtc 1.6.2 from path ../../packages/discourse_voice/third_party/flutter_webrtc (overridden)
+! flutter_widget_from_html_core 0.17.4 from path ../../packages/flutter_widget_from_html_core (overridden)
+  kalender 0.29.1 (0.31.3 available)
+  livekit_client 2.12.0 (2.13.0 available)
+  material_color_utilities 0.13.0 (0.13.1 available)
+  test_api 0.7.12 (0.7.14 available)
+  vector_math 2.4.2 (2.4.3 available)
+! video_player_avfoundation 2.12.0 from path ../../packages/video_player_avfoundation (overridden)
+  window_to_front 0.0.4 (1.0.0 available)
+Got dependencies!
+10 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
