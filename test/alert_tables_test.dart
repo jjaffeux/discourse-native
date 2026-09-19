@@ -168,7 +168,7 @@ void main() {
         registry: _localDates(),
       );
       expect(tester.takeException(), isNull);
-      expect(tester.getSize(_button('Quote Alert')).height, 40);
+      expect(tester.getSize(_button('Quote Alert')).height, 48);
       final before = tester.getTopLeft(find.text(identifier)).dx;
       final horizontal = find.byWidgetPredicate(
         (widget) =>
@@ -237,10 +237,7 @@ void main() {
   );
 }
 
-Finder _button(String tooltip) => find.descendant(
-  of: find.byTooltip(tooltip),
-  matching: find.byType(IconButton),
-);
+Finder _button(String tooltip) => find.byTooltip(tooltip);
 
 PluginRegistry _localDates() {
   final environment = LocalDateEnvironment.forTesting(

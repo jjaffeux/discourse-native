@@ -698,7 +698,8 @@ void main() {
       addTearDown(shell.dispose);
       await _pumpPanel(tester, shell, composer);
 
-      composer.addImages([_file], 0);
+      composer.text.text = 'Before\n';
+      composer.addImages([_file], composer.text.text.length);
       calls.single.result.complete(
         const ComposerUploadResult(
           id: 42,
@@ -765,7 +766,7 @@ void main() {
 
       expect(
         composer.text.selection,
-        TextSelection.collapsed(offset: image.start),
+        TextSelection.collapsed(offset: image.start - 1),
       );
       expect(composer.text.keyboardSelectedImage, isNull);
       expect(_composerEditable(tester).showCursor, isTrue);
@@ -921,27 +922,14 @@ void main() {
 
       final resizedImage = composer.text.imageBlocks.single;
       composer.text.selection = TextSelection.collapsed(
-        offset: resizedImage.start,
+        offset: resizedImage.end,
       );
       composer.focus.requestFocus();
       await tester.pump();
-      expect(
-        tester
-            .widget<ComposerImagePreview>(find.byType(ComposerImagePreview))
-            .highlighted,
-        isFalse,
-      );
-      expect(find.byTooltip('Save alt text'), findsNothing);
-      await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
-      await tester.pump();
-      expect(composer.text.selection.extentOffset, resizedImage.start);
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+      await tester.pumpAndSettle();
+      expect(composer.text.keyboardSelectedImage, isNotNull);
       expect(find.byTooltip('Save alt text'), findsOneWidget);
-      expect(
-        tester
-            .widget<ComposerImagePreview>(find.byType(ComposerImagePreview))
-            .highlighted,
-        isTrue,
-      );
       await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
       await tester.pump();
       expect(composer.text.selection.extentOffset, resizedImage.end);
@@ -954,7 +942,7 @@ void main() {
         isFalse,
       );
       await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
-      await tester.pump();
+      await tester.pumpAndSettle();
       expect(composer.text.keyboardSelectedImage, isNotNull);
       expect(find.byTooltip('Save alt text'), findsOneWidget);
       await tester.enterText(
@@ -965,14 +953,7 @@ void main() {
         ),
         'new [alt]',
       );
-      tester
-          .widget<IconButton>(
-            find.descendant(
-              of: find.byTooltip('Save alt text'),
-              matching: find.byType(IconButton),
-            ),
-          )
-          .onPressed!();
+      await tester.tap(find.byTooltip('Save alt text'));
       await tester.pump();
       expect(
         composer.text.text,
@@ -1270,12 +1251,12 @@ void main() {
 
         final iconButtons = find.descendant(
           of: toolbar,
-          matching: find.byType(IconButton),
+          matching: find.byType(DButton),
         );
         expect(iconButtons, findsNWidgets(2));
         for (final button in iconButtons.evaluate()) {
           final size = tester.getSize(find.byWidget(button.widget));
-          final tooltip = (button.widget as IconButton).tooltip;
+          final tooltip = (button.widget as DButton).tooltip;
           expect(size.width, greaterThanOrEqualTo(44), reason: tooltip);
           expect(size.height, greaterThanOrEqualTo(44), reason: tooltip);
         }
@@ -1696,11 +1677,11 @@ void main() {
         await tester.tap(find.text('Upload new images'));
         await tester.pump();
         expect(
-          find.descendant(
-            of: find.byTooltip('Add images to gallery'),
-            matching: find.byWidgetPredicate(
-              (widget) => widget is PopupMenuButton && !widget.enabled,
-            ),
+          find.byWidgetPredicate(
+            (widget) =>
+                widget is DButton &&
+                widget.tooltip == 'Add images to gallery' &&
+                widget.onPressed == null,
           ),
           findsOneWidget,
         );

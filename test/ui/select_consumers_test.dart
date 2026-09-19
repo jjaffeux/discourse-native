@@ -45,7 +45,7 @@ void main() {
           await tester.pump();
           await tester.tap(find.byTooltip('More message actions'));
           await tester.pumpAndSettle();
-          await tester.tap(find.widgetWithText(MenuItemButton, 'Select'));
+          await tester.tap(find.widgetWithText(DDropdownMenuItem, 'Select'));
           await tester.pumpAndSettle();
           await mouse.removePointer();
           await tester.tap(find.byKey(const ValueKey('chat-move-selection')));
@@ -70,7 +70,11 @@ void main() {
             'Waiting',
           );
         }
-        if (label != 'Assignment editor' &&
+        if (label == 'Assigned topics') {
+          expect(find.text('Everyone'), findsOneWidget);
+        }
+        if (label != 'Assigned topics' &&
+            label != 'Assignment editor' &&
             label != 'Voice devices, roles and quality' &&
             label != 'Chat move messages') {
           expect(

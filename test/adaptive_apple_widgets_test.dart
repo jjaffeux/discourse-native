@@ -109,9 +109,14 @@ void main() {
     final cancel = tester.widget<FilledButton>(
       find.widgetWithText(FilledButton, 'Cancel'),
     );
-    final colors = AppTheme.light.colorScheme;
+    final tokens = DTokens.of(
+      tester.element(find.widgetWithText(DButton, 'Cancel')),
+    );
     expect(cancel.style?.backgroundColor?.resolve({}), Colors.transparent);
-    expect(cancel.style?.foregroundColor?.resolve({}), colors.onSurface);
+    expect(
+      cancel.style?.foregroundColor?.resolve({}),
+      tokens.buttonTheme.accent.foreground,
+    );
     expect(find.byType(CupertinoAlertDialog), findsNothing);
     expect(find.byType(CupertinoDialogAction), findsNothing);
   });

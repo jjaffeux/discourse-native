@@ -257,7 +257,7 @@ void main() {
       ),
     );
 
-    expect(tester.getSize(find.byType(DPagination)), const Size(240, 34));
+    expect(tester.getSize(find.byType(DPagination)), const Size(240, 42));
     expect(tester.takeException(), isNull);
   });
 

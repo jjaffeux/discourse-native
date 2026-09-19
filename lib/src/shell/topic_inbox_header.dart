@@ -178,7 +178,9 @@ class _TopicHeaderToolbar extends StatelessWidget {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                if (!header.keepTopicListOpen)
+                if (!header.keepTopicListOpen ||
+                    context.isTouch ||
+                    !ShellScope.read(context).forumTabsEnabled)
                   ConstrainedBox(
                     constraints: firstLineConstraints,
                     child: Padding(
@@ -191,7 +193,7 @@ class _TopicHeaderToolbar extends StatelessWidget {
                         heightFactor: 1,
                         child: TopicCloseButton(
                           canReturnToSidebar: header.canReturnToSidebar,
-                          backToList: true,
+                          backToList: !header.keepTopicListOpen,
                         ),
                       ),
                     ),

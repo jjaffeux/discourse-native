@@ -8,7 +8,6 @@ import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/forum_workspace.dart';
 import 'package:discourse_native/src/models/topic.dart';
-import 'package:discourse_native/src/shell/adaptive_shell.dart';
 import 'package:discourse_native/src/shell/forum_search.dart';
 import 'package:discourse_native/src/shell/forum_tabs_bar.dart';
 import 'package:discourse_native/src/shell/instance_sidebar.dart';
@@ -168,7 +167,7 @@ void main() {
         const ValueKey('aggregate-rail-button'),
       );
       final aggregateTooltip = tester.widget<DTooltip>(
-        find.ancestor(of: aggregateButton, matching: find.byType(DTooltip)),
+        find.descendant(of: aggregateButton, matching: find.byType(DTooltip)),
       );
       final aggregateShortcut = aggregateTooltip.shortcut![0];
       expect(aggregateTooltip.message, 'Aggregate');
@@ -564,6 +563,8 @@ void main() {
       final controller = ShellScope.read(
         tester.element(find.byType(MainContent)),
       );
+      await tester.tap(find.byTooltip('Keep topic tabs with the list'));
+      await tester.pumpAndSettle();
       final originalId = controller.activeTabId!;
 
       expect(find.byType(ForumTabsBar), findsOneWidget);
@@ -603,9 +604,10 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      final ForumTabItem routedItem = _bar(
-        tester,
-      ).items.singleWhere((item) => item.id == newId);
+      final ForumTabItem routedItem = tester
+          .widgetList<ForumTabsBar>(find.byType(ForumTabsBar))
+          .expand((bar) => bar.items)
+          .singleWhere((item) => item.id == newId);
       expect(routedItem.title, 'Native tabs');
       expect(routedItem.icon, DNativeIcons.topic);
       expect(routedItem.color, color);
@@ -624,19 +626,18 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      expect(controller.tabsForCurrentForum.map((tab) => tab.id), [newId]);
-      expect(_bar(tester).items.single.id, newId);
+      expect(controller.tabsForCurrentForum, hasLength(2));
+      expect(
+        controller.tabsForCurrentForum.where(
+          (tab) => !tab.currentContent.isTopic,
+        ),
+        hasLength(1),
+      );
+      expect(_bar(tester).items.map((item) => item.id), contains(newId));
       expect(_bar(tester).selectedId, newId);
       expect(_bar(tester).recentlyClosedItems.single.id, originalId);
-      expect(
-        find.byKey(const ValueKey('forum-tabs-switcher-menu')),
-        findsOneWidget,
-      );
-      expect(
-        find.byKey(ValueKey('forum-tabs-switcher-recent-$originalId')),
-        findsNothing,
-      );
-
+      await tester.tap(find.byKey(const ValueKey('forum-tabs-switcher')));
+      await tester.pumpAndSettle();
       await tester.tap(
         find.byKey(const ValueKey('forum-tabs-switcher-history')),
       );
@@ -648,7 +649,7 @@ void main() {
 
       expect(controller.activeTabId, originalId);
       expect(_bar(tester).selectedId, originalId);
-      expect(_bar(tester).items, hasLength(2));
+      expect(_bar(tester).items, hasLength(3));
       expect(_bar(tester).recentlyClosedItems, isEmpty);
     }),
   );
@@ -810,8 +811,8 @@ void main() {
       final slowContentText = _contentTextOutsideTabs('Slow destination');
       expect(
         slowContentText,
-        findsNWidgets(2),
-        reason: 'the route title appears in the header and placeholder',
+        findsOneWidget,
+        reason: 'the route title appears in the content header',
       );
       expect(
         tester.getCenter(slowContentText.first).dy,
@@ -830,7 +831,7 @@ void main() {
 
       expect(_inSidebar(find.byType(ForumTabsBar)), findsNothing);
       expect(_inSidebar(find.text('OPEN')), findsNothing);
-      expect(_inMainContent(find.byType(ForumTabsBar)), findsNothing);
+      expect(_inMainContent(find.byType(ForumTabsBar)), findsOneWidget);
       expect(find.byType(ForumTabsBar), findsOneWidget);
     }),
   );
@@ -841,7 +842,7 @@ void main() {
     TargetPlatform.windows,
   ]) {
     testWidgets(
-      '${platform.name} keeps forum tabs above the workspace at every width',
+      '${platform.name} keeps forum tabs in the content panel at every width',
       (tester) => _withPlatform(platform, () async {
         for (final size in const [_compact, _medium, _expanded]) {
           await _pumpShell(
@@ -853,28 +854,11 @@ void main() {
           expect(_inSidebar(find.byType(ForumTabsBar)), findsNothing);
           expect(_inSidebar(find.text('OPEN')), findsNothing);
 
-          if (size == _compact) {
-            expect(find.byType(MainContent), findsNothing);
-            expect(find.byType(ForumTabsBar), findsOneWidget);
-
-            await tester.tap(_sidebarText('Topics'));
-            await tester.pumpAndSettle();
-
-            expect(find.byType(InstanceSidebar), findsNothing);
-            expect(find.byType(MainContent), findsOneWidget);
-          }
-
-          expect(_inMainContent(find.byType(ForumTabsBar)), findsNothing);
-          expect(find.byType(ForumTabsBar), findsOneWidget);
+          expect(find.byType(MainContent), findsOneWidget);
+          expect(_inMainContent(find.byType(ForumTabsBar)), findsOneWidget);
           expect(
-            tester.getRect(find.byType(ForumTabsBar)).bottom,
-            lessThanOrEqualTo(tester.getRect(find.byType(MainContent)).top),
-          );
-          expect(
-            tester.getRect(find.byType(ForumTabsBar)).left,
-            size == _compact
-                ? AdaptiveShell.compactRailWidth
-                : AdaptiveShell.railWidth,
+            tester.getRect(find.byType(ForumTabsBar)).top,
+            greaterThanOrEqualTo(tester.getRect(find.byType(MainContent)).top),
           );
           expect(find.byType(CurrentForumTabsBar), findsOneWidget);
           expect(find.byKey(const ValueKey('forum-tabs-add')), findsOneWidget);
@@ -920,7 +904,7 @@ void main() {
 }
 
 ForumTabsBar _bar(WidgetTester tester) =>
-    tester.widget<ForumTabsBar>(find.byType(ForumTabsBar));
+    tester.widget<ForumTabsBar>(find.byType(ForumTabsBar).first);
 
 Finder _inSidebar(Finder matching) => find.descendant(
   of: find.byType(InstanceSidebar),
@@ -989,7 +973,12 @@ Future<void> _pumpShell(
   );
   await tester.pumpAndSettle();
 
-  expect(find.byType(InstanceSidebar), findsOneWidget);
+  if (size.width >= 768 &&
+      find.byTooltip('Expand sidebar').evaluate().isNotEmpty) {
+    await tester.tap(find.byTooltip('Expand sidebar'));
+    await tester.pumpAndSettle();
+  }
+  if (size.width >= 768) expect(find.byType(InstanceSidebar), findsOneWidget);
 }
 
 Future<void> _withPlatform(

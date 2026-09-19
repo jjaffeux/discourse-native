@@ -31,7 +31,7 @@ const _groupUnread = '/topics/private-messages-group/reader/team/unread.json';
 const _groupArchive = '/topics/private-messages-group/reader/team/archive.json';
 
 void main() {
-  testWidgets('compact message folders omit category headers and cells', (
+  testWidgets('message folders use category-free native topic rows', (
     tester,
   ) async {
     final setup = await _pumpInbox(tester);
@@ -46,18 +46,8 @@ void main() {
         await tester.pumpAndSettle();
         expect(find.text('Category'), findsNothing);
         expect(find.bySemanticsLabel('No category'), findsNothing);
-        expect(find.text('Replies'), findsOneWidget);
-        expect(find.text('Activity'), findsOneWidget);
-        final tables = tester.widgetList<DTable>(
-          find.descendant(
-            of: find.byType(TopicListView),
-            matching: find.byType(DTable),
-          ),
-        );
-        expect(tables.length, greaterThanOrEqualTo(2));
-        for (final table in tables) {
-          expect(table.columnWidths, hasLength(4));
-        }
+        expect(find.byType(DTable), findsNothing);
+        expect(find.byType(DItem), findsWidgets);
         expect(tester.takeException(), isNull);
       }
     }

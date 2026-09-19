@@ -435,3 +435,16 @@ const corePluginNotificationFeedPort =
       owner: PluginId('core'),
       name: 'notification-feed',
     );
+
+/// Read-only local preferences for topic-list plugin metadata.
+final class PluginTopicListPreferencesHost {
+  const PluginTopicListPreferencesHost({required this.showAssignments});
+
+  final bool Function() showAssignments;
+}
+
+const corePluginTopicListPreferencesPort =
+    PluginHostPortKey<PluginTopicListPreferencesHost>(
+      owner: PluginId('core'),
+      name: 'topic-list-preferences',
+    );

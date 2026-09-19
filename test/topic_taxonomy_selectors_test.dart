@@ -83,7 +83,7 @@ void main() {
 
   for (final category in [true, false]) {
     testWidgets(
-      '${category ? 'category' : 'tag'} selector shows a forbidden cursor while disabled',
+      '${category ? 'category' : 'tag'} selector shows a basic cursor while disabled',
       (tester) async {
         var enabled = false;
         late StateSetter setEnabled;
@@ -121,7 +121,7 @@ void main() {
           await tester.pump();
           expect(
             tester.binding.mouseTracker.debugDeviceActiveCursor(1),
-            SystemMouseCursors.forbidden,
+            SystemMouseCursors.basic,
           );
         }
         await mouse.down(bounds.center);

@@ -21,7 +21,7 @@ import 'event_time.dart';
 
 /// Rendering is independently testable; no network or account state is read
 /// here. Only a hydrated, authorized owner supplies interactive callbacks.
-class EventCard extends StatelessWidget {
+class EventCard extends StatefulWidget {
   const EventCard({
     super.key,
     required this.event,
@@ -61,7 +61,35 @@ class EventCard extends StatelessWidget {
   final VoidCallback? onRetry;
 
   @override
+  State<EventCard> createState() => _EventCardState();
+}
+
+class _EventCardState extends State<EventCard> {
+  void Function(String, bool)? _openingRespond;
+  VoidCallback? _openingWithdraw;
+
+  @override
   Widget build(BuildContext context) {
+    final EventCard(
+      :event,
+      :siteUrl,
+      :zones,
+      :accountTimezone,
+      :settings,
+      :pending,
+      :error,
+      :onRespond,
+      :onWithdraw,
+      :onParticipants,
+      :onConnect,
+      :onOpen,
+      :onEdit,
+      :onInvite,
+      :onExport,
+      :onWeb,
+      :onRetry,
+    ) = widget;
+
     final theme = Theme.of(context);
     final tokens = DTokens.of(context);
     final date = eventDate(
@@ -108,6 +136,9 @@ class EventCard extends StatelessWidget {
                         container: true,
                         explicitChildNodes: true,
                         child: DDropdownMenu(
+                          onOpenChange: (open, _) {
+                            if (open) _openingRespond = onRespond;
+                          },
                           content: DDropdownMenuContent(
                             semanticLabel: 'Choose recurring attendance',
                             width: 280,
@@ -117,8 +148,9 @@ class EventCard extends StatelessWidget {
                                     selected == 'going' &&
                                     event.watching?.recurring == false,
                                 closeOnSelect: true,
-                                onChanged: (_) =>
-                                    onSelect(() => onRespond!(status, false)),
+                                onChanged: (_) => onSelect(
+                                  () => _openingRespond?.call(status, false),
+                                ),
                                 child: const Text('This occurrence only'),
                               ),
                               DDropdownMenuCheckboxItem(
@@ -126,8 +158,9 @@ class EventCard extends StatelessWidget {
                                     selected == 'going' &&
                                     event.watching?.recurring == true,
                                 closeOnSelect: true,
-                                onChanged: (_) =>
-                                    onSelect(() => onRespond!(status, true)),
+                                onChanged: (_) => onSelect(
+                                  () => _openingRespond?.call(status, true),
+                                ),
                                 child: const Text('Every occurrence'),
                               ),
                             ],
@@ -160,7 +193,7 @@ class EventCard extends StatelessWidget {
                     status: status,
                     selected: selected == status,
                     enabled: !pending && event.canChoose(status),
-                    onTap: () => onRespond!(status, false),
+                    onTap: () => onRespond(status, false),
                   ),
             ],
           )
@@ -351,6 +384,9 @@ class EventCard extends StatelessWidget {
                               container: true,
                               explicitChildNodes: true,
                               child: DDropdownMenu(
+                                onOpenChange: (open, _) {
+                                  if (open) _openingWithdraw = onWithdraw;
+                                },
                                 content: DDropdownMenuContent(
                                   semanticLabel: 'Event actions',
                                   width: 280,
@@ -367,7 +403,8 @@ class EventCard extends StatelessWidget {
                                       ),
                                     if (onWithdraw != null)
                                       DDropdownMenuItem(
-                                        onPressed: onWithdraw,
+                                        onPressed: () =>
+                                            _openingWithdraw?.call(),
                                         child: const Text('Remove my response'),
                                       ),
                                     if (onExport != null)
@@ -537,7 +574,7 @@ class EventCard extends StatelessWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              error!,
+                              error,
                               style: TextStyle(color: tokens.destructive),
                             ),
                             if (onRetry != null)

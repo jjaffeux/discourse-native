@@ -27,10 +27,8 @@ void main() {
       findsOneWidget,
     );
 
-    await tester.ensureVisible(
-      find.widgetWithText(OutlinedButton, 'Fail upload'),
-    );
-    await tester.tap(find.widgetWithText(OutlinedButton, 'Fail upload'));
+    await tester.ensureVisible(find.widgetWithText(DButton, 'Fail upload'));
+    await tester.tap(find.widgetWithText(DButton, 'Fail upload'));
     await tester.pump();
     expect(
       find.descendant(

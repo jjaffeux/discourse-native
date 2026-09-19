@@ -69,6 +69,7 @@ void main() {
             .toSet(),
         {'author'},
       );
+      await tester.pumpAndSettle();
       final readsBeforeSubmit = auth.reads.length;
       final fetchesBeforeSubmit = api.postFetches.length;
 
@@ -187,6 +188,7 @@ void main() {
             shell.toggleTopicPostSelected(_site, _topicId, 2);
         }
         final selected = shell.selectedTopicPostIds(_site, _topicId);
+        await tester.pumpAndSettle();
         final readsBeforeSubmit = auth.reads.length;
         expect(openingLease.isCurrent, isTrue);
 
@@ -241,7 +243,7 @@ void _select(ShellController shell, List<int> ids) {
 Future<void> _openConfirmation(WidgetTester tester, String action) async {
   final button = find.byKey(ValueKey('topic-selected-posts-$action'));
   await tester.ensureVisible(button);
-  expect(tester.widget<TextButton>(button).onPressed, isNotNull);
+  expect(tester.widget<DButton>(button).onPressed, isNotNull);
   await tester.tap(button);
   await tester.pumpAndSettle();
   expect(find.byType(DAlertDialogContent), findsOneWidget);

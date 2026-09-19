@@ -674,7 +674,7 @@ void main() {
           find.byKey(const ValueKey('composer-cancel')),
         );
         expect(submit.left, closeTo(panel.left + 12, 1));
-        expect(cancel.left, closeTo(submit.right + 8, 1));
+        expect(cancel.left, closeTo(submit.right + 4, 1));
         expect(cancel.center.dy, closeTo(submit.center.dy, 1));
         expect(toolbar.right, closeTo(panel.right - 12, 1));
         expect(toolbar.left, greaterThan(cancel.right));

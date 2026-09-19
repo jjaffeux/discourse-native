@@ -16,8 +16,8 @@ void main() {
       expect(item.width, 320);
       expect(tester.getSize(find.byType(DSpinner)), const Size.square(16));
       // A transparent 1px border precedes the 12px padding, as in the reference.
-      expect(tester.getRect(find.byType(DSpinner)).left, item.left + 13);
-      expect(tester.getRect(find.text(r'$100.00')).right, item.right - 13);
+      expect(tester.getRect(find.byType(DSpinner)).left, item.left + 16);
+      expect(tester.getRect(find.text(r'$100.00')).right, item.right - 16);
       expect(
         tester.widget<DItem>(find.byType(DItem)).variant,
         DItemVariant.muted,
@@ -102,7 +102,7 @@ void main() {
         final spinnerRect = tester.getRect(spinner);
         expect(buttonRect.height, 24, reason: label);
         expect(spinnerRect.size, const Size.square(16), reason: label);
-        expect(spinnerRect.left - buttonRect.left, 7, reason: label);
+        expect(spinnerRect.left - buttonRect.left, 6, reason: label);
         expect(
           tester.getRect(find.text(label).first).left - spinnerRect.right,
           4,
@@ -303,8 +303,8 @@ void main() {
       Directionality.of(tester.element(find.byType(DItem))),
       TextDirection.rtl,
     );
-    expect(tester.getRect(find.byType(DSpinner)).right, item().right - 13);
-    expect(tester.getRect(find.text('١٠٠.٠٠ دولار')).left, item().left + 13);
+    expect(tester.getRect(find.byType(DSpinner)).right, item().right - 16);
+    expect(tester.getRect(find.text('١٠٠.٠٠ دولار')).left, item().left + 16);
     await tester.tap(find.text('العربية'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('עברית').last);
@@ -323,8 +323,8 @@ void main() {
       Directionality.of(tester.element(find.byType(DItem))),
       TextDirection.ltr,
     );
-    expect(tester.getRect(find.byType(DSpinner)).left, item().left + 13);
-    expect(tester.getRect(find.text(r'$100.00')).right, item().right - 13);
+    expect(tester.getRect(find.byType(DSpinner)).left, item().left + 16);
+    expect(tester.getRect(find.text(r'$100.00')).right, item().right - 16);
   });
 
   testWidgets('search opens runnable Spinner examples in the styleguide', (

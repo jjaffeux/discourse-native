@@ -819,7 +819,9 @@ void main() {
       expect(_textWithin(tester, fullPageField), isEmpty);
     });
 
-    testWidgets('follows the desktop reading lane width', (tester) async {
+    testWidgets('fills the desktop reading lane when its limit is disabled', (
+      tester,
+    ) async {
       final fixture = await _fixture(
         pages: {FakeDiscourseApi.chatMessagesKey(9): _emptyPage},
       );
@@ -832,8 +834,8 @@ void main() {
         await tester.pumpAndSettle();
 
         final bar = find.byKey(const ValueKey('chat-composer'));
-        expect(tester.getSize(bar).width, 825);
-        expect(tester.getTopLeft(bar).dx, 187.5);
+        expect(tester.getSize(bar).width, 1176);
+        expect(tester.getTopLeft(bar).dx, 12);
 
         await tester.binding.setSurfaceSize(const Size(700, 600));
         await tester.pumpAndSettle();

@@ -186,10 +186,7 @@ void main() {
         },
       );
       final shell = await _open(tester, plugins, api);
-      final quoteButton = find.descendant(
-        of: find.byTooltip('Quote Alert'),
-        matching: find.byType(IconButton),
-      );
+      final quoteButton = find.byTooltip('Quote Alert');
       await tester.ensureVisible(quoteButton);
       await tester.tap(quoteButton);
       await tester.pumpAndSettle();

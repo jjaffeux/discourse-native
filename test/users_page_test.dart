@@ -964,7 +964,7 @@ void main() {
           : DControlStyle.regularHeight;
       expect(
         tester.getSize(find.byKey(const ValueKey('users-search'))).height,
-        platform == TargetPlatform.iOS ? 48.0 : DControlStyle.largeHeight,
+        dimension,
       );
       expect(
         tester

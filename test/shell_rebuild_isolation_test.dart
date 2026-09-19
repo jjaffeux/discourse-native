@@ -43,7 +43,7 @@ void main() {
       ShellScope(
         controller: controller,
         child: MaterialApp(
-          theme: AppTheme.light,
+          theme: AppTheme.light.copyWith(platform: TargetPlatform.macOS),
           home: Scaffold(
             body: Row(
               children: [
@@ -149,7 +149,10 @@ void main() {
     await tester.pumpWidget(
       ShellScope(
         controller: controller,
-        child: MaterialApp(theme: AppTheme.light, home: const AdaptiveShell()),
+        child: MaterialApp(
+          theme: AppTheme.light.copyWith(platform: TargetPlatform.macOS),
+          home: const AdaptiveShell(),
+        ),
       ),
     );
     await tester.pumpAndSettle();
@@ -235,7 +238,7 @@ void main() {
         ShellScope(
           controller: controller,
           child: MaterialApp(
-            theme: AppTheme.light,
+            theme: AppTheme.light.copyWith(platform: TargetPlatform.macOS),
             home: const AdaptiveShell(),
           ),
         ),
@@ -360,7 +363,7 @@ void main() {
         ShellScope(
           controller: controller,
           child: MaterialApp(
-            theme: AppTheme.light,
+            theme: AppTheme.light.copyWith(platform: TargetPlatform.macOS),
             home: const AdaptiveShell(),
           ),
         ),
@@ -443,7 +446,10 @@ void main() {
     await tester.pumpWidget(
       ShellScope(
         controller: controller,
-        child: MaterialApp(theme: AppTheme.light, home: const AdaptiveShell()),
+        child: MaterialApp(
+          theme: AppTheme.light.copyWith(platform: TargetPlatform.macOS),
+          home: const AdaptiveShell(),
+        ),
       ),
     );
     await tester.pumpAndSettle();

@@ -324,6 +324,7 @@ void main() {
         expect(position.maxScrollExtent, greaterThan(0));
 
         position.jumpTo(position.maxScrollExtent / 2);
+        await tester.pumpAndSettle();
         final middle = position.pixels;
         expect(await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown), isTrue);
         await tester.pumpAndSettle();
@@ -1061,7 +1062,7 @@ void main() {
 
     group('scroll attachment lifecycle', () {
       for (final inbox in [false, true]) {
-        testWidgets('topic scroll separator follows position (inbox: $inbox)', (
+        testWidgets('topic header separator remains visible (inbox: $inbox)', (
           tester,
         ) async {
           final site = instance('meta.example');
@@ -1084,7 +1085,7 @@ void main() {
           final separator = find.byKey(
             const ValueKey('topic-scroll-separator'),
           );
-          expect(separator, findsNothing);
+          expect(separator, findsOneWidget);
           final scroll = topicPostList(tester).controller!;
           scroll.jumpTo(100);
           await tester.pumpAndSettle();
@@ -1092,11 +1093,11 @@ void main() {
           final viewport = topicPostListFinder();
           expect(
             tester.getSize(separator).width,
-            tester.getSize(viewport).width,
+            tester.getSize(viewport).width - 32,
           );
           scroll.jumpTo(scroll.position.minScrollExtent);
           await tester.pumpAndSettle();
-          expect(separator, findsNothing);
+          expect(separator, findsOneWidget);
         });
       }
 
@@ -1247,8 +1248,8 @@ void main() {
             final pinnedList = topicPostList(tester);
             final pinnedPadding = pinnedList.padding! as EdgeInsets;
             expect(tester.getSize(topicPostListFinder()).width, 1200 - 344);
-            expect(pinnedPadding.left, 15.5);
-            expect(pinnedPadding.right, 15.5);
+            expect(pinnedPadding.left, 0);
+            expect(pinnedPadding.right, 0);
             expect(
               tester
                   .getSize(find.byKey(const ValueKey('topic-content-header')))

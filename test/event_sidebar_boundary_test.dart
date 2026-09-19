@@ -126,6 +126,9 @@ void main() {
         expect(requests.last.url.queryParameters, _query(mine: true));
       } else {
         expect(find.byType(InstanceSidebar), findsNothing);
+        while (controller.canPopContent) {
+          controller.handleBack(canReturnToSidebar: false);
+        }
         controller.handleBack(canReturnToSidebar: true);
         await tester.pumpAndSettle();
         expect(sidebarDestination('Upcoming events'), findsOneWidget);

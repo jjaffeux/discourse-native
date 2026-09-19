@@ -511,30 +511,23 @@ void main() {
     semantics.dispose();
   }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 
-  testWidgets(
-    'keyboard-selected tables open a cell and leave source selection safe',
-    (tester) async {
-      final composer = await _pump(tester);
-      final table = parseComposerTables(composer.raw).single;
-      composer.text.selection = TextSelection.collapsed(offset: table.start);
-      composer.requestFocus();
-      await tester.pump();
-      expect(
-        composer.text.keyboardSelectedSyntax?.kind,
-        composerTableSyntaxKind,
-      );
-      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
-      await tester.pumpAndSettle();
-      expect(
-        tester.widget<EditableText>(_cell(0, 0)).focusNode.hasPrimaryFocus,
-        isTrue,
-      );
-      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
-      await tester.pump();
-      expect(composer.text.keyboardSelectedSyntax, isNull);
-      expect(composer.text.selection.extentOffset, table.end);
-    },
-  );
+  testWidgets('Enter before a keyboard-selected table inserts a paragraph', (
+    tester,
+  ) async {
+    final composer = await _pump(tester);
+    final table = parseComposerTables(composer.raw).single;
+    composer.text.selection = TextSelection.collapsed(offset: table.start);
+    composer.requestFocus();
+    await tester.pump();
+    expect(composer.text.keyboardSelectedSyntax?.kind, composerTableSyntaxKind);
+    final before = composer.raw;
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pumpAndSettle();
+    expect(composer.raw, before.replaceRange(table.start, table.start, '\n'));
+    expect(composer.text.keyboardSelectedSyntax, isNull);
+    expect(composer.text.selection.extentOffset, table.start);
+    expect(composer.focus.hasFocus, isTrue);
+  });
 
   testWidgets('paste and formatting shortcuts edit only the active cell', (
     tester,

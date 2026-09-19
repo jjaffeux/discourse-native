@@ -712,6 +712,9 @@ void main() {
       'DiscourseInstance',
       'DiscourseUser',
       'ForumTabAnchor',
+      // Local theme imports and preferences validate their own versioned format.
+      'ForumTheme',
+      'ForumThemePreferences',
       'ResolvedSitePalette',
       'ComposerLayoutPreference',
       // UI questionnaire drafts serialize local answers, not site payloads.

@@ -50,19 +50,19 @@ void main() {
     final tokens = DTokens.of(tester.element(button));
     final icon = find.descendant(of: button, matching: find.byType(DIcon));
     expect(
-      IconTheme.of(tester.element(icon)).color!.computeLuminance(),
-      lessThan(tokens.mutedForeground.computeLuminance()),
+      IconTheme.of(tester.element(icon)).color,
+      tokens.buttonTheme.accent.foreground,
     );
     expect(
       (hoverShape! as RoundedRectangleBorder).borderRadius,
-      BorderRadius.circular(tokens.controlRadius),
+      BorderRadius.circular(tokens.buttonTheme.radius),
     );
     await pointer.moveTo(tester.getCenter(action));
     await tester.pumpAndSettle();
     expect(IconTheme.of(tester.element(icon)).color, tokens.foreground);
     expect(
       buttonSurface(tester, of: button).color,
-      DControlStyle.rowHover(tokens),
+      tokens.buttonTheme.accent.hover,
     );
     expect(
       filledButton.style!.fixedSize!.resolve({}),

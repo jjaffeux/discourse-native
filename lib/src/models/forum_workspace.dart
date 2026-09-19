@@ -219,17 +219,27 @@ final class ForumTab {
   }
 
   ForumTab rewriteRoutes(ContentRoute Function(ContentRoute) rewrite) {
+    // Route equality compares navigation identity, so it intentionally omits
+    // presentation metadata such as the category color. Preserve rewrites of
+    // those fields even when the route still has the same identity.
+    var changed = false;
+    ContentRoute rewriteRoute(ContentRoute route) {
+      final updated = rewrite(route);
+      changed = changed || !identical(updated, route);
+      return updated;
+    }
+
     ForumTabLocation rewriteLocation(ForumTabLocation entry) =>
         ForumTabLocation(
           rootDestinationId: entry.rootDestinationId,
-          contentStack: entry.contentStack.map(rewrite).toList(),
+          contentStack: entry.contentStack.map(rewriteRoute).toList(),
         );
     final updated = copyWith(
-      contentStack: contentStack.map(rewrite).toList(),
+      contentStack: contentStack.map(rewriteRoute).toList(),
       backHistory: backHistory.map(rewriteLocation).toList(),
       forwardHistory: forwardHistory.map(rewriteLocation).toList(),
     );
-    return updated == this ? this : updated;
+    return changed ? updated : this;
   }
 
   ForumTab _pruneAnchors() => copyWith(

@@ -1020,7 +1020,7 @@ class DDataTableColumnHeader extends StatelessWidget {
         builder: (context, trigger) => Transform.translate(
           offset: Offset(
             (Directionality.of(context) == TextDirection.rtl ? 1 : -1) *
-                (softHeader ? 9 : 12),
+                (softHeader ? 8 : 12),
             0,
           ),
           child: DButton(

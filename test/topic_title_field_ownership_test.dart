@@ -100,7 +100,7 @@ void main() {
           ShellScope(
             controller: shell,
             child: MaterialApp(
-              theme: AppTheme.light,
+              theme: AppTheme.light.copyWith(platform: TargetPlatform.macOS),
               home: const Scaffold(
                 body: MainContent(
                   layout: ShellLayout.expanded,
@@ -114,7 +114,7 @@ void main() {
         expect(find.byType(TopicInboxHeader), findsOneWidget);
         expect(find.byType(TopicView), findsOneWidget);
         final reader = tester.state(find.byType(TopicView));
-        final header = tester.state(find.byType(TopicInboxHeader));
+        final header = tester.element(find.byType(TopicInboxHeader));
         final field = find.byKey(const ValueKey('topic-header-title-field'));
         expect(
           tester.getTopLeft(field).dx,
@@ -148,6 +148,19 @@ void main() {
           );
           await tester.pump();
           await tester.pump(const Duration(milliseconds: 400));
+          for (
+            var frame = 0;
+            frame < 10 &&
+                find
+                    .byKey(
+                      const ValueKey(('topic-tag-picker-option', 'community')),
+                    )
+                    .evaluate()
+                    .isEmpty;
+            frame++
+          ) {
+            await tester.pump(const Duration(milliseconds: 100));
+          }
           await tester.tap(
             find.byKey(
               const ValueKey(('topic-tag-picker-option', 'community')),
@@ -191,7 +204,7 @@ void main() {
           },
         );
         expect(tester.state(find.byType(TopicView)), same(reader));
-        expect(tester.state(find.byType(TopicInboxHeader)), same(header));
+        expect(tester.element(find.byType(TopicInboxHeader)), same(header));
         expect(find.text('Edit conflict'), findsNothing);
         expect(tester.takeException(), isNull);
       },

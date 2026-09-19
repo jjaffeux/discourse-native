@@ -16,7 +16,7 @@ void main() {
         ContentRoute.filteredTopicList(
           TopicListMode.topMonthly,
           categoryId: 42,
-          tags: ['design'],
+          tags: const ['design'],
         ).tabTitle,
         'Top - month',
       );

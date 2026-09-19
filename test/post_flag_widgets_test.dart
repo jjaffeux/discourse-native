@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_ui.dart';
+
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/post.dart';
@@ -277,12 +279,12 @@ void main() {
     await tester.tap(find.byTooltip('More actions'));
     await _pumpFrames(tester);
     expect(
-      find.widgetWithText(MenuItemButton, 'Report illegal content'),
+      find.widgetWithText(DDropdownMenuItem, 'Report illegal content'),
       findsOneWidget,
     );
     expect(find.byTooltip('Report illegal content by email'), findsNothing);
     await tester.tap(
-      find.widgetWithText(MenuItemButton, 'Report illegal content'),
+      find.widgetWithText(DDropdownMenuItem, 'Report illegal content'),
     );
     await _pumpFrames(tester);
     expect(find.text('Report illegal content'), findsOneWidget);
@@ -299,7 +301,7 @@ void main() {
     await tester.tap(find.byTooltip('More actions'));
     await _pumpFrames(tester);
     await tester.tap(
-      find.widgetWithText(MenuItemButton, 'Report illegal content'),
+      find.widgetWithText(DDropdownMenuItem, 'Report illegal content'),
     );
     await _pumpFrames(tester);
     await tester.tap(find.text('Open email'));

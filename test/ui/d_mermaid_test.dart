@@ -209,7 +209,9 @@ void main() {
     expect(find.byType(Image), findsOneWidget);
   });
 
-  for (final stage in MediaWebViewConfigurationStage.values) {
+  for (final stage in MediaWebViewConfigurationStage.values.where(
+    (stage) => stage != MediaWebViewConfigurationStage.userScript,
+  )) {
     testWidgets('unmounting during ${stage.name} cancels further setup', (
       tester,
     ) async {

@@ -854,8 +854,8 @@ class _ComposerEditorState extends State<ComposerEditor> {
   _ComposerEditorState? _parentEditor;
   _ComposerEditorState? _nativeDropEditor;
   final _nestedEditors = <_ComposerEditorState>{};
-  static const _menuWidth = 88.0;
-  static const _menuHeight = 44.0;
+  static const _menuWidth = DSpacing.touchTarget * 2;
+  static const _menuHeight = DSpacing.touchTarget;
   static const _menuGap = 4.0;
   static const _imageMenuPreferredWidth = 310.0;
   static const _galleryMenuButtonExtent = DSpacing.touchTarget;

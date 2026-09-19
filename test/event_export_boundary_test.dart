@@ -86,22 +86,19 @@ void main() {
         if (view == _View.card) {
           return tester.widget<EventCard>(find.byType(EventCard)).onExport;
         }
-        final finder = find.descendant(
-          of: find.byTooltip('Calendar actions'),
-          matching: find.byWidgetPredicate(
-            (widget) => widget is PopupMenuButton,
-          ),
-        );
-        final menu = tester.widget<PopupMenuButton<VoidCallback>>(finder);
-        final item = menu
-            .itemBuilder(tester.element(finder))
-            .whereType<PopupMenuItem<VoidCallback>>()
+        final menu = tester
+            .widgetList<DDropdownMenu>(find.byType(DDropdownMenu))
+            .singleWhere(
+              (menu) => menu.content.semanticLabel == 'Calendar actions',
+            );
+        return menu.content.children
+            .whereType<DDropdownMenuItem>()
             .firstWhere(
               (item) =>
                   item.child is Text &&
                   ((item.child as Text).data ?? '').startsWith('Export'),
-            );
-        return item.enabled ? item.value : null;
+            )
+            .onPressed;
       }
 
       void replace(String change) {

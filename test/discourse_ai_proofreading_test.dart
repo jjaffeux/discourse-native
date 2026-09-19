@@ -209,6 +209,8 @@ Future<void> _pumpComposer(
 );
 
 Future<void> _openOptions(WidgetTester tester) async {
+  await tester.ensureVisible(find.byKey(const ValueKey('composer-options')));
+  await tester.pumpAndSettle();
   await tester.tap(find.byKey(const ValueKey('composer-options')));
   await tester.pumpAndSettle();
 }
@@ -382,14 +384,13 @@ void main() {
     final more = find.byKey(const ValueKey('composer-options'));
     final insert = find.byKey(const ValueKey('composer-insert'));
     final control = find.byKey(const ValueKey('composer-proofread-control'));
-    final submit = find.byKey(const ValueKey('composer-submit'));
     expect(more, findsOneWidget);
     expect(control, findsNothing);
     expect(
       tester.getRect(more).left,
       greaterThanOrEqualTo(tester.getRect(insert).right),
     );
-    expect(tester.getCenter(more).dy, closeTo(tester.getCenter(submit).dy, 1));
+    expect(tester.getCenter(more).dy, closeTo(tester.getCenter(insert).dy, 1));
     final semantics = tester.ensureSemantics();
     try {
       expect(tester.getSemantics(more).label, 'More');
@@ -417,6 +418,7 @@ void main() {
 
     tester.view.physicalSize = const Size(360, 640);
     await tester.pumpAndSettle();
+    await _openOptions(tester);
     expect(find.text('Proofread'), findsOneWidget);
     expect(tester.getRect(control).right, lessThanOrEqualTo(360));
     await tester.sendKeyEvent(LogicalKeyboardKey.space);
@@ -454,7 +456,7 @@ void main() {
       expect(
         find.descendant(
           of: submit,
-          matching: find.text(width == 280 ? 'Create' : 'Create topic'),
+          matching: find.text(width < 500 ? 'Create' : 'Create topic'),
         ),
         findsOneWidget,
       );
@@ -463,9 +465,16 @@ void main() {
         const ValueKey('composer-toolbar-scroll'),
       );
       final toolbar = tester.getRect(toolbarFinder);
-      expect(tester.getRect(submit).left, closeTo(panel.left + 8, 1));
-      expect(toolbar.right, closeTo(panel.right - 14, 1));
-      expect(toolbar.left, greaterThan(tester.getRect(submit).right));
+      expect(tester.getRect(submit).left, closeTo(panel.left + 12, 1));
+      expect(toolbar.right, closeTo(panel.right - 12, 1));
+      if (width < 620) {
+        expect(
+          toolbar.top,
+          greaterThanOrEqualTo(tester.getRect(submit).bottom),
+        );
+      } else {
+        expect(toolbar.left, greaterThan(tester.getRect(submit).right));
+      }
       if (width == 280) {
         await tester.drag(toolbarFinder, const Offset(-160, 0));
         await tester.pumpAndSettle();

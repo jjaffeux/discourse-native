@@ -368,7 +368,7 @@ void main() {
         findsOneWidget,
       );
       expect(editedStream.hasListeners, isTrue);
-      for (var index = 8; index <= 64; index += 8) {
+      for (var index = 2; index <= 64; index += 2) {
         list.listController!.jumpToItem(
           index: index,
           scrollController: list.controller!,

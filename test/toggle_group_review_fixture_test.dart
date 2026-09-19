@@ -39,7 +39,7 @@ void main() {
     await tester.pumpWidget(
       ToggleGroupReviewApp(shell: shell, composer: composer),
     );
-    expect(find.byType(DToggleGroup<String>), findsOneWidget);
+    expect(find.byType(DToggleGroup<bool>), findsOneWidget);
 
     await tester.tap(find.text('Show real composer'));
     await tester.pumpAndSettle();

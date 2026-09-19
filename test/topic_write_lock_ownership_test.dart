@@ -39,6 +39,7 @@ void main() {
 
             await shell.disconnectCurrentInstance();
             await shell.connectCurrentInstance();
+            await shell.loadFeed('latest');
             await shell.loadTopic(_topicId, 'topic');
             expect(shell.currentInstance?.user, _replacementUser);
             expect(_busy(shell, action), isFalse);
@@ -256,6 +257,7 @@ Future<({ShellController shell, _GatedTopicApi api})> _fixture(
     }
   });
   await shell.load();
+  await shell.loadFeed('latest');
   await shell.loadTopic(_topicId, 'topic');
   return (shell: shell, api: api);
 }

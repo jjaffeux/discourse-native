@@ -9,7 +9,7 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   test('Input Group registers actual runnable examples', () {
     expect(componentExamples['input-group'], same(inputGroupExamples));
-    expect(inputGroupExamples.examples, hasLength(10));
+    expect(inputGroupExamples.examples, hasLength(11));
   });
 
   for (final palette in [

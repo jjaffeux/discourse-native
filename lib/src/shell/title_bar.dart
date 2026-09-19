@@ -77,9 +77,8 @@ class ShellTitleBar extends StatelessWidget {
               ),
             if (showControls)
               Padding(
-                padding: const EdgeInsets.only(
-                  left: DSpacing.sm,
-                  right: DSpacing.sm,
+                padding: EdgeInsets.symmetric(
+                  horizontal: stacked ? DSpacing.xs : DSpacing.sm,
                 ),
                 child: UserMenuButton(size: 26, ringColor: surface),
               ),

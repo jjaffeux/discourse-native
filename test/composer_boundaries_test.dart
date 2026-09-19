@@ -12,7 +12,6 @@ import 'package:discourse_native/src/shell/composer_presentation.dart';
 import 'package:discourse_native/src/shell/composer_presentation_controller.dart';
 import 'package:discourse_native/src/shell/main_content.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
-import 'package:discourse_native/src/shell/shell_panel.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
@@ -35,7 +34,7 @@ void main() {
     (AppTheme.dark, TextDirection.rtl),
   ]) {
     testWidgets(
-      'app workspace paints one composer boundary in ${theme.brightness.name} ${direction.name}',
+      'app workspace keeps a clear composer gutter in ${theme.brightness.name} ${direction.name}',
       (tester) async {
         await _pump(
           tester,
@@ -49,7 +48,7 @@ void main() {
           ComposerPlacement.right,
           ComposerPlacement.bottom,
         ]) {
-          await tester.tap(find.byKey(const ValueKey('composer-options')));
+          await tester.tap(find.byTooltip('Dock side'));
           await tester.pumpAndSettle();
           await tester.tap(find.byTooltip('Dock ${placement.name}'));
           await tester.pumpAndSettle();
@@ -58,18 +57,7 @@ void main() {
         for (final action in ['composer-minimize', 'composer-cancel']) {
           await tester.tap(find.byKey(ValueKey(action)));
           await tester.pumpAndSettle();
-          final frame = tester.widget<DecoratedBox>(
-            find
-                .descendant(
-                  of: find.byType(ShellPanel),
-                  matching: find.byType(DecoratedBox),
-                )
-                .first,
-          );
-          expect(
-            (frame.decoration as BoxDecoration).border,
-            Border.all(color: theme.shell.divider),
-          );
+          expect(find.byType(ComposerPanel), findsNothing);
           if (action == 'composer-minimize') {
             await tester.tap(find.byKey(const ValueKey('composer-restore')));
             await tester.pumpAndSettle();
@@ -93,7 +81,7 @@ void main() {
       (AppTheme.dark, TextDirection.rtl),
     ]) {
       testWidgets(
-        '${messages ? 'messages' : 'topics'} paint one composer boundary in ${theme.brightness.name} ${direction.name}',
+        '${messages ? 'messages' : 'topics'} keep a clear composer gutter in ${theme.brightness.name} ${direction.name}',
         (tester) async {
           final (shell, presentation) = await _pump(
             tester,
@@ -124,7 +112,7 @@ void main() {
             );
 
             // Narrowing keeps the same single composer boundary.
-            tester.view.physicalSize = const Size(1100, 800);
+            tester.view.physicalSize = const Size(900, 800);
             await tester.pumpAndSettle();
             expect(
               find.byKey(const ValueKey('inbox-list-resize-handle')),
@@ -150,6 +138,17 @@ Future<void> _expectComposerBoundary(
   ComposerPlacement placement,
 ) async {
   final panel = tester.getRect(find.byType(ComposerPanel));
+  if (placement == ComposerPlacement.fullScreen) {
+    expect(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is DResizableHandle &&
+            widget.semanticLabel == 'Resize composer',
+      ),
+      findsNothing,
+    );
+    return;
+  }
   final handle = find.byWidgetPredicate(
     (widget) =>
         widget is DResizableHandle && widget.semanticLabel == 'Resize composer',
@@ -162,12 +161,12 @@ Future<void> _expectComposerBoundary(
     position: (placement.isSide ? divider.dx : divider.dy).floorToDouble(),
     samples: placement.isSide
         ? [panel.top + 8, panel.top + 100, panel.top + 240, panel.bottom - 80]
-        : [panel.left + 8, panel.center.dx, panel.right - 8],
+        : [panel.left + 8, panel.left + panel.width / 3, panel.right - 8],
   );
 }
 
-// Inspect the painted seam, including its neighbors: checking only the
-// composer's decoration misses borders painted by the reader underneath it.
+// The desktop resize target occupies a clear gutter between framed panels.
+// Check the gutter and its neighbors for stray reader or composer borders.
 Future<void> _expectLine(
   WidgetTester tester,
   ThemeData theme, {
@@ -206,15 +205,10 @@ Future<void> _expectLine(
       );
     }
     expect(
-      colors[2],
-      theme.shell.divider,
-      reason: 'Missing divider at $position, $sample',
-    );
-    expect(
       colors.where((color) => color == theme.shell.divider),
-      hasLength(1),
+      isEmpty,
       reason:
-          'Extra border beside the $axis divider at $position, $sample: $colors',
+          'Unexpected border in the $axis gutter at $position, $sample: $colors',
     );
   }
 }

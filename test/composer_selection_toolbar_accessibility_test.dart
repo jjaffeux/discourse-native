@@ -76,7 +76,7 @@ void main() {
         matching: find.byTooltip('Italic'),
       );
       expect(toolbar, findsOneWidget);
-      expect(tester.getSize(toolbar), const Size(88, 44));
+      expect(tester.getSize(toolbar), const Size(96, 48));
       expect(
         tester.getSize(bold),
         const Size.square(DControlStyle.regularHeight),

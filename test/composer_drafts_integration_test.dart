@@ -1865,13 +1865,16 @@ void _registerComposerAndDraftTests() {
       await tester.pump();
       shell.visibleComposer!.text.text = 'A new message not saved yet';
       restoreGate.complete();
-      await tester.pumpAndSettle();
+      await tester.pump();
+      await tester.pump();
       expect(shell.visibleComposer!.protectsUnappliedDraft, isTrue);
       await tester.pump();
       await _requestDiscard(tester);
-      await tester.pumpAndSettle();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
       await tester.tap(find.byKey(const ValueKey('composer-confirm-discard')));
-      await tester.pumpAndSettle();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
 
       expect(find.byType(ComposerPanel), findsNothing);
       expect(api.userDraftsDeleted, isEmpty);
@@ -1933,7 +1936,8 @@ void _registerComposerAndDraftTests() {
         expect(api.draftsSaved, hasLength(1));
 
         await _requestDiscard(tester);
-        await tester.pumpAndSettle();
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 300));
         await tester.tap(
           find.byKey(const ValueKey('composer-confirm-discard')),
         );
@@ -2015,7 +2019,8 @@ void _registerComposerAndDraftTests() {
         expect(api.draftsSaved, hasLength(1));
 
         await _requestDiscard(tester);
-        await tester.pumpAndSettle();
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 300));
         await tester.tap(
           find.byKey(const ValueKey('composer-confirm-discard')),
         );
@@ -2659,7 +2664,7 @@ void _registerComposerAndDraftTests() {
 
       await openComposer(tester, api);
       await tester.enterText(_composerField, 'Half a thought');
-      await tester.pumpAndSettle();
+      await tester.pump();
 
       expect(api.draftsSaved, isEmpty);
 

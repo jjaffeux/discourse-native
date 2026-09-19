@@ -123,11 +123,11 @@ void main() {
           tester,
           of: find.byKey(TopicCreateButton.buttonKey),
         ).color,
-        tokens.controls!.primary.background,
+        tokens.buttonTheme.primary.background,
       );
       expect(
         button.style?.foregroundColor?.resolve(<WidgetState>{}),
-        tokens.controls!.primary.foreground,
+        tokens.buttonTheme.primary.foreground,
       );
       expect(
         tester

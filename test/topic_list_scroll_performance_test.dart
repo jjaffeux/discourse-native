@@ -1,5 +1,6 @@
 import 'package:discourse_native/src/diagnostics/diagnostics.dart';
 import 'package:discourse_native/src/models/app_settings.dart';
+import 'package:discourse_native/src/shell/topic_list_view.dart';
 import 'package:discourse_native/src/shell/topic_title.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -107,19 +108,15 @@ void main() {
               final requested = position.pixels;
               await tester.pump(const Duration(milliseconds: 16));
 
-              final visibleTitles = find.byType(TopicTitle).evaluate().where((
-                element,
-              ) {
-                final rect = tester.getRect(
-                  find.byElementPredicate((candidate) => candidate == element),
-                );
-                return rect.overlaps(viewport);
-              }).length;
               final builtRows = capture.events
                   .skip(before)
                   .where((event) => event.name == 'topicList.row.built');
-              // Up to two edge rows may have visible metadata but clipped titles.
-              expect(builtRows.length, lessThanOrEqualTo(visibleTitles + 2));
+              // Variable-height rows can be built then discarded while the
+              // sliver corrects estimates during a large jump. Bound that work
+              // by a viewport of minimum-height rows plus the two edge rows.
+              final rowBudget =
+                  (viewport.height / TopicListRow.minimumHeight).ceil() + 2;
+              expect(builtRows.length, lessThanOrEqualTo(rowBudget));
               expect(position.pixels, closeTo(requested, 0.01));
             }
             capture.stop();

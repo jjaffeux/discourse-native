@@ -185,22 +185,18 @@ void main() {
         final firstPost = find.byKey(const ValueKey('topic-post-highlight-1'));
         expect(
           tester.getRect(firstPost).top - tester.getRect(activity).bottom,
-          lessThanOrEqualTo(scale == 1 ? 32 : 48),
+          lessThanOrEqualTo(scale == 1 ? 48 : 64),
           reason: 'the opening should not reserve a full day-boundary gap',
         );
-        final taxonomy = find.byKey(const ValueKey('topic-header-taxonomy'));
-        final pinAt =
-            tester.getRect(date).top - tester.getRect(taxonomy).bottom - 8;
+        final viewport = find.byType(CustomScrollView);
+        final pinAt = tester.getRect(date).top - tester.getRect(viewport).top;
         scroll.jumpTo(pinAt - 1);
         await tester.pumpAndSettle();
         expect(floating, findsNothing);
         scroll.jumpTo(pinAt + 1);
         await tester.pumpAndSettle();
         expect(floating, findsOneWidget);
-        expect(
-          tester.getRect(floating).top,
-          tester.getRect(taxonomy).bottom + 8,
-        );
+        expect(tester.getRect(floating).top, tester.getRect(viewport).top);
         scroll.jumpTo(0);
         await tester.pumpAndSettle();
         expect(floating, findsNothing);
@@ -500,17 +496,7 @@ void main() {
       final openingHeader = await _headerPixels(tester, captureKey);
       expect(
         tester.getTopLeft(find.byKey(const ValueKey(7))).dy,
-        closeTo(
-          inbox
-              ? tester
-                        .getBottomLeft(
-                          find.byKey(const ValueKey('topic-header-taxonomy')),
-                        )
-                        .dy +
-                    8
-              : tester.getTopLeft(viewport).dy,
-          0.1,
-        ),
+        closeTo(tester.getTopLeft(viewport).dy, 0.1),
       );
 
       scroll.jumpTo(boundaryOffset + StreamDaySeparator.height);

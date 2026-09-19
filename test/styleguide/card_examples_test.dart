@@ -147,8 +147,8 @@ void main() {
       final recoveryStyle = DefaultTextStyle.of(
         tester.element(find.text('Forgot your password?')),
       ).style;
-      expect(recoveryStyle.fontWeight, FontWeight.w500);
-      expect(recoveryStyle.height, 16 / 12);
+      expect(recoveryStyle.fontWeight, FontWeight.w400);
+      expect(recoveryStyle.height, 20 / 13);
 
       await tester.tap(find.text('Email'));
       await tester.pump();

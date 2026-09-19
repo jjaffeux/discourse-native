@@ -425,7 +425,10 @@ void main() {
 
       await tester.tap(find.widgetWithText(StyleguideAction, 'Align'));
       await tester.pump(const Duration(milliseconds: 300));
-      expect(detail.position.pixels, lessThan(800));
+      expect(
+        tester.getTopLeft(_sectionHeading('Align')).dy,
+        inInclusiveRange(0, 900),
+      );
     },
   );
 
@@ -1081,6 +1084,7 @@ Future<void> _choose(WidgetTester tester, String label, String value) async {
   final choice = find.byKey(ValueKey('styleguide-$label'));
   await tester.ensureVisible(choice);
   await tester.tap(choice);
+  await tester.pump();
   await tester.pump(const Duration(milliseconds: 300));
   await tester.tap(find.text(value).last);
   await tester.pump(const Duration(milliseconds: 300));

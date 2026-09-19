@@ -3711,9 +3711,9 @@ class _MoreTopics extends StatelessWidget {
                     topic: selection.topics[index],
                     siteUrl: siteUrl,
                     onTap: inbox
-                        ? () =>
-                              ShellScope.read(context)
-                                  .openTopicFromList(selection.topics[index])
+                        ? () => ShellScope.read(
+                            context,
+                          ).openTopicFromList(selection.topics[index])
                         : null,
                   ),
                   if (index < selection.topics.length - 1)

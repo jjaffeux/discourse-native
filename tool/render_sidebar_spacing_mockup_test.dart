@@ -45,8 +45,9 @@ void main() {
           Offset.zero & tester.view.physicalSize,
         );
         final data = await image.toByteData(format: ui.ImageByteFormat.png);
-        await File('${output.path}/${dark ? 'dark' : 'light'}.png')
-            .writeAsBytes(data!.buffer.asUint8List());
+        await File(
+          '${output.path}/${dark ? 'dark' : 'light'}.png',
+        ).writeAsBytes(data!.buffer.asUint8List());
         image.dispose();
       });
     }

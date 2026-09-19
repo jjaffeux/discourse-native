@@ -701,7 +701,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(
         buttonSurface(tester, of: switcher).color,
-        DTokens.of(tester.element(switcher)).controls!.outline.hover,
+        DTokens.of(tester.element(switcher)).buttonTheme.outline.hover,
       );
       expect(tester.getRect(switcher), before);
     });

@@ -151,7 +151,7 @@ void main() {
     );
     expect(
       tester.getSize(button).width,
-      DButton.iconOnlyDimensionFor(DButtonSize.small),
+      DButton.iconOnlyDimensionFor(DButtonSize.large),
     );
     await tester.tap(find.byKey(const ValueKey('post-more-actions-2')));
     await tester.pumpAndSettle();

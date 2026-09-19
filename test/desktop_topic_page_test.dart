@@ -100,7 +100,7 @@ void main() {
       expect(previous, findsOneWidget);
       expect(next, findsOneWidget);
       expect(find.byKey(const ValueKey('topic-card-1')), findsOneWidget);
-      expect(find.byType(DCardFooter), findsNothing);
+      expect(find.byType(DCardFooter), findsNWidgets(2));
       expect(
         find.byKey(const ValueKey('compact-topic-list-header')),
         findsNothing,
@@ -296,7 +296,6 @@ void main() {
     final listState = tester.state(_allLists);
     await tester.drag(_reader, const Offset(0, -400));
     await tester.pumpAndSettle();
-    final readingOffset = _readerScroll(tester).pixels;
     h.shell.openReply();
     await tester.pumpAndSettle();
     final composer = h.shell.visibleComposer!;
@@ -307,6 +306,7 @@ void main() {
     );
     await tester.pump(const Duration(seconds: 2));
     final editorState = tester.state(find.byType(ComposerEditor));
+    final readingPost = h.shell.topicScrollPostNumber(h.topics.first.id);
     for (final mode in [
       TopicPresentation.merged,
       TopicPresentation.split,
@@ -323,7 +323,7 @@ void main() {
         composer.text.selection,
         const TextSelection(baseOffset: 2, extentOffset: 8),
       );
-      expect(_readerScroll(tester).pixels, closeTo(readingOffset, 1));
+      expect(h.shell.topicScrollPostNumber(h.topics.first.id), readingPost);
       expect(find.byType(DSheetContent), findsNothing);
       expect(await const TopicPresentationStore().read(), mode);
       expect(tester.takeException(), isNull);
@@ -498,7 +498,7 @@ void main() {
   );
 
   testWidgets(
-    'list visibility reserves 520 pixels for the topic after composer sizing',
+    'list visibility reserves 320 pixels for the topic after composer sizing',
     (tester) async {
       final h = await _setup(tester, size: const Size(1800, 900));
       final chrome = 1800 - tester.getSize(find.byType(TopicListView)).width;
@@ -512,11 +512,11 @@ void main() {
       );
       await tester.pumpAndSettle();
       final preferredWidth = tester.getSize(find.byType(TopicListView)).width;
-      tester.view.physicalSize = Size(chrome + 304 + 520, 900);
+      tester.view.physicalSize = Size(chrome + 304 + 320 + 12, 900);
       await tester.pumpAndSettle();
       expect(find.byType(TopicListView), findsOneWidget);
-      expect(tester.getSize(_reader).width, greaterThanOrEqualTo(520));
-      tester.view.physicalSize = const Size(800, 900);
+      expect(tester.getSize(_reader).width, greaterThanOrEqualTo(320));
+      tester.view.physicalSize = const Size(600, 900);
       await tester.pumpAndSettle();
       expect(find.byType(TopicListView).hitTestable(), findsNothing);
       expect(tester.state(_allLists), same(listState));
@@ -528,13 +528,13 @@ void main() {
       h.shell.openReply();
       await tester.pumpAndSettle();
       expect(find.byType(TopicListView).hitTestable(), findsOneWidget);
-      tester.view.physicalSize = const Size(1440, 900);
+      tester.view.physicalSize = const Size(1000, 900);
       await tester.pumpAndSettle();
       expect(find.byType(TopicListView).hitTestable(), findsNothing);
       tester.view.physicalSize = const Size(2400, 900);
       await tester.pumpAndSettle();
       expect(find.byType(TopicListView), findsOneWidget);
-      expect(tester.getSize(_reader).width, greaterThanOrEqualTo(520));
+      expect(tester.getSize(_reader).width, greaterThanOrEqualTo(320));
       expect(tester.state(_reader), same(readerState));
       expect(tester.takeException(), isNull);
     },
@@ -567,7 +567,7 @@ void main() {
       } else {
         expect(reader.right, lessThanOrEqualTo(reducedList.left));
       }
-      expect(reader.width, greaterThanOrEqualTo(520));
+      expect(reader.width, greaterThanOrEqualTo(320));
       await tester.drag(
         find.byKey(const ValueKey('inbox-list-resize-handle')),
         Offset(direction == TextDirection.ltr ? 60 : -60, 0),
@@ -576,7 +576,7 @@ void main() {
       final resizedWidth = tester.getSize(find.byType(TopicListView)).width;
       expect(resizedWidth, greaterThan(reducedList.width));
       final topicState = tester.state(_reader);
-      tester.view.physicalSize = const Size(800, 900);
+      tester.view.physicalSize = const Size(600, 900);
       await tester.pumpAndSettle();
       expect(find.byType(TopicListView).hitTestable(), findsNothing);
       expect(tester.element(_allLists), same(listElement));
@@ -612,7 +612,7 @@ void main() {
   testWidgets(
     'narrow page restores exact list scroll and topic reading position',
     (tester) async {
-      final h = await _setup(tester, size: const Size(800, 900));
+      final h = await _setup(tester, size: const Size(600, 900));
       await tester.drag(find.byType(TopicListView), const Offset(0, -420));
       await tester.pumpAndSettle();
       final listPosition = tester
@@ -717,9 +717,9 @@ void main() {
         expect(find.byType(InstanceRail).hitTestable(), findsOneWidget);
         final reader = tester.getRect(_reader);
         final panel = tester.getRect(find.byType(ComposerPanel));
-        if (width >= 890) {
+        if (width >= 720) {
           expect(panel.left, greaterThanOrEqualTo(reader.right));
-          expect(reader.width, greaterThanOrEqualTo(480));
+          expect(reader.width, greaterThanOrEqualTo(320));
         } else {
           expect(panel.top, greaterThanOrEqualTo(reader.bottom));
         }
@@ -791,10 +791,7 @@ void main() {
       expect(tester.getRect(find.byType(InstanceSidebar)), sidebar);
       expect(tester.getRect(find.byType(ShellTitleBar)), titlebar);
       expect(h.shell.visibleComposer!.focus.hasFocus, isTrue);
-      expect(
-        find.byType(TopicListView).hitTestable(),
-        dock == 'bottom' ? findsOneWidget : findsNothing,
-      );
+      expect(find.byType(TopicListView).hitTestable(), findsOneWidget);
       expect(tester.takeException(), isNull);
     }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
   }

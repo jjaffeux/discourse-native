@@ -69,7 +69,7 @@ void main() {
           expect(fieldPaint(tester, type).foregroundPainter, isNull);
           await tester.sendKeyEvent(LogicalKeyboardKey.tab);
           await tester.pumpAndSettle();
-          expect(buttonRing(tester), 3);
+          expect(buttonRing(tester), 1);
           await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
           await tester.sendKeyEvent(LogicalKeyboardKey.tab);
           await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
@@ -118,7 +118,7 @@ void main() {
       await tester.sendKeyEvent(LogicalKeyboardKey.tab);
       node.requestFocus();
       await tester.pumpAndSettle();
-      expect(buttonRing(tester), 3);
+      expect(buttonRing(tester), 1);
       await tester.tap(find.text('Action'));
       await tester.pumpAndSettle();
       expect(presses, 2);
@@ -154,7 +154,7 @@ void main() {
       );
       await tester.sendKeyEvent(LogicalKeyboardKey.tab);
       await tester.pumpAndSettle();
-      expect(buttonRing(tester), 3);
+      expect(buttonRing(tester), 1);
       final route = showDialog<void>(
         context: routeContext,
         builder: (context) => Center(

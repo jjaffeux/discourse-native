@@ -298,7 +298,7 @@ class _DToggleState extends State<DToggle> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       if (widget.iconPosition == DToggleIconPosition.start) ...[
-                        ExcludeSemantics(child: effectiveIcon),
+                        Flexible(child: ExcludeSemantics(child: effectiveIcon)),
                         const SizedBox(width: 4),
                       ],
                       Flexible(
@@ -309,7 +309,7 @@ class _DToggleState extends State<DToggle> {
                       ),
                       if (widget.iconPosition == DToggleIconPosition.end) ...[
                         const SizedBox(width: 4),
-                        ExcludeSemantics(child: effectiveIcon),
+                        Flexible(child: ExcludeSemantics(child: effectiveIcon)),
                       ],
                     ],
                   ),

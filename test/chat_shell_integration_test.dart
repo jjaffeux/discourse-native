@@ -613,7 +613,10 @@ void _registerChatShellTests() {
 
         expect(dot, findsOneWidget);
         expect(urgent, findsNothing);
-        expect(find.text('42'), findsNothing);
+        expect(
+          find.descendant(of: shortcut, matching: find.text('42')),
+          findsNothing,
+        );
       });
 
       testWidgets('draws the aggregate urgent count and caps it at 99+', (
@@ -680,7 +683,7 @@ void _registerChatShellTests() {
         await tester.pump(const Duration(minutes: 1, seconds: 1));
 
         expect(urgent, findsOneWidget);
-        expect(find.text('3'), findsOneWidget);
+        expect(tester.widget<Text>(urgent).data, '3');
       });
 
       testWidgets('opens the server’s last chat channel', (tester) async {
@@ -1173,7 +1176,7 @@ void _registerChatShellTests() {
           final header = find.byKey(ChatDrawerOverlay.headerKey);
           expect(
             tester.getSize(find.byKey(ChatDrawerOverlay.expandedKey)).width,
-            250,
+            320,
           );
           expect(
             find.descendant(of: header, matching: find.byTooltip('Back')),
@@ -2657,7 +2660,7 @@ void _registerChatShellTests() {
           lessThanOrEqualTo(tester.getRect(composer).left),
         );
 
-        await tester.tap(find.byTooltip('Composer options'));
+        await tester.tap(find.byTooltip('Dock side'));
         await tester.pumpAndSettle();
         await tester.tap(find.byTooltip('Dock left'));
         await tester.pumpAndSettle();
@@ -2667,7 +2670,7 @@ void _registerChatShellTests() {
           lessThan(tester.getRect(drawer).left),
         );
 
-        await tester.tap(find.byTooltip('Composer options'));
+        await tester.tap(find.byTooltip('Dock side'));
         await tester.pumpAndSettle();
         await tester.tap(find.byTooltip('Dock bottom'));
         await tester.pumpAndSettle();
@@ -2678,23 +2681,24 @@ void _registerChatShellTests() {
         expect(tester.takeException(), isNull);
       }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 
-      testWidgets('disappears while chat is active on a compact shell', (
-        tester,
-      ) async {
-        await pumpChat(
-          tester,
-          size: phone,
-          public: [channel(9)],
-          messages: {key(9): page(const [])},
-        );
-        expect(shortcut, findsOneWidget);
+      testWidgets(
+        'keeps the chat shortcut while chat is active on a compact shell',
+        (tester) async {
+          await pumpChat(
+            tester,
+            size: phone,
+            public: [channel(9)],
+            messages: {key(9): page(const [])},
+          );
+          expect(shortcut, findsOneWidget);
 
-        await tester.tap(shortcut);
-        await tester.pumpAndSettle();
+          await tester.tap(shortcut);
+          await tester.pumpAndSettle();
 
-        expect(find.byType(ChatChannelView), findsOneWidget);
-        expect(shortcut, findsNothing);
-      });
+          expect(find.byType(ChatChannelView), findsOneWidget);
+          expect(shortcut, findsOneWidget);
+        },
+      );
     });
 
     group('in the sidebar', () {
@@ -4442,7 +4446,10 @@ void _registerChatShellTests() {
 
         expect(
           find.descendant(
-            of: find.byType(InstanceSidebar),
+            of: find.ancestor(
+              of: sidebarDestination('Bugs'),
+              matching: find.byType(DSidebarMenuButton),
+            ),
             matching: find.text('42'),
           ),
           findsNothing,
@@ -4823,22 +4830,19 @@ void _registerChatShellTests() {
                 ),
               )
               .height,
-          DControlStyle.regularHeight - 7,
+          48,
         );
         expect(
           tester
               .getSize(find.byKey(const ValueKey('chat-channel-info-tabs')))
               .height,
-          61,
+          58,
         );
         final settingsStyle = DefaultTextStyle.of(
           tester.element(settingsLabel),
         ).style;
-        expect(
-          settingsStyle.fontSize,
-          DControlStyle.fontSize(DControlSize.regular),
-        );
-        expect(settingsStyle.fontWeight, FontWeight.w500);
+        expect(settingsStyle.fontSize, theme.textTheme.bodyMedium!.fontSize);
+        expect(settingsStyle.fontWeight, FontWeight.w600);
         expect(
           tester.widget<Text>(summaryTitle).style?.fontSize,
           theme.textTheme.titleLarge?.fontSize,
@@ -6670,7 +6674,7 @@ void _registerChatShellTests() {
         await tester.pumpAndSettle();
 
         expect(renderedText('Hello there'), findsNothing);
-        expect(find.text('Topics'), findsOneWidget);
+        expect(find.text('Latest topics'), findsOneWidget);
       });
     });
   });

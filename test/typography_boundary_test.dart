@@ -157,10 +157,10 @@ void main() {
           ]) {
             final paragraph = _paragraph(tester, label);
             final (fontSize, lineHeight) = switch (label) {
-              'Native small' ||
+              'Native small' => (12.0, 16.0),
               'Native regular' ||
               'Latest topics' ||
-              'All categories' => (12.0, 16.0),
+              'All categories' => (13.0, 20.0),
               _ => (14.0, 20.0),
             };
             expect(
@@ -204,8 +204,8 @@ void main() {
         await tester.tap(find.text('Latest topics'));
         await tester.pumpAndSettle();
         final option = _paragraph(tester, 'New topics');
-        expect(option.text.style!.fontSize, 14);
-        expect(option.textScaler.scale(14), 28);
+        expect(option.text.style!.fontSize, 13);
+        expect(option.textScaler.scale(13), 26);
         expect(option.didExceedMaxLines, isFalse);
         await tester.tap(find.text('New topics').last);
         await tester.pumpAndSettle();

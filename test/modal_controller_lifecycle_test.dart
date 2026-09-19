@@ -65,7 +65,14 @@ void main() {
       );
       await tester.tap(find.text('Open'));
       await tester.pump();
-      await firstApi.started.future;
+      for (
+        var frame = 0;
+        frame < 10 && !firstApi.started.isCompleted;
+        frame++
+      ) {
+        await tester.pump();
+      }
+      expect(firstApi.started.isCompleted, isTrue);
 
       await tester.pumpWidget(
         _host(

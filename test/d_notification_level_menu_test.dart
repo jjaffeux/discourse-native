@@ -71,8 +71,8 @@ void main() {
             final tokens = DTokens.of(tester.element(trigger));
             expect(button.variant, expected);
             final surface = expected == DButtonVariant.primary
-                ? tokens.controlTheme.primary
-                : tokens.controlTheme.outline;
+                ? tokens.buttonTheme.primary
+                : tokens.buttonTheme.outline;
             expect(buttonSurface(tester).color, surface.background);
             expect(buttonSurface(tester).borderColor, surface.border);
             final icon = find

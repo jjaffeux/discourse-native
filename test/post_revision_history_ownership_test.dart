@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_ui.dart';
+
 import 'package:discourse_native/src/data/user_api_key.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/post.dart';
@@ -361,7 +363,9 @@ class _HistoryFixture {
     await tester.pump();
     await tester.tap(find.byTooltip('More actions'));
     await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(MenuItemButton, 'View edit history'));
+    await tester.tap(
+      find.widgetWithText(DDropdownMenuItem, 'View edit history'),
+    );
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
     await tester.pump();

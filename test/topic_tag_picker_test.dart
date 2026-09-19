@@ -99,7 +99,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(
         background(tag.name),
-        DTokens.of(tester.element(row(tag.name))).muted,
+        DControlStyle.rowHover(DTokens.of(tester.element(row(tag.name)))),
       );
       expect(tester.widget<DCheckbox>(option(tag.name)).value, tag == design);
       await mouse.moveTo(Offset.zero);

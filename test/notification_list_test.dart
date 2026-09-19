@@ -270,7 +270,7 @@ void main() {
             const Duration(milliseconds: 16),
           ]) {
             await tester.pump(frame);
-            expect(background(hovered), tokens.muted);
+            expect(background(hovered), DControlStyle.rowHover(tokens));
             expect(background(1 - hovered), hovered == 0 ? backdrop : unread);
           }
         }
@@ -338,8 +338,8 @@ void main() {
     await tester.tap(find.byKey(_rowKey));
     await tester.pumpAndSettle();
 
-    expect(controller.activeTabId, originalId);
-    expect(controller.tabsForCurrentForum, hasLength(1));
+    expect(controller.activeTabId, isNot(originalId));
+    expect(controller.tabsForCurrentForum, hasLength(2));
     expect(controller.currentContent?.topicId, 42);
     expect(controller.currentContent?.postNumber, 7);
     expect(api.markedRead, [1]);

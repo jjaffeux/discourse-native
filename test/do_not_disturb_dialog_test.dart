@@ -81,7 +81,7 @@ void main() {
           await tester.pump(const Duration(milliseconds: 300));
 
           expect(tester.element(find.byType(AlertDialog)), same(dialog));
-          expect(tester.widget<OutlinedButton>(_oneHour).onPressed, isNull);
+          expect(tester.widget<DButton>(_oneHour).onPressed, isNull);
           expect(
             find.text(const WriteException(WriteFailure.forbidden).message),
             findsNothing,
@@ -118,7 +118,7 @@ void main() {
     final gate = _writeGate(api);
     final launcher = _watchLauncher(tester);
     await _open(tester, api);
-    final pause = tester.widget<OutlinedButton>(_oneHour).onPressed!;
+    final pause = tester.widget<DButton>(_oneHour).onPressed!;
     final schedule = _scheduleButton(tester).onPressed!;
     pause();
     pause();
@@ -128,7 +128,7 @@ void main() {
       (_site, 'key', const DoNotDisturbDuration.minutes(60)),
     ]);
     expect(launcher.urls, isEmpty);
-    expect(tester.widget<OutlinedButton>(_oneHour).onPressed, isNull);
+    expect(tester.widget<DButton>(_oneHour).onPressed, isNull);
     expect(
       find.text('Another notification change is still finishing.'),
       findsNothing,
@@ -144,7 +144,7 @@ void main() {
     final api = _DndApi();
     final launcher = _watchLauncher(tester);
     await _open(tester, api);
-    final pause = tester.widget<OutlinedButton>(_oneHour).onPressed!;
+    final pause = tester.widget<DButton>(_oneHour).onPressed!;
     final schedule = _scheduleButton(tester).onPressed!;
     schedule();
     schedule();

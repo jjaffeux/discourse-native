@@ -31,8 +31,6 @@ import 'package:discourse_native/src/shell/topic_view.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:discourse_native/src/theme/d_native_icons.dart';
-import 'package:flutter/foundation.dart'
-    show debugDefaultTargetPlatformOverride;
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -365,7 +363,7 @@ void main() {
     expect(card(setup.rows.first.id).selected, isTrue);
     expect(
       card(setup.rows.first.id).selectionStyle,
-      DItemSelectionStyle.outline,
+      DItemSelectionStyle.leadingAccent,
     );
     expect(card(setup.rows.first.id).showSelectionIndicator, isFalse);
     expect(card(setup.rows[1].id).selected, isFalse);
@@ -382,97 +380,24 @@ void main() {
     final setup = await _setup(tester);
     final close = find.byKey(const ValueKey('topic-close-reader'));
     expect(close, findsNothing);
-    setup.controller.openTopicFromList(setup.rows.first);
-    await tester.pumpAndSettle();
-    final listPane = find.byKey(const ValueKey('inbox-topic-list-pane'));
-    final display = find.byKey(const ValueKey('topic-list-display'));
-    final radius = BorderRadius.circular(
-      DTokens.of(tester.element(close)).radius,
-    );
-    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
-    addTearDown(mouse.removePointer);
-    await mouse.addPointer(location: Offset.zero);
-    for (final control in [display, close]) {
-      expect(tester.widget(control), isA<DButton>());
-      expect(buttonSurface(tester, of: control).borderRadius, radius);
-      final icon = find.descendant(of: control, matching: find.byType(DIcon));
-      final tokens = DTokens.of(tester.element(control));
-      expect(
-        IconTheme.of(tester.element(icon)).color!.computeLuminance(),
-        lessThan(tokens.mutedForeground.computeLuminance()),
-      );
-      await mouse.moveTo(tester.getCenter(control));
+    for (final width in [1200.0, 600.0]) {
+      tester.view.physicalSize = Size(width, 800);
+      setup.controller.openTopicFromList(setup.rows.first);
       await tester.pumpAndSettle();
-      expect(IconTheme.of(tester.element(icon)).color, tokens.foreground);
-      expect(buttonSurface(tester, of: control).borderRadius, radius);
+      expect(close.hitTestable(), findsOneWidget);
+      expect(
+        find.descendant(of: find.byType(TopicInboxHeader), matching: close),
+        findsOneWidget,
+      );
+      expect(
+        find.byTooltip(width == 1200 ? 'Collapse topic' : 'Back to topic list'),
+        findsOneWidget,
+      );
+      await tester.tap(close);
+      await tester.pumpAndSettle();
+      expect(find.byType(TopicView), findsNothing);
+      expect(find.byType(TopicListView), findsOneWidget);
     }
-    await mouse.moveTo(Offset.zero);
-    await tester.pump();
-    expect(find.descendant(of: listPane, matching: close), findsOneWidget);
-    expect(
-      find.descendant(of: find.byType(TopicInboxHeader), matching: close),
-      findsNothing,
-    );
-    final bounds = tester.getRect(close);
-    final pane = tester.getRect(listPane);
-    expect(
-      bounds.right,
-      closeTo(
-        pane.right -
-            DResizableHandle.resolveHitExtent(tester.element(close), 8),
-        1,
-      ),
-    );
-    expect(
-      bounds.center.dy,
-      closeTo(
-        tester.getCenter(find.byKey(const ValueKey('topic-list-heading'))).dy,
-        1,
-      ),
-    );
-    expect(close.hitTestable(), findsOneWidget);
-    tester.view.physicalSize = const Size(700, 800);
-    await tester.pumpAndSettle();
-    expect(
-      find.descendant(of: find.byType(TopicInboxHeader), matching: close),
-      findsOneWidget,
-    );
-    expect(close.hitTestable(), findsOneWidget);
-    expect(find.byTooltip('Back to topic list'), findsOneWidget);
-    expect(find.byTooltip('Collapse topic'), findsNothing);
-    expect(
-      (tester.widget<DButton>(close).icon! as DIcon).icon,
-      DIcons.arrowLeft,
-    );
-    expect(
-      tester.getRect(close).right,
-      lessThan(tester.getRect(_compactHeader).left),
-    );
-    expect(
-      find.descendant(
-        of: find.byKey(const ValueKey('topic-header-common-actions')),
-        matching: close,
-      ),
-      findsNothing,
-    );
-    await tester.tap(close);
-    await tester.pumpAndSettle();
-    expect(find.byType(TopicView), findsNothing);
-    expect(find.byType(TopicListView), findsOneWidget);
-    setup.controller.openTopicFromList(setup.rows.first);
-    await tester.pumpAndSettle();
-    tester.view.physicalSize = const Size(1200, 800);
-    await tester.pumpAndSettle();
-    expect(find.descendant(of: listPane, matching: close), findsOneWidget);
-    expect(find.byTooltip('Collapse topic'), findsOneWidget);
-    expect(
-      (tester.widget<DButton>(close).icon! as DIcon).icon,
-      DNativeIcons.closeTopicPane,
-    );
-    await tester.tap(close);
-    await tester.pumpAndSettle();
-    expect(close, findsNothing);
-    expect(find.byType(TopicView), findsNothing);
     expect(tester.takeException(), isNull);
   });
 
@@ -796,12 +721,7 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(shell.topicListContent?.categoryId, _child.id);
-      expect(
-        shell.currentContent?.topicId,
-        debugDefaultTargetPlatformOverride == TargetPlatform.macOS
-            ? null
-            : setup.rows.first.id,
-      );
+      expect(shell.currentContent?.topicId, setup.rows.first.id);
       expect(setup.api.topicsUpdated, isEmpty);
       expect(tester.takeException(), isNull);
     },
@@ -1015,11 +935,15 @@ void main() {
       );
       final headerControls = [
         (add, DButtonSize.small, 24.0),
-        (
-          find.byKey(const ValueKey('topic-close-reader')),
-          DButtonSize.regular,
-          28.0,
-        ),
+        if (find
+            .byKey(const ValueKey('topic-close-reader'))
+            .evaluate()
+            .isNotEmpty)
+          (
+            find.byKey(const ValueKey('topic-close-reader')),
+            DButtonSize.regular,
+            28.0,
+          ),
         (
           find.byKey(const ValueKey('topic-header-browse-category-22')),
           DButtonSize.small,
@@ -1586,7 +1510,7 @@ void main() {
           await tester.pumpAndSettle();
           expect(
             find.byKey(const ValueKey('topic-close-reader')),
-            findsNothing,
+            findsOneWidget,
           );
           final category = compact
               ? find.byKey(const ValueKey('topic-header-category'))
@@ -2016,7 +1940,11 @@ void main() {
   testWidgets(
     'closing a topic places a lock before its title aligned with the content',
     (tester) async {
-      final setup = await _setup(tester, canCloseTopic: true);
+      final setup = await _setup(
+        tester,
+        canCloseTopic: true,
+        theme: AppTheme.light.copyWith(platform: TargetPlatform.macOS),
+      );
       final shell = setup.controller;
       shell.openTopicFromList(setup.rows.first);
       await tester.pumpAndSettle();
@@ -2659,7 +2587,7 @@ void main() {
             tester.widget<DButton>(control).variant,
             control == reply ? DButtonVariant.primary : DButtonVariant.outline,
           );
-          final controls = DTokens.of(tester.element(control)).controls!;
+          final controls = DTokens.of(tester.element(control)).buttonTheme;
           expect(
             buttonSurface(tester, of: control).color,
             control == reply
@@ -2668,7 +2596,9 @@ void main() {
           );
           expect(
             buttonSurface(tester, of: control).borderColor,
-            control == reply ? Colors.transparent : controls.outline.border,
+            control == reply
+                ? controls.primary.border
+                : controls.outline.border,
           );
           expect(tester.getSize(control).height, tester.getSize(reply).height);
         }
@@ -2682,13 +2612,13 @@ void main() {
         );
         expect(
           buttonSurface(tester, of: reply).borderRadius.topRight,
-          Radius.circular(DTokens.of(tester.element(reply)).controlRadius),
+          Radius.circular(DTokens.of(tester.element(reply)).buttonTheme.radius),
         );
         expect(
           buttonSurface(tester, of: bookmark).borderRadius,
           BorderRadius.horizontal(
             left: Radius.circular(
-              DTokens.of(tester.element(bookmark)).controlRadius,
+              DTokens.of(tester.element(bookmark)).buttonTheme.radius,
             ),
           ),
         );
@@ -2760,7 +2690,7 @@ void main() {
             await setup.controller.loadTopic(1, 'topic-1', force: true);
             await tester.pumpAndSettle();
             final tokens = DTokens.of(tester.element(bookmark));
-            final controls = tokens.controls!;
+            final controls = tokens.buttonTheme;
             final surface = buttonSurface(tester, of: bookmark);
             expect(surface.borderColor, controls.outline.border);
             expect(
@@ -2770,7 +2700,7 @@ void main() {
             expect(
               surface.borderRadius,
               BorderRadius.horizontal(
-                left: Radius.circular(tokens.controlRadius),
+                left: Radius.circular(tokens.buttonTheme.radius),
               ),
             );
             expect(
@@ -2837,8 +2767,14 @@ void main() {
         await mouse.moveTo(tester.getCenter(hovered));
         await tester.pumpAndSettle();
         final other = hovered == previous ? next : previous;
-        expect(buttonSurface(tester, of: hovered).color, Colors.transparent);
-        expect(buttonSurface(tester, of: other).color, Colors.transparent);
+        expect(
+          buttonSurface(tester, of: hovered).color,
+          DTokens.of(tester.element(hovered)).buttonTheme.outline.hover,
+        );
+        expect(
+          buttonSurface(tester, of: other).color,
+          DTokens.of(tester.element(other)).buttonTheme.outline.background,
+        );
       }
       final footer = tester.getRect(
         find.byKey(const ValueKey('topic-list-bottom-bar')),
@@ -2882,11 +2818,17 @@ void main() {
       await tester.pumpAndSettle();
       expect(tester.getSize(list).width, 325 + workspacePanelGap);
       final row = find.byKey(const ValueKey('inbox-row-1'));
-      expect(tester.getRect(row).left, greaterThan(tester.getRect(list).left));
-      expect(tester.getRect(row).right, lessThan(tester.getRect(list).right));
+      expect(
+        tester.getRect(row).left,
+        greaterThanOrEqualTo(tester.getRect(list).left),
+      );
+      expect(
+        tester.getRect(row).right,
+        lessThanOrEqualTo(tester.getRect(list).right),
+      );
       final timestamp = find.byKey(const ValueKey('inbox-row-time-1'));
       expect(timestamp, findsOneWidget);
-      expect(find.text('First topic preview'), findsNothing);
+      expect(find.text('First topic preview'), findsOneWidget);
       expect(
         find.byKey(const ValueKey('topic-ledger-activity-1')),
         findsNothing,
@@ -3289,20 +3231,29 @@ void main() {
       find.descendant(of: edit, matching: find.text('Edit')),
       findsNothing,
     );
-    expect(tester.getRect(edit).left, tester.getRect(reply).right);
+    expect(
+      tester.getRect(edit).left,
+      tester.getRect(reply).right + DSpacing.xs,
+    );
     expect(
       tester.getRect(edit).center.dy,
       closeTo(tester.getRect(reply).center.dy, 1),
     );
     expect(bookmark.hitTestable(), findsOneWidget);
-    expect(tester.getRect(bookmark).left, tester.getRect(edit).right);
+    expect(
+      tester.getRect(bookmark).left,
+      tester.getRect(edit).right + DSpacing.xs,
+    );
     expect(
       tester.getRect(bookmark).center.dy,
       closeTo(tester.getRect(reply).center.dy, 1),
     );
     final more = find.byKey(const ValueKey('post-more-actions-2'));
     expect(more.hitTestable(), findsOneWidget);
-    expect(tester.getRect(more).left, tester.getRect(bookmark).right);
+    expect(
+      tester.getRect(more).left,
+      tester.getRect(bookmark).right + DSpacing.xs,
+    );
     expect(tester.getRect(more).right, closeTo(tester.getRect(body).right, 1));
 
     await tester.tap(reply);

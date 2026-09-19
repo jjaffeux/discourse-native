@@ -366,7 +366,10 @@ class _ProfileCard extends StatelessWidget {
                     child: DText(
                       instance.title,
                       variant: DTextVariant.small,
-                      style: const TextStyle(fontSize: 12, height: 16 / 12),
+                      style: const TextStyle(
+                        fontSize: DiscourseTypography.xs,
+                        height: DiscourseTypography.lineHeightCaption,
+                      ),
                     ),
                   ),
                 ],
@@ -740,7 +743,10 @@ class _DetailStats extends StatelessWidget {
     value,
     variant: DTextVariant.small,
     textAlign: textAlign,
-    style: const TextStyle(fontSize: 12, height: 16 / 12),
+    style: const TextStyle(
+      fontSize: DiscourseTypography.xs,
+      height: DiscourseTypography.lineHeightCaption,
+    ),
   );
 }
 
@@ -755,7 +761,10 @@ class _Caption extends StatelessWidget {
       text,
       variant: DTextVariant.muted,
       semanticsLabel: semantics,
-      style: const TextStyle(fontSize: 12, height: 16 / 12),
+      style: const TextStyle(
+        fontSize: DiscourseTypography.xs,
+        height: DiscourseTypography.lineHeightCaption,
+      ),
     );
     return semantics == null ? child : Semantics(container: true, child: child);
   }

@@ -151,7 +151,7 @@ void main() {
         );
         await tester.sendKeyEvent(LogicalKeyboardKey.escape);
         await tester.pumpAndSettle();
-        shell.handleBack(canReturnToSidebar: false);
+        shell.closeTopic();
         await tester.pumpAndSettle();
         expect(shell.currentContent?.isTopicList, isTrue);
         await open();

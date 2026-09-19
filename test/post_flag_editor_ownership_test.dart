@@ -1,3 +1,4 @@
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/data/user_api_key.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/post.dart';
@@ -226,7 +227,7 @@ Future<void> _openSheet(WidgetTester tester, String target) async {
       if (flag.evaluate().isEmpty) {
         await tester.tap(find.byKey(const ValueKey('post-more-actions-1')));
         await tester.pumpAndSettle();
-        await tester.tap(find.widgetWithText(MenuItemButton, 'Flag'));
+        await tester.tap(find.widgetWithText(DDropdownMenuItem, 'Flag'));
       } else {
         await tester.tap(flag);
       }

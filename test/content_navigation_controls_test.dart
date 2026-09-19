@@ -261,9 +261,9 @@ void main() {
         instances: [instance('meta.example').copyWith(user: user)],
       );
       final shell = _shell(tester);
-      final originalTab = shell.activeTabId!;
       shell.openTopic(other);
       await tester.pumpAndSettle();
+      final originalTab = shell.activeTabId!;
       shell.createTab();
       await tester.pumpAndSettle();
       shell.openTopic(topic);

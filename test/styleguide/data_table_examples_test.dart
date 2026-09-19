@@ -18,6 +18,7 @@ void main() {
       'Sorting, filtering, visibility, selection, and actions',
       'Dynamic data',
       'RTL',
+      'Editable cell surface',
     ]);
   });
 

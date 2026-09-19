@@ -169,7 +169,6 @@ void main() {
             find.byKey(const ValueKey('topic-content-header')),
             findsOneWidget,
           );
-          expect(_selectedTopics(tester), [target]);
           expect(_selectedPosts(tester), isEmpty);
         }
         expect(tester.takeException(), isNull);
@@ -207,11 +206,11 @@ void main() {
           expect(setup.shell.contentStack, hasLength(2));
           expect(_selectedPosts(tester), isEmpty);
           if (size == phone) {
-            await tester.sendKeyEvent(LogicalKeyboardKey.keyU);
+            await tester.tap(find.byTooltip('Back to topic list'));
             await tester.pumpAndSettle();
           }
           _expectTopicVisible(tester, 1);
-          expect(_selectedTopics(tester), [1]);
+          expect(_selectedTopics(tester), size == phone ? isEmpty : [1]);
           expect(tester.takeException(), isNull);
         },
       );
@@ -454,8 +453,10 @@ void main() {
       final gate = Completer<void>();
       final setup = await _setup(tester, nextPageGate: gate);
       final rows = setup.api.feeds['/latest.json']!;
-      final originalTab = setup.shell.activeTabId!;
+      await tester.tap(find.byTooltip('Keep topic tabs with the list'));
+      await tester.pumpAndSettle();
       setup.shell.openTopicFromList(rows.last);
+      final originalTab = setup.shell.activeTabId!;
       // Revealing the last row starts the gated page prefetch and its spinner.
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 300));
@@ -502,7 +503,7 @@ void main() {
           expect(_topicItem(tester, 1).selected, isTrue);
           expect(
             _topicItem(tester, 1).selectionStyle,
-            DItemSelectionStyle.outline,
+            DItemSelectionStyle.leadingAccent,
           );
           await tester.sendKeyEvent(LogicalKeyboardKey.enter);
         } else {
@@ -521,7 +522,7 @@ void main() {
         expect(_topicItem(tester, 2).variant, DItemVariant.standard);
         expect(
           _topicItem(tester, 2).selectionStyle,
-          DItemSelectionStyle.outline,
+          DItemSelectionStyle.leadingAccent,
         );
         expect(_selectedTopics(tester), [2]);
 

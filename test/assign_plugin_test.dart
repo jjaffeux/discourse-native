@@ -8,19 +8,23 @@ import 'package:discourse_native/src/models/notification_type_counts.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/plugin_api/plugin_registry.dart';
+import 'package:discourse_native/src/plugin_api/plugin_scope.dart';
 import 'package:discourse_native/src/plugin_api/site_plugin_api.dart';
 import 'package:discourse_native/src/plugins/assign/assign_icons.dart';
 import 'package:discourse_native/src/plugins/assign/assign_notifications.dart';
 import 'package:discourse_native/src/plugins/assign/assign_plugin.dart';
 import 'package:discourse_native/src/plugins/assign/assign_user_menu.dart';
 import 'package:discourse_native/src/plugins/assign/assignment_sheet.dart';
+import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'support/bundled_plugins.dart';
 import 'support/button_surface.dart';
+import 'support/fakes.dart';
 
 const _siteUrl = 'https://forum.example.com';
 const _plugin = AssignPlugin();
@@ -438,6 +442,71 @@ void main() {
   });
 
   group('topic assignment presentation', () {
+    testWidgets('both list presentations read live assignment visibility', (
+      tester,
+    ) async {
+      final shell = ShellController(
+        plugins: installedPlugins,
+        instanceStore: FakeInstanceStore([]),
+        api: FakeDiscourseApi(),
+        authenticator: FakeAuthenticator(),
+        drafts: FakeDraftStore(),
+        trackers: FakeSiteTracker.reset(),
+      );
+      addTearDown(() async {
+        shell.dispose();
+        await shell.pluginTeardown;
+      });
+      final registry = installedPlugins.registry;
+      final topic = Topic(
+        id: 10,
+        title: 'Assigned topic',
+        slug: 'assigned-topic',
+        plugins: registry.readTopic(const {
+          'assigned_to_user': {'username': 'sam', 'name': 'Sam'},
+        }, _siteUrl),
+      );
+      Future<void> check(bool visible) async {
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: AppTheme.light,
+            home: PluginScope(
+              session: shell.pluginSession,
+              registry: registry,
+              child: Builder(
+                builder: (context) {
+                  expect(
+                    registry
+                        .topicListMetadata(context, _siteUrl, topic)
+                        .isNotEmpty,
+                    visible,
+                  );
+                  expect(
+                    registry
+                        .compactTopicListMetadata(
+                          context,
+                          _siteUrl,
+                          topic,
+                          ({property}) {},
+                        )
+                        .isNotEmpty,
+                    visible,
+                  );
+                  return const SizedBox.shrink();
+                },
+              ),
+            ),
+          ),
+        );
+      }
+
+      await check(true);
+      await shell.appSettings.setTopicListShowAssignments(false);
+      await check(false);
+      await shell.appSettings.setTopicListShowAssignments(true);
+      await check(true);
+    });
+
     testWidgets(
       'labels direct and post assignments separately from last-poster identity',
       (tester) async {

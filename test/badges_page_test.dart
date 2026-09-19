@@ -104,7 +104,7 @@ void main() {
   for (final (width, columns, scale, platform) in [
     (390.0, 1, 1.0, TargetPlatform.macOS),
     (760.0, 2, 1.0, TargetPlatform.macOS),
-    (1100.0, 2, 1.0, TargetPlatform.macOS),
+    (1100.0, 3, 1.0, TargetPlatform.macOS),
     (1100.0, 3, 1.0, TargetPlatform.android),
     (390.0, 1, 2.0, TargetPlatform.android),
   ]) {

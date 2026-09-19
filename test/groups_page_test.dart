@@ -80,7 +80,7 @@ void main() {
   for (final (width, columns, platform) in [
     (390.0, 1, TargetPlatform.macOS),
     (700.0, 2, TargetPlatform.macOS),
-    (1100.0, 2, TargetPlatform.macOS),
+    (1100.0, 3, TargetPlatform.macOS),
     (1100.0, 3, TargetPlatform.android),
   ]) {
     testWidgets(

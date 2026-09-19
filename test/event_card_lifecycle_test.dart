@@ -55,20 +55,13 @@ void main() {
     ports.controller.forget(eventSite);
   }
 
-  Finder attendanceMenu(bool withdraw) => find.descendant(
-    of: find.byTooltip(
-      withdraw ? 'Event actions' : 'Choose recurring attendance',
-    ),
-    matching: find.byWidgetPredicate(
-      (widget) => widget is PopupMenuButton<Object?>,
-    ),
+  Finder attendanceMenu(bool withdraw) => find.byTooltip(
+    withdraw ? 'Event actions' : 'Choose recurring attendance',
   );
 
-  Finder attendanceChoice(bool withdraw) => find.ancestor(
-    of: find.text(withdraw ? 'Remove my response' : 'Every occurrence'),
-    matching: find.byWidgetPredicate(
-      (widget) => widget is PopupMenuItem<Object?>,
-    ),
+  Finder attendanceChoice(bool withdraw) => find.widgetWithText(
+    withdraw ? DDropdownMenuItem : DDropdownMenuCheckboxItem,
+    withdraw ? 'Remove my response' : 'Every occurrence',
   );
 
   for (final replacement in [

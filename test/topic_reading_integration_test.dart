@@ -30,6 +30,7 @@ import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/site_emoji_image.dart';
 import 'package:discourse_native/src/shell/topic_create_button.dart';
+import 'package:discourse_native/src/shell/topic_list_indicators.dart';
 import 'package:discourse_native/src/shell/topic_list_view.dart';
 import 'package:discourse_native/src/shell/topic_title.dart';
 import 'package:discourse_native/src/shell/topic_view.dart';
@@ -1250,9 +1251,21 @@ void _registerTopicReadingTests() {
 
       await pumpShell(tester, desktop, api: api);
 
-      expect(find.byKey(const ValueKey('new-topic-dot')), findsOneWidget);
+      expect(
+        find.byWidgetPredicate(
+          (widget) => widget is TopicStateDot && widget.label == 'New topic',
+        ),
+        findsOneWidget,
+      );
       expect(find.bySemanticsLabel('New topic'), findsOneWidget);
-      expect(find.byKey(const ValueKey('new-replies-dot')), findsNothing);
+      expect(
+        find.byWidgetPredicate(
+          (widget) =>
+              widget is TopicStateDot &&
+              widget.label == 'Topic has new replies',
+        ),
+        findsNothing,
+      );
     });
 
     testWidgets('unread dots follow titles of different lengths', (
@@ -1279,7 +1292,9 @@ void _registerTopicReadingTests() {
 
       await pumpShell(tester, desktop, api: api);
 
-      final dots = find.byKey(const ValueKey('new-topic-dot'));
+      final dots = find.byWidgetPredicate(
+        (widget) => widget is TopicStateDot && widget.label == 'New topic',
+      );
       expect(dots, findsNWidgets(2));
       final firstDot = tester.getRect(dots.first);
       final secondDot = tester.getRect(dots.last);
@@ -1320,7 +1335,11 @@ void _registerTopicReadingTests() {
       await tester.pumpAndSettle();
 
       final titleRect = tester.getRect(find.text(title));
-      final dot = tester.getRect(find.byKey(const ValueKey('new-topic-dot')));
+      final dot = tester.getRect(
+        find.byWidgetPredicate(
+          (widget) => widget is TopicStateDot && widget.label == 'New topic',
+        ),
+      );
       expect(titleRect.height, inInclusiveRange(25, 48));
       expect(dot.left - _lastTitleLine(tester, title).right, closeTo(6, 0.5));
       expect(dot.top, greaterThanOrEqualTo(titleRect.top));
@@ -1379,9 +1398,21 @@ void _registerTopicReadingTests() {
 
       await pumpShell(tester, desktop, api: api);
 
-      expect(find.byKey(const ValueKey('new-replies-dot')), findsOneWidget);
+      expect(
+        find.byWidgetPredicate(
+          (widget) =>
+              widget is TopicStateDot &&
+              widget.label == 'Topic has new replies',
+        ),
+        findsOneWidget,
+      );
       expect(find.bySemanticsLabel('Topic has new replies'), findsOneWidget);
-      expect(find.byKey(const ValueKey('new-topic-dot')), findsNothing);
+      expect(
+        find.byWidgetPredicate(
+          (widget) => widget is TopicStateDot && widget.label == 'New topic',
+        ),
+        findsNothing,
+      );
       expect(find.text('5'), findsNothing);
     });
 
@@ -1562,8 +1593,8 @@ void _registerTopicReadingTests() {
 
       await pumpShell(tester, desktop, api: api);
 
-      final firstTag = find.text('#ai');
-      final secondTag = find.text('#in-progress');
+      final firstTag = find.text('ai');
+      final secondTag = find.text('in-progress');
       final firstTagLink = find.bySemanticsLabel('Tag: ai');
       final secondTagLink = find.bySemanticsLabel('Tag: in-progress');
       expect(firstTag, findsOneWidget);
@@ -1723,7 +1754,7 @@ void _registerTopicReadingTests() {
       );
 
       await pumpShell(tester, desktop, api: api);
-      await tester.tap(find.text('#${tag.name}'));
+      await tester.tap(find.text(tag.name));
       await tester.pumpAndSettle();
 
       final controller = ShellScope.read(
@@ -1772,7 +1803,7 @@ void _registerTopicReadingTests() {
       final controller = ShellScope.read(
         tester.element(find.byType(MainContent)),
       );
-      await tester.tap(find.text('#${tag.name}'));
+      await tester.tap(find.text(tag.name));
       await tester.pump();
       expect(api.hashtagSearchesRequested, ['2024']);
 
@@ -1889,8 +1920,8 @@ void _registerTopicReadingTests() {
       await tester.tap(sidebarDestination('Topics'));
       await tester.pumpAndSettle();
 
-      expect(find.text('#sea2'), findsOneWidget);
-      expect(find.text('#sea1'), findsOneWidget);
+      expect(find.text('sea2'), findsOneWidget);
+      expect(find.text('sea1'), findsOneWidget);
       expect(find.text('+12'), findsOneWidget);
       final firstTag = find.bySemanticsLabel('Tag: sea2');
       final secondTag = find.bySemanticsLabel('Tag: sea1');
@@ -1910,7 +1941,7 @@ void _registerTopicReadingTests() {
         contains('12 more tags'),
       );
       for (final tag in tags.skip(2)) {
-        expect(find.text('#${tag.name}'), findsNothing);
+        expect(find.text(tag.name), findsNothing);
       }
       expect(tester.takeException(), isNull);
     });
@@ -2419,7 +2450,7 @@ void _registerTopicReadingTests() {
         Topic(id: i, title: 'Topic $i', slug: 'topic-$i'),
     ];
 
-    testWidgets('pulling past the first topic does not refetch the list', (
+    testWidgets('pulling past the first topic refreshes the list', (
       tester,
     ) async {
       final api = FakeDiscourseApi(feeds: {'/latest.json': page(1, 30)});
@@ -2430,7 +2461,7 @@ void _registerTopicReadingTests() {
       await tester.drag(topicList, const Offset(0, 1200));
       await tester.pumpAndSettle();
 
-      expect(api.feedPaths, ['/latest.json']);
+      expect(api.feedPaths, ['/latest.json', '/latest.json']);
     });
 
     testWidgets('reaching the end appends the next page', (tester) async {
@@ -3477,7 +3508,7 @@ void _registerTopicReadingTests() {
       final mouseRegion = tester.widget<MouseRegion>(
         find.descendant(of: item, matching: find.byType(MouseRegion)).first,
       );
-      expect(mouseRegion.cursor, SystemMouseCursors.click);
+      expect(mouseRegion.cursor, SystemMouseCursors.basic);
       final pointer = await tester.createGesture(kind: PointerDeviceKind.mouse);
       addTearDown(pointer.removePointer);
       await pointer.addPointer(location: Offset.zero);
@@ -3489,11 +3520,10 @@ void _registerTopicReadingTests() {
       final decoration = row.decoration as BoxDecoration;
       expect(
         decoration.color,
-        Theme.of(tester.element(item)).extension<DTokens>()?.muted ??
-            DTokens.fromTheme(Theme.of(tester.element(item))).muted,
+        DControlStyle.rowHover(DTokens.of(tester.element(item))),
       );
 
-      final menuSurface = find.byKey(const ValueKey('command-menu-surface'));
+      final menuSurface = find.byType(DDropdownMenuContent);
       expect(menuSurface, findsOneWidget);
       final menuRect = tester.getRect(menuSurface);
       expect(menuRect.left, greaterThanOrEqualTo(10));

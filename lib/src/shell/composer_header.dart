@@ -5,6 +5,7 @@ import '../models/composer_placement.dart';
 import '../plugin_api/plugin_registry.dart';
 import '../plugin_api/plugin_scope.dart';
 import '../theme/d_icons.dart';
+import '../theme/discourse_typography.dart';
 import 'composer_controller.dart';
 import 'platform.dart';
 import 'shell_metrics.dart';
@@ -421,7 +422,8 @@ class _DraftStatus extends StatelessWidget {
     ).textTheme.labelSmall?.copyWith(color: color);
     final textScaler = MediaQuery.textScalerOf(context);
     final showLabel =
-        textScaler.scale(style?.fontSize ?? 12) * (style?.height ?? 1) <=
+        textScaler.scale(style?.fontSize ?? DiscourseTypography.xs) *
+            (style?.height ?? 1) <=
         ComposerHeader.height;
     return Padding(
       padding: const EdgeInsetsDirectional.only(start: 8, end: 8),

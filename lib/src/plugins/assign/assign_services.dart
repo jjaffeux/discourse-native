@@ -1,3 +1,4 @@
+import '../../plugin_api/core_plugin_host.dart';
 import '../../plugin_api/notification_feed_host.dart';
 import '../../plugin_api/plugin_manifest.dart';
 import 'assign_shell_service.dart';
@@ -26,4 +27,10 @@ const assignNotificationHostService =
     PluginServiceKey<PluginNotificationFeedHost>(
       owner: assignPluginId,
       name: 'notification-feed-host',
+    );
+
+const assignTopicListPreferencesService =
+    PluginServiceKey<PluginTopicListPreferencesHost>(
+      owner: assignPluginId,
+      name: 'topic-list-preferences',
     );

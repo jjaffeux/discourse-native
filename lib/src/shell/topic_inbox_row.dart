@@ -51,9 +51,9 @@ class TopicInboxRow extends StatelessWidget {
           ShellScope.maybeIdentityOf(context)?.appSettings.topicListShowTags ??
           true;
       final showLastPoster =
-          ShellScope.maybeIdentityOf(context)
-              ?.appSettings
-              .topicListShowLastPoster ??
+          ShellScope.maybeIdentityOf(
+            context,
+          )?.appSettings.topicListShowLastPoster ??
           true;
       final tags = showTags ? topic.tags : const <TopicTag>[];
       final muted = theme.colorScheme.onSurfaceVariant;

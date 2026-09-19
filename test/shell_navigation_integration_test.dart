@@ -943,7 +943,7 @@ void _registerShellNavigationTests() {
         .first;
     expect(
       tester.getRect(projectsHeader).top - tester.getRect(moreTile).bottom,
-      closeTo(23, 0.01),
+      closeTo(19, 0.01),
     );
     final roadmapTile = find
         .ancestor(
@@ -959,7 +959,7 @@ void _registerShellNavigationTests() {
         .first;
     expect(
       tester.getRect(categoriesHeader).top - tester.getRect(roadmapTile).bottom,
-      closeTo(6, 0.01),
+      closeTo(2, 0.01),
     );
     expect(
       tester.getSize(projectsHeader).height,
@@ -971,7 +971,7 @@ void _registerShellNavigationTests() {
       matching: find.byType(DSeparator),
     );
     expect(separator, findsOneWidget);
-    expect(tester.getRect(separator).top, tester.getRect(moreTile).bottom + 14);
+    expect(tester.getRect(separator).top, tester.getRect(moreTile).bottom + 10);
     final sectionStyle = DefaultTextStyle.of(
       tester.element(find.text('Projects')),
     );
@@ -1908,7 +1908,7 @@ void _registerShellNavigationTests() {
     final header = tester.getRect(
       find.byKey(const ValueKey('forum-identity-header')),
     );
-    expect(tile.top - header.bottom, closeTo(2, 0.01));
+    expect(tile.top - header.bottom, closeTo(66, 0.01));
     expect(tile.left - sidebar.left, closeTo(8, 0.01));
     expect(sidebar.right - tile.right, closeTo(8, 0.01));
     expect(tile.height, closeTo(48, 0.01));

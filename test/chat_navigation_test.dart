@@ -990,14 +990,18 @@ void main() {
             );
             await tester.pumpAndSettle();
 
-            final tooltip = tester.widget<DTooltip>(
-              find.byWidgetPredicate(
-                (widget) =>
-                    widget is DTooltip &&
-                    widget.message == 'Start a direct message',
-              ),
+            if (find.byTooltip('Expand sidebar').evaluate().isNotEmpty) {
+              await tester.tap(find.byTooltip('Expand sidebar'));
+              await tester.pumpAndSettle();
+            }
+            await tester.tap(
+              find.byKey(const ValueKey('sidebar-panel-switch-chat')),
             );
-            final shortcut = tooltip.shortcut![0];
+            await tester.pumpAndSettle();
+            final action = tester.widget<DButton>(
+              find.widgetWithText(DButton, 'Start a direct message'),
+            );
+            final shortcut = action.shortcut![0];
             expect(shortcut.trigger, LogicalKeyboardKey.keyK);
             expect(shortcut.meta, isTrue);
             expect(shortcut.control, isFalse);

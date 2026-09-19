@@ -249,7 +249,7 @@ void main() {
     expect(longHeaderRect.height, greaterThan(shortHeaderRect.height));
     expect(longTitleRect.top, greaterThanOrEqualTo(longHeaderRect.top));
     expect(longTitleRect.bottom, lessThanOrEqualTo(longHeaderRect.bottom));
-    expect(shortHeaderRect.top, longHeaderRect.bottom + 6);
+    expect(shortHeaderRect.top, longHeaderRect.bottom + 2);
     expect(
       longTitleRect.top - longHeaderRect.top,
       closeTo(shortTitleRect.top - shortHeaderRect.top, 0.25),
@@ -321,13 +321,13 @@ void main() {
     await _pumpShell(tester, controller, const Size(1200, 800));
 
     final handle = find.byKey(const ValueKey('sidebar-resize-handle'));
-    expect(tester.getSize(handle).width, 2);
+    expect(tester.getSize(handle).width, 12);
     final divider = find.descendant(
       of: handle,
       matching: find.byType(ColoredBox),
     );
     expect(divider, findsOneWidget);
-    expect(tester.getSize(divider).width, 1);
+    expect(tester.getSize(divider).width, 0);
     expect(
       tester.widget<ColoredBox>(divider).color,
       Theme.of(tester.element(divider)).shell.divider,

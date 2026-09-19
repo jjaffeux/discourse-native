@@ -4,6 +4,7 @@ import 'package:discourse_native/src/models/forum_workspace.dart';
 import 'package:discourse_native/src/models/sidebar.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
+import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/fakes.dart';
@@ -197,25 +198,25 @@ void main() {
       });
 
       test(
-        'sidebar and filter visits restore their navigation context',
+        'sidebar destination visits restore their navigation context',
         () async {
           controller.openTopicFromList(
             const Topic(id: 101, slug: 'first', title: 'First'),
           );
-          controller.selectDestination(_destination(forums[0], 'filter'));
+          controller.selectDestination(_destination(forums[0], 'categories'));
           controller.selectDestination(_destination(forums[0], 'latest'));
           await controller.selectTopicListMode(TopicListMode.topYearly);
 
           expect(controller.handleBack(canReturnToSidebar: false), isTrue);
           expect(controller.currentTopicListMode, TopicListMode.latest);
           expect(controller.handleBack(canReturnToSidebar: false), isTrue);
-          expect(controller.destinationId, 'filter');
-          expect(controller.currentContent?.id, 'filter');
+          expect(controller.destinationId, 'categories');
+          expect(controller.currentContent?.id, 'categories');
           expect(controller.handleBack(canReturnToSidebar: false), isTrue);
           expect(controller.destinationId, 'latest');
           expect(controller.currentContent?.topicId, 101);
           expect(controller.handleForward(), isTrue);
-          expect(controller.destinationId, 'filter');
+          expect(controller.destinationId, 'categories');
           expect(controller.handleForward(), isTrue);
           expect(controller.currentTopicListMode, TopicListMode.latest);
           expect(controller.handleForward(), isTrue);
@@ -224,13 +225,13 @@ void main() {
       );
 
       test('reselecting a destination refreshes without losing Forward', () {
-        controller.selectDestination(_destination(forums[0], 'filter'));
+        controller.selectDestination(_destination(forums[0], 'categories'));
         controller.handleBack(canReturnToSidebar: false);
         final tab = controller.activeTab;
         controller.selectDestination(_destination(forums[0], 'latest'));
         expect(controller.activeTab, tab);
         expect(controller.handleForward(), isTrue);
-        expect(controller.currentContent?.id, 'filter');
+        expect(controller.currentContent?.id, 'categories');
       });
 
       test('replacing a reader after Back clears Forward', () {
@@ -416,29 +417,29 @@ void main() {
         final firstForumInitialTabId = controller.activeTabId;
         controller.createTab();
         final firstForumLastTabId = controller.activeTabId;
-        controller.selectDestination(_destination(forums[0], 'filter'));
+        controller.selectDestination(_destination(forums[0], 'categories'));
 
         controller.selectInstance(1);
         controller.createTab();
         controller.createTab();
         final secondForumLastTabId = controller.activeTabId;
-        controller.selectDestination(_destination(forums[1], 'filter'));
+        controller.selectDestination(_destination(forums[1], 'categories'));
 
         expect(controller.tabsForCurrentForum, hasLength(3));
-        expect(controller.currentContent?.id, 'filter');
+        expect(controller.currentContent?.id, 'categories');
 
         controller.selectInstance(0);
 
         expect(controller.tabsForCurrentForum, hasLength(2));
         expect(controller.activeTabId, firstForumLastTabId);
         expect(controller.activeTabId, isNot(firstForumInitialTabId));
-        expect(controller.currentContent?.id, 'filter');
+        expect(controller.currentContent?.id, 'categories');
 
         controller.selectInstance(1);
 
         expect(controller.tabsForCurrentForum, hasLength(3));
         expect(controller.activeTabId, secondForumLastTabId);
-        expect(controller.currentContent?.id, 'filter');
+        expect(controller.currentContent?.id, 'categories');
       });
     });
 
@@ -559,9 +560,9 @@ void main() {
 
         controller.createTab();
         final secondTabId = controller.activeTabId!;
-        controller.selectDestination(_destination(forums[0], 'filter'));
+        controller.selectDestination(_destination(forums[0], 'categories'));
 
-        expect(_routeIds(controller), ['filter']);
+        expect(_routeIds(controller), ['categories']);
 
         controller.selectTab(firstTabId);
 
@@ -569,7 +570,7 @@ void main() {
 
         controller.selectTab(secondTabId);
 
-        expect(_routeIds(controller), ['filter']);
+        expect(_routeIds(controller), ['categories']);
       });
 
       test('restores feed rows independently', () {
@@ -697,7 +698,7 @@ void main() {
           controller.saveTopicScrollPost(404, 16);
           controller.createTab();
           final activeTabId = controller.activeTabId!;
-          controller.selectDestination(_destination(forums[0], 'filter'));
+          controller.selectDestination(_destination(forums[0], 'categories'));
           await Future<void>.delayed(Duration.zero);
 
           controller = ShellController(
@@ -716,7 +717,7 @@ void main() {
             activeTabId,
           ]);
           expect(controller.activeTabId, activeTabId);
-          expect(_routeIds(controller), ['filter']);
+          expect(_routeIds(controller), ['categories']);
 
           controller.selectTab(firstTabId);
           expect(_routeIds(controller), ['latest', 'topic-404']);
@@ -788,8 +789,8 @@ void main() {
         final latest = ContentRoute.fromDestination(
           _destination(forums.first, 'latest'),
         );
-        final filter = ContentRoute.fromDestination(
-          _destination(forums.first, 'filter'),
+        final categories = ContentRoute.fromDestination(
+          _destination(forums.first, 'categories'),
         );
         final inactive = ForumTab(
           id: 'inactive-tab',
@@ -799,7 +800,7 @@ void main() {
         final active = ForumTab(
           id: 'active-tab',
           rootDestinationId: 'latest',
-          contentStack: [latest, filter],
+          contentStack: [latest, categories],
           anchors: const {'latest': ForumTabAnchor(kind: 'feed', itemId: 27)},
         );
         final disabledTabs = FakeForumTabStore([
@@ -837,10 +838,18 @@ void main() {
 ContentRoute _topic(int id, String title) =>
     ContentRoute.topic(topicId: id, slug: 'topic-$id', title: title);
 
-SidebarDestination _destination(DiscourseInstance forum, String id) => forum
-    .sections
-    .expand((section) => [...section.destinations, ...section.moreDestinations])
-    .singleWhere((destination) => destination.id == id);
+SidebarDestination _destination(DiscourseInstance forum, String id) =>
+    id == 'categories'
+    ? const SidebarDestination(
+        id: 'categories',
+        label: 'Categories',
+        icon: DIcons.filter,
+      )
+    : forum.sections
+          .expand(
+            (section) => [...section.destinations, ...section.moreDestinations],
+          )
+          .singleWhere((destination) => destination.id == id);
 
 List<String> _routeIds(ShellController controller) => [
   for (final route in controller.contentStack) route.id,

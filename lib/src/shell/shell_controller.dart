@@ -494,6 +494,12 @@ class ShellController extends FrameSafeNotifier
         _pluginDiagnosticsReporter,
       ),
       PluginHostPort<Object>(
+        corePluginTopicListPreferencesPort,
+        PluginTopicListPreferencesHost(
+          showAssignments: () => appSettings.topicListShowAssignments,
+        ),
+      ),
+      PluginHostPort<Object>(
         corePluginSiteStatePort,
         PluginSiteStateHost(
           currentUserFor: (siteUrl) => _instanceAt(siteUrl)?.user,
@@ -2760,6 +2766,7 @@ class ShellController extends FrameSafeNotifier
       _putWorkspace(currentWorkspace!.copyWith(activeTabId: listPanelTab!.id));
       _syncTopicChannels();
       _notify();
+      if (currentInstance case final instance?) _hydrateActiveTab(instance);
       return;
     }
     final active = activeTab;
@@ -2771,6 +2778,7 @@ class ShellController extends FrameSafeNotifier
     _replaceActiveTab(_closeTopicRoute(active));
     _syncTopicChannels();
     _notify();
+    if (currentInstance case final instance?) _hydrateActiveTab(instance);
   }
 
   /// Returns from a conversation to its source, including direct topic links.
@@ -5437,6 +5445,9 @@ class ShellController extends FrameSafeNotifier
           .firstOrNull;
       if (existing != null) {
         selectTab(existing.id);
+        if (postNumber != null) {
+          _targetCurrentTopicPost(postNumber);
+        }
       } else if (canCreateTab) {
         final source = listPanelTab ?? activeTab!;
         if (_panelOwner case final owner?) _listPanelTabs[owner] = source.id;

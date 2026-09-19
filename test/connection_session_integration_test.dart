@@ -462,7 +462,7 @@ void _registerConnectionSessionTests() {
 
     Future<void> openChat(WidgetTester tester) async {
       await openMenu(tester);
-      await tester.tap(find.text('Chat'));
+      await tester.tap(find.text('Chat').last);
       await tester.pumpAndSettle();
     }
 
@@ -978,7 +978,7 @@ void _registerConnectionSessionTests() {
           reactionPost(const [Reaction(id: 'clap', count: 1)]),
         ],
       );
-      await tester.tap(find.byTooltip('Collapse topic'));
+      controller.closeTopic();
       await tester.pumpAndSettle();
       await openNotifications(tester);
       await tester.tap(find.textContaining('david reacted to your post in'));
@@ -1656,7 +1656,15 @@ void _registerConnectionSessionTests() {
         findsOneWidget,
       );
 
-      await tester.drag(find.byType(ListView).last, const Offset(0, 320));
+      await tester.drag(
+        find
+            .descendant(
+              of: find.byType(UserActivityView),
+              matching: find.byType(SingleChildScrollView),
+            )
+            .first,
+        const Offset(0, 320),
+      );
       await tester.pumpAndSettle();
       expect(api.userActivityRequests, hasLength(2));
     });

@@ -1091,7 +1091,7 @@ void main() {
         same(gallery),
       );
 
-      await tester.tapAt(controlCenter);
+      await tester.tap(find.byTooltip('Gallery options'));
       await tester.pump();
       await tester.pump();
 
@@ -1113,7 +1113,7 @@ void main() {
       );
       expect(_composerEditable(tester).showCursor, isFalse);
 
-      await tester.tapAt(controlCenter);
+      await tester.tap(find.byTooltip('Gallery options'));
       await tester.pump();
       await tester.pump();
       expect(
@@ -1130,7 +1130,7 @@ void main() {
       );
       expect(_composerEditable(tester).showCursor, isTrue);
 
-      await tester.tapAt(controlCenter);
+      await tester.tap(find.byTooltip('Gallery options'));
       await tester.pump();
       await tester.pump();
       expect(
@@ -1215,14 +1215,15 @@ void main() {
       await tester.pumpAndSettle();
 
       final gallery = composer.text.galleryBlocks.single;
-      final controlCenter = _paintedGalleryControlCenter(tester, composer);
       for (final (key, expectedOffset) in [
         (LogicalKeyboardKey.arrowUp, gallery.start - 1),
         (LogicalKeyboardKey.arrowDown, gallery.end),
       ]) {
-        await tester.tapAt(controlCenter);
+        composer.text.selection = TextSelection.collapsed(offset: gallery.end);
+        composer.focus.requestFocus();
         await tester.pump();
-        await tester.pump();
+        await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
+        await tester.pumpAndSettle();
         expect(
           find.byKey(const ValueKey('composer-gallery-toolbar')),
           findsOneWidget,
@@ -1275,9 +1276,11 @@ void main() {
       await tester.pumpAndSettle();
 
       final gallery = composer.text.galleryBlocks.single;
-      await tester.tapAt(_paintedGalleryControlCenter(tester, composer));
+      composer.text.selection = TextSelection.collapsed(offset: gallery.end);
+      composer.focus.requestFocus();
       await tester.pump();
-      await tester.pump();
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
+      await tester.pumpAndSettle();
       expect(
         find.byKey(const ValueKey('composer-gallery-toolbar')),
         findsOneWidget,
@@ -1799,20 +1802,6 @@ Future<Rect> _paintedColorBounds(WidgetTester tester, Color color) async {
     (right + 1).toDouble(),
     (bottom + 1).toDouble(),
   );
-}
-
-Offset _paintedGalleryControlCenter(
-  WidgetTester tester,
-  ComposerController composer,
-) {
-  final gallery = composer.text.galleryBlocks.single;
-  final paintedGallery = composer.text.collapsedGalleryGlobalRect(gallery)!;
-  final laidOutGallery = tester.getRect(
-    find.byType(ComposerImageGalleryPreview),
-  );
-  return tester.getCenter(find.byType(ComposerImageGalleryControl)) +
-      paintedGallery.topLeft -
-      laidOutGallery.topLeft;
 }
 
 EditableText _composerEditable(WidgetTester tester) =>

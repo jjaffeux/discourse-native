@@ -101,6 +101,10 @@ final class AssignModule implements PluginModule {
         return PluginSessionContribution(
           lifecycle: _AssignSessionLifecycle(controller, assignedGroups),
           services: [
+            PluginService<Object>(
+              assignTopicListPreferencesService,
+              bindings.require(corePluginTopicListPreferencesPort),
+            ),
             PluginService<Object>(assignmentControllerService, controller),
             PluginService<Object>(
               assignedGroupControllerService,
@@ -123,6 +127,7 @@ final class AssignModule implements PluginModule {
         corePluginFreshAccountPort,
         corePluginTopicRefreshPort,
         corePluginSiteStatePort,
+        corePluginTopicListPreferencesPort,
         corePluginRouteNavigationPort,
         corePluginNotificationFeedPort,
         pluginDiagnosticsReporterPort,

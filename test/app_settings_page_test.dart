@@ -328,8 +328,9 @@ Future<void> _pumpPage(
       child: MaterialApp(
         theme: theme ?? AppTheme.light,
         builder: (context, child) => MediaQuery(
-          data: MediaQuery.of(context)
-              .copyWith(textScaler: TextScaler.linear(scale)),
+          data: MediaQuery.of(
+            context,
+          ).copyWith(textScaler: TextScaler.linear(scale)),
           child: Directionality(
             textDirection: rtl ? TextDirection.rtl : TextDirection.ltr,
             child: child!,
