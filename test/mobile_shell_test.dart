@@ -31,7 +31,14 @@ import 'support/fakes.dart';
 import 'support/shell_test_harness.dart';
 
 const _site = 'https://meta.discourse.org';
-const _user = DiscourseUser(id: 7, username: 'reader');
+final _user = DiscourseUser(
+  id: 7,
+  username: 'reader',
+  plugins: PluginData.none.withValue(
+    chatCurrentUserDataKey,
+    const ChatCurrentUser(hasChatEnabled: true, canDirectMessage: true),
+  ),
+);
 final _bar = find.byKey(const ValueKey('mobile-bottom-bar'));
 final _header = find.byKey(const ValueKey('mobile-header'));
 
@@ -275,6 +282,38 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  _mobileTest('Start chatting opens a full page and returns to DMs', (
+    tester,
+  ) async {
+    final shell = await _pumpMobile(tester);
+    await tester.tap(find.byKey(const ValueKey('mobile-mode-chat')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('DMs'));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const ValueKey('chat-drawer-new-message-action')),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Start chatting'), findsOneWidget);
+    await tester.tap(
+      find.byKey(const ValueKey('chat-new-direct-message-channel-10')),
+    );
+    await tester.pumpAndSettle();
+    _expectPage();
+    expect(shell.currentContent?.id, contains('10'));
+    expect(find.text('Start chatting'), findsNothing);
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(_bar, findsOneWidget);
+    expect(
+      tester
+          .widget<ChatDrawerChannelsView>(find.byType(ChatDrawerChannelsView))
+          .kind,
+      ChatDrawerChannelListKind.directMessages,
+    );
+    expect(tester.takeException(), isNull);
+  });
+
   _mobileTest('list filters replace the page and system Back returns home', (
     tester,
   ) async {
@@ -341,6 +380,12 @@ void main() {
     expect(shell.mobileNavigation.atRoot, isTrue);
     await tester.tap(find.byKey(const ValueKey('mobile-mode-chat')));
     await tester.pumpAndSettle();
+    await tester.tap(find.text('DMs'));
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const ValueKey('chat-drawer-new-message-action')),
+      findsOneWidget,
+    );
     await tester.tap(find.byKey(const ValueKey('mobile-forum-settings')));
     await tester.pumpAndSettle();
     expect(find.byType(DSheetContent), findsOneWidget);

@@ -1029,48 +1029,71 @@ class ChatDrawerChannelsView extends StatelessWidget {
                 constraints: BoxConstraints(
                   minHeight: MediaQuery.textScalerOf(context).scale(36),
                 ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child:
-                          header ??
-                          Row(
-                            children: [
-                              Flexible(
-                                child: Text(
-                                  switch (kind) {
-                                    ChatDrawerChannelListKind.channels =>
-                                      'Channels',
-                                    ChatDrawerChannelListKind.starred =>
-                                      'Starred',
-                                    ChatDrawerChannelListKind.directMessages =>
-                                      'Direct messages',
-                                  },
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: Theme.of(context).textTheme.titleSmall
-                                      ?.copyWith(fontWeight: FontWeight.w600),
-                                ),
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final heading =
+                        header ??
+                        Row(
+                          children: [
+                            Flexible(
+                              child: Text(
+                                switch (kind) {
+                                  ChatDrawerChannelListKind.channels =>
+                                    'Channels',
+                                  ChatDrawerChannelListKind.starred =>
+                                    'Starred',
+                                  ChatDrawerChannelListKind.directMessages =>
+                                    'Direct messages',
+                                },
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: Theme.of(context).textTheme.titleSmall
+                                    ?.copyWith(fontWeight: FontWeight.w600),
                               ),
-                              const SizedBox(width: 8),
-                              Text(
-                                '${channels.length}',
-                                style: Theme.of(context).textTheme.labelSmall
-                                    ?.copyWith(color: colors.onSurfaceVariant),
-                              ),
-                            ],
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              '${channels.length}',
+                              style: Theme.of(context).textTheme.labelSmall
+                                  ?.copyWith(color: colors.onSurfaceVariant),
+                            ),
+                          ],
+                        );
+                    final actions = [
+                      ChatChannelListActions(
+                        controller: chat.channelListPreferences,
+                        siteUrl: siteUrl,
+                        section: section,
+                      ),
+                      if (action != null) ...[
+                        const SizedBox(width: DSpacing.controlGap),
+                        action,
+                      ],
+                    ];
+                    if (header != null &&
+                        constraints.maxWidth <
+                            MediaQuery.textScalerOf(context).scale(320)) {
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          heading,
+                          Align(
+                            alignment: AlignmentDirectional.centerEnd,
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: actions,
+                            ),
                           ),
-                    ),
-                    ChatChannelListActions(
-                      controller: chat.channelListPreferences,
-                      siteUrl: siteUrl,
-                      section: section,
-                    ),
-                    if (action != null) ...[
-                      const SizedBox(width: DSpacing.controlGap),
-                      action,
-                    ],
-                  ],
+                        ],
+                      );
+                    }
+                    return Row(
+                      children: [
+                        Expanded(child: heading),
+                        ...actions,
+                      ],
+                    );
+                  },
                 ),
               ),
             ),
