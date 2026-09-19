@@ -1,0 +1,70 @@
+00:00 +0: loading /Users/joffreyjaffeux/.codex/worktrees/cooking-m5/discourse-native/test/lightbox_test.dart
+00:00 +0: /Users/joffreyjaffeux/.codex/worktrees/cooking-m5/discourse-native/test/lightbox_test.dart: LightboxImage.from reads the full-size image off the anchor, not the thumbnail
+00:00 +1: /Users/joffreyjaffeux/.codex/worktrees/cooking-m5/discourse-native/test/cooked_spoiler_test.dart: conceals descendants before plugin/media construction
+00:00 +2: /Users/joffreyjaffeux/.codex/worktrees/cooking-m5/discourse-native/test/cooked_spoiler_test.dart: conceals descendants before plugin/media construction
+00:00 +3: /Users/joffreyjaffeux/.codex/worktrees/cooking-m5/discourse-native/test/cooked_spoiler_test.dart: conceals descendants before plugin/media construction
+00:00 +4: /Users/joffreyjaffeux/.codex/worktrees/cooking-m5/discourse-native/test/cooked_spoiler_test.dart: conceals descendants before plugin/media construction
+00:00 +5: /Users/joffreyjaffeux/.codex/worktrees/cooking-m5/discourse-native/test/cooked_spoiler_test.dart: conceals descendants before plugin/media construction
+00:00 +6: /Users/joffreyjaffeux/.codex/worktrees/cooking-m5/discourse-native/test/cooked_spoiler_test.dart: conceals descendants before plugin/media construction
+00:00 +7: /Users/joffreyjaffeux/.codex/worktrees/cooking-m5/discourse-native/test/cooked_spoiler_test.dart: conceals descendants before plugin/media construction
+00:00 +8: /Users/joffreyjaffeux/.codex/worktrees/cooking-m5/discourse-native/test/cooked_spoiler_test.dart: conceals descendants before plugin/media construction
+00:00 +9: /Users/joffreyjaffeux/.codex/worktrees/cooking-m5/discourse-native/test/cooked_spoiler_test.dart: conceals descendants before plugin/media construction
+00:00 +10: /Users/joffreyjaffeux/.codex/worktrees/cooking-m5/discourse-native/test/cooked_spoiler_test.dart: conceals descendants before plugin/media construction
+00:00 +11: /Users/joffreyjaffeux/.codex/worktrees/cooking-m5/discourse-native/test/cooked_spoiler_test.dart: conceals descendants before plugin/media construction
+00:00 +12: /Users/joffreyjaffeux/.codex/worktrees/cooking-m5/discourse-native/test/cooked_spoiler_test.dart: conceals descendants before plugin/media construction
+00:00 +13: /Users/joffreyjaffeux/.codex/worktrees/cooking-m5/discourse-native/test/cooked_spoiler_test.dart: conceals descendants before plugin/media construction
+00:00 +14: /Users/joffreyjaffeux/.codex/worktrees/cooking-m5/discourse-native/test/cooked_spoiler_test.dart: conceals descendants before plugin/media construction
+00:00 +15: /Users/joffreyjaffeux/.codex/worktrees/cooking-m5/discourse-native/test/cooked_spoiler_test.dart: conceals descendants before plugin/media construction
+00:00 +16: /Users/joffreyjaffeux/.codex/worktrees/cooking-m5/discourse-native/test/cooked_spoiler_test.dart: conceals descendants before plugin/media construction
+00:00 +17: /Users/joffreyjaffeux/.codex/worktrees/cooking-m5/discourse-native/test/cooked_spoiler_test.dart: conceals descendants before plugin/media construction
+00:00 +18: /Users/joffreyjaffeux/.codex/worktrees/cooking-m5/discourse-native/test/cooked_spoiler_test.dart: conceals descendants before plugin/media construction
+00:00 +19: /Users/joffreyjaffeux/.codex/worktrees/cooking-m5/discourse-native/test/cooked_spoiler_test.dart: conceals descendants before plugin/media construction
+00:00 +20: /Users/joffreyjaffeux/.codex/worktrees/cooking-m5/discourse-native/test/cooked_spoiler_test.dart: conceals descendants before plugin/media construction
+00:00 +21: /Users/joffreyjaffeux/.codex/worktrees/cooking-m5/discourse-native/test/cooked_spoiler_test.dart: conceals descendants before plugin/media construction
+00:00 +22: /Users/joffreyjaffeux/.codex/worktrees/cooking-m5/discourse-native/test/cooked_spoiler_test.dart: conceals descendants before plugin/media construction
+00:00 +23: /Users/joffreyjaffeux/.codex/worktrees/cooking-m5/discourse-native/test/cooked_spoiler_test.dart: conceals descendants before plugin/media construction
+00:00 +24: /Users/joffreyjaffeux/.codex/worktrees/cooking-m5/discourse-native/test/cooked_spoiler_test.dart: conceals descendants before plugin/media construction
+00:00 +25: /Users/joffreyjaffeux/.codex/worktrees/cooking-m5/discourse-native/test/lightbox_test.dart: in a post draws the thumbnail natively instead of as a bare img
+00:00 +26: /Users/joffreyjaffeux/.codex/worktrees/cooking-m5/discourse-native/test/cooked_spoiler_test.dart: nested spoilers reveal independently and reset with changed source
+00:00 +27: /Users/joffreyjaffeux/.codex/worktrees/cooking-m5/discourse-native/test/cooked_spoiler_test.dart: nested spoilers reveal independently and reset with changed source
+00:00 +28: /Users/joffreyjaffeux/.codex/worktrees/cooking-m5/discourse-native/test/cooked_spoiler_test.dart: nested spoilers reveal independently and reset with changed source
+00:00 +29: /Users/joffreyjaffeux/.codex/worktrees/cooking-m5/discourse-native/test/lightbox_test.dart: in a post lays out an image whose markup declared no size
+00:00 +30: /Users/joffreyjaffeux/.codex/worktrees/cooking-m5/discourse-native/test/cooked_spoiler_test.dart: closed secrets are absent from selection and accessibility
+00:00 +31: /Users/joffreyjaffeux/.codex/worktrees/cooking-m5/discourse-native/test/cooked_spoiler_test.dart: closed secrets are absent from selection and accessibility
+00:00 +32: /Users/joffreyjaffeux/.codex/worktrees/cooking-m5/discourse-native/test/lightbox_test.dart: in a post reveals post metadata inside the image on hover
+00:00 +33: /Users/joffreyjaffeux/.codex/worktrees/cooking-m5/discourse-native/test/lightbox_test.dart: in a post reveals post metadata inside the image on hover
+00:00 +34: /Users/joffreyjaffeux/.codex/worktrees/cooking-m5/discourse-native/test/lightbox_test.dart: in a post opens the gallery on the image that was tapped
+00:00 +35: /Users/joffreyjaffeux/.codex/worktrees/cooking-m5/discourse-native/test/lightbox_test.dart: in a post galleries respect closed and revealed spoiler boundaries
+00:00 +36: /Users/joffreyjaffeux/.codex/worktrees/cooking-m5/discourse-native/test/lightbox_test.dart: in a post details images open only within their revealed fragment
+00:01 +37: /Users/joffreyjaffeux/.codex/worktrees/cooking-m5/discourse-native/test/lightbox_test.dart: in a post shows the caption Discourse wrote into the markup
+00:01 +38: /Users/joffreyjaffeux/.codex/worktrees/cooking-m5/discourse-native/test/lightbox_test.dart: in a post keeps the caption readable over every image
+00:01 +39: /Users/joffreyjaffeux/.codex/worktrees/cooking-m5/discourse-native/test/lightbox_test.dart: in a post keeps extreme full-image geometry for PhotoView transforms
+00:01 +40: /Users/joffreyjaffeux/.codex/worktrees/cooking-m5/discourse-native/test/lightbox_test.dart: in a post defers a late natural size and resets the zoom to its bounds
+00:01 +41: /Users/joffreyjaffeux/.codex/worktrees/cooking-m5/discourse-native/test/lightbox_test.dart: in a post resizing the viewport resets the current zoom and position
+00:01 +42: /Users/joffreyjaffeux/.codex/worktrees/cooking-m5/discourse-native/test/lightbox_test.dart: in a post labels the full image and exposes accessible zoom controls
+00:01 +43: /Users/joffreyjaffeux/.codex/worktrees/cooking-m5/discourse-native/test/lightbox_test.dart: in a post zooms with the visible controls and resets
+00:01 +44: /Users/joffreyjaffeux/.codex/worktrees/cooking-m5/discourse-native/test/lightbox_test.dart: in a post disables zoom controls at their scale bounds
+00:01 +45: /Users/joffreyjaffeux/.codex/worktrees/cooking-m5/discourse-native/test/lightbox_test.dart: in a post styles disabled zoom controls with inherited muted color
+00:01 +46: /Users/joffreyjaffeux/.codex/worktrees/cooking-m5/discourse-native/test/lightbox_test.dart: in a post zooms with keyboard shortcuts
+00:01 +47: /Users/joffreyjaffeux/.codex/worktrees/cooking-m5/discourse-native/test/lightbox_test.dart: in a post zooms around an off-center pointer with the mouse wheel
+00:01 +48: /Users/joffreyjaffeux/.codex/worktrees/cooking-m5/discourse-native/test/lightbox_test.dart: in a post diagonal mouse-wheel zoom does not change the gallery page
+00:01 +49: /Users/joffreyjaffeux/.codex/worktrees/cooking-m5/discourse-native/test/lightbox_test.dart: in a post scrolling up over a toolbar button increases image scale
+00:01 +50: /Users/joffreyjaffeux/.codex/worktrees/cooking-m5/discourse-native/test/lightbox_test.dart: in a post ignores a modified mouse wheel
+00:01 +51: /Users/joffreyjaffeux/.codex/worktrees/cooking-m5/discourse-native/test/lightbox_test.dart: in a post resets the zoom when changing pages
+00:01 +52: /Users/joffreyjaffeux/.codex/worktrees/cooking-m5/discourse-native/test/lightbox_test.dart: in a post double tap still zooms after returning to minimum scale
+00:01 +53: /Users/joffreyjaffeux/.codex/worktrees/cooking-m5/discourse-native/test/lightbox_test.dart: in a post pinches the image to zoom in with two touch pointers
+00:01 +54: /Users/joffreyjaffeux/.codex/worktrees/cooking-m5/discourse-native/test/lightbox_test.dart: in a post offers a download for an upload
+00:01 +55: /Users/joffreyjaffeux/.codex/worktrees/cooking-m5/discourse-native/test/lightbox_test.dart: in a post downloads the upload instead of opening its URL
+00:01 +56: /Users/joffreyjaffeux/.codex/worktrees/cooking-m5/discourse-native/test/lightbox_test.dart: in a post toolbar clears macOS chrome and stays outside the image
+00:01 +57: /Users/joffreyjaffeux/.codex/worktrees/cooking-m5/discourse-native/test/lightbox_test.dart: in a post puts top controls on dark surfaces
+00:01 +58: /Users/joffreyjaffeux/.codex/worktrees/cooking-m5/discourse-native/test/lightbox_test.dart: in a post fits gallery controls at 320px with 2x text scaling
+00:01 +59: /Users/joffreyjaffeux/.codex/worktrees/cooking-m5/discourse-native/test/lightbox_test.dart: in a post offers no download for an image that carries no link
+00:02 +60: /Users/joffreyjaffeux/.codex/worktrees/cooking-m5/discourse-native/test/lightbox_test.dart: in a post hides the counter for a post with one image
+00:02 +61: /Users/joffreyjaffeux/.codex/worktrees/cooking-m5/discourse-native/test/lightbox_test.dart: in a post closes on the close button
+00:02 +62: /Users/joffreyjaffeux/.codex/worktrees/cooking-m5/discourse-native/test/lightbox_test.dart: in a post reveals hidden controls when the pointer moves
+00:02 +63: /Users/joffreyjaffeux/.codex/worktrees/cooking-m5/discourse-native/test/lightbox_test.dart: in a post closes on Escape, which is what the web client binds
+00:02 +64: /Users/joffreyjaffeux/.codex/worktrees/cooking-m5/discourse-native/test/lightbox_test.dart: in a post steps between images with the arrow keys
+00:02 +65: /Users/joffreyjaffeux/.codex/worktrees/cooking-m5/discourse-native/test/lightbox_test.dart: in a post offers arrows to a pointer
+00:02 +66: /Users/joffreyjaffeux/.codex/worktrees/cooking-m5/discourse-native/test/lightbox_test.dart: in a post offers no arrows to a finger, which swipes instead
+00:02 +67: /Users/joffreyjaffeux/.codex/worktrees/cooking-m5/discourse-native/test/lightbox_test.dart: in a post leaves images Discourse did not lightbox alone
+00:02 +68: All tests passed!

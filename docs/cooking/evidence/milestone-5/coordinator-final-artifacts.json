@@ -1,0 +1,14 @@
+{
+  "sourceCommit": "2297a10bb255dea1a2c86a25f1dba806d9f7b04c",
+  "verifiedArtifacts": 4,
+  "bundleSha256": "0b445bf11e88a702f9eb0d9e5a9748977270f5d585cb9db21c92fba71d6c2529",
+  "checks": [
+    "clean source commit",
+    "kernel size and SHA256",
+    "embedded bundle SHA",
+    "native binary size and SHA256",
+    "architectures",
+    "all five exports per architecture"
+  ],
+  "deviceExecution": false
+}

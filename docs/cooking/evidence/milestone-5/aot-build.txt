@@ -1,0 +1,3 @@
+Running build hooks...Running build hooks...Running link hooks...Running link hooks...Copying 1 build assets:
+package:discourse_cooking/src/native_runtime.dart
+Generated: /Users/joffreyjaffeux/.codex/worktrees/cooking-m5/discourse-native/packages/discourse_cooking/build/m5-benchmark/bundle/bin/benchmark

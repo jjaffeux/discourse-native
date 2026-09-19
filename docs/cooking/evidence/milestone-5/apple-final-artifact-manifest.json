@@ -1,0 +1,124 @@
+{
+  "sourceCommit": "2297a10bb255dea1a2c86a25f1dba806d9f7b04c",
+  "sourceBundleSha256": "0b445bf11e88a702f9eb0d9e5a9748977270f5d585cb9db21c92fba71d6c2529",
+  "verifiedAtUtc": "2026-09-19T18:16:27.280362+00:00",
+  "deviceExecution": false,
+  "sourceWorktreeClean": true,
+  "buildCommandsPerProfile": [
+    "flutter build ios --simulator --debug --no-codesign --no-pub",
+    "flutter build macos --debug --config-only --no-pub",
+    "xcodebuild build -workspace macos/Runner.xcworkspace -scheme Runner -configuration Debug -derivedDataPath build/macos-cooking-ci CODE_SIGNING_ALLOWED=NO"
+  ],
+  "flutterVersion": {
+    "frameworkVersion": "3.47.4",
+    "channel": "stable",
+    "repositoryUrl": "https://github.com/flutter/flutter.git",
+    "frameworkRevision": "9584c6713b324636289d067944a46fd6b49df14b",
+    "frameworkCommitDate": "2026-09-10 15:25:10 -0700",
+    "engineRevision": "06a2e2a110089dff50fe635cffd2a61e1b24fbcd",
+    "engineCommitDate": "2026-09-03 16:07:13.000Z",
+    "engineContentHash": "0e228ec8c8d2abc9fcf1d053e8a40665bb859ec7",
+    "engineBuildDate": "2026-09-03 18:39:13.722",
+    "dartSdkVersion": "3.13.3",
+    "devToolsVersion": "2.60.0",
+    "flutterVersion": "3.47.4",
+    "flutterRoot": "/opt/homebrew/share/flutter"
+  },
+  "xcodeVersion": "Xcode 27.0\nBuild version 27A266a",
+  "artifacts": [
+    {
+      "name": "root-ios-simulator-debug",
+      "appPath": "/Users/joffreyjaffeux/.codex/worktrees/cooking-m5-apple/discourse-native/build/ios/iphonesimulator/Runner.app",
+      "kernelPath": "/Users/joffreyjaffeux/.codex/worktrees/cooking-m5-apple/discourse-native/build/ios/iphonesimulator/Runner.app/Frameworks/App.framework/flutter_assets/kernel_blob.bin",
+      "kernelBytes": 143616552,
+      "kernelSha256": "df092b1a98b8a8d266f90ce34c2fcf1207f7ea7fe890e4147a9d8f995acad51b",
+      "containsFinalBundleSha256": "0b445bf11e88a702f9eb0d9e5a9748977270f5d585cb9db21c92fba71d6c2529",
+      "nativeFrameworkPath": "/Users/joffreyjaffeux/.codex/worktrees/cooking-m5-apple/discourse-native/build/ios/iphonesimulator/Runner.app/Frameworks/discourse_cooking.framework",
+      "nativeBinaryBytes": 2347376,
+      "nativeBinarySha256": "1b064fc23efeb2ecea56e8a5302d3ccd0b361bd6ea53018907644cc05eb70552",
+      "nativeBinaryType": "Mach-O universal binary with 2 architectures: [x86_64:Mach-O 64-bit dynamically linked shared library x86_64] [arm64]\n/Users/joffreyjaffeux/.codex/worktrees/cooking-m5-apple/discourse-native/build/ios/iphonesimulator/Runner.app/Frameworks/discourse_cooking.framework/discourse_cooking (for architecture x86_64):\tMach-O 64-bit dynamically linked shared library x86_64\n/Users/joffreyjaffeux/.codex/worktrees/cooking-m5-apple/discourse-native/build/ios/iphonesimulator/Runner.app/Frameworks/discourse_cooking.framework/discourse_cooking (for architecture arm64):\tMach-O 64-bit dynamically linked shared library arm64",
+      "verifiedNativeArchitectures": [
+        "x86_64",
+        "arm64"
+      ],
+      "verifiedExportsInEveryArchitecture": [
+        "_dc_create",
+        "_dc_destroy",
+        "_dc_evaluate",
+        "_dc_free",
+        "_dc_memory"
+      ],
+      "differsFromInitialKernel": true
+    },
+    {
+      "name": "full-ios-simulator-debug",
+      "appPath": "/Users/joffreyjaffeux/.codex/worktrees/cooking-m5-apple/discourse-native/profiles/full/build/ios/iphonesimulator/Runner.app",
+      "kernelPath": "/Users/joffreyjaffeux/.codex/worktrees/cooking-m5-apple/discourse-native/profiles/full/build/ios/iphonesimulator/Runner.app/Frameworks/App.framework/flutter_assets/kernel_blob.bin",
+      "kernelBytes": 143415312,
+      "kernelSha256": "ce940f3a007fb8e67d99fd5296666ce4d18fb4d22eb151215522d9f4bb272918",
+      "containsFinalBundleSha256": "0b445bf11e88a702f9eb0d9e5a9748977270f5d585cb9db21c92fba71d6c2529",
+      "nativeFrameworkPath": "/Users/joffreyjaffeux/.codex/worktrees/cooking-m5-apple/discourse-native/profiles/full/build/ios/iphonesimulator/Runner.app/Frameworks/discourse_cooking.framework",
+      "nativeBinaryBytes": 2347376,
+      "nativeBinarySha256": "7e32f027a26c283c0ccc5747dac9fafc504697ee69e873d31943836c9e4f64b1",
+      "nativeBinaryType": "Mach-O universal binary with 2 architectures: [x86_64:Mach-O 64-bit dynamically linked shared library x86_64] [arm64]\n/Users/joffreyjaffeux/.codex/worktrees/cooking-m5-apple/discourse-native/profiles/full/build/ios/iphonesimulator/Runner.app/Frameworks/discourse_cooking.framework/discourse_cooking (for architecture x86_64):\tMach-O 64-bit dynamically linked shared library x86_64\n/Users/joffreyjaffeux/.codex/worktrees/cooking-m5-apple/discourse-native/profiles/full/build/ios/iphonesimulator/Runner.app/Frameworks/discourse_cooking.framework/discourse_cooking (for architecture arm64):\tMach-O 64-bit dynamically linked shared library arm64",
+      "verifiedNativeArchitectures": [
+        "x86_64",
+        "arm64"
+      ],
+      "verifiedExportsInEveryArchitecture": [
+        "_dc_create",
+        "_dc_destroy",
+        "_dc_evaluate",
+        "_dc_free",
+        "_dc_memory"
+      ],
+      "differsFromInitialKernel": true
+    },
+    {
+      "name": "root-macos-unsigned-debug",
+      "appPath": "/Users/joffreyjaffeux/.codex/worktrees/cooking-m5-apple/discourse-native/build/macos-cooking-ci/Build/Products/Debug/Discourse.app",
+      "kernelPath": "/Users/joffreyjaffeux/.codex/worktrees/cooking-m5-apple/discourse-native/build/macos-cooking-ci/Build/Products/Debug/Discourse.app/Contents/Frameworks/App.framework/Versions/A/Resources/flutter_assets/kernel_blob.bin",
+      "kernelBytes": 145255760,
+      "kernelSha256": "85e79eec9bd07567276708e01771083eb6b2b8ca57866ecbf7ef4ccea168898d",
+      "containsFinalBundleSha256": "0b445bf11e88a702f9eb0d9e5a9748977270f5d585cb9db21c92fba71d6c2529",
+      "nativeFrameworkPath": "/Users/joffreyjaffeux/.codex/worktrees/cooking-m5-apple/discourse-native/build/macos-cooking-ci/Build/Products/Debug/Discourse.app/Contents/Frameworks/discourse_cooking.framework",
+      "nativeBinaryBytes": 1123264,
+      "nativeBinarySha256": "5d5b317bb031d872be4ec60981e309542f73263c9a8f0afab8d1c185e77a986e",
+      "nativeBinaryType": "Mach-O universal binary with 1 architecture: [arm64:Mach-O 64-bit dynamically linked shared library arm64]\n/Users/joffreyjaffeux/.codex/worktrees/cooking-m5-apple/discourse-native/build/macos-cooking-ci/Build/Products/Debug/Discourse.app/Contents/Frameworks/discourse_cooking.framework/Versions/A/discourse_cooking (for architecture arm64):\tMach-O 64-bit dynamically linked shared library arm64",
+      "verifiedNativeArchitectures": [
+        "arm64"
+      ],
+      "verifiedExportsInEveryArchitecture": [
+        "_dc_create",
+        "_dc_destroy",
+        "_dc_evaluate",
+        "_dc_free",
+        "_dc_memory"
+      ],
+      "differsFromInitialKernel": true
+    },
+    {
+      "name": "full-macos-unsigned-debug",
+      "appPath": "/Users/joffreyjaffeux/.codex/worktrees/cooking-m5-apple/discourse-native/profiles/full/build/macos-cooking-ci/Build/Products/Debug/Discourse.app",
+      "kernelPath": "/Users/joffreyjaffeux/.codex/worktrees/cooking-m5-apple/discourse-native/profiles/full/build/macos-cooking-ci/Build/Products/Debug/Discourse.app/Contents/Frameworks/App.framework/Versions/A/Resources/flutter_assets/kernel_blob.bin",
+      "kernelBytes": 145054360,
+      "kernelSha256": "290d4d434eae6dcb2182cd02b63b16b629c08173cf089752b526f31df0778fec",
+      "containsFinalBundleSha256": "0b445bf11e88a702f9eb0d9e5a9748977270f5d585cb9db21c92fba71d6c2529",
+      "nativeFrameworkPath": "/Users/joffreyjaffeux/.codex/worktrees/cooking-m5-apple/discourse-native/profiles/full/build/macos-cooking-ci/Build/Products/Debug/Discourse.app/Contents/Frameworks/discourse_cooking.framework",
+      "nativeBinaryBytes": 1123264,
+      "nativeBinarySha256": "92dfd7644b4b3d0240c3db0ca5dc084b57030f8572e64ca4cfa1e7ffb7291505",
+      "nativeBinaryType": "Mach-O universal binary with 1 architecture: [arm64:Mach-O 64-bit dynamically linked shared library arm64]\n/Users/joffreyjaffeux/.codex/worktrees/cooking-m5-apple/discourse-native/profiles/full/build/macos-cooking-ci/Build/Products/Debug/Discourse.app/Contents/Frameworks/discourse_cooking.framework/Versions/A/discourse_cooking (for architecture arm64):\tMach-O 64-bit dynamically linked shared library arm64",
+      "verifiedNativeArchitectures": [
+        "arm64"
+      ],
+      "verifiedExportsInEveryArchitecture": [
+        "_dc_create",
+        "_dc_destroy",
+        "_dc_evaluate",
+        "_dc_free",
+        "_dc_memory"
+      ],
+      "differsFromInitialKernel": true
+    }
+  ]
+}
