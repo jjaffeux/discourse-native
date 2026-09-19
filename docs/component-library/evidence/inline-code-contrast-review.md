@@ -37,3 +37,8 @@ Verification on the integrated candidate (implementation `87b6ed43`, main base
 - Widget tests cover compact spacing, palette changes, link foreground,
   whitespace, text scaling, narrow layout and selection behavior. No native
   iOS or Linux device run was performed.
+
+Final integration starts from `c44ec0d0`. The intervening main change only
+affects desktop workspace background composition and its integration test;
+inline-code, typography, palette, fixture, and tested selection sources are
+unchanged, so the recorded verification remains applicable.
