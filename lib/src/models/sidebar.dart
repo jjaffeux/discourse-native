@@ -61,6 +61,7 @@ class SidebarDestination {
     this.onLongPress,
     this.url,
     this.feedPath,
+    this.linkId,
   });
 
   final String id;
@@ -117,6 +118,9 @@ class SidebarDestination {
   final String? url;
 
   final String? feedPath;
+
+  /// Core SidebarUrl ID, used when persisting a custom section's link order.
+  final int? linkId;
 }
 
 @immutable
@@ -135,6 +139,8 @@ class SidebarSection {
     this.actionAboveHeader = false,
     this.headerActionsBuilder,
     this.unreadCount = 0,
+    this.remoteId,
+    this.public = false,
   }) : assert(showHeader || !collapsible);
 
   /// Core's hidden `max_sidebar_section_links` setting is 50 and is enforced
@@ -182,6 +188,7 @@ class SidebarSection {
           label: name,
           icon: icons.iconNamed(iconName, fallback: DIcons.link),
           url: value,
+          linkId: jsonIntOrNull(link['id']),
         ),
       );
       linkIndex++;
@@ -194,10 +201,21 @@ class SidebarSection {
       moreDestinations: community ? List.unmodifiable(destinations) : const [],
       showHeader: !community,
       collapsible: !community,
+      remoteId:
+          !community &&
+              destinations.length == jsonArray(json['links']).length &&
+              destinations.every((link) => link.linkId != null)
+          ? jsonIntOrNull(json['id'])
+          : null,
+      public: json['public'] == true,
     );
   }
 
   final String title;
+
+  /// Only complete custom sections carry a reorderable server identity.
+  final int? remoteId;
+  final bool public;
   final List<SidebarDestination> destinations;
 
   /// Core promotes the active secondary link into the section itself so the

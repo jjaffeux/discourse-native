@@ -66,6 +66,23 @@ Future<void> main() async {
       },
       customSidebarSectionsBySite: {
         _site: [
+          SidebarSection.customFromJson({
+            'id': 9,
+            'title': 'Reorderable links',
+            'links': [
+              for (final (index, title) in [
+                'Handbook',
+                'Roadmap',
+                'Support',
+              ].indexed)
+                {
+                  'id': index + 1,
+                  'name': title,
+                  'value': '/link-${index + 1}',
+                  'icon': 'link',
+                },
+            ],
+          }, index: 0)!,
           for (final (id, title) in [
             ('one-to-one', '1:1'),
             ('assignments', 'Assignments'),
@@ -220,6 +237,7 @@ class _SidebarReviewState extends State<_SidebarReview> {
                 children: [
                   for (final surface in [
                     'Production',
+                    'Reorder example',
                     'Lazy example',
                     'Line tabs',
                     'Styleguide',
@@ -272,6 +290,17 @@ class _SidebarReviewState extends State<_SidebarReview> {
                             ? TextDirection.rtl
                             : TextDirection.ltr,
                         child: switch (_surface) {
+                          'Reorder example' => Align(
+                            alignment: Alignment.topCenter,
+                            child: Builder(
+                              builder: sidebarExamples.examples
+                                  .singleWhere(
+                                    (example) =>
+                                        example.title == 'Reorderable links',
+                                  )
+                                  .builder,
+                            ),
+                          ),
                           'Lazy example' => Align(
                             alignment: Alignment.topCenter,
                             child: SizedBox(

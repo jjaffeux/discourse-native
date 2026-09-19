@@ -11,6 +11,7 @@ import '../plugin_api/plugin_scope.dart';
 import '../plugin_api/site_plugin_api.dart';
 import '../theme/app_theme.dart';
 import '../theme/d_icons.dart';
+import 'adaptive_dialog_action.dart';
 import 'avatar_image.dart';
 import 'emoji.dart';
 import 'external_link.dart';
@@ -837,6 +838,51 @@ class _SidebarLoadingSkeleton extends StatelessWidget {
 
 class _SectionState extends State<_Section> {
   bool _collapsed = false;
+  bool _reordering = false;
+
+  Future<void> _reorder(int oldIndex, int newIndex) async {
+    if (_reordering || newIndex == oldIndex || newIndex == oldIndex + 1) return;
+    final controller = ShellScope.read(context);
+    final section = widget.section;
+    final siteUrl = widget.siteUrl;
+    setState(() => _reordering = true);
+    try {
+      if (section.public) {
+        final confirmed = await showDiscourseAlertDialog<bool>(
+          context: context,
+          title: const Text('Reorder public links?'),
+          description: const Text(
+            'This changes the sidebar link order for everyone on this forum.',
+          ),
+          cancelLabel: const Text('Cancel'),
+          actionLabel: const Text('Reorder'),
+          actionResult: true,
+        );
+        if (confirmed != true) return;
+      }
+      if (!mounted ||
+          widget.siteUrl != siteUrl ||
+          !identical(widget.section, section)) {
+        return;
+      }
+      await controller.reorderSidebarLinks(
+        siteUrl: siteUrl,
+        section: section,
+        oldIndex: oldIndex,
+        newIndex: newIndex,
+      );
+    } catch (_) {
+      if (mounted && widget.siteUrl == siteUrl) {
+        DToast.show(
+          context,
+          "Couldn't reorder links. Try again.",
+          type: DToastType.error,
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _reordering = false);
+    }
+  }
 
   @override
   void initState() {
@@ -938,6 +984,18 @@ class _SectionState extends State<_Section> {
           : context.isTouch
           ? 48.0
           : DControlStyle.height(DSidebarMenuButtonSize.large);
+      Widget paddedRow(BuildContext context, int index) => Padding(
+        key: ValueKey(run[index].id),
+        padding: const EdgeInsets.only(bottom: _sidebarRowGap),
+        child: rowBuilder(context, index),
+      );
+      final reorderable =
+          !context.isTouch &&
+          runs.length == 1 &&
+          rows.length == section.destinations.length &&
+          ShellScope.read(
+            context,
+          ).canReorderSidebarLinks(widget.siteUrl, section);
       final menu = submenu
           ? DSidebarMenuSub.sliverBuilder(
               itemCount: run.length,
@@ -945,13 +1003,16 @@ class _SectionState extends State<_Section> {
               itemExtent: extent,
               findChildIndexCallback: findIndex,
             )
+          : reorderable
+          ? DSidebarReorderableMenu.sliverBuilder(
+              itemCount: run.length,
+              itemBuilder: paddedRow,
+              itemExtent: extent == null ? null : extent + _sidebarRowGap,
+              onReorder: _reordering ? null : _reorder,
+            )
           : DSidebarMenu.sliverBuilder(
               itemCount: run.length,
-              itemBuilder: (context, index) => Padding(
-                key: ValueKey(run[index].id),
-                padding: const EdgeInsets.only(bottom: _sidebarRowGap),
-                child: rowBuilder(context, index),
-              ),
+              itemBuilder: paddedRow,
               itemExtent: extent == null ? null : extent + _sidebarRowGap,
               findChildIndexCallback: findIndex,
             );

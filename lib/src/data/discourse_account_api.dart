@@ -133,6 +133,31 @@ final class DiscourseAccountApi {
     }
   }
 
+  Future<SidebarSection> reorderSidebarLinks({
+    required String siteUrl,
+    required String apiKey,
+    required int sectionId,
+    required List<int> linksOrder,
+    String? clientId,
+  }) async {
+    final body = await _write(
+      Uri.parse('$siteUrl/sidebar_sections/$sectionId/reorder.json'),
+      siteUrl: siteUrl,
+      method: 'PUT',
+      apiKey: apiKey,
+      clientId: clientId,
+      body: {'links_order': linksOrder},
+    );
+    final sections = await _sidebarIcons.load([
+      body['sidebar_section'],
+    ], siteUrl);
+    final section = sections.singleOrNull;
+    if (section == null || section.remoteId != sectionId) {
+      throw const WriteException(WriteFailure.unreachable);
+    }
+    return section;
+  }
+
   Future<NotificationTotals> notificationTotals({
     required String siteUrl,
     required String apiKey,

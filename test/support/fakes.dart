@@ -686,6 +686,40 @@ class FakeDiscourseApi
 
   final Map<String, DiscourseInstance> results;
   final Map<String, List<SidebarSection>> customSidebarSectionsBySite;
+  final sidebarReorders = <({String siteUrl, int sectionId, List<int> ids})>[];
+  Completer<void>? sidebarReorderGate;
+  Object? sidebarReorderFailure;
+
+  @override
+  Future<SidebarSection> reorderSidebarLinks({
+    required String siteUrl,
+    required String apiKey,
+    required int sectionId,
+    required List<int> linksOrder,
+    String? clientId,
+  }) async {
+    sidebarReorders.add((
+      siteUrl: siteUrl,
+      sectionId: sectionId,
+      ids: linksOrder,
+    ));
+    await sidebarReorderGate?.future;
+    if (sidebarReorderFailure case final error?) throw error;
+    final section = customSidebarSectionsBySite[siteUrl]!.firstWhere(
+      (section) => section.remoteId == sectionId,
+    );
+    return SidebarSection(
+      id: section.id,
+      title: section.title,
+      remoteId: section.remoteId,
+      public: section.public,
+      destinations: [
+        for (final id in linksOrder)
+          section.destinations.firstWhere((link) => link.linkId == id),
+      ],
+    );
+  }
+
   final Map<String, Map<String, dynamic>> pluginResponses;
   final Map<String, WriteException> pluginWriteFailures;
   final List<

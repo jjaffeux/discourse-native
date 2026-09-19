@@ -122,6 +122,22 @@ final sidebarExamples = ComponentExamples(
           '''DIcon(DIconData('server-icon', serverSvg, preserveColors: true))''',
       builder: (_) => const _SidebarIconColorsDemo(),
     ),
+    StyleguideExample(
+      title: 'Reorderable links',
+      description:
+          'Drag a desktop row to reorder links, or focus a row and use Alt+Up/Down. Touch keeps ordinary scrolling and link activation. The menu shares the sidebar scroll area and scrolls at its edges while dragging.',
+      code: '''DSidebarReorderableMenu.sliverBuilder(
+  itemCount: links.length,
+  itemBuilder: (context, index) => DSidebarMenuButton(
+    key: ValueKey(links[index]), onPressed: openLink,
+    child: Text(links[index])),
+  onReorder: (oldIndex, newIndex) => setState(() {
+    final link = links.removeAt(oldIndex);
+    links.insert(newIndex > oldIndex ? newIndex - 1 : newIndex, link);
+  }),
+)''',
+      builder: (_) => const _ReorderableSidebarDemo(),
+    ),
   ],
 );
 
@@ -798,6 +814,53 @@ class _SidebarReferenceIcon extends StatelessWidget {
       '''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>''';
   static const trash2 =
       '''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>''';
+}
+
+class _ReorderableSidebarDemo extends StatefulWidget {
+  const _ReorderableSidebarDemo();
+
+  @override
+  State<_ReorderableSidebarDemo> createState() =>
+      _ReorderableSidebarDemoState();
+}
+
+class _ReorderableSidebarDemoState extends State<_ReorderableSidebarDemo> {
+  final _links = ['Handbook', 'Roadmap', 'Support', 'Team', 'Release notes'];
+  String? _selected;
+
+  @override
+  Widget build(BuildContext context) => SizedBox(
+    height: 240,
+    child: DSidebarProvider(
+      mobileBreakpoint: 0,
+      child: DSidebar(
+        collapsible: DSidebarCollapsible.none,
+        child: DSidebarContent.slivers(
+          slivers: [
+            DSidebarGroup.sliver(
+              label: const DSidebarGroupLabel(child: Text('Custom links')),
+              sliver: DSidebarReorderableMenu.sliverBuilder(
+                itemCount: _links.length,
+                itemBuilder: (context, index) => DSidebarMenuButton(
+                  key: ValueKey(_links[index]),
+                  isActive: _selected == _links[index],
+                  onPressed: () => setState(() => _selected = _links[index]),
+                  child: Text(_links[index]),
+                ),
+                onReorder: (oldIndex, newIndex) => setState(() {
+                  final link = _links.removeAt(oldIndex);
+                  _links.insert(
+                    newIndex > oldIndex ? newIndex - 1 : newIndex,
+                    link,
+                  );
+                }),
+              ),
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
 }
 
 class _SidebarDemo extends StatefulWidget {
