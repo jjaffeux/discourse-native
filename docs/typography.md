@@ -83,7 +83,7 @@ networking, focus manager, or selection owner.
 | large | 18 / 28 | 600 |
 | small | 14 / 14 | 500, reference leading-none |
 | muted | 14 / 20 | Normal weight, muted foreground |
-| inlineCode | 14 / 20 | Bundled JetBrains Mono, 600, muted background |
+| inlineCode | 14 / 20 | Bundled JetBrains Mono, 600, outlined palette-derived background |
 
 `DText.bodyStyleOf(context)` supplies the reference's inherited 16/24 body text
 for lists, quotes and table compositions. `DText.linkStyleOf(context)` supplies
@@ -163,16 +163,24 @@ retain native span layout for selection/copy.
 Callers own scroll-to-heading behavior instead of CSS scroll margins. DProse
 translates the reference's sibling margins into explicit Flutter block gaps.
 
-Standalone inline code has a muted background with the reference’s fixed 4px
-corners and 4.8px horizontal / 3.2px vertical padding. Tailwind’s bare
+Standalone inline code has a palette-derived background and a 1px outline,
+with the reference’s fixed 4px corners and 4.8px horizontal / 3.2px vertical padding. Tailwind’s bare
 `rounded` utility is a 0.25rem compatibility value rather than a step of the
 theme radius scale, so the corners do not follow the site radius. The box is
 painted once; the text carries no second background. Within a
 paragraph, `DText.styleOf(context, DTextVariant.inlineCode)` supplies a rectangular
 span background so code can wrap, select and copy as text. Using a boxed
-WidgetSpan for the code itself would compromise those behaviors. Generic code
-uses the reference's muted surface; authored post code retains its distinct
-CodeColors and syntax-highlighting contract.
+WidgetSpan for the code itself would compromise those behaviors.
+
+Inline code shares a 12% foreground/background fill and a 24% outline through
+`DTokens`, including authored posts and chat via `DText.code`. This compact
+constructor retains their 4px horizontal / 1px vertical padding. The outline
+paints inside the existing bounds, so it adds no layout space. Composer spans
+use the same fill while retaining native editing and wrapping. These inline
+colors intentionally override a site's potentially indistinguishable
+`--inline-code-bg`; fenced code and syntax highlighting retain `CodeColors`.
+This stronger treatment was requested on 2026-09-19 to distinguish code from
+neutral conversation bubbles across palettes.
 
 The styleguide's table example uses Flutter `Table` with flexible columns,
 16/24 body text, bold headers, 16px/8px cell padding, intrinsic row heights,
