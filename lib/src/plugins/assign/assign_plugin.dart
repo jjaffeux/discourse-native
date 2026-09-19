@@ -420,7 +420,7 @@ final class AssignPlugin
               : canAssign
               ? 'Assign topic'
               : 'Manage assignments',
-          size: DButtonSize.small,
+          size: DButtonSize.large,
           variant: DButtonVariant.ghost,
           onPressed: direct != null || !canAssign
               ? showDetails
@@ -469,7 +469,7 @@ final class AssignPlugin
                   tooltip: direct == null
                       ? 'Assign topic'
                       : 'Manage assignment to ${direct.assignee.displayName}',
-                  size: DButtonSize.small,
+                  size: DButtonSize.large,
                   variant: DButtonVariant.outline,
                   onPressed: direct != null
                       ? showDetails
