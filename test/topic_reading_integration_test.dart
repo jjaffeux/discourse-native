@@ -30,7 +30,6 @@ import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/site_emoji_image.dart';
 import 'package:discourse_native/src/shell/topic_create_button.dart';
-import 'package:discourse_native/src/shell/topic_inbox_row.dart';
 import 'package:discourse_native/src/shell/topic_list_view.dart';
 import 'package:discourse_native/src/shell/topic_title.dart';
 import 'package:discourse_native/src/shell/topic_view.dart';
@@ -4317,9 +4316,16 @@ void _registerTopicReadingTests() {
       tester.platformDispatcher.textScaleFactorTestValue = 2;
       addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
       await tester.pumpAndSettle();
-      await Scrollable.ensureVisible(
-        tester.element(suggestedTab),
-        alignment: .5,
+      await tester.scrollUntilVisible(
+        suggestedTab,
+        200,
+        scrollable: find.descendant(
+          of: find.descendant(
+            of: find.byType(TopicView),
+            matching: find.byType(CustomScrollView),
+          ),
+          matching: find.byType(Scrollable),
+        ),
       );
       await tester.pumpAndSettle();
       await tester.tap(suggestedTab);
@@ -4337,7 +4343,7 @@ void _registerTopicReadingTests() {
       expect(tester.takeException(), isNull);
 
       final relatedRow = find.byWidgetPredicate(
-        (widget) => widget is TopicInboxRow && widget.topic.id == 9,
+        (widget) => widget is TopicListRow && widget.topic.id == 9,
       );
       await tester.ensureVisible(relatedRow);
       await tester.pumpAndSettle();
@@ -4349,7 +4355,7 @@ void _registerTopicReadingTests() {
     });
 
     testWidgets(
-      'labels a single recommendation source and compacts its titles',
+      'labels a single recommendation source and uses the topic list card',
       (tester) async {
         const recommendations = TopicRecommendations(
           sources: [
@@ -4386,7 +4392,7 @@ void _registerTopicReadingTests() {
           findsNothing,
         );
         expect(find.text('Suggested'), findsOneWidget);
-        expect(find.byKey(const ValueKey('inbox-row-8')), findsOneWidget);
+        expect(find.byKey(const ValueKey('topic-card-8')), findsOneWidget);
         final compactTitle = tester.widget<TopicTitle>(
           find.byWidgetPredicate(
             (widget) =>
