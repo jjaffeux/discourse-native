@@ -652,31 +652,50 @@ class _LightboxGalleryState extends State<LightboxGallery> {
         autofocus: true,
         child: Scaffold(
           backgroundColor: Colors.transparent,
-          body: LayoutBuilder(
-            builder: (context, constraints) {
-              final viewport = constraints.biggest;
-              _rememberViewportSize(viewport);
-              return MouseRegion(
-                onEnter: (_) => _revealChrome(),
-                onHover: (_) => _revealChrome(),
-                child: Listener(
-                  key: _viewportKey,
-                  behavior: HitTestBehavior.opaque,
-                  onPointerSignal: (signal) => _pointerSignal(signal, viewport),
-                  child: Stack(
-                    fit: StackFit.expand,
-                    children: [_pages(viewport), _chrome(viewport)],
-                  ),
+          body: Column(
+            children: [
+              Listener(
+                onPointerSignal: (signal) {
+                  final viewport = _viewportSize;
+                  if (viewport != null) _pointerSignal(signal, viewport);
+                },
+                child: _chrome(
+                  _viewportSize ?? MediaQuery.sizeOf(context),
+                  toolbar: true,
                 ),
-              );
-            },
+              ),
+              Expanded(
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final viewport = constraints.biggest;
+                    _rememberViewportSize(viewport);
+                    return MouseRegion(
+                      onEnter: (_) => _revealChrome(),
+                      onHover: (_) => _revealChrome(),
+                      child: Listener(
+                        key: _viewportKey,
+                        behavior: HitTestBehavior.opaque,
+                        onPointerSignal: (signal) =>
+                            _pointerSignal(signal, viewport),
+                        child: ClipRect(
+                          child: Stack(
+                            fit: StackFit.expand,
+                            children: [_pages(viewport), _chrome(viewport)],
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
           ),
         ),
       ),
     );
   }
 
-  Widget _chrome(Size viewport) {
+  Widget _chrome(Size viewport, {bool toolbar = false}) {
     final controller = _photoControllers[_index];
     return StreamBuilder<PhotoViewControllerValue>(
       key: ValueKey(_index),
@@ -684,7 +703,7 @@ class _LightboxGalleryState extends State<LightboxGallery> {
       initialData: controller.value,
       builder: (context, snapshot) {
         final value = snapshot.data ?? controller.value;
-        final bounds = _scaleBounds(_index, viewport);
+        final bounds = _scaleBounds(_index, _viewportSize ?? viewport);
         final scale = value.scale ?? bounds.minimum;
         final tolerance = bounds.maximum * 1e-9;
         final canZoomOut = scale > bounds.minimum + tolerance;
@@ -693,6 +712,7 @@ class _LightboxGalleryState extends State<LightboxGallery> {
             (scale - bounds.minimum).abs() > tolerance ||
             value.position.distanceSquared > 1e-12;
         return _Chrome(
+          toolbar: toolbar,
           visible: _chromeVisible,
           index: _index,
           total: widget.images.length,
@@ -784,6 +804,7 @@ class _LightboxGalleryState extends State<LightboxGallery> {
 
 class _Chrome extends StatelessWidget {
   const _Chrome({
+    required this.toolbar,
     required this.visible,
     required this.index,
     required this.total,
@@ -797,6 +818,7 @@ class _Chrome extends StatelessWidget {
     required this.onClose,
   });
 
+  final bool toolbar;
   final bool visible;
   final int index;
   final int total;
@@ -813,6 +835,17 @@ class _Chrome extends StatelessWidget {
   Widget build(BuildContext context) {
     final showArrows = total > 1 && !context.isTouch;
 
+    if (toolbar) {
+      return IgnorePointer(
+        ignoring: !visible,
+        child: AnimatedOpacity(
+          opacity: visible ? 1 : 0,
+          duration: const Duration(milliseconds: 150),
+          child: _bar(context),
+        ),
+      );
+    }
+
     return IgnorePointer(
       ignoring: !visible,
       child: AnimatedOpacity(
@@ -821,7 +854,6 @@ class _Chrome extends StatelessWidget {
         child: Stack(
           fit: StackFit.expand,
           children: [
-            Align(alignment: Alignment.topCenter, child: _bar(context)),
             if (image.title != null || image.details != null)
               Align(
                 alignment: Alignment.bottomCenter,
@@ -855,58 +887,64 @@ class _Chrome extends StatelessWidget {
     final downloadHref = image.downloadHref;
     final hasWindowChrome =
         !kIsWeb && defaultTargetPlatform == TargetPlatform.macOS;
+    final stackBelowWindowControls =
+        hasWindowChrome && MediaQuery.sizeOf(context).width < 480;
 
-    return SafeArea(
-      child: Padding(
-        // macOS traffic lights overlay Flutter and are not in SafeArea.
-        padding: EdgeInsets.fromLTRB(
-          8,
-          4 + (hasWindowChrome ? ShellTitleBar.height : 0),
-          8,
-          4,
-        ),
-        child: Row(
-          spacing: DSpacing.controlGap,
-          children: [
-            if (total > 1)
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 8),
-                  child: Text(
-                    '${index + 1} / $total',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(
-                      context,
-                    ).textTheme.bodySmall?.copyWith(color: Colors.white70),
+    return DCard(
+      spacing: 0,
+      child: SafeArea(
+        bottom: false,
+        child: Padding(
+          // macOS traffic lights overlay Flutter and are not in SafeArea.
+          padding: EdgeInsets.fromLTRB(
+            hasWindowChrome && !stackBelowWindowControls ? 88 : 8,
+            12 + (stackBelowWindowControls ? ShellTitleBar.height : 0),
+            8,
+            12,
+          ),
+          child: Row(
+            spacing: DSpacing.controlGap,
+            children: [
+              if (total > 1)
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    child: Text(
+                      '${index + 1} / $total',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: DTokens.of(context).foreground,
+                      ),
+                    ),
                   ),
-                ),
-              )
-            else
-              const Spacer(),
-            _Button(
-              icon: DIcons.circleMinus,
-              tooltip: 'Zoom out',
-              onTap: onZoomOut,
-            ),
-            _Button(
-              icon: DIcons.expand,
-              tooltip: 'Reset zoom',
-              onTap: onResetZoom,
-            ),
-            _Button(
-              icon: DIcons.circlePlus,
-              tooltip: 'Zoom in',
-              onTap: onZoomIn,
-            ),
-            if (downloadHref != null)
+                )
+              else
+                const Spacer(),
               _Button(
-                icon: DIcons.download,
-                tooltip: downloading ? 'Downloading…' : 'Download',
-                onTap: downloading ? null : onDownload,
+                icon: DIcons.circleMinus,
+                tooltip: 'Zoom out',
+                onTap: onZoomOut,
               ),
-            _Button(icon: DIcons.xmark, tooltip: 'Close', onTap: onClose),
-          ],
+              _Button(
+                icon: DIcons.expand,
+                tooltip: 'Reset zoom',
+                onTap: onResetZoom,
+              ),
+              _Button(
+                icon: DIcons.circlePlus,
+                tooltip: 'Zoom in',
+                onTap: onZoomIn,
+              ),
+              if (downloadHref != null)
+                _Button(
+                  icon: DIcons.download,
+                  tooltip: downloading ? 'Downloading…' : 'Download',
+                  onTap: downloading ? null : onDownload,
+                ),
+              _Button(icon: DIcons.xmark, tooltip: 'Close', onTap: onClose),
+            ],
+          ),
         ),
       ),
     );
