@@ -1405,7 +1405,7 @@ class DComboboxChips<T> extends StatelessWidget {
           )
         : focused
         ? tokens.focusRing
-        : DControlStyle.outlineBorder(tokens, dark: dark, field: true);
+        : tokens.buttonTheme.outline.border;
     final ring = isInvalid
         ? tokens.destructive.withValues(
             alpha: tokens.destructive.a * (dark ? .4 : .2),
@@ -1431,13 +1431,13 @@ class DComboboxChips<T> extends StatelessWidget {
           constraints: const BoxConstraints(minHeight: 32),
           padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 4),
           decoration: BoxDecoration(
-            color: DControlStyle.fieldFill(tokens, dark: dark),
+            color: tokens.buttonTheme.outline.background,
             border: Border.all(color: border),
-            borderRadius: BorderRadius.circular(tokens.controlRadius),
+            borderRadius: BorderRadius.circular(tokens.buttonTheme.radius),
           ),
           foregroundDecoration: _ComboboxRingDecoration(
             color: isInvalid || focused ? ring : Colors.transparent,
-            radius: tokens.controlRadius,
+            radius: tokens.buttonTheme.radius,
           ),
           child: Wrap(
             crossAxisAlignment: WrapCrossAlignment.center,

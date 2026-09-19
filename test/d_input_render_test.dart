@@ -160,8 +160,8 @@ void main() {
       _near(
         _pixel(pixels, 20, 36),
         Color.alphaBlend(
-          theme.extension<DTokens>()!.controlTheme.outline.border,
-          theme.extension<DTokens>()!.controlTheme.outline.background,
+          theme.extension<DTokens>()!.buttonTheme.outline.border,
+          theme.extension<DTokens>()!.buttonTheme.outline.background,
         ),
       );
       expect(_pixel(pixels, 20, 36), isNot(_pixel(pixels, 10, 36)));
@@ -169,21 +169,18 @@ void main() {
   );
 
   testWidgets(
-    'translucent input fill uses input role and remains unchanged under exterior focus and invalid rings',
+    'outlined input fill remains unchanged under exterior focus and invalid rings',
     (tester) async {
       final defaultPixels = await _capture(
         tester,
         DInput(hintText: 'Enter text'),
         'dark-default',
       );
-      final fill = Color.alphaBlend(
-        Colors.white.withValues(alpha: .15 * .3),
-        _background,
-      );
+      final fill = Color.lerp(_background, Colors.white, .03)!;
       _near(_pixel(defaultPixels, 280, 36), fill);
       _near(
         _pixel(defaultPixels, 20, 36),
-        Color.alphaBlend(Colors.white.withValues(alpha: .167), fill),
+        Color.lerp(_background, Colors.white, .22)!,
       );
       final focus = FocusNode();
       addTearDown(focus.dispose);
@@ -215,16 +212,13 @@ void main() {
       );
       _near(
         _pixel(disabled, 280, 36),
-        Color.alphaBlend(
-          Colors.white.withValues(alpha: .15 * .8 * .5),
-          _background,
-        ),
+        Color.alphaBlend(fill.withValues(alpha: .5), _background),
       );
     },
   );
 
   testWidgets(
-    'light and custom alpha fills preserve the source modifier without ring bleed',
+    'light and dark outlined fills follow foreground without ring bleed',
     (tester) async {
       for (final dark in [false, true]) {
         final theme = _theme(
@@ -239,12 +233,11 @@ void main() {
         );
         _near(
           _pixel(image, 280, 36),
-          dark
-              ? Color.alphaBlend(
-                  Colors.blue.withValues(alpha: .35 * .3),
-                  _background,
-                )
-              : Colors.white,
+          Color.lerp(
+            theme.colorScheme.surface,
+            theme.colorScheme.onSurface,
+            .03,
+          )!,
         );
       }
     },

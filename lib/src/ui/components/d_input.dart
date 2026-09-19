@@ -253,10 +253,10 @@ class _DInputState extends FormFieldState<String> {
     final joined = DJoinedControlScope.maybeOf(context);
     final radius =
         joined?.resolveRadius(
-          BorderRadius.circular(DControlStyle.radius(t, size)),
+          BorderRadius.circular(t.buttonTheme.radius),
           Directionality.of(context),
         ) ??
-        BorderRadius.circular(DControlStyle.radius(t, size));
+        BorderRadius.circular(t.buttonTheme.radius);
     final error = input.errorText ?? errorText;
     final isInvalid = input.invalid || error != null;
     final touch = switch (Theme.of(context).platform) {
@@ -471,7 +471,7 @@ class _InputSurface extends StatelessWidget {
         ? t.destructive.withValues(alpha: t.destructive.a * (dark ? .5 : 1))
         : focused && DFocusHighlight.visibleOf(context)
         ? t.focusRing
-        : DControlStyle.outlineBorder(t, dark: dark, field: true);
+        : t.buttonTheme.outline.border;
     final ring = invalid
         ? t.destructive.withValues(alpha: t.destructive.a * (dark ? .4 : .2))
         : focused && DFocusHighlight.visibleOf(context)
@@ -490,7 +490,7 @@ class _InputSurface extends StatelessWidget {
                   color: ring,
                   radius:
                       borderRadius ??
-                      BorderRadius.circular(DControlStyle.radius(t, size)),
+                      BorderRadius.circular(t.buttonTheme.radius),
                 ),
           child: AnimatedContainer(
             duration: DMotion.duration(
@@ -506,14 +506,9 @@ class _InputSurface extends StatelessWidget {
             ),
             padding: const EdgeInsets.symmetric(horizontal: 10),
             decoration: _InputSurfaceDecoration(
-              backgroundColor: DControlStyle.fieldFill(
-                t,
-                dark: dark,
-                enabled: enabled,
-              ),
+              backgroundColor: t.buttonTheme.outline.background,
               borderRadius:
-                  borderRadius ??
-                  BorderRadius.circular(DControlStyle.radius(t, size)),
+                  borderRadius ?? BorderRadius.circular(t.buttonTheme.radius),
               borderColor: border,
               joinedAxis: joinedAxis,
               omitLeadingBorder: omitLeadingBorder,

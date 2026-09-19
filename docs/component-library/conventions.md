@@ -67,9 +67,12 @@ example across palettes and states whenever changing a control foundation;
 update its golden baselines only after visual review. See
 [the migration and verification record](control-consistency.md).
 
-Editable and selection controls retain the measured **Linear controls** styling through `DTokens.controls`:
-neutral raised controls, half-pixel borders and subtle shadows. Selectors use the theme's configured corner radius. Buttons and button-based
-popup triggers use the redesign's 8px radius, independent of size. Keep the default
+Input, Input Group (including Combobox anchors), Select and multi-value Combobox
+fields use the redesigned outlined palette through `DTokens.buttonTheme`, with
+1px borders, 8px corners and no shadow. Selection hover/open states use the
+outlined hover fill and border. Other editable controls retain their existing
+`DTokens.controls` styling. Buttons and button-based popup triggers also use
+the redesign's 8px radius, independent of size. Keep the default
 `DButtonShape.rounded` in application code; explicit pill shapes belong only to
 documented design exceptions. Menu rows use 32px minimum height and an 8px highlight radius inside
 popups using the theme’s control radius, matching buttons. Keyboard focus uses a 1px ring separated by 2px. Hover, pressed and
