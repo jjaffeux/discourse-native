@@ -1,0 +1,55 @@
+name: offline-cooking
+
+on:
+  pull_request:
+    paths: ['packages/discourse_cooking/**', '.github/workflows/offline-cooking.yml', '.fvmrc', 'pubspec.yaml', 'pubspec.lock', 'test/offline_cooking_runtime_test.dart']
+  push:
+    branches: [main]
+    paths: ['packages/discourse_cooking/**', '.github/workflows/offline-cooking.yml', '.fvmrc', 'pubspec.yaml', 'pubspec.lock', 'test/offline_cooking_runtime_test.dart']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  runtime:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-15]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: packages/discourse_cooking
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
+        with:
+          flutter-version-file: .fvmrc
+          channel: stable
+          cache: true
+      - name: Resolve pinned package graph
+        run: dart pub get --enforce-lockfile
+      - name: Verify pinned native source
+        run: python3 tool/vendor_quickjs.py
+      - name: Verify checked-in JavaScript bundle and corpus
+        run: |
+          cd js
+          npm ci --ignore-scripts
+          npm run verify
+          npm test
+      - name: Format and analyze
+        run: |
+          dart format --output=none --set-exit-if-changed lib/src/contracts.dart lib/src/service.dart lib/src/native_runtime.dart lib/discourse_cooking.dart test bin hook tool
+          dart analyze --fatal-infos
+      - name: Native runtime and worker integration tests
+        run: dart test --test-randomize-ordering-seed=random
+      - name: Measure actual runtime
+        run: dart run bin/benchmark.dart
+      - name: Compile standalone native consumer
+        run: dart build cli --target=bin/benchmark.dart --output=build/benchmark
+      - name: Run compiled standalone consumer
+        run: ./build/benchmark/bundle/bin/benchmark

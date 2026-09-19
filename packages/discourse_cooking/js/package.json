@@ -1,0 +1,8 @@
+{
+  "name": "discourse-offline-cooking-bundle",
+  "private": true,
+  "type": "module",
+  "scripts": { "build": "node build.mjs", "test": "node --test test/*.test.mjs", "verify": "node build.mjs --check" },
+  "dependencies": { "markdown-it": "15.0.1", "xss": "1.0.15" },
+  "devDependencies": { "esbuild": "0.25.12" }
+}

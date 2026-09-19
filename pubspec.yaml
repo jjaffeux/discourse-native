@@ -7,6 +7,8 @@ environment:
   sdk: ^3.12.2
 
 dependencies:
+  discourse_cooking:
+    path: packages/discourse_cooking
   discourse_plugin_api:
     path: packages/discourse_plugin_api
   discourse_voice:
