@@ -10,6 +10,50 @@ import 'package:flutter_test/flutter_test.dart';
 import 'support/button_surface.dart';
 
 void main() {
+  testWidgets('passive label remeasures after decreasing and increasing', (
+    tester,
+  ) async {
+    final value = ValueNotifier(100);
+    addTearDown(value.dispose);
+    await _pump(
+      tester,
+      ValueListenableBuilder<int>(
+        valueListenable: value,
+        builder: (context, percentage, _) => DButtonGroup(
+          children: [
+            DButton.iconOnly(
+              icon: const Icon(Icons.remove),
+              tooltip: 'Decrease',
+              variant: DButtonVariant.outline,
+              onPressed: () => value.value -= 10,
+            ),
+            DButtonGroupText(child: Text('$percentage%')),
+            DButton.iconOnly(
+              icon: const Icon(Icons.add),
+              tooltip: 'Increase',
+              variant: DButtonVariant.outline,
+              onPressed: () => value.value += 10,
+            ),
+          ],
+        ),
+      ),
+    );
+    final original = tester.getSize(find.byType(DButtonGroupText));
+    await tester.tap(find.byTooltip('Decrease'));
+    await tester.pump();
+    expect(
+      tester.getSize(find.byType(DButtonGroupText)).width,
+      lessThan(original.width),
+    );
+    await tester.tap(find.byTooltip('Increase'));
+    await tester.pump();
+    expect(tester.getSize(find.byType(DButtonGroupText)), original);
+    expect(
+      tester.getSize(find.text('100%')).height,
+      lessThanOrEqualTo(original.height),
+    );
+    expect(tester.takeException(), isNull);
+  });
   for (final direction in TextDirection.values) {
     testWidgets('passive text closes the outlined group in $direction', (
       tester,

@@ -311,13 +311,19 @@ class _RenderButtonGroup extends RenderFlex {
       final data = child.parentData! as FlexParentData;
       if (direction == Axis.horizontal) {
         child.layout(
-          BoxConstraints.tightFor(width: child.size.width, height: size.height),
+          child.constraints.copyWith(
+            minHeight: size.height,
+            maxHeight: size.height,
+          ),
           parentUsesSize: true,
         );
         data.offset = Offset(data.offset.dx, 0);
       } else {
         child.layout(
-          BoxConstraints.tightFor(width: size.width, height: child.size.height),
+          child.constraints.copyWith(
+            minWidth: size.width,
+            maxWidth: size.width,
+          ),
           parentUsesSize: true,
         );
         data.offset = Offset(0, data.offset.dy);
