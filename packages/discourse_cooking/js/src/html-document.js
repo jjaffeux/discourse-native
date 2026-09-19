@@ -7,6 +7,12 @@ export function attr(node,name,value) {
   else if(entry) entry.value=String(value);
   else (node.attrs ||= []).push({name,value:String(value)});
 }
-export function walk(node,visit) {visit(node);for(const child of [...(node.childNodes||[])]) walk(child,visit);}
+export function walk(node,visit) {
+  visit(node);
+  for(const child of [...(node.childNodes||[])]) walk(child,visit);
+  // HTML templates own a separate document fragment. Final sanitization can
+  // unwrap that content, so it must receive the same cleanup as visible nodes.
+  if(node.content) walk(node.content,visit);
+}
 export function text(node) {return node.nodeName==='#text' ? node.value : (node.childNodes||[]).map(text).join('');}
 export function textNode(value,parentNode) {return {nodeName:'#text',value,parentNode};}

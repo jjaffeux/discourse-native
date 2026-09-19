@@ -42593,6 +42593,7 @@ const String cookingBundle = r'''// Discourse 07a0e7b94717b45207749578df1f0bd2dd
   function walk(node, visit) {
     visit(node);
     for (const child of [...node.childNodes || []]) walk(child, visit);
+    if (node.content) walk(node.content, visit);
   }
   function text2(node) {
     return node.nodeName === "#text" ? node.value : (node.childNodes || []).map(text2).join("");
@@ -42829,7 +42830,7 @@ const String cookingBundle = r'''// Discourse 07a0e7b94717b45207749578df1f0bd2dd
     const allowedMedia = [api.baseUrl, ...api.allowedMediaOrigins, settings.external_emoji_url, ...(settings.block_hotlinked_media_exceptions || "").split("|")].filter(Boolean);
     walk(doc, (node) => {
       if (settings.block_hotlinked_media && ["img", "source", "track", "div"].includes(node.tagName)) {
-        for (const key of ["src", "data-video-src"]) {
+        for (const key of ["src", "data-video-src", "data-orig-src"]) {
           const url = attr3(node, key);
           if (!url) continue;
           const allowed = /^\/(?!\/)/.test(url) || allowedMedia.some((prefix) => url === prefix || url.startsWith(prefix.replace(/\/$/, "") + "/"));
@@ -42919,7 +42920,23 @@ const String cookingBundle = r'''// Discourse 07a0e7b94717b45207749578df1f0bd2dd
     return (0, import_xss3.default)(html, {
       whiteList: policy,
       stripIgnoreTag: true,
-      stripIgnoreTagBody: ["script", "style", "iframe", "object", "embed", "svg", "math"],
+      // Opaque/raw-text containers must not become active markup when unwrapped.
+      stripIgnoreTagBody: [
+        "script",
+        "style",
+        "iframe",
+        "object",
+        "embed",
+        "svg",
+        "math",
+        "xmp",
+        "plaintext",
+        "noembed",
+        "noframes",
+        "noscript",
+        "textarea",
+        "title"
+      ],
       onTagAttr(tag, name, value, isWhiteAttr) {
         if (["href", "src", "data-orig-src", "data-orig-href", "data-video-src", "data-thumbnail-src", "data-blocked-hotlinked-src"].includes(name)) {
           if (!isWhiteAttr) return "";

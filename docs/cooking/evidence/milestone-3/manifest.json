@@ -1,15 +1,15 @@
 {
   "README.md": {
-    "bytes": 5015,
-    "sha256": "8e12f80a07c4f8df432ab03e21d2144f950be25582d0c26047f98f41417d601f"
+    "bytes": 5605,
+    "sha256": "4ad200557590869d33e8ee14746e8cbcfbd6954a79a4f3d8903261118005deb9"
   },
   "bundle-verification.log": {
     "bytes": 130,
-    "sha256": "9b8c2c7f9bd660de793928ea5b44f63a4c82c57659567be346af47cba23907bc"
+    "sha256": "0356be98e80a2733df20cbb21406b43ca99a6a558eea993be481e3a7b586ce3f"
   },
   "embedded-frameworks.log": {
     "bytes": 798,
-    "sha256": "bd87027249f8881d2bc02cf96920255d9eae5aee3a96e164d1df029211f2c1e0"
+    "sha256": "041459cfd84fbb88282e16b470dab803cb948cc703bc4b80bb0f183a84beb164"
   },
   "focused-application.log.gz": {
     "bytes": 1322,
@@ -17,15 +17,15 @@
   },
   "full-ios-build.log": {
     "bytes": 231,
-    "sha256": "43da39854176ed5d307f73ed4f3fa74b7a12396cd77cd5bea9dfc093f4bb40b7"
+    "sha256": "9486b59f70abf36cd0fff8a3029a3af954ddf58be026f027b0a28f4b114a3300"
   },
   "full-macos-build.log.gz": {
-    "bytes": 39232,
-    "sha256": "8b61caec6f0acab22cfae2c2aefa69b1120205661d110e1e7bf9a857af11bbd6"
+    "bytes": 39235,
+    "sha256": "0d87676c974f4040cb716ba9f4f5c91191ae97e97c6888c1a506a8961af15e6d"
   },
   "full-root-suite.log.gz": {
-    "bytes": 77050,
-    "sha256": "905ced21b7c8c856495f77663dc65b4910b158df227dc4d3057ec3dd4af0bcab"
+    "bytes": 77457,
+    "sha256": "5f1373aa727ffd49d4e4b5649210c91e97c5a944565b868d3df91f55d78d3ece"
   },
   "full-wrapper-analysis.log": {
     "bytes": 96,
@@ -39,13 +39,13 @@
     "bytes": 79002,
     "sha256": "576b053314a23df16cf618eb895eb1956270dc005cdd69665777405b97847914"
   },
-  "javascript.log": {
-    "bytes": 4216,
-    "sha256": "ac680253993bb86ed0b18bff5133b2a8456192806b18e6590c1a46fd16487c6c"
+  "javascript.log.gz": {
+    "bytes": 1999,
+    "sha256": "511a82a885086c3a950f3c219618bf30c10481fc4b7290852ab8f34ec6020ad7"
   },
   "native-package.log.gz": {
-    "bytes": 1208,
-    "sha256": "39af01c7a099e78eaad491a06f6b5beb7f3feb50a6cd73e0eb22239d533fa709"
+    "bytes": 1384,
+    "sha256": "e57abba6032159c4167b732643f361e0c0c4c6fda511a5d672b3cb41372f9000"
   },
   "npm-ci.log": {
     "bytes": 143,
@@ -77,14 +77,14 @@
   },
   "root-ios-build.log": {
     "bytes": 231,
-    "sha256": "c057493e7aabb3675242bcb7f55399f65c1c5578368cb37d85c0ff2a8bc00fa5"
+    "sha256": "6ae91488760c340f4fbe0045d1d16cc7d343114b41e7f80c64cf707591b21d08"
   },
   "root-lockfile.log": {
     "bytes": 556,
     "sha256": "c6fd5661c1e2915ae5643dccb5b39f0f4d04edd05549f9c5715143c32bf82ad0"
   },
   "root-macos-build.log.gz": {
-    "bytes": 41051,
-    "sha256": "e813d87eed87778b7a011d87f398b96f0016b927e72a6c5d5928411474f22538"
+    "bytes": 39109,
+    "sha256": "cd428ef00738e482e1b117fa5216076aa4633121b26a4639045b4c9353e96cc8"
   }
 }

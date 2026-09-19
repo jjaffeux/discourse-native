@@ -24,7 +24,9 @@ export function finalSanitize(html, additions = []) {
   return xss(html, {
     whiteList: policy,
     stripIgnoreTag: true,
-    stripIgnoreTagBody: ['script','style','iframe','object','embed','svg','math'],
+    // Opaque/raw-text containers must not become active markup when unwrapped.
+    stripIgnoreTagBody: ['script','style','iframe','object','embed','svg','math',
+      'xmp','plaintext','noembed','noframes','noscript','textarea','title'],
     onTagAttr(tag, name, value, isWhiteAttr) {
       if (['href','src','data-orig-src','data-orig-href','data-video-src','data-thumbnail-src','data-blocked-hotlinked-src'].includes(name)) {
         // xss calls this hook BEFORE normalization. Validate the normalized

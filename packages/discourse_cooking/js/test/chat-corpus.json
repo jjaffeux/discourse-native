@@ -943,5 +943,175 @@
     "excludes": [
       "data-code-arbitrary"
     ]
+  },
+  {
+    "name": "cached template content receives cleanup before sanitizer unwraps it",
+    "raw": "https://external.test/card",
+    "profile": "chat",
+    "context": {},
+    "snapshot": {
+      "siteSettings": {
+        "block_hotlinked_media": true,
+        "add_rel_nofollow_to_user_content": true
+      },
+      "oneboxes": {
+        "https://external.test/card": "<template><img src=\"https://external.test/image.png\"><a href=\"https://external.test\">external</a></template>"
+      }
+    },
+    "includes": [
+      "data-blocked-hotlinked-src=\"https://external.test/image.png\"",
+      "rel=\"noopener nofollow ugc\""
+    ],
+    "excludes": [
+      "<template",
+      " src="
+    ]
+  },
+  {
+    "name": "cached opaque xmp body cannot become active media",
+    "raw": "https://external.test/card",
+    "profile": "chat",
+    "context": {},
+    "snapshot": {
+      "siteSettings": {
+        "block_hotlinked_media": true
+      },
+      "oneboxes": {
+        "https://external.test/card": "<xmp><img src=\"https://external.test/image.png\"></xmp>"
+      }
+    },
+    "excludes": [
+      "<img",
+      "https://external.test/image.png"
+    ]
+  },
+  {
+    "name": "cached opaque plaintext body cannot become active media",
+    "raw": "https://external.test/card",
+    "profile": "chat",
+    "context": {},
+    "snapshot": {
+      "siteSettings": {
+        "block_hotlinked_media": true
+      },
+      "oneboxes": {
+        "https://external.test/card": "<plaintext><img src=\"https://external.test/image.png\"></plaintext>"
+      }
+    },
+    "excludes": [
+      "<img",
+      "https://external.test/image.png"
+    ]
+  },
+  {
+    "name": "cached opaque noembed body cannot become active media",
+    "raw": "https://external.test/card",
+    "profile": "chat",
+    "context": {},
+    "snapshot": {
+      "siteSettings": {
+        "block_hotlinked_media": true
+      },
+      "oneboxes": {
+        "https://external.test/card": "<noembed><img src=\"https://external.test/image.png\"></noembed>"
+      }
+    },
+    "excludes": [
+      "<img",
+      "https://external.test/image.png"
+    ]
+  },
+  {
+    "name": "cached opaque noframes body cannot become active media",
+    "raw": "https://external.test/card",
+    "profile": "chat",
+    "context": {},
+    "snapshot": {
+      "siteSettings": {
+        "block_hotlinked_media": true
+      },
+      "oneboxes": {
+        "https://external.test/card": "<noframes><img src=\"https://external.test/image.png\"></noframes>"
+      }
+    },
+    "excludes": [
+      "<img",
+      "https://external.test/image.png"
+    ]
+  },
+  {
+    "name": "cached opaque noscript body cannot become active media",
+    "raw": "https://external.test/card",
+    "profile": "chat",
+    "context": {},
+    "snapshot": {
+      "siteSettings": {
+        "block_hotlinked_media": true
+      },
+      "oneboxes": {
+        "https://external.test/card": "<noscript><img src=\"https://external.test/image.png\"></noscript>"
+      }
+    },
+    "excludes": [
+      "<img",
+      "https://external.test/image.png"
+    ]
+  },
+  {
+    "name": "cached opaque textarea body cannot become active media",
+    "raw": "https://external.test/card",
+    "profile": "chat",
+    "context": {},
+    "snapshot": {
+      "siteSettings": {
+        "block_hotlinked_media": true
+      },
+      "oneboxes": {
+        "https://external.test/card": "<textarea><img src=\"https://external.test/image.png\"></textarea>"
+      }
+    },
+    "excludes": [
+      "<img",
+      "https://external.test/image.png"
+    ]
+  },
+  {
+    "name": "cached opaque title body cannot become active media",
+    "raw": "https://external.test/card",
+    "profile": "chat",
+    "context": {},
+    "snapshot": {
+      "siteSettings": {
+        "block_hotlinked_media": true
+      },
+      "oneboxes": {
+        "https://external.test/card": "<title><img src=\"https://external.test/image.png\"></title>"
+      }
+    },
+    "excludes": [
+      "<img",
+      "https://external.test/image.png"
+    ]
+  },
+  {
+    "name": "blocked video cannot use native original-source fallback",
+    "raw": "https://external.test/card",
+    "profile": "chat",
+    "context": {},
+    "snapshot": {
+      "siteSettings": {
+        "block_hotlinked_media": true
+      },
+      "oneboxes": {
+        "https://external.test/card": "<div class=\"video-placeholder-container\" data-orig-src=\"https://external.test/video.mp4\"></div>"
+      }
+    },
+    "includes": [
+      "data-blocked-hotlinked-src=\"https://external.test/video.mp4\""
+    ],
+    "excludes": [
+      "data-orig-src=",
+      "data-video-src="
+    ]
   }
 ]
