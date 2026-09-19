@@ -107,3 +107,9 @@ analysis, a successful macOS build, and a final native check of light/dark
 surfaces, quote navigation, the accessible message menu and Reply activation.
 The inspected source candidate was `594d4b71`; the final documentation commit
 does not change that application source.
+
+The merge candidate was subsequently based on main `45f977281` to retain the
+concurrent PM inbox archive change. Chat, Bubble, Message, code-block and tooltip
+source is identical to the native-reviewed candidate. All 93 channel lifecycle,
+thread workspace, archive-controller and model-boundary checks passed on this
+combined state, and root analysis remained clean.
