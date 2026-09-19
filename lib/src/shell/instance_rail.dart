@@ -55,7 +55,10 @@ class InstanceRail extends StatelessWidget {
                 children: [
                   if (showSidebarToggle)
                     Padding(
-                      padding: const EdgeInsets.only(top: 8, bottom: 4),
+                      padding: const EdgeInsets.only(
+                        top: 8,
+                        bottom: DSpacing.controlGap,
+                      ),
                       child: DButton.iconOnly(
                         key: const ValueKey('rail-sidebar-toggle'),
                         icon: const Icon(Icons.menu),
@@ -75,7 +78,10 @@ class InstanceRail extends StatelessWidget {
                   if (state.loadStatus == InstanceLoadStatus.ready &&
                       state.instances.isNotEmpty) ...[
                     Padding(
-                      padding: const EdgeInsets.fromLTRB(0, 8, 0, 4),
+                      padding: EdgeInsets.only(
+                        top: showSidebarToggle ? 0 : 8,
+                        bottom: 4,
+                      ),
                       child: _AggregateRailButton(
                         selected: state.rootMode == ShellRootMode.aggregate,
                         shortcutKey: controller.forumTabsEnabled
