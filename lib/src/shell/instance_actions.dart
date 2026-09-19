@@ -1,10 +1,11 @@
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 
-import '../../discourse_ui.dart';
 import '../models/discourse_instance.dart';
 import '../theme/d_icons.dart';
 import 'adaptive_dialog_action.dart';
+import 'forum_settings_dialog.dart';
 import 'platform.dart';
 import 'shell_scope.dart';
 import 'shell_sheet.dart';
@@ -194,6 +195,16 @@ class _InstanceActionsState extends State<InstanceActions> {
     }
 
     return [
+      DContextMenuItem(
+        leading: const DIcon(DIcons.gear, size: 16),
+        onPressed: () => showForumSettingsDialog(
+          context,
+          siteUrl: widget.instance.url,
+          name: widget.instance.title,
+        ),
+        child: const Text('Settings'),
+      ),
+      const DContextMenuSeparator(),
       if (widget.onMoveUp != null)
         DContextMenuItem(
           leading: const DIcon(DIcons.arrowUp, size: 16),
