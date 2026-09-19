@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart' show SelectedContent;
+import 'package:flutter/rendering.dart'
+    show Selectable, SelectedContent, SelectionRegistrar;
 
 class RouteAwareSelectionArea extends StatefulWidget {
   const RouteAwareSelectionArea({
@@ -38,7 +39,10 @@ class _RouteAwareSelectionAreaState extends State<RouteAwareSelectionArea> {
 
   @override
   Widget build(BuildContext context) {
-    final child = KeyedSubtree(key: _childKey, child: widget.child);
+    final child = _StableSelectionRegistrar(
+      key: _childKey,
+      child: widget.child,
+    );
     if (ModalRoute.isCurrentOf(context) == false) {
       return SelectionContainer.disabled(child: child);
     }
@@ -53,4 +57,67 @@ class _RouteAwareSelectionAreaState extends State<RouteAwareSelectionArea> {
       child: child,
     );
   }
+}
+
+// Sliver selection keep-alives assume their registrar remains non-null during
+// removal and disposal. Keep this scope alive with the reparented content while
+// disconnecting its selectables from the covered route's SelectionArea.
+class _StableSelectionRegistrar extends StatefulWidget {
+  const _StableSelectionRegistrar({super.key, required this.child});
+
+  final Widget child;
+
+  @override
+  State<_StableSelectionRegistrar> createState() =>
+      _StableSelectionRegistrarState();
+}
+
+class _StableSelectionRegistrarState extends State<_StableSelectionRegistrar>
+    implements SelectionRegistrar {
+  final Set<Selectable> _selectables = {};
+  SelectionRegistrar? _registrar;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final registrar = SelectionContainer.maybeOf(context);
+    if (identical(registrar, _registrar)) {
+      return;
+    }
+    for (final selectable in _selectables) {
+      _registrar?.remove(selectable);
+    }
+    _registrar = registrar;
+    for (final selectable in _selectables) {
+      _registrar?.add(selectable);
+    }
+  }
+
+  @override
+  void add(Selectable selectable) {
+    if (_selectables.add(selectable)) {
+      _registrar?.add(selectable);
+    }
+  }
+
+  @override
+  void remove(Selectable selectable) {
+    if (_selectables.remove(selectable)) {
+      _registrar?.remove(selectable);
+    }
+  }
+
+  @override
+  void dispose() {
+    for (final selectable in _selectables) {
+      _registrar?.remove(selectable);
+    }
+    _registrar = null;
+    _selectables.clear();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) =>
+      SelectionRegistrarScope(registrar: this, child: widget.child);
 }
