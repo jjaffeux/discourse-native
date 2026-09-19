@@ -1,7 +1,7 @@
 import 'package:discourse_native/src/plugins/discourse_events/topic_calendar_data.dart';
 import 'package:discourse_native/src/plugins/discourse_events/topic_calendar_event.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:kalender/kalender.dart' show KalenderDateTimeRange;
 import 'package:timezone/timezone.dart' as tz;
 
 import '../../../support/event_fixtures.dart';
@@ -73,7 +73,7 @@ void main() {
     expect(event.isAllDay, isFalse);
     final copy =
         event.withDateTimeRange(
-              DateTimeRange(
+              KalenderDateTimeRange(
                 start: value.start.add(const Duration(days: 1)),
                 end: value.end.add(const Duration(days: 1)),
               ),

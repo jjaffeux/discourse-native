@@ -52,7 +52,7 @@ enum _CalendarView {
 
 final class _TopicCalendarState extends State<TopicCalendar> {
   static final _localeData = initializeDateFormatting();
-  final _calendar = kalender.CalendarController();
+  final _calendar = kalender.KalenderController();
   final _events = kalender.DefaultEventsController();
   late kalender.ViewConfiguration _configuration;
   late DateTime _focus;
@@ -64,7 +64,7 @@ final class _TopicCalendarState extends State<TopicCalendar> {
   late String _loadedTimezone;
   bool _rangeUpdateScheduled = false;
 
-  final _interaction = kalender.CalendarInteraction(
+  final _interaction = kalender.KalenderInteraction(
     allowEventCreation: false,
     allowRescheduling: false,
     allowResizing: false,
@@ -127,33 +127,37 @@ final class _TopicCalendarState extends State<TopicCalendar> {
         : widget.settings.firstDay;
     // Kalender's default navigation window is only a few years. Topic calendars
     // can contain much older posts; give them a wider navigation window.
-    final displayRange = DateTimeRange(
+    final displayRange = kalender.KalenderDateTimeRange(
       start: _inCalendar(DateTime.utc(1900)),
       end: _inCalendar(DateTime.utc(2200)),
     );
     return switch (_view) {
       _CalendarView.month => kalender.MonthViewConfiguration.singleMonth(
         initialDateTime: _inCalendar(_focus),
+        dateResolver: (_) => kalender.FloatingDateTime.fromDateTime(_focus),
         nowCallback: _now,
         firstDayOfWeek: firstDay,
         displayRange: displayRange,
       ),
       _CalendarView.week => kalender.MultiDayViewConfiguration.week(
         initialDateTime: _inCalendar(_focus),
+        dateResolver: (_) => kalender.FloatingDateTime.fromDateTime(_focus),
         nowCallback: _now,
         firstDayOfWeek: firstDay,
-        initialTimeOfDay: const TimeOfDay(hour: 8, minute: 0),
+        initialTimeOfDay: const kalender.KalenderTime(hour: 8, minute: 0),
         displayRange: displayRange,
       ),
       _CalendarView.day => kalender.MultiDayViewConfiguration.singleDay(
         initialDateTime: _inCalendar(_focus),
+        dateResolver: (_) => kalender.FloatingDateTime.fromDateTime(_focus),
         nowCallback: _now,
-        initialTimeOfDay: const TimeOfDay(hour: 8, minute: 0),
+        initialTimeOfDay: const kalender.KalenderTime(hour: 8, minute: 0),
         displayRange: displayRange,
       ),
       _CalendarView.agenda => kalender.ScheduleViewConfiguration.paginated(
         name: 'Agenda',
         initialDateTime: _inCalendar(_focus),
+        dateResolver: (_) => kalender.FloatingDateTime.fromDateTime(_focus),
         nowCallback: _now,
         displayRange: displayRange,
       ),
@@ -522,11 +526,11 @@ final class _TopicCalendarState extends State<TopicCalendar> {
             : 580 + (rowHeight - 28) * lanes,
         child: kalender.KalenderView(
           eventsController: _events,
-          calendarController: _calendar,
+          kalenderController: _calendar,
           viewConfiguration: _configuration,
           locale: Localizations.localeOf(context),
           location: _location,
-          components: kalender.CalendarComponents(
+          components: kalender.KalenderComponents(
             monthComponents: kalender.MonthComponents(
               headerComponents: kalender.MonthHeaderComponents(
                 weekDayHeaderBuilder: (context, date) => SizedBox(
@@ -566,7 +570,7 @@ final class _TopicCalendarState extends State<TopicCalendar> {
               ),
             ),
           ),
-          header: kalender.CalendarHeader(
+          header: kalender.KalenderHeader(
             interaction: _interaction,
             multiDayTileComponents: tiles,
             multiDayHeaderConfiguration: kalender.MultiDayHeaderConfiguration(
@@ -574,7 +578,7 @@ final class _TopicCalendarState extends State<TopicCalendar> {
               tileHeight: rowHeight,
             ),
           ),
-          body: kalender.CalendarBody(
+          body: kalender.KalenderBody(
             interaction: _interaction,
             monthTileComponents: tiles,
             multiDayTileComponents: tiles,
@@ -613,8 +617,8 @@ final class _TopicCalendarState extends State<TopicCalendar> {
 
   Widget _tile(
     BuildContext context,
-    kalender.CalendarEvent event,
-    DateTimeRange range,
+    kalender.KalenderEvent event,
+    kalender.KalenderDateTimeRange range,
   ) => _bar((event as TopicCalendarEvent).occurrence);
 
   Widget _bar(CalendarOccurrence event) {

@@ -11,7 +11,7 @@ planned; see [Adding a platform](#adding-a-platform).
 
 ## Requirements
 
-- Flutter 3.47.2 (the exact SDK used by CI and releases is pinned in `.fvmrc`)
+- Flutter 3.47.4 (the exact SDK used by CI and releases is pinned in `.fvmrc`)
 - Xcode 26+ with the command line tools, for the iOS and macOS builds
 - For the Linux build, on Debian or Ubuntu:
 

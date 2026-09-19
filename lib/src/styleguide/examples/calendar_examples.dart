@@ -11,7 +11,7 @@ final calendarExamples = ComponentExamples(
   status: ComponentStatus.implemented,
   description: 'Select dates and date ranges in a compact month grid.',
   notes:
-      'Backed by kalender 0.29.1 and themed with DKalenderTheme. Calendar owns '
+      'Backed by kalender 0.31.3 and themed with DKalenderTheme. Calendar owns '
       'inline date selection; Date Picker owns its future popover/input. '
       'Gregorian locale labels and RTL are supported. True Persian, Hijri, or '
       'Jalali chronology needs a kalender engine implementation, matching the '

@@ -365,14 +365,14 @@ class DKalenderTheme extends StatelessWidget {
   }
 }
 
-/// A compact base-nova date-selection calendar powered by kalender 0.29.1.
+/// A compact base-nova date-selection calendar powered by kalender 0.31.3.
 ///
 /// Non-null [selection] and [displayedMonth] are controlled. Otherwise initial
 /// values and the owned/borrowed [controller] drive state. Borrowed controllers
 /// and focus nodes are never disposed. This widget owns inline day selection;
 /// input and popover composition belongs to the Date Picker component.
 ///
-/// Kalender 0.29.1 uses Gregorian [DateTime] pages. Localized Gregorian labels
+/// Kalender 0.31.3 uses Gregorian [DateTime] pages. Localized Gregorian labels
 /// and RTL are supported here. As with the official React example's engine
 /// replacement, Persian/Hijri/Jalali chronology requires a kalender engine that
 /// supplies that calendar math; relabeling Gregorian dates is intentionally not
@@ -499,7 +499,7 @@ class DCalendar extends StatefulWidget {
 }
 
 class _DCalendarState extends State<DCalendar> {
-  static final _noInteraction = kalender.CalendarInteraction(
+  static final _noInteraction = kalender.KalenderInteraction(
     allowEventCreation: false,
     allowRescheduling: false,
     allowResizing: false,
@@ -509,7 +509,7 @@ class _DCalendarState extends State<DCalendar> {
   late bool _ownsController;
   late FocusNode _rootFocus;
   late bool _ownsRootFocus;
-  final List<kalender.CalendarController> _pageControllers = [];
+  final List<kalender.KalenderController> _pageControllers = [];
   final List<kalender.DefaultEventsController> _eventsControllers = [];
   final Map<String, FocusNode> _dayFocusNodes = {};
   DCalendarSelection? _selection;
@@ -574,7 +574,7 @@ class _DCalendarState extends State<DCalendar> {
 
   void _ensurePages() {
     while (_pageControllers.length < widget.numberOfMonths) {
-      _pageControllers.add(kalender.CalendarController());
+      _pageControllers.add(kalender.KalenderController());
       _eventsControllers.add(kalender.DefaultEventsController());
     }
     while (_pageControllers.length > widget.numberOfMonths) {
@@ -800,7 +800,7 @@ class _DCalendarState extends State<DCalendar> {
     });
   }
 
-  void _pageChanged(int pane, DateTimeRange range) {
+  void _pageChanged(int pane, kalender.KalenderDateTimeRange range) {
     if (_syncingPages) return;
     final midpoint = range.start.add(range.duration ~/ 2);
     final visible = DCalendarDate(midpoint.year, midpoint.month, 1);
@@ -1058,7 +1058,8 @@ class _DCalendarState extends State<DCalendar> {
       firstDayOfWeek: widget.firstWeekday,
       showWeekNumbers: widget.showWeekNumbers,
       pageIndexCalculator: _DMonthIndexCalculator(
-        dateTimeRange: _displayRange,
+        start: _displayRange.start,
+        end: _displayRange.end,
         firstDayOfWeek: widget.firstWeekday,
         fixedWeeks: widget.fixedWeeks,
       ),
@@ -1077,11 +1078,11 @@ class _DCalendarState extends State<DCalendar> {
             height: cell + rows * laneHeight,
             child: kalender.KalenderView(
               eventsController: _eventsControllers[pane],
-              calendarController: _pageControllers[pane],
+              kalenderController: _pageControllers[pane],
               viewConfiguration: configuration,
               locale: widget.locale ?? Localizations.localeOf(context),
               location: widget.location,
-              callbacks: kalender.CalendarCallbacks(
+              callbacks: kalender.KalenderCallbacks(
                 onPageChanged: (range) => _pageChanged(pane, range),
                 onTapped: (date) => _select(
                   DCalendarDate.fromDateTime(date),
@@ -1091,9 +1092,9 @@ class _DCalendarState extends State<DCalendar> {
               components: _components(pane, month, cell),
               header: SizedBox(
                 height: cell,
-                child: const kalender.CalendarHeader(),
+                child: const kalender.KalenderHeader(),
               ),
-              body: kalender.CalendarBody(interaction: _noInteraction),
+              body: kalender.KalenderBody(interaction: _noInteraction),
             ),
           ),
         ],
@@ -1120,11 +1121,11 @@ class _DCalendarState extends State<DCalendar> {
     return ((leading + days) / 7).ceil();
   }
 
-  kalender.CalendarComponents _components(
+  kalender.KalenderComponents _components(
     int pane,
     DCalendarDate month,
     double cell,
-  ) => kalender.CalendarComponents(
+  ) => kalender.KalenderComponents(
     monthComponents: kalender.MonthComponents(
       headerComponents: kalender.MonthHeaderComponents(
         weekDayHeaderBuilder: (context, date) => SizedBox(
@@ -1656,22 +1657,23 @@ class _CalendarFocusRingPainter extends BoxPainter {
 
 class _DMonthIndexCalculator extends kalender.MonthIndexCalculator {
   _DMonthIndexCalculator({
-    required super.dateTimeRange,
+    required super.start,
+    required super.end,
     required super.firstDayOfWeek,
     required this.fixedWeeks,
   });
   final bool fixedWeeks;
 
   @override
-  kalender_ext.InternalDateTimeRange dateTimeRangeFromIndex(
+  kalender_ext.FloatingDateTimeRange rangeFromIndex(
     int index,
     tz.Location? location,
   ) {
-    if (!fixedWeeks) return super.dateTimeRangeFromIndex(index, location);
+    if (!fixedWeeks) return super.rangeFromIndex(index, location);
     final month = monthStartFromIndex(index, location);
     var start = month.startOfWeek(firstDayOfWeek: firstDayOfWeek);
     if (start.isAfter(month)) start = start.subtract(const Duration(days: 7));
-    return kalender_ext.InternalDateTimeRange(
+    return kalender_ext.FloatingDateTimeRange(
       start: start,
       end: start.add(const Duration(days: 42)),
     );
@@ -1680,14 +1682,16 @@ class _DMonthIndexCalculator extends kalender.MonthIndexCalculator {
   @override
   bool operator ==(Object other) =>
       other is _DMonthIndexCalculator &&
-      other.dateTimeRange == dateTimeRange &&
+      other.start == start &&
+      other.end == end &&
       other.firstDayOfWeek == firstDayOfWeek &&
       other.fixedWeeks == fixedWeeks;
 
   @override
   int get hashCode => Object.hash(
     _DMonthIndexCalculator,
-    dateTimeRange,
+    start,
+    end,
     firstDayOfWeek,
     fixedWeeks,
   );
