@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:math';
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
@@ -42,6 +43,8 @@ class _ForumThemeEditorState extends State<ForumThemeEditor> {
   late final Map<String, TextEditingController> _colors;
   late Brightness _brightness;
   String? _notice;
+  String? _baseId;
+  final _random = Random();
 
   String _newId() => 'custom-${DateTime.now().microsecondsSinceEpoch}';
 
@@ -55,6 +58,7 @@ class _ForumThemeEditorState extends State<ForumThemeEditor> {
           ? theme.name
           : '${theme.name} custom',
     );
+    _baseId = theme.id;
     _brightness = theme.brightness;
     final colors = theme.toJson()['colors'] as Map<String, String>;
     _colors = {
@@ -94,6 +98,7 @@ class _ForumThemeEditorState extends State<ForumThemeEditor> {
   }
 
   void _usePalette(ForumTheme theme, {bool imported = false}) {
+    _baseId = imported ? null : theme.id;
     if (imported) {
       _id = _newId();
       _name.text = theme.name;
@@ -103,6 +108,21 @@ class _ForumThemeEditorState extends State<ForumThemeEditor> {
     for (final entry in _colors.entries) {
       entry.value.text = colors[entry.key]!;
     }
+    _changed('');
+  }
+
+  void _surprise() {
+    final base = forumThemePresets[_random.nextInt(forumThemePresets.length)];
+    final accents = ['#47798B', '#9772A5', '#C28B45', '#4E8E7D', '#AB6674']
+        .where((color) => color != _colors['tertiary']!.text.toUpperCase())
+        .toList();
+    _baseId = base.id;
+    _brightness = base.brightness;
+    final colors = base.toJson()['colors'] as Map<String, String>;
+    for (final entry in _colors.entries) {
+      entry.value.text = colors[entry.key]!;
+    }
+    _colors['tertiary']!.text = accents[_random.nextInt(accents.length)];
     _changed('');
   }
 
@@ -148,11 +168,9 @@ class _ForumThemeEditorState extends State<ForumThemeEditor> {
           errorText: _name.text.trim().isEmpty ? 'Enter a name.' : null,
           onChanged: _changed,
         ),
-        DSelect<String>(
+        DSelect<String>.controlled(
           semanticLabel: 'Start from',
-          initialValue: presets.any((p) => p.id == widget.initialTheme.id)
-              ? widget.initialTheme.id
-              : null,
+          value: presets.any((p) => p.id == _baseId) ? _baseId : null,
           label: const Text('Start from'),
           isExpanded: true,
           entries: [
@@ -262,7 +280,7 @@ class _ForumThemeEditorState extends State<ForumThemeEditor> {
             ),
           ),
         Wrap(
-          spacing: DSpacing.sm,
+          spacing: DSpacing.controlGap,
           runSpacing: DSpacing.sm,
           children: [
             DButton(
@@ -272,6 +290,10 @@ class _ForumThemeEditorState extends State<ForumThemeEditor> {
             DButton(
               label: const Text('Copy theme'),
               onPressed: widget.enabled && valid ? _export : null,
+            ),
+            DButton(
+              label: const Text('Surprise me'),
+              onPressed: widget.enabled ? _surprise : null,
             ),
             DButton(
               key: const ValueKey('save-custom-theme'),
