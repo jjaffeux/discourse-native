@@ -9,7 +9,8 @@ final tooltipExamples = ComponentExamples(
   description: 'A brief description that appears on hover or keyboard focus.',
   status: ComponentStatus.implemented,
   notes:
-      'Tooltip uses the active palette’s floating surface, text and border colors, '
+      'Tooltip uses the active palette’s floating surface and text colors, '
+      'with a border mixing 12% text color into its surface, '
       'including its arrow and muted shortcut badges. The reference '
       'compositions use the accepted outline and icon-sm DButton owners. '
       'Hover waits 250 ms by default; keyboard focus opens immediately. '

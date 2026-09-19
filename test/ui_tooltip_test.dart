@@ -99,7 +99,7 @@ void main() {
           paints
             ..path(color: tokens.surface, style: PaintingStyle.fill)
             ..path(
-              color: tokens.border,
+              color: Color.lerp(tokens.surface, tokens.foreground, .12),
               style: PaintingStyle.stroke,
               strokeWidth: 1,
             ),

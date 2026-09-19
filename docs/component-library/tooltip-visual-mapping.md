@@ -14,9 +14,12 @@ cursor tracking, disabled triggers, placement and timing.
 
 The user requested that all tooltips follow the active app theme. This supersedes
 only the frozen reference's inverted colors and borderless appearance: tooltips
-now use `DTokens.surface`, `DTokens.foreground`, a 1px `DTokens.border` outline,
-and `DTokens.muted` shortcut backgrounds. The body and arrow share one continuous
-outline. Highlighted shortcut keys retain the palette's primary colors. Geometry,
+now use `DTokens.surface`, `DTokens.foreground`, a 1px outline mixing 12% foreground
+into the tooltip surface, and `DTokens.muted` shortcut backgrounds.
+The body and arrow share one continuous
+outline. This uses the same 12% mixing approach as topic footers, based on the
+tooltip surface so the edge remains visible against that surface in each palette.
+Highlighted shortcut keys retain the palette's primary colors. Geometry,
 placement and interactions are unchanged. Rail avatar fallbacks use the same
 surface when calculating contrast.
 
@@ -28,6 +31,11 @@ An isolated macOS build of `tool/sidebar_review_main.dart` was inspected with
 Aggregate in the light palette and forum tooltips in dark and Plum palettes.
 The body, continuous arrow border and shortcut badges followed those palettes.
 No mobile device run was performed for this appearance change.
+
+The mixed-border follow-up passed static analysis and 44 Tooltip widget tests.
+Its rebuilt macOS fixture was inspected with forum and Aggregate tooltips in
+Dark, Plum and Forest palettes; the mixed outline remains continuous around
+the body and arrow.
 
 ## Reference measurements
 
@@ -52,7 +60,7 @@ corresponding web theme variables.
 | Radius | 8px, `rounded-md` with a 10px theme radius | Host `DTokens.radius × 0.8` |
 | Colors, Light | Black surface, white text | `DTokens.surface` / `DTokens.foreground` text |
 | Colors, Dark | Near-white surface (`lab(98.26 0 0)`), dark text | Same theme surface/text roles, updated while open |
-| Border/shadow | None | 1px `DTokens.border` outline, no shadow |
+| Border/shadow | None | 1px outline mixing 12% foreground into the surface, no shadow |
 | Arrow | 10×10px rounded square rotated 45°, 2px radius | Same painted geometry and surface color |
 | Arrow attachment | Top body center at h−2; bottom at y=2; side center at w−1 / x=1 | Same offsets; anchor follows trigger and clamps away from corners |
 | Enter | 150ms ease, fade 0→1, scale .95→1, 8px slide from trigger side | Same values; side-aware paint transform |
