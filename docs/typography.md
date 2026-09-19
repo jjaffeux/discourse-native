@@ -83,7 +83,7 @@ networking, focus manager, or selection owner.
 | large | 18 / 28 | 600 |
 | small | 14 / 14 | 500, reference leading-none |
 | muted | 14 / 20 | Normal weight, muted foreground |
-| inlineCode | 14 / 20 | Bundled JetBrains Mono, 600, muted background |
+| inlineCode | 14 / 20 | Bundled JetBrains Mono, 600, outlined palette-derived background |
 
 `DText.bodyStyleOf(context)` supplies the reference's inherited 16/24 body text
 for lists, quotes and table compositions. `DText.linkStyleOf(context)` supplies

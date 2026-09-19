@@ -312,7 +312,7 @@ class DText extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     // A standalone code box paints its own background once; a span background
-    // beneath it would double a translucent muted token.
+    // beneath it would paint the code fill twice.
     final resolvedStyle = _resolve(context, variant).merge(style);
     Widget result = textSpan == null
         ? Text(
