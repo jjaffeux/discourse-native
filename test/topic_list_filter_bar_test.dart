@@ -336,7 +336,7 @@ void main() {
           'subcategory' => const ValueKey(('topic-list-subcategory-option', 2)),
           _ => const ValueKey(('topic-list-tag-filter-option', 'ux')),
         });
-        expect(tester.getSize(row).height, 28);
+        expect(tester.getSize(row).height, 32);
         if (kind != 'tag') {
           final indicator = find.byKey(
             ValueKey(('category-selector-icon', kind == 'category' ? 3 : 2)),

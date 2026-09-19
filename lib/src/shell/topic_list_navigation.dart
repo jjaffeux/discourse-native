@@ -407,6 +407,7 @@ class TopicFeedMenu extends StatelessWidget {
       child: DDropdownMenuTrigger(
         builder: (context, trigger) => DButton(
           key: const ValueKey('topic-list-feed-menu'),
+          size: DButtonSize.large,
           label: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
