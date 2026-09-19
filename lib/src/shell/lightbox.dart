@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -17,6 +18,7 @@ import 'image_download.dart';
 import 'platform.dart';
 import 'shell_scope.dart';
 import 'site_image.dart';
+import 'title_bar.dart';
 
 const double _maximumPhotoViewDimension = 10000;
 const double _maximumPhotoViewAspectRatio = 10000;
@@ -851,11 +853,20 @@ class _Chrome extends StatelessWidget {
 
   Widget _bar(BuildContext context) {
     final downloadHref = image.downloadHref;
+    final hasWindowChrome =
+        !kIsWeb && defaultTargetPlatform == TargetPlatform.macOS;
 
     return SafeArea(
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        // macOS traffic lights overlay Flutter and are not in SafeArea.
+        padding: EdgeInsets.fromLTRB(
+          8,
+          4 + (hasWindowChrome ? ShellTitleBar.height : 0),
+          8,
+          4,
+        ),
         child: Row(
+          spacing: DSpacing.controlGap,
           children: [
             if (total > 1)
               Expanded(
