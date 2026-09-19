@@ -527,28 +527,33 @@ class _DiscourseAppState extends State<DiscourseApp>
         child: ShellSelector<_AppThemeSelection>(
           select: _AppThemeSelection.from,
           builder: (context, selection, _) {
-            SurfaceOpeningTrace.mark('forum.theme.start');
-            final lightTheme = _themeFor(
-              selection.appearance,
-              Brightness.light,
-            );
-            final darkTheme = _themeFor(selection.appearance, Brightness.dark);
-            SurfaceOpeningTrace.mark('forum.theme.end');
             return ListenableBuilder(
               listenable: _controller.forumSettings,
-              builder: (context, _) => _materialApp(
-                theme: lightTheme,
-                darkTheme: darkTheme,
-                themeMode: switch (selection.siteUrl == null
-                    ? AppThemeMode.system
-                    : _controller.forumSettings.themeModeFor(
+              builder: (context, _) {
+                SurfaceOpeningTrace.mark('forum.theme.start');
+                final appearance = selection.siteUrl == null
+                    ? selection.appearance
+                    : _controller.forumSettings.appearanceFor(
                         selection.siteUrl!,
-                      )) {
-                  AppThemeMode.system => ThemeMode.system,
-                  AppThemeMode.light => ThemeMode.light,
-                  AppThemeMode.dark => ThemeMode.dark,
-                },
-              ),
+                        selection.appearance,
+                      );
+                final lightTheme = _themeFor(appearance, Brightness.light);
+                final darkTheme = _themeFor(appearance, Brightness.dark);
+                SurfaceOpeningTrace.mark('forum.theme.end');
+                return _materialApp(
+                  theme: lightTheme,
+                  darkTheme: darkTheme,
+                  themeMode: switch (selection.siteUrl == null
+                      ? AppThemeMode.system
+                      : _controller.forumSettings.themeModeFor(
+                          selection.siteUrl!,
+                        )) {
+                    AppThemeMode.system => ThemeMode.system,
+                    AppThemeMode.light => ThemeMode.light,
+                    AppThemeMode.dark => ThemeMode.dark,
+                  },
+                );
+              },
             );
           },
         ),

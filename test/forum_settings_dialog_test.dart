@@ -71,7 +71,14 @@ void main() {
         await tester.pumpAndSettle();
         await tester.tap(find.byKey(const ValueKey('appearance-theme-select')));
         await tester.pumpAndSettle();
-        await tester.tap(find.text('Dark').last);
+        await tester.tap(
+          find
+              .descendant(
+                of: find.byType(DPopoverContent),
+                matching: find.text('Dark'),
+              )
+              .last,
+        );
         await tester.pumpAndSettle();
         expect(
           controller.forumSettings.themeModeFor('https://a.example'),
