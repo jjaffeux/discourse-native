@@ -7,7 +7,7 @@ claimed.
 | Command / scope | Result | Log |
 | --- | --- | --- |
 | Package `dart analyze --fatal-infos` | Passed, no issues | `package-analysis.txt` |
-| Package `dart test` | Passed, 56 tests | `package-tests.txt` |
+| Package `dart test` | Passed, 61 tests | `package-tests.txt` |
 | JS `npm test` | Passed, 22 tests | `js-tests.txt` |
 | JS `npm run verify` | Exact generated bundle reproduction | `bundle-verification.txt` |
 | `python3 packages/discourse_cooking/tool/vendor_quickjs.py` | 21 pinned source files verified | `quickjs-verification.txt` |
@@ -51,9 +51,54 @@ The final generated JS is 634,308 bytes, SHA-256
 Bundle verification also checks copied Discourse sources against their pristine
 hash manifest. QuickJS engine identity is generated from its pinned provenance.
 
-The full root suite was not rerun: milestone 1 retained candidate/base evidence
-of the same 288 completed failures and the modal-controller user-card hang.
+Initial author validation did not rerun the old full suite: milestone 1 retained
+candidate/base evidence of the same 288 completed failures and the
+modal-controller user-card hang. The coordinator subsequently integrated onto
+main `95510b4be`, which includes baseline test fixes `b579e6024`, and completed
+the full suite on integration `1446dcd7e`: 11,918 passed, 7 skipped, 2 failed.
+Both failures were new disposal-watchdog timers owned by widget fake-clock
+zones. The complete log is `coordinator-integrated-full-before-fix.log.gz`.
+These historical baseline failures are therefore not a claim about current
+main. See the correction evidence below.
 This milestone did not modify native C code or repeat platform application
 builds. Both locked app graphs and their packaging tests were checked; actual
 worker execution was tested locally on macOS. Linux, iOS device, Android and
 other platform execution is not newly claimed here.
+
+
+## Worker wall-clock deadline correction
+
+The runtime now centralizes startup, request-transport and shutdown deadlines
+in `wall_clock_deadline.dart`. Timers belong to the real root-zone clock,
+while completion, errors and guarded callbacks stay in the caller's zone.
+Timeout durations and `_terminate` paths are unchanged. Settled operations
+cancel deadlines; late completion/error remains observed. Disposal is still
+idempotent and awaits native shutdown.
+
+- `widget-deadline-before.txt`: the new real-worker widget regression failed
+  against `03def6a97`, capturing the exact 3.25-second shutdown timer in the
+  widget zone. It cleans up the actual worker rather than pumping virtual time
+  until the timer expires.
+- `widget-deadline-targeted.txt`: 3 passed with seed 67214: the regression,
+  proofreading “a later composer restores the remembered choice”, and
+  diagnostics “starts, stops, and copies a topic scroll capture”.
+- `widget-affected-suites.txt`: the complete three-file run on the author branch
+  passed 38 tests with 2 older proofreading layout assertion failures. Those
+  assertions are changed by main's `b579e6024` baseline fix, which was not merged
+  into this milestone worktree. No pending-timer failure remains in that run.
+- Refreshed `package-tests.txt`: 61 passed, including real timeout expiry
+  without caller-clock advancement, explicit timer cancellation on success and
+  error, late-error observation, caller-zone delivery, lifecycle operations
+  with caller timer creation forbidden, and real startup timeout termination.
+- Refreshed `package-analysis.txt`: clean.
+- `widget-deadline-analysis.txt`: the new widget regression analyzes cleanly.
+
+The targeted root command used the same three file paths as the complete
+three-file run, adding `--test-randomize-ordering-seed=67214` and:
+
+```sh
+--name 'synchronous shell disposal|a later composer restores the remembered choice|starts, stops, and copies a topic scroll capture'
+```
+
+The corrected full integration suite is left to the coordinator; this evidence
+does not claim that subsequent run has passed.

@@ -23,6 +23,45 @@ CookingRequest request(
     CookingRequest(raw: raw, profile: profile, snapshot: context ?? snapshot());
 
 void main() {
+  test('worker lifecycle never depends on caller-zone timers', () async {
+    var callerTimers = 0;
+    await runZoned(
+      () async {
+        final service = OfflineCookingService();
+        try {
+          expect(await service.start(), isTrue);
+          expect((await service.cook(request('wall clock'))).failure, isNull);
+        } finally {
+          await service.dispose();
+        }
+        expect(service.isHealthy, isFalse);
+        expect(await service.start(), isFalse);
+      },
+      zoneSpecification: ZoneSpecification(
+        createTimer: (self, parent, zone, duration, callback) {
+          callerTimers++;
+          throw StateError('Worker lifecycle used caller timer');
+        },
+      ),
+    );
+    expect(callerTimers, 0);
+  });
+
+  test('real startup deadline terminates the unavailable service', () async {
+    final service = OfflineCookingService(
+      limits: const CookingLimits(startupTimeout: Duration(milliseconds: 1)),
+    );
+    expect(await service.start(), isFalse);
+    expect(service.isHealthy, isFalse);
+    expect(
+      (await service.cook(request('later'))).failure,
+      CookingFailure.unavailable,
+    );
+    await service.dispose();
+    await service.dispose();
+    expect(await service.start(), isFalse);
+  });
+
   test('main isolate handles timer while worker parses heavy input', () async {
     final service = OfflineCookingService();
     addTearDown(service.dispose);

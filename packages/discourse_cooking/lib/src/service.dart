@@ -5,6 +5,7 @@ import 'dart:isolate';
 import 'contracts.dart';
 import 'generated_bundle.dart';
 import 'native_runtime.dart';
+import 'wall_clock_deadline.dart';
 
 /// Resource limits apply per service/runtime, never per token or host callback.
 final class CookingLimits {
@@ -100,7 +101,10 @@ final class OfflineCookingService implements CookingRuntimePort {
         errorsAreFatal: true,
         debugName: 'discourse-offline-cooking',
       );
-      final success = await ready.future.timeout(limits.startupTimeout);
+      final success = await withWallClockDeadline(
+        ready.future,
+        limits.startupTimeout,
+      );
       startupMicroseconds = timer.elapsedMicroseconds;
       if (!success) _terminate();
       return success;
@@ -155,7 +159,7 @@ final class OfflineCookingService implements CookingRuntimePort {
       _commands!.send([id, serialized]);
       // The native interrupt enforces actual CPU execution. This outer watchdog
       // covers a crashed worker or broken transport, including bounded queueing.
-      pending.watchdog = Timer(
+      pending.watchdog = wallClockTimer(
         limits.executionTimeout * (limits.maxPending + 1) +
             const Duration(seconds: 2),
         () => _terminate(CookingFailure.timeout),
@@ -238,7 +242,8 @@ final class OfflineCookingService implements CookingRuntimePort {
     final stopped = _stopped = Completer<void>();
     _commands!.send(null);
     try {
-      await stopped.future.timeout(
+      await withWallClockDeadline(
+        stopped.future,
         limits.executionTimeout * (limits.maxPending + 1) +
             const Duration(seconds: 2),
       );
