@@ -357,17 +357,14 @@ class _ForumAppearanceSettingsState extends State<ForumAppearanceSettings> {
                   ),
               ],
             ),
-            if (preferences.selectedTheme case final selected?)
+            if (preferences.selectedTheme case final selected?
+                when selected.id.startsWith('custom-'))
               Wrap(
                 spacing: DSpacing.sm,
                 runSpacing: DSpacing.sm,
                 children: [
                   DButton(
-                    label: Text(
-                      selected.id.startsWith('custom-')
-                          ? 'Edit theme'
-                          : 'Customize',
-                    ),
+                    label: const Text('Edit theme'),
                     onPressed: _saving
                         ? null
                         : () => setState(() {
@@ -376,15 +373,13 @@ class _ForumAppearanceSettingsState extends State<ForumAppearanceSettings> {
                             _tab = 'custom';
                           }),
                   ),
-                  if (selected.id.startsWith('custom-'))
-                    DButton(
-                      label: const Text('Delete theme'),
-                      onPressed: _saving
-                          ? null
-                          : () => unawaited(
-                              _save(preferences.remove(selected.id)),
-                            ),
-                    ),
+                  DButton(
+                    label: const Text('Delete theme'),
+                    onPressed: _saving
+                        ? null
+                        : () =>
+                              unawaited(_save(preferences.remove(selected.id))),
+                  ),
                 ],
               ),
           ],
