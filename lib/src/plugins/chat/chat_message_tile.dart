@@ -1612,7 +1612,7 @@ class _Tile extends StatelessWidget {
         message.edited ||
         message.pinned ||
         message.bookmark != null ||
-        message.delivery != ChatMessageDelivery.sent;
+        message.delivery == ChatMessageDelivery.failed;
 
     final bubbleContent = DBubbleContent(
       compact: true,
@@ -1801,10 +1801,6 @@ class _Tile extends StatelessWidget {
                             ? 'Bookmarked chat message'
                             : 'Chat message bookmarked with a reminder',
                         child: DIcon(_bookmarkIcon(bookmark), size: 14),
-                      ),
-                    if (message.delivery == ChatMessageDelivery.sending)
-                      const DMessageStatus(
-                        state: DMessageDeliveryState.pending,
                       ),
                     if (message.delivery == ChatMessageDelivery.failed)
                       DMessageStatus(

@@ -403,6 +403,9 @@ void main() {
           await tester.tap(find.byKey(const ValueKey('chat-composer-send')));
           await tester.pump();
 
+          expect(_button(tester, 'chat-composer-send').loading, isTrue);
+          expect(find.text('Sending'), findsNothing);
+
           final sent = fixture.api.chatMessagesSent.single;
           expect(sent.message, 'Already writing');
           expect(sent.inReplyToId, 7);
@@ -420,7 +423,12 @@ void main() {
           await tester.enterText(_composerField(), 'Next message');
           await tester.pump();
           await tester.tap(find.byKey(const ValueKey('chat-composer-send')));
+          expect(fixture.api.chatMessagesSent, hasLength(1));
+          expect(_text(tester), 'Next message');
           sendGate.complete();
+          await tester.pumpAndSettle();
+          expect(_button(tester, 'chat-composer-send').loading, isFalse);
+          await tester.tap(find.byKey(const ValueKey('chat-composer-send')));
           await tester.pumpAndSettle();
           expect(fixture.api.chatMessagesSent, hasLength(2));
           expect(fixture.api.chatMessagesSent.last.inReplyToId, isNull);
@@ -2394,7 +2402,8 @@ void main() {
       expect(tester.widget<TextField>(field).controller!.text, isEmpty);
       expect(find.text('first message'), findsOneWidget);
       expect(find.text('Sending…'), findsNothing);
-      expect(find.byType(DSpinner), findsNothing);
+      expect(_button(tester, 'chat-composer-send').loading, isTrue);
+      expect(find.text('Sending'), findsNothing);
       expect(fixture.shell.chat.stream(_site, 9).localMessageIds, hasLength(1));
       expect(fixture.api.chatMessagesRequested, hasLength(1));
 
@@ -2535,7 +2544,7 @@ void main() {
       await tester.enterText(_composerField(), 'first');
       await tester.pump();
       await tester.tap(find.byKey(const ValueKey('chat-composer-send')));
-      await tester.pumpAndSettle();
+      await tester.pump();
       await tester.enterText(_composerField(), 'second');
       await tester.pump();
       expect(_text(tester), 'second');
