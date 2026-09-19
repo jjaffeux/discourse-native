@@ -135,6 +135,7 @@ class _ForumAppearanceSettingsState extends State<ForumAppearanceSettings> {
                 spacing: 0,
                 child: DItem(
                   key: const ValueKey('forum-default-theme'),
+                  shape: DItemShape.card,
                   selected:
                       preferences.selectedTheme == null && _tab != 'custom',
                   enabled: !_saving,
