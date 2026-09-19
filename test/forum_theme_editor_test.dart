@@ -65,6 +65,47 @@ void main() {
     },
   );
 
+  testWidgets(
+    'Surprise me updates the draft and preserves its name until saved',
+    (tester) async {
+      ForumTheme? draft;
+      ForumTheme? saved;
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light,
+          home: SingleChildScrollView(
+            child: DCard(
+              child: ForumThemeEditor(
+                initialTheme: forumThemePresets[9],
+                customThemes: const [],
+                onChanged: (value) => draft = value,
+                onSave: (value) async => saved = value,
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.enterText(input('custom-theme-name'), 'My garden');
+      await tester.pumpAndSettle();
+      final id = draft!.id;
+      final before = draft!.tertiary;
+      await tester.ensureVisible(find.text('Surprise me'));
+      await tester.tap(find.text('Surprise me'));
+      await tester.pumpAndSettle();
+      expect(draft!.name, 'My garden');
+      expect(draft!.id, id);
+      expect(draft!.tertiary, isNot(before));
+      expect(saved, isNull);
+      final firstAccent = draft!.tertiary;
+      await tester.tap(find.text('Surprise me'));
+      await tester.pumpAndSettle();
+      expect(draft!.tertiary, isNot(firstAccent));
+      await tester.tap(find.byKey(const ValueKey('save-custom-theme')));
+      expect(saved, draft);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   testWidgets('imports validated JSON into the editor without applying it', (
     tester,
   ) async {
