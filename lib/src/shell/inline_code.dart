@@ -1,3 +1,4 @@
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_widget_from_html_core/flutter_widget_from_html_core.dart';
 import 'package:html/dom.dart' as dom;
@@ -21,11 +22,6 @@ class InlineCode extends StatelessWidget {
 
   static const double _scale = 0.875;
 
-  static const EdgeInsets _padding = EdgeInsets.symmetric(
-    horizontal: 4,
-    vertical: 1,
-  );
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -34,24 +30,18 @@ class InlineCode extends StatelessWidget {
         theme.textTheme.bodyLarge ??
         const TextStyle(fontSize: DiscourseTypography.base);
 
-    return Container(
-      padding: _padding,
-      decoration: BoxDecoration(
-        color: theme.code.inlineBackground,
-        borderRadius: BorderRadius.circular(4),
-      ),
-      child: Text(
-        text,
-        style: surrounding
-            .merge(monospaceTextStyle)
-            .copyWith(
-              fontSize:
-                  (surrounding.fontSize ?? DiscourseTypography.base) * _scale,
-              color: isLink
-                  ? theme.colorScheme.primary
-                  : surrounding.color ?? theme.colorScheme.onSurface,
-            ),
-      ),
+    return DText.code(
+      text,
+      style: surrounding
+          .merge(monospaceTextStyle)
+          .copyWith(
+            fontWeight: surrounding.fontWeight ?? FontWeight.normal,
+            fontSize:
+                (surrounding.fontSize ?? DiscourseTypography.base) * _scale,
+            color: isLink
+                ? theme.colorScheme.primary
+                : surrounding.color ?? theme.colorScheme.onSurface,
+          ),
     );
   }
 }
