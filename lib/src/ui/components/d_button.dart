@@ -359,6 +359,7 @@ class DButton extends StatelessWidget {
     this.loadingSemanticLabel = 'Loading',
     this.loadingLabel,
     this.tooltip,
+    this.tooltipSide = DTooltipSide.top,
     this.shortcut,
     this.semanticLabel,
     this.focusNode,
@@ -376,6 +377,7 @@ class DButton extends StatelessWidget {
     super.key,
     required Widget icon,
     required String tooltip,
+    this.tooltipSide = DTooltipSide.top,
     required this.onPressed,
     this.variant = DButtonVariant.primary,
     this.size = DButtonSize.regular,
@@ -432,6 +434,9 @@ class DButton extends StatelessWidget {
   final String loadingSemanticLabel;
   final Widget? loadingLabel;
   final String? tooltip;
+
+  /// Preferred placement of the tooltip relative to the button.
+  final DTooltipSide tooltipSide;
   final DShortcut? shortcut;
   final String? semanticLabel;
   final FocusNode? focusNode;
@@ -872,6 +877,7 @@ class DButton extends StatelessWidget {
     if (tooltip case final tooltip?) {
       result = DTooltip(
         message: tooltip,
+        side: tooltipSide,
         shortcut: shortcut,
         excludeFromSemantics: effectiveSemanticLabel != null,
         child: result,

@@ -49,7 +49,10 @@ final tooltipExamples = ComponentExamples(
       child: DButton(label: Text(side.name),
         variant: DButtonVariant.outline, onPressed: addToLibrary),
     ),
-])''',
+])
+// Icon actions expose the same placement option:
+DButton.iconOnly(icon: Icon(Icons.add), tooltip: 'Add to library',
+  tooltipSide: DTooltipSide.right, onPressed: addToLibrary)''',
       builder: (_) => _Space(
         child: Wrap(
           spacing: 8,
@@ -70,6 +73,13 @@ final tooltipExamples = ComponentExamples(
                   onPressed: () {},
                 ),
               ),
+            DButton.iconOnly(
+              icon: const Icon(Icons.add),
+              tooltip: 'Add to library',
+              tooltipSide: DTooltipSide.right,
+              variant: DButtonVariant.outline,
+              onPressed: () {},
+            ),
           ],
         ),
       ),

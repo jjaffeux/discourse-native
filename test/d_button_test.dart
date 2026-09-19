@@ -467,6 +467,7 @@ void main() {
             child: DButton(
               label: Text('Reply'),
               tooltip: 'Reply to this topic',
+              tooltipSide: DTooltipSide.right,
               shortcut: DShortcut(
                 SingleActivator(LogicalKeyboardKey.keyR, shift: true),
               ),
@@ -488,6 +489,10 @@ void main() {
     await tester.pump(const Duration(milliseconds: 150));
 
     final message = find.text('Reply to this topic');
+    expect(
+      tester.getRect(message).left,
+      greaterThan(tester.getRect(find.byType(DButton)).right),
+    );
     expect(DefaultTextStyle.of(tester.element(message)).style.fontSize, 12);
     expect(find.byType(DKbd), findsNWidgets(2));
     expect(find.text('⇧'), findsOneWidget);
