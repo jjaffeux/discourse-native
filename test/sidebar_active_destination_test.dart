@@ -1,9 +1,11 @@
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/shell/instance_sidebar.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
+import 'package:discourse_native/src/shell/topic_list_view.dart';
 import 'package:discourse_native/src/shell/topic_view.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -21,12 +23,23 @@ void main() {
       (tester) async {
         const site = 'https://meta.discourse.org';
         const user = DiscourseUser(id: 7, username: 'reader');
-        final topic = Topic(
-          id: 42,
-          title: 'Retained conversation',
-          slug: 'retained-conversation',
-          privateMessage: source == 'Messages',
+        const publicTopic = Topic(
+          id: 41,
+          title: 'Public topic',
+          slug: 'public-topic',
         );
+        const message = Topic(
+          id: 42,
+          title: 'Private message',
+          slug: 'private-message',
+          privateMessage: true,
+        );
+        const trendingTopic = Topic(
+          id: 43,
+          title: 'Trending topic',
+          slug: 'trending-topic',
+        );
+        final topic = source == 'Topics' ? publicTopic : message;
         await pumpShell(
           tester,
           const Size(1800, 1000),
@@ -34,11 +47,10 @@ void main() {
           authenticator: FakeAuthenticator()..keys[site] = 'key',
           api: FakeDiscourseApi(
             user: user,
-            feeds: {
-              '/latest.json': [if (!topic.privateMessage) topic],
-              '/topics/private-messages/reader.json': [
-                if (topic.privateMessage) topic,
-              ],
+            feeds: const {
+              '/latest.json': [publicTopic],
+              '/hot.json': [trendingTopic],
+              '/topics/private-messages/reader.json': [message],
             },
             topics: {
               topic.id: (
@@ -66,6 +78,29 @@ void main() {
         );
         final other = source == 'Topics' ? 'Messages' : 'Topics';
         void expectActive(String label) {
+          final topics = label == 'Topics';
+          if (shell.splitTopicPanels || shell.currentContent?.isTopic != true) {
+            final list = find.byType(TopicListView);
+            expect(
+              find.descendant(
+                of: list,
+                matching: find.text(topics ? publicTopic.title : message.title),
+              ),
+              findsOneWidget,
+            );
+            expect(
+              find.descendant(
+                of: list,
+                matching: find.text(topics ? message.title : publicTopic.title),
+              ),
+              findsNothing,
+            );
+          }
+          expect(shell.currentFeedId, topics ? 'latest' : 'messages');
+          expect(
+            shell.currentTopicListMode,
+            topics ? TopicListMode.latest : null,
+          );
           for (final destination in ['Topics', 'Messages']) {
             expect(
               tester
@@ -94,6 +129,31 @@ void main() {
         expect(shell.activeTabId, readerTab);
         expect(tester.state(find.byType(TopicView)), same(readerState));
         expectActive(other);
+
+        if (other == 'Topics') {
+          for (final mode in [TopicListMode.popular, TopicListMode.latest]) {
+            await tester.tap(
+              find.byKey(const ValueKey('topic-list-feed-menu')),
+            );
+            await tester.pumpAndSettle();
+            await tester.tap(find.byKey(ValueKey('topic-list-${mode.name}')));
+            await tester.pumpAndSettle();
+            expect(shell.currentTopicListMode, mode);
+            expect(shell.activeTabId, readerTab);
+            expect(
+              find.descendant(
+                of: find.byType(TopicListView),
+                matching: find.text(
+                  mode == TopicListMode.popular
+                      ? trendingTopic.title
+                      : publicTopic.title,
+                ),
+              ),
+              findsOneWidget,
+            );
+          }
+          expectActive(other);
+        }
 
         shell.createTab();
         await tester.pumpAndSettle();

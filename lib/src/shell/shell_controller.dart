@@ -2884,7 +2884,7 @@ class ShellController extends FrameSafeNotifier
         : currentContent;
     if (route?.isMessages == true) return route!.id;
     if (route != null && route.feedPath != null) return route.id;
-    return destinationId;
+    return topicListTab?.rootDestinationId;
   }
 
   final _unreadTopicFeed = UnreadTopicFeed();
@@ -2915,7 +2915,7 @@ class ShellController extends FrameSafeNotifier
   }
 
   TopicListMode? get currentTopicListMode {
-    final tab = activeTab;
+    final tab = topicListTab;
     if (tab == null) return null;
 
     final route = topicListContent ?? tab.currentContent;
