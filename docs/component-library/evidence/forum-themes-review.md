@@ -91,3 +91,34 @@ Thumbnails resolve against the active light/dark/system mode, matching the live
 preview. Customization and Surprise me start from the requested palette mode.
 Model checks cover exact WCAG/Solarized colors, legacy selection migration,
 round trips, and thumbnail/preview color agreement in both modes.
+
+## Window gradient and darker sidebars — 2026-09-19
+
+Custom themes now include independent Window gradient and Darker sidebars
+Native toggles. Both default to false for existing themes and travel through
+version-1 JSON import/export, saved per-forum preferences, mode conversion and
+authored alternate palettes. The root theme owns the options for both modes.
+
+The window canvas blends Background into the derived selected color (20%
+Accent). The title bar and instance rail expose the same canvas so the gradient
+continues through desktop panel gaps. Content, cards and floating surfaces keep
+their existing fills. The preview includes this window canvas around its card.
+
+Darker sidebars applies a scoped Theme around the production forum/chat
+navigation and preview Sidebar. Existing Native components supply every
+control and interaction; no kit APIs were extended. Its background mixes the
+current Background toward black (86% in light mode, 35% in dark mode). Text is
+chosen against the brightest possible selected row to retain at least 4.5:1
+contrast; accents try progressively lighter tints before falling back to text.
+The content and shared panel tokens outside navigation remain unchanged.
+
+Verification: 43 focused model/editor/AppTheme/shell-panel tests and 39
+settings/integration/adoption tests passed. Coverage includes all ten preset
+families in both modes with every combination of options, selected-row contrast,
+legacy defaults, imports/exports, save/reopen, preview scope and restoring the
+plain appearance. Static analysis passed with fatal infos. A macOS debug build
+of the existing in-memory forum settings fixture passed. Native review in an
+isolated `org.discourse.native.review.themeeffects` bundle verified both toggles,
+live preview, saving and the applied light-content/dark-navigation shell with
+its continuous outer gradient. A subsequent contrast refinement was covered by
+the full preset matrix and rebuilt successfully.

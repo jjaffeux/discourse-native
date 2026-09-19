@@ -22,6 +22,7 @@ import 'composer_presentation.dart';
 import 'desktop_navigation.dart';
 import 'diagnostics_panel.dart';
 import 'empty_state.dart';
+import 'forum_theme_surfaces.dart';
 import 'instance_actions.dart';
 import 'instance_rail.dart';
 import 'instance_sidebar.dart';
@@ -518,99 +519,101 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
     bool diagnosticsOpen,
   ) {
     return Scaffold(
-      body: LayoutBuilder(
-        builder: (context, constraints) {
-          final layout = ShellLayout.forWidth(constraints.maxWidth);
-          final shell = layout.isCompact && context.isTouch
-              ? const _CompactShell()
-              : _WideShell(layout: layout, sidebarWidth: _sidebarWidth);
+      body: ForumWindowBackground(
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final layout = ShellLayout.forWidth(constraints.maxWidth);
+            final shell = layout.isCompact && context.isTouch
+                ? const _CompactShell()
+                : _WideShell(layout: layout, sidebarWidth: _sidebarWidth);
 
-          Widget framedShell(Widget body) => Stack(
-            children: [
-              Positioned.fill(
-                child: Column(
-                  children: [
-                    const ShellTitleBar(),
-                    Expanded(child: body),
-                  ],
-                ),
-              ),
-              ...PluginScope.of(context).registry.shellOverlays(context),
-            ],
-          );
-
-          if (diagnostics == null) return framedShell(shell);
-          final showDiagnostics = diagnosticsOpen;
-          final panel = DiagnosticsPanel(
-            controller: diagnostics,
-            plugins: DiagnosticsScope.pluginsOf(context),
-            onClose: diagnostics.closePanel,
-          );
-
-          final panelMaximumWidth = math.max(
-            diagnosticsPanelMinWidth,
-            constraints.maxWidth - AdaptiveShell.compactRailWidth,
-          );
-
-          Widget resizablePanel(Key key) => ResizablePane(
-            key: key,
-            controller: _diagnosticsWidth,
-            edge: ResizablePaneEdge.leading,
-            resizeKey: 'diagnostics',
-            semanticsLabel: 'Resize diagnostics panel',
-            maximumWidth: panelMaximumWidth,
-            handleWidth: diagnosticsPanelResizeHandleWidth,
-            dividerWidth: 1,
-            child: panel,
-          );
-
-          final dockDiagnostics = layout == ShellLayout.expanded;
-          final reader = framedShell(
-            Row(
+            Widget framedShell(Widget body) => Stack(
               children: [
-                Expanded(child: shell),
-                if (showDiagnostics && dockDiagnostics)
-                  resizablePanel(const ValueKey('diagnostics-docked-slot')),
+                Positioned.fill(
+                  child: Column(
+                    children: [
+                      const ShellTitleBar(),
+                      Expanded(child: body),
+                    ],
+                  ),
+                ),
+                ...PluginScope.of(context).registry.shellOverlays(context),
               ],
-            ),
-          );
-          final phoneWidth = constraints.maxWidth < 600;
-          final overlay = Stack(
-            children: [
-              Positioned.fill(child: reader),
-              if (showDiagnostics && !dockDiagnostics)
-                Positioned.fill(
-                  child: ModalBarrier(
-                    key: const ValueKey('diagnostics-modal-barrier'),
-                    dismissible: true,
-                    onDismiss: diagnostics.closePanel,
-                    color: Colors.black.withValues(alpha: 0.32),
+            );
+
+            if (diagnostics == null) return framedShell(shell);
+            final showDiagnostics = diagnosticsOpen;
+            final panel = DiagnosticsPanel(
+              controller: diagnostics,
+              plugins: DiagnosticsScope.pluginsOf(context),
+              onClose: diagnostics.closePanel,
+            );
+
+            final panelMaximumWidth = math.max(
+              diagnosticsPanelMinWidth,
+              constraints.maxWidth - AdaptiveShell.compactRailWidth,
+            );
+
+            Widget resizablePanel(Key key) => ResizablePane(
+              key: key,
+              controller: _diagnosticsWidth,
+              edge: ResizablePaneEdge.leading,
+              resizeKey: 'diagnostics',
+              semanticsLabel: 'Resize diagnostics panel',
+              maximumWidth: panelMaximumWidth,
+              handleWidth: diagnosticsPanelResizeHandleWidth,
+              dividerWidth: 1,
+              child: panel,
+            );
+
+            final dockDiagnostics = layout == ShellLayout.expanded;
+            final reader = framedShell(
+              Row(
+                children: [
+                  Expanded(child: shell),
+                  if (showDiagnostics && dockDiagnostics)
+                    resizablePanel(const ValueKey('diagnostics-docked-slot')),
+                ],
+              ),
+            );
+            final phoneWidth = constraints.maxWidth < 600;
+            final overlay = Stack(
+              children: [
+                Positioned.fill(child: reader),
+                if (showDiagnostics && !dockDiagnostics)
+                  Positioned.fill(
+                    child: ModalBarrier(
+                      key: const ValueKey('diagnostics-modal-barrier'),
+                      dismissible: true,
+                      onDismiss: diagnostics.closePanel,
+                      color: Colors.black.withValues(alpha: 0.32),
+                    ),
                   ),
-                ),
-              if (showDiagnostics && !dockDiagnostics)
-                Positioned.fill(
-                  child: Align(
-                    alignment: AlignmentDirectional.centerEnd,
-                    child: phoneWidth
-                        ? SizedBox(
-                            key: const ValueKey('diagnostics-overlay-slot'),
-                            width: constraints.maxWidth,
-                            child: panel,
-                          )
-                        : resizablePanel(
-                            const ValueKey('diagnostics-overlay-slot'),
-                          ),
+                if (showDiagnostics && !dockDiagnostics)
+                  Positioned.fill(
+                    child: Align(
+                      alignment: AlignmentDirectional.centerEnd,
+                      child: phoneWidth
+                          ? SizedBox(
+                              key: const ValueKey('diagnostics-overlay-slot'),
+                              width: constraints.maxWidth,
+                              child: panel,
+                            )
+                          : resizablePanel(
+                              const ValueKey('diagnostics-overlay-slot'),
+                            ),
+                    ),
                   ),
-                ),
-            ],
-          );
-          return _withDiagnosticsBackHandling(
-            layout: layout,
-            open: showDiagnostics,
-            diagnostics: diagnostics,
-            child: overlay,
-          );
-        },
+              ],
+            );
+            return _withDiagnosticsBackHandling(
+              layout: layout,
+              open: showDiagnostics,
+              diagnostics: diagnostics,
+              child: overlay,
+            );
+          },
+        ),
       ),
     );
   }
