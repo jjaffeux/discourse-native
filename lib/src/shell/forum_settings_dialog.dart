@@ -16,7 +16,7 @@ Future<void> showForumSettingsDialog(
   builder: (_, _) => ForumSettingsDialog(siteUrl: siteUrl, name: name),
 );
 
-enum _SettingsSection { general, appearance }
+enum _SettingsSection { appearance }
 
 class ForumSettingsDialog extends StatefulWidget {
   const ForumSettingsDialog({
@@ -94,23 +94,6 @@ class _ForumSettingsDialogState extends State<ForumSettingsDialog> {
                   child: IndexedStack(
                     index: _section.index,
                     children: [
-                      SingleChildScrollView(
-                        padding: const EdgeInsets.all(DSpacing.xl),
-                        child: DFieldGroup(
-                          children: [
-                            DInput(
-                              labelText: 'Forum',
-                              value: widget.name,
-                              readOnly: true,
-                            ),
-                            DInput(
-                              labelText: 'Address',
-                              value: widget.siteUrl,
-                              readOnly: true,
-                            ),
-                          ],
-                        ),
-                      ),
                       ForumAppearanceSettings(
                         key: _appearanceKey,
                         siteUrl: widget.siteUrl,
@@ -152,11 +135,7 @@ class _ForumSettingsDialogState extends State<ForumSettingsDialog> {
                                     key: ValueKey(
                                       'forum-settings-${section.name}',
                                     ),
-                                    icon: DIcon(
-                                      section == _SettingsSection.general
-                                          ? DIcons.gear
-                                          : DIcons.display,
-                                    ),
+                                    icon: const DIcon(DIcons.display),
                                     isActive: _section == section,
                                     onPressed: () =>
                                         setState(() => _section = section),
@@ -180,7 +159,6 @@ class _ForumSettingsDialogState extends State<ForumSettingsDialog> {
   );
 
   String _label(_SettingsSection section) => switch (section) {
-    _SettingsSection.general => 'General',
     _SettingsSection.appearance => 'Appearance',
   };
 }
