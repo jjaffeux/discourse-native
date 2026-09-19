@@ -734,7 +734,7 @@ class _CategoryChip extends StatelessWidget {
               tooltip: edit == null ? label : editLabel,
               semanticLabel: edit == null ? label : '$editLabel: $label',
               variant: DButtonVariant.outline,
-              size: DButtonSize.small,
+              size: DButtonSize.large,
               backgroundColor: fill,
               borderColor: border,
               interactiveBackgroundColor: hover,
@@ -747,7 +747,7 @@ class _CategoryChip extends StatelessWidget {
                     CategoryIcon(
                       category: category!,
                       siteUrl: siteUrl,
-                      size: DControlStyle.iconDimension(DControlSize.small),
+                      size: DControlStyle.iconDimension(DControlSize.large),
                     ),
                     SizedBox(width: compact ? 2 : 6),
                   ],
@@ -778,7 +778,7 @@ class _CategoryChip extends StatelessWidget {
                 isLink: true,
                 onPressed: navigate,
                 variant: DButtonVariant.outline,
-                size: DButtonSize.small,
+                size: DButtonSize.large,
                 backgroundColor: fill,
                 borderColor: border,
                 interactiveBackgroundColor: hover,
@@ -934,7 +934,7 @@ class _TopicPropertyPopoverState extends State<_TopicPropertyPopover> {
           DButton.iconOnly(
             icon: const DIcon(DIcons.ellipsis),
             tooltip: section.label,
-            size: DButtonSize.small,
+            size: DButtonSize.large,
             variant: DButtonVariant.ghost,
             hasPopup: true,
             expanded: expanded,
@@ -945,7 +945,7 @@ class _TopicPropertyPopoverState extends State<_TopicPropertyPopover> {
     return section.header?.call(context, showDetails) ??
         DButton(
           label: Text(section.label),
-          size: DButtonSize.small,
+          size: DButtonSize.large,
           hasPopup: true,
           expanded: expanded,
           focusNode: focusNode,
