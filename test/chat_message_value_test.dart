@@ -166,6 +166,123 @@ void main() {
   });
 
   group('ChatMessage value semantics', () {
+    test(
+      'local HTML updates notify rows without changing canonical content',
+      () {
+        final original = message();
+        final pending = original.withPendingEdit(
+          '**Local**',
+          const SourceFallback(
+            '**Local**',
+            ChatPreviewFallbackReason.unsupportedSyntax,
+          ),
+        );
+        final store = Store()..put(siteUrl, pending);
+        final ref = store.ref<ChatMessage>(siteUrl, pending.id);
+        var changes = 0;
+        ref.addListener(() => changes++);
+        final local = pending.withProvisionalCooked(
+          '<p><strong>Local</strong></p>',
+        );
+
+        store.put(siteUrl, local);
+        store.put(
+          siteUrl,
+          local.withProvisionalCooked(local.provisionalCooked!),
+        );
+
+        expect(changes, 1);
+        expect(local.cooked, original.cooked);
+        expect(local.raw, '**Local**');
+        expect(local.canonicalReceived, isFalse);
+        expect(local, isNot(pending));
+        expect(
+          local.hashCode,
+          pending.withProvisionalCooked(local.provisionalCooked!).hashCode,
+        );
+        expect(
+          local.withProvisionalCooked(local.provisionalCooked!),
+          same(local),
+        );
+
+        final empty = local.withProvisionalCooked('');
+        store.put(siteUrl, empty);
+        expect(changes, 2);
+        expect(empty.provisionalCooked, '');
+        expect(empty, isNot(pending));
+      },
+    );
+
+    test('unrelated message updates retain the locally cooked body', () {
+      const html = '<p>Local</p>';
+      const bookmark = Bookmark(
+        id: 81,
+        bookmarkableId: 7,
+        bookmarkableType: 'Chat::Message',
+      );
+      final pending = ChatMessage.optimistic(
+        id: -1,
+        channelId: 3,
+        raw: 'Local',
+        stagedId: 'native-1',
+        preview: const SourceFallback(
+          'Local',
+          ChatPreviewFallbackReason.unsupportedSyntax,
+        ),
+        provisionalCooked: html,
+        author: const ChatMessageAuthor(id: 1, username: 'sam'),
+        createdAt: DateTime.utc(2026, 9, 19),
+      );
+      final updated = pending
+          .withReaction('heart', reacted: true, userId: 1)
+          .withReactions(const [ChatReaction(emoji: 'heart', count: 2)])
+          .withBookmark(bookmark)
+          .withPinned(true)
+          .withThreadPreview(
+            const ChatThreadPreview(threadId: 3, replyCount: 1),
+          )
+          .withDeletedAt(DateTime.utc(2026, 9, 20))
+          .withDeletedAt(null, clearDeletedById: true)
+          .withUserFlagStatus(1)
+          .withReviewableId(4)
+          .withSendState(delivery: ChatMessageDelivery.failed, error: 'Offline')
+          .withPersonalizedStateOf(pending, currentUserId: 1);
+
+      expect(updated.provisionalCooked, html);
+      expect(updated.id, pending.id);
+      expect(updated.stagedId, pending.stagedId);
+      expect(updated.canonicalReceived, isFalse);
+      expect(updated.delivery, ChatMessageDelivery.failed);
+      expect(updated.withBookmarkOf(message()).provisionalCooked, html);
+    });
+
+    test('new edits and canonical arrivals retire earlier local HTML', () {
+      const fallback = SourceFallback(
+        'Local',
+        ChatPreviewFallbackReason.unsupportedSyntax,
+      );
+      final original = message();
+      final first = original
+          .withPendingEdit('Local', fallback)
+          .withProvisionalCooked('<p>Local</p>');
+      final second = first.withPendingEdit('Changed', fallback);
+      expect(second.provisionalCooked, isNull);
+      expect(second.canonicalReceived, isFalse);
+      expect(second.withContentOf(first).provisionalCooked, '<p>Local</p>');
+      final rolledBack = second.withPinned(true).withContentOf(original);
+      expect(rolledBack.provisionalCooked, isNull);
+      expect(rolledBack.canonicalReceived, isTrue);
+      expect(rolledBack.pinned, isTrue);
+
+      for (final cooked in ['', '<p>Canonical</p>']) {
+        final canonical = first.withCanonical(message(cooked: cooked));
+        expect(canonical.provisionalCooked, isNull);
+        expect(canonical.cooked, cooked);
+        expect(canonical.canonicalReceived, isTrue);
+        expect(canonical.withProvisionalCooked('<p>Late</p>'), same(canonical));
+      }
+    });
+
     test('an empty canonical body is still an authoritative arrival', () {
       final optimistic = ChatMessage.optimistic(
         id: -1,

@@ -189,6 +189,11 @@ class _ChatComposerState extends State<ChatComposer> {
   PluginEmojiHost? _emoji;
   PluginDiagnosticsReporter? _diagnostics;
   ChatController? _chat;
+  VoidCallback? _chatAccountListener;
+  ({ChatController chat, String siteUrl, int messageId})? _editCooking;
+  ({ChatController chat, String siteUrl, ChatStreamTarget target})?
+  _draftCooking;
+  String _cookingLocale = 'en';
   ComposerController? _composer;
   VoidCallback? _composerDraftListener;
   ValueListenable<ChatComposerDraft?>? _retainedDraft;
@@ -201,6 +206,7 @@ class _ChatComposerState extends State<ChatComposer> {
   bool _pickingFiles = false;
   bool _pickingEmoji = false;
   bool _savingEdit = false;
+  final Object _editCookingOwner = Object();
   final _replyChanges = FrameSafeValueNotifier<ChatReplyTo?>(null);
 
   ChatReplyTo? get _replyTo =>
@@ -233,6 +239,7 @@ class _ChatComposerState extends State<ChatComposer> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    _cookingLocale = Localizations.localeOf(context).toLanguageTag();
     _useComposer(
       PluginUiScope.require(context, chatComposerHostService),
       PluginUiScope.require(context, chatEmojiHostService),
@@ -247,6 +254,7 @@ class _ChatComposerState extends State<ChatComposer> {
     PluginDiagnosticsReporter diagnostics,
     ChatController chat,
   ) {
+    chat.setCookingLocale(widget.siteUrl, _cookingLocale);
     final sourceKey =
         '${widget.siteUrl}~${widget.channelId}~${widget.threadId ?? 'channel'}';
     if (identical(_host, host) &&
@@ -254,9 +262,15 @@ class _ChatComposerState extends State<ChatComposer> {
         identical(_diagnostics, diagnostics) &&
         identical(_chat, chat) &&
         _sourceKey == sourceKey) {
+      _prepareEditCooking();
       return;
     }
 
+    _cancelEditCooking();
+    if (_chatAccountListener case final listener?) {
+      _chat?.removeListener(listener);
+    }
+    _chatAccountListener = null;
     widget.uploadDropController?.detach(_composer);
     if (_composer case final previousComposer?) {
       if (_composerDraftListener case final listener?) {
@@ -271,6 +285,7 @@ class _ChatComposerState extends State<ChatComposer> {
       }
     }
     _composerDraftListener = null;
+    _suspendRetiredDraftCooking();
     _retainedDraft = null;
     _retainedDraftListener = null;
     _deferredRetainedDraft = null;
@@ -282,6 +297,18 @@ class _ChatComposerState extends State<ChatComposer> {
     _diagnostics = diagnostics;
     _chat = chat;
     _sourceKey = sourceKey;
+    final cookingSite = widget.siteUrl;
+    var cookingAccount = chat.currentUserFor(cookingSite)?.id;
+    void accountChanged() {
+      if (!identical(_chat, chat) || _sourceKey != sourceKey) return;
+      final account = chat.currentUserFor(cookingSite)?.id;
+      if (account == cookingAccount) return;
+      cookingAccount = account;
+      _cancelEditCooking();
+    }
+
+    _chatAccountListener = accountChanged;
+    chat.addListener(accountChanged);
     _composer = host.buildComposer(
       ComposerTargetRequest(
         kind: ChatPlugin.messageComposerTarget,
@@ -296,6 +323,7 @@ class _ChatComposerState extends State<ChatComposer> {
     final composer = _composer;
     if (composer == null) return;
     final target = _target;
+    _draftCooking = (chat: chat, siteUrl: widget.siteUrl, target: target);
     final retainedDraft = chat.composerDraftListenableFor(
       widget.siteUrl,
       target,
@@ -346,7 +374,11 @@ class _ChatComposerState extends State<ChatComposer> {
     retainedDraft.addListener(applyRetainedDraft);
 
     void retainDraft() {
-      if (widget.editingMessage != null || _applyingRetainedDraft) return;
+      if (_applyingRetainedDraft) return;
+      if (widget.editingMessage != null) {
+        _prepareEditCooking();
+        return;
+      }
 
       if (_deferredRetainedDraft case final deferred?) {
         if (composer.hasActiveUploads) {
@@ -418,6 +450,7 @@ class _ChatComposerState extends State<ChatComposer> {
     // notice changes published by the controller.
     composer.text.addListener(retainDraft);
     applyRetainedDraft();
+    retainDraft();
     widget.uploadDropController?.attach(
       composer,
       canAccept: () =>
@@ -465,6 +498,7 @@ class _ChatComposerState extends State<ChatComposer> {
         oldWidget.threadId == widget.threadId;
     if (sameTarget) {
       if (oldWidget.editingMessage?.id != widget.editingMessage?.id) {
+        _cancelEditCooking();
         _deferredRetainedDraft = null;
         _completedUploadIdsBeforeDeferral = null;
         if (widget.editingMessage case final message?) {
@@ -502,6 +536,10 @@ class _ChatComposerState extends State<ChatComposer> {
 
   @override
   void dispose() {
+    _cancelEditCooking();
+    if (_chatAccountListener case final listener?) {
+      _chat?.removeListener(listener);
+    }
     widget.uploadDropController?.detach(_composer);
     if (_composer case final composer?) {
       if (_composerDraftListener case final listener?) {
@@ -516,7 +554,16 @@ class _ChatComposerState extends State<ChatComposer> {
       }
     }
     _replyChanges.dispose();
+    _suspendRetiredDraftCooking();
     super.dispose();
+  }
+
+  void _suspendRetiredDraftCooking() {
+    final held = _draftCooking;
+    _draftCooking = null;
+    if (held != null) {
+      held.chat.suspendComposerCookingIfUnobserved(held.siteUrl, held.target);
+    }
   }
 
   void _send(ComposerController composer) {
@@ -567,7 +614,38 @@ class _ChatComposerState extends State<ChatComposer> {
       raw: message.raw,
       uploads: [for (final upload in message.uploads) _composerUpload(upload)],
     );
+    _prepareEditCooking();
     _requestFocus(sourceKey);
+  }
+
+  void _prepareEditCooking() {
+    final chat = _chat;
+    final composer = _composer;
+    final message = widget.editingMessage;
+    if (chat == null || composer == null || message == null) return;
+    final target = (chat: chat, siteUrl: widget.siteUrl, messageId: message.id);
+    if (_editCooking != target) {
+      _cancelEditCooking();
+      _editCooking = target;
+    }
+    chat.prepareEditCooking(
+      widget.siteUrl,
+      message,
+      composer.raw,
+      owner: _editCookingOwner,
+    );
+  }
+
+  void _cancelEditCooking() {
+    final target = _editCooking;
+    _editCooking = null;
+    if (target != null) {
+      target.chat.cancelEditCooking(
+        target.siteUrl,
+        target.messageId,
+        owner: _editCookingOwner,
+      );
+    }
   }
 
   Future<void> _saveEdit(
@@ -585,6 +663,7 @@ class _ChatComposerState extends State<ChatComposer> {
       widget.siteUrl,
       message.id,
       composer.raw,
+      cookingOwner: _editCookingOwner,
       uploads: [
         for (final upload in composer.completedUploads)
           originalUploads[upload.id] ?? ChatUpload.fromComposerUpload(upload),
@@ -599,11 +678,12 @@ class _ChatComposerState extends State<ChatComposer> {
       composer.showNotice(error);
       return;
     }
+    _cancelEditCooking();
     final finish = widget.onEditFinished;
     if (finish != null) {
       finish();
     } else {
-      composer.clearDocument();
+      _clearEditDocument(composer);
     }
   }
 
@@ -620,11 +700,21 @@ class _ChatComposerState extends State<ChatComposer> {
 
   void _cancelEdit() {
     if (_savingEdit) return;
+    _cancelEditCooking();
     final finish = widget.onEditFinished;
     if (finish != null) {
       finish();
     } else {
-      _composer?.clearDocument();
+      if (_composer case final composer?) _clearEditDocument(composer);
+    }
+  }
+
+  void _clearEditDocument(ComposerController composer) {
+    _applyingRetainedDraft = true;
+    try {
+      composer.clearDocument();
+    } finally {
+      _applyingRetainedDraft = false;
     }
   }
 

@@ -1356,18 +1356,22 @@ class _Tile extends StatelessWidget {
     bool contentSized = false,
   }) {
     final messageTextStyle = textStyle ?? Theme.of(context).textTheme.bodyLarge;
+    final html = message.canonicalReceived
+        ? message.cooked
+        : message.provisionalCooked;
+    if (html != null) {
+      if (html.isEmpty) return null;
+      return CookedHtml(
+        html: html,
+        textStyle: messageTextStyle,
+        linkStyle: linkStyle,
+        siteUrl: siteUrl,
+        compactParagraphs: true,
+        contentSized: contentSized,
+        mentionedUserStatuses: message.mentionedUserStatuses,
+      );
+    }
     return switch (message) {
-      ChatMessage(canonicalReceived: true, cooked: final cooked)
-          when cooked.isNotEmpty =>
-        CookedHtml(
-          html: cooked,
-          textStyle: messageTextStyle,
-          linkStyle: linkStyle,
-          siteUrl: siteUrl,
-          compactParagraphs: true,
-          contentSized: contentSized,
-          mentionedUserStatuses: message.mentionedUserStatuses,
-        ),
       ChatMessage(
         canonicalReceived: false,
         preview: ProjectedPreview(:final document),
@@ -1599,10 +1603,11 @@ class _Tile extends StatelessWidget {
     final bubbleAlign = outgoing ? DBubbleAlign.end : DBubbleAlign.start;
     final hasBody = message.canonicalReceived
         ? message.cooked.isNotEmpty
-        : switch (message.preview) {
-            ProjectedPreview(:final document) => document.nodes.isNotEmpty,
-            _ => message.optimisticRaw?.isNotEmpty == true,
-          };
+        : message.provisionalCooked?.isNotEmpty ??
+              switch (message.preview) {
+                ProjectedPreview(:final document) => document.nodes.isNotEmpty,
+                _ => message.optimisticRaw?.isNotEmpty == true,
+              };
     final hasMetadata =
         message.edited ||
         message.pinned ||

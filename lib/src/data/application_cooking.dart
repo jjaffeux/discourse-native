@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:discourse_cooking/discourse_cooking.dart';
@@ -36,10 +37,52 @@ final class ApplicationCooking {
   final Map<String, Map<String, Object?>> _uploads = {};
   final Map<String, CookingCachedMetadata> _metadata = {};
   final _inputLimited = Expando<bool>();
+  final _requestRevisions = Expando<int>();
+  final Map<String, int> _contextRevisions = {};
+  final Map<String, Set<_CookingContextObserver>> _contextObservers = {};
   bool _disposed = false;
   Future<void>? _disposing;
 
   Future<bool> start() => _disposed ? Future.value(false) : service.start();
+
+  int contextRevisionFor(String siteUrl) => _contextRevisions[siteUrl] ?? 0;
+
+  /// Invalidates prepared work without rebuilding or retaining its snapshot.
+  /// Host-owned config and identity caches use the same site-scoped signal.
+  void contextChanged(String siteUrl) {
+    if (_disposed) return;
+    _contextRevisions[siteUrl] = contextRevisionFor(siteUrl) + 1;
+    for (final observer
+        in _contextObservers[siteUrl]?.toList() ??
+            const <_CookingContextObserver>[]) {
+      observer.schedule();
+    }
+  }
+
+  void Function() watchContext(String siteUrl, void Function() onChanged) {
+    if (_disposed) return () {};
+    final observer = _CookingContextObserver(onChanged);
+    (_contextObservers[siteUrl] ??= {}).add(observer);
+    return () {
+      observer.retire();
+      final observers = _contextObservers[siteUrl];
+      observers?.remove(observer);
+      if (observers?.isEmpty ?? false) _contextObservers.remove(siteUrl);
+    };
+  }
+
+  bool isCurrent(CookingRequest request) =>
+      !_disposed &&
+      _requestRevisions[request] ==
+          contextRevisionFor(request.snapshot.siteId) &&
+      _accounts[request.snapshot.siteId] == request.snapshot.accountId &&
+      (_generations[request.snapshot.siteId] ?? 0) ==
+          request.snapshot.accountGeneration;
+
+  CookingRequest _track(CookingRequest request) {
+    _requestRevisions[request] = contextRevisionFor(request.snapshot.siteId);
+    return request;
+  }
 
   CookingUploadLease captureUploads(String siteUrl, String accountId) {
     _ensureAccount(siteUrl, accountId);
@@ -72,6 +115,7 @@ final class ApplicationCooking {
       uploads: uploads,
     ).uploads;
     service.invalidate();
+    contextChanged(lease.siteUrl);
     return true;
   }
 
@@ -87,6 +131,7 @@ final class ApplicationCooking {
     }
     _metadata[lease.siteUrl] = metadata;
     service.invalidate();
+    contextChanged(lease.siteUrl);
     return true;
   }
 
@@ -105,14 +150,16 @@ final class ApplicationCooking {
   }) {
     _ensureAccount(siteUrl, accountId);
     if (raw.length > 65536) {
-      return CookingRequest(
-        raw: raw,
-        profile: profile,
-        configuration: configuration,
-        snapshot: CookingSnapshot(
-          siteId: siteUrl,
-          accountId: accountId,
-          accountGeneration: _generations[siteUrl] ?? 0,
+      return _track(
+        CookingRequest(
+          raw: raw,
+          profile: profile,
+          configuration: configuration,
+          snapshot: CookingSnapshot(
+            siteId: siteUrl,
+            accountId: accountId,
+            accountGeneration: _generations[siteUrl] ?? 0,
+          ),
         ),
       );
     }
@@ -160,7 +207,7 @@ final class ApplicationCooking {
         ),
       );
       _inputLimited[limited] = true;
-      return limited;
+      return _track(limited);
     }
     Map<String, Object?> relevant(
       Map<String, Object?> Function(CookingSnapshot) field, {
@@ -176,48 +223,51 @@ final class ApplicationCooking {
       for (final value in uploads.values)
         if (value is Map && value['url'] is String) value['url'] as String,
     };
-    return CookingRequest(
-      raw: raw,
-      profile: profile,
-      configuration: configuration,
-      snapshot: CookingSnapshot(
-        siteId: siteUrl,
-        accountId: accountId,
-        baseUrl: siteUrl,
-        context: context,
-        accountGeneration: _generations[siteUrl] ?? 0,
-        siteSettings: config.cookingSettings,
-        provenance: {
-          'knownSettings': config.cookingKnownSettings.toList()..sort(),
-          'staleSettings': staleSettings || config.cookingSettingsStale,
-        },
-        uploads: uploads,
-        mentions: relevant((s) => s.mentions, legacy: mentions),
-        avatars: relevant((s) => s.avatars),
-        primaryGroups: relevant((s) => s.primaryGroups),
-        topics: relevant((s) => s.topics),
-        oneboxes: relevant((s) => s.oneboxes),
-        inlineOneboxes: relevant((s) => s.inlineOneboxes),
-        media: relevant((s) => s.media, references: uploadUrls),
-        customEmojiTranslation:
-            always['customEmojiTranslation']! as Map<String, Object?>,
-        unicodeEmoji: always['unicodeEmoji']! as Map<String, Object?>,
-        emojiDenyList: always['emojiDenyList']! as List<String>,
-        allowedMediaOrigins: always['allowedMediaOrigins']! as List<String>,
-        hashtagPriorities: always['hashtagPriorities']! as Map<String, Object?>,
-        hashtagIcons: always['hashtagIcons']! as Map<String, Object?>,
-        censoredRegexp: always['censoredRegexp']! as List<Object?>,
-        watchedWordsReplace:
-            always['watchedWordsReplace']! as Map<String, Object?>,
-        watchedWordsLink: always['watchedWordsLink']! as Map<String, Object?>,
-        hashtags: selection.relevant([hashtags]),
-        customEmoji: selection.relevant([customEmoji]),
-        pluginContext: {
-          for (final plugin in _plugins)
-            plugin.name: plugin.projectCookingContext(
-              CookingPluginData(plugin.name, config.plugins),
-            ),
-        },
+    return _track(
+      CookingRequest(
+        raw: raw,
+        profile: profile,
+        configuration: configuration,
+        snapshot: CookingSnapshot(
+          siteId: siteUrl,
+          accountId: accountId,
+          baseUrl: siteUrl,
+          context: context,
+          accountGeneration: _generations[siteUrl] ?? 0,
+          siteSettings: config.cookingSettings,
+          provenance: {
+            'knownSettings': config.cookingKnownSettings.toList()..sort(),
+            'staleSettings': staleSettings || config.cookingSettingsStale,
+          },
+          uploads: uploads,
+          mentions: relevant((s) => s.mentions, legacy: mentions),
+          avatars: relevant((s) => s.avatars),
+          primaryGroups: relevant((s) => s.primaryGroups),
+          topics: relevant((s) => s.topics),
+          oneboxes: relevant((s) => s.oneboxes),
+          inlineOneboxes: relevant((s) => s.inlineOneboxes),
+          media: relevant((s) => s.media, references: uploadUrls),
+          customEmojiTranslation:
+              always['customEmojiTranslation']! as Map<String, Object?>,
+          unicodeEmoji: always['unicodeEmoji']! as Map<String, Object?>,
+          emojiDenyList: always['emojiDenyList']! as List<String>,
+          allowedMediaOrigins: always['allowedMediaOrigins']! as List<String>,
+          hashtagPriorities:
+              always['hashtagPriorities']! as Map<String, Object?>,
+          hashtagIcons: always['hashtagIcons']! as Map<String, Object?>,
+          censoredRegexp: always['censoredRegexp']! as List<Object?>,
+          watchedWordsReplace:
+              always['watchedWordsReplace']! as Map<String, Object?>,
+          watchedWordsLink: always['watchedWordsLink']! as Map<String, Object?>,
+          hashtags: selection.relevant([hashtags]),
+          customEmoji: selection.relevant([customEmoji]),
+          pluginContext: {
+            for (final plugin in _plugins)
+              plugin.name: plugin.projectCookingContext(
+                CookingPluginData(plugin.name, config.plugins),
+              ),
+          },
+        ),
       ),
     );
   }
@@ -258,16 +308,41 @@ final class ApplicationCooking {
     _metadata.remove(siteUrl);
     _accounts.remove(siteUrl);
     service.invalidate();
+    contextChanged(siteUrl);
   }
 
   Future<void> dispose() => _disposing ??= _dispose();
 
   Future<void> _dispose() async {
     _disposed = true;
+    for (final observers in _contextObservers.values) {
+      for (final observer in observers) {
+        observer.retire();
+      }
+    }
+    _contextObservers.clear();
     _uploads.clear();
     _metadata.clear();
     await service.dispose();
   }
+}
+
+final class _CookingContextObserver {
+  _CookingContextObserver(this.onChanged);
+  final void Function() onChanged;
+  bool _active = true;
+  bool _pending = false;
+
+  void schedule() {
+    if (!_active || _pending) return;
+    _pending = true;
+    scheduleMicrotask(() {
+      _pending = false;
+      if (_active) onChanged();
+    });
+  }
+
+  void retire() => _active = false;
 }
 
 // UTF-8 JSON bytes also bound string units and node counts. Leave headroom for

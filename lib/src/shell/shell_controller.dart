@@ -344,6 +344,59 @@ class ShellController extends FrameSafeNotifier
     plugins: plugins,
     service: _providedCookingService,
   );
+  final _cookingRequestStamps = Expando<_CookingSourceStamp>();
+  final Set<_CookingWatch> _cookingWatches = {};
+
+  _CookingSourceStamp _cookingStamp(String siteUrl) {
+    final user = currentUserFor(siteUrl);
+    return (
+      revision: cooking.contextRevisionFor(siteUrl),
+      config: siteConfigFor(siteUrl),
+      presentation: _presentation.presentationTokenFor(siteUrl),
+      staleSettings: _presentation.cookingSettingsAreStale(siteUrl),
+      user: (user?.id, user?.username, user?.timezone),
+      readerTimezone: TimezoneEnvironment.instance.readerTimezone(
+        user?.timezone,
+      ),
+      users: store.generationOf<UserCard>(siteUrl),
+      topics: store.generationOf<TopicDetail>(siteUrl),
+    );
+  }
+
+  /// Original request identity is retained for host preflight decisions.
+  bool cookingRequestIsCurrent(CookingRequest request) =>
+      !isDisposed &&
+      cooking.isCurrent(request) &&
+      _cookingRequestStamps[request] == _cookingStamp(request.snapshot.siteId);
+
+  VoidCallback watchCooking({
+    required String siteUrl,
+    required String raw,
+    required VoidCallback onChanged,
+  }) {
+    if (isDisposed) return () {};
+    final watch = _CookingWatch(
+      siteUrl: siteUrl,
+      read: () => _cookingStamp(siteUrl),
+      onChanged: onChanged,
+    );
+    _cookingWatches.add(watch);
+    watch.listen(_presentation);
+    watch.listen(TimezoneEnvironment.instance);
+    watch.onRetire(cooking.watchContext(siteUrl, watch.changed));
+    if (raw.length <= 65536) {
+      for (final id in _cookingTopicIds(raw)) {
+        watch.listen(store.ref<TopicDetail>(siteUrl, id));
+      }
+      for (final name in _cookingUsernames(raw)) {
+        watch.listen(store.ref<UserCard>(siteUrl, name.toLowerCase()));
+      }
+    }
+    return () {
+      watch.retire();
+      _cookingWatches.remove(watch);
+    };
+  }
 
   CookingRequest cookingRequest({
     required String siteUrl,
@@ -352,50 +405,72 @@ class ShellController extends FrameSafeNotifier
     CookingContext context = const CookingContext(),
     CookingCachedMetadata? cachedMetadata,
   }) {
+    CookingRequest track(CookingRequest request) {
+      _cookingRequestStamps[request] = _cookingStamp(siteUrl);
+      return request;
+    }
+
     if (raw.length > 65536) {
-      return cooking.request(
+      return track(
+        cooking.request(
+          siteUrl: siteUrl,
+          accountId: _instanceAt(siteUrl)?.user?.id.toString() ?? 'anonymous',
+          raw: raw,
+          profile: profile,
+          config: const SiteConfig.unknown(),
+        ),
+      );
+    }
+    return track(
+      cooking.request(
         siteUrl: siteUrl,
         accountId: _instanceAt(siteUrl)?.user?.id.toString() ?? 'anonymous',
         raw: raw,
         profile: profile,
-        config: const SiteConfig.unknown(),
-      );
-    }
-    return cooking.request(
-      siteUrl: siteUrl,
-      accountId: _instanceAt(siteUrl)?.user?.id.toString() ?? 'anonymous',
-      raw: raw,
-      profile: profile,
-      context: context,
-      cachedMetadata: cachedMetadata ?? _cachedCookingMetadata(siteUrl, raw),
-      config: siteConfigFor(siteUrl),
-      staleSettings: _presentation.cookingSettingsAreStale(siteUrl),
-      mentions: _mentioned[siteUrl]?.snapshot ?? const {},
-      hashtags: {
-        for (final entry in (_hashtags[siteUrl]?.snapshot ?? {}).entries)
-          if (entry.value case final FoundHashtag hashtag)
-            entry.key: {
-              'type': hashtag.type,
-              'ref': hashtag.ref,
-              'slug': hashtag.slug,
-              'text': hashtag.text,
-              'relative_url': hashtag.relativeUrl,
-              'icon': hashtag.icon,
-              'id': hashtag.id,
-              'style_type': hashtag.styleType,
-              'emoji': hashtag.emoji,
-              'colors': hashtag.colors,
-            },
-      },
-      customEmoji: _presentation.cachedCustomEmojiFor(siteUrl),
+        context: context,
+        cachedMetadata: cachedMetadata ?? _cachedCookingMetadata(siteUrl, raw),
+        config: siteConfigFor(siteUrl),
+        staleSettings: _presentation.cookingSettingsAreStale(siteUrl),
+        mentions: _mentioned[siteUrl]?.snapshot ?? const {},
+        hashtags: {
+          for (final entry in (_hashtags[siteUrl]?.snapshot ?? {}).entries)
+            if (entry.value case final FoundHashtag hashtag)
+              entry.key: {
+                'type': hashtag.type,
+                'ref': hashtag.ref,
+                'slug': hashtag.slug,
+                'text': hashtag.text,
+                'relative_url': hashtag.relativeUrl,
+                'icon': hashtag.icon,
+                'id': hashtag.id,
+                'style_type': hashtag.styleType,
+                'emoji': hashtag.emoji,
+                'colors': hashtag.colors,
+              },
+        },
+        customEmoji: _presentation.cachedCustomEmojiFor(siteUrl),
+      ),
     );
   }
 
+  static Iterable<int> _cookingTopicIds(String raw) => RegExp(r'topic:(\d+)')
+      .allMatches(raw)
+      .take(128)
+      .map((match) => int.tryParse(match[1]!))
+      .whereType<int>()
+      .toSet();
+
+  static Set<String> _cookingUsernames(String raw) => {
+    for (final match in RegExp(
+      r'(?:@|quote="|\[quote=")([\w.-]+)',
+    ).allMatches(raw).take(128))
+      match[1]!,
+  };
+
   CookingCachedMetadata _cachedCookingMetadata(String siteUrl, String raw) {
     final topics = <String, CookingTopic>{};
-    for (final match in RegExp(r'topic:(\d+)').allMatches(raw).take(128)) {
-      final id = int.tryParse(match[1]!);
-      final topic = id == null ? null : store.read<TopicDetail>(siteUrl, id);
+    for (final id in _cookingTopicIds(raw)) {
+      final topic = store.read<TopicDetail>(siteUrl, id);
       if (topic != null) {
         topics['${topic.id}'] = CookingTopic(
           title: topic.title,
@@ -403,12 +478,7 @@ class ShellController extends FrameSafeNotifier
         );
       }
     }
-    final names = <String>{
-      for (final match in RegExp(
-        r'(?:@|quote="|\[quote=")([\w.-]+)',
-      ).allMatches(raw).take(128))
-        match[1]!,
-    };
+    final names = _cookingUsernames(raw);
     final mentions = <String, CookingMention>{};
     final avatars = <String, String>{};
     for (final name in names) {
@@ -618,7 +688,12 @@ class ShellController extends FrameSafeNotifier
       PluginHostPort<Object>(corePluginPostFlagCatalogPort, postFlagTypesFor),
       PluginHostPort<Object>(
         corePluginCookingPort,
-        PluginCookingHost(request: cookingRequest, cook: cooking.cook),
+        PluginCookingHost(
+          request: cookingRequest,
+          cook: cooking.cook,
+          isCurrent: cookingRequestIsCurrent,
+          watch: watchCooking,
+        ),
       ),
       _pluginAccountEventsHostPort(),
       _pluginTargetHostPort(),
@@ -12237,6 +12312,7 @@ class ShellController extends FrameSafeNotifier
       for (final hashtag in found) {
         known.put(hashtag.ref, hashtag);
       }
+      if (found.isNotEmpty) cooking.contextChanged(siteUrl);
     });
     return accepted ? found : const [];
   }
@@ -12296,6 +12372,7 @@ class ShellController extends FrameSafeNotifier
         for (final hashtag in found) {
           known.put(hashtag.ref, hashtag);
         }
+        cooking.contextChanged(siteUrl);
         for (final composer in _composersForSite(siteUrl)) {
           composer.text.artworkArrived();
         }
@@ -12352,6 +12429,7 @@ class ShellController extends FrameSafeNotifier
         for (final name in ask) {
           known.put(name, real.contains(name));
         }
+        cooking.contextChanged(siteUrl);
         for (final composer in _composersForSite(siteUrl)) {
           composer.text.artworkArrived();
         }
@@ -12414,6 +12492,7 @@ class ShellController extends FrameSafeNotifier
       for (final user in found) {
         known.put(user.username, true);
       }
+      if (found.isNotEmpty) cooking.contextChanged(siteUrl);
     });
     return accepted ? found : const [];
   }
@@ -13212,7 +13291,15 @@ class ShellController extends FrameSafeNotifier
 
   void _replaceInstance(DiscourseInstance old, DiscourseInstance updated) {
     final index = _instances.indexOf(old);
-    if (index >= 0) _instances[index] = updated;
+    if (index >= 0) {
+      _instances[index] = updated;
+      if (old.user?.id != updated.user?.id ||
+          old.user?.username != updated.user?.username ||
+          old.user?.timezone != updated.user?.timezone ||
+          old.config != updated.config) {
+        cooking.contextChanged(updated.url);
+      }
+    }
   }
 
   void _restoreInstanceWorkspace({
@@ -14635,6 +14722,10 @@ class ShellController extends FrameSafeNotifier
       _composerDrafts.preservePendingLocally(composer);
     }
     _discoverSites?.dispose();
+    for (final watch in _cookingWatches) {
+      watch.retire();
+    }
+    _cookingWatches.clear();
     unawaited(cooking.dispose());
 
     // A window can close in the frame immediately after a selection or a
@@ -14750,6 +14841,63 @@ class ShellController extends FrameSafeNotifier
     _trackerStartRequests.clear();
     if (ownsApi) api.close();
     super.dispose();
+  }
+}
+
+typedef _CookingSourceStamp = ({
+  int revision,
+  SiteConfig config,
+  Object presentation,
+  bool staleSettings,
+  (int?, String?, String?) user,
+  String readerTimezone,
+  int users,
+  int topics,
+});
+
+/// Active draft observers own only the bounded refs their source mentions.
+final class _CookingWatch {
+  _CookingWatch({
+    required this.siteUrl,
+    required this.read,
+    required this.onChanged,
+  }) : _stamp = read();
+
+  final String siteUrl;
+  final _CookingSourceStamp Function() read;
+  final VoidCallback onChanged;
+  final List<VoidCallback> _retire = [];
+  _CookingSourceStamp _stamp;
+  bool _active = true;
+  bool _pending = false;
+
+  void listen(Listenable source) {
+    source.addListener(changed);
+    onRetire(() => source.removeListener(changed));
+  }
+
+  void onRetire(VoidCallback callback) => _retire.add(callback);
+
+  void changed() {
+    if (!_active) return;
+    final next = read();
+    if (next == _stamp) return;
+    _stamp = next;
+    if (_pending) return;
+    _pending = true;
+    scheduleMicrotask(() {
+      _pending = false;
+      if (_active) onChanged();
+    });
+  }
+
+  void retire() {
+    if (!_active) return;
+    _active = false;
+    for (final callback in _retire) {
+      callback();
+    }
+    _retire.clear();
   }
 }
 

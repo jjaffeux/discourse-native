@@ -1,4 +1,5 @@
 import 'package:discourse_cooking/discourse_cooking.dart';
+import 'package:flutter/foundation.dart';
 
 import 'plugin_contracts.dart';
 import 'plugin_data.dart';
@@ -71,7 +72,12 @@ CookingConfiguration cookingConfiguration(Iterable<CookingPlugin> plugins) {
 
 /// Narrow host port; consumers cannot dispose/reconfigure the shared runtime.
 final class PluginCookingHost {
-  const PluginCookingHost({required this.request, required this.cook});
+  const PluginCookingHost({
+    required this.request,
+    required this.cook,
+    this.isCurrent = _alwaysCurrent,
+    this.watch = _noWatch,
+  });
   final CookingRequest Function({
     required String siteUrl,
     required String raw,
@@ -81,6 +87,26 @@ final class PluginCookingHost {
   })
   request;
   final Future<CookingResult> Function(CookingRequest request) cook;
+
+  /// Checks the original request without rebuilding its frozen snapshot.
+  final bool Function(CookingRequest request) isCurrent;
+
+  /// Observes cached context for this source. The returned callback retires the
+  /// subscription, including any queued notification. Subscription is silent.
+  final VoidCallback Function({
+    required String siteUrl,
+    required String raw,
+    required VoidCallback onChanged,
+  })
+  watch;
+
+  static bool _alwaysCurrent(CookingRequest _) => true;
+  static VoidCallback _noWatch({
+    required String siteUrl,
+    required String raw,
+    required VoidCallback onChanged,
+  }) => _noop;
+  static void _noop() {}
 }
 
 const corePluginCookingPort = PluginHostPortKey<PluginCookingHost>(

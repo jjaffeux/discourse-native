@@ -566,6 +566,7 @@ class ChatMessage with Storable<ChatMessage> {
     this.uploads = const [],
     this.optimisticRaw,
     this.preview,
+    this.provisionalCooked,
     this.stagedId,
     this.serverId,
     this.canonicalReceived = true,
@@ -593,6 +594,7 @@ class ChatMessage with Storable<ChatMessage> {
     required String raw,
     required String stagedId,
     required ChatPreviewResult preview,
+    String? provisionalCooked,
     required ChatMessageAuthor author,
     required DateTime createdAt,
     int? threadId,
@@ -611,6 +613,7 @@ class ChatMessage with Storable<ChatMessage> {
       replyTo: replyTo,
       optimisticRaw: raw,
       preview: preview,
+      provisionalCooked: provisionalCooked,
       uploads: List.unmodifiable(uploads),
       stagedId: stagedId,
       canonicalReceived: false,
@@ -787,6 +790,10 @@ class ChatMessage with Storable<ChatMessage> {
   /// App-owned, non-authoritative provisional presentation.
   final ChatPreviewResult? preview;
 
+  /// Locally cooked HTML, separate from the server's authoritative [cooked].
+  /// A non-null empty body suppresses the legacy preview and raw fallback.
+  final String? provisionalCooked;
+
   /// Correlation token echoed through MessageBus.
   final String? stagedId;
 
@@ -804,6 +811,44 @@ class ChatMessage with Storable<ChatMessage> {
 
   bool get isDeleted => deletedAt != null;
   bool get isOptimistic => stagedId != null;
+
+  /// Applies a current local cook while awaiting canonical content. The caller
+  /// must first verify the cook's source, revision, account and context identity.
+  ChatMessage withProvisionalCooked(String html) {
+    if (canonicalReceived || provisionalCooked == html) return this;
+    return ChatMessage(
+      id: id,
+      channelId: channelId,
+      cooked: cooked,
+      author: author,
+      mentionedUserStatuses: mentionedUserStatuses,
+      raw: raw,
+      createdAt: createdAt,
+      deletedAt: deletedAt,
+      deletedById: deletedById,
+      pinned: pinned,
+      availableFlags: availableFlags,
+      userFlagStatus: userFlagStatus,
+      reviewableId: reviewableId,
+      edited: edited,
+      isWebhook: isWebhook,
+      replyTo: replyTo,
+      threadId: threadId,
+      thread: thread,
+      bookmark: bookmark,
+      reactions: reactions,
+      uploads: uploads,
+      optimisticRaw: optimisticRaw,
+      preview: preview,
+      provisionalCooked: html,
+      stagedId: stagedId,
+      serverId: serverId,
+      canonicalReceived: canonicalReceived,
+      delivery: delivery,
+      sendError: sendError,
+      deliveryUncertain: deliveryUncertain,
+    );
+  }
 
   /// Projects the write because Discourse returns no updated message; naming
   /// the current user preserves complete-versus-truncated reactor semantics.
@@ -858,6 +903,7 @@ class ChatMessage with Storable<ChatMessage> {
     uploads: uploads,
     optimisticRaw: optimisticRaw,
     preview: preview,
+    provisionalCooked: provisionalCooked,
     stagedId: stagedId,
     serverId: serverId,
     canonicalReceived: canonicalReceived,
@@ -895,6 +941,7 @@ class ChatMessage with Storable<ChatMessage> {
     uploads: uploads,
     optimisticRaw: optimisticRaw,
     preview: preview,
+    provisionalCooked: provisionalCooked,
     stagedId: stagedId,
     serverId: serverId ?? this.serverId,
     canonicalReceived: canonicalReceived,
@@ -958,6 +1005,7 @@ class ChatMessage with Storable<ChatMessage> {
     uploads: uploads,
     optimisticRaw: optimisticRaw,
     preview: preview,
+    provisionalCooked: provisionalCooked,
     stagedId: stagedId,
     serverId: serverId,
     canonicalReceived: canonicalReceived,
@@ -990,6 +1038,7 @@ class ChatMessage with Storable<ChatMessage> {
     uploads: uploads,
     optimisticRaw: optimisticRaw,
     preview: preview,
+    provisionalCooked: provisionalCooked,
     stagedId: stagedId,
     serverId: serverId,
     canonicalReceived: canonicalReceived,
@@ -1026,6 +1075,7 @@ class ChatMessage with Storable<ChatMessage> {
     uploads: uploads,
     optimisticRaw: optimisticRaw,
     preview: preview,
+    provisionalCooked: provisionalCooked,
     stagedId: stagedId,
     serverId: serverId,
     canonicalReceived: canonicalReceived,
@@ -1095,6 +1145,9 @@ class ChatMessage with Storable<ChatMessage> {
     uploads: source.uploads,
     optimisticRaw: source.optimisticRaw,
     preview: source.preview,
+    provisionalCooked: source.canonicalReceived
+        ? null
+        : source.provisionalCooked,
     stagedId: stagedId,
     serverId: serverId,
     canonicalReceived: source.canonicalReceived,
@@ -1127,6 +1180,7 @@ class ChatMessage with Storable<ChatMessage> {
     uploads: uploads,
     optimisticRaw: optimisticRaw,
     preview: preview,
+    provisionalCooked: provisionalCooked,
     stagedId: stagedId,
     serverId: serverId,
     canonicalReceived: canonicalReceived,
@@ -1161,6 +1215,7 @@ class ChatMessage with Storable<ChatMessage> {
     uploads: uploads,
     optimisticRaw: optimisticRaw,
     preview: preview,
+    provisionalCooked: provisionalCooked,
     stagedId: stagedId,
     serverId: serverId,
     canonicalReceived: canonicalReceived,
@@ -1193,6 +1248,7 @@ class ChatMessage with Storable<ChatMessage> {
     uploads: uploads,
     optimisticRaw: optimisticRaw,
     preview: preview,
+    provisionalCooked: provisionalCooked,
     stagedId: stagedId,
     serverId: serverId,
     canonicalReceived: canonicalReceived,
@@ -1225,6 +1281,7 @@ class ChatMessage with Storable<ChatMessage> {
     uploads: uploads,
     optimisticRaw: optimisticRaw,
     preview: preview,
+    provisionalCooked: provisionalCooked,
     stagedId: stagedId,
     serverId: serverId,
     canonicalReceived: canonicalReceived,
@@ -1271,6 +1328,7 @@ class ChatMessage with Storable<ChatMessage> {
       uploads: uploads,
       optimisticRaw: optimisticRaw,
       preview: preview,
+      provisionalCooked: provisionalCooked,
       stagedId: stagedId,
       serverId: serverId,
       canonicalReceived: canonicalReceived,
@@ -1311,6 +1369,7 @@ class ChatMessage with Storable<ChatMessage> {
           listEquals(other.uploads, uploads) &&
           other.optimisticRaw == optimisticRaw &&
           other.preview == preview &&
+          other.provisionalCooked == provisionalCooked &&
           other.stagedId == stagedId &&
           other.serverId == serverId &&
           other.canonicalReceived == canonicalReceived &&
@@ -1345,6 +1404,7 @@ class ChatMessage with Storable<ChatMessage> {
     Object.hashAll(uploads),
     optimisticRaw,
     preview,
+    provisionalCooked,
     stagedId,
     serverId,
     Object.hash(canonicalReceived, delivery, sendError, deliveryUncertain),

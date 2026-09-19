@@ -8,6 +8,7 @@ import 'package:discourse_native/src/plugins/chat/chat_message_tile.dart';
 import 'package:discourse_native/src/plugins/chat/chat_preview.dart';
 import 'package:discourse_native/src/plugins/chat/chat_services.dart';
 import 'package:discourse_native/src/plugins/chat/chat_user_avatar.dart';
+import 'package:discourse_native/src/plugins/local_dates/local_date_widget.dart';
 import 'package:discourse_native/src/shell/cooked_html.dart';
 import 'package:discourse_native/src/shell/hover_action_toolbar.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
@@ -182,6 +183,112 @@ Widget _tile(
 );
 
 void main() {
+  for (final kind in ChatChannelKind.values) {
+    testWidgets('provisional HTML uses canonical rendering in $kind', (
+      tester,
+    ) async {
+      const html =
+          '<p><strong>Local</strong> '
+          '<span class="discourse-local-date" data-date="2026-09-19" '
+          'data-time="12:00:00" data-timezone="Etc/UTC" '
+          'data-format="YYYY-MM-DD">Date fallback</span></p>';
+      final pending = _message()
+          .withPendingEdit(
+            'Raw fallback',
+            const SourceFallback(
+              'Raw fallback',
+              ChatPreviewFallbackReason.unsupportedSyntax,
+            ),
+          )
+          .withProvisionalCooked(html);
+      final controller = await _controller(
+        pending,
+        channel: _channel(kind: kind),
+      );
+      await tester.pumpWidget(_tile(controller));
+      await tester.pumpAndSettle();
+
+      final provisional = tester.widget<CookedHtml>(find.byType(CookedHtml));
+      expect(provisional.html, html);
+      expect(provisional.siteUrl, _site);
+      expect(provisional.compactParagraphs, isTrue);
+      expect(provisional.contentSized, kind == ChatChannelKind.directMessage);
+      expect(find.text('Raw fallback'), findsNothing);
+      expect(find.byType(LocalDateInline), findsOneWidget);
+      expect(
+        tester.widget<LocalDateInline>(find.byType(LocalDateInline)).siteUrl,
+        _site,
+      );
+      final body = tester.element(
+        find.byKey(ChatMessageTile.bodySelectionKey(7)),
+      );
+
+      controller.chatRecords.put(
+        _site,
+        pending.withCanonical(_message(cooked: html)),
+      );
+      await tester.pumpAndSettle();
+      final canonical = tester.widget<CookedHtml>(find.byType(CookedHtml));
+      expect(canonical.textStyle, provisional.textStyle);
+      expect(canonical.linkStyle, provisional.linkStyle);
+      expect(canonical.contentSized, provisional.contentSized);
+      expect(
+        tester.element(find.byKey(ChatMessageTile.bodySelectionKey(7))),
+        same(body),
+      );
+      expect(find.byType(LocalDateInline), findsOneWidget);
+
+      controller.chatRecords.put(
+        _site,
+        pending.withCanonical(_message(cooked: '')),
+      );
+      await tester.pumpAndSettle();
+      expect(find.byType(CookedHtml), findsNothing);
+      expect(find.byType(LocalDateInline), findsNothing);
+      expect(find.text('Raw fallback'), findsNothing);
+      expect(find.byType(DBubble), findsNothing);
+    });
+
+    for (final projected in [false, true]) {
+      testWidgets(
+        'empty provisional suppresses ${projected ? 'preview' : 'raw'} in $kind',
+        (tester) async {
+          final pending = _message()
+              .withPendingEdit(
+                'Raw fallback',
+                projected
+                    ? ProjectedPreview(
+                        PreviewDocument('Legacy preview', [
+                          ChatPreviewText(
+                            range: const SourceRange(0, 14),
+                            text: 'Legacy preview',
+                          ),
+                        ]),
+                      )
+                    : const SourceFallback(
+                        'Raw fallback',
+                        ChatPreviewFallbackReason.unsupportedSyntax,
+                      ),
+                uploads: const [_upload],
+              )
+              .withProvisionalCooked('');
+          final controller = await _controller(
+            pending,
+            channel: _channel(kind: kind),
+          );
+          await tester.pumpWidget(_tile(controller));
+          await tester.pumpAndSettle();
+          expect(find.byType(CookedHtml), findsNothing);
+          expect(find.text('Raw fallback'), findsNothing);
+          expect(find.text('Legacy preview'), findsNothing);
+          expect(find.byType(DBubble), findsNothing);
+          expect(find.text('notes.pdf'), findsOneWidget);
+          expect(tester.takeException(), isNull);
+        },
+      );
+    }
+  }
+
   for (final group in [false, true]) {
     for (final outgoing in [false, true]) {
       for (final direction in TextDirection.values) {

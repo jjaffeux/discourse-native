@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:desktop_drop/desktop_drop.dart';
+import 'package:discourse_cooking/discourse_cooking.dart';
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/data/discourse_api_contracts.dart';
 import 'package:discourse_native/src/diagnostics/diagnostics_controller.dart';
@@ -44,6 +45,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -70,6 +72,161 @@ const _gif = GifResult(
 );
 
 void main() {
+  group('local cooking preparation', () {
+    testWidgets('edit text carries composer locale and host reader timezone', (
+      tester,
+    ) async {
+      final cooking = _RecordingCookingService();
+      final fixture = await _fixture(
+        pages: {FakeDiscourseApi.chatMessagesKey(9): _emptyPage},
+        sessionUser: const DiscourseUser(
+          id: 2,
+          username: 'sam',
+          timezone: 'JST',
+        ),
+        cookingService: cooking,
+      );
+      addTearDown(fixture.shell.dispose);
+      final message = _message(1);
+      fixture.shell.chatRecords.put(_site, message);
+      await tester.pumpWidget(
+        _ComposerVisibilityView(
+          shell: fixture.shell,
+          visible: true,
+          editingMessage: message,
+          locale: const Locale('fr'),
+        ),
+      );
+      await tester.enterText(_composerField(), '**Bonjour**');
+      await tester.pump(const Duration(milliseconds: 100));
+      await tester.pump();
+      expect(cooking.requests.last.raw, '**Bonjour**');
+      expect(cooking.requests.last.snapshot.context.locale, 'fr');
+      expect(cooking.requests.last.snapshot.context.timezone, 'Asia/Tokyo');
+      expect(cooking.requests.last.snapshot.context.authorId, 2);
+      expect(cooking.requests.last.snapshot.context.editorId, 2);
+      expect(fixture.api.chatMessagesEdited, isEmpty);
+
+      await tester.pumpWidget(
+        _ComposerVisibilityView(
+          shell: fixture.shell,
+          visible: true,
+          editingMessage: message,
+          locale: const Locale('en'),
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 100));
+      await tester.pump();
+      expect(cooking.requests.last.raw, '**Bonjour**');
+      expect(cooking.requests.last.snapshot.context.locale, 'en');
+      expect(
+        fixture.shell.chatRecords.read<ChatMessage>(_site, 1)!.cooked,
+        message.cooked,
+      );
+    });
+
+    testWidgets(
+      'switching or closing edit cancels only its unsent preparation',
+      (tester) async {
+        final cooking = _RecordingCookingService();
+        final fixture = await _fixture(
+          pages: {FakeDiscourseApi.chatMessagesKey(9): _emptyPage},
+          cookingService: cooking,
+        );
+        addTearDown(fixture.shell.dispose);
+        final first = _message(1);
+        final second = _message(2);
+        await tester.pumpWidget(
+          _ComposerVisibilityView(
+            shell: fixture.shell,
+            visible: true,
+            editingMessage: first,
+          ),
+        );
+        await tester.enterText(_composerField(), 'abandoned first edit');
+        await tester.pumpWidget(
+          _ComposerVisibilityView(
+            shell: fixture.shell,
+            visible: true,
+            editingMessage: second,
+          ),
+        );
+        await tester.enterText(_composerField(), 'second edit');
+        await tester.pump(const Duration(milliseconds: 100));
+        await tester.pump();
+        expect(cooking.requests.map((request) => request.raw), ['second edit']);
+
+        cooking.requests.clear();
+        await tester.enterText(_composerField(), 'old source edit');
+        await tester.pumpWidget(
+          _ComposerVisibilityView(
+            shell: fixture.shell,
+            visible: true,
+            threadId: 44,
+            editingMessage: second,
+          ),
+        );
+        await tester.enterText(_composerField(), 'new source edit');
+        await tester.pump(const Duration(milliseconds: 100));
+        await tester.pump();
+        expect(cooking.requests.map((request) => request.raw), [
+          'new source edit',
+        ]);
+
+        cooking.requests.clear();
+        await tester.enterText(_composerField(), 'cancel this edit');
+        await tester.tap(
+          find.byKey(const ValueKey('chat-composer-edit-cancel')),
+        );
+        await tester.pump(const Duration(milliseconds: 100));
+        expect(cooking.requests, isEmpty);
+
+        await tester.enterText(_composerField(), 'unmounted edit');
+        await tester.pumpWidget(
+          _ComposerVisibilityView(shell: fixture.shell, visible: false),
+        );
+        await tester.pump(const Duration(milliseconds: 100));
+        expect(cooking.requests, isEmpty);
+        expect(fixture.api.chatMessagesEdited, isEmpty);
+      },
+    );
+
+    testWidgets(
+      'unmounting a normal composer pauses preparation and retains its draft',
+      (tester) async {
+        final cooking = _RecordingCookingService();
+        final fixture = await _fixture(
+          pages: {FakeDiscourseApi.chatMessagesKey(9): _emptyPage},
+          cookingService: cooking,
+        );
+        addTearDown(fixture.shell.dispose);
+        await tester.pumpWidget(
+          _ComposerVisibilityView(shell: fixture.shell, visible: true),
+        );
+        await tester.enterText(_composerField(), 'retained normal draft');
+        await tester.pumpWidget(
+          _ComposerVisibilityView(shell: fixture.shell, visible: false),
+        );
+        await tester.pump(const Duration(milliseconds: 100));
+        await tester.pump();
+        expect(cooking.requests, isEmpty);
+        await tester.pumpWidget(
+          _ComposerVisibilityView(shell: fixture.shell, visible: true),
+        );
+        await tester.pump(const Duration(milliseconds: 100));
+        await tester.pump();
+        expect(cooking.requests.last.raw, 'retained normal draft');
+        expect(
+          fixture.shell.chat
+              .composerDraftFor(_site, const ChatChannelTarget(9))
+              ?.raw,
+          'retained normal draft',
+        );
+        expect(fixture.api.chatMessagesSent, isEmpty);
+      },
+    );
+  });
+
   testWidgets(
     'slash dismissal removes unused chat triggers and space keeps literal text',
     (tester) async {
@@ -2178,6 +2335,9 @@ void main() {
     ) async {
       final fixture = await _fixture(
         pages: {FakeDiscourseApi.chatMessagesKey(9): _emptyPage},
+        cookingService: _RecordingCookingService(
+          html: '<p><strong>hello</strong> chat</p>',
+        ),
       );
       addTearDown(fixture.shell.dispose);
       await tester.pumpWidget(_TestView(shell: fixture.shell));
@@ -2205,7 +2365,10 @@ void main() {
       expect(fixture.shell.chat.stream(_site, 9).messageIds, isEmpty);
       expect(fixture.shell.chat.stream(_site, 9).localMessageIds, hasLength(1));
       expect(fixture.api.chatMessagesRequested, hasLength(1));
-      expect(find.text('hello chat'), findsOneWidget);
+      expect(
+        tester.widget<CookedHtml>(find.byType(CookedHtml)).html,
+        '<p><strong>hello</strong> chat</p>',
+      );
       expect(find.text('**hello** chat'), findsNothing);
     });
 
@@ -2258,6 +2421,9 @@ void main() {
       (tester) async {
         final fixture = await _fixture(
           pages: {FakeDiscourseApi.chatMessagesKey(9): _emptyPage},
+          cookingService: _RecordingCookingService(
+            html: '<p><strong>provisional</strong></p>',
+          ),
         );
         addTearDown(fixture.shell.dispose);
         await tester.pumpWidget(_TestView(shell: fixture.shell));
@@ -2276,8 +2442,11 @@ void main() {
           _site,
           localId,
         )!;
-        expect(find.text('provisional'), findsOneWidget);
-        expect(find.byType(ChatPreviewBody), findsOneWidget);
+        expect(
+          tester.widget<CookedHtml>(find.byType(CookedHtml)).html,
+          '<p><strong>provisional</strong></p>',
+        );
+        expect(find.byType(ChatPreviewBody), findsNothing);
         expect(find.byType(ChatMessageTile), findsOneWidget);
 
         fixture.shell.chatRecords.put(
@@ -2308,6 +2477,9 @@ void main() {
     ) async {
       final fixture = await _fixture(
         pages: {FakeDiscourseApi.chatMessagesKey(9): _emptyPage},
+        cookingService: _RecordingCookingService(
+          html: '<p><strong>provisional</strong></p>',
+        ),
       );
       addTearDown(fixture.shell.dispose);
       await tester.pumpWidget(_TestView(shell: fixture.shell));
@@ -2326,7 +2498,7 @@ void main() {
         _site,
         localId,
       )!;
-      expect(find.byType(ChatPreviewBody), findsOneWidget);
+      expect(find.byType(CookedHtml), findsOneWidget);
 
       fixture.shell.chatRecords.put(
         _site,
@@ -2547,6 +2719,7 @@ Future<({ShellController shell, FakeDiscourseApi api})> _fixture({
   ChatChannelKind channelKind = ChatChannelKind.category,
   PluginDiagnosticsReporter pluginDiagnosticsReporter =
       const PluginDiagnosticsReporter.noop(),
+  CookingServicePort? cookingService,
 }) async {
   final api = FakeDiscourseApi(
     user: sessionUser,
@@ -2577,6 +2750,7 @@ Future<({ShellController shell, FakeDiscourseApi api})> _fixture({
     trackers: FakeSiteTracker.reset(),
     plugins: installedPlugins,
     pluginDiagnosticsReporter: pluginDiagnosticsReporter,
+    cookingService: cookingService,
   );
   await shell.load();
   shell.chatRecords.put(
@@ -2747,6 +2921,7 @@ final class _ComposerVisibilityView extends StatelessWidget {
     this.threadId,
     this.editingMessage,
     this.onEditFinished,
+    this.locale = const Locale('en'),
   });
 
   final ShellController shell;
@@ -2754,6 +2929,7 @@ final class _ComposerVisibilityView extends StatelessWidget {
   final int? threadId;
   final ChatMessage? editingMessage;
   final VoidCallback? onEditFinished;
+  final Locale locale;
 
   @override
   Widget build(BuildContext context) => ShellScope(
@@ -2762,6 +2938,9 @@ final class _ComposerVisibilityView extends StatelessWidget {
       chatPluginId,
       MaterialApp(
         theme: AppTheme.light,
+        locale: locale,
+        supportedLocales: const [Locale('en'), Locale('fr')],
+        localizationsDelegates: GlobalMaterialLocalizations.delegates,
         home: Scaffold(
           body: visible
               ? ChatComposer(
@@ -2815,6 +2994,27 @@ final class _TwoComposerView extends StatelessWidget {
       ),
     ),
   );
+}
+
+final class _RecordingCookingService implements CookingServicePort {
+  _RecordingCookingService({this.html = '<p>Prepared</p>'});
+  final String html;
+  final requests = <CookingRequest>[];
+
+  @override
+  Future<bool> start() async => true;
+
+  @override
+  Future<CookingResult> cook(CookingRequest request) async {
+    requests.add(request);
+    return CookingResult(html: html).forRequest(request);
+  }
+
+  @override
+  void invalidate() {}
+
+  @override
+  Future<void> dispose() async {}
 }
 
 final class _RecordingDiagnosticsSink implements DiagnosticsSink {

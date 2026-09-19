@@ -1,5 +1,6 @@
 import '../../data/store.dart';
 import '../../diagnostics/diagnostics_controller.dart';
+import '../../plugin_api/cooking_plugin.dart';
 import '../../plugin_api/core_plugin_host.dart';
 import '../../plugin_api/plugin_manifest.dart';
 import '../gifs/gifs_contract.dart';
@@ -10,7 +11,7 @@ import 'chat_controller.dart';
 import 'chat_conversation.dart';
 import 'chat_notification_counter.dart';
 import 'chat_plugin.dart';
-import 'chat_preview.dart';
+import 'chat_preview_contract.dart';
 import 'chat_search_controller.dart';
 import 'chat_services.dart';
 import 'chat_shell_service.dart';
@@ -58,6 +59,7 @@ final class ChatModule implements PluginModule {
         final requests = bindings.require(corePluginRequestPort);
         final store = Store(policy: _chatEntityStorePolicy);
         final siteState = bindings.require(corePluginSiteStatePort);
+        final timezone = bindings.require(corePluginTimezonePort);
         final accountEvents = bindings.require(corePluginAccountEventsPort);
         final composerHost = bindings.require(corePluginComposerPort);
         final navigation = bindings.require(corePluginNavigationPort);
@@ -71,11 +73,9 @@ final class ChatModule implements PluginModule {
           store: store,
           currentUserFor: siteState.currentUserFor,
           siteConfigFor: siteState.siteConfigFor,
-          previewEngine: ChatPreviewEngine(
-            plugins: bindings
-                .require(corePluginStaticContributionsPort)
-                .contributions(chatPreviewContributions),
-            reporter: reporter,
+          cookingHost: bindings.require(corePluginCookingPort),
+          cookingTimezoneFor: (siteUrl) => timezone.readerTimezone(
+            siteState.currentUserFor(siteUrl)?.timezone,
           ),
           reporter: reporter,
           onChatNotificationsDelta: (siteUrl, delta) =>
@@ -149,7 +149,8 @@ final class ChatModule implements PluginModule {
         corePluginRequestPort,
         corePluginUserOptionsPort,
         corePluginSiteStatePort,
-        corePluginStaticContributionsPort,
+        corePluginCookingPort,
+        corePluginTimezonePort,
         corePluginAccountEventsPort,
         corePluginNavigationPort,
         corePluginBookmarkPort,

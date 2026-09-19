@@ -47,6 +47,7 @@ final class SourceFallback extends ChatPreviewResult {
 }
 
 enum ChatPreviewFallbackReason {
+  pending,
   unsupportedSyntax,
   ambiguousSyntax,
   pluginBlocked,

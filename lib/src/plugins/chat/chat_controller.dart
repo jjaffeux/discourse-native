@@ -3,6 +3,7 @@
 import 'dart:async';
 import 'dart:collection';
 
+import 'package:discourse_cooking/discourse_cooking.dart';
 import 'package:flutter/foundation.dart';
 
 import '../../data/discourse_api_contracts.dart'
@@ -17,6 +18,7 @@ import '../../models/discourse_user.dart';
 import '../../models/json.dart';
 import '../../models/post_flag.dart';
 import '../../models/site_config.dart';
+import '../../plugin_api/cooking_plugin.dart';
 import '../../plugin_api/core_plugin_host.dart';
 import '../../plugin_api/live_channels.dart';
 import 'chat_api.dart';
@@ -24,6 +26,7 @@ import 'chat_channel.dart';
 import 'chat_channel_list.dart';
 import 'chat_channel_list_controller.dart';
 import 'chat_channel_refresh.dart';
+import 'chat_cooking_coordinator.dart';
 import 'chat_direct_message_search.dart';
 import 'chat_live_sync_coordinator.dart';
 import 'chat_message.dart';
@@ -31,6 +34,7 @@ import 'chat_message_summary.dart';
 import 'chat_message_timeline.dart';
 import 'chat_pin.dart';
 import 'chat_plugin_data.dart';
+import 'chat_prepared_cooking.dart';
 import 'chat_preview.dart';
 import 'chat_reactors.dart';
 import 'chat_send_coordinator.dart';
@@ -372,6 +376,9 @@ class ChatController extends FrameSafeNotifier {
     DiscourseUser? Function(String siteUrl)? currentUserFor,
     SiteConfig Function(String siteUrl)? siteConfigFor,
     ChatPreviewEngine? previewEngine,
+    PluginCookingHost? cookingHost,
+    ChatCookingCoordinator? cookingScheduler,
+    String Function(String siteUrl)? cookingTimezoneFor,
     this.reporter = const PluginDiagnosticsReporter.noop(),
     this.onChatNotificationsDelta,
     this.onSiteUnreachable,
@@ -393,7 +400,15 @@ class ChatController extends FrameSafeNotifier {
        _currentUserFor = currentUserFor ?? _noCurrentUser,
        _siteConfigFor = siteConfigFor ?? _unknownSiteConfig,
        _previewEngine = previewEngine ?? ChatPreviewEngine(),
+       _cookingTimezoneFor = cookingTimezoneFor,
        _clock = clock ?? DateTime.now {
+    if (cookingHost != null) {
+      _preparedCooking = ChatPreparedCooking(
+        host: cookingHost,
+        contextFor: (siteUrl) => _cookingContext(siteUrl),
+        scheduler: cookingScheduler,
+      );
+    }
     channelListPreferences = ChatChannelListController(
       requests: requests,
       currentUserFor: _currentUserFor,
@@ -534,6 +549,11 @@ class ChatController extends FrameSafeNotifier {
   final DiscourseUser? Function(String siteUrl) _currentUserFor;
   final SiteConfig Function(String siteUrl) _siteConfigFor;
   final ChatPreviewEngine _previewEngine;
+  final String Function(String siteUrl)? _cookingTimezoneFor;
+  ChatPreparedCooking? _preparedCooking;
+  final Map<String, String> _cookingLocales = {};
+  final Map<String, int> _cookingLocaleRevisions = {};
+  final Map<(String, int), Object> _messageCookingTokens = {};
   final PluginDiagnosticsReporter reporter;
   final ChatNotificationsDelta? onChatNotificationsDelta;
   final ValueChanged<String>? onSiteUnreachable;
@@ -548,6 +568,63 @@ class ChatController extends FrameSafeNotifier {
 
   DiscourseUser? currentUserFor(String siteUrl) => _currentUserFor(siteUrl);
   SiteConfig siteConfigFor(String siteUrl) => _siteConfigFor(siteUrl);
+
+  /// Shared by drawer and full-page composers; unchanged locales do no work.
+  void setCookingLocale(String siteUrl, String locale) {
+    if (isDisposed || (_cookingLocales[siteUrl] ?? 'en') == locale) return;
+    _cookingLocales[siteUrl] = locale;
+    _cookingLocaleRevisions.update(
+      siteUrl,
+      (value) => value + 1,
+      ifAbsent: () => 1,
+    );
+    _preparedCooking?.refreshSite(siteUrl);
+  }
+
+  CookingContext _cookingContext(String siteUrl, {ChatMessage? author}) {
+    final user = _currentUserFor(siteUrl);
+    return CookingContext(
+      authorId: author?.author.id ?? user?.id,
+      authorUsername: author?.author.username ?? user?.username ?? '',
+      editorId: user?.id,
+      locale: _cookingLocales[siteUrl] ?? 'en',
+      timezone:
+          _cookingTimezoneFor?.call(siteUrl) ?? user?.timezone ?? 'Etc/UTC',
+      asOfEpochMilliseconds: _clock().millisecondsSinceEpoch,
+      sourcePolicy: CookingSourcePolicy.submission,
+    );
+  }
+
+  /// Each editor owns its preparation without changing the timeline.
+  void prepareEditCooking(
+    String siteUrl,
+    ChatMessage message,
+    String raw, {
+    Object? owner,
+  }) {
+    if (isDisposed) return;
+    _preparedCooking?.prepare(
+      key: ('editDraft', siteUrl, message.id, owner),
+      siteUrl: siteUrl,
+      raw: raw,
+      contextBuilder: () => _cookingContext(siteUrl, author: message),
+    );
+  }
+
+  void cancelEditCooking(String siteUrl, int messageId, {Object? owner}) =>
+      _preparedCooking?.cancel(('editDraft', siteUrl, messageId, owner));
+
+  /// Keeps the draft and ready HTML when its last presentation closes, while
+  /// stopping debounce work until a composer opens it again.
+  void suspendComposerCookingIfUnobserved(
+    String siteUrl,
+    ChatStreamTarget target,
+  ) {
+    final key = _targetKey(siteUrl, target);
+    if (!(_composerDraftRefs[key]?.hasListeners ?? false)) {
+      _preparedCooking?.suspend(('draft', key));
+    }
+  }
 
   @visibleForTesting
   T putRecordForTesting<T extends Storable<T>>(String siteUrl, T record) =>
@@ -864,6 +941,7 @@ class ChatController extends FrameSafeNotifier {
     _rememberTarget(siteUrl, target);
     final retainedUploads = List<ComposerUploadResult>.unmodifiable(uploads);
     if (raw.isEmpty && retainedUploads.isEmpty && replyTo == null) {
+      _preparedCooking?.cancel(('draft', key));
       _composerDraftRefs[key]?.value = null;
       if (!_streams.containsKey(key) && _canEvictRetainedTarget(key)) {
         _evictRetainedTarget(key);
@@ -876,6 +954,7 @@ class ChatController extends FrameSafeNotifier {
       uploads: retainedUploads,
       replyTo: replyTo,
     );
+    _preparedCooking?.prepare(key: ('draft', key), siteUrl: siteUrl, raw: raw);
     _composerDraftRefs
             .putIfAbsent(
               key,
@@ -3036,6 +3115,7 @@ class ChatController extends FrameSafeNotifier {
     int messageId,
     String raw, {
     List<ChatUpload>? uploads,
+    Object? cookingOwner,
   }) async {
     final held = _store.read<ChatMessage>(siteUrl, messageId);
     if (held == null || !canEditMessage(siteUrl, held)) {
@@ -3069,18 +3149,23 @@ class ChatController extends FrameSafeNotifier {
     final request = Object();
     final lease = _requests.capture(siteUrl);
     _messageEditWrites[key] = request;
+    _cancelMessageCooking(siteUrl, messageId);
 
     bool ownsRequest() =>
         !isDisposed &&
         lease.isCurrent &&
         identical(_messageEditWrites[key], request);
 
-    final preview = _previewEngine.project(
-      ChatPreviewRequest(raw: raw, siteConfig: _siteConfigFor(siteUrl)),
+    final preview = _projectPreview(siteUrl, OutgoingChatMessage.text(raw));
+    var pending = held.withPendingEdit(raw, preview, uploads: editedUploads);
+    final ready = _preparedCooking?.takeReady(
+      key: ('editDraft', siteUrl, messageId, cookingOwner),
+      raw: raw,
     );
-    final pending = held.withPendingEdit(raw, preview, uploads: editedUploads);
+    if (ready != null) pending = pending.withProvisionalCooked(ready);
     _store.put(siteUrl, pending);
     _updateChannelMessagePreview(siteUrl, pending);
+    if (ready == null) _cookMessage(siteUrl, pending, author: held);
 
     bool canonicalEditArrived() {
       final current = _store.read<ChatMessage>(siteUrl, messageId);
@@ -3090,10 +3175,12 @@ class ChatController extends FrameSafeNotifier {
     }
 
     void rollback() {
-      if (!ownsRequest() || canonicalEditArrived()) return;
+      if (!ownsRequest()) return;
+      _cancelMessageCooking(siteUrl, messageId);
       lease.commit(() {
         final latest = _store.read<ChatMessage>(siteUrl, messageId);
-        if (latest != null) {
+        // Any newer canonical edit wins, including a different server raw.
+        if (latest != null && !latest.canonicalReceived && latest.raw == raw) {
           final restored = latest.withContentOf(held);
           _store.put(siteUrl, restored);
           _updateChannelMessagePreview(siteUrl, restored);
@@ -3619,6 +3706,7 @@ class ChatController extends FrameSafeNotifier {
     ChatMessage message, {
     bool preservePersonalizedState = false,
   }) {
+    if (message.canonicalReceived) _cancelMessageCooking(siteUrl, message.id);
     final replaced = _store.read<ChatMessage>(siteUrl, message.id);
     final effective = replaced == null
         ? message
@@ -4225,6 +4313,7 @@ class ChatController extends FrameSafeNotifier {
   }
 
   void _evictRetainedTarget(String key) {
+    _preparedCooking?.cancel(('draft', key));
     _retainedTargets.remove(key);
     _streams.remove(key);
     _streamGenerations.remove(key);
@@ -4350,6 +4439,7 @@ class ChatController extends FrameSafeNotifier {
         continue;
       }
 
+      _cancelMessageCooking(siteUrl, id);
       remaining ??= stream.localMessageIds.sublist(0, index);
     }
     return remaining == null
@@ -4428,6 +4518,11 @@ class ChatController extends FrameSafeNotifier {
     ChatStreamTarget target,
     ChatMessage local,
   ) {
+    final ready = _preparedCooking?.takeReady(
+      key: ('draft', _targetKey(siteUrl, target)),
+      raw: local.raw,
+    );
+    if (ready != null) local = local.withProvisionalCooked(ready);
     _store.put(siteUrl, local);
     final held = streamFor(siteUrl, target);
     _setStream(
@@ -4438,12 +4533,77 @@ class ChatController extends FrameSafeNotifier {
         clearError: true,
       ),
     );
+    if (ready == null) _cookMessage(siteUrl, local, target: target);
+  }
+
+  void _cancelMessageCooking(String siteUrl, int messageId) {
+    _messageCookingTokens.remove((siteUrl, messageId));
+    _preparedCooking?.cancel(('message', siteUrl, messageId));
+  }
+
+  /// Scheduling never assembles a snapshot or awaits the worker on the staging
+  /// stack. Updates retain concurrent message state and cannot recreate a row.
+  void _cookMessage(
+    String siteUrl,
+    ChatMessage message, {
+    ChatStreamTarget? target,
+    ChatMessage? author,
+  }) {
+    final cooking = _preparedCooking;
+    if (cooking == null || isDisposed) return;
+    final token = Object();
+    final key = (siteUrl, message.id);
+    final lease = _requests.capture(siteUrl);
+    final localeRevision = _cookingLocaleRevisions[siteUrl] ?? 0;
+    _messageCookingTokens[key] = token;
+    bool isCurrent() {
+      if (isDisposed ||
+          !lease.isCurrent ||
+          localeRevision != (_cookingLocaleRevisions[siteUrl] ?? 0) ||
+          !identical(_messageCookingTokens[key], token)) {
+        return false;
+      }
+      final current = _store.read<ChatMessage>(siteUrl, message.id);
+      return current != null &&
+          !current.canonicalReceived &&
+          !current.isDeleted &&
+          current.raw == message.raw &&
+          current.stagedId == message.stagedId &&
+          (target == null ||
+              streamFor(siteUrl, target).localMessageIds.contains(message.id));
+    }
+
+    unawaited(
+      cooking
+          .cook(
+            key: ('message', siteUrl, message.id),
+            siteUrl: siteUrl,
+            raw: message.raw,
+            contextBuilder: () => _cookingContext(siteUrl, author: author),
+            isCurrent: isCurrent,
+          )
+          .then((html) {
+            if (html != null && isCurrent()) {
+              _store.update<ChatMessage>(
+                siteUrl,
+                message.id,
+                (held) => held.withProvisionalCooked(html),
+              );
+            }
+            if (identical(_messageCookingTokens[key], token)) {
+              _messageCookingTokens.remove(key);
+            }
+          }),
+    );
   }
 
   ChatPreviewResult _projectPreview(
     String siteUrl,
     OutgoingChatMessage message,
   ) {
+    if (_preparedCooking != null && message.trustedPreviewSeed == null) {
+      return SourceFallback(message.raw, ChatPreviewFallbackReason.pending);
+    }
     try {
       return _previewEngine.project(
         ChatPreviewRequest(
@@ -4529,6 +4689,7 @@ class ChatController extends FrameSafeNotifier {
     ChatStreamTarget target,
     int localId,
   ) {
+    _cancelMessageCooking(siteUrl, localId);
     final key = _targetKey(siteUrl, target);
     final window = _streams[key];
     if (window == null || !window.localMessageIds.contains(localId)) return;
@@ -6064,6 +6225,10 @@ class ChatController extends FrameSafeNotifier {
   }
 
   void forget(String siteUrl) {
+    _preparedCooking?.forget(siteUrl);
+    _cookingLocales.remove(siteUrl);
+    _cookingLocaleRevisions.remove(siteUrl);
+    _messageCookingTokens.removeWhere((key, _) => key.$1 == siteUrl);
     channelListPreferences.forget(siteUrl);
     _channelRefreshes.remove(siteUrl);
     _liveSync.forget(siteUrl);
@@ -6176,6 +6341,10 @@ class ChatController extends FrameSafeNotifier {
 
   @override
   void dispose() {
+    _preparedCooking?.dispose();
+    _messageCookingTokens.clear();
+    _cookingLocales.clear();
+    _cookingLocaleRevisions.clear();
     channelListPreferences.dispose();
     _channelRefreshes.clear();
     _liveSync.dispose();
