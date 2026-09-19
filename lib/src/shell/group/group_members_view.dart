@@ -330,7 +330,11 @@ class _MembersToolbar extends StatelessWidget {
               children: [
                 search,
                 const SizedBox(height: 8),
-                Wrap(spacing: 8, runSpacing: 8, children: actions),
+                Wrap(
+                  spacing: DSpacing.controlGap,
+                  runSpacing: 8,
+                  children: actions,
+                ),
               ],
             );
           }
@@ -338,7 +342,7 @@ class _MembersToolbar extends StatelessWidget {
             children: [
               Expanded(child: search),
               for (final action in actions) ...[
-                const SizedBox(width: 8),
+                const SizedBox(width: DSpacing.controlGap),
                 action,
               ],
             ],

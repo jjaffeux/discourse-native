@@ -128,7 +128,7 @@ class _InstanceActionsState extends State<InstanceActions> {
                       icon: const DIcon(DIcons.arrowUp),
                     ),
                   ),
-                  const SizedBox(width: 12),
+                  const SizedBox(width: DSpacing.controlGap),
                   Expanded(
                     child: DButton(
                       label: const Text('Move down'),

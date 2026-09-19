@@ -361,11 +361,11 @@ class DAlertDialogFooter extends StatelessWidget {
     if (small) {
       actions = LayoutBuilder(
         builder: (context, constraints) {
-          final columnWidth = constraints.maxWidth > DSpacing.sm
-              ? (constraints.maxWidth - DSpacing.sm) / 2
+          final columnWidth = constraints.maxWidth > DSpacing.controlGap
+              ? (constraints.maxWidth - DSpacing.controlGap) / 2
               : 0.0;
           return Wrap(
-            spacing: DSpacing.sm,
+            spacing: DSpacing.controlGap,
             runSpacing: DSpacing.sm,
             children: [
               for (final child in children)
@@ -379,7 +379,7 @@ class DAlertDialogFooter extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.end,
         children: [
           for (var index = 0; index < children.length; index++) ...[
-            if (index > 0) const SizedBox(width: DSpacing.sm),
+            if (index > 0) const SizedBox(width: DSpacing.controlGap),
             children[index],
           ],
         ],

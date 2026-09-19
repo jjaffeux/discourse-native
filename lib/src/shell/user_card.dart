@@ -703,9 +703,9 @@ class _CardActions extends StatelessWidget {
       builder: (context, constraints) {
         final width = actions.length == 1 || constraints.maxWidth < 320
             ? constraints.maxWidth
-            : (constraints.maxWidth - 8) / 2;
+            : (constraints.maxWidth - DSpacing.controlGap) / 2;
         return Wrap(
-          spacing: 8,
+          spacing: DSpacing.controlGap,
           runSpacing: 8,
           children: [
             for (final action in actions) SizedBox(width: width, child: action),

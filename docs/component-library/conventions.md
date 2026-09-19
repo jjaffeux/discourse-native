@@ -91,6 +91,17 @@ and `backgroundColor`/`borderColor` accept semantic colors. Desktop footers use
 `DTokens.footerBorder` (12%), matching `--surface-footer` and `--border-subtle`
 in the September HTML reference. There is no shadow. Ordinary card footers retain their shared spacing and square upper edge.
 
+### Adjacent control spacing
+
+Use `DSpacing.controlGap` (4 logical pixels) between separate adjacent buttons,
+toggles, toggle groups, selectors and menu triggers in action rows and toolbars.
+Use it with `Row(spacing: ...)`, `Wrap(spacing: ...)` or a `SizedBox` between
+conditional children. Dialog action footers use the same horizontal gap.
+Use the general spacing scale for wrapped-row spacing, content, section gaps
+and control internals. Joined `DButtonGroup` and `DToggleGroup` retain ownership
+of their internal geometry. The Button styleguide’s Control consistency example
+shows this standard across sizes and mixed control types.
+
 ## Theme, layout and interaction
 
 `DTokens.of(context)` supplies semantic colors and radius, with a fallback for

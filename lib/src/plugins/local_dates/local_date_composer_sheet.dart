@@ -368,7 +368,7 @@ class _LocalDateComposerSheetState extends State<LocalDateComposerSheet> {
                                     setState(() => _previewCandidate = zone),
                               ),
                             ),
-                            const SizedBox(width: 8),
+                            const SizedBox(width: DSpacing.controlGap),
                             DButton.iconOnly(
                               onPressed: _previewCandidate == null
                                   ? null
@@ -525,7 +525,7 @@ class _LocalDateComposerSheetState extends State<LocalDateComposerSheet> {
   Widget _actions() => Wrap(
     alignment: WrapAlignment.end,
     crossAxisAlignment: WrapCrossAlignment.center,
-    spacing: 8,
+    spacing: DSpacing.controlGap,
     runSpacing: 8,
     children: [
       if (!widget.draft.isNew) ...[

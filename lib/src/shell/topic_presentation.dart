@@ -99,7 +99,7 @@ class TopicPanelTabs extends StatelessWidget {
           if (reading != true && preferences != null && !context.isTouch)
             const TopicPresentationButton(),
           if (split && preferences != null) ...[
-            if (reading != true) const SizedBox(width: DSpacing.sm),
+            if (reading != true) const SizedBox(width: DSpacing.controlGap),
             DButton.iconOnly(
               key: ValueKey(
                 reading == true

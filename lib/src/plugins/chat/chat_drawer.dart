@@ -1060,7 +1060,10 @@ class ChatDrawerChannelsView extends StatelessWidget {
                       siteUrl: siteUrl,
                       section: section,
                     ),
-                    if (action != null) ...[const SizedBox(width: 8), action],
+                    if (action != null) ...[
+                      const SizedBox(width: DSpacing.controlGap),
+                      action,
+                    ],
                   ],
                 ),
               ),

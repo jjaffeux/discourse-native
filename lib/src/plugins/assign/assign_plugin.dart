@@ -432,7 +432,7 @@ final class AssignPlugin
                 ),
         ),
         header: (anchorContext, showDetails) => Wrap(
-          spacing: 4,
+          spacing: DSpacing.controlGap,
           runSpacing: 4,
           crossAxisAlignment: WrapCrossAlignment.center,
           children: [

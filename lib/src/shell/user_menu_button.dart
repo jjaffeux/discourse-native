@@ -303,7 +303,7 @@ class _SignedOutAccountActions extends StatelessWidget {
             size: DButtonSize.large,
             icon: const DIcon(DIcons.userPlus),
           ),
-          const SizedBox(width: 4),
+          const SizedBox(width: DSpacing.controlGap),
           DButton.iconOnly(
             key: UserMenuButton.signInKey,
             onPressed: connecting ? null : onSignIn,
@@ -325,7 +325,7 @@ class _SignedOutAccountActions extends StatelessWidget {
           size: DButtonSize.large,
           label: const Text('Sign up'),
         ),
-        const SizedBox(width: 8),
+        const SizedBox(width: DSpacing.controlGap),
         DButton(
           key: UserMenuButton.signInKey,
           onPressed: connecting ? null : onSignIn,

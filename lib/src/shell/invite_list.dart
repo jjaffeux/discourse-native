@@ -190,7 +190,7 @@ class _InviteListState extends State<InviteList> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Wrap(
-              spacing: 8,
+              spacing: DSpacing.controlGap,
               crossAxisAlignment: WrapCrossAlignment.center,
               children: [
                 DButton(
@@ -414,7 +414,7 @@ class _InviteRow extends StatelessWidget {
           if (confirmingRemoval) ...[
             const Text('Remove this invite? It will no longer be usable.'),
             Wrap(
-              spacing: 6,
+              spacing: DSpacing.controlGap,
               children: [
                 DButton(
                   label: const Text('Confirm removal'),
@@ -429,7 +429,7 @@ class _InviteRow extends StatelessWidget {
             ),
           ] else if (!redeemed)
             Wrap(
-              spacing: 6,
+              spacing: DSpacing.controlGap,
               children: [
                 if (invite.link != null)
                   DButton(

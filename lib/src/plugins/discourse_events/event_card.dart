@@ -933,7 +933,7 @@ class EventUnavailableCard extends StatelessWidget {
           Text(error ?? 'Event details are unavailable.'),
           if (loading) const DProgress(semanticsLabel: 'Loading event'),
           Wrap(
-            spacing: 8,
+            spacing: DSpacing.controlGap,
             children: [
               if (onRetry != null)
                 DButton(

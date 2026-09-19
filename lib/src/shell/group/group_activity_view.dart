@@ -310,7 +310,7 @@ class _RequestsSection extends StatelessWidget {
                       ],
                       const SizedBox(height: 10),
                       Wrap(
-                        spacing: 8,
+                        spacing: DSpacing.controlGap,
                         children: [
                           DButton(
                             key: ValueKey('accept-${requester.username}'),

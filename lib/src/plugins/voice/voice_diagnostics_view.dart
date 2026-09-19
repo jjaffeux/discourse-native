@@ -451,7 +451,7 @@ class _CaptureControls extends StatelessWidget {
               ),
               const SizedBox(height: 10),
               Wrap(
-                spacing: 8,
+                spacing: DSpacing.controlGap,
                 runSpacing: 8,
                 children: [
                   DButton(

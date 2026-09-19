@@ -147,7 +147,7 @@ class TopicListFilterBar extends StatelessWidget {
                 children: [
                   Expanded(child: controlChildren.first),
                   if (controlChildren.length > 1) ...[
-                    const SizedBox(width: DSpacing.sm),
+                    const SizedBox(width: DSpacing.controlGap),
                     Expanded(child: controlChildren[1]),
                   ],
                 ],
@@ -160,7 +160,7 @@ class TopicListFilterBar extends StatelessWidget {
           )
         : wrap
         ? Wrap(
-            spacing: 8,
+            spacing: DSpacing.controlGap,
             runSpacing: 8,
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [?leading, ...controlChildren],
@@ -168,9 +168,12 @@ class TopicListFilterBar extends StatelessWidget {
         : Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              if (leading != null) ...[leading!, const SizedBox(width: 8)],
+              if (leading != null) ...[
+                leading!,
+                const SizedBox(width: DSpacing.controlGap),
+              ],
               for (var index = 0; index < controlChildren.length; index++) ...[
-                if (index > 0) const SizedBox(width: 8),
+                if (index > 0) const SizedBox(width: DSpacing.controlGap),
                 if (inline)
                   Flexible(child: controlChildren[index])
                 else

@@ -542,7 +542,7 @@ class _TopicTaxonomy extends StatelessWidget {
             child: Align(
               alignment: AlignmentDirectional.centerStart,
               child: Wrap(
-                spacing: 8,
+                spacing: DSpacing.controlGap,
                 runSpacing: 8,
                 crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
@@ -2902,7 +2902,7 @@ class _FormattingToolbar extends StatelessWidget {
         label: 'Formatting',
         child: Row(
           mainAxisSize: MainAxisSize.min,
-          spacing: 6,
+          spacing: DSpacing.controlGap,
           children: [
             for (final (label, icon, mark, key) in [
               ('Bold', DIcons.bold, ComposerMark.bold, LogicalKeyboardKey.keyB),
@@ -3162,7 +3162,7 @@ class _ComposerToolbarOverflowState extends State<_ComposerToolbarOverflow> {
           scrollDirection: Axis.horizontal,
           child: Row(
             mainAxisSize: MainAxisSize.min,
-            spacing: 6,
+            spacing: DSpacing.controlGap,
             children: widget.children,
           ),
         ),
@@ -3467,7 +3467,7 @@ class _Footer extends StatelessWidget {
                             label: Text(compactCreate ? 'Create' : label),
                           ),
                   ),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: DSpacing.controlGap),
                   Flexible(
                     fit: FlexFit.loose,
                     child: DButton(

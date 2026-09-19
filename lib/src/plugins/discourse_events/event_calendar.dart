@@ -274,7 +274,7 @@ final class _EventCalendarState extends State<EventCalendar> {
                 ),
                 const SizedBox(height: 8),
                 Wrap(
-                  spacing: 8,
+                  spacing: DSpacing.controlGap,
                   runSpacing: 8,
                   crossAxisAlignment: WrapCrossAlignment.center,
                   alignment: WrapAlignment.center,

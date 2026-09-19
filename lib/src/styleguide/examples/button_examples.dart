@@ -13,6 +13,7 @@ final buttonExamples = ComponentExamples(
   description: 'Actions and links, with variants for emphasis and intent.',
   status: ComponentStatus.implemented,
   notes:
+      'Separate adjacent controls use DSpacing.controlGap (4px). '
       'The redesign has three button families: colored, outlined and transparent. '
       'Colored actions use a 25% accent fill and accent-tinted foreground; '
       'outlined actions use a 1px palette border; transparent actions have no resting fill or border. '

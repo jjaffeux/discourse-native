@@ -926,7 +926,7 @@ class _PostRevisionHistoryFooter extends StatelessWidget {
                     onPressed: firstAction,
                     size: DButtonSize.small,
                   ),
-                  const SizedBox(width: 6),
+                  const SizedBox(width: DSpacing.controlGap),
                   DButton(
                     label: const Text('Previous'),
                     onPressed: previousAction,
@@ -938,7 +938,7 @@ class _PostRevisionHistoryFooter extends StatelessWidget {
                     onPressed: nextAction,
                     size: DButtonSize.small,
                   ),
-                  const SizedBox(width: 6),
+                  const SizedBox(width: DSpacing.controlGap),
                   DButton(
                     label: const Text('Latest'),
                     onPressed: latestAction,

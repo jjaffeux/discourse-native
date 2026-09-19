@@ -894,7 +894,7 @@ class DDialogFooter extends StatelessWidget {
         child: wide
             ? Wrap(
                 alignment: wideAlignment,
-                spacing: DSpacing.sm,
+                spacing: DSpacing.controlGap,
                 runSpacing: DSpacing.sm,
                 children: parts,
               )

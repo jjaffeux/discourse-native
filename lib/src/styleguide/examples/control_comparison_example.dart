@@ -28,7 +28,7 @@ class _ControlComparisonExampleState extends State<ControlComparisonExample> {
           Text('${size.name} — ${DControlStyle.height(size).toInt()}px'),
           const SizedBox(height: DSpacing.sm),
           Wrap(
-            spacing: DSpacing.sm,
+            spacing: DSpacing.controlGap,
             runSpacing: DSpacing.sm,
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
@@ -107,7 +107,7 @@ class _ControlComparisonExampleState extends State<ControlComparisonExample> {
                 size: DButtonSize.regular,
                 onPressed: () => setState(() => _result = 'Reply activated'),
               ),
-              const SizedBox(width: DSpacing.sm),
+              const SizedBox(width: DSpacing.controlGap),
               DButtonGroup(
                 children: [
                   DButton.iconOnly(

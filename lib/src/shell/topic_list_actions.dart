@@ -23,7 +23,7 @@ class TopicListActions extends StatelessWidget {
       listenable: settings,
       builder: (context, _) => Row(
         mainAxisSize: MainAxisSize.min,
-        spacing: 8,
+        spacing: DSpacing.controlGap,
         children: [
           ?filter,
           DDropdownMenu(
@@ -197,7 +197,7 @@ class _TopicListFilterMenuState extends State<TopicListFilterMenu> {
             onSubmitted: _apply,
           ),
           Wrap(
-            spacing: 8,
+            spacing: DSpacing.controlGap,
             runSpacing: 8,
             children: [
               for (final (label, query) in const [

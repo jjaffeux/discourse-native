@@ -828,7 +828,7 @@ class _UnavailableForum extends StatelessWidget {
                     const SizedBox(height: 24),
                     Wrap(
                       alignment: WrapAlignment.center,
-                      spacing: 12,
+                      spacing: DSpacing.controlGap,
                       runSpacing: 12,
                       children: [
                         DButton(

@@ -1008,7 +1008,7 @@ class PostActionsFooter extends StatelessWidget {
           padding: const EdgeInsets.only(top: 10),
           child: Row(
             mainAxisSize: MainAxisSize.min,
-            spacing: 6,
+            spacing: DSpacing.controlGap,
             children: [
               for (final action in actions)
                 Builder(

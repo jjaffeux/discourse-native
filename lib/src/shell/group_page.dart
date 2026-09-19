@@ -414,7 +414,7 @@ class _GroupHeader extends StatelessWidget {
                 _groupDesktopBreakpoint;
             final actions = Wrap(
               alignment: WrapAlignment.end,
-              spacing: 8,
+              spacing: DSpacing.controlGap,
               runSpacing: 8,
               children: [
                 if (actionLabel != null)

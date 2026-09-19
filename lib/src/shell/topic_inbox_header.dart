@@ -301,7 +301,7 @@ class _TopicHeaderActions extends StatelessWidget {
     return Row(
       key: const ValueKey('topic-header-common-actions'),
       mainAxisSize: MainAxisSize.min,
-      spacing: DSpacing.xs,
+      spacing: DSpacing.controlGap,
       children: [
         if (topic != null && siteUrl != null) ...[
           TopicStatusButton(

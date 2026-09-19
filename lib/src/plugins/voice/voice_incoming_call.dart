@@ -113,7 +113,7 @@ class _VoiceIncomingCallBannerState extends State<VoiceIncomingCallBanner> {
                         variant: DButtonVariant.primary,
                         loading: _answering,
                       ),
-                      const SizedBox(width: 8),
+                      const SizedBox(width: DSpacing.controlGap),
                       DButton(
                         onPressed: widget.controller.declineIncomingCall,
                         icon: const DIcon(DIcons.phoneSlash),

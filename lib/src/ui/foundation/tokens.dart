@@ -150,6 +150,12 @@ abstract final class DSpacing {
   static const double lg = 16;
   static const double xl = 24;
   static const double xxl = 32;
+
+  /// Gap between separate adjacent buttons, toggles and selection controls.
+  /// Joined groups own their internal spacing; content and row gaps use the
+  /// general spacing scale instead.
+  static const double controlGap = xs;
+
   static const double touchTarget = 48;
 }
 

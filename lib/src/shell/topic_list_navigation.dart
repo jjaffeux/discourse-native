@@ -260,7 +260,7 @@ class _TopicListNavigationControls extends StatelessWidget {
                 children: [
                   Expanded(
                     child: Wrap(
-                      spacing: 8,
+                      spacing: DSpacing.controlGap,
                       runSpacing: 8,
                       crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
@@ -272,7 +272,7 @@ class _TopicListNavigationControls extends StatelessWidget {
                     ),
                   ),
                   if (trailing != null) ...[
-                    const SizedBox(width: 8),
+                    const SizedBox(width: DSpacing.controlGap),
                     trailing!,
                   ],
                 ],

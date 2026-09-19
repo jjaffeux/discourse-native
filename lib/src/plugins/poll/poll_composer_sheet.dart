@@ -441,7 +441,7 @@ class _PollComposerSheetState extends State<PollComposerSheet> {
   Widget _actions() => Wrap(
     alignment: WrapAlignment.end,
     crossAxisAlignment: WrapCrossAlignment.center,
-    spacing: 8,
+    spacing: DSpacing.controlGap,
     runSpacing: 8,
     children: [
       if (!widget.draft.isNew) ...[

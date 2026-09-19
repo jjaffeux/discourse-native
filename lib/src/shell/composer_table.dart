@@ -638,7 +638,7 @@ class _ComposerTableEditorState extends State<ComposerTableEditor> {
         ),
         const SizedBox(height: DSpacing.sm),
         Wrap(
-          spacing: DSpacing.sm,
+          spacing: DSpacing.controlGap,
           runSpacing: DSpacing.sm,
           children: [
             DButton(

@@ -1915,7 +1915,7 @@ class _ChatMessageSelectionBarState extends State<ChatMessageSelectionBar> {
                 icon: const DIcon(DIcons.copy),
                 label: const Text('Copy'),
               ),
-              const SizedBox(width: 4),
+              const SizedBox(width: DSpacing.controlGap),
               if (offersMove)
                 DButton.iconOnly(
                   key: const ValueKey('chat-move-selection'),

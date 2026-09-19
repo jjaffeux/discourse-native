@@ -926,7 +926,7 @@ class _BookmarkEditorState extends State<_BookmarkEditor> {
                   enabled: !_busy,
                 ),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: DSpacing.controlGap),
               DButton(
                 label: const Text('Set'),
                 onPressed: _busy ? null : _setRelative,
@@ -952,7 +952,7 @@ class _BookmarkEditorState extends State<_BookmarkEditor> {
                 label: const Text('Cancel'),
                 onPressed: _busy ? null : () => Navigator.of(context).pop(),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: DSpacing.controlGap),
               DButton(
                 label: const Text('Save'),
                 onPressed: _save,

@@ -262,7 +262,7 @@ class _TopicProgressEditorState extends State<_TopicProgressEditor> {
         ],
         Wrap(
           alignment: WrapAlignment.spaceBetween,
-          spacing: 8,
+          spacing: DSpacing.controlGap,
           runSpacing: 8,
           children: [
             DButton(
