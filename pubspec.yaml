@@ -176,7 +176,24 @@ flutter:
     - packages/discourse_native/src/styleguide/assets/scroll_area/vladimir.jpg
     - packages/discourse_native/src/styleguide/assets/discourse.png
     - assets/fonts/JetBrainsMono-OFL.txt
+    - assets/fonts/Lato-OFL.txt
+    - assets/fonts/OpenSans-OFL.txt
   fonts:
+    - family: Open Sans
+      fonts:
+        - asset: assets/fonts/OpenSans.ttf
+        - asset: assets/fonts/OpenSans-Italic.ttf
+          style: italic
+    - family: Lato
+      fonts:
+        - asset: assets/fonts/Lato-Regular.ttf
+        - asset: assets/fonts/Lato-Bold.ttf
+          weight: 700
+        - asset: assets/fonts/Lato-Italic.ttf
+          style: italic
+        - asset: assets/fonts/Lato-BoldItalic.ttf
+          weight: 700
+          style: italic
     - family: JetBrains Mono
       fonts:
         - asset: assets/fonts/JetBrainsMono-Regular.ttf

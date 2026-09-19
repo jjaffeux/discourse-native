@@ -3,6 +3,7 @@ import 'dart:ui';
 
 import 'package:discourse_native/src/data/forum_settings_store.dart';
 import 'package:discourse_native/src/data/scalar_preference_repository.dart';
+import 'package:discourse_native/src/models/forum_font.dart';
 import 'package:discourse_native/src/models/forum_theme.dart';
 import 'package:discourse_native/src/models/forum_theme_preferences.dart';
 import 'package:discourse_native/src/models/forum_theme_presets.dart';
@@ -17,6 +18,63 @@ void main() {
     ...dracula.toJson(),
     'name': 'My night',
   }, id: 'custom-night');
+
+  test(
+    'font survives theme edits and older or unknown preferences default safely',
+    () {
+      final chosen = ForumThemePreferences().withFont(ForumFont.lato);
+      final edited = chosen.save(custom).select(null);
+      expect(edited.font, ForumFont.lato);
+      expect(edited.remove(custom.id).font, ForumFont.lato);
+      expect(ForumThemePreferences.fromJson(edited.toJson()), edited);
+      expect(
+        ForumThemePreferences.fromJson(const {'version': 1}).font,
+        ForumFont.system,
+      );
+      expect(
+        ForumThemePreferences.fromJson(const {
+          'version': 1,
+          'font': 'unknown',
+        }).font,
+        ForumFont.system,
+      );
+    },
+  );
+
+  test(
+    'fonts persist independently per forum and failed writes retain the choice',
+    () async {
+      final persistence = _Persistence();
+      final store = ForumSettingsStore(persistence: persistence);
+      final settings = ForumSettingsController(store: store);
+      addTearDown(settings.dispose);
+      await settings.setThemes(
+        site,
+        ForumThemePreferences().withFont(ForumFont.openSans),
+      );
+      await settings.setThemes(
+        'https://other.example',
+        ForumThemePreferences().withFont(ForumFont.lato),
+      );
+      final restored = ForumSettingsController(
+        store: ForumSettingsStore(persistence: persistence),
+      );
+      addTearDown(restored.dispose);
+      await restored.load(site);
+      await restored.load('https://other.example');
+      expect(restored.themesFor(site).font, ForumFont.openSans);
+      expect(restored.themesFor('https://other.example').font, ForumFont.lato);
+      persistence.failWrites = true;
+      await expectLater(
+        settings.setThemes(
+          site,
+          settings.themesFor(site).withFont(ForumFont.system),
+        ),
+        throwsStateError,
+      );
+      expect(settings.themesFor(site).font, ForumFont.openSans);
+    },
+  );
 
   test('contains all reference schemes with their original colors', () {
     expect(forumThemePresets.map((t) => t.id), [

@@ -4,6 +4,7 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
 import '../models/app_settings.dart';
+import '../models/forum_font.dart';
 import '../models/forum_theme.dart';
 import '../models/forum_theme_preferences.dart';
 import '../models/forum_theme_presets.dart';
@@ -54,6 +55,23 @@ class _ForumAppearanceSettingsState extends State<ForumAppearanceSettings> {
     }
   }
 
+  Future<void> _saveFont(ForumFont font) async {
+    setState(() {
+      _saving = true;
+      _error = null;
+    });
+    try {
+      await settings.setThemes(
+        widget.siteUrl,
+        settings.themesFor(widget.siteUrl).withFont(font),
+      );
+    } catch (_) {
+      if (mounted) setState(() => _error = 'Could not save font. Try again.');
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) => ListenableBuilder(
     listenable: settings,
@@ -79,10 +97,14 @@ class _ForumAppearanceSettingsState extends State<ForumAppearanceSettings> {
           forum?.paletteForBrightness(brightness);
       final previewTheme =
           (palette == null
-                  ? (brightness == Brightness.dark
-                        ? AppTheme.dark
-                        : AppTheme.light)
-                  : AppTheme.fromPalette(palette))
+                  ? AppTheme.forBrightness(
+                      brightness,
+                      fontFamily: preferences.font.family,
+                    )
+                  : AppTheme.fromPalette(
+                      palette,
+                      fontFamily: preferences.font.family,
+                    ))
               .copyWith(platform: Theme.of(context).platform);
       return LayoutBuilder(
         builder: (context, constraints) {
@@ -128,6 +150,31 @@ class _ForumAppearanceSettingsState extends State<ForumAppearanceSettings> {
                         settings.setThemeMode(widget.siteUrl, values.single),
                       ),
                     ),
+                  ),
+                ],
+              ),
+              DField(
+                children: [
+                  const DFieldLabel(child: Text('Font')),
+                  DSelect<ForumFont>(
+                    key: const ValueKey('appearance-font-select'),
+                    semanticLabel: 'Font',
+                    value: preferences.font,
+                    enabled: !_saving,
+                    entries: [
+                      for (final font in ForumFont.values)
+                        DSelectOption(
+                          value: font,
+                          label: font.label,
+                          child: Text(
+                            font.label,
+                            style: TextStyle(fontFamily: font.family),
+                          ),
+                        ),
+                    ],
+                    onChanged: (font) {
+                      if (font != null) unawaited(_saveFont(font));
+                    },
                   ),
                 ],
               ),

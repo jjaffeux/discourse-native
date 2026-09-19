@@ -75,6 +75,28 @@ double paintedContrast(
 }
 
 void main() {
+  test('chosen font reaches light, dark, palette and control typography', () {
+    for (final brightness in Brightness.values) {
+      for (final theme in [
+        AppTheme.forBrightness(brightness, fontFamily: 'Lato'),
+        AppTheme.fromPalette(
+          palette(brightness: brightness),
+          fontFamily: 'Lato',
+        ),
+      ]) {
+        expect(theme.textTheme.bodyMedium?.fontFamily, 'Lato');
+        expect(theme.textTheme.titleLarge?.fontFamily, 'Lato');
+        expect(theme.textTheme.labelLarge?.fontFamily, 'Lato');
+        expect(theme.inputDecorationTheme.hintStyle?.fontFamily, 'Lato');
+        expect(
+          theme.cupertinoOverrideTheme?.textTheme?.textStyle.fontFamily,
+          'Lato',
+        );
+        expect(theme.textTheme.bodyMedium?.fontSize, DiscourseTypography.sm);
+      }
+    }
+  });
+
   test(
     'shell colors without an own-mention color can be copied and animated',
     () {

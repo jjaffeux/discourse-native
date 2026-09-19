@@ -269,10 +269,9 @@ void main() {
       previewBounds.bottom - newTopicBounds.bottom,
       greaterThanOrEqualTo(DSpacing.lg),
     );
-    await tester.tap(find.byKey(const ValueKey('forum-settings-general')));
+    await tester.tap(find.byKey(const ValueKey('appearance-font-select')));
     await tester.pumpAndSettle();
-    expect(find.text('Address'), findsOneWidget);
-    await tester.tap(find.byKey(const ValueKey('forum-settings-appearance')));
+    await tester.tap(find.text('Lato').last);
     await tester.pumpAndSettle();
     final dracula = find.byKey(const ValueKey('forum-theme-dracula'));
     await tester.ensureVisible(dracula);
@@ -283,6 +282,10 @@ void main() {
       'dracula',
     );
     final preview = find.byKey(const ValueKey('forum-theme-preview'));
+    expect(
+      Theme.of(tester.element(preview)).textTheme.bodyMedium?.fontFamily,
+      'Lato',
+    );
     expect(
       Theme.of(tester.element(preview)).colorScheme.primary,
       const Color(0xffbd93f9),
