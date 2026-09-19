@@ -422,6 +422,65 @@ void main() {
     expect(tester.takeException(), isNull);
   }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 
+  testWidgets('reader tabs retain the message list and its scroll position', (
+    tester,
+  ) async {
+    final setup = await _pumpInbox(
+      tester,
+      inboxCount: 30,
+      desktopTopicTabs: true,
+    );
+    final shell = setup.controller;
+    final list = find.byType(TopicListView);
+    final listElement = tester.element(list);
+    ScrollController listScroll() => tester
+        .widget<Scrollable>(
+          find.descendant(of: list, matching: find.byType(Scrollable)),
+        )
+        .controller!;
+    final scroll = listScroll();
+
+    await tester.tap(find.byKey(const ValueKey('topic-card-1')));
+    await tester.pump();
+    expect(tester.element(list), same(listElement));
+    expect(listScroll(), same(scroll));
+    await tester.pumpAndSettle();
+    final firstReaderTabId = shell.activeTabId!;
+
+    scroll.jumpTo(350);
+    await tester.pumpAndSettle();
+    final row = find.byKey(const ValueKey('topic-card-14'));
+    await tester.ensureVisible(row);
+    await tester.pumpAndSettle();
+    final rowElement = tester.element(row);
+    final offset = scroll.offset;
+    expect(offset, greaterThan(0));
+
+    void expectRetainedList() {
+      expect(tester.element(list), same(listElement));
+      expect(tester.element(row), same(rowElement));
+      expect(listScroll(), same(scroll));
+      expect(scroll.offset, closeTo(offset, 1));
+      expect(row.hitTestable(), findsOneWidget);
+    }
+
+    await tester.tap(row);
+    await tester.pump();
+    expectRetainedList();
+    await tester.pumpAndSettle();
+    expectRetainedList();
+    expect(shell.currentContent?.topicId, 14);
+    expect(shell.activeTabId, isNot(firstReaderTabId));
+
+    shell.selectTab(firstReaderTabId);
+    await tester.pump();
+    expectRetainedList();
+    await tester.pumpAndSettle();
+    expectRetainedList();
+    expect(shell.currentContent?.topicId, 1);
+    expect(tester.takeException(), isNull);
+  }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
+
   testWidgets(
     'message arrows and gj/gk navigate the source feed and paginate',
     (tester) async {
@@ -564,6 +623,7 @@ Future<({ShellController controller, FakeDiscourseApi api})> _pumpInbox(
   bool secondSite = false,
   int inboxCount = 1,
   bool paginate = false,
+  bool desktopTopicTabs = false,
   DiscourseUser user = const DiscourseUser(
     id: 1,
     username: 'reader',
@@ -650,13 +710,14 @@ Future<({ShellController controller, FakeDiscourseApi api})> _pumpInbox(
       ..keys['https://team.example'] = 'other-key',
     drafts: FakeDraftStore(),
     forumTabs: FakeForumTabStore(),
-    forumTabsEnabled: false,
+    forumTabsEnabled: desktopTopicTabs,
     trackers: FakeSiteTracker.reset(),
     updater: FakeUpdater(),
     updateStore: FakeUpdateStore(),
     ownsApi: false,
   );
   addTearDown(controller.dispose);
+  controller.desktopTopicTabs = desktopTopicTabs;
   await controller.load();
   controller.selectDestination(
     const SidebarDestination(

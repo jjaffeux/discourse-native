@@ -424,7 +424,7 @@ class _TopicListViewState extends State<TopicListView> {
     return (
       siteUrl,
       controller.currentAccountIdentity,
-      controller.activeTabId,
+      controller.topicListTab?.id,
       destination,
     );
   }

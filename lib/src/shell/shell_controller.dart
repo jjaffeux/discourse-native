@@ -2928,12 +2928,18 @@ class ShellController extends FrameSafeNotifier
         (route.isTopicListFilter ? TopicListMode.latest : null);
   }
 
-  ContentRoute? get topicListContent {
+  /// The tab that owns the source list, independently of the active reader.
+  ForumTab? get topicListTab {
     if (splitTopicPanels && currentContent?.isTopic == true) {
-      final route = listPanelTab?.currentContent;
-      if (route?.isTopicList == true) return route;
+      final tab = listPanelTab;
+      if (tab?.currentContent.isTopicList == true) return tab;
     }
-    for (final route in contentStack.reversed) {
+    return activeTab;
+  }
+
+  ContentRoute? get topicListContent {
+    final routes = topicListTab?.contentStack ?? const <ContentRoute>[];
+    for (final route in routes.reversed) {
       if (route.isTopic) continue;
       return route.isTopicList ? route : null;
     }
@@ -3483,19 +3489,20 @@ class ShellController extends FrameSafeNotifier
   int feedScrollRow(String destinationId) {
     final instance = currentInstance;
     if (instance == null) return 0;
-    final anchor = activeTab?.anchors[destinationId];
+    final anchor = topicListTab?.anchors[destinationId];
     if (anchor?.kind == 'feed') return anchor!.itemId;
     return 0;
   }
 
   void saveFeedScrollRow(String destinationId, int row) {
     final instance = currentInstance;
-    final tab = activeTab;
+    final tab = topicListTab;
     if (instance == null || tab == null) return;
     topicFeeds.saveScrollRow(instance.url, destinationId, row);
     final previous = tab.anchors[destinationId];
     if (previous?.kind == 'feed' && previous?.itemId == row) return;
-    _replaceActiveTab(
+    _replaceTab(
+      instance.url,
       tab.copyWith(
         anchors: {
           ...tab.anchors,
