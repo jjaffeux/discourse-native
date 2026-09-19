@@ -1374,7 +1374,7 @@ class _DSelectBodyState<T> extends State<_DSelectBody<T>> {
       controlSize,
       MediaQuery.textScalerOf(context),
     );
-    final baseRadius = DControlStyle.radius(tokens, controlSize);
+    final baseRadius = tokens.buttonTheme.radius;
     final joined = DJoinedControlScope.maybeOf(context);
     final radius =
         joined?.resolveRadius(
@@ -1390,18 +1390,9 @@ class _DSelectBodyState<T> extends State<_DSelectBody<T>> {
         : tokens.mutedForeground;
     final dark = Theme.of(context).brightness == Brightness.dark;
     final interactive = widget.enabled && (_triggerHovered || trigger.open);
-    final input = DControlStyle.outlineBorder(
-      tokens,
-      dark: dark,
-      field: true,
-      hovered: interactive,
-    );
-    final background = DControlStyle.outlineFill(
-      tokens,
-      dark: dark,
-      field: true,
-      hovered: interactive,
-    );
+    final outline = tokens.buttonTheme.outline;
+    final input = interactive ? outline.hoverBorder : outline.border;
+    final background = interactive ? outline.hover : outline.background;
     final border = invalid
         ? tokens.destructive.withValues(
             alpha: tokens.destructive.a * (dark ? 0.5 : 1),
@@ -1424,9 +1415,7 @@ class _DSelectBodyState<T> extends State<_DSelectBody<T>> {
         borderColor: border,
         borderRadius: radius,
         joinedAxis: (joined?.omitsLeadingBorder ?? false) ? joined?.axis : null,
-        shadowColor: joined == null
-            ? DControlStyle.shadow(tokens)
-            : Colors.transparent,
+        strokeWidth: 1,
         ringColor: invalid ? tokens.destructive : tokens.focusRing,
         ringOffset: DControlStyle.focusOffset,
         ringWidth:
