@@ -213,7 +213,8 @@ class _ForumAppearanceSettingsState extends State<ForumAppearanceSettings> {
                     _tab = value;
                     if (_tab == 'custom' && _draft == null) {
                       _draft =
-                          preferences.selectedTheme ?? forumThemePresets[1];
+                          (preferences.selectedTheme ?? forumThemePresets.first)
+                              .forBrightness(brightness);
                     }
                   });
                 },
@@ -240,11 +241,11 @@ class _ForumAppearanceSettingsState extends State<ForumAppearanceSettings> {
                   value: _query,
                   onChanged: (value) => setState(() => _query = value),
                 ),
-                _library(preferences),
+                _library(preferences, brightness),
               ] else
                 ForumThemeEditor(
                   key: _editorKey,
-                  initialTheme: _draft ?? forumThemePresets[1],
+                  initialTheme: _draft ?? forumThemePresets.first,
                   customThemes: preferences.customThemes,
                   enabled: !_saving,
                   onChanged: (value) => setState(() => _draft = value),
@@ -302,7 +303,7 @@ class _ForumAppearanceSettingsState extends State<ForumAppearanceSettings> {
     },
   );
 
-  Widget _library(ForumThemePreferences preferences) {
+  Widget _library(ForumThemePreferences preferences, Brightness brightness) {
     final themes = [...forumThemePresets, ...preferences.customThemes]
         .where(
           (theme) => theme.name.toLowerCase().contains(_query.toLowerCase()),
@@ -342,7 +343,9 @@ class _ForumAppearanceSettingsState extends State<ForumAppearanceSettings> {
                         onPressed: () =>
                             unawaited(_save(preferences.select(theme.id))),
                         children: [
-                          ThemeThumbnail(theme: theme),
+                          ThemeThumbnail(
+                            theme: theme.forBrightness(brightness),
+                          ),
                           DItemContent(
                             children: [
                               DItemTitle(maxLines: 2, child: Text(theme.name)),
@@ -368,7 +371,7 @@ class _ForumAppearanceSettingsState extends State<ForumAppearanceSettings> {
                     onPressed: _saving
                         ? null
                         : () => setState(() {
-                            _draft = selected;
+                            _draft = selected.forBrightness(brightness);
                             _editorKey = GlobalKey();
                             _tab = 'custom';
                           }),

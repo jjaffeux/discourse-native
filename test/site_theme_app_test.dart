@@ -100,13 +100,17 @@ void main() {
       await tester.pumpAndSettle();
       expect(
         _activeTheme(tester).colorScheme.primary,
-        forumThemePresets[9].tertiary,
+        forumThemePresets.firstWhere((theme) => theme.id == 'dracula').tertiary,
       );
       controller.selectInstance(1);
       await tester.pumpAndSettle();
       expect(
         _activeTheme(tester).colorScheme.primary,
-        isNot(forumThemePresets[9].tertiary),
+        isNot(
+          forumThemePresets
+              .firstWhere((theme) => theme.id == 'dracula')
+              .tertiary,
+        ),
       );
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pumpAndSettle();
@@ -119,7 +123,7 @@ void main() {
       controller = _controller(tester);
       expect(
         _activeTheme(tester).colorScheme.primary,
-        forumThemePresets[9].tertiary,
+        forumThemePresets.firstWhere((theme) => theme.id == 'dracula').tertiary,
       );
       await controller.forumSettings.setThemes(
         siteA,

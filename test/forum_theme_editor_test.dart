@@ -36,7 +36,9 @@ void main() {
           home: SingleChildScrollView(
             child: DCard(
               child: ForumThemeEditor(
-                initialTheme: forumThemePresets[9],
+                initialTheme: forumThemePresets.firstWhere(
+                  (theme) => theme.id == 'dracula',
+                ),
                 customThemes: const [],
                 onChanged: (value) => draft = value,
                 onSave: (value) async => saved = value,
@@ -79,7 +81,9 @@ void main() {
           home: SingleChildScrollView(
             child: DCard(
               child: ForumThemeEditor(
-                initialTheme: forumThemePresets[9],
+                initialTheme: forumThemePresets.firstWhere(
+                  (theme) => theme.id == 'dracula',
+                ),
                 customThemes: const [],
                 onChanged: (value) => draft = value,
                 onSave: (value) async => saved = value,
@@ -123,7 +127,7 @@ void main() {
         home: SingleChildScrollView(
           child: DCard(
             child: ForumThemeEditor(
-              initialTheme: forumThemePresets[1],
+              initialTheme: forumThemePresets.first,
               customThemes: const [],
               onChanged: (value) => draft = value,
               onSave: (_) async {},
@@ -139,13 +143,18 @@ void main() {
     expect(find.text('Choose a valid theme JSON file.'), findsOneWidget);
     expect(draft, isNull);
     files.contents = jsonEncode({
-      ...forumThemePresets[9].toJson(),
+      ...forumThemePresets
+          .firstWhere((theme) => theme.id == 'dracula')
+          .toJson(),
       'name': 'Imported night',
     });
     await tester.tap(find.text('Import'));
     await tester.pumpAndSettle();
     expect(draft?.name, 'Imported night');
-    expect(draft?.tertiary, forumThemePresets[9].tertiary);
+    expect(
+      draft?.tertiary,
+      forumThemePresets.firstWhere((theme) => theme.id == 'dracula').tertiary,
+    );
     expect(draft?.id, startsWith('custom-'));
     final imported = draft;
     files.contents = null;
@@ -171,7 +180,9 @@ void main() {
         home: SingleChildScrollView(
           child: DCard(
             child: ForumThemeEditor(
-              initialTheme: forumThemePresets[9],
+              initialTheme: forumThemePresets.firstWhere(
+                (theme) => theme.id == 'dracula',
+              ),
               customThemes: const [],
               onChanged: (_) {},
               onSave: (_) async {},
@@ -203,7 +214,10 @@ void main() {
             as Map<String, dynamic>;
     final exported = ForumTheme.fromJson(json, id: 'exported');
     expect(exported.name, 'Dracula custom');
-    expect(exported.tertiary, forumThemePresets[9].tertiary);
+    expect(
+      exported.tertiary,
+      forumThemePresets.firstWhere((theme) => theme.id == 'dracula').tertiary,
+    );
     expect(files.suggestedName, 'Dracula-custom.json');
     expect(find.text('Theme exported.'), findsOneWidget);
     expect(tester.takeException(), isNull);
@@ -249,7 +263,7 @@ void main() {
     expect(find.byKey(const ValueKey('theme-preview-sidebar')), findsOneWidget);
     expect(find.byType(ForumThemePreview), findsOneWidget);
     expect(find.byType(TopicListRow), findsNWidgets(2));
-    expect(find.byType(ThemeThumbnail), findsNWidgets(13));
+    expect(find.byType(ThemeThumbnail), findsNWidgets(10));
     final palette = find.byType(ThemePaletteStrip);
     expect(
       find.descendant(of: palette, matching: find.byType(Semantics)),

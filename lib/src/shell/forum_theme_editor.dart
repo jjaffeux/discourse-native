@@ -109,6 +109,7 @@ class _ForumThemeEditorState extends State<ForumThemeEditor> {
   }
 
   void _usePalette(ForumTheme theme, {bool imported = false}) {
+    if (!imported) theme = theme.forBrightness(_brightness);
     _baseId = imported ? null : theme.id;
     if (imported) {
       _id = _newId();
@@ -123,7 +124,8 @@ class _ForumThemeEditorState extends State<ForumThemeEditor> {
   }
 
   void _surprise() {
-    final base = forumThemePresets[_random.nextInt(forumThemePresets.length)];
+    final base = forumThemePresets[_random.nextInt(forumThemePresets.length)]
+        .forBrightness(_brightness);
     final accents = ['#47798B', '#9772A5', '#C28B45', '#4E8E7D', '#AB6674']
         .where((color) => color != _colors['tertiary']!.text.toUpperCase())
         .toList();

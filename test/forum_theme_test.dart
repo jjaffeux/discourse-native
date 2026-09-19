@@ -78,7 +78,6 @@ void main() {
 
   test('contains all reference schemes with their original colors', () {
     expect(forumThemePresets.map((t) => t.id), [
-      'dark',
       'neutral',
       'grey-amber',
       'shades-of-blue',
@@ -86,10 +85,8 @@ void main() {
       'summer',
       'dark-rose',
       'wcag',
-      'wcag-dark',
       'dracula',
-      'solarized-light',
-      'solarized-dark',
+      'solarized',
       'clover-dark',
     ]);
     expect(dracula.secondary, const Color(0xff2d303e));
@@ -98,6 +95,50 @@ void main() {
       expect(ForumTheme.fromJson(theme.toJson(), id: theme.id), theme);
     }
   });
+
+  test(
+    'paired themes resolve authored palettes and migrate old selections',
+    () {
+      final wcag = forumThemePresets.firstWhere((t) => t.id == 'wcag');
+      expect(wcag.resolve(Brightness.light).tertiary, const Color(0xff0033cc));
+      expect(wcag.resolve(Brightness.dark).tertiary, const Color(0xff759aff));
+      expect(wcag.resolve(Brightness.dark).secondary, const Color(0xff0c0c0c));
+      final solarized = forumThemePresets.firstWhere(
+        (t) => t.id == 'solarized',
+      );
+      expect(
+        solarized.resolve(Brightness.light).tertiary,
+        const Color(0xff0088cc),
+      );
+      expect(
+        solarized.resolve(Brightness.dark).tertiary,
+        const Color(0xff1a97d5),
+      );
+      for (final (old, current) in [
+        ('dark', 'neutral'),
+        ('wcag-dark', 'wcag'),
+        ('solarized-light', 'solarized'),
+        ('solarized-dark', 'solarized'),
+      ]) {
+        final preferences = ForumThemePreferences.fromJson({
+          'version': 1,
+          'selectedId': old,
+        });
+        expect(preferences.selectedId, current);
+        expect(preferences.selectedTheme, isNotNull);
+        expect(preferences.toJson()['selectedId'], current);
+      }
+      for (final theme in forumThemePresets) {
+        for (final brightness in Brightness.values) {
+          final thumbnail = theme.forBrightness(brightness);
+          final resolved = theme.resolve(brightness);
+          expect(thumbnail.secondary, resolved.secondary);
+          expect(thumbnail.tertiary, resolved.tertiary);
+          expect(thumbnail.brightness, brightness);
+        }
+      }
+    },
+  );
 
   test('resolves both modes and retains the forum geometry', () {
     final geometry = ResolvedSitePalette.fromJson(const {
