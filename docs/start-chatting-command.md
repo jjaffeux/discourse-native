@@ -29,10 +29,9 @@ heights, keycaps and avatar fallbacks use the current Native presets in the app.
 ## Verification
 
 - Root `flutter analyze --no-pub`: no issues.
-- 222 affected tests passed across the new dialog tests, chat navigation,
-  channel-list widgets, shell integration, Command, Button adoption and control
-  style adoption. The added late-completion regression passed in a subsequent
-  eight-test dialog run.
+- 223 affected tests passed on the candidate integrated with current main,
+  across the eight dialog tests, chat navigation, channel-list widgets, shell
+  integration, Command, Button adoption and control style adoption.
 - Widget coverage includes macOS keyboard routing and focus restoration,
   disabled recipient skipping, server relevance, stale requests, group limits,
   recipient removal, error recovery, and narrow RTL at 200% text scale.
