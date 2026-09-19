@@ -1755,6 +1755,34 @@ class FakeDiscourseApi
     if (failure != null) throw failure;
   }
 
+  final List<({String siteUrl, int topicId, bool archived})> messagesArchived =
+      [];
+  Completer<void>? messageArchiveGate;
+
+  @override
+  Future<void> updateMessageArchived({
+    required String siteUrl,
+    required String apiKey,
+    required int topicId,
+    required bool archived,
+    String? clientId,
+  }) async {
+    messagesArchived.add((
+      siteUrl: siteUrl,
+      topicId: topicId,
+      archived: archived,
+    ));
+    await messageArchiveGate?.future;
+    if (writeFailure case final failure?) throw failure;
+    final payload = topics[topicId];
+    if (payload != null) {
+      topics[topicId] = (
+        detail: payload.detail.copyWith(messageArchived: archived),
+        posts: payload.posts,
+      );
+    }
+  }
+
   @override
   Future<void> updateTopicStatus({
     required String siteUrl,

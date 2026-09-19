@@ -24,6 +24,7 @@ Future<void> main() async {
     id: 7,
     username: 'sam',
     canSendPrivateMessages: true,
+    groups: ['team'],
     messageGroupNames: ['team'],
   );
   final site = instance('messages-review.invalid').copyWith(user: user);
@@ -51,7 +52,7 @@ Future<void> main() async {
   ];
   final shell = ShellController(
     instanceStore: FakeInstanceStore([site]),
-    api: FakeDiscourseApi(
+    api: _MessageReviewApi(
       user: user,
       feeds: {
         '/latest.json': const [],
@@ -71,6 +72,8 @@ Future<void> main() async {
               title: row.title,
               stream: [row.id * 100, row.id * 100 + 1],
               privateMessage: true,
+              allowedMessageGroups: const ['team'],
+              allowedMessageUsers: const ['sam'],
               postsCount: 2,
               replyCount: 1,
               canCreatePost: true,
@@ -146,6 +149,7 @@ class _ReviewState extends State<_Review> {
     child: MaterialApp(
       debugShowCheckedModeBanner: false,
       theme: _dark ? AppTheme.dark : AppTheme.light,
+      builder: (context, child) => DToaster(child: child!),
       home: Builder(
         builder: (context) => Scaffold(
           body: Column(
@@ -198,4 +202,34 @@ class _ReviewState extends State<_Review> {
       ),
     ),
   );
+}
+
+class _MessageReviewApi extends FakeDiscourseApi {
+  _MessageReviewApi({
+    required super.user,
+    required super.feeds,
+    required super.topics,
+  });
+
+  @override
+  Future<TopicList> topicList({
+    required String siteUrl,
+    required String path,
+    String? apiKey,
+    String? clientId,
+  }) async {
+    final archive = path.contains('archive');
+    final source = archive
+        ? path
+              .replaceFirst('-archive', '')
+              .replaceFirst('/archive.json', '.json')
+        : path;
+    final rows = feeds[source] ?? const <Topic>[];
+    return TopicList(
+      topics: [
+        for (final row in rows)
+          if (topics[row.id]?.detail.messageArchived == archive) row,
+      ],
+    );
+  }
 }

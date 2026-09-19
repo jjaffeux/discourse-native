@@ -2823,6 +2823,38 @@ void _feedGroups() {
       );
     }
 
+    test('archives and restores PMs through core inbox routes', () async {
+      final sent = <http.Request>[];
+      final api = DiscourseApi(
+        client: MockClient((request) async {
+          sent.add(request);
+          return http.Response(
+            sent.length == 1 ? '{"group_name":"support"}' : '',
+            200,
+          );
+        }),
+      );
+      addTearDown(api.close);
+      for (final archived in [true, false]) {
+        await api.updateMessageArchived(
+          siteUrl: 'https://example.com',
+          apiKey: 'key',
+          clientId: 'client',
+          topicId: 12,
+          archived: archived,
+        );
+      }
+      expect(sent.map((r) => (r.method, r.url.path)), [
+        ('PUT', '/t/12/archive-message'),
+        ('PUT', '/t/12/move-to-inbox'),
+      ]);
+      for (final request in sent) {
+        expect(request.headers['user-api-key'], 'key');
+        expect(request.headers['user-api-client-id'], 'client');
+        expect(jsonDecode(request.body), isEmpty);
+      }
+    });
+
     test('updates a guardian-approved topic status', () async {
       late http.Request sent;
       final api = DiscourseApi(

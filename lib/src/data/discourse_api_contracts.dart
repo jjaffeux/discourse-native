@@ -585,6 +585,14 @@ abstract interface class TopicMutationsApi {
     String? clientId,
   });
 
+  Future<void> updateMessageArchived({
+    required String siteUrl,
+    required String apiKey,
+    required int topicId,
+    required bool archived,
+    String? clientId,
+  });
+
   Future<void> updateTopicStatus({
     required String siteUrl,
     required String apiKey,
