@@ -10,6 +10,76 @@ import 'package:flutter_test/flutter_test.dart';
 import 'support/button_surface.dart';
 
 void main() {
+  for (final direction in TextDirection.values) {
+    testWidgets('passive text closes the outlined group in $direction', (
+      tester,
+    ) async {
+      final boundary = GlobalKey();
+      await _pump(
+        tester,
+        Directionality(
+          textDirection: direction,
+          child: RepaintBoundary(
+            key: boundary,
+            child: const DButtonGroup(
+              children: [
+                DButton.iconOnly(
+                  icon: Icon(Icons.remove),
+                  tooltip: 'Decrease',
+                  variant: DButtonVariant.outline,
+                  onPressed: _noop,
+                ),
+                DButtonGroupText(child: Text('100%')),
+                DButton.iconOnly(
+                  icon: Icon(Icons.add),
+                  tooltip: 'Increase',
+                  variant: DButtonVariant.outline,
+                  onPressed: _noop,
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+      final group = tester.getRect(find.byType(DButtonGroup));
+      final label = tester.getRect(find.byType(DButtonGroupText));
+      expect(label.top, group.top);
+      expect(label.bottom, group.bottom);
+      final origin = tester.getTopLeft(find.byKey(boundary));
+      final rect = label.shift(-origin);
+      final expected = DTokens.of(
+        tester.element(find.byType(DButtonGroupText)),
+      ).buttonTheme.outline.border;
+      await tester.runAsync(() async {
+        final box =
+            boundary.currentContext!.findRenderObject()!
+                as RenderRepaintBoundary;
+        final image = await box.toImage(pixelRatio: 1);
+        final data = (await image.toByteData(format: ImageByteFormat.rawRgba))!;
+        for (final point in [
+          Offset(rect.center.dx, rect.top),
+          Offset(rect.center.dx, rect.bottom - 1),
+          Offset(
+            direction == TextDirection.ltr ? rect.right - 1 : rect.left,
+            rect.center.dy,
+          ),
+        ]) {
+          final offset =
+              (point.dy.toInt() * image.width + point.dx.toInt()) * 4;
+          expect(
+            Color.fromARGB(
+              data.getUint8(offset + 3),
+              data.getUint8(offset),
+              data.getUint8(offset + 1),
+              data.getUint8(offset + 2),
+            ).toARGB32(),
+            expected.toARGB32(),
+          );
+        }
+        image.dispose();
+      });
+    });
+  }
   for (final axis in Axis.values) {
     for (final direction in TextDirection.values) {
       testWidgets('recessed separator paints two edges: $axis $direction', (

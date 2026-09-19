@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 
 import '../../theme/discourse_typography.dart';
+import '../foundation/control_style.dart';
 import '../foundation/joined_control.dart';
 import '../foundation/tokens.dart';
 import 'd_separator.dart';
@@ -182,6 +183,9 @@ class DButtonGroupText extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tokens = DTokens.of(context);
+    final joined = DJoinedControlScope.maybeOf(context);
+    final direction = Directionality.of(context);
+    final radius = BorderRadius.circular(tokens.buttonTheme.radius);
     final text = DefaultTextStyle.merge(
       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
         color: tokens.foreground,
@@ -197,20 +201,33 @@ class DButtonGroupText extends StatelessWidget {
     return Semantics(
       label: semanticLabel,
       excludeSemantics: semanticLabel != null,
-      child: Padding(
-        padding: padding,
-        child: Align(
-          alignment: alignment,
-          widthFactor: 1,
-          heightFactor: 1,
-          child: text,
+      child: _GroupTextExtent(
+        child: DecoratedBox(
+          decoration: DControlDecoration(
+            strokeWidth: 1,
+            color: tokens.buttonTheme.outline.background,
+            borderColor: tokens.buttonTheme.outline.border,
+            borderRadius: joined?.resolveRadius(radius, direction) ?? radius,
+            joinedAxis: joined?.omitsLeadingBorder ?? false
+                ? joined!.axis
+                : null,
+          ),
+          child: Padding(
+            padding: padding,
+            child: Align(
+              alignment: alignment,
+              widthFactor: 1,
+              heightFactor: 1,
+              child: text,
+            ),
+          ),
         ),
       ),
     );
   }
 }
 
-// Measure controls through their normal layout, then stretch only separators
+// Measure controls through their normal layout, then stretch passive text and separators
 // to the resulting cross-axis extent. Intrinsic measurement cannot be used:
 // composed controls such as DSelect contain LayoutBuilder.
 class _ButtonGroupFlex extends Flex {
@@ -282,8 +299,13 @@ class _RenderButtonGroup extends RenderFlex {
   void performLayout() {
     super.performLayout();
     for (var child = firstChild; child != null; child = childAfter(child)) {
-      if (child is! _RenderGroupSeparatorExtent ||
-          child.orientation == direction) {
+      RenderBox? content = child;
+      while (content is RenderProxyBox && content is! _RenderGroupTextExtent) {
+        content = content.child;
+      }
+      if (content is! _RenderGroupTextExtent &&
+          (child is! _RenderGroupSeparatorExtent ||
+              child.orientation == direction)) {
         continue;
       }
       final data = child.parentData! as FlexParentData;
@@ -349,3 +371,13 @@ class _RenderGroupSeparatorExtent extends RenderProxyBox {
     size = child!.size;
   }
 }
+
+class _GroupTextExtent extends SingleChildRenderObjectWidget {
+  const _GroupTextExtent({required super.child});
+
+  @override
+  RenderObject createRenderObject(BuildContext context) =>
+      _RenderGroupTextExtent();
+}
+
+class _RenderGroupTextExtent extends RenderProxyBox {}

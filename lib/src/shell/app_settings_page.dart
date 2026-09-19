@@ -117,14 +117,9 @@ class AppSettingsModal extends StatelessWidget {
 }
 
 class _SettingsField extends StatelessWidget {
-  const _SettingsField({
-    required this.title,
-    required this.description,
-    required this.control,
-  });
+  const _SettingsField({required this.title, required this.control});
 
   final String title;
-  final String description;
   final Widget control;
 
   @override
@@ -137,7 +132,6 @@ class _SettingsField extends StatelessWidget {
       DFieldContent(
         children: [
           DFieldTitle(child: Semantics(headingLevel: 2, child: Text(title))),
-          DFieldDescription(child: Text(description)),
         ],
       ),
       control,
@@ -174,7 +168,6 @@ class _TextSizeSetting extends StatelessWidget {
       children: [
         _SettingsField(
           title: 'Text size',
-          description: 'Choose a comfortable reading size.',
           control: Wrap(
             crossAxisAlignment: WrapCrossAlignment.center,
             spacing: DSpacing.sm,

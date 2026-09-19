@@ -39,6 +39,7 @@ void main() {
     expect(find.text('System'), findsNothing);
     expect(find.text('Limit content size'), findsOneWidget);
     expect(find.text('Text size'), findsOneWidget);
+    expect(find.text('Choose a comfortable reading size.'), findsNothing);
     expect(find.text('Topic list'), findsNothing);
     expect(find.text('100%'), findsOneWidget);
     expect(find.text('Disable GIF animations'), findsOneWidget);
@@ -327,9 +328,8 @@ Future<void> _pumpPage(
       child: MaterialApp(
         theme: theme ?? AppTheme.light,
         builder: (context, child) => MediaQuery(
-          data: MediaQuery.of(
-            context,
-          ).copyWith(textScaler: TextScaler.linear(scale)),
+          data: MediaQuery.of(context)
+              .copyWith(textScaler: TextScaler.linear(scale)),
           child: Directionality(
             textDirection: rtl ? TextDirection.rtl : TextDirection.ltr,
             child: child!,
