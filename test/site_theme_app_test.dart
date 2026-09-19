@@ -9,6 +9,8 @@ import 'package:discourse_native/src/models/app_settings.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
+import 'package:discourse_native/src/models/forum_theme_preferences.dart';
+import 'package:discourse_native/src/models/forum_theme_presets.dart';
 import 'package:discourse_native/src/models/notification_totals.dart';
 import 'package:discourse_native/src/models/site_appearance.dart';
 import 'package:discourse_native/src/shell/adaptive_shell.dart';
@@ -68,7 +70,15 @@ void main() {
       kind: PointerDeviceKind.mouse,
     );
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Dark').last, kind: PointerDeviceKind.mouse);
+    await tester.tap(
+      find
+          .descendant(
+            of: find.byType(DPopoverContent),
+            matching: find.text('Dark'),
+          )
+          .last,
+      kind: PointerDeviceKind.mouse,
+    );
     await tester.pumpAndSettle();
     expect(controller.forumSettings.themeModeFor(siteA), AppThemeMode.dark);
 
@@ -78,6 +88,62 @@ void main() {
     expect(find.byType(ForumSettingsDialog), findsNothing);
     expect(controller.appSettingsModalOpen, isFalse);
   }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
+
+  testWidgets(
+    'a personal palette updates the app and restores forum defaults',
+    (tester) async {
+      final forums = ForumSettingsStore.memory();
+      final source = siteAppearance();
+      final instances = FakeInstanceStore([
+        const DiscourseInstance(
+          url: siteA,
+          title: 'A',
+        ).copyWith(appearance: source),
+        const DiscourseInstance(url: siteB, title: 'B'),
+      ]);
+      await _pumpApp(
+        tester,
+        store: instances,
+        api: FakeDiscourseApi(),
+        forumSettingsStore: forums,
+      );
+      var controller = _controller(tester);
+      await controller.forumSettings.setThemes(
+        siteA,
+        ForumThemePreferences(selectedId: 'dracula'),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        _activeTheme(tester).colorScheme.primary,
+        forumThemePresets[9].tertiary,
+      );
+      controller.selectInstance(1);
+      await tester.pumpAndSettle();
+      expect(
+        _activeTheme(tester).colorScheme.primary,
+        isNot(forumThemePresets[9].tertiary),
+      );
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pumpAndSettle();
+      await _pumpApp(
+        tester,
+        store: instances,
+        api: FakeDiscourseApi(),
+        forumSettingsStore: forums,
+      );
+      controller = _controller(tester);
+      expect(
+        _activeTheme(tester).colorScheme.primary,
+        forumThemePresets[9].tertiary,
+      );
+      await controller.forumSettings.setThemes(
+        siteA,
+        ForumThemePreferences.defaults,
+      );
+      await tester.pumpAndSettle();
+      expect(_activeTheme(tester).colorScheme.primary, source.base!.tertiary);
+    },
+  );
 
   testWidgets('hydrates an injected app-wide settings store on startup', (
     tester,
@@ -127,10 +193,23 @@ void main() {
     );
     var controller = _controller(tester);
     await _openForumSettings(tester);
-    expect(find.text('Preferences for A.'), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byType(ForumSettingsDialog),
+        matching: find.text('A'),
+      ),
+      findsOneWidget,
+    );
     await tester.tap(find.byKey(const ValueKey('appearance-theme-select')));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Dark').last);
+    await tester.tap(
+      find
+          .descendant(
+            of: find.byType(DPopoverContent),
+            matching: find.text('Dark'),
+          )
+          .last,
+    );
     await tester.pumpAndSettle();
     expect(_activeTheme(tester).brightness, Brightness.dark);
     await tester.tap(find.byKey(const ValueKey('forum-settings-close')));
@@ -138,11 +217,24 @@ void main() {
     controller.selectInstance(1);
     await tester.pumpAndSettle();
     await _openForumSettings(tester);
-    expect(find.text('Preferences for B.'), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byType(ForumSettingsDialog),
+        matching: find.text('B'),
+      ),
+      findsOneWidget,
+    );
     expect(find.text('System'), findsOneWidget);
     await tester.tap(find.byKey(const ValueKey('appearance-theme-select')));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Light').last);
+    await tester.tap(
+      find
+          .descendant(
+            of: find.byType(DPopoverContent),
+            matching: find.text('Light'),
+          )
+          .last,
+    );
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('forum-settings-close')));
     await tester.pumpAndSettle();
@@ -381,7 +473,14 @@ void main() {
       ]) {
         await tester.tap(find.byKey(const ValueKey('appearance-theme-select')));
         await tester.pumpAndSettle();
-        await tester.tap(find.text(label).last);
+        await tester.tap(
+          find
+              .descendant(
+                of: find.byType(DPopoverContent),
+                matching: find.text(label),
+              )
+              .last,
+        );
         await tester.pumpAndSettle();
         expect(_activeTheme(tester).brightness, brightness);
         expect(
@@ -389,7 +488,7 @@ void main() {
           appearance.paletteForBrightness(brightness)!.tertiary,
         );
         expect(
-          Theme.of(tester.element(find.text('Appearance'))).brightness,
+          Theme.of(tester.element(find.byType(ForumSettingsDialog))).brightness,
           brightness,
         );
       }
@@ -401,12 +500,19 @@ void main() {
         appearance.alternate!.tertiary,
       );
       expect(
-        Theme.of(tester.element(find.text('Appearance'))).brightness,
+        Theme.of(tester.element(find.byType(ForumSettingsDialog))).brightness,
         Brightness.dark,
       );
       await tester.tap(find.byKey(const ValueKey('appearance-theme-select')));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Light').last);
+      await tester.tap(
+        find
+            .descendant(
+              of: find.byType(DPopoverContent),
+              matching: find.text('Light'),
+            )
+            .last,
+      );
       await tester.pumpAndSettle();
       expect(_activeTheme(tester).brightness, Brightness.light);
       await tester.tap(find.byKey(const ValueKey('forum-settings-close')));

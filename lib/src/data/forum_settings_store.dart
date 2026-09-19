@@ -1,6 +1,9 @@
+import 'dart:convert';
+
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/app_settings.dart';
+import '../models/forum_theme_preferences.dart';
 import 'scalar_preference_repository.dart';
 import 'serial_operation_queue.dart';
 import 'store_diagnostics.dart';
@@ -18,6 +21,50 @@ final class ForumSettingsStore {
   static String themeModeKey(String siteUrl) =>
       'discourse_native.forum_theme_mode.'
       '${Uri.encodeComponent(requireStoredForumBase(siteUrl))}';
+
+  static String themesKey(String siteUrl) =>
+      'discourse_native.forum_themes.'
+      '${Uri.encodeComponent(requireStoredForumBase(siteUrl))}';
+
+  Future<ForumThemePreferences> loadThemes(String siteUrl) => _operations.run(
+    owner: _persistence,
+    key: themesKey(siteUrl),
+    operation: () async {
+      try {
+        final raw = await _persistence.read(themesKey(siteUrl));
+        if (raw == null) return ForumThemePreferences.defaults;
+        return ForumThemePreferences.fromJson(
+          jsonDecode(raw) as Map<String, dynamic>,
+        );
+      } catch (error, stackTrace) {
+        reportStorageFailure(error, stackTrace, 'forumSettings.readThemes');
+        return ForumThemePreferences.defaults;
+      }
+    },
+  );
+
+  Future<void> writeThemes(String siteUrl, ForumThemePreferences value) =>
+      _operations.run<void>(
+        owner: _persistence,
+        key: themesKey(siteUrl),
+        operation: () async {
+          try {
+            if (!await _persistence.write(
+              themesKey(siteUrl),
+              jsonEncode(value.toJson()),
+            )) {
+              throw StateError('Could not save the forum theme.');
+            }
+          } catch (error, stackTrace) {
+            reportStorageFailure(
+              error,
+              stackTrace,
+              'forumSettings.writeThemes',
+            );
+            rethrow;
+          }
+        },
+      );
 
   /// Seeds a previously unconfigured forum once, preserving the old app choice
   /// for existing forums and using System for newly connected forums.
