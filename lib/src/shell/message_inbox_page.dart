@@ -89,6 +89,7 @@ class _MessageListNavigation extends StatelessWidget {
                       icon: const DIcon(DIcons.chevronDown, size: 12),
                       iconPosition: DButtonIconPosition.end,
                       variant: DButtonVariant.secondary,
+                      size: DButtonSize.large,
                       focusNode: trigger.focusNode,
                       hasPopup: true,
                       expanded: trigger.open,
