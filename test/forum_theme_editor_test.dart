@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/forum_theme.dart';
 import 'package:discourse_native/src/models/forum_theme_presets.dart';
+import 'package:discourse_native/src/shell/forum_appearance_settings.dart';
 import 'package:discourse_native/src/shell/forum_settings_dialog.dart';
 import 'package:discourse_native/src/shell/forum_theme_editor.dart';
 import 'package:discourse_native/src/shell/forum_theme_preview.dart';
@@ -140,9 +141,31 @@ void main() {
     );
     await tester.tap(find.text('Open'));
     await tester.pumpAndSettle();
-    expect(find.byType(DSidebar), findsOneWidget);
+    expect(find.byType(DSidebar), findsNWidgets(2));
+    expect(find.byKey(const ValueKey('theme-preview-search')), findsOneWidget);
+    expect(find.byKey(const ValueKey('theme-preview-sidebar')), findsOneWidget);
     expect(find.byType(ForumThemePreview), findsOneWidget);
     expect(find.byType(TopicListRow), findsNWidgets(2));
+    expect(find.byType(ThemeThumbnail), findsNWidgets(13));
+    final palette = find.byType(ThemePaletteStrip);
+    expect(
+      find.descendant(of: palette, matching: find.byType(Semantics)),
+      findsNWidgets(7),
+    );
+    final previewBounds = tester.getRect(
+      find.byKey(const ValueKey('forum-theme-preview')),
+    );
+    final newTopicBounds = tester.getRect(
+      find.widgetWithText(DButton, 'New topic'),
+    );
+    expect(
+      newTopicBounds.left - previewBounds.left,
+      greaterThanOrEqualTo(DSpacing.lg),
+    );
+    expect(
+      previewBounds.bottom - newTopicBounds.bottom,
+      greaterThanOrEqualTo(DSpacing.lg),
+    );
     await tester.tap(find.byKey(const ValueKey('forum-settings-general')));
     await tester.pumpAndSettle();
     expect(find.text('Address'), findsOneWidget);

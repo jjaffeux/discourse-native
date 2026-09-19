@@ -58,3 +58,22 @@ sample topic content, and validation/error messages.
   in the preview. The isolated app was closed and desktop leases released.
 - Installed Flutter 3.47.4 / Dart 3.13.3 were used. The repository SDK pin and
   lockfiles are unchanged. No external forum account changes were made.
+
+## Mockup fidelity follow-up
+
+The studio comparison restored the inset Light/Dark/System ToggleGroup, the
+forum-default Card/Item with a trailing selected check, and a compact two-column
+library of selectable Card/Items with miniature palette thumbnails. The preview
+has the selected name and all seven live color swatches above a tinted studio
+surface. It contains Native Search Input, Sidebar, topic filters, production
+topic rows, New topic Button, and a Tracking Select with explicit footer padding
+and the standard control gap. Sample text remains fictional. Long selected
+palette names can wrap, and duplicate accessibility labels were removed.
+
+Verification: 29 focused widget/integration/adoption checks passed, including
+360px/200%/RTL, 390px draft preservation, all 13 thumbnails, seven preview swatches,
+and actual rendered footer insets. Changed-file analysis and a macOS debug build
+passed. Native inspection compared the studio HTML with the dialog in forum
+default, Dracula dark and Shades of Blue light, including the custom editor,
+sidebar/search preview, selection, mode switching and Escape dismissal. The
+review used the same isolated fixture bundle described above; no kit APIs changed.
