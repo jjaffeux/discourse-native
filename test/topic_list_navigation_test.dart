@@ -12,6 +12,7 @@ import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/models/topic_tracking_state.dart';
 import 'package:discourse_native/src/shell/adaptive_shell.dart';
+import 'package:discourse_native/src/shell/content_reading_lane.dart';
 import 'package:discourse_native/src/shell/main_content.dart';
 import 'package:discourse_native/src/shell/open_link.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
@@ -1911,6 +1912,62 @@ void main() {
     }
     debugDefaultTargetPlatformOverride = null;
   });
+
+  testWidgets('feed, category and tag controls share the content limit', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final setup = await _controller();
+    addTearDown(setup.controller.dispose);
+    for (final direction in TextDirection.values) {
+      for (final width in [1800.0, 600.0]) {
+        tester.view.physicalSize = Size(width, 700);
+        await tester.pumpWidget(
+          ContentSettingsScope(
+            controller: setup.controller.appSettings,
+            child: ShellScope(
+              controller: setup.controller,
+              child: MaterialApp(
+                theme: AppTheme.dark,
+                home: Directionality(
+                  textDirection: direction,
+                  child: const Scaffold(
+                    body: MainContent(layout: ShellLayout.expanded),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+        for (final limited in [false, true, false]) {
+          await setup.controller.appSettings.setLimitContentSize(limited);
+          await tester.pumpAndSettle();
+          final row = tester.getRect(
+            find.byKey(const ValueKey('topic-list-feed-row')),
+          );
+          final pane = tester.getRect(
+            find.byKey(const ValueKey('inbox-topic-list-pane')),
+          );
+          final inset = limited && pane.width > 825
+              ? (pane.width - 825) / 2
+              : 0.0;
+          expect(row.left, closeTo(pane.left + inset + 16, 0.001));
+          expect(row.right, closeTo(pane.right - inset - 16, 0.001));
+          for (final key in [
+            'topic-list-feed-menu',
+            'topic-list-category-filter',
+            'topic-list-tag-filter',
+          ]) {
+            final control = tester.getRect(find.byKey(ValueKey(key)));
+            expect(control.left, greaterThanOrEqualTo(row.left));
+            expect(control.right, lessThanOrEqualTo(row.right));
+          }
+          expect(tester.takeException(), isNull);
+        }
+      }
+    }
+  }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 
   testWidgets(
     'heading, feed selector and creation stay on one row when resizing',
