@@ -114,20 +114,22 @@ class _DiscourseAppState extends State<DiscourseApp>
   // defaults, including typography and tap targets.
   final _themes =
       BoundedLruCache<
-        (ResolvedSitePalette?, Brightness, TargetPlatform),
+        (ResolvedSitePalette?, Brightness, TargetPlatform, String?),
         ThemeData
       >(32);
 
-  ThemeData _themeFor(SiteAppearance? appearance, Brightness brightness) {
+  ThemeData _themeFor(
+    SiteAppearance? appearance,
+    Brightness brightness,
+    String? fontFamily,
+  ) {
     final palette = appearance?.paletteForBrightness(brightness);
-    final key = (palette, brightness, defaultTargetPlatform);
+    final key = (palette, brightness, defaultTargetPlatform, fontFamily);
     final cached = _themes.read(key);
     if (cached != null) return cached;
     final theme = palette != null
-        ? AppTheme.fromPalette(palette)
-        : brightness == Brightness.dark
-        ? AppTheme.dark
-        : AppTheme.light;
+        ? AppTheme.fromPalette(palette, fontFamily: fontFamily)
+        : AppTheme.forBrightness(brightness, fontFamily: fontFamily);
     _themes.put(key, theme);
     return theme;
   }
@@ -537,8 +539,22 @@ class _DiscourseAppState extends State<DiscourseApp>
                         selection.siteUrl!,
                         selection.appearance,
                       );
-                final lightTheme = _themeFor(appearance, Brightness.light);
-                final darkTheme = _themeFor(appearance, Brightness.dark);
+                final fontFamily = selection.siteUrl == null
+                    ? null
+                    : _controller.forumSettings
+                          .themesFor(selection.siteUrl!)
+                          .font
+                          .family;
+                final lightTheme = _themeFor(
+                  appearance,
+                  Brightness.light,
+                  fontFamily,
+                );
+                final darkTheme = _themeFor(
+                  appearance,
+                  Brightness.dark,
+                  fontFamily,
+                );
                 SurfaceOpeningTrace.mark('forum.theme.end');
                 return _materialApp(
                   theme: lightTheme,

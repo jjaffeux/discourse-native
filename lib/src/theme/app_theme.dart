@@ -448,6 +448,17 @@ extension ShellColorsAccess on ThemeData {
 }
 
 abstract final class AppTheme {
+  static ThemeData forBrightness(Brightness brightness, {String? fontFamily}) =>
+      _build(
+        brightness,
+        brightness == Brightness.dark ? ShellColors.dark : ShellColors.light,
+        brightness == Brightness.dark ? CodeColors.dark : CodeColors.light,
+        brightness == Brightness.dark
+            ? DiscourseColors.dark
+            : DiscourseColors.light,
+        fontFamily: fontFamily,
+      );
+
   static ThemeData get light => _build(
     Brightness.light,
     ShellColors.light,
@@ -461,7 +472,10 @@ abstract final class AppTheme {
     DiscourseColors.dark,
   );
 
-  static ThemeData fromPalette(ResolvedSitePalette palette) {
+  static ThemeData fromPalette(
+    ResolvedSitePalette palette, {
+    String? fontFamily,
+  }) {
     final fallback = palette.brightness == Brightness.dark
         ? ShellColors.dark
         : ShellColors.light;
@@ -588,6 +602,7 @@ abstract final class AppTheme {
       shell,
       code,
       discourse,
+      fontFamily: fontFamily,
       colorScheme: colorScheme,
       borderRadius: palette.borderRadius,
       avatarBorderRadius: palette.avatarBorderRadius,
@@ -602,6 +617,7 @@ abstract final class AppTheme {
     ShellColors shell,
     CodeColors code,
     DiscourseColors discourse, {
+    String? fontFamily,
     ColorScheme? colorScheme,
     double borderRadius = defaultDiscourseBorderRadius,
     AvatarBorderRadius avatarBorderRadius = defaultDiscourseAvatarBorderRadius,
@@ -613,7 +629,10 @@ abstract final class AppTheme {
       borderRadius: BorderRadius.circular(borderRadius),
     );
     final textTheme = DiscourseTypography.textTheme(
-      ThemeData(colorScheme: resolvedColorScheme).textTheme,
+      ThemeData(
+        colorScheme: resolvedColorScheme,
+        fontFamily: fontFamily,
+      ).textTheme,
     );
     final buttonShape = RoundedRectangleBorder(
       borderRadius: BorderRadius.circular(borderRadius),
@@ -664,6 +683,7 @@ abstract final class AppTheme {
     );
 
     return ThemeData(
+      fontFamily: fontFamily,
       colorScheme: resolvedColorScheme,
       textTheme: textTheme,
       // MaterialApp remains the common application shell, but Flutter's

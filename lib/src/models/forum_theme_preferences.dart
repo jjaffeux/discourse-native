@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 
+import 'forum_font.dart';
 import 'forum_theme.dart';
 import 'forum_theme_presets.dart';
 
@@ -7,6 +8,7 @@ import 'forum_theme_presets.dart';
 final class ForumThemePreferences {
   ForumThemePreferences({
     this.selectedId,
+    this.font = ForumFont.system,
     List<ForumTheme> customThemes = const [],
   }) : customThemes = List.unmodifiable(customThemes);
 
@@ -36,11 +38,13 @@ final class ForumThemePreferences {
           ? id as String
           : null,
       customThemes: customs,
+      font: ForumFont.fromName(json['font']),
     );
   }
 
   static final defaults = ForumThemePreferences();
   final String? selectedId;
+  final ForumFont font;
   final List<ForumTheme> customThemes;
 
   ForumTheme? get selectedTheme => [
@@ -48,10 +52,14 @@ final class ForumThemePreferences {
     ...customThemes,
   ].where((theme) => theme.id == selectedId).firstOrNull;
 
-  ForumThemePreferences select(String? id) =>
-      ForumThemePreferences(selectedId: id, customThemes: customThemes);
+  ForumThemePreferences select(String? id) => ForumThemePreferences(
+    selectedId: id,
+    customThemes: customThemes,
+    font: font,
+  );
 
   ForumThemePreferences save(ForumTheme theme) => ForumThemePreferences(
+    font: font,
     selectedId: theme.id,
     customThemes: [
       for (final held in customThemes)
@@ -61,12 +69,20 @@ final class ForumThemePreferences {
   );
 
   ForumThemePreferences remove(String id) => ForumThemePreferences(
+    font: font,
     selectedId: selectedId == id ? null : selectedId,
     customThemes: customThemes.where((theme) => theme.id != id).toList(),
   );
 
+  ForumThemePreferences withFont(ForumFont value) => ForumThemePreferences(
+    selectedId: selectedId,
+    customThemes: customThemes,
+    font: value,
+  );
+
   Map<String, dynamic> toJson() => {
     'version': 1,
+    'font': font.name,
     'selectedId': selectedId,
     'customThemes': [
       for (final theme in customThemes) {'id': theme.id, ...theme.toJson()},
@@ -77,8 +93,10 @@ final class ForumThemePreferences {
   bool operator ==(Object other) =>
       other is ForumThemePreferences &&
       other.selectedId == selectedId &&
+      other.font == font &&
       listEquals(other.customThemes, customThemes);
 
   @override
-  int get hashCode => Object.hash(selectedId, Object.hashAll(customThemes));
+  int get hashCode =>
+      Object.hash(selectedId, font, Object.hashAll(customThemes));
 }
