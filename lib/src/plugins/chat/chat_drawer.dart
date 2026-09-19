@@ -1188,7 +1188,7 @@ class _DrawerChannelRow extends StatelessWidget {
                   onTap: onTap,
                   onLongPress: context.isTouch
                       ? () => unawaited(
-                          ChatChannelMenuButton.showSheet(
+                          ChatChannelMenu.showSheet(
                             context: context,
                             siteUrl: siteUrl,
                             channelId: channel.id,
@@ -1307,10 +1307,7 @@ class _DrawerChannelRow extends StatelessWidget {
             ),
             Padding(
               padding: const EdgeInsetsDirectional.only(end: 6),
-              child: ChatChannelMenuButton(
-                siteUrl: siteUrl,
-                channelId: channel.id,
-              ),
+              child: ChatChannelMenu(siteUrl: siteUrl, channelId: channel.id),
             ),
           ],
         ),

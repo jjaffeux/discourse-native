@@ -840,21 +840,12 @@ class ChatPlugin
           : null,
       badge: channel.badge,
       onTap: onTap,
-      hoverActionBuilder: siteUrl == null
+      contextMenuBuilder: siteUrl == null
           ? null
-          : (context) => ChatChannelMenuButton(
+          : (context, child) => ChatChannelMenu(
               siteUrl: siteUrl,
               channelId: channel.id,
-              sidebar: true,
-            ),
-      onLongPress: siteUrl == null
-          ? null
-          : (context) => unawaited(
-              ChatChannelMenuButton.showSheet(
-                context: context,
-                siteUrl: siteUrl,
-                channelId: channel.id,
-              ),
+              child: child,
             ),
     );
   }

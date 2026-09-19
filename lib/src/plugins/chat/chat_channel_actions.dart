@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
+
 import '../../plugin_api/plugin_scope.dart';
 import '../../shell/shell_sheet.dart';
 import '../../theme/d_icons.dart';
@@ -14,19 +15,19 @@ enum _ChannelAction { settings, star, leave }
 
 enum _NotificationAction { never, mention, always, mute }
 
-class ChatChannelMenuButton extends StatelessWidget {
-  const ChatChannelMenuButton({
+class ChatChannelMenu extends StatelessWidget {
+  const ChatChannelMenu({
     super.key,
     required this.siteUrl,
     required this.channelId,
-    this.sidebar = false,
+    this.child,
   });
 
   final String siteUrl;
   final int channelId;
 
-  /// Uses the Sidebar action owner; other consumers retain their compact button.
-  final bool sidebar;
+  /// The row receiving context gestures; omitted for a visible menu button.
+  final Widget? child;
 
   static Future<void> showSheet({
     required BuildContext context,
@@ -56,15 +57,15 @@ class ChatChannelMenuButton extends StatelessWidget {
       valueListenable: chat.channelRef(siteUrl, channelId),
       builder: (context, channel, _) {
         if (channel == null || !channel.membership.following) {
-          return const SizedBox.shrink();
+          return child ?? const SizedBox.shrink();
         }
         return ListenableBuilder(
           listenable: chat,
-          builder: (context, _) => _DesktopChannelMenu(
+          builder: (context, _) => _ChannelMenu(
             siteUrl: siteUrl,
             channel: channel,
             chat: chat,
-            sidebar: sidebar,
+            child: child,
           ),
         );
       },
@@ -72,18 +73,18 @@ class ChatChannelMenuButton extends StatelessWidget {
   }
 }
 
-class _DesktopChannelMenu extends StatelessWidget {
-  const _DesktopChannelMenu({
+class _ChannelMenu extends StatelessWidget {
+  const _ChannelMenu({
     required this.siteUrl,
     required this.channel,
     required this.chat,
-    required this.sidebar,
+    this.child,
   });
 
   final String siteUrl;
   final ChatChannel channel;
   final ChatController chat;
-  final bool sidebar;
+  final Widget? child;
 
   @override
   Widget build(BuildContext context) {
@@ -94,150 +95,148 @@ class _DesktopChannelMenu extends StatelessWidget {
     final starBusy = chat.channelStarWriteInFlight(siteUrl, channel.id);
     final followBusy = chat.channelFollowWriteInFlight(siteUrl, channel.id);
     final membership = channel.membership;
-    final mobile = MediaQuery.sizeOf(context).width < 768;
-    return DDropdownMenu(
-      content: DDropdownMenuContent(
-        width: 280,
-        side: sidebar && !mobile ? DPopoverSide.right : DPopoverSide.bottom,
-        align: sidebar && mobile ? DPopoverAlign.end : DPopoverAlign.start,
-        constraints: const BoxConstraints(
-          minWidth: 240,
-          maxWidth: 380,
-          maxHeight: 440,
-        ),
+    final items = <Widget>[
+      DDropdownMenuSub(
+        key: ValueKey('chat-channel-notifications-${channel.id}'),
+        leading: const DIcon(DIcons.bell, size: 16),
+        width: 220,
+        trigger: const Text('Notifications'),
         children: [
-          DDropdownMenuSub(
-            key: ValueKey('chat-channel-notifications-${channel.id}'),
-            leading: const DIcon(DIcons.bell, size: 16),
-            width: 220,
-            trigger: const Text('Notifications'),
-            children: [
-              for (final action in const [
-                _NotificationAction.never,
-                _NotificationAction.mention,
-                _NotificationAction.always,
-              ])
-                DDropdownMenuItem(
-                  key: ValueKey(
-                    'chat-channel-notification-${channel.id}-${action.name}',
-                  ),
-                  onPressed: notificationBusy
-                      ? null
-                      : () => unawaited(
-                          _applyNotificationAction(
-                            context,
-                            chat,
-                            siteUrl,
-                            channel,
-                            action,
-                          ),
-                        ),
-                  trailing: _notificationSelected(membership, action)
-                      ? const DIcon(DIcons.check, size: 14)
-                      : null,
-                  child: Text(_notificationLabel(action)),
-                ),
-              const DDropdownMenuSeparator(),
-              DDropdownMenuItem(
-                key: ValueKey('chat-channel-mute-${channel.id}'),
-                onPressed: notificationBusy
-                    ? null
-                    : () => unawaited(
-                        _applyNotificationAction(
-                          context,
-                          chat,
-                          siteUrl,
-                          channel,
-                          _NotificationAction.mute,
-                        ),
-                      ),
-                leading: DIcon(
-                  membership.muted ? DIcons.discourseBellSlash : DIcons.bell,
-                  size: 16,
-                ),
-                trailing: membership.muted
-                    ? const DIcon(DIcons.check, size: 14)
-                    : null,
-                child: Text(
-                  membership.muted ? 'Unmute channel' : 'Mute channel',
-                ),
+          for (final action in const [
+            _NotificationAction.never,
+            _NotificationAction.mention,
+            _NotificationAction.always,
+          ])
+            DDropdownMenuItem(
+              key: ValueKey(
+                'chat-channel-notification-${channel.id}-${action.name}',
               ),
-            ],
-          ),
-          DDropdownMenuItem(
-            key: ValueKey('chat-channel-menu-settings-${channel.id}'),
-            onPressed: () => _applyChannelAction(
-              context,
-              chat,
-              siteUrl,
-              channel,
-              _ChannelAction.settings,
+              onPressed: notificationBusy
+                  ? null
+                  : () => unawaited(
+                      _applyNotificationAction(
+                        context,
+                        chat,
+                        siteUrl,
+                        channel,
+                        action,
+                      ),
+                    ),
+              trailing: _notificationSelected(membership, action)
+                  ? const DIcon(DIcons.check, size: 14)
+                  : null,
+              child: Text(_notificationLabel(action)),
             ),
-            leading: const DIcon(DIcons.gear, size: 16),
-            child: const Text('Channel settings'),
-          ),
+          const DDropdownMenuSeparator(),
           DDropdownMenuItem(
-            key: ValueKey('chat-channel-menu-star-${channel.id}'),
-            onPressed: starBusy
+            key: ValueKey('chat-channel-mute-${channel.id}'),
+            onPressed: notificationBusy
                 ? null
-                : () => _applyChannelAction(
-                    context,
-                    chat,
-                    siteUrl,
-                    channel,
-                    _ChannelAction.star,
+                : () => unawaited(
+                    _applyNotificationAction(
+                      context,
+                      chat,
+                      siteUrl,
+                      channel,
+                      _NotificationAction.mute,
+                    ),
                   ),
             leading: DIcon(
-              membership.starred ? DIcons.star : DIcons.farStar,
+              membership.muted ? DIcons.discourseBellSlash : DIcons.bell,
               size: 16,
             ),
-            child: Text(
-              membership.starred
-                  ? 'Remove from starred channels'
-                  : 'Add to starred channels',
-            ),
-          ),
-          DDropdownMenuItem(
-            key: ValueKey('chat-channel-menu-leave-${channel.id}'),
-            onPressed: followBusy
-                ? null
-                : () => _applyChannelAction(
-                    context,
-                    chat,
-                    siteUrl,
-                    channel,
-                    _ChannelAction.leave,
-                  ),
-            leading: const DIcon(DIcons.xmark, size: 16),
-            variant: DDropdownMenuItemVariant.destructive,
-            child: Text(
-              channel.isDirectMessage ? 'Close channel' : 'Leave channel',
-            ),
+            trailing: membership.muted
+                ? const DIcon(DIcons.check, size: 14)
+                : null,
+            child: Text(membership.muted ? 'Unmute channel' : 'Mute channel'),
           ),
         ],
       ),
-      child: DDropdownMenuTrigger(
-        builder: (context, menu) => sidebar
-            ? DSidebarMenuAction(
-                key: ValueKey('chat-channel-menu-button-${channel.id}'),
-                semanticLabel: 'Open ${channel.title} menu',
-                showOnHover: true,
-                focusNode: menu.focusNode,
-                expanded: menu.open,
-                onPressed: menu.toggle,
-                child: const DIcon(DIcons.ellipsisVertical, size: 16),
-              )
-            : DButton.iconOnly(
-                key: ValueKey('chat-channel-menu-button-${channel.id}'),
-                tooltip: 'Open ${channel.title} menu',
-                variant: DButtonVariant.ghost,
-                size: DButtonSize.small,
-                focusNode: menu.focusNode,
-                expanded: menu.open,
-                hasPopup: true,
-                onPressed: menu.toggle,
-                icon: const DIcon(DIcons.ellipsisVertical),
+      DDropdownMenuItem(
+        key: ValueKey('chat-channel-menu-settings-${channel.id}'),
+        onPressed: () => _applyChannelAction(
+          context,
+          chat,
+          siteUrl,
+          channel,
+          _ChannelAction.settings,
+        ),
+        leading: const DIcon(DIcons.gear, size: 16),
+        child: const Text('Channel settings'),
+      ),
+      DDropdownMenuItem(
+        key: ValueKey('chat-channel-menu-star-${channel.id}'),
+        onPressed: starBusy
+            ? null
+            : () => _applyChannelAction(
+                context,
+                chat,
+                siteUrl,
+                channel,
+                _ChannelAction.star,
               ),
+        leading: DIcon(
+          membership.starred ? DIcons.star : DIcons.farStar,
+          size: 16,
+        ),
+        child: Text(
+          membership.starred
+              ? 'Remove from starred channels'
+              : 'Add to starred channels',
+        ),
+      ),
+      DDropdownMenuItem(
+        key: ValueKey('chat-channel-menu-leave-${channel.id}'),
+        onPressed: followBusy
+            ? null
+            : () => _applyChannelAction(
+                context,
+                chat,
+                siteUrl,
+                channel,
+                _ChannelAction.leave,
+              ),
+        leading: const DIcon(DIcons.xmark, size: 16),
+        variant: DDropdownMenuItemVariant.destructive,
+        child: Text(
+          channel.isDirectMessage ? 'Close channel' : 'Leave channel',
+        ),
+      ),
+    ];
+    const constraints = BoxConstraints(
+      minWidth: 240,
+      maxWidth: 380,
+      maxHeight: 440,
+    );
+    if (child case final row?) {
+      return DContextMenu(
+        content: DContextMenuContent(
+          semanticLabel: '${channel.title} menu',
+          width: 280,
+          constraints: constraints,
+          children: items,
+        ),
+        child: DContextMenuTrigger(focusable: false, child: row),
+      );
+    }
+    return DDropdownMenu(
+      content: DDropdownMenuContent(
+        width: 280,
+        constraints: constraints,
+        children: items,
+      ),
+      child: DDropdownMenuTrigger(
+        builder: (context, menu) => DButton.iconOnly(
+          key: ValueKey('chat-channel-menu-button-${channel.id}'),
+          tooltip: 'Open ${channel.title} menu',
+          variant: DButtonVariant.ghost,
+          size: DButtonSize.small,
+          focusNode: menu.focusNode,
+          expanded: menu.open,
+          hasPopup: true,
+          onPressed: menu.toggle,
+          icon: const DIcon(DIcons.ellipsisVertical),
+        ),
       ),
     );
   }

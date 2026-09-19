@@ -1251,7 +1251,7 @@ class _DestinationTile extends StatelessWidget {
     final trailingLabel = destination.trailingLabel;
     final action = destination.onSecondaryTap;
     final description = destination.semanticDescription;
-    final tile = DSidebarMenuItem(
+    Widget tile = DSidebarMenuItem(
       badge: trailingLabel != null || (badge.isVisible && !badge.dot)
           ? DSidebarMenuBadge(
               child: Wrap(
@@ -1326,6 +1326,9 @@ class _DestinationTile extends StatelessWidget {
       ),
     );
     if (!destination.enabled) return tile;
+    if (destination.contextMenuBuilder case final builder?) {
+      tile = builder(context, tile);
+    }
     if (destination.url case final url?) {
       return LinkTarget(url: url, title: destination.label, child: tile);
     }

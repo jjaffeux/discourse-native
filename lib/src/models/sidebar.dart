@@ -57,6 +57,7 @@ class SidebarDestination {
     this.trailingIcon,
     this.onSecondaryTap,
     this.hoverActionBuilder,
+    this.contextMenuBuilder,
     this.onLongPress,
     this.url,
     this.feedPath,
@@ -107,6 +108,9 @@ class SidebarDestination {
   final VoidCallback? onSecondaryTap;
 
   final WidgetBuilder? hoverActionBuilder;
+
+  /// Wraps the row in an application-owned Native context menu.
+  final Widget Function(BuildContext context, Widget child)? contextMenuBuilder;
 
   final void Function(BuildContext context)? onLongPress;
 
