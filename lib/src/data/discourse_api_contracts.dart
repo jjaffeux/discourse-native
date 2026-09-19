@@ -279,6 +279,14 @@ abstract interface class ShellSiteApi {
     String? clientId,
   });
 
+  Future<SidebarSection> reorderSidebarLinks({
+    required String siteUrl,
+    required String apiKey,
+    required int sectionId,
+    required List<int> linksOrder,
+    String? clientId,
+  });
+
   Future<SiteAppearance?> siteAppearance({
     required String siteUrl,
     String? username,

@@ -35,7 +35,8 @@ void main() {
         );
         await tester.pump();
         expect(tester.takeException(), isNull, reason: example.title);
-        if (example.title != 'Documentation' &&
+        if (example.title != 'Reorderable links' &&
+            example.title != 'Documentation' &&
             example.title != 'Lazy navigation' &&
             example.title != 'Server icon colors') {
           await tester.tap(find.byType(DSidebarTrigger));

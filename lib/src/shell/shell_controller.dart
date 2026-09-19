@@ -2398,6 +2398,72 @@ class ShellController extends FrameSafeNotifier
   List<SidebarSection> customSidebarSectionsFor(String siteUrl) =>
       _customSidebarSections[siteUrl] ?? const [];
 
+  final _sidebarReorders = <(String, int)>{};
+
+  bool canReorderSidebarLinks(String siteUrl, SidebarSection section) {
+    final instance = _instanceAt(siteUrl);
+    return !isDisposed &&
+        instance?.isConnected == true &&
+        section.remoteId != null &&
+        section.destinations.length > 1 &&
+        (!section.public || instance?.user?.admin == true);
+  }
+
+  /// [newIndex] is an insertion gap in the original list, as in Flutter's
+  /// reorder callback and Core's sidebar drop handling.
+  Future<void> reorderSidebarLinks({
+    required String siteUrl,
+    required SidebarSection section,
+    required int oldIndex,
+    required int newIndex,
+  }) async {
+    if (!canReorderSidebarLinks(siteUrl, section) ||
+        !customSidebarSectionsFor(siteUrl).contains(section) ||
+        oldIndex < 0 ||
+        oldIndex >= section.destinations.length ||
+        newIndex < 0 ||
+        newIndex > section.destinations.length ||
+        newIndex == oldIndex ||
+        newIndex == oldIndex + 1) {
+      return;
+    }
+    final operation = (siteUrl, section.remoteId!);
+    if (!_sidebarReorders.add(operation)) return;
+    final lease = lifecycle.capture(siteUrl);
+    try {
+      final credential = await _readSessionValue(
+        lease,
+        () => authenticator.apiKeyFor(siteUrl),
+      );
+      if (credential == null) return;
+      if (credential.value == null) {
+        throw const WriteException(WriteFailure.forbidden);
+      }
+      final identity = await _readSessionValue(lease, authenticator.clientId);
+      if (identity == null || !canReorderSidebarLinks(siteUrl, section)) return;
+      final ids = section.destinations.map((link) => link.linkId!).toList();
+      final moved = ids.removeAt(oldIndex);
+      ids.insert(newIndex > oldIndex ? newIndex - 1 : newIndex, moved);
+      final updated = await api.site.reorderSidebarLinks(
+        siteUrl: siteUrl,
+        apiKey: credential.value!,
+        clientId: identity.value,
+        sectionId: section.remoteId!,
+        linksOrder: ids,
+      );
+      if (isDisposed) return;
+      lease.commit(() {
+        _customSidebarSections[siteUrl] = [
+          for (final existing in customSidebarSectionsFor(siteUrl))
+            existing.remoteId == section.remoteId ? updated : existing,
+        ];
+        _notify();
+      });
+    } finally {
+      _sidebarReorders.remove(operation);
+    }
+  }
+
   List<SidebarSection> sidebarSectionsFor(DiscourseInstance instance) {
     final custom = customSidebarSectionsFor(instance.url);
     final cached = _sidebarSectionsCache[instance.url];

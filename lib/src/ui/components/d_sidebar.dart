@@ -626,6 +626,87 @@ class DSidebarMenu extends StatelessWidget {
   }
 }
 
+/// A lazy menu that supports desktop row dragging and Alt+Up/Down reordering.
+///
+/// Rows must have stable keys. [onReorder] receives an insertion gap in the
+/// original list; subtract one when moving down after removing the old row.
+/// The caller owns order and persistence. Null disables reordering. Touch
+/// platforms retain scrolling and long-press behavior instead of row dragging.
+class DSidebarReorderableMenu extends StatelessWidget {
+  const DSidebarReorderableMenu.sliverBuilder({
+    super.key,
+    required this.itemCount,
+    required this.itemBuilder,
+    required this.onReorder,
+    this.itemExtent,
+  });
+
+  final int itemCount;
+  final IndexedWidgetBuilder itemBuilder;
+  final ReorderCallback? onReorder;
+  final double? itemExtent;
+
+  @override
+  Widget build(BuildContext context) {
+    final reorder = _touchPlatform(context) ? null : onReorder;
+    if (reorder == null) {
+      return DSidebarMenu.sliverBuilder(
+        itemCount: itemCount,
+        itemBuilder: itemBuilder,
+        itemExtent: itemExtent,
+      );
+    }
+    return FocusTraversalGroup(
+      child: SliverReorderableList(
+        itemCount: itemCount,
+        itemExtent: itemExtent,
+        onReorderItem: (oldIndex, newIndex) {
+          if (newIndex != oldIndex) {
+            reorder.call(
+              oldIndex,
+              newIndex > oldIndex ? newIndex + 1 : newIndex,
+            );
+          }
+        },
+        proxyDecorator: (child, index, animation) => DecoratedBox(
+          decoration: BoxDecoration(
+            color: DTokens.of(context).background,
+            border: Border.all(color: DTokens.of(context).primary),
+            borderRadius: BorderRadius.circular(DTokens.of(context).radius),
+          ),
+          child: child,
+        ),
+        itemBuilder: (context, index) {
+          final child = itemBuilder(context, index);
+          assert(
+            child.key != null,
+            'Reorderable sidebar rows need stable keys.',
+          );
+          void moveUp() => reorder(index, index - 1);
+          void moveDown() => reorder(index, index + 2);
+          return ReorderableDragStartListener(
+            key: child.key,
+            index: index,
+            child: CallbackShortcuts(
+              bindings: {
+                if (index > 0)
+                  const SingleActivator(LogicalKeyboardKey.arrowUp, alt: true):
+                      moveUp,
+                if (index < itemCount - 1)
+                  const SingleActivator(
+                    LogicalKeyboardKey.arrowDown,
+                    alt: true,
+                  ): moveDown,
+              },
+              child: child,
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
 class _ItemScope extends InheritedWidget {
   const _ItemScope({
     required this.reveal,

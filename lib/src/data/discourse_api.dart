@@ -204,6 +204,21 @@ class DiscourseApi
   );
 
   @override
+  Future<SidebarSection> reorderSidebarLinks({
+    required String siteUrl,
+    required String apiKey,
+    required int sectionId,
+    required List<int> linksOrder,
+    String? clientId,
+  }) => _account.reorderSidebarLinks(
+    siteUrl: siteUrl,
+    apiKey: apiKey,
+    sectionId: sectionId,
+    linksOrder: linksOrder,
+    clientId: clientId,
+  );
+
+  @override
   Future<SiteAppearance?> siteAppearance({
     required String siteUrl,
     String? username,
