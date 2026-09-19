@@ -20,13 +20,47 @@ final typographyExamples = ComponentExamples(
       'headings. h2 has a token-colored rule; DProse adds reference spacing '
       'without outer margins. SelectionArea belongs to the document. Span code '
       'wraps with a rectangular background; standalone code has the '
-      'reference’s fixed 4px corners and 4.8px/3.2px padding. Code alone uses '
+      'fixed 4px corners and 4.8px/3.2px padding. All code uses a stronger '
+      'palette-derived fill, with a quiet outline on chips. DText.code keeps '
+      'the compact 4px/1px spacing for authored posts and chat. Code alone uses '
       'the existing JetBrains Mono. DText.linkStyleOf supplies the demo’s '
       'medium primary underlined link for a caller-owned span recognizer. '
       'Native controls own focus, keyboard and activation. Native Table '
       'supplies the table composition; the later Table entry owns its full '
       'component API.',
+  topLevelExampleIndex: 1,
   examples: [
+    StyleguideExample(
+      title: 'Inline code contrast',
+      description:
+          'Shared code styling on a page and in a neutral conversation bubble. '
+          'Compare light, dark and tinted palettes using the theme controls.',
+      states: const ['Palette', 'Inline code', 'Conversation'],
+      code: "const DText.code('pg_restore -j 4')",
+      builder: (_) => const Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        spacing: DSpacing.md,
+        children: [
+          DText('pg_restore -j 4', variant: DTextVariant.inlineCode),
+          DBubble(
+            variant: DBubbleVariant.neutral,
+            children: [
+              DBubbleContent(
+                child: Wrap(
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  spacing: DSpacing.xs,
+                  children: [
+                    DText('Run'),
+                    DText.code('pg_restore -j 4'),
+                    DText('with four workers.'),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    ),
     StyleguideExample(
       title: 'Typography demo',
       description:

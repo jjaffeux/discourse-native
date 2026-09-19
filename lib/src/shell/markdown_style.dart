@@ -1,3 +1,4 @@
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
 import '../theme/app_theme.dart';
@@ -37,7 +38,11 @@ TextStyle markdownStyle(
     scale *= 0.875;
     style = style
         .merge(monospaceTextStyle)
-        .copyWith(backgroundColor: theme.code.inlineBackground);
+        .copyWith(
+          backgroundColor:
+              (theme.extension<DTokens>() ?? DTokens.fromTheme(theme))
+                  .inlineCodeBackground,
+        );
   }
 
   if (mask & Md.bold != 0) style = style.copyWith(fontWeight: FontWeight.w700);
