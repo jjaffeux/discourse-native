@@ -369,6 +369,12 @@ final class PluginRegistry
     onLongPress: destination.onLongPress != null
         ? (context) => destination.onLongPress!(_uiContext(context, plugin))
         : null,
+    contextMenuBuilder: destination.contextMenuBuilder != null
+        ? (context, child) => _owned(
+            plugin,
+            destination.contextMenuBuilder!(_uiContext(context, plugin), child),
+          )
+        : null,
     url: destination.url,
     feedPath: destination.feedPath,
   );
