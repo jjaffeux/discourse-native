@@ -47,6 +47,51 @@ void main() {
     expect(contentInitializations, 1);
   });
 
+  testWidgets('scrolling selection survives covering and disposing its route', (
+    tester,
+  ) async {
+    final navigatorKey = GlobalKey<NavigatorState>();
+    String? selectedText;
+    await tester.pumpWidget(
+      MaterialApp(
+        navigatorKey: navigatorKey,
+        home: RouteAwareSelectionArea(
+          contextMenuBuilder: (context, state) => const SizedBox.shrink(),
+          onSelectionChanged: (content) => selectedText = content?.plainText,
+          child: ListView.builder(
+            itemCount: 30,
+            itemBuilder: (context, index) =>
+                SizedBox(height: 80, child: Text('Selectable row $index')),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    navigatorKey.currentState!.push<void>(
+      MaterialPageRoute(builder: (context) => const _CoveringPage()),
+    );
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    navigatorKey.currentState!.pop();
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    tester
+        .state<SelectionAreaState>(find.byType(SelectionArea))
+        .selectableRegion
+        .selectAll(SelectionChangedCause.toolbar);
+    await tester.pump();
+    expect(selectedText, contains('Selectable row 0'));
+    await tester.drag(find.byType(ListView), const Offset(0, -900));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    navigatorKey.currentState!.push<void>(
+      MaterialPageRoute(builder: (context) => const _CoveringPage()),
+    );
+    await tester.pumpAndSettle();
+    await tester.pumpWidget(const SizedBox.shrink());
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('does not register selection on an initially covered route', (
     tester,
   ) async {
