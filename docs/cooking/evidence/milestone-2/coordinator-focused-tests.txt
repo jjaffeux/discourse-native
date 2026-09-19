@@ -1,0 +1,152 @@
+Shuffling test order with --test-randomize-ordering-seed=67214
+00:00 +0: loading /Users/joffreyjaffeux/.codex/worktrees/cooking-m2-integration/discourse-native/test/application_cooking_test.dart
+00:00 +0: /Users/joffreyjaffeux/.codex/worktrees/cooking-m2-integration/discourse-native/test/application_cooking_test.dart: upload leases reject account races; snapshots select bounded metadata
+00:00 +1: /Users/joffreyjaffeux/.codex/worktrees/cooking-m2-integration/discourse-native/test/application_cooking_test.dart: combined cooking and site settings capability remains discoverable
+00:00 +2: /Users/joffreyjaffeux/.codex/worktrees/cooking-m2-integration/discourse-native/test/application_cooking_test.dart: oversized public request builder skips metadata and projectors
+00:00 +3: /Users/joffreyjaffeux/.codex/worktrees/cooking-m2-integration/discourse-native/test/application_cooking_test.dart: installation freezes declarations and projector owner
+00:00 +4: /Users/joffreyjaffeux/.codex/worktrees/cooking-m2-integration/discourse-native/test/application_cooking_test.dart: snapshot assembly has no HTTP port and freezes owner JSON
+00:00 +5: /Users/joffreyjaffeux/.codex/worktrees/cooking-m2-integration/discourse-native/test/application_cooking_test.dart: core only is empty; installed owner enables bundled behavior
+00:02 +6: /Users/joffreyjaffeux/.codex/worktrees/cooking-m2-integration/discourse-native/test/site_config_cooking_test.dart: malformed and unknown settings do not claim server knowledge
+00:02 +7: /Users/joffreyjaffeux/.codex/worktrees/cooking-m2-integration/discourse-native/test/site_config_cooking_test.dart: stale knowledge is distinct from both fresh values and defaults
+00:02 +8: /Users/joffreyjaffeux/.codex/worktrees/cooking-m2-integration/discourse-native/test/site_config_cooking_test.dart: cold and old stored configurations retain default provenance
+00:02 +9: /Users/joffreyjaffeux/.codex/worktrees/cooking-m2-integration/discourse-native/test/site_config_cooking_test.dart: decoding captures immutable values independently of source maps
+00:02 +10: /Users/joffreyjaffeux/.codex/worktrees/cooking-m2-integration/discourse-native/test/site_config_cooking_test.dart: provenance serializes deterministically and filters unknown stored keys
+00:02 +11: /Users/joffreyjaffeux/.codex/worktrees/cooking-m2-integration/discourse-native/test/site_config_cooking_test.dart: ordinary instance persistence carries cooking settings and provenance
+00:02 +12: /Users/joffreyjaffeux/.codex/worktrees/cooking-m2-integration/discourse-native/test/site_config_cooking_test.dart: wire values and per-field knowledge survive persistence and copies
+00:02 +13: /Users/joffreyjaffeux/.codex/worktrees/cooking-m2-integration/discourse-native/test/application_cooking_worker_test.dart: real shell setup and teardown own cooking prewarm and disposal
+00:02 +14: /Users/joffreyjaffeux/.codex/worktrees/cooking-m2-integration/discourse-native/test/site_config_test.dart: shareUrl omits the referral when either site setting disables it
+00:02 +15: /Users/joffreyjaffeux/.codex/worktrees/cooking-m2-integration/discourse-native/test/application_cooking_worker_test.dart: installed native fixture cooks through host, worker and sanitizer without HTTP
+00:02 +16: /Users/joffreyjaffeux/.codex/worktrees/cooking-m2-integration/discourse-native/test/application_cooking_worker_test.dart: installed native fixture cooks through host, worker and sanitizer without HTTP
+00:02 +17: /Users/joffreyjaffeux/.codex/worktrees/cooking-m2-integration/discourse-native/test/application_cooking_worker_test.dart: installed native fixture cooks through host, worker and sanitizer without HTTP
+00:02 +18: /Users/joffreyjaffeux/.codex/worktrees/cooking-m2-integration/discourse-native/test/application_cooking_worker_test.dart: installed native fixture cooks through host, worker and sanitizer without HTTP
+00:02 +19: /Users/joffreyjaffeux/.codex/worktrees/cooking-m2-integration/discourse-native/test/application_cooking_worker_test.dart: installed native fixture cooks through host, worker and sanitizer without HTTP
+00:02 +20: /Users/joffreyjaffeux/.codex/worktrees/cooking-m2-integration/discourse-native/test/application_cooking_worker_test.dart: installed native fixture cooks through host, worker and sanitizer without HTTP
+00:02 +21: /Users/joffreyjaffeux/.codex/worktrees/cooking-m2-integration/discourse-native/test/application_cooking_worker_test.dart: installed native fixture cooks through host, worker and sanitizer without HTTP
+00:02 +22: /Users/joffreyjaffeux/.codex/worktrees/cooking-m2-integration/discourse-native/test/application_cooking_worker_test.dart: installed native fixture cooks through host, worker and sanitizer without HTTP
+00:02 +23: /Users/joffreyjaffeux/.codex/worktrees/cooking-m2-integration/discourse-native/test/application_cooking_worker_test.dart: installed native fixture cooks through host, worker and sanitizer without HTTP
+00:02 +24: /Users/joffreyjaffeux/.codex/worktrees/cooking-m2-integration/discourse-native/test/application_cooking_worker_test.dart: installed native fixture cooks through host, worker and sanitizer without HTTP
+00:02 +25: /Users/joffreyjaffeux/.codex/worktrees/cooking-m2-integration/discourse-native/test/application_cooking_worker_test.dart: installed native fixture cooks through host, worker and sanitizer without HTTP
+00:02 +26: /Users/joffreyjaffeux/.codex/worktrees/cooking-m2-integration/discourse-native/test/application_cooking_worker_test.dart: installed native fixture cooks through host, worker and sanitizer without HTTP
+00:02 +27: /Users/joffreyjaffeux/.codex/worktrees/cooking-m2-integration/discourse-native/test/application_cooking_worker_test.dart: installed native fixture cooks through host, worker and sanitizer without HTTP
+00:02 +28: /Users/joffreyjaffeux/.codex/worktrees/cooking-m2-integration/discourse-native/test/application_cooking_worker_test.dart: installed native fixture cooks through host, worker and sanitizer without HTTP
+00:02 +29: /Users/joffreyjaffeux/.codex/worktrees/cooking-m2-integration/discourse-native/test/application_cooking_worker_test.dart: installed native fixture cooks through host, worker and sanitizer without HTTP
+00:02 +30: /Users/joffreyjaffeux/.codex/worktrees/cooking-m2-integration/discourse-native/test/application_cooking_worker_test.dart: installed native fixture cooks through host, worker and sanitizer without HTTP
+00:02 +31: /Users/joffreyjaffeux/.codex/worktrees/cooking-m2-integration/discourse-native/test/application_cooking_worker_test.dart: installed native fixture cooks through host, worker and sanitizer without HTTP
+00:02 +32: /Users/joffreyjaffeux/.codex/worktrees/cooking-m2-integration/discourse-native/test/application_cooking_worker_test.dart: installed native fixture cooks through host, worker and sanitizer without HTTP
+00:02 +33: /Users/joffreyjaffeux/.codex/worktrees/cooking-m2-integration/discourse-native/test/application_cooking_worker_test.dart: installed native fixture cooks through host, worker and sanitizer without HTTP
+00:02 +34: /Users/joffreyjaffeux/.codex/worktrees/cooking-m2-integration/discourse-native/test/application_cooking_worker_test.dart: installed native fixture cooks through host, worker and sanitizer without HTTP
+00:02 +35: /Users/joffreyjaffeux/.codex/worktrees/cooking-m2-integration/discourse-native/test/application_cooking_worker_test.dart: installed native fixture cooks through host, worker and sanitizer without HTTP
+00:02 +36: /Users/joffreyjaffeux/.codex/worktrees/cooking-m2-integration/discourse-native/test/application_cooking_worker_test.dart: installed native fixture cooks through host, worker and sanitizer without HTTP
+00:02 +37: /Users/joffreyjaffeux/.codex/worktrees/cooking-m2-integration/discourse-native/test/application_cooking_worker_test.dart: installed native fixture cooks through host, worker and sanitizer without HTTP
+00:02 +38: /Users/joffreyjaffeux/.codex/worktrees/cooking-m2-integration/discourse-native/test/application_cooking_worker_test.dart: installed native fixture cooks through host, worker and sanitizer without HTTP
+00:02 +39: /Users/joffreyjaffeux/.codex/worktrees/cooking-m2-integration/discourse-native/test/application_cooking_worker_test.dart: installed native fixture cooks through host, worker and sanitizer without HTTP
+00:02 +40: /Users/joffreyjaffeux/.codex/worktrees/cooking-m2-integration/discourse-native/test/application_cooking_worker_test.dart: installed native fixture cooks through host, worker and sanitizer without HTTP
+00:02 +41: /Users/joffreyjaffeux/.codex/worktrees/cooking-m2-integration/discourse-native/test/application_cooking_worker_test.dart: installed native fixture cooks through host, worker and sanitizer without HTTP
+00:02 +42: /Users/joffreyjaffeux/.codex/worktrees/cooking-m2-integration/discourse-native/test/application_cooking_worker_test.dart: installed native fixture cooks through host, worker and sanitizer without HTTP
+00:02 +43: /Users/joffreyjaffeux/.codex/worktrees/cooking-m2-integration/discourse-native/test/application_cooking_worker_test.dart: installed native fixture cooks through host, worker and sanitizer without HTTP
+00:02 +44: /Users/joffreyjaffeux/.codex/worktrees/cooking-m2-integration/discourse-native/test/application_cooking_worker_test.dart: installed native fixture cooks through host, worker and sanitizer without HTTP
+00:02 +45: /Users/joffreyjaffeux/.codex/worktrees/cooking-m2-integration/discourse-native/test/application_cooking_worker_test.dart: installed native fixture cooks through host, worker and sanitizer without HTTP
+00:02 +46: /Users/joffreyjaffeux/.codex/worktrees/cooking-m2-integration/discourse-native/test/application_cooking_worker_test.dart: installed native fixture cooks through host, worker and sanitizer without HTTP
+00:02 +47: /Users/joffreyjaffeux/.codex/worktrees/cooking-m2-integration/discourse-native/test/application_cooking_worker_test.dart: installed native fixture cooks through host, worker and sanitizer without HTTP
+00:02 +48: /Users/joffreyjaffeux/.codex/worktrees/cooking-m2-integration/discourse-native/test/application_cooking_worker_test.dart: installed native fixture cooks through host, worker and sanitizer without HTTP
+00:02 +49: /Users/joffreyjaffeux/.codex/worktrees/cooking-m2-integration/discourse-native/test/application_cooking_worker_test.dart: installed native fixture cooks through host, worker and sanitizer without HTTP
+00:02 +50: /Users/joffreyjaffeux/.codex/worktrees/cooking-m2-integration/discourse-native/test/application_cooking_worker_test.dart: installed native fixture cooks through host, worker and sanitizer without HTTP
+00:02 +51: /Users/joffreyjaffeux/.codex/worktrees/cooking-m2-integration/discourse-native/test/application_cooking_worker_test.dart: installed native fixture cooks through host, worker and sanitizer without HTTP
+00:02 +52: /Users/joffreyjaffeux/.codex/worktrees/cooking-m2-integration/discourse-native/test/application_cooking_worker_test.dart: installed native fixture cooks through host, worker and sanitizer without HTTP
+00:02 +53: /Users/joffreyjaffeux/.codex/worktrees/cooking-m2-integration/discourse-native/test/application_cooking_worker_test.dart: installed native fixture cooks through host, worker and sanitizer without HTTP
+00:02 +54: /Users/joffreyjaffeux/.codex/worktrees/cooking-m2-integration/discourse-native/test/application_cooking_worker_test.dart: installed native fixture cooks through host, worker and sanitizer without HTTP
+00:02 +55: /Users/joffreyjaffeux/.codex/worktrees/cooking-m2-integration/discourse-native/test/application_cooking_worker_test.dart: installed native fixture cooks through host, worker and sanitizer without HTTP
+00:02 +56: /Users/joffreyjaffeux/.codex/worktrees/cooking-m2-integration/discourse-native/test/application_cooking_worker_test.dart: installed native fixture cooks through host, worker and sanitizer without HTTP
+00:02 +57: /Users/joffreyjaffeux/.codex/worktrees/cooking-m2-integration/discourse-native/test/application_cooking_worker_test.dart: installed native fixture cooks through host, worker and sanitizer without HTTP
+00:02 +58: /Users/joffreyjaffeux/.codex/worktrees/cooking-m2-integration/discourse-native/test/application_cooking_worker_test.dart: installed native fixture cooks through host, worker and sanitizer without HTTP
+00:02 +59: /Users/joffreyjaffeux/.codex/worktrees/cooking-m2-integration/discourse-native/test/application_cooking_worker_test.dart: installed native fixture cooks through host, worker and sanitizer without HTTP
+00:02 +60: /Users/joffreyjaffeux/.codex/worktrees/cooking-m2-integration/discourse-native/test/application_cooking_worker_test.dart: installed native fixture cooks through host, worker and sanitizer without HTTP
+00:02 +61: /Users/joffreyjaffeux/.codex/worktrees/cooking-m2-integration/discourse-native/test/application_cooking_worker_test.dart: installed native fixture cooks through host, worker and sanitizer without HTTP
+00:02 +62: /Users/joffreyjaffeux/.codex/worktrees/cooking-m2-integration/discourse-native/test/application_cooking_worker_test.dart: installed native fixture cooks through host, worker and sanitizer without HTTP
+00:02 +63: /Users/joffreyjaffeux/.codex/worktrees/cooking-m2-integration/discourse-native/test/application_cooking_worker_test.dart: installed native fixture cooks through host, worker and sanitizer without HTTP
+00:03 +64: /Users/joffreyjaffeux/.codex/worktrees/cooking-m2-integration/discourse-native/test/offline_cooking_runtime_test.dart: Flutter native assets cook through the shared worker
+00:04 +65: /Users/joffreyjaffeux/.codex/worktrees/cooking-m2-integration/discourse-native/test/build_profile_packaging_test.dart: generated native registrants iOS registration includes Voice in every app graph
+00:04 +66: /Users/joffreyjaffeux/.codex/worktrees/cooking-m2-integration/discourse-native/test/build_profile_packaging_test.dart: generated native registrants Linux registrants include Voice media SDKs in every app
+00:04 +67: /Users/joffreyjaffeux/.codex/worktrees/cooking-m2-integration/discourse-native/test/build_profile_packaging_test.dart: generated native registrants macOS registrants include Voice media SDKs in every app
+00:04 +68: /Users/joffreyjaffeux/.codex/worktrees/cooking-m2-integration/discourse-native/test/build_profile_packaging_test.dart: source and native ownership Voice reaches Chat only through its declared contract edge
+00:04 +69: /Users/joffreyjaffeux/.codex/worktrees/cooking-m2-integration/discourse-native/test/build_profile_packaging_test.dart: source and native ownership CallKit and its channel are implemented only by the iOS plugin
+00:04 +70: /Users/joffreyjaffeux/.codex/worktrees/cooking-m2-integration/discourse-native/test/build_profile_packaging_test.dart: source and native ownership the WebRTC fork and provenance tooling stay visibly third-party
+00:04 +71: /Users/joffreyjaffeux/.codex/worktrees/cooking-m2-integration/discourse-native/test/build_profile_packaging_test.dart: source and native ownership every application entry point uses the Voice manifest
+00:04 +72: /Users/joffreyjaffeux/.codex/worktrees/cooking-m2-integration/discourse-native/test/build_profile_packaging_test.dart: source and native ownership Voice Dart sources are owned by the main application package
+00:04 +73: /Users/joffreyjaffeux/.codex/worktrees/cooking-m2-integration/discourse-native/test/build_profile_packaging_test.dart: profile package graphs the compatibility application inherits the same locked Voice graph
+00:04 +74: /Users/joffreyjaffeux/.codex/worktrees/cooking-m2-integration/discourse-native/test/build_profile_packaging_test.dart: profile package graphs the Voice child package is only the native iOS bridge
+00:04 +75: /Users/joffreyjaffeux/.codex/worktrees/cooking-m2-integration/discourse-native/test/build_profile_packaging_test.dart: profile package graphs the root app declares and resolves the complete Voice graph
+00:04 +76: /Users/joffreyjaffeux/.codex/worktrees/cooking-m2-integration/discourse-native/test/build_profile_packaging_test.dart: profile package graphs the core app resolves the reviewed AVFoundation fork
+00:04 +77: /Users/joffreyjaffeux/.codex/worktrees/cooking-m2-integration/discourse-native/test/plugin_runtime_test.dart: static contributions and key ownership singleton static contribution cardinality is validated at install
+00:04 +78: /Users/joffreyjaffeux/.codex/worktrees/cooking-m2-integration/discourse-native/test/plugin_runtime_test.dart: static contributions and key ownership reads present and absent singleton contributions
+00:04 +79: /Users/joffreyjaffeux/.codex/worktrees/cooking-m2-integration/discourse-native/test/plugin_runtime_test.dart: static contributions and key ownership record and service keys must be owned by their module
+00:04 +80: /Users/joffreyjaffeux/.codex/worktrees/cooking-m2-integration/discourse-native/test/plugin_runtime_test.dart: static contributions and key ownership static contribution order ignores runtime dependency order
+00:04 +81: /Users/joffreyjaffeux/.codex/worktrees/cooking-m2-integration/discourse-native/test/plugin_runtime_test.dart: static contributions and key ownership duplicate record and service keys are rejected
+00:04 +82: /Users/joffreyjaffeux/.codex/worktrees/cooking-m2-integration/discourse-native/test/plugin_runtime_test.dart: static contributions and key ownership foreign static contributions require declared target authority
+00:04 +83: /Users/joffreyjaffeux/.codex/worktrees/cooking-m2-integration/discourse-native/test/plugin_runtime_test.dart: static contributions and key ownership static contribution points and catalog reads enforce ownership
+00:04 +84: /Users/joffreyjaffeux/.codex/worktrees/cooking-m2-integration/discourse-native/test/plugin_runtime_test.dart: static contributions and key ownership static contribution point type metadata must match its declaration
+00:04 +85: /Users/joffreyjaffeux/.codex/worktrees/cooking-m2-integration/discourse-native/test/plugin_runtime_test.dart: static contributions and key ownership optional absent static contribution targets are dormant
+00:04 +86: /Users/joffreyjaffeux/.codex/worktrees/cooking-m2-integration/discourse-native/test/plugin_runtime_test.dart: static contributions and key ownership static contributions preserve manifest order without a startup edge
+00:04 +87: /Users/joffreyjaffeux/.codex/worktrees/cooking-m2-integration/discourse-native/test/plugin_runtime_test.dart: application lifecycle app lifecycle rollback and close revoke scoped authority
+00:04 +88: /Users/joffreyjaffeux/.codex/worktrees/cooking-m2-integration/discourse-native/test/instance_store_test.dart: round trip a failed write does not strand a newer snapshot
+00:04 +89: /Users/joffreyjaffeux/.codex/worktrees/cooking-m2-integration/discourse-native/test/instance_store_test.dart: round trip a failed write does not strand a newer snapshot
+00:04 +90: /Users/joffreyjaffeux/.codex/worktrees/cooking-m2-integration/discourse-native/test/instance_store_test.dart: round trip a failed write does not strand a newer snapshot
+00:04 +91: /Users/joffreyjaffeux/.codex/worktrees/cooking-m2-integration/discourse-native/test/instance_store_test.dart: round trip a failed write does not strand a newer snapshot
+00:04 +92: /Users/joffreyjaffeux/.codex/worktrees/cooking-m2-integration/discourse-native/test/instance_store_test.dart: round trip a failed write does not strand a newer snapshot
+00:04 +93: /Users/joffreyjaffeux/.codex/worktrees/cooking-m2-integration/discourse-native/test/instance_store_test.dart: round trip a failed write does not strand a newer snapshot
+00:04 +94: /Users/joffreyjaffeux/.codex/worktrees/cooking-m2-integration/discourse-native/test/instance_store_test.dart: round trip a failed write does not strand a newer snapshot
+00:04 +95: /Users/joffreyjaffeux/.codex/worktrees/cooking-m2-integration/discourse-native/test/instance_store_test.dart: round trip a failed write does not strand a newer snapshot
+00:04 +96: /Users/joffreyjaffeux/.codex/worktrees/cooking-m2-integration/discourse-native/test/instance_store_test.dart: round trip a failed write does not strand a newer snapshot
+00:04 +97: /Users/joffreyjaffeux/.codex/worktrees/cooking-m2-integration/discourse-native/test/plugin_runtime_test.dart: session authority and lifecycle session bookmark targets are distinct and namespaced
+00:04 +98: /Users/joffreyjaffeux/.codex/worktrees/cooking-m2-integration/discourse-native/test/instance_store_test.dart: round trip keeps the rail in order, and keeps a signed-out site
+00:04 +99: /Users/joffreyjaffeux/.codex/worktrees/cooking-m2-integration/discourse-native/test/instance_store_test.dart: round trip keeps the rail in order, and keeps a signed-out site
+00:04 +100: /Users/joffreyjaffeux/.codex/worktrees/cooking-m2-integration/discourse-native/test/instance_store_test.dart: round trip replacement save wins over an older store's pending snapshot
+00:04 +101: /Users/joffreyjaffeux/.codex/worktrees/cooking-m2-integration/discourse-native/test/instance_store_test.dart: round trip replacement save wins over an older store's pending snapshot
+00:04 +102: /Users/joffreyjaffeux/.codex/worktrees/cooking-m2-integration/discourse-native/test/plugin_runtime_test.dart: session authority and lifecycle factory rollback revokes hostile retained scoped authority
+00:04 +103: /Users/joffreyjaffeux/.codex/worktrees/cooking-m2-integration/discourse-native/test/instance_store_test.dart: round trip replacement stores preserve request order
+00:04 +104: /Users/joffreyjaffeux/.codex/worktrees/cooking-m2-integration/discourse-native/test/plugin_runtime_test.dart: session authority and lifecycle sessions require declared host ports and expose typed services
+00:04 +105: /Users/joffreyjaffeux/.codex/worktrees/cooking-m2-integration/discourse-native/test/instance_store_test.dart: round trip replacement load waits for an in-flight and locally pending save
+00:04 +106: /Users/joffreyjaffeux/.codex/worktrees/cooking-m2-integration/discourse-native/test/plugin_runtime_test.dart: session authority and lifecycle session capability lookup preserves contributing owners
+00:04 +107: /Users/joffreyjaffeux/.codex/worktrees/cooking-m2-integration/discourse-native/test/instance_store_test.dart: round trip core-only load and save preserves plugin notification counters
+00:04 +108: /Users/joffreyjaffeux/.codex/worktrees/cooking-m2-integration/discourse-native/test/instance_store_test.dart: round trip core-only load and save preserves plugin notification counters
+00:04 +109: /Users/joffreyjaffeux/.codex/worktrees/cooking-m2-integration/discourse-native/test/instance_store_test.dart: round trip core-only load and save preserves plugin notification counters
+00:04 +110: /Users/joffreyjaffeux/.codex/worktrees/cooking-m2-integration/discourse-native/test/instance_store_test.dart: round trip core-only load and save preserves plugin notification counters
+00:04 +111: /Users/joffreyjaffeux/.codex/worktrees/cooking-m2-integration/discourse-native/test/instance_store_test.dart: round trip core-only load and save preserves plugin notification counters
+00:04 +112: /Users/joffreyjaffeux/.codex/worktrees/cooking-m2-integration/discourse-native/test/instance_store_test.dart: round trip core-only load and save preserves plugin notification counters
+00:04 +113: /Users/joffreyjaffeux/.codex/worktrees/cooking-m2-integration/discourse-native/test/instance_store_test.dart: round trip core-only load and save preserves plugin notification counters
+00:04 +114: /Users/joffreyjaffeux/.codex/worktrees/cooking-m2-integration/discourse-native/test/instance_store_test.dart: round trip core-only load and save preserves plugin notification counters
+00:04 +115: /Users/joffreyjaffeux/.codex/worktrees/cooking-m2-integration/discourse-native/test/instance_store_test.dart: round trip core-only load and save preserves plugin notification counters
+00:04 +116: /Users/joffreyjaffeux/.codex/worktrees/cooking-m2-integration/discourse-native/test/instance_store_test.dart: round trip core-only load and save preserves plugin notification counters
+00:04 +117: /Users/joffreyjaffeux/.codex/worktrees/cooking-m2-integration/discourse-native/test/instance_store_test.dart: round trip core-only load and save preserves plugin notification counters
+00:04 +118: /Users/joffreyjaffeux/.codex/worktrees/cooking-m2-integration/discourse-native/test/instance_store_test.dart: round trip core-only load and save preserves plugin notification counters
+00:04 +119: /Users/joffreyjaffeux/.codex/worktrees/cooking-m2-integration/discourse-native/test/instance_store_test.dart: round trip core-only load and save preserves plugin notification counters
+00:04 +120: /Users/joffreyjaffeux/.codex/worktrees/cooking-m2-integration/discourse-native/test/instance_store_test.dart: round trip core-only load and save preserves plugin notification counters
+00:04 +121: /Users/joffreyjaffeux/.codex/worktrees/cooking-m2-integration/discourse-native/test/instance_store_test.dart: round trip core-only load and save preserves plugin notification counters
+00:04 +122: /Users/joffreyjaffeux/.codex/worktrees/cooking-m2-integration/discourse-native/test/instance_store_test.dart: round trip core-only load and save preserves plugin notification counters
+00:04 +123: /Users/joffreyjaffeux/.codex/worktrees/cooking-m2-integration/discourse-native/test/instance_store_test.dart: round trip core-only load and save preserves plugin notification counters
+00:04 +124: /Users/joffreyjaffeux/.codex/worktrees/cooking-m2-integration/discourse-native/test/instance_store_test.dart: round trip core-only load and save preserves plugin notification counters
+00:04 +125: /Users/joffreyjaffeux/.codex/worktrees/cooking-m2-integration/discourse-native/test/instance_store_test.dart: round trip core-only load and save preserves plugin notification counters
+00:04 +126: /Users/joffreyjaffeux/.codex/worktrees/cooking-m2-integration/discourse-native/test/instance_store_test.dart: round trip core-only load and save preserves plugin notification counters
+00:04 +127: /Users/joffreyjaffeux/.codex/worktrees/cooking-m2-integration/discourse-native/test/instance_store_test.dart: round trip migrates flat plugin fields into installed namespaces
+00:04 +128: /Users/joffreyjaffeux/.codex/worktrees/cooking-m2-integration/discourse-native/test/instance_store_test.dart: round trip persists a resolved site appearance
+00:04 +129: /Users/joffreyjaffeux/.codex/worktrees/cooking-m2-integration/discourse-native/test/instance_store_test.dart: round trip overlapping saves persist the newest snapshot
+00:04 +130: /Users/joffreyjaffeux/.codex/worktrees/cooking-m2-integration/discourse-native/test/instance_store_test.dart: round trip preserves uninstalled plugin namespaces through load and save
+00:04 +131: /Users/joffreyjaffeux/.codex/worktrees/cooking-m2-integration/discourse-native/test/instance_store_test.dart: round trip saving an empty rail wipes the stored one
+00:04 +132: /Users/joffreyjaffeux/.codex/worktrees/cooking-m2-integration/discourse-native/test/instance_store_test.dart: round trip brings back everything save() was given
+00:04 +133: /Users/joffreyjaffeux/.codex/worktrees/cooking-m2-integration/discourse-native/test/instance_store_test.dart: load ignores malformed optional appearance without dropping its site
+00:04 +134: /Users/joffreyjaffeux/.codex/worktrees/cooking-m2-integration/discourse-native/test/instance_store_test.dart: load keeps HTTPS and loopback HTTP origins in canonical form
+00:04 +135: /Users/joffreyjaffeux/.codex/worktrees/cooking-m2-integration/discourse-native/test/instance_store_test.dart: load answers an empty rail when the stored blob cannot be read
+00:04 +136: /Users/joffreyjaffeux/.codex/worktrees/cooking-m2-integration/discourse-native/test/instance_store_test.dart: load answers an empty rail when the stored blob is blank
+00:04 +137: /Users/joffreyjaffeux/.codex/worktrees/cooking-m2-integration/discourse-native/test/instance_store_test.dart: load drops unsafe and malformed stored forum bases
+00:04 +138: /Users/joffreyjaffeux/.codex/worktrees/cooking-m2-integration/discourse-native/test/instance_store_test.dart: load keeps valid sites when another stored entry is malformed
+00:04 +139: /Users/joffreyjaffeux/.codex/worktrees/cooking-m2-integration/discourse-native/test/instance_store_test.dart: load keeps a forum served from a subfolder, without its root slash
+00:04 +140: /Users/joffreyjaffeux/.codex/worktrees/cooking-m2-integration/discourse-native/test/instance_store_test.dart: load answers an empty rail when nothing was stored
+00:04 +141: /Users/joffreyjaffeux/.codex/worktrees/cooking-m2-integration/discourse-native/test/core_plugin_profile_test.dart: the core manifest boots without optional plugin services
+00:04 +142: /Users/joffreyjaffeux/.codex/worktrees/cooking-m2-integration/discourse-native/test/core_plugin_profile_test.dart: the core manifest boots without optional plugin services
+00:04 +143: /Users/joffreyjaffeux/.codex/worktrees/cooking-m2-integration/discourse-native/test/core_plugin_profile_test.dart: the core manifest boots without optional plugin services
+00:04 +144: /Users/joffreyjaffeux/.codex/worktrees/cooking-m2-integration/discourse-native/test/core_plugin_profile_test.dart: the core manifest boots without optional plugin services
+00:04 +145: /Users/joffreyjaffeux/.codex/worktrees/cooking-m2-integration/discourse-native/test/core_plugin_profile_test.dart: the core manifest boots without optional plugin services
+00:04 +146: /Users/joffreyjaffeux/.codex/worktrees/cooking-m2-integration/discourse-native/test/core_plugin_profile_test.dart: the core manifest boots without optional plugin services
+00:04 +147: /Users/joffreyjaffeux/.codex/worktrees/cooking-m2-integration/discourse-native/test/core_plugin_profile_test.dart: the core manifest boots without optional plugin services
+00:04 +148: /Users/joffreyjaffeux/.codex/worktrees/cooking-m2-integration/discourse-native/test/core_plugin_profile_test.dart: core-only preserves and safely presents an unknown plugin row
+00:04 +149: All tests passed!

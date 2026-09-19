@@ -1,0 +1,65 @@
+Running build hooks...Running build hooks...Shuffling test order with --test-randomize-ordering-seed=67214
+00:00 +0: loading test/src/service_test.dart
+00:00 +0: test/src/service_test.dart: worker enforces execution deadline with a readable timeout
+00:00 +1: test/src/service_test.dart: worker enforces execution deadline with a readable timeout
+00:00 +2: test/src/service_test.dart: worker enforces execution deadline with a readable timeout
+00:00 +3: test/src/service_test.dart: worker enforces execution deadline with a readable timeout
+00:00 +4: test/src/service_test.dart: worker enforces execution deadline with a readable timeout
+00:00 +5: test/src/service_test.dart: worker enforces execution deadline with a readable timeout
+00:00 +6: test/src/service_test.dart: worker enforces execution deadline with a readable timeout
+00:00 +7: test/src/service_test.dart: worker enforces execution deadline with a readable timeout
+00:00 +8: test/src/service_test.dart: worker enforces execution deadline with a readable timeout
+00:00 +9: test/src/service_test.dart: worker enforces execution deadline with a readable timeout
+00:00 +10: test/src/service_test.dart: worker enforces execution deadline with a readable timeout
+00:00 +11: test/src/service_test.dart: worker enforces execution deadline with a readable timeout
+00:00 +12: test/src/service_test.dart: worker enforces execution deadline with a readable timeout
+00:00 +13: test/src/service_test.dart: worker enforces execution deadline with a readable timeout
+00:00 +14: test/src/service_test.dart: worker enforces execution deadline with a readable timeout
+00:00 +15: test/src/service_test.dart: worker enforces execution deadline with a readable timeout
+00:00 +16: test/src/host_service_test.dart: real persistent worker is cached and invalidated through host port
+00:00 +17: test/src/host_service_test.dart: real persistent worker is cached and invalidated through host port
+00:00 +18: test/src/host_service_test.dart: real persistent worker is cached and invalidated through host port
+00:00 +19: test/src/host_service_test.dart: real persistent worker is cached and invalidated through host port
+00:00 +20: test/src/host_service_test.dart: real persistent worker is cached and invalidated through host port
+00:00 +21: test/src/host_service_test.dart: real persistent worker is cached and invalidated through host port
+00:00 +22: test/src/host_service_test.dart: real persistent worker is cached and invalidated through host port
+00:00 +23: test/src/host_service_test.dart: real persistent worker is cached and invalidated through host port
+00:00 +24: test/src/service_test.dart: output error is readable and next cook recovers on fresh VM
+00:00 +25: test/src/service_test.dart: output error is readable and next cook recovers on fresh VM
+00:00 +26: test/src/service_test.dart: output error is readable and next cook recovers on fresh VM
+00:00 +27: test/src/service_test.dart: output error is readable and next cook recovers on fresh VM
+00:00 +28: test/src/service_test.dart: output error is readable and next cook recovers on fresh VM
+00:00 +29: test/src/service_test.dart: output error is readable and next cook recovers on fresh VM
+00:00 +30: test/src/service_test.dart: output error is readable and next cook recovers on fresh VM
+00:00 +31: test/src/host_service_test.dart: throwing ports cannot bypass cooldown with a healthy flag
+00:00 +32: test/src/host_service_test.dart: throwing ports cannot bypass cooldown with a healthy flag
+00:00 +33: test/src/configuration_test.dart: known hashtags retain Native rendering metadata after final policy
+00:00 +34: test/src/configuration_test.dart: known hashtags retain Native rendering metadata after final policy
+00:00 +35: test/src/configuration_test.dart: known hashtags retain Native rendering metadata after final policy
+00:00 +36: test/src/service_test.dart: dispose resolves all admitted queued callers
+00:00 +37: test/src/service_test.dart: dispose resolves all admitted queued callers
+00:00 +38: test/src/service_test.dart: dispose resolves all admitted queued callers
+00:00 +39: test/src/service_test.dart: dispose resolves all admitted queued callers
+00:00 +40: test/src/service_test.dart: dispose resolves all admitted queued callers
+00:00 +41: test/src/service_test.dart: dispose resolves all admitted queued callers
+00:00 +42: test/src/service_test.dart: dispose resolves all admitted queued callers
+00:00 +43: test/src/service_test.dart: dispose resolves all admitted queued callers
+00:00 +44: test/src/service_test.dart: dispose resolves all admitted queued callers
+00:00 +45: test/src/service_test.dart: dispose resolves all admitted queued callers
+00:00 +46: test/src/service_test.dart: dispose resolves all admitted queued callers
+00:00 +47: test/src/corpus_test.dart: shared JS/native corpus: unknown mention hashtag and upload
+00:00 +48: test/src/service_test.dart: real startup deadline terminates the unavailable service
+00:00 +49: test/src/corpus_test.dart: shared JS/native corpus: protected inline code
+00:00 +50: test/src/service_test.dart: dispose during startup resolves callers and remains idempotent
+00:00 +51: test/src/service_test.dart: dispose during startup resolves callers and remains idempotent
+00:00 +52: test/src/corpus_test.dart: (tearDownAll)
+00:00 +52: test/src/service_test.dart: persistent worker corpus missing metadata stays readable without host APIs
+00:00 +53: test/src/service_test.dart: persistent worker corpus final policy strips executable cached html_raw onebox hoists
+00:00 +54: test/src/service_test.dart: persistent worker corpus site and account context cannot leak between requests
+00:00 +55: test/src/service_test.dart: persistent worker corpus post and chat select different heading rules
+00:00 +56: test/src/service_test.dart: persistent worker corpus common markdown, protected text, emoji and BBCode plugin
+00:00 +57: test/src/service_test.dart: main isolate handles timer while worker parses heavy input
+00:01 +58: test/src/service_test.dart: pending work is bounded while worker starts
+00:01 +59: test/src/service_test.dart: limits reject raw and snapshot bytes before starting
+00:01 +60: test/src/service_test.dart: worker lifecycle never depends on caller-zone timers
+00:01 +61: All tests passed!
