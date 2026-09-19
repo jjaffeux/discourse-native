@@ -2060,7 +2060,7 @@ void _registerShellNavigationTests() {
       final style = DefaultTextStyle.of(tester.element(label)).style;
       expect(style.fontSize, 12);
       expect(style.height, 16 / 12);
-      expect(style.color, DTokens.of(tester.element(label)).background);
+      expect(style.color, DTokens.of(tester.element(label)).foreground);
       await tester.sendKeyEvent(LogicalKeyboardKey.escape);
       await tester.pumpAndSettle();
       expect(callout, findsNothing);

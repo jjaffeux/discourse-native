@@ -1486,12 +1486,12 @@ class _RailTooltip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final surface = DTokens.of(context).foreground;
+    final surface = DTokens.of(context).surface;
     final iconBackground = Color.alphaBlend(accent, surface);
     final iconForeground = contrastSafeForeground(
       background: iconBackground,
       backdrop: surface,
-      preferred: [DTokens.of(context).background, surface],
+      preferred: [DTokens.of(context).foreground, surface],
     );
     return DTooltip(
       key: ValueKey('instance-rail-tooltip-${instance.url}'),
