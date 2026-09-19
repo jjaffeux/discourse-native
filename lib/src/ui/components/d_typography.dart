@@ -53,6 +53,7 @@ class DText extends StatelessWidget {
     this.semanticsLabel,
     this.headingLevel,
   }) : textSpan = null,
+       _compactCode = false,
        assert(maxLines == null || maxLines > 0),
        assert(headingLevel == null || (headingLevel >= 0 && headingLevel <= 6));
 
@@ -68,12 +69,27 @@ class DText extends StatelessWidget {
     this.semanticsLabel,
     this.headingLevel,
   }) : data = null,
+       _compactCode = false,
        assert(maxLines == null || maxLines > 0),
        assert(headingLevel == null || (headingLevel >= 0 && headingLevel <= 6));
+
+  /// A compact code chip for authored content embedded in a paragraph.
+  /// The adapter may supply the surrounding text metrics through [style].
+  const DText.code(String this.data, {super.key, this.style})
+    : textSpan = null,
+      variant = DTextVariant.inlineCode,
+      _compactCode = true,
+      textAlign = TextAlign.start,
+      softWrap = true,
+      maxLines = null,
+      overflow = null,
+      semanticsLabel = null,
+      headingLevel = null;
 
   final String? data;
   final InlineSpan? textSpan;
   final DTextVariant variant;
+  final bool _compactCode;
 
   /// Merged after the reference style for an intentional caller customization.
   final TextStyle? style;
@@ -200,7 +216,9 @@ class DText extends StatelessWidget {
   static TextStyle styleOf(BuildContext context, DTextVariant variant) {
     final style = _resolve(context, variant);
     return variant == DTextVariant.inlineCode
-        ? style.copyWith(backgroundColor: DTokens.of(context).muted)
+        ? style.copyWith(
+            backgroundColor: DTokens.of(context).inlineCodeBackground,
+          )
         : style;
   }
 
@@ -294,7 +312,7 @@ class DText extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     // A standalone code box paints its own background once; a span background
-    // beneath it would double a translucent muted token.
+    // beneath it would paint the code fill twice.
     final resolvedStyle = _resolve(context, variant).merge(style);
     Widget result = textSpan == null
         ? Text(
@@ -344,11 +362,14 @@ class DText extends StatelessWidget {
         },
         child: DecoratedBox(
           decoration: BoxDecoration(
-            color: tokens.muted,
+            color: tokens.inlineCodeBackground,
             borderRadius: BorderRadius.circular(_codeRadius),
+            border: Border.all(color: tokens.inlineCodeBorder),
           ),
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 4.8, vertical: 3.2),
+            padding: _compactCode
+                ? const EdgeInsets.symmetric(horizontal: 4, vertical: 1)
+                : const EdgeInsets.symmetric(horizontal: 4.8, vertical: 3.2),
             child: result,
           ),
         ),

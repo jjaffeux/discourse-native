@@ -152,7 +152,7 @@ void main() {
   });
 
   testWidgets(
-    'standalone code keeps fixed 4px corners and paints one translucent background',
+    'code shares a distinct fill and standalone chips keep fixed corners',
     (tester) async {
       const muted = Color(0x3300AA00);
       final theme = AppTheme.light;
@@ -188,11 +188,18 @@ void main() {
                   .decoration
               as BoxDecoration;
       expect(decoration.borderRadius, BorderRadius.circular(4));
-      expect(decoration.color, muted);
+      expect(
+        decoration.color,
+        theme.extension<DTokens>()!.inlineCodeBackground,
+      );
+      expect(
+        decoration.border,
+        Border.all(color: theme.extension<DTokens>()!.inlineCodeBorder),
+      );
       expect(_paragraph(tester, 'alone').text.style!.backgroundColor, isNull);
       final span =
           (_paragraph(tester, 'span').text as TextSpan).children!.single;
-      expect(span.style!.backgroundColor, muted);
+      expect(span.style!.backgroundColor, decoration.color);
       expect(span.style!.fontFamily, 'JetBrains Mono');
       expect(tester.takeException(), isNull);
     },
