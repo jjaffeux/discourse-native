@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 import 'package:discourse_cooking/discourse_cooking.dart';
 import 'package:discourse_native/src/data/application_cooking.dart';
@@ -87,6 +88,130 @@ void main() {
       expect(request.snapshot.mentions, isEmpty);
       expect(request.snapshot.pluginContext, isEmpty);
       expect((await app.cook(request)).failure, CookingFailure.inputLimit);
+    },
+  );
+
+  test(
+    'large independent caches select before merging and retain precedence',
+    () async {
+      final app = ApplicationCooking(
+        plugins: PluginInstaller.install(const PluginManifest([])),
+        service: _Service(),
+      );
+      addTearDown(app.dispose);
+      final stored = CookingCachedMetadata(
+        emojiDenyList: ['stored-denial'],
+        oneboxes: {
+          for (var i = 0; i < 150; i++) 'https://stored.test/$i': 'x' * 1000,
+          'https://selected.test': 'stored',
+        },
+      );
+      final supplied = CookingCachedMetadata(
+        emojiDenyList: ['supplied-denial'],
+        oneboxes: {
+          for (var i = 0; i < 150; i++) 'https://supplied.test/$i': 'y' * 1000,
+          'https://selected.test': 'supplied',
+        },
+      );
+      app.ingestMetadata(app.captureUploads('https://a', '1'), stored);
+      CookingRequest request(String raw, CookingCachedMetadata incoming) =>
+          app.request(
+            siteUrl: 'https://a',
+            accountId: '1',
+            raw: raw,
+            config: const SiteConfig(),
+            cachedMetadata: incoming,
+          );
+      expect(request('hello', supplied).snapshot.oneboxes, isEmpty);
+      expect(request('hello', supplied).snapshot.emojiDenyList, [
+        'supplied-denial',
+      ]);
+      expect(request('hello', CookingCachedMetadata()).snapshot.emojiDenyList, [
+        'stored-denial',
+      ]);
+      expect(request('https://selected.test', supplied).snapshot.oneboxes, {
+        'https://selected.test': 'supplied',
+      });
+      expect(
+        request(
+          'https://selected.test',
+          CookingCachedMetadata(),
+        ).snapshot.oneboxes,
+        {'https://selected.test': 'stored'},
+      );
+    },
+  );
+
+  test(
+    'aggregate enrichment is bounded across fields and required policy fails readably',
+    () async {
+      final app = ApplicationCooking(
+        plugins: PluginInstaller.install(const PluginManifest([])),
+        service: _Service(),
+      );
+      addTearDown(app.dispose);
+      final values = {for (var i = 0; i < 120; i++) 'key$i': 'x' * 500};
+      app.ingestMetadata(
+        app.captureUploads('https://a', '1'),
+        CookingCachedMetadata(
+          oneboxes: values,
+          avatars: values,
+          primaryGroups: values,
+        ),
+      );
+      final request = app.request(
+        siteUrl: 'https://a',
+        accountId: '1',
+        raw: values.keys.join(' '),
+        config: const SiteConfig(),
+        cachedMetadata: CookingCachedMetadata(
+          emojiTranslations: {'a': 'b'},
+          unicodeEmoji: {'c': 'd'},
+          allowedMediaOrigins: ['https://cdn.test'],
+        ),
+      );
+      expect(
+        utf8.encode(jsonEncode(request.snapshot.toJson())).length,
+        lessThan(100 * 1024),
+      );
+      expect(request.snapshot.oneboxes, isNotEmpty);
+      expect(request.snapshot.avatars, isNotEmpty);
+      expect(request.snapshot.allowedMediaOrigins, ['https://cdn.test']);
+      app.ingestMetadata(
+        app.captureUploads('https://a', '1'),
+        CookingCachedMetadata(emojiTranslations: {'a': 'x' * 70000}),
+      );
+      final limited = app.request(
+        siteUrl: 'https://a',
+        accountId: '1',
+        raw: '<hello>',
+        config: const SiteConfig(),
+        cachedMetadata: CookingCachedMetadata(
+          unicodeEmoji: {'b': 'y' * 70000},
+          emojiDenyList: ['denied'],
+        ),
+      );
+      final result = await app.cook(limited);
+      expect(result.failure, CookingFailure.inputLimit);
+      expect(result.html, contains('&lt;hello&gt;'));
+      expect(result.requestFingerprint, limited.fingerprint);
+      app.ingestMetadata(
+        app.captureUploads('https://a', '1'),
+        CookingCachedMetadata(
+          allowedMediaOrigins: [
+            for (var i = 0; i < 1000; i++) 'https://cdn.test/$i${'x' * 120}',
+          ],
+        ),
+      );
+      final listLimited = app.request(
+        siteUrl: 'https://a',
+        accountId: '1',
+        raw: 'hello',
+        config: const SiteConfig(),
+      );
+      expect((await app.cook(listLimited)).failure, CookingFailure.inputLimit);
+      app.forget('https://a');
+      expect((await app.cook(listLimited)).failure, CookingFailure.stale);
     },
   );
 

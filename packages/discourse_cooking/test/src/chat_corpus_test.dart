@@ -72,6 +72,100 @@ void main() {
       }
     });
   }
+  for (final profile in ['post', 'chat']) {
+    test('nested Chat selects $profile-only syntax and tokens', () async {
+      final result = await service.cook(
+        CookingRequest(
+          raw:
+              '==TOKEN==\n\n[chat quote="Alice;1;2026-01-01" channelId="2"]\n==TOKEN==\n[/chat]',
+          configuration: CookingConfiguration(
+            modules: [
+              CookingModule(id: 'chat-transcript', owner: 'chat', version: '1'),
+              CookingModule(
+                id: 'fixture-mark',
+                owner: 'cooking-fixture',
+                version: '1',
+                profiles: [profile],
+              ),
+              CookingModule(
+                id: 'fixture-tokens',
+                owner: 'cooking-fixture',
+                version: '1',
+                profiles: [profile],
+                dependencies: ['fixture-mark'],
+              ),
+            ],
+          ),
+          snapshot: CookingSnapshot(
+            siteId: 'a',
+            accountId: '7',
+            pluginContext: {
+              'cooking-fixture': {'replace': 'REPLACED'},
+            },
+          ),
+        ),
+      );
+      expect(result.failure, isNull);
+      final parts = result.html.split('<div class="chat-transcript"');
+      expect(parts, hasLength(2));
+      expect(
+        parts[profile == 'post' ? 0 : 1],
+        contains('<mark data-fixture="bundled">REPLACED</mark>'),
+      );
+      expect(parts[profile == 'post' ? 1 : 0], contains('==TOKEN=='));
+      expect(parts[profile == 'post' ? 1 : 0], isNot(contains('<mark')));
+    });
+  }
+  for (final missingDependency in [true, false]) {
+    test(
+      'nested Chat respects dependencies and owner activation ($missingDependency)',
+      () async {
+        final result = await service.cook(
+          CookingRequest(
+            raw:
+                '[chat quote="Alice;1;2026-01-01" channelId="2"]\n==TOKEN==\n[/chat]',
+            configuration: CookingConfiguration(
+              modules: [
+                CookingModule(
+                  id: 'chat-transcript',
+                  owner: 'chat',
+                  version: '1',
+                ),
+                CookingModule(
+                  id: 'fixture-mark',
+                  owner: 'cooking-fixture',
+                  version: '1',
+                  profiles: [missingDependency ? 'post' : 'chat'],
+                  enabledSetting: missingDependency ? null : 'fixture_enabled',
+                ),
+                CookingModule(
+                  id: 'fixture-tokens',
+                  owner: 'cooking-fixture',
+                  version: '1',
+                  profiles: ['chat'],
+                  dependencies: ['fixture-mark'],
+                ),
+              ],
+            ),
+            snapshot: CookingSnapshot(
+              siteId: 'a',
+              accountId: '7',
+              pluginContext: {
+                'cooking-fixture': {
+                  'replace': 'REPLACED',
+                  'settings': {'fixture_enabled': false},
+                },
+              },
+            ),
+          ),
+        );
+        expect(result.failure, isNull);
+        expect(result.html, contains('==TOKEN=='));
+        expect(result.html, isNot(contains('<mark')));
+        expect(result.html, isNot(contains('REPLACED')));
+      },
+    );
+  }
   test('all frozen context fields change identity', () {
     final first = CookingRequest(
       raw: 'hello',

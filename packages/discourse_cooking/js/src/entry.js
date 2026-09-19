@@ -41,18 +41,38 @@ export function cook(serializedRequest) {
     if(typeof request.profile==='string' && !['post','chat'].includes(request.profile)) throw Error('Unknown profile');
     const profile = typeof request.profile === 'string' ? (request.profile==='chat'?{features:chatFeatures,rules:chatRules,forceQuoteLink:true}:{}) : request.profile;
     const declarations = request.configuration?.modules || [{id:'spoiler-alert'},{id:'offline-missing-uploads'}];
-    let modules = declarations.map(d=> { const m=bundledModules[d.id]; if(!m || (d.owner && d.owner!==m.owner) || (d.version && d.version!==m.version)) throw Error('Invalid module'); return m; });
+    const availableModules = declarations.map(d=> { const m=bundledModules[d.id]; if(!m || (d.owner && d.owner!==m.owner) || (d.version && d.version!==m.version)) throw Error('Invalid module'); return m; });
     const snapshot = freeze(request.snapshot || {});
     setLocale(snapshot.context?.locale);
-    const settings = { ...defaults, ...profile.settings };
-    for (const key of settingsAllowed) {
-      const value = own(snapshot.siteSettings,key);
-      if (value !== undefined) settings[key] = value;
+    function settingsFor(selectedProfile) {
+      const selected = {...defaults, ...selectedProfile.settings};
+      for (const key of settingsAllowed) {
+        const value = own(snapshot.siteSettings,key);
+        if (value !== undefined) selected[key] = value;
+      }
+      return selected;
     }
-    modules = modules.filter((m,i)=> (!declarations[i].profiles?.length || declarations[i].profiles.includes(profile.name || request.profile)) && (!declarations[i].enabledSetting || (snapshot.pluginContext?.[m.owner]?.settings?.[declarations[i].enabledSetting] ?? settings[declarations[i].enabledSetting]) === true));
-    const active=new Set(modules.map(m=>m.id));
-    for(const d of declarations) if(active.has(d.id) && (d.dependencies||[]).some(id=>!active.has(id))) active.delete(d.id);
-    modules=modules.filter(m=>active.has(m.id));
+    function resolveProfile(name) {
+      return request.configuration?.profiles?.find(p=>p.name===name) ||
+        (name==='chat'?{features:chatFeatures,rules:chatRules,forceQuoteLink:true}:name==='post'?{}:null);
+    }
+    const settings = settingsFor(profile);
+    function selectModules(name, selectedSettings = settingsFor(resolveProfile(name) || {})) {
+      const selected = availableModules.filter((m,i)=> (!declarations[i].profiles?.length || declarations[i].profiles.includes(name)) && (!declarations[i].enabledSetting || (snapshot.pluginContext?.[m.owner]?.settings?.[declarations[i].enabledSetting] ?? selectedSettings[declarations[i].enabledSetting]) === true));
+      const active = new Set(selected.map(m=>m.id));
+      // Dependencies can themselves become inactive after profile filtering.
+      let changed;
+      do {
+        changed = false;
+        for (const d of declarations) if (active.has(d.id) && (d.dependencies || []).some(id=>!active.has(id))) {
+          active.delete(d.id); changed = true;
+        }
+      } while (changed);
+      return selected.filter(m=>active.has(m.id));
+    }
+    const modules = selectModules(profile.name || request.profile, settings);
+    const active = new Set(modules.map(m=>m.id));
+    const usedPolicies = new Set(modules.map(m=>m.policy));
     const unresolvedReferences=[];
     function lookup(map,key,kind) { if(typeof key!=='string' || !key) return undefined; const value=own(map,key); if(kind && value===undefined && !unresolvedReferences.some(r=>r.kind===kind && r.key===key)) unresolvedReferences.push({kind,key}); return value; }
     const baseUrl = /^https?:\/\/[^/]+(?:\/[^?#]*)?$/.test(snapshot.baseUrl || '') ? snapshot.baseUrl.replace(/\/$/,'') : '';
@@ -87,14 +107,42 @@ export function cook(serializedRequest) {
     }
     if(profile.rules) options.markdownItRules = profile.rules;
     options.forceQuoteLink = profile.forceQuoteLink === true;
-    const states = new Map();
-    const apiFor = m => ({context:snapshot.context || {}, profile:profile.name || request.profile,
-      options, baseUrl, allowedMediaOrigins:snapshot.allowedMediaOrigins || [], activeFeatures:modules.filter(m=>['syntax','token'].includes(m.stage)).map(m=>m.id), hashtagPriorities:snapshot.hashtagPriorities || {}, onCleanup:callback=>cleanups.push(callback), state:states.get(m.owner) || (states.set(m.owner,{}),states.get(m.owner)),
+    const rootScope = {options, modules, profile:profile.name || request.profile, states:new Map()};
+    const nestedEngines = new Map();
+    const apiFor = (m, scope = rootScope) => ({context:snapshot.context || {}, profile:scope.profile,
+      options:scope.options, baseUrl, allowedMediaOrigins:snapshot.allowedMediaOrigins || [], activeFeatures:scope.modules.filter(m=>['syntax','token'].includes(m.stage)).map(m=>m.id), hashtagPriorities:snapshot.hashtagPriorities || {}, onCleanup:callback=>cleanups.push(callback), state:scope.states.get(m.owner) || (scope.states.set(m.owner,{}),scope.states.get(m.owner)),
+      policiesForProfile:name=>selectModules(name).map(m=>m.policy),
+      cookProfile:(name, source, overrides = {})=> {
+        const key = JSON.stringify([name, overrides]);
+        let nestedEngine = nestedEngines.get(key);
+        if (!nestedEngine) {
+          const selectedProfile = resolveProfile(name);
+          if (!selectedProfile) throw Error('Unknown nested profile');
+          const nestedModules = selectModules(name);
+          const nestedSettings = settingsFor(selectedProfile);
+          const nestedOptions = {...options, siteSettings:nestedSettings,
+            featuresOverride:selectedProfile.features ? [...selectedProfile.features, ...nestedModules.filter(m=>['syntax','token'].includes(m.stage)).map(m=>m.id), ...(nestedSettings.enable_emoji_shortcuts?['emojiShortcuts']:[])] : undefined,
+            markdownItRules:selectedProfile.rules, forceQuoteLink:selectedProfile.forceQuoteLink===true,
+            ...overrides,
+          };
+          if(nestedOptions.featuresOverride) nestedOptions.featuresOverride=nestedOptions.featuresOverride.filter(id=>!bundledModules[id] || nestedModules.some(m=>m.id===id));
+          const nestedScope = {options:nestedOptions, modules:nestedModules, profile:name, states:new Map()};
+          nestedEngine = makeEngine(nestedScope);
+          nestedEngines.set(key, nestedEngine);
+          for (const nested of nestedModules) usedPolicies.add(nested.policy);
+        }
+        return nestedEngine.cook(source);
+      },
       lookup:(namespace,key)=>{
         const kinds={uploads:'upload',mentions:'mention',avatars:'mention',hashtags:'hashtag',topics:'topic',oneboxes:'onebox',media:null,primaryGroups:null};
         if(!Object.hasOwn(kinds,namespace)) throw Error('Unknown lookup namespace');
         return lookup(snapshot[namespace],key,kinds[namespace]);
       }});
+    function makeEngine(scope) {
+      const syntax=scope.modules.filter(m=>m.stage==='syntax').map((m,i)=>({id:m.id,setup:helper=>m.implementation.setup(helper,snapshot.pluginContext?.[m.owner]||{},apiFor(m,scope)),priority:i}));
+      for(const m of scope.modules.filter(m=>m.stage==='token')) syntax.push({id:m.id,priority:syntax.length,setup(helper){helper.registerPlugin(md=>md.core.ruler.push(m.id,state=>m.implementation.transform(state.tokens,snapshot.pluginContext?.[m.owner]||{},apiFor(m,scope))));}});
+      return DiscourseMarkdownIt.withCustomFeatures(syntax,[]).withOptions(scope.options);
+    }
     let source = raw;
     if(snapshot.context?.sourcePolicy === 'submission') source=source
       .replace(/[\u00a0\u1680\u180e\u2000-\u200a\u2028\u2029\u202f\u205f\u3000]/g,' ')
@@ -107,13 +155,10 @@ export function cook(serializedRequest) {
     if(options.featuresOverride) options.featuresOverride=options.featuresOverride.filter(id=>!bundledModules[id] || active.has(id));
     resetTranslationTree();
     const html = withSnapshot(snapshot, () => {
-      const syntax=modules.filter(m=>m.stage==='syntax').map((m,i)=>({id:m.id,setup:helper=>m.implementation.setup(helper,snapshot.pluginContext?.[m.owner]||{},apiFor(m)),priority:i}));
-      const transforms=modules.filter(m=>m.stage==='token');
-      for(const m of transforms) syntax.push({id:m.id,priority:syntax.length,setup(helper){helper.registerPlugin(md=>md.core.ruler.push(m.id,state=>m.implementation.transform(state.tokens,snapshot.pluginContext?.[m.owner]||{},apiFor(m))));}});
-      const engine = DiscourseMarkdownIt.withCustomFeatures(syntax,[]).withOptions(options);
+      const engine = makeEngine(rootScope);
       let output=engine.cook(source);
       for(const m of modules.filter(m=>m.stage==='document')) output=m.implementation.transform(output,snapshot.pluginContext?.[m.owner]||{},apiFor(m));
-      return finalSanitize(output,modules.map(m=>m.policy));
+      return finalSanitize(output,[...usedPolicies]);
     });
     if (html.length > 1048576) throw Error('Output exceeds limit');
     return JSON.stringify({ html, warnings: [], unresolvedReferences });

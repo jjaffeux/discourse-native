@@ -5,10 +5,11 @@ Validated in the assigned worktree, based on main `88a2aad35030fe655a833958c498a
 | Check | Actual result |
 | --- | --- |
 | Locked npm clean installation | Passed (`npm ci --offline`) |
-| JavaScript suite | 105 passed |
-| Package native Dart suite, seed 67214 | 140 passed |
+| JavaScript suite | 109 passed |
+| Package native Dart suite, seed 67214 | 144 passed |
 | Package analyzer, fatal infos | Clean |
 | Focused installed-owner/host/lifecycle/settings/boundary/packaging tests | 50 passed |
+| Correction host/worker regressions | 12 passed |
 | Root analyzer | Clean |
 | Root/package format gates | 1,759 root files and 19 handwritten package files, zero changes |
 | Compatibility wrapper analyzer | Clean |
@@ -19,7 +20,7 @@ Validated in the assigned worktree, based on main `88a2aad35030fe655a833958c498a
 | Full-wrapper iOS simulator debug build | Passed; embedded cooking framework verified |
 | Root unsigned macOS debug build | Passed; embedded cooking framework verified |
 | Full-wrapper unsigned macOS debug build | Passed; embedded cooking framework verified |
-| Corrected full root suite, seed 67214 | **11,923 passed, 7 skipped, zero failures (5m45s)** |
+| Corrected full root suite, seed 67214 | **11,925 passed, 7 skipped, zero failures (5m40s)** |
 
 The initial full root run completed with **11,921 passed, 7 skipped, 2 failures** in 6m18s. Both failures were Local Dates persistence tests comparing maps without the newly persisted `emailFormat` and `emailTimezone` fields. Expectations now verify the pinned defaults; wire decoding additionally checks explicit email settings. This is a milestone regression corrected here, not an old baseline failure. The initial complete log is retained. The initial package analyzer also found two missing test-loop braces; those are corrected and the final analyzer is clean.
 
@@ -45,8 +46,13 @@ Full-suite command:
 flutter test --no-pub --reporter expanded --test-randomize-ordering-seed=67214
 ```
 
-The final bundle is 2,411,137 bytes, SHA-256 `9dbdedba1a57bf7dae9940d4af2c306550bcf61d99c60aac3e408dc0f44c9f60`. Source changes were frozen before the final full-suite/package-artifact pass. Separate cleanup files/catalog entries own link rel, code/bidi, cached mentions, and media policy. Bot carousel `data-mode` is retained for the pre-existing native image-grid renderer; fence tests retain only reviewed wrap/height metadata.
+The final bundle is 2,414,193 bytes, SHA-256 `95490083fe13f2e3c44133cf2dc5d037f49016c99ee58d0b3c8a7a33f03568f3`. Source changes were frozen before the final full-suite/package-artifact pass. Separate cleanup files/catalog entries own link rel, code/bidi, cached mentions, and media policy. Bot carousel `data-mode` is retained for the pre-existing native image-grid renderer; fence tests retain only reviewed wrap/height metadata.
 
 The four final Apple application kernels contain the exact final compiler bundle revision, in addition to their embedded native cooking frameworks. `embedded-frameworks.log` records those artifact checks. `full-root-suite.log.gz` is the final run after all source/policy changes; the earlier corrected runs are not substituted for this gate.
 
 A final adversarial cached-HTML check exposed two related media-policy bypasses: template content lives in a separate parse5 fragment, and stripping unsupported raw-text wrappers could expose their unprocessed contents. The shared walker now traverses template content; the closed sanitizer discards unsupported opaque bodies. Media cleanup also checks the native video parser’s original-source fallback. Nine additional shared JS/native regression cases cover these paths. The superseded in-progress root run was interrupted; the final full-suite log is a fresh run after these fixes.
+
+
+Coordinator review corrections select referenced metadata before constructing a merged snapshot, apply one 96 KiB aggregate metadata budget (including complete matching/policy maps and lists), and retain cached video thumbnails through resolved upload URLs. Overflow of required policy produces a readable host `inputLimit` result; it never silently truncates censor or deny rules. Host tests cover independent 150 KiB caches, precedence/empty incoming caches, aggregate enrichment, required map/list limits, invalidation, and the installed no-HTTP thumbnail path. Four additional JS/native tests cover post-only and Chat-only syntax/token extensions inside transcripts, missing dependencies, and disabled owners. The nested engine API selects the target profile independently, creates separate owner state, and preserves reviewed nested output through the parent's sanitizer.
+
+The existing whole-worker benchmark on the final assembly reports 41.3 ms median and 45.8 ms p95 round-trip over 100 warm samples (39.7 ms median engine time; 10,227,696 bytes reported QuickJS allocation). It ran in local JIT mode while other validation was active, so this is a boundedness check, not a controlled performance comparison. Full output is retained in `worker-benchmark.log`.
