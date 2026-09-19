@@ -81,6 +81,9 @@ class ComposerSlashMenuState extends State<ComposerSlashMenu> {
   ComposerSlashQuery? _query;
   int? _dismissed;
   Rect? _caret;
+  Rect? _lastVisibleCaret;
+  String _lastVisibleQuery = '';
+  List<ComposerSlashAction> _lastVisibleActions = const [];
   bool _scheduled = false;
 
   @override
@@ -238,12 +241,18 @@ class ComposerSlashMenuState extends State<ComposerSlashMenu> {
   @override
   Widget build(BuildContext context) {
     final query = _query;
-    final actions = query == null
-        ? const <ComposerSlashAction>[]
-        : widget.actions(context);
-    final caret = _caret;
+    final open = query != null && _caret != null;
+    // The dropdown stays mounted during its exit animation. Keep its anchor
+    // and contents stable after the live query closes, until the next opening.
+    if (open) {
+      _lastVisibleCaret = _caret;
+      _lastVisibleQuery = query.query;
+      _lastVisibleActions = widget.actions(context);
+    }
+    final actions = _lastVisibleActions;
+    final caret = _lastVisibleCaret;
     return DDropdownMenu(
-      open: query != null && caret != null,
+      open: open,
       restoreFocus: false,
       onOpenChange: (open, reason) {
         if (!open) {
@@ -262,7 +271,7 @@ class ComposerSlashMenuState extends State<ComposerSlashMenu> {
           TextFieldTapRegion(
             child: DCommand<String>(
               controller: _command,
-              query: query?.query ?? '',
+              query: _lastVisibleQuery,
               loop: true,
               onEscape: _cancel,
               onSelected: (label) =>

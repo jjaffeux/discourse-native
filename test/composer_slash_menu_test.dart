@@ -1,3 +1,4 @@
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/shell/composer_controller.dart';
 import 'package:discourse_native/src/shell/composer_panel.dart';
 import 'package:discourse_native/src/shell/composer_slash_menu.dart';
@@ -253,6 +254,42 @@ void main() {
       expect(find.text('Close menu'), findsNothing);
       await type(tester, '/$query more');
       expect(find.text('Close menu'), findsNothing);
+    });
+  }
+
+  for (final dismissal in ['backspace', 'escape', 'space']) {
+    testWidgets('$dismissal keeps slash menu geometry during exit', (
+      tester,
+    ) async {
+      await pump(tester);
+      await type(tester, 'First line\nSome text /');
+      final anchor = find.descendant(
+        of: find.byType(ComposerSlashMenu),
+        matching: find.byType(DPopoverAnchor),
+      );
+      final position = tester.getTopLeft(anchor);
+      final menu = find.byType(DDropdownMenuContent);
+      final size = tester.getSize(menu);
+      if (dismissal == 'backspace') {
+        await tester.sendKeyEvent(LogicalKeyboardKey.backspace);
+      } else {
+        await tester.sendKeyEvent(
+          dismissal == 'escape'
+              ? LogicalKeyboardKey.escape
+              : LogicalKeyboardKey.space,
+        );
+      }
+      for (var frame = 0; frame < 6; frame++) {
+        await tester.pump(const Duration(milliseconds: 16));
+        expect(tester.getTopLeft(anchor), position);
+        if (menu.evaluate().isNotEmpty) {
+          expect(tester.getSize(menu), size);
+          expect(find.text('Bold'), findsOneWidget);
+        }
+      }
+      await tester.pumpAndSettle();
+      expect(find.text('Close menu'), findsNothing);
+      expect(tester.takeException(), isNull);
     });
   }
 
