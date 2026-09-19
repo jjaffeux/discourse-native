@@ -1,5 +1,5 @@
 import 'dart:async';
-import 'dart:ui' show PointerDeviceKind;
+import 'dart:ui' show ImageByteFormat, PointerDeviceKind;
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/data/discourse_api.dart';
@@ -59,6 +59,7 @@ import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart' show kSecondaryMouseButton;
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
@@ -347,6 +348,82 @@ void _registerChatShellTests() {
     Future<void> pumpUntilRead(WidgetTester tester) async {
       await tester.pumpAndSettle();
       await tester.pump(const Duration(milliseconds: 600));
+    }
+
+    for (final brightness in Brightness.values) {
+      testWidgets(
+        'desktop channel corners reveal the ${brightness.name} workspace',
+        (tester) async {
+          tester.platformDispatcher.platformBrightnessTestValue = brightness;
+          addTearDown(
+            tester.platformDispatcher.clearPlatformBrightnessTestValue,
+          );
+          const notifications = MethodChannel(
+            'org.discourse.native/notification_opens',
+          );
+          final messenger = tester.binding.defaultBinaryMessenger;
+          messenger.setMockMethodCallHandler(notifications, (_) async => null);
+          addTearDown(
+            () => messenger.setMockMethodCallHandler(notifications, null),
+          );
+          await pumpChat(
+            tester,
+            api: FakeDiscourseApi(
+              feeds: const {'/latest.json': []},
+              totals: withChat,
+              user: me,
+              chatChannelsBySite: {
+                site: ChatChannels(public: [channel(9)]),
+              },
+              chatMessagesByKey: {key(9): page(const [])},
+            ),
+          );
+          ShellScope.read(
+            tester.element(find.byType(InstanceSidebar)),
+          ).openChatChannel(9);
+          await tester.pumpAndSettle();
+
+          final content = find.byType(MainContent);
+          final theme = Theme.of(tester.element(content));
+          final boundary = tester.renderObject<RenderRepaintBoundary>(
+            find
+                .ancestor(of: content, matching: find.byType(RepaintBoundary))
+                .last,
+          );
+          final bounds = tester
+              .getRect(content)
+              .shift(-boundary.localToGlobal(Offset.zero));
+          await tester.runAsync(() async {
+            final image = await boundary.toImage();
+            try {
+              final pixels = (await image.toByteData(
+                format: ImageByteFormat.rawRgba,
+              ))!;
+              for (final point in [
+                bounds.topLeft,
+                bounds.bottomLeft - const Offset(0, 1),
+                bounds.topRight - const Offset(1, 0),
+                bounds.bottomRight - const Offset(1, 1),
+              ]) {
+                final offset =
+                    (point.dy.round() * image.width + point.dx.round()) * 4;
+                final expected = theme.scaffoldBackgroundColor.toARGB32();
+                for (var channel = 0; channel < 3; channel++) {
+                  expect(
+                    pixels.getUint8(offset + channel),
+                    (expected >> (16 - channel * 8)) & 255,
+                    reason: 'Workspace background at $point',
+                  );
+                }
+              }
+            } finally {
+              image.dispose();
+            }
+          });
+          expect(tester.takeException(), isNull);
+        },
+        variant: TargetPlatformVariant.only(TargetPlatform.macOS),
+      );
     }
 
     group('contextual global search', () {
