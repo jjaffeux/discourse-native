@@ -4,6 +4,7 @@ import 'package:discourse_native/src/diagnostics/diagnostics.dart';
 import 'package:discourse_native/src/models/app_settings.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/post.dart';
+import 'package:discourse_native/src/models/sidebar.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/models/topic_presentation.dart';
 import 'package:discourse_native/src/shell/adaptive_shell.dart';
@@ -20,6 +21,7 @@ import 'package:discourse_native/src/shell/topic_list_view.dart';
 import 'package:discourse_native/src/shell/topic_presentation.dart';
 import 'package:discourse_native/src/shell/topic_view.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
+import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show ScrollCacheExtent;
 import 'package:flutter/services.dart';
@@ -326,6 +328,63 @@ void main() {
       expect(await const TopicPresentationStore().read(), mode);
       expect(tester.takeException(), isNull);
     }
+  }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
+
+  testWidgets('an unknown route shows Not found without demo actions', (
+    tester,
+  ) async {
+    final h = await _setup(tester);
+    h.shell.selectDestination(
+      const SidebarDestination(
+        id: 'missing-page',
+        label: 'Missing page',
+        icon: DIcons.folder,
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Not found'), findsOneWidget);
+    expect(find.text('Replace with deeper view'), findsNothing);
+    expect(find.text('Show sheet'), findsNothing);
+    expect(tester.takeException(), isNull);
+  }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
+
+  testWidgets('split category selection loads while a reader stays active', (
+    tester,
+  ) async {
+    final h = await _setup(tester, size: const Size(2200, 1000));
+    h.shell.openTopicFromList(h.topics.first);
+    await tester.pumpAndSettle();
+    final readerId = h.shell.activeTabId;
+    h.api.feedPaths.clear();
+    h.api.feeds['/c/general/5.json'] = [
+      const Topic(
+        id: 101,
+        title: 'A general category topic',
+        slug: 'general-topic',
+      ),
+    ];
+
+    h.shell.browseTopicCategory(
+      const TopicCategory(
+        id: 5,
+        name: 'general',
+        slug: 'general',
+        color: '0088CC',
+      ),
+      keepTopicOpen: true,
+    );
+    await tester.pumpAndSettle();
+
+    expect(h.shell.activeTabId, readerId);
+    expect(h.shell.currentContent?.topicId, 1);
+    expect(h.shell.topicListContent?.categoryId, 5);
+    expect(h.api.feedPaths, contains(h.shell.topicListContent!.feedPath));
+    expect(h.shell.currentFeed?.topicIds, [101]);
+    expect(find.text('A general category topic'), findsOneWidget);
+    expect(find.byType(TopicListView).hitTestable(), findsOneWidget);
+    expect(find.text('Not found'), findsNothing);
+    expect(find.text('Replace with deeper view'), findsNothing);
+    expect(tester.takeException(), isNull);
   }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 
   testWidgets('split panels scope tabs and swap without replacing the reader', (
@@ -880,7 +939,8 @@ Future<void> _composeShortcut(
   if (reply) await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
 }
 
-Future<({ShellController shell, List<Topic> topics})> _setup(
+Future<({ShellController shell, List<Topic> topics, FakeDiscourseApi api})>
+_setup(
   WidgetTester tester, {
   Size size = const Size(1440, 900),
   TextDirection direction = TextDirection.ltr,
@@ -968,5 +1028,5 @@ Future<({ShellController shell, List<Topic> topics})> _setup(
     ),
   );
   await tester.pumpAndSettle();
-  return (shell: shell, topics: topics);
+  return (shell: shell, topics: topics, api: api);
 }

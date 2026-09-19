@@ -42,7 +42,6 @@ import 'shell_controller.dart';
 import 'shell_metrics.dart';
 import 'shell_panel.dart';
 import 'shell_scope.dart';
-import 'shell_sheet.dart';
 import 'tags_page.dart';
 import 'title_bar.dart';
 import 'topic_create_button.dart';
@@ -805,7 +804,7 @@ class _FeedBackedContent extends StatelessWidget {
             keepTopicOpen: keepTopicOpen,
           );
         } else if (feed == null) {
-          content = fallback ?? _ContentPlaceholder(route: route);
+          content = fallback ?? const _ContentNotFound();
         } else {
           content = TopicListView(
             feed: feed,
@@ -1503,85 +1502,24 @@ class _SignedOutMessagesState extends StatelessWidget {
   );
 }
 
-class _ContentPlaceholder extends StatelessWidget {
-  const _ContentPlaceholder({required this.route});
-
-  final ContentRoute route;
+class _ContentNotFound extends StatelessWidget {
+  const _ContentNotFound();
 
   @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final controller = ShellScope.read(context);
-    final stack = controller.contentStack;
-    final depth = stack.length;
-
-    return Center(
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 420),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            DIcon(
-              route.icon,
-              size: 56,
-              color: route.color ?? theme.colorScheme.primary,
-            ),
-            const SizedBox(height: 16),
-            Text(
-              route.title,
-              textAlign: TextAlign.center,
-              style: theme.textTheme.headlineSmall,
-            ),
-            if (depth > 1) ...[
-              const SizedBox(height: 4),
-              Text(
-                stack.map((r) => r.title).join('  ›  '),
-                textAlign: TextAlign.center,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
-              ),
+  Widget build(BuildContext context) => const Center(
+    child: SingleChildScrollView(
+      child: DEmpty(
+        children: [
+          DEmptyHeader(
+            children: [
+              DEmptyTitle('Not found'),
+              DEmptyDescription('The requested page could not be found.'),
             ],
-            const SizedBox(height: 24),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              alignment: WrapAlignment.center,
-              children: [
-                DButton(
-                  label: const Text('Replace with deeper view'),
-                  onPressed: () => controller.pushContent(
-                    ContentRoute(
-                      id: '${route.id}-$depth',
-                      title: 'Topic $depth',
-                      icon: DIcons.comments,
-                      subtitle: 'opened from ${route.title}',
-                    ),
-                  ),
-                  icon: const DIcon(DIcons.upRightFromSquare),
-                ),
-                DButton(
-                  label: const Text('Show sheet'),
-                  onPressed: () => showShellSheet<void>(
-                    context: context,
-                    title: route.title,
-                    builder: (context) => Text(
-                      'Sheets sit over the shell instead of replacing the main '
-                      'region. Use them for composing, quick actions and '
-                      'anything the user should be able to dismiss without '
-                      'losing their place.',
-                      style: theme.textTheme.bodyMedium,
-                    ),
-                  ),
-                  icon: const DIcon(DIcons.arrowUp),
-                ),
-              ],
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
-    );
-  }
+    ),
+  );
 }
 
 class _MainContentSnapshot {
