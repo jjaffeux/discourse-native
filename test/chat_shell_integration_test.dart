@@ -270,7 +270,10 @@ void _registerChatShellTests() {
     setUp(() => startOnChatSidebar = false);
 
     Future<void> selectChatSidebar(WidgetTester tester) async {
-      final tab = find.byKey(const ValueKey('sidebar-panel-switch-chat'));
+      final mobileTab = find.byKey(const ValueKey('mobile-mode-chat'));
+      final tab = mobileTab.evaluate().isNotEmpty
+          ? mobileTab
+          : find.byKey(const ValueKey('sidebar-panel-switch-chat'));
       if (tab.evaluate().isNotEmpty) {
         await tester.ensureVisible(tab);
         await tester.tap(tab);
@@ -663,7 +666,7 @@ void _registerChatShellTests() {
 
         await pumpChat(tester, user: chatUser(hasChatEnabled: false));
         expect(shortcut, findsNothing);
-      });
+      }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
       testWidgets('is hidden on Aggregate', (tester) async {
         await pumpChat(tester);
@@ -681,7 +684,7 @@ void _registerChatShellTests() {
         await tester.pump();
 
         expect(shortcut, findsOneWidget);
-      });
+      }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
       testWidgets('draws a quiet dot for ordinary public activity', (
         tester,
@@ -694,7 +697,7 @@ void _registerChatShellTests() {
           find.descendant(of: shortcut, matching: find.text('42')),
           findsNothing,
         );
-      });
+      }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
       testWidgets('draws the aggregate urgent count and caps it at 99+', (
         tester,
@@ -708,7 +711,7 @@ void _registerChatShellTests() {
         expect(urgent, findsOneWidget);
         expect(find.text('99+'), findsOneWidget);
         expect(dot, findsNothing);
-      });
+      }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
       testWidgets('honours the account’s indicator preference', (tester) async {
         await pumpChat(
@@ -723,7 +726,7 @@ void _registerChatShellTests() {
         expect(shortcut, findsOneWidget);
         expect(dot, findsNothing);
         expect(urgent, findsNothing);
-      });
+      }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
       testWidgets('suppresses every indicator during Do Not Disturb', (
         tester,
@@ -741,7 +744,7 @@ void _registerChatShellTests() {
         expect(shortcut, findsOneWidget);
         expect(dot, findsNothing);
         expect(urgent, findsNothing);
-      });
+      }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
       testWidgets('restores waiting activity when Do Not Disturb expires', (
         tester,
@@ -761,7 +764,7 @@ void _registerChatShellTests() {
 
         expect(urgent, findsOneWidget);
         expect(tester.widget<Text>(urgent).data, '3');
-      });
+      }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
       testWidgets('opens the server’s last chat channel', (tester) async {
         await pumpChat(
@@ -780,7 +783,7 @@ void _registerChatShellTests() {
         );
         expect(shell.currentContent?.id, ChatChannel.routeId(9));
         expect(shell.chat.channel(site, 9)?.membership.lastViewedAt, isNotNull);
-      });
+      }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
       testWidgets(
         'opens a modeless desktop drawer without replacing the forum route',
@@ -872,6 +875,7 @@ void _registerChatShellTests() {
           expect(find.byKey(ChatDrawerOverlay.drawerKey), findsOneWidget);
           expect(shell.currentContent?.id, forumRoute);
         },
+        variant: TargetPlatformVariant.only(TargetPlatform.linux),
       );
 
       testWidgets(
@@ -959,6 +963,7 @@ void _registerChatShellTests() {
           );
           expect(tester.takeException(), isNull);
         },
+        variant: const TargetPlatformVariant({TargetPlatform.macOS}),
       );
 
       testWidgets(
@@ -1020,6 +1025,7 @@ void _registerChatShellTests() {
             findsNothing,
           );
         },
+        variant: const TargetPlatformVariant({TargetPlatform.macOS}),
       );
 
       testWidgets(
@@ -1094,6 +1100,7 @@ void _registerChatShellTests() {
           expect(find.text('Message deleted'), findsOneWidget);
           expect(find.text('Edited message'), findsNothing);
         },
+        variant: const TargetPlatformVariant({TargetPlatform.macOS}),
       );
 
       testWidgets(
@@ -1158,6 +1165,7 @@ void _registerChatShellTests() {
             findsNothing,
           );
         },
+        variant: TargetPlatformVariant.only(TargetPlatform.linux),
       );
 
       testWidgets(
@@ -1227,6 +1235,7 @@ void _registerChatShellTests() {
             findsOneWidget,
           );
         },
+        variant: const TargetPlatformVariant({TargetPlatform.macOS}),
       );
 
       testWidgets(
@@ -1351,7 +1360,7 @@ void _registerChatShellTests() {
 
         expect(sidebarDestination('Topics'), findsOneWidget);
         expect(sidebarDestination('Bugs'), findsNothing);
-      });
+      }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
       testWidgets('closing the hovered drawer removes its Close tooltip', (
         tester,
@@ -1390,7 +1399,7 @@ void _registerChatShellTests() {
         await tester.pump(const Duration(milliseconds: 400));
         await tester.pumpAndSettle();
         expect(find.text('Close'), findsOneWidget);
-      });
+      }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
       testWidgets(
         'the active drawer channel is selected in the forum sidebar',
@@ -1448,6 +1457,7 @@ void _registerChatShellTests() {
           await selectChatSidebar(tester);
           expect(sidebarLabelStyle().fontWeight, FontWeight.w400);
         },
+        variant: TargetPlatformVariant.only(TargetPlatform.linux),
       );
 
       testWidgets('Alt arrows cycle channels and unread channels with wrap', (
@@ -1507,7 +1517,7 @@ void _registerChatShellTests() {
         await tester.sendKeyUpEvent(LogicalKeyboardKey.altLeft);
         await tester.pumpAndSettle();
         expect(chatShell.drawerCurrentContent?.id, ChatChannel.routeId(12));
-      });
+      }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
       testWidgets('permission revocation closes an open drawer immediately', (
         tester,
@@ -1549,7 +1559,7 @@ void _registerChatShellTests() {
         expect(shortcut, findsNothing);
         expect(editor.focusNode.hasFocus, isFalse);
         expect(editor.controller.text, 'draft survives permission refresh');
-      });
+      }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
       testWidgets('disconnect clears drawer history and viewing state', (
         tester,
@@ -1585,7 +1595,7 @@ void _registerChatShellTests() {
         expect(chatShell.drawerContentStack, isEmpty);
         expect(find.byKey(ChatDrawerOverlay.drawerKey), findsNothing);
         expect(tracker.pluginChannelCallbacks['/chat/9'], isEmpty);
-      });
+      }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
       testWidgets(
         'drawer Back follows route context and is absent on index routes',
@@ -1740,6 +1750,7 @@ void _registerChatShellTests() {
           chatShell.closeDrawer();
           await tester.pump();
         },
+        variant: TargetPlatformVariant.only(TargetPlatform.linux),
       );
 
       testWidgets('drawer initial route honors the preferred Chat index', (
@@ -1810,7 +1821,7 @@ void _registerChatShellTests() {
           ),
           isNull,
         );
-      });
+      }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
       testWidgets('disabled public and thread routes stay unavailable', (
         tester,
@@ -1851,7 +1862,7 @@ void _registerChatShellTests() {
         chatShell.openMyThreads();
         await tester.pumpAndSettle();
         expect(find.text('Chat threads are not available.'), findsOneWidget);
-      });
+      }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
       testWidgets('collapse, close, and Escape retain the drawer route', (
         tester,
@@ -1922,7 +1933,7 @@ void _registerChatShellTests() {
         await tester.sendKeyEvent(LogicalKeyboardKey.escape);
         await tester.pumpAndSettle();
         expect(find.byKey(ChatDrawerOverlay.drawerKey), findsNothing);
-      });
+      }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
       for (final inThread in [false, true]) {
         testWidgets(
@@ -2014,6 +2025,7 @@ void _registerChatShellTests() {
               expect(tracker.pluginChannelCallbacks[subscription], isEmpty);
             }
           },
+          variant: TargetPlatformVariant.only(TargetPlatform.linux),
         );
       }
 
@@ -2079,7 +2091,7 @@ void _registerChatShellTests() {
           tester.widget<EditableText>(editor()).controller.text,
           'Modified while editing',
         );
-      });
+      }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
       testWidgets('Escape dismisses a modal before the drawer', (tester) async {
         await pumpChat(
@@ -2110,7 +2122,7 @@ void _registerChatShellTests() {
         await tester.sendKeyEvent(LogicalKeyboardKey.escape);
         await tester.pumpAndSettle();
         expect(find.byKey(ChatDrawerOverlay.drawerKey), findsNothing);
-      });
+      }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
       testWidgets(
         'navigation exposes empty capable routes and leaves an emptied Starred list',
@@ -2177,6 +2189,7 @@ void _registerChatShellTests() {
           expect(find.byType(ChatChannelView), findsOneWidget);
           expect(find.byKey(ChatDrawerNavigation.navigationKey), findsNothing);
         },
+        variant: TargetPlatformVariant.only(TargetPlatform.linux),
       );
 
       testWidgets(
@@ -2259,6 +2272,7 @@ void _registerChatShellTests() {
             'DRAWER_CHAT',
           );
         },
+        variant: TargetPlatformVariant.only(TargetPlatform.linux),
       );
 
       testWidgets(
@@ -2272,7 +2286,8 @@ void _registerChatShellTests() {
             preferredDisplayMode: ChatPreferredDisplayMode.drawer,
           );
 
-          await tester.tap(shortcut);
+          await selectChatSidebar(tester);
+          await tester.tap(sidebarDestination('Bugs'));
           await tester.pumpAndSettle();
 
           expect(find.byKey(ChatDrawerOverlay.drawerKey), findsNothing);
@@ -2341,6 +2356,7 @@ void _registerChatShellTests() {
           );
           expect(api.chatMessagesRequested.last.targetMessageId, 41);
         },
+        variant: TargetPlatformVariant.only(TargetPlatform.linux),
       );
 
       testWidgets('shrinking an open drawer promotes its exact route', (
@@ -2370,7 +2386,7 @@ void _registerChatShellTests() {
           ),
           'DRAWER_CHAT',
         );
-      });
+      }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
       testWidgets('the global minus shortcut opens and closes the drawer', (
         tester,
@@ -2409,7 +2425,7 @@ void _registerChatShellTests() {
         await tester.sendKeyEvent(LogicalKeyboardKey.minus);
         await tester.pumpAndSettle();
         expect(find.byKey(ChatDrawerOverlay.drawerKey), findsNothing);
-      });
+      }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
       testWidgets('the global minus shortcut restores drawer preference', (
         tester,
@@ -2449,7 +2465,7 @@ void _registerChatShellTests() {
           ),
           'DRAWER_CHAT',
         );
-      });
+      }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
       testWidgets('resizes from the top-start corner and persists the size', (
         tester,
@@ -2495,7 +2511,7 @@ void _registerChatShellTests() {
           ),
           670,
         );
-      });
+      }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
       testWidgets('keeps expanded and collapsed drawers above the safe area', (
         tester,
@@ -2526,7 +2542,7 @@ void _registerChatShellTests() {
               tester.getRect(find.byKey(ChatDrawerOverlay.collapsedKey)).bottom,
           closeTo(expectedInset, 0.1),
         );
-      });
+      }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
       testWidgets('a wide drawer keeps thread routes in one pane', (
         tester,
@@ -2613,7 +2629,7 @@ void _registerChatShellTests() {
           api.chatThreadMessagesRequested.map((request) => request.threadId),
           contains(4),
         );
-      });
+      }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
       testWidgets('a narrow drawer keeps thread notification selection alive', (
         tester,
@@ -2759,7 +2775,7 @@ void _registerChatShellTests() {
       }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 
       testWidgets(
-        'keeps the chat shortcut while chat is active on a compact shell',
+        'shows the mobile Chat mode only while its sidebar is visible',
         (tester) async {
           await pumpChat(
             tester,
@@ -2767,13 +2783,18 @@ void _registerChatShellTests() {
             public: [channel(9)],
             messages: {key(9): page(const [])},
           );
-          expect(shortcut, findsOneWidget);
+          expect(
+            find.byKey(const ValueKey('mobile-mode-chat')),
+            findsOneWidget,
+          );
 
-          await tester.tap(shortcut);
+          await selectChatSidebar(tester);
+          await tester.tap(sidebarDestination('Bugs'));
           await tester.pumpAndSettle();
 
           expect(find.byType(ChatChannelView), findsOneWidget);
-          expect(shortcut, findsOneWidget);
+          expect(shortcut, findsNothing);
+          expect(find.byKey(const ValueKey('mobile-mode-chat')), findsNothing);
         },
       );
     });
@@ -2824,7 +2845,7 @@ void _registerChatShellTests() {
             ),
             findsNothing,
           );
-        });
+        }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
         for (final scenario in [
           (
@@ -2880,7 +2901,7 @@ void _registerChatShellTests() {
             expect(sidebarDestination('Bugs'), findsOneWidget);
             expect(find.byKey(forumSwitch), findsOneWidget);
             expect(find.byKey(chatSwitch), findsOneWidget);
-          });
+          }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
         }
 
         testWidgets('appears when Chat totals arrive after the sidebar', (
@@ -2929,7 +2950,7 @@ void _registerChatShellTests() {
           } finally {
             semantics.dispose();
           }
-        });
+        }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
         for (final scenario in [
           (mode: ChatSeparateSidebarMode.never, separates: false),
@@ -2981,6 +3002,7 @@ void _registerChatShellTests() {
               );
               expect(find.byKey(ChatHeaderButton.buttonKey), findsNothing);
             },
+            variant: TargetPlatformVariant.only(TargetPlatform.linux),
           );
         }
 
@@ -3126,6 +3148,7 @@ void _registerChatShellTests() {
             expect(sidebarDestination('Topics'), findsNothing);
             expect(sidebarDestination('Search'), findsNothing);
           },
+          variant: TargetPlatformVariant.only(TargetPlatform.linux),
         );
 
         for (final replace in [false, true]) {
@@ -3184,6 +3207,7 @@ void _registerChatShellTests() {
               expect(shell.currentContent, forumRoute);
               expect(shell.contentStack, [forumRoute]);
             },
+            variant: TargetPlatformVariant.only(TargetPlatform.linux),
           );
         }
 
@@ -3341,6 +3365,7 @@ void _registerChatShellTests() {
 
             expect(shell.currentContent?.id, 'latest');
           },
+          variant: TargetPlatformVariant.only(TargetPlatform.linux),
         );
 
         testWidgets(
@@ -3413,6 +3438,7 @@ void _registerChatShellTests() {
               'forum-detail-b',
             ]);
           },
+          variant: TargetPlatformVariant.only(TargetPlatform.linux),
         );
 
         testWidgets(
@@ -3483,6 +3509,7 @@ void _registerChatShellTests() {
               ChatPlugin.searchRouteId,
             ]);
           },
+          variant: TargetPlatformVariant.only(TargetPlatform.linux),
         );
       });
 
@@ -3500,7 +3527,7 @@ void _registerChatShellTests() {
 
         expect(find.widgetWithText(DSidebarMenuButton, 'Chat'), findsNothing);
         expect(api.chatChannelsRequested, isEmpty);
-      });
+      }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
       testWidgets('asks a site for channels once its totals said it has them', (
         tester,
@@ -3516,7 +3543,7 @@ void _registerChatShellTests() {
 
         expect(api.chatChannelsRequested, [site]);
         expect(sidebarDestination('Bugs'), findsOneWidget);
-      });
+      }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
       testWidgets('draws nothing while the channel list is still on its way', (
         tester,
@@ -3537,9 +3564,12 @@ void _registerChatShellTests() {
         gate.complete();
         await tester.pumpAndSettle();
 
-        expect(find.widgetWithText(DSidebarMenuButton, 'Chat'), findsOneWidget);
+        expect(
+          find.byKey(const ValueKey('sidebar-panel-switch-chat')),
+          findsOneWidget,
+        );
         expect(shellNotifications, 0);
-      });
+      }, variant: const TargetPlatformVariant({TargetPlatform.macOS}));
 
       testWidgets('draws nothing for an account that follows no channels', (
         tester,
@@ -3551,7 +3581,7 @@ void _registerChatShellTests() {
           find.widgetWithText(DSidebarMenuButton, 'Direct messages'),
           findsNothing,
         );
-      });
+      }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
       testWidgets(
         'omits sidebar search even when the site enables chat search',
@@ -3571,6 +3601,7 @@ void _registerChatShellTests() {
             findsOneWidget,
           );
         },
+        variant: TargetPlatformVariant.only(TargetPlatform.linux),
       );
 
       testWidgets('keeps the improved search sort menu inside the viewport', (
@@ -3636,7 +3667,7 @@ void _registerChatShellTests() {
           _primaryFocusIsWithin(find.byKey(const ValueKey('chat-search-sort'))),
           isTrue,
         );
-      });
+      }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
       testWidgets('Command F opens and refocuses global search from Chat', (
         tester,
@@ -3770,7 +3801,7 @@ void _registerChatShellTests() {
         final shell = ShellScope.read(tester.element(find.byType(MainContent)));
         expect(shell.currentContent?.id, 'chat-c-9');
         expect(api.chatMessagesRequested.last.targetMessageId, 40);
-      });
+      }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
       testWidgets('lists the public channels above the direct messages', (
         tester,
@@ -3792,7 +3823,7 @@ void _registerChatShellTests() {
         expect(chatHeading, lessThan(dmHeading));
         expect(sidebarDestination('Bugs'), findsOneWidget);
         expect(sidebarDestination('hawk'), findsOneWidget);
-      });
+      }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
       for (final directMessage in [false, true]) {
         testWidgets(
@@ -4115,7 +4146,7 @@ void _registerChatShellTests() {
 
               expect(
                 find.byKey(const ValueKey('chat-channel-menu-button-9')),
-                findsNothing,
+                findsOneWidget,
               );
               final shell = ShellScope.read(
                 tester.element(find.byType(InstanceSidebar)),
@@ -4222,6 +4253,7 @@ void _registerChatShellTests() {
           );
           expect(composer.text, 'Keep this chat draft');
         },
+        variant: TargetPlatformVariant.only(TargetPlatform.linux),
       );
 
       testWidgets('refreshes browse results with the current channel filter', (
@@ -4274,7 +4306,7 @@ void _registerChatShellTests() {
           findsOneWidget,
         );
         expect(shell.currentContent?.id, ChatPlugin.browseRouteId);
-      });
+      }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
       testWidgets('browses, filters, and joins public channels', (
         tester,
@@ -4346,7 +4378,7 @@ void _registerChatShellTests() {
         ]);
         expect(sidebarDestination('Support'), findsOneWidget);
         expect(find.byKey(const ValueKey('chat-unfollow-10')), findsOneWidget);
-      });
+      }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
       testWidgets('tabs through the browse channel filters in order', (
         tester,
@@ -4374,7 +4406,7 @@ void _registerChatShellTests() {
           ),
           isTrue,
         );
-      });
+      }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
       testWidgets('reorders direct messages when a new message arrives', (
         tester,
@@ -4421,7 +4453,7 @@ void _registerChatShellTests() {
           tester.getTopLeft(sidebarDestination('Second')).dy,
           lessThan(tester.getTopLeft(sidebarDestination('First')).dy),
         );
-      });
+      }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
       testWidgets(
         'lists starred public channels and DMs first without duplicating them',
@@ -4486,6 +4518,7 @@ void _registerChatShellTests() {
             await mouse.removePointer();
           }
         },
+        variant: TargetPlatformVariant.only(TargetPlatform.linux),
       );
 
       testWidgets(
@@ -4501,6 +4534,7 @@ void _registerChatShellTests() {
             findsOneWidget,
           );
         },
+        variant: TargetPlatformVariant.only(TargetPlatform.linux),
       );
 
       testWidgets('marks a channel linked to a private category', (
@@ -4515,7 +4549,7 @@ void _registerChatShellTests() {
           ),
           findsOneWidget,
         );
-      });
+      }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
       testWidgets(
         'draws the other person’s face on a one-to-one conversation',
@@ -4534,8 +4568,9 @@ void _registerChatShellTests() {
           expect(chatAvatar, findsOneWidget);
           // Touch rows use 22px identity artwork inside the larger hit target.
           final size = tester.getSize(avatar);
-          expect(size, const Size.square(22));
+          expect(size, const Size.square(18));
         },
+        variant: TargetPlatformVariant.only(TargetPlatform.linux),
       );
 
       testWidgets('rings an online direct-message user in the sidebar', (
@@ -4552,7 +4587,7 @@ void _registerChatShellTests() {
           matching: find.byKey(ChatUserAvatar.onlineRingKey(2)),
         );
         expect(ring, findsOneWidget);
-        expect(tester.getSize(ring), const Size.square(22));
+        expect(tester.getSize(ring), const Size.square(18));
 
         final tracker = FakeSiteTracker.built.single;
         tracker.deliverPluginMessage('/presence/chat/online', {
@@ -4561,7 +4596,7 @@ void _registerChatShellTests() {
         await tester.pump();
 
         expect(ring, findsNothing);
-      });
+      }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
       testWidgets('draws a dot rather than a number, however much is unread', (
         tester,
@@ -4579,7 +4614,7 @@ void _registerChatShellTests() {
           findsNothing,
         );
         expect(sidebarDestination('Bugs'), findsOneWidget);
-      });
+      }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
       testWidgets('uses core sidebar colors for unread and urgent dots', (
         tester,
@@ -4607,7 +4642,7 @@ void _registerChatShellTests() {
 
         expect(dotColor(unreadKey), theme.discourse.unreadIndicator);
         expect(dotColor(urgentKey), theme.discourse.success);
-      });
+      }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
       testWidgets('keeps the unread dot beside the channel label', (
         tester,
@@ -4623,7 +4658,7 @@ void _registerChatShellTests() {
         );
 
         expect(dot.left - label.right, inInclusiveRange(0, 8));
-      });
+      }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
       testWidgets('an open channel tab mirrors live channel presentation', (
         tester,
@@ -4719,6 +4754,8 @@ void _registerChatShellTests() {
         await pumpChat(tester, size: phone, public: [channel(9)]);
         expect(sidebarDestination('Bugs'), findsOneWidget);
 
+        await tester.tap(find.byKey(const ValueKey('mobile-mode-home')));
+        await tester.pumpAndSettle();
         await tester.longPress(
           find.byKey(const ValueKey<String>('https://meta.discourse.org')),
         );
@@ -4807,6 +4844,7 @@ void _registerChatShellTests() {
 
           expect(find.text('Working today'), findsOneWidget);
         },
+        variant: TargetPlatformVariant.only(TargetPlatform.linux),
       );
 
       testWidgets('shows a direct-message avatar and its live presence', (
@@ -4845,7 +4883,7 @@ void _registerChatShellTests() {
           find.descendant(of: leading, matching: find.byType(ChatUserAvatar)),
           findsOneWidget,
         );
-      });
+      }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
       testWidgets('the channel title opens routed settings and Back returns', (
         tester,
@@ -4889,7 +4927,7 @@ void _registerChatShellTests() {
 
         expect(shell.currentContent?.id, 'chat-c-9');
         expect(find.byType(ChatChannelView), findsOneWidget);
-      });
+      }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
       testWidgets('stacks grouped channel details on a phone', (tester) async {
         const staff = DiscourseUser(
@@ -5259,7 +5297,7 @@ void _registerChatShellTests() {
         final shell = ShellScope.read(tester.element(find.byType(MainContent)));
         expect(shell.chat.channel(site, 9)?.title, 'Bug reports');
         expect(sidebarDestination('Bug reports'), findsOneWidget);
-      });
+      }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
       testWidgets('staff can remove a category channel description', (
         tester,
@@ -5319,7 +5357,7 @@ void _registerChatShellTests() {
           find.text('Tell people what this channel is about.'),
           findsOneWidget,
         );
-      });
+      }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
       testWidgets('staff toggle threading from routed channel settings', (
         tester,
@@ -5382,7 +5420,7 @@ void _registerChatShellTests() {
         final shell = ShellScope.read(tester.element(find.byType(MainContent)));
         expect(shell.chat.channel(site, 9)?.threadingEnabled, isTrue);
         expect(tester.widget<DSwitch>(threadingSwitch).value, isTrue);
-      });
+      }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
       testWidgets('staff close an open category channel after confirmation', (
         tester,
@@ -5457,7 +5495,7 @@ void _registerChatShellTests() {
           find.byKey(const ValueKey('chat-channel-threading-switch')),
           findsNothing,
         );
-      });
+      }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
       testWidgets('changes push notifications from routed channel settings', (
         tester,
@@ -5514,7 +5552,7 @@ void _registerChatShellTests() {
           shell.chat.channel(site, 9)?.membership.notificationLevel,
           ChatChannelNotificationLevel.always,
         );
-      });
+      }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
       testWidgets('leaves a public channel from settings and opens browse', (
         tester,
@@ -5547,7 +5585,7 @@ void _registerChatShellTests() {
         ]);
         expect(shell.currentContent?.id, 'chat-browse');
         expect(sidebarDestination('Bugs'), findsNothing);
-      });
+      }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
       testWidgets('draws a round avatar rather than an oval', (tester) async {
         // The fixed-width gutter gives its child a tight constraint.
@@ -5569,7 +5607,7 @@ void _registerChatShellTests() {
         );
 
         expect(size.width, size.height);
-      });
+      }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
       testWidgets('rings an online user in the site success colour', (
         tester,
@@ -5629,7 +5667,7 @@ void _registerChatShellTests() {
         });
         await tester.pump();
         expect(ring, findsOneWidget);
-      });
+      }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
       testWidgets('opens the channel the sidebar entry names', (tester) async {
         await pumpChat(
@@ -5644,7 +5682,7 @@ void _registerChatShellTests() {
         await tester.pumpAndSettle();
 
         expect(renderedText('Hello there'), findsOneWidget);
-      });
+      }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
       testWidgets('updates a loading channel without notifying the shell', (
         tester,
@@ -5732,7 +5770,7 @@ void _registerChatShellTests() {
         } finally {
           semantics.dispose();
         }
-      });
+      }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
       testWidgets('puts the newest message at the bottom', (tester) async {
         await pumpChat(
@@ -5753,7 +5791,7 @@ void _registerChatShellTests() {
           tester.getTopLeft(renderedText('Older')).dy,
           lessThan(tester.getTopLeft(renderedText('Newer')).dy),
         );
-      });
+      }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
       testWidgets('keeps newest-message actions above the composer', (
         tester,
@@ -5786,7 +5824,7 @@ void _registerChatShellTests() {
             tester.getRect(find.byKey(const ValueKey('chat-composer'))).top,
           ),
         );
-      });
+      }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
       testWidgets('keeps an ordinary newest message close to the composer', (
         tester,
@@ -5810,7 +5848,7 @@ void _registerChatShellTests() {
         );
 
         expect(composer.top - message.bottom, 14);
-      });
+      }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
       testWidgets('hides the name on a message chained to the one above', (
         tester,
@@ -5853,7 +5891,7 @@ void _registerChatShellTests() {
         );
         expect(second.top - first.bottom, 4);
         expect(first.left, second.left);
-      });
+      }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
       testWidgets('shows the name again once somebody else speaks', (
         tester,
@@ -5880,7 +5918,7 @@ void _registerChatShellTests() {
 
         expect(find.text('sam'), findsOneWidget);
         expect(find.text('kris'), findsOneWidget);
-      });
+      }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
       testWidgets('draws an image a message carried outside its cooked body', (
         tester,
@@ -5911,7 +5949,7 @@ void _registerChatShellTests() {
         await tester.pumpAndSettle();
 
         expect(find.byType(ChatUploads), findsOneWidget);
-      });
+      }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
       testWidgets('names a file it cannot draw rather than dropping it', (
         tester,
@@ -5941,7 +5979,7 @@ void _registerChatShellTests() {
 
         expect(find.text('notes.pdf'), findsOneWidget);
         expect(find.text('12 KB'), findsOneWidget);
-      });
+      }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
       testWidgets('directly adds and removes existing message reactions', (
         tester,
@@ -6024,7 +6062,7 @@ void _registerChatShellTests() {
         ]);
         expect(find.bySemanticsLabel('2 heart reactions'), findsOneWidget);
         expect(find.bySemanticsLabel('3 clap reactions'), findsOneWidget);
-      });
+      }, variant: TargetPlatformVariant.only(TargetPlatform.android));
 
       testWidgets('visibly highlights a reaction under the mouse', (
         tester,
@@ -6069,7 +6107,7 @@ void _registerChatShellTests() {
         await tester.pump();
         await tester.pumpAndSettle();
         expect(decoration().color, resting);
-      });
+      }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
       testWidgets('an existing message reaction offers the full emoji picker', (
         tester,
@@ -6183,7 +6221,7 @@ void _registerChatShellTests() {
         expect(api.chatReactionsSet, hasLength(1));
         expect(api.chatReactionsSet.single.emoji, 'wave');
         expect(api.chatReactionsSet.single.action, ChatReactionAction.add);
-      });
+      }, variant: TargetPlatformVariant.only(TargetPlatform.android));
 
       testWidgets('a read-only channel keeps its reaction row read-only', (
         tester,
@@ -6205,7 +6243,7 @@ void _registerChatShellTests() {
           tester.getSemantics(find.bySemanticsLabel('2 clap reactions')),
           isSemantics(hasTapAction: false, onLongPressHint: 'show who reacted'),
         );
-      });
+      }, variant: TargetPlatformVariant.only(TargetPlatform.android));
 
       testWidgets('leaving a channel still permits removing your reaction', (
         tester,
@@ -6254,7 +6292,7 @@ void _registerChatShellTests() {
         expect(api.chatReactionsSet, hasLength(1));
         expect(api.chatReactionsSet.single.action, ChatReactionAction.remove);
         expect(api.chatReactionsSet.single.emoji, 'heart');
-      });
+      }, variant: TargetPlatformVariant.only(TargetPlatform.android));
 
       testWidgets('hovering a message reaction uses chat reactor data', (
         tester,
@@ -6310,7 +6348,7 @@ void _registerChatShellTests() {
         expect(find.text('Sam Saffron'), findsOneWidget);
         expect(find.text('codinghorror'), findsOneWidget);
         expect(api.reactorsRequested, isEmpty);
-      });
+      }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
       testWidgets('rolls back a refused message reaction and reports it', (
         tester,
@@ -6345,7 +6383,7 @@ void _registerChatShellTests() {
           find.descendant(of: reaction, matching: find.text('2')),
           findsOneWidget,
         );
-      });
+      }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
       testWidgets('says how many replies a message gathered into a thread', (
         tester,
@@ -6371,7 +6409,7 @@ void _registerChatShellTests() {
         await tester.pumpAndSettle();
 
         expect(find.text('7 replies'), findsOneWidget);
-      });
+      }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
       testWidgets('says so when a channel has no messages in it yet', (
         tester,
@@ -6386,7 +6424,7 @@ void _registerChatShellTests() {
         await tester.pumpAndSettle();
 
         expect(find.text('No messages here yet.'), findsOneWidget);
-      });
+      }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
       testWidgets('replaces the forum workspace when it cannot be reached', (
         tester,
@@ -6462,7 +6500,7 @@ void _registerChatShellTests() {
         );
         expect(renderedText('Hello there'), findsOneWidget);
         expect(find.byType(ChatComposer), findsOneWidget);
-      });
+      }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
       testWidgets(
         'asks for older messages when a short channel does not fill the window',
@@ -6487,6 +6525,7 @@ void _registerChatShellTests() {
           expect(api.chatMessagesRequested.map((ask) => ask.before), [null, 5]);
           expect(renderedText('Hello there'), findsNWidgets(2));
         },
+        variant: TargetPlatformVariant.only(TargetPlatform.linux),
       );
 
       testWidgets('stops asking once the site says there is nothing older', (
@@ -6507,7 +6546,7 @@ void _registerChatShellTests() {
         await tester.pumpAndSettle();
 
         expect(api.chatMessagesRequested, hasLength(1));
-      });
+      }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
       testWidgets(
         'divides the messages the reader has not seen from the rest',
@@ -6529,6 +6568,7 @@ void _registerChatShellTests() {
 
           expect(find.text('New'), findsOneWidget);
         },
+        variant: TargetPlatformVariant.only(TargetPlatform.linux),
       );
 
       testWidgets(
@@ -6663,6 +6703,7 @@ void _registerChatShellTests() {
           expect(api.chatReadsMarked, [(channelId: 9, messageId: 3)]);
           expect(find.text('New'), findsOneWidget);
         },
+        variant: TargetPlatformVariant.only(TargetPlatform.linux),
       );
 
       testWidgets('credits the reader with the messages it puts on screen', (
@@ -6692,7 +6733,7 @@ void _registerChatShellTests() {
           find.byKey(const ValueKey('sidebar-badge-chat-c-9')),
           findsNothing,
         );
-      });
+      }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
       testWidgets('clears a stale unread dot when already read to the bottom', (
         tester,
@@ -6719,7 +6760,7 @@ void _registerChatShellTests() {
           find.byKey(const ValueKey('sidebar-badge-chat-c-9')),
           findsNothing,
         );
-      });
+      }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
       testWidgets('does not credit a reader who leaves before the dwell', (
         tester,
@@ -6771,7 +6812,7 @@ void _registerChatShellTests() {
         await pumpChat(tester, api: api);
 
         expect(api.chatReadsMarked, isEmpty);
-      });
+      }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
       testWidgets('shows the channel on its own pane on a phone', (
         tester,
@@ -6795,7 +6836,7 @@ void _registerChatShellTests() {
         await tester.pumpAndSettle();
 
         expect(renderedText('Hello there'), findsNothing);
-        expect(find.text('Latest topics'), findsOneWidget);
+        expect(find.text('Channels'), findsOneWidget);
       });
     });
   });

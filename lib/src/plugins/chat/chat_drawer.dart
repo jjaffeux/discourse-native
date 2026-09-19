@@ -278,8 +278,9 @@ class _ChatDrawerOverlayState extends State<ChatDrawerOverlay> {
             builder: (context, _) => LayoutBuilder(
               builder: (context, constraints) {
                 final available =
+                    !context.isTouch &&
                     ShellLayout.forWidth(constraints.maxWidth) !=
-                    ShellLayout.compact;
+                        ShellLayout.compact;
                 final contentVisible =
                     available &&
                     shell.drawerExpanded &&
@@ -954,10 +955,12 @@ class ChatDrawerChannelsView extends StatelessWidget {
     super.key,
     required this.siteUrl,
     required this.kind,
+    this.header,
   });
 
   final String siteUrl;
   final ChatDrawerChannelListKind kind;
+  final Widget? header;
 
   @override
   Widget build(BuildContext context) {
@@ -1026,45 +1029,71 @@ class ChatDrawerChannelsView extends StatelessWidget {
                 constraints: BoxConstraints(
                   minHeight: MediaQuery.textScalerOf(context).scale(36),
                 ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Row(
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final heading =
+                        header ??
+                        Row(
+                          children: [
+                            Flexible(
+                              child: Text(
+                                switch (kind) {
+                                  ChatDrawerChannelListKind.channels =>
+                                    'Channels',
+                                  ChatDrawerChannelListKind.starred =>
+                                    'Starred',
+                                  ChatDrawerChannelListKind.directMessages =>
+                                    'Direct messages',
+                                },
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: Theme.of(context).textTheme.titleSmall
+                                    ?.copyWith(fontWeight: FontWeight.w600),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              '${channels.length}',
+                              style: Theme.of(context).textTheme.labelSmall
+                                  ?.copyWith(color: colors.onSurfaceVariant),
+                            ),
+                          ],
+                        );
+                    final actions = [
+                      ChatChannelListActions(
+                        controller: chat.channelListPreferences,
+                        siteUrl: siteUrl,
+                        section: section,
+                      ),
+                      if (action != null) ...[
+                        const SizedBox(width: DSpacing.controlGap),
+                        action,
+                      ],
+                    ];
+                    if (header != null &&
+                        constraints.maxWidth <
+                            MediaQuery.textScalerOf(context).scale(320)) {
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          Flexible(
-                            child: Text(
-                              switch (kind) {
-                                ChatDrawerChannelListKind.channels =>
-                                  'Channels',
-                                ChatDrawerChannelListKind.starred => 'Starred',
-                                ChatDrawerChannelListKind.directMessages =>
-                                  'Direct messages',
-                              },
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: Theme.of(context).textTheme.titleSmall
-                                  ?.copyWith(fontWeight: FontWeight.w600),
+                          heading,
+                          Align(
+                            alignment: AlignmentDirectional.centerEnd,
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: actions,
                             ),
                           ),
-                          const SizedBox(width: 8),
-                          Text(
-                            '${channels.length}',
-                            style: Theme.of(context).textTheme.labelSmall
-                                ?.copyWith(color: colors.onSurfaceVariant),
-                          ),
                         ],
-                      ),
-                    ),
-                    ChatChannelListActions(
-                      controller: chat.channelListPreferences,
-                      siteUrl: siteUrl,
-                      section: section,
-                    ),
-                    if (action != null) ...[
-                      const SizedBox(width: DSpacing.controlGap),
-                      action,
-                    ],
-                  ],
+                      );
+                    }
+                    return Row(
+                      children: [
+                        Expanded(child: heading),
+                        ...actions,
+                      ],
+                    );
+                  },
                 ),
               ),
             ),
@@ -1166,151 +1195,85 @@ class _DrawerChannelRow extends StatelessWidget {
     final preview =
         channel.lastMessagePreview ??
         (channel.lastMessageId == null ? 'No messages yet' : '');
-    final radius = BorderRadius.circular(8);
-    return Padding(
-      key: ValueKey('chat-drawer-channel-${channel.id}'),
-      padding: const EdgeInsets.only(bottom: 2),
-      child: Material(
-        color: badge.isVisible && !muted
-            ? colors.primary.withValues(
-                alpha: theme.brightness == Brightness.dark ? 0.14 : 0.07,
-              )
-            : Colors.transparent,
-        borderRadius: radius,
-        child: Row(
-          children: [
-            Expanded(
-              child: Semantics(
-                button: true,
-                label: badge.isVisible ? 'Unread conversation' : null,
-                child: InkWell(
-                  borderRadius: radius,
-                  onTap: onTap,
-                  onLongPress: context.isTouch
-                      ? () => unawaited(
-                          ChatChannelMenu.showSheet(
-                            context: context,
-                            siteUrl: siteUrl,
-                            channelId: channel.id,
-                          ),
-                        )
-                      : null,
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 11,
+    return ChatChannelMenu(
+      siteUrl: siteUrl,
+      channelId: channel.id,
+      child: DItem(
+        key: ValueKey('chat-drawer-channel-${channel.id}'),
+        size: DItemSize.sm,
+        onPressed: onTap,
+        semanticLabel: badge.isVisible ? 'Unread conversation' : null,
+        children: [
+          DItemMedia(
+            variant: DItemMediaVariant.avatar,
+            child: _DrawerChannelPrefix(
+              siteUrl: siteUrl,
+              channel: channel,
+              foreground: foreground,
+            ),
+          ),
+          DItemContent(
+            children: [
+              DItemTitle(
+                child: Row(
+                  children: [
+                    Flexible(
+                      child: Text(
+                        channel.title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: foreground,
+                          fontWeight: badge.isVisible
+                              ? FontWeight.w600
+                              : FontWeight.w500,
+                        ),
+                      ),
                     ),
-                    child: LayoutBuilder(
-                      builder: (context, constraints) {
-                        final compact =
-                            constraints.maxWidth < 280 &&
-                            MediaQuery.textScalerOf(context).scale(12) > 18;
-                        final metadata = Column(
-                          crossAxisAlignment: CrossAxisAlignment.end,
-                          children: [
-                            if (at != null)
-                              Text(
-                                relativeTime(at),
-                                key: ValueKey('chat-drawer-time-${channel.id}'),
-                                maxLines: 1,
-                                style: theme.textTheme.labelSmall?.copyWith(
-                                  color: colors.onSurfaceVariant,
-                                ),
-                              ),
-                            if (badge.isVisible) ...[
-                              const SizedBox(height: 6),
-                              _DrawerBadge(badge: badge),
-                            ],
-                          ],
-                        );
-                        return Row(
-                          children: [
-                            _DrawerChannelPrefix(
-                              siteUrl: siteUrl,
-                              channel: channel,
-                              foreground: foreground,
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    children: [
-                                      Flexible(
-                                        child: Text(
-                                          channel.title,
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: theme.textTheme.bodyMedium
-                                              ?.copyWith(
-                                                color: foreground,
-                                                fontWeight: badge.isVisible
-                                                    ? FontWeight.w600
-                                                    : FontWeight.w500,
-                                              ),
-                                        ),
-                                      ),
-                                      if (channel.readRestricted) ...[
-                                        const SizedBox(width: 5),
-                                        DIcon(
-                                          DIcons.lock,
-                                          size: 10,
-                                          color: foreground,
-                                        ),
-                                      ],
-                                      if (status != null)
-                                        UserStatusMessage(
-                                          siteUrl: siteUrl,
-                                          userId: directUser!.id,
-                                          status: status,
-                                          size: 14,
-                                          leadingGap: 4,
-                                        ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 3),
-                                  SiteEmojiText.plain(
-                                    preview,
-                                    key: ValueKey(
-                                      'chat-drawer-preview-${channel.id}',
-                                    ),
-                                    siteUrl: siteUrl,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: theme.textTheme.bodyMedium?.copyWith(
-                                      color: muted
-                                          ? foreground
-                                          : colors.onSurfaceVariant,
-                                    ),
-                                  ),
-                                  if (compact &&
-                                      (at != null || badge.isVisible)) ...[
-                                    const SizedBox(height: 6),
-                                    metadata,
-                                  ],
-                                ],
-                              ),
-                            ),
-                            if (!compact &&
-                                (at != null || badge.isVisible)) ...[
-                              const SizedBox(width: 10),
-                              metadata,
-                            ],
-                          ],
-                        );
-                      },
-                    ),
-                  ),
+                    if (channel.readRestricted) ...[
+                      const SizedBox(width: DSpacing.xs),
+                      DIcon(DIcons.lock, size: 10, color: foreground),
+                    ],
+                    if (status != null)
+                      UserStatusMessage(
+                        siteUrl: siteUrl,
+                        userId: directUser!.id,
+                        status: status,
+                        size: 14,
+                        leadingGap: 4,
+                      ),
+                  ],
                 ),
               ),
+              DItemDescription(
+                child: SiteEmojiText.plain(
+                  preview,
+                  key: ValueKey('chat-drawer-preview-${channel.id}'),
+                  siteUrl: siteUrl,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+          if (at != null || badge.isVisible)
+            Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                if (at != null)
+                  Text(
+                    relativeTime(at),
+                    key: ValueKey('chat-drawer-time-${channel.id}'),
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: colors.onSurfaceVariant,
+                    ),
+                  ),
+                if (badge.isVisible) _DrawerBadge(badge: badge),
+              ],
             ),
-            Padding(
-              padding: const EdgeInsetsDirectional.only(end: 6),
-              child: ChatChannelMenu(siteUrl: siteUrl, channelId: channel.id),
-            ),
-          ],
-        ),
+          ChatChannelMenu(siteUrl: siteUrl, channelId: channel.id),
+        ],
       ),
     );
   }
@@ -1355,16 +1318,10 @@ class _DrawerChannelPrefix extends StatelessWidget {
         color: channel.categoryColor ?? foreground,
       );
     }
-    return Container(
-      width: 36,
-      height: 36,
-      alignment: Alignment.center,
-      decoration: BoxDecoration(
-        color: channel.isDirectMessage && channel.users.length == 1
-            ? null
-            : Theme.of(context).colorScheme.surfaceContainerHigh,
-        borderRadius: BorderRadius.circular(9),
-      ),
+    return DAvatar(
+      dimension: 36,
+      decorative: true,
+      borderRadius: BorderRadius.circular(DTokens.of(context).radius),
       child: art,
     );
   }

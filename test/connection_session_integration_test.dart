@@ -69,9 +69,9 @@ void _registerConnectionSessionTests() {
 
       final signUp = tester.getRect(find.byKey(UserMenuButton.signUpKey));
       final signIn = tester.getRect(find.byKey(UserMenuButton.signInKey));
-      expect(signUp.height, 48);
-      expect(signIn.height, 48);
-    });
+      expect(signUp.height, 32);
+      expect(signIn.height, 32);
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('aggregate hides forum account actions', (tester) async {
       await pumpShell(tester, desktop);
@@ -94,7 +94,7 @@ void _registerConnectionSessionTests() {
 
       expect(find.byKey(UserMenuButton.signUpKey), findsOneWidget);
       expect(find.byKey(UserMenuButton.signInKey), findsOneWidget);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('sign-up opens the selected forum registration page', (
       tester,
@@ -106,7 +106,7 @@ void _registerConnectionSessionTests() {
       await tester.pumpAndSettle();
 
       expect(launched, ['https://meta.discourse.org/signup']);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('records the account against the site', (tester) async {
       final store = FakeInstanceStore(twoSites);
@@ -127,7 +127,7 @@ void _registerConnectionSessionTests() {
         findsNothing,
       );
       expect(store.saveCount, 2);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('backing out of the browser is not an error', (tester) async {
       final auth = FakeAuthenticator(failure: UserApiAuthFailure.cancelled);
@@ -139,7 +139,7 @@ void _registerConnectionSessionTests() {
 
       expect(find.byKey(UserMenuButton.signInKey), findsOneWidget);
       expect(find.byType(SnackBar), findsNothing);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('an unverifiable reply is surfaced', (tester) async {
       final auth = FakeAuthenticator(failure: UserApiAuthFailure.badReply);
@@ -151,7 +151,7 @@ void _registerConnectionSessionTests() {
 
       expect(find.byType(Dismissible), findsOneWidget);
       expect(find.textContaining('could not be verified'), findsOneWidget);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('a browser that never opened is surfaced', (tester) async {
       final auth = FakeAuthenticator(failure: UserApiAuthFailure.launchFailed);
@@ -163,7 +163,7 @@ void _registerConnectionSessionTests() {
 
       expect(find.byType(Dismissible), findsOneWidget);
       expect(find.textContaining('Could not open'), findsOneWidget);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('a private-site sign-in failure stays actionable in the gate', (
       tester,
@@ -223,7 +223,7 @@ void _registerConnectionSessionTests() {
         findsOneWidget,
       );
       expect(find.byType(SnackBar), findsNothing);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('counters appear once connected', (tester) async {
       const user = DiscourseUser(
@@ -255,7 +255,7 @@ void _registerConnectionSessionTests() {
       expect(countFor('drafts', '4'), findsOneWidget);
       expect(find.text('5'), findsNWidgets(2));
       expect(api.totalsCalls, 1);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('a site whose counters fail still renders', (tester) async {
       final api = FakeDiscourseApi();
@@ -266,7 +266,7 @@ void _registerConnectionSessionTests() {
 
       expect(find.byTooltip('Profile'), findsOneWidget);
       expect(tester.takeException(), isNull);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('switching to a connected site refreshes its counters', (
       tester,
@@ -300,7 +300,7 @@ void _registerConnectionSessionTests() {
         'https://meta.discourse.org',
         'https://team.discourse.org',
       ]);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('disconnecting removes cached private search history', (
       tester,
@@ -323,7 +323,7 @@ void _registerConnectionSessionTests() {
       shell.search.openPanel();
       await tester.pump();
       expect(shell.search.recentSearches, isEmpty);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('disconnecting revokes the key with the site', (tester) async {
       final api = FakeDiscourseApi(totals: const NotificationTotals());
@@ -340,7 +340,7 @@ void _registerConnectionSessionTests() {
 
       expect(api.revoked, ['https://meta.discourse.org']);
       expect(auth.disconnected, ['https://meta.discourse.org']);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('disconnecting forgets the key and the account', (
       tester,
@@ -360,7 +360,7 @@ void _registerConnectionSessionTests() {
       expect(find.byType(UserMenuPanel), findsNothing);
       expect(find.byKey(UserMenuButton.signUpKey), findsOneWidget);
       expect(find.byKey(UserMenuButton.signInKey), findsOneWidget);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
   });
 
   group('the user menu', () {
@@ -1439,7 +1439,7 @@ void _registerConnectionSessionTests() {
         ).canCreateTopicHere,
         isFalse,
       );
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('only unfinished profile rows are orange', (tester) async {
       await pumpShell(
@@ -1615,7 +1615,8 @@ void _registerConnectionSessionTests() {
         expect(find.byType(UserActivityView), findsOneWidget);
         expect(shell.handleBack(canReturnToSidebar: false), isTrue);
         await tester.pumpAndSettle();
-        expect(shell.currentContent?.id, isNot('activity'));
+        expect(shell.mobileNavigation.atRoot, isTrue);
+        expect(find.byType(UserActivityView), findsNothing);
       },
     );
 
@@ -1742,7 +1743,7 @@ void _registerConnectionSessionTests() {
       expect(shell.currentContent?.id, 'activity');
       expect(shell.canPopContent, isTrue);
       expect(api.userActivityRequests, hasLength(1));
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('the notifications tab reads what the site sent', (
       tester,
@@ -2455,7 +2456,7 @@ void _registerConnectionSessionTests() {
         400,
       );
       semantics.dispose();
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('Chat contributes a card action and opens a direct message', (
       tester,
@@ -2555,7 +2556,7 @@ void _registerConnectionSessionTests() {
 
       expect(find.text('@joffreyj'), findsOneWidget);
       expect(api.cardsRequested, ['joffreyj']);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('a card that fails to load offers a retry', (tester) async {
       final api = FakeDiscourseApi(
@@ -2574,7 +2575,7 @@ void _registerConnectionSessionTests() {
 
       expect(api.cardsRequested, ['joffreyj', 'joffreyj']);
       expect(tester.takeException(), isNull);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('an open card keeps the site that it was loaded from', (
       tester,
@@ -2606,7 +2607,7 @@ void _registerConnectionSessionTests() {
       expect(shell.currentInstance?.url, 'https://team.discourse.org');
       expect(find.text('First-site profile'), findsOneWidget);
       expect(find.text('From Meta'), findsOneWidget);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
   });
 }
 

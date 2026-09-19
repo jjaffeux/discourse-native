@@ -108,6 +108,7 @@ import 'global_search_api.dart';
 import 'global_search_controller.dart';
 import 'groups_controller.dart';
 import 'hashtag.dart';
+import 'mobile_navigation.dart';
 import 'plugin_background_retention.dart';
 import 'post_quote.dart';
 import 'preferences_controller.dart';
@@ -287,6 +288,7 @@ class ShellController extends FrameSafeNotifier
     ForumSettingsStore? forumSettingsStore,
     ForumTabStore? forumTabs,
     this.forumTabsEnabled = true,
+    this.mobileNavigationEnabled = false,
     Store? store,
     SiteLifecycle? lifecycle,
     DateTime Function()? clock,
@@ -511,6 +513,8 @@ class ShellController extends FrameSafeNotifier
   final topicSidebar = TopicSidebarStore();
 
   final bool forumTabsEnabled;
+  final bool mobileNavigationEnabled;
+  final mobileNavigation = MobileNavigation();
 
   @override
   final Store store;
@@ -1477,8 +1481,12 @@ class ShellController extends FrameSafeNotifier
   List<ContentRoute> get contentStack => activeTab?.contentStack ?? const [];
   @override
   ContentRoute? get currentContent => activeTab?.currentContent;
-  bool get canPopContent => activeTab?.canGoBack ?? false;
-  bool get canForwardContent => activeTab?.canGoForward ?? false;
+  bool get canPopContent => mobileNavigationEnabled
+      ? mobileNavigation.canGoBack
+      : activeTab?.canGoBack ?? false;
+  bool get canForwardContent => mobileNavigationEnabled
+      ? mobileNavigation.canGoForward
+      : activeTab?.canGoForward ?? false;
 
   Future<void>? Function()? _contentRefresher;
   final _refreshingTabs = <(ShellRootMode, String?, String?, String?)>{};
@@ -3013,6 +3021,10 @@ class ShellController extends FrameSafeNotifier
   }
 
   void closeTopicListReader() {
+    if (mobileNavigationEnabled) {
+      if (currentContent?.isTopic == true) handleBack();
+      return;
+    }
     if (desktopTopicTabs && listPanelTab != null) {
       _putWorkspace(currentWorkspace!.copyWith(activeTabId: listPanelTab!.id));
       _syncTopicChannels();
@@ -3034,6 +3046,10 @@ class ShellController extends FrameSafeNotifier
 
   /// Returns from a conversation to its source, including direct topic links.
   void closeTopic() {
+    if (mobileNavigationEnabled) {
+      if (currentContent?.isTopic == true) handleBack();
+      return;
+    }
     if (desktopTopicTabs && activeTab?.currentContent.isTopic == true) {
       closeTab(activeTab!.id);
       return;
@@ -13649,6 +13665,7 @@ class ShellController extends FrameSafeNotifier
     SurfaceOpeningTrace.mark('forum.select');
     final traceGeneration = ++_forumSwitchTraceGeneration;
     _rootMode = ShellRootMode.forum;
+    if (mobileNavigationEnabled) mobileNavigation.reset();
     if (index != _instanceIndex) {
       _instanceIndex = index;
       _restoreInstanceWorkspace();
@@ -14104,6 +14121,9 @@ class ShellController extends FrameSafeNotifier
             : [route],
       ),
     );
+    if (mobileNavigationEnabled && tab.currentContent.isTopicList) {
+      mobileNavigation.replaceCurrent(activeTab!.location);
+    }
   }
 
   void browseTopicCategory(
@@ -14684,6 +14704,9 @@ class ShellController extends FrameSafeNotifier
               ],
             ),
     );
+    if (mobileNavigationEnabled) {
+      mobileNavigation.replaceCurrent(activeTab!.location);
+    }
     _mobilePane = MobilePane.content;
     _syncTopicChannels();
     _notify();
@@ -14697,6 +14720,7 @@ class ShellController extends FrameSafeNotifier
 
   @override
   bool activatePluginPane(PluginId owner) {
+    if (mobileNavigationEnabled) return false;
     final instance = currentInstance;
     var tab = activeTab;
     if (instance == null || tab == null) return false;
@@ -14743,6 +14767,10 @@ class ShellController extends FrameSafeNotifier
 
   @override
   void deactivatePluginPane(PluginId owner) {
+    if (mobileNavigationEnabled) {
+      handleBack();
+      return;
+    }
     _deactivatePluginPane(owner, notifyAndHydrate: true);
   }
 
@@ -14775,6 +14803,7 @@ class ShellController extends FrameSafeNotifier
   }
 
   bool _preparePluginPaneForRoute(String routeId) {
+    if (mobileNavigationEnabled) return false;
     final instance = currentInstance;
     final tab = activeTab;
     if (instance == null || tab == null) return false;
@@ -14840,6 +14869,11 @@ class ShellController extends FrameSafeNotifier
   }
 
   bool handleBack({bool canReturnToSidebar = true}) {
+    if (mobileNavigationEnabled) {
+      if (!mobileNavigation.goBack()) return false;
+      _restoreMobileLocation();
+      return true;
+    }
     if (_rootMode == ShellRootMode.aggregate) {
       _rootMode = ShellRootMode.forum;
       _mobilePane = MobilePane.sidebar;
@@ -14863,6 +14897,13 @@ class ShellController extends FrameSafeNotifier
   }
 
   bool handleForward() {
+    if (mobileNavigationEnabled) {
+      if (!mobileNavigation.goForward()) {
+        return false;
+      }
+      _restoreMobileLocation();
+      return true;
+    }
     final tab = activeTab;
     if (_rootMode != ShellRootMode.forum || tab?.canGoForward != true) {
       return false;
@@ -14876,6 +14917,17 @@ class ShellController extends FrameSafeNotifier
   }
 
   void _notify() {
+    if (mobileNavigationEnabled) {
+      mobileNavigation.synchronize(
+        owner: (currentInstance?.url, currentAccountIdentity),
+        aggregate: _rootMode == ShellRootMode.aggregate,
+        location:
+            _mobilePane == MobilePane.content &&
+                _rootMode == ShellRootMode.forum
+            ? activeTab?.location
+            : null,
+      );
+    }
     final request = _pendingTopicProperty;
     if (request != null &&
         (currentInstance?.url != request.siteUrl ||
@@ -14885,6 +14937,40 @@ class ShellController extends FrameSafeNotifier
       _pendingTopicProperty = null;
     }
     notifySafely();
+  }
+
+  void selectMobilePanel(String? owner) {
+    if (!mobileNavigationEnabled) return;
+    mobileNavigation.selectPanel(owner);
+    _rootMode = ShellRootMode.forum;
+    _mobilePane = MobilePane.sidebar;
+    _notify();
+  }
+
+  void _restoreMobileLocation() {
+    final location = mobileNavigation.location;
+    final tab = activeTab;
+    _rootMode = mobileNavigation.aggregate
+        ? ShellRootMode.aggregate
+        : ShellRootMode.forum;
+    if (mobileNavigation.atRoot) {
+      _mobilePane = MobilePane.sidebar;
+    } else if (mobileNavigation.aggregate) {
+      _mobilePane = MobilePane.content;
+    } else if (tab != null && location != null) {
+      _replaceActiveTab(
+        tab.copyWith(
+          rootDestinationId: location.rootDestinationId,
+          contentStack: location.contentStack,
+        ),
+      );
+      _mobilePane = MobilePane.content;
+    }
+    _syncTopicChannels();
+    _notify();
+    if (currentInstance case final instance? when location != null) {
+      _hydrateActiveTab(instance);
+    }
   }
 
   @override

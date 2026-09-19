@@ -8,6 +8,7 @@ import '../../data/discourse_api_contracts.dart';
 import '../../shell/avatar_image.dart';
 import '../../shell/relative_time.dart';
 import '../../theme/d_icons.dart';
+import '../../theme/discourse_typography.dart';
 import 'chat_channel.dart';
 import 'chat_controller.dart';
 import 'chat_direct_message_search.dart';
@@ -564,7 +565,7 @@ class _ChatNewDirectMessageDialogState
       Text(
         label,
         style: TextStyle(
-          fontSize: 12,
+          fontSize: DiscourseTypography.xs,
           color: DTokens.of(context).mutedForeground,
         ),
       ),
@@ -604,7 +605,7 @@ class _ChatNewDirectMessageDialogState
         child: Text(
           '$_membersCount of $_maximumGroupMembers people selected',
           style: TextStyle(
-            fontSize: 12,
+            fontSize: DiscourseTypography.xs,
             color: DTokens.of(context).mutedForeground,
           ),
         ),
@@ -769,7 +770,7 @@ class _ChatNewDirectMessageDialogState
                   text: '  $detail',
                   style: TextStyle(
                     color: DTokens.of(context).mutedForeground,
-                    fontSize: 12,
+                    fontSize: DiscourseTypography.xs,
                   ),
                 ),
             ],

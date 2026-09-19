@@ -552,7 +552,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('topic-filter-input')), findsNothing);
     expect(find.text('Filtered'), findsNothing);
-  });
+  }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
   testWidgets('filter suggestions can be chosen without submitting the feed', (
     tester,
@@ -589,7 +589,7 @@ void main() {
     expect(_filterQuery(tester), 'tag:bug');
     expect(find.text('tag: bug'), findsOneWidget);
     expect(api.feedPaths, ['/latest.json', '/filter.json']);
-  });
+  }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
   testWidgets('group suggestions show only the group name', (tester) async {
     const groupName = '2024-tokyo-dinner2-tuesday';
@@ -635,7 +635,7 @@ void main() {
     await tester.tap(find.descendant(of: row, matching: find.text(groupName)));
     await tester.pumpAndSettle();
     expect(_filterQuery(tester), 'group:$groupName');
-  });
+  }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
   testWidgets('the filter menu remains usable while vocabulary loads', (
     tester,
@@ -655,7 +655,7 @@ void main() {
     gate.complete();
     await tester.pumpAndSettle();
     expect(find.byType(DProgress), findsNothing);
-  });
+  }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
   testWidgets(
     'filter suggestions support keyboard selection and pointer hover',
@@ -687,8 +687,8 @@ void main() {
         final secondRow = find.byKey(
           const ValueKey('topic-filter-suggestion-1'),
         );
-        expect(tester.getSize(firstRow).height, greaterThanOrEqualTo(44));
-        expect(tester.getSize(secondRow).height, greaterThanOrEqualTo(44));
+        expect(tester.getSize(firstRow).height, greaterThanOrEqualTo(32));
+        expect(tester.getSize(secondRow).height, greaterThanOrEqualTo(32));
         expect(
           find.descendant(of: firstRow, matching: find.byType(DIcon)),
           findsNothing,
@@ -765,6 +765,7 @@ void main() {
         semantics.dispose();
       }
     },
+    variant: TargetPlatformVariant.only(TargetPlatform.linux),
   );
 
   testWidgets('a retired filter menu cannot change the replacement feed', (
@@ -796,7 +797,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(shell.topicListContent, replacement);
     expect(find.text('Apply filter'), findsNothing);
-  });
+  }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
   testWidgets('tab accepts the first filter suggestion', (tester) async {
     final api = FakeDiscourseApi(
@@ -819,7 +820,7 @@ void main() {
 
     expect(tester.widget<TextField>(field).controller!.text, 'tag:');
     expect(api.feedPaths, ['/latest.json', '/filter.json']);
-  });
+  }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
   testWidgets('multiline filter keeps editing separate from submission', (
     tester,
@@ -906,7 +907,7 @@ void main() {
         '/filter.json?q=${Uri.encodeQueryComponent(expectedClauses.join(' '))}',
       ),
     );
-  });
+  }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
   testWidgets('quick filters toggle exact clauses and follow manual edits', (
     tester,
@@ -1004,7 +1005,7 @@ void main() {
       api.feedPaths,
       contains('/filter.json?q=tag%3Afeedback+in%3Abookmarked'),
     );
-  });
+  }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
   for (final modifier in [
     LogicalKeyboardKey.metaLeft,
@@ -1032,7 +1033,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(api.feedPaths, contains('/filter.json?q=tag'));
       expect(find.byType(DInputGroupTextarea), findsNothing);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
   }
 
   testWidgets('keyboard navigation reveals suggestions below the fold', (
@@ -1062,7 +1063,7 @@ void main() {
     _expectSelectedRow(tester, last);
     final popup = tester.getRect(find.byType(DComboboxContent));
     expect(tester.getRect(last).bottom, lessThanOrEqualTo(popup.bottom));
-  });
+  }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
   testWidgets('category suggestions use their category badges', (tester) async {
     final api = FakeDiscourseApi(
@@ -1099,7 +1100,7 @@ void main() {
     final badge = tester.widget<CategorySquare>(find.byType(CategorySquare));
     expect(badge.color, const Color(0xFF0088CC));
     expect(badge.parentColor, const Color(0xFFFF0000));
-  });
+  }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 }
 
 void _expectSelectedRow(WidgetTester tester, Finder row) {

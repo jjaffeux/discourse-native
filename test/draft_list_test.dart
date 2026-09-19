@@ -149,7 +149,7 @@ void main() {
         ),
         findsOneWidget,
       );
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('keep the label below the small breakpoint', (tester) async {
       await _pump(tester, size: const Size(390, 844));
@@ -165,7 +165,7 @@ void main() {
         ),
         findsOneWidget,
       );
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.android));
   });
 
   group('recent-draft menu', () {
@@ -201,7 +201,7 @@ void main() {
         'Native :sparkles: drafts page',
       );
       expect(shell.visibleComposer?.draftSequence, 4);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('closes when its chevron is pressed again', (tester) async {
       final fixture = await _pump(tester);
@@ -219,7 +219,7 @@ void main() {
 
       expect(row, findsNothing);
       expect(fixture.api.userDraftRequests, hasLength(1));
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('marks a Voice transcript with closed captions', (
       tester,
@@ -252,7 +252,7 @@ void main() {
         ),
         findsOneWidget,
       );
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('matches core draft icons and the four-row limit', (
       tester,
@@ -311,7 +311,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byType(DraftListView), findsOneWidget);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
   });
 
   group('draft-list entry points', () {
@@ -342,7 +342,7 @@ void main() {
       expect(shell.destinationId, 'drafts');
       expect(shell.currentContent?.isTopic, isTrue);
       expect(tester.widget<DSidebarMenuButton>(button).isActive, isFalse);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('shows the draft count in the sidebar badge', (tester) async {
       await _pump(tester);
@@ -357,7 +357,7 @@ void main() {
         find.ancestor(of: count, matching: find.byType(DSidebarMenuBadge)),
         findsOneWidget,
       );
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('open the account-backed page from the sidebar', (
       tester,
@@ -414,7 +414,7 @@ void main() {
       expect(fixture.api.userDraftRequests, [
         (siteUrl: _siteUrl, offset: 0, limit: 30),
       ]);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('open the same page from the profile row', (tester) async {
       await _pump(tester);
@@ -440,7 +440,7 @@ void main() {
         ),
         findsOneWidget,
       );
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
   });
 
   group('draft-list presentation', () {
@@ -529,7 +529,7 @@ void main() {
           semantics.dispose();
         }
       }
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('supports keyboard removal and opening the draft row', (
       tester,
@@ -573,7 +573,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byType(ComposerPanel), findsOneWidget);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('keeps compact skeletons at the compact row minimum', (
       tester,
@@ -616,7 +616,7 @@ void main() {
           await tester.pumpAndSettle();
         }
       }
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.android));
 
     testWidgets('uses base-scale breakpoints for zoomed draft rows', (
       tester,
@@ -882,7 +882,7 @@ void main() {
       final shell = ShellScope.read(tester.element(find.byType(DraftListView)));
       expect(shell.currentInstance?.user?.draftCount, 0);
       expect(shell.draftCountFor(_siteUrl), 0);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     for (final draftKey in [
       'new_topic',
@@ -941,7 +941,7 @@ void main() {
         expect(fixture.api.userDraftsDeleted.single.draftKey, draftKey);
         expect(fixture.api.userDraftsDeleted.single.sequence, 5);
         expect(shell.draftCountFor(_siteUrl), 0);
-      });
+      }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
     }
 
     testWidgets('posts a resumed topic using its original draft key', (
@@ -970,7 +970,7 @@ void main() {
       expect(fixture.api.topicsCreated.single['draftKey'], draft.key);
       expect(fixture.api.topicsCreated.single['raw'], draft.data!.reply);
       expect(find.byType(ComposerPanel), findsNothing);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     for (final beforeResponse in [true, false]) {
       testWidgets(
@@ -1020,6 +1020,7 @@ void main() {
             'new_topic_other',
           );
         },
+        variant: TargetPlatformVariant.only(TargetPlatform.linux),
       );
     }
 
@@ -1044,7 +1045,7 @@ void main() {
       expect(fixture.api.userDraftsDeleted, [
         (siteUrl: _siteUrl, draftKey: 'new_topic', sequence: 4),
       ]);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
   });
 }
 

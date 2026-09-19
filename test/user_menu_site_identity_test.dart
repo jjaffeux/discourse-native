@@ -508,10 +508,7 @@ void main() {
         await tester.tap(preferences);
         await tester.pumpAndSettle();
 
-        expect(
-          find.byKey(const ValueKey('shell-sheet-keyboard-inset')),
-          findsNothing,
-        );
+        expect(find.byKey(const ValueKey('user-menu-sheet')), findsNothing);
         expect(find.byType(PreferencesPage), findsOneWidget);
         expect(
           tester.widget<PreferencesPage>(find.byType(PreferencesPage)).siteUrl,
@@ -666,7 +663,7 @@ Future<void> _openNestedSection(WidgetTester tester, String label) async {
   final panel = find.byType(UserMenuPanel);
   final menu = panel.evaluate().isNotEmpty
       ? panel
-      : find.byKey(const ValueKey('shell-sheet-keyboard-inset'));
+      : find.byKey(const ValueKey('user-menu-sheet'));
   await tester.tap(find.descendant(of: menu, matching: find.text(label)).last);
   await tester.pumpAndSettle();
 }

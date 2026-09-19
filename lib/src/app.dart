@@ -143,6 +143,7 @@ class _DiscourseAppState extends State<DiscourseApp>
     drafts: _drafts,
     forumTabs: _forumTabs,
     forumTabsEnabled: forumTabsEnabledForCurrentPlatform,
+    mobileNavigationEnabled: usesMobileNavigation(defaultTargetPlatform),
     trackers: _trackers,
     // Linux is updated by apt and cannot replace its own /usr installation.
     updater: _updater,
@@ -150,7 +151,9 @@ class _DiscourseAppState extends State<DiscourseApp>
     plugins: _plugins,
     pluginDiagnosticsReporter: _pluginDiagnosticsReporter,
     ownsApi: false,
-    initialRootMode: widget.initialRootMode,
+    initialRootMode: usesMobileNavigation(defaultTargetPlatform)
+        ? ShellRootMode.forum
+        : widget.initialRootMode,
   );
 
   @override

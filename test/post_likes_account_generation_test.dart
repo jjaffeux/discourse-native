@@ -135,6 +135,11 @@ Future<ShellController> _openDuringSignIn(
     authenticator: auth,
     instances: [instance('meta.discourse.org', title: 'Meta')],
   );
+  // Sign-in starts from Home; the reader has no global account toolbar.
+  await tester.tap(find.byKey(UserMenuButton.signInKey));
+  await tester.pump();
+  await tester.tap(sidebarDestination('Topics'));
+  await tester.pumpAndSettle();
   await tester.tap(find.text('Public topic'));
   await tester.pumpAndSettle();
   final shell = ShellScope.read(tester.element(find.byType(MainContent)));
@@ -143,8 +148,6 @@ Future<ShellController> _openDuringSignIn(
 
   // Authorization includes push registration, key generation and the browser
   // callback. The public topic remains usable while that future is pending.
-  await tester.tap(find.byKey(UserMenuButton.signInKey));
-  await tester.pump();
   expect(auth.started, isTrue);
   expect(shell.connecting, isTrue);
   expect(renderedText('Public post body'), findsOneWidget);

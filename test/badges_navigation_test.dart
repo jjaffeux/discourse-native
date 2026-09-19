@@ -47,7 +47,7 @@ void main() {
     expect(shell.currentContent!.topicId, 100);
     expect(shell.currentContent!.postNumber, 3);
     expect(tester.takeException(), isNull);
-  });
+  }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
   testWidgets(
     'notification links retain recipient filters and refresh open badges',
@@ -140,7 +140,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('1 badge'), findsOneWidget);
     expect(find.text('3 badges · 2 earned'), findsNothing);
-  });
+  }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
   testWidgets('disabled badges are absent from More and do not claim links', (
     tester,
@@ -157,5 +157,5 @@ void main() {
     await tester.tap(find.text('More'));
     await tester.pumpAndSettle();
     expect(find.text('Badges'), findsNothing);
-  });
+  }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 }

@@ -58,7 +58,7 @@ void main() {
         hasLength(1),
       );
       expect(tester.takeException(), isNull);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
   }
 
   testWidgets('last read topic stays open until the reader closes', (
@@ -77,7 +77,7 @@ void main() {
     expect(_card(1), findsNothing);
     expect(find.text("You're all caught up."), findsOneWidget);
     expect(tester.takeException(), isNull);
-  });
+  }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
   testWidgets('a reply arriving before departure keeps the topic listed', (
     tester,
@@ -101,7 +101,7 @@ void main() {
     expect(_card(1), findsOneWidget);
     expect(shell.newReplyCount, 3);
     expect(tester.takeException(), isNull);
-  });
+  }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
   testWidgets(
     'a new reply restores a removed topic without changing the reader',
@@ -124,6 +124,7 @@ void main() {
       expect(tester.widget<DItem>(_card(2)).selected, isTrue);
       expect(tester.takeException(), isNull);
     },
+    variant: TargetPlatformVariant.only(TargetPlatform.linux),
   );
 
   testWidgets('returning to the list on a phone removes the read topic', (
@@ -157,6 +158,7 @@ void main() {
       expect(tester.widget<DItem>(_card(2)).selected, isTrue);
       expect(tester.takeException(), isNull);
     },
+    variant: TargetPlatformVariant.only(TargetPlatform.linux),
   );
 
   testWidgets('stale refresh does not restore read rows or their indicators', (
@@ -176,7 +178,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(_card(1), findsOneWidget);
     expect(tester.takeException(), isNull);
-  });
+  }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
   testWidgets(
     'removal keeps a scrolled selection in place and keyboard order follows IDs',
@@ -211,6 +213,7 @@ void main() {
       expect(tester.widget<DItem>(_card(12)).selected, isTrue);
       expect(tester.takeException(), isNull);
     },
+    variant: TargetPlatformVariant.only(TargetPlatform.linux),
   );
 
   testWidgets(
@@ -236,6 +239,7 @@ void main() {
       expect(shell.currentFeed!.topicIds, [2]);
       expect(tester.takeException(), isNull);
     },
+    variant: TargetPlatformVariant.only(TargetPlatform.linux),
   );
 
   testWidgets('an empty filtered page can retry a failed next page', (
@@ -263,7 +267,7 @@ void main() {
       hasLength(2),
     );
     expect(tester.takeException(), isNull);
-  });
+  }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 }
 
 Finder _card(int id) => find.byKey(ValueKey('topic-card-$id'));

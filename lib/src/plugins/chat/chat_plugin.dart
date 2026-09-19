@@ -32,6 +32,7 @@ import 'chat_channel_view.dart';
 import 'chat_drawer.dart';
 import 'chat_emoji_usage.dart';
 import 'chat_header_button.dart';
+import 'chat_mobile_sidebar.dart';
 import 'chat_my_threads_view.dart';
 import 'chat_new_direct_message.dart';
 import 'chat_notification_counter.dart';
@@ -451,6 +452,8 @@ class ChatPlugin
     final unreadCount = shell.chat.unreadMessageCount(siteUrl);
     return SidebarPanelContribution(
       label: 'Chat',
+      mobileBuilder: (_) =>
+          ChatMobileSidebar(key: ValueKey(siteUrl), siteUrl: siteUrl),
       badge: unreadCount > 0
           ? DBadge(
               key: const ValueKey('chat-sidebar-unread-badge'),

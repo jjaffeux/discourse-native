@@ -104,7 +104,7 @@ void main() {
       _expectWrite(api, action, 'api-key', [1, 2, 3]);
       expect(shell.topicPostSelectionEnabled(_site, _topicId), isFalse);
       expect(find.byType(DAlertDialogContent), findsNothing);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('$action uses the same account selection at submit', (
       tester,
@@ -130,7 +130,7 @@ void main() {
       expect(shell.topicPostSelectionEnabled(_site, _topicId), isFalse);
       expect(find.byKey(_toolbarKey), findsNothing);
       expect(find.byType(DAlertDialogContent), findsNothing);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets(
       '$action cancellation preserves selection without credentials',
@@ -153,6 +153,7 @@ void main() {
         expect(find.byKey(_toolbarKey), findsOneWidget);
         expect(find.byType(DAlertDialogContent), findsNothing);
       },
+      variant: TargetPlatformVariant.only(TargetPlatform.linux),
     );
 
     for (final change in [
@@ -199,7 +200,7 @@ void main() {
         expect(api.postFetches, isEmpty);
         expect(shell.selectedTopicPostIds(_site, _topicId), selected);
         expect(find.byType(DAlertDialogContent), findsNothing);
-      });
+      }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
     }
   }
 }

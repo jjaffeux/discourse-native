@@ -144,7 +144,7 @@ void main() {
     expect(shell.currentInstance!.user!.mutedCategoryIds, isEmpty);
     expect(shell.currentInstance!.user!.indirectlyMutedCategoryIds, isEmpty);
     expect(shell.sidebarBadgeFor('category-1'), const SidebarBadge.count(2));
-  });
+  }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
   testWidgets(
     'native Muted choice settles loaded badges and keeps explicit overrides',
@@ -180,6 +180,7 @@ void main() {
       expect(shell.sidebarBadgeFor('category-2'), SidebarBadge.none);
       expect(shell.sidebarBadgeFor('category-3'), const SidebarBadge.count(2));
     },
+    variant: TargetPlatformVariant.only(TargetPlatform.linux),
   );
 
   test(

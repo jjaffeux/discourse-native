@@ -70,7 +70,7 @@ void main() {
         tester.widget<DButton>(button).variant,
         DButtonVariant.transparentBackground,
       );
-      expect(tester.getSize(button), const Size.square(48));
+      expect(tester.getSize(button), const Size.square(28));
       expect(
         tester.getSize(
           find.descendant(of: button, matching: find.byType(Material)),
@@ -114,7 +114,7 @@ void main() {
     } finally {
       semantics.dispose();
     }
-  });
+  }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
   testWidgets('urgent chat announces the uncapped count only once', (
     tester,
@@ -157,7 +157,7 @@ void main() {
     } finally {
       semantics.dispose();
     }
-  });
+  }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 }
 
 Future<void> _pump(

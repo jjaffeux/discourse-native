@@ -105,6 +105,11 @@ void _registerReactionAndLikeTests() {
         authenticator: FakeAuthenticator()
           ..keys['https://meta.discourse.org'] = 'meta-key',
       );
+      if (defaultTargetPlatform == TargetPlatform.android ||
+          defaultTargetPlatform == TargetPlatform.iOS) {
+        await tester.tap(sidebarDestination('Topics'));
+        await tester.pumpAndSettle();
+      }
       await tester.tap(find.text('A real topic'));
       await tester.pumpAndSettle();
       return api;
@@ -124,7 +129,7 @@ void _registerReactionAndLikeTests() {
       await openPostMenu(tester);
       expect(menuAction('Like'), findsOneWidget);
       expect(menuAction('React'), findsNothing);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets(
       'liking from the menu draws the count before the site answers',
@@ -138,6 +143,7 @@ void _registerReactionAndLikeTests() {
         expect(api.liked, [1]);
         expect(count('1'), findsOneWidget);
       },
+      variant: TargetPlatformVariant.only(TargetPlatform.linux),
     );
 
     testWidgets('a like of your own is the heart that takes it back', (
@@ -153,7 +159,7 @@ void _registerReactionAndLikeTests() {
       expect(menuAction('Remove like'), findsOneWidget);
       expect(menuAction('Like'), findsNothing);
       expect(menuAction('React'), findsNothing);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('a like past the undo window leaves nothing to press', (
       tester,
@@ -168,7 +174,7 @@ void _registerReactionAndLikeTests() {
       expect(count('1'), findsOneWidget);
       expect(menuAction('Remove like'), findsNothing);
       expect(menuAction('Like'), findsNothing);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('the site has the last word on the count', (tester) async {
       await openTopic(
@@ -184,7 +190,7 @@ void _registerReactionAndLikeTests() {
       await tester.pumpAndSettle();
 
       expect(count('3'), findsOneWidget);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('tapping a like of your own takes it back', (tester) async {
       final api = await openTopic(
@@ -199,7 +205,7 @@ void _registerReactionAndLikeTests() {
       expect(api.liked, isEmpty);
       expect(find.byType(PostLikes), findsOneWidget);
       expect(count('1'), findsNothing);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('tapping somebody else\'s adds yours to it', (tester) async {
       final api = await openTopic(tester, first: post(likeCount: 1));
@@ -209,7 +215,7 @@ void _registerReactionAndLikeTests() {
 
       expect(api.liked, [1]);
       expect(count('2'), findsOneWidget);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('a refused like says why and puts the count back', (
       tester,
@@ -227,7 +233,7 @@ void _registerReactionAndLikeTests() {
       expect(find.textContaining('Too fast'), findsOneWidget);
       expect(count('1'), findsOneWidget);
       expect(count('2'), findsNothing);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('a post you may not like still shows what others thought', (
       tester,
@@ -247,7 +253,7 @@ void _registerReactionAndLikeTests() {
       await tester.tap(count('2'));
       await tester.pumpAndSettle();
       expect(api.liked, isEmpty);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('resting on the count says who liked it', (tester) async {
       final api = await openTopic(
@@ -280,7 +286,7 @@ void _registerReactionAndLikeTests() {
       await tester.pump(const Duration(milliseconds: 600));
       await tester.pumpAndSettle();
       expect(find.text('Sam Saffron'), findsNothing);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('a failed liker lookup explains that names are unavailable', (
       tester,
@@ -296,7 +302,7 @@ void _registerReactionAndLikeTests() {
       await tester.pumpAndSettle();
 
       expect(find.textContaining("Couldn't reach"), findsOneWidget);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('on a touch screen the names arrive as a sheet', (
       tester,
@@ -314,7 +320,7 @@ void _registerReactionAndLikeTests() {
 
       expect(find.text('1 like'), findsOneWidget);
       expect(find.text('Sam Saffron'), findsOneWidget);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.android));
 
     testWidgets('liking with the panel open leaves it saying something true', (
       tester,
@@ -350,7 +356,7 @@ void _registerReactionAndLikeTests() {
       expect(activityIndicators, findsNothing);
       expect(find.text('Sam Saffron'), findsOneWidget);
       expect(api.likersRequested, [1, 1]);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('a double tap does not send two contradicting writes', (
       tester,
@@ -376,7 +382,7 @@ void _registerReactionAndLikeTests() {
       expect(api.liked, [1]);
       expect(api.unliked, isEmpty);
       expect(count('2'), findsOneWidget);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('editing a post you liked leaves the like alone', (
       tester,
@@ -428,7 +434,7 @@ void _registerReactionAndLikeTests() {
 
       await openPostMenu(tester);
       expect(menuAction('Remove like'), findsOneWidget);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
   });
 
   group('reactions', () {
@@ -552,6 +558,11 @@ void _registerReactionAndLikeTests() {
               },
       );
       if (beforeSettle == null) {
+        if (defaultTargetPlatform == TargetPlatform.android ||
+            defaultTargetPlatform == TargetPlatform.iOS) {
+          await tester.tap(sidebarDestination('Topics'));
+          await tester.pumpAndSettle();
+        }
         await tester.tap(find.text('A real topic'));
         await tester.pumpAndSettle();
       }
@@ -609,7 +620,7 @@ void _registerReactionAndLikeTests() {
       );
       // And no grand total beside them — it is not their sum and can exceed it.
       expect(pill('7'), findsNothing);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('an existing reaction row offers another configured reaction', (
       tester,
@@ -625,7 +636,7 @@ void _registerReactionAndLikeTests() {
       try {
         final launcher = find.bySemanticsLabel('Add reaction');
         expect(launcher, findsOneWidget);
-        expect(tester.getSize(launcher), const Size.square(48));
+        expect(tester.getSize(launcher), const Size.square(32));
         expect(
           tester.getSemantics(launcher),
           isSemantics(isButton: true, isFocusable: true, hasTapAction: true),
@@ -643,7 +654,7 @@ void _registerReactionAndLikeTests() {
       } finally {
         semantics.dispose();
       }
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('an any-emoji post reaction row opens the full picker', (
       tester,
@@ -672,7 +683,7 @@ void _registerReactionAndLikeTests() {
 
       expect(api.reacted, [(postId: 1, reaction: 'wave')]);
       expect(find.bySemanticsLabel('1 wave reaction'), findsOneWidget);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('the post picker waits for the site reaction policy', (
       tester,
@@ -709,7 +720,7 @@ void _registerReactionAndLikeTests() {
       await tester.tap(find.byTooltip('More emojis'));
       await tester.pumpAndSettle();
       expect(find.byType(EmojiPicker), findsOneWidget);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('a picker cannot react after the post loses permission', (
       tester,
@@ -746,7 +757,7 @@ void _registerReactionAndLikeTests() {
       await tester.pumpAndSettle();
 
       expect(api.reacted, isEmpty);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('the full picker survives its last post pill disappearing', (
       tester,
@@ -780,7 +791,7 @@ void _registerReactionAndLikeTests() {
       await tester.pumpAndSettle();
 
       expect(api.reacted, [(postId: 1, reaction: 'wave')]);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('an unreacted post still offers the footer reaction button', (
       tester,
@@ -790,7 +801,7 @@ void _registerReactionAndLikeTests() {
       expect(find.byType(ReactionsRow), findsOneWidget);
       expect(pill('0'), findsNothing);
       expect(find.byType(PostReactionButton), findsOneWidget);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('the configured icon and default reaction are independent', (
       tester,
@@ -852,7 +863,7 @@ void _registerReactionAndLikeTests() {
       expect(pill('1'), findsNothing);
       expect(api.liked, isEmpty);
       expect(api.unliked, isEmpty);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('hovering opens the configured reactions above the footer', (
       tester,
@@ -887,7 +898,7 @@ void _registerReactionAndLikeTests() {
       expect(api.reacted, [(postId: 1, reaction: '+1')]);
       expect(find.byType(ReactionGrid), findsNothing);
       expect(find.bySemanticsLabel('1 +1 reaction'), findsOneWidget);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('leaving the footer reaction menu closes it without reacting', (
       tester,
@@ -906,7 +917,7 @@ void _registerReactionAndLikeTests() {
 
       expect(find.byType(ReactionGrid), findsNothing);
       expect(api.reacted, isEmpty);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('keyboard users can choose a configured reaction', (
       tester,
@@ -941,7 +952,7 @@ void _registerReactionAndLikeTests() {
       await tester.pumpAndSettle();
       expect(api.reacted, [(postId: 1, reaction: '+1')]);
       expect(find.byType(ReactionGrid), findsNothing);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('a footer reaction cannot be toggled twice during a write', (
       tester,
@@ -979,7 +990,7 @@ void _registerReactionAndLikeTests() {
       gate.complete();
       await tester.pumpAndSettle();
       expect(find.byType(ReactionGrid), findsNothing);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('a refused footer reaction restores the button and says why', (
       tester,
@@ -997,7 +1008,7 @@ void _registerReactionAndLikeTests() {
       expect(find.textContaining('Too fast'), findsOneWidget);
       expect(find.bySemanticsLabel('Add reaction'), findsOneWidget);
       expect(pill('1'), findsNothing);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('the touch menu wraps on a narrow screen and dismisses outside', (
       tester,
@@ -1073,7 +1084,7 @@ void _registerReactionAndLikeTests() {
       expect(find.byType(ReactorList), findsNothing);
       expect(pill('3'), findsOneWidget);
       semantics.dispose();
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('tapping a reaction on your post does not open reactors', (
       tester,
@@ -1113,7 +1124,7 @@ void _registerReactionAndLikeTests() {
       expect(find.byType(PostReactionButton), findsNothing);
       expect(api.reactorsRequested, isEmpty);
       expect(api.reacted, isEmpty);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('a touch long press opens reactors without changing reaction', (
       tester,
@@ -1187,7 +1198,7 @@ void _registerReactionAndLikeTests() {
         tester.getSemantics(find.bySemanticsLabel('2 clap reactions')),
         isSemantics(hasToggledState: true, isToggled: true),
       );
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('clicking the highlighted reaction removes it', (tester) async {
       final api = await openTopic(
@@ -1210,7 +1221,7 @@ void _registerReactionAndLikeTests() {
       expect(api.reacted, [(postId: 1, reaction: 'clap')]);
       expect(find.byType(ReactionsRow), findsOneWidget);
       expect(pill('1'), findsNothing);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('a post on a site without the plugin keeps its likes', (
       tester,
@@ -1219,7 +1230,7 @@ void _registerReactionAndLikeTests() {
 
       expect(find.byType(PostLikes), findsOneWidget);
       expect(find.byType(ReactionsRow), findsNothing);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('a custom emoji is drawn from its upload, not the set', (
       tester,
@@ -1251,7 +1262,7 @@ void _registerReactionAndLikeTests() {
         ),
         findsNothing,
       );
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('the menu offers React without Like and opens the picker', (
       tester,
@@ -1269,7 +1280,7 @@ void _registerReactionAndLikeTests() {
       expect(find.byType(ReactionGrid), findsOneWidget);
       expect(api.reacted, isEmpty);
       expect(api.liked, isEmpty);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('overflowed counts preserve reaction writes in the menu', (
       tester,
@@ -1313,7 +1324,7 @@ void _registerReactionAndLikeTests() {
       expect(api.reacted, [(postId: 1, reaction: 'clap')]);
       expect(api.liked, isEmpty);
       expect(api.unliked, isEmpty);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('React highlights the reaction the reader already gave', (
       tester,
@@ -1344,7 +1355,7 @@ void _registerReactionAndLikeTests() {
         tester.getSemantics(find.bySemanticsLabel('clap')),
         isSemantics(isSelected: true),
       );
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('reacting draws the row before the site answers', (
       tester,
@@ -1365,7 +1376,7 @@ void _registerReactionAndLikeTests() {
 
       gate.complete();
       await tester.pumpAndSettle();
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('a refused reaction says why and puts the row back', (
       tester,
@@ -1387,7 +1398,7 @@ void _registerReactionAndLikeTests() {
 
       expect(pill('2'), findsOneWidget);
       expect(find.textContaining('Too fast'), findsOneWidget);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('a reaction the site no longer has drops that row alone', (
       tester,
@@ -1413,7 +1424,7 @@ void _registerReactionAndLikeTests() {
 
       expect(pill('3'), findsOneWidget);
       expect(pill('1'), findsNothing);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('the menu disables React while a reaction write is in flight', (
       tester,
@@ -1437,7 +1448,7 @@ void _registerReactionAndLikeTests() {
       expect(api.reacted, [(postId: 1, reaction: 'heart')]);
       gate.complete();
       await tester.pumpAndSettle();
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('a site that has not said which reaction is a like is asked', (
       tester,
@@ -1453,7 +1464,7 @@ void _registerReactionAndLikeTests() {
         find.textContaining('which reactions this site allows'),
         findsOneWidget,
       );
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('picking the current reaction removes it', (tester) async {
       final api = await openTopic(
@@ -1476,7 +1487,7 @@ void _registerReactionAndLikeTests() {
 
       expect(api.reacted, [(postId: 1, reaction: 'clap')]);
       expect(pill('1'), findsNothing);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('a reaction can be picked from the grid', (tester) async {
       final api = await openTopic(tester, config: configured, posts: [post()]);
@@ -1494,7 +1505,7 @@ void _registerReactionAndLikeTests() {
 
       expect(api.reacted, [(postId: 1, reaction: '+1')]);
       expect(pill('1'), findsOneWidget);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('an any-emoji site opens the full picker from the menu', (
       tester,
@@ -1578,7 +1589,7 @@ void _registerReactionAndLikeTests() {
         tester.getSemantics(find.bySemanticsLabel('heart')),
         isSemantics(isSelected: true),
       );
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('editing a post you reacted to leaves the reaction alone', (
       tester,
@@ -1636,7 +1647,7 @@ void _registerReactionAndLikeTests() {
         tester.getSemantics(find.bySemanticsLabel('clap')),
         isSemantics(isSelected: true),
       );
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('resting on a pill says who gave that one', (tester) async {
       final api = await openTopic(
@@ -1679,7 +1690,7 @@ void _registerReactionAndLikeTests() {
         ),
         findsNothing,
       );
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('somebody else reacting arrives without a refresh', (
       tester,
@@ -1717,7 +1728,7 @@ void _registerReactionAndLikeTests() {
         [1],
       ]);
       expect(pill('2'), findsOneWidget);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('leaving the topic stops listening to it', (tester) async {
       await openTopic(
@@ -1736,7 +1747,7 @@ void _registerReactionAndLikeTests() {
       await tester.pumpAndSettle();
 
       expect(FakeSiteTracker.built.last.watchedTopic, isNull);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets("a write of this reader's own is not read back over", (
       tester,
@@ -1765,7 +1776,7 @@ void _registerReactionAndLikeTests() {
 
       gate.complete();
       await tester.pumpAndSettle();
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('a failed reactor lookup explains that names are unavailable', (
       tester,
@@ -1786,6 +1797,6 @@ void _registerReactionAndLikeTests() {
       await tester.pumpAndSettle();
 
       expect(find.textContaining('who reacted'), findsOneWidget);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
   });
 }

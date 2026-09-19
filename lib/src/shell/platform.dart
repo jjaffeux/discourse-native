@@ -1,6 +1,11 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
+bool usesMobileNavigation(TargetPlatform platform) => switch (platform) {
+  TargetPlatform.iOS || TargetPlatform.android => true,
+  _ => false,
+};
+
 bool forumTabsEnabledFor({
   required TargetPlatform platform,
   required bool isWeb,

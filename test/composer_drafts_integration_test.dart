@@ -105,6 +105,13 @@ void _registerTopicReplyTests() {
         instances: connectedSites(user: user),
         authenticator: signedIn(),
       );
+      if (find
+          .byKey(const ValueKey('mobile-bottom-bar'))
+          .evaluate()
+          .isNotEmpty) {
+        await tester.tap(sidebarDestination('Topics'));
+        await tester.pumpAndSettle();
+      }
       await tester.tap(contentText('A real topic'));
       await tester.pumpAndSettle();
     }
@@ -134,7 +141,7 @@ void _registerTopicReplyTests() {
       expect(await tester.sendKeyEvent(LogicalKeyboardKey.keyR), isFalse);
       await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
       expect(find.byType(ComposerPanel), findsNothing);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     for (final canReply in [true, false]) {
       testWidgets(
@@ -166,6 +173,7 @@ void _registerTopicReplyTests() {
             canReply ? findsOneWidget : findsNothing,
           );
         },
+        variant: TargetPlatformVariant.only(TargetPlatform.linux),
       );
     }
 
@@ -199,7 +207,7 @@ void _registerTopicReplyTests() {
       await tester.pumpAndSettle();
       expect(shell.visibleComposer, isNull);
       expect(shell.currentContent?.isTopic, isNot(true));
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('Shift R opens a topic reply only where replying is allowed', (
       tester,
@@ -232,7 +240,7 @@ void _registerTopicReplyTests() {
       expect(find.byType(ComposerPanel), findsOneWidget);
       final shell = ShellScope.read(tester.element(find.byType(ComposerPanel)));
       expect(shell.visibleComposer?.target.replyToPostNumber, isNull);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets(
       'Shift R does not retarget a reply while its editor has focus',
@@ -263,6 +271,7 @@ void _registerTopicReplyTests() {
 
         expect(shell.visibleComposer?.target.replyToPostNumber, 1);
       },
+      variant: TargetPlatformVariant.only(TargetPlatform.linux),
     );
 
     testWidgets('to a topic posts what was typed', (tester) async {
@@ -296,7 +305,7 @@ void _registerTopicReplyTests() {
 
       expect(find.byType(ComposerPanel), findsNothing);
       expect(renderedText('Sounds good to me.'), findsOneWidget);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets(
       'a reply retargeted at a whisper while sending posts as written',
@@ -335,6 +344,7 @@ void _registerTopicReplyTests() {
         expect(api.created.single['replyToPostNumber'], isNull);
         expect(find.byType(ComposerPanel), findsNothing);
       },
+      variant: TargetPlatformVariant.only(TargetPlatform.linux),
     );
 
     testWidgets('a whisperer can toggle and submit a whispered reply', (
@@ -428,7 +438,7 @@ void _registerTopicReplyTests() {
       await tester.pumpAndSettle();
 
       expect(api.created.single['replyToPostNumber'], 1);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('a reply to a whisper stays whispered without a toggle', (
       tester,
@@ -480,7 +490,7 @@ void _registerTopicReplyTests() {
 
       expect(api.created.single['replyToPostNumber'], 2);
       expect(api.created.single['whisper'], isTrue);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('always reports how long the reply took to type', (
       tester,
@@ -502,7 +512,7 @@ void _registerTopicReplyTests() {
       // post rather than merely queueing it.
       expect(api.created.single['typingDurationMsecs'], isNotNull);
       expect(api.created.single['composerOpenDurationMsecs'], isNotNull);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('cmd-enter sends without reaching for the button', (
       tester,
@@ -524,7 +534,7 @@ void _registerTopicReplyTests() {
       await tester.pumpAndSettle();
 
       expect(api.created.single['raw'], 'Shipped.');
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('a refused reply keeps the text and says why', (tester) async {
       final api = FakeDiscourseApi(
@@ -551,7 +561,7 @@ void _registerTopicReplyTests() {
       );
       expect(find.byType(ComposerPanel), findsOneWidget);
       expect(find.text('no'), findsOneWidget);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('a queued reply is not shown as posted', (tester) async {
       final api = FakeDiscourseApi(
@@ -575,7 +585,7 @@ void _registerTopicReplyTests() {
       expect(renderedText('Held for review.'), findsNothing);
 
       expect(tester.widget<DButton>(sendButton()).onPressed, isNull);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('undo does not hand a queued reply back', (tester) async {
       final api = FakeDiscourseApi(
@@ -610,7 +620,7 @@ void _registerTopicReplyTests() {
       // under works.
       expect(find.text('Held for review.'), findsNothing);
       expect(tester.widget<DButton>(sendButton()).onPressed, isNull);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('switching sites mid-reply does not post to the new one', (
       tester,
@@ -640,7 +650,7 @@ void _registerTopicReplyTests() {
       await tester.pumpAndSettle();
 
       expect(api.created.single['siteUrl'], 'https://meta.discourse.org');
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('a rate limit holds sending back until the wait is up', (
       tester,
@@ -671,7 +681,7 @@ void _registerTopicReplyTests() {
       await tester.pumpAndSettle();
 
       expect(tester.widget<DButton>(sendButton()).onPressed, isNotNull);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('an unreachable site is checked rather than retried', (
       tester,
@@ -715,7 +725,7 @@ void _registerTopicReplyTests() {
       expect(api.postFetches.last, contains(2));
       expect(find.byType(ComposerPanel), findsNothing);
       expect(renderedText('It landed.'), findsOneWidget);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('a check that finds nothing lets the reply be sent again', (
       tester,
@@ -737,7 +747,7 @@ void _registerTopicReplyTests() {
       expect(find.text("Couldn't reach the site."), findsOneWidget);
       expect(find.text('Never arrived.'), findsOneWidget);
       expect(tester.widget<DButton>(sendButton()).onPressed, isNotNull);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('a check that cannot be made holds sending back', (
       tester,
@@ -767,7 +777,7 @@ void _registerTopicReplyTests() {
       await tester.tap(button);
       await tester.pumpAndSettle();
       expect(api.created, hasLength(1));
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('copy link writes core post URLs to the clipboard', (
       tester,
@@ -824,7 +834,7 @@ void _registerTopicReplyTests() {
         'https://meta.discourse.org/t/a-real-topic/7?u=joffreyj',
         'https://meta.discourse.org/t/a-real-topic/7/2?u=joffreyj',
       ]);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('copy link is available to anonymous readers', (tester) async {
       final api = FakeDiscourseApi(
@@ -848,7 +858,7 @@ void _registerTopicReplyTests() {
       await tester.pumpAndSettle();
 
       expect(copied, ['https://meta.discourse.org/t/a-real-topic/7']);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('on a touch screen the actions arrive as a sheet', (
       tester,
@@ -872,7 +882,7 @@ void _registerTopicReplyTests() {
 
       expect(find.byType(ComposerPanel), findsOneWidget);
       expect(find.text('@sam'), findsOneWidget);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.android));
 
     testWidgets('closing the composer sends nothing', (tester) async {
       final api = FakeDiscourseApi(
@@ -888,7 +898,7 @@ void _registerTopicReplyTests() {
 
       expect(find.byType(ComposerPanel), findsNothing);
       expect(api.created, isEmpty);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
   });
 }
 
@@ -952,7 +962,7 @@ void _registerComposerAndDraftTests() {
         tester.widget<TextField>(_composerField).spellCheckConfiguration,
         isNull,
       );
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('marks up the markdown around the selection', (tester) async {
       final api = FakeDiscourseApi(
@@ -978,7 +988,7 @@ void _registerComposerAndDraftTests() {
       await tester.tap(find.byKey(const ValueKey('composer-format-italic')));
       await tester.pumpAndSettle();
       expect(field.controller!.text, 'say ***hello***');
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
   });
 
   group('composer autocomplete', () {
@@ -1079,7 +1089,7 @@ void _registerComposerAndDraftTests() {
       // The topic is part of the question: Discourse ranks people already in
       // it first, which is what puts the person being replied to at the top.
       expect(fake.userSearchesRequested.single.topicId, 7);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('writes the whole mention when one is picked', (tester) async {
       await openComposer(tester, api());
@@ -1093,7 +1103,7 @@ void _registerComposerAndDraftTests() {
 
       expect(field(tester).controller!.text, 'hey @sam ');
       expect(find.text('Sam Saffron'), findsNothing);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('arrowing down picks the second name', (tester) async {
       await openComposer(tester, api());
@@ -1108,7 +1118,7 @@ void _registerComposerAndDraftTests() {
       await tester.pumpAndSettle();
 
       expect(field(tester).controller!.text, 'hey @sally ');
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('escape closes the list, not the reply', (tester) async {
       await openComposer(tester, api());
@@ -1133,7 +1143,7 @@ void _registerComposerAndDraftTests() {
       await tester.sendKeyEvent(LogicalKeyboardKey.escape);
       await tester.pumpAndSettle();
       expect(_composerField, findsNothing);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('cmd+enter still sends with the list open', (tester) async {
       final fake = api();
@@ -1150,7 +1160,7 @@ void _registerComposerAndDraftTests() {
       await tester.pumpAndSettle();
 
       expect(fake.created.single['raw'], 'hey @sa');
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('offers emoji without asking the site again', (tester) async {
       final fake = api();
@@ -1162,7 +1172,7 @@ void _registerComposerAndDraftTests() {
       expect(find.text('smile'), findsOneWidget);
       expect(find.text('smirk'), findsOneWidget);
       expect(fake.emojisRequested, ['https://meta.discourse.org']);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('offers categories and tags once # is typed', (tester) async {
       final fake = api();
@@ -1175,7 +1185,7 @@ void _registerComposerAndDraftTests() {
       expect(find.text('Random'), findsOneWidget);
       expect(find.text('random'), findsOneWidget);
       expect(find.text('x0'), findsOneWidget);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('writes the ref, not the slug, when one is picked', (
       tester,
@@ -1191,7 +1201,7 @@ void _registerComposerAndDraftTests() {
       await tester.pumpAndSettle();
 
       expect(field(tester).controller!.text, 'see #random::tag ');
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('a picked hashtag pills without asking again', (tester) async {
       final fake = api();
@@ -1205,7 +1215,7 @@ void _registerComposerAndDraftTests() {
       expect(field(tester).controller!.text, 'see #random ');
       expect(find.byType(HashtagPill), findsOneWidget);
       expect(fake.hashtagLookupsRequested, isEmpty);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('a picked mention pills without asking again', (tester) async {
       final fake = api();
@@ -1219,7 +1229,7 @@ void _registerComposerAndDraftTests() {
       expect(field(tester).controller!.text, 'hey @sam ');
       expect(find.byType(MentionPill), findsOneWidget);
       expect(fake.mentionChecksRequested, isEmpty);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('a mention uses the hand cursor over its pill', (tester) async {
       final fake = FakeDiscourseApi(
@@ -1256,7 +1266,7 @@ void _registerComposerAndDraftTests() {
         RendererBinding.instance.mouseTracker.debugDeviceActiveCursor(1),
         SystemMouseCursors.text,
       );
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('a hand-typed name is checked once, then pills', (
       tester,
@@ -1275,7 +1285,7 @@ void _registerComposerAndDraftTests() {
         {'sam'},
       ]);
       expect(find.byType(MentionPill), findsOneWidget);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('a hand-typed name nobody has stays text', (tester) async {
       final fake = FakeDiscourseApi(
@@ -1291,7 +1301,7 @@ void _registerComposerAndDraftTests() {
         {'nobody'},
       ]);
       expect(find.byType(MentionPill), findsNothing);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('says nothing about a hash inside a word', (tester) async {
       final fake = api();
@@ -1301,7 +1311,7 @@ void _registerComposerAndDraftTests() {
       await tester.pumpAndSettle();
 
       expect(fake.hashtagSearchesRequested, isEmpty);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('writes the shortcode when an emoji is picked', (tester) async {
       await openComposer(tester, api());
@@ -1313,7 +1323,7 @@ void _registerComposerAndDraftTests() {
       await tester.pumpAndSettle();
 
       expect(field(tester).controller!.text, 'a :smirk: ');
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('draws the artwork for a shortcode that was written', (
       tester,
@@ -1334,7 +1344,7 @@ void _registerComposerAndDraftTests() {
         tester.widget<TextField>(_composerField).controller!.text,
         'hey :smile:',
       );
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('says nothing about an email address', (tester) async {
       final fake = api();
@@ -1345,7 +1355,7 @@ void _registerComposerAndDraftTests() {
       await tester.pumpAndSettle();
 
       expect(fake.userSearchesRequested, isEmpty);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
   });
 
   group('drafts', () {
@@ -1433,7 +1443,7 @@ void _registerComposerAndDraftTests() {
           sequence: 0,
         ),
       ]);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('Cancel removes an empty reply draft', (tester) async {
       final api = FakeDiscourseApi(
@@ -1457,7 +1467,7 @@ void _registerComposerAndDraftTests() {
           sequence: 0,
         ),
       ]);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     for (final empty in [false, true]) {
       testWidgets(
@@ -1511,6 +1521,7 @@ void _registerComposerAndDraftTests() {
           expect(find.byType(ComposerPanel, skipOffstage: false), findsNothing);
           expect(api.created, isEmpty);
         },
+        variant: TargetPlatformVariant.only(TargetPlatform.linux),
       );
     }
 
@@ -1547,6 +1558,7 @@ void _registerComposerAndDraftTests() {
         expect(replacement.isEditing, isTrue);
         expect(find.byType(ComposerPanel), findsOneWidget);
       },
+      variant: TargetPlatformVariant.only(TargetPlatform.linux),
     );
 
     testWidgets('a failed close restores the same editor and can retry', (
@@ -1593,7 +1605,7 @@ void _registerComposerAndDraftTests() {
         )?.reply,
         'Keep the exact editor',
       );
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets(
       'save and close retains the hidden editor until restoration is safely saved',
@@ -1631,6 +1643,7 @@ void _registerComposerAndDraftTests() {
         expect(api.draftsSaved.last['data'], contains('Restored after close'));
         expect(drafts.saved, isEmpty);
       },
+      variant: TargetPlatformVariant.only(TargetPlatform.linux),
     );
 
     testWidgets('a failed local read is retried before close can delete', (
@@ -1662,7 +1675,7 @@ void _registerComposerAndDraftTests() {
       expect(api.userDraftsDeleted, isEmpty);
       expect(api.draftsSaved.last['data'], contains('Temporarily unreadable'));
       expect(drafts.saved, isEmpty);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('a malformed legacy draft gives a recoverable restore notice', (
       tester,
@@ -1710,7 +1723,7 @@ void _registerComposerAndDraftTests() {
       expect(persistence.values, isEmpty);
       expect(prefs.containsKey(storageKey), isFalse);
       expect(api.userDraftsDeleted, isEmpty);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('close does not delete an unseen draft after restore fails', (
       tester,
@@ -1764,7 +1777,7 @@ void _registerComposerAndDraftTests() {
 
       expect(find.byType(ComposerPanel), findsNothing);
       expect(api.userDraftsDeleted, isEmpty);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('closing a PM preserves a draft for different recipients', (
       tester,
@@ -1816,7 +1829,7 @@ void _registerComposerAndDraftTests() {
       expect(find.byType(ComposerPanel), findsNothing);
       expect(api.userDraftsDeleted, isEmpty);
       expect(api.draftsSaved, isEmpty);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('discarding a fresh PM cannot delete another PM draft', (
       tester,
@@ -1879,7 +1892,7 @@ void _registerComposerAndDraftTests() {
       expect(find.byType(ComposerPanel), findsNothing);
       expect(api.userDraftsDeleted, isEmpty);
       expect(api.draftsSaved, isEmpty);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets(
       'discard restores another PM after its replacement save was in flight',
@@ -1958,6 +1971,7 @@ void _registerComposerAndDraftTests() {
         expect(api.draftsSaved.last['data'], preserved.encode());
         expect(drafts.saved, isEmpty);
       },
+      variant: TargetPlatformVariant.only(TargetPlatform.linux),
     );
 
     testWidgets(
@@ -2039,6 +2053,7 @@ void _registerComposerAndDraftTests() {
         ]);
         expect(drafts.saved.values.single, preserved.encode());
       },
+      variant: TargetPlatformVariant.only(TargetPlatform.linux),
     );
 
     testWidgets('a late restore cannot regress the draft sequence', (
@@ -2101,7 +2116,7 @@ void _registerComposerAndDraftTests() {
       await tester.pumpAndSettle();
 
       expect(api.userDraftsDeleted.single.sequence, 2);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('a late restore preserves taxonomy and advances its sequence', (
       tester,
@@ -2157,7 +2172,7 @@ void _registerComposerAndDraftTests() {
       expect(composer.draftSequence, 8);
       expect(api.draftsSaved.single['sequence'], 7);
       expect(api.draftsSaved.single['data'], contains('"categoryId":99'));
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     for (final escape in [false, true]) {
       testWidgets(
@@ -2199,6 +2214,7 @@ void _registerComposerAndDraftTests() {
           );
           expect(api.userDraftsDeleted, isEmpty);
         },
+        variant: TargetPlatformVariant.only(TargetPlatform.linux),
       );
     }
 
@@ -2247,7 +2263,7 @@ void _registerComposerAndDraftTests() {
       ]);
       expect(drafts.saved, isEmpty);
       expect(drafts.events.last, 'clear');
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('composer discard removes the cached draft and badge', (
       tester,
@@ -2302,7 +2318,7 @@ void _registerComposerAndDraftTests() {
         isEmpty,
       );
       expect(shell.draftCountFor(shell.currentInstance!.url), 0);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('empty close does not decrement unrelated draft counts', (
       tester,
@@ -2341,7 +2357,7 @@ void _registerComposerAndDraftTests() {
       }
 
       expect(shell.draftCountFor(shell.currentInstance!.url), 3);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('discard locks editing and preserves a concurrent change', (
       tester,
@@ -2401,7 +2417,7 @@ void _registerComposerAndDraftTests() {
       );
       expect(composer.discarding, isFalse);
       expect(api.draftsSaved.last['data'], contains('Changed during discard'));
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('discard waits for an older save of the same draft key', (
       tester,
@@ -2449,7 +2465,7 @@ void _registerComposerAndDraftTests() {
         ),
       ]);
       expect(find.byType(ComposerPanel), findsNothing);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('a new composer stays locally durable behind an old save', (
       tester,
@@ -2502,7 +2518,7 @@ void _registerComposerAndDraftTests() {
       expect(api.draftsSaved.last['data'], contains('New queued revision'));
       expect(shell.currentTopic?.draft?.reply, 'New queued revision');
       expect(drafts.saved, isEmpty);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('restore sees an old remote save when its local write failed', (
       tester,
@@ -2533,7 +2549,7 @@ void _registerComposerAndDraftTests() {
 
       expect(find.text('Remote-only revision'), findsOneWidget);
       expect(api.userDraftsDeleted, isEmpty);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('retired saves cannot cross a reconnected account boundary', (
       tester,
@@ -2588,7 +2604,7 @@ void _registerComposerAndDraftTests() {
         ),
         isEmpty,
       );
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('a failed discard keeps the draft and the queue usable', (
       tester,
@@ -2624,7 +2640,7 @@ void _registerComposerAndDraftTests() {
       expect(api.draftsSaved, hasLength(3));
       expect(api.draftsSaved.last['sequence'], 6);
       expect(api.draftsSaved.last['data'], contains('Queue still works'));
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('a failed local clear keeps and re-saves the composer', (
       tester,
@@ -2654,7 +2670,7 @@ void _registerComposerAndDraftTests() {
       expect(api.draftsSaved, hasLength(2));
       expect(api.draftsSaved.last['data'], contains('Must not resurrect'));
       expect(drafts.saved, isEmpty);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('typing is saved to the site after a pause', (tester) async {
       final api = FakeDiscourseApi(
@@ -2674,7 +2690,7 @@ void _registerComposerAndDraftTests() {
       expect(api.draftsSaved.single['draftKey'], 'topic_7');
       expect(api.draftsSaved.single['sequence'], 4);
       expect(api.draftsSaved.single['data'], contains('Half a thought'));
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('a new draft after a queued reply uses its returned sequence', (
       tester,
@@ -2706,7 +2722,7 @@ void _registerComposerAndDraftTests() {
       expect(api.draftsSaved, hasLength(1));
       expect(api.draftsSaved.single['sequence'], 9);
       expect(api.draftsSaved.single['data'], contains('A different reply'));
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('a slow save cannot clear a newer draft', (tester) async {
       final gate = Completer<void>();
@@ -2735,7 +2751,7 @@ void _registerComposerAndDraftTests() {
       expect(api.draftsSaved.last['data'], contains('Latest revision'));
       expect(drafts.events.where((event) => event == 'clear'), hasLength(1));
       expect(drafts.events.last, 'clear');
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('a draft is put back when the composer is reopened', (
       tester,
@@ -2757,7 +2773,7 @@ void _registerComposerAndDraftTests() {
       await tester.pumpAndSettle();
 
       expect(find.text('Come back to this'), findsOneWidget);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('a draft the site already had is restored on open', (
       tester,
@@ -2779,7 +2795,7 @@ void _registerComposerAndDraftTests() {
 
       expect(find.text('Started in a browser'), findsOneWidget);
       expect(find.text('@sam'), findsOneWidget);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('a draft the site would not take is kept on the device', (
       tester,
@@ -2801,7 +2817,7 @@ void _registerComposerAndDraftTests() {
         find.text('Not saved on the site — kept on this device only.'),
         findsOneWidget,
       );
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('the sync stops asking a site that will not answer', (
       tester,
@@ -2828,7 +2844,7 @@ void _registerComposerAndDraftTests() {
       await settleDraft(tester);
 
       expect(api.draftsSaved, hasLength(ComposerController.maxDraftFailures));
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('posting clears the draft it was written as', (tester) async {
       final drafts = FakeDraftStore();
@@ -2854,7 +2870,7 @@ void _registerComposerAndDraftTests() {
       // Discourse deletes its own copy when it accepts a post; ours has to go
       // too, or reopening the composer offers to write the reply again.
       expect(drafts.saved, isEmpty);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
   });
 }
 

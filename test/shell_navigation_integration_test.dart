@@ -62,7 +62,7 @@ void main() {
 
 void _registerShellNavigationTests() {
   group('forum search', () {
-    testWidgets('keeps search in the top-level toolbar on every platform', (
+    testWidgets('keeps desktop search in the top-level toolbar', (
       tester,
     ) async {
       await pumpShell(tester, laptop);
@@ -94,7 +94,7 @@ void _registerShellNavigationTests() {
       } finally {
         debugDefaultTargetPlatformOverride = previous;
       }
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('is unavailable on Aggregate', (tester) async {
       final previous = debugDefaultTargetPlatformOverride;
@@ -171,26 +171,27 @@ void _registerShellNavigationTests() {
       }
     });
 
-    testWidgets(
-      'keeps compact search in the toolbar above the forum identity',
-      (tester) async {
-        await pumpShell(tester, phone);
+    testWidgets('opens mobile search from a header button into a sheet', (
+      tester,
+    ) async {
+      await pumpShell(tester, phone);
 
-        final title = tester.getRect(find.text('Discourse Meta'));
-        final field = tester.getRect(find.byKey(ForumSearch.inputKey));
-        final searchTarget = find.byKey(ForumSearch.inputKey);
-        expect(field.bottom, lessThan(title.top));
-        expect(searchTarget, findsOneWidget);
-        expect(tester.getSize(searchTarget).width, greaterThanOrEqualTo(44));
-        expect(find.byType(InstanceSidebar), findsOneWidget);
+      final title = tester.getRect(find.text('Discourse Meta'));
+      final searchTarget = find.byKey(const ValueKey('mobile-search-button'));
+      final button = tester.getRect(searchTarget);
+      expect(button.center.dy, closeTo(title.center.dy, 4));
+      expect(find.byKey(ForumSearch.inputKey), findsNothing);
+      expect(searchTarget, findsOneWidget);
+      expect(tester.getSize(searchTarget).width, greaterThanOrEqualTo(44));
+      expect(find.byType(InstanceSidebar), findsOneWidget);
 
-        await tester.tap(searchTarget);
-        await tester.pump();
+      await tester.tap(searchTarget);
+      await tester.pumpAndSettle();
 
-        final focusNode = tester.widget<EditableText>(_searchEditor).focusNode;
-        expect(focusNode.hasFocus, isTrue);
-      },
-    );
+      final focusNode = tester.widget<EditableText>(_searchEditor).focusNode;
+      expect(focusNode.hasFocus, isTrue);
+      expect(find.byType(DSheetContent), findsOneWidget);
+    });
 
     testWidgets('global search clears its query and keeps the editor focused', (
       tester,
@@ -217,7 +218,7 @@ void _registerShellNavigationTests() {
         tester.widget<EditableText>(_searchEditor).focusNode.hasFocus,
         isTrue,
       );
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     for (final keyboard in [false, true]) {
       testWidgets(
@@ -266,6 +267,7 @@ void _registerShellNavigationTests() {
           expect(find.byKey(ForumSearch.panelKey), findsNothing);
           expect(tester.takeException(), isNull);
         },
+        variant: TargetPlatformVariant.only(TargetPlatform.linux),
       );
     }
 
@@ -292,7 +294,7 @@ void _registerShellNavigationTests() {
       expect(controller.search.panelOpen, isFalse);
       expect(searchInput.hasFocus, isFalse);
       expect(controller.search.query, 'matches');
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
   });
 
   group('compact shell layout', () {
@@ -323,7 +325,7 @@ void _registerShellNavigationTests() {
 
       expect(find.byType(MainContent), findsOneWidget);
       expect(find.byType(InstanceSidebar), findsNothing);
-      expect(find.byType(InstanceRail), findsOneWidget);
+      expect(find.byType(InstanceRail), findsNothing);
     });
 
     testWidgets('back returns from content to the sidebar', (tester) async {
@@ -384,7 +386,7 @@ void _registerShellNavigationTests() {
       expect(exits, hasLength(1));
     });
 
-    testWidgets('mouse side buttons stay within content history', (
+    testWidgets('mouse side buttons navigate mobile visit history', (
       tester,
     ) async {
       await pumpShell(tester, phone);
@@ -394,7 +396,9 @@ void _registerShellNavigationTests() {
 
       Future<void> tapMouseButton(int button) async {
         await tester.tap(
-          find.byType(MainContent),
+          find.byType(MainContent).evaluate().isEmpty
+              ? find.byType(InstanceSidebar)
+              : find.byType(MainContent),
           buttons: button,
           kind: PointerDeviceKind.mouse,
         );
@@ -402,7 +406,9 @@ void _registerShellNavigationTests() {
       }
 
       await tapMouseButton(kBackMouseButton);
-      expect(find.byType(MainContent), findsOneWidget);
+      expect(find.byType(MainContent), findsNothing);
+      expect(find.byType(InstanceSidebar), findsOneWidget);
+      await tapMouseButton(kForwardMouseButton);
       expect(shell.currentContent?.id, 'latest');
 
       shell.pushContent(
@@ -422,35 +428,43 @@ void _registerShellNavigationTests() {
       expect(shell.currentContent?.id, 'compact-mouse-history');
     });
 
-    testWidgets('the avatar stays in the top-level toolbar across panes', (
+    testWidgets('the avatar is visible only on the mobile root', (
       tester,
     ) async {
       await pumpShell(tester, phone);
       expect(userMenu, findsOneWidget);
       final initial = tester.getRect(userMenu);
       expect(
-        tester.getRect(find.byType(ShellTitleBar)).contains(initial.center),
+        tester
+            .getRect(find.byKey(const ValueKey('mobile-header')))
+            .contains(initial.center),
         isTrue,
       );
       await tester.tap(find.text('Topics'));
       await tester.pumpAndSettle();
-      expect(userMenu, findsOneWidget);
-      expect(tester.getRect(userMenu), initial);
+      expect(userMenu, findsNothing);
       expect(
         find.descendant(of: find.byType(MainContent), matching: userMenu),
         findsNothing,
       );
+      await tester.tap(find.byTooltip('Back'));
+      await tester.pumpAndSettle();
+      expect(tester.getRect(userMenu), initial);
     });
   });
 
   group('medium shell layout', () {
-    testWidgets('shows rail, sidebar and content together', (tester) async {
+    testWidgets('can expand the sidebar beside rail and content', (
+      tester,
+    ) async {
       await pumpShell(tester, laptop);
+      await tester.tap(find.byKey(const ValueKey('rail-sidebar-toggle')));
+      await tester.pumpAndSettle();
 
       expect(find.byType(InstanceRail), findsOneWidget);
       expect(find.byType(InstanceSidebar), findsOneWidget);
       expect(find.byType(MainContent), findsOneWidget);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
   });
 
   group('expanded shell layout', () {
@@ -460,7 +474,7 @@ void _registerShellNavigationTests() {
       expect(find.byType(InstanceRail), findsOneWidget);
       expect(find.byType(InstanceSidebar), findsOneWidget);
       expect(find.byType(MainContent), findsOneWidget);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets(
       'mouse side buttons navigate content history and respect overlays',
@@ -522,6 +536,7 @@ void _registerShellNavigationTests() {
         await tapMouseButton(kForwardMouseButton);
         expect(shell.currentContent?.id, 'mouse-history');
       },
+      variant: TargetPlatformVariant.only(TargetPlatform.linux),
     );
 
     testWidgets('mouse Back closes the app Settings modal', (tester) async {
@@ -543,7 +558,7 @@ void _registerShellNavigationTests() {
       expect(shell.rootMode, ShellRootMode.forum);
       expect(shell.appSettingsModalOpen, isFalse);
       expect(find.byType(MainContent), findsOneWidget);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('the avatar sits in the top right corner', (tester) async {
       await pumpShell(tester, desktop);
@@ -563,7 +578,7 @@ void _registerShellNavigationTests() {
               .bottom,
         ),
       );
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
   });
 
   testWidgets('switching instance swaps the sidebar contents', (tester) async {
@@ -576,7 +591,7 @@ void _registerShellNavigationTests() {
 
     expect(find.text('Discourse Team'), findsOneWidget);
     expect(find.text('Discourse Meta'), findsNothing);
-  });
+  }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
   testWidgets('keeps Groups in More until the group route is active', (
     tester,
@@ -605,7 +620,7 @@ void _registerShellNavigationTests() {
 
     expect(find.widgetWithText(DDropdownMenuItem, 'Groups'), findsNothing);
     expect(find.widgetWithText(DDropdownMenuItem, 'Filter'), findsNothing);
-  });
+  }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
   for (final connected in [true, false]) {
     testWidgets(
@@ -739,6 +754,7 @@ void _registerShellNavigationTests() {
           ['Groups', 'Badges'],
         );
       },
+      variant: TargetPlatformVariant.only(TargetPlatform.linux),
     );
   }
 
@@ -763,7 +779,7 @@ void _registerShellNavigationTests() {
 
     expect(controller.destinationId, 'latest');
     expect(sidebarDestination('Groups'), findsOneWidget);
-  });
+  }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
   testWidgets('uses a home icon for the aggregate route', (tester) async {
     await pumpShell(tester, desktop);
@@ -774,7 +790,7 @@ void _registerShellNavigationTests() {
       find.descendant(of: aggregateButton, matching: find.dIcon(DIcons.house)),
       findsOneWidget,
     );
-  });
+  }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
   testWidgets('places the UI Kit add control after forums', (tester) async {
     final semantics = tester.ensureSemantics();
@@ -831,7 +847,7 @@ void _registerShellNavigationTests() {
     } finally {
       semantics.dispose();
     }
-  });
+  }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
   testWidgets('rail marker grows from idle dot through hover to active pill', (
     tester,
@@ -887,7 +903,7 @@ void _registerShellNavigationTests() {
     await gesture.moveTo(Offset.zero);
     await tester.pumpAndSettle();
     expect(tester.getSize(indicator(inactive)).height, 28);
-  });
+  }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
   testWidgets('shows custom sidebar sections and opens their links', (
     tester,
@@ -927,6 +943,9 @@ void _registerShellNavigationTests() {
       authenticator: auth,
     );
 
+    await tester.tap(find.byKey(const ValueKey('rail-sidebar-toggle')));
+    await tester.pumpAndSettle();
+
     expect(find.text('Projects'), findsOneWidget);
     expect(sidebarDestination('Roadmap'), findsOneWidget);
     final moreTile = find
@@ -965,7 +984,7 @@ void _registerShellNavigationTests() {
       tester.getSize(projectsHeader).height,
       tester.getSize(moreTile).height,
     );
-    expect(tester.getSize(roadmapTile).height, closeTo(48, 0.01));
+    expect(tester.getSize(roadmapTile).height, closeTo(32, 0.01));
     final separator = find.descendant(
       of: find.byType(InstanceSidebar),
       matching: find.byType(DSeparator),
@@ -1039,7 +1058,7 @@ void _registerShellNavigationTests() {
     await tester.pumpAndSettle();
 
     expect(api.feedPaths, contains('/c/roadmap/4.json'));
-  });
+  }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
   testWidgets('keeps the sidebar scroll boundary stable near its end', (
     tester,
@@ -1290,7 +1309,7 @@ void _registerShellNavigationTests() {
     );
     expect(
       tester.getSize(find.byKey(const ValueKey('sidebar-prefix-category-2'))),
-      const Size.square(12),
+      const Size.square(10),
     );
     final categoryDecoration =
         tester
@@ -1360,7 +1379,7 @@ void _registerShellNavigationTests() {
     expect(controller.currentContent?.id, 'category-2');
     expect(controller.currentContent?.feedPath, '/c/parent/child/2.json');
     expect(find.text('A category topic'), findsOneWidget);
-  });
+  }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
   testWidgets('shows live unread counts beside category and tag rows', (
     tester,
@@ -1439,7 +1458,7 @@ void _registerShellNavigationTests() {
 
     expect(count('Support', 2), findsOneWidget);
     expect(count('priority', 2), findsOneWidget);
-  });
+  }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
   testWidgets('uses a configured category icon in navigation and filters', (
     tester,
@@ -1506,7 +1525,7 @@ void _registerShellNavigationTests() {
     final icon = tester.widget<DIcon>(filterIcon);
     expect(icon.icon, DIcons.folderOpen);
     expect(icon.color, const Color(0xFF3498DB));
-  });
+  }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
   testWidgets('loads categories even when the default topic feed fails', (
     tester,
@@ -1530,9 +1549,9 @@ void _registerShellNavigationTests() {
     expect(sidebarDestination('Support'), findsOneWidget);
     expect(
       tester.getSize(find.byKey(const ValueKey('sidebar-prefix-category-1'))),
-      const Size.square(12),
+      const Size.square(10),
     );
-  });
+  }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
   testWidgets('opens All categories as a native root-only page', (
     tester,
@@ -1573,7 +1592,7 @@ void _registerShellNavigationTests() {
     expect(find.byKey(const ValueKey('category-card-2')), findsNothing);
     expect(find.byKey(const ValueKey('category-card-3')), findsOneWidget);
     expect(launched, isEmpty);
-  });
+  }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
   testWidgets('category lists expose cascade filters above the topics', (
     tester,
@@ -1673,7 +1692,7 @@ void _registerShellNavigationTests() {
     );
     expect(find.bySemanticsLabel('Subcategory: Bugs'), findsOneWidget);
     expect(find.byKey(const ValueKey('topic-list-filter-bar')), findsOneWidget);
-  });
+  }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
   testWidgets('retries an incomplete category supplement on feed refresh', (
     tester,
@@ -1707,7 +1726,7 @@ void _registerShellNavigationTests() {
     await tester.pumpAndSettle();
 
     expect(api.categoryRequests.length, greaterThan(initialRequests));
-  });
+  }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
   testWidgets('uses anonymous category defaults from site settings', (
     tester,
@@ -1731,7 +1750,7 @@ void _registerShellNavigationTests() {
 
     expect(sidebarDestination('Zulu'), findsOneWidget);
     expect(sidebarDestination('Alpha'), findsNothing);
-  });
+  }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
   testWidgets('draws a custom category emoji from its uploaded artwork', (
     tester,
@@ -1807,7 +1826,7 @@ void _registerShellNavigationTests() {
       ),
       findsOneWidget,
     );
-  });
+  }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
   testWidgets(
     'the forum name and URL stay at the top while navigation scrolls',
@@ -1885,6 +1904,7 @@ void _registerShellNavigationTests() {
       expect(scrollPosition.pixels, greaterThan(0));
       expect(tester.getRect(header), headerRect);
     },
+    variant: TargetPlatformVariant.only(TargetPlatform.linux),
   );
 
   testWidgets('the community section is headerless and always expanded', (
@@ -1908,12 +1928,12 @@ void _registerShellNavigationTests() {
     final header = tester.getRect(
       find.byKey(const ValueKey('forum-identity-header')),
     );
-    expect(tile.top - header.bottom, closeTo(66, 0.01));
+    expect(tile.top - header.bottom, closeTo(60, 0.01));
     expect(tile.left - sidebar.left, closeTo(8, 0.01));
     expect(sidebar.right - tile.right, closeTo(8, 0.01));
-    expect(tile.height, closeTo(48, 0.01));
-    expect(tester.getRect(topics).left - sidebar.left, closeTo(46, 0.01));
-  });
+    expect(tile.height, closeTo(32, 0.01));
+    expect(tester.getRect(topics).left - sidebar.left, closeTo(42, 0.01));
+  }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
   testWidgets('sidebar destinations show a hand cursor and hover background', (
     tester,
@@ -2074,6 +2094,7 @@ void _registerShellNavigationTests() {
       await tester.pumpAndSettle();
       expect(callout, findsNothing);
     },
+    variant: TargetPlatformVariant.only(TargetPlatform.linux),
   );
 
   testWidgets('forum callouts respect reduced motion', (tester) async {
@@ -2111,7 +2132,7 @@ void _registerShellNavigationTests() {
     await tester.pump(tooltip.dismissDelay);
     await tester.pump();
     expect(callout, findsNothing);
-  });
+  }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
   group('adding a site', () {
     testWidgets('shows the empty state with nothing connected', (tester) async {
@@ -2120,7 +2141,7 @@ void _registerShellNavigationTests() {
       expect(find.byType(EmptyState), findsOneWidget);
       expect(find.byType(InstanceSidebar), findsNothing);
       expect(find.byType(InstanceRail), findsOneWidget);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('a looked-up site lands in the rail and is persisted', (
       tester,
@@ -2149,7 +2170,7 @@ void _registerShellNavigationTests() {
       expect(find.byType(InstanceSidebar), findsOneWidget);
       expect(find.text('Discourse Meta'), findsOneWidget);
       expect(store.saveCount, 1);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('a private site asks for sign-in before requesting content', (
       tester,
@@ -2253,7 +2274,7 @@ void _registerShellNavigationTests() {
       expect(find.byType(InstanceSidebar), findsOneWidget);
       expect(controller.search.siteUrl, 'https://meetup.discourse.org');
       expect(find.byKey(ForumSearch.inputKey), findsOneWidget);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('a failed lookup reports why and adds nothing', (tester) async {
       final store = FakeInstanceStore(const []);
@@ -2271,7 +2292,7 @@ void _registerShellNavigationTests() {
       expect(find.textContaining('is not a Discourse forum'), findsOneWidget);
       expect(find.byType(EmptyState), findsOneWidget);
       expect(store.saveCount, 0);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('the same site cannot be added twice', (tester) async {
       final existing = instance('meta.discourse.org', title: 'Discourse Meta');
@@ -2297,7 +2318,7 @@ void _registerShellNavigationTests() {
 
       expect(find.textContaining('already in your list'), findsOneWidget);
       expect(store.saveCount, 0);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
   });
 
   group('ordering sites', () {
@@ -3141,8 +3162,6 @@ void _registerShellNavigationTests() {
 
       await tester.longPress(meta);
       await tester.pumpAndSettle();
-      await tester.tap(find.text('More Options'));
-      await tester.pumpAndSettle();
       await tester.tap(find.text('Remove forum'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Remove'));
@@ -3151,7 +3170,7 @@ void _registerShellNavigationTests() {
       expect(find.byType(EmptyState), findsOneWidget);
       expect(find.byType(InstanceSidebar), findsNothing);
       expect(find.byType(InstanceRail), findsOneWidget);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('removing one site does not disturb the one being read', (
       tester,
@@ -3185,15 +3204,13 @@ void _registerShellNavigationTests() {
 
       await tester.longPress(railItem('team.discourse.org'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('More Options'));
-      await tester.pumpAndSettle();
       await tester.tap(find.text('Remove forum'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Remove'));
       await tester.pumpAndSettle();
 
       expect(renderedText('First post body'), findsOneWidget);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
   });
 }
 
@@ -3208,7 +3225,7 @@ void _registerShellUpdateTests() {
 
       expect(find.byType(InstanceRail), findsOneWidget);
       expect(updateButton(), findsNothing);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('is in the rail at every window size', (tester) async {
       for (final size in [phone, laptop, desktop]) {
@@ -3234,7 +3251,7 @@ void _registerShellUpdateTests() {
 
       expect(find.byType(EmptyState), findsOneWidget);
       expect(updateButton(), findsOneWidget);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('says nothing until a check finds something', (tester) async {
       await pumpShell(
@@ -3246,7 +3263,7 @@ void _registerShellUpdateTests() {
 
       expect(updateButton(), findsOneWidget);
       expect(find.dIcon(DIcons.download), findsNothing);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('offers the release a launch check found', (tester) async {
       await pumpShell(
@@ -3267,7 +3284,7 @@ void _registerShellUpdateTests() {
 
       expect(find.dIcon(DIcons.download), findsOneWidget);
       expect(find.byTooltip('Update to 1.4.0'), findsOneWidget);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('tapping it opens the sheet rather than installing', (
       tester,
@@ -3294,7 +3311,7 @@ void _registerShellUpdateTests() {
 
       expect(find.text('App updates'), findsOneWidget);
       expect(updater.installCount, 0);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
   });
 
   group('checking for updates', () {
@@ -3321,7 +3338,7 @@ void _registerShellUpdateTests() {
       expect(find.textContaining('stable channel'), findsOneWidget);
       expect(find.text('Stable'), findsOneWidget);
       expect(find.text('Canary'), findsOneWidget);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('a check that finds nothing says so', (tester) async {
       await openSheet(tester, updater: FakeUpdater(isSupported: true));
@@ -3330,7 +3347,7 @@ void _registerShellUpdateTests() {
       await tester.pumpAndSettle();
 
       expect(find.text("You're up to date."), findsOneWidget);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('a check that finds a release offers it by version', (
       tester,
@@ -3352,7 +3369,7 @@ void _registerShellUpdateTests() {
       await tester.pumpAndSettle();
 
       expect(find.text('Download 1.4.0'), findsOneWidget);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('a check in flight disables the button and spins', (
       tester,
@@ -3371,7 +3388,7 @@ void _registerShellUpdateTests() {
 
       gate.complete();
       await tester.pumpAndSettle();
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('a check that cannot reach the server offers the releases '
         'page instead', (tester) async {
@@ -3393,7 +3410,7 @@ void _registerShellUpdateTests() {
       await tester.pumpAndSettle();
 
       expect(launched.single, contains('/releases'));
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('a signature that does not verify is not reported as a '
         'network problem', (tester) async {
@@ -3410,7 +3427,7 @@ void _registerShellUpdateTests() {
 
       expect(find.textContaining('signature'), findsOneWidget);
       expect(find.text("Couldn't reach the update server."), findsNothing);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('a check nobody asked for fails quietly', (tester) async {
       await pumpShell(
@@ -3432,7 +3449,7 @@ void _registerShellUpdateTests() {
         ),
         findsNothing,
       );
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
   });
 
   group('downloading an update', () {
@@ -3472,7 +3489,7 @@ void _registerShellUpdateTests() {
 
       expect(find.text('Restart and install'), findsOneWidget);
       expect(updater.downloadCount, 1);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('restarting hands the app over to the updater', (tester) async {
       final updater = offering();
@@ -3487,7 +3504,7 @@ void _registerShellUpdateTests() {
       await tester.pump();
 
       expect(updater.installCount, 1);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('a download that fails leaves the release still on offer', (
       tester,
@@ -3503,7 +3520,7 @@ void _registerShellUpdateTests() {
       await tester.pumpAndSettle();
 
       expect(find.text('Download 1.4.0'), findsOneWidget);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('a download survives the sheet being closed and reopened', (
       tester,
@@ -3538,7 +3555,7 @@ void _registerShellUpdateTests() {
 
       held.complete();
       await tester.pumpAndSettle();
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
   });
 
   group('the release channel', () {
@@ -3556,7 +3573,7 @@ void _registerShellUpdateTests() {
       await tester.pumpAndSettle();
 
       expect(find.textContaining('stable channel'), findsOneWidget);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('a stored channel wins over the built-in one', (tester) async {
       await pumpShell(
@@ -3574,7 +3591,7 @@ void _registerShellUpdateTests() {
       await tester.pumpAndSettle();
 
       expect(find.textContaining('canary channel'), findsOneWidget);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('switching channels persists it and asks the new one', (
       tester,
@@ -3591,7 +3608,7 @@ void _registerShellUpdateTests() {
       expect(store.rawChannel, 'canary');
       expect(updater.discardCount, 1);
       expect(updater.lastCheckedChannel, UpdateChannel.canary);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('going back to an older stable says switch, not update', (
       tester,
@@ -3623,7 +3640,7 @@ void _registerShellUpdateTests() {
       await tester.pumpAndSettle();
 
       expect(find.text('Switch to 1.3.2'), findsOneWidget);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
   });
 }
 

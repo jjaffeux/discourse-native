@@ -364,7 +364,7 @@ _pumpDrawer(
       child: PluginUiScope.own(
         chatPluginId,
         MaterialApp(
-          theme: AppTheme.light,
+          theme: AppTheme.light.copyWith(platform: TargetPlatform.macOS),
           home: Scaffold(
             body: ValueListenableBuilder(
               valueListenable: showForumFocus,

@@ -70,6 +70,13 @@ void _registerTopicLinkTests() {
     ) async {
       final launched = watchBrowser(tester);
       await pumpShell(tester, desktop, api: api);
+      if (find
+          .byKey(const ValueKey('mobile-bottom-bar'))
+          .evaluate()
+          .isNotEmpty) {
+        await tester.tap(sidebarDestination('Topics'));
+        await tester.pumpAndSettle();
+      }
       await tester.tap(find.text('A real topic'));
       await tester.pumpAndSettle();
       return launched;
@@ -95,7 +102,7 @@ void _registerTopicLinkTests() {
       expect(renderedText('Other topic body'), findsOneWidget);
       expect(contentText('The other one [solved]'), findsOneWidget);
       expect(launched, isEmpty);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('a topic on another site in the rail switches to it', (
       tester,
@@ -121,11 +128,17 @@ void _registerTopicLinkTests() {
       expect(renderedText('Other topic body'), findsOneWidget);
       expect(launched, isEmpty);
 
-      await tester.tap(find.byTooltip('Collapse topic'));
+      await tester.tap(
+        find.byKey(
+          ValueKey(
+            'forum-tab-close-${ShellScope.read(tester.element(find.byType(MainContent))).activeTab!.id}',
+          ),
+        ),
+      );
       await tester.pumpAndSettle();
       expect(find.byType(TopicListView), findsOneWidget);
       expect(find.text('Discourse Team'), findsOneWidget);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('a topic on a site not in the rail goes to the browser', (
       tester,
@@ -143,7 +156,7 @@ void _registerTopicLinkTests() {
       expect(launched, [url]);
       expect(api.topicsOpened, [7]);
       expect(renderedText('somewhere else'), findsOneWidget);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('a page that is not a topic goes to the browser', (
       tester,
@@ -160,7 +173,7 @@ void _registerTopicLinkTests() {
 
       expect(launched, [url]);
       expect(api.topicsOpened, [7]);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('a site-relative link is read as this site', (tester) async {
       final api = FakeDiscourseApi(
@@ -175,7 +188,7 @@ void _registerTopicLinkTests() {
       expect(api.topicsOpened, [7, 9]);
       expect(renderedText('Other topic body'), findsOneWidget);
       expect(launched, isEmpty);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('a category link opens its list in the app', (tester) async {
       final api = FakeDiscourseApi(
@@ -198,7 +211,7 @@ void _registerTopicLinkTests() {
 
       expect(find.byType(TopicListView), findsOneWidget);
       expect(find.byType(TopicView), findsNothing);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('a subcategory keeps its whole path', (tester) async {
       final api = FakeDiscourseApi(
@@ -218,7 +231,7 @@ void _registerTopicLinkTests() {
       // `/c/child/12.json` would be a different category, and would 404.
       expect(api.feedPaths, contains('/c/parent/child/12.json'));
       expect(find.text('Nested topic'), findsOneWidget);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('a tag link opens the list here', (tester) async {
       final api = FakeDiscourseApi(
@@ -238,7 +251,7 @@ void _registerTopicLinkTests() {
       expect(api.feedPaths, contains('/tag/ux/3.json'));
       expect(find.text('A tagged topic'), findsOneWidget);
       expect(launched, isEmpty);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('a filtered category list goes to the browser', (tester) async {
       const url = 'https://meta.discourse.org/c/bug/5/l/top';
@@ -253,7 +266,7 @@ void _registerTopicLinkTests() {
 
       expect(launched, [url]);
       expect(api.feedPaths, isNot(contains('/c/bug/5/l/top.json')));
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('a category on a site not in the rail goes to the browser', (
       tester,
@@ -269,7 +282,7 @@ void _registerTopicLinkTests() {
       await tester.pumpAndSettle();
 
       expect(launched, [url]);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('the same category is not stacked twice', (tester) async {
       final api = FakeDiscourseApi(
@@ -289,12 +302,18 @@ void _registerTopicLinkTests() {
       final before = api.feedPaths.length;
       await tester.tap(find.text('A bug report'));
       await tester.pumpAndSettle();
-      await tester.tap(find.byTooltip('Collapse topic'));
+      await tester.tap(
+        find.byKey(
+          ValueKey(
+            'forum-tab-close-${ShellScope.read(tester.element(find.byType(MainContent))).activeTab!.id}',
+          ),
+        ),
+      );
       await tester.pumpAndSettle();
 
       expect(api.feedPaths.length, before);
       expect(find.text('A bug report'), findsOneWidget);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('a cooked hashtag opens the list it names', (tester) async {
       final api = FakeDiscourseApi(
@@ -338,7 +357,7 @@ void _registerTopicLinkTests() {
       expect(api.feedPaths, contains('/c/bug/5.json'));
       expect(find.text('A bug report'), findsOneWidget);
       expect(launched, isEmpty);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('a mention opens the card', (tester) async {
       final api = FakeDiscourseApi(
@@ -375,7 +394,7 @@ void _registerTopicLinkTests() {
 
       expect(api.cardsRequested, ['joffreyj']);
       expect(launched, isEmpty);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
   });
 }
 
@@ -438,6 +457,13 @@ void _registerTopicModerationTests() {
         authenticator: FakeAuthenticator()
           ..keys['https://meta.discourse.org'] = 'meta-key',
       );
+      if (find
+          .byKey(const ValueKey('mobile-bottom-bar'))
+          .evaluate()
+          .isNotEmpty) {
+        await tester.tap(sidebarDestination('Topics'));
+        await tester.pumpAndSettle();
+      }
       await tester.tap(find.text('A real topic'));
       await tester.pumpAndSettle();
       return api;
@@ -459,6 +485,7 @@ void _registerTopicModerationTests() {
         expect(find.widgetWithText(DDropdownMenuItem, 'Edit'), findsNothing);
         expect(find.widgetWithText(DDropdownMenuItem, 'Delete'), findsNothing);
       },
+      variant: TargetPlatformVariant.only(TargetPlatform.linux),
     );
 
     testWidgets('a guardian-authorized topic action can be deleted', (
@@ -490,7 +517,7 @@ void _registerTopicModerationTests() {
 
       expect(api.deleted, [2]);
       expect(renderedText('joffreyj pinned this topic'), findsNothing);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('a topic action without permission has no delete control', (
       tester,
@@ -508,7 +535,7 @@ void _registerTopicModerationTests() {
       await hoverPost(tester, body: 'joffreyj pinned this topic');
 
       expect(find.byTooltip('Delete this topic action'), findsNothing);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('editing a post sends the markdown, not the HTML', (
       tester,
@@ -551,7 +578,7 @@ void _registerTopicModerationTests() {
       expect(api.updated.single['raw'], 'First **post** body!');
       expect(find.byType(ComposerPanel), findsNothing);
       expect(renderedText('First **post** body!'), findsOneWidget);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('an edit nobody has changed cannot be saved', (tester) async {
       await openTopic(
@@ -578,7 +605,7 @@ void _registerTopicModerationTests() {
         find.widgetWithText(FilledButton, 'Save'),
       );
       expect(button.onPressed, isNull);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('closing a changed edit asks before discarding it', (
       tester,
@@ -626,7 +653,7 @@ void _registerTopicModerationTests() {
       await tester.pumpAndSettle();
 
       expect(find.byType(ComposerPanel), findsNothing);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('an edit never saves over a post it could not read', (
       tester,
@@ -641,7 +668,7 @@ void _registerTopicModerationTests() {
         find.widgetWithText(FilledButton, 'Save'),
       );
       expect(button.onPressed, isNull);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('re-reads a soft-deleted post and offers undo', (tester) async {
       final api = await openTopic(
@@ -679,7 +706,7 @@ void _registerTopicModerationTests() {
       expect(find.text('Undelete'), findsOneWidget);
       expect(find.byTooltip('Put this post back'), findsNothing);
       expect(find.byTooltip('Delete this post'), findsNothing);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('a guardian-authorized post can become and stop being a wiki', (
       tester,
@@ -726,7 +753,7 @@ void _registerTopicModerationTests() {
         (postId: 1, wiki: false),
       ]);
       expect(find.text('wiki'), findsNothing);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('staff can lock and unlock an authored post', (tester) async {
       const staff = DiscourseUser(
@@ -775,6 +802,13 @@ void _registerTopicModerationTests() {
         authenticator: FakeAuthenticator()
           ..keys['https://meta.discourse.org'] = 'meta-key',
       );
+      if (find
+          .byKey(const ValueKey('mobile-bottom-bar'))
+          .evaluate()
+          .isNotEmpty) {
+        await tester.tap(sidebarDestination('Topics'));
+        await tester.pumpAndSettle();
+      }
       await tester.tap(find.text('A real topic'));
       await tester.pumpAndSettle();
 
@@ -803,7 +837,7 @@ void _registerTopicModerationTests() {
         (postId: 1, locked: false),
       ]);
       expect(find.text('locked'), findsNothing);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('staff can restore a flagged-hidden post', (tester) async {
       const staff = DiscourseUser(
@@ -851,6 +885,13 @@ void _registerTopicModerationTests() {
         authenticator: FakeAuthenticator()
           ..keys['https://meta.discourse.org'] = 'meta-key',
       );
+      if (find
+          .byKey(const ValueKey('mobile-bottom-bar'))
+          .evaluate()
+          .isNotEmpty) {
+        await tester.tap(sidebarDestination('Topics'));
+        await tester.pumpAndSettle();
+      }
       await tester.tap(find.text('A real topic'));
       await tester.pumpAndSettle();
 
@@ -862,7 +903,7 @@ void _registerTopicModerationTests() {
       expect(api.postsUnhidden, [1]);
       expect(find.text('hidden'), findsNothing);
       expect(renderedText('Visible body'), findsOneWidget);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('staff can convert and revert a moderator post', (
       tester,
@@ -913,6 +954,13 @@ void _registerTopicModerationTests() {
         authenticator: FakeAuthenticator()
           ..keys['https://meta.discourse.org'] = 'meta-key',
       );
+      if (find
+          .byKey(const ValueKey('mobile-bottom-bar'))
+          .evaluate()
+          .isNotEmpty) {
+        await tester.tap(sidebarDestination('Topics'));
+        await tester.pumpAndSettle();
+      }
       await tester.tap(find.text('A real topic'));
       await tester.pumpAndSettle();
 
@@ -946,7 +994,7 @@ void _registerTopicModerationTests() {
         (postId: 1, postType: Post.regularPostType),
       ]);
       expect(find.text('moderator'), findsNothing);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('staff-note guardians can add and remove a post notice', (
       tester,
@@ -1002,6 +1050,13 @@ void _registerTopicModerationTests() {
         authenticator: FakeAuthenticator()
           ..keys['https://meta.discourse.org'] = 'meta-key',
       );
+      if (find
+          .byKey(const ValueKey('mobile-bottom-bar'))
+          .evaluate()
+          .isNotEmpty) {
+        await tester.tap(sidebarDestination('Topics'));
+        await tester.pumpAndSettle();
+      }
       await tester.tap(find.text('A real topic'));
       await tester.pumpAndSettle();
 
@@ -1043,7 +1098,7 @@ void _registerTopicModerationTests() {
         (postId: 1, notice: null),
       ]);
       expect(find.byKey(const ValueKey('post-notice-1')), findsNothing);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('post-owner guardians can reassign one post directly', (
       tester,
@@ -1099,6 +1154,13 @@ void _registerTopicModerationTests() {
         authenticator: FakeAuthenticator()
           ..keys['https://meta.discourse.org'] = 'meta-key',
       );
+      if (find
+          .byKey(const ValueKey('mobile-bottom-bar'))
+          .evaluate()
+          .isNotEmpty) {
+        await tester.tap(sidebarDestination('Topics'));
+        await tester.pumpAndSettle();
+      }
       await tester.tap(find.text('A real topic'));
       await tester.pumpAndSettle();
 
@@ -1123,7 +1185,7 @@ void _registerTopicModerationTests() {
         find.byKey(const ValueKey('topic-selected-posts-toolbar')),
         findsNothing,
       );
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('admins can permanently delete a reply after preflight', (
       tester,
@@ -1173,6 +1235,13 @@ void _registerTopicModerationTests() {
         authenticator: FakeAuthenticator()
           ..keys['https://meta.discourse.org'] = 'meta-key',
       );
+      if (find
+          .byKey(const ValueKey('mobile-bottom-bar'))
+          .evaluate()
+          .isNotEmpty) {
+        await tester.tap(sidebarDestination('Topics'));
+        await tester.pumpAndSettle();
+      }
       await tester.tap(find.text('A real topic'));
       await tester.pumpAndSettle();
 
@@ -1201,7 +1270,7 @@ void _registerTopicModerationTests() {
       expect(api.postsPermanentlyDeleted, const [(topicId: 7, postId: 2)]);
       expect(renderedText('Deleted reply body'), findsNothing);
       expect(renderedText('First permanent body'), findsOneWidget);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('permanent-delete preflight surfaces the server refusal', (
       tester,
@@ -1232,6 +1301,13 @@ void _registerTopicModerationTests() {
         authenticator: FakeAuthenticator()
           ..keys['https://meta.discourse.org'] = 'meta-key',
       );
+      if (find
+          .byKey(const ValueKey('mobile-bottom-bar'))
+          .evaluate()
+          .isNotEmpty) {
+        await tester.tap(sidebarDestination('Topics'));
+        await tester.pumpAndSettle();
+      }
       await tester.tap(find.text('A real topic'));
       await tester.pumpAndSettle();
 
@@ -1252,7 +1328,7 @@ void _registerTopicModerationTests() {
         findsNothing,
       );
       expect(api.postsPermanentlyDeleted, isEmpty);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('permanently deleting the opening post removes the topic', (
       tester,
@@ -1288,6 +1364,13 @@ void _registerTopicModerationTests() {
         authenticator: FakeAuthenticator()
           ..keys['https://meta.discourse.org'] = 'meta-key',
       );
+      if (find
+          .byKey(const ValueKey('mobile-bottom-bar'))
+          .evaluate()
+          .isNotEmpty) {
+        await tester.tap(sidebarDestination('Topics'));
+        await tester.pumpAndSettle();
+      }
       await tester.tap(find.text('A real topic'));
       await tester.pumpAndSettle();
 
@@ -1310,7 +1393,7 @@ void _registerTopicModerationTests() {
       expect(shell.currentContent?.topicId, isNull);
       expect(find.byType(TopicView), findsNothing);
       expect(renderedText('Deleted opening body'), findsNothing);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('selects, merges, and bulk-deletes guardian-authorized posts', (
       tester,
@@ -1366,6 +1449,13 @@ void _registerTopicModerationTests() {
         authenticator: FakeAuthenticator()
           ..keys['https://meta.discourse.org'] = 'meta-key',
       );
+      if (find
+          .byKey(const ValueKey('mobile-bottom-bar'))
+          .evaluate()
+          .isNotEmpty) {
+        await tester.tap(sidebarDestination('Topics'));
+        await tester.pumpAndSettle();
+      }
       await tester.tap(find.text('A real topic'));
       await tester.pumpAndSettle();
 
@@ -1429,7 +1519,7 @@ void _registerTopicModerationTests() {
         find.byKey(const ValueKey('topic-selected-posts-toolbar')),
         findsNothing,
       );
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('moves selected posts to a searched existing topic', (
       tester,
@@ -1497,6 +1587,13 @@ void _registerTopicModerationTests() {
         authenticator: FakeAuthenticator()
           ..keys['https://meta.discourse.org'] = 'meta-key',
       );
+      if (find
+          .byKey(const ValueKey('mobile-bottom-bar'))
+          .evaluate()
+          .isNotEmpty) {
+        await tester.tap(sidebarDestination('Topics'));
+        await tester.pumpAndSettle();
+      }
       await tester.tap(find.text('A real topic'));
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('topic-status-button')));
@@ -1531,7 +1628,7 @@ void _registerTopicModerationTests() {
       expect(api.movedTopicPosts.single.chronologicalOrder, isTrue);
       expect(renderedText('Destination body'), findsOneWidget);
       expect(api.topicsOpened, contains(99));
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('changes the owner of same-author selected posts', (
       tester,
@@ -1600,6 +1697,13 @@ void _registerTopicModerationTests() {
         authenticator: FakeAuthenticator()
           ..keys['https://meta.discourse.org'] = 'meta-key',
       );
+      if (find
+          .byKey(const ValueKey('mobile-bottom-bar'))
+          .evaluate()
+          .isNotEmpty) {
+        await tester.tap(sidebarDestination('Topics'));
+        await tester.pumpAndSettle();
+      }
       await tester.tap(find.text('A real topic'));
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('topic-status-button')));
@@ -1635,7 +1739,7 @@ void _registerTopicModerationTests() {
         find.byKey(const ValueKey('topic-selected-posts-toolbar')),
         findsNothing,
       );
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('a post that is really gone stops being drawn', (tester) async {
       // Nothing comes back for the id, which is the site saying it is no
@@ -1648,7 +1752,7 @@ void _registerTopicModerationTests() {
 
       expect(api.deleted, [1]);
       expect(renderedText('First post body'), findsNothing);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('recovering puts the post back', (tester) async {
       final api = await openTopic(
@@ -1675,7 +1779,7 @@ void _registerTopicModerationTests() {
 
       expect(api.recovered, [1]);
       expect(find.text('deleted'), findsNothing);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('a refused delete says why and leaves the post alone', (
       tester,
@@ -1693,7 +1797,7 @@ void _registerTopicModerationTests() {
       expect(api.deleted, [1]);
       expect(find.textContaining("You can't post that here"), findsOneWidget);
       expect(renderedText('First post body'), findsOneWidget);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('on a touch screen the same actions arrive as a sheet', (
       tester,
@@ -1706,7 +1810,7 @@ void _registerTopicModerationTests() {
       expect(find.widgetWithText(ListTile, 'Reply'), findsOneWidget);
       expect(find.widgetWithText(ListTile, 'Edit'), findsOneWidget);
       expect(find.widgetWithText(ListTile, 'Delete'), findsOneWidget);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.android));
   });
 
   group('optional site features', () {
@@ -1900,6 +2004,13 @@ void _registerTopicModerationTests() {
           },
         ),
       );
+      if (find
+          .byKey(const ValueKey('mobile-bottom-bar'))
+          .evaluate()
+          .isNotEmpty) {
+        await tester.tap(sidebarDestination('Topics'));
+        await tester.pumpAndSettle();
+      }
       await tester.tap(find.text('A real topic'));
       await tester.pumpAndSettle();
 
@@ -1911,6 +2022,6 @@ void _registerTopicModerationTests() {
         ),
         findsOneWidget,
       );
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
   });
 }

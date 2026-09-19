@@ -66,7 +66,7 @@ void main() {
     expect(find.text('Public profile'), findsNothing);
     expect(find.byType(UserCardTarget), findsNothing);
     expect(api.requests.map((request) => request.apiKey), [null]);
-  });
+  }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
   testWidgets('a loaded card reloads when pending sign-in completes', (
     tester,
@@ -93,7 +93,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Connected profile'), findsOneWidget);
     expect(find.byType(DSkeletonRegion), findsNothing);
-  });
+  }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
   for (final oldResponseFirst in [true, false]) {
     testWidgets('a pending card reloads when sign-in completes, old response '
@@ -133,7 +133,7 @@ void main() {
       expect(find.text('Connected profile'), findsOneWidget);
       expect(find.text('Public profile'), findsNothing);
       expect(api.requests, hasLength(2));
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
   }
 
   testWidgets('reloading a card preserves a newer overlaid dialog', (
@@ -168,7 +168,7 @@ void main() {
     await newerDialog;
     expect(find.text('Connected profile'), findsOneWidget);
     expect(find.byType(DSkeletonRegion), findsNothing);
-  });
+  }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
   testWidgets('a replacement card error waits for Retry before reloading', (
     tester,
@@ -206,7 +206,7 @@ void main() {
     expect(find.text('Connected profile'), findsOneWidget);
     expect(find.text('Retry'), findsNothing);
     expect(find.byType(DSkeletonRegion), findsNothing);
-  });
+  }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 }
 
 ShellController _cardController(WidgetTester tester) =>

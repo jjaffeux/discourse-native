@@ -14,6 +14,7 @@ import 'package:discourse_native/src/shell/content_reading_lane.dart';
 import 'package:discourse_native/src/shell/cooked_html.dart';
 import 'package:discourse_native/src/shell/instance_rail.dart';
 import 'package:discourse_native/src/shell/instance_sidebar.dart';
+import 'package:discourse_native/src/shell/platform.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/title_bar.dart';
@@ -22,6 +23,7 @@ import 'package:discourse_native/src/shell/topic_presentation.dart';
 import 'package:discourse_native/src/shell/topic_view.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show ScrollCacheExtent;
 import 'package:flutter/services.dart';
@@ -987,7 +989,9 @@ void main() {
     expect(tester.takeException(), isNull);
   }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 
-  testWidgets('mobile retains its existing inline reader', (tester) async {
+  testWidgets('mobile uses the shared reader without desktop navigation', (
+    tester,
+  ) async {
     final h = await _setup(tester, size: const Size(390, 844));
     h.shell.openTopicFromList(h.topics.first);
     await tester.pumpAndSettle();
@@ -1069,6 +1073,8 @@ _setup(
     ]),
     api: api,
     authenticator: FakeAuthenticator()..keys['https://sheet.example'] = 'key',
+    mobileNavigationEnabled: usesMobileNavigation(defaultTargetPlatform),
+    forumTabsEnabled: !usesMobileNavigation(defaultTargetPlatform),
     drafts: FakeDraftStore(),
     forumTabs: FakeForumTabStore(),
     trackers: FakeSiteTracker.reset(),
