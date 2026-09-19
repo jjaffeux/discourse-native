@@ -51,6 +51,11 @@ sidebar sections. The host supplies the existing `PluginUiScope`, so plugin
 services stay behind the same dependency boundary. Capability changes remove
 unavailable modes and return a selected unavailable mode to Home.
 
+Chat keeps its existing Browse, list options, and New message actions. When
+the subtabs and actions cannot fit at the current text scale, actions move to
+a second row. The shared Start chatting picker opens a conversation in the
+mobile journey and Back restores the DMs subtab.
+
 ## Mobile history and the existing content renderer
 
 `MobileNavigation` owns a bounded visit history with Home at index zero. Entries
@@ -121,6 +126,31 @@ Focused verification covers:
 - Affected desktop sidebar, topic list, Users, Chat rows, search, settings,
   plugin dependency boundaries, and component adoption checks.
 
-The final change record should distinguish widget/build verification from
-interactive inspection on a physical mobile device. No physical-device pass is
-implied by the platform variants or the simulator build.
+The integration candidate starts at main `f26391674`, preserving sidebar link
+reordering and the Native Start chatting picker. Formatting, locked dependency
+resolution, root/Voice/full-profile analysis, and the production iOS simulator
+build pass. The final overlap check passes 46 tests covering mobile journeys,
+the picker, sidebar ordering, Chat rows, and channel-list preferences. A further
+27 tests pass after adopting existing typography tokens in the picker, including
+all 18 iOS/Android mobile cases and the typography adoption check.
+
+The randomized full-suite run uses seed `2313302827`. Its outstanding failures
+were independently reproduced on pre-mobile base `b1321009f`:
+
+- Five Chat composer cases: edit/draft restoration, GIF failure, reply action
+  selection, uncertain network failure, and definitive send refusal.
+- Two styleguide cases: Typography rich-action color and Kbd tooltip color.
+- Two topic footer geometry cases in `topic_inbox_test.dart` and
+  `topic_view_lifecycle_test.dart`.
+- `shell_rebuild_isolation_test.dart` expects the sidebar theme wrapper to
+  rebuild instead of its selector.
+
+The full run also caught three font-size literals in main's Start chatting
+picker; these now use the equivalent `DiscourseTypography.xs` token, and the
+adoption check passes on the final source. The full suite is not recorded as
+green; the ten independently reproduced failures remain outside this change.
+
+Interactive native inspection could not run because the approved UI tool
+reported the Mac was locked. The fixture is available for follow-up review;
+widget platform variants and a successful simulator build do not constitute
+an interactive simulator or physical-device pass.
