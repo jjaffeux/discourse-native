@@ -294,7 +294,7 @@ void main() {
       expect(action, findsOneWidget);
       await tester.tap(action);
       await tester.pumpAndSettle();
-      expect(find.text('Start a chat'), findsOneWidget);
+      expect(find.text('Start chatting'), findsOneWidget);
       expect(api.userPreferenceUpdates, isEmpty);
     },
     variant: TargetPlatformVariant.only(TargetPlatform.macOS),

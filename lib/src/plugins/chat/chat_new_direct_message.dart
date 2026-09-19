@@ -3,9 +3,12 @@ import 'dart:async';
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
+import '../../app_shortcuts.dart';
 import '../../data/discourse_api_contracts.dart';
 import '../../shell/avatar_image.dart';
+import '../../shell/relative_time.dart';
 import '../../theme/d_icons.dart';
+import 'chat_channel.dart';
 import 'chat_controller.dart';
 import 'chat_direct_message_search.dart';
 import 'chat_plugin_data.dart';
@@ -16,10 +19,14 @@ Future<void> showChatNewDirectMessageDialog({
   required String siteUrl,
   required ChatController chat,
   required ChatShellService shell,
-}) => showDialog<void>(
+}) => showDDialog<void>(
   context: context,
-  builder: (context) =>
-      _ChatNewDirectMessageDialog(siteUrl: siteUrl, chat: chat, shell: shell),
+  builder: (context, dialog) => _ChatNewDirectMessageDialog(
+    siteUrl: siteUrl,
+    chat: chat,
+    shell: shell,
+    dialog: dialog,
+  ),
 );
 
 class _ChatNewDirectMessageDialog extends StatefulWidget {
@@ -27,11 +34,13 @@ class _ChatNewDirectMessageDialog extends StatefulWidget {
     required this.siteUrl,
     required this.chat,
     required this.shell,
+    required this.dialog,
   });
 
   final String siteUrl;
   final ChatController chat;
   final ChatShellService shell;
+  final DDialogController<void> dialog;
 
   @override
   State<_ChatNewDirectMessageDialog> createState() =>
@@ -40,7 +49,11 @@ class _ChatNewDirectMessageDialog extends StatefulWidget {
 
 class _ChatNewDirectMessageDialogState
     extends State<_ChatNewDirectMessageDialog> {
+  static const _newGroupValue = 'new-group';
+  final _searchFocus = FocusNode(debugLabel: 'Start chatting search');
+  final _command = DCommandController<String>();
   final _search = TextEditingController();
+  bool _resettingSearch = false;
   final _groupName = TextEditingController();
   Timer? _debounce;
   int _generation = 0;
@@ -55,11 +68,16 @@ class _ChatNewDirectMessageDialogState
   void initState() {
     super.initState();
     _showExistingChannels();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _searchFocus.requestFocus();
+    });
   }
 
   @override
   void dispose() {
     _debounce?.cancel();
+    _searchFocus.dispose();
+    _command.dispose();
     _search.dispose();
     _groupName.dispose();
     super.dispose();
@@ -82,8 +100,20 @@ class _ChatNewDirectMessageDialogState
   });
 
   void _showExistingChannels() {
+    final channels = widget.chat.directChannels(widget.siteUrl);
+    final positions = {
+      for (final (i, channel) in channels.indexed) channel.id: i,
+    };
+    channels.sort((a, b) {
+      final activity = (b.lastMessageAt?.millisecondsSinceEpoch ?? 0).compareTo(
+        a.lastMessageAt?.millisecondsSinceEpoch ?? 0,
+      );
+      return activity != 0
+          ? activity
+          : positions[a.id]!.compareTo(positions[b.id]!);
+    });
     _results = [
-      for (final channel in widget.chat.directChannels(widget.siteUrl))
+      for (final channel in channels)
         ChatDirectMessageChannel(
           identifier: 'c-${channel.id}',
           matchQuality: 3,
@@ -94,6 +124,7 @@ class _ChatNewDirectMessageDialogState
   }
 
   void _scheduleSearch(String value) {
+    if (_resettingSearch || _opening) return;
     _debounce?.cancel();
     final query = value.trim();
     final generation = ++_generation;
@@ -148,7 +179,7 @@ class _ChatNewDirectMessageDialogState
     }
     if (item case ChatDirectMessageChannel(:final channel)) {
       if (widget.shell.openChannel(channel.id) && mounted) {
-        Navigator.of(context).pop();
+        widget.dialog.close();
       } else if (mounted) {
         setState(() => _error = 'This conversation is no longer available.');
       }
@@ -156,7 +187,10 @@ class _ChatNewDirectMessageDialogState
     }
 
     final user = item as ChatDirectMessageUser;
+    _debounce?.cancel();
+    _generation++;
     setState(() {
+      _searching = false;
       _opening = true;
       _error = null;
     });
@@ -165,9 +199,9 @@ class _ChatNewDirectMessageDialogState
         widget.siteUrl,
         user.username,
       );
-      if (!mounted) return;
+      if (!mounted || ModalRoute.of(context)?.isCurrent != true) return;
       if (channel != null && widget.shell.openChannel(channel.id)) {
-        Navigator.of(context).pop();
+        widget.dialog.close();
       } else {
         setState(() {
           _opening = false;
@@ -183,13 +217,28 @@ class _ChatNewDirectMessageDialogState
     }
   }
 
+  void _clearSearch() {
+    _resettingSearch = true;
+    _command.updateQuery('');
+    _search.clear();
+    _command.highlight(null);
+    _resettingSearch = false;
+    _searchFocus.requestFocus();
+  }
+
   void _startGroup([
     List<ChatDirectMessageSearchItem> initialMembers = const [],
   ]) {
-    if (!_canUseGroupChat) return;
+    if (!_canUseGroupChat || _opening) return;
+    if (initialMembers.any((member) => !_canAddMember(member))) {
+      setState(() {
+        _error = 'A group chat can include up to $_maximumGroupMembers people.';
+      });
+      return;
+    }
     _debounce?.cancel();
     _generation++;
-    _search.clear();
+    _clearSearch();
     setState(() {
       _composingGroup = true;
       _members
@@ -204,7 +253,7 @@ class _ChatNewDirectMessageDialogState
   void _cancelGroup() {
     _debounce?.cancel();
     _generation++;
-    _search.clear();
+    _clearSearch();
     _groupName.clear();
     setState(() {
       _composingGroup = false;
@@ -239,7 +288,7 @@ class _ChatNewDirectMessageDialogState
     }
     _debounce?.cancel();
     _generation++;
-    _search.clear();
+    _clearSearch();
     setState(() {
       _members.add(item);
       _results = const [];
@@ -256,8 +305,13 @@ class _ChatNewDirectMessageDialogState
   }
 
   Future<void> _createGroup() async {
-    if (_opening || _members.isEmpty) return;
+    if (_opening || _members.isEmpty || _membersCount > _maximumGroupMembers) {
+      return;
+    }
+    _debounce?.cancel();
+    _generation++;
     setState(() {
+      _searching = false;
       _opening = true;
       _error = null;
     });
@@ -274,9 +328,9 @@ class _ChatNewDirectMessageDialogState
         ],
         name: _groupName.text,
       );
-      if (!mounted) return;
+      if (!mounted || ModalRoute.of(context)?.isCurrent != true) return;
       if (channel != null && widget.shell.openChannel(channel.id)) {
-        Navigator.of(context).pop();
+        widget.dialog.close();
       } else {
         setState(() {
           _opening = false;
@@ -302,120 +356,261 @@ class _ChatNewDirectMessageDialogState
 
   @override
   Widget build(BuildContext context) {
-    final query = _search.text.trim();
-    return AlertDialog(
-      key: const ValueKey('chat-new-direct-message-dialog'),
-      title: Text(_composingGroup ? 'New group chat' : 'Start a chat'),
-      content: SizedBox(
-        width: 480,
-        height: 420,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            if (_composingGroup) ...[
-              TextField(
-                style: Theme.of(context).textTheme.bodyMedium,
-                key: const ValueKey('chat-new-group-name'),
-                controller: _groupName,
-                enabled: !_opening,
-                decoration: const InputDecoration(
-                  hintText: 'Group name (optional)',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 8),
-              _buildMembers(),
-              const SizedBox(height: 8),
-            ],
-            DInputGroup(
-              children: [
-                DInputGroupInput(
-                  key: const ValueKey('chat-new-direct-message-search'),
-                  controller: _search,
-                  autofocus: true,
-                  enabled: !_opening,
-                  semanticLabel: 'Search chat recipients',
-                  hintText: _composingGroup
-                      ? 'Search users or groups'
-                      : 'Search users, groups, or conversations',
-                  onChanged: _scheduleSearch,
-                ),
-                const DInputGroupAddon(child: Icon(Icons.search, size: 16)),
-                if (_searching)
-                  const DInputGroupAddon(
-                    alignment: DInputGroupAddonAlignment.inlineEnd,
-                    child: DSpinner(
-                      size: 16,
-                      semanticLabel: 'Searching recipients',
-                    ),
-                  ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Expanded(child: _buildResults(query)),
-            if (_error case final error?)
+    final tokens = DTokens.of(context);
+    final desktop = switch (Theme.of(context).platform) {
+      TargetPlatform.android || TargetPlatform.iOS => false,
+      _ => true,
+    };
+    return CallbackShortcuts(
+      bindings: {
+        newDirectMessageShortcutForPlatform(Theme.of(context).platform):
+            widget.dialog.close,
+      },
+      child: DDialogContent(
+        key: const ValueKey('chat-new-direct-message-dialog'),
+        maxWidth: 520,
+        showCloseButton: false,
+        contentPadding: EdgeInsets.zero,
+        verticalPadding: 0,
+        spacing: 0,
+        children: [
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
               Padding(
-                padding: const EdgeInsets.only(top: 8),
-                child: Text(
-                  error,
-                  key: const ValueKey('chat-new-direct-message-error'),
-                  style: TextStyle(color: Theme.of(context).colorScheme.error),
+                padding: const EdgeInsets.all(DSpacing.lg),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: DDialogHeader(
+                        children: [
+                          DDialogTitle(
+                            child: Text(
+                              _composingGroup
+                                  ? 'New group chat'
+                                  : 'Start chatting',
+                            ),
+                          ),
+                          DDialogDescription(
+                            child: Text(
+                              _composingGroup
+                                  ? 'Bring a few people into the conversation.'
+                                  : 'Pick up a conversation or find someone new.',
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: DSpacing.sm),
+                    DButton.iconOnly(
+                      icon: const DIcon(DIcons.xmark),
+                      variant: DButtonVariant.transparentBackground,
+                      onPressed: widget.dialog.close,
+                      tooltip: 'Close',
+                      semanticLabel: 'Close start chatting',
+                    ),
+                  ],
                 ),
               ),
-          ],
-        ),
+              if (_composingGroup)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(
+                    DSpacing.lg,
+                    0,
+                    DSpacing.lg,
+                    DSpacing.sm,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      DInput(
+                        key: const ValueKey('chat-new-group-name'),
+                        controller: _groupName,
+                        enabled: !_opening,
+                        hintText: 'Group name (optional)',
+                        semanticLabel: 'Group name (optional)',
+                      ),
+                      const SizedBox(height: DSpacing.sm),
+                      _buildMembers(),
+                    ],
+                  ),
+                ),
+              DCommand<String>(
+                key: const ValueKey('chat-destination-command'),
+                controller: _command,
+                shouldFilter: false,
+                loop: true,
+                vimBindings: false,
+                loading: _searching || _opening,
+                semanticLabel: 'Chat destinations',
+                onQueryChanged: _scheduleSearch,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: DSpacing.md,
+                      ),
+                      child: DCommandInput<String>(
+                        key: const ValueKey('chat-new-direct-message-search'),
+                        controller: _search,
+                        focusNode: _searchFocus,
+                        enabled: !_opening,
+                        semanticLabel: 'Search chat recipients',
+                        placeholder: _composingGroup
+                            ? 'Search users or groups'
+                            : 'Search users, groups, or conversations',
+                      ),
+                    ),
+                    _buildResults(),
+                  ],
+                ),
+              ),
+              if (_error case final error?)
+                Padding(
+                  padding: const EdgeInsets.all(DSpacing.md),
+                  child: DAlert(
+                    key: const ValueKey('chat-new-direct-message-error'),
+                    variant: DAlertVariant.destructive,
+                    description: DAlertDescription(child: Text(error)),
+                  ),
+                ),
+              DCardFooter(
+                backgroundColor: tokens.footerBackground,
+                borderColor: tokens.footerBorder,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: DSpacing.lg,
+                  vertical: DSpacing.sm,
+                ),
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final showHints =
+                        desktop &&
+                        constraints.maxWidth >=
+                            MediaQuery.textScalerOf(
+                              context,
+                            ).scale(_composingGroup ? 420 : 280);
+                    return Row(
+                      children: [
+                        if (showHints) Expanded(child: _keyboardHints()),
+                        if (_composingGroup)
+                          Expanded(
+                            child: Wrap(
+                              alignment: WrapAlignment.end,
+                              spacing: DSpacing.controlGap,
+                              runSpacing: DSpacing.sm,
+                              children: [
+                                DButton(
+                                  label: const Text('Back'),
+                                  variant: DButtonVariant.outline,
+                                  onPressed: _opening ? null : _cancelGroup,
+                                ),
+                                DButton(
+                                  key: const ValueKey(
+                                    'chat-create-group-direct-message',
+                                  ),
+                                  label: const Text('Start group chat'),
+                                  variant: DButtonVariant.primary,
+                                  loading: _opening,
+                                  onPressed: _opening || _members.isEmpty
+                                      ? null
+                                      : () => unawaited(_createGroup()),
+                                ),
+                              ],
+                            ),
+                          )
+                        else if (showHints)
+                          _keyHint(const [DKbd('Esc')], 'close')
+                        else
+                          Expanded(
+                            child: Align(
+                              alignment: AlignmentDirectional.centerEnd,
+                              child: DButton(
+                                label: const Text('Cancel'),
+                                variant: DButtonVariant.outline,
+                                onPressed: widget.dialog.close,
+                              ),
+                            ),
+                          ),
+                      ],
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
-      actions: [
-        if (_composingGroup) ...[
-          DButton(
-            label: const Text('Back'),
-            onPressed: _opening ? null : _cancelGroup,
-          ),
-          DButton(
-            key: const ValueKey('chat-create-group-direct-message'),
-            label: const Text('Create group chat'),
-            onPressed: _opening || _members.isEmpty
-                ? null
-                : () => unawaited(_createGroup()),
-            variant: DButtonVariant.primary,
-            loading: _opening,
-          ),
-        ] else
-          DButton(
-            label: const Text('Cancel'),
-            onPressed: _opening ? null : () => Navigator.of(context).pop(),
-          ),
-      ],
     );
   }
 
-  Widget _buildMembers() {
-    if (_members.isEmpty) {
-      return Text('0 of $_maximumGroupMembers people selected');
-    }
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text('$_membersCount of $_maximumGroupMembers people selected'),
-        const SizedBox(height: 4),
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: Row(
-            children: [
-              for (final member in _members) ...[
-                InputChip(
-                  key: ValueKey('chat-new-group-member-${member.identifier}'),
-                  label: Text(_memberLabel(member)),
-                  onDeleted: _opening ? null : () => _removeMember(member),
-                ),
-                const SizedBox(width: 6),
-              ],
-            ],
+  Widget _keyboardHints() => Wrap(
+    spacing: DSpacing.md,
+    runSpacing: DSpacing.xs,
+    children: [
+      _keyHint(const [DKbd('↑'), DKbd('↓')], 'navigate'),
+      _keyHint(const [DKbd('↵')], _composingGroup ? 'add' : 'open'),
+    ],
+  );
+
+  Widget _keyHint(List<Widget> keys, String label) => Row(
+    mainAxisSize: MainAxisSize.min,
+    spacing: DSpacing.xs,
+    children: [
+      ...keys,
+      Text(
+        label,
+        style: TextStyle(
+          fontSize: 12,
+          color: DTokens.of(context).mutedForeground,
+        ),
+      ),
+    ],
+  );
+
+  Widget _buildMembers() => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      if (_members.isNotEmpty) ...[
+        Wrap(
+          spacing: DSpacing.controlGap,
+          runSpacing: DSpacing.controlGap,
+          children: [
+            for (final member in _members)
+              DButton(
+                key: ValueKey('chat-new-group-member-${member.identifier}'),
+                label: Text(_memberLabel(member)),
+                icon: const DIcon(DIcons.xmark),
+                iconPosition: DButtonIconPosition.end,
+                size: DButtonSize.small,
+                variant: DButtonVariant.outline,
+                semanticLabel: 'Remove ${_memberLabel(member)}',
+                onPressed: _opening
+                    ? null
+                    : () {
+                        _removeMember(member);
+                        _searchFocus.requestFocus();
+                      },
+              ),
+          ],
+        ),
+        const SizedBox(height: DSpacing.xs),
+      ],
+      Semantics(
+        liveRegion: true,
+        child: Text(
+          '$_membersCount of $_maximumGroupMembers people selected',
+          style: TextStyle(
+            fontSize: 12,
+            color: DTokens.of(context).mutedForeground,
           ),
         ),
-      ],
-    );
-  }
+      ),
+    ],
+  );
 
   static String _memberLabel(ChatDirectMessageSearchItem member) =>
       switch (member) {
@@ -424,101 +619,195 @@ class _ChatNewDirectMessageDialogState
         ChatDirectMessageChannel(:final channel) => channel.title,
       };
 
-  Widget _buildResults(String query) {
-    if (_searching) {
-      return const Center(child: DSpinner(size: DSpacing.xl));
-    }
-    if (_opening) {
-      return const Center(child: DSpinner(size: DSpacing.xl));
-    }
+  Widget _buildResults() {
+    final query = _search.text.trim();
     final results = [
-      for (final item in _results)
-        if (!_composingGroup ||
-            !_members.any((member) => member.identifier == item.identifier))
-          item,
+      if (!_opening && !_searching)
+        for (final item in _results)
+          if (!_composingGroup ||
+              (item is! ChatDirectMessageChannel &&
+                  !_members.any(
+                    (member) => member.identifier == item.identifier,
+                  )))
+            item,
     ];
-    final showNewGroup = !_composingGroup && query.isEmpty && _canUseGroupChat;
-    if (results.isEmpty && !showNewGroup) {
-      return Center(
-        child: Text(
-          query.isEmpty
-              ? _composingGroup
-                    ? 'Search for people or groups to add.'
-                    : 'Search for a user to start a direct message.'
-              : _composingGroup
-              ? 'No users or groups found.'
-              : 'No users, groups, or conversations found.',
-          textAlign: TextAlign.center,
-        ),
-      );
+    final showNewGroup =
+        !_composingGroup && query.isEmpty && _canUseGroupChat && !_opening;
+    // Keep the server's relevance order, including across result types.
+    final groups = <({String heading, List<DCommandItem<String>> items})>[];
+    for (final item in results) {
+      final heading = switch (item) {
+        ChatDirectMessageUser() => 'People',
+        ChatDirectMessageGroup() => 'Groups',
+        ChatDirectMessageChannel() =>
+          query.isEmpty ? 'Recent conversations' : 'Conversations',
+      };
+      if (groups.isEmpty || groups.last.heading != heading) {
+        groups.add((heading: heading, items: []));
+      }
+      groups.last.items.add(_result(item));
     }
-    return ListView(
+    return DCommandList<String>(
       key: const ValueKey('chat-new-direct-message-results'),
+      semanticLabel: 'Chat recipients and conversations',
       children: [
-        if (showNewGroup)
-          ListTile(
-            key: const ValueKey('chat-new-group-direct-message'),
-            leading: const DIcon(DIcons.users, size: 20),
-            title: const Text('New group chat'),
-            onTap: _startGroup,
+        DCommandLoading(
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            spacing: DSpacing.sm,
+            children: [
+              const DSpinner(size: 16),
+              Text(_opening ? 'Opening conversation…' : 'Searching…'),
+            ],
           ),
-        for (final item in results)
-          switch (item) {
-            final ChatDirectMessageUser user => ListTile(
-              key: ValueKey('chat-new-direct-message-user-${user.username}'),
-              enabled: _composingGroup ? _canAddMember(user) : user.enabled,
-              leading: _UserAvatar(user: user),
-              title: Text(user.name ?? user.username),
-              subtitle: !user.enabled
-                  ? const Text('Chat is disabled for this user.')
-                  : user.name == null
-                  ? null
-                  : Text('@${user.username}'),
-              onTap: () => unawaited(_select(user)),
-            ),
-            final ChatDirectMessageChannel result => ListTile(
-              key: ValueKey(
-                'chat-new-direct-message-channel-${result.channel.id}',
+        ),
+        DCommandEmpty(
+          child: Text(
+            _error != null
+                ? 'Try searching again.'
+                : query.isEmpty
+                ? _composingGroup
+                      ? 'Search for people or groups to add.'
+                      : 'Search for a user to start a direct message.'
+                : 'No matches found. Try another name or username.',
+            textAlign: TextAlign.center,
+          ),
+        ),
+        for (final group in groups)
+          DCommandGroup<String>(
+            heading: Text(group.heading),
+            items: group.items,
+          ),
+        if (showNewGroup) ...[
+          const DCommandSeparator<String>(),
+          DCommandGroup<String>(
+            items: [
+              DCommandItem<String>(
+                value: _newGroupValue,
+                leading: const DIcon(DIcons.plus),
+                child: const Text(
+                  'Create a group chat',
+                  key: ValueKey('chat-new-group-direct-message'),
+                ),
+                onSelected: (_) => _startGroup(),
               ),
-              enabled: result.enabled,
-              leading: const DIcon(DIcons.comment, size: 20),
-              title: Text(result.channel.title),
-              subtitle: const Text('Existing conversation'),
-              onTap: () => unawaited(_select(result)),
-            ),
-            final ChatDirectMessageGroup group => ListTile(
-              key: ValueKey('chat-new-direct-message-group-${group.name}'),
-              enabled: _composingGroup ? _canAddMember(group) : group.enabled,
-              leading: const DIcon(DIcons.users, size: 20),
-              title: Text(group.fullName ?? group.name),
-              subtitle: !group.enabled
-                  ? const Text('This group cannot be added to Chat.')
-                  : Text('@${group.name} · ${group.memberCount} people'),
-              onTap: () => unawaited(_select(group)),
-            ),
-          },
+            ],
+          ),
+        ],
       ],
     );
   }
+
+  DCommandItem<String> _result(ChatDirectMessageSearchItem item) {
+    final (key, title, detail, leading) = switch (item) {
+      final ChatDirectMessageUser user => (
+        'chat-new-direct-message-user-${user.username}',
+        user.name ?? user.username,
+        !user.enabled ? 'Chat is disabled for this user.' : '@${user.username}',
+        _ChatAvatar(username: user.username, url: user.avatarUrl),
+      ),
+      final ChatDirectMessageGroup group => (
+        'chat-new-direct-message-group-${group.name}',
+        group.fullName ?? group.name,
+        !group.enabled
+            ? 'This group cannot be added to Chat.'
+            : '${group.memberCount} people',
+        const DIcon(DIcons.users),
+      ),
+      ChatDirectMessageChannel(:final channel) => (
+        'chat-new-direct-message-channel-${channel.id}',
+        channel.title,
+        channel.isGroup
+            ? channel.users.map((user) => user.displayName).join(', ')
+            : '',
+        _channelAvatar(channel),
+      ),
+    };
+    final enabled =
+        !_opening && (_composingGroup ? _canAddMember(item) : item.enabled);
+    return DCommandItem<String>(
+      value: item.identifier,
+      enabled: enabled,
+      semanticLabel: [
+        title,
+        detail,
+        if (_composingGroup && item.enabled && !enabled)
+          'Group member limit reached',
+      ].where((part) => part.isNotEmpty).join('. '),
+      // Command owns its surface key; keep the app's interaction key on content.
+      leading: Padding(
+        padding: const EdgeInsets.symmetric(vertical: DSpacing.xs),
+        child: leading,
+      ),
+      trailing: AnimatedBuilder(
+        animation: _command,
+        builder: (context, _) => DCommandShortcut(
+          Text(
+            _command.value == item.identifier && enabled
+                ? _composingGroup
+                      ? '+'
+                      : '↵'
+                : switch (item) {
+                    ChatDirectMessageChannel(:final channel)
+                        when channel.lastMessageAt != null =>
+                      relativeTime(channel.lastMessageAt!),
+                    _ => '',
+                  },
+          ),
+        ),
+      ),
+      onSelected: (_) => unawaited(_select(item)),
+      child: Padding(
+        key: ValueKey(key),
+        padding: const EdgeInsets.symmetric(vertical: DSpacing.xs),
+        child: Text.rich(
+          TextSpan(
+            children: [
+              TextSpan(text: title),
+              if (detail.isNotEmpty)
+                TextSpan(
+                  text: '  $detail',
+                  style: TextStyle(
+                    color: DTokens.of(context).mutedForeground,
+                    fontSize: 12,
+                  ),
+                ),
+            ],
+          ),
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+        ),
+      ),
+    );
+  }
+
+  Widget _channelAvatar(ChatChannel channel) {
+    final currentUser = widget.chat.currentUserFor(widget.siteUrl)?.id;
+    final others = channel.users.where((user) => user.id != currentUser);
+    if (!channel.isGroup && others.length == 1) {
+      final user = others.single;
+      return _ChatAvatar(username: user.username, url: user.avatarUrl);
+    }
+    return const DIcon(DIcons.users);
+  }
 }
 
-class _UserAvatar extends StatelessWidget {
-  const _UserAvatar({required this.user});
+class _ChatAvatar extends StatelessWidget {
+  const _ChatAvatar({required this.username, this.url});
 
-  final ChatDirectMessageUser user;
+  final String username;
+  final String? url;
 
   @override
-  Widget build(BuildContext context) => DAvatar.frame(
-    child: SizedBox.square(
-      dimension: 36,
-      child: AvatarImage(
-        url: user.avatarUrl,
-        size: 36,
-        fallback: ColoredBox(
-          color: Theme.of(context).colorScheme.surfaceContainerHighest,
-          child: Center(
-            child: Text(user.username.characters.first.toUpperCase()),
-          ),
+  Widget build(BuildContext context) => DAvatar(
+    size: DAvatarSize.sm,
+    decorative: true,
+    child: AvatarImage(
+      url: url,
+      size: DAvatarSize.sm.dimension,
+      fallback: DAvatarFallback(
+        child: Text(
+          username.isEmpty ? '?' : username.characters.first.toUpperCase(),
         ),
       ),
     ),
