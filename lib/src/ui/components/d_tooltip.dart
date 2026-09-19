@@ -871,7 +871,11 @@ class DTooltipState extends State<DTooltip>
               cursor: cursor,
               animation: _curve,
               color: DTokens.of(context).surface,
-              borderColor: DTokens.of(context).border,
+              borderColor: Color.lerp(
+                DTokens.of(context).surface,
+                DTokens.of(context).foreground,
+                .12,
+              )!,
               radius: DTokens.of(context).radius * 0.8,
               child: IgnorePointer(
                 ignoring: widget.disableHoverablePopup,
