@@ -6144,6 +6144,7 @@ class ShellController extends FrameSafeNotifier
     final lease = lifecycle.capture(instance.url);
     final elapsed = Stopwatch()..start();
     final bookmarkVersion = _bookmarkVersion(instance.url, topicId);
+    final messageArchiveVersion = _messageArchiveVersion(instance.url, topicId);
 
     _topicsLoading.add(key);
     _notify();
@@ -6199,6 +6200,7 @@ class ShellController extends FrameSafeNotifier
           instance.url,
           fetched,
           bookmarkVersionAtDispatch: bookmarkVersion,
+          messageArchiveVersionAtDispatch: messageArchiveVersion,
         );
         _ensureMessageListParent(instance.url, tabId, detail);
         if (currentInstance?.url == instance.url) {
@@ -6372,6 +6374,7 @@ class ShellController extends FrameSafeNotifier
     String siteUrl,
     TopicPayload payload, {
     int? bookmarkVersionAtDispatch,
+    int? messageArchiveVersionAtDispatch,
   }) {
     final preserveBookmarks =
         bookmarkVersionAtDispatch != null &&
@@ -6388,9 +6391,17 @@ class ShellController extends FrameSafeNotifier
           ]
         : payload.posts;
     store.putAll(siteUrl, posts);
-    final incomingDetail = preserveBookmarks && heldDetail != null
+    var incomingDetail = preserveBookmarks && heldDetail != null
         ? payload.detail.withBookmarksOf(heldDetail)
         : payload.detail;
+    if (heldDetail != null &&
+        messageArchiveVersionAtDispatch != null &&
+        messageArchiveVersionAtDispatch !=
+            _messageArchiveVersion(siteUrl, payload.detail.id)) {
+      incomingDetail = incomingDetail.copyWith(
+        messageArchived: heldDetail.messageArchived,
+      );
+    }
     final detail = store.put(siteUrl, incomingDetail);
     _topicsStale.remove(_topicKey(siteUrl, detail.id));
     store.update<Topic>(
@@ -7013,6 +7024,86 @@ class ShellController extends FrameSafeNotifier
         _topicPinWrites.remove(key);
         if (!isDisposed) _notify();
       });
+    }
+  }
+
+  final Set<String> _messageArchiveWrites = {};
+  final Map<String, int> _messageArchiveVersions = {};
+
+  int _messageArchiveVersion(String siteUrl, int topicId) =>
+      _messageArchiveVersions[_topicKey(siteUrl, topicId)] ?? 0;
+
+  Future<String?> updateMessageArchived(
+    String siteUrl,
+    int topicId,
+    bool archived,
+  ) async {
+    final instance = instanceFor(siteUrl);
+    final held = store.read<TopicDetail>(siteUrl, topicId);
+    if (isDisposed ||
+        instance?.isConnected != true ||
+        instance?.user?.canSendPrivateMessages != true ||
+        held?.privateMessage != true) {
+      return 'This message can no longer be moved.';
+    }
+    if (held!.messageArchived == archived) return null;
+    final key = _topicKey(siteUrl, topicId);
+    if (!_messageArchiveWrites.add(key)) {
+      return 'Another inbox action is still finishing.';
+    }
+    final lease = lifecycle.capture(siteUrl);
+    try {
+      final credential = await _credentialForWrite(siteUrl);
+      if (!lease.isCurrent || isDisposed) return 'The account has changed.';
+      if (credential.failure case final failure?) return failure.message;
+      final clientId = await authenticator.clientId();
+      if (!lease.isCurrent || isDisposed) return 'The account has changed.';
+      await api.topicMutations.updateMessageArchived(
+        siteUrl: siteUrl,
+        apiKey: credential.apiKey!,
+        topicId: topicId,
+        archived: archived,
+        clientId: clientId,
+      );
+      if (!lease.isCurrent || isDisposed) return 'The account has changed.';
+      _messageArchiveVersions[key] =
+          _messageArchiveVersion(siteUrl, topicId) + 1;
+      store.update<TopicDetail>(
+        siteUrl,
+        topicId,
+        (topic) => topic.copyWith(messageArchived: archived),
+      );
+      // Core updates the user's inbox and every recipient group they belong to.
+      // Refresh already-open folders, including cached archives in other tabs.
+      for (final group in <String?>[
+        null,
+        ...instance!.user!.messageGroupNames,
+      ]) {
+        for (final mode in MessageListMode.values) {
+          if (group != null && !mode.supportsGroup) continue;
+          final route = ContentRoute.messages(groupName: group, mode: mode);
+          if (topicFeeds.feedFor(siteUrl, route.id) == null) continue;
+          unawaited(
+            topicFeeds.load(
+              instance: instance,
+              destinationId: route.id,
+              path: mode.feedPathFor(instance.user!.username, groupName: group),
+              incoming: null,
+              force: true,
+            ),
+          );
+        }
+      }
+      return null;
+    } on WriteException catch (error) {
+      return error.message;
+    } catch (error, stackTrace) {
+      if (lease.isCurrent && !isDisposed) {
+        _reportOperationalError(error, stackTrace, 'message.updateArchived');
+      }
+      return const WriteException(WriteFailure.unreachable).message;
+    } finally {
+      lease.commit(() => _messageArchiveWrites.remove(key));
     }
   }
 
@@ -12073,6 +12164,7 @@ class ShellController extends FrameSafeNotifier
     }
     final lease = lifecycle.capture(siteUrl);
     final bookmarkVersion = _bookmarkVersion(siteUrl, topicId);
+    final messageArchiveVersion = _messageArchiveVersion(siteUrl, topicId);
     _topicsLoading.add(key);
 
     try {
@@ -12089,8 +12181,12 @@ class ShellController extends FrameSafeNotifier
         apiKey: credential.value,
       );
       lease.commit(
-        () =>
-            _absorb(siteUrl, topic, bookmarkVersionAtDispatch: bookmarkVersion),
+        () => _absorb(
+          siteUrl,
+          topic,
+          bookmarkVersionAtDispatch: bookmarkVersion,
+          messageArchiveVersionAtDispatch: messageArchiveVersion,
+        ),
       );
     } catch (error, stackTrace) {
       if (isDisposed || !lease.isCurrent) return;
@@ -13229,6 +13325,10 @@ class ShellController extends FrameSafeNotifier
     );
     _topicPinWrites.removeWhere((key) => key.startsWith('$siteUrl#'));
     _topicStatusWrites.removeWhere((key) => key.startsWith('$siteUrl#'));
+    _messageArchiveWrites.removeWhere((key) => key.startsWith('$siteUrl#'));
+    _messageArchiveVersions.removeWhere(
+      (key, _) => key.startsWith('$siteUrl#'),
+    );
     _topicDeletionWrites.removeWhere((key) => key.startsWith('$siteUrl#'));
     _topicJumpRuns.removeWhere((key, _) => key.startsWith('$siteUrl#'));
     _topicReads.forget(siteUrl);
@@ -14764,6 +14864,8 @@ class ShellController extends FrameSafeNotifier
     _pluginUserOptionUpdates.clear();
     _topicPinWrites.clear();
     _topicStatusWrites.clear();
+    _messageArchiveWrites.clear();
+    _messageArchiveVersions.clear();
     _userStatusOverrides.clear();
     _userStatusWrites.clear();
     _optimisticHidePresence.clear();

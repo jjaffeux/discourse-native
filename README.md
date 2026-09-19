@@ -696,6 +696,15 @@ supported; Sent falls back to Inbox for groups. New message follows the server's
 private-message permission and opens the native composer after choosing
 recipients, or addresses the selected group directly.
 
+The PM reader places Archive beside Reply. Archived messages show Move to
+inbox instead, and either action offers an Undo toast. These use core's
+`PUT /t/:id/archive-message` and `move-to-inbox` endpoints, independently of
+administrative topic archiving. Like the web PM footer, core applies the action
+to the current user's personal recipient inbox and all recipient groups they
+belong to; the tooltip names those inboxes. Loaded message folders refresh
+after a successful write, and failed or obsolete account requests leave the
+local message state unchanged.
+
 Lists are cached per site and destination — revisiting one does not refetch.
 Tapping the destination you are already looking at forces a refresh; merely
 scrolling past the first row does not. Repeated loads share the pending request;

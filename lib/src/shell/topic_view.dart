@@ -31,6 +31,7 @@ import 'cooked_html.dart';
 import 'inline_action.dart';
 import 'keyboard_navigation.dart';
 import 'list_boundary_shortcuts.dart';
+import 'message_archive_button.dart';
 import 'open_link.dart';
 import 'platform.dart';
 import 'post_actions.dart';
@@ -2418,6 +2419,11 @@ class _TopicBottomBar extends StatelessWidget {
     final showBookmark =
         hasTopic && ShellScope.read(context).currentInstance?.user != null;
     final showNotifications = hasTopic && isConnected;
+    final showArchive =
+        hasTopic &&
+        isConnected &&
+        topic!.privateMessage &&
+        controller.instanceFor(siteUrl!)?.user?.canSendPrivateMessages == true;
     return DCardFooter(
       key: const ValueKey('topic-bottom-bar'),
       backgroundColor: context.isTouch
@@ -2427,72 +2433,90 @@ class _TopicBottomBar extends StatelessWidget {
       rounded: !context.isTouch,
       padding: EdgeInsets.zero,
       child: LayoutBuilder(
-        builder: (context, constraints) => SizedBox(
-          height: topicBottomBarHeight(context),
+        builder: (context, constraints) => ConstrainedBox(
+          constraints: BoxConstraints(minHeight: topicBottomBarHeight(context)),
           child: Padding(
             padding: topicBottomBarPadding,
             child: Row(
               children: [
-                if (canReply || showBookmark || showNotifications)
-                  DButtonGroup(
-                    key: const ValueKey('topic-footer-actions'),
-                    semanticLabel: 'Topic actions',
-                    children: [
-                      if (canReply)
-                        DButtonGroup(
-                          children: [
-                            DButton(
-                              key: const ValueKey('topic-reply-button'),
-                              onPressed: onReplyPressed,
-                              icon: const DIcon(DIcons.reply),
-                              label: const Text('Reply'),
-                              tooltip: 'Reply to this topic',
-                              shortcut: const DShortcut(topicReplyShortcut),
-                              variant: DButtonVariant.primary,
-                              size: DButtonSize.regular,
-                            ),
-                          ],
-                        ),
-                      if (showBookmark || showNotifications)
-                        DButtonGroup(
-                          semanticLabel: 'Topic management',
-                          children: [
-                            if (showBookmark)
-                              TopicBookmarkButton(
-                                siteUrl: siteUrl!,
-                                topic: topic!,
-                                busy: bookmarkBusy,
-                                variant: DButtonVariant.outline,
-                                size: DButtonSize.regular,
-                              ),
-                            if (showNotifications)
-                              TopicNotificationLevelButton(
-                                siteUrl: siteUrl!,
-                                topic: topic!,
-                                showLabel: constraints.maxWidth >= 580,
-                                variant: DButtonVariant.outline,
-                                size: DButtonSize.regular,
-                              ),
-                          ],
-                        ),
-                    ],
-                  ),
-                if (progressPosition case final position?)
+                if (canReply ||
+                    showArchive ||
+                    showBookmark ||
+                    showNotifications)
                   Expanded(
-                    child: Align(
-                      alignment: AlignmentDirectional.centerEnd,
-                      child: Padding(
-                        padding: const EdgeInsetsDirectional.only(start: 8),
-                        child: TopicProgressPopover(
-                          controller: controller,
-                          position: position,
-                          total: totalPosts,
-                        ),
-                      ),
+                    child: Wrap(
+                      key: const ValueKey('topic-footer-actions'),
+                      spacing: DSpacing.controlGap,
+                      runSpacing: DSpacing.controlGap,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        if (canReply)
+                          DButtonGroup(
+                            children: [
+                              DButton(
+                                key: const ValueKey('topic-reply-button'),
+                                onPressed: onReplyPressed,
+                                icon: const DIcon(DIcons.reply),
+                                label: const Text('Reply'),
+                                tooltip: 'Reply to this topic',
+                                shortcut: const DShortcut(topicReplyShortcut),
+                                variant: DButtonVariant.primary,
+                                size: DButtonSize.regular,
+                              ),
+                            ],
+                          ),
+                        if (showArchive)
+                          MessageArchiveButton(
+                            key: ValueKey(
+                              'message-archive-$siteUrl-${topic!.id}',
+                            ),
+                            siteUrl: siteUrl!,
+                            topic: topic!,
+                          ),
+                        if (showBookmark || showNotifications)
+                          DButtonGroup(
+                            semanticLabel: 'Topic management',
+                            children: [
+                              if (showBookmark)
+                                TopicBookmarkButton(
+                                  siteUrl: siteUrl!,
+                                  topic: topic!,
+                                  busy: bookmarkBusy,
+                                  variant: DButtonVariant.outline,
+                                  size: DButtonSize.regular,
+                                ),
+                              if (showNotifications)
+                                TopicNotificationLevelButton(
+                                  siteUrl: siteUrl!,
+                                  topic: topic!,
+                                  showLabel:
+                                      constraints.maxWidth >= 580 &&
+                                      MediaQuery.textScalerOf(
+                                            context,
+                                          ).scale(13) <=
+                                          13,
+                                  variant: DButtonVariant.outline,
+                                  size: DButtonSize.regular,
+                                ),
+                            ],
+                          ),
+                      ],
                     ),
                   )
                 else
                   const Spacer(),
+                if (progressPosition case final position?)
+                  Align(
+                    alignment: AlignmentDirectional.centerEnd,
+                    child: Padding(
+                      padding: const EdgeInsetsDirectional.only(start: 8),
+                      child: TopicProgressPopover(
+                        controller: controller,
+                        position: position,
+                        total: totalPosts,
+                      ),
+                    ),
+                  ),
               ],
             ),
           ),

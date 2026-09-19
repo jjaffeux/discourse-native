@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/src/data/discourse_api.dart';
 import 'package:discourse_native/src/models/app_settings.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
@@ -31,6 +34,178 @@ const _groupUnread = '/topics/private-messages-group/reader/team/unread.json';
 const _groupArchive = '/topics/private-messages-group/reader/team/archive.json';
 
 void main() {
+  for (final group in [false, true]) {
+    testWidgets(
+      'archives ${group ? 'group' : 'personal'} PMs beside Reply and undoes',
+      (tester) async {
+        final setup = await _pumpInbox(tester);
+        final shell = setup.controller;
+        final api = setup.api;
+        if (group) shell.selectMessageInbox('team');
+        shell.selectMessageListMode(MessageListMode.archive);
+        await tester.pumpAndSettle();
+        shell.selectMessageListMode(MessageListMode.inbox);
+        await tester.pumpAndSettle();
+        final topicId = group ? 5 : 1;
+        final inboxPath = group ? _groupInbox : _inbox;
+        final archivePath = group ? _groupArchive : _archive;
+        final inboxRows = api.feeds[inboxPath]!;
+        final archiveRows = api.feeds[archivePath]!;
+        await tester.tap(find.byKey(ValueKey('topic-card-$topicId')));
+        await tester.pumpAndSettle();
+        final archive = find.byKey(const ValueKey('message-archive-button'));
+        final reply = find.byKey(const ValueKey('topic-reply-button'));
+        expect(
+          tester.getRect(archive).left,
+          greaterThan(tester.getRect(reply).right),
+        );
+        expect(
+          find.byTooltip(
+            group ? 'Archive from the team inbox' : 'Archive from your inbox',
+          ),
+          findsOneWidget,
+        );
+        api.feeds[inboxPath] = [];
+        api.feeds[archivePath] = [...archiveRows, ...inboxRows];
+        await tester.tap(archive);
+        await tester.pumpAndSettle();
+        expect(api.messagesArchived, [
+          (siteUrl: _site, topicId: topicId, archived: true),
+        ]);
+        expect(shell.currentTopic!.messageArchived, isTrue);
+        expect(shell.currentTopic!.archived, isFalse);
+        expect(find.text('Move to inbox'), findsOneWidget);
+        expect(find.byKey(ValueKey('topic-card-$topicId')), findsNothing);
+        expect(
+          shell.topicFeeds
+              .feedFor(
+                _site,
+                ContentRoute.messages(
+                  groupName: group ? 'team' : null,
+                  mode: MessageListMode.archive,
+                ).id,
+              )!
+              .topicIds,
+          contains(topicId),
+        );
+        api.feeds[inboxPath] = inboxRows;
+        api.feeds[archivePath] = archiveRows;
+        await tester.tap(find.text('Undo'));
+        await tester.pumpAndSettle();
+        expect(api.messagesArchived.last, (
+          siteUrl: _site,
+          topicId: topicId,
+          archived: false,
+        ));
+        expect(find.text('Undo'), findsNothing);
+        expect(shell.currentTopic!.messageArchived, isFalse);
+        expect(find.byKey(ValueKey('topic-card-$topicId')), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
+  testWidgets(
+    'Undo keeps the original PM after navigating to another message',
+    (tester) async {
+      final setup = await _pumpInbox(tester, inboxCount: 2);
+      await tester.tap(find.byKey(const ValueKey('topic-card-1')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('message-archive-button')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('topic-card-10')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Undo'));
+      await tester.pumpAndSettle();
+      expect(setup.api.messagesArchived.map((write) => write.topicId), [1, 1]);
+      expect(setup.controller.currentTopic!.id, 10);
+      expect(
+        setup.controller.store.read<TopicDetail>(_site, 1)!.messageArchived,
+        isFalse,
+      );
+    },
+  );
+
+  testWidgets('PM archive is hidden without permission', (tester) async {
+    final setup = await _pumpInbox(
+      tester,
+      user: const DiscourseUser(username: 'reader'),
+    );
+    await tester.tap(find.byKey(const ValueKey('topic-card-1')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('message-archive-button')), findsNothing);
+    expect(setup.api.messagesArchived, isEmpty);
+  });
+
+  testWidgets('failed archive retains the inbox and exposes the error', (
+    tester,
+  ) async {
+    final setup = await _pumpInbox(
+      tester,
+      writeFailure: const WriteException(WriteFailure.forbidden),
+    );
+    await tester.tap(find.byKey(const ValueKey('topic-card-1')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('message-archive-button')));
+    await tester.pumpAndSettle();
+    expect(setup.controller.currentTopic!.messageArchived, isFalse);
+    expect(find.byKey(const ValueKey('topic-card-1')), findsOneWidget);
+    expect(
+      find.text(const WriteException(WriteFailure.forbidden).message),
+      findsOneWidget,
+    );
+    expect(find.text('Undo'), findsNothing);
+  });
+
+  testWidgets(
+    'pending archive disables repeat clicks and ignores a forgotten account',
+    (tester) async {
+      final setup = await _pumpInbox(tester);
+      final gate = Completer<void>();
+      setup.api.messageArchiveGate = gate;
+      await tester.tap(find.byKey(const ValueKey('topic-card-1')));
+      await tester.pumpAndSettle();
+      final button = find.byKey(const ValueKey('message-archive-button'));
+      await tester.tap(button);
+      await tester.pump();
+      expect(tester.widget<DButton>(button).loading, isTrue);
+      expect(tester.widget<DButton>(button).onPressed, isNull);
+      expect(
+        await setup.controller.updateMessageArchived(_site, 1, true),
+        isNotNull,
+      );
+      expect(setup.api.messagesArchived, hasLength(1));
+      setup.controller.lifecycle.invalidate(_site);
+      gate.complete();
+      await tester.pumpAndSettle();
+      expect(setup.controller.currentTopic!.messageArchived, isFalse);
+      expect(find.text('Undo'), findsNothing);
+    },
+  );
+
+  for (final width in [360.0, 640.0]) {
+    testWidgets(
+      'archived PM action fits at $width with ${width == 640 ? 2 : 1}x text',
+      (tester) async {
+        final setup = await _pumpInbox(
+          tester,
+          width: width,
+          textScale: width == 640 ? 2 : 1,
+        );
+        setup.controller.selectMessageListMode(MessageListMode.archive);
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const ValueKey('topic-card-4')));
+        await tester.pumpAndSettle();
+        expect(find.text('Move to inbox'), findsOneWidget);
+        await tester.tap(find.byKey(const ValueKey('message-archive-button')));
+        await tester.pumpAndSettle();
+        expect(setup.api.messagesArchived.single.archived, isFalse);
+        expect(tester.takeException(), isNull);
+      },
+      variant: TargetPlatformVariant.only(TargetPlatform.iOS),
+    );
+  }
+
   testWidgets('message folders use category-free native topic rows', (
     tester,
   ) async {
@@ -621,6 +796,7 @@ Future<({ShellController controller, FakeDiscourseApi api})> _pumpInbox(
   double width = 1440,
   double textScale = 1,
   bool secondSite = false,
+  WriteException? writeFailure,
   int inboxCount = 1,
   bool paginate = false,
   bool desktopTopicTabs = false,
@@ -628,6 +804,7 @@ Future<({ShellController controller, FakeDiscourseApi api})> _pumpInbox(
     id: 1,
     username: 'reader',
     canSendPrivateMessages: true,
+    groups: ['team', 'engineering-infrastructure-platform-team'],
     messageGroupNames: ['team', 'engineering-infrastructure-platform-team'],
   ),
 }) async {
@@ -673,6 +850,7 @@ Future<({ShellController controller, FakeDiscourseApi api})> _pumpInbox(
       ],
   };
   final api = FakeDiscourseApi(
+    writeFailure: writeFailure,
     user: user,
     feeds: rows,
     nextPages: {if (paginate) _inbox: '$_inbox?page=1'},
@@ -685,6 +863,13 @@ Future<({ShellController controller, FakeDiscourseApi api})> _pumpInbox(
             stream: [row.id * 100],
             postsCount: 1,
             privateMessage: true,
+            messageArchived: row.id == 4 || row.id == 7,
+            allowedMessageGroups: row.id >= 5 && row.id <= 7
+                ? const ['team']
+                : const [],
+            allowedMessageUsers: row.id < 5 || row.id > 7
+                ? const ['reader']
+                : const [],
             canCreatePost: true,
           ),
           posts: [
@@ -737,9 +922,11 @@ Future<({ShellController controller, FakeDiscourseApi api})> _pumpInbox(
           ).copyWith(textScaler: TextScaler.linear(textScale)),
           child: child!,
         ),
-        home: Scaffold(
-          body: MainContent(
-            layout: width < 600 ? ShellLayout.compact : ShellLayout.expanded,
+        home: DToaster(
+          child: Scaffold(
+            body: MainContent(
+              layout: width < 600 ? ShellLayout.compact : ShellLayout.expanded,
+            ),
           ),
         ),
       ),

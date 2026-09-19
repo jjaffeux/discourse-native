@@ -20,6 +20,39 @@ const siteUrl = 'https://meta.discourse.org';
 
 void main() {
   test(
+    'PM inbox state and recipient scope survive unrelated topic changes',
+    () {
+      final detail = TopicDetail.parse({
+        'id': 7,
+        'archetype': 'private_message',
+        'message_archived': true,
+        'archived': false,
+        'details': {
+          'allowed_groups': [
+            {'name': 'support'},
+            {'name': 123},
+          ],
+          'allowed_users': [
+            {'username': 'sam'},
+            null,
+          ],
+        },
+      }, siteUrl).detail;
+      expect(detail.messageArchived, isTrue);
+      expect(detail.archived, isFalse);
+      expect(detail.allowedMessageGroups, ['support']);
+      expect(detail.allowedMessageUsers, ['sam']);
+      expect(detail.copyWith(), detail);
+      expect(detail.withPlugins(detail.plugins), detail);
+      final restored = detail.copyWith(messageArchived: false);
+      expect(restored, isNot(detail));
+      expect(restored.archived, isFalse);
+      expect(restored.allowedMessageGroups, ['support']);
+      expect(restored.allowedMessageUsers, ['sam']);
+    },
+  );
+
+  test(
     'topic reply totals include undirected replies and follow post counts',
     () {
       const json = {

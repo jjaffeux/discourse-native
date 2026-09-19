@@ -573,6 +573,9 @@ class TopicDetail with Storable<TopicDetail> {
     this.hasSummary = false,
     this.isNestedView = false,
     this.privateMessage = false,
+    this.messageArchived = false,
+    this.allowedMessageGroups = const [],
+    this.allowedMessageUsers = const [],
     this.categoryId,
     this.canCreatePost = false,
     this.canEdit = false,
@@ -642,6 +645,15 @@ class TopicDetail with Storable<TopicDetail> {
         hasSummary: json['has_summary'] == true,
         isNestedView: json['is_nested_view'] == true,
         privateMessage: json['archetype'] == 'private_message',
+        messageArchived: json['message_archived'] == true,
+        allowedMessageGroups: List.unmodifiable([
+          for (final group in jsonObjects(details['allowed_groups']))
+            ?jsonText(group['name']),
+        ]),
+        allowedMessageUsers: List.unmodifiable([
+          for (final user in jsonObjects(details['allowed_users']))
+            ?jsonText(user['username']),
+        ]),
         categoryId: json['category_id'] == null
             ? null
             : jsonInt(json['category_id']),
@@ -738,6 +750,11 @@ class TopicDetail with Storable<TopicDetail> {
   final bool hasSummary;
   final bool isNestedView;
   final bool privateMessage;
+
+  /// Inbox state, independent of the topic's administrative archived status.
+  final bool messageArchived;
+  final List<String> allowedMessageGroups;
+  final List<String> allowedMessageUsers;
   final int? categoryId;
 
   int? get resumePostNumber {
@@ -979,6 +996,9 @@ class TopicDetail with Storable<TopicDetail> {
     hasSummary: hasSummary,
     isNestedView: isNestedView,
     privateMessage: privateMessage,
+    messageArchived: messageArchived,
+    allowedMessageGroups: allowedMessageGroups,
+    allowedMessageUsers: allowedMessageUsers,
     categoryId: categoryId,
     canCreatePost: canCreatePost,
     canEdit: canEdit,
@@ -1053,6 +1073,7 @@ class TopicDetail with Storable<TopicDetail> {
     bool? closed,
     bool? visible,
     bool? privateMessage,
+    bool? messageArchived,
     DateTime? deletedAt,
     bool clearDeletedAt = false,
     int? categoryId,
@@ -1087,6 +1108,9 @@ class TopicDetail with Storable<TopicDetail> {
     hasSummary: hasSummary,
     isNestedView: isNestedView,
     privateMessage: privateMessage ?? this.privateMessage,
+    messageArchived: messageArchived ?? this.messageArchived,
+    allowedMessageGroups: allowedMessageGroups,
+    allowedMessageUsers: allowedMessageUsers,
     categoryId: clearCategory ? null : (categoryId ?? this.categoryId),
     canCreatePost: canCreatePost,
     canEdit: canEdit ?? this.canEdit,
@@ -1145,6 +1169,9 @@ class TopicDetail with Storable<TopicDetail> {
           other.hasSummary == hasSummary &&
           other.isNestedView == isNestedView &&
           other.privateMessage == privateMessage &&
+          other.messageArchived == messageArchived &&
+          listEquals(other.allowedMessageGroups, allowedMessageGroups) &&
+          listEquals(other.allowedMessageUsers, allowedMessageUsers) &&
           other.categoryId == categoryId &&
           other.canCreatePost == canCreatePost &&
           other.canEdit == canEdit &&
@@ -1196,6 +1223,9 @@ class TopicDetail with Storable<TopicDetail> {
     hasSummary,
     isNestedView,
     privateMessage,
+    messageArchived,
+    Object.hashAll(allowedMessageGroups),
+    Object.hashAll(allowedMessageUsers),
     categoryId,
     canCreatePost,
     canEdit,

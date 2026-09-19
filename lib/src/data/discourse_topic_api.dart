@@ -134,6 +134,25 @@ final class DiscourseTopicApi {
     );
   }
 
+  Future<void> updateMessageArchived({
+    required String siteUrl,
+    required String apiKey,
+    required int topicId,
+    required bool archived,
+    String? clientId,
+  }) async {
+    _requirePositiveId(topicId, 'topicId');
+    final action = archived ? 'archive-message' : 'move-to-inbox';
+    await _write(
+      Uri.parse('$siteUrl/t/$topicId/$action'),
+      siteUrl: siteUrl,
+      method: 'PUT',
+      apiKey: apiKey,
+      clientId: clientId,
+      body: const {},
+    );
+  }
+
   Future<void> updateTopicStatus({
     required String siteUrl,
     required String apiKey,

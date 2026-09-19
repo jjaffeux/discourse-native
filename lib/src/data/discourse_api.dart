@@ -537,6 +537,21 @@ class DiscourseApi
   );
 
   @override
+  Future<void> updateMessageArchived({
+    required String siteUrl,
+    required String apiKey,
+    required int topicId,
+    required bool archived,
+    String? clientId,
+  }) => _topic.updateMessageArchived(
+    siteUrl: siteUrl,
+    apiKey: apiKey,
+    topicId: topicId,
+    archived: archived,
+    clientId: clientId,
+  );
+
+  @override
   Future<void> updateTopicStatus({
     required String siteUrl,
     required String apiKey,
