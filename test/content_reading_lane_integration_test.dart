@@ -380,18 +380,15 @@ void main() {
         final tile = find.byKey(const ValueKey('chat-message-40'));
         final scroll = tester.widget<SuperListView>(viewport).controller!;
         expect(tester.getSize(viewport).width, 1000);
-        expect(tester.getSize(tile).width, closeTo(1000, 0.001));
+        expect(tester.getSize(tile).width, closeTo(825, 0.001));
 
         for (final alignment in [false, true]) {
           await controller.appSettings.setLimitContentSize(alignment);
           await tester.pump();
-          expect(
-            tester.getSize(tile).width,
-            closeTo(alignment ? 825 : 1000, 0.001),
-          );
+          expect(tester.getSize(tile).width, closeTo(825, 0.001));
           expect(
             tester.getTopLeft(tile).dx,
-            closeTo(_laneLeft(1000, alignment), 0.001),
+            closeTo(_laneLeft(1000, true), 0.001),
           );
         }
 

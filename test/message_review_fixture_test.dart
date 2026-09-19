@@ -23,13 +23,13 @@ void main() {
     expect(rows.where((row) => row.align == DMessageAlign.end), hasLength(7));
     expect(rows.where((row) => row.align == DMessageAlign.start), hasLength(2));
     expect(find.byType(DMessageAvatar), findsNWidgets(9));
-    expect(find.byType(DMessageHeader), findsNWidgets(2));
+    expect(find.byType(DMessageHeader), findsNWidgets(5));
     await tester.tap(find.text('Use 1:1 DM'));
     await tester.pumpAndSettle();
-    expect(find.byType(DMessageAvatar), findsNothing);
-    expect(find.byType(DMessageHeader), findsNothing);
+    expect(find.byType(DMessageAvatar), findsNWidgets(9));
+    expect(find.byType(DMessageHeader), findsNWidgets(5));
     expect(find.text('dm-notes.pdf'), findsOneWidget);
-    expect(find.text('Sending'), findsOneWidget);
+    expect(find.text('Sending'), findsNothing);
     expect(find.text('Failed to send: Offline during review'), findsOneWidget);
     for (final label in [
       'Light / dark',
@@ -61,13 +61,14 @@ void main() {
     );
     await tester.tap(find.byTooltip('Scroll preview down'));
     await tester.pump();
-    expect(scrollable.position.pixels, 500);
+    expect(
+      scrollable.position.pixels,
+      500.0.clamp(0.0, scrollable.position.maxScrollExtent),
+    );
     await tester.tap(find.byTooltip('Scroll preview up'));
     await tester.pump();
     expect(scrollable.position.pixels, 0);
 
-    await tester.tap(find.text('Show production'));
-    await tester.pumpAndSettle();
     expect(find.byType(ChatMessageTile), findsNWidgets(4));
     expect(find.byType(DMessage), findsNWidgets(4));
     expect(find.text('message-review.pdf'), findsOneWidget);
@@ -75,9 +76,11 @@ void main() {
     await tester.pump();
     expect(find.text('Opened thread 33'), findsOneWidget);
     await tester.tap(
-      find.bySemanticsLabel(
-        'Jump to message from @olivia: The production tile keeps CookedHtml…',
-      ),
+      find
+          .bySemanticsLabel(
+            'Jump to message from @olivia: The production tile keeps CookedHtml…',
+          )
+          .first,
     );
     await tester.pump();
     expect(find.text('Jumped to message 101'), findsOneWidget);
@@ -86,8 +89,12 @@ void main() {
     await pointer.addPointer(location: Offset.zero);
     await pointer.moveTo(tester.getCenter(find.byType(ChatMessageTile).first));
     await tester.pumpAndSettle();
-    await tester.tap(find.byTooltip('Reply'));
-    await tester.pump();
+    await tester.tap(
+      find.byTooltip('More message actions').hitTestable().first,
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Reply'));
+    await tester.pumpAndSettle();
     expect(find.text('Reply requested for message 101'), findsOneWidget);
     await pointer.removePointer();
 

@@ -23,6 +23,27 @@ final bubbleExamples = ComponentExamples(
       'example state.',
   examples: [
     StyleguideExample(
+      title: 'Chat surfaces',
+      description:
+          'Neutral and accent variants use 12px corners, 8px vertical padding and 13.5px conversation text.',
+      states: const ['Neutral', 'Accent'],
+      code:
+          '''DBubble(variant: DBubbleVariant.accent, children: [DBubbleContent(child: Text('A message'))])''',
+      builder: (_) => const DBubbleGroup(
+        children: [
+          DBubble(
+            variant: DBubbleVariant.neutral,
+            children: [DBubbleContent(child: Text('An incoming message'))],
+          ),
+          DBubble(
+            variant: DBubbleVariant.accent,
+            align: DBubbleAlign.end,
+            children: [DBubbleContent(child: Text('An outgoing message'))],
+          ),
+        ],
+      ),
+    ),
+    StyleguideExample(
       title: 'Compact conversation',
       description:
           'DM bubbles use 4px vertical padding and retain 12px horizontal padding.',
@@ -55,9 +76,11 @@ DBubbleGroup(children: [
     StyleguideExample(
       title: 'Variants',
       description:
-          'All seven Bubble-owned treatments. Child Button variants are intentionally not added to Bubble.',
+          'Bubble-owned treatments, including the accent and neutral chat surfaces. Child Button variants are intentionally not added to Bubble.',
       states: const [
         'Primary',
+        'Accent',
+        'Neutral',
         'Secondary',
         'Muted',
         'Tinted',
