@@ -941,7 +941,11 @@ class _ChatComposerState extends State<ChatComposer> {
           );
         }
         return ListenableBuilder(
-          listenable: Listenable.merge([composer, _replyChanges]),
+          listenable: Listenable.merge([
+            composer,
+            _replyChanges,
+            _chat!.streamListenableFor(widget.siteUrl, _target),
+          ]),
           builder: (context, _) => _composerLane(
             Column(
               mainAxisSize: MainAxisSize.min,
@@ -1340,35 +1344,48 @@ class _ChatComposerState extends State<ChatComposer> {
                   ),
                 Center(
                   heightFactor: 1,
-                  child: DButton(
-                    key: const ValueKey('chat-composer-send'),
-                    label: Text(
-                      widget.editingMessage == null ? 'Send' : 'Save',
+                  child: ListenableBuilder(
+                    listenable: Listenable.merge([
+                      for (final id
+                          in _chat!
+                              .streamFor(widget.siteUrl, _target)
+                              .localMessageIds)
+                        _chat!.messageRef(widget.siteUrl, id),
+                    ]),
+                    builder: (context, _) => DButton(
+                      key: const ValueKey('chat-composer-send'),
+                      label: Text(
+                        widget.editingMessage == null ? 'Send' : 'Save',
+                      ),
+                      onPressed:
+                          _pickingGif ||
+                              _pickingFiles ||
+                              _pickingEmoji ||
+                              _savingEdit ||
+                              !composer.canSubmit ||
+                              composer.hasActiveUploads ||
+                              !(_chat?.canSendMessageTo(
+                                    widget.siteUrl,
+                                    _target,
+                                  ) ??
+                                  false)
+                          ? null
+                          : () => _send(composer),
+                      loading:
+                          _savingEdit ||
+                          _chat!
+                              .messagesFor(widget.siteUrl, _target)
+                              .any(
+                                (message) =>
+                                    message.delivery ==
+                                    ChatMessageDelivery.sending,
+                              ),
+                      icon: const DIcon(DIcons.paperPlane, size: 16),
+                      tooltip: widget.editingMessage == null
+                          ? 'Send message'
+                          : 'Save edit',
+                      variant: DButtonVariant.primary,
                     ),
-                    onPressed:
-                        _pickingGif ||
-                            _pickingFiles ||
-                            _pickingEmoji ||
-                            _savingEdit ||
-                            !composer.canSubmit ||
-                            composer.hasActiveUploads ||
-                            !(_chat?.canSendMessageTo(
-                                  widget.siteUrl,
-                                  _target,
-                                ) ??
-                                false)
-                        ? null
-                        : () => _send(composer),
-                    icon: _savingEdit
-                        ? const SizedBox.square(
-                            dimension: 18,
-                            child: DSpinner(),
-                          )
-                        : const DIcon(DIcons.paperPlane, size: 16),
-                    tooltip: widget.editingMessage == null
-                        ? 'Send message'
-                        : 'Save edit',
-                    variant: DButtonVariant.primary,
                   ),
                 ),
               ],
