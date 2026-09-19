@@ -2940,7 +2940,7 @@ void main() {
       findsNothing,
     );
     final recommendations = find.byWidgetPredicate(
-      (widget) => widget is TopicInboxRow && widget.recommendation,
+      (widget) => widget is TopicListRow && widget.topic.id == 2,
     );
     await tester.scrollUntilVisible(
       recommendations,
@@ -2957,8 +2957,11 @@ void main() {
     expect(recommendations, findsOneWidget);
     expect(find.text('Suggested'), findsOneWidget);
     expect(
-      find.descendant(of: recommendations, matching: find.byType(TopicListRow)),
-      findsNothing,
+      find.descendant(
+        of: recommendations,
+        matching: find.byKey(const ValueKey('topic-card-2')),
+      ),
+      findsOneWidget,
     );
     await tester.tap(recommendations);
     await tester.pumpAndSettle();

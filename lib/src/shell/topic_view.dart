@@ -52,7 +52,6 @@ import 'topic_actions.dart';
 import 'topic_category_picker.dart';
 import 'topic_change_owner.dart';
 import 'topic_inbox_header.dart';
-import 'topic_inbox_row.dart';
 import 'topic_list_view.dart';
 import 'topic_move_posts.dart';
 import 'topic_post_retention.dart';
@@ -3708,21 +3707,15 @@ class _MoreTopics extends StatelessWidget {
                   index < selection.topics.length;
                   index++
                 ) ...[
-                  if (inbox)
-                    TopicInboxRow(
-                      topic: selection.topics[index],
-                      siteUrl: siteUrl,
-                      recommendation: true,
-                      onTap: () => ShellScope.read(
-                        context,
-                      ).openTopicFromList(selection.topics[index]),
-                    )
-                  else
-                    TopicListRow(
-                      topic: selection.topics[index],
-                      siteUrl: siteUrl,
-                      titleStyle: theme.textTheme.titleSmall,
-                    ),
+                  TopicListRow(
+                    topic: selection.topics[index],
+                    siteUrl: siteUrl,
+                    onTap: inbox
+                        ? () =>
+                              ShellScope.read(context)
+                                  .openTopicFromList(selection.topics[index])
+                        : null,
+                  ),
                   if (index < selection.topics.length - 1)
                     DSeparator(
                       space: 1,
