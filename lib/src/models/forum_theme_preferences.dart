@@ -6,9 +6,10 @@ import 'forum_theme_presets.dart';
 @immutable
 final class ForumThemePreferences {
   ForumThemePreferences({
-    this.selectedId,
+    String? selectedId,
     List<ForumTheme> customThemes = const [],
-  }) : customThemes = List.unmodifiable(customThemes);
+  }) : selectedId = canonicalForumThemeId(selectedId),
+       customThemes = List.unmodifiable(customThemes);
 
   factory ForumThemePreferences.fromJson(Map<String, dynamic> json) {
     if (json['version'] != 1) throw const FormatException('Invalid themes.');
@@ -30,10 +31,11 @@ final class ForumThemePreferences {
         }
       }
     }
-    final id = json['selectedId'];
+    final rawId = json['selectedId'];
+    final id = canonicalForumThemeId(rawId is String ? rawId : null);
     return ForumThemePreferences(
       selectedId: [...forumThemePresets, ...customs].any((t) => t.id == id)
-          ? id as String
+          ? id
           : null,
       customThemes: customs,
     );

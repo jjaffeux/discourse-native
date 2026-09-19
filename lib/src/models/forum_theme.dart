@@ -18,6 +18,7 @@ final class ForumTheme {
     required this.danger,
     required this.success,
     required this.love,
+    this.alternate,
   });
 
   factory ForumTheme.fromJson(Map<String, dynamic> json, {required String id}) {
@@ -40,7 +41,20 @@ final class ForumTheme {
       return Color(0xff000000 | int.parse(value.substring(1), radix: 16));
     }
 
+    final rawAlternate = json['alternate'];
+    ForumTheme? alternate;
+    if (rawAlternate != null) {
+      if (rawAlternate is! Map<String, dynamic> ||
+          rawAlternate.containsKey('alternate')) {
+        throw const FormatException('Invalid alternate palette.');
+      }
+      alternate = ForumTheme.fromJson(rawAlternate, id: id);
+      if (alternate.brightness.name == mode) {
+        throw const FormatException('Duplicate palette mode.');
+      }
+    }
     return ForumTheme(
+      alternate: alternate,
       id: id,
       name: name.trim(),
       brightness: mode == 'dark' ? Brightness.dark : Brightness.light,
@@ -64,11 +78,13 @@ final class ForumTheme {
   final Color danger;
   final Color success;
   final Color love;
+  final ForumTheme? alternate;
 
   static String hex(Color color) =>
       '#${(color.toARGB32() & 0xffffff).toRadixString(16).padLeft(6, '0').toUpperCase()}';
 
   Map<String, dynamic> toJson() => {
+    if (alternate != null) 'alternate': alternate!.toJson(),
     'version': 1,
     'name': name,
     'mode': brightness.name,
@@ -83,11 +99,33 @@ final class ForumTheme {
     },
   };
 
-  /// Matches the reference's opposite mode by swapping text and background.
+  /// A standalone palette for the requested mode, suitable for editing.
+  ForumTheme forBrightness(Brightness target) {
+    final source = alternate?.brightness == target ? alternate! : this;
+    return ForumTheme(
+      id: id,
+      name: name,
+      brightness: target,
+      primary: source.brightness == target ? source.primary : source.secondary,
+      secondary: source.brightness == target
+          ? source.secondary
+          : source.primary,
+      tertiary: source.tertiary,
+      quaternary: source.quaternary,
+      danger: source.danger,
+      success: source.success,
+      love: source.love,
+    );
+  }
+
+  /// Uses authored mode variants when available; otherwise swaps text/background.
   ResolvedSitePalette resolve(
     Brightness target, {
     ResolvedSitePalette? forumPalette,
   }) {
+    if (alternate?.brightness == target) {
+      return alternate!.resolve(target, forumPalette: forumPalette);
+    }
     final foreground = target == brightness ? primary : secondary;
     final background = target == brightness ? secondary : primary;
     Color mix(Color color, double amount) =>
@@ -153,7 +191,8 @@ final class ForumTheme {
       other.quaternary == quaternary &&
       other.danger == danger &&
       other.success == success &&
-      other.love == love;
+      other.love == love &&
+      other.alternate == alternate;
 
   @override
   int get hashCode => Object.hash(
@@ -167,5 +206,6 @@ final class ForumTheme {
     danger,
     success,
     love,
+    alternate,
   );
 }

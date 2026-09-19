@@ -77,3 +77,17 @@ passed. Native inspection compared the studio HTML with the dialog in forum
 default, Dracula dark and Shades of Blue light, including the custom editor,
 sidebar/search preview, selection, mode switching and Escape dismissal. The
 review used the same isolated fixture bundle described above; no kit APIs changed.
+
+## Theme families and color modes
+
+The library now has ten entries. Neutral combines the former Dark/Neutral
+palettes; WCAG and Solarized each use their authored light and dark palettes.
+Rose and Clover have mode-neutral display names. Legacy selected IDs map to
+these families on load. Existing custom themes remain valid. The optional
+alternate palette is included in the version-1 JSON representation when present,
+with validation against repeated brightness and nested alternatives.
+
+Thumbnails resolve against the active light/dark/system mode, matching the live
+preview. Customization and Surprise me start from the requested palette mode.
+Model checks cover exact WCAG/Solarized colors, legacy selection migration,
+round trips, and thumbnail/preview color agreement in both modes.
