@@ -49,7 +49,7 @@ void main() {
         delete ? isNull : 'Updated notice',
       );
       expect(find.byKey(const ValueKey('post-notice-dialog')), findsNothing);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('$action rejects an editor opened before reconnecting', (
       tester,
@@ -76,7 +76,7 @@ void main() {
         findsOneWidget,
       );
       expect(find.byKey(const ValueKey('post-notice-dialog')), findsOneWidget);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     for (final change in ['permission', 'topic membership', 'stored post']) {
       testWidgets('$action rechecks the original $change after navigation', (
@@ -116,7 +116,7 @@ void main() {
           find.byKey(const ValueKey('post-notice-dialog')),
           findsOneWidget,
         );
-      });
+      }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
     }
 
     testWidgets('$action compares the current stored notice', (tester) async {
@@ -139,7 +139,7 @@ void main() {
       expect(api.writes, isEmpty);
       expect(api.refreshes, isEmpty);
       expect(find.byKey(const ValueKey('post-notice-dialog')), findsNothing);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
   }
 
   for (final reconnect in [false, true]) {
@@ -179,6 +179,7 @@ void main() {
           findsOneWidget,
         );
       },
+      variant: TargetPlatformVariant.only(TargetPlatform.linux),
     );
   }
 }

@@ -88,7 +88,7 @@ void main() {
       expect(shell.currentInstance?.url, _siteA);
       expect(shell.currentTopic?.id, 99);
       expect(find.byKey(_dialog), findsNothing);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     for (final boundary in [
       'before submit',
@@ -151,7 +151,7 @@ void main() {
         );
         await tester.pumpAndSettle();
         expect(find.byKey(_dialog), findsNothing);
-      });
+      }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
     }
 
     for (final change in [
@@ -214,7 +214,7 @@ void main() {
         await tester.pumpAndSettle();
         expect(api.writes, hasLength(1));
         expect(shell.currentTopic?.id, 99);
-      });
+      }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
     }
 
     testWidgets('$mode retries a server failure with the same form', (
@@ -238,7 +238,7 @@ void main() {
       expect(api.writes, hasLength(2));
       expect(shell.currentTopic?.id, 99);
       expect(find.byKey(_dialog), findsNothing);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('$mode controller never returns a retired destination', (
       tester,
@@ -259,7 +259,7 @@ void main() {
       expect(result.destinationUrl, isNull);
       expect(result.error, _obsolete);
       expect(api.refreshes, isEmpty);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
   }
 
   for (final boundary in ['debounce', 'credentials', 'response', 'error']) {
@@ -311,7 +311,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(api.searches, hasLength(searches));
       expect(api.writes, isEmpty);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
   }
 
   testWidgets('search rechecks move permission after credentials', (
@@ -332,7 +332,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(api.searches, isEmpty);
     expect(find.text('Destination topic'), findsNothing);
-  });
+  }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
   testWidgets('new topic keeps default and creatable categories', (
     tester,
@@ -363,7 +363,7 @@ void main() {
     await _pressSubmit(tester);
     await tester.pumpAndSettle();
     expect(api.movedTopicPosts.single.categoryId, 10);
-  });
+  }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
   for (final restriction in ['all posts', 'nonregular first post']) {
     testWidgets('$restriction still allows only existing-topic moves', (
@@ -382,7 +382,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(api.movedTopicPosts.single.destinationTopicId, 99);
       expect(shell.currentTopic?.id, 99);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
   }
 }
 

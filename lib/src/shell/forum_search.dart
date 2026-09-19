@@ -20,9 +20,12 @@ import 'shell_search_controller.dart';
 
 /// Global search with one editor shared by the navbar and its open surface.
 class ForumSearch extends StatefulWidget {
-  const ForumSearch({super.key, this.dense = false});
+  const ForumSearch({super.key, this.dense = false, this.sheet = false});
 
   final bool dense;
+
+  /// Mobile presents the same editor and results in a sheet from an icon.
+  final bool sheet;
   static const Key inputKey = ValueKey('forum-search-input');
   static const Key panelKey = ValueKey('forum-search-panel');
   static const Key anchorKey = ValueKey('forum-search-anchor');
@@ -38,6 +41,7 @@ class _ForumSearchState extends State<ForumSearch> {
   final _text = TextEditingController();
   final _focus = FocusNode(debugLabel: 'forum search');
   final _popover = DPopoverController();
+  final _sheet = DSheetController<void>();
   ShellController? _shell;
   late ShellSearchController _search;
   late GlobalSearchController _global;
@@ -53,6 +57,16 @@ class _ForumSearchState extends State<ForumSearch> {
   Size? _layoutViewport;
   String? _lastExternalQuery;
   String? _selectedResultId;
+
+  bool get _surfaceOpen => widget.sheet ? _sheet.isOpen : _popover.isOpen;
+
+  void _closeSearch() {
+    if (widget.sheet) {
+      _sheet.close();
+    } else {
+      _popover.close();
+    }
+  }
 
   @override
   void initState() {
@@ -127,8 +141,8 @@ class _ForumSearchState extends State<ForumSearch> {
       final active = _search.panelOpen && _search.ownsPanel(_field);
       if (active) {
         _openSearch();
-      } else if (_popover.isOpen) {
-        _popover.close();
+      } else if (_surfaceOpen) {
+        _closeSearch();
       }
       setState(() {});
     });
@@ -171,8 +185,8 @@ class _ForumSearchState extends State<ForumSearch> {
 
   void _openSearch({SearchFocusMode? mode}) {
     if (_search.siteUrl == null) return;
-    _measureAnchor();
-    if (!_popover.isOpen || mode != null) {
+    if (!widget.sheet) _measureAnchor();
+    if (!_surfaceOpen || mode != null) {
       final route = _shell!.currentContent;
       final pluginContext = _shell!.plugins.registry.contentSearchContext(
         context,
@@ -203,8 +217,12 @@ class _ForumSearchState extends State<ForumSearch> {
         _global.setContext(openingContext);
       }
     }
-    if (!_popover.isOpen) {
-      _popover.open(DPopoverInteraction.keyboard);
+    if (!_surfaceOpen) {
+      if (widget.sheet) {
+        _sheet.open();
+      } else {
+        _popover.open(DPopoverInteraction.keyboard);
+      }
     }
   }
 
@@ -244,7 +262,7 @@ class _ForumSearchState extends State<ForumSearch> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       if (_text.text == editingValue.text) _text.value = editingValue;
-      if (open || reason == DPopoverChangeReason.escape) {
+      if (open || (!widget.sheet && reason == DPopoverChangeReason.escape)) {
         _focus.requestFocus();
       } else {
         _focus.unfocus();
@@ -309,7 +327,7 @@ class _ForumSearchState extends State<ForumSearch> {
     final site = _global.siteUrl;
     if (site == null) return;
     unawaited(_global.recordSelection(result));
-    _popover.close();
+    _closeSearch();
     if (result.source case final SearchPostHit hit) {
       _shell!.openSearchResult(hit);
     } else {
@@ -381,6 +399,7 @@ class _ForumSearchState extends State<ForumSearch> {
   @override
   Widget build(BuildContext context) {
     if (_search.siteUrl == null) return const SizedBox.shrink();
+    if (widget.sheet) return _buildSheet(context);
     final platform = Theme.of(context).platform;
     final mobile =
         (platform == TargetPlatform.iOS ||
@@ -585,6 +604,74 @@ class _ForumSearchState extends State<ForumSearch> {
     _focus.dispose();
     _text.dispose();
     _popover.dispose();
+    _sheet.dispose();
     super.dispose();
   }
+
+  Widget _buildSheet(BuildContext context) => DSheet<void>(
+    controller: _sheet,
+    initialFocusNode: _focus,
+    onOpenChanged: (details) =>
+        _openChanged(details.open, DPopoverChangeReason.imperative),
+    trigger: DSheetTrigger(
+      builder: (context, _) => DButton.iconOnly(
+        key: const ValueKey('mobile-search-button'),
+        icon: const DIcon(DIcons.magnifyingGlass),
+        tooltip: 'Search',
+        variant: DButtonVariant.ghost,
+        onPressed: _requestFocus,
+      ),
+    ),
+    content: DSheetContent(
+      key: ForumSearch.panelKey,
+      side: DSheetSide.bottom,
+      semanticLabel: 'Search this forum',
+      showCloseButton: false,
+      scrollWholeSheet: false,
+      children: [
+        SizedBox(
+          height: math.max(
+            0,
+            MediaQuery.sizeOf(context).height -
+                MediaQuery.paddingOf(context).vertical -
+                MediaQuery.viewInsetsOf(context).bottom -
+                24,
+          ),
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(DSpacing.sm),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: _editor(
+                        MediaQuery.sizeOf(context).width - 64,
+                        expanded: true,
+                      ),
+                    ),
+                    DButton.iconOnly(
+                      key: const ValueKey('mobile-search-close'),
+                      icon: const DIcon(DIcons.xmark),
+                      tooltip: 'Close search',
+                      variant: DButtonVariant.ghost,
+                      onPressed: _closeSearch,
+                    ),
+                  ],
+                ),
+              ),
+              const DSeparator(),
+              Expanded(
+                child: GlobalSearchPanel(
+                  controller: _global,
+                  selectedResultId: _selectedResultId,
+                  onSelect: (id) => setState(() => _selectedResultId = id),
+                  onOpen: _openResult,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    ),
+  );
 }

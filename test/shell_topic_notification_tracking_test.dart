@@ -12,6 +12,7 @@ import 'package:discourse_native/src/models/topic_tracking_state.dart';
 import 'package:discourse_native/src/shell/main_content.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
+import 'package:flutter/foundation.dart' show TargetPlatform;
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/fakes.dart';
@@ -120,6 +121,7 @@ void main() {
         expect(api.topicTrackingRequests, [_site]);
         expect(api.topicsOpened, [7]);
       },
+      variant: TargetPlatformVariant.only(TargetPlatform.linux),
     );
   }
 

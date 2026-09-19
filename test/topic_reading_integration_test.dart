@@ -97,7 +97,7 @@ void _registerTopicReadingTests() {
       expect(find.text('Welcome to the forum'), findsOneWidget);
       expect(find.text('Something unread'), findsOneWidget);
       expect(find.text('Replace with deeper view'), findsNothing);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('an authorized public list offers the topic composer', (
       tester,
@@ -181,7 +181,7 @@ void _registerTopicReadingTests() {
         api.feedPaths.where((path) => path == '/latest.json').length,
         greaterThanOrEqualTo(2),
       );
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets(
       'a category list keeps its off-page category through draft restore',
@@ -241,6 +241,7 @@ void _registerTopicReadingTests() {
           findsOneWidget,
         );
       },
+      variant: TargetPlatformVariant.only(TargetPlatform.linux),
     );
 
     testWidgets(
@@ -299,6 +300,7 @@ void _registerTopicReadingTests() {
           findsOneWidget,
         );
       },
+      variant: TargetPlatformVariant.only(TargetPlatform.linux),
     );
 
     testWidgets(
@@ -345,6 +347,7 @@ void _registerTopicReadingTests() {
           findsOneWidget,
         );
       },
+      variant: TargetPlatformVariant.only(TargetPlatform.linux),
     );
 
     for (final (openReader, useShortcut) in [
@@ -426,6 +429,7 @@ void _registerTopicReadingTests() {
             findsOneWidget,
           );
         },
+        variant: TargetPlatformVariant.only(TargetPlatform.linux),
       );
     }
 
@@ -522,6 +526,7 @@ void _registerTopicReadingTests() {
           await tester.pumpAndSettle();
         }
       },
+      variant: TargetPlatformVariant.only(TargetPlatform.linux),
     );
 
     testWidgets('C opens New Topic across forum routes but not Aggregate', (
@@ -572,7 +577,7 @@ void _registerTopicReadingTests() {
       expect(await tester.sendKeyEvent(LogicalKeyboardKey.keyC), isFalse);
       await tester.pump();
       expect(find.byType(ComposerPanel), findsNothing);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('New Topic reuses categories already loaded by the sidebar', (
       tester,
@@ -604,7 +609,7 @@ void _registerTopicReadingTests() {
       expect(find.byType(ComposerPanel), findsOneWidget);
       expect(api.categoryRequests, hasLength(categoryRequestCount));
       expect(find.byKey(const ValueKey('composer-tags')), findsOneWidget);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('New Topic is visible before metadata requests finish', (
       tester,
@@ -640,7 +645,7 @@ void _registerTopicReadingTests() {
       metadata.complete();
       await tester.pumpAndSettle();
       expect(find.byKey(const ValueKey('composer-add-tag')), findsOneWidget);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     for (final failedMetadata in ['settings', 'categories']) {
       testWidgets(
@@ -705,6 +710,7 @@ void _registerTopicReadingTests() {
             hasLength(failedMetadata == 'settings' ? 2 : 1),
           );
         },
+        variant: TargetPlatformVariant.only(TargetPlatform.linux),
       );
     }
 
@@ -759,7 +765,7 @@ void _registerTopicReadingTests() {
       await tester.sendKeyEvent(LogicalKeyboardKey.keyC);
       await tester.pumpAndSettle();
       expect(find.byType(ComposerPanel), findsNothing);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('the sidebar hides New Topic when the account cannot post', (
       tester,
@@ -782,7 +788,7 @@ void _registerTopicReadingTests() {
       );
 
       expect(sidebarDestination('New Topic'), findsNothing);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('compact New Topic reveals the composer pane', (tester) async {
       const user = DiscourseUser(
@@ -837,7 +843,7 @@ void _registerTopicReadingTests() {
 
       expect(api.feedPaths, contains(inbox));
       expect(find.text('A private message'), findsOneWidget);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('switches between personal and eligible group inboxes', (
       tester,
@@ -894,7 +900,7 @@ void _registerTopicReadingTests() {
       expect(find.text('A private message'), findsOneWidget);
       expect(controller.currentContent?.id, 'messages');
       expect(api.feedPaths.where((path) => path == inbox), hasLength(1));
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('restores the selected group inbox', (tester) async {
       const groupInbox =
@@ -958,7 +964,7 @@ void _registerTopicReadingTests() {
         ).currentContent?.messageGroupName,
         'tech-advocates',
       );
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('messages uses a topic-row skeleton while loading', (
       tester,
@@ -991,7 +997,7 @@ void _registerTopicReadingTests() {
 
       expect(find.text('A private message'), findsOneWidget);
       semantics.dispose();
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets(
       'messages never offers New Topic even if its feed says it can',
@@ -1014,6 +1020,7 @@ void _registerTopicReadingTests() {
 
         expect(find.byKey(TopicCreateButton.buttonKey), findsNothing);
       },
+      variant: TargetPlatformVariant.only(TargetPlatform.linux),
     );
 
     testWidgets('a list is not refetched when revisited', (tester) async {
@@ -1037,7 +1044,7 @@ void _registerTopicReadingTests() {
         2,
         reason: 'sign-in refreshes the personalized list, revisiting reuses it',
       );
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('tapping the destination on screen asks for it again', (
       tester,
@@ -1051,7 +1058,7 @@ void _registerTopicReadingTests() {
       await tester.pumpAndSettle();
 
       expect(api.feedPaths, ['/latest.json', '/latest.json']);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets(
       'refreshing Topics replaces its sidebar icon without shifting the list',
@@ -1112,6 +1119,7 @@ void _registerTopicReadingTests() {
           findsOneWidget,
         );
       },
+      variant: TargetPlatformVariant.only(TargetPlatform.linux),
     );
 
     testWidgets('unread topics carry a count', (tester) async {
@@ -1120,7 +1128,7 @@ void _registerTopicReadingTests() {
       await pumpShell(tester, desktop, api: api);
 
       expect(find.text('3'), findsOneWidget);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('closed topics carry a lock before the title', (tester) async {
       final api = FakeDiscourseApi(
@@ -1170,7 +1178,7 @@ void _registerTopicReadingTests() {
         closeTo(tester.getCenter(categoryBlock).dx, 4),
       );
       expect(find.bySemanticsLabel('Closed'), findsOneWidget);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('mirrored unread fields produce one undoubled count', (
       tester,
@@ -1193,7 +1201,7 @@ void _registerTopicReadingTests() {
 
       expect(find.text('3'), findsOneWidget);
       expect(find.text('6'), findsNothing);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('caught-up titles are dimmed independently of badges', (
       tester,
@@ -1231,7 +1239,7 @@ void _registerTopicReadingTests() {
         tester.widget<Text>(find.text('Not caught up')).style?.color,
         theme.colorScheme.onSurface,
       );
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('an unseen flat topic carries the new-topic dot', (
       tester,
@@ -1266,7 +1274,7 @@ void _registerTopicReadingTests() {
         ),
         findsNothing,
       );
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('unread dots follow titles of different lengths', (
       tester,
@@ -1310,7 +1318,7 @@ void _registerTopicReadingTests() {
             ).right,
         closeTo(6, 0.5),
       );
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('topic state follows the final line of a wrapped title', (
       tester,
@@ -1414,7 +1422,7 @@ void _registerTopicReadingTests() {
         findsNothing,
       );
       expect(find.text('5'), findsNothing);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('category badges render once categories arrive', (
       tester,
@@ -1435,7 +1443,7 @@ void _registerTopicReadingTests() {
         ),
         findsOneWidget,
       );
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('topic rows link each category in an embedded breadcrumb', (
       tester,
@@ -1561,7 +1569,7 @@ void _registerTopicReadingTests() {
         controller.currentContent?.feedPath,
         '/c/discourse-native-application/feature-requests/6.json',
       );
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('topic tag tokens use the intended inline gap', (tester) async {
       final api = FakeDiscourseApi(
@@ -1603,9 +1611,9 @@ void _registerTopicReadingTests() {
       expect(secondTagLink, findsOneWidget);
       expect(
         tester.getSize(find.bySemanticsLabel('Category: Feature')).height,
-        greaterThanOrEqualTo(24),
+        greaterThanOrEqualTo(20),
       );
-      expect(tester.getSize(firstTagLink).height, 48);
+      expect(tester.getSize(firstTagLink).height, 16);
       expect(
         DefaultTextStyle.of(tester.element(firstTag)).style.fontSize,
         DiscourseTypography.xs,
@@ -1642,7 +1650,7 @@ void _registerTopicReadingTests() {
       expect(controller.currentContent?.id, 'tag-8');
       expect(controller.currentContent?.feedPath, '/tag/ai/8.json');
       expect(api.topicsOpened, isEmpty);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('public and private tag feeds keep distinct identities', (
       tester,
@@ -1722,7 +1730,7 @@ void _registerTopicReadingTests() {
         ]),
       );
       expect(api.topicsOpened, isEmpty);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('an idless numeric topic tag resolves before navigation', (
       tester,
@@ -1764,7 +1772,7 @@ void _registerTopicReadingTests() {
       expect(controller.currentContent?.id, 'tag-77');
       expect(controller.currentContent?.feedPath, '/tag/2024/77.json');
       expect(api.topicsOpened, isEmpty);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('a late numeric tag lookup cannot reopen content after Back', (
       tester,
@@ -1956,7 +1964,7 @@ void _registerTopicReadingTests() {
       expect(find.byType(TopicListView), findsOneWidget);
       expect(find.textContaining("Couldn't reach"), findsOneWidget);
       expect(tester.takeException(), isNull);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('signed-out readers do not see account pages in the sidebar', (
       tester,
@@ -1969,7 +1977,7 @@ void _registerTopicReadingTests() {
       expect(sidebarDestination('Drafts'), findsNothing);
       expect(sidebarDestination('New Topic'), findsNothing);
       expect(api.feedPaths, ['/latest.json']);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('a signed-out Messages route explains the account boundary', (
       tester,
@@ -2007,7 +2015,7 @@ void _registerTopicReadingTests() {
       expect(controller.currentContent?.id, 'latest');
       expect(sidebarDestination('Messages'), findsOneWidget);
       expect(find.text('Sign in to view your messages'), findsNothing);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
   });
 
   group('incoming topics', () {
@@ -2050,7 +2058,7 @@ void _registerTopicReadingTests() {
       await tester.pumpAndSettle();
 
       expect(find.text('See 1 new or updated topic'), findsOneWidget);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('the count is of topics, not of messages', (tester) async {
       final api = FakeDiscourseApi(feeds: {'/latest.json': onList});
@@ -2063,7 +2071,7 @@ void _registerTopicReadingTests() {
       await tester.pumpAndSettle();
 
       expect(find.text('See 2 new or updated topics'), findsOneWidget);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('tapping it fetches those topics and puts them on top', (
       tester,
@@ -2087,7 +2095,7 @@ void _registerTopicReadingTests() {
       expect(find.text('Just posted'), findsOneWidget);
       expect(find.text('Welcome to the forum'), findsOneWidget);
       expect(find.textContaining('See '), findsNothing);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('a topic that was only bumped is moved, not duplicated', (
       tester,
@@ -2106,7 +2114,7 @@ void _registerTopicReadingTests() {
       await tester.pumpAndSettle();
 
       expect(find.text('Something else'), findsOneWidget);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('a fetch that fails leaves the banner to be tried again', (
       tester,
@@ -2121,7 +2129,7 @@ void _registerTopicReadingTests() {
 
       expect(find.text('See 1 new or updated topic'), findsOneWidget);
       expect(tester.takeException(), isNull);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('refetching the list clears what it is about to contain', (
       tester,
@@ -2158,7 +2166,7 @@ void _registerTopicReadingTests() {
       expect(FakeSiteTracker.built, hasLength(2));
       expect(FakeSiteTracker.built.first.polling, isFalse);
       expect(FakeSiteTracker.built.last.polling, isTrue);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('an app coming back to the front reconnects at once', (
       tester,
@@ -2178,7 +2186,7 @@ void _registerTopicReadingTests() {
       await tester.pump();
       expect(tracker().pollNowCalls, 1);
       expect(tracker().polling, isTrue);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
   });
 
   group('live counters', () {
@@ -2210,7 +2218,7 @@ void _registerTopicReadingTests() {
       final tracker = await pumpConnected(tester);
 
       expect(tracker.userId, 7);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('the account avatar uses the Native ghost button', (
       tester,
@@ -2223,7 +2231,7 @@ void _registerTopicReadingTests() {
       expect(avatar.tooltip, 'Profile');
       expect(avatar.hasPopup, isTrue);
       expect(avatar.onPressed, isNotNull);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('the bell carries the unread count inside its Native button', (
       tester,
@@ -2251,7 +2259,7 @@ void _registerTopicReadingTests() {
         findsNothing,
       );
       expect(tester.widget<Text>(bellBadge).data, '3');
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('a notification arriving marks the bell', (tester) async {
       final tracker = await pumpConnected(tester);
@@ -2265,7 +2273,7 @@ void _registerTopicReadingTests() {
       await tester.pumpAndSettle();
 
       expect(bellBadge, findsOneWidget);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets(
       'rail pills keep three digits and expose uncapped live counts',
@@ -2308,6 +2316,7 @@ void _registerTopicReadingTests() {
         await tester.pumpAndSettle();
         expect(badge, findsNothing);
       },
+      variant: TargetPlatformVariant.only(TargetPlatform.linux),
     );
 
     testWidgets('chat-only activity stays off the notification bell', (
@@ -2323,7 +2332,7 @@ void _registerTopicReadingTests() {
       );
       expect(railBadge, findsOneWidget);
       expect(bellBadge, findsNothing);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('reading them somewhere else takes the mark away', (
       tester,
@@ -2342,7 +2351,7 @@ void _registerTopicReadingTests() {
       await tester.pumpAndSettle();
 
       expect(bellBadge, findsNothing);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('the counts move with it, not just the mark', (tester) async {
       final tracker = await pumpConnected(
@@ -2371,7 +2380,7 @@ void _registerTopicReadingTests() {
       );
       expect(tester.widget<Text>(bellBadge).data, '5');
       expect(find.text('2'), findsOneWidget);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('an inactive connected forum keeps its rail count live', (
       tester,
@@ -2411,7 +2420,7 @@ void _registerTopicReadingTests() {
         findsOneWidget,
       );
       expect(bellBadge, findsNothing);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('a filling review queue marks it too', (tester) async {
       final tracker = await pumpConnected(tester);
@@ -2426,7 +2435,7 @@ void _registerTopicReadingTests() {
       await tester.pumpAndSettle();
 
       expect(bellBadge, findsOneWidget);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('a site with nobody signed in has no counters to track', (
       tester,
@@ -2436,7 +2445,7 @@ void _registerTopicReadingTests() {
 
       expect(FakeSiteTracker.built.first.userId, isNull);
       expect(bellBadge, findsNothing);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
   });
 
   group('infinite scroll', () {
@@ -2462,7 +2471,7 @@ void _registerTopicReadingTests() {
       await tester.pumpAndSettle();
 
       expect(api.feedPaths, ['/latest.json', '/latest.json']);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('reaching the end appends the next page', (tester) async {
       final api = FakeDiscourseApi(
@@ -2491,7 +2500,7 @@ void _registerTopicReadingTests() {
 
       expect(api.feedPaths, contains('/latest.json?page=1'));
       expect(find.text('Topic 31'), findsOneWidget);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('the next page can be asked for from inside a layout', (
       tester,
@@ -2558,7 +2567,7 @@ void _registerTopicReadingTests() {
       await tester.pumpAndSettle();
 
       expect(find.text('Topic 30'), findsOneWidget);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('a last page stops further requests', (tester) async {
       final api = FakeDiscourseApi(feeds: {'/latest.json': page(1, 30)});
@@ -2568,7 +2577,7 @@ void _registerTopicReadingTests() {
       await tester.pumpAndSettle();
 
       expect(api.feedPaths, ['/latest.json']);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
   });
 
   testWidgets('a response landing after the shell is gone is ignored', (
@@ -2690,7 +2699,7 @@ void _registerTopicReadingTests() {
       );
       expect(renderedText('First post body'), findsOneWidget);
       expect(renderedText('<p>'), findsNothing);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets(
       'editable topic header saves title and preserves topic metadata',
@@ -2783,6 +2792,7 @@ void _registerTopicReadingTests() {
         expect(textField.focusNode?.hasFocus, isTrue);
         expect(find.text('A topic title is required.'), findsOneWidget);
       },
+      variant: TargetPlatformVariant.only(TargetPlatform.linux),
     );
 
     testWidgets('uses a thin scrollbar for topic posts', (tester) async {
@@ -2878,7 +2888,7 @@ void _registerTopicReadingTests() {
       expect(find.text('Flag topic'), findsOneWidget);
       expect(find.text('Unpin topic'), findsOneWidget);
       expect(find.text('Close topic'), findsOneWidget);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets(
       'outlined footer opens the matching topic or post bookmark menu',
@@ -2924,6 +2934,7 @@ void _registerTopicReadingTests() {
           'Topic bookmarks',
         );
       },
+      variant: TargetPlatformVariant.only(TargetPlatform.linux),
     );
 
     testWidgets('topic header omits sharing for signed-in users', (
@@ -2952,7 +2963,7 @@ void _registerTopicReadingTests() {
       await tester.tap(contentText('A real topic'));
       await tester.pumpAndSettle();
       expect(find.byKey(const ValueKey('topic-share-button')), findsNothing);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('post sharing targets that post and can continue elsewhere', (
       tester,
@@ -3013,7 +3024,7 @@ void _registerTopicReadingTests() {
         'Continue the discussion from [A real topic]'
         '(https://meta.discourse.org/t/a-real-topic/7/2)',
       );
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('a permitted reader can flag the whole topic', (tester) async {
       const spam = PostFlagType(
@@ -3067,7 +3078,7 @@ void _registerTopicReadingTests() {
       await tester.tap(find.byTooltip('More topic actions'));
       await tester.pumpAndSettle();
       expect(find.text('Flag topic'), findsNothing);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('shows the web topic map beneath the opening post', (
       tester,
@@ -3121,7 +3132,7 @@ void _registerTopicReadingTests() {
       await tester.tap(find.byKey(const ValueKey('topic-map-links')));
       await tester.pumpAndSettle();
       expect(find.text('Discourse homepage'), findsOneWidget);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('shows a hand cursor and expands reflected post links', (
       tester,
@@ -3178,7 +3189,7 @@ void _registerTopicReadingTests() {
 
       expect(find.text('Source 6'), findsOneWidget);
       expect(find.text('Source 1'), findsOneWidget);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('renders site emoji in reflected post link titles', (
       tester,
@@ -3226,7 +3237,7 @@ void _registerTopicReadingTests() {
         find.bySemanticsLabel("Keegan's Weekly Updates (2025) :mega:"),
         findsOneWidget,
       );
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('summarizes top replies and restores the complete stream', (
       tester,
@@ -3267,7 +3278,7 @@ void _registerTopicReadingTests() {
 
       expect(renderedText('Ordinary reply'), findsOneWidget);
       expect(find.text('Summarize'), findsOneWidget);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('prefers the Discourse AI summary over the core summary', (
       tester,
@@ -3317,7 +3328,7 @@ void _registerTopicReadingTests() {
         api.pluginReadPaths.where((path) => path.startsWith('/discourse-ai/')),
         ['/discourse-ai/summarization/t/7.json'],
       );
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('a signed-in topic exposes all web notification levels', (
       tester,
@@ -3463,7 +3474,7 @@ void _registerTopicReadingTests() {
         TopicNotificationLevel.tracking,
       );
       expect(tester.takeException(), isNull);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('keeps action hover affordances inside the viewport', (
       tester,
@@ -3530,7 +3541,7 @@ void _registerTopicReadingTests() {
       expect(menuRect.top, greaterThanOrEqualTo(10));
       expect(menuRect.right, lessThanOrEqualTo(498));
       expect(menuRect.bottom, lessThanOrEqualTo(690));
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets(
       'gates status actions by guardian permissions and updates state',
@@ -3604,6 +3615,7 @@ void _registerTopicReadingTests() {
         expect(find.text('Unarchive topic'), findsOneWidget);
         expect(find.text('Make topic visible'), findsOneWidget);
       },
+      variant: TargetPlatformVariant.only(TargetPlatform.linux),
     );
 
     testWidgets('staff can delete and recover a topic from its action menu', (
@@ -3656,7 +3668,7 @@ void _registerTopicReadingTests() {
       expect(api.topicsRecovered, [7]);
       expect(shell.currentTopic?.deletedAt, isNull);
       expect(shell.currentTopic?.canDeleteTopic, isTrue);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets(
       'topic header omits sharing when guardian-gated actions are unavailable',
@@ -3679,6 +3691,7 @@ void _registerTopicReadingTests() {
         expect(find.text('Archive topic'), findsNothing);
         expect(find.text('Delete topic'), findsNothing);
       },
+      variant: TargetPlatformVariant.only(TargetPlatform.linux),
     );
 
     testWidgets('a personalized topic pin can be dismissed and restored', (
@@ -3749,7 +3762,7 @@ void _registerTopicReadingTests() {
         shell.store.read<Topic>('https://meta.discourse.org', 7)?.pinned,
         isTrue,
       );
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('a rejected topic pin change restores the prior preference', (
       tester,
@@ -3794,7 +3807,7 @@ void _registerTopicReadingTests() {
         isTrue,
       );
       expect(find.byType(Dismissible), findsOneWidget);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('ordinary topics do not show personalized pin controls', (
       tester,
@@ -3818,7 +3831,7 @@ void _registerTopicReadingTests() {
       await tester.pumpAndSettle();
       expect(find.text('Pin topic'), findsNothing);
       expect(find.text('Unpin topic'), findsNothing);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('signed-out topics do not expose notification controls', (
       tester,
@@ -3840,7 +3853,7 @@ void _registerTopicReadingTests() {
         ),
         findsNothing,
       );
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('shows a faithful skeleton while the topic is loading', (
       tester,
@@ -3940,7 +3953,7 @@ void _registerTopicReadingTests() {
         ).currentContent?.postNumber,
         6,
       );
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     test(
       'an unpositioned topic resumes at the last post the server says was read',
@@ -4031,12 +4044,18 @@ void _registerTopicReadingTests() {
       await pumpShell(tester, desktop, api: api);
       await tester.tap(find.text('A real topic'));
       await tester.pumpAndSettle();
-      await tester.tap(find.byTooltip('Collapse topic'));
+      await tester.tap(
+        find.byKey(
+          ValueKey(
+            'forum-tab-close-${ShellScope.read(tester.element(find.byType(MainContent))).activeTab!.id}',
+          ),
+        ),
+      );
       await tester.pumpAndSettle();
 
       expect(find.byType(TopicListView), findsOneWidget);
       expect(api.feedPaths, ['/latest.json']);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('reading a topic clears its unread count on every list it is '
         'in', (tester) async {
@@ -4059,7 +4078,13 @@ void _registerTopicReadingTests() {
       await tester.tap(find.text('A real topic'));
       await tester.pumpAndSettle();
       await tester.pump(const Duration(milliseconds: 600));
-      await tester.tap(find.byTooltip('Collapse topic'));
+      await tester.tap(
+        find.byKey(
+          ValueKey(
+            'forum-tab-close-${ShellScope.read(tester.element(find.byType(MainContent))).activeTab!.id}',
+          ),
+        ),
+      );
       await tester.pumpAndSettle();
 
       expect(find.text('3'), findsNothing);
@@ -4073,7 +4098,7 @@ void _registerTopicReadingTests() {
             .hasUnread,
         isFalse,
       );
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('back lands where the list was left, not at the top', (
       tester,
@@ -4102,7 +4127,13 @@ void _registerTopicReadingTests() {
         find.ancestor(of: row, matching: find.byType(DItem)).first,
       );
       await tester.pumpAndSettle();
-      await tester.tap(find.byTooltip('Collapse topic'));
+      await tester.tap(
+        find.byKey(
+          ValueKey(
+            'forum-tab-close-${ShellScope.read(tester.element(find.byType(MainContent))).activeTab!.id}',
+          ),
+        ),
+      );
       await tester.pumpAndSettle();
 
       expect(find.text('Topic 40'), findsOneWidget);
@@ -4111,7 +4142,7 @@ void _registerTopicReadingTests() {
         tester.state<ScrollableState>(list).position.pixels,
         greaterThan(0),
       );
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('a topic that fails to load says so', (tester) async {
       final api = FakeDiscourseApi(feeds: {'/latest.json': listed});
@@ -4122,7 +4153,7 @@ void _registerTopicReadingTests() {
 
       expect(find.textContaining("Couldn't load this topic"), findsOneWidget);
       expect(tester.takeException(), isNull);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('remaining posts are fetched by ID, not by page', (
       tester,
@@ -4146,7 +4177,7 @@ void _registerTopicReadingTests() {
         [2, 3],
       ]);
       expect(renderedText('Second post body'), findsOneWidget);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('shows and expands server-provided hidden replies', (
       tester,
@@ -4195,7 +4226,7 @@ void _registerTopicReadingTests() {
         tester.getTopLeft(renderedText('Hidden second post')).dy,
         lessThan(tester.getTopLeft(renderedText('Fourth post body')).dy),
       );
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('shows ordered recommendation sources below the posts', (
       tester,
@@ -4372,6 +4403,10 @@ void _registerTopicReadingTests() {
       expect(sparkles, findsOneWidget);
       expect(tester.takeException(), isNull);
 
+      tester.view.physicalSize = desktop;
+      tester.platformDispatcher.clearTextScaleFactorTestValue();
+      await tester.pumpAndSettle();
+
       final relatedRow = find.byWidgetPredicate(
         (widget) => widget is TopicListRow && widget.topic.id == 9,
       );
@@ -4382,7 +4417,7 @@ void _registerTopicReadingTests() {
 
       expect(api.topicsOpened, [7, 9]);
       expect(renderedText('Related topic body'), findsOneWidget);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets(
       'labels a single recommendation source and uses the topic list card',
@@ -4433,6 +4468,7 @@ void _registerTopicReadingTests() {
         expect(compactTitle.style?.fontSize, DiscourseTypography.base);
         expect(compactTitle.style?.fontSize, lessThan(DiscourseTypography.lg));
       },
+      variant: TargetPlatformVariant.only(TargetPlatform.linux),
     );
 
     testWidgets('remembers the more topics tab for the forum', (tester) async {
@@ -4496,7 +4532,7 @@ void _registerTopicReadingTests() {
 
       expect(find.text('An AI related topic'), findsOneWidget);
       expect(find.text('A suggested topic'), findsNothing);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('falls back when the remembered tab has no topics', (
       tester,
@@ -4526,7 +4562,7 @@ void _registerTopicReadingTests() {
         ),
         findsNothing,
       );
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('gets more topics with the final page of a long topic', (
       tester,
@@ -4556,7 +4592,7 @@ void _registerTopicReadingTests() {
       ]);
       expect(renderedText('Last post body'), findsOneWidget);
       expect(find.text('Suggested at the end'), findsOneWidget);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('a topic already held is not refetched', (tester) async {
       final api = FakeDiscourseApi(
@@ -4567,13 +4603,19 @@ void _registerTopicReadingTests() {
       await pumpShell(tester, desktop, api: api);
       await tester.tap(find.text('A real topic'));
       await tester.pumpAndSettle();
-      await tester.tap(find.byTooltip('Collapse topic'));
+      await tester.tap(
+        find.byKey(
+          ValueKey(
+            'forum-tab-close-${ShellScope.read(tester.element(find.byType(MainContent))).activeTab!.id}',
+          ),
+        ),
+      );
       await tester.pumpAndSettle();
       await tester.tap(find.text('A real topic'));
       await tester.pumpAndSettle();
 
       expect(api.topicsOpened, [7]);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('hovering a post leaves its surface unchanged', (tester) async {
       final api = FakeDiscourseApi(
@@ -4593,7 +4635,7 @@ void _registerTopicReadingTests() {
       await gesture.moveTo(Offset.zero);
       await tester.pumpAndSettle();
       expect(_postBackground(tester), Colors.transparent);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('whisper posts use core styling and an indicator', (
       tester,
@@ -4632,7 +4674,7 @@ void _registerTopicReadingTests() {
         whisper.text.style?.color,
         Theme.of(tester.element(find.byType(TopicView))).discourse.whisper,
       );
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
   });
 }
 

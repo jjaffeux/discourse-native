@@ -55,7 +55,7 @@ void main() {
     expect(controller.store.read<Post>(_siteB, 1), same(otherPost));
     expect(controller.store.read<Post>(_siteA, 1)?.username, 'recipient');
     expect(_dialog, findsNothing);
-  });
+  }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
   testWidgets(
     'single-post dialog retains the topic after same-site navigation',
@@ -72,6 +72,7 @@ void main() {
       _expectRefresh(api, [1]);
       expect(_dialog, findsNothing);
     },
+    variant: TargetPlatformVariant.only(TargetPlatform.linux),
   );
 
   for (final afterCredentials in [false, true]) {
@@ -127,7 +128,7 @@ void main() {
         expect(find.text(_forbidden), findsOneWidget);
         expect(_dialog, findsOneWidget);
         expect(controller.postWriteInFlight(1, siteUrl: _siteA), isFalse);
-      });
+      }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
     }
   }
 
@@ -150,7 +151,7 @@ void main() {
       expect(api.refreshes, isEmpty);
       expect(find.text(_obsolete), findsOneWidget);
       expect(_dialog, findsOneWidget);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('$mode rechecks account replacement after credentials', (
       tester,
@@ -179,7 +180,7 @@ void main() {
       expect(api.refreshes, isEmpty);
       expect(find.text(_obsolete), findsOneWidget);
       expect(_dialog, findsOneWidget);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('$mode search cannot adopt a replacement account', (
       tester,
@@ -199,7 +200,7 @@ void main() {
       expect(api.userSearchesRequested, hasLength(1));
       expect(api.writes, isEmpty);
       expect(find.text('Recipient'), findsNothing);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     for (final pending in ['write', 'refresh']) {
       testWidgets(
@@ -243,6 +244,7 @@ void main() {
           expect(find.text(_obsolete), findsOneWidget);
           expect(_dialog, findsOneWidget);
         },
+        variant: TargetPlatformVariant.only(TargetPlatform.linux),
       );
     }
 
@@ -321,7 +323,7 @@ void main() {
       }
       expect(controller.topicPostSelectionEnabled(_siteA, 7), isFalse);
       expect(_dialog, findsNothing);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
   }
 
   for (final afterCredentials in [false, true]) {
@@ -378,6 +380,7 @@ void main() {
             isFalse,
           );
         },
+        variant: TargetPlatformVariant.only(TargetPlatform.linux),
       );
     }
   }
@@ -395,7 +398,7 @@ void main() {
     expect(controller.store.read<Post>(_siteA, 1)?.username, 'author');
     expect(controller.store.read<Post>(_siteA, 2)?.username, 'recipient');
     expect(controller.topicPostSelectionEnabled(_siteA, 7), isFalse);
-  });
+  }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
   testWidgets('selected-post mode still requires its forum to be active', (
     tester,
@@ -410,7 +413,7 @@ void main() {
     expect(api.writes, isEmpty);
     expect(find.text(_forbidden), findsOneWidget);
     expect(controller.selectedTopicPostIds(_siteA, 7), {1, 2});
-  });
+  }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 }
 
 void _expectRefresh(_OwnerApi api, List<int> ids) {

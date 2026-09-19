@@ -222,7 +222,7 @@ void main() {
       tester.getSize(find.byKey(const ValueKey('diagnostics-panel'))).width,
       580,
     );
-  });
+  }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
   testWidgets('detail back button is not covered by the resize handle', (
     tester,
@@ -827,7 +827,7 @@ void main() {
     final diagnostics = await _controller();
     await _pumpApp(
       tester,
-      const Size(1000, 800),
+      const Size(1800, 900),
       diagnostics,
       store: FakeInstanceStore([instance('meta.discourse.org', title: 'Meta')]),
     );
@@ -855,7 +855,7 @@ void main() {
     expect(rebuilt, isNot(contains(rail)));
     expect(rebuilt, isNot(contains(sidebar)));
     expect(rebuilt, isNot(contains(content)));
-  });
+  }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
   for (final width in [390.0, 1000.0, 2428.0]) {
     testWidgets(

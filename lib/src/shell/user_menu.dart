@@ -19,7 +19,6 @@ import 'invite_list.dart';
 import 'notification_list.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';
-import 'shell_sheet.dart';
 import 'user_menu_message.dart';
 import 'user_status.dart';
 import 'user_status_editor.dart';
@@ -1277,6 +1276,55 @@ class _Badge extends StatelessWidget {
   }
 }
 
+Future<T?> _showAccountSheet<T>({
+  required BuildContext context,
+  required String title,
+  required WidgetBuilder builder,
+  bool nested = false,
+  EdgeInsetsGeometry padding = EdgeInsets.zero,
+}) => showDSheet<T>(
+  context: context,
+  side: DSheetSide.bottom,
+  builder: (context, controller) => DSheetContent(
+    key: const ValueKey('user-menu-sheet'),
+    side: DSheetSide.bottom,
+    semanticLabel: title,
+    showCloseButton: false,
+    scrollWholeSheet: false,
+    topBottomMaxHeightFactor: .85,
+    children: [
+      DSheetHeader(
+        children: [
+          Row(
+            spacing: DSpacing.controlGap,
+            children: [
+              if (nested)
+                DButton.iconOnly(
+                  onPressed: controller.close,
+                  tooltip: 'Back',
+                  variant: DButtonVariant.ghost,
+                  icon: const DIcon(DIcons.arrowLeft),
+                ),
+              Expanded(child: DSheetTitle(child: Text(title))),
+              if (!nested)
+                DButton.iconOnly(
+                  onPressed: controller.close,
+                  tooltip: 'Close',
+                  variant: DButtonVariant.ghost,
+                  icon: const DIcon(DIcons.xmark),
+                ),
+            ],
+          ),
+        ],
+      ),
+      DSheetBody(
+        padding: padding,
+        child: Builder(builder: builder),
+      ),
+    ],
+  ),
+);
+
 Future<void> showUserMenuSheet(
   BuildContext context, {
   UserMenuView view = UserMenuView.notifications,
@@ -1288,7 +1336,7 @@ Future<void> showUserMenuSheet(
 
   if (view == UserMenuView.profile) {
     final navigator = Navigator.of(context);
-    final action = await showShellSheet<UserMenuAction>(
+    final action = await _showAccountSheet<UserMenuAction>(
       context: context,
       title: 'Profile',
       padding: const EdgeInsets.symmetric(vertical: 8),
@@ -1316,7 +1364,7 @@ Future<void> showUserMenuSheet(
     }
     return;
   }
-  await showShellSheet<void>(
+  await _showAccountSheet<void>(
     context: context,
     title: 'Notifications',
     padding: const EdgeInsets.symmetric(vertical: 8),
@@ -1341,7 +1389,7 @@ class _SectionList extends StatelessWidget {
       return;
     }
 
-    final action = await showShellSheet<UserMenuAction>(
+    final action = await _showAccountSheet<UserMenuAction>(
       context: context,
       title: section.label,
       nested: true,
@@ -1538,43 +1586,16 @@ class _SectionTile extends StatelessWidget {
   final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return InkWell(
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-        child: Row(
-          children: [
-            DIcon(
-              section.icon,
-              size: 20,
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Text(
-                section.label,
-                style: theme.textTheme.bodyLarge?.copyWith(
-                  color: section.isPlaceholder ? theme.shell.placeholder : null,
-                ),
-              ),
-            ),
-            if (section.badge > 0) ...[
-              _Badge(count: section.badge),
-              const SizedBox(width: 8),
-            ],
-            DIcon(
-              DIcons.chevronRight,
-              size: 20,
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+  Widget build(BuildContext context) => DItem(
+    onPressed: onTap,
+    size: DItemSize.sm,
+    children: [
+      DItemMedia(child: DIcon(section.icon)),
+      DItemContent(children: [DItemTitle(child: Text(section.label))]),
+      if (section.badge > 0) _Badge(count: section.badge),
+      const DIcon(DIcons.chevronRight),
+    ],
+  );
 }
 
 void _openMessages(ShellController controller) {

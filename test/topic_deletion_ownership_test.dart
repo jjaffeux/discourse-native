@@ -244,6 +244,7 @@ void main() {
         expect(api.writes.single.apiKey, 'original-key');
         expect(tester.takeException(), isNull);
       },
+      variant: TargetPlatformVariant.only(TargetPlatform.linux),
     );
   }
 
@@ -271,6 +272,7 @@ void main() {
           expect(shell.currentContent?.topicId, isNull);
         }
       },
+      variant: TargetPlatformVariant.only(TargetPlatform.linux),
     );
   }
 }

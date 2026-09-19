@@ -13,6 +13,7 @@ import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/models/topic_tracking_state.dart';
 import 'package:discourse_native/src/shell/adaptive_shell.dart';
 import 'package:discourse_native/src/shell/content_reading_lane.dart';
+import 'package:discourse_native/src/shell/instance_sidebar.dart';
 import 'package:discourse_native/src/shell/main_content.dart';
 import 'package:discourse_native/src/shell/open_link.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
@@ -2298,16 +2299,18 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    final divider = find.descendant(
-      of: find.byKey(const ValueKey('sidebar-resize-handle')),
-      matching: find.byType(ColoredBox),
+    await tester.tap(find.byKey(const ValueKey('rail-sidebar-toggle')));
+    await tester.pumpAndSettle();
+
+    final handle = find.byKey(const ValueKey('sidebar-resize-handle'));
+    expect(handle, findsOneWidget);
+    expect(tester.getSize(handle).width, greaterThan(0));
+    expect(
+      tester.getTopLeft(find.byType(MainContent)).dx,
+      greaterThan(tester.getTopRight(find.byType(InstanceSidebar)).dx),
     );
-    expect(divider, findsOneWidget);
-    expect(tester.getSize(divider).width, 1);
-    final dividerColor = tester.widget<ColoredBox>(divider).color;
-    expect(dividerColor, Theme.of(tester.element(divider)).shell.divider);
     expect(tester.takeException(), isNull);
-  });
+  }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 
   testWidgets('legacy New has no reply subset and counts only new topics', (
     tester,

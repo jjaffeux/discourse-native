@@ -42,7 +42,7 @@ void main() {
       await _moveTopic(tester, next: true);
       expect(_selectedTopics(tester), [2]);
       expect(_topicItem(tester, 2).selected, isTrue);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
   }
 
   for (final size in [desktop, phone]) {
@@ -125,7 +125,7 @@ void main() {
     expect(await tester.sendKeyEvent(LogicalKeyboardKey.keyB), isFalse);
     await tester.pumpAndSettle();
     expect(setup.api.createdBookmarks, isEmpty);
-  });
+  }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
   for (final menu in ['category', 'tag']) {
     testWidgets(
@@ -206,13 +206,16 @@ void main() {
           expect(setup.shell.contentStack, hasLength(2));
           expect(_selectedPosts(tester), isEmpty);
           if (size == phone) {
-            await tester.tap(find.byTooltip('Back to topic list'));
+            await tester.tap(find.byTooltip('Back'));
             await tester.pumpAndSettle();
           }
           _expectTopicVisible(tester, 1);
           expect(_selectedTopics(tester), size == phone ? isEmpty : [1]);
           expect(tester.takeException(), isNull);
         },
+        variant: TargetPlatformVariant.only(
+          size == phone ? TargetPlatform.android : TargetPlatform.linux,
+        ),
       );
     }
 
@@ -237,7 +240,7 @@ void main() {
       expect(setup.shell.currentContent?.topicId, 1);
       expect(_selectedPosts(tester), isEmpty);
       expect(tester.takeException(), isNull);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
   }
 
   for (final next in [false, true]) {
@@ -270,6 +273,7 @@ void main() {
         expect(tester.widget<DButton>(nextButton).onPressed, isNotNull);
         expect(tester.takeException(), isNull);
       },
+      variant: TargetPlatformVariant.only(TargetPlatform.linux),
     );
   }
 
@@ -304,6 +308,7 @@ void main() {
           expect(setup.shell.currentContent?.topicId, target);
           expect(tester.takeException(), isNull);
         },
+        variant: TargetPlatformVariant.only(TargetPlatform.linux),
       );
     }
   }
@@ -334,7 +339,7 @@ void main() {
     await _openAdjacent(tester, next: false);
     _expectTopicVisible(tester, 6);
     expect(tester.takeException(), isNull);
-  });
+  }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
   testWidgets(
     'topic arrows and shortcuts follow empty and refreshed source lists',
@@ -381,6 +386,7 @@ void main() {
       }
       expect(tester.takeException(), isNull);
     },
+    variant: TargetPlatformVariant.only(TargetPlatform.linux),
   );
 
   testWidgets(
@@ -404,6 +410,7 @@ void main() {
       await _openAdjacent(tester, next: true);
       expect(setup.shell.currentContent?.topicId, 2);
     },
+    variant: TargetPlatformVariant.only(TargetPlatform.linux),
   );
 
   testWidgets('a topic sequence is cancelled when another topic opens', (
@@ -420,7 +427,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(setup.shell.currentContent?.topicId, 2);
     expect(_selectedPosts(tester), isNotEmpty);
-  });
+  }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
   testWidgets(
     'holding a completed topic sequence does not repeat or move posts',
@@ -440,6 +447,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(_selectedPosts(tester), isNotEmpty);
     },
+    variant: TargetPlatformVariant.only(TargetPlatform.linux),
   );
 
   for (final outcome in [
@@ -533,13 +541,14 @@ void main() {
         expect(_selectedTopics(tester), [1]);
         expect(tester.takeException(), isNull);
       },
+      variant: TargetPlatformVariant.only(TargetPlatform.linux),
     );
   }
 
   for (final size in [desktop, laptop]) {
     for (final openKey in [LogicalKeyboardKey.keyO, LogicalKeyboardKey.enter]) {
       testWidgets(
-        '${size.width} ${openKey.keyLabel} reads, replies, returns, and selects the next topic',
+        '${size.width} ${openKey.keyLabel} reads, replies, and resumes keyboard selection in the list',
         (tester) async {
           final setup = await _setup(tester, size: size);
           final shell = setup.shell;
@@ -559,10 +568,9 @@ void main() {
           await tester.pumpAndSettle();
           expect(shell.currentContent?.topicId, 2);
           expect(setup.api.topicPostNumbersOpened.last, 2);
-          if (size == laptop) {
-            await _moveTopic(tester, next: true, handled: false);
-            expect(shell.currentContent?.topicId, 2);
-          }
+          await _moveTopic(tester, next: true);
+          await _moveTopic(tester, next: false);
+          expect(shell.currentContent?.topicId, 2);
 
           await tester.sendKeyEvent(LogicalKeyboardKey.keyJ);
           await tester.pumpAndSettle();
@@ -593,6 +601,10 @@ void main() {
           expect(await tester.sendKeyEvent(LogicalKeyboardKey.keyU), isTrue);
           await tester.pumpAndSettle();
           expect(shell.currentContent?.isTopic, isFalse);
+          expect(_selectedTopics(tester), isEmpty);
+          await _moveTopic(tester, next: true, shift: false);
+          expect(_selectedTopics(tester), [1]);
+          await _moveTopic(tester, next: true, shift: false);
           expect(_selectedTopics(tester), [2]);
           await _moveTopic(tester, next: true, shift: false);
           expect(_selectedTopics(tester), [3]);
@@ -601,6 +613,7 @@ void main() {
           expect(shell.currentContent?.topicId, 3);
           expect(tester.takeException(), isNull);
         },
+        variant: TargetPlatformVariant.only(TargetPlatform.linux),
       );
     }
   }
@@ -632,6 +645,7 @@ void main() {
       expect(setup.shell.currentContent?.topicId, 2);
       expect(setup.shell.contentStack, hasLength(2));
     },
+    variant: TargetPlatformVariant.only(TargetPlatform.linux),
   );
 
   testWidgets(
@@ -656,6 +670,7 @@ void main() {
       await _moveTopic(tester, next: false);
       expect(_selectedTopics(tester), [30]);
     },
+    variant: TargetPlatformVariant.only(TargetPlatform.linux),
   );
 
   testWidgets('typing and modal focus suspend navigation and help', (
@@ -710,7 +725,7 @@ void main() {
     await tester.sendKeyEvent(LogicalKeyboardKey.escape);
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('keyboard-shortcuts-help')), findsNothing);
-  });
+  }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
   testWidgets('list J/K shortcuts pause for search and dialogs', (
     tester,
@@ -749,7 +764,7 @@ void main() {
     expect(_selectedTopics(tester), [1]);
     expect(setup.api.topicsOpened, isEmpty);
     expect(tester.takeException(), isNull);
-  });
+  }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
   for (final afterRequest in ['finish', 'open topic', 'focus search']) {
     testWidgets('a pending page respects $afterRequest', (tester) async {
@@ -787,7 +802,7 @@ void main() {
         );
       }
       expect(tester.takeException(), isNull);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
   }
 
   testWidgets(
@@ -814,6 +829,7 @@ void main() {
       await _moveTopic(tester, next: true);
       expect(_selectedTopics(tester), [4]);
     },
+    variant: TargetPlatformVariant.only(TargetPlatform.linux),
   );
 
   testWidgets(
@@ -878,7 +894,7 @@ void main() {
     expect(_selectedPosts(tester), isEmpty);
     expect(await tester.sendKeyEvent(LogicalKeyboardKey.keyR), isFalse);
     expect(setup.shell.visibleComposer, isNull);
-  });
+  }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 }
 
 DItem _topicItem(WidgetTester tester, int topicId) =>
@@ -1020,6 +1036,10 @@ Future<({ShellController shell, FakeDiscourseApi api})> _setup(
     authenticator: FakeAuthenticator()
       ..keys.addAll({if (signedIn) site.url: 'key'}),
   );
+  if (find.byKey(const ValueKey('mobile-bottom-bar')).evaluate().isNotEmpty) {
+    await tester.tap(sidebarDestination('Topics'));
+    await tester.pumpAndSettle();
+  }
   final shell = ShellScope.read(tester.element(find.byType(AdaptiveShell)));
   return (shell: shell, api: api);
 }

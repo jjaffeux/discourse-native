@@ -15,6 +15,61 @@ final tabsExamples = ComponentExamples(
       'DTabPanel unmounts hidden content by default; maintainState retains it offstage without ticking or semantics. Focus in a disappearing panel returns to its trigger. Horizontal lists scroll at narrow widths and reveal keyboard-focused tabs. Touch platforms retain a 48px interaction height around the compact artwork. All colors, font family, radius and reduced motion update live from the preview.',
   examples: [
     StyleguideExample(
+      title: 'Mobile navigation',
+      description:
+          'Equal icon slots in a rounded bar, with a top selection marker. Settings is an independent action and does not change the selected mode. The bar scrolls only when its slots cannot retain their accessible targets.',
+      states: const ['Navigation', 'Icons', 'Action', 'Keyboard', 'RTL'],
+      code: '''DTabs<String>(
+  initialValue: 'home',
+  children: [
+    DTabList<String>(
+      variant: DTabListVariant.navigation,
+      children: [
+        DTabTrigger(value: 'home', semanticLabel: 'Home', child: DIcon(DIcons.house)),
+        DTabTrigger(value: 'chat', semanticLabel: 'Chat', child: DIcon(DIcons.comment)),
+        DTabTrigger(value: 'voice', semanticLabel: 'Voice', child: DIcon(DIcons.microphoneLines)),
+        Center(child: DButton.iconOnly(icon: DIcon(DIcons.gear), tooltip: 'Settings', onPressed: openSettings)),
+      ],
+    ),
+  ],
+)''',
+      builder: (_) => DTabs<String>(
+        initialValue: 'home',
+        children: [
+          DTabList<String>(
+            variant: DTabListVariant.navigation,
+            children: [
+              const DTabTrigger(
+                value: 'home',
+                semanticLabel: 'Home',
+                child: DIcon(DIcons.house),
+              ),
+              const DTabTrigger(
+                value: 'chat',
+                semanticLabel: 'Chat',
+                child: DIcon(DIcons.comment),
+              ),
+              const DTabTrigger(
+                value: 'voice',
+                semanticLabel: 'Voice',
+                child: DIcon(DIcons.microphoneLines),
+              ),
+              Center(
+                child: Builder(
+                  builder: (context) => DButton.iconOnly(
+                    icon: const DIcon(DIcons.gear),
+                    tooltip: 'Settings',
+                    variant: DButtonVariant.ghost,
+                    onPressed: () => DToast.show(context, 'Forum settings'),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    ),
+    StyleguideExample(
       title: 'Document tabs',
       description:
           'Workspace tabs compose Native buttons for selection and closing, with an 8px rounded, raised selected surface and a subtle outline. Inactive tabs stay transparent. The selected tab keeps its close action visible; inactive tabs give that space to their labels.',

@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#282a36">
+  <title>Discourse Native · Mobile navigation</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main class="study">
+    <section class="intro">
+      <div class="eyebrow"><span class="brand-mark">d.</span> DISCOURSE NATIVE <span class="edition">01 / MOBILE</span></div>
+      <h1>Your community.<br> Within thumb’s reach.</h1>
+      <p class="lede">One place to start. A little room to read.<br>All your modes, always at hand.</p>
+      <div class="design-notes">
+        <div><span>01</span><p><b>Home is your launchpad</b>The instance rail and familiar forum sidebar, together in one view.</p></div>
+        <div><span>02</span><p><b>Modes live at the bottom</b>Home, Chat, and Voice, with forum settings alongside them.</p></div>
+        <div><span>03</span><p><b>Content gets the whole screen</b>Open a page to leave the header and bottom bar behind. Go back to find your navigation again.</p></div>
+      </div>
+      <div class="preview-controls"><span>PREVIEW WIDTH</span><button data-width="390" aria-pressed="true">390</button><button data-width="320" aria-pressed="false">320</button><button data-width="430" aria-pressed="false">430</button></div>
+      <div class="history-controls"><button id="preview-back">← Back</button><button id="preview-forward">Forward →</button><span id="history-label" aria-live="polite">Home</span></div>
+      <p class="hint">Try Topics → a conversation, then swipe right to go back.<br>Swipe left to go forward. The buttons above do the same.</p>
+      <p class="prototype-note">INTERACTIVE CONCEPT · LOCAL SAMPLE DATA</p>
+    </section>
+
+    <section class="device-stage" aria-label="Interactive mobile app preview">
+      <div class="device" id="device" data-theme="dark">
+        <div class="status-bar" aria-hidden="true"><span>9:41</span><div class="status-icons"><span>▮▮▮</span><svg viewBox="0 0 20 16"><path d="M2 5Q10-1 18 5M5 8Q10 4 15 8M8 11Q10 9 12 11"/><circle cx="10" cy="14" r="1"/></svg><span class="battery"></span></div></div>
+        <header class="app-header">
+          <button class="identity" id="forum-menu" aria-label="Forum menu" aria-haspopup="dialog"><span class="instance-logo">Dc</span><span id="instance-name">Dracula</span><span class="identity-chevron" data-icon="chevrons"></span></button>
+          <div class="header-actions"><button class="icon-button" id="search" aria-label="Search forum"><span data-icon="search"></span></button><button class="icon-button" id="notifications" aria-label="Notifications"><span data-icon="bell"></span></button><button class="avatar user-avatar" id="profile" aria-label="Your profile">J</button></div>
+        </header>
+        <div class="screen" id="screen"></div>
+        <nav class="bottom-nav" aria-label="App modes">
+          <button data-mode="home" aria-current="page"><span data-icon="home"></span><span class="sr-only">Home</span></button>
+          <button data-mode="chat"><span class="nav-icon"><span data-icon="chat"></span><i class="unread-dot"></i></span><span class="sr-only">Chat</span></button>
+          <button data-mode="voice"><span data-icon="mic"></span><span class="sr-only">Voice</span></button>
+          <button id="settings" aria-haspopup="dialog"><span data-icon="settings"></span><span class="sr-only">Settings</span></button>
+        </nav>
+        <div class="home-indicator" aria-hidden="true"><span></span></div>
+        <div id="overlay" class="overlay" hidden></div>
+        <div class="swipe-feedback" id="swipe-feedback" aria-hidden="true"></div>
+        <div id="announcement" class="sr-only" aria-live="polite"></div>
+      </div>
+      <div class="device-caption"><span class="live-dot"></span> Click, scroll, and swipe to explore <span>390 × 844</span></div>
+    </section>
+  </main>
+  <script src="mockup.js"></script>
+</body>
+</html>

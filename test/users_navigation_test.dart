@@ -47,6 +47,8 @@ void main() {
       api: api,
     );
 
+    await tester.tap(find.byKey(const ValueKey('rail-sidebar-toggle')));
+    await tester.pumpAndSettle();
     expect(sidebarDestination('Users'), findsOneWidget);
     await tester.tap(sidebarDestination('Users'));
     await tester.pumpAndSettle();
@@ -54,7 +56,13 @@ void main() {
     final shell = ShellScope.read(tester.element(find.byType(MainContent)));
     expect(shell.currentContent?.id, 'users');
     expect(find.byType(UsersPage), findsOneWidget);
-    expect(find.text('Users'), findsNWidgets(2));
+    expect(
+      find.descendant(
+        of: find.byType(MainContent),
+        matching: find.text('Users'),
+      ),
+      findsNWidgets(2),
+    );
     expect(find.text('Community signal'), findsNothing);
     expect(find.byKey(const ValueKey('user-row-sam')), findsOneWidget);
     expect(api.pluginReadPaths, contains('/directory-columns.json'));
@@ -63,5 +71,5 @@ void main() {
       contains('/directory_items.json?period=weekly&order=likes_received'),
     );
     expect(tester.takeException(), isNull);
-  });
+  }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 }

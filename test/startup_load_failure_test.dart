@@ -177,7 +177,7 @@ void main() {
     (name: 'wide', size: const Size(1000, 800)),
   ]) {
     testWidgets(
-      '${layout.name} shell and rail recover through retry controls',
+      '${layout.name} mobile shell and rail recover through retry controls',
       (tester) async {
         tester.view.physicalSize = layout.size;
         tester.view.devicePixelRatio = 1;

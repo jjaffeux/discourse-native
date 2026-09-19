@@ -761,7 +761,7 @@ void main() {
           case 'outside':
             await tester.tapAt(const Offset(1400, 850));
           case 'back':
-            await tester.tap(find.byKey(const ValueKey('global-search-back')));
+            await tester.tap(find.byKey(const ValueKey('mobile-search-close')));
           case 'result':
             await tester.ensureVisible(
               _panelText('The search design is ready for a keyboard review.'),
@@ -778,7 +778,13 @@ void main() {
           expect(search.conditionsFor(scope), isEmpty, reason: scope.name);
         }
 
-        await tester.tap(find.byKey(ForumSearch.inputKey));
+        await tester.tap(
+          find.byKey(
+            mobile
+                ? const ValueKey('mobile-search-button')
+                : ForumSearch.inputKey,
+          ),
+        );
         await _finishSearch(tester);
         search.setScope(GlobalSearchScope.users);
         await _finishSearch(tester);
@@ -936,7 +942,13 @@ Offset _caretOrigin(WidgetTester tester) {
 }
 
 Future<void> _openAndSearch(WidgetTester tester, String query) async {
-  await tester.tap(find.byKey(ForumSearch.inputKey));
+  await tester.tap(
+    find.byKey(
+      find.byKey(const ValueKey('mobile-search-button')).evaluate().isEmpty
+          ? ForumSearch.inputKey
+          : const ValueKey('mobile-search-button'),
+    ),
+  );
   await tester.pumpAndSettle();
   await tester.enterText(find.byKey(ForumSearch.inputKey), query);
   await _finishSearch(tester);

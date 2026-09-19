@@ -90,6 +90,116 @@ void main() {
     expect(changes, ['two']);
   });
 
+  testWidgets('navigation tabs share width and retain independent actions', (
+    tester,
+  ) async {
+    final selected = <String?>[];
+    var settingsOpened = false;
+    await mount(
+      tester,
+      DTabs<String>(
+        initialValue: 'home',
+        onChanged: selected.add,
+        children: [
+          DTabList<String>(
+            variant: DTabListVariant.navigation,
+            children: [
+              const DTabTrigger(
+                value: 'home',
+                semanticLabel: 'Home',
+                child: Icon(Icons.home),
+              ),
+              const DTabTrigger(
+                value: 'chat',
+                semanticLabel: 'Chat',
+                child: Icon(Icons.chat),
+              ),
+              const DTabTrigger(
+                value: 'voice',
+                semanticLabel: 'Voice',
+                child: Icon(Icons.mic),
+              ),
+              Center(
+                child: DButton.iconOnly(
+                  icon: const Icon(Icons.settings),
+                  tooltip: 'Settings',
+                  onPressed: () => settingsOpened = true,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+      platform: TargetPlatform.iOS,
+      width: 320,
+    );
+    await tester.pumpAndSettle();
+    final triggers = find.byType(DTabTrigger<String>);
+    for (final element in triggers.evaluate()) {
+      final rect = tester.getRect(find.byWidget(element.widget));
+      expect(rect.width, 80);
+      expect(rect.height, greaterThanOrEqualTo(48));
+    }
+    await tester.tap(find.byTooltip('Settings'));
+    await tester.pumpAndSettle();
+    expect(settingsOpened, isTrue);
+    expect(selected, isEmpty);
+    await tester.tap(find.byIcon(Icons.chat));
+    await tester.pumpAndSettle();
+    expect(selected, ['chat']);
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pumpAndSettle();
+    expect(selected, ['chat', 'voice']);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('navigation bar preserves targets in narrow RTL and large text', (
+    tester,
+  ) async {
+    await mount(
+      tester,
+      const DTabs<String>(
+        children: [
+          DTabList<String>(
+            variant: DTabListVariant.navigation,
+            children: [
+              DTabTrigger(
+                value: 'home',
+                semanticLabel: 'Home',
+                child: Icon(Icons.home),
+              ),
+              DTabTrigger(
+                value: 'chat',
+                semanticLabel: 'Chat',
+                child: Icon(Icons.chat),
+              ),
+              DTabTrigger(
+                value: 'voice',
+                semanticLabel: 'Voice',
+                child: Icon(Icons.mic),
+              ),
+              DTabTrigger(
+                value: 'settings',
+                semanticLabel: 'Settings',
+                child: Icon(Icons.settings),
+              ),
+            ],
+          ),
+        ],
+      ),
+      platform: TargetPlatform.android,
+      width: 160,
+      rtl: true,
+      scale: 2,
+    );
+    await tester.pumpAndSettle();
+    for (final element in find.byType(DTabTrigger<String>).evaluate()) {
+      expect(tester.getSize(find.byWidget(element.widget)).width, 48);
+    }
+    expect(tester.takeException(), isNull);
+  });
+
   Widget tabs({
     String? initialValue = 'one',
     bool selectFirst = true,

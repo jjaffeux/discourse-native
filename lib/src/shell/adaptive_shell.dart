@@ -29,6 +29,7 @@ import 'instance_sidebar.dart';
 import 'keyboard_navigation.dart';
 import 'keyboard_shortcuts_help.dart';
 import 'main_content.dart';
+import 'mobile_shell.dart';
 import 'platform.dart';
 import 'resizable_pane.dart';
 import 'shell_controller.dart';
@@ -518,13 +519,14 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
     DiagnosticsController? diagnostics,
     bool diagnosticsOpen,
   ) {
+    final mobile = ShellScope.read(context).mobileNavigationEnabled;
     return Scaffold(
       body: ForumWindowBackground(
         child: LayoutBuilder(
           builder: (context, constraints) {
             final layout = ShellLayout.forWidth(constraints.maxWidth);
-            final shell = layout.isCompact && context.isTouch
-                ? const _CompactShell()
+            final shell = mobile
+                ? const _MobileShell()
                 : _WideShell(layout: layout, sidebarWidth: _sidebarWidth);
 
             Widget framedShell(Widget body) => Stack(
@@ -532,7 +534,7 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
                 Positioned.fill(
                   child: Column(
                     children: [
-                      const ShellTitleBar(),
+                      if (!mobile) const ShellTitleBar(),
                       Expanded(child: body),
                     ],
                   ),
@@ -607,7 +609,6 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
               ],
             );
             return _withDiagnosticsBackHandling(
-              layout: layout,
               open: showDiagnostics,
               diagnostics: diagnostics,
               child: overlay,
@@ -619,18 +620,19 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
   }
 
   Widget _withDiagnosticsBackHandling({
-    required ShellLayout layout,
     required bool open,
     required DiagnosticsController diagnostics,
     required Widget child,
   }) {
     // Keep this wrapper stable when docking a composer changes the layout.
     // Recreating the reader also reopens its sheet and takes focus from the
-    // composer. Compact's inner PopScope owns back handling in that layout.
+    // composer. The mobile shell owns back handling at every viewport width.
     return PopScope(
-      canPop: layout.isCompact || !open,
+      canPop: ShellScope.read(context).mobileNavigationEnabled || !open,
       onPopInvokedWithResult: (didPop, result) {
-        if (!layout.isCompact && !didPop && diagnostics.isPanelOpen) {
+        if (!ShellScope.read(context).mobileNavigationEnabled &&
+            !didPop &&
+            diagnostics.isPanelOpen) {
           diagnostics.closePanel();
         }
       },
@@ -646,6 +648,36 @@ class _ForumBoundaryShell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (ShellScope.read(context).mobileNavigationEnabled) {
+      final shell = ShellScope.of(context);
+      return SafeArea(
+        child: MobileHistoryGestures(
+          child: shell.mobilePane == MobilePane.sidebar
+              ? MobileForumRoot(content: child)
+              : PopScope(
+                  canPop: false,
+                  onPopInvokedWithResult: (didPop, _) {
+                    if (!didPop) shell.handleBack();
+                  },
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Align(
+                        alignment: AlignmentDirectional.centerStart,
+                        child: DButton.iconOnly(
+                          icon: const DIcon(DIcons.arrowLeft),
+                          tooltip: 'Back',
+                          variant: DButtonVariant.ghost,
+                          onPressed: () => shell.handleBack(),
+                        ),
+                      ),
+                      Expanded(child: child),
+                    ],
+                  ),
+                ),
+        ),
+      );
+    }
     return Column(
       children: [
         const ShellTitleBar(showControls: false),
@@ -871,125 +903,104 @@ class _UnavailableForum extends StatelessWidget {
   }
 }
 
-class _CompactShell extends StatelessWidget {
-  const _CompactShell();
+class _MobileShell extends StatelessWidget {
+  const _MobileShell();
 
   @override
-  Widget build(BuildContext context) {
-    return PopScope(
-      canPop: false,
-      onPopInvokedWithResult: (didPop, result) {
-        if (didPop) return;
-        final diagnostics = DiagnosticsScope.maybeRead(context);
-        if (diagnostics?.isPanelOpen ?? false) {
-          diagnostics!.closePanel();
-          return;
-        }
-        // canPop: false claims every back event before the platform sees it,
-        // so once the shell has nothing left to unwind, leaving the app has
-        // to be an explicit request rather than a fall-through.
-        if (!ShellScope.read(context).handleBack()) {
-          unawaited(SystemNavigator.pop());
-        }
-      },
-      child: Row(
-        children: [
-          const SizedBox(
-            width: AdaptiveShell.compactRailWidth,
-            child: InstanceRail(),
-          ),
-          Expanded(
-            child: ShellPanel(
-              child:
-                  ShellSelector<
-                    ({
-                      InstanceLoadStatus loadStatus,
-                      bool hasInstances,
-                      MobilePane pane,
-                      ShellRootMode rootMode,
-                    })
-                  >(
-                    select: (controller) => (
-                      loadStatus: controller.loadStatus,
-                      hasInstances: controller.hasInstances,
-                      pane: controller.mobilePane,
-                      rootMode: controller.rootMode,
-                    ),
-                    builder: (context, state, _) => _PageComposerDock(
-                      child: AnimatedSwitcher(
-                        duration: const Duration(milliseconds: 220),
-                        switchInCurve: Curves.easeOutCubic,
-                        switchOutCurve: Curves.easeInCubic,
-                        transitionBuilder: _slide,
-                        child: switch ((
-                          state.loadStatus,
-                          state.hasInstances,
-                          state.pane,
-                          state.rootMode,
-                        )) {
-                          (InstanceLoadStatus.loading, _, _, _) =>
-                            const _ShellLoadProgress(),
-                          (InstanceLoadStatus.failed, _, _, _) =>
-                            const _ShellLoadFailure(),
-                          (InstanceLoadStatus.ready, false, _, _) =>
-                            const EmptyState(key: ValueKey(MobilePane.sidebar)),
-                          (
-                            InstanceLoadStatus.ready,
-                            true,
-                            _,
-                            ShellRootMode.aggregate,
-                          ) =>
-                            const AggregateView(
-                              key: ValueKey(ShellRootMode.aggregate),
-                            ),
-                          (
-                            InstanceLoadStatus.ready,
-                            true,
-                            MobilePane.sidebar,
-                            ShellRootMode.forum,
-                          ) =>
-                            InstanceSidebar(
-                              key: const ValueKey(MobilePane.sidebar),
-                              showUserMenu: ShellTitleBar.columnsCarryUserMenu,
-                            ),
-                          (
-                            InstanceLoadStatus.ready,
-                            true,
-                            MobilePane.content,
-                            ShellRootMode.forum,
-                          ) =>
-                            MainContent(
-                              key: ComposerPresentationHost.contentKeyOf(
-                                context,
-                              ),
-                              layout: ShellLayout.compact,
-                            ),
-                        },
+  Widget build(BuildContext context) => PopScope(
+    canPop: false,
+    onPopInvokedWithResult: (didPop, result) {
+      if (didPop) return;
+      final diagnostics = DiagnosticsScope.maybeRead(context);
+      if (diagnostics?.isPanelOpen ?? false) {
+        diagnostics!.closePanel();
+      } else if (!ShellScope.read(context).handleBack()) {
+        unawaited(SystemNavigator.pop());
+      }
+    },
+    child: SafeArea(
+      child: MobileHistoryGestures(
+        child:
+            ShellSelector<
+              ({
+                InstanceLoadStatus loadStatus,
+                bool hasInstances,
+                MobilePane pane,
+                ShellRootMode rootMode,
+              })
+            >(
+              select: (shell) => (
+                loadStatus: shell.loadStatus,
+                hasInstances: shell.hasInstances,
+                pane: shell.mobilePane,
+                rootMode: shell.rootMode,
+              ),
+              builder: (context, state, _) {
+                Widget homeStatus(Widget child) => Row(
+                  children: [
+                    const SizedBox(width: 48, child: InstanceRail()),
+                    Expanded(child: child),
+                  ],
+                );
+                if (state.loadStatus == InstanceLoadStatus.loading) {
+                  return homeStatus(const _ShellLoadProgress());
+                }
+                if (state.loadStatus == InstanceLoadStatus.failed) {
+                  return homeStatus(const _ShellLoadFailure());
+                }
+                if (!state.hasInstances) return homeStatus(const EmptyState());
+                final root =
+                    state.pane == MobilePane.sidebar &&
+                    state.rootMode == ShellRootMode.forum;
+                return _PageComposerDock(
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      // Keep sidebar scroll positions and Chat's Channels/DMs
+                      // selection while a content page is open. Only one shared
+                      // content renderer is mounted, so hidden pages never bind
+                      // themselves to a different current route or mark it read.
+                      Offstage(
+                        offstage: !root,
+                        child: TickerMode(
+                          enabled: root,
+                          child: ExcludeFocus(
+                            excluding: !root,
+                            child: const MobileForumRoot(),
+                          ),
+                        ),
                       ),
-                    ),
+                      if (!root)
+                        if (state.rootMode == ShellRootMode.aggregate)
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              Align(
+                                alignment: AlignmentDirectional.centerStart,
+                                child: DButton.iconOnly(
+                                  icon: const DIcon(DIcons.arrowLeft),
+                                  tooltip: 'Back',
+                                  variant: DButtonVariant.ghost,
+                                  onPressed: () =>
+                                      ShellScope.read(context).handleBack(),
+                                ),
+                              ),
+                              const Expanded(child: AggregateView()),
+                            ],
+                          )
+                        else
+                          MainContent(
+                            key: ComposerPresentationHost.contentKeyOf(context),
+                            layout: ShellLayout.compact,
+                          ),
+                    ],
                   ),
+                );
+              },
             ),
-          ),
-        ],
       ),
-    );
-  }
-
-  static Widget _slide(Widget child, Animation<double> animation) {
-    final fromRight =
-        child.key == const ValueKey(MobilePane.content) ||
-        child.key == const ValueKey(ShellRootMode.aggregate);
-    return FadeTransition(
-      opacity: animation,
-      child: SlideTransition(
-        position: Tween<Offset>(
-          begin: Offset(fromRight ? 0.12 : -0.12, 0),
-          end: Offset.zero,
-        ).animate(animation),
-        child: child,
-      ),
-    );
-  }
+    ),
+  );
 }
 
 class _WideShell extends StatefulWidget {

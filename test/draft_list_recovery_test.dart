@@ -10,6 +10,7 @@ import 'package:discourse_native/src/shell/composer_panel.dart';
 import 'package:discourse_native/src/shell/main_content.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
+import 'package:flutter/foundation.dart' show TargetPlatform;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -71,6 +72,7 @@ void main() {
         );
         expect(api.draftsSaved, isEmpty);
       },
+      variant: TargetPlatformVariant.only(TargetPlatform.linux),
     );
   }
 
@@ -94,7 +96,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(shell.visibleComposer?.text.text, isEmpty);
     expect(shell.currentTopic?.draft, isNull);
-  });
+  }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
   testWidgets(
     'a newer local save survives list deletion and follows its DELETE',
@@ -131,6 +133,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(shell.visibleComposer?.text.text, 'Newer edit');
     },
+    variant: TargetPlatformVariant.only(TargetPlatform.linux),
   );
 
   testWidgets('a save already in flight keeps its newer server draft', (
@@ -158,7 +161,7 @@ void main() {
     expect(shell.currentTopic?.draft?.reply, 'Already saving');
     expect(shell.currentTopic?.draftSequence, 5);
     expect(shell.draftCountFor(_siteUrl), 1);
-  });
+  }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
   testWidgets('a failed list DELETE leaves both recovery copies available', (
     tester,
@@ -181,7 +184,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(shell.visibleComposer?.text.text, 'Deleted reply');
     expect(shell.currentTopic?.draft?.reply, 'Deleted reply');
-  });
+  }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
   testWidgets('a completed DELETE cannot clear a replacement account draft', (
     tester,
@@ -209,7 +212,7 @@ void main() {
     expect(shell.currentTopic?.draft?.reply, 'Replacement account');
     expect(shell.currentTopic?.draftSequence, 2);
     expect(shell.draftCountFor(_siteUrl), 1);
-  });
+  }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 }
 
 FakeDiscourseApi _api({

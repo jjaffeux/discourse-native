@@ -79,6 +79,8 @@ void main() {
   ) async {
     const user = DiscourseUser(id: 7, username: 'sam', canCreateTopic: true);
     final controller = ShellController(
+      mobileNavigationEnabled: true,
+      forumTabsEnabled: false,
       instanceStore: FakeInstanceStore([
         instance('meta.discourse.org').copyWith(user: user),
       ]),

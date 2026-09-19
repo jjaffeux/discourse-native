@@ -57,7 +57,7 @@ void main() {
 
       gate.complete();
       await tester.pumpWidget(const SizedBox.shrink());
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
   }
 
   testWidgets('backgrounding stages the latest edit behind a remote save', (
@@ -106,7 +106,7 @@ void main() {
     expect(drafts.events.where((event) => event == 'clear'), hasLength(1));
     expect(drafts.saved, isEmpty);
     await tester.pumpWidget(const SizedBox.shrink());
-  });
+  }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
   testWidgets(
     'inactive stays foreground and repeated transitions reuse saves',
@@ -156,6 +156,7 @@ void main() {
       await composer.finishDraftSaves();
       await tester.pumpWidget(const SizedBox.shrink());
     },
+    variant: TargetPlatformVariant.only(TargetPlatform.linux),
   );
 
   testWidgets('backgrounding preserves one composer per forum across tabs', (
@@ -292,7 +293,7 @@ void main() {
       expect(drafts.saved, isEmpty);
       expect(api.draftsSaved, isEmpty);
       await tester.pumpWidget(const SizedBox.shrink());
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
   }
 
   testWidgets('backgrounding preserves edits after an unresolved submission', (
@@ -312,7 +313,7 @@ void main() {
 
     expect(_localReply(drafts), 'Edited while the outcome is unknown');
     await tester.pumpWidget(const SizedBox.shrink());
-  });
+  }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
   testWidgets('a delayed background write cannot cross an account boundary', (
     tester,
@@ -349,7 +350,7 @@ void main() {
     expect(api.draftsSaved, hasLength(1));
     expect(api.draftsSaved.single['data'], contains('Current account'));
     await tester.pumpWidget(const SizedBox.shrink());
-  });
+  }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
   testWidgets('background saves retain local failure reporting and retry', (
     tester,
@@ -381,7 +382,7 @@ void main() {
     expect(composer.draftStatus, DraftStatus.failing);
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox.shrink());
-  });
+  }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 }
 
 Future<ShellController> _pumpApp(
