@@ -268,7 +268,7 @@ final class CookingConfiguration {
         if (dependency == null) {
           throw ArgumentError('Missing cooking dependency: $id');
         }
-        const stages = ['syntax', 'token', 'document'];
+        const stages = ['source', 'syntax', 'token', 'document'];
         if (stages.indexOf(bundledCookingModules[dependency.id]!['stage']!) >
             stages.indexOf(bundledCookingModules[module.id]!['stage']!)) {
           throw ArgumentError('Dependency requires a later cooking stage: $id');

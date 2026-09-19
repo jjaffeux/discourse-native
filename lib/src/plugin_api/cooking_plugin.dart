@@ -76,6 +76,8 @@ final class PluginCookingHost {
     required String siteUrl,
     required String raw,
     CookingProfile profile,
+    CookingContext context,
+    CookingCachedMetadata? cachedMetadata,
   })
   request;
   final Future<CookingResult> Function(CookingRequest request) cook;

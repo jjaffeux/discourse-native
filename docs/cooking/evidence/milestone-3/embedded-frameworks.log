@@ -1,0 +1,4 @@
+build/ios/iphonesimulator/Runner.app: native cooking framework present; final bundle revision 8aae85318c403340309ba03114f5c207c25f7a68177d3c6596d420a788f45171 present in Dart kernel
+build/macos-cooking-ci/Build/Products/Debug/Discourse.app: native cooking framework present; final bundle revision 8aae85318c403340309ba03114f5c207c25f7a68177d3c6596d420a788f45171 present in Dart kernel
+profiles/full/build/ios/iphonesimulator/Runner.app: native cooking framework present; final bundle revision 8aae85318c403340309ba03114f5c207c25f7a68177d3c6596d420a788f45171 present in Dart kernel
+profiles/full/build/macos-cooking-ci/Build/Products/Debug/Discourse.app: native cooking framework present; final bundle revision 8aae85318c403340309ba03114f5c207c25f7a68177d3c6596d420a788f45171 present in Dart kernel

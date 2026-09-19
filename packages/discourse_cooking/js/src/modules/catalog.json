@@ -42,5 +42,135 @@
     "source": "fixture-document.js",
     "stage": "document",
     "policy": {}
+  },
+  {
+    "id": "chat-source",
+    "owner": "chat",
+    "version": "1",
+    "source": "chat-source.js",
+    "stage": "source",
+    "policy": {}
+  },
+  {
+    "id": "chat-html-inline",
+    "owner": "chat",
+    "version": "1",
+    "source": "chat-html-inline.js",
+    "stage": "syntax",
+    "policy": {}
+  },
+  {
+    "id": "chat-transcript",
+    "owner": "chat",
+    "version": "1",
+    "source": "chat-transcript.js",
+    "stage": "syntax",
+    "policy": {
+      "div": [
+        "data-message-id",
+        "data-channel-name",
+        "data-channel-id",
+        "data-username",
+        "data-datetime",
+        "data-chained",
+        "data-reactions",
+        "data-multiquote",
+        "data-thread-id",
+        "data-thread-title"
+      ],
+      "details": [
+        "class"
+      ],
+      "summary": [],
+      "span": [
+        "title"
+      ]
+    }
+  },
+  {
+    "id": "chat-slash-format",
+    "owner": "chat",
+    "version": "1",
+    "source": "chat-slash-format.js",
+    "stage": "document",
+    "policy": {
+      "em": [
+        "class"
+      ]
+    }
+  },
+  {
+    "id": "discourse-local-dates",
+    "owner": "discourse-local-dates",
+    "version": "1",
+    "source": "discourse-local-dates.js",
+    "stage": "syntax",
+    "policy": {
+      "span": [
+        "data-calendar",
+        "data-countdown",
+        "data-date",
+        "data-displayed-timezone",
+        "data-email-preview",
+        "data-format",
+        "data-ics",
+        "data-recurring",
+        "data-time",
+        "data-timezone",
+        "data-timezones",
+        "data-range"
+      ]
+    }
+  },
+  {
+    "id": "cooking-links",
+    "owner": "cooking",
+    "version": "1",
+    "source": "cooking-links.js",
+    "stage": "document",
+    "policy": {}
+  },
+  {
+    "id": "cooking-bidi",
+    "owner": "cooking",
+    "version": "1",
+    "source": "cooking-bidi.js",
+    "stage": "document",
+    "policy": {
+      "span": [
+        "title"
+      ],
+      "pre": [
+        "data-code-wrap",
+        "data-code-height"
+      ]
+    }
+  },
+  {
+    "id": "cooking-media",
+    "owner": "cooking",
+    "version": "1",
+    "source": "cooking-media.js",
+    "stage": "document",
+    "policy": {
+      "div": [
+        "data-video-src",
+        "data-thumbnail-src",
+        "data-video-base62-sha1",
+        "data-blocked-hotlinked-src",
+        "data-mode"
+      ],
+      "img": [
+        "data-blocked-hotlinked-src"
+      ]
+    }
+  },
+  {
+    "id": "cooking-mentions",
+    "owner": "cooking",
+    "version": "1",
+    "source": "cooking-mentions.js",
+    "stage": "document",
+    "policy": {}
   }
 ]

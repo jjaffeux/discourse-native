@@ -46,6 +46,11 @@
     "frontend/pretty-text/addon/text-replace.js": "01f421443c943d1b14c2cbf54507bcd1c945fc6814233fce88359aed6f093d41",
     "plugins/chat/app/models/chat/message.rb": "b83a7545a07caa94fb78f27c3a0df28c587879f75f161de26ac6c22a74bd7b82",
     "plugins/spoiler-alert/assets/javascripts/lib/discourse-markdown/spoiler-alert.js": "ff60240fed180297ab7e1cef10efbc0619bf38ca975e9f3f55c168dbd265f378",
-    "pnpm-lock.yaml": "1def626ee292fc8d50cab0186e20507087c61d192d1d15a1df90b29efbac1f2c"
+    "pnpm-lock.yaml": "1def626ee292fc8d50cab0186e20507087c61d192d1d15a1df90b29efbac1f2c",
+    "plugins/chat/assets/javascripts/lib/discourse-markdown/chat-html-inline.js": "e1129a85c318c0283c46551b5c5357f87af5265bdcb597c147e5d50749e6361e",
+    "plugins/chat/assets/javascripts/lib/discourse-markdown/chat-transcript.js": "e31834814d72e8df4b56b287c538a6a6e105e779147ac6d6e35d604b21febd06",
+    "plugins/discourse-local-dates/assets/javascripts/lib/discourse-markdown/discourse-local-dates.js": "13c4f16ca2de36b2900de5fae13e04fb28ca2a4c48aa3a73df058712ad7d3653",
+    "lib/pretty_text.rb": "4536c80328ed5fa23ea83988886cd3bcab5b488433414d96f7f739e97c68dfd1",
+    "lib/text_cleaner.rb": "79410d0c02c60dff8e368e4308d41b4fdbbbb130afab1b1648c921ff7a4dc67a"
   }
 }

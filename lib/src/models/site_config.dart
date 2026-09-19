@@ -16,6 +16,10 @@ class SiteConfig {
     this.markdownTypographerQuotationMarks = '“|”|‘|’',
     this.defaultCodeLang = 'auto',
     this.secureUploads = false,
+    this.blockHotlinkedMediaExceptions = '',
+    this.blockHotlinkedMedia = false,
+    this.excludeRelNofollowDomains = '',
+    this.addRelNofollow = true,
     this.cookingKnownSettings = const {},
     this.cookingSettingsStale = false,
     this.userStatusEnabled = false,
@@ -143,6 +147,12 @@ class SiteConfig {
           jsonText(json['markdown_typographer_quotation_marks']) ?? '“|”|‘|’',
       defaultCodeLang: jsonText(json['default_code_lang']) ?? 'auto',
       secureUploads: json['secure_uploads'] == true,
+      blockHotlinkedMediaExceptions:
+          jsonText(json['block_hotlinked_media_exceptions']) ?? '',
+      blockHotlinkedMedia: json['block_hotlinked_media'] == true,
+      excludeRelNofollowDomains:
+          jsonText(json['exclude_rel_nofollow_domains']) ?? '',
+      addRelNofollow: json['add_rel_nofollow_to_user_content'] != false,
       cookingKnownSettings: _knownCookingSettings(json, wire: true),
       userStatusEnabled: json['enable_user_status'] == true,
       emojiSet: jsonText(json['emoji_set']) ?? defaultEmojiSet,
@@ -234,6 +244,12 @@ class SiteConfig {
         jsonText(json['markdownTypographerQuotationMarks']) ?? '“|”|‘|’',
     defaultCodeLang: jsonText(json['defaultCodeLang']) ?? 'auto',
     secureUploads: json['secureUploads'] == true,
+    blockHotlinkedMediaExceptions:
+        jsonText(json['blockHotlinkedMediaExceptions']) ?? '',
+    blockHotlinkedMedia: json['blockHotlinkedMedia'] == true,
+    excludeRelNofollowDomains:
+        jsonText(json['excludeRelNofollowDomains']) ?? '',
+    addRelNofollow: json['addRelNofollow'] != false,
     cookingKnownSettings: _knownCookingSettings(json, wire: false),
     cookingSettingsStale: json['cookingSettingsStale'] == true,
     userStatusEnabled: json['userStatusEnabled'] == true,
@@ -319,6 +335,10 @@ class SiteConfig {
       'markdownTypographerQuotationMarks': markdownTypographerQuotationMarks,
       'defaultCodeLang': defaultCodeLang,
       'secureUploads': secureUploads,
+      'blockHotlinkedMediaExceptions': blockHotlinkedMediaExceptions,
+      'blockHotlinkedMedia': blockHotlinkedMedia,
+      'excludeRelNofollowDomains': excludeRelNofollowDomains,
+      'addRelNofollow': addRelNofollow,
       'cookingKnownSettings': cookingKnownSettings.toList()..sort(),
       'cookingSettingsStale': cookingSettingsStale,
       'userStatusEnabled': userStatusEnabled,
@@ -373,6 +393,10 @@ class SiteConfig {
   final String markdownTypographerQuotationMarks;
   final String defaultCodeLang;
   final bool secureUploads;
+  final String blockHotlinkedMediaExceptions;
+  final bool blockHotlinkedMedia;
+  final String excludeRelNofollowDomains;
+  final bool addRelNofollow;
 
   /// Valid core settings received from site initialization, by wire key.
   /// Missing or malformed fields retain defaults without claiming knowledge.
@@ -397,6 +421,10 @@ class SiteConfig {
     'markdown_typographer_quotation_marks': markdownTypographerQuotationMarks,
     'default_code_lang': defaultCodeLang,
     'secure_uploads': secureUploads,
+    'block_hotlinked_media_exceptions': blockHotlinkedMediaExceptions,
+    'block_hotlinked_media': blockHotlinkedMedia,
+    'exclude_rel_nofollow_domains': excludeRelNofollowDomains,
+    'add_rel_nofollow_to_user_content': addRelNofollow,
   });
 
   final bool userStatusEnabled;
@@ -522,6 +550,10 @@ class SiteConfig {
         markdownTypographerQuotationMarks: markdownTypographerQuotationMarks,
         defaultCodeLang: defaultCodeLang,
         secureUploads: secureUploads,
+        blockHotlinkedMediaExceptions: blockHotlinkedMediaExceptions,
+        blockHotlinkedMedia: blockHotlinkedMedia,
+        excludeRelNofollowDomains: excludeRelNofollowDomains,
+        addRelNofollow: addRelNofollow,
         cookingKnownSettings: cookingKnownSettings,
         cookingSettingsStale: cookingSettingsStale ?? this.cookingSettingsStale,
         userStatusEnabled: userStatusEnabled,
@@ -577,6 +609,10 @@ class SiteConfig {
           markdownTypographerQuotationMarks &&
       other.defaultCodeLang == defaultCodeLang &&
       other.secureUploads == secureUploads &&
+      other.blockHotlinkedMediaExceptions == blockHotlinkedMediaExceptions &&
+      other.blockHotlinkedMedia == blockHotlinkedMedia &&
+      other.excludeRelNofollowDomains == excludeRelNofollowDomains &&
+      other.addRelNofollow == addRelNofollow &&
       setEquals(other.cookingKnownSettings, cookingKnownSettings) &&
       other.cookingSettingsStale == cookingSettingsStale &&
       other.userStatusEnabled == userStatusEnabled &&
@@ -636,6 +672,10 @@ class SiteConfig {
     markdownTypographerQuotationMarks,
     defaultCodeLang,
     secureUploads,
+    blockHotlinkedMediaExceptions,
+    blockHotlinkedMedia,
+    excludeRelNofollowDomains,
+    addRelNofollow,
     Object.hashAllUnordered(cookingKnownSettings),
     cookingSettingsStale,
     userStatusEnabled,
@@ -691,6 +731,10 @@ class SiteConfig {
       'markdown_typographer_quotation_marks': 'String',
       'default_code_lang': 'String',
       'secure_uploads': 'bool',
+      'block_hotlinked_media_exceptions': 'String',
+      'block_hotlinked_media': 'bool',
+      'exclude_rel_nofollow_domains': 'String',
+      'add_rel_nofollow_to_user_content': 'bool',
       'enable_emoji': 'bool',
       'enable_mentions': 'bool',
       'emoji_set': 'String',

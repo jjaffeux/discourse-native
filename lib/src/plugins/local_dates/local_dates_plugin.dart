@@ -1,11 +1,14 @@
 import 'dart:async';
 
+import 'package:discourse_cooking/discourse_cooking.dart';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:html/dom.dart' as dom;
 import 'package:timezone/timezone.dart' as tz;
 
+import '../../plugin_api/cooking_plugin.dart';
 import '../../plugin_api/site_plugin_api.dart';
 import '../../shell/markdown_highlight.dart';
 import '../../theme/d_icons.dart';
@@ -30,6 +33,7 @@ const localDateComposerSyntaxKind = ComposerSyntaxKind(
 class LocalDatesPlugin
     implements
         SitePlugin,
+        CookingPlugin,
         ChatPreviewContribution,
         BookmarkReminderPlugin,
         ComposerComponentPlugin,
@@ -43,6 +47,29 @@ class LocalDatesPlugin
 
   final LocalDateEnvironment environment;
   final LocalDateFormatter formatter;
+
+  @override
+  List<CookingProfile> get cookingProfiles => const [];
+  @override
+  List<CookingModule> get cookingModules => [
+    CookingModule(
+      id: 'discourse-local-dates',
+      owner: 'discourse-local-dates',
+      version: '1',
+      enabledSetting: 'discourse_local_dates_enabled',
+    ),
+  ];
+  @override
+  Map<String, Object?> projectCookingContext(CookingPluginData data) {
+    final settings = data.read(localDatesSettingsDataKey);
+    return {
+      'settings': {
+        'discourse_local_dates_enabled': settings?.enabled ?? false,
+        'discourse_local_dates_email_format': settings?.emailFormat,
+        'discourse_local_dates_email_timezone': settings?.emailTimezone,
+      },
+    };
+  }
 
   @override
   String get name => 'discourse-local-dates';

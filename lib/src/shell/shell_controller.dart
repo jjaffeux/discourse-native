@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:ui' show Color, Rect;
 
 import 'package:discourse_cooking/discourse_cooking.dart';
@@ -348,6 +349,8 @@ class ShellController extends FrameSafeNotifier
     required String siteUrl,
     required String raw,
     CookingProfile profile = CookingProfile.post,
+    CookingContext context = const CookingContext(),
+    CookingCachedMetadata? cachedMetadata,
   }) {
     if (raw.length > 65536) {
       return cooking.request(
@@ -363,6 +366,8 @@ class ShellController extends FrameSafeNotifier
       accountId: _instanceAt(siteUrl)?.user?.id.toString() ?? 'anonymous',
       raw: raw,
       profile: profile,
+      context: context,
+      cachedMetadata: cachedMetadata ?? _cachedCookingMetadata(siteUrl, raw),
       config: siteConfigFor(siteUrl),
       staleSettings: _presentation.cookingSettingsAreStale(siteUrl),
       mentions: _mentioned[siteUrl]?.snapshot ?? const {},
@@ -383,6 +388,47 @@ class ShellController extends FrameSafeNotifier
             },
       },
       customEmoji: _presentation.cachedCustomEmojiFor(siteUrl),
+    );
+  }
+
+  CookingCachedMetadata _cachedCookingMetadata(String siteUrl, String raw) {
+    final topics = <String, CookingTopic>{};
+    for (final match in RegExp(r'topic:(\d+)').allMatches(raw).take(128)) {
+      final id = int.tryParse(match[1]!);
+      final topic = id == null ? null : store.read<TopicDetail>(siteUrl, id);
+      if (topic != null) {
+        topics['${topic.id}'] = CookingTopic(
+          title: topic.title,
+          href: '$siteUrl/t/${topic.id}',
+        );
+      }
+    }
+    final names = <String>{
+      for (final match in RegExp(
+        r'(?:@|quote="|\[quote=")([\w.-]+)',
+      ).allMatches(raw).take(128))
+        match[1]!,
+    };
+    final mentions = <String, CookingMention>{};
+    final avatars = <String, String>{};
+    for (final name in names) {
+      final card = store.read<UserCard>(siteUrl, name.toLowerCase());
+      if (card == null) continue;
+      mentions[name] = CookingMention(
+        username: card.username,
+        href:
+            '${Uri.parse(siteUrl).path.replaceFirst(RegExp(r'/+$'), '')}/u/${Uri.encodeComponent(card.username)}',
+        kind: CookingMentionKind.user,
+      );
+      if (card.avatarUrl case final String url) {
+        avatars[name] =
+            '<img class="avatar" src="${const HtmlEscape().convert(url)}">';
+      }
+    }
+    return CookingCachedMetadata(
+      topics: topics,
+      mentions: mentions,
+      avatars: avatars,
     );
   }
 

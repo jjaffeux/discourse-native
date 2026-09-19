@@ -13,6 +13,8 @@ const localDatesSettingsDataKey = PluginDataKey<LocalDatesSettings>(
 final class LocalDatesSettings {
   const LocalDatesSettings({
     this.enabled = false,
+    this.emailFormat = 'llll z',
+    this.emailTimezone = 'Etc/UTC',
     this.formats = defaultFormats,
     this.timezones = defaultTimezones,
   });
@@ -26,6 +28,10 @@ final class LocalDatesSettings {
   factory LocalDatesSettings.fromSiteSettings(Map<String, dynamic> json) =>
       LocalDatesSettings(
         enabled: json['discourse_local_dates_enabled'] == true,
+        emailFormat:
+            jsonText(json['discourse_local_dates_email_format']) ?? 'llll z',
+        emailTimezone:
+            jsonText(json['discourse_local_dates_email_timezone']) ?? 'Etc/UTC',
         formats: _pipeListOr(
           json['discourse_local_dates_default_formats'],
           defaultFormats,
@@ -41,17 +47,22 @@ final class LocalDatesSettings {
     if (json == null) return null;
     return LocalDatesSettings(
       enabled: json['enabled'] == true,
+      emailFormat: jsonText(json['emailFormat']) ?? 'llll z',
+      emailTimezone: jsonText(json['emailTimezone']) ?? 'Etc/UTC',
       formats: _pipeListOr(json['formats'], defaultFormats),
       timezones: _pipeListOr(json['timezones'], defaultTimezones),
     );
   }
 
   final bool enabled;
+  final String emailFormat, emailTimezone;
   final List<String> formats;
   final List<String> timezones;
 
   Map<String, Object?> toStored() => {
     'enabled': enabled,
+    'emailFormat': emailFormat,
+    'emailTimezone': emailTimezone,
     'formats': formats,
     'timezones': timezones,
   };
@@ -61,12 +72,19 @@ final class LocalDatesSettings {
       identical(this, other) ||
       other is LocalDatesSettings &&
           other.enabled == enabled &&
+          other.emailFormat == emailFormat &&
+          other.emailTimezone == emailTimezone &&
           listEquals(other.formats, formats) &&
           listEquals(other.timezones, timezones);
 
   @override
-  int get hashCode =>
-      Object.hash(enabled, Object.hashAll(formats), Object.hashAll(timezones));
+  int get hashCode => Object.hash(
+    emailFormat,
+    emailTimezone,
+    enabled,
+    Object.hashAll(formats),
+    Object.hashAll(timezones),
+  );
 }
 
 final class LocalDatesSettingsPersistenceCodec

@@ -1,0 +1,5 @@
+
+> verify
+> node build.mjs --check
+
+Bundle 2410793 bytes; sha256 8aae85318c403340309ba03114f5c207c25f7a68177d3c6596d420a788f45171
