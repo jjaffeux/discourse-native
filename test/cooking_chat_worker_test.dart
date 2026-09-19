@@ -125,6 +125,30 @@ void main() {
             await cook('@ALICE'),
             contains('<a class="mention" href="/u/alice">@Alice</a>'),
           );
+          app.ingestUploads(lease, {
+            'upload://known.mp4': {'url': 'https://cdn.test/known.mp4'},
+          });
+          app.ingestMetadata(
+            lease,
+            CookingCachedMetadata(
+              media: {
+                'https://cdn.test/known.mp4': const CookingMedia(
+                  thumbnailUrl: 'https://cdn.test/thumbnail.png',
+                  videoBase62Sha1: 'known',
+                ),
+              },
+            ),
+          );
+          final video = await cook('![clip|video](upload://known.mp4)');
+          expect(
+            video,
+            contains('data-video-src="https://cdn.test/known.mp4"'),
+          );
+          expect(
+            video,
+            contains('data-thumbnail-src="https://cdn.test/thumbnail.png"'),
+          );
+          expect(video, contains('data-video-base62-sha1="known"'));
           expect(await cook('`x\u202ey`'), contains('bidi-warning'));
           expect(await cook('x\u202ey'), isNot(contains('bidi-warning')));
           expect(

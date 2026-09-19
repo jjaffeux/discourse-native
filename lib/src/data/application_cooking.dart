@@ -35,6 +35,7 @@ final class ApplicationCooking {
   final Map<String, String> _accounts = {};
   final Map<String, Map<String, Object?>> _uploads = {};
   final Map<String, CookingCachedMetadata> _metadata = {};
+  final _inputLimited = Expando<bool>();
   bool _disposed = false;
   Future<void>? _disposing;
 
@@ -89,26 +90,6 @@ final class ApplicationCooking {
     return true;
   }
 
-  // Bound both entry count and encoded bytes before the worker snapshot budget.
-  // Metadata is optional: omitted references remain readable/unresolved.
-  Map<String, Object?> _relevant(String raw, Map<String, Object?> values) {
-    final selected = <String, Object?>{};
-    var bytes = 0;
-    for (final key in values.keys.toList()..sort()) {
-      if (!raw.toLowerCase().contains(key.split('::').first.toLowerCase())) {
-        continue;
-      }
-      final value = values[key];
-      final cost = utf8.encode(jsonEncode({key: value})).length;
-      if (cost > 8192 || bytes + cost > 32768 || selected.length >= 128) {
-        continue;
-      }
-      selected[key] = value;
-      bytes += cost;
-    }
-    return selected;
-  }
-
   CookingRequest request({
     required String siteUrl,
     required String accountId,
@@ -135,24 +116,66 @@ final class ApplicationCooking {
         ),
       );
     }
-    final stored =
-        _metadata[siteUrl]?.snapshot.toJson() ?? const <String, Object?>{};
-    final supplied =
-        cachedMetadata?.snapshot.toJson() ?? const <String, Object?>{};
-    final merged = <String, Object?>{...stored};
-    for (final entry in supplied.entries) {
-      final value = entry.value;
-      if (value is Map) {
-        merged[entry.key] = {...?stored[entry.key] as Map?, ...value};
-      } else if (value is List && value.isNotEmpty) {
-        merged[entry.key] = value;
-      }
+    // Select from already validated caches before constructing the request's
+    // snapshot. Merging entire caches first can exceed its aggregate limit.
+    final stored = _metadata[siteUrl]?.snapshot;
+    final supplied = cachedMetadata?.snapshot;
+    final selection = _MetadataSelection(raw);
+    Map<String, Object?> merged(
+      Map<String, Object?> Function(CookingSnapshot) field,
+    ) => {
+      ...?stored == null ? null : field(stored),
+      ...?supplied == null ? null : field(supplied),
+    };
+    List<T> list<T>(List<T> Function(CookingSnapshot) field) {
+      final incoming = supplied == null ? <T>[] : field(supplied);
+      return incoming.isNotEmpty
+          ? incoming
+          : stored == null
+          ? <T>[]
+          : field(stored);
     }
-    final cached = CookingSnapshot.fromJson({
-      'siteId': siteUrl,
-      'accountId': accountId,
-      ...merged,
-    });
+
+    // These fields affect policy or matching, so never silently truncate them.
+    final always = <String, Object?>{
+      'customEmojiTranslation': merged((s) => s.customEmojiTranslation),
+      'unicodeEmoji': merged((s) => s.unicodeEmoji),
+      'emojiDenyList': list((s) => s.emojiDenyList),
+      'allowedMediaOrigins': list((s) => s.allowedMediaOrigins),
+      'hashtagPriorities': merged((s) => s.hashtagPriorities),
+      'hashtagIcons': merged((s) => s.hashtagIcons),
+      'censoredRegexp': list((s) => s.censoredRegexp),
+      'watchedWordsReplace': merged((s) => s.watchedWordsReplace),
+      'watchedWordsLink': merged((s) => s.watchedWordsLink),
+    };
+    if (!selection.reserve(always)) {
+      final limited = CookingRequest(
+        raw: raw,
+        profile: profile,
+        configuration: configuration,
+        snapshot: CookingSnapshot(
+          siteId: siteUrl,
+          accountId: accountId,
+          accountGeneration: _generations[siteUrl] ?? 0,
+        ),
+      );
+      _inputLimited[limited] = true;
+      return limited;
+    }
+    Map<String, Object?> relevant(
+      Map<String, Object?> Function(CookingSnapshot) field, {
+      Map<String, Object?> legacy = const {},
+      Set<String> references = const {},
+    }) => selection.relevant([
+      legacy,
+      if (stored != null) field(stored),
+      if (supplied != null) field(supplied),
+    ], references: references);
+    final uploads = selection.relevant([_uploads[siteUrl] ?? const {}]);
+    final uploadUrls = <String>{
+      for (final value in uploads.values)
+        if (value is Map && value['url'] is String) value['url'] as String,
+    };
     return CookingRequest(
       raw: raw,
       profile: profile,
@@ -168,25 +191,27 @@ final class ApplicationCooking {
           'knownSettings': config.cookingKnownSettings.toList()..sort(),
           'staleSettings': staleSettings || config.cookingSettingsStale,
         },
-        uploads: _relevant(raw, _uploads[siteUrl] ?? const {}),
-        mentions: _relevant(raw, {...mentions, ...cached.mentions}),
-        avatars: _relevant(raw, cached.avatars),
-        primaryGroups: _relevant(raw, cached.primaryGroups),
-        topics: _relevant(raw, cached.topics),
-        oneboxes: _relevant(raw, cached.oneboxes),
-        inlineOneboxes: _relevant(raw, cached.inlineOneboxes),
-        media: _relevant(raw, cached.media),
-        customEmojiTranslation: cached.customEmojiTranslation,
-        unicodeEmoji: cached.unicodeEmoji,
-        emojiDenyList: cached.emojiDenyList,
-        allowedMediaOrigins: cached.allowedMediaOrigins,
-        hashtagPriorities: cached.hashtagPriorities,
-        hashtagIcons: cached.hashtagIcons,
-        censoredRegexp: cached.censoredRegexp,
-        watchedWordsReplace: cached.watchedWordsReplace,
-        watchedWordsLink: cached.watchedWordsLink,
-        hashtags: _relevant(raw, hashtags),
-        customEmoji: _relevant(raw, customEmoji),
+        uploads: uploads,
+        mentions: relevant((s) => s.mentions, legacy: mentions),
+        avatars: relevant((s) => s.avatars),
+        primaryGroups: relevant((s) => s.primaryGroups),
+        topics: relevant((s) => s.topics),
+        oneboxes: relevant((s) => s.oneboxes),
+        inlineOneboxes: relevant((s) => s.inlineOneboxes),
+        media: relevant((s) => s.media, references: uploadUrls),
+        customEmojiTranslation:
+            always['customEmojiTranslation']! as Map<String, Object?>,
+        unicodeEmoji: always['unicodeEmoji']! as Map<String, Object?>,
+        emojiDenyList: always['emojiDenyList']! as List<String>,
+        allowedMediaOrigins: always['allowedMediaOrigins']! as List<String>,
+        hashtagPriorities: always['hashtagPriorities']! as Map<String, Object?>,
+        hashtagIcons: always['hashtagIcons']! as Map<String, Object?>,
+        censoredRegexp: always['censoredRegexp']! as List<Object?>,
+        watchedWordsReplace:
+            always['watchedWordsReplace']! as Map<String, Object?>,
+        watchedWordsLink: always['watchedWordsLink']! as Map<String, Object?>,
+        hashtags: selection.relevant([hashtags]),
+        customEmoji: selection.relevant([customEmoji]),
         pluginContext: {
           for (final plugin in _plugins)
             plugin.name: plugin.projectCookingContext(
@@ -216,6 +241,14 @@ final class ApplicationCooking {
         ).forRequest(request),
       );
     }
+    if (_inputLimited[request] == true) {
+      return Future.value(
+        readableFallback(
+          request.raw,
+          CookingFailure.inputLimit,
+        ).forRequest(request),
+      );
+    }
     return service.cook(request);
   }
 
@@ -234,5 +267,47 @@ final class ApplicationCooking {
     _uploads.clear();
     _metadata.clear();
     await service.dispose();
+  }
+}
+
+// UTF-8 JSON bytes also bound string units and node counts. Leave headroom for
+// identity, settings, provenance and owner context within the snapshot limit.
+final class _MetadataSelection {
+  _MetadataSelection(String raw) : _raw = raw.toLowerCase();
+  final String _raw;
+  var _remaining = 96 * 1024;
+
+  bool reserve(Object value) {
+    final cost = utf8.encode(jsonEncode(value)).length;
+    if (cost > _remaining) return false;
+    _remaining -= cost;
+    return true;
+  }
+
+  Map<String, Object?> relevant(
+    List<Map<String, Object?>> layers, {
+    Set<String> references = const {},
+  }) {
+    final keys = {for (final layer in layers) ...layer.keys}.toList()..sort();
+    final selected = <String, Object?>{};
+    var bytes = 0;
+    for (final key in keys) {
+      if (!_raw.contains(key.split('::').first.toLowerCase()) &&
+          !references.contains(key)) {
+        continue;
+      }
+      final value = layers.lastWhere((layer) => layer.containsKey(key))[key];
+      final cost = utf8.encode(jsonEncode({key: value})).length;
+      if (cost > 8192 ||
+          bytes + cost > 32768 ||
+          cost > _remaining ||
+          selected.length >= 128) {
+        continue;
+      }
+      selected[key] = value;
+      bytes += cost;
+      _remaining -= cost;
+    }
+    return selected;
   }
 }

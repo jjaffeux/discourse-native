@@ -45,3 +45,29 @@ test('transcript metadata is text and cannot inject HTML',()=>{
  const html=cook('[chat quote="Alice;1;2026-01-01" channel="<img src=x onerror=bad()>" channelId="javascript:bad()" threadTitle="<script>bad()</script>"]\nhello\n[/chat]');
  assert.doesNotMatch(html,/<img|<script|href="javascript/);assert.match(html,/&lt;img/);
 });
+
+for (const profile of ['post','chat']) test(`nested Chat selects ${profile}-only syntax and token modules`,()=>{
+ const raw='==TOKEN==\n\n[chat quote="Alice;1;2026-01-01" channelId="2"]\n==TOKEN==\n[/chat]';
+ const result=JSON.parse(sandbox.cook(JSON.stringify({raw,profile:'post',configuration:{modules:[
+  {id:'chat-transcript'}, {id:'fixture-mark',profiles:[profile]},
+  {id:'fixture-tokens',profiles:[profile],dependencies:['fixture-mark']},
+ ]},snapshot:{pluginContext:{'cooking-fixture':{replace:'REPLACED'}}}})));
+ assert.equal(result.failure,undefined);
+ const [outer,inner]=result.html.split('<div class="chat-transcript"');
+ assert.match(profile==='post'?outer:inner,/<mark data-fixture="bundled">REPLACED<\/mark>/);
+ assert.match(profile==='post'?inner:outer,/==TOKEN==/);
+ assert.doesNotMatch(profile==='post'?inner:outer,/<mark/);
+});
+
+for (const mode of ['missing-dependency','disabled-owner']) test(`nested Chat excludes ${mode}`,()=>{
+ const result=JSON.parse(sandbox.cook(JSON.stringify({
+  raw:'[chat quote="Alice;1;2026-01-01" channelId="2"]\n==TOKEN==\n[/chat]',profile:'post',
+  configuration:{modules:[{id:'chat-transcript'},
+   {id:'fixture-mark',profiles:[mode==='missing-dependency'?'post':'chat'],...(mode==='disabled-owner'?{enabledSetting:'fixture_enabled'}:{})},
+   {id:'fixture-tokens',profiles:['chat'],dependencies:['fixture-mark']}]},
+  snapshot:{pluginContext:{'cooking-fixture':{replace:'REPLACED',settings:{fixture_enabled:false}}}},
+ })));
+ assert.equal(result.failure,undefined);
+ assert.match(result.html,/==TOKEN==/);
+ assert.doesNotMatch(result.html,/<mark|REPLACED/);
+});

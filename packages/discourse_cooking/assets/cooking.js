@@ -34528,6 +34528,9 @@
       "div[data-thread-id]",
       "div[data-thread-title]"
     ]);
+    for (const policy of api.policiesForProfile("chat")) {
+      helper.allowList(Object.entries(policy).flatMap(([tag, attrs]) => [tag, ...attrs.map((attr4) => `${tag}[${attr4}]`)]));
+    }
     helper.registerOptions((options) => {
       options.additionalOptions = { ...options.additionalOptions, chat: {
         limited_pretty_text_features: [
@@ -34559,8 +34562,12 @@
           ruler.push = push;
         }
       }),
-      buildCookFunction: (callback) => helper.buildCookFunction((options, generate) => {
-        callback(options, (nested, ready) => generate({ ...nested, forceQuoteLink: true }, (cook3) => ready(cook3)));
+      buildCookFunction: (callback) => helper.buildCookFunction((options) => {
+        callback(options, (nested, ready) => ready((source) => api.cookProfile("chat", source, {
+          markdownItRules: nested.markdownItRules,
+          forceQuoteLink: true,
+          hashtagTypesInPriorityOrder: nested.hashtagTypesInPriorityOrder
+        })));
       })
     });
   }
@@ -42986,11 +42993,38 @@
     let raw = "";
     const cleanups = [];
     try {
-      let lookup = function(map2, key, kind) {
+      let settingsFor = function(selectedProfile) {
+        const selected = { ...defaults, ...selectedProfile.settings };
+        for (const key of settingsAllowed) {
+          const value = own2(snapshot2.siteSettings, key);
+          if (value !== void 0) selected[key] = value;
+        }
+        return selected;
+      }, resolveProfile = function(name) {
+        return request.configuration?.profiles?.find((p) => p.name === name) || (name === "chat" ? { features: chatFeatures, rules: chatRules, forceQuoteLink: true } : name === "post" ? {} : null);
+      }, selectModules = function(name, selectedSettings = settingsFor(resolveProfile(name) || {})) {
+        const selected = availableModules.filter((m, i) => (!declarations[i].profiles?.length || declarations[i].profiles.includes(name)) && (!declarations[i].enabledSetting || (snapshot2.pluginContext?.[m.owner]?.settings?.[declarations[i].enabledSetting] ?? selectedSettings[declarations[i].enabledSetting]) === true));
+        const active2 = new Set(selected.map((m) => m.id));
+        let changed;
+        do {
+          changed = false;
+          for (const d of declarations) if (active2.has(d.id) && (d.dependencies || []).some((id) => !active2.has(id))) {
+            active2.delete(d.id);
+            changed = true;
+          }
+        } while (changed);
+        return selected.filter((m) => active2.has(m.id));
+      }, lookup = function(map2, key, kind) {
         if (typeof key !== "string" || !key) return void 0;
         const value = own2(map2, key);
         if (kind && value === void 0 && !unresolvedReferences.some((r) => r.kind === kind && r.key === key)) unresolvedReferences.push({ kind, key });
         return value;
+      }, makeEngine2 = function(scope) {
+        const syntax = scope.modules.filter((m) => m.stage === "syntax").map((m, i) => ({ id: m.id, setup: (helper) => m.implementation.setup(helper, snapshot2.pluginContext?.[m.owner] || {}, apiFor(m, scope)), priority: i }));
+        for (const m of scope.modules.filter((m2) => m2.stage === "token")) syntax.push({ id: m.id, priority: syntax.length, setup(helper) {
+          helper.registerPlugin((md) => md.core.ruler.push(m.id, (state) => m.implementation.transform(state.tokens, snapshot2.pluginContext?.[m.owner] || {}, apiFor(m, scope))));
+        } });
+        return DiscourseMarkdownIt.withCustomFeatures(syntax, []).withOptions(scope.options);
       };
       if (typeof serializedRequest !== "string" || serializedRequest.length > 524288) throw Error("Request exceeds limit");
       const request = JSON.parse(serializedRequest);
@@ -43000,22 +43034,17 @@
       if (typeof request.profile === "string" && !["post", "chat"].includes(request.profile)) throw Error("Unknown profile");
       const profile = typeof request.profile === "string" ? request.profile === "chat" ? { features: chatFeatures, rules: chatRules, forceQuoteLink: true } : {} : request.profile;
       const declarations = request.configuration?.modules || [{ id: "spoiler-alert" }, { id: "offline-missing-uploads" }];
-      let modules = declarations.map((d) => {
+      const availableModules = declarations.map((d) => {
         const m = bundledModules[d.id];
         if (!m || d.owner && d.owner !== m.owner || d.version && d.version !== m.version) throw Error("Invalid module");
         return m;
       });
       const snapshot2 = freeze(request.snapshot || {});
       setLocale(snapshot2.context?.locale);
-      const settings = { ...defaults, ...profile.settings };
-      for (const key of settingsAllowed) {
-        const value = own2(snapshot2.siteSettings, key);
-        if (value !== void 0) settings[key] = value;
-      }
-      modules = modules.filter((m, i) => (!declarations[i].profiles?.length || declarations[i].profiles.includes(profile.name || request.profile)) && (!declarations[i].enabledSetting || (snapshot2.pluginContext?.[m.owner]?.settings?.[declarations[i].enabledSetting] ?? settings[declarations[i].enabledSetting]) === true));
+      const settings = settingsFor(profile);
+      const modules = selectModules(profile.name || request.profile, settings);
       const active = new Set(modules.map((m) => m.id));
-      for (const d of declarations) if (active.has(d.id) && (d.dependencies || []).some((id) => !active.has(id))) active.delete(d.id);
-      modules = modules.filter((m) => active.has(m.id));
+      const usedPolicies = new Set(modules.map((m) => m.policy));
       const unresolvedReferences = [];
       const baseUrl = /^https?:\/\/[^/]+(?:\/[^?#]*)?$/.test(snapshot2.baseUrl || "") ? snapshot2.baseUrl.replace(/\/$/, "") : "";
       const options = {
@@ -43056,17 +43085,43 @@
       }
       if (profile.rules) options.markdownItRules = profile.rules;
       options.forceQuoteLink = profile.forceQuoteLink === true;
-      const states = /* @__PURE__ */ new Map();
-      const apiFor = (m) => ({
+      const rootScope = { options, modules, profile: profile.name || request.profile, states: /* @__PURE__ */ new Map() };
+      const nestedEngines = /* @__PURE__ */ new Map();
+      const apiFor = (m, scope = rootScope) => ({
         context: snapshot2.context || {},
-        profile: profile.name || request.profile,
-        options,
+        profile: scope.profile,
+        options: scope.options,
         baseUrl,
         allowedMediaOrigins: snapshot2.allowedMediaOrigins || [],
-        activeFeatures: modules.filter((m2) => ["syntax", "token"].includes(m2.stage)).map((m2) => m2.id),
+        activeFeatures: scope.modules.filter((m2) => ["syntax", "token"].includes(m2.stage)).map((m2) => m2.id),
         hashtagPriorities: snapshot2.hashtagPriorities || {},
         onCleanup: (callback) => cleanups.push(callback),
-        state: states.get(m.owner) || (states.set(m.owner, {}), states.get(m.owner)),
+        state: scope.states.get(m.owner) || (scope.states.set(m.owner, {}), scope.states.get(m.owner)),
+        policiesForProfile: (name) => selectModules(name).map((m2) => m2.policy),
+        cookProfile: (name, source2, overrides = {}) => {
+          const key = JSON.stringify([name, overrides]);
+          let nestedEngine = nestedEngines.get(key);
+          if (!nestedEngine) {
+            const selectedProfile = resolveProfile(name);
+            if (!selectedProfile) throw Error("Unknown nested profile");
+            const nestedModules = selectModules(name);
+            const nestedSettings = settingsFor(selectedProfile);
+            const nestedOptions = {
+              ...options,
+              siteSettings: nestedSettings,
+              featuresOverride: selectedProfile.features ? [...selectedProfile.features, ...nestedModules.filter((m2) => ["syntax", "token"].includes(m2.stage)).map((m2) => m2.id), ...nestedSettings.enable_emoji_shortcuts ? ["emojiShortcuts"] : []] : void 0,
+              markdownItRules: selectedProfile.rules,
+              forceQuoteLink: selectedProfile.forceQuoteLink === true,
+              ...overrides
+            };
+            if (nestedOptions.featuresOverride) nestedOptions.featuresOverride = nestedOptions.featuresOverride.filter((id) => !bundledModules[id] || nestedModules.some((m2) => m2.id === id));
+            const nestedScope = { options: nestedOptions, modules: nestedModules, profile: name, states: /* @__PURE__ */ new Map() };
+            nestedEngine = makeEngine2(nestedScope);
+            nestedEngines.set(key, nestedEngine);
+            for (const nested of nestedModules) usedPolicies.add(nested.policy);
+          }
+          return nestedEngine.cook(source2);
+        },
         lookup: (namespace, key) => {
           const kinds = { uploads: "upload", mentions: "mention", avatars: "mention", hashtags: "hashtag", topics: "topic", oneboxes: "onebox", media: null, primaryGroups: null };
           if (!Object.hasOwn(kinds, namespace)) throw Error("Unknown lookup namespace");
@@ -43082,15 +43137,10 @@
       if (options.featuresOverride) options.featuresOverride = options.featuresOverride.filter((id) => !bundledModules[id] || active.has(id));
       resetTranslationTree();
       const html = withSnapshot(snapshot2, () => {
-        const syntax = modules.filter((m) => m.stage === "syntax").map((m, i) => ({ id: m.id, setup: (helper) => m.implementation.setup(helper, snapshot2.pluginContext?.[m.owner] || {}, apiFor(m)), priority: i }));
-        const transforms = modules.filter((m) => m.stage === "token");
-        for (const m of transforms) syntax.push({ id: m.id, priority: syntax.length, setup(helper) {
-          helper.registerPlugin((md) => md.core.ruler.push(m.id, (state) => m.implementation.transform(state.tokens, snapshot2.pluginContext?.[m.owner] || {}, apiFor(m))));
-        } });
-        const engine = DiscourseMarkdownIt.withCustomFeatures(syntax, []).withOptions(options);
+        const engine = makeEngine2(rootScope);
         let output = engine.cook(source);
         for (const m of modules.filter((m2) => m2.stage === "document")) output = m.implementation.transform(output, snapshot2.pluginContext?.[m.owner] || {}, apiFor(m));
-        return finalSanitize(output, modules.map((m) => m.policy));
+        return finalSanitize(output, [...usedPolicies]);
       });
       if (html.length > 1048576) throw Error("Output exceeds limit");
       return JSON.stringify({ html, warnings: [], unresolvedReferences });
