@@ -62,6 +62,7 @@ class InstanceRail extends StatelessWidget {
                       child: DButton.iconOnly(
                         key: const ValueKey('rail-sidebar-toggle'),
                         icon: const Icon(Icons.menu),
+                        tooltipSide: DTooltipSide.right,
                         tooltip: onToggleSidebar == null
                             ? 'Select a forum to toggle its sidebar'
                             : sidebarExpanded
@@ -908,6 +909,7 @@ class _AggregateRailButtonState extends State<_AggregateRailButton> {
                 key: const ValueKey('aggregate-rail-button'),
                 icon: const DIcon(DIcons.house),
                 tooltip: 'Aggregate',
+                tooltipSide: DTooltipSide.right,
                 shortcut: widget.shortcutKey == null
                     ? null
                     : DShortcut(
@@ -939,6 +941,7 @@ class _RailLoadFailure extends StatelessWidget {
     return Center(
       child: DTooltip(
         message: 'Retry loading sites',
+        side: DTooltipSide.right,
         child: InkWell(
           key: const ValueKey('instance-load-retry-rail'),
           onTap: ShellScope.read(context).load,
@@ -1037,6 +1040,7 @@ class _RailFooterButton extends StatelessWidget {
   Widget build(BuildContext context) => DButton.iconOnly(
     key: buttonKey,
     tooltip: tooltip,
+    tooltipSide: DTooltipSide.right,
     semanticLabel: tooltip,
     variant: DButtonVariant.ghost,
     size: DButtonSize.large,
@@ -1212,6 +1216,7 @@ class _UpdateButton extends StatelessWidget {
 
         return DTooltip(
           message: tooltip,
+          side: DTooltipSide.right,
           child: InkWell(
             onTap: () => showUpdateSheet(context),
             borderRadius: BorderRadius.circular(_railControlExtent / 2),
@@ -1491,7 +1496,7 @@ class _RailTooltip extends StatelessWidget {
     return DTooltip(
       key: ValueKey('instance-rail-tooltip-${instance.url}'),
       message: instance.title,
-      side: DTooltipSide.inlineEnd,
+      side: DTooltipSide.right,
       hoverDelay: const Duration(milliseconds: 280),
       dismissDelay: const Duration(milliseconds: 80),
       triggerMode: TooltipTriggerMode.manual,
@@ -1614,6 +1619,7 @@ class _AddInstanceButton extends StatelessWidget {
     return DButton.iconOnly(
       key: const ValueKey('add-instance-rail-button'),
       tooltip: label,
+      tooltipSide: DTooltipSide.right,
       semanticLabel: label,
       variant: DButtonVariant.ghost,
       size: DButtonSize.small,

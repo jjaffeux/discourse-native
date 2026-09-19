@@ -182,6 +182,24 @@ void main() {
       final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
       await mouse.addPointer(location: Offset.zero);
       addTearDown(mouse.removePointer);
+      for (final (key, message) in [
+        ('aggregate-rail-button', 'Aggregate'),
+        ('add-instance-rail-button', 'Add a Discourse site'),
+        ('styleguide-rail-button', 'Open component styleguide'),
+        ('settings-rail-button', 'Settings'),
+      ]) {
+        final button = find.byKey(ValueKey(key));
+        await mouse.moveTo(tester.getCenter(button));
+        await tester.pump(DTooltip.defaultHoverDelay);
+        await tester.pumpAndSettle();
+        expect(
+          tester.getRect(find.text(message)).left,
+          greaterThan(tester.getRect(button).right),
+          reason: '$message should appear to the right of the rail control',
+        );
+        await mouse.moveTo(Offset.zero);
+        await tester.pumpAndSettle();
+      }
       await mouse.moveTo(tester.getCenter(forum));
       await tester.pump(rawTooltip.hoverDelay);
       await tester.pumpAndSettle();

@@ -2032,7 +2032,7 @@ void _registerShellNavigationTests() {
       final tooltip = tester.widget<DTooltip>(tooltipFinder);
       expect(tooltip.message, 'Discourse Team');
       expect(tooltip.triggerMode, TooltipTriggerMode.manual);
-      expect(tooltip.side, DTooltipSide.inlineEnd);
+      expect(tooltip.side, DTooltipSide.right);
       final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
       await mouse.addPointer(location: Offset.zero);
       addTearDown(mouse.removePointer);
