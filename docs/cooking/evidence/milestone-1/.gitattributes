@@ -1,0 +1,2 @@
+# Preserve exact terminal output, including tool-generated padding.
+*.txt -whitespace

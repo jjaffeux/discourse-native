@@ -5,6 +5,7 @@ analyzer:
     - build/**
     - third_party/**
     # These have independent package configs or are reviewed vendor trees.
+    - packages/discourse_cooking/**
     - packages/discourse_voice/**
     - packages/video_player_avfoundation/**
     - packages/flutter_widget_from_html_core/**

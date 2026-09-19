@@ -1,0 +1,14 @@
+name: discourse_cooking
+description: Bounded offline Discourse cooking runtime.
+version: 0.1.0
+publish_to: none
+environment:
+  sdk: ^3.12.2
+dependencies:
+  ffi: ^2.2.0
+  hooks: ^2.2.0
+  code_assets: ^2.0.0
+  native_toolchain_c: ^0.19.5
+dev_dependencies:
+  test: ^1.26.3
+  lints: ^6.0.0

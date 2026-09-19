@@ -1,0 +1,15 @@
+[
+  {"name":"common markdown", "raw":"**bold** and *emphasis*", "profile":"post", "html":"<p><strong>bold</strong> and <em>emphasis</em></p>"},
+  {"name":"protected inline code", "raw":"`@alice :smile: [spoiler]x[/spoiler]`", "profile":"post", "html":"<p><code>@alice :smile: [spoiler]x[/spoiler]</code></p>"},
+  {"name":"fenced code", "raw":"```js\nconst x = '<script>';\n```", "profile":"post", "includes":["<pre>","<code class=\"lang-js\">","&lt;script&gt;"]},
+  {"name":"post headings", "raw":"# Heading", "profile":"post", "includes":["<h1>","Heading</h1>"]},
+  {"name":"chat headings stay literal", "raw":"# Heading", "profile":"chat", "html":"<p># Heading</p>"},
+  {"name":"emoji", "raw":":smile:", "profile":"chat", "includes":["emoji only-emoji","/images/emoji/twitter/smile.png?v=15"]},
+  {"name":"vendored spoiler plugin", "raw":"[spoiler]hello[/spoiler]", "profile":"post", "html":"<div class=\"spoiler\">\n<p>hello</p>\n</div>"},
+  {"name":"unknown mention hashtag and upload", "raw":"@alice #unknown ![file](upload://missing)", "profile":"post", "html":"<p><span class=\"mention\">@alice</span> <span class=\"hashtag-raw\">#unknown</span> [file]</p>"},
+  {"name":"unknown onebox", "raw":"https://example.com/foo", "profile":"chat", "html":"<p><a href=\"https://example.com/foo\" class=\"onebox\" target=\"_blank\">https://example.com/foo</a></p>"},
+  {"name":"known upload", "raw":"![file](upload://abc)", "profile":"post", "snapshot":{"uploads":{"upload://abc":{"url":"https://a.test/file.png","base62_sha1":"abc"}}}, "includes":["src=\"https://a.test/file.png\"","data-base62-sha1=\"abc\""]},
+  {"name":"quote BBCode", "raw":"[quote=\"alice\"]hello[/quote]", "profile":"post", "includes":["<aside class=\"quote no-group\"","alice:","<blockquote>\n<p>hello</p>"]},
+  {"name":"raw script blocked", "raw":"<script>alert(1)</script><img src=\"javascript:alert(1)\" onerror=\"alert(1)\">", "profile":"post", "excludes":["<script","javascript:","onerror"]},
+  {"name":"cached raw onebox final trust boundary", "raw":"https://example.com/foo", "profile":"post", "snapshot":{"oneboxes":{"https://example.com/foo":"<div><script>alert(1)</script><img src=\"javascript:alert(1)\" onerror=\"alert(1)\"><iframe src=\"https://evil.test\"></iframe><h1 onclick=\"heading--exploit\">safe</h1></div>"}}, "includes":["safe"],"excludes":["<script","<iframe","javascript:","onerror","onclick"]}
+]
