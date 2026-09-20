@@ -35,7 +35,8 @@ List<Widget> _topicRowTags(BuildContext context, _TopicRowBody row) {
 }
 
 class _TopicListTitle extends StatelessWidget {
-  const _TopicListTitle({required this.row});
+  const _TopicListTitle({required this.row, this.mobile = false});
+  final bool mobile;
   final _TopicRowBody row;
 
   @override
@@ -50,7 +51,7 @@ class _TopicListTitle extends StatelessWidget {
         (large ? theme.textTheme.titleMedium : theme.textTheme.titleSmall);
     final largeText = MediaQuery.textScalerOf(context).scale(14) > 21;
     return DItemTitle(
-      maxLines: largeText ? null : 2,
+      maxLines: largeText || mobile ? null : 2,
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         spacing: 6,
@@ -59,7 +60,7 @@ class _TopicListTitle extends StatelessWidget {
           for (final (shown, icon, label, color) in [
             (topic.closed, DIcons.lock, 'Closed', null),
             (
-              topic.pinned,
+              topic.pinned && !mobile,
               DIcons.thumbtack,
               'Pinned',
               theme.colorScheme.tertiary,
@@ -91,7 +92,7 @@ class _TopicListTitle extends StatelessWidget {
             child: TopicTitle(
               topic.title,
               siteUrl: row.siteUrl,
-              maxLines: largeText ? null : 2,
+              maxLines: largeText || mobile ? null : 2,
               overflow: largeText ? TextOverflow.clip : TextOverflow.ellipsis,
               style: style?.copyWith(
                 color: topicListTitleColor(
