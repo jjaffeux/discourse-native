@@ -117,11 +117,8 @@ class _ForumThemeEditorState extends State<ForumThemeEditor> {
 
   void _changed(String _) {
     for (final entry in _colors.entries) {
-      if (RegExp(r'^#[a-fA-F0-9]{6}$').hasMatch(entry.value.text)) {
-        _lastColors[entry.key] = Color(
-          0xff000000 | int.parse(entry.value.text.substring(1), radix: 16),
-        );
-      }
+      final color = ForumTheme.parseHex(entry.value.text);
+      if (color != null) _lastColors[entry.key] = color;
     }
     setState(() => _notice = null);
     final theme = _theme;
@@ -337,17 +334,8 @@ class _ForumThemeEditorState extends State<ForumThemeEditor> {
                         semanticLabel:
                             'Choose ${_roles[entry.key]!.toLowerCase()} color',
                         value:
-                            RegExp(
-                              r'^#[a-fA-F0-9]{6}$',
-                            ).hasMatch(entry.value.text)
-                            ? Color(
-                                0xff000000 |
-                                    int.parse(
-                                      entry.value.text.substring(1),
-                                      radix: 16,
-                                    ),
-                              )
-                            : _lastColors[entry.key]!,
+                            ForumTheme.parseHex(entry.value.text) ??
+                            _lastColors[entry.key]!,
                         onChanged: enabled
                             ? (color) {
                                 entry.value.text = ForumTheme.hex(color);
@@ -359,12 +347,9 @@ class _ForumThemeEditorState extends State<ForumThemeEditor> {
                       enabled: enabled,
                       autocorrect: false,
                       maxLength: 7,
-                      errorText:
-                          RegExp(
-                            r'^#[a-fA-F0-9]{6}$',
-                          ).hasMatch(entry.value.text)
-                          ? null
-                          : 'Use #RRGGBB.',
+                      errorText: ForumTheme.parseHex(entry.value.text) == null
+                          ? 'Use #RRGGBB.'
+                          : null,
                       onChanged: _changed,
                     ),
                   ),

@@ -37,10 +37,9 @@ final class ForumTheme {
     }
     Color color(String key) {
       final value = colors[key];
-      if (value is! String || !RegExp(r'^#[a-fA-F0-9]{6}$').hasMatch(value)) {
-        throw FormatException('Invalid $key color.');
-      }
-      return Color(0xff000000 | int.parse(value.substring(1), radix: 16));
+      final parsed = value is String ? parseHex(value) : null;
+      if (parsed == null) throw FormatException('Invalid $key color.');
+      return parsed;
     }
 
     for (final key in ['windowGradient', 'darkerSidebars']) {
@@ -94,6 +93,14 @@ final class ForumTheme {
 
   static String hex(Color color) =>
       '#${(color.toARGB32() & 0xffffff).toRadixString(16).padLeft(6, '0').toUpperCase()}';
+
+  /// The color a `#RRGGBB` string names, or null when [value] is not one.
+  /// The inverse of [hex], and the only reader of that form.
+  static Color? parseHex(String value) => _hexPattern.hasMatch(value)
+      ? Color(0xff000000 | int.parse(value.substring(1), radix: 16))
+      : null;
+
+  static final RegExp _hexPattern = RegExp(r'^#[a-fA-F0-9]{6}$');
 
   Map<String, dynamic> toJson() => {
     if (alternate != null) 'alternate': alternate!.toJson(),

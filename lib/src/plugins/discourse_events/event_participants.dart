@@ -12,6 +12,8 @@ import 'event_card.dart' show eventResponseLabel;
 import 'event_controller.dart';
 import 'event_data.dart';
 
+final RegExp _whitespace = RegExp(r'\s+');
+
 Future<void> showEventParticipants(
   BuildContext context,
   EventHandle source,
@@ -374,7 +376,7 @@ class _ParticipantRow extends StatelessWidget {
     final user = invitee.user;
     final name = user.name?.trim();
     final displayName = name == null || name.isEmpty ? user.username : name;
-    final words = displayName.split(RegExp(r'\s+'));
+    final words = displayName.split(_whitespace);
     final initials = [
       words.first.characters.first,
       if (words.length > 1) words.last.characters.first,

@@ -15,6 +15,8 @@ import 'gifs_api.dart';
 import 'gifs_icons.dart';
 import 'gifs_settings.dart';
 
+final RegExp _trailingSlashes = RegExp(r'/+$');
+
 /// Callers own draft-staleness checks and insertion of the returned GIF.
 Future<GifResult?> showGifPicker({
   required BuildContext context,
@@ -543,7 +545,7 @@ class _KlipyAttribution extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final dark = Theme.of(context).brightness == Brightness.dark;
-    final base = siteUrl.replaceFirst(RegExp(r'/+$'), '');
+    final base = siteUrl.replaceFirst(_trailingSlashes, '');
     final url = '$base/images/klipy-logo${dark ? '-dark' : ''}.png';
     return Align(
       key: const ValueKey('gif-picker-attribution'),
