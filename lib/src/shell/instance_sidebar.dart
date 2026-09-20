@@ -332,6 +332,7 @@ class _SidebarPanelBodyState extends State<_SidebarPanelBody> {
     }
 
     return DSidebar(
+      backgroundColor: widget.mobile ? Colors.transparent : null,
       width: width,
       collapsible: DSidebarCollapsible.none,
       semanticLabel: '${activePanel?.panel.label ?? 'Forum'} navigation',
