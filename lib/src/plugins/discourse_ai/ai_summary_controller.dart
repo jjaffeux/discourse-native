@@ -2,6 +2,7 @@
 
 import 'dart:async';
 
+import '../../plugin_api/cooking_plugin.dart';
 import '../../plugin_api/core_plugin_host.dart';
 import '../../plugin_api/live_channels.dart';
 import 'ai_summary.dart';
@@ -10,6 +11,7 @@ import 'ai_summary_api.dart';
 final class AiSummaryController {
   AiSummaryController({
     required this.api,
+    this.cooking,
     required PluginRequestHost requests,
     required PluginTrackerReader trackerFor,
     this.streamTimeout = const Duration(minutes: 3),
@@ -17,11 +19,25 @@ final class AiSummaryController {
        _trackerFor = trackerFor;
 
   final AiSummaryApi api;
+  final PluginCookingHost? cooking;
+
   final PluginRequestHost _requests;
   final PluginTrackerReader _trackerFor;
   final Duration streamTimeout;
   final Map<AiSummaryRequest, String> _pending = {};
   bool _disposed = false;
+
+  Future<String> cook({required String siteUrl, required String raw}) async {
+    final host = cooking;
+    if (host == null) throw StateError('Cooking is unavailable.');
+    final request = host.request(siteUrl: siteUrl, raw: raw);
+    final result = await host.cook(request);
+    if (_disposed) throw const AiSummaryCancelled();
+    if (!host.isCurrent(request)) {
+      throw StateError('Summary cooking context changed.');
+    }
+    return result.html;
+  }
 
   AiSummaryRequest load({
     required String siteUrl,

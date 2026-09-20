@@ -1,4 +1,5 @@
 import '../../diagnostics/diagnostics_controller.dart';
+import '../../plugin_api/cooking_plugin.dart';
 import '../../plugin_api/core_plugin_host.dart';
 import '../../plugin_api/plugin_manifest.dart';
 import 'ai_proofreading_api.dart';
@@ -30,6 +31,7 @@ final class DiscourseAiModule implements PluginModule {
     registrar.addSession(
       (bindings, _) {
         final summary = AiSummaryController(
+          cooking: bindings.require(corePluginCookingPort),
           api: AiSummaryApi(bindings.require(corePluginTransportPort)),
           requests: bindings.require(corePluginRequestPort),
           trackerFor: bindings.require(corePluginTrackerPort),
@@ -54,6 +56,7 @@ final class DiscourseAiModule implements PluginModule {
         );
       },
       requires: const [
+        corePluginCookingPort,
         corePluginTransportPort,
         corePluginRequestPort,
         corePluginTrackerPort,
