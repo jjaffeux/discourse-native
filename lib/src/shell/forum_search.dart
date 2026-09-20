@@ -20,12 +20,12 @@ import 'shell_search_controller.dart';
 
 /// Global search with one editor shared by the navbar and its open surface.
 class ForumSearch extends StatefulWidget {
-  const ForumSearch({super.key, this.dense = false, this.sheet = false});
+  const ForumSearch({super.key, this.dense = false, this.fullScreen = false});
 
   final bool dense;
 
-  /// Mobile presents the same editor and results in a sheet from an icon.
-  final bool sheet;
+  /// Mobile opens the editor and results on a dedicated navigation page.
+  final bool fullScreen;
   static const Key inputKey = ValueKey('forum-search-input');
   static const Key panelKey = ValueKey('forum-search-panel');
   static const Key anchorKey = ValueKey('forum-search-anchor');
@@ -41,7 +41,8 @@ class _ForumSearchState extends State<ForumSearch> {
   final _text = TextEditingController();
   final _focus = FocusNode(debugLabel: 'forum search');
   final _popover = DPopoverController();
-  final _sheet = DSheetController<void>();
+  MaterialPageRoute<void>? _page;
+  final _pageRevision = ValueNotifier(0);
   ShellController? _shell;
   late ShellSearchController _search;
   late GlobalSearchController _global;
@@ -58,11 +59,18 @@ class _ForumSearchState extends State<ForumSearch> {
   String? _lastExternalQuery;
   String? _selectedResultId;
 
-  bool get _surfaceOpen => widget.sheet ? _sheet.isOpen : _popover.isOpen;
+  bool get _surfaceOpen => widget.fullScreen ? _page != null : _popover.isOpen;
 
   void _closeSearch() {
-    if (widget.sheet) {
-      _sheet.close();
+    if (widget.fullScreen) {
+      final page = _page;
+      if (page != null) {
+        if (page.isCurrent) {
+          page.navigator?.pop();
+        } else {
+          page.navigator?.removeRoute(page);
+        }
+      }
     } else {
       _popover.close();
     }
@@ -185,7 +193,7 @@ class _ForumSearchState extends State<ForumSearch> {
 
   void _openSearch({SearchFocusMode? mode}) {
     if (_search.siteUrl == null) return;
-    if (!widget.sheet) _measureAnchor();
+    if (!widget.fullScreen) _measureAnchor();
     if (!_surfaceOpen || mode != null) {
       final route = _shell!.currentContent;
       final pluginContext = _shell!.plugins.registry.contentSearchContext(
@@ -218,8 +226,8 @@ class _ForumSearchState extends State<ForumSearch> {
       }
     }
     if (!_surfaceOpen) {
-      if (widget.sheet) {
-        _sheet.open();
+      if (widget.fullScreen) {
+        _openPage();
       } else {
         _popover.open(DPopoverInteraction.keyboard);
       }
@@ -262,7 +270,8 @@ class _ForumSearchState extends State<ForumSearch> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       if (_text.text == editingValue.text) _text.value = editingValue;
-      if (open || (!widget.sheet && reason == DPopoverChangeReason.escape)) {
+      if (open ||
+          (!widget.fullScreen && reason == DPopoverChangeReason.escape)) {
         _focus.requestFocus();
       } else {
         _focus.unfocus();
@@ -306,6 +315,7 @@ class _ForumSearchState extends State<ForumSearch> {
           ? (down ? 0 : rows.length - 1)
           : (current + (down ? 1 : -1) + rows.length) % rows.length;
       setState(() => _selectedResultId = rows[next].id);
+      _pageRevision.value++;
       return KeyEventResult.handled;
     }
     if (key == LogicalKeyboardKey.enter ||
@@ -314,7 +324,7 @@ class _ForumSearchState extends State<ForumSearch> {
           .where((row) => row.id == _selectedResultId)
           .firstOrNull;
       if (selected != null) {
-        _openResult(selected);
+        unawaited(_openResult(selected));
       } else {
         _global.submit();
       }
@@ -323,11 +333,14 @@ class _ForumSearchState extends State<ForumSearch> {
     return KeyEventResult.ignored;
   }
 
-  void _openResult(GlobalSearchResult result) {
+  Future<void> _openResult(GlobalSearchResult result) async {
     final site = _global.siteUrl;
     if (site == null) return;
     unawaited(_global.recordSelection(result));
+    final page = _page;
     _closeSearch();
+    if (page != null) await page.completed;
+    if (!mounted) return;
     if (result.source case final SearchPostHit hit) {
       _shell!.openSearchResult(hit);
     } else {
@@ -380,8 +393,9 @@ class _ForumSearchState extends State<ForumSearch> {
                     tooltip: 'Clear search',
                     onPressed: _clear,
                   )
-                else if (width >=
-                    280 * MediaQuery.textScalerOf(context).scale(14) / 14)
+                else if (!widget.fullScreen &&
+                    width >=
+                        280 * MediaQuery.textScalerOf(context).scale(14) / 14)
                   DShortcutKeycaps(
                     shortcut: DShortcut(
                       searchShortcutForPlatform(defaultTargetPlatform),
@@ -399,7 +413,7 @@ class _ForumSearchState extends State<ForumSearch> {
   @override
   Widget build(BuildContext context) {
     if (_search.siteUrl == null) return const SizedBox.shrink();
-    if (widget.sheet) return _buildSheet(context);
+    if (widget.fullScreen) return _buildPageTrigger();
     final platform = Theme.of(context).platform;
     final mobile =
         (platform == TargetPlatform.iOS ||
@@ -604,74 +618,87 @@ class _ForumSearchState extends State<ForumSearch> {
     _focus.dispose();
     _text.dispose();
     _popover.dispose();
-    _sheet.dispose();
+    _pageRevision.dispose();
     super.dispose();
   }
 
-  Widget _buildSheet(BuildContext context) => DSheet<void>(
-    controller: _sheet,
-    initialFocusNode: _focus,
-    onOpenChanged: (details) =>
-        _openChanged(details.open, DPopoverChangeReason.imperative),
-    trigger: DSheetTrigger(
-      builder: (context, _) => DButton.iconOnly(
-        key: const ValueKey('mobile-search-button'),
-        icon: const DIcon(DIcons.magnifyingGlass),
-        tooltip: 'Search',
-        variant: DButtonVariant.ghost,
-        onPressed: _requestFocus,
-      ),
-    ),
-    content: DSheetContent(
-      key: ForumSearch.panelKey,
-      side: DSheetSide.bottom,
-      semanticLabel: 'Search this forum',
-      showCloseButton: false,
-      scrollWholeSheet: false,
-      children: [
-        SizedBox(
-          height: math.max(
-            0,
-            MediaQuery.sizeOf(context).height -
-                MediaQuery.paddingOf(context).vertical -
-                MediaQuery.viewInsetsOf(context).bottom -
-                24,
-          ),
-          child: Column(
-            children: [
-              Padding(
-                padding: const EdgeInsets.all(DSpacing.sm),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: _editor(
-                        MediaQuery.sizeOf(context).width - 64,
-                        expanded: true,
+  Widget _buildPageTrigger() => DButton.iconOnly(
+    key: const ValueKey('mobile-search-button'),
+    icon: const DIcon(DIcons.magnifyingGlass),
+    tooltip: 'Search',
+    variant: DButtonVariant.ghost,
+    onPressed: _requestFocus,
+  );
+
+  void _openPage() {
+    final page = MaterialPageRoute<void>(
+      settings: const RouteSettings(name: '/search'),
+      builder: (pageContext) => InheritedTheme.captureAll(
+        context,
+        ShellScope(
+          controller: _shell!,
+          child: ListenableBuilder(
+            listenable: Listenable.merge([_global, _pageRevision]),
+            // A page canvas supplies the Material ancestor required by DInputGroup.
+            builder: (context, _) => Material(
+              color: DTokens.of(context).background,
+              child: SafeArea(
+                child: Padding(
+                  padding: EdgeInsets.only(
+                    bottom: MediaQuery.viewInsetsOf(context).bottom,
+                  ),
+                  child: Column(
+                    key: ForumSearch.panelKey,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.all(DSpacing.sm),
+                        child: Row(
+                          children: [
+                            DButton.iconOnly(
+                              key: const ValueKey('mobile-search-back'),
+                              icon: const DIcon(DIcons.arrowLeft),
+                              tooltip: 'Back',
+                              variant: DButtonVariant.ghost,
+                              onPressed: _closeSearch,
+                            ),
+                            Expanded(
+                              child: _editor(
+                                MediaQuery.sizeOf(context).width - 64,
+                                expanded: true,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                    DButton.iconOnly(
-                      key: const ValueKey('mobile-search-close'),
-                      icon: const DIcon(DIcons.xmark),
-                      tooltip: 'Close search',
-                      variant: DButtonVariant.ghost,
-                      onPressed: _closeSearch,
-                    ),
-                  ],
+                      const DSeparator(),
+                      Expanded(
+                        child: GlobalSearchPanel(
+                          controller: _global,
+                          selectedResultId: _selectedResultId,
+                          onSelect: (id) {
+                            _selectedResultId = id;
+                            _pageRevision.value++;
+                          },
+                          onOpen: _openResult,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-              const DSeparator(),
-              Expanded(
-                child: GlobalSearchPanel(
-                  controller: _global,
-                  selectedResultId: _selectedResultId,
-                  onSelect: (id) => setState(() => _selectedResultId = id),
-                  onOpen: _openResult,
-                ),
-              ),
-            ],
+            ),
           ),
         ),
-      ],
-    ),
-  );
+      ),
+    );
+    _page = page;
+    _openChanged(true, DPopoverChangeReason.imperative);
+    unawaited(
+      Navigator.of(context).push(page).then((_) {
+        if (!mounted || _page != page) return;
+        _page = null;
+        _openChanged(false, DPopoverChangeReason.imperative);
+      }),
+    );
+  }
 }

@@ -18,6 +18,22 @@ import 'support/global_search_fixtures.dart';
 import 'support/shell_test_harness.dart';
 
 void main() {
+  _testPresentation('mobile result selection closes the search page', (
+    tester,
+  ) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+    final shell = await _pumpSearch(tester, size: phone);
+    await _openAndSearch(tester, 'design');
+    final result = _panelText('A calmer, more useful global search').first;
+    await tester.ensureVisible(result);
+    await tester.pumpAndSettle();
+    await tester.tap(result);
+    await tester.pumpAndSettle();
+    expect(find.byKey(ForumSearch.panelKey), findsNothing);
+    expect(shell.globalSearch.query, 'design');
+    expect(tester.takeException(), isNull);
+  });
+
   for (final mode in ChatPreferredDisplayMode.values) {
     _testPresentation(
       'chat results from a forum open in the saved ${mode.name} mode',
@@ -761,7 +777,7 @@ void main() {
           case 'outside':
             await tester.tapAt(const Offset(1400, 850));
           case 'back':
-            await tester.tap(find.byKey(const ValueKey('mobile-search-close')));
+            await tester.tap(find.byKey(const ValueKey('mobile-search-back')));
           case 'result':
             await tester.ensureVisible(
               _panelText('The search design is ready for a keyboard review.'),
