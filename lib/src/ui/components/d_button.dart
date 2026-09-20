@@ -753,7 +753,7 @@ class DButton extends StatelessWidget {
                   (border.style == BorderStyle.none || border.width == 0
                       ? Colors.transparent
                       : border.color);
-        return _DButtonSurface(
+        final surface = _DButtonSurface(
           duration: animationDuration,
           hovered:
               states.contains(WidgetState.hovered) ||
@@ -774,6 +774,7 @@ class DButton extends StatelessWidget {
           ),
           child: child,
         );
+        return joined == null ? surface : DJoinedControlSurface(child: surface);
       },
     );
 

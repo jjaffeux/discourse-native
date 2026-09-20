@@ -56,6 +56,64 @@ void main() {
     }
   }
 
+  for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
+    for (final orientation in DButtonGroupOrientation.values) {
+      for (final size in DButtonSize.values) {
+        testWidgets(
+          'separator matches touch artwork: $platform $orientation $size',
+          (tester) async {
+            final horizontal =
+                orientation == DButtonGroupOrientation.horizontal;
+            await _pump(
+              tester,
+              DButtonGroup(
+                orientation: orientation,
+                children: [
+                  DButton.iconOnly(
+                    icon: const Icon(Icons.add),
+                    tooltip: 'Create',
+                    size: size,
+                    onPressed: _noop,
+                  ),
+                  DButtonGroupSeparator(
+                    orientation: horizontal ? Axis.vertical : Axis.horizontal,
+                  ),
+                  DButton.iconOnly(
+                    icon: const Icon(Icons.expand_more),
+                    tooltip: 'Drafts',
+                    size: size,
+                    onPressed: _noop,
+                  ),
+                ],
+              ),
+              platform: platform,
+            );
+            final surface = tester.getRect(
+              find
+                  .byWidgetPredicate(
+                    (widget) =>
+                        widget is AnimatedContainer &&
+                        widget.decoration is DButtonDecoration,
+                  )
+                  .first,
+            );
+            final separator = tester.getRect(
+              find.byType(DButtonGroupSeparator),
+            );
+            if (horizontal) {
+              expect(separator.top, surface.top);
+              expect(separator.bottom, surface.bottom);
+            } else {
+              expect(separator.left, surface.left);
+              expect(separator.right, surface.right);
+            }
+            expect(tester.takeException(), isNull);
+          },
+        );
+      }
+    }
+  }
+
   testWidgets('passive label remeasures after decreasing and increasing', (
     tester,
   ) async {
