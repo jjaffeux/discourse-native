@@ -1231,11 +1231,22 @@ class _DDrawerRoutePageState<T> extends State<_DDrawerRoutePage<T>>
         Positioned.fill(
           child: Opacity(
             opacity: overlayOpacity,
-            child: DDrawerOverlay(
-              dismissible: !config.disablePointerDismissal,
-              semanticsLabel: config.barrierLabel,
-              onDismiss: () =>
-                  _requestDismiss(DDrawerChangeReason.outsidePress),
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onVerticalDragStart: _vertical ? _dragStartGesture : null,
+              onVerticalDragUpdate: _vertical ? _dragUpdateGesture : null,
+              onVerticalDragEnd: _vertical ? _dragEndGesture : null,
+              onVerticalDragCancel: _vertical ? _dragCancelGesture : null,
+              onHorizontalDragStart: _vertical ? null : _dragStartGesture,
+              onHorizontalDragUpdate: _vertical ? null : _dragUpdateGesture,
+              onHorizontalDragEnd: _vertical ? null : _dragEndGesture,
+              onHorizontalDragCancel: _vertical ? null : _dragCancelGesture,
+              child: DDrawerOverlay(
+                dismissible: !config.disablePointerDismissal,
+                semanticsLabel: config.barrierLabel,
+                onDismiss: () =>
+                    _requestDismiss(DDrawerChangeReason.outsidePress),
+              ),
             ),
           ),
         ),
