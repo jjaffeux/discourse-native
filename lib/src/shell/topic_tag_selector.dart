@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import '../foundation/latest_wins_queued_lookup_controller.dart';
 import '../models/topic.dart';
 import '../theme/d_icons.dart';
+import 'platform.dart';
 import 'topic_taxonomy_button.dart';
 
 /// The tag button and searchable dropdown shared by filters and editors.
@@ -245,6 +246,7 @@ class _TopicTagSelectorState extends State<TopicTagSelector> {
     );
     final content = DComboboxContent(
       sheetOnMobile: widget.sheetOnMobile,
+      fullScreenOnMobile: true,
       key: ValueKey('$prefix-popover'),
       semanticLabel: 'Tags',
       width: 280,
@@ -256,6 +258,7 @@ class _TopicTagSelectorState extends State<TopicTagSelector> {
             placeholder: 'Search tags…',
             semanticLabel: 'Search tags',
             registerAsAnchor: false,
+            autofocus: context.isTouch,
             showTrigger: false,
           ),
         ),
@@ -310,6 +313,7 @@ class _TopicTagSelectorState extends State<TopicTagSelector> {
       return DCombobox<TopicTag>.multipleControlled(
         controller: _combobox,
         value: selected.isEmpty && widget.includeAll ? const [_all] : selected,
+        closeOnSelect: !context.isTouch,
         options: options,
         enabled: widget.onChanged != null,
         equals: _sameTag,

@@ -30,6 +30,7 @@ void main() {
       'Input Group',
       'RTL',
       'Sheet on mobile',
+      'Full-screen mobile picker',
     ]);
   });
 

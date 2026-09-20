@@ -117,6 +117,7 @@ class TopicTaxonomyPickerContent extends StatelessWidget {
     required this.onQuerySubmitted,
     required this.children,
     this.separatorKey,
+    this.queryFocusNode,
   });
 
   final Key queryKey;
@@ -126,6 +127,7 @@ class TopicTaxonomyPickerContent extends StatelessWidget {
   final ValueChanged<String> onQuerySubmitted;
   final List<Widget> children;
   final Key? separatorKey;
+  final FocusNode? queryFocusNode;
 
   @override
   Widget build(BuildContext context) => Column(
@@ -137,6 +139,7 @@ class TopicTaxonomyPickerContent extends StatelessWidget {
         child: DInput(
           key: queryKey,
           controller: queryController,
+          focusNode: queryFocusNode,
           hintText: queryHint,
           semanticLabel: queryHint,
           autofocus: true,

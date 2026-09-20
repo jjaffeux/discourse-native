@@ -529,7 +529,8 @@ class _DComboboxState<T> extends FormFieldState<List<T>> {
       left.indexed.every((entry) => _equal(entry.$2, right[entry.$1]));
 
   void _syncTextAfterUpdate(String text) {
-    if (!combobox.content.sheetOnMobile) {
+    if (!combobox.content.sheetOnMobile &&
+        !combobox.content.fullScreenOnMobile) {
       _replaceText(text);
       return;
     }
@@ -845,6 +846,8 @@ class _DComboboxState<T> extends FormFieldState<List<T>> {
       state: this,
       child: DPopover(
         sheetOnMobile: combobox.content.sheetOnMobile,
+        fullScreenOnMobile: combobox.content.fullScreenOnMobile,
+        initialFocusNode: focusNode,
         controller: _popoverController,
         open: isOpen,
         focusContentOnOpen: false,
@@ -1141,6 +1144,7 @@ class DComboboxContent extends StatelessWidget {
     this.width,
     this.maxHeight = 288,
     this.sheetOnMobile = false,
+    this.fullScreenOnMobile = false,
   });
 
   final List<Widget> children;
@@ -1158,6 +1162,9 @@ class DComboboxContent extends StatelessWidget {
 
   /// Uses a searchable bottom sheet on mobile platforms.
   final bool sheetOnMobile;
+
+  /// Uses a full-height, keyboard-aware inset sheet on mobile platforms.
+  final bool fullScreenOnMobile;
 
   @override
   Widget build(BuildContext context) => ClipRRect(

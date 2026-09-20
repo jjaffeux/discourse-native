@@ -111,6 +111,7 @@ class DSheet<T> extends StatelessWidget {
       content.sidePanelWidth,
       content.inset,
       content.animateSize,
+      content.fillAvailableHeight,
     ),
     trigger: DDialogTrigger(builder: trigger.builder),
     content: content,
@@ -146,6 +147,7 @@ Widget _sheetPresentation(
   double? width,
   bool inset,
   bool animateSize,
+  bool fillAvailableHeight,
 ) {
   final animate = !MediaQuery.disableAnimationsOf(context);
   final side = requestedSide.resolve(Directionality.of(context));
@@ -175,7 +177,19 @@ Widget _sheetPresentation(
   Widget popup = _DSheetSideScope(
     side: side,
     inset: inset,
-    child: presentation.content,
+    child: fillAvailableHeight
+        ? MediaQuery.removeViewInsets(
+            context: context,
+            removeBottom: true,
+            child: Builder(
+              builder: (context) => MediaQuery.removePadding(
+                context: context,
+                removeTop: true,
+                child: presentation.content,
+              ),
+            ),
+          )
+        : presentation.content,
   );
   if (animate) {
     popup = FadeTransition(
@@ -217,8 +231,16 @@ Widget _sheetPresentation(
         right: side == DSheetSide.left || side == DSheetSide.center
             ? null
             : margin,
-        top: side == DSheetSide.bottom ? null : margin,
-        bottom: side == DSheetSide.top ? null : margin,
+        top: fillAvailableHeight
+            ? MediaQuery.paddingOf(context).top + margin
+            : side == DSheetSide.bottom
+            ? null
+            : margin,
+        bottom: fillAvailableHeight
+            ? MediaQuery.viewInsetsOf(context).bottom + margin
+            : side == DSheetSide.top
+            ? null
+            : margin,
         width: horizontal ? panelWidth : null,
         child: popup,
       );
@@ -251,6 +273,7 @@ class DSheetContent extends StatelessWidget {
     this.sideAccessoryWidth = 52,
     this.scrollWholeSheet,
     this.topBottomMaxHeightFactor,
+    this.fillAvailableHeight = false,
   }) : assert(sideAccessoryWidth > 0),
        assert(
          sideAccessory == null ||
@@ -306,6 +329,9 @@ class DSheetContent extends StatelessWidget {
 
   /// Optional cap used by long top and bottom compositions.
   final double? topBottomMaxHeightFactor;
+
+  /// Fills the safe viewport above the keyboard, keeping the sheet inset.
+  final bool fillAvailableHeight;
 
   @override
   Widget build(BuildContext context) {
@@ -638,6 +664,7 @@ Future<T?> showDSheet<T>({
   double? sidePanelWidth,
   bool inset = false,
   bool animateSize = false,
+  bool fillAvailableHeight = false,
   bool useRootNavigator = false,
   bool modal = true,
   bool dismissOnBarrier = true,
@@ -668,6 +695,7 @@ Future<T?> showDSheet<T>({
       sidePanelWidth,
       inset,
       animateSize,
+      fillAvailableHeight,
     ),
     transitionDuration: const Duration(milliseconds: 200),
     reverseTransitionDuration: const Duration(milliseconds: 200),
