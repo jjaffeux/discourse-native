@@ -209,6 +209,7 @@ class _PostActionsState extends State<PostActions> {
     ShellController controller,
   ) {
     final post = widget.post;
+    final compact = MediaQuery.sizeOf(context).width < 600;
     final topic = controller.currentTopic;
     final registry =
         PluginScope.maybeOf(context)?.registry ?? PluginRegistry.empty;
@@ -259,7 +260,10 @@ class _PostActionsState extends State<PostActions> {
         if (!contribution.replacesLike && post.canToggleLike)
           PostAction(
             icon: post.liked ? DIcons.heart : DIcons.farHeart,
-            placement: PostActionPlacement.toolbar,
+            placement: compact
+                ? PostActionPlacement.trailing
+                : PostActionPlacement.toolbar,
+            showLabelInFooter: !compact,
             label: post.liked ? 'Remove like' : 'Like',
             tooltip: post.liked ? 'Remove your like' : 'Like this post',
             tint: post.liked ? Theme.of(context).discourse.love : null,
@@ -307,6 +311,7 @@ class _PostActionsState extends State<PostActions> {
           PostAction(
             icon: DIcons.reply,
             placement: PostActionPlacement.trailing,
+            showLabelInFooter: !compact,
             label: 'Reply',
             tooltip: 'Reply to this post',
             onInvoke: () => controller.openReply(
@@ -318,7 +323,9 @@ class _PostActionsState extends State<PostActions> {
         if (post.canEdit)
           PostAction(
             icon: DIcons.pencil,
-            placement: PostActionPlacement.trailing,
+            placement: compact
+                ? PostActionPlacement.overflow
+                : PostActionPlacement.trailing,
             showLabelInFooter: false,
             label: 'Edit',
             tooltip: 'Edit this post',
@@ -334,7 +341,9 @@ class _PostActionsState extends State<PostActions> {
               null => DIcons.farBookmark,
             },
             label: post.bookmark == null ? 'Bookmark' : 'Edit bookmark',
-            placement: PostActionPlacement.trailing,
+            placement: compact
+                ? PostActionPlacement.overflow
+                : PostActionPlacement.trailing,
             showLabelInFooter: false,
             tooltip: post.bookmark == null
                 ? 'Bookmark this post'
