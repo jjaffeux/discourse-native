@@ -1,3 +1,4 @@
+import 'package:flutter/rendering.dart';
 import 'package:flutter/widgets.dart';
 
 /// Internal composition metadata for controls that share a joined edge.
@@ -64,4 +65,23 @@ class DJoinedControlScope extends InheritedWidget {
       first != oldWidget.first ||
       last != oldWidget.last ||
       _boundary != oldWidget._boundary;
+}
+
+/// Marks the painted bounds separately from a control's padded touch target.
+class DJoinedControlSurface extends SingleChildRenderObjectWidget {
+  const DJoinedControlSurface({super.key, required super.child});
+
+  @override
+  RenderDJoinedControlSurface createRenderObject(BuildContext context) =>
+      RenderDJoinedControlSurface();
+}
+
+class RenderDJoinedControlSurface extends RenderProxyBox {
+  Rect layoutBounds = Rect.zero;
+
+  @override
+  void performLayout() {
+    super.performLayout();
+    layoutBounds = Offset.zero & size;
+  }
 }

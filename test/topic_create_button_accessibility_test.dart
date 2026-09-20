@@ -25,6 +25,41 @@ const _draft = UserDraft(
 );
 
 void main() {
+  for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
+    for (final textScale in [1.0, 2.0]) {
+      testWidgets(
+        'mobile drafts divider follows artwork on $platform at $textScale',
+        (tester) async {
+          await _pump(
+            tester,
+            compact: true,
+            platform: platform,
+            textScale: textScale,
+          );
+          final create = find.byKey(TopicCreateButton.buttonKey);
+          final drafts = find.byKey(TopicCreateButton.draftsButtonKey);
+          final surface = tester.getRect(
+            find.descendant(of: create, matching: find.byType(Material)),
+          );
+          final divider = tester.getRect(find.byType(DButtonGroupSeparator));
+          expect(divider.top, surface.top);
+          expect(divider.bottom, surface.bottom);
+          for (final button in [create, drafts]) {
+            expect(tester.getSize(button).height, greaterThanOrEqualTo(48));
+          }
+          await tester.tap(drafts);
+          await tester.pumpAndSettle();
+          expect(find.text('All drafts'), findsOneWidget);
+          expect(
+            find.byKey(const ValueKey('recent-draft-new_topic')),
+            findsOneWidget,
+          );
+          expect(tester.takeException(), isNull);
+        },
+      );
+    }
+  }
+
   for (final theme in [AppTheme.light, AppTheme.dark]) {
     testWidgets(
       'separator shades match the button fill in ${theme.brightness}',
@@ -392,6 +427,7 @@ typedef _Fixture = ({FakeDiscourseApi api, int Function() createCalls});
 Future<_Fixture> _pump(
   WidgetTester tester, {
   ThemeData? theme,
+  TargetPlatform platform = TargetPlatform.macOS,
   bool compact = false,
   double textScale = 1,
   TextDirection direction = TextDirection.ltr,
@@ -435,9 +471,7 @@ Future<_Fixture> _pump(
     ShellScope(
       controller: controller,
       child: MaterialApp(
-        theme: (theme ?? AppTheme.light).copyWith(
-          platform: TargetPlatform.macOS,
-        ),
+        theme: (theme ?? AppTheme.light).copyWith(platform: platform),
         builder: (context, child) => MediaQuery(
           data: MediaQuery.of(
             context,

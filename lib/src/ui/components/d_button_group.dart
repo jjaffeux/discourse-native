@@ -298,6 +298,31 @@ class _RenderButtonGroup extends RenderFlex {
   @override
   void performLayout() {
     super.performLayout();
+    // Separators follow painted controls, not their invisible touch padding.
+    Rect? surfaceBounds;
+    var foundSurface = false;
+    void collectSurfaces(RenderObject node) {
+      if (node is RenderDJoinedControlSurface) {
+        foundSurface = true;
+        final bounds = MatrixUtils.transformRect(
+          node.getTransformTo(this),
+          node.layoutBounds,
+        );
+        surfaceBounds = surfaceBounds?.expandToInclude(bounds) ?? bounds;
+      } else if (node is! _RenderButtonGroup) {
+        node.visitChildren(collectSurfaces);
+      }
+    }
+
+    for (var child = firstChild; child != null; child = childAfter(child)) {
+      foundSurface = false;
+      collectSurfaces(child);
+      if (!foundSurface && child is! _RenderGroupSeparatorExtent) {
+        final data = child.parentData! as FlexParentData;
+        final bounds = data.offset & child.size;
+        surfaceBounds = surfaceBounds?.expandToInclude(bounds) ?? bounds;
+      }
+    }
     for (var child = firstChild; child != null; child = childAfter(child)) {
       RenderBox? content = child;
       while (content is RenderProxyBox && content is! _RenderGroupTextExtent) {
@@ -309,24 +334,27 @@ class _RenderButtonGroup extends RenderFlex {
         continue;
       }
       final data = child.parentData! as FlexParentData;
+      final bounds = child is _RenderGroupSeparatorExtent
+          ? surfaceBounds ?? (Offset.zero & size)
+          : Offset.zero & size;
       if (direction == Axis.horizontal) {
         child.layout(
           child.constraints.copyWith(
-            minHeight: size.height,
-            maxHeight: size.height,
+            minHeight: bounds.height,
+            maxHeight: bounds.height,
           ),
           parentUsesSize: true,
         );
-        data.offset = Offset(data.offset.dx, 0);
+        data.offset = Offset(data.offset.dx, bounds.top);
       } else {
         child.layout(
           child.constraints.copyWith(
-            minWidth: size.width,
-            maxWidth: size.width,
+            minWidth: bounds.width,
+            maxWidth: bounds.width,
           ),
           parentUsesSize: true,
         );
-        data.offset = Offset(0, data.offset.dy);
+        data.offset = Offset(bounds.left, data.offset.dy);
       }
     }
   }
