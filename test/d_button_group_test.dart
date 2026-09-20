@@ -10,6 +10,52 @@ import 'package:flutter_test/flutter_test.dart';
 import 'support/button_surface.dart';
 
 void main() {
+  for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
+    for (final orientation in DButtonGroupOrientation.values) {
+      testWidgets('touch group surfaces join on $platform $orientation', (
+        tester,
+      ) async {
+        var activations = 0;
+        await _pump(
+          tester,
+          DButtonGroup(
+            orientation: orientation,
+            children: [
+              for (final label in ['Bookmark', 'Tracking'])
+                DButton.iconOnly(
+                  icon: const Icon(Icons.bookmark),
+                  tooltip: label,
+                  size: DButtonSize.small,
+                  variant: DButtonVariant.outline,
+                  onPressed: () => activations++,
+                ),
+            ],
+          ),
+          platform: platform,
+        );
+        final surfaces = find.byWidgetPredicate(
+          (widget) =>
+              widget is AnimatedContainer &&
+              widget.decoration is DButtonDecoration,
+        );
+        final first = tester.getRect(surfaces.first);
+        final second = tester.getRect(surfaces.last);
+        if (orientation == DButtonGroupOrientation.horizontal) {
+          expect(first.right, second.left);
+        } else {
+          expect(first.bottom, second.top);
+        }
+        for (final button in find.byType(FilledButton).evaluate()) {
+          final rect = tester.getRect(find.byWidget(button.widget));
+          expect(rect.width, greaterThanOrEqualTo(48));
+          expect(rect.height, greaterThanOrEqualTo(48));
+          await tester.tapAt(rect.center);
+        }
+        expect(activations, 2);
+      });
+    }
+  }
+
   testWidgets('passive label remeasures after decreasing and increasing', (
     tester,
   ) async {
