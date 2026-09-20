@@ -513,8 +513,31 @@ class _DPopoverState extends State<DPopover>
       info.overlaySize.width - math.max(padding.right, viewInsets.right),
       info.overlaySize.height - math.max(padding.bottom, viewInsets.bottom),
     );
-    final boundary =
+    var boundary =
         widget.content.collisionBoundary?.intersect(viewport) ?? safeBoundary;
+    final view = View.of(context);
+    final keyboardInsets = EdgeInsets.fromViewPadding(
+      view.viewInsets,
+      view.devicePixelRatio,
+    );
+    if (keyboardInsets != EdgeInsets.zero) {
+      // Scaffold can consume MediaQuery insets while the overlay still spans
+      // the keyboard. Convert the view's unobscured rect into overlay space so
+      // nested/resized overlays do not subtract the keyboard height twice.
+      final viewSize = view.physicalSize / view.devicePixelRatio;
+      final unobscured = Rect.fromLTRB(
+        keyboardInsets.left,
+        keyboardInsets.top,
+        viewSize.width - keyboardInsets.right,
+        viewSize.height - keyboardInsets.bottom,
+      );
+      boundary = boundary.intersect(
+        MatrixUtils.transformRect(
+          Matrix4.inverted(overlayBox.getTransformTo(null)),
+          unobscured,
+        ),
+      );
+    }
     if (target.intersect(boundary).isEmpty) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted && _open) {
@@ -620,7 +643,7 @@ class _DPopoverState extends State<DPopover>
   @override
   void didChangeMetrics() {
     // Scaffold may consume keyboard insets before they reach the trigger.
-    if (_sheet && mounted) setState(() {});
+    if ((_sheet || _open) && mounted) setState(() {});
   }
 
   @override
