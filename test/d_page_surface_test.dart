@@ -88,7 +88,7 @@ void main() {
       expect(scroll.offset, 160);
       expect(tester.getSize(find.byKey(_viewport)).width, 1400);
       expect(tester.getSize(find.byKey(const ValueKey('row-4'))).width, 825);
-      await _wheel(tester, find.byKey(_viewport), -20);
+      await _wheel(tester, find.byKey(_viewport), -100);
       expect(find.byKey(_header).hitTestable(), findsOneWidget);
       await _wheel(tester, find.byKey(_viewport), 80);
       await mount(limited: true, identity: 'drafts');
@@ -126,7 +126,7 @@ void main() {
       await tester.pumpAndSettle();
       await _wheel(tester, find.byKey(_viewport), 160);
       expect(find.byKey(_header).hitTestable(), findsNothing);
-      await _wheel(tester, find.byKey(_viewport), -20);
+      await _wheel(tester, find.byKey(_viewport), -100);
       expect(find.byKey(_header).hitTestable(), findsOneWidget);
     },
   );

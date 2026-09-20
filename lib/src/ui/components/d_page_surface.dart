@@ -26,7 +26,8 @@ class DPageSurface extends StatefulWidget {
   /// Optional header, fixed unless [hideHeaderOnScroll] is enabled.
   final Widget? header;
 
-  /// Opt in to hiding on downward scrolling and revealing on upward scrolling.
+  /// Hide on downward scrolling; reveal after 100 logical pixels upward
+  /// or immediately when scrolling reaches the top.
   final bool hideHeaderOnScroll;
 
   /// Persistent tabs above the retracting header.
@@ -136,7 +137,8 @@ class _DPageSurfaceState extends State<DPageSurface> {
           final canRetract =
               !_visible ||
               metrics.maxScrollExtent - metrics.minScrollExtent > headerHeight;
-          if (_distance >= (revealing ? 6 : 12) && (revealing || canRetract)) {
+          if (_distance >= (revealing ? 100 : 12) &&
+              (revealing || canRetract)) {
             _show(revealing);
           }
         }

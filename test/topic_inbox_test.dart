@@ -131,7 +131,7 @@ void main() {
       await tester.sendEventToBinding(
         PointerScrollEvent(
           position: tester.getCenter(viewport),
-          scrollDelta: const Offset(0, -30),
+          scrollDelta: const Offset(0, -100),
         ),
       );
       await tester.pumpAndSettle();
@@ -142,7 +142,7 @@ void main() {
   );
 
   testWidgets(
-    'topic and list headers retract independently and reveal on reversal',
+    'topic and list headers retract independently and reveal after 100px',
     (tester) async {
       final setup = await _setup(tester);
       setup.controller.openTopicFromList(setup.rows.first);
@@ -177,7 +177,9 @@ void main() {
       expect(title.hitTestable(), findsNothing);
       expect(tester.getTopLeft(reader).dy, lessThan(readerTop));
       expect(tester.getTopLeft(find.byType(TopicListView)).dy, listTop);
-      await wheel(reader, -30);
+      await wheel(reader, -99);
+      expect(title.hitTestable(), findsNothing);
+      await wheel(reader, -1);
       expect(title.hitTestable(), findsOneWidget);
       expect(tester.getTopLeft(reader).dy, readerTop);
       await wheel(list, 240);
@@ -186,7 +188,12 @@ void main() {
         lessThan(listTop),
       );
       expect(title.hitTestable(), findsOneWidget);
-      await wheel(list, -30);
+      await wheel(list, -99);
+      expect(
+        tester.getTopLeft(find.byType(TopicListView)).dy,
+        lessThan(listTop),
+      );
+      await wheel(list, -1);
       expect(tester.getTopLeft(find.byType(TopicListView)).dy, listTop);
       expect(tester.element(reader), same(readerElement));
       expect(tester.element(list), same(listElement));
