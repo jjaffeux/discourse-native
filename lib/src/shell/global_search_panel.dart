@@ -99,25 +99,28 @@ class _GlobalSearchPanelState extends State<GlobalSearchPanel> {
                               _GlobalSearchDisplay(controller: controller),
                             ],
                           );
-                          final scopes = Wrap(
-                            spacing: 4,
-                            runSpacing: 4,
-                            children: [
-                              for (final scope in controller.scopes)
-                                DToggle(
-                                  key: ValueKey(
-                                    'global-search-scope-${scope.name}',
+                          final scopes = DScrollArea(
+                            axes: DScrollAxes.horizontal,
+                            thumbVisibility: false,
+                            child: Row(
+                              spacing: DSpacing.controlGap,
+                              children: [
+                                for (final scope in controller.scopes)
+                                  DToggle(
+                                    key: ValueKey(
+                                      'global-search-scope-${scope.name}',
+                                    ),
+                                    pressed: controller.scope == scope,
+                                    onPressedChanged: (_) =>
+                                        controller.setScope(scope),
+                                    variant: DToggleVariant.outline,
+                                    size: DToggleSize.small,
+                                    selectedIcon: const DIcon(DIcons.check),
+                                    semanticLabel: 'Search ${scope.label}',
+                                    child: Text(scope.label),
                                   ),
-                                  pressed: controller.scope == scope,
-                                  onPressedChanged: (_) =>
-                                      controller.setScope(scope),
-                                  variant: DToggleVariant.outline,
-                                  size: DToggleSize.small,
-                                  selectedIcon: const DIcon(DIcons.check),
-                                  semanticLabel: 'Search ${scope.label}',
-                                  child: Text(scope.label),
-                                ),
-                            ],
+                              ],
+                            ),
                           );
                           if (constraints.maxWidth < 530) {
                             return Column(
