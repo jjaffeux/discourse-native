@@ -261,6 +261,37 @@ DComboboxContent<String>(
         ),
       ),
     ),
+    StyleguideExample(
+      title: 'Full-screen mobile picker',
+      description:
+          'A full-height mobile picker keeps search focused while toggling choices. Desktop retains the anchored popup.',
+      code:
+          "DComboboxContent(fullScreenOnMobile: true, children: [DComboboxInput<String>(registerAsAnchor: false), DComboboxList<String>()])",
+      builder: (_) => DCombobox<String>.multiple(
+        closeOnSelect: false,
+        options: _frameworks,
+        anchor: DComboboxTrigger<String>(
+          builder: (_, state) => DButton(
+            label: const Text('Choose framework'),
+            onPressed: state.toggle,
+            focusNode: state.focusNode,
+            expanded: state.open,
+          ),
+        ),
+        content: const DComboboxContent(
+          fullScreenOnMobile: true,
+          semanticLabel: 'Frameworks',
+          children: [
+            DComboboxInput<String>(
+              registerAsAnchor: false,
+              showTrigger: false,
+              placeholder: 'Search frameworks',
+            ),
+            DComboboxList<String>(),
+          ],
+        ),
+      ),
+    ),
   ],
 );
 

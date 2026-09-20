@@ -25,6 +25,7 @@ void main() {
     List<TopicTag> selectedTags = const [design, mobile],
     TopicTagNavigationCallback? onTagNavigate,
     TopicTagSearchCallback? search,
+    ValueChanged<List<TopicTag>>? onSelectionChanged,
   }) async {
     await tester.pumpWidget(
       MaterialApp(
@@ -39,6 +40,7 @@ void main() {
                       context: context,
                       anchorContext: context,
                       selectedTags: selectedTags,
+                      onSelectionChanged: onSelectionChanged,
                       onTagNavigate: onTagNavigate,
                       capabilities: const TopicComposerCapabilities(
                         canTagTopics: true,
@@ -62,6 +64,46 @@ void main() {
     await tester.tap(find.text('Open tags'));
     await tester.pumpAndSettle();
   }
+
+  testWidgets(
+    'mobile header tags commit on close and keep the keyboard while toggling',
+    (tester) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final results = <List<TopicTag>?>[];
+      var pending = <TopicTag>[design, mobile];
+      final searchedSelections = <List<TopicTag>>[];
+      await openPicker(
+        tester,
+        platform: TargetPlatform.iOS,
+        onClosed: results.add,
+        onSelectionChanged: (value) => pending = value,
+        search: (_) async {
+          searchedSelections.add(List.of(pending));
+          return const TopicTagSearch(tags: [design, mobile, support]);
+        },
+      );
+      tester.view.viewInsets = const FakeViewPadding(bottom: 300);
+      await tester.pumpAndSettle();
+      final input = find.byType(EditableText);
+      expect(tester.widget<EditableText>(input).focusNode.hasFocus, isTrue);
+      await tester.tap(option('design'));
+      await tester.pumpAndSettle();
+      expect(results, isEmpty);
+      expect(searchedSelections.last, [mobile]);
+      expect(tester.widget<EditableText>(input).focusNode.hasFocus, isTrue);
+      expect(tester.testTextInput.isVisible, isTrue);
+      await tester.tap(option('support'));
+      await tester.pumpAndSettle();
+      expect(tester.widget<EditableText>(input).focusNode.hasFocus, isTrue);
+      expect(searchedSelections.last, [mobile, support]);
+      await tester.tap(find.byTooltip('Close'));
+      await tester.pumpAndSettle();
+      expect(results.single, [mobile, support]);
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   testWidgets('enabled tag rows highlight only while hovered', (tester) async {
     final strategy = FocusManager.instance.highlightStrategy;
@@ -208,30 +250,39 @@ void main() {
       );
     }
 
-    testWidgets('applies each ${platform.name} tag removal on selection', (
-      tester,
-    ) async {
-      final results = <List<TopicTag>?>[];
-      await openPicker(tester, platform: platform, onClosed: results.add);
+    testWidgets(
+      'applies each ${platform.name} tag removal when the picker closes',
+      (tester) async {
+        final results = <List<TopicTag>?>[];
+        await openPicker(tester, platform: platform, onClosed: results.add);
 
-      await tester.tap(option(design.name));
-      await tester.pumpAndSettle();
-      expect(find.byType(TopicTagPicker), findsNothing);
-      expect(results, [
-        [mobile],
-      ]);
+        await tester.tap(option(design.name));
+        await tester.pumpAndSettle();
+        if (platform == TargetPlatform.iOS) {
+          await tester.tap(find.byTooltip('Close'));
+          await tester.pumpAndSettle();
+        }
+        expect(find.byType(TopicTagPicker), findsNothing);
+        expect(results, [
+          [mobile],
+        ]);
 
-      await openPicker(
-        tester,
-        platform: platform,
-        selectedTags: results.last!,
-        onClosed: results.add,
-      );
-      await tester.tap(option(mobile.name));
-      await tester.pumpAndSettle();
-      expect(find.byType(TopicTagPicker), findsNothing);
-      expect(results.last, isEmpty);
-    });
+        await openPicker(
+          tester,
+          platform: platform,
+          selectedTags: results.last!,
+          onClosed: results.add,
+        );
+        await tester.tap(option(mobile.name));
+        await tester.pumpAndSettle();
+        if (platform == TargetPlatform.iOS) {
+          await tester.tap(find.byTooltip('Close'));
+          await tester.pumpAndSettle();
+        }
+        expect(find.byType(TopicTagPicker), findsNothing);
+        expect(results.last, isEmpty);
+      },
+    );
   }
 
   testWidgets('adding after a removal closes with the updated selection', (

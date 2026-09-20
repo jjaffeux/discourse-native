@@ -44,6 +44,103 @@ void main() {
   Finder tagOption(String name) =>
       find.byKey(ValueKey(('tag-selector-option', name)));
 
+  for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
+    testWidgets(
+      'mobile tags retain focus and allow repeated toggles on $platform',
+      (tester) async {
+        tester.view.physicalSize = const Size(390, 844);
+        tester.view.devicePixelRatio = 1;
+        tester.view.padding = const FakeViewPadding(top: 47, bottom: 34);
+        tester.view.viewPadding = const FakeViewPadding(top: 47, bottom: 34);
+        addTearDown(tester.view.reset);
+        var selected = <TopicTag>[];
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: AppTheme.dark.copyWith(platform: platform),
+            home: Scaffold(
+              body: StatefulBuilder(
+                builder: (context, setState) => TopicTagSelector(
+                  selectedTags: selected,
+                  search: (_) async =>
+                      const TopicTagSearch(tags: [design, mobile]),
+                  onChanged: (value) => setState(() => selected = value),
+                ),
+              ),
+            ),
+          ),
+        );
+        await open(tester, TopicTagSelector);
+        await tester.pumpAndSettle();
+        final input = find.byType(EditableText);
+        expect(tester.widget<EditableText>(input).focusNode.hasFocus, isTrue);
+        expect(
+          tester.getSize(find.byType(DSheetContent)).height,
+          greaterThan(700),
+        );
+        expect(
+          tester.getTopLeft(find.byType(DSheetContent)).dy,
+          greaterThanOrEqualTo(47),
+        );
+        tester.view.viewInsets = const FakeViewPadding(bottom: 300);
+        await tester.pumpAndSettle();
+        for (final expected in [
+          [design],
+          <TopicTag>[],
+        ]) {
+          await tester.tap(tagOption('design'));
+          await tester.pumpAndSettle();
+          expect(selected, expected);
+          expect(find.byType(DSheetContent), findsOneWidget);
+          expect(tester.widget<EditableText>(input).focusNode.hasFocus, isTrue);
+          expect(tester.testTextInput.isVisible, isTrue);
+          expect(tester.getBottomLeft(tagOption('mobile')).dy, lessThan(544));
+        }
+        await tester.tap(find.byTooltip('Close'));
+        await tester.pumpAndSettle();
+        expect(find.byType(DSheetContent), findsNothing);
+        expect(tester.takeException(), isNull);
+      },
+    );
+
+    testWidgets(
+      'mobile category selection dismisses the focused picker on $platform',
+      (tester) async {
+        TopicCategory? selected;
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: AppTheme.light.copyWith(platform: platform),
+            home: Scaffold(
+              body: StatefulBuilder(
+                builder: (context, setState) => TopicCategorySelector(
+                  siteUrl: 'https://example.invalid',
+                  categories: const [support, designCategory],
+                  selected: selected,
+                  onSelected: (value) => setState(() => selected = value),
+                ),
+              ),
+            ),
+          ),
+        );
+        await open(tester, TopicCategorySelector);
+        await tester.pumpAndSettle();
+        expect(
+          tester
+              .widget<EditableText>(find.byType(EditableText))
+              .focusNode
+              .hasFocus,
+          isTrue,
+        );
+        await tester.tap(
+          find.byKey(const ValueKey(('category-selector-option', 2))),
+        );
+        await tester.pumpAndSettle();
+        expect(selected, designCategory);
+        expect(find.byType(DSheetContent), findsNothing);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
   testWidgets('tag menu hover is visible against its dark popup', (
     tester,
   ) async {

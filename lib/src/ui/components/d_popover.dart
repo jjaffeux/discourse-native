@@ -144,6 +144,8 @@ class DPopover extends StatefulWidget {
     this.onOpenChangeComplete,
     this.restoreFocus = true,
     this.sheetOnMobile = false,
+    this.fullScreenOnMobile = false,
+    this.initialFocusNode,
     this.focusContentOnOpen = true,
     this.transitionDuration = const Duration(milliseconds: 100),
     this.reverseTransitionDuration = const Duration(milliseconds: 100),
@@ -163,6 +165,13 @@ class DPopover extends StatefulWidget {
   /// Presents a modal bottom sheet on iOS, Android and Fuchsia.
   /// Desktop platforms retain the anchored popup.
   final bool sheetOnMobile;
+
+  /// Fills the available mobile viewport with an inset, keyboard-aware sheet.
+  /// Desktop retains the anchored popup.
+  final bool fullScreenOnMobile;
+
+  /// Preferred initial focus for a mobile sheet. The caller owns this node.
+  final FocusNode? initialFocusNode;
 
   /// Whether opening moves focus into the floating surface.
   ///
@@ -244,7 +253,7 @@ class _DPopoverState extends State<DPopover>
 
   void _syncPresentation() {
     final sheet =
-        widget.sheetOnMobile &&
+        (widget.sheetOnMobile || widget.fullScreenOnMobile) &&
         switch (Theme.of(context).platform) {
           TargetPlatform.iOS ||
           TargetPlatform.android ||
@@ -677,6 +686,7 @@ class _DPopoverState extends State<DPopover>
           ),
         ),
         child: DSheet<void>(
+          initialFocusNode: widget.initialFocusNode,
           open: _open,
           onOpenChangeComplete: widget.onOpenChangeComplete,
           restoreFocus: widget.restoreFocus,
@@ -694,7 +704,9 @@ class _DPopoverState extends State<DPopover>
           content: DSheetContent(
             side: DSheetSide.bottom,
             semanticLabel: widget.content.semanticLabel,
-            topBottomMaxHeightFactor: .8,
+            topBottomMaxHeightFactor: widget.fullScreenOnMobile ? 1 : .8,
+            inset: widget.fullScreenOnMobile,
+            fillAvailableHeight: widget.fullScreenOnMobile,
             scrollWholeSheet: false,
             children: [
               DSheetHeader(
@@ -712,7 +724,9 @@ class _DPopoverState extends State<DPopover>
                       DPopoverChangeReason.closePress,
                       DPopoverInteraction.imperative,
                     ),
-                    child: widget.content.child,
+                    child: widget.fullScreenOnMobile
+                        ? SizedBox.expand(child: widget.content.child)
+                        : widget.content.child,
                   ),
                 ),
               ),
