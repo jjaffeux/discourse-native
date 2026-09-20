@@ -6,7 +6,12 @@ class _ConversationTopicCard extends StatelessWidget {
   final _TopicRowBody row;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, constraints) =>
+        _buildCard(context, mobile: constraints.maxWidth < 600),
+  );
+
+  Widget _buildCard(BuildContext context, {required bool mobile}) {
     final topic = row.topic;
     final shell = ShellScope.maybeRead(context);
     final registry =
@@ -149,27 +154,43 @@ class _ConversationTopicCard extends StatelessWidget {
             showSelectionIndicator: false,
             children: [
               DItemContent(
-                spacing: 6,
+                spacing: mobile ? DSpacing.sm : 6,
                 alignment: CrossAxisAlignment.stretch,
                 children: [
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(
-                        child: registry.decorateTopicListTitle(
-                          context,
-                          row.siteUrl,
-                          topic,
-                          _TopicListTitle(row: row),
+                  if (mobile && topic.pinned)
+                    Row(
+                      spacing: DSpacing.xs,
+                      children: [
+                        DIcon(DIcons.thumbtack, size: 12, color: muted),
+                        Text('Pinned', style: textStyle),
+                      ],
+                    ),
+                  if (mobile)
+                    registry.decorateTopicListTitle(
+                      context,
+                      row.siteUrl,
+                      topic,
+                      _TopicListTitle(row: row, mobile: true),
+                    )
+                  else
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: registry.decorateTopicListTitle(
+                            context,
+                            row.siteUrl,
+                            topic,
+                            _TopicListTitle(row: row),
+                          ),
                         ),
-                      ),
-                      const SizedBox(width: DSpacing.sm),
-                      KeyedSubtree(
-                        key: ValueKey('inbox-row-time-${topic.id}'),
-                        child: field(age, 'activity'),
-                      ),
-                    ],
-                  ),
+                        const SizedBox(width: DSpacing.sm),
+                        KeyedSubtree(
+                          key: ValueKey('inbox-row-time-${topic.id}'),
+                          child: field(age, 'activity'),
+                        ),
+                      ],
+                    ),
                   if (topic.excerpt case final excerpt? when excerpt.isNotEmpty)
                     SiteEmojiText.plain(
                       excerpt,
@@ -183,7 +204,22 @@ class _ConversationTopicCard extends StatelessWidget {
                         height: 1.5,
                       ),
                     ),
-                  details,
+                  if (mobile) ...[
+                    if (taxonomyItems.isNotEmpty)
+                      Wrap(
+                        spacing: DSpacing.xs,
+                        runSpacing: DSpacing.xs,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: taxonomyItems,
+                      ),
+                    _MobileTopicActivity(
+                      row: row,
+                      age: age,
+                      showLastPoster:
+                          shell?.appSettings.topicListShowLastPoster != false,
+                    ),
+                  ] else
+                    details,
                   if (assignments.isNotEmpty)
                     Wrap(
                       spacing: DSpacing.xs,
@@ -203,6 +239,90 @@ class _ConversationTopicCard extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _MobileTopicActivity extends StatelessWidget {
+  const _MobileTopicActivity({
+    required this.row,
+    required this.age,
+    required this.showLastPoster,
+  });
+
+  final _TopicRowBody row;
+  final String age;
+  final bool showLastPoster;
+
+  @override
+  Widget build(BuildContext context) {
+    final topic = row.topic;
+    final style = Theme.of(context).textTheme.labelSmall?.copyWith(
+      color: DTokens.of(context).mutedForeground,
+    );
+    final username = showLastPoster ? topic.lastPosterUsername : null;
+    final activity = Wrap(
+      spacing: DSpacing.xs,
+      runSpacing: DSpacing.xs,
+      children: [
+        Text('${topic.replyCount} replies', style: style),
+        if (row.showViews) Text('· ${topic.views} views', style: style),
+        Text(
+          '· $age',
+          key: ValueKey('inbox-row-time-${topic.id}'),
+          style: style,
+        ),
+      ],
+    );
+    final author = username == null
+        ? null
+        : Row(
+            spacing: DSpacing.xs,
+            children: [
+              DAvatar(
+                dimension: 22,
+                decorative: true,
+                child: AvatarImage(
+                  url: topic.lastPosterAvatarUrl,
+                  size: 22,
+                  fallback: DAvatarFallback(
+                    child: Text(
+                      username.characters.firstOrNull?.toUpperCase() ?? '',
+                    ),
+                  ),
+                ),
+              ),
+              Flexible(
+                child: Text(
+                  username,
+                  semanticsLabel: 'Last post by $username',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: style,
+                ),
+              ),
+            ],
+          );
+    // Keep metadata readable when scaling leaves too little room for one row.
+    if (MediaQuery.textScalerOf(context).scale(14) > 21 || row.showViews) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        spacing: DSpacing.xs,
+        children: [?author, activity],
+      );
+    }
+    return Row(
+      spacing: DSpacing.sm,
+      children: [
+        Expanded(child: author ?? const SizedBox.shrink()),
+        Expanded(
+          flex: 2,
+          child: Align(
+            alignment: AlignmentDirectional.centerEnd,
+            child: activity,
+          ),
+        ),
+      ],
     );
   }
 }
