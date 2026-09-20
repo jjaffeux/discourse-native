@@ -10,6 +10,68 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  testWidgets(
+    'control badges match regular controls across platforms and text scales',
+    (tester) async {
+      for (final platform in [
+        TargetPlatform.linux,
+        TargetPlatform.iOS,
+        TargetPlatform.android,
+      ]) {
+        for (final scale in [1.0, 2.0, 3.0]) {
+          var activated = false;
+          await tester.pumpWidget(
+            MaterialApp(
+              theme: AppTheme.light.copyWith(platform: platform),
+              home: MediaQuery(
+                data: MediaQueryData(textScaler: TextScaler.linear(scale)),
+                child: Scaffold(
+                  body: Center(
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        DBadge.link(
+                          size: DBadgeSize.control,
+                          onPressed: () => activated = true,
+                          child: const Text('Tag'),
+                        ),
+                        DButton(
+                          label: const Text('Category'),
+                          onPressed: () {},
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          );
+          await tester.pumpAndSettle();
+          final tag = tester.renderObject<RenderParagraph>(find.text('Tag'));
+          final category = tester.renderObject<RenderParagraph>(
+            find.text('Category'),
+          );
+          expect(tag.text.style!.fontSize, category.text.style!.fontSize);
+          expect(tag.text.style!.height, category.text.style!.height);
+          final badge = find
+              .descendant(
+                of: find.byType(DBadge),
+                matching: find.byType(AnimatedContainer),
+              )
+              .first;
+          final mobile = platform != TargetPlatform.linux;
+          expect(
+            tester.getSize(badge).height,
+            greaterThanOrEqualTo(mobile ? 44 : 28),
+          );
+          await tester.tap(find.text('Tag'));
+          expect(activated, isTrue);
+          expect(tester.takeException(), isNull);
+        }
+      }
+    },
+  );
+
   testWidgets('overlay pills grow left without obscuring the icon or count', (
     tester,
   ) async {
@@ -542,7 +604,7 @@ void main() {
     },
   );
 
-  testWidgets('both badge sizes retain an independently tappable 48px target', (
+  testWidgets('all badge sizes retain an independently tappable 48px target', (
     tester,
   ) async {
     for (final size in DBadgeSize.values) {
@@ -561,7 +623,11 @@ void main() {
       expect(bounds.width, greaterThanOrEqualTo(48));
       expect(
         tester.getSize(find.byType(AnimatedContainer)).height,
-        size == DBadgeSize.compact ? 16 : 20,
+        switch (size) {
+          DBadgeSize.compact => 16,
+          DBadgeSize.regular => 20,
+          DBadgeSize.control => 44,
+        },
       );
       await tester.tapAt(bounds.topCenter + const Offset(0, 2));
       expect(activated, isTrue);

@@ -3,13 +3,20 @@ import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
 
 import '../../theme/discourse_typography.dart';
+import '../foundation/control_style.dart';
 import '../foundation/tokens.dart';
 
 /// The six base-nova badge treatments. A treatment does not imply interaction.
 enum DBadgeVariant { primary, secondary, destructive, outline, ghost, link }
 
-/// Regular labels use 20px height; compact counts use 16px. Both grow with text.
-enum DBadgeSize { regular, compact }
+/// Badge presets for labels, compact counts, and regular control rows.
+enum DBadgeSize {
+  regular,
+  compact,
+
+  /// Matches regular controls: 28px/13px on desktop, 44px/15px on mobile.
+  control,
+}
 
 enum _BadgeInteraction { none, action, link }
 
@@ -26,7 +33,9 @@ const _transitionCurve = Cubic(.4, 0, .2, 1);
 /// and fitted to 12px; label text inherits 12/16px medium metrics, can wrap,
 /// and stays selectable inside an enclosing selection area like the reference
 /// span. The regular visual height is 20px; [DBadgeSize.compact] uses 16px
-/// height, 12/14px type and narrower insets. Both grow with text. Touch actions
+/// height, 12/14px type and narrower insets. [DBadgeSize.control] opts into
+/// regular control height, typography and artwork metrics for the platform.
+/// All sizes grow with text. Touch actions
 /// reserve a transparent 48px target around the compact visual. Only ghost and
 /// link paint a hover treatment on a static badge, so other static variants do
 /// not track the pointer. Borrowed focus nodes are never disposed. Colors are
@@ -192,6 +201,23 @@ class _DBadgeState extends State<DBadge> {
     final tokens = DTokens.of(context);
     final compact = widget.size == DBadgeSize.compact;
     final overlay = widget._overlay;
+    final control = widget.size == DBadgeSize.control;
+    final fontSize = control
+        ? DControlStyle.fontSize(DControlSize.regular, context: context)
+        : overlay
+        ? 10.0
+        : DiscourseTypography.xs;
+    final lineHeight = control
+        ? DControlStyle.lineHeight(DControlSize.regular, context: context) /
+              fontSize
+        : overlay
+        ? 1.2
+        : compact
+        ? 14 / DiscourseTypography.xs
+        : DiscourseTypography.lineHeightCaption;
+    final artworkSize = control
+        ? DControlStyle.iconDimension(DControlSize.regular, context: context)
+        : 12.0;
     final dark = Theme.of(context).brightness == Brightness.dark;
     final active = _enabled && (_hovered || _pressed);
     final actionHover = active && _interactive;
@@ -244,7 +270,15 @@ class _DBadgeState extends State<DBadge> {
         clipBehavior: Clip.antiAlias,
         constraints: BoxConstraints(
           minWidth: overlay ? 14 : 0,
-          minHeight: overlay ? 14 : (compact ? 16 : 20),
+          minHeight: control
+              ? DControlStyle.scaledHeight(
+                  DControlSize.regular,
+                  MediaQuery.textScalerOf(context),
+                  context: context,
+                )
+              : overlay
+              ? 14
+              : (compact ? 16 : 20),
         ),
         decoration: BoxDecoration(
           color: widget.backgroundColor ?? baseBackground,
@@ -270,16 +304,12 @@ class _DBadgeState extends State<DBadge> {
                 compact ? 0 : 1,
               ),
         child: IconTheme.merge(
-          data: IconThemeData(size: 12, color: foreground),
+          data: IconThemeData(size: artworkSize, color: foreground),
           child: DefaultTextStyle(
             style: (Theme.of(context).textTheme.bodySmall ?? const TextStyle())
                 .copyWith(
-                  fontSize: overlay ? 10 : DiscourseTypography.xs,
-                  height: overlay
-                      ? 1.2
-                      : compact
-                      ? 14 / DiscourseTypography.xs
-                      : DiscourseTypography.lineHeightCaption,
+                  fontSize: fontSize,
+                  height: lineHeight,
                   fontWeight: overlay ? FontWeight.w600 : FontWeight.w500,
                   fontFeatures: overlay
                       ? const [FontFeature.tabularFigures()]
@@ -298,13 +328,13 @@ class _DBadgeState extends State<DBadge> {
                   : MainAxisAlignment.start,
               children: [
                 if (widget.leading case final leading?) ...[
-                  _artwork(leading),
+                  _artwork(leading, artworkSize),
                   const SizedBox(width: DSpacing.xs),
                 ],
                 Flexible(child: widget.child),
                 if (widget.trailing case final trailing?) ...[
                   const SizedBox(width: DSpacing.xs),
-                  _artwork(trailing),
+                  _artwork(trailing, artworkSize),
                 ],
               ],
             ),
@@ -401,10 +431,13 @@ class _DBadgeState extends State<DBadge> {
     );
   }
 
-  Widget _artwork(Widget child) => ExcludeSemantics(
+  Widget _artwork(Widget child, double dimension) => ExcludeSemantics(
     child: IgnorePointer(
       child: ExcludeFocus(
-        child: SizedBox.square(dimension: 12, child: FittedBox(child: child)),
+        child: SizedBox.square(
+          dimension: dimension,
+          child: FittedBox(child: child),
+        ),
       ),
     ),
   );

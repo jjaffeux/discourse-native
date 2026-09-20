@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:discourse_native/discourse_ui.dart';
-import 'package:discourse_native/src/theme/discourse_typography.dart';
 import 'package:flutter/material.dart';
 
 import '../models/post.dart';
@@ -45,7 +44,7 @@ class TopicHeaderTags extends StatelessWidget {
                     icon: const DIcon(DIcons.tag),
                     tooltip: 'Add tag',
                     variant: DButtonVariant.outline,
-                    size: DButtonSize.large,
+                    size: DButtonSize.regular,
                     focusNode: trigger.focusNode,
                     hasPopup: true,
                     expanded: trigger.open,
@@ -61,9 +60,14 @@ class TopicHeaderTags extends StatelessWidget {
               : const SizedBox.shrink();
         }
         final theme = Theme.of(context);
-        final style = theme.textTheme.labelSmall?.copyWith(
-          fontSize: DiscourseTypography.xs,
-          height: 16 / 12,
+        final style = theme.textTheme.bodySmall?.copyWith(
+          fontSize: DControlStyle.fontSize(
+            DControlSize.regular,
+            context: context,
+          ),
+          height:
+              DControlStyle.lineHeight(DControlSize.regular, context: context) /
+              DControlStyle.fontSize(DControlSize.regular, context: context),
           fontWeight: FontWeight.w500,
           letterSpacing: 0,
         );
@@ -86,7 +90,7 @@ class TopicHeaderTags extends StatelessWidget {
         final editWidth = context.isTouch
             ? 48.0
             : DControlStyle.scaledHeight(
-                DControlSize.large,
+                DControlSize.regular,
                 MediaQuery.textScalerOf(context),
                 context: context,
               );
@@ -148,6 +152,7 @@ class TopicHeaderTags extends StatelessWidget {
               ? DBadge.action(
                   key: key,
                   variant: DBadgeVariant.secondary,
+                  size: DBadgeSize.control,
                   onPressed: open,
                   semanticLabel: semanticLabel,
                   child: Text(
@@ -159,6 +164,7 @@ class TopicHeaderTags extends StatelessWidget {
               : DBadge.link(
                   key: key,
                   variant: DBadgeVariant.secondary,
+                  size: DBadgeSize.control,
                   onPressed: () => onTagNavigate(tag),
                   semanticLabel: semanticLabel,
                   child: Text(
@@ -214,7 +220,7 @@ class TopicHeaderTags extends StatelessWidget {
                   loading: saving,
                   loadingSemanticLabel: 'Saving tags',
                   variant: DButtonVariant.ghost,
-                  size: DButtonSize.large,
+                  size: DButtonSize.regular,
                 ),
               ),
             ],
