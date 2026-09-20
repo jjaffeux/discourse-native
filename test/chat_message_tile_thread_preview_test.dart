@@ -778,6 +778,17 @@ void main() {
       );
       await tester.pumpAndSettle();
 
+      final pill = find.byType(ReactionPill);
+      expect(
+        tester.widget<ReactionPill>(pill).density,
+        DToggleDensity.reaction,
+      );
+      final emoji = find.descendant(
+        of: pill,
+        matching: find.byType(SiteEmojiImage),
+      );
+      expect(tester.widget<SiteEmojiImage>(emoji).size, 18);
+
       await _hoverMessage(tester);
       expect(find.bySemanticsLabel('Add reaction'), findsOneWidget);
       expect(

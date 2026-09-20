@@ -59,6 +59,11 @@ Platform comes from the inherited theme, including mobile web; resizing a
 desktop window does not change its control density. Desktop small labels use
 12px text with 16px leading; regular labels use 13px and large labels use 14px,
 both with 20px leading.
+Chat reaction chips use the explicitly approved `DToggleDensity.reaction`:
+28px artwork, 18px emoji, 12px counts with 16px leading, and symmetric 8px
+horizontal padding. This density supersedes the size preset, grows with text
+scaling and retains the 48px touch target. Emoji adapters inherit the toggle's
+IconTheme so raster artwork follows the actual control metrics.
 Extra-small controls have been removed; use small for compact actions. See
 [the compact sizing update](compact-control-sizing.md).
 Component size names are aliases of this enum. Do not introduce alternate

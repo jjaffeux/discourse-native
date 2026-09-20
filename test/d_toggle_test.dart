@@ -40,6 +40,91 @@ void main() {
     ),
   );
 
+  for (final platform in [
+    TargetPlatform.macOS,
+    TargetPlatform.iOS,
+    TargetPlatform.android,
+  ]) {
+    testWidgets('reaction density balances content on $platform', (
+      tester,
+    ) async {
+      var changes = 0;
+      var inspections = 0;
+      await mount(
+        tester,
+        DToggle(
+          density: DToggleDensity.reaction,
+          variant: DToggleVariant.outline,
+          icon: const Icon(Icons.favorite),
+          onPressedChanged: (_) => changes++,
+          onLongPress: () => inspections++,
+          child: const Text('123'),
+        ),
+        theme: AppTheme.light.copyWith(platform: platform),
+      );
+      final artwork = find.descendant(
+        of: find.byType(DToggle),
+        matching: find.byType(AnimatedContainer),
+      );
+      expect(tester.getSize(artwork).height, 28);
+      final icon = tester.element(find.byIcon(Icons.favorite));
+      expect(IconTheme.of(icon).size, 18);
+      expect(
+        DefaultTextStyle.of(tester.element(find.text('123'))).style.fontSize,
+        12,
+      );
+      final bounds = tester.getRect(artwork);
+      final iconBounds = tester.getRect(find.byIcon(Icons.favorite));
+      final labelBounds = tester.getRect(find.text('123'));
+      // The outline adds one pixel outside the eight-pixel content inset.
+      expect(iconBounds.left - bounds.left, 9);
+      expect(bounds.right - labelBounds.right, closeTo(9, .01));
+      if (platform != TargetPlatform.macOS) {
+        final gesture = find.descendant(
+          of: find.byType(DToggle),
+          matching: find.byType(GestureDetector),
+        );
+        expect(tester.getSize(gesture).height, greaterThanOrEqualTo(48));
+        expect(tester.getSize(gesture).width, greaterThanOrEqualTo(48));
+      }
+      await tester.tap(find.text('123'));
+      await tester.pump();
+      expect(changes, 1);
+      await tester.longPress(find.text('123'));
+      await tester.pump();
+      expect(inspections, 1);
+      expect(changes, 1);
+    });
+  }
+
+  testWidgets('reaction density grows for scaled counts in RTL', (
+    tester,
+  ) async {
+    await mount(
+      tester,
+      const DToggle(
+        density: DToggleDensity.reaction,
+        icon: Icon(Icons.favorite),
+        child: Text('12345'),
+      ),
+      scale: 3,
+      rtl: true,
+      theme: AppTheme.dark.copyWith(platform: TargetPlatform.iOS),
+    );
+    final artwork = find.descendant(
+      of: find.byType(DToggle),
+      matching: find.byType(AnimatedContainer),
+    );
+    expect(tester.getSize(artwork).height, greaterThan(48));
+    expect(
+      tester
+          .getRect(artwork)
+          .contains(tester.getBottomLeft(find.text('12345'))),
+      isTrue,
+    );
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('uncontrolled state toggles by pointer keyboard and semantics', (
     tester,
   ) async {
@@ -598,6 +683,7 @@ void main() {
   test('Toggle registers every frozen documented example', () {
     expect(componentExamples['toggle'], same(toggleExamples));
     expect(toggleExamples.examples.map((example) => example.title), [
+      'Reaction',
       'Default',
       'Outline',
       'With Text',
