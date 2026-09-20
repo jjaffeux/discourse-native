@@ -1032,11 +1032,12 @@ class _DTabIndicatorPainter extends CustomPainter {
     if (!visible) return;
     final paint = Paint()..color = color;
     if (topMarker) {
-      final width = math.min(24.0, size.width);
+      final width = math.min(28.0, size.width);
       canvas.drawRRect(
-        RRect.fromRectAndRadius(
+        RRect.fromRectAndCorners(
           Rect.fromLTWH((size.width - width) / 2, 0, width, 4),
-          const Radius.circular(2),
+          bottomLeft: const Radius.circular(4),
+          bottomRight: const Radius.circular(4),
         ),
         paint,
       );
