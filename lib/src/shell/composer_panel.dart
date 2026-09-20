@@ -750,7 +750,7 @@ class _TopicTaxonomy extends StatelessWidget {
                         siteUrl: composer.target.siteUrl,
                         categories: state.categories,
                         selected: rootCategory,
-                        placeholder: 'Choose a category',
+                        placeholder: 'Category',
                         labelFor: (category) => shell.topicCategoryPathLabel(
                           category,
                           siteUrl: composer.target.siteUrl,

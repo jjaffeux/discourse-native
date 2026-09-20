@@ -64,7 +64,7 @@ final categorySelectorExamples = ComponentExamples(
   children: [
     TopicCategorySelector(
       siteUrl: siteUrl, categories: categories, selected: parent,
-      placeholder: 'Choose a category', labelFor: categoryPath,
+      placeholder: 'Category', labelFor: categoryPath,
       search: searchCreatableCategories, onSelected: selectCategory,
     ),
     if (parent != null && subcategories.isNotEmpty)
@@ -211,7 +211,7 @@ class _CategoryExampleState extends State<_CategoryExample> {
           siteUrl: 'https://styleguide.invalid',
           categories: _categories,
           selected: widget.composer ? root : _selected,
-          placeholder: widget.composer ? 'Choose a category' : 'Categories',
+          placeholder: widget.composer ? 'Category' : 'Categories',
           includeAll: !widget.composer && !widget.removable,
           clearSelectionLabel: widget.removable ? 'Remove subcategory' : null,
           labelFor: widget.composer ? _path : null,
