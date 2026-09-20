@@ -288,36 +288,38 @@ class _ChatChannelBodyState extends State<_ChatChannelBody> {
     return ChatUploadDropRegion(
       controller: _uploadDropController,
       title: 'Drop files to upload to #$channelTitle',
-      child: Column(
-        children: [
-          if (channel?.hasPinnedMessages == true)
-            ChatPinnedBar(
-              siteUrl: widget.siteUrl,
-              channel: channel!,
-              chat: widget.chat,
-              onJumpToMessage: _jumpToMessage,
-            ),
-          Expanded(child: content),
-          if (_selectingMessages)
-            ChatMessageSelectionBar(
-              siteUrl: widget.siteUrl,
-              channelId: widget.channelId,
-              messageIds: _selectedMessageIds,
-              chat: widget.chat,
-              onCancel: _cancelSelecting,
-            )
-          else if (stream.error == null || hasMessages)
-            ChatComposer(
-              key: ValueKey((widget.siteUrl, widget.channelId, 'composer')),
-              siteUrl: widget.siteUrl,
-              channelId: widget.channelId,
-              uploadDropController: _uploadDropController,
-              focusRequest: _composerFocusRequest,
-              editingMessage: _editingMessage,
-              onEditMessage: _editMessage,
-              onEditFinished: _finishEditing,
-            ),
-        ],
+      child: DPageSurface(
+        framed: false,
+        hideHeaderOnScroll: true,
+        header: channel?.hasPinnedMessages == true
+            ? ChatPinnedBar(
+                siteUrl: widget.siteUrl,
+                channel: channel!,
+                chat: widget.chat,
+                onJumpToMessage: _jumpToMessage,
+              )
+            : null,
+        footer: _selectingMessages
+            ? ChatMessageSelectionBar(
+                siteUrl: widget.siteUrl,
+                channelId: widget.channelId,
+                messageIds: _selectedMessageIds,
+                chat: widget.chat,
+                onCancel: _cancelSelecting,
+              )
+            : stream.error == null || hasMessages
+            ? ChatComposer(
+                key: ValueKey((widget.siteUrl, widget.channelId, 'composer')),
+                siteUrl: widget.siteUrl,
+                channelId: widget.channelId,
+                uploadDropController: _uploadDropController,
+                focusRequest: _composerFocusRequest,
+                editingMessage: _editingMessage,
+                onEditMessage: _editMessage,
+                onEditFinished: _finishEditing,
+              )
+            : null,
+        child: content,
       ),
     );
   }

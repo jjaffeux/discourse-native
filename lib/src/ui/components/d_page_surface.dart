@@ -122,7 +122,11 @@ class _DPageSurfaceState extends State<DPageSurface> {
     }
     if (notification is ScrollUpdateNotification && _userScrolling) {
       final metrics = notification.metrics;
-      if (metrics.pixels <= metrics.minScrollExtent) {
+      final reversed = metrics.axisDirection == AxisDirection.up;
+      final atTop = reversed
+          ? metrics.pixels >= metrics.maxScrollExtent
+          : metrics.pixels <= metrics.minScrollExtent;
+      if (atTop) {
         _distance = 0;
         _show(true);
       } else if (!metrics.outOfRange) {
@@ -132,7 +136,9 @@ class _DPageSurfaceState extends State<DPageSurface> {
         if ((_direction == ScrollDirection.reverse && delta > 0) ||
             (_direction == ScrollDirection.forward && delta < 0)) {
           _distance += delta.abs();
-          final revealing = _direction == ScrollDirection.forward;
+          final revealing = reversed
+              ? _direction == ScrollDirection.reverse
+              : _direction == ScrollDirection.forward;
           final headerHeight = _headerFocus.context?.size?.height ?? 0;
           final canRetract =
               !_visible ||
