@@ -8,6 +8,77 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  testWidgets('height-only layout preserves the lane child and its state', (
+    tester,
+  ) async {
+    final size = ValueNotifier(const Size(700, 400));
+    addTearDown(size.dispose);
+    var builds = 0;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Material(
+          child: Center(
+            child: ValueListenableBuilder<Size>(
+              valueListenable: size,
+              builder: (context, value, child) =>
+                  SizedBox.fromSize(size: value, child: child),
+              child: DPageReadingLane(
+                builder: (context, lane) {
+                  builds++;
+                  return Padding(
+                    padding: lane.padding,
+                    child: DInput(key: _contentKey),
+                  );
+                },
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.enterText(find.byType(EditableText), 'Retained input');
+    final element = tester.element(find.byKey(_contentKey));
+    final initialBuilds = builds;
+    for (final height in [420.0, 450.0, 500.0, 400.0]) {
+      size.value = Size(700, height);
+      await tester.pump();
+    }
+    expect(builds, initialBuilds);
+    expect(tester.element(find.byKey(_contentKey)), same(element));
+    expect(find.text('Retained input'), findsOneWidget);
+    size.value = const Size(600, 400);
+    await tester.pump();
+    expect(builds, initialBuilds + 1);
+    expect(tester.element(find.byKey(_contentKey)), same(element));
+    expect(find.text('Retained input'), findsOneWidget);
+  });
+
+  testWidgets('cached lane builder still updates inherited values and caller', (
+    tester,
+  ) async {
+    final direction = ValueNotifier(TextDirection.ltr);
+    addTearDown(direction.dispose);
+    Widget lane(String label) => DPageReadingLane(
+      builder: (context, geometry) =>
+          Text('$label ${Directionality.of(context).name}'),
+    );
+    Widget host(Widget child) => MaterialApp(
+      home: ValueListenableBuilder<TextDirection>(
+        valueListenable: direction,
+        builder: (context, value, child) =>
+            Directionality(textDirection: value, child: child!),
+        child: child,
+      ),
+    );
+    await tester.pumpWidget(host(lane('First')));
+    expect(find.text('First ltr'), findsOneWidget);
+    direction.value = TextDirection.rtl;
+    await tester.pump();
+    expect(find.text('First rtl'), findsOneWidget);
+    await tester.pumpWidget(host(lane('Updated')));
+    expect(find.text('Updated rtl'), findsOneWidget);
+  });
+
   for (final direction in TextDirection.values) {
     testWidgets('sidebar lane keeps the viewport at the edge in $direction', (
       tester,

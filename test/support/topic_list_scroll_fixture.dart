@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/data/app_settings_store.dart';
 import 'package:discourse_native/src/diagnostics/diagnostics.dart';
 import 'package:discourse_native/src/models/app_settings.dart';
@@ -145,12 +146,16 @@ class TopicListScrollFixture extends StatelessWidget {
     required this.diagnostics,
     this.listKey,
     this.width = 800,
+    this.height = 600,
+    this.header,
   });
 
   final ShellController controller;
   final DiagnosticsController diagnostics;
   final GlobalKey? listKey;
   final double width;
+  final double height;
+  final Widget? header;
 
   @override
   Widget build(BuildContext context) => DiagnosticsScope(
@@ -163,11 +168,18 @@ class TopicListScrollFixture extends StatelessWidget {
           body: Center(
             child: SizedBox(
               width: width,
-              height: 600,
-              child: ListenableBuilder(
-                listenable: controller.topicFeeds,
-                builder: (context, _) =>
-                    TopicListView(key: listKey, feed: controller.currentFeed!),
+              height: height,
+              child: DPageSurface(
+                framed: false,
+                hideHeaderOnScroll: header != null,
+                header: header,
+                child: ListenableBuilder(
+                  listenable: controller.topicFeeds,
+                  builder: (context, _) => TopicListView(
+                    key: listKey,
+                    feed: controller.currentFeed!,
+                  ),
+                ),
               ),
             ),
           ),

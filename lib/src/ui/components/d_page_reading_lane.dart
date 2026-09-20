@@ -88,8 +88,21 @@ class DPageReadingLane extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    ({double width, EdgeInsets reserved, bool limited})? previousInputs;
+    Widget? child;
     return LayoutBuilder(
       builder: (context, constraints) {
+        final inputs = (
+          width: constraints.maxWidth,
+          reserved: _ReadingLaneInsets.of(context),
+          limited: limitContentSize ?? DPageContentSettings.limitOf(context),
+        );
+        // A retracting page header changes only the viewport height. Let the
+        // child lay out again without replacing its scroll delegate each tick.
+        // This cache is reset on widget updates; Builder retains the caller's
+        // own inherited dependencies independently of the lane geometry.
+        if (child != null && inputs == previousInputs) return child!;
+        previousInputs = inputs;
         final lane = geometryFor(
           context,
           availableWidth: constraints.maxWidth,
@@ -97,7 +110,7 @@ class DPageReadingLane extends StatelessWidget {
           widthLimit: widthLimit,
           limitContentSize: limitContentSize,
         );
-        return _ReadingLaneInsets(
+        return child = _ReadingLaneInsets(
           padding: EdgeInsets.zero,
           child: Builder(builder: (context) => builder(context, lane)),
         );

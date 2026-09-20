@@ -9,6 +9,73 @@ import 'support/topic_list_scroll_fixture.dart';
 import 'support/topic_scroll_capture.dart';
 
 void main() {
+  testWidgets('retracting header does not repeatedly rebuild retained rows', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(900, 700);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final controller = await topicListScrollController();
+    final capture = topicScrollCaptureWithoutVm();
+    final diagnostics = DiagnosticsController.start(
+      persistence: MemoryDiagnosticsPersistence(),
+      topicScrollCapture: capture,
+    );
+    addTearDown(() async {
+      controller.dispose();
+      await controller.pluginTeardown;
+      await controller.plugins.close();
+      await diagnostics.close();
+    });
+    try {
+      await tester.pumpWidget(
+        TopicListScrollFixture(
+          controller: controller,
+          diagnostics: diagnostics,
+          header: const SizedBox(height: 104, child: Text('Topics')),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final scrollable = find.byType(Scrollable);
+      final position = tester.state<ScrollableState>(scrollable).position;
+      position.jumpTo(1500);
+      await tester.pumpAndSettle();
+      final initialHeight = position.viewportDimension;
+      final initialPixels = position.pixels;
+      final repeated = <int>[];
+      final totals = <String, int>{};
+      for (final delta in [40.0, -40.0, 40.0, -40.0]) {
+        capture.start();
+        position.pointerScroll(delta);
+        for (var frame = 0; frame < 16; frame++) {
+          await tester.pump(const Duration(milliseconds: 16));
+        }
+        capture.stop();
+        final indices = <int>{};
+        for (final event in capture.events) {
+          totals.update(event.name, (count) => count + 1, ifAbsent: () => 1);
+          if (event.name == 'topicList.row.built') {
+            final index = event.data['index']! as int;
+            if (!indices.add(index)) repeated.add(index);
+          }
+        }
+        expect(position.pixels, initialPixels + (delta > 0 ? 40 : 0));
+        expect(
+          position.viewportDimension,
+          closeTo(initialHeight + (delta > 0 ? 104 : 0), 0.01),
+        );
+      }
+      debugPrint('HEADER_SCROLL_COUNTS $totals repeated=${repeated.length}');
+      expect(repeated, isEmpty);
+      expect(tester.takeException(), isNull);
+    } finally {
+      capture.stop();
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump();
+      await diagnostics.close();
+    }
+  });
+
   test('profile fixture appends bounded pages', () async {
     final controller = await topicListScrollController(count: 65, pageSize: 30);
     addTearDown(() async {
