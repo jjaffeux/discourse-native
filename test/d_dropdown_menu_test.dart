@@ -848,6 +848,81 @@ void main() {
     },
   );
 
+  for (final customBoundary in [false, true]) {
+    for (final nested in [false, true]) {
+      for (final keyboardInitiallyVisible in [false, true]) {
+        testWidgets(
+          'iOS dropdown avoids consumed keyboard insets (custom boundary: $customBoundary, nested: $nested, initially visible: $keyboardInitiallyVisible)',
+          (tester) async {
+            tester.view.devicePixelRatio = 2;
+            tester.view.physicalSize = const Size(800, 1600);
+            addTearDown(tester.view.reset);
+            if (keyboardInitiallyVisible) {
+              tester.view.viewInsets = const FakeViewPadding(bottom: 600);
+            }
+            final menu = DDropdownMenu(
+              content: DDropdownMenuContent(
+                collisionBoundary: customBoundary
+                    ? const Rect.fromLTWH(0, 0, 400, 800)
+                    : null,
+                children: [
+                  for (var index = 0; index < 4; index++)
+                    DDropdownMenuItem(
+                      onPressed: _noop,
+                      child: Text('Keyboard action $index'),
+                    ),
+                ],
+              ),
+              child: DDropdownMenuTrigger.button(label: const Text('Open')),
+            );
+            final body = Stack(
+              children: [
+                Positioned(top: nested ? 260 : 360, left: 20, child: menu),
+              ],
+            );
+            await tester.pumpWidget(
+              MaterialApp(
+                theme: ThemeData(platform: TargetPlatform.iOS),
+                home: Scaffold(
+                  body: nested
+                      ? Padding(
+                          padding: const EdgeInsets.only(top: 100),
+                          child: Navigator(
+                            onGenerateRoute: (_) =>
+                                MaterialPageRoute<void>(builder: (_) => body),
+                          ),
+                        )
+                      : body,
+                ),
+              ),
+            );
+            await open(tester);
+            if (!keyboardInitiallyVisible) {
+              expect(
+                tester.getTopLeft(find.text('Keyboard action 0')).dy,
+                greaterThan(tester.getBottomLeft(find.text('Open')).dy),
+              );
+              tester.view.viewInsets = const FakeViewPadding(bottom: 600);
+              await tester.pumpAndSettle();
+            }
+            final trigger = tester.getRect(find.text('Open'));
+            final last = tester.getRect(find.text('Keyboard action 3'));
+            expect(last.bottom, lessThan(trigger.top));
+            expect(last.bottom, lessThan(500));
+            expect(tester.takeException(), isNull);
+
+            tester.view.viewInsets = const FakeViewPadding();
+            await tester.pumpAndSettle();
+            expect(
+              tester.getTopLeft(find.text('Keyboard action 0')).dy,
+              greaterThan(tester.getBottomLeft(find.text('Open')).dy),
+            );
+          },
+        );
+      }
+    }
+  }
+
   testWidgets('collision-constrained menus scroll without an explicit height', (
     tester,
   ) async {

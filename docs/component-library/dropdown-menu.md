@@ -238,3 +238,16 @@ the visually inspected sheet composition.
 Merged locally as `4fa1bcebc` from the main checkout, after preparing against
 `de5738fa2`. All 84 mobile/filter/navigation integration tests passed on that
 candidate. Implementation: `a26a1f52b`; branch: `codex/mobile-filter-sheets`.
+
+### Keyboard-aware anchored placement
+
+Anchored menus constrain placement to the window area above the software
+keyboard, even when a parent Scaffold consumes the inherited keyboard insets.
+They flip above the trigger when that side has more room, and recompute placement
+when the keyboard opens or closes. Window bounds are converted to local overlay
+coordinates for nested Navigators; explicit collision boundaries also respect
+the keyboard.
+
+Regression verification uses iOS-themed widget tests with simulated window
+insets (including an already-open menu, nested overlays, and custom boundaries).
+This is simulated coverage, not an iOS device verification.
