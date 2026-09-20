@@ -39,7 +39,7 @@ final drawerExamples = ComponentExamples(
     StyleguideExample(
       title: 'Delivery time',
       description:
-          'Frozen primary composition. Select a delivery window, confirm it, or swipe down to dismiss.',
+          'Select a delivery window, confirm it, or drag the handle or dimmed background. A quick downward swipe dismisses; a short, slow drag rebounds.',
       code: _deliveryCode,
       builder: (_) => const _DeliveryDrawer(),
       states: const ['controlled', 'radio group', 'swipe', 'typed close'],
