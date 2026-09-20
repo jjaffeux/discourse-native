@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import '../../theme/discourse_typography.dart';
@@ -208,6 +210,14 @@ Widget _sheetPresentation(
   return LayoutBuilder(
     builder: (context, bounds) {
       final margin = inset ? DSpacing.md : 0.0;
+      // A trigger inside SafeArea can capture a MediaQuery with its top padding
+      // consumed, even though the overlay route covers the whole screen.
+      final view = View.of(context);
+      final safeTop = math.max(
+        MediaQuery.paddingOf(context).top,
+        view.viewPadding.top / view.devicePixelRatio,
+      );
+      final pickerTop = math.max(safeTop + DSpacing.xl, bounds.maxHeight * .11);
       final availableWidth = (bounds.maxWidth - margin * 2).clamp(
         0.0,
         double.infinity,
@@ -232,7 +242,7 @@ Widget _sheetPresentation(
             ? null
             : margin,
         top: fillAvailableHeight
-            ? MediaQuery.paddingOf(context).top + margin
+            ? pickerTop
             : side == DSheetSide.bottom
             ? null
             : margin,
@@ -330,7 +340,8 @@ class DSheetContent extends StatelessWidget {
   /// Optional cap used by long top and bottom compositions.
   final double? topBottomMaxHeightFactor;
 
-  /// Fills the safe viewport above the keyboard, keeping the sheet inset.
+  /// Fills the viewport above the keyboard with space above the sheet.
+  /// The top gap is at least 11% of the viewport and 24px below the safe area.
   final bool fillAvailableHeight;
 
   @override

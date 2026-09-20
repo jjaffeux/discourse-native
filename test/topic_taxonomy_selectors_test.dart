@@ -58,12 +58,14 @@ void main() {
           MaterialApp(
             theme: AppTheme.dark.copyWith(platform: platform),
             home: Scaffold(
-              body: StatefulBuilder(
-                builder: (context, setState) => TopicTagSelector(
-                  selectedTags: selected,
-                  search: (_) async =>
-                      const TopicTagSearch(tags: [design, mobile]),
-                  onChanged: (value) => setState(() => selected = value),
+              body: SafeArea(
+                child: StatefulBuilder(
+                  builder: (context, setState) => TopicTagSelector(
+                    selectedTags: selected,
+                    search: (_) async =>
+                        const TopicTagSearch(tags: [design, mobile]),
+                    onChanged: (value) => setState(() => selected = value),
+                  ),
                 ),
               ),
             ),
@@ -79,10 +81,18 @@ void main() {
         );
         expect(
           tester.getTopLeft(find.byType(DSheetContent)).dy,
-          greaterThanOrEqualTo(47),
+          closeTo(844 * .11, .1),
         );
         tester.view.viewInsets = const FakeViewPadding(bottom: 300);
         await tester.pumpAndSettle();
+        expect(
+          tester.getTopLeft(find.byType(DSheetContent)).dy,
+          closeTo(844 * .11, .1),
+        );
+        expect(
+          tester.getBottomLeft(find.byType(DSheetContent)).dy,
+          lessThanOrEqualTo(544),
+        );
         for (final expected in [
           [design],
           <TopicTag>[],
