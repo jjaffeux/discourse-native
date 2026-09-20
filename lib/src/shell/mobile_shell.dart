@@ -7,6 +7,7 @@ import '../plugin_api/plugin_scope.dart';
 import '../theme/d_icons.dart';
 import 'forum_search.dart';
 import 'forum_settings_dialog.dart';
+import 'forum_theme_surfaces.dart';
 import 'instance_rail.dart';
 import 'instance_sidebar.dart';
 import 'shell_scope.dart';
@@ -143,58 +144,60 @@ class _MobileForumRootState extends State<MobileForumRoot> {
             ),
             Padding(
               padding: const EdgeInsets.all(DSpacing.sm),
-              child: DTabs<String>.controlled(
-                key: const ValueKey('mobile-bottom-bar'),
-                value: owner ?? 'home',
-                onChanged: (value) =>
-                    shell.selectMobilePanel(value == 'home' ? null : value),
-                children: [
-                  ValueListenableBuilder<bool>(
-                    valueListenable: _compact,
-                    builder: (context, compact, _) => DTabList<String>(
-                      variant: DTabListVariant.navigation,
-                      navigationCompact: compact,
-                      children: [
-                        const DTabTrigger(
-                          key: ValueKey('mobile-mode-home'),
-                          value: 'home',
-                          semanticLabel: 'Home',
-                          child: DIcon(DIcons.house),
-                        ),
-                        for (final entry in panels)
-                          DTabTrigger(
-                            key: ValueKey('mobile-mode-${entry.owner.value}'),
-                            value: entry.owner.value,
-                            semanticLabel: entry.panel.label,
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              spacing: DSpacing.controlGap,
-                              children: [
-                                DIcon(entry.panel.icon),
-                                if (entry.panel.badge case final badge?)
-                                  Flexible(child: badge),
-                              ],
-                            ),
+              child: ForumSidebarTheme(
+                child: DTabs<String>.controlled(
+                  key: const ValueKey('mobile-bottom-bar'),
+                  value: owner ?? 'home',
+                  onChanged: (value) =>
+                      shell.selectMobilePanel(value == 'home' ? null : value),
+                  children: [
+                    ValueListenableBuilder<bool>(
+                      valueListenable: _compact,
+                      builder: (context, compact, _) => DTabList<String>(
+                        variant: DTabListVariant.navigation,
+                        navigationCompact: compact,
+                        children: [
+                          const DTabTrigger(
+                            key: ValueKey('mobile-mode-home'),
+                            value: 'home',
+                            semanticLabel: 'Home',
+                            child: DIcon(DIcons.house),
                           ),
-                        Center(
-                          child: DButton.iconOnly(
-                            key: const ValueKey('mobile-forum-settings'),
-                            icon: const DIcon(DIcons.gear),
-                            tooltip: 'Forum settings',
-                            variant: DButtonVariant.ghost,
-                            onPressed: () => unawaited(
-                              showForumSettingsDialog(
-                                context,
-                                siteUrl: instance.url,
-                                name: instance.title,
+                          for (final entry in panels)
+                            DTabTrigger(
+                              key: ValueKey('mobile-mode-${entry.owner.value}'),
+                              value: entry.owner.value,
+                              semanticLabel: entry.panel.label,
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                spacing: DSpacing.controlGap,
+                                children: [
+                                  DIcon(entry.panel.icon),
+                                  if (entry.panel.badge case final badge?)
+                                    Flexible(child: badge),
+                                ],
+                              ),
+                            ),
+                          Center(
+                            child: DButton.iconOnly(
+                              key: const ValueKey('mobile-forum-settings'),
+                              icon: const DIcon(DIcons.gear),
+                              tooltip: 'Forum settings',
+                              variant: DButtonVariant.ghost,
+                              onPressed: () => unawaited(
+                                showForumSettingsDialog(
+                                  context,
+                                  siteUrl: instance.url,
+                                  name: instance.title,
+                                ),
                               ),
                             ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ],
