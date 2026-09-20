@@ -5,6 +5,91 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  for (final closing in [false, true]) {
+    testWidgets(
+      'ticker suspension removes ${closing ? 'a closing' : 'an open'} popover',
+      (tester) async {
+        final enabled = ValueNotifier(true);
+        final controller = DPopoverController();
+        final reasons = <DPopoverChangeReason>[];
+        final completions = <bool>[];
+        addTearDown(enabled.dispose);
+        addTearDown(controller.dispose);
+        await tester.pumpWidget(
+          _app(
+            ValueListenableBuilder<bool>(
+              valueListenable: enabled,
+              builder: (context, value, child) =>
+                  TickerMode(enabled: value, child: child!),
+              child: _TestPopover(
+                controller: controller,
+                onReason: reasons.add,
+                onComplete: completions.add,
+              ),
+            ),
+          ),
+        );
+        controller.open();
+        await tester.pumpAndSettle();
+        expect(find.text('Popover title'), findsOneWidget);
+        if (closing) {
+          controller.close();
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 75));
+          expect(find.text('Popover title'), findsOneWidget);
+        }
+
+        enabled.value = false;
+        await tester.pump();
+        await tester.pumpAndSettle();
+        expect(controller.isOpen, isFalse);
+        expect(find.text('Popover title', skipOffstage: false), findsNothing);
+        expect(
+          reasons.where((reason) => reason == DPopoverChangeReason.lifecycle),
+          hasLength(closing ? 0 : 1),
+        );
+        expect(completions, [true, false]);
+        controller.open();
+        await tester.pump();
+        expect(controller.isOpen, isFalse);
+        expect(find.text('Popover title'), findsNothing);
+
+        enabled.value = true;
+        await tester.pumpAndSettle();
+        expect(find.text('Popover title'), findsNothing);
+        controller.open();
+        await tester.pumpAndSettle();
+        expect(find.text('Popover title'), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
+  testWidgets('app suspension finishes a partially dismissed popover', (
+    tester,
+  ) async {
+    final controller = DPopoverController();
+    final completions = <bool>[];
+    addTearDown(controller.dispose);
+    await tester.pumpWidget(
+      _app(_TestPopover(controller: controller, onComplete: completions.add)),
+    );
+    controller.open();
+    await tester.pumpAndSettle();
+    controller.close();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 75));
+    expect(find.text('Popover title'), findsOneWidget);
+
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+    await tester.pump();
+    expect(find.text('Popover title'), findsNothing);
+    expect(completions, [true, false]);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pumpAndSettle();
+    expect(find.text('Popover title'), findsNothing);
+  });
+
   testWidgets('reparented custom anchor re-registers without closing', (
     tester,
   ) async {
@@ -591,6 +676,7 @@ class _TestPopover extends StatelessWidget {
     this.open,
     this.onOpen,
     this.onReason,
+    this.onComplete,
     this.controller,
     this.align = DPopoverAlign.center,
     this.width = 220,
@@ -601,6 +687,7 @@ class _TestPopover extends StatelessWidget {
   final bool? open;
   final DPopoverOpenChange? onOpen;
   final ValueChanged<DPopoverChangeReason>? onReason;
+  final ValueChanged<bool>? onComplete;
   final DPopoverController? controller;
   final DPopoverAlign align;
   final double width;
@@ -611,6 +698,7 @@ class _TestPopover extends StatelessWidget {
   Widget build(BuildContext context) => DPopover(
     open: open,
     controller: controller,
+    onOpenChangeComplete: onComplete,
     onOpenChange: (value, reason) {
       onReason?.call(reason);
       onOpen?.call(value, reason);

@@ -212,6 +212,7 @@ class _DPopoverState extends State<DPopover>
   bool _initialized = false;
   bool _syncScheduled = false;
   bool _suspended = false;
+  bool _tickersEnabled = true;
   bool _restoreFocusForNextClose = true;
   DPopoverInteraction _interaction = DPopoverInteraction.imperative;
 
@@ -229,6 +230,7 @@ class _DPopoverState extends State<DPopover>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    _tickersEnabled = TickerMode.valuesOf(context).enabled;
     _scheduleSync();
   }
 
@@ -254,8 +256,8 @@ class _DPopoverState extends State<DPopover>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _syncScheduled = false;
       if (!mounted) return;
-      if (_suspended) {
-        _setOpen(false, immediate: true);
+      if (_suspended || !_tickersEnabled) {
+        _dismissForLifecycle();
       } else if (widget.open != null) {
         _setOpen(widget.open!, restoreFocus: _restoreFocusForNextClose);
       } else if (!_initialized) {
@@ -274,7 +276,11 @@ class _DPopoverState extends State<DPopover>
     DPopoverChangeReason reason,
     DPopoverInteraction interaction,
   ) {
-    if (!mounted || value == _open) return;
+    if (!mounted ||
+        value == _open ||
+        (value && (_suspended || !_tickersEnabled))) {
+      return;
+    }
     _interaction = interaction;
     if (!value) {
       _restoreFocusForNextClose = reason != DPopoverChangeReason.outsidePress;
@@ -288,7 +294,16 @@ class _DPopoverState extends State<DPopover>
     bool immediate = false,
     bool restoreFocus = true,
   }) {
-    if (!mounted || value == _open) return;
+    if (!mounted) return;
+    if (value == _open) {
+      // A closing portal can outlive its logical open state. Finish it when
+      // its screen is hidden instead of waiting for a muted animation ticker.
+      if (!value && immediate && _portal.isShowing) {
+        _animation.value = 0;
+        _portal.hide();
+      }
+      return;
+    }
     _open = value;
     final noMotion = immediate || MediaQuery.disableAnimationsOf(context);
     if (value) {
@@ -314,7 +329,6 @@ class _DPopoverState extends State<DPopover>
       if (noMotion) {
         _animation.value = 0;
         _portal.hide();
-        widget.onOpenChangeComplete?.call(false);
       } else {
         _animation.reverse();
       }
@@ -345,9 +359,11 @@ class _DPopoverState extends State<DPopover>
   }
 
   void _dismissForLifecycle() {
-    if (!_open) return;
+    final wasOpen = _open;
     _setOpen(false, immediate: true, restoreFocus: false);
-    widget.onOpenChange?.call(false, DPopoverChangeReason.lifecycle);
+    if (wasOpen) {
+      widget.onOpenChange?.call(false, DPopoverChangeReason.lifecycle);
+    }
   }
 
   Rect? _globalRect(BuildContext? target) {
@@ -428,7 +444,9 @@ class _DPopoverState extends State<DPopover>
 
   Widget _overlay(BuildContext overlayContext, OverlayChildLayoutInfo info) {
     final anchorContext = _anchorContext ?? _triggerContext;
-    if (_suspended || anchorContext == null) return const SizedBox.shrink();
+    if (_suspended || !_tickersEnabled || anchorContext == null) {
+      return const SizedBox.shrink();
+    }
     final anchorBox = anchorContext.findRenderObject();
     final overlayBox = Overlay.of(context).context.findRenderObject();
     if (anchorBox is! RenderBox ||

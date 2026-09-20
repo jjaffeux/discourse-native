@@ -60,6 +60,22 @@ without restoring focus into an inactive view. On resume, a still-true
 controlled `open` value is reconciled and shown again; an owner that accepted
 the close request remains closed.
 
+Hidden screens also dismiss their popovers when their ancestor `TickerMode`
+disables animation. Dismissal finishes an already-closing portal immediately:
+the mobile shell retains Home offstage, and otherwise its paused exit animation
+leaves a faint forum menu painted over the topic reader. The portal is removed,
+completion is reported once, and focus is not restored into the hidden screen.
+The same cleanup handles app/view suspension during the exit animation.
+
+The regression was reproduced before the fix in `d_popover_test.dart` and the
+iOS/Android variants of `mobile_shell_test.dart` by navigating 75ms into the
+100ms dismissal. Focused Popover, Dropdown Menu, Context Menu, Menubar,
+Combobox, Select, mobile shell and styleguide tests pass with the fix; root
+static analysis is clean. An iOS 27 simulator running the production mobile
+fixture was also checked: open the forum menu, navigate to Users, return Home,
+reopen/dismiss the menu, and open a topic. The menu disappears completely and
+the reader remains clear. No physical-device or Android-device run was made.
+
 Independent native review also found that an ancestor `CallbackShortcuts`
 Escape binding could shadow the popup's local `DismissIntent`. The topmost
 Popover layer now handles Escape directly: an open descendant menu closes
