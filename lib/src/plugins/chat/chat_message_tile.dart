@@ -266,6 +266,10 @@ class _ChatMessageActions extends StatefulWidget {
 
 class _ChatMessageActionsState extends State<_ChatMessageActions> {
   final _dropdown = DDropdownMenuController();
+  final _sheet = DSheetController<void>();
+  // Run after dismissal so focus restoration cannot steal focus from a picker
+  // or the composer opened by the action.
+  VoidCallback? _pendingSheetAction;
   bool _focused = false;
   bool _hovered = false;
   bool _hoverSuppressed = false;
@@ -348,6 +352,7 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
   void dispose() {
     _detachScroll();
     _dropdown.dispose();
+    _sheet.dispose();
     super.dispose();
   }
 
@@ -533,8 +538,8 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
     );
   }
 
-  Widget _messageDropdown({
-    required Widget Function(Widget trigger) childBuilder,
+  Widget _messageActions({
+    required Widget Function(Widget? trigger) childBuilder,
     required bool bookmarkBusy,
     required bool canEdit,
     required bool canDelete,
@@ -555,17 +560,157 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
       VoidCallback action, {
       bool busy = false,
       bool destructive = false,
-    }) => DDropdownMenuItem(
-      key: ValueKey('chat-message-$name-${widget.message.id}'),
-      leading: busy ? const DSpinner() : DIcon(icon, size: 16),
-      onPressed: busy ? null : () => _runDropdownAction(action),
-      closeOnSelect: false,
-      variant: destructive
-          ? DDropdownMenuItemVariant.destructive
-          : DDropdownMenuItemVariant.standard,
-      child: Text(label),
-    );
+    }) {
+      if (context.isTouch) {
+        return DButton(
+          key: ValueKey('chat-message-$name-${widget.message.id}'),
+          icon: DIcon(icon),
+          loading: busy,
+          alignment: AlignmentDirectional.centerStart,
+          variant: destructive
+              ? DButtonVariant.destructive
+              : DButtonVariant.transparentBackground,
+          onPressed: busy
+              ? null
+              : () {
+                  _pendingSheetAction = action;
+                  _sheet.close();
+                },
+          label: Text(label),
+        );
+      }
+      return DDropdownMenuItem(
+        key: ValueKey('chat-message-$name-${widget.message.id}'),
+        leading: busy ? const DSpinner() : DIcon(icon, size: 16),
+        onPressed: busy ? null : () => _runDropdownAction(action),
+        closeOnSelect: false,
+        variant: destructive
+            ? DDropdownMenuItemVariant.destructive
+            : DDropdownMenuItemVariant.standard,
+        child: Text(label),
+      );
+    }
 
+    final items = <Widget>[
+      if (widget.message.createdAt case final at?) ...[
+        if (context.isTouch)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: DSpacing.sm),
+            child: Text(
+              _messageDate(context, at),
+              key: ChatMessageTile.timestampKey(widget.message.id),
+            ),
+          )
+        else
+          DDropdownMenuLabel(
+            child: Text(
+              _messageDate(context, at),
+              key: ChatMessageTile.timestampKey(widget.message.id),
+            ),
+          ),
+        if (context.isTouch)
+          const DSeparator()
+        else
+          const DDropdownMenuSeparator(),
+      ],
+      if (canReply) item('reply', 'Reply', DIcons.reply, _reply),
+      if (chat.canAddReactionToMessage(widget.siteUrl, widget.message))
+        item(
+          'react-menu',
+          'React',
+          DIcons.farFaceSmile,
+          () => unawaited(_pickReaction(_menuReactionAnchor.currentContext)),
+          busy: _reactionPickerOpening,
+        ),
+      if (canBookmark)
+        item(
+          'bookmark',
+          widget.message.bookmark == null ? 'Bookmark' : 'Edit bookmark',
+          _bookmarkIcon(widget.message.bookmark),
+          () => unawaited(_bookmark()),
+          busy: bookmarkBusy,
+        ),
+      if (canPin)
+        item(
+          'pin',
+          widget.message.pinned ? 'Unpin' : 'Pin',
+          DIcons.thumbtack,
+          () => unawaited(_togglePin()),
+          busy: _pinning,
+        ),
+      if (widget.canCopyLink)
+        item(
+          'copy-link',
+          'Copy link',
+          DIcons.link,
+          () => unawaited(_copyLink()),
+        ),
+      if (widget.canCopyText)
+        item(
+          'copy-text',
+          'Copy text',
+          DIcons.copy,
+          () => unawaited(_copyText()),
+        ),
+      if (canEdit && widget.onEdit != null)
+        item('edit', 'Edit', DIcons.pencil, _edit),
+      if (flagTypes.isNotEmpty)
+        item('flag', 'Flag', DIcons.flag, () => unawaited(_flag(flagTypes))),
+      if (canRestore)
+        item(
+          'restore',
+          'Restore deleted message',
+          DIcons.arrowRotateLeft,
+          () => unawaited(_restore()),
+          busy: _restoring,
+        ),
+      if (canRebake)
+        item(
+          'rebake',
+          'Rebuild HTML',
+          DIcons.arrowsRotate,
+          () => unawaited(_rebake()),
+          busy: _rebaking,
+        ),
+      if (canDelete)
+        item(
+          'delete',
+          'Delete',
+          DIcons.trashCan,
+          () => unawaited(_delete()),
+          destructive: true,
+        ),
+      if (widget.onSelect case final select?)
+        item('select', 'Select', DIcons.list, select),
+    ];
+    if (context.isTouch) {
+      return DSheet<void>(
+        controller: _sheet,
+        onOpenChangeComplete: (open) {
+          if (open) return;
+          final action = _pendingSheetAction;
+          _pendingSheetAction = null;
+          if (mounted) action?.call();
+        },
+        trigger: DSheetTrigger(builder: (context, open) => childBuilder(null)),
+        content: DSheetContent(
+          side: DSheetSide.bottom,
+          topBottomMaxHeightFactor: .85,
+          children: [
+            const DSheetHeader(
+              children: [DSheetTitle(child: Text('Message actions'))],
+            ),
+            DSheetBody(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: items,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
     return DDropdownMenu(
       controller: _dropdown,
       onOpenChange: (open, _) {
@@ -578,92 +723,7 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
         semanticLabel: 'Message actions',
         align: DPopoverAlign.end,
         width: 220,
-        children: [
-          if (widget.message.createdAt case final at?) ...[
-            DDropdownMenuLabel(
-              child: Text(
-                _messageDate(context, at),
-                key: ChatMessageTile.timestampKey(widget.message.id),
-              ),
-            ),
-            const DDropdownMenuSeparator(),
-          ],
-          if (canReply) item('reply', 'Reply', DIcons.reply, _reply),
-          if (chat.canAddReactionToMessage(widget.siteUrl, widget.message))
-            item(
-              'react-menu',
-              'React',
-              DIcons.farFaceSmile,
-              () =>
-                  unawaited(_pickReaction(_menuReactionAnchor.currentContext)),
-              busy: _reactionPickerOpening,
-            ),
-          if (canBookmark)
-            item(
-              'bookmark',
-              widget.message.bookmark == null ? 'Bookmark' : 'Edit bookmark',
-              _bookmarkIcon(widget.message.bookmark),
-              () => unawaited(_bookmark()),
-              busy: bookmarkBusy,
-            ),
-          if (canPin)
-            item(
-              'pin',
-              widget.message.pinned ? 'Unpin' : 'Pin',
-              DIcons.thumbtack,
-              () => unawaited(_togglePin()),
-              busy: _pinning,
-            ),
-          if (widget.canCopyLink)
-            item(
-              'copy-link',
-              'Copy link',
-              DIcons.link,
-              () => unawaited(_copyLink()),
-            ),
-          if (widget.canCopyText)
-            item(
-              'copy-text',
-              'Copy text',
-              DIcons.copy,
-              () => unawaited(_copyText()),
-            ),
-          if (canEdit && widget.onEdit != null)
-            item('edit', 'Edit', DIcons.pencil, _edit),
-          if (flagTypes.isNotEmpty)
-            item(
-              'flag',
-              'Flag',
-              DIcons.flag,
-              () => unawaited(_flag(flagTypes)),
-            ),
-          if (canRestore)
-            item(
-              'restore',
-              'Restore deleted message',
-              DIcons.arrowRotateLeft,
-              () => unawaited(_restore()),
-              busy: _restoring,
-            ),
-          if (canRebake)
-            item(
-              'rebake',
-              'Rebuild HTML',
-              DIcons.arrowsRotate,
-              () => unawaited(_rebake()),
-              busy: _rebaking,
-            ),
-          if (canDelete)
-            item(
-              'delete',
-              'Delete',
-              DIcons.trashCan,
-              () => unawaited(_delete()),
-              destructive: true,
-            ),
-          if (widget.onSelect case final select?)
-            item('select', 'Select', DIcons.list, select),
-        ],
+        children: items,
       ),
       child: childBuilder(
         EmojiPickerAnchor(
@@ -798,7 +858,7 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
         CustomSemanticsAction(label: bookmarkLabel): () =>
             unawaited(_bookmark()),
     };
-    Widget messageRow(Widget messageActions) => Shortcuts(
+    Widget messageRow(Widget? messageActions) => Shortcuts(
       shortcuts: const {
         SingleActivator(LogicalKeyboardKey.f10, shift: true):
             _OpenChatMessageActionsIntent(),
@@ -810,7 +870,9 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
           _OpenChatMessageActionsIntent:
               CallbackAction<_OpenChatMessageActionsIntent>(
                 onInvoke: (_) {
-                  _dropdown.open(DPopoverInteraction.keyboard);
+                  context.isTouch
+                      ? _sheet.open()
+                      : _dropdown.open(DPopoverInteraction.keyboard);
                   return null;
                 },
               ),
@@ -830,13 +892,15 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
               onExit: (_) => _pointerExited(),
               child: GestureDetector(
                 behavior: HitTestBehavior.translucent,
-                onLongPress: context.isTouch
-                    ? () => _dropdown.open(DPopoverInteraction.touch)
-                    : null,
-                onSecondaryTap: () => _dropdown.open(DPopoverInteraction.mouse),
+                onLongPress: context.isTouch ? () => _sheet.open() : null,
+                onSecondaryTap: () => context.isTouch
+                    ? _sheet.open()
+                    : _dropdown.open(DPopoverInteraction.mouse),
                 child: widget.childBuilder(
                   messageActions,
-                  canAddReaction ? _messageReaction(enabled: true) : null,
+                  canAddReaction && !context.isTouch
+                      ? _messageReaction(enabled: true)
+                      : null,
                 ),
               ),
             ),
@@ -846,7 +910,7 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
     );
     // The popup belongs outside the message's semantic grouping. Its trigger
     // remains in the bubble, while the menu keeps independent native AX nodes.
-    return _messageDropdown(
+    return _messageActions(
       bookmarkBusy: bookmarkBusy,
       canEdit: canEdit,
       canDelete: canDelete,
@@ -944,7 +1008,7 @@ class _Tile extends StatelessWidget {
 
   Widget _conversationMessage(BuildContext context, {required bool outgoing}) {
     final theme = Theme.of(context);
-    final reserveActions = message.isOptimistic;
+    final reserveActions = message.isOptimistic && !context.isTouch;
     Widget? pendingAction(DIconData icon, DButtonSize size, String label) =>
         reserveActions
         ? Visibility(
@@ -1122,7 +1186,7 @@ class _Tile extends StatelessWidget {
               if (hasSurface)
                 DBubble(
                   align: bubbleAlign,
-                  maximumWidthFactor: .88,
+                  maximumWidthFactor: context.isTouch ? 1 : .88,
                   variant: outgoing
                       ? DBubbleVariant.accent
                       : DBubbleVariant.neutral,
@@ -1228,11 +1292,13 @@ class _MessageBodySelectionState extends State<_MessageBodySelection> {
   }
 
   @override
-  Widget build(BuildContext context) => RouteAwareSelectionArea(
-    selectionAreaKey: widget.selectionKey,
-    focusNode: _focusNode,
-    child: widget.child,
-  );
+  Widget build(BuildContext context) => context.isTouch
+      ? widget.child
+      : RouteAwareSelectionArea(
+          selectionAreaKey: widget.selectionKey,
+          focusNode: _focusNode,
+          child: widget.child,
+        );
 }
 
 class _ReplyIndicator extends StatelessWidget {

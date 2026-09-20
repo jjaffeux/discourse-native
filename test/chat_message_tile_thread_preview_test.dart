@@ -739,7 +739,7 @@ void main() {
       expect(copied, ['Root message']);
     });
 
-    testWidgets('a touch long press selects the rendered message body', (
+    testWidgets('a touch long press on the body opens message actions', (
       tester,
     ) async {
       final message = _message(null);
@@ -758,7 +758,8 @@ void main() {
       await tester.longPress(find.byType(CookedHtml));
       await tester.pumpAndSettle();
 
-      expect(find.text('Copy'), findsOneWidget);
+      expect(find.text('Message actions'), findsOneWidget);
+      expect(find.byType(DSheetContent), findsOneWidget);
       expect(find.byType(DDropdownMenuContent), findsNothing);
     });
 
@@ -853,6 +854,64 @@ void main() {
         expect(find.bySemanticsLabel('1 wave reaction'), findsOneWidget);
       },
     );
+
+    for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
+      testWidgets(
+        '$platform expands messages and reacts from the long-press sheet',
+        (tester) async {
+          tester.view.physicalSize = const Size(390, 844);
+          tester.view.devicePixelRatio = 1;
+          addTearDown(tester.view.resetPhysicalSize);
+          addTearDown(tester.view.resetDevicePixelRatio);
+          final api = FakeDiscourseApi(
+            emojisBySite: const {
+              _siteUrl: [
+                SiteEmoji(
+                  name: 'wave',
+                  url: 'https://meta.example/images/emoji/wave.png',
+                ),
+              ],
+            },
+          );
+          final controller = await _controller(
+            _message(
+              null,
+              cooked:
+                  '<p>${List.filled(30, 'Full width message').join(' ')}</p>',
+            ),
+            api: api,
+          );
+          addTearDown(controller.dispose);
+          await tester.pumpWidget(
+            _TestTile(
+              controller: controller,
+              onOpenThread: (_) {},
+              platform: platform,
+            ),
+          );
+          await tester.pumpAndSettle();
+          expect(find.byTooltip('More message actions'), findsNothing);
+          expect(find.byTooltip('Add reaction'), findsNothing);
+          final bubble = tester.getRect(
+            find.byKey(const ValueKey('chat-message-bubble-7')),
+          );
+          expect(bubble.right, closeTo(390 - DSpacing.lg, 1));
+          await tester.longPress(find.byType(CookedHtml));
+          await tester.pumpAndSettle();
+          expect(find.byType(DSheetContent), findsOneWidget);
+          expect(find.byType(DDropdownMenuContent), findsNothing);
+          await tester.tap(find.text('React'));
+          await tester.pumpAndSettle();
+          expect(find.byType(DSheetContent), findsNothing);
+          expect(find.byType(EmojiPicker), findsOneWidget);
+          await tester.tap(find.byTooltip(':wave:'));
+          await tester.pumpAndSettle();
+          expect(api.chatReactionsSet.single.emoji, 'wave');
+          expect(api.chatReactionsSet.single.messageId, 7);
+          expect(tester.takeException(), isNull);
+        },
+      );
+    }
 
     testWidgets('an upserted DM offers and submits its first reaction', (
       tester,
@@ -1349,7 +1408,7 @@ void main() {
       await tester.longPress(find.byKey(_messageTileKey));
       await tester.pumpAndSettle();
 
-      expect(find.byType(DDropdownMenuContent), findsOneWidget);
+      expect(find.byType(DSheetContent), findsOneWidget);
       expect(find.text('Edit'), findsOneWidget);
       await tester.tap(find.text('Edit'));
       await tester.pumpAndSettle();
@@ -1378,7 +1437,7 @@ void main() {
       await tester.longPress(find.byKey(_messageTileKey));
       await tester.pumpAndSettle();
 
-      expect(find.byType(DDropdownMenuContent), findsOneWidget);
+      expect(find.byType(DSheetContent), findsOneWidget);
       expect(find.text('Edit'), findsNothing);
     });
 
@@ -1875,7 +1934,7 @@ void main() {
       });
     }
 
-    testWidgets('a touch long press opens the message actions menu', (
+    testWidgets('a touch long press opens the message actions sheet', (
       tester,
     ) async {
       final message = _message(_thread());
@@ -1896,7 +1955,7 @@ void main() {
       await tester.longPress(find.byKey(_messageTileKey));
       await tester.pumpAndSettle();
 
-      expect(find.byType(DDropdownMenuContent), findsOneWidget);
+      expect(find.byType(DSheetContent), findsOneWidget);
       final action = find.text('Reply');
       expect(action, findsOneWidget);
 
@@ -1904,7 +1963,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(replies, [same(message)]);
-      expect(find.byType(DDropdownMenuContent), findsNothing);
+      expect(find.byType(DSheetContent), findsNothing);
     });
 
     testWidgets('a desktop long press does not open message actions', (
@@ -1947,7 +2006,7 @@ void main() {
       await tester.longPress(find.byKey(_messageTileKey));
       await tester.pumpAndSettle();
 
-      expect(find.byType(DDropdownMenuContent), findsOneWidget);
+      expect(find.byType(DSheetContent), findsOneWidget);
       expect(find.text('Bookmark'), findsOneWidget);
     });
   });
@@ -1980,6 +2039,7 @@ ChatThreadPreview _thread({
 ChatMessage _message(
   ChatThreadPreview? thread, {
   String raw = '',
+  String cooked = '<p>Root message</p>',
   int authorId = 99,
   String authorUsername = '',
   UserFlair? authorFlair,
@@ -1995,7 +2055,7 @@ ChatMessage _message(
   id: 7,
   channelId: 9,
   raw: raw,
-  cooked: '<p>Root message</p>',
+  cooked: cooked,
   author: ChatMessageAuthor(
     id: authorId,
     username: authorUsername,
