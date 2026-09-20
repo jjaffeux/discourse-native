@@ -521,6 +521,8 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
   ) {
     final mobile = ShellScope.read(context).mobileNavigationEnabled;
     return Scaffold(
+      // iOS exposes this surface around the keyboard's rounded upper corners.
+      backgroundColor: mobile ? Theme.of(context).shell.content : null,
       body: ForumWindowBackground(
         child: LayoutBuilder(
           builder: (context, constraints) {

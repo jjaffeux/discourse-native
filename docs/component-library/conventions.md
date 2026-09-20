@@ -289,3 +289,9 @@ record fonts, viewport, source and renderer explicitly. They do not replace
 native fixture verification. Use approved browser/native tools under the
 shared desktop lease, and report actual permission or policy blockers without
 bypassing them.
+
+### Capsule action surfaces
+
+The approved mobile composer toolbar uses `DCardVariant.capsule`. The Card owns
+its capsule outline, tinted surface and insets; child actions retain DButton
+geometry and interaction. Standard Card defaults are unchanged.
