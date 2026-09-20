@@ -22,10 +22,14 @@ class ComposerHeader extends StatelessWidget {
     this.onRestore,
     this.placement = ComposerPlacement.right,
     this.onPlacementChanged,
+    this.mobileSubmit,
+    this.onDiscard,
   });
 
   static const double height = readerHeaderHeight;
 
+  final Widget? mobileSubmit;
+  final VoidCallback? onDiscard;
   final ComposerController composer;
   final bool minimized;
   final VoidCallback onClose;
@@ -203,6 +207,85 @@ class ComposerHeader extends StatelessWidget {
             ),
             child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
           );
+
+    if (mobileSubmit != null && !minimized) {
+      return Padding(
+        key: const ValueKey('composer-header'),
+        padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+        child: Row(
+          spacing: DSpacing.controlGap,
+          children: [
+            DButton.iconOnly(
+              key: const ValueKey('composer-close'),
+              onPressed: onClose,
+              icon: const DIcon(DIcons.xmark),
+              tooltip: closeTooltip,
+              variant: DButtonVariant.outline,
+            ),
+            Expanded(
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                reverse: true,
+                child: Row(
+                  spacing: DSpacing.controlGap,
+                  children: [
+                    if (canToggleWhisper) heading,
+                    ...pluginControls,
+                    if (composer.canSaveDraft && !target.isEdit)
+                      _DraftStatus(composer: composer),
+                  ],
+                ),
+              ),
+            ),
+            DDropdownMenu(
+              content: DDropdownMenuContent(
+                children: [
+                  if (!atDestination &&
+                      !target.createsTopic &&
+                      target.topicId > 0)
+                    DDropdownMenuItem(
+                      key: const ValueKey('composer-return-to-topic'),
+                      onPressed: () => ShellScope.read(context).openTopicPost(
+                        siteUrl: target.siteUrl,
+                        topicId: target.topicId,
+                        postNumber:
+                            target.replyToPostNumber ??
+                            target.editingPostNumber ??
+                            1,
+                      ),
+                      child: const Text('Return to topic'),
+                    ),
+                  if (onMinimize != null)
+                    DDropdownMenuItem(
+                      onPressed: onMinimize,
+                      child: const Text('Minimize composer'),
+                    ),
+                  DDropdownMenuItem(
+                    key: const ValueKey('composer-cancel'),
+                    onPressed: onDiscard,
+                    child: const Text('Discard'),
+                  ),
+                ],
+              ),
+              child: DDropdownMenuTrigger(
+                builder: (context, trigger) => DButton.iconOnly(
+                  key: const ValueKey('composer-mobile-options'),
+                  tooltip: 'Composer actions',
+                  semanticLabel: 'Composer actions',
+                  icon: const DIcon(DIcons.ellipsis),
+                  variant: DButtonVariant.transparentBackground,
+                  focusNode: trigger.focusNode,
+                  hasPopup: true,
+                  expanded: trigger.open,
+                  onPressed: trigger.toggle,
+                ),
+              ),
+            ),
+            mobileSubmit!,
+          ],
+        ),
+      );
+    }
 
     final controls = [
       if (!atDestination && !target.createsTopic && target.topicId > 0)

@@ -884,7 +884,9 @@ Future<void> _pumpPanel(
   addTearDown(() => tester.binding.setSurfaceSize(null));
   await tester.pumpWidget(
     MaterialApp(
-      theme: AppTheme.dark,
+      theme: AppTheme.dark.copyWith(
+        platform: debugDefaultTargetPlatformOverride ?? TargetPlatform.linux,
+      ),
       builder: (context, child) => MediaQuery(
         data: MediaQuery.of(context).copyWith(textScaler: textScaler),
         child: child!,
