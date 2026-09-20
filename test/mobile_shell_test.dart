@@ -233,7 +233,7 @@ void main() {
   });
 
   _mobileTest(
-    'bar shrinks on down scroll and restores on up, top and mode change',
+    'bar keeps its size during scrolling and aligns with the content panel',
     (tester) async {
       await _pumpMobile(tester);
       final list = find.descendant(
@@ -251,6 +251,14 @@ void main() {
           )
           .first;
       final contentRect = tester.getRect(surface);
+      void expectAligned() {
+        final panelRect = tester.getRect(surface);
+        final barRect = tester.getRect(list);
+        expect(barRect.left, panelRect.left);
+        expect(barRect.right, panelRect.right);
+      }
+
+      expectAligned();
       void scroll(
         double pixels,
         double delta, {
@@ -276,15 +284,15 @@ void main() {
       expect(target(), 1);
       scroll(100, 50);
       await tester.pump();
-      expect(target(), .85);
+      expect(target(), 1);
       await tester.pump(const Duration(milliseconds: 90));
-      final compactWidth = tester
+      final scrollingWidth = tester
           .getSize(
             find.descendant(of: animation, matching: find.byType(Stack)).first,
           )
           .width;
       final fullWidth = tester.getSize(list).width;
-      expect(compactWidth, inExclusiveRange(fullWidth * .85, fullWidth));
+      expect(scrollingWidth, fullWidth);
       await tester.pumpAndSettle();
       expect(tester.getRect(surface), contentRect);
       scroll(80, -20);
@@ -297,7 +305,7 @@ void main() {
       expect(target(), 1);
       scroll(300, -30, axis: AxisDirection.up);
       await tester.pumpAndSettle();
-      expect(target(), .85);
+      expect(target(), 1);
       scroll(1000, 0, axis: AxisDirection.up);
       await tester.pumpAndSettle();
       expect(target(), 1);
@@ -309,11 +317,14 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('mobile-mode-chat')));
       await tester.pumpAndSettle();
       expect(target(), 1);
+      expectAligned();
       expect(tester.takeException(), isNull);
     },
   );
 
-  _mobileTest('dragging sidebar content changes the bar scale', (tester) async {
+  _mobileTest('dragging sidebar content keeps the bar size fixed', (
+    tester,
+  ) async {
     await _pumpMobile(tester, size: const Size(390, 400));
     final scrollable = find
         .descendant(
@@ -333,7 +344,7 @@ void main() {
       of: _bar,
       matching: find.byType(DTabList<String>),
     );
-    expect(tester.widget<DTabList<String>>(list).navigationCompact, isTrue);
+    expect(tester.widget<DTabList<String>>(list).navigationCompact, isFalse);
     await tester.drag(scrollable, const Offset(0, 70));
     await tester.pumpAndSettle();
     expect(tester.widget<DTabList<String>>(list).navigationCompact, isFalse);
@@ -642,11 +653,12 @@ void main() {
     await back.up();
     await tester.pumpAndSettle();
     expect(_bar, findsOneWidget);
+    final barOrigin = tester.getTopLeft(_bar);
     final forward = await tester.startGesture(const Offset(385, 400));
     await forward.moveBy(const Offset(-120, 0));
     await tester.pump();
     expect(shell.mobileNavigation.atRoot, isTrue);
-    expect(tester.getTopLeft(_bar).dx, lessThan(0));
+    expect(tester.getTopLeft(_bar).dx, lessThan(barOrigin.dx));
     await forward.up();
     await tester.pumpAndSettle();
     _expectPage();

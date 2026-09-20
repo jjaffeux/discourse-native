@@ -13,43 +13,11 @@ import 'shell_scope.dart';
 import 'user_menu_button.dart';
 
 /// The mobile root owns navigation chrome; shared feature pages sit above it.
-class MobileForumRoot extends StatefulWidget {
+class MobileForumRoot extends StatelessWidget {
   const MobileForumRoot({super.key, this.content});
 
   /// Forum availability/sign-in boundaries retain the same root navigation.
   final Widget? content;
-
-  @override
-  State<MobileForumRoot> createState() => _MobileForumRootState();
-}
-
-class _MobileForumRootState extends State<MobileForumRoot> {
-  final _compact = ValueNotifier(false);
-  Object? _destination;
-
-  bool _onScroll(ScrollNotification notification) {
-    final metrics = notification.metrics;
-    if (notification.depth != 0 || metrics.axis != Axis.vertical) return false;
-    final atTop = metrics.axisDirection == AxisDirection.down
-        ? metrics.pixels <= metrics.minScrollExtent
-        : metrics.pixels >= metrics.maxScrollExtent;
-    if (atTop) {
-      _compact.value = false;
-    } else if (notification is ScrollUpdateNotification &&
-        !metrics.outOfRange) {
-      final delta = notification.scrollDelta ?? 0;
-      // Physical scroll direction also works for reversed chat lists.
-      final down = metrics.axisDirection == AxisDirection.down ? delta : -delta;
-      if (down != 0) _compact.value = down > 0;
-    }
-    return false;
-  }
-
-  @override
-  void dispose() {
-    _compact.dispose();
-    super.dispose();
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -80,11 +48,7 @@ class _MobileForumRootState extends State<MobileForumRoot> {
             }
           });
         }
-        final destination = (instance.url, shell.currentAccountIdentity, owner);
-        if (_destination != destination) {
-          _destination = destination;
-          _compact.value = false;
-        }
+        final contentStart = owner == null ? 48.0 : DSpacing.sm;
         return Column(
           key: const ValueKey('mobile-root'),
           children: [
@@ -93,52 +57,49 @@ class _MobileForumRootState extends State<MobileForumRoot> {
                 padding: const EdgeInsetsDirectional.only(end: DSpacing.sm),
                 child: Row(
                   children: [
-                    if (owner == null)
-                      const SizedBox(width: 48, child: InstanceRail())
-                    else
-                      const SizedBox(width: DSpacing.sm),
+                    SizedBox(
+                      width: contentStart,
+                      child: owner == null ? const InstanceRail() : null,
+                    ),
                     Expanded(
-                      child: NotificationListener<ScrollNotification>(
-                        onNotification: _onScroll,
-                        child: DCard(
-                          key: const ValueKey('mobile-sidebar-panel'),
-                          spacing: 0,
-                          leading: ForumSidebarTheme(
-                            child: DSidebarHeader(
-                              key: const ValueKey('mobile-header'),
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: DSpacing.sm,
-                              ),
-                              child: Row(
-                                children: [
-                                  ForumIdentityHeader(
-                                    siteUrl: instance.url,
-                                    name: instance.title,
-                                    iconUrl: instance.iconUrl,
-                                    monogram: instance.monogram,
-                                    accentColor: instance.accentColor,
-                                    compact: true,
-                                  ),
-                                  const Spacer(),
-                                  const ForumSearch(fullScreen: true),
-                                  const SizedBox(width: DSpacing.controlGap),
-                                  const UserMenuButton(),
-                                ],
-                              ),
+                      child: DCard(
+                        key: const ValueKey('mobile-sidebar-panel'),
+                        spacing: 0,
+                        leading: ForumSidebarTheme(
+                          child: DSidebarHeader(
+                            key: const ValueKey('mobile-header'),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: DSpacing.sm,
+                            ),
+                            child: Row(
+                              children: [
+                                ForumIdentityHeader(
+                                  siteUrl: instance.url,
+                                  name: instance.title,
+                                  iconUrl: instance.iconUrl,
+                                  monogram: instance.monogram,
+                                  accentColor: instance.accentColor,
+                                  compact: true,
+                                ),
+                                const Spacer(),
+                                const ForumSearch(fullScreen: true),
+                                const SizedBox(width: DSpacing.controlGap),
+                                const UserMenuButton(),
+                              ],
                             ),
                           ),
-                          child: Expanded(
-                            child:
-                                widget.content ??
-                                InstanceSidebar(
-                                  key: ValueKey((
-                                    instance.url,
-                                    shell.currentAccountIdentity,
-                                  )),
-                                  mobile: true,
-                                  panelOwner: owner,
-                                ),
-                          ),
+                        ),
+                        child: Expanded(
+                          child:
+                              content ??
+                              InstanceSidebar(
+                                key: ValueKey((
+                                  instance.url,
+                                  shell.currentAccountIdentity,
+                                )),
+                                mobile: true,
+                                panelOwner: owner,
+                              ),
                         ),
                       ),
                     ),
@@ -147,7 +108,12 @@ class _MobileForumRootState extends State<MobileForumRoot> {
               ),
             ),
             Padding(
-              padding: const EdgeInsets.all(DSpacing.sm),
+              padding: EdgeInsetsDirectional.fromSTEB(
+                contentStart,
+                DSpacing.sm,
+                DSpacing.sm,
+                DSpacing.sm,
+              ),
               child: ForumSidebarTheme(
                 child: DTabs<String>.controlled(
                   key: const ValueKey('mobile-bottom-bar'),
@@ -155,45 +121,41 @@ class _MobileForumRootState extends State<MobileForumRoot> {
                   onChanged: (value) =>
                       shell.selectMobilePanel(value == 'home' ? null : value),
                   children: [
-                    ValueListenableBuilder<bool>(
-                      valueListenable: _compact,
-                      builder: (context, compact, _) => DTabList<String>(
-                        variant: DTabListVariant.navigation,
-                        navigationCompact: compact,
-                        expandNavigationTabs: false,
-                        trailing: DButton.iconOnly(
-                          key: const ValueKey('mobile-new-topic'),
-                          icon: const DIcon(DIcons.plus),
-                          tooltip: 'New topic',
-                          variant: DButtonVariant.primary,
-                          onPressed: shell.canCreateTopicFromSidebar
-                              ? () => unawaited(shell.openNewTopicFromSidebar())
-                              : null,
-                        ),
-                        children: [
-                          const DTabTrigger(
-                            key: ValueKey('mobile-mode-home'),
-                            value: 'home',
-                            semanticLabel: 'Home',
-                            child: DIcon(DIcons.house),
-                          ),
-                          for (final entry in panels)
-                            DTabTrigger(
-                              key: ValueKey('mobile-mode-${entry.owner.value}'),
-                              value: entry.owner.value,
-                              semanticLabel: entry.panel.label,
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                spacing: DSpacing.controlGap,
-                                children: [
-                                  DIcon(entry.panel.icon),
-                                  if (entry.panel.badge case final badge?)
-                                    Flexible(child: badge),
-                                ],
-                              ),
-                            ),
-                        ],
+                    DTabList<String>(
+                      variant: DTabListVariant.navigation,
+                      expandNavigationTabs: false,
+                      trailing: DButton.iconOnly(
+                        key: const ValueKey('mobile-new-topic'),
+                        icon: const DIcon(DIcons.plus),
+                        tooltip: 'New topic',
+                        variant: DButtonVariant.primary,
+                        onPressed: shell.canCreateTopicFromSidebar
+                            ? () => unawaited(shell.openNewTopicFromSidebar())
+                            : null,
                       ),
+                      children: [
+                        const DTabTrigger(
+                          key: ValueKey('mobile-mode-home'),
+                          value: 'home',
+                          semanticLabel: 'Home',
+                          child: DIcon(DIcons.house),
+                        ),
+                        for (final entry in panels)
+                          DTabTrigger(
+                            key: ValueKey('mobile-mode-${entry.owner.value}'),
+                            value: entry.owner.value,
+                            semanticLabel: entry.panel.label,
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              spacing: DSpacing.controlGap,
+                              children: [
+                                DIcon(entry.panel.icon),
+                                if (entry.panel.badge case final badge?)
+                                  Flexible(child: badge),
+                              ],
+                            ),
+                          ),
+                      ],
                     ),
                   ],
                 ),
