@@ -469,13 +469,13 @@ class _AssignmentEditorState extends State<AssignmentEditor> {
       tooltip: 'Close',
       semanticLabel: 'Close assignment',
     );
-    final media = MediaQuery.of(context);
+    final viewportSize = MediaQuery.sizeOf(context);
     // Let the header and search scroll when large text or the keyboard would
     // otherwise leave no room for the form. The draft and focus nodes stay owned
     // by this editor as the available space changes.
     final scrollHeader =
-        (media.size.height - media.viewInsets.bottom) /
-            media.textScaler.scale(1) <
+        (viewportSize.height - MediaQuery.viewInsetsOf(context).bottom) /
+            MediaQuery.textScalerOf(context).scale(1) <
         600;
     final drawerHeader = DDrawerHeader(
       textAlign: TextAlign.start,

@@ -451,15 +451,14 @@ class _DPopoverState extends State<DPopover>
       anchorBox.getTransformTo(overlayBox),
       Offset.zero & anchorBox.size,
     );
-    final media = MediaQuery.of(context);
+    final padding = MediaQuery.paddingOf(context);
+    final viewInsets = MediaQuery.viewInsetsOf(context);
     final viewport = Offset.zero & info.overlaySize;
     final safeBoundary = Rect.fromLTRB(
-      media.padding.left,
-      media.padding.top,
-      info.overlaySize.width -
-          math.max(media.padding.right, media.viewInsets.right),
-      info.overlaySize.height -
-          math.max(media.padding.bottom, media.viewInsets.bottom),
+      padding.left,
+      padding.top,
+      info.overlaySize.width - math.max(padding.right, viewInsets.right),
+      info.overlaySize.height - math.max(padding.bottom, viewInsets.bottom),
     );
     final boundary =
         widget.content.collisionBoundary?.intersect(viewport) ?? safeBoundary;

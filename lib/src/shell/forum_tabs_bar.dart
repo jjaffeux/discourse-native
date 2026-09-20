@@ -308,11 +308,14 @@ class _ForumTabSwitcherState extends State<_ForumTabSwitcher> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final media = MediaQuery.of(context);
-    final panelWidth = math.max(0.0, math.min(500.0, media.size.width - 16));
+    final viewportSize = MediaQuery.sizeOf(context);
+    final panelWidth = math.max(0.0, math.min(500.0, viewportSize.width - 16));
     final availablePanelHeight = math.max(
       0.0,
-      media.size.height - media.padding.vertical - media.viewInsets.bottom - 72,
+      viewportSize.height -
+          MediaQuery.paddingOf(context).vertical -
+          MediaQuery.viewInsetsOf(context).bottom -
+          72,
     );
     final openItems = widget.items.where(_matches).toList(growable: false);
     final closedItems = widget.recentlyClosedItems
