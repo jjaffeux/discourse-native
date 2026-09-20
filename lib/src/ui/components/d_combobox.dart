@@ -500,12 +500,12 @@ class _DComboboxState<T> extends FormFieldState<List<T>> {
       setValue(List<T>.unmodifiable(combobox.controlledValues));
       if (!combobox.multiple && combobox.query == null) {
         final selected = combobox.controlledValues.firstOrNull;
-        _replaceText(selected == null ? '' : labelFor(selected));
+        _syncTextAfterUpdate(selected == null ? '' : labelFor(selected));
       }
     }
     if (combobox.query case final controlledQuery?
         when controlledQuery != textController.text) {
-      _replaceText(controlledQuery);
+      _syncTextAfterUpdate(controlledQuery);
     }
     if (!combobox.enabled && oldWidget.enabled) {
       _requestOpen(false, DComboboxChangeReason.lifecycle);
@@ -527,6 +527,17 @@ class _DComboboxState<T> extends FormFieldState<List<T>> {
   bool _sameValues(List<T> left, List<T> right) =>
       left.length == right.length &&
       left.indexed.every((entry) => _equal(entry.$2, right[entry.$1]));
+
+  void _syncTextAfterUpdate(String text) {
+    if (!combobox.content.sheetOnMobile) {
+      _replaceText(text);
+      return;
+    }
+    // A sheet's editor lives in another route, outside this build subtree.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && textController.text != text) _replaceText(text);
+    });
+  }
 
   void _replaceText(String text) {
     _syncingText = true;
@@ -833,6 +844,7 @@ class _DComboboxState<T> extends FormFieldState<List<T>> {
     return _DComboboxScope<T>(
       state: this,
       child: DPopover(
+        sheetOnMobile: combobox.content.sheetOnMobile,
         controller: _popoverController,
         open: isOpen,
         focusContentOnOpen: false,
@@ -857,7 +869,10 @@ class _DComboboxState<T> extends FormFieldState<List<T>> {
           scrollable: false,
           // Options belong to the editor's tap region. Otherwise a mouse-down
           // blurs the input and selection's focus restoration reopens the menu.
-          child: TextFieldTapRegion(child: combobox.content),
+          child: _DComboboxScope<T>(
+            state: this,
+            child: TextFieldTapRegion(child: combobox.content),
+          ),
         ),
         child: KeyedSubtree(key: _anchorKey, child: combobox.anchor),
       ),
@@ -1125,6 +1140,7 @@ class DComboboxContent extends StatelessWidget {
     this.collisionBoundary,
     this.width,
     this.maxHeight = 288,
+    this.sheetOnMobile = false,
   });
 
   final List<Widget> children;
@@ -1139,6 +1155,9 @@ class DComboboxContent extends StatelessWidget {
   final Rect? collisionBoundary;
   final double? width;
   final double maxHeight;
+
+  /// Uses a searchable bottom sheet on mobile platforms.
+  final bool sheetOnMobile;
 
   @override
   Widget build(BuildContext context) => ClipRRect(

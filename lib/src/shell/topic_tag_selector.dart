@@ -28,6 +28,7 @@ class TopicTagSelector extends StatefulWidget {
     this.keyPrefix = 'tag-selector',
     this.size = DButtonSize.regular,
     this.valueKey,
+    this.sheetOnMobile = false,
   });
 
   final List<TopicTag> selectedTags;
@@ -42,6 +43,7 @@ class TopicTagSelector extends StatefulWidget {
   final String keyPrefix;
   final DButtonSize size;
   final Key? valueKey;
+  final bool sheetOnMobile;
 
   @override
   State<TopicTagSelector> createState() => _TopicTagSelectorState();
@@ -243,6 +245,7 @@ class _TopicTagSelectorState extends State<TopicTagSelector> {
       ),
     );
     final content = DComboboxContent(
+      sheetOnMobile: widget.sheetOnMobile,
       key: ValueKey('$prefix-popover'),
       semanticLabel: 'Tags',
       width: 280,

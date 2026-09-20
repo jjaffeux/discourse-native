@@ -193,6 +193,7 @@ class DDialog<T> extends StatefulWidget {
     this.open,
     this.initiallyOpen = false,
     this.onOpenChanged,
+    this.onOpenChangeComplete,
     this.useRootNavigator = false,
     this.modal = true,
     this.dismissOnBarrier = true,
@@ -201,6 +202,7 @@ class DDialog<T> extends StatefulWidget {
     this.routeSettings,
     this.initialFocusNode,
     this.finalFocusNode,
+    this.restoreFocus = true,
     this.presentationBuilder,
     this.transitionDuration,
     this.reverseTransitionDuration,
@@ -214,6 +216,9 @@ class DDialog<T> extends StatefulWidget {
   final bool? open;
   final bool initiallyOpen;
   final ValueChanged<DDialogChangeDetails<T>>? onOpenChanged;
+
+  /// Called when the opening or closing transition finishes.
+  final ValueChanged<bool>? onOpenChangeComplete;
   final bool useRootNavigator;
 
   /// When false, omits the backdrop and allows interaction outside the surface.
@@ -225,6 +230,9 @@ class DDialog<T> extends StatefulWidget {
   final RouteSettings? routeSettings;
   final FocusNode? initialFocusNode;
   final FocusNode? finalFocusNode;
+
+  /// Restores focus to the trigger or previous control after dismissal.
+  final bool restoreFocus;
   final DDialogPresentationBuilder? presentationBuilder;
   final Duration? transitionDuration;
   final Duration? reverseTransitionDuration;
@@ -372,13 +380,21 @@ class _DDialogState<T> extends State<DDialog<T>> {
             ),
           );
         }
-        if (route.shouldRestoreFocus) {
+        if (widget.restoreFocus && route.shouldRestoreFocus) {
           final target = widget.finalFocusNode ?? _previousFocus;
           if (target?.canRequestFocus ?? false) target!.requestFocus();
         }
         _previousFocus = null;
       }),
     );
+    route.animation?.addStatusListener((status) {
+      if (!mounted) return;
+      if (status == AnimationStatus.completed) {
+        widget.onOpenChangeComplete?.call(true);
+      } else if (status == AnimationStatus.dismissed) {
+        widget.onOpenChangeComplete?.call(false);
+      }
+    });
   }
 
   @override
