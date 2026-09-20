@@ -252,6 +252,95 @@ void main() {
     expect(rect.width, 384);
   });
 
+  for (final reducedMotion in [false, true]) {
+    testWidgets(
+      'backdrop drag follows the finger both ways and rebounds (reduced motion: $reducedMotion)',
+      (tester) async {
+        await tester.pumpWidget(
+          _host(_drawer<void>(), disableAnimations: reducedMotion),
+        );
+        await tester.tap(find.text('Open drawer'));
+        await tester.pumpAndSettle();
+        final surface = find.byType(DDrawerContent);
+        final origin = tester.getTopLeft(surface);
+        final gesture = await tester.startGesture(const Offset(30, 50));
+        await gesture.moveBy(const Offset(0, 30));
+        await tester.pump();
+        final accepted = tester.getTopLeft(surface);
+        await gesture.moveBy(const Offset(0, 40));
+        await tester.pump();
+        expect(tester.getTopLeft(surface).dy, closeTo(accepted.dy + 40, .1));
+        await gesture.moveBy(const Offset(0, -20));
+        await tester.pump();
+        expect(tester.getTopLeft(surface).dy, closeTo(accepted.dy + 20, .1));
+        await tester.pump(const Duration(milliseconds: 500));
+        await gesture.up();
+        await tester.pumpAndSettle();
+        expect(tester.getTopLeft(surface).dy, closeTo(origin.dy, .1));
+      },
+    );
+  }
+
+  testWidgets('short fast backdrop swipe dismisses with the swipe reason', (
+    tester,
+  ) async {
+    final changes = <DDrawerChangeDetails<void>>[];
+    await tester.pumpWidget(
+      _host(
+        _drawer<void>(onOpenChanged: changes.add),
+        disableAnimations: false,
+      ),
+    );
+    await tester.tap(find.text('Open drawer'));
+    await tester.pumpAndSettle();
+    final height = tester.getSize(find.byType(DDrawerContent)).height;
+    expect(60, lessThan(height / 2));
+    await tester.flingFrom(const Offset(30, 50), const Offset(0, 60), 1000);
+    await tester.pumpAndSettle();
+    expect(find.byType(DDrawerContent), findsNothing);
+    expect(changes.last.reason, DDrawerChangeReason.swipe);
+    expect(changes.where((change) => !change.open), hasLength(1));
+  });
+
+  testWidgets('denied backdrop swipe rebounds and tap keeps outside reason', (
+    tester,
+  ) async {
+    final changes = <DDrawerChangeDetails<void>>[];
+    await tester.pumpWidget(
+      _host(
+        _drawer<void>(
+          open: true,
+          onOpenChanged: (details) {
+            changes.add(details);
+            details.cancel();
+          },
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final origin = tester.getTopLeft(find.byType(DDrawerContent));
+    await tester.flingFrom(const Offset(30, 50), const Offset(0, 60), 1000);
+    await tester.pumpAndSettle();
+    expect(changes.single.reason, DDrawerChangeReason.swipe);
+    expect(tester.getTopLeft(find.byType(DDrawerContent)), origin);
+    await tester.tapAt(const Offset(30, 50));
+    await tester.pumpAndSettle();
+    expect(changes.last.reason, DDrawerChangeReason.outsidePress);
+  });
+
+  testWidgets('side drawer backdrop uses the handle axis and direction', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _host(_drawer<void>(direction: DDrawerSwipeDirection.right)),
+    );
+    await tester.tap(find.text('Open drawer'));
+    await tester.pumpAndSettle();
+    await tester.flingFrom(const Offset(30, 50), const Offset(60, 0), 1000);
+    await tester.pumpAndSettle();
+    expect(find.byType(DDrawerContent), findsNothing);
+  });
+
   testWidgets('touch swipe dismisses and reports swipe reason', (tester) async {
     DDrawerChangeDetails<void>? close;
     await tester.pumpWidget(
