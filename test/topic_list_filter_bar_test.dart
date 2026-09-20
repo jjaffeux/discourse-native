@@ -230,7 +230,7 @@ void main() {
         selectedTagNames: const ['Native', 'User experience'],
         onTagsSelected: selections.add,
       );
-      expect(find.text('Tags · 2'), findsOneWidget);
+      expect(find.text('2 tags'), findsOneWidget);
       await tester.tap(anchor);
       await tester.pumpAndSettle();
       final combobox = tester.widget<DCombobox<TopicTag>>(

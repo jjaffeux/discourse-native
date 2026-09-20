@@ -486,8 +486,9 @@ void main() {
         expect(parentRect.center.dy, feedRect.center.dy);
         expect(parentRect.left, greaterThan(feedRect.right));
         expect(childRect.top, greaterThanOrEqualTo(parentRect.bottom));
-        expect(tagRect.top, greaterThanOrEqualTo(childRect.bottom));
-        expect(tagRect.left, childRect.left);
+        expect(tagRect.overlaps(parentRect), isFalse);
+        expect(tagRect.overlaps(childRect), isFalse);
+        expect(tagRect.overlaps(feedRect), isFalse);
         final rowRect = tester.getRect(
           find.byKey(const ValueKey('topic-list-feed-row')),
         );
@@ -538,7 +539,7 @@ void main() {
         );
         await tester.pumpAndSettle();
         expect(shell.topicListContent?.tagNames, ['approved', 'release']);
-        expect(find.text('Tags · 2'), findsOneWidget);
+        expect(find.text('2 tags'), findsOneWidget);
         final taggedFeed = Uri.parse(setup.api.feedPaths.last);
         expect(taggedFeed.path, '/latest.json');
         expect(taggedFeed.queryParameters['category'], '43');
