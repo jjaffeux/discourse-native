@@ -69,9 +69,11 @@ void main() {
     await _mount(tester, controller: controller);
     final body = find.byKey(_body);
     final element = tester.element(body);
-    await _wheel(tester, 160);
-    await tester.pump(const Duration(milliseconds: 80));
-    expect(tester.getTopLeft(body).dy, inExclusiveRange(0, 80));
+    await _wheel(tester, 20);
+    expect(tester.getTopLeft(body).dy, 60);
+    await tester.pump(const Duration(milliseconds: 200));
+    expect(tester.getTopLeft(body).dy, 60);
+    await _wheel(tester, 140);
     await _wheel(tester, -100);
     await tester.pumpAndSettle();
     expect(tester.getTopLeft(body).dy, 80);
@@ -87,34 +89,26 @@ void main() {
     expect(controller.offset, 60);
   });
 
-  testWidgets(
-    'upward wheel distance accumulates to 100px and resets on reversal',
-    (tester) async {
-      await _mount(tester);
-      final body = find.byKey(_body);
-      await _wheel(tester, 400);
-      await tester.pumpAndSettle();
-      for (final delta in [-40.0, -59.0]) {
-        await _wheel(tester, delta);
-        await tester.pumpAndSettle();
-        expect(tester.getTopLeft(body).dy, 0);
-      }
-      await _wheel(tester, 10);
-      await _wheel(tester, -1);
-      await tester.pumpAndSettle();
-      expect(tester.getTopLeft(body).dy, 0);
-      await _wheel(tester, -98);
-      await tester.pumpAndSettle();
-      expect(tester.getTopLeft(body).dy, 0);
-      await _wheel(tester, -1);
-      await tester.pumpAndSettle();
-      expect(tester.getTopLeft(body).dy, 80);
-    },
-  );
-
-  testWidgets('reaching the top reveals before 100px of upward scrolling', (
+  testWidgets('wheel distance controls partial reveal and immediate reversal', (
     tester,
   ) async {
+    await _mount(tester);
+    final body = find.byKey(_body);
+    await _wheel(tester, 400);
+    expect(tester.getTopLeft(body).dy, 0);
+    await _wheel(tester, -20);
+    expect(tester.getTopLeft(body).dy, 20);
+    await tester.pump(const Duration(seconds: 1));
+    expect(tester.getTopLeft(body).dy, 20);
+    await _wheel(tester, -15);
+    expect(tester.getTopLeft(body).dy, 35);
+    await _wheel(tester, 10);
+    expect(tester.getTopLeft(body).dy, 25);
+    await _wheel(tester, -55);
+    expect(tester.getTopLeft(body).dy, 80);
+  });
+
+  testWidgets('reaching the top fully reveals the header', (tester) async {
     final controller = ScrollController();
     addTearDown(controller.dispose);
     await _mount(tester, controller: controller);
@@ -124,48 +118,45 @@ void main() {
     await _wheel(tester, -59);
     await tester.pumpAndSettle();
     expect(controller.offset, 1);
-    expect(tester.getTopLeft(body).dy, 0);
+    expect(tester.getTopLeft(body).dy, closeTo(79, 0.001));
     await _wheel(tester, -1);
     await tester.pumpAndSettle();
     expect(controller.offset, 0);
     expect(tester.getTopLeft(body).dy, 80);
   });
 
-  testWidgets('reversed lists hide downward and reveal after 100px upward', (
-    tester,
-  ) async {
-    final controller = ScrollController(initialScrollOffset: 600);
-    addTearDown(controller.dispose);
-    await _mount(tester, controller: controller, reverse: true);
-    final body = find.byKey(_body);
-    final element = tester.element(body);
-    await _wheel(tester, 200);
-    await tester.pumpAndSettle();
-    expect(tester.getTopLeft(body).dy, 0);
-    await _wheel(tester, -99);
-    await tester.pumpAndSettle();
-    expect(tester.getTopLeft(body).dy, 0);
-    await _wheel(tester, 10);
-    await _wheel(tester, -99);
-    await tester.pumpAndSettle();
-    expect(tester.getTopLeft(body).dy, 0);
-    await _wheel(tester, -1);
-    await tester.pumpAndSettle();
-    expect(tester.getTopLeft(body).dy, 80);
-    expect(tester.element(body), same(element));
+  testWidgets(
+    'reversed lists track physical scroll distance in both directions',
+    (tester) async {
+      final controller = ScrollController(initialScrollOffset: 600);
+      addTearDown(controller.dispose);
+      await _mount(tester, controller: controller, reverse: true);
+      final body = find.byKey(_body);
+      final element = tester.element(body);
+      await _wheel(tester, 200);
+      await tester.pumpAndSettle();
+      expect(tester.getTopLeft(body).dy, 0);
+      await _wheel(tester, -25);
+      expect(tester.getTopLeft(body).dy, 25);
+      await _wheel(tester, 10);
+      expect(tester.getTopLeft(body).dy, closeTo(15, 0.001));
+      await _wheel(tester, -65);
+      expect(tester.getTopLeft(body).dy, 80);
+      expect(tester.element(body), same(element));
 
-    // The present (minimum extent) is the bottom, not the top.
-    await _wheel(tester, 2000);
-    await tester.pumpAndSettle();
-    expect(controller.offset, 0);
-    expect(tester.getTopLeft(body).dy, 0);
-    controller.jumpTo(controller.position.maxScrollExtent - 40);
-    await tester.pumpAndSettle();
-    expect(tester.getTopLeft(body).dy, 0);
-    await _wheel(tester, -40);
-    await tester.pumpAndSettle();
-    expect(tester.getTopLeft(body).dy, 80);
-  });
+      // The present (minimum extent) is the bottom, not the top.
+      await _wheel(tester, 2000);
+      await tester.pumpAndSettle();
+      expect(controller.offset, 0);
+      expect(tester.getTopLeft(body).dy, 0);
+      controller.jumpTo(controller.position.maxScrollExtent - 40);
+      await tester.pumpAndSettle();
+      expect(tester.getTopLeft(body).dy, 0);
+      await _wheel(tester, -40);
+      await tester.pumpAndSettle();
+      expect(tester.getTopLeft(body).dy, 80);
+    },
+  );
 
   testWidgets('reversed touch scrolling hides and reveals the header', (
     tester,
@@ -194,11 +185,11 @@ void main() {
     for (var i = 0; i < 3; i++) {
       await _wheel(tester, 3);
       await tester.pumpAndSettle();
-      expect(tester.getTopLeft(find.byKey(_body)).dy, 80);
+      expect(tester.getTopLeft(find.byKey(_body)).dy, 80 - (i + 1) * 3);
     }
     await _wheel(tester, 3);
     await tester.pumpAndSettle();
-    expect(tester.getTopLeft(find.byKey(_body)).dy, 0);
+    expect(tester.getTopLeft(find.byKey(_body)).dy, 68);
     await _mount(tester, controller: controller, identity: 'another feed');
     expect(tester.getTopLeft(find.byKey(_body)).dy, 80);
   });
@@ -215,15 +206,48 @@ void main() {
     expect(tester.getTopLeft(find.byKey(_body)).dy, 80);
   });
 
-  testWidgets('reduced motion switches without intermediate animation', (
-    tester,
-  ) async {
-    await _mount(tester, reducedMotion: true);
-    await _wheel(tester, 100);
-    expect(tester.getTopLeft(find.byKey(_body)).dy, 0);
-    await _wheel(tester, -100);
-    expect(tester.getTopLeft(find.byKey(_body)).dy, 80);
-  });
+  for (final reverse in [false, true]) {
+    testWidgets(
+      'touch motion tracks distance without easing (reverse: $reverse)',
+      (tester) async {
+        final controller = ScrollController(initialScrollOffset: 600);
+        addTearDown(controller.dispose);
+        await _mount(tester, controller: controller, reverse: reverse);
+        final body = find.byKey(_body);
+        final gesture = await tester.startGesture(tester.getCenter(body));
+        // Cross touch slop before measuring incremental movement.
+        await gesture.moveBy(const Offset(0, -30));
+        await tester.pump();
+        await tester.pump();
+        final before = tester.getTopLeft(body).dy;
+        await gesture.moveBy(const Offset(0, -10));
+        await tester.pump();
+        await tester.pump();
+        expect(tester.getTopLeft(body).dy, closeTo(before - 10, 0.001));
+        await tester.pump(const Duration(milliseconds: 300));
+        expect(tester.getTopLeft(body).dy, closeTo(before - 10, 0.001));
+        await gesture.moveBy(const Offset(0, 5));
+        await tester.pump();
+        await tester.pump();
+        expect(tester.getTopLeft(body).dy, closeTo(before - 5, 0.001));
+        await gesture.cancel();
+        await tester.pumpAndSettle();
+      },
+    );
+  }
+
+  testWidgets(
+    'reduced motion follows scroll distance without independent animation',
+    (tester) async {
+      await _mount(tester, reducedMotion: true);
+      await _wheel(tester, 20);
+      expect(tester.getTopLeft(find.byKey(_body)).dy, 60);
+      await _wheel(tester, 80);
+      expect(tester.getTopLeft(find.byKey(_body)).dy, 0);
+      await _wheel(tester, -100);
+      expect(tester.getTopLeft(find.byKey(_body)).dy, 80);
+    },
+  );
 
   testWidgets('short pages retain reachable controls', (tester) async {
     await _mount(tester, count: 11);

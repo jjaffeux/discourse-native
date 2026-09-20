@@ -131,7 +131,7 @@ void main() {
       await tester.sendEventToBinding(
         PointerScrollEvent(
           position: tester.getCenter(viewport),
-          scrollDelta: const Offset(0, -100),
+          scrollDelta: const Offset(0, -240),
         ),
       );
       await tester.pumpAndSettle();
@@ -141,65 +141,64 @@ void main() {
     },
   );
 
-  testWidgets(
-    'topic and list headers retract independently and reveal after 100px',
-    (tester) async {
-      final setup = await _setup(tester);
-      setup.controller.openTopicFromList(setup.rows.first);
+  testWidgets('topic and list headers independently follow scroll distance', (
+    tester,
+  ) async {
+    final setup = await _setup(tester);
+    setup.controller.openTopicFromList(setup.rows.first);
+    await tester.pumpAndSettle();
+    await _scrollReaderToTop(tester);
+    final reader = find.descendant(
+      of: find.byType(TopicView),
+      matching: find.byType(CustomScrollView),
+    );
+    final list = find
+        .descendant(
+          of: find.byType(TopicListView),
+          matching: find.byType(Scrollable),
+        )
+        .first;
+    final title = find.byKey(const ValueKey('topic-header-title-field'));
+    final readerTop = tester.getTopLeft(reader).dy;
+    final listTop = tester.getTopLeft(find.byType(TopicListView)).dy;
+    final readerElement = tester.element(reader);
+    final listElement = tester.element(list);
+    Future<void> wheel(Finder target, double delta) async {
+      await tester.sendEventToBinding(
+        PointerScrollEvent(
+          position: tester.getCenter(target),
+          scrollDelta: Offset(0, delta),
+        ),
+      );
       await tester.pumpAndSettle();
-      await _scrollReaderToTop(tester);
-      final reader = find.descendant(
-        of: find.byType(TopicView),
-        matching: find.byType(CustomScrollView),
-      );
-      final list = find
-          .descendant(
-            of: find.byType(TopicListView),
-            matching: find.byType(Scrollable),
-          )
-          .first;
-      final title = find.byKey(const ValueKey('topic-header-title-field'));
-      final readerTop = tester.getTopLeft(reader).dy;
-      final listTop = tester.getTopLeft(find.byType(TopicListView)).dy;
-      final readerElement = tester.element(reader);
-      final listElement = tester.element(list);
-      Future<void> wheel(Finder target, double delta) async {
-        await tester.sendEventToBinding(
-          PointerScrollEvent(
-            position: tester.getCenter(target),
-            scrollDelta: Offset(0, delta),
-          ),
-        );
-        await tester.pumpAndSettle();
-      }
+    }
 
-      await wheel(reader, 240);
-      expect(title.hitTestable(), findsNothing);
-      expect(tester.getTopLeft(reader).dy, lessThan(readerTop));
-      expect(tester.getTopLeft(find.byType(TopicListView)).dy, listTop);
-      await wheel(reader, -99);
-      expect(title.hitTestable(), findsNothing);
-      await wheel(reader, -1);
-      expect(title.hitTestable(), findsOneWidget);
-      expect(tester.getTopLeft(reader).dy, readerTop);
-      await wheel(list, 240);
-      expect(
-        tester.getTopLeft(find.byType(TopicListView)).dy,
-        lessThan(listTop),
-      );
-      expect(title.hitTestable(), findsOneWidget);
-      await wheel(list, -99);
-      expect(
-        tester.getTopLeft(find.byType(TopicListView)).dy,
-        lessThan(listTop),
-      );
-      await wheel(list, -1);
-      expect(tester.getTopLeft(find.byType(TopicListView)).dy, listTop);
-      expect(tester.element(reader), same(readerElement));
-      expect(tester.element(list), same(listElement));
-      expect(tester.takeException(), isNull);
-    },
-  );
+    await wheel(reader, 240);
+    expect(title.hitTestable(), findsNothing);
+    expect(tester.getTopLeft(reader).dy, lessThan(readerTop));
+    expect(tester.getTopLeft(find.byType(TopicListView)).dy, listTop);
+    final hiddenReaderTop = tester.getTopLeft(reader).dy;
+    await wheel(reader, -20);
+    expect(tester.getTopLeft(reader).dy, closeTo(hiddenReaderTop + 20, 0.001));
+    expect(title.hitTestable(), findsNothing);
+    await wheel(reader, -220);
+    expect(title.hitTestable(), findsOneWidget);
+    expect(tester.getTopLeft(reader).dy, readerTop);
+    await wheel(list, 240);
+    expect(tester.getTopLeft(find.byType(TopicListView)).dy, lessThan(listTop));
+    expect(title.hitTestable(), findsOneWidget);
+    final hiddenListTop = tester.getTopLeft(find.byType(TopicListView)).dy;
+    await wheel(list, -10);
+    expect(
+      tester.getTopLeft(find.byType(TopicListView)).dy,
+      closeTo(hiddenListTop + 10, 0.001),
+    );
+    await wheel(list, -230);
+    expect(tester.getTopLeft(find.byType(TopicListView)).dy, listTop);
+    expect(tester.element(reader), same(readerElement));
+    expect(tester.element(list), same(listElement));
+    expect(tester.takeException(), isNull);
+  });
 
   testWidgets('desktop panel gutter resizes while retaining list and reader', (
     tester,
