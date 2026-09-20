@@ -60,7 +60,7 @@ final class _DartTopicViewportTimer implements TopicViewportTimer {
 /// The render-owned measurements needed by the viewport state machine.
 ///
 /// The coordinator deliberately does not retain build contexts or render
-/// objects. [TopicView] remains responsible for layout and translates its
+/// objects. `TopicView` remains responsible for layout and translates its
 /// current geometry into this narrow interface.
 abstract interface class TopicViewportGeometry {
   TopicViewportAnchor? captureAnchor(
@@ -134,8 +134,9 @@ final class TopicViewportGeometryCallbacks implements TopicViewportGeometry {
 
 /// Shell operations captured for one topic viewport generation.
 ///
-/// Tests can provide these callbacks directly. Production uses [fromShell],
-/// keeping the coordinator independent from widget ancestry and BuildContext.
+/// Tests can provide these callbacks directly. Production uses
+/// [TopicViewportBinding.fromShell], keeping the coordinator independent from
+/// widget ancestry and BuildContext.
 final class TopicViewportBinding {
   const TopicViewportBinding({
     required this.owner,

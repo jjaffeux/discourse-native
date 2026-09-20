@@ -18,7 +18,7 @@ final class VoiceDevicePreferences {
 }
 
 /// The platform implementation turns SharedPreferences' rejected-write result
-/// into an error. [VoiceController] decides that optional preference failure
+/// into an error. `VoiceController` decides that optional preference failure
 /// must be reported without preventing the live media operation.
 abstract interface class VoicePreferences {
   Future<VoiceDevicePreferences> readDevices();

@@ -265,7 +265,7 @@ typedef PluginPostBodyBuilder =
 
 /// Transforms a topic-stream post's presentation without mutating its record.
 ///
-/// Return null to pass through. Otherwise call [builder] with the displayed
+/// Return null to pass through. Otherwise call `builder` with the displayed
 /// HTML and a descendant context so nested renderers inherit local state.
 /// Contributors compose in registry order; each receives its predecessor's
 /// output. The terminal builder owns selection and ordinary cooked rendering.

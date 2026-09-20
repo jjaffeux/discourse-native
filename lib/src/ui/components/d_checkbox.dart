@@ -329,7 +329,7 @@ class _CheckboxMark extends CustomPainter {
 }
 
 /// Native FormField integration. Reset restores [initialValue] and notifies
-/// [onChanged]; validation errors are announced and clear through normal Form
+/// `onChanged`; validation errors are announced and clear through normal Form
 /// autovalidation. [DCheckboxFormField.controlled] also follows external value
 /// updates, without treating those updates as user interaction. In controlled
 /// fields, the constructor's initialValue is a reset proposal: the native field

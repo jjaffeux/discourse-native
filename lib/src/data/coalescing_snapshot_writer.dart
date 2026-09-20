@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'serial_operation_queue.dart';
 
-/// Writers with the same [owner] and [key] share one pending slot and load
+/// Writers with the same `owner` and `key` share one pending slot and load
 /// barrier. Replacing a dependency therefore coalesces into the same lane: an
 /// older not-yet-started value cannot overwrite the replacement's snapshot,
 /// and every coalesced save future settles with that replacement write.

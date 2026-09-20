@@ -271,7 +271,7 @@ class _DDatePickerState extends State<DDatePicker> {
 /// Flutter Form integration for a typed civil date.
 ///
 /// Reset restores [initialValue], clears normal Form interaction/error state,
-/// and notifies [onChanged]. The controlled factory keeps the externally
+/// and notifies `onChanged`. The controlled factory keeps the externally
 /// accepted value authoritative during synchronous validation and save calls.
 class DDatePickerFormField extends FormField<DCalendarDate?> {
   factory DDatePickerFormField.controlled({
@@ -1279,7 +1279,7 @@ DateTime? _tryParseIsoCivil(String value) {
 
 /// Parses natural-language input relative to an explicit clock value.
 ///
-/// Requiring [reference] makes examples and tests deterministic. Results are
+/// Requiring `reference` makes examples and tests deterministic. Results are
 /// civil dates; parsers do not invent a timezone or preserve a wall-clock time.
 abstract interface class DNaturalDateParser {
   const DNaturalDateParser();

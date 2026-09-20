@@ -17,9 +17,9 @@ import 'd_select.dart';
 
 /// A date without a time-of-day or timezone.
 ///
-/// An instant must be converted with [fromInstant]. A selected day can be
-/// turned back into a zoned wall time with [atTime]. Keeping these operations
-/// explicit avoids the common UTC-midnight selected-date offset.
+/// An instant must be converted with [DCalendarDate.fromInstant]. A selected
+/// day can be turned back into a zoned wall time with [atTime]. Keeping these
+/// operations explicit avoids the common UTC-midnight selected-date offset.
 @immutable
 class DCalendarDate implements Comparable<DCalendarDate> {
   DCalendarDate(int year, int month, int day)

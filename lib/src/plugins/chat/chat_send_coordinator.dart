@@ -26,7 +26,7 @@ ChatMessageContext? _noChatMessageContext(String _) => null;
 /// The projection seam between send orchestration and chat timeline state.
 ///
 /// Keeping these operations as callbacks lets the coordinator own queue and
-/// request lifecycles without gaining broad access to [ChatController]'s store.
+/// request lifecycles without gaining broad access to `ChatController`'s store.
 @immutable
 final class ChatSendCoordinatorHost {
   const ChatSendCoordinatorHost({
@@ -114,7 +114,7 @@ abstract interface class ChatSendCoordinator {
   void dispose();
 }
 
-/// Default per-stream FIFO implementation used by [ChatController].
+/// Default per-stream FIFO implementation used by `ChatController`.
 final class DefaultChatSendCoordinator implements ChatSendCoordinator {
   DefaultChatSendCoordinator({
     required ChatApi api,

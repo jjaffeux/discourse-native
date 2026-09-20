@@ -90,7 +90,7 @@ abstract interface class VoiceDiagnosticsPersistence {
 }
 
 /// Optional artifact seam for writing retained JSONL without first creating a
-/// potentially 50 MiB Dart string. The caller owns and closes [output].
+/// potentially 50 MiB Dart string. The caller owns and closes `output`.
 abstract interface class StreamingVoiceDiagnosticsPersistence {
   Future<void> writeJsonReportTo(
     StringSink output, {
@@ -150,8 +150,8 @@ Set<String> voiceDiagnosticsEventIdsInJsonReport(
 /// Optional artifact seam for de-duplicating and streaming one retained
 /// snapshot without materializing the report.
 ///
-/// Implementations must select [candidateEventIds], call
-/// [outputForRetainedEventIds] exactly once with an unmodifiable set, and write
+/// Implementations must select `candidateEventIds`, call
+/// `outputForRetainedEventIds` exactly once with an unmodifiable set, and write
 /// that same retained snapshot to the returned caller-owned sink. The factory
 /// is deliberately synchronous, and persistence must not invoke it or write to
 /// its sink while holding a shared storage lock.
@@ -168,7 +168,7 @@ abstract interface class SnapshotStreamingVoiceDiagnosticsPersistence {
 /// Optional exact de-duplication seam for report exporters.
 ///
 /// Implementations scan retained history without materializing it and return
-/// only identifiers which are present in [candidateIds].
+/// only identifiers which are present in `candidateIds`.
 abstract interface class RetainedVoiceDiagnosticsEventIdsPersistence {
   Future<Set<String>> findRetainedEventIds(
     Set<String> candidateIds, {

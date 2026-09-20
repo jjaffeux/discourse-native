@@ -46,7 +46,7 @@ final class ComposerMediaPointerCapture {
 
 /// Owns the composer's independently changing image and gallery editing state.
 ///
-/// Rendering and hit testing stay in [ComposerEditor]. This coordinator owns
+/// Rendering and hit testing stay in `ComposerEditor`. This coordinator owns
 /// media identity, mutations, and asynchronous operation lifetimes so replacing
 /// the composer cannot send a late platform result into the next draft.
 final class ComposerMediaEditingCoordinator extends FrameSafeNotifier

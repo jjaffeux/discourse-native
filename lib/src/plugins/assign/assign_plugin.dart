@@ -24,8 +24,9 @@ import 'assignment_topic_list.dart';
 
 export 'assign_data.dart';
 
-/// Uses serializer presence as the feature gate; [canAssign] controls only the
-/// target-scoped write affordance, never public assignment visibility.
+/// Uses serializer presence as the feature gate; [AssignCurrentUser.canAssign]
+/// controls only the target-scoped write affordance, never public assignment
+/// visibility.
 final class AssignPlugin
     implements
         SitePlugin,

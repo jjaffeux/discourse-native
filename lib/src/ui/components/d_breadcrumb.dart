@@ -46,8 +46,9 @@ class DBreadcrumb extends StatelessWidget {
 
 /// An ordered visual list of breadcrumb items and separators.
 ///
-/// [DBreadcrumbOverflow.wrap] matches the reference. Use [scroll] when a real
-/// application path must remain on one line; focused links scroll into view.
+/// [DBreadcrumbOverflow.wrap] matches the reference. Use
+/// [DBreadcrumbOverflow.scroll] when a real application path must remain on
+/// one line; focused links scroll into view.
 class DBreadcrumbList extends StatelessWidget {
   const DBreadcrumbList({
     super.key,

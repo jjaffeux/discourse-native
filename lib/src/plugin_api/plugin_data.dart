@@ -26,9 +26,10 @@ final class PluginDataKey<T extends Object> {
   String toString() => 'PluginDataKey<$T>($id)';
 }
 
-/// The persisted namespace is [key.id]. A codec also understands the flat
-/// fields written by releases which predate namespaced plugin data, keeping
-/// that migration knowledge beside the feature which owns it.
+/// The persisted namespace is the [key]'s [PluginDataKey.id]. A codec also
+/// understands the flat fields written by releases which predate namespaced
+/// plugin data, keeping that migration knowledge beside the feature which
+/// owns it.
 abstract base class PluginDataPersistenceCodec<T extends Object> {
   const PluginDataPersistenceCodec();
 
