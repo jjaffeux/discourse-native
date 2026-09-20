@@ -7,16 +7,25 @@ final class MobileNavigation {
   static const maximumPages = ForumTab.maximumHistoryEntries;
 
   Object? _owner;
-  List<({ForumTabLocation? content, bool aggregate})?> _entries = [null];
+  List<({Object id, ForumTabLocation? content, bool aggregate})> _entries = [
+    (id: Object(), content: null, aggregate: false),
+  ];
+  Object _historyId = Object();
   int _index = 0;
   String? _panelOwner;
 
   String? get panelOwner => _panelOwner;
-  ForumTabLocation? get location => _entries[_index]?.content;
-  bool get aggregate => _entries[_index]?.aggregate ?? false;
-  bool get atRoot => _entries[_index] == null;
+  ForumTabLocation? get location => _entries[_index].content;
+  bool get aggregate => _entries[_index].aggregate;
+  bool get atRoot => location == null && !aggregate;
   bool get canGoBack => _index > 0;
   bool get canGoForward => _index < _entries.length - 1;
+
+  /// Opaque presentation identities, independent of hydrated route metadata.
+  Object get historyId => _historyId;
+  Object get entryId => _entries[_index].id;
+  Object? get previousEntryId => canGoBack ? _entries[_index - 1].id : null;
+  Object? get nextEntryId => canGoForward ? _entries[_index + 1].id : null;
 
   /// Called after a navigation command, before the shell notifies its views.
   /// Account/site changes discard history so Back cannot expose another owner.
@@ -29,20 +38,21 @@ final class MobileNavigation {
       _owner = owner;
       reset();
     }
-    final target = location == null && !aggregate
-        ? null
-        : (content: aggregate ? null : location, aggregate: aggregate);
-    if (target?.aggregate == _entries[_index]?.aggregate &&
-        _sameDestination(target?.content, _entries[_index]?.content)) {
+    final content = aggregate ? null : location;
+    if (aggregate == _entries[_index].aggregate &&
+        _sameDestination(content, _entries[_index].content)) {
       // Retain refreshed titles and other non-identity route metadata.
-      _entries[_index] = target;
+      _entries[_index] = (id: entryId, content: content, aggregate: aggregate);
       return;
     }
-    if (target == null) {
+    if (content == null && !aggregate) {
       _index = 0;
       return;
     }
-    _entries = [..._entries.take(_index + 1), target];
+    _entries = [
+      ..._entries.take(_index + 1),
+      (id: Object(), content: content, aggregate: aggregate),
+    ];
     if (_entries.length > maximumPages + 1) _entries.removeAt(1);
     _index = _entries.length - 1;
   }
@@ -53,7 +63,7 @@ final class MobileNavigation {
     if (atRoot) return;
     _entries = [
       ..._entries.take(_index),
-      (content: location, aggregate: false),
+      (id: Object(), content: location, aggregate: false),
     ];
   }
 
@@ -75,14 +85,18 @@ final class MobileNavigation {
   void selectPanel(String? owner) {
     if (_panelOwner == owner) return;
     _panelOwner = owner;
-    _entries = [null];
-    _index = 0;
+    _resetHistory();
   }
 
   void reset() {
-    _entries = [null];
-    _index = 0;
+    _resetHistory();
     _panelOwner = null;
+  }
+
+  void _resetHistory() {
+    _entries = [(id: Object(), content: null, aggregate: false)];
+    _index = 0;
+    _historyId = Object();
   }
 
   bool goBack() {

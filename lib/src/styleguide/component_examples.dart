@@ -28,6 +28,7 @@ import 'examples/dropdown_menu_examples.dart';
 import 'examples/empty_examples.dart';
 import 'examples/field_examples.dart';
 import 'examples/foundation_examples.dart';
+import 'examples/history_transition_examples.dart';
 import 'examples/hover_card_examples.dart';
 import 'examples/image_preview_examples.dart';
 import 'examples/input_examples.dart';
@@ -75,6 +76,7 @@ import 'styleguide_example.dart';
 
 /// Each component task replaces its baseline or adds its own example file.
 final componentExamples = <String, ComponentExamples>{
+  'history-transition': historyTransitionExamples,
   'color-picker': colorPickerExamples,
   'pull-to-refresh': pullToRefreshExamples,
   'mermaid': mermaidExamples,
