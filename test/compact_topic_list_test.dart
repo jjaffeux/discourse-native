@@ -74,7 +74,7 @@ void main() {
             .getSize(find.byKey(const ValueKey('topic-card-1')))
             .height;
         await render(const [TopicTag(name: 'design')]);
-        if (width >= 500 && scale == 1) {
+        if (width >= 600 && scale == 1) {
           expect(
             tester.getSize(find.byKey(const ValueKey('topic-card-1'))).height,
             lessThanOrEqualTo(sparseHeight + 8),
@@ -309,6 +309,50 @@ void main() {
       await tester.tap(find.text('Show assignments'));
       await tester.pumpAndSettle();
       expect(shell.appSettings.topicListShowAssignments, isFalse);
+      expect(tester.takeException(), isNull);
+    });
+  }
+
+  for (final width in [320.0, 390.0]) {
+    testWidgets('mobile cards separate taxonomy and activity at $width', (
+      tester,
+    ) async {
+      final shell = await _setup(tester, width: width, enableEvents: true);
+      final card = find.byKey(const ValueKey('topic-card-1'));
+      Finder within(Finder finder) =>
+          find.descendant(of: card, matching: finder);
+      final title = within(
+        find.text('Topic 1: a conversation about improving our community'),
+      );
+      final date = within(find.byKey(const ValueKey('event-schedule-trigger')));
+      final author = within(find.text('sam'));
+      final replies = within(find.text('24 replies'));
+      final age = within(find.byKey(const ValueKey('inbox-row-time-1')));
+      final tags = within(find.text('mobile'));
+      expect(find.byKey(const ValueKey('event-calendar-stamp')), findsNothing);
+      expect(
+        tester.getRect(date).top,
+        greaterThanOrEqualTo(tester.getRect(title).bottom),
+      );
+      expect(find.text('Wed, Oct 14 · 20:00'), findsOneWidget);
+      expect(
+        tester.getRect(author).top,
+        greaterThan(tester.getRect(tags).bottom),
+      );
+      expect(
+        tester.getRect(replies).top,
+        closeTo(tester.getRect(author).top, 3),
+      );
+      expect(tester.getRect(age).top, closeTo(tester.getRect(replies).top, 1));
+      await tester.tap(date);
+      await tester.pumpAndSettle();
+      expect(find.text('Event schedule').hitTestable(), findsOneWidget);
+      expect(shell.currentContent?.topicId, isNull);
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+      await tester.tap(title);
+      await tester.pumpAndSettle();
+      expect(shell.currentContent?.topicId, 1);
       expect(tester.takeException(), isNull);
     });
   }

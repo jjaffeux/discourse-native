@@ -5,9 +5,10 @@ import 'package:intl/intl.dart';
 import '../../theme/discourse_typography.dart';
 import 'event_controller.dart';
 import 'event_data.dart';
+import 'event_notifications.dart';
 import 'event_time.dart';
 
-/// The event's calendar day sits beside the topic; activity remains separate.
+/// Event dates sit below narrow titles and beside wide titles.
 class EventTopicTitle extends StatelessWidget {
   const EventTopicTitle({
     super.key,
@@ -25,7 +26,15 @@ class EventTopicTitle extends StatelessWidget {
   final Widget child;
 
   @override
-  Widget build(BuildContext context) => ListenableBuilder(
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, constraints) =>
+        _buildTitle(context, mobile: constraints.maxWidth < 600),
+  );
+
+  Widget _buildTitle(
+    BuildContext context, {
+    required bool mobile,
+  }) => ListenableBuilder(
     listenable: controller,
     builder: (context, _) {
       final schedule = _schedule(context);
@@ -33,50 +42,57 @@ class EventTopicTitle extends StatelessWidget {
         return child;
       }
       final theme = Theme.of(context);
-      return Row(
+      return Flex(
+        direction: mobile ? Axis.vertical : Axis.horizontal,
+        mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         spacing: DSpacing.sm,
         children: [
-          ExcludeSemantics(
-            child: IntrinsicWidth(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(minWidth: 36),
-                child: DCard(
-                  key: const ValueKey('event-calendar-stamp'),
-                  size: DCardSize.small,
-                  spacing: DSpacing.xs,
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: DSpacing.xs,
-                    ),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          DateFormat.MMM(
-                            schedule.locale,
-                          ).format(schedule.start).toUpperCase(),
-                          style: theme.textTheme.labelSmall?.copyWith(
-                            color: DTokens.of(context).mutedForeground,
-                            height: 1.2,
+          if (!mobile)
+            ExcludeSemantics(
+              child: IntrinsicWidth(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(minWidth: 36),
+                  child: DCard(
+                    key: const ValueKey('event-calendar-stamp'),
+                    size: DCardSize.small,
+                    spacing: DSpacing.xs,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: DSpacing.xs,
+                      ),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            DateFormat.MMM(
+                              schedule.locale,
+                            ).format(schedule.start).toUpperCase(),
+                            style: theme.textTheme.labelSmall?.copyWith(
+                              color: DTokens.of(context).mutedForeground,
+                              height: 1.2,
+                            ),
                           ),
-                        ),
-                        Text(
-                          DateFormat.d(schedule.locale).format(schedule.start),
-                          style: theme.textTheme.titleMedium?.copyWith(
-                            fontSize: DiscourseTypography.lg,
-                            fontWeight: FontWeight.w600,
-                            height: 1.2,
+                          Text(
+                            DateFormat.d(
+                              schedule.locale,
+                            ).format(schedule.start),
+                            style: theme.textTheme.titleMedium?.copyWith(
+                              fontSize: DiscourseTypography.lg,
+                              fontWeight: FontWeight.w600,
+                              height: 1.2,
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
                 ),
               ),
             ),
-          ),
-          Expanded(
+          Flexible(
+            flex: mobile ? 0 : 1,
+            fit: mobile ? FlexFit.loose : FlexFit.tight,
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -87,6 +103,9 @@ class EventTopicTitle extends StatelessWidget {
                   variant: DButtonVariant.inline,
                   size: DButtonSize.small,
                   alignment: AlignmentDirectional.centerStart,
+                  icon: mobile
+                      ? const DIcon(EventIcons.calendar, size: 14)
+                      : null,
                   semanticLabel: 'View event schedule: ${schedule.description}',
                   tooltip: schedule.description,
                   label: Builder(
@@ -95,7 +114,10 @@ class EventTopicTitle extends StatelessWidget {
                     builder: (context) => DefaultTextStyle(
                       style: DefaultTextStyle.of(context).style,
                       child: Text(
-                        schedule.summary(controller.api.clock().year),
+                        schedule.summary(
+                          controller.api.clock().year,
+                          includeDate: mobile,
+                        ),
                       ),
                     ),
                   ),
@@ -165,7 +187,7 @@ class _EventSchedule {
   bool get spansDays => end != null && _day(start) != _day(end!);
   DateTime _day(DateTime date) => DateTime.utc(date.year, date.month, date.day);
 
-  String summary(int currentYear) {
+  String summary(int currentYear, {bool includeDate = false}) {
     final year =
         start.year != currentYear || (end?.year ?? start.year) != currentYear;
     if (spansDays) {
@@ -174,7 +196,11 @@ class _EventSchedule {
       return '${date.format(start)} – ${date.format(end!)} · '
           '${allDay ? 'All day' : '$days days'}';
     }
-    final date = year ? DateFormat.yMMMEd(locale) : DateFormat.E(locale);
+    final date = year
+        ? DateFormat.yMMMEd(locale)
+        : includeDate
+        ? DateFormat.MMMEd(locale)
+        : DateFormat.E(locale);
     return '${date.format(start)} · '
         '${allDay ? 'All day' : _timeFormat.format(start)}';
   }
