@@ -70,6 +70,15 @@ final tabsExamples = ComponentExamples(
       ),
     ),
     StyleguideExample(
+      title: 'Compact mobile navigation',
+      description:
+          'The navigation bar animates to 85% while its layout allocation stays fixed, so scrolling content does not jump. Reduced motion applies the change immediately.',
+      states: const ['Navigation', 'Animation', 'Reduced motion'],
+      code:
+          'DTabList<String>(variant: DTabListVariant.navigation, navigationCompact: compact, children: tabs)',
+      builder: (_) => const _CompactNavigation(),
+    ),
+    StyleguideExample(
       title: 'Document tabs',
       description:
           'Workspace tabs compose Native buttons for selection and closing, with an 8px rounded, raised selected surface and a subtle outline. Inactive tabs stay transparent. The selected tab keeps its close action visible; inactive tabs give that space to their labels.',
@@ -642,6 +651,55 @@ class _DocumentTabsState extends State<_DocumentTabs> {
           _selected = 'Side chat';
         }),
         label: const Text('Reset tabs'),
+      ),
+    ],
+  );
+}
+
+class _CompactNavigation extends StatefulWidget {
+  const _CompactNavigation();
+
+  @override
+  State<_CompactNavigation> createState() => _CompactNavigationState();
+}
+
+class _CompactNavigationState extends State<_CompactNavigation> {
+  bool _compact = false;
+
+  @override
+  Widget build(BuildContext context) => Column(
+    spacing: DSpacing.sm,
+    children: [
+      DToggle(
+        pressed: _compact,
+        onPressedChanged: (value) => setState(() => _compact = value),
+        child: const Text('Compact navigation'),
+      ),
+      DTabs<String>(
+        initialValue: 'home',
+        children: [
+          DTabList<String>(
+            variant: DTabListVariant.navigation,
+            navigationCompact: _compact,
+            children: const [
+              DTabTrigger(
+                value: 'home',
+                semanticLabel: 'Home',
+                child: DIcon(DIcons.house),
+              ),
+              DTabTrigger(
+                value: 'chat',
+                semanticLabel: 'Chat',
+                child: DIcon(DIcons.comment),
+              ),
+              DTabTrigger(
+                value: 'voice',
+                semanticLabel: 'Voice',
+                child: DIcon(DIcons.microphoneLines),
+              ),
+            ],
+          ),
+        ],
       ),
     ],
   );
