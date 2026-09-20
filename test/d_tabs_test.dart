@@ -220,6 +220,68 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  for (final rtl in [false, true]) {
+    for (final width in [320.0, 160.0]) {
+      testWidgets('packed navigation pins its action at $width RTL=$rtl', (
+        tester,
+      ) async {
+        var activated = false;
+        final selected = <String?>[];
+        await mount(
+          tester,
+          DTabs<String>(
+            initialValue: 'home',
+            onChanged: selected.add,
+            children: [
+              DTabList<String>(
+                variant: DTabListVariant.navigation,
+                expandNavigationTabs: false,
+                trailing: DButton.iconOnly(
+                  icon: const Icon(Icons.add),
+                  tooltip: 'New topic',
+                  onPressed: () => activated = true,
+                ),
+                children: const [
+                  DTabTrigger(value: 'home', child: Icon(Icons.home)),
+                  DTabTrigger(value: 'chat', child: Icon(Icons.chat)),
+                  DTabTrigger(value: 'voice', child: Icon(Icons.mic)),
+                ],
+              ),
+            ],
+          ),
+          platform: TargetPlatform.iOS,
+          width: width,
+          rtl: rtl,
+          scale: 2,
+        );
+        final bar = tester.getRect(find.byType(DTabList<String>));
+        final action = find.byTooltip('New topic');
+        final actionRect = tester.getRect(action);
+        expect(
+          rtl ? actionRect.left - bar.left : bar.right - actionRect.right,
+          DSpacing.controlGap,
+        );
+        final triggers = find.byType(DTabTrigger<String>);
+        final first = tester.getRect(triggers.at(0));
+        final second = tester.getRect(triggers.at(1));
+        expect(first.width, 48);
+        expect(first.height, greaterThanOrEqualTo(48));
+        expect((first.center.dx - second.center.dx).abs(), 48);
+        await tester.tap(find.byIcon(Icons.home));
+        await tester.sendKeyEvent(LogicalKeyboardKey.end);
+        await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+        await tester.pumpAndSettle();
+        expect(selected.last, 'voice');
+        expect(tester.getRect(action), actionRect);
+        await tester.tap(action);
+        await tester.pumpAndSettle();
+        expect(activated, isTrue);
+        expect(selected.last, 'voice');
+        expect(tester.takeException(), isNull);
+      });
+    }
+  }
+
   testWidgets('navigation bar preserves targets in narrow RTL and large text', (
     tester,
   ) async {

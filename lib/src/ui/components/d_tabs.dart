@@ -456,6 +456,8 @@ class DTabList<T> extends StatelessWidget {
     this.loopFocus = true,
     this.scrollController,
     this.navigationCompact = false,
+    this.expandNavigationTabs = true,
+    this.trailing,
   });
 
   final List<Widget> children;
@@ -470,6 +472,13 @@ class DTabList<T> extends StatelessWidget {
   final bool activateOnFocus;
   final bool loopFocus;
 
+  /// Whether navigation tabs share the available width or pack at the start.
+  final bool expandNavigationTabs;
+
+  /// A fixed trailing action outside the navigation tabs' scrolling area.
+  /// Only supported by [DTabListVariant.navigation].
+  final Widget? trailing;
+
   /// An optional borrowed controller for horizontal overflow.
   final ScrollController? scrollController;
 
@@ -483,6 +492,7 @@ class DTabList<T> extends StatelessWidget {
     };
     final horizontalLine =
         variant == DTabListVariant.line && root.orientation == Axis.horizontal;
+    assert(trailing == null || variant == DTabListVariant.navigation);
     if (variant == DTabListVariant.navigation) {
       assert(
         root.orientation == Axis.horizontal,
@@ -494,7 +504,11 @@ class DTabList<T> extends StatelessWidget {
         curve: Curves.easeOutCubic,
         builder: (context, scale, _) => LayoutBuilder(
           builder: (context, constraints) {
-            final minimumWidth = children.length * DSpacing.touchTarget;
+            final minimumWidth =
+                children.length * DSpacing.touchTarget +
+                (trailing == null
+                    ? 0
+                    : DSpacing.touchTarget + 2 * DSpacing.controlGap);
             final availableWidth = constraints.hasBoundedWidth
                 ? constraints.maxWidth
                 : minimumWidth;
@@ -524,25 +538,58 @@ class DTabList<T> extends StatelessWidget {
                           ),
                         ),
                       ),
-                      SingleChildScrollView(
-                        controller: scrollController,
-                        scrollDirection: Axis.horizontal,
-                        child: SizedBox(
-                          width: math.max(viewportWidth, minimumWidth),
-                          child: _DTabListScope<T>(
-                            variant: variant,
-                            size: size,
-                            activateOnFocus: activateOnFocus,
-                            loopFocus: loopFocus,
-                            navigationScale: scale,
-                            child: Row(
-                              children: [
-                                for (final child in children)
-                                  Expanded(child: child),
-                              ],
+                      Row(
+                        children: [
+                          Expanded(
+                            child: LayoutBuilder(
+                              builder: (context, tabConstraints) =>
+                                  SingleChildScrollView(
+                                    controller: scrollController,
+                                    scrollDirection: Axis.horizontal,
+                                    child: SizedBox(
+                                      width: expandNavigationTabs
+                                          ? math.max(
+                                              tabConstraints.maxWidth,
+                                              children.length *
+                                                  DSpacing.touchTarget,
+                                            )
+                                          : null,
+                                      child: _DTabListScope<T>(
+                                        variant: variant,
+                                        size: size,
+                                        activateOnFocus: activateOnFocus,
+                                        loopFocus: loopFocus,
+                                        navigationScale: scale,
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            for (final child in children)
+                                              if (expandNavigationTabs)
+                                                Expanded(child: child)
+                                              else
+                                                ConstrainedBox(
+                                                  constraints:
+                                                      const BoxConstraints(
+                                                        minWidth: DSpacing
+                                                            .touchTarget,
+                                                      ),
+                                                  child: child,
+                                                ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  ),
                             ),
                           ),
-                        ),
+                          if (trailing case final action?)
+                            Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: DSpacing.controlGap,
+                              ),
+                              child: action,
+                            ),
+                        ],
                       ),
                     ],
                   ),

@@ -35,6 +35,7 @@ const _site = 'https://meta.discourse.org';
 final _user = DiscourseUser(
   id: 7,
   username: 'reader',
+  canCreateTopic: true,
   plugins: PluginData.none.withValue(
     chatCurrentUserDataKey,
     const ChatCurrentUser(hasChatEnabled: true, canDirectMessage: true),
@@ -301,6 +302,36 @@ void main() {
     await tester.drag(scrollable, const Offset(0, 70));
     await tester.pumpAndSettle();
     expect(tester.widget<DTabList<String>>(list).navigationCompact, isFalse);
+  });
+
+  _mobileTest('new topic stays available in every sidebar mode', (
+    tester,
+  ) async {
+    final shell = await _pumpMobile(tester, voice: true);
+    final create = find.byKey(const ValueKey('mobile-new-topic'));
+    for (final mode in ['home', 'chat', 'voice']) {
+      await tester.tap(find.byKey(ValueKey('mobile-mode-$mode')));
+      await tester.pumpAndSettle();
+      expect(create, findsOneWidget);
+      final bar = tester.getRect(_bar);
+      final button = tester.getRect(create);
+      expect(bar.right - button.right, DSpacing.controlGap);
+      final home = tester.getRect(
+        find.byKey(const ValueKey('mobile-mode-home')),
+      );
+      final chat = tester.getRect(
+        find.byKey(const ValueKey('mobile-mode-chat')),
+      );
+      expect(home.left, bar.left);
+      expect(chat.left, home.right);
+      expect(tester.widget<DButton>(create).onPressed, isNotNull);
+      expect(find.byKey(const ValueKey('mobile-forum-settings')), findsNothing);
+    }
+    await tester.tap(create);
+    await tester.pumpAndSettle();
+    expect(shell.visibleComposer, isNotNull);
+    expect(shell.visibleComposer!.target.topicTitle, 'New topic');
+    expect(tester.takeException(), isNull);
   });
 
   _mobileTest('available modes stay scoped and revoked Voice returns home', (
@@ -622,7 +653,11 @@ void main() {
       find.byKey(const ValueKey('chat-drawer-new-message-action')),
       findsOneWidget,
     );
-    await tester.tap(find.byKey(const ValueKey('mobile-forum-settings')));
+    expect(find.byKey(const ValueKey('mobile-forum-settings')), findsNothing);
+    expect(find.byKey(const ValueKey('mobile-new-topic')), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('forum-identity-header')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('forum-identity-settings')));
     await tester.pumpAndSettle();
     expect(find.byType(DSheetContent), findsOneWidget);
     expect(find.text('Appearance'), findsOneWidget);

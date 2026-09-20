@@ -17,18 +17,19 @@ final tabsExamples = ComponentExamples(
     StyleguideExample(
       title: 'Mobile navigation',
       description:
-          'Equal icon slots in a rounded bar, with a top selection marker. Settings is an independent action and does not change the selected mode. The bar scrolls only when its slots cannot retain their accessible targets.',
+          'Start-aligned icon tabs with a top selection marker and a fixed New topic action. Tabs scroll independently when space is tight; the action stays visible.',
       states: const ['Navigation', 'Icons', 'Action', 'Keyboard', 'RTL'],
       code: '''DTabs<String>(
   initialValue: 'home',
   children: [
     DTabList<String>(
       variant: DTabListVariant.navigation,
+      expandNavigationTabs: false,
+      trailing: DButton.iconOnly(icon: DIcon(DIcons.plus), tooltip: 'New topic', onPressed: createTopic),
       children: [
         DTabTrigger(value: 'home', semanticLabel: 'Home', child: DIcon(DIcons.house)),
         DTabTrigger(value: 'chat', semanticLabel: 'Chat', child: DIcon(DIcons.comment)),
         DTabTrigger(value: 'voice', semanticLabel: 'Voice', child: DIcon(DIcons.microphoneLines)),
-        Center(child: DButton.iconOnly(icon: DIcon(DIcons.gear), tooltip: 'Settings', onPressed: openSettings)),
       ],
     ),
   ],
@@ -38,31 +39,29 @@ final tabsExamples = ComponentExamples(
         children: [
           DTabList<String>(
             variant: DTabListVariant.navigation,
-            children: [
-              const DTabTrigger(
+            expandNavigationTabs: false,
+            trailing: Builder(
+              builder: (context) => DButton.iconOnly(
+                icon: const DIcon(DIcons.plus),
+                tooltip: 'New topic',
+                onPressed: () => DToast.show(context, 'New topic'),
+              ),
+            ),
+            children: const [
+              DTabTrigger(
                 value: 'home',
                 semanticLabel: 'Home',
                 child: DIcon(DIcons.house),
               ),
-              const DTabTrigger(
+              DTabTrigger(
                 value: 'chat',
                 semanticLabel: 'Chat',
                 child: DIcon(DIcons.comment),
               ),
-              const DTabTrigger(
+              DTabTrigger(
                 value: 'voice',
                 semanticLabel: 'Voice',
                 child: DIcon(DIcons.microphoneLines),
-              ),
-              Center(
-                child: Builder(
-                  builder: (context) => DButton.iconOnly(
-                    icon: const DIcon(DIcons.gear),
-                    tooltip: 'Settings',
-                    variant: DButtonVariant.ghost,
-                    onPressed: () => DToast.show(context, 'Forum settings'),
-                  ),
-                ),
               ),
             ],
           ),
