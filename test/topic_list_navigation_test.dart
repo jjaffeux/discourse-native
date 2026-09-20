@@ -486,8 +486,17 @@ void main() {
         expect(parentRect.center.dy, feedRect.center.dy);
         expect(parentRect.left, greaterThan(feedRect.right));
         expect(childRect.top, greaterThanOrEqualTo(parentRect.bottom));
-        expect(tagRect.center.dy, childRect.center.dy);
-        expect(tagRect.left, greaterThan(childRect.right));
+        expect(tagRect.top, greaterThanOrEqualTo(childRect.bottom));
+        expect(tagRect.left, childRect.left);
+        final rowRect = tester.getRect(
+          find.byKey(const ValueKey('topic-list-feed-row')),
+        );
+        expect(rowRect.left, 16);
+        expect(rowRect.right, 390 - 16);
+        for (final rect in [feedRect, parentRect, childRect, tagRect]) {
+          expect(rect.left, greaterThanOrEqualTo(rowRect.left));
+          expect(rect.right, lessThanOrEqualTo(rowRect.right));
+        }
         await tester.tap(
           find.byKey(const ValueKey('topic-list-subcategory-filter')),
         );

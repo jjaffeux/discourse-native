@@ -8,11 +8,9 @@ import '../models/sidebar_tag.dart';
 import '../models/topic.dart';
 import '../theme/d_icons.dart';
 import 'content_reading_lane.dart';
-import 'platform.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';
 import 'topic_list_filter_bar.dart';
-import 'topic_list_layout.dart';
 
 typedef _TopicListNavigationSnapshot = ({
   TopicListMode? mode,
@@ -252,10 +250,7 @@ class _TopicListNavigationControls extends StatelessWidget {
             ),
           ContentReadingLaneBox(
             child: Padding(
-              padding: EdgeInsets.symmetric(
-                horizontal: context.isTouch ? topicListHorizontalPadding : 16,
-                vertical: 8,
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               child: Row(
                 key: const ValueKey('topic-list-feed-row'),
                 children: [
