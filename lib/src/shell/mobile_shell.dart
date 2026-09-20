@@ -88,26 +88,6 @@ class _MobileForumRootState extends State<MobileForumRoot> {
         return Column(
           key: const ValueKey('mobile-root'),
           children: [
-            Padding(
-              key: const ValueKey('mobile-header'),
-              padding: const EdgeInsetsDirectional.only(end: DSpacing.sm),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: ForumIdentityHeader(
-                      siteUrl: instance.url,
-                      name: instance.title,
-                      iconUrl: instance.iconUrl,
-                      monogram: instance.monogram,
-                      accentColor: instance.accentColor,
-                      compact: true,
-                    ),
-                  ),
-                  const ForumSearch(fullScreen: true),
-                  const UserMenuButton(),
-                ],
-              ),
-            ),
             Expanded(
               child: Padding(
                 padding: const EdgeInsetsDirectional.only(end: DSpacing.sm),
@@ -121,7 +101,32 @@ class _MobileForumRootState extends State<MobileForumRoot> {
                       child: NotificationListener<ScrollNotification>(
                         onNotification: _onScroll,
                         child: DCard(
+                          key: const ValueKey('mobile-sidebar-panel'),
                           spacing: 0,
+                          leading: ForumSidebarTheme(
+                            child: DSidebarHeader(
+                              key: const ValueKey('mobile-header'),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: DSpacing.sm,
+                              ),
+                              child: Row(
+                                children: [
+                                  ForumIdentityHeader(
+                                    siteUrl: instance.url,
+                                    name: instance.title,
+                                    iconUrl: instance.iconUrl,
+                                    monogram: instance.monogram,
+                                    accentColor: instance.accentColor,
+                                    compact: true,
+                                  ),
+                                  const Spacer(),
+                                  const ForumSearch(fullScreen: true),
+                                  const SizedBox(width: DSpacing.controlGap),
+                                  const UserMenuButton(),
+                                ],
+                              ),
+                            ),
+                          ),
                           child: Expanded(
                             child:
                                 widget.content ??

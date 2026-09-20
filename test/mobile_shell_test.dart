@@ -155,6 +155,41 @@ void _mobileTest(String name, WidgetTesterCallback callback) => testWidgets(
 );
 
 void main() {
+  _mobileTest('mobile actions sit inside the raised sidebar panel', (
+    tester,
+  ) async {
+    await _pumpMobile(tester, size: const Size(320, 720), voice: true);
+    final panel = find.byKey(const ValueKey('mobile-sidebar-panel'));
+    final controls = [
+      find.byKey(const ValueKey('forum-identity-button')),
+      find.byKey(const ValueKey('mobile-search-button')),
+      find.byKey(UserMenuButton.bellKey),
+      find.byKey(UserMenuButton.avatarKey),
+    ];
+    for (final mode in ['home', 'chat', 'voice']) {
+      await tester.tap(find.byKey(ValueKey('mobile-mode-$mode')));
+      await tester.pumpAndSettle();
+      final bounds = tester.getRect(panel);
+      expect(
+        bounds.top,
+        tester.getTopLeft(find.byKey(const ValueKey('mobile-root'))).dy,
+      );
+      expect(find.descendant(of: panel, matching: _header), findsOneWidget);
+      if (mode == 'home') {
+        expect(tester.getTopLeft(find.byType(InstanceRail)).dy, bounds.top);
+      }
+      var previousRight = bounds.left;
+      for (final control in controls) {
+        final rect = tester.getRect(control);
+        expect(rect.left, greaterThanOrEqualTo(previousRight));
+        expect(rect.right, lessThanOrEqualTo(bounds.right));
+        expect(rect.center.dy, tester.getCenter(controls.first).dy);
+        previousRight = rect.right;
+      }
+      expect(tester.takeException(), isNull);
+    }
+  });
+
   _mobileTest('home never highlights a destination hidden behind navigation', (
     tester,
   ) async {

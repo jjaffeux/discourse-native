@@ -660,6 +660,21 @@ class ForumIdentityHeader extends StatelessWidget {
         ThemeData.estimateBrightnessForColor(accentColor) == Brightness.dark
         ? Colors.white
         : Colors.black;
+    final logo = DAvatar.frame(
+      key: const ValueKey('forum-identity-logo'),
+      borderRadius: BorderRadius.circular(6),
+      child: AvatarImage(
+        url: iconUrl,
+        size: 32,
+        fit: BoxFit.contain,
+        fallback: ColoredBox(
+          color: accentColor,
+          child: Center(
+            child: Text(monogram, style: TextStyle(color: fallbackForeground)),
+          ),
+        ),
+      ),
+    );
     return DDropdownMenu(
       key: const ValueKey('forum-identity-header'),
       content: DDropdownMenuContent(
@@ -694,58 +709,58 @@ class ForumIdentityHeader extends StatelessWidget {
         ],
       ),
       child: DDropdownMenuTrigger(
-        builder: (context, menu) => DSidebarMenuButton(
-          key: const ValueKey('forum-identity-button'),
-          size: DSidebarMenuButtonSize.large,
-          focusNode: menu.focusNode,
-          expanded: menu.open,
-          onPressed: menu.toggle,
-          iconSize: 32,
-          icon: DAvatar.frame(
-            key: const ValueKey('forum-identity-logo'),
-            borderRadius: BorderRadius.circular(6),
-            child: AvatarImage(
-              url: iconUrl,
-              size: 32,
-              fit: BoxFit.contain,
-              fallback: ColoredBox(
-                color: accentColor,
-                child: Center(
-                  child: Text(
-                    monogram,
-                    style: TextStyle(color: fallbackForeground),
-                  ),
-                ),
-              ),
-            ),
-          ),
-          child: Row(
-            children: [
-              Expanded(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
+        builder: (context, menu) => compact
+            ? DButton.iconOnly(
+                key: const ValueKey('forum-identity-button'),
+                icon: logo,
+                tooltip: name,
+                semanticLabel: '$name, forum menu',
+                variant: DButtonVariant.ghost,
+                size: DButtonSize.large,
+                focusNode: menu.focusNode,
+                hasPopup: true,
+                expanded: menu.open,
+                onPressed: menu.toggle,
+              )
+            : DSidebarMenuButton(
+                key: const ValueKey('forum-identity-button'),
+                size: DSidebarMenuButtonSize.large,
+                focusNode: menu.focusNode,
+                expanded: menu.open,
+                onPressed: menu.toggle,
+                iconSize: 32,
+                icon: logo,
+                child: Row(
                   children: [
-                    Text(name, maxLines: 1, overflow: TextOverflow.ellipsis),
-                    if (!compact)
-                      Text(
-                        siteUrl.replaceFirst(RegExp(r'^https?://'), ''),
-                        key: const ValueKey('forum-identity-url'),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontSize: DiscourseTypography.xs,
-                          height: 16 / 12,
-                        ),
+                    Expanded(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          if (!compact)
+                            Text(
+                              siteUrl.replaceFirst(RegExp(r'^https?://'), ''),
+                              key: const ValueKey('forum-identity-url'),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: DiscourseTypography.xs,
+                                height: 16 / 12,
+                              ),
+                            ),
+                        ],
                       ),
+                    ),
+                    const SizedBox(width: 8),
+                    const Icon(Icons.unfold_more_rounded, size: 16),
                   ],
                 ),
               ),
-              const SizedBox(width: 8),
-              const Icon(Icons.unfold_more_rounded, size: 16),
-            ],
-          ),
-        ),
       ),
     );
   }
