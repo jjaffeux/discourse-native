@@ -186,3 +186,51 @@ Validation: 118 existing Dropdown Menu, topic navigation, and dropdown styleguid
 tests passed, and targeted static analysis passed. Widget-rendered production
 feed menus were inspected in light and dark at 380px, plus RTL at 200% text.
 These captures are widget rendering checks, not native-device verification.
+
+## Mobile sheets (2026-09-20)
+
+Set `DDropdownMenu(sheetOnMobile: true, ...)` to present its existing menu
+content in a modal Native bottom sheet on iOS, Android and Fuchsia. The default
+is false; desktop retains the anchored menu even in narrow windows. Platform
+selection follows the inherited Flutter theme, like the shared control scale.
+The underlying `DPopover` exposes the same option. Sheet owns its standard
+motion, backdrop, close button, focus trapping and system-back dismissal.
+The content label becomes the sheet title (falling back to “Options”). Anchored
+width/placement constraints apply only to desktop; mobile uses the full width
+and caps height at 80% of the viewport, with scrolling owned by the menu.
+Changing presentation while open dismisses the surface.
+
+`DComboboxContent(sheetOnMobile: true, ...)` supports the same presentation for
+searchable choices. Compose a `DComboboxTrigger` with a `DComboboxInput` inside
+the content (`registerAsAnchor: false`). Search results and controlled values
+remain live across the separate sheet route. Existing `closeOnSelect` behavior
+is preserved. Keyboard insets are recovered from the Flutter view when the
+trigger's Scaffold has already consumed them. Dialog/Sheet's new `restoreFocus`
+option preserves Popover's existing opt-out contract and defaults to true.
+
+Topic feed, category, subcategory and tag filters opt in. Other selector callers
+keep their current presentation. Both Dropdown Menu and Combobox have a
+“Sheet on mobile” styleguide example. The offline fixture is
+`tool/mobile_filter_sheet_review_main.dart`.
+
+Verification: 270 focused tests passed across dropdown/popover/combobox/sheet,
+filter navigation, taxonomy, ownership and styleguide suites. Another 25 Dialog
+tests passed; `title metrics and logical close placement follow direction`
+fails unchanged at baseline `4a61e7fd0` (expected 24px, actual mobile 40px).
+New regressions cover iOS/Android sheet geometry, macOS anchored fallback,
+selection, Escape/outside/close dismissal, repeated opening, multi-selection,
+search, keyboard insets and owner removal. Existing filters also cover 320px,
+large text and RTL. Static analysis passed after formatting.
+
+Built and inspected the offline macOS fixture with mobile theme overrides:
+feed/category/tag sheets, category search and selection, tag selection, both
+new styleguide examples, close/outside dismissal, light/dark palettes, wide and
+472px windows, and switching to the desktop anchored feed popup. These are
+macOS fixture checks, not physical iOS/Android or spoken screen-reader tests.
+
+A final callback check forwards transition completion from the Sheet/Dialog
+route, so `onOpenChangeComplete` tracks the actual sheet animation rather than
+the anchored popup's timer. The 54 affected Sheet/Dialog/mobile tests passed
+(with the same baseline exclusion), including completion callback assertions;
+static analysis remained clean. This callback-only follow-up does not change
+the visually inspected sheet composition.

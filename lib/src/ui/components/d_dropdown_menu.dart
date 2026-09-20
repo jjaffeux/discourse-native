@@ -38,6 +38,7 @@ class DDropdownMenu extends StatelessWidget {
     this.onOpenChange,
     this.onOpenChangeComplete,
     this.restoreFocus = true,
+    this.sheetOnMobile = false,
   });
 
   final Widget child;
@@ -49,10 +50,14 @@ class DDropdownMenu extends StatelessWidget {
   final ValueChanged<bool>? onOpenChangeComplete;
   final bool restoreFocus;
 
+  /// Uses a bottom sheet on mobile platforms instead of an anchored menu.
+  final bool sheetOnMobile;
+
   @override
   Widget build(BuildContext context) {
     final ancestor = _DropdownMenuRootScope.maybeOf(context);
     return DPopover(
+      sheetOnMobile: sheetOnMobile,
       open: open,
       defaultOpen: defaultOpen,
       controller: controller,

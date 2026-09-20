@@ -9,6 +9,7 @@ import 'package:flutter/services.dart';
 import '../foundation/control_style.dart';
 import '../foundation/joined_control.dart';
 import '../foundation/tokens.dart';
+import 'd_sheet.dart';
 
 enum DPopoverSide { top, bottom, left, right, inlineStart, inlineEnd }
 
@@ -142,6 +143,7 @@ class DPopover extends StatefulWidget {
     this.onOpenChange,
     this.onOpenChangeComplete,
     this.restoreFocus = true,
+    this.sheetOnMobile = false,
     this.focusContentOnOpen = true,
     this.transitionDuration = const Duration(milliseconds: 100),
     this.reverseTransitionDuration = const Duration(milliseconds: 100),
@@ -157,6 +159,10 @@ class DPopover extends StatefulWidget {
   final DPopoverOpenChange? onOpenChange;
   final ValueChanged<bool>? onOpenChangeComplete;
   final bool restoreFocus;
+
+  /// Presents a modal bottom sheet on iOS, Android and Fuchsia.
+  /// Desktop platforms retain the anchored popup.
+  final bool sheetOnMobile;
 
   /// Whether opening moves focus into the floating surface.
   ///
@@ -209,6 +215,7 @@ class _DPopoverState extends State<DPopover>
   FocusNode? _triggerFocus;
   FocusNode? _previousFocus;
   bool _open = false;
+  bool _sheet = false;
   bool _initialized = false;
   bool _syncScheduled = false;
   bool _suspended = false;
@@ -230,13 +237,36 @@ class _DPopoverState extends State<DPopover>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    _syncPresentation();
     _tickersEnabled = TickerMode.valuesOf(context).enabled;
     _scheduleSync();
+  }
+
+  void _syncPresentation() {
+    final sheet =
+        widget.sheetOnMobile &&
+        switch (Theme.of(context).platform) {
+          TargetPlatform.iOS ||
+          TargetPlatform.android ||
+          TargetPlatform.fuchsia => true,
+          _ => false,
+        };
+    if (sheet == _sheet) return;
+    if (!_open) {
+      _sheet = sheet;
+      return;
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _dismissForLifecycle();
+      setState(() => _sheet = sheet);
+    });
   }
 
   @override
   void didUpdateWidget(DPopover oldWidget) {
     super.didUpdateWidget(oldWidget);
+    _syncPresentation();
     if (oldWidget.controller != widget.controller) {
       (oldWidget.controller ?? _ownedController)._detach(this);
       _controller._attach(this);
@@ -266,7 +296,7 @@ class _DPopoverState extends State<DPopover>
       _initialized = true;
       if (MediaQuery.disableAnimationsOf(context) && _animation.isAnimating) {
         _animation.value = _open ? 1 : 0;
-        if (!_open) _portal.hide();
+        if (!_open && _portal.isShowing) _portal.hide();
       }
     });
   }
@@ -300,7 +330,7 @@ class _DPopoverState extends State<DPopover>
       // its screen is hidden instead of waiting for a muted animation ticker.
       if (!value && immediate && _portal.isShowing) {
         _animation.value = 0;
-        _portal.hide();
+        if (_portal.isShowing) _portal.hide();
       }
       return;
     }
@@ -309,14 +339,14 @@ class _DPopoverState extends State<DPopover>
     if (value) {
       _DPopoverLayers.activate(this);
       _previousFocus = FocusManager.instance.primaryFocus;
-      _portal.show();
+      if (!_sheet) _portal.show();
       if (noMotion) {
         _animation.value = 1;
       } else {
         _animation.forward();
       }
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted || !_open || !widget.focusContentOnOpen) return;
+        if (!mounted || !_open || _sheet || !widget.focusContentOnOpen) return;
         if (_interaction == DPopoverInteraction.touch) {
           _surfaceFocus.requestFocus();
         } else {
@@ -328,11 +358,14 @@ class _DPopoverState extends State<DPopover>
       _DPopoverLayers.deactivate(this);
       if (noMotion) {
         _animation.value = 0;
-        _portal.hide();
+        if (_portal.isShowing) _portal.hide();
       } else {
         _animation.reverse();
       }
-      if (restoreFocus && _restoreFocusForNextClose && widget.restoreFocus) {
+      if (!_sheet &&
+          restoreFocus &&
+          _restoreFocusForNextClose &&
+          widget.restoreFocus) {
         final target = _triggerFocus?.canRequestFocus == true
             ? _triggerFocus
             : _previousFocus;
@@ -349,9 +382,9 @@ class _DPopoverState extends State<DPopover>
   }
 
   void _animationStatus(AnimationStatus status) {
-    if (!mounted) return;
+    if (!mounted || _sheet) return;
     if (status == AnimationStatus.dismissed) {
-      _portal.hide();
+      if (_portal.isShowing) _portal.hide();
       widget.onOpenChangeComplete?.call(false);
     } else if (status == AnimationStatus.completed) {
       widget.onOpenChangeComplete?.call(true);
@@ -376,7 +409,8 @@ class _DPopoverState extends State<DPopover>
   }
 
   void _globalPointer(PointerEvent event) {
-    if (!_open ||
+    if (_sheet ||
+        !_open ||
         !_DPopoverLayers.isTopmost(this) ||
         event is! PointerDownEvent) {
       return;
@@ -416,7 +450,8 @@ class _DPopoverState extends State<DPopover>
   }
 
   KeyEventResult _observeGlobalKey(KeyEvent event) {
-    if (_open &&
+    if (!_sheet &&
+        _open &&
         _DPopoverLayers.isTopmost(this) &&
         event is KeyDownEvent &&
         event.logicalKey == LogicalKeyboardKey.escape) {
@@ -583,6 +618,12 @@ class _DPopoverState extends State<DPopover>
   }
 
   @override
+  void didChangeMetrics() {
+    // Scaffold may consume keyboard insets before they reach the trigger.
+    if (_sheet && mounted) setState(() {});
+  }
+
+  @override
   void didChangeViewFocus(ViewFocusEvent event) {
     if (event.viewId != View.of(context).viewId) return;
     _suspended = event.state == ViewFocusState.unfocused;
@@ -594,15 +635,79 @@ class _DPopoverState extends State<DPopover>
   }
 
   @override
-  Widget build(BuildContext context) => _PopoverRootScope(
-    state: this,
-    open: _open,
-    child: OverlayPortal.overlayChildLayoutBuilder(
-      controller: _portal,
-      overlayChildBuilder: _overlay,
+  Widget build(BuildContext context) {
+    final trigger = _PopoverRootScope(
+      state: this,
+      open: _open,
       child: widget.child,
-    ),
-  );
+    );
+    if (_sheet) {
+      final media = MediaQuery.of(context);
+      final view = View.of(context);
+      return MediaQuery(
+        data: media.copyWith(
+          viewInsets: media.viewInsets.copyWith(
+            bottom: math.max(
+              media.viewInsets.bottom,
+              view.viewInsets.bottom / view.devicePixelRatio,
+            ),
+          ),
+        ),
+        child: DSheet<void>(
+          open: _open,
+          onOpenChangeComplete: widget.onOpenChangeComplete,
+          restoreFocus: widget.restoreFocus,
+          finalFocusNode: _triggerFocus,
+          onOpenChanged: (details) {
+            if (details.open) return;
+            _request(false, switch (details.reason) {
+              DSheetChangeReason.barrier => DPopoverChangeReason.outsidePress,
+              DSheetChangeReason.escape => DPopoverChangeReason.escape,
+              DSheetChangeReason.routeRemoved => DPopoverChangeReason.lifecycle,
+              _ => DPopoverChangeReason.closePress,
+            }, DPopoverInteraction.imperative);
+          },
+          trigger: DSheetTrigger(builder: (_, _) => trigger),
+          content: DSheetContent(
+            side: DSheetSide.bottom,
+            semanticLabel: widget.content.semanticLabel,
+            topBottomMaxHeightFactor: .8,
+            scrollWholeSheet: false,
+            children: [
+              DSheetHeader(
+                children: [
+                  DSheetTitle(
+                    child: Text(widget.content.semanticLabel ?? 'Options'),
+                  ),
+                ],
+              ),
+              Flexible(
+                child: DJoinedControlScope.boundary(
+                  child: _PopoverScope(
+                    close: () => _request(
+                      false,
+                      DPopoverChangeReason.closePress,
+                      DPopoverInteraction.imperative,
+                    ),
+                    child: widget.content.child,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+    return _PopoverRootScope(
+      state: this,
+      open: _open,
+      child: OverlayPortal.overlayChildLayoutBuilder(
+        controller: _portal,
+        overlayChildBuilder: _overlay,
+        child: widget.child,
+      ),
+    );
+  }
 
   @override
   void dispose() {

@@ -231,6 +231,36 @@ DComboboxContent<String>(
       code: _rtlCode,
       builder: (_) => const _RtlCombobox(),
     ),
+    StyleguideExample(
+      title: 'Sheet on mobile',
+      description:
+          'A button opens searchable choices in a mobile bottom sheet. Desktop retains the anchored popup.',
+      code:
+          "DComboboxContent(sheetOnMobile: true, children: [DComboboxInput<String>(registerAsAnchor: false), DComboboxList<String>()])",
+      builder: (_) => DCombobox<String>(
+        options: _frameworks,
+        anchor: DComboboxTrigger<String>(
+          builder: (_, state) => DButton(
+            label: const Text('Choose framework'),
+            onPressed: state.toggle,
+            focusNode: state.focusNode,
+            expanded: state.open,
+          ),
+        ),
+        content: const DComboboxContent(
+          sheetOnMobile: true,
+          semanticLabel: 'Frameworks',
+          children: [
+            DComboboxInput<String>(
+              registerAsAnchor: false,
+              showTrigger: false,
+              placeholder: 'Search frameworks',
+            ),
+            DComboboxList<String>(),
+          ],
+        ),
+      ),
+    ),
   ],
 );
 
