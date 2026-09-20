@@ -11,10 +11,12 @@ Widget _fixture({
   ScrollController? scroll,
   bool dark = false,
   double scale = 1,
+  TargetPlatform platform = TargetPlatform.macOS,
+  VoidCallback? onPressed,
 }) => MaterialApp(
   theme: ThemeData(
     brightness: dark ? Brightness.dark : Brightness.light,
-    platform: TargetPlatform.macOS,
+    platform: platform,
   ),
   home: MediaQuery(
     data: MediaQueryData(
@@ -38,7 +40,7 @@ Widget _fixture({
                   itemBuilder: (context, index) => DSidebarMenuButton(
                     key: ValueKey(values[index]),
                     focusNode: values[index] == 0 ? focus : null,
-                    onPressed: () {},
+                    onPressed: onPressed ?? () {},
                     child: Text('Link ${values[index]}'),
                   ),
                 ),
@@ -88,6 +90,35 @@ void main() {
     expect(calls, [(0, 2), (1, 0)]);
     expect(tester.takeException(), isNull);
   });
+
+  for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
+    testWidgets('touch taps and swipes do not reorder on $platform', (
+      tester,
+    ) async {
+      final scroll = ScrollController();
+      addTearDown(scroll.dispose);
+      final calls = <(int, int)>[];
+      var taps = 0;
+      await tester.pumpWidget(
+        _fixture(
+          values: List.generate(40, (index) => index),
+          platform: platform,
+          scroll: scroll,
+          onPressed: () => taps++,
+          onReorder: (from, to) => calls.add((from, to)),
+        ),
+      );
+      await tester.tap(find.text('Link 0'));
+      await tester.pumpAndSettle();
+      expect(taps, 1);
+      await tester.drag(find.text('Link 2'), const Offset(0, -100));
+      await tester.pumpAndSettle();
+      expect(scroll.offset, greaterThan(0));
+      expect(calls, isEmpty);
+      expect(taps, 1);
+      expect(tester.takeException(), isNull);
+    });
+  }
 
   for (final dark in [false, true]) {
     testWidgets(

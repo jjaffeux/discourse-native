@@ -125,7 +125,7 @@ final sidebarExamples = ComponentExamples(
     StyleguideExample(
       title: 'Reorderable links',
       description:
-          'Drag a desktop row to reorder links, or focus a row and use Alt+Up/Down. Touch keeps ordinary scrolling and link activation. The menu shares the sidebar scroll area and scrolls at its edges while dragging.',
+          'Drag a desktop row to reorder links, or focus a row and use Alt+Up/Down. On touch, long-press a row to drag; quick swipes scroll and taps open links. The menu shares the sidebar scroll area and scrolls at its edges while dragging.',
       code: '''DSidebarReorderableMenu.sliverBuilder(
   itemCount: links.length,
   itemBuilder: (context, index) => DSidebarMenuButton(

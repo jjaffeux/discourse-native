@@ -1037,7 +1037,6 @@ class _SectionState extends State<_Section> {
         child: rowBuilder(context, index),
       );
       final reorderable =
-          !context.isTouch &&
           runs.length == 1 &&
           rows.length == section.destinations.length &&
           ShellScope.read(

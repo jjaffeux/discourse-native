@@ -36,6 +36,7 @@ Future<FakeDiscourseApi> _pump(
   bool public = false,
   bool admin = false,
   bool connected = true,
+  Size size = desktop,
 }) async {
   final user = DiscourseUser(id: 7, username: 'reader', admin: admin);
   final api = FakeDiscourseApi(
@@ -48,7 +49,7 @@ Future<FakeDiscourseApi> _pump(
   if (connected) auth.keys[_site] = 'key';
   await pumpShell(
     tester,
-    desktop,
+    size,
     instances: [
       DiscourseInstance(
         url: _site,
@@ -75,23 +76,28 @@ Future<void> _drag(
   String from,
   String to, {
   bool after = true,
+  bool touch = false,
 }) async {
   final start = tester.getCenter(sidebarDestination(from));
   final end =
-      tester.getCenter(sidebarDestination(to)) + Offset(0, after ? 40 : -40);
+      tester.getCenter(sidebarDestination(to)) +
+      Offset(0, (after ? 1 : -1) * (touch ? 80 : 40));
   final gesture = await tester.startGesture(
     start,
-    kind: PointerDeviceKind.mouse,
+    kind: touch ? PointerDeviceKind.touch : PointerDeviceKind.mouse,
   );
+  if (touch) await tester.pump(kLongPressTimeout);
   await gesture.moveBy(const Offset(0, 10));
   await tester.pump();
+  await gesture.moveTo(Offset(start.dx, (start.dy + end.dy) / 2));
+  await tester.pump(const Duration(milliseconds: 300));
   await gesture.moveTo(end);
   await tester.pump(const Duration(milliseconds: 400));
   await gesture.up();
   await tester.pumpAndSettle();
 }
 
-void desktopTest(
+void platformTest(
   String name,
   WidgetTesterCallback callback, {
   TargetPlatform platform = TargetPlatform.macOS,
@@ -148,7 +154,7 @@ void main() {
     );
   });
 
-  desktopTest('drags links down and up and skips unchanged drops', (
+  platformTest('drags links down and up and skips unchanged drops', (
     tester,
   ) async {
     final api = await _pump(tester);
@@ -168,7 +174,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  desktopTest(
+  platformTest(
     'keeps order during save, disables repeated writes, reports failure',
     (tester) async {
       final api = await _pump(tester);
@@ -199,7 +205,7 @@ void main() {
     },
   );
 
-  desktopTest(
+  platformTest(
     'public changes require admin confirmation and cancellation does not save',
     (tester) async {
       final api = await _pump(tester, public: true, admin: true);
@@ -217,23 +223,36 @@ void main() {
     },
   );
 
-  for (final scenario in ['public', 'anonymous', 'touch']) {
-    desktopTest(
-      '$scenario does not expose reordering',
-      (tester) async {
-        final api = await _pump(
-          tester,
-          public: scenario == 'public',
-          connected: scenario != 'anonymous',
-        );
-        expect(find.byType(DSidebarReorderableMenu), findsNothing);
-        expect(api.sidebarReorders, isEmpty);
-      },
-      platform: scenario == 'touch' ? TargetPlatform.iOS : TargetPlatform.macOS,
-    );
+  for (final scenario in ['public', 'anonymous']) {
+    platformTest('$scenario does not expose reordering', (tester) async {
+      final api = await _pump(
+        tester,
+        public: scenario == 'public',
+        connected: scenario != 'anonymous',
+      );
+      expect(find.byType(DSidebarReorderableMenu), findsNothing);
+      expect(api.sidebarReorders, isEmpty);
+    });
   }
 
-  desktopTest('late save cannot restore links after sign-out', (tester) async {
+  for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
+    platformTest('long press reorders mobile links on $platform', (
+      tester,
+    ) async {
+      final api = await _pump(tester, size: phone);
+      await tester.ensureVisible(sidebarDestination('Support'));
+      await tester.pumpAndSettle();
+      await _drag(tester, 'Handbook', 'Support', touch: true);
+      expect(api.sidebarReorders.single.ids, [22, 33, 11]);
+      expect(_order(tester), ['Roadmap', 'Support', 'Handbook']);
+      await _drag(tester, 'Handbook', 'Roadmap', after: false, touch: true);
+      expect(api.sidebarReorders.last.ids, [11, 22, 33]);
+      expect(_order(tester), ['Handbook', 'Roadmap', 'Support']);
+      expect(tester.takeException(), isNull);
+    }, platform: platform);
+  }
+
+  platformTest('late save cannot restore links after sign-out', (tester) async {
     final api = await _pump(tester);
     api.sidebarReorderGate = Completer<void>();
     await _drag(tester, 'Handbook', 'Support');

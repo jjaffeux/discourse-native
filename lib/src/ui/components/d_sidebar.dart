@@ -626,12 +626,13 @@ class DSidebarMenu extends StatelessWidget {
   }
 }
 
-/// A lazy menu that supports desktop row dragging and Alt+Up/Down reordering.
+/// A lazy menu supporting row dragging, touch long-press dragging, and
+/// Alt+Up/Down reordering.
 ///
 /// Rows must have stable keys. [onReorder] receives an insertion gap in the
 /// original list; subtract one when moving down after removing the old row.
 /// The caller owns order and persistence. Null disables reordering. Touch
-/// platforms retain scrolling and long-press behavior instead of row dragging.
+/// platforms retain ordinary scrolling until a long press starts a drag.
 class DSidebarReorderableMenu extends StatelessWidget {
   const DSidebarReorderableMenu.sliverBuilder({
     super.key,
@@ -648,7 +649,7 @@ class DSidebarReorderableMenu extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final reorder = _touchPlatform(context) ? null : onReorder;
+    final reorder = onReorder;
     if (reorder == null) {
       return DSidebarMenu.sliverBuilder(
         itemCount: itemCount,
@@ -684,23 +685,28 @@ class DSidebarReorderableMenu extends StatelessWidget {
           );
           void moveUp() => reorder(index, index - 1);
           void moveDown() => reorder(index, index + 2);
-          return ReorderableDragStartListener(
-            key: child.key,
-            index: index,
-            child: CallbackShortcuts(
-              bindings: {
-                if (index > 0)
-                  const SingleActivator(LogicalKeyboardKey.arrowUp, alt: true):
-                      moveUp,
-                if (index < itemCount - 1)
-                  const SingleActivator(
-                    LogicalKeyboardKey.arrowDown,
-                    alt: true,
-                  ): moveDown,
-              },
-              child: child,
-            ),
+          final row = CallbackShortcuts(
+            bindings: {
+              if (index > 0)
+                const SingleActivator(LogicalKeyboardKey.arrowUp, alt: true):
+                    moveUp,
+              if (index < itemCount - 1)
+                const SingleActivator(LogicalKeyboardKey.arrowDown, alt: true):
+                    moveDown,
+            },
+            child: child,
           );
+          return _touchPlatform(context)
+              ? ReorderableDelayedDragStartListener(
+                  key: child.key,
+                  index: index,
+                  child: row,
+                )
+              : ReorderableDragStartListener(
+                  key: child.key,
+                  index: index,
+                  child: row,
+                );
         },
       ),
     );
