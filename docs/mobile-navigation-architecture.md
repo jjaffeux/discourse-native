@@ -93,13 +93,30 @@ History rules:
 - Ordinary mobile launch starts at Home. Existing URL parsing, authentication,
   and link-opening commands continue to resolve shared destinations.
 
-`MobileHistoryGestures` observes touch gestures from the first/last 24 logical
-pixels of the viewport: right goes Back and left goes Forward in LTR, mirrored
-in RTL. It requires horizontal intent, ignores multi-touch and vertical drags,
-and leaves body gestures to feature content. Modal routes block gestures behind
-them. Android system Back closes a modal first, then traverses content history;
-at the root it can leave the app. These are history gestures, without an
-interactive iOS page-transition animation.
+`MobileHistoryGestures` adapts the visit identities and callbacks to the Native
+`DHistoryTransition` component. Touch gestures from the first/last 24 logical
+pixels move the page with the finger: right goes Back and left goes Forward in
+LTR, mirrored in RTL. The adjacent page slides beneath/above it with parallax.
+Release past one quarter of the viewport, or flick inward, to finish; a short
+drag or outward flick returns to the current page. History changes only after
+the completion animation, so cancelled gestures never navigate or hydrate a
+different destination. Reduced motion preserves gestures without page movement.
+
+Previews are snapshots of previously painted pages, not retained feature widgets.
+Opaque visit identities survive title hydration and Back/Forward; replacement
+gets a fresh identity, and owner/sidebar-mode resets start a new history identity.
+The component captures the outgoing page before its single live subtree rebuilds.
+It retains at most eight images, each capped at one million pixels (about 32 MB
+in total). Images never enter persistent storage or accessibility semantics.
+History, theme, viewport and app lifecycle changes, plus memory pressure, clear
+them. Missing/evicted previews use the themed background; embedded platform
+views may not appear in snapshots. The destination becomes live on commit.
+
+Horizontal gestures participate in Flutter's gesture arena; vertical scrolling
+and body gestures remain with feature content. Multi-touch, pointer cancellation,
+covered modal routes and concurrent navigation cancel the transition. Android
+system Back closes a modal first, then traverses content history; at the root it
+can leave the app. Buttons and system Back retain their existing behavior.
 
 ## Verification and local review fixture
 
@@ -156,3 +173,23 @@ Interactive native inspection could not run because the approved UI tool
 reported the Mac was locked. The fixture is available for follow-up review;
 widget platform variants and a successful simulator build do not constitute
 an interactive simulator or physical-device pass.
+
+### Interactive history transitions — 2026-09-20
+
+The Native component is available in the styleguide under **History transition**
+with Back/Forward and RTL examples. It adds no package dependency.
+
+Verification: formatting and static analysis pass. The focused run passes all
+45 tests in `d_history_transition_test.dart`, `mobile_navigation_test.dart`,
+`mobile_shell_test.dart`, `control_style_adoption_test.dart`,
+`d_button_adoption_test.dart` and `discourse_typography_adoption_test.dart`.
+Gesture tests inspect intermediate positions before release as well as final
+state, including cancellation, flick velocity, RTL, reduced motion, modals,
+multi-touch, concurrent navigation, resizing, memory pressure and disposal.
+The real mobile shell is exercised with both iOS and Android widget variants.
+
+Rendered test frames were inspected for the production Users-to-Home swipe in
+both directions at 390px, plus styleguide transitions in light, dark, forest
+and plum palettes. The production mobile fixture builds for the iOS simulator.
+Interactive simulator inspection was unavailable because the UI tool could not
+open Simulator; no physical-device gesture check was performed.

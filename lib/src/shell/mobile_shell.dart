@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:discourse_native/discourse_ui.dart';
-import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 
 import '../plugin_api/plugin_scope.dart';
@@ -161,72 +160,33 @@ class MobileForumRoot extends StatelessWidget {
   }
 }
 
-/// Edge gestures observe pointer travel without taking horizontal gestures
-/// away from carousels, editors or message actions in the page body.
-class MobileHistoryGestures extends StatefulWidget {
+/// Adapts mobile visit history to the Native interactive transition.
+class MobileHistoryGestures extends StatelessWidget {
   const MobileHistoryGestures({super.key, required this.child});
   final Widget child;
 
   @override
-  State<MobileHistoryGestures> createState() => _MobileHistoryGesturesState();
-}
-
-class _MobileHistoryGesturesState extends State<MobileHistoryGestures> {
-  int? _pointer;
-  Offset? _start;
-  bool _back = false;
-
-  void _startGesture(PointerDownEvent event, double width) {
-    if (_pointer != null ||
-        event.kind != PointerDeviceKind.touch ||
-        ModalRoute.of(context)?.isCurrent != true) {
-      _start = null;
-      return;
-    }
-    final x = event.localPosition.dx;
-    if (x > 24 && x < width - 24) return;
-    _pointer = event.pointer;
-    _start = event.localPosition;
-    _back = Directionality.of(context) == TextDirection.ltr
-        ? x <= 24
-        : x >= width - 24;
+  Widget build(BuildContext context) {
+    final shell = ShellScope.of(context);
+    final navigation = shell.mobileNavigation;
+    return DHistoryTransition(
+      history: navigation.historyId,
+      entry: navigation.entryId,
+      previousEntry: navigation.previousEntryId,
+      nextEntry: navigation.nextEntryId,
+      onBack: navigation.canGoBack
+          ? () {
+              FocusManager.instance.primaryFocus?.unfocus();
+              shell.handleBack();
+            }
+          : null,
+      onForward: navigation.canGoForward
+          ? () {
+              FocusManager.instance.primaryFocus?.unfocus();
+              shell.handleForward();
+            }
+          : null,
+      child: child,
+    );
   }
-
-  void _finishGesture(PointerUpEvent event) {
-    if (event.pointer != _pointer) return;
-    final start = _start;
-    _pointer = null;
-    _start = null;
-    if (start == null || ModalRoute.of(context)?.isCurrent != true) return;
-    final delta = event.localPosition - start;
-    final rtl = Directionality.of(context) == TextDirection.rtl;
-    final progress = delta.dx * ((_back != rtl) ? 1 : -1);
-    if (progress < 64 || delta.dy.abs() > progress / 2) return;
-    FocusManager.instance.primaryFocus?.unfocus();
-    final shell = ShellScope.read(context);
-    if (_back) {
-      shell.handleBack();
-    } else {
-      shell.handleForward();
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) => LayoutBuilder(
-    builder: (context, constraints) => Listener(
-      behavior: HitTestBehavior.translucent,
-      onPointerDown: (event) => _startGesture(event, constraints.maxWidth),
-      onPointerUp: _finishGesture,
-      onPointerMove: (event) {
-        if (_start case final start? when event.pointer == _pointer) {
-          if ((event.localPosition.dy - start.dy).abs() > 40) _start = null;
-        }
-      },
-      onPointerCancel: (_) {
-        _pointer = null;
-        _start = null;
-      },
-      child: widget.child,
-    ),
-  );
 }

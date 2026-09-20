@@ -13,6 +13,9 @@ void main() {
   test('hydrated display metadata updates without creating a visit', () {
     final navigation = MobileNavigation();
     navigation.synchronize(owner: 'forum', location: page('topic'));
+    final entryId = navigation.entryId;
+    final historyId = navigation.historyId;
+    final rootId = navigation.previousEntryId;
     final hydrated = ForumTabLocation(
       rootDestinationId: 'topic',
       contentStack: const [
@@ -25,10 +28,15 @@ void main() {
     );
     navigation.synchronize(owner: 'forum', location: hydrated);
     expect(navigation.location, hydrated);
+    expect(navigation.entryId, entryId);
+    expect(navigation.historyId, historyId);
     navigation.goBack();
     expect(navigation.atRoot, isTrue);
+    expect(navigation.entryId, rootId);
+    expect(navigation.nextEntryId, entryId);
     navigation.goForward();
     expect(navigation.location, hydrated);
+    expect(navigation.entryId, entryId);
   });
 
   test('replacement updates this visit and clears a forward branch', () {
@@ -36,10 +44,13 @@ void main() {
     navigation.synchronize(owner: 'forum', location: page('latest'));
     navigation.synchronize(owner: 'forum', location: page('topic'));
     navigation.goBack();
+    final entryId = navigation.entryId;
     navigation.replaceCurrent(page('new'));
     navigation.synchronize(owner: 'forum', location: page('new'));
     expect(navigation.location, page('new'));
     expect(navigation.canGoForward, isFalse);
+    expect(navigation.entryId, isNot(entryId));
+    expect(navigation.nextEntryId, isNull);
     navigation.goBack();
     expect(navigation.atRoot, isTrue);
   });
@@ -93,12 +104,16 @@ void main() {
   test('site/account and sidebar-mode changes isolate history', () {
     final navigation = MobileNavigation();
     navigation.synchronize(owner: ('forum', 'one'), location: page('private'));
+    final privateHistoryId = navigation.historyId;
     navigation.synchronize(owner: ('forum', 'two'), location: null);
+    expect(navigation.historyId, isNot(privateHistoryId));
     expect(navigation.canGoForward, isFalse);
     expect(navigation.canGoBack, isFalse);
     navigation.synchronize(owner: ('forum', 'two'), location: page('topics'));
     navigation.goBack();
+    final historyId = navigation.historyId;
     navigation.selectPanel('chat');
+    expect(navigation.historyId, isNot(historyId));
     expect(navigation.canGoForward, isFalse);
     navigation.synchronize(owner: ('another', 'two'), location: page('link'));
     expect(navigation.panelOwner, isNull);

@@ -409,10 +409,29 @@ void main() {
     await tester.dragFrom(const Offset(5, 400), const Offset(80, 120));
     await tester.pumpAndSettle();
     _expectPage();
-    await tester.dragFrom(const Offset(5, 400), const Offset(120, 0));
+    final pageOrigin = tester.getTopLeft(find.byType(UsersPage));
+    final back = await tester.startGesture(const Offset(5, 400));
+    await back.moveBy(const Offset(120, 0));
+    await tester.pump();
+    expect(shell.mobileNavigation.atRoot, isFalse);
+    expect(tester.getTopLeft(find.byType(UsersPage)).dx - pageOrigin.dx, 120);
+    expect(find.byType(MainContent), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byType(DHistoryTransition),
+        matching: find.byType(RawImage),
+      ),
+      findsOneWidget,
+    );
+    await back.up();
     await tester.pumpAndSettle();
     expect(_bar, findsOneWidget);
-    await tester.dragFrom(const Offset(385, 400), const Offset(-120, 0));
+    final forward = await tester.startGesture(const Offset(385, 400));
+    await forward.moveBy(const Offset(-120, 0));
+    await tester.pump();
+    expect(shell.mobileNavigation.atRoot, isTrue);
+    expect(tester.getTopLeft(_bar).dx, lessThan(0));
+    await forward.up();
     await tester.pumpAndSettle();
     _expectPage();
     expect(shell.currentContent?.id, 'users');
