@@ -232,7 +232,7 @@ class ComposerHeader extends StatelessWidget {
                     if (canToggleWhisper) heading,
                     ...pluginControls,
                     if (composer.canSaveDraft && !target.isEdit)
-                      _DraftStatus(composer: composer),
+                      _DraftSaveFailure(composer: composer),
                   ],
                 ),
               ),
@@ -439,7 +439,7 @@ class ComposerHeader extends StatelessWidget {
                           constraints: BoxConstraints(
                             maxWidth: constraints.maxWidth * 0.6,
                           ),
-                          child: _DraftStatus(composer: composer),
+                          child: _DraftSaveFailure(composer: composer),
                         ),
                     ],
                   ),
@@ -466,8 +466,8 @@ class ComposerHeader extends StatelessWidget {
   }
 }
 
-class _DraftStatus extends StatelessWidget {
-  const _DraftStatus({required this.composer});
+class _DraftSaveFailure extends StatelessWidget {
+  const _DraftSaveFailure({required this.composer});
 
   final ComposerController composer;
 
@@ -477,29 +477,13 @@ class _DraftStatus extends StatelessWidget {
         composer.localDraftFailed ||
         composer.draftsGaveUp ||
         composer.draftStatus == DraftStatus.failing;
-    final saving =
-        !failing &&
-        (composer.draftPending || composer.draftStatus == DraftStatus.saving);
-    final (label, description) = switch (composer) {
-      _ when composer.localDraftFailed => (
-        'Not saved',
-        "Couldn't save this draft on this device.",
-      ),
-      _ when failing => (
-        'Device only',
-        'Not saved on the site — kept on this device only.',
-      ),
-      _ when saving => ('Saving…', 'Saving draft…'),
-      _ when composer.draftStatus == DraftStatus.saved => (
-        'Saved',
-        'Draft saved on the site',
-      ),
-      _ => (null, null),
-    };
-    if (label == null) return const SizedBox.shrink();
+    if (!failing) return const SizedBox.shrink();
+    final (label, description) = composer.localDraftFailed
+        ? ('Not saved', "Couldn't save this draft on this device.")
+        : ('Device only', 'Not saved on the site — kept on this device only.');
 
     final tokens = DTokens.of(context);
-    final color = failing ? tokens.destructive : tokens.mutedForeground;
+    final color = tokens.destructive;
     final style = Theme.of(
       context,
     ).textTheme.labelSmall?.copyWith(color: color);
@@ -517,23 +501,16 @@ class _DraftStatus extends StatelessWidget {
         excludeSemantics: true,
         label: description,
         child: DTooltip(
-          message: description!,
+          message: description,
           excludeFromSemantics: true,
           child: SizedBox(
-            // Reserve the same label space across save states, including zoom.
+            // Keep failure details reachable even at large text scales.
             width: showLabel ? 20 + textScaler.scale(72) : 14,
             child: LayoutBuilder(
               builder: (context, constraints) => Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
-                  if (saving)
-                    DSpinner(size: 14, color: color, semanticLabel: null)
-                  else
-                    DIcon(
-                      failing ? DIcons.triangleExclamation : DIcons.check,
-                      size: 14,
-                      color: color,
-                    ),
+                  DIcon(DIcons.triangleExclamation, size: 14, color: color),
                   if (showLabel && constraints.maxWidth >= 40) ...[
                     const SizedBox(width: 6),
                     Flexible(
