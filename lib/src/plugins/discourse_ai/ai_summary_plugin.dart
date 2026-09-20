@@ -7,6 +7,8 @@ import '../../models/json.dart';
 import '../../models/post.dart';
 import '../../plugin_api/plugin_scope.dart';
 import '../../plugin_api/site_plugin_api.dart';
+import '../../shell/cooked_html.dart';
+import '../../shell/platform.dart';
 import '../../shell/route_aware_selection_area.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/d_icons.dart';
@@ -116,16 +118,34 @@ class _AiSummaryButton extends StatelessWidget {
         context,
         aiSummaryControllerService,
       );
+      final mobile = context.isTouch;
+      Widget content() => _AiSummaryDialog(
+        controller: controller,
+        siteUrl: siteUrl,
+        topicId: topicId,
+        availability: availability,
+        mobile: mobile,
+      );
       unawaited(
-        showDialog<void>(
-          context: context,
-          builder: (context) => _AiSummaryDialog(
-            controller: controller,
-            siteUrl: siteUrl,
-            topicId: topicId,
-            availability: availability,
-          ),
-        ),
+        mobile
+            ? showDSheet<void>(
+                context: context,
+                side: DSheetSide.bottom,
+                builder: (context, sheet) => DSheetContent(
+                  side: DSheetSide.bottom,
+                  topBottomMaxHeightFactor: .9,
+                  children: [
+                    const DSheetHeader(
+                      children: [DSheetTitle(child: Text('Topic summary'))],
+                    ),
+                    DSheetBody(child: content()),
+                  ],
+                ),
+              )
+            : showDDialog<void>(
+                context: context,
+                builder: (context, dialog) => content(),
+              ),
       );
     },
     icon: const DIcon(DiscourseAiIcons.sparkles),
@@ -138,8 +158,10 @@ class _AiSummaryDialog extends StatefulWidget {
     required this.siteUrl,
     required this.topicId,
     required this.availability,
+    required this.mobile,
   });
 
+  final bool mobile;
   final AiSummaryController controller;
   final String siteUrl;
   final int topicId;
@@ -152,6 +174,7 @@ class _AiSummaryDialog extends StatefulWidget {
 class _AiSummaryDialogState extends State<_AiSummaryDialog> {
   AiSummaryRequest? _request;
   AiTopicSummary? _summary;
+  String? _cooked;
   bool _loading = false;
   bool _generated = false;
   bool _regenerating = false;
@@ -187,9 +210,15 @@ class _AiSummaryDialogState extends State<_AiSummaryDialog> {
       _request = request;
       final summary = await request.result;
       if (!mounted) return;
+      _generated = true;
+      final cooked = await widget.controller.cook(
+        siteUrl: widget.siteUrl,
+        raw: summary.text,
+      );
+      if (!mounted) return;
       setState(() {
         _summary = summary;
-        _generated = true;
+        _cooked = cooked;
       });
     } on AiSummaryCancelled {
       // Dismissal already owns the dialog's next state.
@@ -211,96 +240,98 @@ class _AiSummaryDialogState extends State<_AiSummaryDialog> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final summary = _summary;
-    final dialog = AlertDialog(
-      title: const Row(
+    final content = switch ((_loading, _error, summary)) {
+      (true, _, _) => SizedBox(
+        height: 120,
+        child: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const DSpinner(size: DSpacing.xl),
+              const SizedBox(height: 12),
+              Text(
+                _regenerating ? 'Regenerating summary…' : 'Generating summary…',
+              ),
+            ],
+          ),
+        ),
+      ),
+      (_, final error?, _) => Padding(
+        padding: const EdgeInsets.symmetric(vertical: 24),
+        child: Text(error),
+      ),
+      (_, _, final summary?) => Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          DIcon(DiscourseAiIcons.sparkles, size: 18),
-          SizedBox(width: 8),
-          Text('Topic summary'),
+          RouteAwareSelectionArea(
+            child: CookedHtml(
+              html: _cooked!,
+              siteUrl: widget.siteUrl,
+              textStyle: theme.textTheme.bodyMedium?.copyWith(
+                height: DiscourseTypography.lineHeightCooked,
+              ),
+            ),
+          ),
+          if (summary.outdated) ...[
+            const SizedBox(height: 16),
+            Text(
+              summary.newPostsSinceSummary > 0
+                  ? 'This summary is outdated by '
+                        '${summary.newPostsSinceSummary} new '
+                        '${summary.newPostsSinceSummary == 1 ? 'post' : 'posts'}.'
+                  : 'This summary is outdated.',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ],
+          if (summary.algorithm case final algorithm?) ...[
+            const SizedBox(height: 12),
+            Text(
+              'Generated with $algorithm',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ],
         ],
       ),
-      content: ConstrainedBox(
-        constraints: const BoxConstraints(minWidth: 360, maxWidth: 560),
-        child: AnimatedSize(
-          duration: const Duration(milliseconds: 160),
-          child: switch ((_loading, _error, summary)) {
-            (true, _, _) => SizedBox(
-              height: 120,
-              child: Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const DSpinner(size: DSpacing.xl),
-                    const SizedBox(height: 12),
-                    Text(
-                      _regenerating
-                          ? 'Regenerating summary…'
-                          : 'Generating summary…',
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            (_, final error?, _) => Padding(
-              padding: const EdgeInsets.symmetric(vertical: 24),
-              child: Text(error),
-            ),
-            (_, _, final summary?) => SingleChildScrollView(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  RouteAwareSelectionArea(
-                    child: Text(
-                      summary.text,
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        height: DiscourseTypography.lineHeightCooked,
-                      ),
-                    ),
-                  ),
-                  if (summary.outdated) ...[
-                    const SizedBox(height: 16),
-                    Text(
-                      summary.newPostsSinceSummary > 0
-                          ? 'This summary is outdated by '
-                                '${summary.newPostsSinceSummary} new '
-                                '${summary.newPostsSinceSummary == 1 ? 'post' : 'posts'}.'
-                          : 'This summary is outdated.',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ],
-                  if (summary.algorithm case final algorithm?) ...[
-                    const SizedBox(height: 12),
-                    Text(
-                      'Generated with $algorithm',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-            _ => const SizedBox(height: 120),
-          },
-        ),
-      ),
-      actions: [
-        if (_error != null)
-          DButton(label: const Text('Try again'), onPressed: _load),
-        if (summary?.outdated == true && summary?.canRegenerate == true)
-          DButton(
-            label: const Text('Regenerate'),
-            onPressed: _loading ? null : () => _load(regenerate: true),
-            icon: const DIcon(DIcons.arrowsRotate),
-          ),
+      _ => const SizedBox(height: 120),
+    };
+    final actions = <Widget>[
+      if (_error != null)
+        DButton(label: const Text('Try again'), onPressed: _load),
+      if (summary?.outdated == true && summary?.canRegenerate == true)
         DButton(
-          label: const Text('Close'),
-          onPressed: () => Navigator.of(context).pop(),
+          label: const Text('Regenerate'),
+          onPressed: _loading ? null : () => _load(regenerate: true),
+          icon: const DIcon(DIcons.arrowsRotate),
         ),
-      ],
-    );
+      DButton(
+        label: const Text('Close'),
+        onPressed: () => Navigator.of(context).pop(),
+      ),
+    ];
+    final dialog = widget.mobile
+        ? Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              content,
+              DSheetFooter(children: actions),
+            ],
+          )
+        : DDialogContent(
+            maxWidth: 608,
+            showCloseButton: false,
+            children: [
+              const DDialogHeader(
+                children: [DDialogTitle(child: Text('Topic summary'))],
+              ),
+              DDialogScrollArea(child: content),
+              DDialogFooter(children: actions),
+            ],
+          );
     return PopScope<void>(
       onPopInvokedWithResult: (didPop, _) {
         if (didPop) _request?.cancel();

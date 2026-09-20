@@ -1,8 +1,13 @@
 import 'dart:async';
+import 'dart:convert';
 
+import 'package:discourse_cooking/discourse_cooking.dart';
+import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/src/data/application_cooking.dart';
 import 'package:discourse_native/src/diagnostics/diagnostics_controller.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/site_config.dart';
+import 'package:discourse_native/src/plugin_api/cooking_plugin.dart';
 import 'package:discourse_native/src/plugin_api/core_plugin_host.dart';
 import 'package:discourse_native/src/plugin_api/plugin_data.dart';
 import 'package:discourse_native/src/plugin_api/plugin_runtime.dart';
@@ -13,6 +18,7 @@ import 'package:discourse_native/src/plugins/discourse_ai/ai_summary_controller.
 import 'package:discourse_native/src/plugins/discourse_ai/ai_summary_plugin.dart';
 import 'package:discourse_native/src/plugins/discourse_ai/discourse_ai_module.dart';
 import 'package:discourse_native/src/plugins/discourse_ai/discourse_ai_services.dart';
+import 'package:discourse_native/src/shell/cooked_html.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -39,6 +45,92 @@ Map<String, dynamic> summaryResponse({
 };
 
 void main() {
+  test('cooks summary Markdown with the Discourse runtime', () async {
+    final service = OfflineCookingService();
+    addTearDown(service.dispose);
+    final controller = AiSummaryController(
+      api: AiSummaryApi(FakeDiscourseApi()),
+      requests: FakePluginRequestHost(),
+      trackerFor: (_) => null,
+      cooking: PluginCookingHost(
+        request:
+            ({
+              required siteUrl,
+              required raw,
+              profile = CookingProfile.post,
+              context = const CookingContext(),
+              cachedMetadata,
+            }) => CookingRequest(
+              raw: raw,
+              profile: profile,
+              snapshot: CookingSnapshot(
+                siteId: siteUrl,
+                accountId: 'test',
+                baseUrl: siteUrl,
+              ),
+            ),
+        cook: service.cook,
+      ),
+    );
+    addTearDown(controller.dispose);
+    final html = await controller.cook(
+      siteUrl: _siteUrl,
+      raw: '[Aimee](/t/-/755/1) shares **Team Time**.\n\n- Walk\n- Lunch',
+    );
+    expect(html, contains('<strong>Team Time</strong>'));
+    expect(html, contains('href="/t/-/755/1"'));
+    expect(html, contains('<li>Walk</li>'));
+    expect(html, contains('<li>Lunch</li>'));
+  });
+
+  for (final platform in [TargetPlatform.iOS, TargetPlatform.macOS]) {
+    testWidgets('renders cooked summary on $platform', (tester) async {
+      tester.view.physicalSize = platform == TargetPlatform.iOS
+          ? const Size(390, 844)
+          : const Size(1200, 900);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      const raw = '[Aimee](/t/-/755/1) shares **Team Time**.';
+      const html =
+          '<p><a href="/t/-/755/1">Aimee</a> shares '
+          '<strong>Team Time</strong>.</p>';
+      final fixture = _SummaryFixture(
+        api: FakeDiscourseApi(
+          pluginResponses: {'GET $_summaryPath': summaryResponse(text: raw)},
+        ),
+        cookedHtml: List.filled(30, html).join(),
+      );
+      await fixture.openDialog(
+        tester,
+        hasCachedSummary: true,
+        platform: platform,
+      );
+      await tester.pumpAndSettle();
+      expect(
+        find.byType(DSheetContent),
+        platform == TargetPlatform.iOS ? findsOneWidget : findsNothing,
+      );
+      expect(
+        find.byType(DDialogContent),
+        platform == TargetPlatform.macOS ? findsOneWidget : findsNothing,
+      );
+      final rendered = tester.widget<CookedHtml>(find.byType(CookedHtml));
+      expect(rendered.html, contains('<strong>Team Time</strong>'));
+      expect(rendered.siteUrl, _siteUrl);
+      expect(find.text(raw), findsNothing);
+      expect(
+        find.textContaining('Aimee shares Team Time.', findRichText: true),
+        findsWidgets,
+      );
+      expect(tester.takeException(), isNull);
+      await tester.ensureVisible(find.text('Close'));
+      await tester.tap(find.text('Close'));
+      await tester.pumpAndSettle();
+      expect(find.byType(CookedHtml), findsNothing);
+    });
+  }
+
   test('topic extension reads the guardian-scoped availability fields', () {
     const plugin = AiSummaryPlugin();
 
@@ -211,7 +303,7 @@ void main() {
 
       fixture.deliver(summaryResponse(done: true, text: 'Fresh summary'));
       await tester.pumpAndSettle();
-      expect(find.text('Fresh summary'), findsOneWidget);
+      expect(find.text('Fresh summary', findRichText: true), findsOneWidget);
       expect(fixture.callbacks, isEmpty);
     },
   );
@@ -384,7 +476,10 @@ void main() {
 
       fixture.deliver(summaryResponse(done: true, text: 'Regenerated summary'));
       await tester.pumpAndSettle();
-      expect(find.text('Regenerated summary'), findsOneWidget);
+      expect(
+        find.text('Regenerated summary', findRichText: true),
+        findsOneWidget,
+      );
       expect(fixture.callbacks, isEmpty);
     },
   );
@@ -438,7 +533,7 @@ void main() {
       api.responses.last.complete(summaryResponse());
       await tester.pumpAndSettle();
       expect(
-        find.text('The important parts of the discussion.'),
+        find.text('The important parts of the discussion.', findRichText: true),
         findsOneWidget,
       );
       expect(fixture.callbacks, isEmpty);
@@ -559,6 +654,7 @@ final class _SummaryFixture {
     FakeDiscourseApi? api,
     FakeApiCredentialReader? credentials,
     bool streaming = true,
+    String? cookedHtml,
   }) : api =
            api ??
            FakeDiscourseApi(pluginResponses: const {'POST $_summaryPath': {}}),
@@ -567,8 +663,36 @@ final class _SummaryFixture {
              credentials ??
              (FakeApiCredentialReader()..keys[_siteUrl] = 'api-key'),
        ) {
+    final cooking = ApplicationCooking(plugins: plugins);
+    addTearDown(cooking.dispose);
     session = plugins.openSession(
       PluginHostBindings([
+        PluginHostPort<Object>(
+          corePluginCookingPort,
+          PluginCookingHost(
+            request:
+                ({
+                  required siteUrl,
+                  required raw,
+                  profile = CookingProfile.post,
+                  context = const CookingContext(),
+                  cachedMetadata,
+                }) => cooking.request(
+                  siteUrl: siteUrl,
+                  accountId: 'test',
+                  raw: raw,
+                  config: const SiteConfig(),
+                  profile: profile,
+                  context: context,
+                  cachedMetadata: cachedMetadata,
+                ),
+            cook: (request) async => CookingResult(
+              html:
+                  cookedHtml ??
+                  '<p>${const HtmlEscape().convert(request.raw)}</p>',
+            ),
+          ),
+        ),
         PluginHostPort<Object>(corePluginTransportPort, this.api),
         PluginHostPort<Object>(corePluginRequestPort, requests),
         PluginHostPort<Object>(
@@ -623,6 +747,7 @@ final class _SummaryFixture {
   Future<void> openDialog(
     WidgetTester tester, {
     bool hasCachedSummary = false,
+    TargetPlatform platform = TargetPlatform.macOS,
   }) async {
     final topic = TopicDetail(
       id: 7,
@@ -641,6 +766,7 @@ final class _SummaryFixture {
         session: session,
         registry: plugins.registry,
         child: MaterialApp(
+          theme: ThemeData(platform: platform),
           home: Scaffold(
             body: Builder(
               builder: (context) => Column(

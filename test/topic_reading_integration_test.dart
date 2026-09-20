@@ -3319,10 +3319,22 @@ void _registerTopicReadingTests() {
       expect(find.byKey(const ValueKey('topic-summary-button')), findsNothing);
       expect(find.text('Summarize'), findsOneWidget);
       await tester.tap(action);
+      await tester.pump();
+      // Let the native cooking isolate finish outside the fake timer zone.
+      await tester.runAsync(() async {
+        for (var attempt = 0; attempt < 100; attempt++) {
+          await Future<void>.delayed(const Duration(milliseconds: 20));
+          await tester.pump();
+          if (find.text('Generating summary…').evaluate().isEmpty) break;
+        }
+      });
       await tester.pumpAndSettle();
 
       expect(find.text('Topic summary'), findsOneWidget);
-      expect(find.text('A concise AI summary.'), findsOneWidget);
+      expect(
+        find.text('A concise AI summary.', findRichText: true),
+        findsOneWidget,
+      );
       expect(find.text('Generated with test-model'), findsOneWidget);
       expect(
         api.pluginReadPaths.where((path) => path.startsWith('/discourse-ai/')),
