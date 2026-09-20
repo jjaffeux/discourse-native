@@ -232,7 +232,6 @@ class _TopicTagSelectorState extends State<TopicTagSelector> {
         buttonKey: widget.valueKey,
         size: widget.size,
         label: label,
-        icon: const DIcon(DIcons.tag, size: 14),
         semanticLabel:
             widget.semanticLabel ??
             (selected.isEmpty
