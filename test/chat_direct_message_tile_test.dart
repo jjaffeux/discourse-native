@@ -143,7 +143,7 @@ Widget _tile(
   child: PluginUiScope.own(
     chatPluginId,
     MaterialApp(
-      theme: theme ?? AppTheme.light,
+      theme: theme ?? AppTheme.light.copyWith(platform: TargetPlatform.macOS),
       home: Scaffold(
         body: SingleChildScrollView(
           child: Align(
@@ -1042,6 +1042,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Copy link'), findsOneWidget);
     expect(find.text('React'), findsOneWidget);
-    expect(find.byKey(const ValueKey('chat-message-react-7')), findsOneWidget);
+    expect(find.byKey(const ValueKey('chat-message-react-7')), findsNothing);
+    expect(find.byType(DSheetContent), findsOneWidget);
   });
 }
