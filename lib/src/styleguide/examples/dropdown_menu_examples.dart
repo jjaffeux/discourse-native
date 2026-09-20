@@ -58,6 +58,24 @@ final dropdownMenuExamples = ComponentExamples(
         child: DDropdownMenuTrigger.button(label: const Text('Top periods')),
       ),
     ),
+    StyleguideExample(
+      title: 'Sheet on mobile',
+      description:
+          'Uses a bottom sheet on mobile platforms and an anchored menu on desktop.',
+      code:
+          "DDropdownMenu(sheetOnMobile: true, content: content, child: trigger)",
+      builder: (_) => DDropdownMenu(
+        sheetOnMobile: true,
+        content: DDropdownMenuContent(
+          semanticLabel: 'Choose feed',
+          children: [
+            for (final label in ['Latest', 'New', 'Unread', 'Top'])
+              DDropdownMenuItem(onPressed: () {}, child: Text(label)),
+          ],
+        ),
+        child: DDropdownMenuTrigger.button(label: const Text('Choose feed')),
+      ),
+    ),
   ],
 );
 

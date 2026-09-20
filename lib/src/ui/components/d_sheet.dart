@@ -49,6 +49,7 @@ class DSheet<T> extends StatelessWidget {
     this.open,
     this.initiallyOpen = false,
     this.onOpenChanged,
+    this.onOpenChangeComplete,
     this.useRootNavigator = false,
     this.modal = true,
     this.dismissOnBarrier = true,
@@ -57,6 +58,7 @@ class DSheet<T> extends StatelessWidget {
     this.routeSettings,
     this.initialFocusNode,
     this.finalFocusNode,
+    this.restoreFocus = true,
   }) : assert(open == null || !initiallyOpen);
 
   final DSheetTrigger trigger;
@@ -65,6 +67,9 @@ class DSheet<T> extends StatelessWidget {
   final bool? open;
   final bool initiallyOpen;
   final ValueChanged<DSheetChangeDetails<T>>? onOpenChanged;
+
+  /// Called when the opening or closing transition finishes.
+  final ValueChanged<bool>? onOpenChangeComplete;
   final bool useRootNavigator;
 
   /// Allows interaction with the exposed background without dismissing the
@@ -77,12 +82,16 @@ class DSheet<T> extends StatelessWidget {
   final FocusNode? initialFocusNode;
   final FocusNode? finalFocusNode;
 
+  /// Restores focus to the trigger or previous control after dismissal.
+  final bool restoreFocus;
+
   @override
   Widget build(BuildContext context) => DDialog<T>(
     controller: controller,
     open: open,
     initiallyOpen: initiallyOpen,
     onOpenChanged: onOpenChanged,
+    onOpenChangeComplete: onOpenChangeComplete,
     useRootNavigator: useRootNavigator,
     modal: modal,
     dismissOnBarrier: dismissOnBarrier,
@@ -91,6 +100,7 @@ class DSheet<T> extends StatelessWidget {
     routeSettings: routeSettings,
     initialFocusNode: initialFocusNode,
     finalFocusNode: finalFocusNode,
+    restoreFocus: restoreFocus,
     transitionDuration: const Duration(milliseconds: 200),
     reverseTransitionDuration: const Duration(milliseconds: 200),
     presentationBuilder: (context, presentation) => _sheetPresentation(

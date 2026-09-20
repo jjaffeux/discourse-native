@@ -32,6 +32,7 @@ class TopicCategorySelector extends StatefulWidget {
     this.keyPrefix = 'category-selector',
     this.size = DButtonSize.regular,
     this.valueKey,
+    this.sheetOnMobile = false,
     this.triggerBuilder,
   });
 
@@ -48,6 +49,7 @@ class TopicCategorySelector extends StatefulWidget {
   final String keyPrefix;
   final DButtonSize size;
   final Key? valueKey;
+  final bool sheetOnMobile;
 
   /// Reuses the selector popup with a caller's Native trigger composition.
   final DComboboxTriggerBuilder<int>? triggerBuilder;
@@ -232,6 +234,7 @@ class _TopicCategorySelectorState extends State<TopicCategorySelector> {
             ),
       ),
       content: DComboboxContent(
+        sheetOnMobile: widget.sheetOnMobile,
         key: ValueKey('$prefix-popover'),
         semanticLabel: parent == null
             ? 'Categories'
