@@ -3732,6 +3732,7 @@ class _Footer extends StatelessWidget {
                       ? DCard(
                           key: const ValueKey('composer-toolbar-bar'),
                           variant: DCardVariant.capsule,
+                          spacing: 0,
                           child: toolbar,
                         )
                       : toolbar,
