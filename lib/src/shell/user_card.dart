@@ -609,6 +609,9 @@ class _CardIdentity extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    // One reading for the whole card: a suspension that lapses between two
+    // reads would open the badge row and then draw nothing in it.
+    final suspended = card.isSuspendedAt(DateTime.now());
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -668,7 +671,7 @@ class _CardIdentity extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   style: theme.textTheme.bodyLarge,
                 ),
-              if (card.isStaff || card.isSuspendedAt(DateTime.now())) ...[
+              if (card.isStaff || suspended) ...[
                 const SizedBox(height: 6),
                 Wrap(
                   spacing: 6,
@@ -676,7 +679,7 @@ class _CardIdentity extends StatelessWidget {
                   children: [
                     if (card.isStaff)
                       _Badge(label: 'staff', color: theme.colorScheme.primary),
-                    if (card.isSuspendedAt(DateTime.now()))
+                    if (suspended)
                       _Badge(
                         label: 'suspended',
                         color: theme.colorScheme.error,
