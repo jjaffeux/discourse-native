@@ -88,9 +88,9 @@ void main() {
             closeTo(native.textScaler.scale(16), .001),
           );
           for (final (size, base) in [
-            ('small', 12),
-            ('regular', 13),
-            ('large', 14),
+            ('small', 14),
+            ('regular', 15),
+            ('large', 16),
           ]) {
             final label = _paragraph(tester, size);
             expect(
@@ -105,7 +105,7 @@ void main() {
         await tester.tap(find.text('Latest'));
         await tester.pumpAndSettle();
         final option = _paragraph(tester, 'New');
-        expect(option.textScaler.scale(13), closeTo(31.2, .001));
+        expect(option.textScaler.scale(15), closeTo(36, .001));
         expect(option.didExceedMaxLines, isFalse);
         await tester.tap(find.text('New').last);
         await tester.pumpAndSettle();

@@ -215,3 +215,25 @@ interactions have different owners. Settings, shared sheets, add-site, group
 management, Chat channel information, Poll/Local Dates/GIF dialogs, Voice room
 chat and the event fallback now use the public API for appropriate headings
 and secondary prose. Their callbacks, permissions and state remain app-owned.
+
+## Mobile baseline verification (2026-09-20)
+
+The 120% baseline was verified together with the mobile control presets from
+`2172b324c`. Formatting, `flutter analyze --no-pub`, and 86 focused tests passed:
+`app_text_scale`, `typography_boundary`, `mobile_text_scale`,
+`discourse_typography_adoption`, `mobile_control_scale`, `mobile_shell`,
+`categories_page`, `sidebar_width`, and `topic_list_view_lifecycle`.
+Mobile tests cover iOS/Android platform variants, light/dark themes, 320px
+layouts, topic rows, native/cooked reading parity, all app zoom levels,
+menu selection, and resetting zoom. Desktop boundary tests remain unscaled.
+
+The offline `mobile_navigation_review_main.dart` fixture built and ran on macOS
+with its iOS platform override. Native review at 440px width covered navigation,
+topic lists, wrapped reader text and filter menus in the dark palette; the
+integrated control presets were rechecked on navigation and topic lists.
+This was not an iOS/Android device run. Light-theme coverage was via widget tests.
+
+The broader chat-composer suite had five failures (reply-menu ambiguity,
+edit-cancel, GIF send failure, uncertain send failure and definitive refusal).
+All five also reproduced with the original root text scaler; they are unrelated
+to the mobile baseline. Its other 67 tests passed with the change.
