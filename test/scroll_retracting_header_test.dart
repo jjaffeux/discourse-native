@@ -10,6 +10,7 @@ Future<void> _mount(
   WidgetTester tester, {
   ScrollController? controller,
   bool reducedMotion = false,
+  bool reverse = false,
   Object? identity,
   int count = 100,
   FocusNode? focusNode,
@@ -34,6 +35,7 @@ Future<void> _mount(
             ),
             child: ListView.builder(
               key: _body,
+              reverse: reverse,
               controller: controller,
               itemExtent: 50,
               itemCount: count,
@@ -126,6 +128,57 @@ void main() {
     await _wheel(tester, -1);
     await tester.pumpAndSettle();
     expect(controller.offset, 0);
+    expect(tester.getTopLeft(body).dy, 80);
+  });
+
+  testWidgets('reversed lists hide downward and reveal after 100px upward', (
+    tester,
+  ) async {
+    final controller = ScrollController(initialScrollOffset: 600);
+    addTearDown(controller.dispose);
+    await _mount(tester, controller: controller, reverse: true);
+    final body = find.byKey(_body);
+    final element = tester.element(body);
+    await _wheel(tester, 200);
+    await tester.pumpAndSettle();
+    expect(tester.getTopLeft(body).dy, 0);
+    await _wheel(tester, -99);
+    await tester.pumpAndSettle();
+    expect(tester.getTopLeft(body).dy, 0);
+    await _wheel(tester, 10);
+    await _wheel(tester, -99);
+    await tester.pumpAndSettle();
+    expect(tester.getTopLeft(body).dy, 0);
+    await _wheel(tester, -1);
+    await tester.pumpAndSettle();
+    expect(tester.getTopLeft(body).dy, 80);
+    expect(tester.element(body), same(element));
+
+    // The present (minimum extent) is the bottom, not the top.
+    await _wheel(tester, 2000);
+    await tester.pumpAndSettle();
+    expect(controller.offset, 0);
+    expect(tester.getTopLeft(body).dy, 0);
+    controller.jumpTo(controller.position.maxScrollExtent - 40);
+    await tester.pumpAndSettle();
+    expect(tester.getTopLeft(body).dy, 0);
+    await _wheel(tester, -40);
+    await tester.pumpAndSettle();
+    expect(tester.getTopLeft(body).dy, 80);
+  });
+
+  testWidgets('reversed touch scrolling hides and reveals the header', (
+    tester,
+  ) async {
+    final controller = ScrollController(initialScrollOffset: 600);
+    addTearDown(controller.dispose);
+    await _mount(tester, controller: controller, reverse: true);
+    final body = find.byKey(_body);
+    await tester.drag(body, const Offset(0, -200));
+    await tester.pumpAndSettle();
+    expect(tester.getTopLeft(body).dy, 0);
+    await tester.drag(body, const Offset(0, 150));
+    await tester.pumpAndSettle();
     expect(tester.getTopLeft(body).dy, 80);
   });
 

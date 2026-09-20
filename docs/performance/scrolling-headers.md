@@ -1,7 +1,8 @@
 # Scroll-retracting topic headers
 
 Topic reader headers and the topic-list heading/filter controls retract after
-12 logical pixels of downward user scrolling and reveal after 6 pixels upward.
+12 logical pixels of downward user scrolling and reveal after 100 pixels upward
+or immediately at the top.
 Each pane owns its state. The existing Native `DCollapsibleContent` animates
 height over 200 ms with `easeInOutCubic`, retains the header's state, and respects
 reduced motion. The viewport stays mounted throughout.
@@ -60,3 +61,23 @@ inbox/rebuild checks retain existing unrelated failures, including the post-acti
 spacing expectation reproduced on main.
 A clean native macOS fixture build was visually checked in a maximized light
 window (topic content wider than 825 pixels) and the dark 650-pixel layout.
+
+## Chat pinned messages
+
+The channel pinned-message banner uses the same Native `DPageSurface` header.
+It retracts on downward scrolling and returns after 100 logical pixels of upward
+travel, or immediately on reaching the oldest loaded edge. Direction reversal
+resets the accumulated travel. The surface accounts for chat's reversed viewport:
+the latest-message edge is the bottom and does not force the banner open.
+The composer stays fixed and the message viewport remains mounted.
+
+Focused widget coverage checks normal and reversed lists, the 99/100px boundary,
+direction reversal, top and bottom edges, programmatic restoration, and the
+production chat banner with its retained viewport and fixed composer.
+
+Verification: 71 focused header, page-surface and chat lifecycle widget tests
+passed, including reversed wheel/touch scrolling and production banner checks
+under iOS and macOS target-platform overrides. Static analysis is clean.
+The broader composer suite has 69 passes and five failures; all five reproduce
+on unchanged base `fa441ce9a`. No native app or physical-device run was performed
+for this change.

@@ -10,6 +10,7 @@ import 'package:discourse_native/src/models/user_flair.dart';
 import 'package:discourse_native/src/plugin_api/plugin_scope.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel_view.dart';
+import 'package:discourse_native/src/plugins/chat/chat_composer.dart';
 import 'package:discourse_native/src/plugins/chat/chat_controller.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message_tile.dart';
@@ -1150,6 +1151,83 @@ void main() {
         findsOneWidget,
       );
     });
+
+    testWidgets(
+      'pinned bar follows chat scroll direction and top edge',
+      (tester) async {
+        final api = _ChatApi(
+          openPages: {
+            firstSite: [_messagesPage(1, 80)],
+          },
+          chatPinsByChannel: {
+            9: (
+              pins: [
+                ChatPin(
+                  id: 91,
+                  messageId: 2,
+                  message: _message(2).withPinned(true),
+                  pinnedBy: const ChatMessageAuthor(id: 4, username: 'sam'),
+                  excerpt: 'Important answer',
+                ),
+              ],
+              membership: const ChatMembership(following: true),
+            ),
+          },
+        );
+        final controller = await _controller(api, sites: const [firstSite]);
+        addTearDown(controller.dispose);
+        controller.chatRecords.put(
+          firstSite,
+          _channel(lastRead: 80, pinnedMessagesCount: 1),
+        );
+        await tester.pumpWidget(_TestView(controller: controller));
+        await tester.pumpAndSettle();
+        final bar = find.byKey(const ValueKey('chat-pinned-message-bar'));
+        final scroll = _verticalChatScroll();
+        final position = tester.state<ScrollableState>(scroll).position;
+        final streamElement = tester.element(find.byType(ChatMessageStream));
+        final composerTop = tester.getTopLeft(find.byType(ChatComposer)).dy;
+        position.jumpTo(700);
+        await tester.pumpAndSettle();
+        expect(bar.hitTestable(), findsOneWidget);
+
+        Future<void> wheel(double delta) async {
+          await tester.sendEventToBinding(
+            PointerScrollEvent(
+              position: tester.getCenter(scroll),
+              scrollDelta: Offset(0, delta),
+            ),
+          );
+          await tester.pumpAndSettle();
+        }
+
+        await wheel(200);
+        expect(bar.hitTestable(), findsNothing);
+        await wheel(-99);
+        expect(bar.hitTestable(), findsNothing);
+        await wheel(-1);
+        expect(bar.hitTestable(), findsOneWidget);
+        await wheel(2000);
+        expect(position.pixels, 0);
+        expect(bar.hitTestable(), findsNothing);
+        // Lay out the oldest rows before using the virtual list's final extent.
+        position.jumpTo(position.maxScrollExtent);
+        await tester.pumpAndSettle();
+        position.jumpTo(position.maxScrollExtent - 40);
+        await tester.pumpAndSettle();
+        await wheel(-40);
+        expect(bar.hitTestable(), findsOneWidget);
+        expect(
+          tester.element(find.byType(ChatMessageStream)),
+          same(streamElement),
+        );
+        expect(tester.getTopLeft(find.byType(ChatComposer)).dy, composerTop);
+      },
+      variant: const TargetPlatformVariant({
+        TargetPlatform.iOS,
+        TargetPlatform.macOS,
+      }),
+    );
 
     testWidgets('the pinned bar jumps to a pin and opens the complete list', (
       tester,
