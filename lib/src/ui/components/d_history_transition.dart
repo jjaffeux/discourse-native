@@ -14,6 +14,7 @@ import '../foundation/tokens.dart';
 /// or journey changes. Adjacent identities select visual previews; callbacks
 /// change the actual history only after a committed swipe finishes. Short drags
 /// spring back without invoking a callback. Null callbacks disable that edge.
+/// The covered page dims with overlap; the front page casts a soft edge shadow.
 ///
 /// Previews are in-memory snapshots, never additional live pages. Up to eight
 /// recently visited pages are retained, at most one million pixels each.
@@ -230,7 +231,8 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
 
   @override
   Widget build(BuildContext context) {
-    final background = DTokens.of(context).background;
+    final tokens = DTokens.of(context);
+    final background = tokens.background;
     final reducedMotion = MediaQuery.disableAnimationsOf(context);
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -271,13 +273,37 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
                 builder: (context, child) {
                   final p = reducedMotion ? 0.0 : _progress.value;
                   final active = p > 0;
-                  final preview = ExcludeSemantics(
-                    child: IgnorePointer(
-                      child: ColoredBox(
-                        color: background,
-                        child: _preview == null
-                            ? null
-                            : RawImage(image: _preview, fit: BoxFit.fill),
+                  final dim = BoxDecoration(
+                    color: tokens.colors.scrim.withValues(
+                      alpha: active ? .20 * (_back ? 1 - p : p) : 0,
+                    ),
+                  );
+                  final elevation = BoxDecoration(
+                    boxShadow: active
+                        ? [
+                            BoxShadow(
+                              color: tokens.colors.shadow.withValues(
+                                alpha: .22,
+                              ),
+                              blurRadius: 18,
+                              offset: Offset(_rtl ? 4 : -4, 0),
+                            ),
+                          ]
+                        : null,
+                  );
+                  final preview = DecoratedBox(
+                    decoration: _back ? dim : elevation,
+                    position: _back
+                        ? DecorationPosition.foreground
+                        : DecorationPosition.background,
+                    child: ExcludeSemantics(
+                      child: IgnorePointer(
+                        child: ColoredBox(
+                          color: background,
+                          child: _preview == null
+                              ? null
+                              : RawImage(image: _preview, fit: BoxFit.fill),
+                        ),
                       ),
                     ),
                   );
@@ -298,9 +324,17 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
                           _sign * _size.width * p * (_back ? 1 : .25),
                           0,
                         ),
-                        child: IgnorePointer(
-                          ignoring: _dragging || _settling,
-                          child: ColoredBox(color: background, child: child),
+                        // Keep depth effects outside the capture boundary so
+                        // revisiting a page never reuses a darkened snapshot.
+                        child: DecoratedBox(
+                          decoration: _back ? elevation : dim,
+                          position: _back
+                              ? DecorationPosition.background
+                              : DecorationPosition.foreground,
+                          child: IgnorePointer(
+                            ignoring: _dragging || _settling,
+                            child: ColoredBox(color: background, child: child),
+                          ),
                         ),
                       ),
                       if (active && !_back)

@@ -97,6 +97,10 @@ History rules:
 `DHistoryTransition` component. Touch gestures from the first/last 24 logical
 pixels move the page with the finger: right goes Back and left goes Forward in
 LTR, mirrored in RTL. The adjacent page slides beneath/above it with parallax.
+The page underneath has a 20% scrim that fades as Back reveals it; Forward
+gradually dims the outgoing page instead. A soft shadow follows the front
+page's leading edge, mirrored in RTL. These effects stay outside the snapshot
+boundary, so captured pages retain their original colors.
 Release past one quarter of the viewport, or flick inward, to finish; a short
 drag or outward flick returns to the current page. History changes only after
 the completion animation, so cancelled gestures never navigate or hydrate a
@@ -193,3 +197,7 @@ both directions at 390px, plus styleguide transitions in light, dark, forest
 and plum palettes. The production mobile fixture builds for the iOS simulator.
 Interactive simulator inspection was unavailable because the UI tool could not
 open Simulator; no physical-device gesture check was performed.
+
+The depth follow-up passes 33 component/mobile-shell tests and static analysis.
+Light/dark and LTR/RTL frames at 20%, 60% and 90% Back progress, plus Forward,
+were inspected with real shadow blurring enabled in the rendering fixture.
