@@ -37,16 +37,21 @@ and 14/20 for large controls. The application sidebar uses the large preset
 for destinations, expandable section headings, More, and Forum/Chat switches:
 14/20 text in 32px desktop rows. Counts and the forum URL remain 12/16.
 This keeps primary navigation closer to 16/24 topic titles and reading text
-at every zoom level. Narrow layouts keep the same type roles and provide larger
-touch targets. Authored h1–h6 use 30, 24, 20, 18, 16, and 14 with their paired
-leading in both cooked HTML and the composer. Relative authored formatting
+at every zoom level. iOS and Android apply a separate 120% text baseline to
+these roles, alongside larger touch targets. Desktop retains its 100% baseline,
+even in narrow windows. At the default zoom, mobile metadata is 14.4px,
+interface text is 16.8px, and topic titles and reading text are 19.2px.
+Authored h1–h6 use 30, 24, 20, 18, 16, and 14 with their paired leading in both cooked HTML and the composer. Relative authored formatting
 (small, big, superscripts, inline code) derives from its surrounding text;
 zero-size syntax spans in projected editors are deliberately invisible.
 
 ## Zoom
 
 All theme sizes remain unscaled. `AppTextScaleRegion` at the MaterialApp builder
-composes the platform TextScaler with the app's 80–200% preference. This also
+applies `DiscourseTypography.mobileScale` on iOS/Android before the platform
+TextScaler, then composes the app's 80–200% preference. Resetting zoom to 100%
+retains the mobile baseline. The baseline is uniform so cooked HTML's linear
+compatibility scaler stays consistent with native text. This also
 covers Navigator overlays, dialogs, tooltips, and menus. Custom text measurement
 uses `MediaQuery.textScalerOf(context)` so layout follows the rendered text.
 Do not multiply a TextStyle's fontSize by zoom or replace the inherited scaler.

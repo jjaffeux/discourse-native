@@ -217,6 +217,7 @@ void main() {
         expect(popup.textScaler.scale(14), 28);
         expect(tester.takeException(), isNull);
       },
+      variant: TargetPlatformVariant.only(TargetPlatform.macOS),
     );
   }
 
@@ -266,7 +267,7 @@ void main() {
     expect(barRect.contains(labelRect.topLeft), isTrue);
     expect(barRect.contains(labelRect.bottomRight), isTrue);
     expect(tester.takeException(), isNull);
-  });
+  }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 }
 
 RenderParagraph _paragraph(WidgetTester tester, String text) =>

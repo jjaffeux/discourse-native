@@ -30,6 +30,32 @@ void main() {
     },
   );
 
+  test('mobile baseline precedes nonlinear accessibility and app zoom', () {
+    const platform = _TestTextScaler();
+    const scaler = AppTextScaler(
+      platformScaler: platform,
+      baselineScale: 1.2,
+      appScale: 1.25,
+    );
+    for (final size in [12.0, 14.0, 16.0, 24.0, 36.0]) {
+      expect(scaler.scale(size), platform.scale(size * 1.2) * 1.25);
+    }
+    // ignore: deprecated_member_use
+    expect(scaler.textScaleFactor, scaler.scale(16) / 16);
+    expect(
+      scaler,
+      isNot(const AppTextScaler(platformScaler: platform, appScale: 1.25)),
+    );
+    expect(
+      const AppTextScaler(
+        platformScaler: TextScaler.noScaling,
+        appScale: 1,
+        baselineScale: 1.2,
+      ).scale(0),
+      0,
+    );
+  });
+
   testWidgets('the region updates the inherited scaler without remounting', (
     tester,
   ) async {
@@ -55,7 +81,7 @@ void main() {
     final after = tester.element(find.byKey(childKey));
     expect(after, same(before));
     expect(MediaQuery.textScalerOf(after).scale(16), moreOrLessEquals(24));
-  });
+  }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 
   for (final (platform, modifier) in [
     (TargetPlatform.macOS, LogicalKeyboardKey.metaLeft),
