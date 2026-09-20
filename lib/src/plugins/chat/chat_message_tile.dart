@@ -1348,6 +1348,7 @@ class _Reactions extends StatelessWidget {
       for (final reaction in message.reactions)
         ReactionPill(
           key: ValueKey('chat-reaction-pill-${message.id}-${reaction.emoji}'),
+          density: DToggleDensity.reaction,
           siteUrl: siteUrl,
           reaction: reaction.emoji,
           count: reaction.count,

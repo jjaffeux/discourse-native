@@ -18,6 +18,20 @@ final toggleExamples = ComponentExamples(
       'Lucide example artwork, live palette/font/radius, RTL composition and reduced motion.',
   examples: [
     StyleguideExample(
+      title: 'Reaction',
+      description:
+          'Compact emoji and count with a full touch target on mobile.',
+      code:
+          "DToggle(density: DToggleDensity.reaction, variant: DToggleVariant.outline, icon: Icon(Icons.favorite), child: Text('1'))",
+      builder: (_) => const DToggle(
+        density: DToggleDensity.reaction,
+        variant: DToggleVariant.outline,
+        semanticLabel: '1 heart reaction',
+        icon: Icon(Icons.favorite),
+        child: Text('1'),
+      ),
+    ),
+    StyleguideExample(
       title: 'Default',
       description:
           'The frozen lead example: a small outline bookmark toggle with a filled pressed icon.',

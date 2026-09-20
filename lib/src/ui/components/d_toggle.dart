@@ -8,6 +8,9 @@ import '../foundation/tokens.dart';
 /// The two base-nova Toggle surface treatments.
 enum DToggleVariant { standard, outline }
 
+/// Reaction chips keep compact artwork, including on touch platforms.
+enum DToggleDensity { standard, reaction }
+
 /// The shared button height scale.
 typedef DToggleSize = DControlSize;
 
@@ -72,6 +75,7 @@ class DToggle extends StatefulWidget {
     this.invalid = false,
     this.variant = DToggleVariant.standard,
     this.size = DToggleSize.regular,
+    this.density = DToggleDensity.standard,
     this.semanticLabel,
     this.semanticHint,
     this.semanticLongPressHint,
@@ -95,6 +99,7 @@ class DToggle extends StatefulWidget {
     this.invalid = false,
     this.variant = DToggleVariant.standard,
     this.size = DToggleSize.regular,
+    this.density = DToggleDensity.standard,
     this.semanticHint,
     this.semanticLongPressHint,
     this.focusNode,
@@ -128,6 +133,11 @@ class DToggle extends StatefulWidget {
   final bool invalid;
   final DToggleVariant variant;
   final DToggleSize size;
+
+  /// Reaction density uses 28px artwork, 18px icons and 12px labels instead
+  /// of [size]. Touch targets remain at least 48px and text scaling grows
+  /// the artwork to fit its content.
+  final DToggleDensity density;
   final String? semanticLabel;
   final String? semanticHint;
   final String? semanticLongPressHint;
@@ -218,16 +228,20 @@ class _DToggleState extends State<DToggle> {
     final outlined = widget.variant == DToggleVariant.outline;
     final outline = tokens.buttonTheme.outline;
     final foreground = outlined ? outline.foreground : tokens.foreground;
-    final visualDimension = DControlStyle.scaledHeight(
-      widget.size,
-      MediaQuery.textScalerOf(context),
-      context: context,
-    );
-    final iconDimension = DControlStyle.iconDimension(
-      widget.size,
-      context: context,
-    );
-    final fontSize = DControlStyle.fontSize(widget.size, context: context);
+    final reaction = widget.density == DToggleDensity.reaction;
+    final scaler = MediaQuery.textScalerOf(context);
+    final visualDimension = reaction
+        ? (scaler.scale(12) * (16 / 12) + 10).clamp(28.0, double.infinity)
+        : DControlStyle.scaledHeight(widget.size, scaler, context: context);
+    final iconDimension = reaction
+        ? 18.0
+        : DControlStyle.iconDimension(widget.size, context: context);
+    final fontSize = reaction
+        ? 12.0
+        : DControlStyle.fontSize(widget.size, context: context);
+    final lineHeight = reaction
+        ? 16.0
+        : DControlStyle.lineHeight(widget.size, context: context);
     final touch = switch (theme.platform) {
       TargetPlatform.android ||
       TargetPlatform.iOS ||
@@ -287,9 +301,7 @@ class _DToggleState extends State<DToggle> {
             style: theme.textTheme.labelLarge?.copyWith(
               color: foreground,
               fontSize: fontSize,
-              height:
-                  DControlStyle.lineHeight(widget.size, context: context) /
-                  fontSize,
+              height: lineHeight / fontSize,
               fontWeight: FontWeight.w500,
               letterSpacing: 0,
             ),
@@ -335,6 +347,8 @@ class _DToggleState extends State<DToggle> {
       ),
       padding: (widget._iconOnly
           ? EdgeInsets.zero
+          : reaction
+          ? const EdgeInsets.symmetric(horizontal: 8)
           : DToggle._paddingFor(
               widget.size,
               hasIcon: effectiveIcon != null,
