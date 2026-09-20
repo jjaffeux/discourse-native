@@ -17,6 +17,8 @@ import 'site_emoji_text.dart';
 part 'global_search_filter_picker.dart';
 part 'global_search_category_editor.dart';
 
+final RegExp _whitespace = RegExp(r'\s+');
+
 /// Search scopes, conditions and results below the shell's persistent input.
 /// The caller owns the anchored surface and result navigation.
 class GlobalSearchPanel extends StatefulWidget {
@@ -558,7 +560,7 @@ class _SearchHighlight extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final words = query
-        .split(RegExp(r'\s+'))
+        .split(_whitespace)
         .where((word) => word.length > 1 && !word.contains(':'))
         .map((word) => word.replaceAll('"', ''))
         .where((word) => word.isNotEmpty)

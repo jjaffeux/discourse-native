@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import '../../theme/discourse_typography.dart';
 import '../foundation/tokens.dart';
 
+final RegExp _words = RegExp(r'\S+');
+
 /// Semantic styles from the frozen shadcn Typography reference.
 enum DTextVariant {
   h1,
@@ -138,7 +140,7 @@ class DText extends StatelessWidget {
           if (lineCount < 2 || lineCount > 6) return child;
           final originalText = painter.text;
           var lower = constraints.maxWidth / lineCount;
-          for (final word in RegExp(r'\S+').allMatches(data!)) {
+          for (final word in _words.allMatches(data!)) {
             painter.text = TextSpan(
               text: word.group(0),
               style: originalText!.style,
