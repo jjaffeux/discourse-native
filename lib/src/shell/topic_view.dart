@@ -2428,9 +2428,8 @@ class _TopicBottomBar extends StatelessWidget {
       key: const ValueKey('topic-bottom-bar'),
       backgroundColor: context.isTouch
           ? (topic == null ? theme.shell.panel : theme.shell.content)
-          : DTokens.of(context).footerBackground,
-      borderColor: context.isTouch ? null : DTokens.of(context).footerBorder,
-      rounded: !context.isTouch,
+          : Colors.transparent,
+      border: context.isTouch,
       padding: EdgeInsets.zero,
       child: LayoutBuilder(
         builder: (context, constraints) => ConstrainedBox(
