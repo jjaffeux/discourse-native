@@ -20,6 +20,7 @@ Future<void> main() async {
     defaultValue: true,
   );
   const pageSize = int.fromEnvironment('LIST_PAGE_SIZE');
+  const header = bool.fromEnvironment('LIST_HEADER');
   final controller = await topicListScrollController(
     count: 1000,
     pageSize: pageSize > 0 ? pageSize : null,
@@ -40,6 +41,13 @@ Future<void> main() async {
         'SCROLL_WIDTH',
         defaultValue: 800,
       ).toDouble(),
+      height: const int.fromEnvironment(
+        'SCROLL_HEIGHT',
+        defaultValue: 600,
+      ).toDouble(),
+      header: header
+          ? const SizedBox(height: 104, child: Center(child: Text('Topics')))
+          : null,
     ),
   );
   // A Dart ensureSemantics() handle alone does not activate macOS's native
@@ -75,14 +83,19 @@ Future<void> main() async {
     ('steady', 40.0, 180),
     ('fast', 1200.0, 40),
     ('return', -1200.0, 40),
+    if (header) ('header', 40.0, 8),
   ]) {
     capture.start(
       displayRefreshRate:
           binding.platformDispatcher.views.first.display.refreshRate,
     );
     for (var step = 0; step < steps; step++) {
-      position.pointerScroll(delta);
+      position.pointerScroll(name == 'header' && step.isOdd ? -delta : delta);
       await binding.endOfFrame;
+      if (name == 'header') {
+        // Finish each hide/reveal while keeping most rows in the viewport.
+        await Future<void>.delayed(const Duration(milliseconds: 250));
+      }
     }
     // Engine timings arrive in batches after the last scroll frame.
     await Future<void>.delayed(const Duration(seconds: 1));
