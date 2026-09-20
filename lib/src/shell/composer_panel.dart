@@ -611,7 +611,6 @@ class _TopicTaxonomy extends StatelessWidget {
                         valueKey: const ValueKey('composer-tags'),
                         selectedTags: composer.tags,
                         capabilities: state.capabilities,
-                        placeholder: 'Add tags',
                         search: (term) =>
                             shell.searchComposerTags(composer, term),
                         onChanged: composer.isEditing

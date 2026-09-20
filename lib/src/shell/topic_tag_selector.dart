@@ -196,7 +196,7 @@ class _TopicTagSelectorState extends State<TopicTagSelector> {
   Widget build(BuildContext context) {
     final selected = widget.selectedTags;
     final label = selected.length > 1
-        ? 'Tags · ${selected.length}'
+        ? '${selected.length} tags'
         : selected.firstOrNull?.name ?? widget.placeholder;
     final prefix = widget.keyPrefix;
     final newTag = _newTag;

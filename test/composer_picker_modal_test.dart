@@ -157,9 +157,8 @@ void main() {
     final shell = await pumpComposer(tester, platform: TargetPlatform.macOS);
 
     expect(find.text('Choose a category'), findsOneWidget);
-    expect(find.text('Add tags'), findsOneWidget);
+    expect(find.text('Tags'), findsOneWidget);
     expect(find.text('Category'), findsNothing);
-    expect(find.text('Tags'), findsNothing);
     final title = find.byKey(const ValueKey('composer-topic-title'));
     final editor = find.byType(ComposerEditor);
     final category = tester.getRect(
@@ -183,7 +182,7 @@ void main() {
     expect(
       find.descendant(
         of: find.byKey(const ValueKey('composer-tags')),
-        matching: find.text('Tags · 2'),
+        matching: find.text('2 tags'),
       ),
       findsOneWidget,
     );

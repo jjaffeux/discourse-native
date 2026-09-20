@@ -333,7 +333,7 @@ void main() {
       await tester.tap(tagOption('accessibility'));
       await tester.pumpAndSettle();
       expect(selected, [mobile, accessibility]);
-      expect(find.text('Tags · 2'), findsOneWidget);
+      expect(find.text('2 tags'), findsOneWidget);
     },
   );
 

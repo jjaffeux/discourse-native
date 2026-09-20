@@ -1,8 +1,6 @@
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
-import '../theme/d_icons.dart';
-
 class TopicTaxonomyButton extends StatelessWidget {
   const TopicTaxonomyButton({
     super.key,
@@ -38,16 +36,7 @@ class TopicTaxonomyButton extends StatelessWidget {
       child: DButton(
         key: buttonKey,
         size: size,
-        label: Row(
-          mainAxisSize: MainAxisSize.max,
-          children: [
-            Expanded(
-              child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
-            ),
-            SizedBox(width: DControlStyle.contentGap(size)),
-            const DIcon(DIcons.chevronDown),
-          ],
-        ),
+        label: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
         icon: icon,
         tooltip: tooltip,
         semanticLabel: semanticLabel,

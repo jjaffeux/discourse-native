@@ -141,7 +141,7 @@ final tagSelectorExamples = ComponentExamples(
         'Error',
       ],
       code: '''TopicTagSelector(
-  selectedTags: selected, search: searchTags, placeholder: 'Add tags',
+  selectedTags: selected, search: searchTags,
   capabilities: const TopicComposerCapabilities(
     canTagTopics: true, canCreateTag: true, maxTagsPerTopic: 2,
     maxTagLength: 25, tagsFilterRegexp: r'[^a-z0-9-]',
@@ -273,7 +273,6 @@ class _TagExampleState extends State<_TagExample> {
     search: _search,
     multiple: widget.composer,
     includeAll: !widget.composer,
-    placeholder: widget.composer ? 'Add tags' : 'Tags',
     capabilities: widget.composer
         ? const TopicComposerCapabilities(
             canTagTopics: true,
