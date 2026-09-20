@@ -10,6 +10,8 @@ final historyTransitionExamples = ComponentExamples(
       'Open a page to populate history, then drag inward from the first or last '
       '24 pixels using touch. Release past one quarter of the width or flick '
       'to commit; release a short drag to return. RTL mirrors both directions. '
+      'The page underneath brightens as it is revealed, while a soft shadow '
+      'follows the front page’s edge. Forward navigation reverses that depth. '
       'Only the current page stays live: previews use bounded in-memory images '
       'of recently visited pages. Reduced motion disables page movement. '
       'Buttons remain available for keyboard, mouse and assistive technology.',
