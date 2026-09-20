@@ -324,7 +324,7 @@ class _ForumSearchState extends State<ForumSearch> {
           .where((row) => row.id == _selectedResultId)
           .firstOrNull;
       if (selected != null) {
-        _openResult(selected);
+        unawaited(_openResult(selected));
       } else {
         _global.submit();
       }
