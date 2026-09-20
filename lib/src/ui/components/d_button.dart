@@ -591,7 +591,6 @@ class DButton extends StatelessWidget {
     final touch =
         theme.platform == TargetPlatform.iOS ||
         theme.platform == TargetPlatform.android;
-    final iconOnlySurfaceDimension = visualDimension;
     final enabled = onPressed != null && !loading;
     final baseRadius =
         borderRadius ??
@@ -602,6 +601,15 @@ class DButton extends StatelessWidget {
         );
     final direction = Directionality.of(context);
     final joined = DJoinedControlScope.maybeOf(context);
+    // Joined artwork must fill the touch target along the joining axis;
+    // invisible Material padding would otherwise split the shared border.
+    final surfaceWidth = touch && joined?.axis == Axis.horizontal
+        ? visualDimension.clamp(48.0, double.infinity)
+        : visualDimension;
+    final surfaceHeight = touch && joined?.axis == Axis.vertical
+        ? visualDimension.clamp(48.0, double.infinity)
+        : visualDimension;
+    final iconOnlySurfaceSize = Size(surfaceWidth, surfaceHeight);
     final radius =
         joined?.resolveRadius(baseRadius, direction) ??
         baseRadius.resolve(direction);
@@ -659,14 +667,15 @@ class DButton extends StatelessWidget {
     final style = ButtonStyle(
       minimumSize: WidgetStatePropertyAll(
         _iconOnly
-            ? Size.square(iconOnlySurfaceDimension)
-            : Size(0, visualDimension),
+            ? iconOnlySurfaceSize
+            : Size(
+                touch && joined?.axis == Axis.horizontal ? 48 : 0,
+                surfaceHeight,
+              ),
       ),
-      fixedSize: _iconOnly
-          ? WidgetStatePropertyAll(Size.square(iconOnlySurfaceDimension))
-          : null,
+      fixedSize: _iconOnly ? WidgetStatePropertyAll(iconOnlySurfaceSize) : null,
       maximumSize: _iconOnly
-          ? WidgetStatePropertyAll(Size.square(iconOnlySurfaceDimension))
+          ? WidgetStatePropertyAll(iconOnlySurfaceSize)
           : const WidgetStatePropertyAll(Size.infinite),
       padding: WidgetStatePropertyAll(
         (_iconOnly
