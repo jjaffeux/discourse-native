@@ -53,7 +53,7 @@ class MobileForumRoot extends StatelessWidget {
           children: [
             Padding(
               key: const ValueKey('mobile-header'),
-              padding: const EdgeInsets.symmetric(horizontal: DSpacing.sm),
+              padding: const EdgeInsetsDirectional.only(end: DSpacing.sm),
               child: Row(
                 children: [
                   Expanded(
