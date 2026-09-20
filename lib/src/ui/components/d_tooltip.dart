@@ -813,14 +813,13 @@ class DTooltipState extends State<DTooltip>
     );
     final overlay =
         Overlay.of(context).context.findRenderObject()! as RenderBox;
-    final media = MediaQuery.of(context);
+    final padding = MediaQuery.paddingOf(context);
+    final viewInsets = MediaQuery.viewInsetsOf(context);
     final boundary = Rect.fromLTRB(
-      media.padding.left,
-      media.padding.top,
-      info.overlaySize.width -
-          math.max(media.padding.right, media.viewInsets.right),
-      info.overlaySize.height -
-          math.max(media.padding.bottom, media.viewInsets.bottom),
+      padding.left,
+      padding.top,
+      info.overlaySize.width - math.max(padding.right, viewInsets.right),
+      info.overlaySize.height - math.max(padding.bottom, viewInsets.bottom),
     );
     // Trigger clips determine whether its anchor remains visible. They must
     // not confine the popup: a rounded avatar/button can open into its Overlay.

@@ -1520,16 +1520,16 @@ class DDrawerContent extends StatelessWidget {
   Widget build(BuildContext context) {
     final scope = _DDrawerContentScope.of(context);
     final tokens = DTokens.of(context);
-    final media = MediaQuery.of(context);
+    final viewportSize = MediaQuery.sizeOf(context);
     final direction = scope.direction;
     final vertical =
         direction == DDrawerSwipeDirection.up ||
         direction == DDrawerSwipeDirection.down;
-    final wide = media.size.width >= 640;
-    final defaultWidth = wide ? 384.0 : media.size.width * .75;
-    final keyboardInset = media.viewInsets.bottom;
+    final wide = viewportSize.width >= 640;
+    final defaultWidth = wide ? 384.0 : viewportSize.width * .75;
+    final keyboardInset = MediaQuery.viewInsetsOf(context).bottom;
     final availableHeight = math
-        .max(0.0, media.size.height - keyboardInset - inset * 2)
+        .max(0.0, viewportSize.height - keyboardInset - inset * 2)
         .toDouble();
     final defaultMaxHeight = math.max(0.0, availableHeight - 96).toDouble();
     final accessibleHeight = height == null
@@ -1537,7 +1537,8 @@ class DDrawerContent extends StatelessWidget {
         : math
               .min(
                 availableHeight,
-                height! * math.max(1, media.textScaler.scale(1)),
+                height! *
+                    math.max(1, MediaQuery.textScalerOf(context).scale(1)),
               )
               .toDouble();
     final resolvedHeight = vertical && scope.hasSnapPoints
@@ -1545,8 +1546,8 @@ class DDrawerContent extends StatelessWidget {
         : accessibleHeight;
     final constraints = vertical
         ? BoxConstraints(
-            minWidth: math.max(0.0, media.size.width - inset * 2).toDouble(),
-            maxWidth: math.max(0.0, media.size.width - inset * 2).toDouble(),
+            minWidth: math.max(0.0, viewportSize.width - inset * 2).toDouble(),
+            maxWidth: math.max(0.0, viewportSize.width - inset * 2).toDouble(),
             maxHeight:
                 maxHeight ??
                 (scope.hasSnapPoints || height != null

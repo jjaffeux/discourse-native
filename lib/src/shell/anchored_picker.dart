@@ -50,14 +50,15 @@ Future<T?> showAnchoredPicker<T>({
         anchor: (anchorContext ?? context).findRenderObject() as RenderBox?,
         overlay: overlay,
       );
-  final media = MediaQuery.of(context);
+  final viewportSize = MediaQuery.sizeOf(context);
+  final disableAnimations = MediaQuery.disableAnimationsOf(context);
   final alignment = resolvedAnchor == null
       ? Alignment.center
       : Alignment(
-          resolvedAnchor.center.dx > media.size.width / 2 ? 1 : -1,
-          resolvedAnchor.center.dy > media.size.height / 2 ? 1 : -1,
+          resolvedAnchor.center.dx > viewportSize.width / 2 ? 1 : -1,
+          resolvedAnchor.center.dy > viewportSize.height / 2 ? 1 : -1,
         );
-  final duration = media.disableAnimations
+  final duration = disableAnimations
       ? Duration.zero
       : discourseMenuOpenDuration;
 
@@ -68,7 +69,7 @@ Future<T?> showAnchoredPicker<T>({
       barrierLabel: barrierLabel,
       barrierColor: Colors.transparent,
       transitionDuration: duration,
-      reverseTransitionDuration: media.disableAnimations
+      reverseTransitionDuration: disableAnimations
           ? Duration.zero
           : discourseMenuCloseDuration,
       pageBuilder: (routeContext, animation, secondaryAnimation) =>

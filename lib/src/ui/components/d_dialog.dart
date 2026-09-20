@@ -590,14 +590,13 @@ class _DDialogRoutePageState<T> extends State<_DDialogRoutePage<T>> {
 
   @override
   Widget build(BuildContext context) {
-    final media = MediaQuery.of(context);
-    final insets = media.viewInsets;
+    final insets = MediaQuery.viewInsetsOf(context);
     final curved = CurvedAnimation(
       parent: widget.animation,
       curve: Curves.easeOutCubic,
       reverseCurve: Curves.easeInCubic,
     );
-    final animate = !media.disableAnimations;
+    final animate = !MediaQuery.disableAnimationsOf(context);
     final focusedContent = FocusTraversalGroup(
       policy: ReadingOrderTraversalPolicy(),
       child: FocusScope(node: _focusScope, child: widget.content),

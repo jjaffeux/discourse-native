@@ -40,8 +40,10 @@ class _DiscoverSiteSuggestionsState extends State<DiscoverSiteSuggestions> {
   Widget build(BuildContext context) {
     final tokens = DTokens.of(context);
     final added = ShellScope.maybeOf(context)?.instances ?? const [];
-    final media = MediaQuery.of(context);
-    final availableHeight = media.size.height - media.viewInsets.bottom;
+    final availableHeight =
+        MediaQuery.sizeOf(context).height -
+        MediaQuery.viewInsetsOf(context).bottom;
+    final textScaler = MediaQuery.textScalerOf(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -96,7 +98,7 @@ class _DiscoverSiteSuggestionsState extends State<DiscoverSiteSuggestions> {
                   builder: (context, constraints) {
                     final columns =
                         constraints.maxWidth >= 480 &&
-                            media.textScaler.scale(14) <= 21
+                            textScaler.scale(14) <= 21
                         ? 2
                         : 1;
                     final children = loading

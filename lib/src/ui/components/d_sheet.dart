@@ -137,7 +137,7 @@ Widget _sheetPresentation(
   bool inset,
   bool animateSize,
 ) {
-  final media = MediaQuery.of(context);
+  final animate = !MediaQuery.disableAnimationsOf(context);
   final side = requestedSide.resolve(Directionality.of(context));
   final popupCurve = CurvedAnimation(
     parent: presentation.animation,
@@ -150,7 +150,7 @@ Widget _sheetPresentation(
     reverseCurve: const Interval(.25, 1, curve: Curves.easeInOut),
   );
   Widget backdrop = presentation.buildBackdrop(blurSigma: 2);
-  if (!media.disableAnimations) {
+  if (animate) {
     backdrop = FadeTransition(opacity: backdropCurve, child: backdrop);
   }
 
@@ -167,7 +167,7 @@ Widget _sheetPresentation(
     inset: inset,
     child: presentation.content,
   );
-  if (!media.disableAnimations) {
+  if (animate) {
     popup = FadeTransition(
       opacity: popupCurve,
       child: AnimatedBuilder(

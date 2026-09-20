@@ -135,11 +135,10 @@ Future<T?> showChoiceMenu<T>({
     anchor: anchorContext.findRenderObject() as RenderBox?,
     overlay: overlay,
   );
-  final media = MediaQuery.of(context);
-  final disableAnimations = media.disableAnimations;
+  final disableAnimations = MediaQuery.disableAnimationsOf(context);
   final alignment = _transitionAlignment(
     anchor: anchor,
-    viewport: media.size,
+    viewport: MediaQuery.sizeOf(context),
     optionCount: options.length,
     showTitle: showPopoverTitle,
   );
