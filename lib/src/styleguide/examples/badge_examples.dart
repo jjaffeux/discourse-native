@@ -18,6 +18,7 @@ final badgeExamples = ComponentExamples(
       'The reference uses 20px height, 12/16px medium type, 4px gaps and pill corners. '
       'DBadgeSize.compact uses 16px height, 12/14px type and 4px horizontal '
       'insets for dense counts. Regular badges retain the reference geometry. '
+      'DBadgeSize.control matches regular buttons, including mobile sizing. '
       'DBadge.overlay uses a 14px count pill with 10px tabular text and a '
       '1.5px surface ring for small icons; the caller owns positioning and caps. '
       'Labels grow and wrap for accessibility; native touch actions reserve 48px '
@@ -344,6 +345,33 @@ DBadge(
           ),
         );
       },
+    ),
+    StyleguideExample(
+      title: 'Control sizing',
+      description:
+          'Tag links beside regular category actions: 13px labels on desktop and 15px labels on mobile, with matching control heights.',
+      states: const ['Desktop', 'Mobile', 'Large text'],
+      code: r'''Row(children: [
+  DButton(label: Text('Category'), onPressed: () {}),
+  DBadge.link(size: DBadgeSize.control, child: Text('# tag'), onPressed: () {}),
+])''',
+      builder: (_) => Wrap(
+        spacing: DSpacing.controlGap,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          DButton(
+            variant: DButtonVariant.outline,
+            label: const Text('Category'),
+            onPressed: () {},
+          ),
+          DBadge.link(
+            size: DBadgeSize.control,
+            variant: DBadgeVariant.secondary,
+            child: const Text('# tag'),
+            onPressed: () {},
+          ),
+        ],
+      ),
     ),
   ],
 );

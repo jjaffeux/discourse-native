@@ -415,13 +415,19 @@ final class AssignPlugin
           key: const Key('assign-topic-header'),
           icon: direct == null
               ? const DIcon(DIcons.userPlus)
-              : AssignmentAssigneeAvatar(assignee: direct.assignee, size: 16),
+              : AssignmentAssigneeAvatar(
+                  assignee: direct.assignee,
+                  size: DControlStyle.iconDimension(
+                    DControlSize.regular,
+                    context: anchorContext,
+                  ),
+                ),
           tooltip: direct != null
               ? 'Manage assignment to ${direct.assignee.displayName}'
               : canAssign
               ? 'Assign topic'
               : 'Manage assignments',
-          size: DButtonSize.large,
+          size: DButtonSize.regular,
           variant: DButtonVariant.ghost,
           onPressed: direct != null || !canAssign
               ? showDetails
@@ -447,7 +453,10 @@ final class AssignPlugin
                       ? const DIcon(DIcons.userPlus)
                       : AssignmentAssigneeAvatar(
                           assignee: direct.assignee,
-                          size: 16,
+                          size: DControlStyle.iconDimension(
+                            DControlSize.regular,
+                            context: anchorContext,
+                          ),
                         ),
                   label: Row(
                     mainAxisSize: MainAxisSize.min,
@@ -470,7 +479,7 @@ final class AssignPlugin
                   tooltip: direct == null
                       ? 'Assign topic'
                       : 'Manage assignment to ${direct.assignee.displayName}',
-                  size: DButtonSize.large,
+                  size: DButtonSize.regular,
                   variant: DButtonVariant.outline,
                   onPressed: direct != null
                       ? showDetails
@@ -494,7 +503,7 @@ final class AssignPlugin
                   '${postAssignments.length} assigned post${postAssignments.length == 1 ? '' : 's'}',
                 ),
                 tooltip: 'Manage assignments',
-                size: DButtonSize.large,
+                size: DButtonSize.regular,
                 variant: DButtonVariant.ghost,
                 onPressed: showDetails,
               ),
@@ -796,9 +805,8 @@ class _PostAssignmentLedger extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final dividerColor = Theme.of(
-      context,
-    ).colorScheme.outlineVariant.withValues(alpha: 0.55);
+    final dividerColor = Theme.of(context).colorScheme.outlineVariant
+        .withValues(alpha: 0.55);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
