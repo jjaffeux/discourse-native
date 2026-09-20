@@ -37,3 +37,8 @@ bounds while scrolling, hidden scrollbars, zero inner editor scroll extent, and
 caret visibility at both ends of a long draft. Static analysis passed. Inspected
 a dark-mode widget render of the scrolled draft with the same viewport and font
 configuration described above.
+
+## Quiet autosave
+
+Routine saving/saved indicators are hidden on mobile and desktop. Autosave
+continues unchanged; local and remote save failures remain visible.

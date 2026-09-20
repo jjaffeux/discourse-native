@@ -56,6 +56,8 @@ void main() {
         findsOneWidget,
       );
       expect(tester.state(find.byType(ComposerEditor)), same(editor));
+      await tester.runAsync(composer.flushDraft);
+      await tester.pump();
       expect(tester.takeException(), isNull);
     },
   );
@@ -557,10 +559,9 @@ void main() {
       final title = find.byKey(const ValueKey('composer-topic-title'));
       final close = find.byKey(const ValueKey('composer-close'));
       final submit = find.byKey(const ValueKey('composer-submit'));
-      final draft = find.byKey(const ValueKey('composer-draft-status'));
       final footer = find.byKey(const ValueKey('composer-footer'));
       final titleBefore = tester.getTopLeft(title);
-      final fixed = [close, submit, draft, footer];
+      final fixed = [close, submit, footer];
       final bounds = fixed.map(tester.getRect).toList();
       await tester.drag(viewport, const Offset(0, -200));
       await tester.pumpAndSettle();

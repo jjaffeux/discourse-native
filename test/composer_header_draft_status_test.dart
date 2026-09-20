@@ -21,11 +21,15 @@ final _header = find.byType(ComposerHeader);
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
-  for (final placement in [ComposerPlacement.right, ComposerPlacement.bottom]) {
-    testWidgets(
-      'autosave stays in the $placement header without moving the editor',
-      (tester) async {
-        var saved = Completer<int?>();
+  for (final platform in [TargetPlatform.linux, TargetPlatform.iOS]) {
+    for (final placement in [
+      ComposerPlacement.right,
+      ComposerPlacement.bottom,
+    ]) {
+      testWidgets('autosave is silent on $platform in $placement', (
+        tester,
+      ) async {
+        final saved = Completer<int?>();
         final composer = ComposerController(
           _replyTarget,
           onSaveDraft: (_) => saved.future,
@@ -33,79 +37,41 @@ void main() {
         final shell = await _shell();
         addTearDown(composer.dispose);
         addTearDown(shell.dispose);
-        await _pump(tester, shell, composer, placement: placement);
-
-        expect(_status, findsNothing);
+        await _pump(
+          tester,
+          shell,
+          composer,
+          platform: platform,
+          placement: placement,
+        );
         final editor = tester.getRect(find.byType(ComposerEditor));
+        void expectSilent() {
+          expect(_status, findsNothing);
+          expect(find.text('Saving…'), findsNothing);
+          expect(find.text('Saved'), findsNothing);
+          expect(
+            find.descendant(of: _header, matching: find.byType(DSpinner)),
+            findsNothing,
+          );
+          expect(tester.getRect(find.byType(ComposerEditor)), editor);
+        }
+
+        expectSilent();
         composer.text.text = 'A draft in progress';
         await tester.pump();
-        expect(
-          find.descendant(of: _header, matching: find.text('Saving…')),
-          findsOneWidget,
-        );
-        expect(
-          find.descendant(of: _status, matching: find.byType(DSpinner)),
-          findsOneWidget,
-        );
-        expect(find.text('Saving draft…'), findsNothing);
-        expect(tester.getRect(find.byType(ComposerEditor)), editor);
-        final statusBounds = tester.getRect(_status);
-        expect(
-          tester.getTopRight(find.byKey(const ValueKey('composer-close'))).dx,
-          tester.getRect(_header).right - 8,
-        );
-
-        // The indicator must rotate before the debounce starts a save request.
-        expect(composer.draftStatus, DraftStatus.clean);
-        await _expectSpinnerToRotate(tester);
+        expectSilent();
         final pending = composer.flushDraft();
         await tester.pump();
         expect(composer.draftStatus, DraftStatus.saving);
-        await _expectSpinnerToRotate(tester);
+        expectSilent();
         saved.complete(1);
         await pending;
         await tester.pump();
-        expect(
-          find.descendant(of: _header, matching: find.text('Saved')),
-          findsOneWidget,
-        );
-        expect(find.byType(DSpinner), findsNothing);
-        expect(find.text('Draft saved'), findsNothing);
-        expect(tester.getRect(find.byType(ComposerEditor)), editor);
-        expect(tester.getRect(_status), statusBounds);
-        expect(tester.getSemantics(_status).label, 'Draft saved on the site');
-        expect(
-          tester.getSemantics(_status).flagsCollection.isLiveRegion,
-          isTrue,
-        );
-
-        await _pump(tester, shell, composer, minimized: true);
-        expect(_status, findsNothing);
-        expect(find.byKey(const ValueKey('composer-close')), findsNothing);
-        await _pump(tester, shell, composer, placement: placement);
-        expect(find.text('Saved'), findsOneWidget);
-        expect(find.byKey(const ValueKey('composer-close')), findsOneWidget);
-
-        saved = Completer<int?>();
-        var changes = 0;
-        composer.addListener(() => changes++);
-        composer.text.text = 'A newer draft in progress';
-        await tester.pump();
-        expect(find.text('Saved'), findsNothing);
-        expect(find.text('Saving…'), findsOneWidget);
-        expect(tester.getRect(_status), statusBounds);
-        expect(changes, 1);
-        composer.text.text = 'A newer draft with another keystroke';
-        await tester.pump();
-        expect(changes, 1);
-        await _expectSpinnerToRotate(tester);
-        final nextSave = composer.flushDraft();
-        saved.complete(2);
-        await nextSave;
-        await tester.pump();
+        expect(composer.draftStatus, DraftStatus.saved);
+        expectSilent();
         expect(tester.takeException(), isNull);
-      },
-    );
+      });
+    }
   }
 
   for (final localFailed in [false, true]) {
@@ -155,7 +121,7 @@ void main() {
       fail = false;
       await composer.flushDraft();
       await tester.pump();
-      expect(find.text('Saved'), findsOneWidget);
+      expect(find.text('Saved'), findsNothing);
       expect(find.text(label), findsNothing);
       expect(find.text(detail), findsNothing);
       expect(tester.takeException(), isNull);
@@ -201,7 +167,7 @@ void main() {
     ) async {
       final composer = ComposerController(
         _replyTarget,
-        onSaveDraft: (_) async => 1,
+        onSaveDraft: (_) async => throw StateError('site unavailable'),
       );
       final shell = await _shell();
       addTearDown(composer.dispose);
@@ -217,8 +183,14 @@ void main() {
         direction: TextDirection.rtl,
         headerOnly: true,
       );
-      expect(tester.getSemantics(_status).label, 'Draft saved on the site');
-      expect(find.text('Saved'), scale < 3 ? findsOneWidget : findsNothing);
+      expect(
+        tester.getSemantics(_status).label,
+        'Not saved on the site — kept on this device only.',
+      );
+      expect(
+        find.text('Device only'),
+        scale < 3 ? findsOneWidget : findsNothing,
+      );
       final header = tester.getRect(_header);
       final status = tester.getRect(_status);
       expect(header.contains(status.topLeft), isTrue);
@@ -254,16 +226,6 @@ void main() {
   });
 }
 
-Future<void> _expectSpinnerToRotate(WidgetTester tester) async {
-  final rotation = tester.widget<RotationTransition>(
-    find.descendant(of: _status, matching: find.byType(RotationTransition)),
-  );
-  await tester.pump();
-  final before = rotation.turns.value;
-  await tester.pump(const Duration(milliseconds: 250));
-  expect(rotation.turns.value, isNot(before));
-}
-
 Future<void> _pump(
   WidgetTester tester,
   ShellController shell,
@@ -274,12 +236,13 @@ Future<void> _pump(
   double scale = 1,
   TextDirection direction = TextDirection.ltr,
   bool headerOnly = false,
+  TargetPlatform platform = TargetPlatform.linux,
 }) async {
   await tester.binding.setSurfaceSize(Size(width, 650));
   addTearDown(() => tester.binding.setSurfaceSize(null));
   await tester.pumpWidget(
     MaterialApp(
-      theme: AppTheme.light.copyWith(platform: TargetPlatform.linux),
+      theme: AppTheme.light.copyWith(platform: platform),
       builder: (context, child) => MediaQuery(
         data: MediaQuery.of(
           context,
