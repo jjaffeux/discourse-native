@@ -31,6 +31,41 @@ Widget host(
 
 void main() {
   testWidgets(
+    'capsule card groups actions without clipping their hit targets',
+    (tester) async {
+      var presses = 0;
+      for (final direction in TextDirection.values) {
+        await tester.pumpWidget(
+          host(
+            DCard(
+              variant: DCardVariant.capsule,
+              child: Row(
+                children: [
+                  DButton.iconOnly(
+                    tooltip: 'Add',
+                    icon: const Icon(Icons.add),
+                    onPressed: () => presses++,
+                  ),
+                ],
+              ),
+            ),
+            direction: direction,
+            scale: 2,
+            theme: ThemeData(platform: TargetPlatform.iOS),
+          ),
+        );
+        final card = tester.getRect(find.byType(DCard));
+        final button = tester.getRect(find.byType(DButton));
+        expect(card.contains(button.topLeft), isTrue);
+        expect(card.contains(button.bottomRight), isTrue);
+        await tester.tap(find.byTooltip('Add'));
+        expect(tester.takeException(), isNull);
+      }
+      expect(presses, 2);
+    },
+  );
+
+  testWidgets(
     'desktop footer palette matches CSS fill and hairline across themes',
     (tester) async {
       const captureKey = ValueKey('footer-colors');

@@ -3566,7 +3566,9 @@ class ComposerUploadQueue extends StatelessWidget {
 }
 
 Color _composerFooterColor(BuildContext context) => Color.alphaBlend(
-  DTokens.of(context).foreground.withValues(alpha: 0.025),
+  DTokens.of(
+    context,
+  ).foreground.withValues(alpha: context.isTouch ? 0.04 : 0.025),
   Theme.of(context).shell.content,
 );
 
@@ -3726,7 +3728,13 @@ class _Footer extends StatelessWidget {
                   fit: constraints.maxWidth < 620
                       ? FlexFit.loose
                       : FlexFit.tight,
-                  child: toolbar,
+                  child: context.isTouch
+                      ? DCard(
+                          key: const ValueKey('composer-toolbar-bar'),
+                          variant: DCardVariant.capsule,
+                          child: toolbar,
+                        )
+                      : toolbar,
                 ),
             ],
           ),
@@ -3737,8 +3745,12 @@ class _Footer extends StatelessWidget {
     return Container(
       key: const ValueKey('composer-footer'),
       decoration: BoxDecoration(
-        color: _composerFooterColor(context),
-        border: Border(top: BorderSide(color: theme.shell.divider)),
+        color: context.isTouch
+            ? theme.shell.content
+            : _composerFooterColor(context),
+        border: context.isTouch
+            ? null
+            : Border(top: BorderSide(color: theme.shell.divider)),
       ),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       child: Column(

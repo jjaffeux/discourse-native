@@ -1,3 +1,4 @@
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/shell/adaptive_shell.dart';
 import 'package:discourse_native/src/shell/composer_panel.dart';
@@ -74,61 +75,87 @@ void main() {
     },
   );
 
-  testWidgets('full mobile shell fits above the keyboard and safe area', (
-    tester,
-  ) async {
-    const user = DiscourseUser(id: 7, username: 'sam', canCreateTopic: true);
-    final controller = ShellController(
-      mobileNavigationEnabled: true,
-      forumTabsEnabled: false,
-      instanceStore: FakeInstanceStore([
-        instance('meta.discourse.org').copyWith(user: user),
-      ]),
-      api: FakeDiscourseApi(
-        user: user,
-        feeds: const {'/latest.json': []},
-        creatableFeedPaths: const {'/latest.json'},
-      ),
-      authenticator: FakeAuthenticator()
-        ..keys['https://meta.discourse.org'] = 'key',
-      drafts: FakeDraftStore(),
-      trackers: FakeSiteTracker.reset(),
-      updateStore: FakeUpdateStore(),
+  for (final brightness in Brightness.values) {
+    testWidgets(
+      'full mobile shell matches the keyboard background in $brightness',
+      (tester) async {
+        const user = DiscourseUser(
+          id: 7,
+          username: 'sam',
+          canCreateTopic: true,
+        );
+        final controller = ShellController(
+          mobileNavigationEnabled: true,
+          forumTabsEnabled: false,
+          instanceStore: FakeInstanceStore([
+            instance('meta.discourse.org').copyWith(user: user),
+          ]),
+          api: FakeDiscourseApi(
+            user: user,
+            feeds: const {'/latest.json': []},
+            creatableFeedPaths: const {'/latest.json'},
+          ),
+          authenticator: FakeAuthenticator()
+            ..keys['https://meta.discourse.org'] = 'key',
+          drafts: FakeDraftStore(),
+          trackers: FakeSiteTracker.reset(),
+          updateStore: FakeUpdateStore(),
+        );
+        addTearDown(controller.dispose);
+        await controller.load();
+        tester.view.physicalSize =
+            const Size(390, 844) * tester.view.devicePixelRatio;
+        addTearDown(tester.view.resetPhysicalSize);
+        await tester.binding.setSurfaceSize(const Size(390, 844));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+        tester.view.viewInsets = FakeViewPadding(
+          bottom: 336 * tester.view.devicePixelRatio,
+        );
+        tester.view.padding = FakeViewPadding(
+          top: 59 * tester.view.devicePixelRatio,
+        );
+        addTearDown(tester.view.resetViewInsets);
+        addTearDown(tester.view.resetPadding);
+        await tester.pumpWidget(
+          ShellScope(
+            controller: controller,
+            child: MaterialApp(
+              theme: AppTheme.forBrightness(
+                brightness,
+              ).copyWith(platform: TargetPlatform.iOS),
+              home: const AdaptiveShell(),
+            ),
+          ),
+        );
+        await controller.openNewTopicFromSidebar();
+        await tester.pumpAndSettle();
+        expect(find.byType(ComposerPanel), findsOneWidget);
+        expect(
+          tester
+              .widget<DCard>(find.byKey(const ValueKey('composer-toolbar-bar')))
+              .variant,
+          DCardVariant.capsule,
+        );
+        final panelContext = tester.element(find.byType(ComposerPanel));
+        final background = Theme.of(panelContext).shell.content;
+        expect(
+          tester.widget<Scaffold>(find.byType(Scaffold).first).backgroundColor,
+          background,
+        );
+        final footer = tester.widget<Container>(
+          find.byKey(const ValueKey('composer-footer')),
+        );
+        expect((footer.decoration! as BoxDecoration).color, background);
+
+        expect(
+          tester.getRect(find.byType(ComposerPanel)).bottom,
+          lessThanOrEqualTo(844 - 336),
+        );
+        expect(find.byTooltip('Create topic').hitTestable(), findsOneWidget);
+        expect(find.byTooltip('Composer options'), findsNothing);
+        expect(find.text('Dock side'), findsNothing);
+        expect(tester.takeException(), isNull);
+      },
     );
-    addTearDown(controller.dispose);
-    await controller.load();
-    tester.view.physicalSize =
-        const Size(390, 844) * tester.view.devicePixelRatio;
-    addTearDown(tester.view.resetPhysicalSize);
-    await tester.binding.setSurfaceSize(const Size(390, 844));
-    addTearDown(() => tester.binding.setSurfaceSize(null));
-    tester.view.viewInsets = FakeViewPadding(
-      bottom: 336 * tester.view.devicePixelRatio,
-    );
-    tester.view.padding = FakeViewPadding(
-      top: 59 * tester.view.devicePixelRatio,
-    );
-    addTearDown(tester.view.resetViewInsets);
-    addTearDown(tester.view.resetPadding);
-    await tester.pumpWidget(
-      ShellScope(
-        controller: controller,
-        child: MaterialApp(
-          theme: AppTheme.light.copyWith(platform: TargetPlatform.iOS),
-          home: const AdaptiveShell(),
-        ),
-      ),
-    );
-    await controller.openNewTopicFromSidebar();
-    await tester.pumpAndSettle();
-    expect(find.byType(ComposerPanel), findsOneWidget);
-    expect(
-      tester.getRect(find.byType(ComposerPanel)).bottom,
-      lessThanOrEqualTo(844 - 336),
-    );
-    expect(find.byTooltip('Create topic').hitTestable(), findsOneWidget);
-    expect(find.byTooltip('Composer options'), findsNothing);
-    expect(find.text('Dock side'), findsNothing);
-    expect(tester.takeException(), isNull);
-  });
+  }
 }

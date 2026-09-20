@@ -127,6 +127,7 @@ void main() {
       );
       await tester.pumpWidget(
         MaterialApp(
+          theme: ThemeData(platform: TargetPlatform.macOS),
           home: Scaffold(body: Builder(builder: login.builder)),
         ),
       );
@@ -135,7 +136,7 @@ void main() {
         of: find.text('Forgot your password?'),
         matching: find.byType(DButton),
       );
-      expect(tester.getSize(recovery).height, 48);
+      expect(tester.getSize(recovery).height, DControlStyle.regularHeight);
       expect(
         tester
             .getSize(

@@ -5,6 +5,9 @@ import '../foundation/tokens.dart';
 
 enum DCardSize { normal, small }
 
+/// Capsule surfaces group compact actions while children retain their controls.
+enum DCardVariant { standard, capsule }
+
 /// A passive surface. Actions, selection, loading and errors belong to children.
 ///
 /// Parts inherit [spacing], the native equivalent of `--card-spacing`.
@@ -17,6 +20,7 @@ class DCard extends StatelessWidget {
     this.children = const [],
     this.child,
     this.size = DCardSize.normal,
+    this.variant = DCardVariant.standard,
     this.spacing,
     this.leading,
     this.trailing,
@@ -27,6 +31,7 @@ class DCard extends StatelessWidget {
   final Widget? child;
   final List<Widget> children;
   final DCardSize size;
+  final DCardVariant variant;
   final double? spacing;
   final Widget? leading;
   final Widget? trailing;
@@ -35,10 +40,16 @@ class DCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tokens = DTokens.of(context);
+    final capsule = variant == DCardVariant.capsule;
     final inset =
-        spacing ?? (size == DCardSize.small ? DSpacing.md : DSpacing.lg);
+        spacing ??
+        (capsule
+            ? DSpacing.xs
+            : size == DCardSize.small
+            ? DSpacing.md
+            : DSpacing.lg);
     final parts = <Widget>[?leading, ?child, ...children, ?footer, ?trailing];
-    final radius = BorderRadius.circular(tokens.radius * 1.4);
+    final radius = BorderRadius.circular(capsule ? 999 : tokens.radius * 1.4);
     return _CardScope(
       spacing: inset,
       size: size,
@@ -54,7 +65,12 @@ class DCard extends StatelessWidget {
           ),
           child: Material(
             animationDuration: Duration.zero,
-            color: tokens.background,
+            color: capsule
+                ? Color.alphaBlend(
+                    tokens.foreground.withValues(alpha: 0.04),
+                    tokens.background,
+                  )
+                : tokens.background,
             borderRadius: radius,
             clipBehavior: Clip.antiAlias,
             textStyle: Theme.of(context).textTheme.bodyMedium!.copyWith(
@@ -66,6 +82,8 @@ class DCard extends StatelessWidget {
             ),
             child: Padding(
               padding: EdgeInsets.only(
+                left: capsule ? DSpacing.sm : 0,
+                right: capsule ? DSpacing.sm : 0,
                 top: leading == null ? inset : 0,
                 bottom:
                     footer == null &&

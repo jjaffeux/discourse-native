@@ -42,3 +42,17 @@ configuration described above.
 
 Routine saving/saved indicators are hidden on mobile and desktop. Autosave
 continues unchanged; local and remote save failures remain visible.
+
+## Capsule toolbar and keyboard backing
+
+The mobile writing toolbar uses the approved `DCardVariant.capsule` surface:
+a continuous rounded outline, subtly tinted fill, and kit-owned insets. Existing
+actions keep their Native controls and scroll horizontally when needed. Desktop
+cards and the desktop composer retain their previous appearance.
+
+The mobile shell Scaffold and outer composer footer use `shell.content`, matching
+the composer behind the keyboard's rounded upper corners. Light/dark widget
+checks cover that backing color. A separate native macOS fixture with the iOS
+control theme was inspected at 390px width in light/dark modes, including toolbar
+overflow, the Insert menu, and the capsule Card styleguide example. The iOS system
+keyboard itself was not inspected on a physical device.

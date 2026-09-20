@@ -25,6 +25,45 @@ final cardExamples = ComponentExamples(
       builder: (_) => const _Login(),
     ),
     StyleguideExample(
+      title: 'Capsule toolbar',
+      description: 'A continuous rounded surface for Native action buttons.',
+      code: "DCard(variant: DCardVariant.capsule, child: toolbar)",
+      builder: (_) {
+        var lastAction = 'Choose an action';
+        return StatefulBuilder(
+          builder: (context, setState) => _Frame(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(lastAction),
+                DCard(
+                  variant: DCardVariant.capsule,
+                  child: Row(
+                    spacing: DSpacing.controlGap,
+                    children: [
+                      for (final (label, icon) in [
+                        ('Bold', Icons.format_bold),
+                        ('Italic', Icons.format_italic),
+                        ('Link', Icons.link),
+                        ('Insert', Icons.add),
+                      ])
+                        DButton.iconOnly(
+                          tooltip: label,
+                          icon: Icon(icon),
+                          variant: DButtonVariant.transparentBackground,
+                          onPressed: () =>
+                              setState(() => lastAction = '$label selected'),
+                        ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    ),
+    StyleguideExample(
       title: 'Composition',
       description:
           'All seven parts. A footer supplies its own border and muted background.',
