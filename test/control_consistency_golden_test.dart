@@ -24,6 +24,35 @@ void main() {
     StyleguideTheme.forest,
     StyleguideTheme.plum,
   ]) {
+    testWidgets('mobile control family ${palette.name}', (tester) async {
+      await tester.binding.setSurfaceSize(const Size(390, 900));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final base = palette.resolve(AppTheme.light);
+      await tester.pumpWidget(
+        RepaintBoundary(
+          key: const ValueKey('mobile-controls'),
+          child: MaterialApp(
+            debugShowCheckedModeBanner: false,
+            theme: base.copyWith(
+              platform: TargetPlatform.iOS,
+              textTheme: base.textTheme.apply(fontFamily: 'ControlGolden'),
+            ),
+            home: const Scaffold(
+              body: Padding(
+                padding: EdgeInsets.all(16),
+                child: ControlComparisonExample(),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      await expectLater(
+        find.byKey(const ValueKey('mobile-controls')),
+        matchesGoldenFile('goldens/controls-${palette.name}-mobile.png'),
+      );
+    });
     testWidgets('control family ${palette.name} rest, hover and open', (
       tester,
     ) async {

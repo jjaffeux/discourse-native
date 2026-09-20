@@ -263,12 +263,12 @@ class _DInputState extends FormFieldState<String> {
       TargetPlatform.iOS || TargetPlatform.android => true,
       _ => false,
     };
-    final fontSize = DControlStyle.fontSize(size);
+    final fontSize = DControlStyle.fontSize(size, context: context);
     final style =
         input.style ??
         Theme.of(context).textTheme.bodyMedium!.copyWith(
           fontSize: fontSize,
-          height: DControlStyle.lineHeight(size) / fontSize,
+          height: DControlStyle.lineHeight(size, context: context) / fontSize,
           fontWeight: FontWeight.w400,
           letterSpacing: 0,
           color: t.foreground,
@@ -502,6 +502,7 @@ class _InputSurface extends StatelessWidget {
               minHeight: DControlStyle.scaledHeight(
                 size,
                 MediaQuery.textScalerOf(context),
+                context: context,
               ),
             ),
             padding: const EdgeInsets.symmetric(horizontal: 10),
@@ -515,7 +516,7 @@ class _InputSurface extends StatelessWidget {
             ),
             child: IconTheme.merge(
               data: IconThemeData(
-                size: DControlStyle.iconDimension(size),
+                size: DControlStyle.iconDimension(size, context: context),
                 color: t.mutedForeground,
               ),
               child: Align(
@@ -716,14 +717,14 @@ class _DFileInputState extends FormFieldState<List<String>> {
     final lineHeight =
         MediaQuery.textScalerOf(
           context,
-        ).scale(DControlStyle.fontSize(input.size)) *
-        DControlStyle.lineHeight(input.size) /
-        DControlStyle.fontSize(input.size);
+        ).scale(DControlStyle.fontSize(input.size, context: context)) *
+        DControlStyle.lineHeight(input.size, context: context) /
+        DControlStyle.fontSize(input.size, context: context);
     final style = Theme.of(context).textTheme.bodyMedium!.copyWith(
-      fontSize: DControlStyle.fontSize(input.size),
+      fontSize: DControlStyle.fontSize(input.size, context: context),
       height:
-          DControlStyle.lineHeight(input.size) /
-          DControlStyle.fontSize(input.size),
+          DControlStyle.lineHeight(input.size, context: context) /
+          DControlStyle.fontSize(input.size, context: context),
       fontWeight: FontWeight.w400,
       letterSpacing: 0,
       color: t.foreground,

@@ -250,6 +250,8 @@ void main() {
     expect(find.byType(InstanceRail), findsNothing);
     expect(find.byType(ChatDrawerChannelsView), findsOneWidget);
     expect(find.text('General'), findsOneWidget);
+    await tester.ensureVisible(find.text('DMs'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('DMs'));
     await tester.pumpAndSettle();
     expect(find.text('sam'), findsWidgets);
@@ -287,6 +289,8 @@ void main() {
   ) async {
     final shell = await _pumpMobile(tester);
     await tester.tap(find.byKey(const ValueKey('mobile-mode-chat')));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('DMs'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('DMs'));
     await tester.pumpAndSettle();
@@ -379,6 +383,8 @@ void main() {
     await tester.pumpAndSettle();
     expect(shell.mobileNavigation.atRoot, isTrue);
     await tester.tap(find.byKey(const ValueKey('mobile-mode-chat')));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('DMs'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('DMs'));
     await tester.pumpAndSettle();

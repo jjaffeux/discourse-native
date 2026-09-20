@@ -256,6 +256,7 @@ class _DInputGroupState extends State<DInputGroup> {
                           : DControlStyle.scaledHeight(
                               widget.size,
                               MediaQuery.textScalerOf(context),
+                              context: context,
                             )),
                 ),
                 decoration: _InputGroupSurfaceDecoration(
@@ -398,15 +399,15 @@ class DInputGroupAddon extends StatelessWidget {
           padding: padding,
           child: IconTheme.merge(
             data: IconThemeData(
-              size: DControlStyle.iconDimension(size),
+              size: DControlStyle.iconDimension(size, context: context),
               color: tokens.mutedForeground,
             ),
             child: DefaultTextStyle.merge(
               style: Theme.of(context).textTheme.bodySmall!.copyWith(
-                fontSize: DControlStyle.fontSize(size),
+                fontSize: DControlStyle.fontSize(size, context: context),
                 height:
-                    DControlStyle.lineHeight(size) /
-                    DControlStyle.fontSize(size),
+                    DControlStyle.lineHeight(size, context: context) /
+                    DControlStyle.fontSize(size, context: context),
                 fontWeight: FontWeight.w500,
                 letterSpacing: 0,
                 color: tokens.mutedForeground,

@@ -6,7 +6,7 @@ import 'package:flutter/material.dart';
 import '../../theme/discourse_typography.dart';
 import 'tokens.dart';
 
-/// Control surfaces at 100% zoom: small 24px, regular 28px and large 32px.
+/// Control surfaces: desktop 24/28/32px; mobile 40/44/48px.
 enum DControlSize { small, regular, large }
 
 /// Shared geometry and outlined surfaces for action and selection controls.
@@ -23,32 +23,75 @@ abstract final class DControlStyle {
   static const rowRadius = 8.0;
   static const focusWidth = 1.0;
   static const focusOffset = 2.0;
-  static double height(DControlSize size) => switch (size) {
-    DControlSize.small => smallHeight,
-    DControlSize.regular => regularHeight,
-    DControlSize.large => largeHeight,
-  };
-  static double fontSize(DControlSize size) => switch (size) {
-    DControlSize.small => DiscourseTypography.xs,
-    DControlSize.regular => labelFontSize,
-    DControlSize.large => DiscourseTypography.sm,
-  };
-  static double lineHeight(DControlSize size) => switch (size) {
-    DControlSize.small => 16,
-    DControlSize.regular || DControlSize.large => 20,
-  };
-  static double iconDimension(DControlSize size) => switch (size) {
-    DControlSize.small => 12,
-    DControlSize.regular => 14,
-    DControlSize.large => iconSize,
-  };
+  static bool isTouch(BuildContext? context) =>
+      context != null &&
+      switch (Theme.of(context).platform) {
+        TargetPlatform.iOS ||
+        TargetPlatform.android ||
+        TargetPlatform.fuchsia => true,
+        _ => false,
+      };
+
+  static double height(DControlSize size, {BuildContext? context}) =>
+      isTouch(context)
+      ? switch (size) {
+          DControlSize.small => 40,
+          DControlSize.regular => 44,
+          DControlSize.large => 48,
+        }
+      : switch (size) {
+          DControlSize.small => smallHeight,
+          DControlSize.regular => regularHeight,
+          DControlSize.large => largeHeight,
+        };
+  static double fontSize(DControlSize size, {BuildContext? context}) =>
+      isTouch(context)
+      ? switch (size) {
+          DControlSize.small => 14,
+          DControlSize.regular => 15,
+          DControlSize.large => 16,
+        }
+      : switch (size) {
+          DControlSize.small => DiscourseTypography.xs,
+          DControlSize.regular => labelFontSize,
+          DControlSize.large => DiscourseTypography.sm,
+        };
+  static double lineHeight(DControlSize size, {BuildContext? context}) =>
+      isTouch(context)
+      ? switch (size) {
+          DControlSize.small => 20,
+          DControlSize.regular => 20,
+          DControlSize.large => 24,
+        }
+      : switch (size) {
+          DControlSize.small => 16,
+          DControlSize.regular || DControlSize.large => 20,
+        };
+  static double iconDimension(DControlSize size, {BuildContext? context}) =>
+      isTouch(context)
+      ? switch (size) {
+          DControlSize.small => 18,
+          DControlSize.regular => 20,
+          DControlSize.large => 22,
+        }
+      : switch (size) {
+          DControlSize.small => 12,
+          DControlSize.regular => 14,
+          DControlSize.large => iconSize,
+        };
   static double contentGap(DControlSize size) =>
       size == DControlSize.large ? gap : 4;
 
   /// Text scaling expands every control consistently, including icon buttons.
-  static double scaledHeight(DControlSize size, TextScaler scaler) => math.max(
-    height(size),
-    (scaler.scale(fontSize(size)) * lineHeight(size) / fontSize(size))
+  static double scaledHeight(
+    DControlSize size,
+    TextScaler scaler, {
+    BuildContext? context,
+  }) => math.max(
+    height(size, context: context),
+    (scaler.scale(fontSize(size, context: context)) *
+                lineHeight(size, context: context) /
+                fontSize(size, context: context))
             .ceilToDouble() +
         2,
   );

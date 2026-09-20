@@ -479,13 +479,14 @@ class _DMenubarTriggerState extends State<DMenubarTrigger> {
         final height = DControlStyle.scaledHeight(
           widget.size,
           MediaQuery.textScalerOf(context),
+          context: context,
         );
         final style = Theme.of(context).textTheme.bodyMedium!.copyWith(
           color: tokens.foreground,
-          fontSize: DControlStyle.fontSize(widget.size),
+          fontSize: DControlStyle.fontSize(widget.size, context: context),
           height:
-              DControlStyle.lineHeight(widget.size) /
-              DControlStyle.fontSize(widget.size),
+              DControlStyle.lineHeight(widget.size, context: context) /
+              DControlStyle.fontSize(widget.size, context: context),
           fontWeight: FontWeight.w500,
           letterSpacing: 0,
           decoration: TextDecoration.none,

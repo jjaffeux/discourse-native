@@ -162,7 +162,7 @@ void main() {
     handle.dispose();
   });
 
-  testWidgets('touch keeps 48px hit bounds around compact 28px artwork', (
+  testWidgets('touch keeps 48px hit bounds around mobile 44px artwork', (
     tester,
   ) async {
     final focus = FocusNode();
@@ -193,7 +193,7 @@ void main() {
       ),
     );
     expect(decorated, isNotEmpty);
-    expect(decorated.first.constraints, const BoxConstraints(minHeight: 28));
+    expect(decorated.first.constraints, const BoxConstraints(minHeight: 44));
 
     final bounds = tester.getRect(find.byType(DInputGroup));
     await tester.tapAt(bounds.topCenter + const Offset(0, 2));

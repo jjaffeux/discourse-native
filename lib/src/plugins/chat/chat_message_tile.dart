@@ -101,6 +101,7 @@ class ChatMessageTile extends StatelessWidget {
         DControlStyle.scaledHeight(
           DControlSize.regular,
           MediaQuery.textScalerOf(context),
+          context: context,
         ),
       );
 

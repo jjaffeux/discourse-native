@@ -140,10 +140,12 @@ class _ForumTabsBarState extends State<ForumTabsBar> {
                         final closeWidth = DControlStyle.scaledHeight(
                           DControlSize.small,
                           scaler,
+                          context: context,
                         );
                         final addWidth = DControlStyle.scaledHeight(
                           DControlSize.regular,
                           scaler,
+                          context: context,
                         );
                         // Reserve only the active tab's close action, then share
                         // the remaining label budget across all open tabs.
@@ -800,6 +802,7 @@ class _ReorderableForumTab extends StatelessWidget {
                         ? DControlStyle.scaledHeight(
                             DControlSize.small,
                             MediaQuery.textScalerOf(context),
+                            context: context,
                           )
                         : 0) -
                     ForumTabsBar._tabContentInset) {
@@ -1267,6 +1270,7 @@ class _ForumTabState extends State<_ForumTab> {
                   ? DControlStyle.scaledHeight(
                           DControlSize.small,
                           MediaQuery.textScalerOf(context),
+                          context: context,
                         ) /
                         2
                   : 0),

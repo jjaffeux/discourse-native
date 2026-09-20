@@ -1368,11 +1368,12 @@ class _DSelectBodyState<T> extends State<_DSelectBody<T>> {
     final tokens = DTokens.of(context);
     final invalid = widget.invalid || widget.errorText != null;
     final controlSize = widget.size;
-    final fontSize = DControlStyle.fontSize(controlSize);
-    final lineHeight = DControlStyle.lineHeight(controlSize);
+    final fontSize = DControlStyle.fontSize(controlSize, context: context);
+    final lineHeight = DControlStyle.lineHeight(controlSize, context: context);
     final visualHeight = DControlStyle.scaledHeight(
       controlSize,
       MediaQuery.textScalerOf(context),
+      context: context,
     );
     final baseRadius = tokens.buttonTheme.radius;
     final joined = DJoinedControlScope.maybeOf(context);
@@ -1443,13 +1444,16 @@ class _DSelectBodyState<T> extends State<_DSelectBody<T>> {
           IconTheme(
             data: IconThemeData(
               color: tokens.mutedForeground,
-              size: DControlStyle.iconDimension(controlSize),
+              size: DControlStyle.iconDimension(controlSize, context: context),
             ),
             child:
                 widget.icon ??
                 DIcon(
                   DIcons.chevronDown,
-                  size: DControlStyle.iconDimension(controlSize),
+                  size: DControlStyle.iconDimension(
+                    controlSize,
+                    context: context,
+                  ),
                 ),
           ),
         ],

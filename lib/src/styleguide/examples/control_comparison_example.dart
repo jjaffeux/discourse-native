@@ -25,7 +25,9 @@ class _ControlComparisonExampleState extends State<ControlComparisonExample> {
       mainAxisSize: MainAxisSize.min,
       children: [
         for (final size in DControlSize.values) ...[
-          Text('${size.name} — ${DControlStyle.height(size).toInt()}px'),
+          Text(
+            '${size.name} — ${DControlStyle.height(size, context: context).toInt()}px',
+          ),
           const SizedBox(height: DSpacing.sm),
           Wrap(
             spacing: DSpacing.controlGap,

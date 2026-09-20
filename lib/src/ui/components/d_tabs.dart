@@ -571,9 +571,9 @@ class DTabList<T> extends StatelessWidget {
 
     final textScaler = MediaQuery.textScalerOf(context);
     final textHeight =
-        textScaler.scale(DControlStyle.fontSize(size)) *
-        DControlStyle.lineHeight(size) /
-        DControlStyle.fontSize(size);
+        textScaler.scale(DControlStyle.fontSize(size, context: context)) *
+        DControlStyle.lineHeight(size, context: context) /
+        DControlStyle.fontSize(size, context: context);
     Widget visual;
     if (root.orientation == Axis.horizontal && touch) {
       visual = Stack(
@@ -585,7 +585,11 @@ class DTabList<T> extends StatelessWidget {
                 // Preserve the inset when scaled text grows past the minimum
                 // control height (including the trigger's padding and border).
                 height: math.max(
-                  DControlStyle.scaledHeight(size, textScaler),
+                  DControlStyle.scaledHeight(
+                    size,
+                    textScaler,
+                    context: context,
+                  ),
                   textHeight + 12,
                 ),
                 decoration: decoration,
@@ -605,6 +609,7 @@ class DTabList<T> extends StatelessWidget {
               ? DControlStyle.scaledHeight(
                   size,
                   MediaQuery.textScalerOf(context),
+                  context: context,
                 )
               : 0,
         ),
@@ -621,6 +626,7 @@ class DTabList<T> extends StatelessWidget {
               : DControlStyle.scaledHeight(
                   size,
                   MediaQuery.textScalerOf(context),
+                  context: context,
                 ),
         ),
         alignment: Alignment.center,
@@ -820,12 +826,14 @@ class _DTabTriggerState<T> extends State<DTabTrigger<T>> {
                 DControlStyle.scaledHeight(
                       size,
                       MediaQuery.textScalerOf(context),
+                      context: context,
                     ) +
                     14,
               )
             : DControlStyle.scaledHeight(
                     size,
                     MediaQuery.textScalerOf(context),
+                    context: context,
                   ) -
                   (flat ? 0 : 7),
       ),
@@ -864,8 +872,10 @@ class _DTabTriggerState<T> extends State<DTabTrigger<T>> {
         overflow: TextOverflow.ellipsis,
         style: TextStyle(
           color: foreground,
-          fontSize: DControlStyle.fontSize(size),
-          height: DControlStyle.lineHeight(size) / DControlStyle.fontSize(size),
+          fontSize: DControlStyle.fontSize(size, context: context),
+          height:
+              DControlStyle.lineHeight(size, context: context) /
+              DControlStyle.fontSize(size, context: context),
           fontWeight: horizontalLine
               ? (selected ? FontWeight.w600 : FontWeight.w400)
               : pill
@@ -1235,6 +1245,7 @@ class _DDocumentTabState extends State<DDocumentTab> {
         height: DControlStyle.scaledHeight(
           DControlSize.regular,
           MediaQuery.textScalerOf(context),
+          context: context,
         ),
         // The outline supplies the other pixel of the compact outer inset.
         padding: const EdgeInsets.symmetric(horizontal: 1),
@@ -1255,10 +1266,19 @@ class _DDocumentTabState extends State<DDocumentTab> {
           child: DefaultTextStyle.merge(
             style: TextStyle(
               color: foreground,
-              fontSize: DControlStyle.fontSize(DControlSize.regular),
+              fontSize: DControlStyle.fontSize(
+                DControlSize.regular,
+                context: context,
+              ),
               height:
-                  DControlStyle.lineHeight(DControlSize.regular) /
-                  DControlStyle.fontSize(DControlSize.regular),
+                  DControlStyle.lineHeight(
+                    DControlSize.regular,
+                    context: context,
+                  ) /
+                  DControlStyle.fontSize(
+                    DControlSize.regular,
+                    context: context,
+                  ),
               fontWeight: FontWeight.w400,
             ),
             child: Row(

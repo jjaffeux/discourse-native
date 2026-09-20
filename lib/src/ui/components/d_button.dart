@@ -338,7 +338,7 @@ extension DiscourseButtonThemeAccess on ThemeData {
 /// [focusNode] is borrowed and never disposed. [label] accepts rich content;
 /// Text can opt into wrapping using its own softWrap and maxLines properties.
 /// Icon-only controls require an accessible tooltip. Desktop surfaces follow
-/// the shared Native sizes; touch platforms expand their invisible targets to 48px.
+/// the shared Native sizes, with larger mobile surfaces and at least 48px touch targets.
 /// The painted surface is a [DButtonDecoration]: state changes transition
 /// together over 150ms, except hover changes and popup dismissal, which apply
 /// immediately to avoid lingering highlights.
@@ -581,16 +581,15 @@ class DButton extends StatelessWidget {
     final tokens = DTokens.of(context);
     final dark = theme.brightness == Brightness.dark;
     final variantStyle = _referenceStyle(tokens, dark);
-    final fontSize = fontSizeFor(size);
-    final spacingUnit = DControlStyle.iconDimension(size);
+    final fontSize = DControlStyle.fontSize(size, context: context);
+    final spacingUnit = DControlStyle.iconDimension(size, context: context);
     final gap = DControlStyle.contentGap(size);
     final visualDimension = DControlStyle.scaledHeight(
       size,
       MediaQuery.textScalerOf(context),
+      context: context,
     );
-    final touch =
-        theme.platform == TargetPlatform.iOS ||
-        theme.platform == TargetPlatform.android;
+    final touch = DControlStyle.isTouch(context);
     final iconOnlySurfaceDimension = visualDimension;
     final enabled = onPressed != null && !loading;
     final baseRadius =
@@ -691,7 +690,7 @@ class DButton extends StatelessWidget {
       textStyle: WidgetStateProperty.resolveWith(
         (states) => theme.textTheme.labelLarge!.copyWith(
           fontSize: fontSize,
-          height: DControlStyle.lineHeight(size) / fontSize,
+          height: DControlStyle.lineHeight(size, context: context) / fontSize,
           fontWeight: _visualVariant == DButtonVariant.primary
               ? FontWeight.w600
               : FontWeight.w400,

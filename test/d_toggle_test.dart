@@ -261,7 +261,7 @@ void main() {
     );
   }
 
-  testWidgets('Native artwork stays compact inside touch targets', (
+  testWidgets('Native artwork uses the platform scale inside touch targets', (
     tester,
   ) async {
     for (final entry in const [
@@ -293,11 +293,13 @@ void main() {
               matching: find.byType(AnimatedContainer),
             ),
           ),
-          Size.square(entry.$2),
+          Size.square(
+            platform == TargetPlatform.iOS ? entry.$2 + 16 : entry.$2,
+          ),
         );
         expect(
           tester.widget<IconTheme>(find.byType(IconTheme).last).data.size,
-          entry.$3,
+          platform == TargetPlatform.iOS ? entry.$3 + 6 : entry.$3,
         );
       }
     }

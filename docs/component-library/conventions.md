@@ -50,7 +50,11 @@ through focus, expanded state and activation.
 
 Use shared control geometry and paint from `foundation/control_style.dart`.
 Button-like controls must use the Button styleguide's shared `DControlSize`
-scale: `small` (24px), `regular` (28px), and `large` (32px). Small labels use
+scale: desktop `small` (24px), `regular` (28px), and `large` (32px).
+On iOS, Android and Fuchsia, the same sizes render at 40/44/48px with
+14/15/16px labels and 18/20/22px icons. Touch targets remain at least 48px.
+Platform comes from the inherited theme, including mobile web; resizing a
+desktop window does not change its control density. Desktop small labels use
 12px text with 16px leading; regular labels use 13px and large labels use 14px,
 both with 20px leading.
 Extra-small controls have been removed; use small for compact actions. See
@@ -79,7 +83,7 @@ popups using the theme’s control radius, matching buttons. Keyboard focus uses
 open fills change immediately, without translating the control. The `AppTheme`
 boundary derives colors from the current forum palette; category identity
 retains its own color. Standard topic filters, header triggers and bottom
-actions retain the regular 28px size, text scaling and 48px touch targets.
+actions retain the regular size (28px desktop, 44px mobile), text scaling and 48px touch targets.
 See [the reference measurements and verification](linear-controls.md), which
 supersede the earlier [contextual tint styling](contextual-tints.md).
 

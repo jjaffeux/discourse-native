@@ -1000,6 +1000,7 @@ class _NavigationActionState extends State<_NavigationAction> {
         ? DControlStyle.scaledHeight(
             widget.size,
             MediaQuery.textScalerOf(context),
+            context: context,
           )
         : null;
     final action = Focus(
@@ -1074,10 +1075,16 @@ class _NavigationActionState extends State<_NavigationAction> {
                       color: tokens.foreground.withValues(
                         alpha: widget.disabled ? .5 : 1,
                       ),
-                      fontSize: DControlStyle.fontSize(widget.size),
+                      fontSize: DControlStyle.fontSize(
+                        widget.size,
+                        context: context,
+                      ),
                       height:
-                          DControlStyle.lineHeight(widget.size) /
-                          DControlStyle.fontSize(widget.size),
+                          DControlStyle.lineHeight(
+                            widget.size,
+                            context: context,
+                          ) /
+                          DControlStyle.fontSize(widget.size, context: context),
                       fontWeight: widget.triggerStyle
                           ? FontWeight.w500
                           : FontWeight.w400,
