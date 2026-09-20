@@ -234,3 +234,7 @@ the anchored popup's timer. The 54 affected Sheet/Dialog/mobile tests passed
 (with the same baseline exclusion), including completion callback assertions;
 static analysis remained clean. This callback-only follow-up does not change
 the visually inspected sheet composition.
+
+Merged locally as `4fa1bcebc` from the main checkout, after preparing against
+`de5738fa2`. All 84 mobile/filter/navigation integration tests passed on that
+candidate. Implementation: `a26a1f52b`; branch: `codex/mobile-filter-sheets`.
