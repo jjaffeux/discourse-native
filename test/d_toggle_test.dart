@@ -344,23 +344,66 @@ void main() {
     BoxDecoration decoration() => artwork().decoration! as BoxDecoration;
     DControlDecoration foreground() =>
         artwork().foregroundDecoration! as DControlDecoration;
-    expect(decoration().border!.top.color, tokens.controlTheme.outline.border);
-    expect(decoration().color, tokens.controlTheme.outline.background);
+    expect(decoration().border!.top.color, tokens.buttonTheme.outline.border);
+    expect(decoration().color, tokens.buttonTheme.outline.background);
+    expect(decoration().border!.top.width, 1);
+    expect(
+      decoration().borderRadius,
+      BorderRadius.circular(tokens.buttonTheme.radius),
+    );
+    expect(
+      tester
+          .widget<RichText>(
+            find.descendant(
+              of: find.byType(DToggle),
+              matching: find.byType(RichText),
+            ),
+          )
+          .text
+          .style!
+          .color,
+      tokens.buttonTheme.outline.foreground,
+    );
 
     final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
     addTearDown(mouse.removePointer);
     await mouse.addPointer(location: Offset.zero);
     await mouse.moveTo(tester.getCenter(find.byType(DToggle)));
     await tester.pumpAndSettle();
-    expect(decoration().color, DControlStyle.rowHover(tokens));
+    expect(decoration().color, tokens.buttonTheme.outline.hover);
+    expect(
+      decoration().border!.top.color,
+      tokens.buttonTheme.outline.hoverBorder,
+    );
     await mouse.moveTo(const Offset(1, 1));
     await tester.pumpAndSettle();
 
     focus.requestFocus();
     await tester.pumpAndSettle();
-    expect(decoration().border!.top.color, const Color(0xff246813));
+    expect(decoration().border!.top.color, tokens.buttonTheme.outline.border);
     expect(foreground().ringWidth, 1);
     expect(foreground().ringColor, tokens.focusRing);
+
+    await mount(
+      tester,
+      const DToggle.iconOnly(
+        key: ValueKey('selected-outline-toggle'),
+        pressed: true,
+        variant: DToggleVariant.outline,
+        semanticLabel: 'Reaction',
+        icon: Icon(Icons.favorite_border),
+      ),
+      theme: theme,
+    );
+    expect(decoration().color, tokens.buttonTheme.outline.hover);
+    expect(
+      decoration().border!.top.color,
+      tokens.buttonTheme.outline.hoverBorder,
+    );
+    expect(
+      IconTheme.of(tester.element(find.byIcon(Icons.favorite_border))).color,
+      tokens.buttonTheme.outline.foreground,
+    );
 
     await mount(
       tester,

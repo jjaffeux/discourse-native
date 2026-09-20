@@ -43,7 +43,9 @@ outlined treatment and `ghost` aliases the transparent treatment. Destructive,
 link and inline actions retain their semantic roles; inline removes horizontal
 insets for metadata. All variants retain shared focus and accessible targets.
 Buttons use palette-derived muted accent fills, 1px outlines, 8px corners and
-no shadow. See [button redesign](button-redesign.md) for formulas, adoption,
+no shadow. Outlined toggles use the same button palette, 1px border and 8px
+corners, with the hover fill and border retained while selected. Joined toggle
+groups retain ownership of their outer corners and shared seams. See [button redesign](button-redesign.md) for formulas, adoption,
 reference measurements and verification. Ordinary dropdown triggers use
 `DDropdownMenuTrigger.button`; richer compositions render DButton and pass
 through focus, expanded state and activation.

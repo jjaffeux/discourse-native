@@ -215,6 +215,9 @@ class _DToggleState extends State<DToggle> {
     final theme = Theme.of(context);
     final tokens = DTokens.of(context);
     final dark = theme.brightness == Brightness.dark;
+    final outlined = widget.variant == DToggleVariant.outline;
+    final outline = tokens.buttonTheme.outline;
+    final foreground = outlined ? outline.foreground : tokens.foreground;
     final visualDimension = DControlStyle.scaledHeight(
       widget.size,
       MediaQuery.textScalerOf(context),
@@ -237,14 +240,10 @@ class _DToggleState extends State<DToggle> {
         ? tokens.destructive.withValues(
             alpha: tokens.destructive.a * (dark ? .5 : 1),
           )
+        : outlined
+        ? (activeSurface ? outline.hoverBorder : outline.border)
         : _focusVisible
         ? tokens.focusRing
-        : widget.variant == DToggleVariant.outline
-        ? DControlStyle.outlineBorder(
-            tokens,
-            dark: dark,
-            hovered: activeSurface,
-          )
         : Colors.transparent;
     final ringColor = widget.invalid
         ? tokens.destructive.withValues(
@@ -257,13 +256,15 @@ class _DToggleState extends State<DToggle> {
     final radius =
         (widget.visualStyle?.borderRadius ??
                 BorderRadius.circular(
-                  DControlStyle.radius(tokens, widget.size),
+                  outlined
+                      ? tokens.buttonTheme.radius
+                      : DControlStyle.radius(tokens, widget.size),
                 ))
             .resolve(direction);
     final edges = widget.visualStyle?.borderEdges ?? DToggleBorderEdges.all;
     final borderSide = BorderSide(
       color: borderColor,
-      width: DControlDecoration.borderWidth,
+      width: outlined ? 1 : DControlDecoration.borderWidth,
     );
     const noBorder = BorderSide.none;
     final border = Border(
@@ -284,7 +285,7 @@ class _DToggleState extends State<DToggle> {
         ? ExcludeSemantics(child: effectiveIcon!)
         : DefaultTextStyle.merge(
             style: theme.textTheme.labelLarge?.copyWith(
-              color: tokens.foreground,
+              color: foreground,
               fontSize: fontSize,
               height:
                   DControlStyle.lineHeight(widget.size, context: context) /
@@ -321,7 +322,7 @@ class _DToggleState extends State<DToggle> {
                   ),
           );
     content = IconTheme.merge(
-      data: IconThemeData(size: iconDimension, color: tokens.foreground),
+      data: IconThemeData(size: iconDimension, color: foreground),
       child: content,
     );
 
@@ -340,10 +341,10 @@ class _DToggleState extends State<DToggle> {
               iconPosition: widget.iconPosition,
             )),
       decoration: BoxDecoration(
-        color: activeSurface
+        color: outlined
+            ? (activeSurface ? outline.hover : outline.background)
+            : activeSurface
             ? DControlStyle.rowHover(tokens)
-            : widget.variant == DToggleVariant.outline
-            ? DControlStyle.outlineFill(tokens, dark: dark)
             : Colors.transparent,
         borderRadius: radius,
         border: border,
