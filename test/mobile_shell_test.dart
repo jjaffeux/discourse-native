@@ -234,6 +234,41 @@ void main() {
     },
   );
 
+  _mobileTest('leaving home removes a forum menu that is still fading out', (
+    tester,
+  ) async {
+    final shell = await _pumpMobile(tester);
+    await tester.tap(find.byKey(const ValueKey('forum-identity-button')));
+    await tester.pumpAndSettle();
+    expect(find.text('Open forum in browser'), findsOneWidget);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 75));
+    shell.pushContent(
+      ContentRoute.topic(
+        topicId: 7,
+        slug: 'shared',
+        title: 'Shared topic card',
+      ),
+    );
+    await tester.pump();
+    await tester.pumpAndSettle();
+    _expectPage();
+    expect(
+      find.text('Open forum in browser', skipOffstage: false),
+      findsNothing,
+    );
+    expect(find.text('Remove forum', skipOffstage: false), findsNothing);
+
+    shell.handleBack();
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('forum-identity-button')));
+    await tester.pumpAndSettle();
+    expect(find.text('Open forum in browser'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   _mobileTest(
     'topic cards and users fill the screen; back and forward return to home',
     (tester) async {
