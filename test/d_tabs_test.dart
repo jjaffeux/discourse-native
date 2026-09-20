@@ -39,6 +39,72 @@ void main() {
     ),
   );
 
+  testWidgets(
+    'compact navigation respects reduced motion and remains interactive',
+    (tester) async {
+      final selected = <String?>[];
+      var settingsOpened = false;
+      Widget tabs(bool compact) => DTabs<String>(
+        initialValue: 'home',
+        onChanged: selected.add,
+        children: [
+          DTabList<String>(
+            variant: DTabListVariant.navigation,
+            navigationCompact: compact,
+            children: [
+              const DTabTrigger(value: 'home', child: Text('Home')),
+              const DTabTrigger(value: 'chat', child: Text('Chat')),
+              Center(
+                child: DButton.iconOnly(
+                  key: const ValueKey('compact-settings'),
+                  icon: const Icon(Icons.settings),
+                  tooltip: 'Settings',
+                  onPressed: () => settingsOpened = true,
+                ),
+              ),
+            ],
+          ),
+        ],
+      );
+      await mount(
+        tester,
+        tabs(false),
+        reducedMotion: true,
+        platform: TargetPlatform.iOS,
+      );
+      await tester.pumpAndSettle();
+      await mount(
+        tester,
+        tabs(true),
+        reducedMotion: true,
+        platform: TargetPlatform.iOS,
+      );
+      await tester.pump();
+      final bar = find
+          .descendant(
+            of: find.byType(DTabList<String>),
+            matching: find.byType(Stack),
+          )
+          .first;
+      expect(tester.getSize(bar).width, closeTo(420 * .85, .01));
+      for (final element in find.byType(DTabTrigger<String>).evaluate()) {
+        final rect = tester.getRect(find.byWidget(element.widget));
+        expect(rect.width, greaterThanOrEqualTo(48));
+        expect(rect.height, greaterThanOrEqualTo(48));
+      }
+      final settings = find.byKey(const ValueKey('compact-settings'));
+      final settingsRect = tester.getRect(settings);
+      expect(settingsRect.width, greaterThanOrEqualTo(48));
+      expect(settingsRect.height, greaterThanOrEqualTo(48));
+      await tester.tapAt(settingsRect.topLeft + const Offset(2, 2));
+      expect(settingsOpened, isTrue);
+      final chatRect = tester.getRect(find.byType(DTabTrigger<String>).last);
+      await tester.tapAt(chatRect.topLeft + const Offset(2, 2));
+      await tester.pumpAndSettle();
+      expect(selected, ['chat']);
+    },
+  );
+
   testWidgets('plain tabs stay unpainted and notify repeated activation', (
     tester,
   ) async {

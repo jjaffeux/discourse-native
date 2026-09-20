@@ -15,6 +15,7 @@ import 'package:discourse_native/src/plugins/voice/voice_settings.dart';
 import 'package:discourse_native/src/shell/forum_search.dart';
 import 'package:discourse_native/src/shell/forum_tabs_bar.dart';
 import 'package:discourse_native/src/shell/instance_rail.dart';
+import 'package:discourse_native/src/shell/instance_sidebar.dart';
 import 'package:discourse_native/src/shell/main_content.dart';
 import 'package:discourse_native/src/shell/mobile_shell.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
@@ -153,6 +154,113 @@ void _mobileTest(String name, WidgetTesterCallback callback) => testWidgets(
 );
 
 void main() {
+  _mobileTest(
+    'bar shrinks on down scroll and restores on up, top and mode change',
+    (tester) async {
+      await _pumpMobile(tester);
+      final list = find.descendant(
+        of: _bar,
+        matching: find.byType(DTabList<String>),
+      );
+      final animation = find.descendant(
+        of: list,
+        matching: find.byType(TweenAnimationBuilder<double>),
+      );
+      final surface = find
+          .descendant(
+            of: find.byType(MobileForumRoot),
+            matching: find.byType(DCard),
+          )
+          .first;
+      final contentRect = tester.getRect(surface);
+      void scroll(
+        double pixels,
+        double delta, {
+        AxisDirection axis = AxisDirection.down,
+      }) {
+        final context = tester.element(surface);
+        ScrollUpdateNotification(
+          metrics: FixedScrollMetrics(
+            minScrollExtent: 0,
+            maxScrollExtent: 1000,
+            pixels: pixels,
+            viewportDimension: 500,
+            axisDirection: axis,
+            devicePixelRatio: 1,
+          ),
+          context: context,
+          scrollDelta: delta,
+        ).dispatch(context);
+      }
+
+      double target() =>
+          tester.widget<DTabList<String>>(list).navigationCompact ? .85 : 1;
+      expect(target(), 1);
+      scroll(100, 50);
+      await tester.pump();
+      expect(target(), .85);
+      await tester.pump(const Duration(milliseconds: 90));
+      final compactWidth = tester
+          .getSize(
+            find.descendant(of: animation, matching: find.byType(Stack)).first,
+          )
+          .width;
+      final fullWidth = tester.getSize(list).width;
+      expect(compactWidth, inExclusiveRange(fullWidth * .85, fullWidth));
+      await tester.pumpAndSettle();
+      expect(tester.getRect(surface), contentRect);
+      scroll(80, -20);
+      await tester.pumpAndSettle();
+      expect(target(), 1);
+      scroll(150, 70);
+      await tester.pumpAndSettle();
+      scroll(0, 0);
+      await tester.pumpAndSettle();
+      expect(target(), 1);
+      scroll(300, -30, axis: AxisDirection.up);
+      await tester.pumpAndSettle();
+      expect(target(), .85);
+      scroll(1000, 0, axis: AxisDirection.up);
+      await tester.pumpAndSettle();
+      expect(target(), 1);
+      scroll(150, 70, axis: AxisDirection.right);
+      await tester.pumpAndSettle();
+      expect(target(), 1);
+      scroll(150, 70);
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('mobile-mode-chat')));
+      await tester.pumpAndSettle();
+      expect(target(), 1);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  _mobileTest('dragging sidebar content changes the bar scale', (tester) async {
+    await _pumpMobile(tester, size: const Size(390, 400));
+    final scrollable = find
+        .descendant(
+          of: find.byType(InstanceSidebar),
+          matching: find.byWidgetPredicate(
+            (widget) =>
+                widget is Scrollable &&
+                widget.axisDirection == AxisDirection.down,
+          ),
+        )
+        .first;
+    final position = tester.state<ScrollableState>(scrollable).position;
+    expect(position.maxScrollExtent, greaterThan(0));
+    await tester.drag(scrollable, const Offset(0, -100));
+    await tester.pumpAndSettle();
+    final list = find.descendant(
+      of: _bar,
+      matching: find.byType(DTabList<String>),
+    );
+    expect(tester.widget<DTabList<String>>(list).navigationCompact, isTrue);
+    await tester.drag(scrollable, const Offset(0, 70));
+    await tester.pumpAndSettle();
+    expect(tester.widget<DTabList<String>>(list).navigationCompact, isFalse);
+  });
+
   _mobileTest('available modes stay scoped and revoked Voice returns home', (
     tester,
   ) async {

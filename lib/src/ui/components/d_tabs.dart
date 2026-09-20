@@ -455,10 +455,17 @@ class DTabList<T> extends StatelessWidget {
     this.activateOnFocus = false,
     this.loopFocus = true,
     this.scrollController,
+    this.navigationCompact = false,
   });
 
   final List<Widget> children;
   final DTabListVariant variant;
+
+  /// Animate navigation artwork to 85% without shrinking its touch targets.
+  /// Width stops shrinking at the minimum slot width; layout height stays fixed.
+  /// Independent actions retain their control geometry. Other variants ignore
+  /// this option. Reduced motion changes it immediately.
+  final bool navigationCompact;
   final DControlSize size;
   final bool activateOnFocus;
   final bool loopFocus;
@@ -481,41 +488,69 @@ class DTabList<T> extends StatelessWidget {
         root.orientation == Axis.horizontal,
         'Navigation tabs require horizontal orientation.',
       );
-      return LayoutBuilder(
-        builder: (context, constraints) {
-          final minimumWidth = children.length * DSpacing.touchTarget;
-          final width = constraints.hasBoundedWidth
-              ? math.max(constraints.maxWidth, minimumWidth)
-              : minimumWidth;
-          return Semantics(
-            container: true,
-            explicitChildNodes: true,
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                color: tokens.muted,
-                borderRadius: BorderRadius.circular(tokens.radius * 1.4),
-              ),
-              child: SingleChildScrollView(
-                controller: scrollController,
-                scrollDirection: Axis.horizontal,
-                child: SizedBox(
-                  width: width,
-                  child: _DTabListScope<T>(
-                    variant: variant,
-                    size: size,
-                    activateOnFocus: activateOnFocus,
-                    loopFocus: loopFocus,
-                    child: Row(
-                      children: [
-                        for (final child in children) Expanded(child: child),
-                      ],
-                    ),
+      return TweenAnimationBuilder<double>(
+        tween: Tween(end: navigationCompact ? .85 : 1),
+        duration: DMotion.duration(context, DMotion.change),
+        curve: Curves.easeOutCubic,
+        builder: (context, scale, _) => LayoutBuilder(
+          builder: (context, constraints) {
+            final minimumWidth = children.length * DSpacing.touchTarget;
+            final availableWidth = constraints.hasBoundedWidth
+                ? constraints.maxWidth
+                : minimumWidth;
+            final viewportWidth = math.min(
+              availableWidth,
+              math.max(availableWidth * scale, minimumWidth),
+            );
+            return Align(
+              heightFactor: 1,
+              child: SizedBox(
+                width: viewportWidth,
+                child: Semantics(
+                  container: true,
+                  explicitChildNodes: true,
+                  child: Stack(
+                    children: [
+                      Positioned.fill(
+                        child: Transform.scale(
+                          scaleY: scale,
+                          child: DecoratedBox(
+                            decoration: BoxDecoration(
+                              color: tokens.muted,
+                              borderRadius: BorderRadius.circular(
+                                tokens.radius * 1.4,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                      SingleChildScrollView(
+                        controller: scrollController,
+                        scrollDirection: Axis.horizontal,
+                        child: SizedBox(
+                          width: math.max(viewportWidth, minimumWidth),
+                          child: _DTabListScope<T>(
+                            variant: variant,
+                            size: size,
+                            activateOnFocus: activateOnFocus,
+                            loopFocus: loopFocus,
+                            navigationScale: scale,
+                            child: Row(
+                              children: [
+                                for (final child in children)
+                                  Expanded(child: child),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),
-            ),
-          );
-        },
+            );
+          },
+        ),
       );
     }
     final decoration = BoxDecoration(
@@ -651,10 +686,12 @@ class _DTabListScope<T> extends InheritedWidget {
     required this.activateOnFocus,
     required this.loopFocus,
     required super.child,
+    this.navigationScale = 1,
   });
 
   final DTabListVariant variant;
   final DControlSize size;
+  final double navigationScale;
   final bool activateOnFocus;
   final bool loopFocus;
 
@@ -669,6 +706,7 @@ class _DTabListScope<T> extends InheritedWidget {
   bool updateShouldNotify(_DTabListScope<T> oldWidget) =>
       variant != oldWidget.variant ||
       size != oldWidget.size ||
+      navigationScale != oldWidget.navigationScale ||
       activateOnFocus != oldWidget.activateOnFocus ||
       loopFocus != oldWidget.loopFocus;
 }
@@ -917,6 +955,11 @@ class _DTabTriggerState<T> extends State<DTabTrigger<T>> {
       );
     }
     if (!enabled) artwork = Opacity(opacity: .5, child: artwork);
+    if (navigation) {
+      // Scale paint inside the gesture and semantics owners, keeping targets
+      // at full size. Independent actions retain their own control geometry.
+      artwork = Transform.scale(scale: list.navigationScale, child: artwork);
+    }
 
     return Semantics(
       button: true,
