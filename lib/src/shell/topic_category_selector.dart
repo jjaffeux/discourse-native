@@ -7,6 +7,7 @@ import '../foundation/latest_wins_queued_lookup_controller.dart';
 import '../models/topic.dart';
 import '../theme/d_icons.dart';
 import 'category_icon.dart';
+import 'platform.dart';
 import 'topic_taxonomy_button.dart';
 
 /// The category button and searchable dropdown shared by filters and editors.
@@ -235,6 +236,7 @@ class _TopicCategorySelectorState extends State<TopicCategorySelector> {
       ),
       content: DComboboxContent(
         sheetOnMobile: widget.sheetOnMobile,
+        fullScreenOnMobile: true,
         key: ValueKey('$prefix-popover'),
         semanticLabel: parent == null
             ? 'Categories'
@@ -248,6 +250,7 @@ class _TopicCategorySelectorState extends State<TopicCategorySelector> {
               placeholder: 'Filter $noun',
               semanticLabel: 'Filter $noun',
               registerAsAnchor: false,
+              autofocus: context.isTouch,
               showTrigger: false,
             ),
           ),

@@ -168,3 +168,10 @@ uses the root callback. `DCombobox.restoreFocus` defaults to true for ordinary
 pickers; completion editors use false so closing suggestions while moving to
 another input cannot steal focus back. TopicFilterInput supplies both options
 and reuses its existing parser, debounce and latest-request ownership rules.
+
+Mobile taxonomy pickers (2026-09-21): `DComboboxContent.fullScreenOnMobile`
+uses an inset Native Sheet filling the safe viewport above the keyboard. The
+search input is the sheet's initial focus target. Category/subcategory selection
+closes the sheet; mobile multi-tag selectors use `closeOnSelect: false` and retain
+the input focus across additions and removals. Desktop keeps its anchored popup.
+The Full-screen mobile picker styleguide example demonstrates the new option.

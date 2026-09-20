@@ -181,3 +181,11 @@ is verified by widget tests. No other native platform was inspected.
 Integration retained the newer subtle input-color mapping from main. All 38
 integration tests passed, including the control consistency golden tests,
 theme mapping and tag selector hover regression.
+
+## Mobile picker interaction
+
+Category, subcategory, and tag selectors use a full-height inset Native Sheet
+on mobile, with the search field focused on opening. Category selection closes
+the picker. Multi-tag selection stays open with the keyboard active. The topic
+header tag editor buffers selections and saves them together when the sheet is
+closed; its searches use the current pending tags. Desktop behavior is unchanged.

@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import '../foundation/latest_wins_queued_lookup_controller.dart';
 import '../models/topic.dart';
 import '../theme/d_icons.dart';
+import 'platform.dart';
 import 'shell_scope.dart';
 import 'topic_taxonomy_picker.dart';
 
@@ -83,6 +84,7 @@ class _TopicTagMenuAnchorState extends State<TopicTagMenuAnchor> {
     }
     final target = widget;
     final tags = List<TopicTag>.unmodifiable(target.tags);
+    var pendingTags = tags;
     final shell = ShellScope.read(context);
     final lease = shell.lifecycle.capture(target.siteUrl);
     bool ownsTarget() =>
@@ -109,6 +111,7 @@ class _TopicTagMenuAnchorState extends State<TopicTagMenuAnchor> {
         context: context,
         anchorContext: anchorContext,
         selectedTags: tags,
+        onSelectionChanged: (value) => pendingTags = value,
         capabilities: capabilities,
         onTagNavigate: target.onTagNavigate == null
             ? null
@@ -121,7 +124,7 @@ class _TopicTagMenuAnchorState extends State<TopicTagMenuAnchor> {
             final results = await shell.searchTopicTagsForEditor(
               siteUrl: target.siteUrl,
               categoryId: target.categoryId,
-              selectedTags: tags,
+              selectedTags: pendingTags,
               term: term,
             );
             return isCurrent() ? results : const TopicTagSearch();
@@ -171,23 +174,95 @@ Future<List<TopicTag>?> showTopicTagPicker({
   required TopicComposerCapabilities capabilities,
   required TopicTagSearchCallback search,
   TopicTagNavigationCallback? onTagNavigate,
-}) => TopicTaxonomyPickerAnchor.show<List<TopicTag>>(
-  anchorContext: anchorContext,
-  title: 'Tags',
-  popoverKey: const ValueKey('topic-tag-picker-popover'),
-  builder: (pickerContext, close) => TopicTagPicker(
-    selectedTags: selectedTags,
-    capabilities: capabilities,
-    search: search,
-    onSelected: close,
-    onTagNavigate: onTagNavigate == null
-        ? null
-        : (tag, {newTab = false}) {
-            close(null);
-            onTagNavigate(tag, newTab: newTab);
-          },
-  ),
-);
+  ValueChanged<List<TopicTag>>? onSelectionChanged,
+}) async {
+  if (context.isTouch) {
+    var tags = List<TopicTag>.of(selectedTags);
+    var navigated = false;
+    final queryFocus = FocusNode();
+    await showDSheet<void>(
+      context: context,
+      side: DSheetSide.bottom,
+      inset: true,
+      barrierLabel: 'Dismiss tags picker',
+      initialFocusNode: queryFocus,
+      fillAvailableHeight: true,
+      builder: (context, sheet) => DSheetContent(
+        side: DSheetSide.bottom,
+        semanticLabel: 'Tags',
+        topBottomMaxHeightFactor: 1,
+        scrollWholeSheet: false,
+        children: [
+          const DSheetHeader(children: [DSheetTitle(child: Text('Tags'))]),
+          Expanded(
+            child: _TagPickerFocusOwner(
+              focusNode: queryFocus,
+              child: StatefulBuilder(
+                builder: (context, setState) => TopicTagPicker(
+                  selectedTags: tags,
+                  queryFocusNode: queryFocus,
+                  capabilities: capabilities,
+                  search: search,
+                  onSelected: (value) {
+                    onSelectionChanged?.call(value);
+                    setState(() => tags = value);
+                  },
+                  onTagNavigate: onTagNavigate == null
+                      ? null
+                      : (tag, {newTab = false}) {
+                          navigated = true;
+                          sheet.close();
+                          onTagNavigate(tag, newTab: newTab);
+                        },
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+    return navigated || listEquals(tags, selectedTags) ? null : tags;
+  }
+  return TopicTaxonomyPickerAnchor.show<List<TopicTag>>(
+    anchorContext: anchorContext,
+    title: 'Tags',
+    popoverKey: const ValueKey('topic-tag-picker-popover'),
+    builder: (pickerContext, close) => TopicTagPicker(
+      selectedTags: selectedTags,
+      capabilities: capabilities,
+      search: search,
+      onSelected: close,
+      onTagNavigate: onTagNavigate == null
+          ? null
+          : (tag, {newTab = false}) {
+              close(null);
+              onTagNavigate(tag, newTab: newTab);
+            },
+    ),
+  );
+}
+
+// The route retains its input focus node through the closing animation.
+class _TagPickerFocusOwner extends StatefulWidget {
+  const _TagPickerFocusOwner({required this.focusNode, required this.child});
+
+  final FocusNode focusNode;
+  final Widget child;
+
+  @override
+  State<_TagPickerFocusOwner> createState() => _TagPickerFocusOwnerState();
+}
+
+class _TagPickerFocusOwnerState extends State<_TagPickerFocusOwner> {
+  @override
+  void dispose() {
+    widget.focusNode.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
+}
 
 class TopicTagPicker extends StatefulWidget {
   const TopicTagPicker({
@@ -197,8 +272,11 @@ class TopicTagPicker extends StatefulWidget {
     required this.search,
     required this.onSelected,
     this.onTagNavigate,
+    this.queryFocusNode,
   });
 
+  /// Borrowed search focus node; the caller retains ownership.
+  final FocusNode? queryFocusNode;
   final List<TopicTag> selectedTags;
   final TopicComposerCapabilities capabilities;
   final TopicTagSearchCallback search;
@@ -211,6 +289,8 @@ class TopicTagPicker extends StatefulWidget {
 
 class _TopicTagPickerState extends State<TopicTagPicker> {
   final TextEditingController _query = TextEditingController();
+  final FocusNode _ownedQueryFocus = FocusNode();
+  FocusNode get _queryFocus => widget.queryFocusNode ?? _ownedQueryFocus;
   final Map<String, FocusNode> _rowFocusNodes = {};
   Timer? _debounce;
   late final LatestWinsQueuedLookupController<String, TopicTagSearch> _lookup;
@@ -241,10 +321,21 @@ class _TopicTagPickerState extends State<TopicTagPicker> {
   }
 
   @override
+  void didUpdateWidget(TopicTagPicker oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (context.isTouch &&
+        !listEquals(oldWidget.selectedTags, widget.selectedTags)) {
+      _debounce?.cancel();
+      _search(_query.text);
+    }
+  }
+
+  @override
   void dispose() {
     _debounce?.cancel();
     _lookup.dispose();
     _query.dispose();
+    _ownedQueryFocus.dispose();
     for (final node in _rowFocusNodes.values) {
       node.dispose();
     }
@@ -280,6 +371,7 @@ class _TopicTagPickerState extends State<TopicTagPicker> {
       tags.add(tag);
     }
     widget.onSelected(List.unmodifiable(tags));
+    if (context.isTouch) _queryFocus.requestFocus();
   }
 
   TopicTag? get _newTag {
@@ -330,6 +422,7 @@ class _TopicTagPickerState extends State<TopicTagPicker> {
     return TopicTaxonomyPickerContent(
       queryKey: const ValueKey('topic-tag-picker-query'),
       queryController: _query,
+      queryFocusNode: _queryFocus,
       queryHint: 'Find or add tags…',
       onQueryChanged: (value) {
         _changed(value);
