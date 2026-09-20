@@ -11,6 +11,9 @@ import 'package:flutter/material.dart';
 /// Sizes are logical pixels at 100%. Only the root AppTextScaleRegion applies
 /// zoom; styles must never multiply their font size by the user's scale.
 abstract final class DiscourseTypography {
+  /// Mobile's reading baseline, composed with accessibility and app zoom.
+  static const double mobileScale = 1.2;
+
   static const double xs = 12;
   static const double sm = 14;
   static const double base = 16;
