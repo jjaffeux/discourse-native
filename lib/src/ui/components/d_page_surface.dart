@@ -2,14 +2,13 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/widgets.dart';
 
 import 'd_card.dart';
-import 'd_collapsible.dart';
 import 'd_page_reading_lane.dart';
 
 /// A bounded page with a shared border, fixed tabs and footer, and a retracting
 /// header. Compose content with DPageReadingLane from the Native kit to keep
 /// scroll viewports full width while limiting their contents. Only deliberate
 /// scrolling in the body retracts the header; restoration and nested scrolls
-/// leave it alone. Collapsible owns animation, reduced motion and hidden focus.
+/// leave it alone. The header follows scroll distance without a timed animation.
 class DPageSurface extends StatefulWidget {
   const DPageSurface({
     super.key,
@@ -26,8 +25,8 @@ class DPageSurface extends StatefulWidget {
   /// Optional header, fixed unless [hideHeaderOnScroll] is enabled.
   final Widget? header;
 
-  /// Hide on downward scrolling; reveal after 100 logical pixels upward
-  /// or immediately when scrolling reaches the top.
+  /// Retract and reveal pixel-for-pixel with vertical scrolling, or reveal
+  /// completely when scrolling reaches the top.
   final bool hideHeaderOnScroll;
 
   /// Persistent tabs above the retracting header.
@@ -51,10 +50,9 @@ class DPageSurface extends StatefulWidget {
 
 class _DPageSurfaceState extends State<DPageSurface> {
   final _headerFocus = FocusNode(canRequestFocus: false);
-  bool _visible = true;
+  double _hiddenExtent = 0;
   bool _userScrolling = false;
   ScrollDirection _direction = ScrollDirection.idle;
-  double _distance = 0;
   bool _updateScheduled = false;
 
   @override
@@ -62,18 +60,20 @@ class _DPageSurfaceState extends State<DPageSurface> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.identity != widget.identity ||
         oldWidget.hideHeaderOnScroll != widget.hideHeaderOnScroll) {
-      _visible = true;
+      _hiddenExtent = 0;
       _userScrolling = false;
       _direction = ScrollDirection.idle;
-      _distance = 0;
     }
   }
 
-  void _show(bool visible) {
-    if (_visible == visible || (!visible && _headerFocus.hasFocus)) return;
-    _visible = visible;
-    // Scroll notifications can arrive during layout. Coalesce direction
-    // changes without rebuilding the expensive body on each scroll tick.
+  void _setHiddenExtent(double extent) {
+    if (_hiddenExtent == extent ||
+        (extent > _hiddenExtent && _headerFocus.hasFocus)) {
+      return;
+    }
+    _hiddenExtent = extent;
+    // Notifications can arrive during layout. Coalesce scroll updates into
+    // one rebuild per frame while retaining the body widget and its viewport.
     if (_updateScheduled) return;
     _updateScheduled = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -117,7 +117,6 @@ class _DPageSurfaceState extends State<DPageSurface> {
       _userScrolling = notification.direction != ScrollDirection.idle;
       if (_userScrolling && _direction != notification.direction) {
         _direction = notification.direction;
-        _distance = 0;
       }
     }
     if (notification is ScrollUpdateNotification && _userScrolling) {
@@ -127,25 +126,27 @@ class _DPageSurfaceState extends State<DPageSurface> {
           ? metrics.pixels >= metrics.maxScrollExtent
           : metrics.pixels <= metrics.minScrollExtent;
       if (atTop) {
-        _distance = 0;
-        _show(true);
+        _setHiddenExtent(0);
       } else if (!metrics.outOfRange) {
         final delta = notification.scrollDelta ?? 0;
         // Ignore extent corrections and elastic rebound against the user's
         // direction, including when the header changes the viewport height.
         if ((_direction == ScrollDirection.reverse && delta > 0) ||
             (_direction == ScrollDirection.forward && delta < 0)) {
-          _distance += delta.abs();
           final revealing = reversed
               ? _direction == ScrollDirection.reverse
               : _direction == ScrollDirection.forward;
           final headerHeight = _headerFocus.context?.size?.height ?? 0;
           final canRetract =
-              !_visible ||
+              _hiddenExtent > 0 ||
               metrics.maxScrollExtent - metrics.minScrollExtent > headerHeight;
-          if (_distance >= (revealing ? 100 : 12) &&
-              (revealing || canRetract)) {
-            _show(revealing);
+          if (revealing || canRetract) {
+            _setHiddenExtent(
+              (_hiddenExtent + (revealing ? -delta.abs() : delta.abs())).clamp(
+                0.0,
+                headerHeight,
+              ),
+            );
           }
         }
       }
@@ -166,15 +167,27 @@ class _DPageSurfaceState extends State<DPageSurface> {
       children: [
         ?widget.tabs,
         if (widget.header != null)
-          DCollapsible(
-            open: !widget.hideHeaderOnScroll || _visible,
-            child: DCollapsibleContent(
-              keepMounted: true,
-              duration: const Duration(milliseconds: 200),
-              curve: Curves.easeInOutCubic,
-              child: SizedBox(
-                width: double.infinity,
-                child: Focus(focusNode: _headerFocus, child: widget.header!),
+          ClipRect(
+            child: _ScrollHeaderExtent(
+              hiddenExtent: widget.hideHeaderOnScroll ? _hiddenExtent : 0,
+              child: ExcludeSemantics(
+                excluding: _hiddenExtent > 0,
+                child: ExcludeFocus(
+                  excluding: _hiddenExtent > 0,
+                  child: IgnorePointer(
+                    ignoring: _hiddenExtent > 0,
+                    child: TickerMode(
+                      enabled: _hiddenExtent == 0,
+                      child: SizedBox(
+                        width: double.infinity,
+                        child: Focus(
+                          focusNode: _headerFocus,
+                          child: widget.header!,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
               ),
             ),
           ),
@@ -194,5 +207,58 @@ class _DPageSurfaceState extends State<DPageSurface> {
           ? DCard(spacing: 0, child: Expanded(child: page))
           : page,
     );
+  }
+}
+
+// Keep the header at its natural height while removing exactly the scrolled
+// distance from the page layout. Measuring here also handles header size changes.
+class _ScrollHeaderExtent extends SingleChildRenderObjectWidget {
+  const _ScrollHeaderExtent({required this.hiddenExtent, required super.child});
+
+  final double hiddenExtent;
+
+  @override
+  RenderObject createRenderObject(BuildContext context) =>
+      _RenderScrollHeaderExtent(hiddenExtent);
+
+  @override
+  void updateRenderObject(
+    BuildContext context,
+    _RenderScrollHeaderExtent renderObject,
+  ) {
+    renderObject.hiddenExtent = hiddenExtent;
+  }
+}
+
+class _RenderScrollHeaderExtent extends RenderShiftedBox {
+  _RenderScrollHeaderExtent(this._hiddenExtent) : super(null);
+
+  double _hiddenExtent;
+
+  set hiddenExtent(double value) {
+    if (_hiddenExtent == value) return;
+    _hiddenExtent = value;
+    markNeedsLayout();
+  }
+
+  @override
+  Size computeDryLayout(BoxConstraints constraints) {
+    final childSize = child!.getDryLayout(constraints);
+    return constraints.constrain(
+      Size(
+        childSize.width,
+        (childSize.height - _hiddenExtent).clamp(0.0, childSize.height),
+      ),
+    );
+  }
+
+  @override
+  void performLayout() {
+    child!.layout(constraints, parentUsesSize: true);
+    final hidden = _hiddenExtent.clamp(0.0, child!.size.height);
+    size = constraints.constrain(
+      Size(child!.size.width, child!.size.height - hidden),
+    );
+    (child!.parentData! as BoxParentData).offset = Offset(0, -hidden);
   }
 }
