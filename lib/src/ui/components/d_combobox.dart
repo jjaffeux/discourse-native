@@ -135,7 +135,7 @@ class DComboboxController<T> extends ChangeNotifier {
 /// adapter is loading; selection is retained and stale highlights are removed.
 /// Networking, debouncing and result authority remain outside this widget.
 class DCombobox<T> extends FormField<List<T>> {
-  // ignore: use_super_parameters, validator is adapted from T? to List<T>.
+  // The validator is adapted from T? to List<T>.
   DCombobox({
     super.key,
     required this.options,
@@ -191,7 +191,7 @@ class DCombobox<T> extends FormField<List<T>> {
          builder: (state) => (state as _DComboboxState<T>)._build(),
        );
 
-  // ignore: use_super_parameters, validator is adapted from T? to List<T>.
+  // The validator is adapted from T? to List<T>.
   DCombobox.controlled({
     super.key,
     required T? value,
