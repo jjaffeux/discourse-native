@@ -531,6 +531,90 @@ void main() {
   });
 
   testWidgets(
+    'long mobile drafts scroll title and body beneath the pinned actions',
+    (tester) async {
+      final harness = await _Harness.create(
+        tester,
+        mobile: true,
+        size: const Size(390, 800),
+      );
+      tester.view.viewInsets = FakeViewPadding(
+        bottom: 330 * tester.view.devicePixelRatio,
+      );
+      addTearDown(tester.view.resetViewInsets);
+      final composer = harness.shell.visibleComposer!;
+      composer.title.text = 'A long topic';
+      final text = List.generate(
+        60,
+        (index) => 'Paragraph $index of this draft.',
+      ).join('\n');
+      composer.text.value = TextEditingValue(
+        text: text,
+        selection: const TextSelection.collapsed(offset: 0),
+      );
+      await tester.pumpAndSettle();
+      final viewport = find.byKey(const ValueKey('composer-mobile-scroll'));
+      final title = find.byKey(const ValueKey('composer-topic-title'));
+      final close = find.byKey(const ValueKey('composer-close'));
+      final submit = find.byKey(const ValueKey('composer-submit'));
+      final draft = find.byKey(const ValueKey('composer-draft-status'));
+      final footer = find.byKey(const ValueKey('composer-footer'));
+      final titleBefore = tester.getTopLeft(title);
+      final fixed = [close, submit, draft, footer];
+      final bounds = fixed.map(tester.getRect).toList();
+      await tester.drag(viewport, const Offset(0, -200));
+      await tester.pumpAndSettle();
+      expect(tester.getTopLeft(title).dy, lessThan(titleBefore.dy - 100));
+      for (var i = 0; i < fixed.length; i++) {
+        expect(tester.getRect(fixed[i]), bounds[i]);
+      }
+      expect(close.hitTestable(), findsOneWidget);
+      expect(submit.hitTestable(), findsOneWidget);
+      final scrollbar = tester.widget<DScrollBar>(
+        find.ancestor(of: viewport, matching: find.byType(DScrollBar)).first,
+      );
+      expect(scrollbar.showScrollbar, isFalse);
+      final editable = find.descendant(
+        of: find.byType(ComposerEditor),
+        matching: find.byType(EditableText),
+      );
+      expect(
+        tester
+            .widget<EditableText>(editable)
+            .scrollController!
+            .position
+            .maxScrollExtent,
+        0,
+      );
+      await tester.showKeyboard(editable);
+      tester.testTextInput.updateEditingValue(
+        TextEditingValue(
+          text: '$text\nLast line',
+          selection: TextSelection.collapsed(offset: text.length + 10),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final render = tester.state<EditableTextState>(editable).renderEditable;
+      var caret = render.localToGlobal(
+        render.getLocalRectForCaret(composer.text.selection.extent).bottomLeft,
+      );
+      expect(caret.dy, lessThan(tester.getTopLeft(footer).dy));
+      expect(caret.dy, greaterThan(tester.getBottomLeft(close).dy));
+      tester.testTextInput.updateEditingValue(
+        composer.text.value.copyWith(
+          selection: const TextSelection.collapsed(offset: 0),
+        ),
+      );
+      await tester.pumpAndSettle();
+      caret = render.localToGlobal(
+        render.getLocalRectForCaret(composer.text.selection.extent).topLeft,
+      );
+      expect(caret.dy, greaterThanOrEqualTo(tester.getBottomLeft(close).dy));
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
     'large text and a short keyboard viewport keep editing and submission reachable',
     (tester) async {
       await _Harness.create(

@@ -23,3 +23,17 @@ pickers, toolbar actions and shared control styling. Static analysis passed.
 A production-widget render was inspected at 390 × 800 with a 330px simulated
 keyboard inset, in dark mode with Arial loaded for the render. This was a Flutter
 widget-test render, not an iOS simulator or physical-device run.
+
+## Long drafts
+
+On touch, the title, reply context and growing body share one scroll viewport.
+The close, draft and publish controls stay pinned above that content, with no
+visible scrollbar. Taxonomy and writing tools stay above the keyboard. Moving
+the caret to either end of a long draft scrolls the outer viewport to reveal it.
+The editor continues to refresh media and slash-menu anchors during outer scroll.
+
+Follow-up validation: 115 focused checks passed, including fixed header/footer
+bounds while scrolling, hidden scrollbars, zero inner editor scroll extent, and
+caret visibility at both ends of a long draft. Static analysis passed. Inspected
+a dark-mode widget render of the scrolled draft with the same viewport and font
+configuration described above.

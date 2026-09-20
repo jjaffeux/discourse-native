@@ -126,7 +126,7 @@ void main() {
       tester.getRect(find.byType(ComposerPanel)).bottom,
       lessThanOrEqualTo(844 - 336),
     );
-    expect(find.text('Create'), findsOneWidget);
+    expect(find.byTooltip('Create topic').hitTestable(), findsOneWidget);
     expect(find.byTooltip('Composer options'), findsNothing);
     expect(find.text('Dock side'), findsNothing);
     expect(tester.takeException(), isNull);

@@ -146,6 +146,31 @@ class ComposerPanel extends StatelessWidget {
           ),
         );
 
+        final header = ComposerHeader(
+          composer: composer,
+          minimized: minimized,
+          onClose: close,
+          closeTooltip: composer.canSaveDraft
+              ? 'Save and close'
+              : 'Close composer',
+          onMinimize: minimized ? null : onMinimize,
+          onRestore: minimized ? onRestore : null,
+          placement: placement,
+          onPlacementChanged: onPlacementChanged,
+          mobileSubmit: mobile && !minimized
+              ? DButton.iconOnly(
+                  key: const ValueKey('composer-submit'),
+                  icon: const DIcon(DIcons.plus),
+                  variant: DButtonVariant.primary,
+                  tooltip: submitLabel,
+                  semanticLabel: submitLabel,
+                  loading: busy,
+                  onPressed: busy ? null : onSubmit,
+                )
+              : null,
+          onDiscard: discard,
+        );
+
         return Container(
           key: const ValueKey('composer-frame'),
           height:
@@ -214,265 +239,249 @@ class ComposerPanel extends StatelessWidget {
                 absorbing: composer.discarding,
                 child: Column(
                   children: [
-                    ComposerHeader(
-                      composer: composer,
-                      minimized: minimized,
-                      onClose: close,
-                      closeTooltip: composer.canSaveDraft
-                          ? 'Save and close'
-                          : 'Close composer',
-                      onMinimize: minimized ? null : onMinimize,
-                      onRestore: minimized ? onRestore : null,
-                      placement: placement,
-                      onPlacementChanged: onPlacementChanged,
-                      mobileSubmit: mobile && !minimized
-                          ? DButton.iconOnly(
-                              key: const ValueKey('composer-submit'),
-                              icon: const DIcon(DIcons.plus),
-                              variant: DButtonVariant.primary,
-                              tooltip: submitLabel,
-                              semanticLabel: submitLabel,
-                              loading: busy,
-                              onPressed: busy ? null : onSubmit,
-                            )
-                          : null,
-                      onDiscard: discard,
-                    ),
+                    if (!mobile || minimized) header,
                     if (!minimized)
                       Expanded(
                         child: LayoutBuilder(
-                          builder: (context, constraints) => DScrollArea(
-                            thumbVisibility: false,
-                            child: SizedBox(
-                              height: math.max(
-                                constraints.maxHeight,
-                                MediaQuery.textScalerOf(context).scale(
-                                  target.createsTopic ||
-                                          target.editsTopicMetadata
-                                      ? 200
-                                      : 160,
-                                ),
-                              ),
-                              child: Column(
-                                children: [
-                                  if (target.mode == ComposerMode.reply &&
-                                      constraints.maxHeight >= 80)
-                                    ConstrainedBox(
-                                      constraints: BoxConstraints(
-                                        maxHeight: math.min(
-                                          140,
-                                          math.max(
-                                            48,
-                                            constraints.maxHeight * 0.6,
-                                          ),
+                          builder: (context, constraints) {
+                            final content = Column(
+                              children: [
+                                if (target.mode == ComposerMode.reply &&
+                                    constraints.maxHeight >= 80)
+                                  ConstrainedBox(
+                                    constraints: BoxConstraints(
+                                      maxHeight: math.min(
+                                        140,
+                                        math.max(
+                                          48,
+                                          constraints.maxHeight * 0.6,
                                         ),
-                                      ),
-                                      child: ComposerReplyContext(
-                                        key: ValueKey((
-                                          target.siteUrl,
-                                          target.topicId,
-                                          target.replyToPostNumber,
-                                        )),
-                                        target: target,
                                       ),
                                     ),
-                                  if (target.isPrivateMessage)
-                                    Padding(
-                                      padding: const EdgeInsets.fromLTRB(
-                                        16,
-                                        2,
-                                        16,
-                                        6,
-                                      ),
-                                      child: InputDecorator(
-                                        key: const ValueKey(
-                                          'composer-private-message-recipients',
-                                        ),
-                                        decoration: const InputDecoration(
-                                          isDense: true,
-                                          labelText: 'To',
-                                        ),
-                                        child: Text(target.targetRecipients!),
-                                      ),
+                                    child: ComposerReplyContext(
+                                      key: ValueKey((
+                                        target.siteUrl,
+                                        target.topicId,
+                                        target.replyToPostNumber,
+                                      )),
+                                      target: target,
                                     ),
-                                  if ((!mobile &&
-                                          (target.isNewTopic ||
-                                              target.editsTopicMetadata)) ||
-                                      target.isTaxonomyEdit)
-                                    _TopicTaxonomy(composer: composer),
-                                  if (target.createsTopic ||
-                                      target.editsTopicMetadata) ...[
-                                    Padding(
-                                      padding: const EdgeInsets.fromLTRB(
-                                        16,
-                                        4,
-                                        16,
-                                        10,
-                                      ),
-                                      child: DInput(
-                                        key: const ValueKey(
-                                          'composer-topic-title',
-                                        ),
-                                        controller: composer.title,
-                                        borderless: true,
-                                        size: DControlSize.large,
-                                        readOnly: !composer.isEditing,
-                                        semanticLabel: 'Title',
-                                        style:
-                                            (mobile
-                                                    ? theme
-                                                          .textTheme
-                                                          .headlineSmall
-                                                    : theme.textTheme.bodyLarge)
-                                                ?.copyWith(
-                                                  fontWeight: FontWeight.w600,
-                                                ),
-                                        hintText: 'Give your topic a title',
-                                        textInputAction: TextInputAction.next,
-                                      ),
+                                  ),
+                                if (target.isPrivateMessage)
+                                  Padding(
+                                    padding: const EdgeInsets.fromLTRB(
+                                      16,
+                                      2,
+                                      16,
+                                      6,
                                     ),
-                                    if (!mobile)
-                                      const DSeparator(
-                                        indent: 16,
-                                        endIndent: 16,
-                                        space: 1,
+                                    child: InputDecorator(
+                                      key: const ValueKey(
+                                        'composer-private-message-recipients',
                                       ),
-                                    const SizedBox(height: 12),
-                                  ],
-                                  if (target.mode == ComposerMode.postEdit)
-                                    Padding(
-                                      padding: const EdgeInsets.fromLTRB(
-                                        16,
-                                        0,
-                                        16,
-                                        8,
+                                      decoration: const InputDecoration(
+                                        isDense: true,
+                                        labelText: 'To',
                                       ),
-                                      child: DItem(
-                                        key: const ValueKey(
-                                          'composer-edit-context',
-                                        ),
-                                        variant: DItemVariant.muted,
-                                        size: DItemSize.xs,
-                                        children: [
-                                          DItemContent(
-                                            spacing: 3,
-                                            children: [
-                                              const DItemDescription(
-                                                child: Text('Topic'),
+                                      child: Text(target.targetRecipients!),
+                                    ),
+                                  ),
+                                if ((!mobile &&
+                                        (target.isNewTopic ||
+                                            target.editsTopicMetadata)) ||
+                                    target.isTaxonomyEdit)
+                                  _TopicTaxonomy(composer: composer),
+                                if (target.createsTopic ||
+                                    target.editsTopicMetadata) ...[
+                                  Padding(
+                                    padding: const EdgeInsets.fromLTRB(
+                                      16,
+                                      4,
+                                      16,
+                                      10,
+                                    ),
+                                    child: DInput(
+                                      key: const ValueKey(
+                                        'composer-topic-title',
+                                      ),
+                                      controller: composer.title,
+                                      borderless: true,
+                                      size: DControlSize.large,
+                                      readOnly: !composer.isEditing,
+                                      semanticLabel: 'Title',
+                                      style:
+                                          (mobile
+                                                  ? theme
+                                                        .textTheme
+                                                        .headlineSmall
+                                                  : theme.textTheme.bodyLarge)
+                                              ?.copyWith(
+                                                fontWeight: FontWeight.w600,
                                               ),
-                                              DItemTitle(
-                                                maxLines: 2,
-                                                child: TopicTitle(
-                                                  target.topicTitle,
-                                                  siteUrl: target.siteUrl,
-                                                  maxLines: 2,
-                                                  overflow:
-                                                      TextOverflow.ellipsis,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ],
-                                      ),
+                                      hintText: 'Give your topic a title',
+                                      textInputAction: TextInputAction.next,
                                     ),
-                                  if (!target.isTaxonomyEdit) ...[
-                                    Expanded(
-                                      child: Stack(
-                                        fit: StackFit.expand,
-                                        children: [
-                                          Padding(
-                                            padding: const EdgeInsets.fromLTRB(
-                                              16,
-                                              2,
-                                              16,
-                                              8,
-                                            ),
-                                            child: ComposerEditor(
-                                              composer: composer,
-                                              showSelectionToolbar: false,
-                                              pickImages: pickImages,
-                                              readClipboardFiles:
-                                                  readClipboardFiles,
-                                              pickFiles: pickFiles,
-                                              onSuggestionAction:
-                                                  ({
-                                                    required context,
-                                                    required composer,
-                                                    required suggestion,
-                                                    anchor,
-                                                  }) async {
-                                                    if (suggestion.action !=
-                                                        ComposerSuggestionAction
-                                                            .openEmojiPicker) {
-                                                      return;
-                                                    }
-                                                    await openEmojiPickerForTopicComposer(
-                                                      context: context,
-                                                      composer: composer,
-                                                      initialQuery:
-                                                          composer
-                                                              .autocomplete
-                                                              .trigger
-                                                              ?.query ??
-                                                          suggestion.value,
-                                                      anchor: anchor,
-                                                    );
-                                                  },
-                                              hintText: switch (target) {
-                                                _ when composer.loadingBody =>
-                                                  'Loading that post…',
-                                                _
-                                                    when target
-                                                        .isPrivateMessage =>
-                                                  'Write your message…',
-                                                _ when target.isNewTopic =>
-                                                  'Write your topic…',
-                                                _ when target.isEdit =>
-                                                  'Edit this post…',
-                                                _
-                                                    when target
-                                                            .replyToUsername !=
-                                                        null =>
-                                                  'Reply to @${target.replyToUsername}…',
-                                                _ => 'Write a reply…',
-                                              },
-                                              textStyle:
-                                                  theme.textTheme.bodyLarge,
-                                              hintStyle: theme
-                                                  .textTheme
-                                                  .bodyLarge
-                                                  ?.copyWith(
-                                                    color: theme
-                                                        .colorScheme
-                                                        .onSurfaceVariant,
-                                                  ),
-                                            ),
-                                          ),
-                                          if (composer.tagRemovalNotice
-                                              case final message?)
-                                            Positioned(
-                                              left: 16,
-                                              right: 16,
-                                              bottom: 12,
-                                              child: Align(
-                                                alignment:
-                                                    Alignment.bottomCenter,
-                                                child: ComposerTagRemovalNotice(
-                                                  message: message,
-                                                  onDismiss: composer
-                                                      .dismissTagRemovalNotice,
-                                                ),
-                                              ),
-                                            ),
-                                        ],
-                                      ),
+                                  ),
+                                  if (!mobile)
+                                    const DSeparator(
+                                      indent: 16,
+                                      endIndent: 16,
+                                      space: 1,
                                     ),
-                                  ] else
-                                    const Spacer(),
+                                  const SizedBox(height: 12),
                                 ],
+                                if (target.mode == ComposerMode.postEdit)
+                                  Padding(
+                                    padding: const EdgeInsets.fromLTRB(
+                                      16,
+                                      0,
+                                      16,
+                                      8,
+                                    ),
+                                    child: DItem(
+                                      key: const ValueKey(
+                                        'composer-edit-context',
+                                      ),
+                                      variant: DItemVariant.muted,
+                                      size: DItemSize.xs,
+                                      children: [
+                                        DItemContent(
+                                          spacing: 3,
+                                          children: [
+                                            const DItemDescription(
+                                              child: Text('Topic'),
+                                            ),
+                                            DItemTitle(
+                                              maxLines: 2,
+                                              child: TopicTitle(
+                                                target.topicTitle,
+                                                siteUrl: target.siteUrl,
+                                                maxLines: 2,
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                if (!target.isTaxonomyEdit) ...[
+                                  _ComposerBodyLayout(
+                                    scrollsWithTitle: mobile,
+                                    child: Stack(
+                                      fit: mobile
+                                          ? StackFit.loose
+                                          : StackFit.expand,
+                                      children: [
+                                        Padding(
+                                          padding: const EdgeInsets.fromLTRB(
+                                            16,
+                                            2,
+                                            16,
+                                            8,
+                                          ),
+                                          child: ComposerEditor(
+                                            composer: composer,
+                                            showSelectionToolbar: false,
+                                            expands: !mobile,
+                                            pickImages: pickImages,
+                                            readClipboardFiles:
+                                                readClipboardFiles,
+                                            pickFiles: pickFiles,
+                                            onSuggestionAction:
+                                                ({
+                                                  required context,
+                                                  required composer,
+                                                  required suggestion,
+                                                  anchor,
+                                                }) async {
+                                                  if (suggestion.action !=
+                                                      ComposerSuggestionAction
+                                                          .openEmojiPicker) {
+                                                    return;
+                                                  }
+                                                  await openEmojiPickerForTopicComposer(
+                                                    context: context,
+                                                    composer: composer,
+                                                    initialQuery:
+                                                        composer
+                                                            .autocomplete
+                                                            .trigger
+                                                            ?.query ??
+                                                        suggestion.value,
+                                                    anchor: anchor,
+                                                  );
+                                                },
+                                            hintText: switch (target) {
+                                              _ when composer.loadingBody =>
+                                                'Loading that post…',
+                                              _ when target.isPrivateMessage =>
+                                                'Write your message…',
+                                              _ when target.isNewTopic =>
+                                                'Write your topic…',
+                                              _ when target.isEdit =>
+                                                'Edit this post…',
+                                              _
+                                                  when target.replyToUsername !=
+                                                      null =>
+                                                'Reply to @${target.replyToUsername}…',
+                                              _ => 'Write a reply…',
+                                            },
+                                            textStyle:
+                                                theme.textTheme.bodyLarge,
+                                            hintStyle: theme.textTheme.bodyLarge
+                                                ?.copyWith(
+                                                  color: theme
+                                                      .colorScheme
+                                                      .onSurfaceVariant,
+                                                ),
+                                          ),
+                                        ),
+                                        if (composer.tagRemovalNotice
+                                            case final message?)
+                                          Positioned(
+                                            left: 16,
+                                            right: 16,
+                                            bottom: 12,
+                                            child: Align(
+                                              alignment: Alignment.bottomCenter,
+                                              child: ComposerTagRemovalNotice(
+                                                message: message,
+                                                onDismiss: composer
+                                                    .dismissTagRemovalNotice,
+                                              ),
+                                            ),
+                                          ),
+                                      ],
+                                    ),
+                                  ),
+                                ] else if (!mobile)
+                                  const Spacer(),
+                              ],
+                            );
+                            if (mobile) {
+                              return _MobileComposerViewport(
+                                header: header,
+                                composer: composer,
+                                child: content,
+                              );
+                            }
+                            return DScrollArea(
+                              thumbVisibility: false,
+                              child: SizedBox(
+                                height: math.max(
+                                  constraints.maxHeight,
+                                  MediaQuery.textScalerOf(context).scale(
+                                    target.createsTopic ||
+                                            target.editsTopicMetadata
+                                        ? 200
+                                        : 160,
+                                  ),
+                                ),
+                                child: content,
                               ),
-                            ),
-                          ),
+                            );
+                          },
                         ),
                       ),
                     if (!minimized &&
@@ -524,6 +533,143 @@ class ComposerPanel extends StatelessWidget {
       },
     );
   }
+}
+
+/// The mobile title and growing editor share one viewport. The pinned sliver
+/// paints its transparent header above content as the title scrolls behind it.
+class _MobileComposerViewport extends StatefulWidget {
+  const _MobileComposerViewport({
+    required this.header,
+    required this.composer,
+    required this.child,
+  });
+
+  final Widget header;
+  final ComposerController composer;
+  final Widget child;
+
+  @override
+  State<_MobileComposerViewport> createState() =>
+      _MobileComposerViewportState();
+}
+
+class _MobileComposerViewportState extends State<_MobileComposerViewport> {
+  final _scroll = ScrollController();
+
+  @override
+  void dispose() {
+    _scroll.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final headerExtent =
+        math.max(
+          DSpacing.touchTarget,
+          DControlStyle.scaledHeight(
+            DControlSize.regular,
+            MediaQuery.textScalerOf(context),
+            context: context,
+          ),
+        ) +
+        16;
+    return LayoutBuilder(
+      builder: (context, constraints) => DScrollBar(
+        controller: _scroll,
+        showScrollbar: false,
+        child: ScrollConfiguration(
+          behavior: ScrollConfiguration.of(context).copyWith(scrollbars: false),
+          child: CustomScrollView(
+            key: const ValueKey('composer-mobile-scroll'),
+            controller: _scroll,
+            slivers: [
+              SliverPersistentHeader(
+                pinned: true,
+                delegate: _ComposerPinnedHeader(
+                  extent: headerExtent,
+                  child: widget.header,
+                ),
+              ),
+              SliverToBoxAdapter(
+                child: GestureDetector(
+                  behavior: HitTestBehavior.translucent,
+                  onTap: widget.composer.focus.requestFocus,
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(
+                      minHeight: math.max(
+                        0,
+                        constraints.maxHeight - headerExtent,
+                      ),
+                    ),
+                    child: widget.child,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ComposerPinnedHeader extends SliverPersistentHeaderDelegate {
+  _ComposerPinnedHeader({required this.extent, required this.child});
+
+  final double extent;
+  final Widget child;
+
+  @override
+  double get minExtent => extent;
+  @override
+  double get maxExtent => extent;
+
+  @override
+  Widget build(
+    BuildContext context,
+    double shrinkOffset,
+    bool overlapsContent,
+  ) {
+    final surface = Theme.of(context).shell.content;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            surface,
+            surface.withValues(alpha: 0.94),
+            surface.withValues(alpha: 0),
+          ],
+          stops: const [0, 0.65, 1],
+        ),
+      ),
+      child: child,
+    );
+  }
+
+  @override
+  bool shouldRebuild(_ComposerPinnedHeader oldDelegate) =>
+      extent != oldDelegate.extent || child != oldDelegate.child;
+}
+
+class _ComposerBodyLayout extends StatelessWidget {
+  const _ComposerBodyLayout({
+    required this.scrollsWithTitle,
+    required this.child,
+  });
+
+  final bool scrollsWithTitle;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => scrollsWithTitle
+      ? ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: 120),
+          child: child,
+        )
+      : Expanded(child: child);
 }
 
 class _TopicTaxonomy extends StatelessWidget {
@@ -924,6 +1070,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
   bool _hoveringMention = false;
   bool _hoveringLink = false;
   late final ScrollController _scroll;
+  ScrollPosition? _ancestorScroll;
   late final ComposerMediaEditingCoordinator _media;
   late final _ComposerSelectionOverlay _selectionOverlay;
   final ValueNotifier<int> _mediaLayoutRevision = ValueNotifier(0);
@@ -1001,12 +1148,25 @@ class _ComposerEditorState extends State<ComposerEditor> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    final ancestorScroll = widget.expands
+        ? null
+        : Scrollable.maybeOf(context)?.position;
+    if (!identical(ancestorScroll, _ancestorScroll)) {
+      _ancestorScroll?.removeListener(_ancestorScrolled);
+      _ancestorScroll = ancestorScroll;
+      _ancestorScroll?.addListener(_ancestorScrolled);
+    }
     final parent = context.findAncestorStateOfType<_ComposerEditorState>();
     if (!identical(parent, _parentEditor)) {
       _parentEditor?._nestedEditors.remove(this);
       _parentEditor = parent;
       parent?._nestedEditors.add(this);
     }
+  }
+
+  void _ancestorScrolled() {
+    _scheduleMediaLayoutRefresh();
+    _selectionOverlay.sync();
   }
 
   @override
@@ -1050,6 +1210,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
 
   @override
   void dispose() {
+    _ancestorScroll?.removeListener(_ancestorScrolled);
     _parentEditor?._nestedEditors.remove(this);
     _parentEditor?._scheduleMediaLayoutRefresh();
     if (identical(_parentEditor?._nativeDropEditor, this)) {
@@ -1286,7 +1447,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
       actions: _slashActions,
       hintStyle: widget.hintStyle ?? widget.textStyle,
       renderEditable: () => _renderEditable,
-      scroll: _scroll,
+      scroll: Listenable.merge([_scroll, _ancestorScroll]),
       child: _textField(),
     ),
   );
