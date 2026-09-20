@@ -4406,7 +4406,9 @@ class _PostTileState extends State<_PostTile> {
                 ],
               ),
               Padding(
-                padding: const EdgeInsetsDirectional.only(start: 39),
+                padding: EdgeInsetsDirectional.only(
+                  start: context.isTouch ? 0 : 39,
+                ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
