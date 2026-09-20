@@ -154,6 +154,48 @@ void _mobileTest(String name, WidgetTesterCallback callback) => testWidgets(
 );
 
 void main() {
+  _mobileTest('home never highlights a destination hidden behind navigation', (
+    tester,
+  ) async {
+    final shell = await _pumpMobile(tester);
+    void expectNavigationOnly() {
+      expect(_bar, findsOneWidget);
+      expect(find.byType(MainContent), findsNothing);
+      final buttons = tester.widgetList<DSidebarMenuButton>(
+        find.descendant(
+          of: find.byType(InstanceSidebar),
+          matching: find.byType(DSidebarMenuButton),
+        ),
+      );
+      expect(buttons, isNotEmpty);
+      expect(buttons.where((button) => button.isActive), isEmpty);
+      expect(
+        tester
+            .widget<DTabs<String>>(
+              find.byKey(const ValueKey('mobile-bottom-bar')),
+            )
+            .value,
+        'home',
+      );
+    }
+
+    expectNavigationOnly();
+    for (final destination in ['Topics', 'Users']) {
+      await tester.tap(sidebarDestination(destination));
+      await tester.pumpAndSettle();
+      _expectPage();
+      expect(shell.handleBack(), isTrue);
+      await tester.pumpAndSettle();
+      expectNavigationOnly();
+      expect(shell.handleForward(), isTrue);
+      await tester.pumpAndSettle();
+      _expectPage();
+      expect(shell.handleBack(), isTrue);
+      await tester.pumpAndSettle();
+      expectNavigationOnly();
+    }
+  });
+
   _mobileTest(
     'bar shrinks on down scroll and restores on up, top and mode change',
     (tester) async {

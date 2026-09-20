@@ -190,7 +190,8 @@ class InstanceSidebar extends StatelessWidget {
           iconUrl: instance?.iconUrl,
           monogram: instance?.monogram,
           accentColor: instance?.accentColor,
-          destinationId: selectedDestinationId,
+          // Mobile shows navigation instead of the retained content route.
+          destinationId: mobile ? null : selectedDestinationId,
           draftCount: instance?.user?.draftCount ?? 0,
           canCreateTopic: instance?.user?.canCreateTopic ?? false,
           navigationLoading:
@@ -511,11 +512,12 @@ class _SidebarPanelBodyState extends State<_SidebarPanelBody> {
                                     siteUrl: sidebar.siteUrl!,
                                     section: section,
                                     store: sectionStore,
-                                    selectedId:
-                                        selectedPanel
-                                            ?.panel
-                                            .selectedDestinationId ??
-                                        sidebar.destinationId,
+                                    selectedId: widget.mobile
+                                        ? null
+                                        : selectedPanel
+                                                  ?.panel
+                                                  .selectedDestinationId ??
+                                              sidebar.destinationId,
                                     badgeFor: controller.sidebarBadgeFor,
                                     onSelect: controller.selectDestination,
                                   ),
