@@ -344,6 +344,16 @@ void main() {
         closeTo(tester.getRect(author).top, 3),
       );
       expect(tester.getRect(age).top, closeTo(tester.getRect(replies).top, 1));
+      expect(
+        tester.getRect(age).right,
+        closeTo(tester.getRect(card).right - 16, 1),
+      );
+      await shell.appSettings.setTopicListShowLastPoster(false);
+      await shell.appSettings.setTopicListShowTags(false);
+      await tester.pumpAndSettle();
+      expect(author, findsNothing);
+      expect(tags, findsNothing);
+      expect(replies, findsOneWidget);
       await tester.tap(date);
       await tester.pumpAndSettle();
       expect(find.text('Event schedule').hitTestable(), findsOneWidget);
