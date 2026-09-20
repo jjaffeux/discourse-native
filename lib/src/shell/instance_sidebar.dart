@@ -1010,7 +1010,10 @@ class _SectionState extends State<_Section> {
           ? null
           : context.isTouch
           ? 48.0
-          : DControlStyle.height(DSidebarMenuButtonSize.large);
+          : DControlStyle.height(
+              DSidebarMenuButtonSize.large,
+              context: context,
+            );
       Widget paddedRow(BuildContext context, int index) => Padding(
         key: ValueKey(run[index].id),
         padding: const EdgeInsets.only(bottom: _sidebarRowGap),

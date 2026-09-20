@@ -376,6 +376,7 @@ double _actionSize(BuildContext context) => context.isTouch
     : DControlStyle.scaledHeight(
         DControlSize.regular,
         MediaQuery.textScalerOf(context),
+        context: context,
       );
 
 class _AlertActionButton extends StatelessWidget {

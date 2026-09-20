@@ -146,6 +146,7 @@ class _GlobalSearchFilterPickerState extends State<_GlobalSearchFilterPicker> {
           final removeWidth = DControlStyle.scaledHeight(
             DControlSize.small,
             MediaQuery.textScalerOf(context),
+            context: context,
           );
           // Preserve room for the value while the label and operator keep
           // their natural width until the complete joined control is bounded.

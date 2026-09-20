@@ -165,6 +165,7 @@ class _TopicHeaderToolbar extends StatelessWidget {
             DControlStyle.scaledHeight(
               DControlSize.regular,
               MediaQuery.textScalerOf(context),
+              context: context,
             ),
           ),
         ),
@@ -751,7 +752,10 @@ class _CategoryChip extends StatelessWidget {
                     CategoryIcon(
                       category: category!,
                       siteUrl: siteUrl,
-                      size: DControlStyle.iconDimension(DControlSize.large),
+                      size: DControlStyle.iconDimension(
+                        DControlSize.large,
+                        context: context,
+                      ),
                     ),
                     SizedBox(width: compact ? 2 : 6),
                   ],

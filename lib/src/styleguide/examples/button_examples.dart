@@ -17,8 +17,8 @@ final buttonExamples = ComponentExamples(
       'The redesign has three button families: colored, outlined and transparent. '
       'Colored actions use a 25% accent fill and accent-tinted foreground; '
       'outlined actions use a 1px palette border; transparent actions have no resting fill or border. '
-      'Buttons use 8px corners and no shadows. The existing compact Native size scale '
-      'and 48px touch targets are retained. Hover and popup state remain visible, '
+      'Buttons use 8px corners and no shadows. Desktop controls use 24/28/32px surfaces; mobile uses 40/44/48px '
+      'with at least 48px touch targets. Hover and popup state remain visible, '
       'with a separate keyboard focus ring. All colors follow the forum palette.',
   examples: [
     StyleguideExample(
@@ -378,8 +378,9 @@ class _ButtonTransparentBackgroundState
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text('Topic content'),
-          Row(
-            mainAxisSize: MainAxisSize.min,
+          Wrap(
+            spacing: DSpacing.xs,
+            crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               DButton(
                 label: const Text('Replies'),
@@ -387,7 +388,6 @@ class _ButtonTransparentBackgroundState
                 variant: DButtonVariant.inline,
                 onPressed: () => setState(() => _result = 'Replies sorted'),
               ),
-              const SizedBox(width: DSpacing.xs),
               const Text('226'),
             ],
           ),

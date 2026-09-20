@@ -32,6 +32,7 @@ double topicBottomBarControlHeight(BuildContext context) {
     DControlStyle.scaledHeight(
       DControlSize.regular,
       MediaQuery.textScalerOf(context),
+      context: context,
     ),
   );
 }

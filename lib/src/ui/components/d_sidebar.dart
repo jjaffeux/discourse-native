@@ -1125,10 +1125,11 @@ class _DSidebarMenuButtonState extends State<DSidebarMenuButton> {
     final t = DTokens.of(context);
     final iconOnly = _PanelScope.iconOf(context);
     final enabled = widget.onPressed != null;
-    final fontSize = DControlStyle.fontSize(widget.size);
+    final fontSize = DControlStyle.fontSize(widget.size, context: context);
     final minHeight = DControlStyle.scaledHeight(
       widget.size,
       MediaQuery.textScalerOf(context),
+      context: context,
     );
     final active = widget.isActive || (enabled && (hover || pressed));
     final collapsedLarge =
@@ -1215,7 +1216,11 @@ class _DSidebarMenuButtonState extends State<DSidebarMenuButton> {
                         style: Theme.of(context).textTheme.bodyMedium!.copyWith(
                           fontSize: fontSize,
                           height:
-                              DControlStyle.lineHeight(widget.size) / fontSize,
+                              DControlStyle.lineHeight(
+                                widget.size,
+                                context: context,
+                              ) /
+                              fontSize,
                           color: t.foreground,
                           fontWeight: widget.isActive
                               ? FontWeight.w500

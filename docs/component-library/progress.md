@@ -6,6 +6,23 @@ Coordinator task: `01a0816f-d4e0-7f93-9d6b-baeaf6961181`. Reference: 2026-09-08.
 
 Foundation: **merged** on `codex/component-library-foundation`. Merge: 1b130d3323f9b7619bdead025fd76a57be402a97.
 
+## Mobile control scale — 2026-09-20
+
+The shared size scale now resolves from the inherited platform: desktop remains
+24/28/32px; iOS, Android and Fuchsia use 40/44/48px surfaces, 14/15/16px labels
+and 18/20/22px icons. Button-like controls and their layout measurements use
+these shared metrics; text scaling and minimum 48px touch targets remain.
+The Button Control consistency example reports the active platform's heights.
+
+Verification: static analysis passed. Focused control, mobile navigation,
+styleguide and golden tests passed (267 tests across the regression run and
+styleguide rerun). New tests cover mobile surface dimensions, corner taps,
+selector/input sizing and 320px action rows up to 300% text. Reviewed mobile
+Control consistency renders in light, dark, forest and plum; desktop golden
+baselines remain unchanged. Integration preserved the concurrent joined-touch-button
+fix; 114 affected tests passed across the integration run and golden rerun,
+and static analysis passed again. No physical-device inspection was performed.
+
 ## Current review queue
 
 **63 of 63 components are merged locally.** 0 existing components are in progress; 0 are planned.

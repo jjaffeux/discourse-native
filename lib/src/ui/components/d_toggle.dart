@@ -218,9 +218,13 @@ class _DToggleState extends State<DToggle> {
     final visualDimension = DControlStyle.scaledHeight(
       widget.size,
       MediaQuery.textScalerOf(context),
+      context: context,
     );
-    final iconDimension = DToggle.iconDimensionFor(widget.size);
-    final fontSize = DToggle.fontSizeFor(widget.size);
+    final iconDimension = DControlStyle.iconDimension(
+      widget.size,
+      context: context,
+    );
+    final fontSize = DControlStyle.fontSize(widget.size, context: context);
     final touch = switch (theme.platform) {
       TargetPlatform.android ||
       TargetPlatform.iOS ||
@@ -282,7 +286,9 @@ class _DToggleState extends State<DToggle> {
             style: theme.textTheme.labelLarge?.copyWith(
               color: tokens.foreground,
               fontSize: fontSize,
-              height: DControlStyle.lineHeight(widget.size) / fontSize,
+              height:
+                  DControlStyle.lineHeight(widget.size, context: context) /
+                  fontSize,
               fontWeight: FontWeight.w500,
               letterSpacing: 0,
             ),

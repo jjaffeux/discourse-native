@@ -88,6 +88,7 @@ class TopicHeaderTags extends StatelessWidget {
             : DControlStyle.scaledHeight(
                 DControlSize.large,
                 MediaQuery.textScalerOf(context),
+                context: context,
               );
         // The overflow editor keeps editing available in narrow readers.
         final showEdit =
