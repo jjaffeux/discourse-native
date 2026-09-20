@@ -101,7 +101,7 @@ class _GlobalSearchPanelState extends State<GlobalSearchPanel> {
                           );
                           final scopes = DScrollArea(
                             axes: DScrollAxes.horizontal,
-                            thumbVisibility: false,
+                            showScrollbar: false,
                             child: Row(
                               spacing: DSpacing.controlGap,
                               children: [
