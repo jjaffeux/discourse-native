@@ -184,9 +184,8 @@ final class PluginComposerSubmitPreparation {
   const PluginComposerSubmitPreparation.proceed({this.changed = false})
     : failure = null;
 
-  const PluginComposerSubmitPreparation.failed(this.failure)
-    : assert(failure != null),
-      changed = false;
+  const PluginComposerSubmitPreparation.failed(WriteException this.failure)
+    : changed = false;
 
   final bool changed;
   final WriteException? failure;

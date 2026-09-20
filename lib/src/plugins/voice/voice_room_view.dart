@@ -706,7 +706,7 @@ class _ParticipantTileState extends State<_ParticipantTile> {
                   alignment: Alignment.topRight,
                   child: Builder(
                     builder: (menuContext) {
-                      void onSelect(Object? action) async {
+                      Future<void> onSelect(Object? action) async {
                         if (action == 'kick') {
                           await controller.kick(participant.id);
                         }
