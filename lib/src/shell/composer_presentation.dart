@@ -453,7 +453,7 @@ class _ComposerDockState extends State<ComposerDock> {
             ],
           );
         }
-        if (placement == ComposerPlacement.fullScreen) {
+        if (mobile || placement == ComposerPlacement.fullScreen) {
           return Stack(
             fit: StackFit.expand,
             children: [

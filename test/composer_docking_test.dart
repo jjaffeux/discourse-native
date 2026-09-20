@@ -199,6 +199,11 @@ void main() {
       expect(find.byKey(const ValueKey('composer-discard')), findsNothing);
       composer.text.text = 'A saved topic draft with edits';
       await tester.pump();
+      if (mobile) {
+        await tester.tap(find.byKey(const ValueKey('composer-mobile-options')));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 300));
+      }
       await tester.tap(cancel);
       // Autosave stays pending while the prompt is open; its spinner keeps
       // animating, so wait for the dialog rather than all scheduled frames.
@@ -212,6 +217,11 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 300));
       expect(composer.raw, 'A saved topic draft with edits');
+      if (mobile) {
+        await tester.tap(find.byKey(const ValueKey('composer-mobile-options')));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 300));
+      }
       await tester.tap(cancel);
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 300));
@@ -445,7 +455,24 @@ void main() {
       addTearDown(tester.view.resetViewInsets);
       await tester.pumpAndSettle();
       final frame = tester.getRect(find.byType(ComposerPanel));
-      expect(frame.width, 390);
+      expect(frame, const Rect.fromLTWH(0, 0, 390, 470));
+      final submit = tester.getRect(
+        find.byKey(const ValueKey('composer-submit')),
+      );
+      final title = tester.getRect(
+        find.byKey(const ValueKey('composer-topic-title')),
+      );
+      final taxonomy = tester.getRect(
+        find.byKey(const ValueKey('composer-category-action')),
+      );
+      final toolbar = tester.getRect(
+        find.byKey(const ValueKey('composer-toolbar-scroll')),
+      );
+      expect(submit.bottom, lessThanOrEqualTo(title.top));
+      expect(taxonomy.top, greaterThan(title.bottom));
+      expect(taxonomy.bottom, lessThanOrEqualTo(toolbar.top));
+      expect(find.text('Create topic'), findsNothing);
+      expect(find.text('Discard'), findsNothing);
       expect(
         tester.getRect(find.byKey(const ValueKey('composer-submit'))).bottom,
         lessThanOrEqualTo(470),
@@ -459,6 +486,50 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
+  testWidgets('mobile keyboard and minimize preserve the draft and editor', (
+    tester,
+  ) async {
+    final harness = await _Harness.create(
+      tester,
+      mobile: true,
+      size: const Size(390, 800),
+    );
+    final composer = harness.shell.visibleComposer!;
+    final editor = tester.state(find.byType(ComposerEditor));
+    final submit = find.byKey(const ValueKey('composer-submit'));
+    expect(tester.widget<DButton>(submit).onPressed, isNull);
+    composer.title.text = 'A topic with enough title text';
+    composer.text.value = const TextEditingValue(
+      text: 'A draft that survives keyboard changes.',
+      selection: TextSelection.collapsed(offset: 7),
+    );
+    await tester.pumpAndSettle();
+    expect(tester.widget<DButton>(submit).onPressed, isNotNull);
+    addTearDown(tester.view.resetViewInsets);
+    for (final inset in [330.0, 0.0]) {
+      tester.view.viewInsets = FakeViewPadding(
+        bottom: inset * tester.view.devicePixelRatio,
+      );
+      await tester.pumpAndSettle();
+      expect(tester.getSize(find.byType(ComposerPanel)).height, 800 - inset);
+      expect(tester.state(find.byType(ComposerEditor)), same(editor));
+      expect(composer.text.selection.extentOffset, 7);
+    }
+    await tester.tap(find.byKey(const ValueKey('composer-mobile-options')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Minimize composer'));
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const ValueKey('reader-list')).hitTestable(),
+      findsOneWidget,
+    );
+    await tester.tap(find.byKey(const ValueKey('composer-restore')));
+    await tester.pumpAndSettle();
+    expect(tester.state(find.byType(ComposerEditor)), same(editor));
+    expect(composer.raw, 'A draft that survives keyboard changes.');
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets(
     'large text and a short keyboard viewport keep editing and submission reachable',
     (tester) async {

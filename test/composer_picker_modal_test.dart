@@ -190,7 +190,7 @@ void main() {
     await tester.pump(const Duration(seconds: 2));
   });
 
-  testWidgets('long taxonomy values wrap into reachable controls at 320px', (
+  testWidgets('long taxonomy values scroll into reachable controls at 320px', (
     tester,
   ) async {
     tester.view.physicalSize = const Size(320, 700);
@@ -222,13 +222,13 @@ void main() {
     final tagsBounds = tester.getRect(
       find.byKey(const ValueKey('composer-add-tag')),
     );
-    expect(tagsBounds.top, greaterThan(categoryBounds.bottom));
+    expect(tagsBounds.top, categoryBounds.top);
     expect(categoryBounds.right, lessThanOrEqualTo(304));
-    expect(tagsBounds.right, lessThanOrEqualTo(304));
+    expect(tagsBounds.width, lessThanOrEqualTo(288));
     expect(categoryBounds.height, greaterThanOrEqualTo(44));
     expect(tagsBounds.height, greaterThanOrEqualTo(44));
     for (final action in [
-      find.byKey(const ValueKey('composer-cancel')),
+      find.byKey(const ValueKey('composer-mobile-options')),
       find.byTooltip('Create topic'),
     ]) {
       expect(action.hitTestable(), findsOneWidget);
@@ -237,6 +237,10 @@ void main() {
     expect(tester.takeException(), isNull);
 
     await tester.pump();
+    await Scrollable.ensureVisible(
+      tester.element(find.byKey(const ValueKey('composer-add-tag'))),
+    );
+    await tester.pumpAndSettle();
     await open(tester, const ValueKey('composer-add-tag'));
     expect(find.byType(DComboboxContent), findsOneWidget);
     expect(find.byType(DDrawerContent), findsNothing);
@@ -564,7 +568,7 @@ void main() {
   });
 
   testWidgets(
-    'subcategory controls wrap and stay reachable on a narrow composer',
+    'subcategory controls scroll and stay reachable on a narrow composer',
     (tester) async {
       tester.view.physicalSize = const Size(320, 800);
       tester.view.devicePixelRatio = 1;
@@ -595,8 +599,10 @@ void main() {
       await tester.pump();
       for (final name in ['category', 'subcategory']) {
         final control = find.byKey(ValueKey('composer-$name-action'));
+        await Scrollable.ensureVisible(tester.element(control));
+        await tester.pumpAndSettle();
         expect(control.hitTestable(), findsOneWidget);
-        expect(tester.getRect(control).right, lessThanOrEqualTo(304));
+        expect(tester.getRect(control).right, lessThanOrEqualTo(320));
       }
       await open(tester, const ValueKey('composer-subcategory-action'));
       final popup = tester.getRect(find.byType(DComboboxContent));
