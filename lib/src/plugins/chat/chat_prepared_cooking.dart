@@ -12,7 +12,7 @@ import 'chat_cooking_coordinator.dart';
 ///
 /// Context and snapshots are assembled only after scheduler admission. The
 /// caller owns message authority and revision checks for submissions. This
-/// object owns the supplied [scheduler], including its synchronous disposal.
+/// object owns the supplied `scheduler`, including its synchronous disposal.
 final class ChatPreparedCooking {
   ChatPreparedCooking({
     required PluginCookingHost host,

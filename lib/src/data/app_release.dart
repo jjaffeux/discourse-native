@@ -11,7 +11,7 @@ abstract final class AppRelease {
   /// preference, because a user opting into canary needs that choice to exist
   /// before any canary binary carries it, and a user going back to stable has
   /// to stay on stable across the relaunch where the running binary still says
-  /// canary. See [UpdateController.load].
+  /// canary. See `UpdateController.load`.
   static const String buildChannel = String.fromEnvironment(
     'DISCOURSE_NATIVE_CHANNEL',
     defaultValue: 'stable',

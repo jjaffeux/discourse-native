@@ -2163,8 +2163,8 @@ class _DDrawerSwipeAreaState<T> extends State<DDrawerSwipeArea<T>> {
 
 /// Explicit keyboard-inset composition boundary.
 ///
-/// Flutter's route receives live [MediaQuery.viewInsets]; descendants can read
-/// the same inset without a second keyboard observer.
+/// Flutter's route receives live [MediaQueryData.viewInsets]; descendants can
+/// read the same inset without a second keyboard observer.
 class DDrawerVirtualKeyboardProvider extends StatelessWidget {
   const DDrawerVirtualKeyboardProvider({super.key, required this.child});
   final Widget child;
