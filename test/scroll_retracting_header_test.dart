@@ -70,19 +70,63 @@ void main() {
     await _wheel(tester, 160);
     await tester.pump(const Duration(milliseconds: 80));
     expect(tester.getTopLeft(body).dy, inExclusiveRange(0, 80));
-    await _wheel(tester, -30);
+    await _wheel(tester, -100);
     await tester.pumpAndSettle();
     expect(tester.getTopLeft(body).dy, 80);
-    expect(controller.offset, 130);
+    expect(controller.offset, 60);
     await _wheel(tester, 100);
     await tester.pumpAndSettle();
     expect(tester.getTopLeft(body).dy, 0);
     expect(find.byKey(_header).hitTestable(), findsNothing);
     expect(tester.element(body), same(element));
-    await _wheel(tester, -15);
+    await _wheel(tester, -100);
     await tester.pumpAndSettle();
     expect(find.byKey(_header).hitTestable(), findsOneWidget);
-    expect(controller.offset, 215);
+    expect(controller.offset, 60);
+  });
+
+  testWidgets(
+    'upward wheel distance accumulates to 100px and resets on reversal',
+    (tester) async {
+      await _mount(tester);
+      final body = find.byKey(_body);
+      await _wheel(tester, 400);
+      await tester.pumpAndSettle();
+      for (final delta in [-40.0, -59.0]) {
+        await _wheel(tester, delta);
+        await tester.pumpAndSettle();
+        expect(tester.getTopLeft(body).dy, 0);
+      }
+      await _wheel(tester, 10);
+      await _wheel(tester, -1);
+      await tester.pumpAndSettle();
+      expect(tester.getTopLeft(body).dy, 0);
+      await _wheel(tester, -98);
+      await tester.pumpAndSettle();
+      expect(tester.getTopLeft(body).dy, 0);
+      await _wheel(tester, -1);
+      await tester.pumpAndSettle();
+      expect(tester.getTopLeft(body).dy, 80);
+    },
+  );
+
+  testWidgets('reaching the top reveals before 100px of upward scrolling', (
+    tester,
+  ) async {
+    final controller = ScrollController();
+    addTearDown(controller.dispose);
+    await _mount(tester, controller: controller);
+    final body = find.byKey(_body);
+    await _wheel(tester, 60);
+    await tester.pumpAndSettle();
+    await _wheel(tester, -59);
+    await tester.pumpAndSettle();
+    expect(controller.offset, 1);
+    expect(tester.getTopLeft(body).dy, 0);
+    await _wheel(tester, -1);
+    await tester.pumpAndSettle();
+    expect(controller.offset, 0);
+    expect(tester.getTopLeft(body).dy, 80);
   });
 
   testWidgets('restoration does not hide and tiny wheel deltas accumulate', (
@@ -124,7 +168,7 @@ void main() {
     await _mount(tester, reducedMotion: true);
     await _wheel(tester, 100);
     expect(tester.getTopLeft(find.byKey(_body)).dy, 0);
-    await _wheel(tester, -20);
+    await _wheel(tester, -100);
     expect(tester.getTopLeft(find.byKey(_body)).dy, 80);
   });
 
