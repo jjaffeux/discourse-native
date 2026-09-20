@@ -1945,37 +1945,76 @@ void main() {
       });
     }
 
-    testWidgets('a touch long press opens the message actions sheet', (
-      tester,
-    ) async {
-      final message = _message(_thread());
-      final controller = await _controller(message);
-      final replies = <ChatMessage>[];
-      addTearDown(controller.dispose);
+    for (final platform in [TargetPlatform.android, TargetPlatform.iOS]) {
+      testWidgets(
+        '$platform long press highlights and haptically confirms message actions',
+        (tester) async {
+          final message = _message(_thread());
+          final controller = await _controller(message);
+          final replies = <ChatMessage>[];
+          final haptics = <Object?>[];
+          addTearDown(controller.dispose);
+          tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+            SystemChannels.platform,
+            (call) async {
+              if (call.method == 'HapticFeedback.vibrate') {
+                haptics.add(call.arguments);
+              }
+              return null;
+            },
+          );
+          addTearDown(
+            () => tester.binding.defaultBinaryMessenger
+                .setMockMethodCallHandler(SystemChannels.platform, null),
+          );
 
-      await tester.pumpWidget(
-        _TestTile(
-          controller: controller,
-          onOpenThread: (_) {},
-          onReply: replies.add,
-          platform: TargetPlatform.android,
-        ),
+          await tester.pumpWidget(
+            _TestTile(
+              controller: controller,
+              onOpenThread: (_) {},
+              onReply: replies.add,
+              platform: platform,
+            ),
+          );
+          await tester.pumpAndSettle();
+          final surface = find.byType(DMessageSurface);
+          Color background() => tester
+              .widget<ColoredBox>(
+                find
+                    .descendant(of: surface, matching: find.byType(ColoredBox))
+                    .first,
+              )
+              .color;
+          final restingBackground = background();
+
+          await tester.longPress(find.byKey(_messageTileKey));
+          await tester.pump();
+          expect(background(), isNot(restingBackground));
+          expect(haptics, ['HapticFeedbackType.lightImpact']);
+          await tester.pumpAndSettle();
+          expect(background(), isNot(restingBackground));
+          expect(find.byType(DSheetContent), findsOneWidget);
+
+          await tester.tap(find.text('Reply'));
+          await tester.pumpAndSettle();
+          expect(replies, [same(message)]);
+          expect(find.byType(DSheetContent), findsNothing);
+          expect(background(), restingBackground);
+
+          await tester.longPress(find.byKey(_messageTileKey));
+          await tester.pumpAndSettle();
+          expect(background(), isNot(restingBackground));
+          await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+          await tester.pumpAndSettle();
+          expect(find.byType(DSheetContent), findsNothing);
+          expect(background(), restingBackground);
+          expect(haptics, [
+            'HapticFeedbackType.lightImpact',
+            'HapticFeedbackType.lightImpact',
+          ]);
+        },
       );
-      await tester.pumpAndSettle();
-
-      await tester.longPress(find.byKey(_messageTileKey));
-      await tester.pumpAndSettle();
-
-      expect(find.byType(DSheetContent), findsOneWidget);
-      final action = find.text('Reply');
-      expect(action, findsOneWidget);
-
-      await tester.tap(action);
-      await tester.pumpAndSettle();
-
-      expect(replies, [same(message)]);
-      expect(find.byType(DSheetContent), findsNothing);
-    });
+    }
 
     testWidgets('a desktop long press does not open message actions', (
       tester,

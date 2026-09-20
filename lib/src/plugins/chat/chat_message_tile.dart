@@ -275,6 +275,7 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
   bool _hoverSuppressed = false;
   bool _pointerInside = false;
   bool _moreActionsOpen = false;
+  bool _sheetOpen = false;
   bool _pinning = false;
   bool _rebaking = false;
   bool _restoring = false;
@@ -686,6 +687,7 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
     if (context.isTouch) {
       return DSheet<void>(
         controller: _sheet,
+        onOpenChanged: (details) => setState(() => _sheetOpen = details.open),
         onOpenChangeComplete: (open) {
           if (open) return;
           final action = _pendingSheetAction;
@@ -892,7 +894,12 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
               onExit: (_) => _pointerExited(),
               child: GestureDetector(
                 behavior: HitTestBehavior.translucent,
-                onLongPress: context.isTouch ? () => _sheet.open() : null,
+                onLongPress: context.isTouch
+                    ? () {
+                        unawaited(HapticFeedback.lightImpact());
+                        _sheet.open();
+                      }
+                    : null,
                 onSecondaryTap: () => context.isTouch
                     ? _sheet.open()
                     : _dropdown.open(DPopoverInteraction.mouse),
@@ -918,8 +925,10 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
       canPin: canPin,
       canRebake: canRebake,
       flagTypes: flagTypes,
-      childBuilder: (trigger) =>
-          DMessageSurface(hovered: _hovered, child: messageRow(trigger)),
+      childBuilder: (trigger) => DMessageSurface(
+        hovered: _hovered || _sheetOpen,
+        child: messageRow(trigger),
+      ),
     );
   }
 }
