@@ -172,7 +172,7 @@ void main() {
   });
 
   _mobileTest(
-    'home has rail, bell and desktop logo actions; search is a sheet',
+    'home has rail, bell and desktop logo actions; search is a dedicated page',
     (tester) async {
       await _pumpMobile(tester);
       expect(_bar, findsOneWidget);
@@ -196,13 +196,39 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('mobile-search-button')));
       await tester.pumpAndSettle();
-      expect(find.byType(DSheetContent), findsOneWidget);
+      expect(find.byType(DSheetContent), findsNothing);
+      expect(_bar, findsNothing);
+      final route = ModalRoute.of(
+        tester.element(find.byKey(ForumSearch.inputKey)),
+      )!;
+      expect(route, isA<PageRoute<void>>());
+      expect(route.settings.name, '/search');
       expect(find.byKey(ForumSearch.inputKey), findsOneWidget);
+      expect(route.opaque, isTrue);
+      final fullHeight = tester
+          .getSize(find.byKey(ForumSearch.panelKey))
+          .height;
+      tester.view.viewInsets = const FakeViewPadding(bottom: 300);
+      await tester.pumpAndSettle();
+      expect(
+        tester.getSize(find.byKey(ForumSearch.panelKey)).height,
+        lessThan(fullHeight),
+      );
+      expect(tester.takeException(), isNull);
+      tester.view.resetViewInsets();
+      await tester.pumpAndSettle();
       await tester.enterText(find.byKey(ForumSearch.inputKey), 'test');
       await tester.pump(const Duration(milliseconds: 400));
-      await tester.tap(find.byKey(const ValueKey('mobile-search-close')));
+      await tester.tap(find.byKey(const ValueKey('mobile-search-back')));
       await tester.pumpAndSettle();
       expect(find.byType(DSheetContent), findsNothing);
+      expect(_bar, findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('mobile-search-button')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(ForumSearch.inputKey), findsOneWidget);
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+      expect(find.byKey(ForumSearch.inputKey), findsNothing);
       expect(_bar, findsOneWidget);
       expect(tester.takeException(), isNull);
     },
@@ -399,7 +425,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byKey(ForumSearch.inputKey), findsOneWidget);
     expect(tester.takeException(), isNull);
-    await tester.tap(find.byKey(const ValueKey('mobile-search-close')));
+    await tester.tap(find.byKey(const ValueKey('mobile-search-back')));
     await tester.pumpAndSettle();
     expect(_bar, findsOneWidget);
   });

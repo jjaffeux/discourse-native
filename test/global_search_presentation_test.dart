@@ -761,7 +761,7 @@ void main() {
           case 'outside':
             await tester.tapAt(const Offset(1400, 850));
           case 'back':
-            await tester.tap(find.byKey(const ValueKey('mobile-search-close')));
+            await tester.tap(find.byKey(const ValueKey('mobile-search-back')));
           case 'result':
             await tester.ensureVisible(
               _panelText('The search design is ready for a keyboard review.'),

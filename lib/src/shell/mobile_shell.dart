@@ -67,7 +67,7 @@ class MobileForumRoot extends StatelessWidget {
                       compact: true,
                     ),
                   ),
-                  const ForumSearch(sheet: true),
+                  const ForumSearch(fullScreen: true),
                   const UserMenuButton(),
                 ],
               ),
