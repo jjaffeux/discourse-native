@@ -147,14 +147,17 @@ class _ForumTabsBarState extends State<ForumTabsBar> {
                           scaler,
                           context: context,
                         );
-                        // Reserve only the active tab's close action, then share
-                        // the remaining label budget across all open tabs.
+                        // Reserve the active tab's close action and outer
+                        // insets before sharing the remaining width. Otherwise
+                        // crowded tabs can squeeze the close button past its row.
+                        final selectedWidth =
+                            closeWidth + 2 * ForumTabsBar._tabContentInset;
                         final labelWidth = math.max(
                           0.0,
                           (constraints.maxWidth -
                                   (widget.showAdd ? addWidth + 4 : 0) -
                                   _tabGap * (widget.items.length - 1) -
-                                  closeWidth) /
+                                  selectedWidth) /
                               widget.items.length,
                         );
                         return Row(
@@ -181,7 +184,7 @@ class _ForumTabsBarState extends State<ForumTabsBar> {
                                             labelWidth +
                                                 (widget.items[index].id ==
                                                         widget.selectedId
-                                                    ? closeWidth
+                                                    ? selectedWidth
                                                     : 0),
                                           ),
                                         ),
