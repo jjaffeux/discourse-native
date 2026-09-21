@@ -1998,6 +1998,14 @@ bytes arrived. A day separator sits above each calendar day, in the reader's
 days rather than the site's; a run of deleted messages — which only a moderator
 is ever sent — collapses into one row.
 
+A confirmed rate-limit refusal retains the outgoing message and exposes Retry
+after the server-advertised cooldown. The send coordinator owns this wait and
+the original payload, so retrying a channel or thread message cannot consume a
+newer composer draft. Permissions are checked again before sending, and live
+canonical messages reconcile into the same row. Uncertain network failures do
+not offer retry: Discourse's staged ID correlates live events but is not a
+server idempotency key.
+
 **Uploads are not in `cooked`.** `Chat::Message#cook` cooks the raw `message`
 and not `to_markdown`, so unlike a post, where Discourse bakes images into the
 HTML with the lightbox markup around them, a chat message's attachments are only

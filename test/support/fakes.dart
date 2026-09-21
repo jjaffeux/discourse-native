@@ -1250,8 +1250,8 @@ class FakeDiscourseApi
 
   final List<({int channelId, int messageId})> chatReadsMarked = [];
 
-  final WriteException? chatSendFailure;
-  final Completer<void>? chatSendGate;
+  WriteException? chatSendFailure;
+  Completer<void>? chatSendGate;
   final int? chatSentMessageId;
   final ComposerUploadResult? composerUploadResult;
   final List<({String siteUrl, String filename, ComposerUploadType uploadType})>

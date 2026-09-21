@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:math';
 
 import 'package:discourse_native/src/data/discourse_api.dart';
+import 'package:discourse_native/src/data/origin_cooldown.dart';
 import 'package:discourse_native/src/data/site_lifecycle.dart';
 import 'package:discourse_native/src/data/site_tracker.dart';
 import 'package:discourse_native/src/data/store.dart';
@@ -20,6 +21,7 @@ import 'package:discourse_native/src/plugins/chat/chat_pin.dart';
 import 'package:discourse_native/src/plugins/chat/chat_plugin_data.dart';
 import 'package:discourse_native/src/plugins/chat/chat_preview.dart';
 import 'package:discourse_native/src/plugins/chat/chat_reactors.dart';
+import 'package:discourse_native/src/plugins/chat/chat_send_coordinator.dart';
 import 'package:discourse_native/src/plugins/chat/chat_stream.dart';
 import 'package:discourse_native/src/plugins/chat/chat_stream_target.dart';
 import 'package:discourse_native/src/plugins/chat/chat_thread.dart';
@@ -28,6 +30,7 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
 import 'support/fakes.dart';
+import 'support/manual_scheduler.dart';
 
 const String site = 'https://meta.discourse.org';
 const String other = 'https://other.example';
@@ -145,6 +148,7 @@ ChatChannel channel(
 
 ({ChatController chat, FakeDiscourseApi api, Store store}) build({
   FakeDiscourseApi? api,
+  ChatSendCoordinatorFactory? sendCoordinatorFactory,
   Map<String, ChatChannels> channels = const {},
   Map<int, ChatChannel> channelDetails = const {},
   Map<String, ChatChannel> directMessageChannels = const {},
@@ -263,6 +267,7 @@ ChatChannel channel(
   return (
     chat: ChatController(
       api: api,
+      sendCoordinatorFactory: sendCoordinatorFactory,
       requests: FakePluginRequestHost(
         credentials: credentials,
         lifecycle: lifecycle,
@@ -3744,6 +3749,229 @@ void main() {
   });
 
   group('sending a message', () {
+    test('cooldown expiry notifies only the failed message row', () async {
+      final scheduler = ManualScheduler();
+      final api = FakeDiscourseApi(
+        chatSendFailure: const WriteException(
+          WriteFailure.rateLimited,
+          retryAfter: Duration(seconds: 30),
+        ),
+      );
+      final credentials = FakeApiCredentialReader()..keys[site] = 'key';
+      final subject = build(
+        api: api,
+        sendCoordinatorFactory: (host) => DefaultChatSendCoordinator(
+          api: api,
+          requests: FakePluginRequestHost(credentials: credentials),
+          host: host,
+          cooldownFactory: () => OriginCooldown(
+            clock: scheduler.now,
+            timerFactory: scheduler.createTimer,
+          ),
+        ),
+      );
+      addTearDown(subject.chat.dispose);
+      final send = subject.chat.sendMessage(
+        site,
+        9,
+        OutgoingChatMessage.text('hello'),
+      )!;
+      await send.settled;
+      final row = subject.chat.messageRef(site, send.localId);
+      var rowNotifications = 0;
+      var controllerNotifications = 0;
+      void rowChanged() => rowNotifications++;
+      void controllerChanged() => controllerNotifications++;
+      row.addListener(rowChanged);
+      subject.chat.addListener(controllerChanged);
+      addTearDown(() {
+        row.removeListener(rowChanged);
+        subject.chat.removeListener(controllerChanged);
+      });
+      expect(row.value?.retryWaiting, isTrue);
+      scheduler.advance(const Duration(seconds: 30));
+      expect(row.value?.retryWaiting, isFalse);
+      expect(rowNotifications, 1);
+      expect(controllerNotifications, 0);
+      expect(api.chatMessagesSent, hasLength(1));
+    });
+
+    for (final target in <ChatStreamTarget>[
+      const ChatChannelTarget(9),
+      const ChatThreadTarget(channelId: 9, threadId: 31),
+    ]) {
+      for (final eventFirst in [true, false]) {
+        test(
+          'rate-limited ${target.storageKey} retry reconciles once with eventFirst=$eventFirst',
+          () async {
+            final subject = build(
+              currentUser: currentUser,
+              sendFailure: const WriteException(
+                WriteFailure.rateLimited,
+                retryAfter: Duration.zero,
+              ),
+              sentMessageId: 42,
+            );
+            addTearDown(subject.chat.dispose);
+            subject.store.put(site, channel(9, threadingEnabled: true));
+            subject.store.put(
+              site,
+              const ChatThread(
+                id: 31,
+                channelId: 9,
+                status: 'open',
+                replyCount: 0,
+              ),
+            );
+            final tracker = attachTracker(subject.chat);
+            final first = subject.chat.sendMessageTo(
+              site,
+              target,
+              OutgoingChatMessage.text('hello chat'),
+            )!;
+            expect(await first.settled, ChatSendResult.failed);
+            final failed = subject.store.read<ChatMessage>(
+              site,
+              first.localId,
+            )!;
+            expect(failed.sendFailure?.failure, WriteFailure.rateLimited);
+            expect(failed.optimisticRaw, 'hello chat');
+            final gate = Completer<void>();
+            subject.api.chatSendFailure = null;
+            subject.api.chatSendGate = gate;
+            final retry = subject.chat.retryMessage(
+              site,
+              target,
+              first.stagedId,
+            )!;
+            expect(
+              subject.chat.retryMessage(site, target, first.stagedId),
+              isNull,
+            );
+            await Future<void>.delayed(Duration.zero);
+            final event = sentEvent(stagedId: first.stagedId);
+            if (target.threadId != null) {
+              (event['chat_message'] as Map<String, dynamic>)['thread_id'] =
+                  target.threadId;
+            }
+            final path = target.threadId == null
+                ? '/chat/9'
+                : '/chat/9/thread/31';
+            if (eventFirst) tracker.deliverPluginMessage(path, event);
+            gate.complete();
+            expect(await retry.settled, ChatSendResult.sent);
+            if (!eventFirst) tracker.deliverPluginMessage(path, event);
+            tracker.deliverPluginMessage(path, event);
+            final rows = subject.chat.messagesFor(site, target);
+            expect(rows, hasLength(1));
+            expect(rows.single.serverId, 42);
+            expect(rows.single.canonicalReceived, isTrue);
+            expect(rows.single.sendFailure, isNull);
+            expect(subject.api.chatMessagesSent, hasLength(2));
+          },
+        );
+      }
+    }
+
+    test(
+      'late canonical arrival cancels a retry waiting for credentials',
+      () async {
+        final credentials = _ControllableCredentials();
+        final subject = build(
+          currentUser: currentUser,
+          credentialReader: credentials,
+          sendFailure: const WriteException(
+            WriteFailure.rateLimited,
+            retryAfter: Duration.zero,
+          ),
+        );
+        addTearDown(subject.chat.dispose);
+        final tracker = attachTracker(subject.chat);
+        final first = subject.chat.sendMessage(
+          site,
+          9,
+          OutgoingChatMessage.text('hello chat'),
+        )!;
+        await first.settled;
+        final started = credentials.blockApiKey();
+        final retry = subject.chat.retryMessage(
+          site,
+          const ChatChannelTarget(9),
+          first.stagedId,
+        )!;
+        await started;
+        tracker.deliverPluginMessage(
+          '/chat/9',
+          sentEvent(stagedId: first.stagedId),
+        );
+        credentials.releaseApiKey();
+        expect(await retry.settled, ChatSendResult.sent);
+        expect(subject.api.chatMessagesSent, hasLength(1));
+        expect(subject.chat.messages(site, 9), hasLength(1));
+      },
+    );
+
+    for (final silenced in [true, false]) {
+      test(
+        'retry rechecks ${silenced ? "silence" : "channel status"} after credentials',
+        () async {
+          final credentials = _ControllableCredentials();
+          final subject = build(
+            currentUser: currentUser,
+            credentialReader: credentials,
+            sendFailure: const WriteException(
+              WriteFailure.rateLimited,
+              retryAfter: Duration.zero,
+            ),
+          );
+          addTearDown(subject.chat.dispose);
+          final first = subject.chat.sendMessage(
+            site,
+            9,
+            OutgoingChatMessage.text('hello chat'),
+          )!;
+          await first.settled;
+          final started = credentials.blockApiKey();
+          final retry = subject.chat.retryMessage(
+            site,
+            const ChatChannelTarget(9),
+            first.stagedId,
+          )!;
+          await started;
+          subject.store.put(
+            site,
+            ChatChannel(
+              id: 9,
+              title: 'design',
+              kind: ChatChannelKind.category,
+              userSilenced: silenced,
+              status: silenced
+                  ? ChatChannelStatus.open
+                  : ChatChannelStatus.readOnly,
+            ),
+          );
+          credentials.releaseApiKey();
+          expect(await retry.settled, ChatSendResult.failed);
+          expect(subject.api.chatMessagesSent, hasLength(1));
+          expect(
+            subject.store
+                .read<ChatMessage>(site, first.localId)
+                ?.sendFailure
+                ?.failure,
+            WriteFailure.forbidden,
+          );
+          expect(
+            subject.chat.retryMessage(
+              site,
+              const ChatChannelTarget(9),
+              first.stagedId,
+            ),
+            isNull,
+          );
+        },
+      );
+    }
+
     test(
       "groups a staged row with the current user's latest message immediately",
       () async {
