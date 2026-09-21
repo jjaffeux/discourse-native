@@ -145,7 +145,15 @@ void main() {
         final footer = tester.widget<Container>(
           find.byKey(const ValueKey('composer-footer')),
         );
-        expect((footer.decoration! as BoxDecoration).color, background);
+        expect((footer.decoration! as BoxDecoration).color, Colors.transparent);
+        expect(
+          tester
+              .widget<CustomScrollView>(
+                find.byKey(const ValueKey('composer-mobile-scroll')),
+              )
+              .clipBehavior,
+          Clip.none,
+        );
 
         expect(
           tester.getRect(find.byType(ComposerPanel)).bottom,
