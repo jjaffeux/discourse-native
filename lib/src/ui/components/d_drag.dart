@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart' show PointerDeviceKind;
 import 'package:flutter/material.dart';
 
 import '../foundation/tokens.dart';
@@ -37,7 +38,31 @@ class DDragHandle<T extends Object> extends StatefulWidget {
 
 class _DDragHandleState<T extends Object> extends State<DDragHandle<T>> {
   int? _pressedPointer;
+  bool _pointerHasCursor = false;
   bool _dragging = false;
+  OverlayEntry? _cursorOverlay;
+
+  void _startDrag() {
+    if (_pointerHasCursor) {
+      // A moving feedback region trails pointer events until the next frame.
+      // Cover the window so its cursor stays stable between frames, while
+      // non-opaque hit testing still reaches every drop target underneath.
+      _cursorOverlay = OverlayEntry(
+        builder: (_) => const Positioned.fill(
+          child: ExcludeSemantics(
+            child: MouseRegion(
+              cursor: SystemMouseCursors.grabbing,
+              opaque: false,
+              child: SizedBox.expand(),
+            ),
+          ),
+        ),
+      );
+      Overlay.of(context, rootOverlay: true).insert(_cursorOverlay!);
+    }
+    setState(() => _dragging = true);
+    widget.onDragStarted?.call();
+  }
 
   void _release() {
     if (mounted && _pressedPointer != null) {
@@ -47,6 +72,11 @@ class _DDragHandleState<T extends Object> extends State<DDragHandle<T>> {
 
   void _finishDrag() {
     // A source may scroll out of view before its drag avatar is released.
+    // Draggable calls this even after the handle unmounts, so keep the cursor
+    // overlay alive until that gesture ends rather than removing it in dispose.
+    _cursorOverlay?.remove();
+    _cursorOverlay?.dispose();
+    _cursorOverlay = null;
     if (mounted) {
       setState(() {
         _dragging = false;
@@ -75,6 +105,9 @@ class _DDragHandleState<T extends Object> extends State<DDragHandle<T>> {
       onPointerDown: (event) {
         if (widget.enabled && _pressedPointer == null) {
           setState(() => _pressedPointer = event.pointer);
+          _pointerHasCursor =
+              event.kind == PointerDeviceKind.mouse ||
+              event.kind == PointerDeviceKind.stylus;
         }
       },
       onPointerUp: (event) {
@@ -87,18 +120,8 @@ class _DDragHandleState<T extends Object> extends State<DDragHandle<T>> {
         data: widget.data,
         maxSimultaneousDrags: widget.enabled ? 1 : 0,
         dragAnchorStrategy: pointerDragAnchorStrategy,
-        // Keep the fist over text and outside the source, even if it unmounts.
-        // The transparent region lets hit testing reach the drop target below.
-        ignoringFeedbackPointer: false,
-        feedback: const MouseRegion(
-          cursor: SystemMouseCursors.grabbing,
-          opaque: false,
-          child: SizedBox(width: 1, height: 1),
-        ),
-        onDragStarted: () {
-          setState(() => _dragging = true);
-          widget.onDragStarted?.call();
-        },
+        feedback: const SizedBox.shrink(),
+        onDragStarted: _startDrag,
         onDragCompleted: _finishDrag,
         onDraggableCanceled: (_, _) => _finishDrag(),
         child: button,

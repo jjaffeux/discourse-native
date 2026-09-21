@@ -120,6 +120,11 @@ composer fixture was inspected in light/dark themes and at narrow RTL width;
 an embedded table was moved using each handle. The Native Drag styleguide was
 also inspected in light/dark themes and its right handle completed a drop.
 
+A follow-up cursor regression checks every pointer move before and after the
+next frame, including the cursor updates sent to the platform. A stationary,
+non-blocking window overlay retains the fist throughout a drag and is removed
+on drop or cancellation, even when scrolling has unmounted the source handle.
+
 ## Notion reference
 
 The original HTML concept used Notion's block model as an interaction reference.
