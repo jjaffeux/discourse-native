@@ -16,7 +16,7 @@ final dragExamples = ComponentExamples(
     StyleguideExample(
       title: 'Drag and tap',
       description:
-          'Drag either handle into the target, or activate it to place the block.',
+          'Drag the handle into the target, or activate it to place the block.',
       states: const ['Light', 'Dark', 'Touch', 'Keyboard', 'RTL'],
       code:
           'DDragHandle<int>(data: 1, label: "Move paragraph", onPressed: place)',
@@ -67,7 +67,6 @@ class _DragExampleState extends State<_DragExample> {
                   'A paragraph remains selectable while its handle moves.',
                 ),
               ),
-              _handle(),
             ],
           ),
         ],
