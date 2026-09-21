@@ -583,6 +583,10 @@ class _MobileComposerViewportState extends State<_MobileComposerViewport> {
           child: CustomScrollView(
             key: const ValueKey('composer-mobile-scroll'),
             controller: _scroll,
+            // Paint beneath the floating footer while keeping the viewport's
+            // reveal bounds above it, so the caret stays clear of the tools.
+            // The composer frame clips content at the keyboard boundary.
+            clipBehavior: Clip.none,
             slivers: [
               SliverPersistentHeader(
                 pinned: true,
@@ -3747,7 +3751,7 @@ class _Footer extends StatelessWidget {
       key: const ValueKey('composer-footer'),
       decoration: BoxDecoration(
         color: context.isTouch
-            ? theme.shell.content
+            ? Colors.transparent
             : _composerFooterColor(context),
         border: context.isTouch
             ? null
