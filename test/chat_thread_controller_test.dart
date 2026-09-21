@@ -119,10 +119,13 @@ ChatChannel followedChannel({
     lastReadMessageId: 10,
   ),
   ChatChannelStatus status = ChatChannelStatus.open,
+  ChatChannelKind kind = ChatChannelKind.category,
+  bool userSilenced = false,
 }) => ChatChannel(
   id: 9,
   title: 'Support',
-  kind: ChatChannelKind.category,
+  kind: kind,
+  userSilenced: userSilenced,
   membership: membership,
   status: status,
   threadingEnabled: threadingEnabled,
@@ -440,8 +443,9 @@ final class _SequencedThreadListApi extends FakeDiscourseApi {
   ChatApi api, {
   Store? store,
   DiscourseUser user = currentUser,
+  FakeApiCredentialReader? credentials,
 }) {
-  final credentials = FakeApiCredentialReader()..keys[site] = 'key';
+  credentials ??= FakeApiCredentialReader()..keys[site] = 'key';
   final resolvedStore = store ?? Store();
   final chat = ChatController(
     api: api,
@@ -1162,6 +1166,107 @@ void main() {
   );
 
   group('thread title permissions', () {
+    for (final kind in ChatChannelKind.values) {
+      for (final staff in [false, true]) {
+        test(
+          '${kind.name} ${staff ? "staff" : "author"} rename follows silence without changing closed-channel policy',
+          () async {
+            final detail = threadDetail(
+              originalAuthorId: staff ? 2 : currentUser.id!,
+            );
+            final api = _AdversarialThreadApi(detail: detail);
+            final store = Store()..put(site, detail);
+            final subject = _controllerFor(
+              api,
+              store: store,
+              user: DiscourseUser(id: 7, username: 'reader', staff: staff),
+            );
+            store.put(site, followedChannel(kind: kind, userSilenced: true));
+            expect(subject.chat.canEditThreadTitle(site, detail), isFalse);
+            expect(
+              await subject.chat.updateThreadTitle(site, target, 'Blocked'),
+              isFalse,
+            );
+            expect(api.chatThreadTitlesUpdated, isEmpty);
+            expect(subject.chat.thread(site, 22)?.title, isNull);
+
+            store.put(
+              site,
+              followedChannel(kind: kind, status: ChatChannelStatus.closed),
+            );
+            expect(subject.chat.canEditThreadTitle(site, detail), isTrue);
+            expect(
+              await subject.chat.updateThreadTitle(site, target, 'Allowed'),
+              isTrue,
+            );
+            expect(api.chatThreadTitlesUpdated, const [
+              (channelId: 9, threadId: 22, title: 'Allowed'),
+            ]);
+            expect(subject.chat.thread(site, 22)?.title, 'Allowed');
+          },
+        );
+
+        test(
+          '${kind.name} silenced ${staff ? "staff" : "author"} cannot restore or create threads',
+          () async {
+            final api = _AdversarialThreadApi(detail: threadDetail());
+            final message = ChatMessage(
+              id: 100,
+              channelId: 9,
+              cooked: '<p>Deleted</p>',
+              author: const ChatMessageAuthor(id: 7, username: 'reader'),
+              deletedAt: DateTime.utc(2026),
+              deletedById: 7,
+            );
+            final store = Store()
+              ..put(site, message)
+              ..put(site, followedChannel(kind: kind, userSilenced: true));
+            final subject = _controllerFor(
+              api,
+              store: store,
+              user: DiscourseUser(id: 7, username: 'reader', staff: staff),
+            );
+            expect(subject.chat.canRestoreMessage(site, message), isFalse);
+            expect(await subject.chat.restoreMessage(site, 100), isNotNull);
+            expect(
+              await subject.chat.createThread(
+                site,
+                channelId: 9,
+                originalMessageId: 100,
+              ),
+              isNull,
+            );
+            expect(api.chatMessagesRestored, isEmpty);
+            expect(api.chatThreadsCreated, isEmpty);
+          },
+        );
+      }
+    }
+
+    test(
+      'silence received during credential lookup prevents the rename request',
+      () async {
+        final detail = threadDetail(originalAuthorId: 7);
+        final api = _AdversarialThreadApi(detail: detail);
+        final credentials = _HeldTitleCredentials();
+        final store = Store()
+          ..put(site, detail)
+          ..put(site, followedChannel());
+        final subject = _controllerFor(
+          api,
+          store: store,
+          credentials: credentials,
+        );
+        final saving = subject.chat.updateThreadTitle(site, target, 'Blocked');
+        await credentials.started.future;
+        store.put(site, followedChannel(userSilenced: true));
+        credentials.key.complete('key');
+        expect(await saving, isFalse);
+        expect(api.chatThreadTitlesUpdated, isEmpty);
+        expect(subject.chat.thread(site, 22)?.title, isNull);
+      },
+    );
+
     test('the original author can update the title', () async {
       final api = _AdversarialThreadApi(
         detail: threadDetail(originalAuthorId: currentUser.id!),
@@ -1914,4 +2019,15 @@ void main() {
       expect(api.chatThreadsCreated, hasLength(1));
     },
   );
+}
+
+final class _HeldTitleCredentials extends FakeApiCredentialReader {
+  final started = Completer<void>();
+  final key = Completer<String?>();
+
+  @override
+  Future<String?> apiKeyFor(String siteUrl) {
+    started.complete();
+    return key.future;
+  }
 }

@@ -5415,12 +5415,13 @@ class ChatController extends FrameSafeNotifier {
     }
   }
 
-  /// Mirrors core's staff-or-original-author presentation gate; the server
-  /// remains authoritative.
+  /// Mirrors core's silence and staff-or-original-author presentation gates;
+  /// the server remains authoritative.
   bool canEditThreadTitle(String siteUrl, ChatThread? thread) {
     final user = _currentUserFor(siteUrl);
     final authorId = thread?.originalMessage?.author.id;
     return thread != null &&
+        channel(siteUrl, thread.channelId)?.userSilenced != true &&
         user != null &&
         (user.staff || (user.id != null && user.id == authorId));
   }
