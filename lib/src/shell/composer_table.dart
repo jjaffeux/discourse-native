@@ -108,16 +108,14 @@ final class _TableProjection implements ComposerInteractiveSyntaxProjection {
                 0,
                 double.infinity,
               ),
-              child: ComposerBlockSelection(
-                selected: context.highlighted,
-                // WidgetSpan scales the whole table with the surrounding text.
-                // Do not apply the inherited scaler again inside its controls.
-                child: MediaQuery.withNoTextScaling(
-                  child: ComposerTableEditor(
-                    key: context.pillKey,
-                    composer: composer,
-                    table: table,
-                  ),
+              // WidgetSpan scales the whole table with the surrounding text.
+              // Do not apply the inherited scaler again inside its controls.
+              child: MediaQuery.withNoTextScaling(
+                child: ComposerTableEditor(
+                  key: context.pillKey,
+                  composer: composer,
+                  table: table,
+                  selected: context.highlighted,
                 ),
               ),
             );
@@ -176,9 +174,11 @@ class ComposerTableEditor extends StatefulWidget {
     super.key,
     required this.composer,
     required this.table,
+    this.selected = false,
   });
   final ComposerController composer;
   final ComposerTableBlock table;
+  final bool selected;
 
   @override
   State<ComposerTableEditor> createState() => _ComposerTableEditorState();
@@ -203,6 +203,7 @@ class _ComposerTableEditorState extends State<ComposerTableEditor> {
   void didUpdateWidget(ComposerTableEditor oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.composer != widget.composer) _invalidateContent();
+    if (oldWidget.selected != widget.selected) _content = null;
     if (_table.source == widget.table.source &&
         _table.start == widget.table.start) {
       return;
@@ -585,60 +586,63 @@ class _ComposerTableEditorState extends State<ComposerTableEditor> {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        DDataTable<int>(
-          semanticLabel: 'Editable table',
-          variant: DDataTableVariant.softHeader,
-          data: _rows.skip(1).toList(),
-          rowId: (row) => row,
-          operationMode: DDataTableOperationMode.manual,
-          empty: const Text('Add a row to start writing.'),
-          columns: [
-            DDataTableColumn<int>(
-              id: 'row-actions',
-              cellContextMenuBuilder: widget.composer.isEditing
-                  ? (cell) => _rowContextMenu(_rows.indexOf(cell.row) - 1)
-                  : null,
-              label: 'Rows',
-              hideable: false,
-              width: const FixedColumnWidth(64),
-              cellBuilder: (_, cell) => _rowMenu(_rows.indexOf(cell.row) - 1),
-            ),
-            for (final (column, id) in _columns.indexed)
+        ComposerBlockSelection(
+          selected: widget.selected,
+          child: DDataTable<int>(
+            semanticLabel: 'Editable table',
+            variant: DDataTableVariant.softHeader,
+            data: _rows.skip(1).toList(),
+            rowId: (row) => row,
+            operationMode: DDataTableOperationMode.manual,
+            empty: const Text('Add a row to start writing.'),
+            columns: [
               DDataTableColumn<int>(
-                id: '$id',
-                // The input owns the live heading. Keep the resize/menu
-                // identity stable while the heading's text is being edited.
-                label: 'Column ${column + 1}',
-                hideable: false,
-                width: const FixedColumnWidth(200),
-                resizable: true,
-                headerContextMenu: widget.composer.isEditing
-                    ? DContextMenuContent(
-                        semanticLabel: 'Column ${column + 1} actions',
-                        width: 220,
-                        children: _columnItems(column),
-                      )
-                    : null,
+                id: 'row-actions',
                 cellContextMenuBuilder: widget.composer.isEditing
                     ? (cell) => _rowContextMenu(_rows.indexOf(cell.row) - 1)
                     : null,
-                cellMouseCursor: SystemMouseCursors.text,
-                onHeaderTap: widget.composer.isEditing
-                    ? () => _focusCell(0, column)
-                    : null,
-                onCellTap: widget.composer.isEditing
-                    ? (cell) => _focusCell(_rows.indexOf(cell.row), column)
-                    : null,
-                headerBuilder: (_, _) => Row(
-                  children: [
-                    Expanded(child: _input(0, column)),
-                    _columnMenu(column),
-                  ],
-                ),
-                cellBuilder: (_, cell) =>
-                    _input(_rows.indexOf(cell.row), column),
+                label: 'Rows',
+                hideable: false,
+                width: const FixedColumnWidth(64),
+                cellBuilder: (_, cell) => _rowMenu(_rows.indexOf(cell.row) - 1),
               ),
-          ],
+              for (final (column, id) in _columns.indexed)
+                DDataTableColumn<int>(
+                  id: '$id',
+                  // The input owns the live heading. Keep the resize/menu
+                  // identity stable while the heading's text is being edited.
+                  label: 'Column ${column + 1}',
+                  hideable: false,
+                  width: const FixedColumnWidth(200),
+                  resizable: true,
+                  headerContextMenu: widget.composer.isEditing
+                      ? DContextMenuContent(
+                          semanticLabel: 'Column ${column + 1} actions',
+                          width: 220,
+                          children: _columnItems(column),
+                        )
+                      : null,
+                  cellContextMenuBuilder: widget.composer.isEditing
+                      ? (cell) => _rowContextMenu(_rows.indexOf(cell.row) - 1)
+                      : null,
+                  cellMouseCursor: SystemMouseCursors.text,
+                  onHeaderTap: widget.composer.isEditing
+                      ? () => _focusCell(0, column)
+                      : null,
+                  onCellTap: widget.composer.isEditing
+                      ? (cell) => _focusCell(_rows.indexOf(cell.row), column)
+                      : null,
+                  headerBuilder: (_, _) => Row(
+                    children: [
+                      Expanded(child: _input(0, column)),
+                      _columnMenu(column),
+                    ],
+                  ),
+                  cellBuilder: (_, cell) =>
+                      _input(_rows.indexOf(cell.row), column),
+                ),
+            ],
+          ),
         ),
         const SizedBox(height: DSpacing.sm),
         Wrap(
