@@ -37,6 +37,7 @@ Future<ComposerController> _pump(
   bool dark = false,
   double width = 760,
   double scale = 1,
+  TargetPlatform? platform,
 }) async {
   final composer = ComposerController(_target);
   addTearDown(composer.dispose);
@@ -46,7 +47,9 @@ Future<ComposerController> _pump(
   );
   await tester.pumpWidget(
     MaterialApp(
-      theme: dark ? AppTheme.dark : AppTheme.light,
+      theme: (dark ? AppTheme.dark : AppTheme.light).copyWith(
+        platform: platform,
+      ),
       home: Scaffold(
         body: MediaQuery(
           data: MediaQueryData(textScaler: TextScaler.linear(scale)),
@@ -109,6 +112,38 @@ Future<ComposerController> _pumpPanel(
 }
 
 void main() {
+  for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
+    testWidgets('mobile table scales only once on $platform', (tester) async {
+      Rect paintedBounds(Finder finder) {
+        final box = tester.renderObject<RenderBox>(finder);
+        return MatrixUtils.transformRect(
+          box.getTransformTo(null),
+          Offset.zero & box.size,
+        );
+      }
+
+      await _pump(tester, width: 430, platform: platform);
+      final cellHeight = paintedBounds(_cell(1, 0)).height;
+      final buttonHeight = paintedBounds(find.text('Add row')).height;
+      await tester.pumpWidget(const SizedBox.shrink());
+      final composer = await _pump(
+        tester,
+        width: 430,
+        platform: platform,
+        scale: 1.5,
+      );
+      expect(paintedBounds(_cell(1, 0)).height, closeTo(cellHeight * 1.5, .1));
+      expect(
+        paintedBounds(find.text('Add row')).height,
+        closeTo(buttonHeight * 1.5, .1),
+      );
+      await tester.enterText(_cell(1, 0), 'Coffee');
+      await tester.pump();
+      expect(parseComposerTables(composer.raw).single.cell(1, 0), 'Coffee');
+      expect(tester.takeException(), isNull);
+    });
+  }
+
   for (final row in [0, 1]) {
     testWidgets(
       'typing in a large table rebuilds only the edited input (row $row)',

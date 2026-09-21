@@ -110,10 +110,14 @@ final class _TableProjection implements ComposerInteractiveSyntaxProjection {
               ),
               child: ComposerBlockSelection(
                 selected: context.highlighted,
-                child: ComposerTableEditor(
-                  key: context.pillKey,
-                  composer: composer,
-                  table: table,
+                // WidgetSpan scales the whole table with the surrounding text.
+                // Do not apply the inherited scaler again inside its controls.
+                child: MediaQuery.withNoTextScaling(
+                  child: ComposerTableEditor(
+                    key: context.pillKey,
+                    composer: composer,
+                    table: table,
+                  ),
                 ),
               ),
             );
