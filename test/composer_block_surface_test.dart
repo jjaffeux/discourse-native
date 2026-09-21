@@ -50,6 +50,7 @@ void main() {
     bool mobile = false,
     bool dark = false,
     double textScale = 1,
+    TextDirection direction = TextDirection.ltr,
   }) async {
     tester.view.reset();
     tester.view.physicalSize = Size(mobile ? 320 : 800, 720);
@@ -70,25 +71,28 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         theme: theme,
-        home: MediaQuery(
-          data: MediaQueryData(
-            size: Size(mobile ? 320 : 800, 720),
-            textScaler: TextScaler.linear(textScale),
-          ),
-          child: ShellScope(
-            controller: shell,
-            child: Scaffold(
-              body: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  children: [
-                    ComposerArrangeButton(composer: composer),
-                    Expanded(
-                      child: mobile
-                          ? SingleChildScrollView(child: editor)
-                          : editor,
-                    ),
-                  ],
+        home: Directionality(
+          textDirection: direction,
+          child: MediaQuery(
+            data: MediaQueryData(
+              size: Size(mobile ? 320 : 800, 720),
+              textScaler: TextScaler.linear(textScale),
+            ),
+            child: ShellScope(
+              controller: shell,
+              child: Scaffold(
+                body: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    children: [
+                      ComposerArrangeButton(composer: composer),
+                      Expanded(
+                        child: mobile
+                            ? SingleChildScrollView(child: editor)
+                            : editor,
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -146,6 +150,105 @@ void main() {
       '## A heading\n\nLast paragraph\n\nFirst paragraph',
     );
     composer.history.undo();
+    await tester.pumpAndSettle();
+    expect(composer.text.value, original);
+    expect(composer.history.canUndo, isFalse);
+  });
+
+  for (final trailing in [false, true]) {
+    for (final direction in TextDirection.values) {
+      testWidgets(
+        'both gutters move blocks with a centered insertion line ($trailing, $direction)',
+        (tester) async {
+          await mount(tester, direction: direction, dark: trailing);
+          final original = composer.text.value;
+          final blocks = composer.blocks.index.blocks;
+          final start = find.byKey(
+            ValueKey('composer-block-handle-${blocks.first.id}'),
+          );
+          final end = find.byKey(
+            ValueKey('composer-block-handle-${blocks.first.id}-end'),
+          );
+          final surface = tester.widget<ComposerBlockSurface>(
+            find.byType(ComposerBlockSurface),
+          );
+          final first = surface.blockRect(blocks.first)!;
+          final before = surface.blockRect(blocks[1])!;
+          final after = surface.blockRect(blocks[2])!;
+          final left = direction == TextDirection.ltr ? start : end;
+          final right = direction == TextDirection.ltr ? end : start;
+          expect(tester.getRect(left).right, lessThanOrEqualTo(first.left));
+          expect(tester.getRect(right).left, greaterThanOrEqualTo(first.right));
+
+          final gesture = await tester.startGesture(
+            tester.getCenter(trailing ? end : start),
+            kind: PointerDeviceKind.mouse,
+          );
+          await gesture.moveBy(const Offset(0, 20));
+          await tester.pump();
+          final highlight = find.byType(DDragHighlight);
+          expect(highlight, findsOneWidget);
+          final sourceTint = tester.getRect(highlight);
+          expect(sourceTint.top, lessThanOrEqualTo(first.top));
+          expect(sourceTint.bottom, greaterThanOrEqualTo(first.bottom));
+          expect(sourceTint.bottom, lessThan(before.top));
+          final gapCenter = (before.bottom + after.top) / 2;
+          await gesture.moveTo(Offset(first.center.dx, gapCenter));
+          await tester.pump();
+          await tester.pump();
+          expect(
+            tester.getCenter(find.byType(DDropIndicator)).dy,
+            closeTo(gapCenter, .01),
+          );
+          expect(start, findsOneWidget);
+          expect(end, findsOneWidget);
+          expect(tester.getRect(highlight), sourceTint);
+          expect(composer.text.value, original);
+          await gesture.up();
+          await tester.pumpAndSettle();
+          expect(
+            composer.text.text,
+            '## A heading\n\nFirst paragraph\n\nLast paragraph',
+          );
+          expect(find.byType(DDropIndicator), findsNothing);
+          expect(highlight, findsNothing);
+          composer.history.undo();
+          await tester.pumpAndSettle();
+          expect(composer.text.value, original);
+          expect(tester.takeException(), isNull);
+        },
+      );
+    }
+  }
+
+  testWidgets('the original gap shows feedback without adding an undo edit', (
+    tester,
+  ) async {
+    await mount(tester);
+    final original = composer.text.value;
+    final blocks = composer.blocks.index.blocks;
+    final surface = tester.widget<ComposerBlockSurface>(
+      find.byType(ComposerBlockSurface),
+    );
+    final before = surface.blockRect(blocks[0])!;
+    final after = surface.blockRect(blocks[1])!;
+    final midpoint = (before.bottom + after.top) / 2;
+    final gesture = await tester.startGesture(
+      tester.getCenter(
+        find.byKey(ValueKey('composer-block-handle-${blocks.first.id}')),
+      ),
+      kind: PointerDeviceKind.mouse,
+    );
+    await gesture.moveBy(const Offset(0, 20));
+    await tester.pump();
+    await gesture.moveTo(Offset(before.center.dx, midpoint));
+    await tester.pump();
+    await tester.pump();
+    expect(
+      tester.getCenter(find.byType(DDropIndicator)).dy,
+      closeTo(midpoint, .01),
+    );
+    await gesture.up();
     await tester.pumpAndSettle();
     expect(composer.text.value, original);
     expect(composer.history.canUndo, isFalse);
@@ -256,6 +359,7 @@ void main() {
     await tester.pump();
     await tester.sendKeyEvent(LogicalKeyboardKey.escape);
     await tester.pump();
+    expect(find.byType(DDragHighlight), findsNothing);
     await gesture.up();
     await tester.pumpAndSettle();
     expect(composer.text.text, original);
@@ -267,6 +371,7 @@ void main() {
     await tester.pump();
     composer.text.text = '$original changed';
     await tester.pump();
+    expect(find.byType(DDragHighlight), findsNothing);
     await second.up();
     await tester.pumpAndSettle();
     expect(composer.text.text, '$original changed');
