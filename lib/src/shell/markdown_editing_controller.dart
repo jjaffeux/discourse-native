@@ -1223,12 +1223,16 @@ class MarkdownEditingController extends TextEditingController {
         normalizeCollapsedComponentSourceSpans(
           source: source.substring(projection.start, projection.end),
           spans: projection.build(),
-          // A terminal component supplies a virtual line for its trailing
-          // caret. Once selected there is no caret line to display.
+          // A real separator already ends the component's line. Projecting
+          // another break creates a blank line that cannot be edited away.
+          // At EOF, only an unselected component needs a virtual caret line.
           suppressSyntheticLineBreaks:
-              projection.end == source.length &&
-              keyboardSelectedProjection != null &&
-              _blockRange(keyboardSelectedProjection!).$1 == projection.start,
+              source.startsWith('\n', projection.end) ||
+              source.startsWith('\r\n', projection.end) ||
+              (projection.end == source.length &&
+                  keyboardSelectedProjection != null &&
+                  _blockRange(keyboardSelectedProjection!).$1 ==
+                      projection.start),
         ),
       );
       sourceOffset = projection.end;

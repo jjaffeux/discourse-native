@@ -784,16 +784,9 @@ void main() {
       await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
       await tester.pump();
 
-      // The upload leaves a real text line below the image. Move through its
-      // separator before entering the image's keyboard selection.
-      expect(
-        composer.text.selection,
-        TextSelection.collapsed(offset: image.end),
-      );
-      expect(composer.text.keyboardSelectedImage, isNull);
-      await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
+      // There is one real line below the image, so Up selects the image
+      // directly without stopping on a synthetic blank line.
       await tester.pumpAndSettle();
-
       expect(composer.text.text, source);
       expect(
         composer.text.selection,

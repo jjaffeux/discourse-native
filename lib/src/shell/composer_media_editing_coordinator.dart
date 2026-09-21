@@ -686,9 +686,13 @@ final class ComposerMediaEditingCoordinator extends FrameSafeNotifier
       }
     }
     if (!hasModifier && event.logicalKey == LogicalKeyboardKey.arrowUp) {
-      final image = _collapsedImageEndingAt(caret);
+      final source = _composer.text.text;
+      final separatorLength = caret > 0 && source[caret - 1] == '\n'
+          ? (caret > 1 && source[caret - 2] == '\r' ? 2 : 1)
+          : 0;
+      final image = _collapsedImageEndingAt(caret - separatorLength);
       if (image != null) {
-        selectImageForKeyboard(image, moveCaretToEnd: false);
+        selectImageForKeyboard(image);
         return KeyEventResult.handled;
       }
     }
