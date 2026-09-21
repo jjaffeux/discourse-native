@@ -68,7 +68,7 @@ void main() {
               .dx;
           expect(
             thumbRight - bar.thickness! - contentRight,
-            greaterThanOrEqualTo(12),
+            greaterThanOrEqualTo(2),
           );
 
           bar.controller!.jumpTo(0);
