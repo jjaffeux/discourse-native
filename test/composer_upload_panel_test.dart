@@ -633,6 +633,58 @@ void main() {
       );
     });
 
+    testWidgets('the panel shows rate-limit recovery and retry actions', (
+      tester,
+    ) async {
+      final calls = <_PanelUploadCall>[];
+      final composer = ComposerController(
+        _target,
+        imageUploader: (file, {required onProgress, required abortTrigger}) {
+          final call = _PanelUploadCall(onProgress);
+          calls.add(call);
+          return call.result.future;
+        },
+      );
+      final shell = await _shell();
+      addTearDown(composer.dispose);
+      addTearDown(shell.dispose);
+      await _pumpPanel(tester, shell, composer);
+
+      expect(find.text('Write a reply…'), findsOneWidget);
+      composer.text.text = 'body';
+      composer.addImages([_file], 4);
+      calls.single.onProgress(0.37);
+      await tester.pump();
+
+      expect(find.text('Write a reply…'), findsNothing);
+      expect(find.text('photo.png'), findsOneWidget);
+      expect(find.text('Uploading · 37%'), findsOneWidget);
+      expect(find.byTooltip('Cancel upload'), findsOneWidget);
+      calls.single.result.completeError(
+        const ComposerUploadException(
+          'server error',
+          statusCode: 429,
+          retryAfter: Duration(seconds: 120),
+        ),
+      );
+      await tester.pump();
+
+      expect(
+        find.text('Too many uploads. Try again in 120 seconds.'),
+        findsOneWidget,
+      );
+      expect(find.byTooltip('Retry upload'), findsOneWidget);
+      expect(find.byTooltip('Remove upload'), findsOneWidget);
+
+      await tester.tap(find.byTooltip('Retry upload'));
+      await tester.pump();
+      expect(calls, hasLength(2));
+      expect(find.text('Retrying · 0%'), findsOneWidget);
+
+      await tester.tap(find.byTooltip('Cancel upload'));
+      await tester.pump();
+      expect(find.text('photo.png'), findsNothing);
+    });
     testWidgets('the panel shows progress and failed upload actions', (
       tester,
     ) async {
