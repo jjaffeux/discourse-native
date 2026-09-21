@@ -7,7 +7,9 @@ import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart' as rtc;
 
+import '../../foundation/frame_safe_notifier.dart';
 import '../../models/live_refresh_id.dart';
+import 'voice_agents.dart';
 import 'voice_api.dart';
 import 'voice_callkit.dart';
 import 'voice_diagnostics.dart';
@@ -4246,6 +4248,122 @@ final class VoiceController extends ChangeNotifier {
     );
   }
 
+  final Map<
+    String,
+    ({VoiceAgentPermission permission, bool Function() current})
+  >
+  _agentPermissions = {};
+  final Map<String, Object> _agentPermissionRequests = {};
+  final Map<(String, int), Object> _agentSubmissions = {};
+  final _agentPermissionRevision = FrameSafeValueNotifier(0);
+  Listenable get agentPermissions => _agentPermissionRevision;
+
+  Future<void> refreshAgentPermission(String siteUrl) async {
+    if (_disposed) return;
+    _agentPermissions.remove(siteUrl);
+    _agentPermissionRevision.value++;
+    final ownsAccount = captureSiteSession(siteUrl);
+    final request = Object();
+    _agentPermissionRequests[siteUrl] = request;
+    bool current() =>
+        ownsAccount() && identical(_agentPermissionRequests[siteUrl], request);
+    try {
+      final credentials = await _requestCredentials(
+        siteUrl,
+        ifCurrent: current,
+      );
+      if (credentials == null) return;
+      final permission = await api.agentPermission(
+        siteUrl: siteUrl,
+        apiKey: credentials.apiKey,
+        clientId: credentials.clientId,
+      );
+      if (!current()) return;
+      _agentPermissions[siteUrl] = (
+        permission: permission,
+        current: ownsAccount,
+      );
+    } catch (_) {
+      if (!current()) return;
+      _agentPermissions.remove(siteUrl);
+    } finally {
+      if (current()) _agentPermissionRevision.value++;
+    }
+  }
+
+  bool canInviteAgent(String siteUrl, int roomId) {
+    final grant = _agentPermissions[siteUrl];
+    final target = room(siteUrl, roomId);
+    return !_disposed &&
+        grant != null &&
+        grant.current() &&
+        target != null &&
+        grant.permission.allows(target);
+  }
+
+  VoiceAgentInvitation agentInvitation(
+    String siteUrl,
+    int roomId, {
+    bool Function()? ifCurrent,
+  }) {
+    final ownsAccount = captureSiteSession(siteUrl);
+    final target = room(siteUrl, roomId);
+    final active = _call;
+    final ownsCall = active?.siteUrl == siteUrl && active?.room.id == roomId;
+    bool current() =>
+        ownsAccount() &&
+        (ifCurrent?.call() ?? true) &&
+        target != null &&
+        room(siteUrl, roomId)?.slug == target.slug &&
+        (!ownsCall || identical(_call?.media, active?.media));
+    late final VoiceAgentInvitation invitation;
+    bool available() => invitation.isCurrent && canInviteAgent(siteUrl, roomId);
+    invitation = VoiceAgentInvitation(
+      isCurrent: current,
+      load: (refresh) async {
+        if (!available()) return const [];
+        final credentials = await _requestCredentials(
+          siteUrl,
+          ifCurrent: available,
+        );
+        if (credentials == null) return const [];
+        final names = await api.agents(
+          siteUrl: siteUrl,
+          apiKey: credentials.apiKey,
+          clientId: credentials.clientId,
+          refresh: refresh,
+        );
+        return available() ? names : const [];
+      },
+      invite: (name) async {
+        final key = (siteUrl, roomId);
+        if (!available() || _agentSubmissions.containsKey(key)) return false;
+        final submission = Object();
+        _agentSubmissions[key] = submission;
+        try {
+          final credentials = await _requestCredentials(
+            siteUrl,
+            ifCurrent: available,
+          );
+          if (credentials == null) return false;
+          await api.inviteAgent(
+            siteUrl: siteUrl,
+            roomId: roomId,
+            apiKey: credentials.apiKey,
+            clientId: credentials.clientId,
+            agentName: name,
+          );
+          return current();
+        } finally {
+          if (identical(_agentSubmissions[key], submission)) {
+            _agentSubmissions.remove(key);
+          }
+        }
+      },
+    );
+    return invitation;
+  }
+
   /// Invites [usernames] to the room. Refusals propagate: the server's own
   /// message (a rate limit, no permission) is what the dialog should show.
   Future<VoiceInviteResult> invite(
@@ -4543,6 +4661,9 @@ final class VoiceController extends ChangeNotifier {
       );
     }
     _siteSessions.remove(siteUrl);
+    _agentPermissions.remove(siteUrl);
+    _agentPermissionRequests.remove(siteUrl);
+    _agentSubmissions.removeWhere((key, _) => key.$1 == siteUrl);
     _directoryRequests.remove(siteUrl);
     _roomResponseVersions.remove(siteUrl);
     _chatRequests.removeWhere((key, _) => key.startsWith('$siteUrl#'));
@@ -4806,6 +4927,7 @@ final class VoiceController extends ChangeNotifier {
     if (active != null) return active;
 
     _disposed = true;
+    _agentPermissionRevision.dispose();
     _joinRevision = Object();
     _heartbeat?.cancel();
     _heartbeat = null;

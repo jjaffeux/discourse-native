@@ -19,7 +19,11 @@ const _siteUrl = 'https://select-review.invalid';
 
 /// Real Voice widgets with an in-memory media session; no device acquisition.
 class VoiceReviewFixture extends StatefulWidget {
-  const VoiceReviewFixture({super.key, this.room = defaultRoom});
+  const VoiceReviewFixture({
+    super.key,
+    this.room = defaultRoom,
+    this.agentInvitations = false,
+  });
 
   static const defaultRoom = VoiceRoom(
     id: 7,
@@ -38,6 +42,7 @@ class VoiceReviewFixture extends StatefulWidget {
   );
 
   final VoiceRoom room;
+  final bool agentInvitations;
 
   @override
   State<VoiceReviewFixture> createState() => _VoiceReviewFixtureState();
@@ -55,6 +60,37 @@ class _VoiceReviewFixtureState extends State<VoiceReviewFixture> {
       api: VoiceApi(
         RecordingPluginTransport(
           responses: {
+            'GET /site.json': {
+              if (widget.agentInvitations) 'voice_livekit_agent_bot_id': -2,
+            },
+            'GET /voice/rooms/fixture.json': {
+              'room': {
+                'id': 7,
+                'name': 'Local fixture',
+                'slug': 'fixture',
+                'public': true,
+                'expected_transport': 'livekit',
+                'active_participants': [
+                  {'id': 1, 'username': 'fixture'},
+                ],
+              },
+            },
+            'GET /voice/agents.json': {
+              'agents': [
+                {'name': 'assistant'},
+                {'name': 'support'},
+              ],
+            },
+            'GET /voice/agents.json?refresh=true': {
+              'agents': [
+                {'name': 'assistant'},
+                {'name': 'support'},
+                {'name': 'new-worker'},
+              ],
+            },
+            'POST /voice/rooms/7/invite_agent.json': {
+              'dispatch_id': 'AD_fixture',
+            },
             'POST /voice/rooms/7/join.json': {
               'transport': 'mesh',
               'ice': {'servers': <Object>[]},
@@ -104,6 +140,9 @@ class _VoiceReviewFixtureState extends State<VoiceReviewFixture> {
       preferences: _Preferences(participantVolume: null),
       heartbeatInterval: const Duration(days: 1),
     );
+    if (widget.agentInvitations) {
+      unawaited(controller.resolveRoom(_siteUrl, 'fixture'));
+    }
   }
 
   @override
@@ -130,7 +169,10 @@ class _VoiceReviewFixtureState extends State<VoiceReviewFixture> {
           listenable: controller,
           builder: (context, _) => VoiceRoomContent(
             controller: controller,
-            room: controller.call?.room ?? widget.room,
+            room:
+                controller.call?.room ??
+                controller.room(_siteUrl, widget.room.id) ??
+                widget.room,
             call: controller.call,
             siteUrl: _siteUrl,
             siteName: 'Fixture',

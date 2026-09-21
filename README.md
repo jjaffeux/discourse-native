@@ -2261,6 +2261,19 @@ server's rollover, and the notices `VoiceNoticeHost` shows as snackbars all
 follow the same rule: the plugin's own endpoints and broadcasts decide, and
 the native UI only draws what they say.
 
+**LiveKit agents.** The room and call controls read the authenticated
+`/site.json` serializer's `voice_livekit_agent_bot_id`; admin status and client
+settings never grant invitation permission. The action requires a public room
+whose expected transport is LiveKit, a human participant, and no matching bot.
+The Native chooser loads `/voice/agents.json`, explicitly refreshes with
+`refresh=true`, and supports typed dispatch names when the catalogue is empty,
+unavailable, or does not include a development worker. Names are trimmed and
+limited to 256 Unicode characters before posting `agent_name` to the room's
+`invite_agent.json` endpoint. Credentials and provider configuration stay on
+the server. Account leases, room/surface ownership, and per-room submission
+guards prevent stale callbacks or duplicate dispatches; a bot roster arriving
+before the POST response still allows the successful invitation to settle.
+
 ### GIFs
 
 The GIF plugin's picker authors a remote image; it is not an upload or a native
