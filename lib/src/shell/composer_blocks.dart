@@ -208,8 +208,15 @@ class ComposerBlockIndex {
       var separator = unchanged
           ? source.substring(block.end, next.start)
           : source.substring(blocks[i].end, blocks[i + 1].start);
-      if (!unchanged && '\n'.allMatches(separator).length < 2) {
-        separator = '$newline$newline';
+      // Components already have explicit boundaries; one line break keeps
+      // them separate. Text blocks still need a blank line to avoid merging.
+      final minimumLineBreaks =
+          block.kind == ComposerBlockKind.component &&
+              next.kind == ComposerBlockKind.component
+          ? 1
+          : 2;
+      if (!unchanged && '\n'.allMatches(separator).length < minimumLineBreaks) {
+        separator = newline * minimumLineBreaks;
       }
       result.write(separator);
     }
