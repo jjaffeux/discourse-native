@@ -9,7 +9,9 @@ an unused `/`, while preserving `/query` when text has been typed. Space closes
 the menu and preserves the slash, query and space as literal draft text.
 URLs, paths, selections, IME composition and Markdown code do not open commands.
 
-The shared editor supplies Bold, Italic, Inline code and Link. Topic insertion
+The shared editor supplies Bold, Italic, Inline code, Link and Heading 1–4. Headings show their Markdown markers
+and can be found with `/heading` or `/h1`–`/h4`; choosing one formats the
+current line, preserving its text and replacing any existing heading level. Topic insertion
 includes Table, Details, enabled uploads and emoji, plus applicable plugin
 contributions (GIFs, polls, dates, events and diagrams). Chat supplies its upload,
 emoji and GIF handlers and applicable plugin contributions. Availability comes
