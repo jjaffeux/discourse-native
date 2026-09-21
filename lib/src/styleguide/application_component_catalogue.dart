@@ -4,6 +4,11 @@ import 'styleguide_example.dart';
 /// component reference catalogue.
 const applicationComponentCatalogue = <ComponentReference>[
   ComponentReference(
+    id: 'drag',
+    name: 'Drag',
+    sections: ['Drag and tap', 'Disabled'],
+  ),
+  ComponentReference(
     id: 'history-transition',
     name: 'History transition',
     sections: ['Back and forward', 'RTL'],
