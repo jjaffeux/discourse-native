@@ -1125,6 +1125,7 @@ class MarkdownEditingController extends TextEditingController {
           () => block.projection.buildCollapsedSpans(
             ComposerSyntaxRenderContext(
               baseStyle: base,
+              scrollController: _imageScrollController,
               locale: locale,
               pillKey: _syntaxPillKeys.putIfAbsent(
                 _syntaxKey(block),

@@ -60,3 +60,17 @@ Markdown immediately, independently of preview completion.
 No dependency versions or lockfiles changed. The HTML concept remains in
 `docs/mermaid-composer-mockup.html` for comparison. This change does not modify
 posting format: the server still receives ordinary Mermaid Markdown fences.
+
+## Pointer correction follow-up
+
+The Mermaid projection now passes the document scroll controller to
+`ComposerEmbeddedEditor`, matching the table editor's existing coordinate
+correction. Without it, a scrolled source editor interprets pointer locations
+against its unscrolled position. Regression tests click different source lines
+and drag a selection both before and after scrolling, checking exact selection,
+inner-editor focus, unchanged document scroll and no whole-block selection.
+The failing scrolled caret case passed after the fix. All 121 affected composer,
+code-editor, table, Markdown and plugin-boundary tests pass; static analysis is
+clean and the macOS fixture builds. The native fixture launched, but its process
+became unavailable during the scroll interaction, so that native interaction
+was not verified; the pointer regression is verified by widget tests.

@@ -85,6 +85,7 @@ final class ComposerSyntaxRenderContext {
     required this.highlighted,
     required this.hovered,
     required this.followedByLineBreak,
+    this.scrollController,
   });
 
   final TextStyle baseStyle;
@@ -93,6 +94,9 @@ final class ComposerSyntaxRenderContext {
   final bool highlighted;
   final bool hovered;
   final bool followedByLineBreak;
+
+  /// Borrowed document viewport for embedded editor coordinate correction.
+  final ScrollController? scrollController;
 }
 
 final class ComposerSyntaxOccurrence {
