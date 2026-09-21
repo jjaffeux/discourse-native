@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:http/http.dart' as http;
 
 import '../diagnostics/diagnostics_redactor.dart';
@@ -34,6 +36,7 @@ import '../models/user_preferences.dart';
 import '../models/user_summary.dart';
 import '../plugin_api/discourse_model_codec.dart';
 import 'discourse_api_contracts.dart';
+import 'discourse_request_coordinator.dart';
 import 'discourse_transport.dart';
 import 'http_transport.dart';
 import 'json_decode.dart';

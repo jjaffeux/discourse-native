@@ -231,34 +231,63 @@ final class DiscourseComposerApi {
       throw ComposerUploadException("Couldn't read ${file.name}.");
     }
 
-    final fileBytes = file.openRead();
-    final http.Response response;
-    try {
-      response = await _transport.upload(
-        url: Uri.parse('$siteUrl/uploads.json'),
-        siteUrl: siteUrl,
-        apiKey: apiKey,
-        uploadType: uploadType.wireName,
-        filename: file.name,
-        fileLength: fileLength,
-        fileBytes: fileBytes,
-        onProgress: onProgress,
-        abortTrigger: abortTrigger,
-        clientId: clientId,
-      );
-    } catch (error) {
-      throw ComposerUploadException(
-        error is http.RequestAbortedException
-            ? 'Upload cancelled.'
-            : "Couldn't upload ${file.name}.",
-      );
-    }
+    late http.Response response;
+    late Map<String, dynamic> decoded;
+    for (var attempt = 0; ; attempt++) {
+      try {
+        response = await _transport.upload(
+          url: Uri.parse('$siteUrl/uploads.json'),
+          siteUrl: siteUrl,
+          apiKey: apiKey,
+          uploadType: uploadType.wireName,
+          filename: file.name,
+          fileLength: fileLength,
+          // Multipart requests and their single-subscription streams cannot be
+          // reused after the server has consumed an attempt.
+          fileBytes: file.openRead(),
+          onProgress: onProgress,
+          abortTrigger: abortTrigger,
+          clientId: clientId,
+        );
+      } catch (error) {
+        throw ComposerUploadException(
+          error is http.RequestAbortedException
+              ? 'Upload cancelled.'
+              : "Couldn't upload ${file.name}.",
+        );
+      }
 
-    final decoded = DiscourseTransport.decodeObjectOrEmpty(response.body);
-    if (response.statusCode < 200 || response.statusCode >= 300) {
+      decoded = DiscourseTransport.decodeObjectOrEmpty(response.body);
+      if (response.statusCode >= 200 && response.statusCode < 300) break;
+      final retryAfter = response.statusCode == 429
+          ? DiscourseRequestCoordinator.explicitRetryAfter(response) ??
+                _transport.coordinator.defaultRateLimitCooldown
+          : null;
+      if (attempt == 0 &&
+          retryAfter != null &&
+          retryAfter <= const Duration(seconds: 60)) {
+        // The transport's origin cooldown is already ticking. Waiting here
+        // releases the consumed request and makes cancellation immediate; the
+        // next transport admission only waits for any *remaining* cooldown.
+        final ready = Completer<void>();
+        final timer = Timer(retryAfter, ready.complete);
+        try {
+          final cancelled = await Future.any<bool>([
+            abortTrigger.then((_) => true),
+            ready.future.then((_) => false),
+          ]);
+          if (cancelled) {
+            throw const ComposerUploadException('Upload cancelled.');
+          }
+        } finally {
+          timer.cancel();
+        }
+        continue;
+      }
       throw ComposerUploadException(
         _uploadError(decoded, file.name),
         statusCode: response.statusCode,
+        retryAfter: retryAfter,
       );
     }
 
