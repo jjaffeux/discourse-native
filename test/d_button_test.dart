@@ -218,7 +218,7 @@ void main() {
     }
   });
 
-  testWidgets('flat icon buttons use the mockup radius and standard sizes', (
+  testWidgets('flat icon buttons use the theme radius and standard sizes', (
     tester,
   ) async {
     for (final (radius, size) in [
@@ -267,7 +267,7 @@ void main() {
       expect(shape, isA<RoundedRectangleBorder>());
       expect(
         (shape! as RoundedRectangleBorder).borderRadius,
-        BorderRadius.circular(8),
+        BorderRadius.circular(radius),
       );
       expect(buttonSurface(tester).color, Colors.transparent);
       final pointer = await tester.createGesture(kind: PointerDeviceKind.mouse);

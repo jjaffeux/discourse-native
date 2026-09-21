@@ -42,9 +42,9 @@ The September 18 HTML redesign defines three button families through `DButton`:
 outlined treatment and `ghost` aliases the transparent treatment. Destructive,
 link and inline actions retain their semantic roles; inline removes horizontal
 insets for metadata. All variants retain shared focus and accessible targets.
-Buttons use palette-derived muted accent fills, 1px outlines, 8px corners and
-no shadow. Outlined toggles use the same button palette, 1px border and 8px
-corners, with the hover fill and border retained while selected. Joined toggle
+Buttons use palette-derived muted accent fills, 1px outlines, the theme’s control
+radius and no shadow. Outlined toggles use the same button palette, 1px border
+and theme radius, with the hover fill and border retained while selected. Joined toggle
 groups retain ownership of their outer corners and shared seams. See [button redesign](button-redesign.md) for formulas, adoption,
 reference measurements and verification. Ordinary dropdown triggers use
 `DDropdownMenuTrigger.button`; richer compositions render DButton and pass
@@ -84,10 +84,10 @@ update its golden baselines only after visual review. See
 
 Input, Input Group (including Combobox anchors), Select and multi-value Combobox
 fields use the redesigned outlined palette through `DTokens.buttonTheme`, with
-1px borders, 8px corners and no shadow. Selection hover/open states use the
-outlined hover fill and border. Other editable controls retain their existing
+1px borders, the theme’s control radius and no shadow. Selection hover/open states
+use the outlined hover fill and border. Other editable controls retain their existing
 `DTokens.controls` styling. Buttons and button-based popup triggers also use
-the redesign's 8px radius, independent of size. Keep the default
+the theme’s control radius, independent of size. Keep the default
 `DButtonShape.rounded` in application code; explicit pill shapes belong only to
 documented design exceptions. Menu rows use 32px minimum height and an 8px highlight radius inside
 popups using the theme’s control radius, matching buttons. Keyboard focus uses a 1px ring separated by 2px. Hover, pressed and

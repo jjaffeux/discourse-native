@@ -443,7 +443,7 @@ class DButton extends StatelessWidget {
   final bool autofocus;
   final AlignmentGeometry alignment;
 
-  /// Defaults to the redesign’s 8px radius; pill is an explicit geometry override.
+  /// Defaults to the theme’s control radius; pill is an explicit geometry override.
   final DButtonShape shape;
   final BorderRadiusGeometry? borderRadius;
 

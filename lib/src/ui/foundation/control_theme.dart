@@ -99,12 +99,16 @@ class DControlTheme {
 
   /// The HTML redesign's three button treatments, derived from the forum
   /// foreground (primary), canvas (secondary) and accent (tertiary).
-  factory DControlTheme.buttons(ColorScheme colors, Color background) {
+  factory DControlTheme.buttons(
+    ColorScheme colors,
+    Color background, {
+    required double radius,
+  }) {
     Color mix(Color color, double amount) =>
         Color.lerp(background, color, amount)!;
     final foreground = mix(colors.onSurface, .62);
     return DControlTheme(
-      radius: 8,
+      radius: radius,
       primary: DControlSurface(
         background: mix(colors.primary, .25),
         hover: mix(colors.primary, .32),

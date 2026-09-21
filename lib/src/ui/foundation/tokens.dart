@@ -59,7 +59,8 @@ class DTokens extends ThemeExtension<DTokens> {
   DControlTheme get controlTheme => controls ?? _referenceControls;
 
   /// Button styling follows the app redesign independently of field surfaces.
-  DControlTheme get buttonTheme => DControlTheme.buttons(colors, background);
+  DControlTheme get buttonTheme =>
+      DControlTheme.buttons(colors, background, radius: controlRadius);
 
   double get controlRadius => controlTheme.radius;
 

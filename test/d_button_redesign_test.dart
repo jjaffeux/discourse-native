@@ -6,6 +6,61 @@ import 'package:flutter_test/flutter_test.dart';
 import 'support/button_surface.dart';
 
 void main() {
+  testWidgets('actions and reactions follow live theme radius changes', (
+    tester,
+  ) async {
+    for (final radius in [0.0, 4.0, 13.0, 4.0]) {
+      final base = ThemeData(platform: TargetPlatform.macOS);
+      final tokens = DTokens.fromTheme(base).copyWith(radius: radius);
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: base.copyWith(extensions: [tokens]),
+          themeAnimationDuration: Duration.zero,
+          home: Scaffold(
+            body: Row(
+              children: [
+                DButton(
+                  label: const Text('Reply'),
+                  variant: DButtonVariant.outline,
+                  size: DButtonSize.large,
+                  onPressed: () {},
+                ),
+                DToggle(
+                  pressed: false,
+                  variant: DToggleVariant.outline,
+                  size: DToggleSize.large,
+                  onPressedChanged: (_) {},
+                  child: const Text('❤️ 5'),
+                ),
+                DToggle.iconOnly(
+                  pressed: false,
+                  variant: DToggleVariant.outline,
+                  size: DToggleSize.large,
+                  onPressedChanged: (_) {},
+                  semanticLabel: 'Like',
+                  icon: const Icon(Icons.favorite_border),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(buttonSurface(tester).borderRadius, BorderRadius.circular(radius));
+      final reactions = find.descendant(
+        of: find.byType(DToggle),
+        matching: find.byType(AnimatedContainer),
+      );
+      expect(reactions, findsNWidgets(2));
+      for (final surface in tester.widgetList<AnimatedContainer>(reactions)) {
+        expect(
+          (surface.decoration! as BoxDecoration).borderRadius,
+          BorderRadius.circular(radius),
+        );
+      }
+    }
+  });
+
   testWidgets('mockup families repaint on live palette changes and activate', (
     tester,
   ) async {
@@ -72,7 +127,7 @@ void main() {
         expect(buttonSurface(tester, of: button).shadowColor.a, 0);
         expect(
           buttonSurface(tester, of: button).borderRadius,
-          BorderRadius.circular(8),
+          BorderRadius.circular(tokens.controlRadius),
         );
         await tester.tap(button);
       }

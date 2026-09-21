@@ -17,7 +17,7 @@ final buttonExamples = ComponentExamples(
       'The redesign has three button families: colored, outlined and transparent. '
       'Colored actions use a 25% accent fill and accent-tinted foreground; '
       'outlined actions use a 1px palette border; transparent actions have no resting fill or border. '
-      'Buttons use 8px corners and no shadows. Desktop controls use 24/28/32px surfaces; mobile uses 40/44/48px '
+      'Buttons use the theme’s control radius and no shadows. Desktop controls use 24/28/32px surfaces; mobile uses 40/44/48px '
       'with at least 48px touch targets. Hover and popup state remain visible, '
       'with a separate keyboard focus ring. All colors follow the forum palette.',
   examples: [
