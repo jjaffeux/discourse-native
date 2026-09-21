@@ -140,6 +140,26 @@ void main() {
           await tester.pump();
           expect(composer.raw, 'Before\n\n${entry.value}');
           expect(composer.text.keyboardSelectedProjection, isNotNull);
+          final rendered = tester
+              .state<EditableTextState>(_field(composer))
+              .renderEditable;
+          expect(
+            rendered.text!
+                .toPlainText(includeSemanticsLabels: false)
+                .substring(8),
+            isNot(contains('\n')),
+            reason:
+                'The selected component must not retain a synthetic caret line',
+          );
+          expect(
+            rendered
+                .getLineAtOffset(
+                  TextPosition(offset: composer.text.text.length),
+                )
+                .start,
+            8,
+            reason: 'The end of the component must share its rendered line',
+          );
           expect(
             composer.text.selection.textInside(composer.text.text).trimRight(),
             entry.value,

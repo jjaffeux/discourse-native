@@ -16,13 +16,17 @@ import 'package:flutter/material.dart';
 /// This normalization happens at the shared controller boundary rather than
 /// in individual component renderers. Core components and plugin syntax
 /// projections therefore receive the same baseline behavior.
+/// [suppressSyntheticLineBreaks] also removes the virtual caret line supplied
+/// by a terminal component while that component is selected.
 List<InlineSpan> normalizeCollapsedComponentSourceSpans({
   required String source,
   required List<InlineSpan> spans,
+  bool suppressSyntheticLineBreaks = false,
 }) {
   final trailingWhitespaceStart = _trailingHorizontalWhitespaceStart(source);
   final normalizer = _CollapsedComponentSourceNormalizer(
     source: source,
+    suppressSyntheticLineBreaks: suppressSyntheticLineBreaks,
     trailingWhitespaceStart: trailingWhitespaceStart,
   );
   final normalized = normalizer.normalize(spans);
@@ -46,10 +50,12 @@ int _trailingHorizontalWhitespaceStart(String source) {
 final class _CollapsedComponentSourceNormalizer {
   _CollapsedComponentSourceNormalizer({
     required this.source,
+    required this.suppressSyntheticLineBreaks,
     required this.trailingWhitespaceStart,
   });
 
   final String source;
+  final bool suppressSyntheticLineBreaks;
   final int trailingWhitespaceStart;
   int offset = 0;
 
@@ -60,7 +66,33 @@ final class _CollapsedComponentSourceNormalizer {
   InlineSpan _normalizeSpan(InlineSpan span, [TextStyle? inheritedStyle]) {
     if (span is WidgetSpan) {
       offset++;
-      return span;
+      if (!suppressSyntheticLineBreaks) return span;
+      return WidgetSpan(
+        alignment: span.alignment,
+        baseline: span.baseline,
+        style: span.style,
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            // Inline children are measured against the full viewport, while
+            // RenderEditable reserves space for its caret when laying out text.
+            final caretMargin =
+                (context
+                        .findAncestorWidgetOfExactType<EditableText>()
+                        ?.cursorWidth ??
+                    2) +
+                1;
+            return ConstrainedBox(
+              constraints: BoxConstraints(
+                maxWidth: (constraints.maxWidth - caretMargin).clamp(
+                  0,
+                  double.infinity,
+                ),
+              ),
+              child: span.child,
+            );
+          },
+        ),
+      );
     }
 
     final textSpan = span as TextSpan;
@@ -121,9 +153,12 @@ final class _CollapsedComponentSourceNormalizer {
       final matchesSource =
           sourceOffset < source.length &&
           source.codeUnitAt(sourceOffset) == codeUnit;
-      if (!isLayoutNeutral ||
-          !matchesSource ||
-          (!isLineEnding && !isTrailingHorizontalWhitespace)) {
+      final isSyntheticCaretLine =
+          suppressSyntheticLineBreaks && isLineEnding && !matchesSource;
+      if (!isSyntheticCaretLine &&
+          (!isLayoutNeutral ||
+              !matchesSource ||
+              (!isLineEnding && !isTrailingHorizontalWhitespace))) {
         continue;
       }
 

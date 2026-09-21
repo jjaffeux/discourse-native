@@ -280,6 +280,16 @@ void main() {
     expect(composer.text.text.endsWith('\n'), isFalse);
     expect(composer.text.keyboardSelectedSyntax?.kind.name, 'upload');
     expect(composer.text.selection.isCollapsed, isFalse);
+    final rendered = tester
+        .state<EditableTextState>(find.byType(EditableText))
+        .renderEditable;
+    expect(
+      rendered
+          .getLineAtOffset(TextPosition(offset: composer.text.text.length))
+          .start,
+      0,
+    );
+
     await tester.sendKeyEvent(LogicalKeyboardKey.backspace);
     await tester.pump();
     expect(cancelled, isTrue);
