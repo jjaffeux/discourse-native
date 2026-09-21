@@ -555,15 +555,54 @@ class _MobileComposerViewport extends StatefulWidget {
 
 class _MobileComposerViewportState extends State<_MobileComposerViewport> {
   final _scroll = ScrollController();
+  bool _hasContentBelow = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _scroll.addListener(_updateOverflow);
+  }
+
+  void _updateOverflow() {
+    if (!mounted || !_scroll.hasClients) return;
+    final position = _scroll.position;
+    if (!position.hasContentDimensions) return;
+    final hasContentBelow = position.extentAfter > 2;
+    if (_hasContentBelow != hasContentBelow) {
+      setState(() => _hasContentBelow = hasContentBelow);
+    }
+  }
+
+  void _scheduleOverflowUpdate() {
+    WidgetsBinding.instance.addPostFrameCallback((_) => _updateOverflow());
+  }
+
+  void _scrollToBottom() {
+    if (!_scroll.hasClients) return;
+    if (MediaQuery.disableAnimationsOf(context)) {
+      _scroll.jumpTo(_scroll.position.maxScrollExtent);
+      return;
+    }
+    unawaited(
+      _scroll.animateTo(
+        _scroll.position.maxScrollExtent,
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeOutCubic,
+      ),
+    );
+  }
 
   @override
   void dispose() {
-    _scroll.dispose();
+    _scroll
+      ..removeListener(_updateOverflow)
+      ..dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    _scheduleOverflowUpdate();
     final headerExtent =
         math.max(
           DSpacing.touchTarget,
@@ -574,45 +613,90 @@ class _MobileComposerViewportState extends State<_MobileComposerViewport> {
           ),
         ) +
         16;
-    return LayoutBuilder(
-      builder: (context, constraints) => DScrollBar(
-        controller: _scroll,
-        showScrollbar: false,
-        child: ScrollConfiguration(
-          behavior: ScrollConfiguration.of(context).copyWith(scrollbars: false),
-          child: CustomScrollView(
-            key: const ValueKey('composer-mobile-scroll'),
-            controller: _scroll,
-            // Paint beneath the floating footer while keeping the viewport's
-            // reveal bounds above it, so the caret stays clear of the tools.
-            // The composer frame clips content at the keyboard boundary.
-            clipBehavior: Clip.none,
-            slivers: [
-              SliverPersistentHeader(
-                pinned: true,
-                delegate: _ComposerPinnedHeader(
-                  extent: headerExtent,
-                  child: widget.header,
-                ),
-              ),
-              SliverToBoxAdapter(
-                child: GestureDetector(
-                  behavior: HitTestBehavior.translucent,
-                  onTap: widget.composer.focus.requestFocus,
-                  child: ConstrainedBox(
-                    constraints: BoxConstraints(
-                      minHeight: math.max(
-                        0,
-                        constraints.maxHeight - headerExtent,
+    return NotificationListener<ScrollMetricsNotification>(
+      onNotification: (notification) {
+        if (notification.depth == 0) _scheduleOverflowUpdate();
+        return false;
+      },
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          LayoutBuilder(
+            builder: (context, constraints) => DScrollBar(
+              controller: _scroll,
+              showScrollbar: false,
+              child: ScrollConfiguration(
+                behavior: ScrollConfiguration.of(
+                  context,
+                ).copyWith(scrollbars: false),
+                child: CustomScrollView(
+                  key: const ValueKey('composer-mobile-scroll'),
+                  controller: _scroll,
+                  // Paint beneath the floating footer while keeping the viewport's
+                  // reveal bounds above it, so the caret stays clear of the tools.
+                  // The composer frame clips content at the keyboard boundary.
+                  clipBehavior: Clip.none,
+                  slivers: [
+                    SliverPersistentHeader(
+                      pinned: true,
+                      delegate: _ComposerPinnedHeader(
+                        extent: headerExtent,
+                        child: widget.header,
                       ),
                     ),
-                    child: widget.child,
+                    SliverToBoxAdapter(
+                      child: GestureDetector(
+                        behavior: HitTestBehavior.translucent,
+                        onTap: widget.composer.focus.requestFocus,
+                        child: ConstrainedBox(
+                          constraints: BoxConstraints(
+                            minHeight: math.max(
+                              0,
+                              constraints.maxHeight - headerExtent,
+                            ),
+                          ),
+                          child: widget.child,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          Positioned(
+            bottom: 8,
+            left: 0,
+            right: 0,
+            child: Center(
+              child: ExcludeSemantics(
+                excluding: !_hasContentBelow,
+                child: ExcludeFocus(
+                  excluding: !_hasContentBelow,
+                  child: IgnorePointer(
+                    ignoring: !_hasContentBelow,
+                    child: AnimatedScale(
+                      key: const ValueKey('composer-scroll-down-scale'),
+                      scale: _hasContentBelow ? 1 : 0,
+                      duration: MediaQuery.disableAnimationsOf(context)
+                          ? Duration.zero
+                          : const Duration(milliseconds: 200),
+                      curve: Curves.easeOutCubic,
+                      child: DButton.iconOnly(
+                        key: const ValueKey('composer-scroll-down'),
+                        icon: const Icon(Icons.arrow_downward),
+                        tooltip: 'Scroll to bottom',
+                        semanticLabel: 'Scroll to bottom',
+                        variant: DButtonVariant.secondary,
+                        onPressed: _scrollToBottom,
+                      ),
+                    ),
                   ),
                 ),
               ),
-            ],
+            ),
           ),
-        ),
+        ],
       ),
     );
   }

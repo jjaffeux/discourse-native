@@ -532,6 +532,59 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('mobile overflow arrow scales with draft and viewport changes', (
+    tester,
+  ) async {
+    final harness = await _Harness.create(
+      tester,
+      mobile: true,
+      size: const Size(390, 800),
+    );
+    final composer = harness.shell.visibleComposer!;
+    final arrow = find.byKey(const ValueKey('composer-scroll-down'));
+    final scale = find.byKey(const ValueKey('composer-scroll-down-scale'));
+    final viewport = find.byKey(const ValueKey('composer-mobile-scroll'));
+    double targetScale() => tester.widget<AnimatedScale>(scale).scale;
+    expect(targetScale(), 0);
+    expect(arrow.hitTestable(), findsNothing);
+
+    composer.text.text = List.generate(60, (i) => 'Paragraph $i').join('\n');
+    await tester.pumpAndSettle();
+    expect(targetScale(), 1);
+    expect(arrow.hitTestable(), findsOneWidget);
+    expect(tester.widget<AnimatedScale>(scale).duration, isNot(Duration.zero));
+    await tester.tap(arrow);
+    await tester.pumpAndSettle();
+    expect(targetScale(), 0);
+    expect(arrow.hitTestable(), findsNothing);
+    final scroll = tester.widget<CustomScrollView>(viewport).controller!;
+    expect(scroll.position.extentAfter, closeTo(0, 2));
+
+    await tester.drag(viewport, const Offset(0, 200));
+    await tester.pumpAndSettle();
+    expect(targetScale(), 1);
+
+    composer.text.text = 'Short draft';
+    await tester.pumpAndSettle();
+    expect(targetScale(), 0);
+    composer.focus.unfocus();
+    composer.text.value = TextEditingValue(
+      text: List.generate(18, (i) => 'Line $i').join('\n'),
+      selection: const TextSelection.collapsed(offset: 0),
+    );
+    await tester.pumpAndSettle();
+    expect(targetScale(), 0);
+    tester.view.viewInsets = FakeViewPadding(
+      bottom: 330 * tester.view.devicePixelRatio,
+    );
+    addTearDown(tester.view.resetViewInsets);
+    await tester.pumpAndSettle();
+    expect(targetScale(), 1);
+    await tester.pump(const Duration(seconds: 3));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets(
     'long mobile drafts scroll title and body beneath the pinned actions',
     (tester) async {
