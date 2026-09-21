@@ -594,7 +594,11 @@ void main() {
     );
     await tester.tap(find.byType(ComposerImagePreview).first);
     await tester.pumpAndSettle();
-    await tester.tap(find.byType(ComposerImagePreview).last);
+    // The first image's controls overlap the top of the second preview.
+    await tester.tapAt(
+      tester.getBottomLeft(find.byType(ComposerImagePreview).last) +
+          const Offset(12, -12),
+    );
     await tester.pumpAndSettle();
     final description = find.byWidgetPredicate(
       (widget) =>
@@ -630,11 +634,17 @@ void main() {
             .where((target) => target.enable)
             .single;
         final box = tester.getRect(_editable(body));
-        final position = box.topLeft + const Offset(12, 12);
+        var position = box.topLeft + const Offset(12, 12);
         outer.onDragEntered!(
           DropEventDetails(localPosition: position, globalPosition: position),
         );
         await tester.pump();
+        // Focusing the nested editor can scroll its parent to reveal the caret.
+        position =
+            tester.getRect(_editable(body)).topLeft + const Offset(12, 12);
+        outer.onDragUpdated!(
+          DropEventDetails(localPosition: position, globalPosition: position),
+        );
         outer.onDragDone!(
           DropDoneDetails(
             files: [
