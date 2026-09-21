@@ -1016,6 +1016,9 @@ void main() {
       await tester.pump();
       await tester.sendKeyEvent(LogicalKeyboardKey.backspace);
       await tester.pump();
+      expect(composer.text.keyboardSelectedImage, isNotNull);
+      await tester.sendKeyEvent(LogicalKeyboardKey.backspace);
+      await tester.pump();
       expect(composer.text.text, isEmpty);
     });
 

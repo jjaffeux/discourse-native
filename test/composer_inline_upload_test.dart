@@ -250,7 +250,9 @@ void main() {
     expect(gallery.images, hasLength(3));
   });
 
-  testWidgets('Backspace cancels a selected pending upload', (tester) async {
+  testWidgets('Backspace selects a pending upload before cancelling it', (
+    tester,
+  ) async {
     final request = Completer<ComposerUploadResult>();
     var cancelled = false;
     final composer = ComposerController(
@@ -264,8 +266,18 @@ void main() {
     await _pump(tester, composer);
     composer.addImages([_file], 0);
     await tester.pump();
-    composer.text.selection = const TextSelection.collapsed(offset: 0);
+    composer.text.value = TextEditingValue(
+      text: '${composer.text.text.trimRight()}\n',
+      selection: TextSelection.collapsed(
+        offset: composer.text.text.trimRight().length + 1,
+      ),
+    );
     await tester.pump();
+    await tester.sendKeyEvent(LogicalKeyboardKey.backspace);
+    await tester.pump();
+    expect(cancelled, isFalse);
+    expect(composer.uploads, hasLength(1));
+    expect(composer.text.text.endsWith('\n'), isFalse);
     expect(composer.text.keyboardSelectedSyntax?.kind.name, 'upload');
     expect(composer.text.selection.isCollapsed, isFalse);
     await tester.sendKeyEvent(LogicalKeyboardKey.backspace);

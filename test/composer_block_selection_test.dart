@@ -1,5 +1,6 @@
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/plugin_api/composer_syntax.dart';
+import 'package:discourse_native/src/plugins/discourse_mermaid/mermaid_composer.dart';
 import 'package:discourse_native/src/plugins/poll/poll_plugin.dart';
 import 'package:discourse_native/src/shell/composer_controller.dart';
 import 'package:discourse_native/src/shell/composer_panel.dart';
@@ -17,6 +18,7 @@ const _target = ComposerTarget(
 const _table = '| Name | Cost |\n| --- | --- |\n| Tea | 12 |';
 const _blocks = {
   'table': _table,
+  'mermaid': '```mermaid\nflowchart TD\n  A --> B\n```',
   'details': '[details="Summary"]\nBody\n[/details]',
   'quote': '[quote="sam, post:1, topic:1"]\nQuoted text\n[/quote]',
   'image': '![Photo|100x100](upload://photo)',
@@ -33,9 +35,13 @@ Future<ComposerController> _pump(
   String source, {
   ThemeData? theme,
 }) async {
-  final composer = ComposerController(
+  late final ComposerController composer;
+  composer = ComposerController(
     _target,
-    syntaxPolicies: const [PollComposerSyntaxPolicy()],
+    syntaxPolicies: [
+      const PollComposerSyntaxPolicy(),
+      MermaidComposerPolicy(() => composer),
+    ],
   );
   addTearDown(composer.dispose);
   composer.text.value = TextEditingValue(
@@ -124,6 +130,54 @@ void main() {
   }
 
   for (final entry in _blocks.entries) {
+    for (final suffix in ['', '\n', '\r\n']) {
+      testWidgets(
+        '${entry.key} Backspace selects before deleting after ${suffix.length} line-ending characters',
+        (tester) async {
+          final source = 'Before\n\n${entry.value}$suffix';
+          final composer = await _pump(tester, source);
+          await tester.sendKeyDownEvent(LogicalKeyboardKey.backspace);
+          await tester.pump();
+          expect(composer.raw, 'Before\n\n${entry.value}');
+          expect(composer.text.keyboardSelectedProjection, isNotNull);
+          expect(
+            composer.text.selection.textInside(composer.text.text).trimRight(),
+            entry.value,
+          );
+          await tester.sendKeyRepeatEvent(LogicalKeyboardKey.backspace);
+          await tester.sendKeyUpEvent(LogicalKeyboardKey.backspace);
+          await tester.pump();
+          expect(composer.raw, 'Before\n\n${entry.value}');
+          await tester.sendKeyEvent(LogicalKeyboardKey.backspace);
+          await tester.pump();
+          expect(composer.raw.trim(), 'Before');
+          expect(tester.takeException(), isNull);
+        },
+      );
+    }
+    for (final gap in ['\n', '\n\n']) {
+      testWidgets(
+        '${entry.key} Backspace preserves following text with ${gap.length} newlines',
+        (tester) async {
+          final source = 'Before\n\n${entry.value}${gap}After';
+          final composer = await _pump(tester, source);
+          composer.text.selection = TextSelection.collapsed(
+            offset: entry.key == 'quote'
+                ? composer.text.quoteBlocks.single.end
+                : 8 + entry.value.length + 1,
+          );
+          await tester.pump();
+          await tester.sendKeyEvent(LogicalKeyboardKey.backspace);
+          await tester.pump();
+          expect(
+            composer.raw,
+            entry.key == 'quote' ? source : 'Before\n\n${entry.value}\nAfter',
+          );
+          expect(composer.text.keyboardSelectedProjection, isNotNull);
+          expect(tester.takeException(), isNull);
+        },
+      );
+    }
     for (final prefix in ['', 'Before\n\n']) {
       testWidgets(
         '${entry.key} leading boundary selects and deletes the whole block '
@@ -184,6 +238,27 @@ void main() {
       expect(composer.text.keyboardSelectedProjection, isNull);
     });
   }
+
+  testWidgets('undo restores the line removed after a component', (
+    tester,
+  ) async {
+    const source = 'Before\n\n$_table\n';
+    final composer = await _pump(tester, source);
+    await tester.pump(const Duration(seconds: 1));
+    await tester.sendKeyEvent(LogicalKeyboardKey.backspace);
+    await tester.pump(const Duration(seconds: 1));
+    expect(composer.text.text, source.substring(0, source.length - 1));
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyZ);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
+    await tester.pump();
+    expect(composer.text.text, source);
+    expect(composer.text.keyboardSelectedProjection, isNull);
+    expect(
+      composer.text.selection,
+      const TextSelection.collapsed(offset: source.length),
+    );
+  }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 
   testWidgets(
     'Delete removes a selected block and undo restores exact source',

@@ -1428,8 +1428,11 @@ void main() {
           await tester.sendKeyEvent(LogicalKeyboardKey.backspace);
           await tester.pump();
 
-          expect(composer.text.text, source);
-          expect(composer.text.selection.extentOffset, afterPoll);
+          expect(composer.text.text, poll);
+          expect(
+            composer.text.selection,
+            TextSelection(baseOffset: block.start, extentOffset: block.end),
+          );
           expect(
             tester
                 .widget<PollComposerPill>(find.byType(PollComposerPill))
@@ -1442,7 +1445,7 @@ void main() {
           await tester.pump();
           expect(_composerEditable(tester).showCursor, isTrue);
           expect(composer.text.keyboardSelectedPoll, isNull);
-          expect(composer.text.selection.extentOffset, afterPoll);
+          expect(composer.text.selection.extentOffset, poll.length + 1);
           tester.testTextInput.updateEditingValue(
             TextEditingValue(
               text: '${source}Next line',
