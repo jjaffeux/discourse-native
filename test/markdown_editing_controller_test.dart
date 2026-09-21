@@ -650,6 +650,35 @@ void main() {
     });
 
     for (final scale in [0.8, 1.0, 1.4, 2.0]) {
+      testWidgets('plugin widgets scale once at text scale $scale', (
+        tester,
+      ) async {
+        tester.platformDispatcher.textScaleFactorTestValue = scale;
+        addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+        const source = 'Before [[plugin]] after';
+        await pumpField(tester, source);
+
+        final label = find.descendant(
+          of: find.byType(_FakeSyntaxPill),
+          matching: find.byType(RichText),
+        );
+        final box = tester.renderObject<RenderBox>(label);
+        final renderedWidth =
+            (box.localToGlobal(Offset(box.size.width, 0)) -
+                    box.localToGlobal(Offset.zero))
+                .distance;
+        final prose = TextPainter(
+          text: tester.widget<RichText>(label).text,
+          textDirection: TextDirection.ltr,
+          textScaler: editable(tester).renderEditable.textScaler,
+        )..layout();
+        addTearDown(prose.dispose);
+
+        expect(renderedWidth, closeTo(prose.width, 0.01));
+        expect(editable(tester).renderEditable.plainText.length, source.length);
+        expect(tester.takeException(), isNull);
+      });
+
       for (final link in ['[test](https://example.test)', 'google.fr']) {
         testWidgets('link $link matches prose at text scale $scale', (
           tester,
@@ -1816,12 +1845,16 @@ final class _FakeSyntaxProjection implements ComposerSyntaxProjection {
   @override
   List<InlineSpan> buildCollapsedSpans(ComposerSyntaxRenderContext context) => [
     if (source.isNotEmpty)
-      WidgetSpan(
-        alignment: PlaceholderAlignment.middle,
-        child: _FakeSyntaxPill(
-          key: context.pillKey,
-          label: source.substring(2, source.length - 2),
-        ),
+      TextSpan(
+        children: [
+          WidgetSpan(
+            alignment: PlaceholderAlignment.middle,
+            child: _FakeSyntaxPill(
+              key: context.pillKey,
+              label: source.substring(2, source.length - 2),
+            ),
+          ),
+        ],
       ),
     if (source.length > 1)
       TextSpan(

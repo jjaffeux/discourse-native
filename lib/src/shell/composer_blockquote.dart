@@ -5,6 +5,7 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 
 import '../theme/app_theme.dart';
+import 'composer_text_scaling.dart';
 import 'markdown_highlight.dart';
 import 'quote_panel.dart';
 
@@ -213,8 +214,13 @@ class _RenderComposerBlockquoteDecoration extends RenderPadding {
     if (editable != null) {
       final markers = <ComposerBlockquoteMarker>[];
       editable.text?.visitChildren((span) {
-        if (span is WidgetSpan && span.child is ComposerBlockquoteMarker) {
-          markers.add(span.child as ComposerBlockquoteMarker);
+        final content = switch (span) {
+          ComposerWidgetSpan(:final content) => content,
+          WidgetSpan(:final child) => child,
+          _ => null,
+        };
+        if (content is ComposerBlockquoteMarker) {
+          markers.add(content);
         }
         return true;
       });
