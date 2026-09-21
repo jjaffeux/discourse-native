@@ -11,7 +11,9 @@ including when scrolling moves the original handle out of view.
 Drag the handle to an insertion line, or click it for **Move up**, **Move down**
 and **Move to…**. Alt+Shift+Up/Down moves the block at the caret.
 The source block retains a subtle themed background during the drag, with its
-handle anchored in place. The insertion line is centered between the preceding
+handle anchored in place. The handle stays transparent in hover, pressed and drag
+states so it shares the block's background without an additional button fill.
+The insertion line is centered between the preceding
 block's bottom and following block's top, spans the text area beside the gutter,
 and does not shift the text. At the beginning or end it marks the outer block edge.
 The original position also shows an insertion line; dropping there leaves the
