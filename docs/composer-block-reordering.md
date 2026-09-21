@@ -4,15 +4,15 @@ Implemented September 21, 2026 in the existing topic/post composer.
 
 ## Using it
 
-On desktop, hover a paragraph, heading or component to reveal handles in both
-gutters. Either handle shows an open-hand cursor on hover and a closed hand from
+On desktop, hover a paragraph, heading or component to reveal its leading
+gutter handle. The handle shows an open-hand cursor on hover and a closed hand from
 press through dragging. The closed hand follows the pointer across the editor,
 including when scrolling moves the original handle out of view.
-Drag either handle to an insertion line, or click it for **Move up**, **Move down**
+Drag the handle to an insertion line, or click it for **Move up**, **Move down**
 and **Move to…**. Alt+Shift+Up/Down moves the block at the caret.
 The source block retains a subtle themed background during the drag, with its
-handles anchored in place. The insertion line is centered between the preceding
-block's bottom and following block's top, spans the text area between the gutters,
+handle anchored in place. The insertion line is centered between the preceding
+block's bottom and following block's top, spans the text area beside the gutter,
 and does not shift the text. At the beginning or end it marks the outer block edge.
 The original position also shows an insertion line; dropping there leaves the
 source and undo history unchanged.
@@ -71,7 +71,7 @@ history. Keyboard shortcuts also use it. Embedded editors retain their own scope
 History survives docking, minimization and arrangement, and resets when the
 controller replaces a sent/restored document.
 
-`ComposerBlockSurface` adds desktop gutters and a touch outline around the
+`ComposerBlockSurface` adds a desktop gutter and a touch outline around the
 continuously mounted field. It measures editor/component bounds after layout,
 scrolls near viewport edges during a drag, cancels on app interruption, validates
 again at drop, and exposes button/menu alternatives to precise dragging. Outline
@@ -111,14 +111,15 @@ Light/dark desktop and mobile editor layouts were rendered for visual inspection
 Physical-device IME, VoiceOver/TalkBack, and OS three-finger undo gestures still
 need device smoke testing; headless widget tests cannot certify those integrations.
 
-The September 22 drag polish adds regression coverage for both gutters in LTR
+The September 22 drag polish adds regression coverage for the leading gutter in LTR
 and RTL, exact insertion-line centering, the source highlight's bounds and
 cancellation, and cursor transitions over text even after the source unmounts.
 Root `dart analyze` and 151 focused tests passed, covering drag controls, buttons,
 composer movement, selection, uploads and viewport overlays. The local macOS
 composer fixture was inspected in light/dark themes and at narrow RTL width;
-an embedded table was moved using each handle. The Native Drag styleguide was
-also inspected in light/dark themes and its right handle completed a drop.
+an embedded table was moved using the gutter handles. The Native Drag styleguide
+was also inspected in light/dark themes and completed a drop. The right-hand
+handle and its reserved gutter were subsequently removed at the user's request.
 
 A follow-up cursor regression checks every pointer move before and after the
 next frame, including the cursor updates sent to the platform. A stationary,

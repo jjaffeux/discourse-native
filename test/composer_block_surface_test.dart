@@ -155,12 +155,12 @@ void main() {
     expect(composer.history.canUndo, isFalse);
   });
 
-  for (final trailing in [false, true]) {
+  for (final dark in [false, true]) {
     for (final direction in TextDirection.values) {
       testWidgets(
-        'both gutters move blocks with a centered insertion line ($trailing, $direction)',
+        'leading handle moves blocks with a centered insertion line ($dark, $direction)',
         (tester) async {
-          await mount(tester, direction: direction, dark: trailing);
+          await mount(tester, direction: direction, dark: dark);
           final original = composer.text.value;
           final blocks = composer.blocks.index.blocks;
           final start = find.byKey(
@@ -175,13 +175,18 @@ void main() {
           final first = surface.blockRect(blocks.first)!;
           final before = surface.blockRect(blocks[1])!;
           final after = surface.blockRect(blocks[2])!;
-          final left = direction == TextDirection.ltr ? start : end;
-          final right = direction == TextDirection.ltr ? end : start;
-          expect(tester.getRect(left).right, lessThanOrEqualTo(first.left));
-          expect(tester.getRect(right).left, greaterThanOrEqualTo(first.right));
+          expect(end, findsNothing);
+          if (direction == TextDirection.ltr) {
+            expect(tester.getRect(start).right, lessThanOrEqualTo(first.left));
+          } else {
+            expect(
+              tester.getRect(start).left,
+              greaterThanOrEqualTo(first.right),
+            );
+          }
 
           final gesture = await tester.startGesture(
-            tester.getCenter(trailing ? end : start),
+            tester.getCenter(start),
             kind: PointerDeviceKind.mouse,
           );
           await gesture.moveBy(const Offset(0, 20));
@@ -201,7 +206,7 @@ void main() {
             closeTo(gapCenter, .01),
           );
           expect(start, findsOneWidget);
-          expect(end, findsOneWidget);
+          expect(end, findsNothing);
           expect(tester.getRect(highlight), sourceTint);
           expect(composer.text.value, original);
           await gesture.up();
