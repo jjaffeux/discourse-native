@@ -723,6 +723,7 @@ class ChatController extends FrameSafeNotifier {
 
   final Map<String, Future<ChatThread?>> _threadDetailRequests = {};
   final Set<String> _threadDetailDirty = {};
+  final Map<String, Object> _threadDetailRuns = {};
 
   final Map<String, ChatStreamState> _streams = {};
   final LinkedHashMap<String, ({String siteUrl, ChatStreamTarget target})>
@@ -3607,6 +3608,35 @@ class ChatController extends FrameSafeNotifier {
     _directIds[siteUrl]?.remove(channelId);
     _partialChannelIds[siteUrl]?.remove(channelId);
     final threadPrefix = '$siteUrl~channel-$channelId-thread-';
+    // Revocation supersedes reads started while the channel was accessible.
+    _channelDetailRuns.remove(key);
+    final _ = _channelDetailRequests.remove(key);
+    _myThreadRuns.remove(_myThreadsKey(siteUrl));
+    final _ = _myThreadRequests.remove(_myThreadsKey(siteUrl));
+    final listKey = _channelThreadsKey(siteUrl, channelId);
+    _channelThreadListRuns.remove(listKey);
+    final _ = _channelThreadListRequests.remove(listKey);
+    _channelThreadIds.remove(listKey);
+    _channelThreadOffsets.remove(listKey);
+    _channelThreadsHaveMore.remove(listKey);
+    if (_myThreadIds[siteUrl] case final ids?) {
+      _myThreadIds[siteUrl] = [
+        for (final id in ids)
+          if (thread(siteUrl, id)?.channelId != channelId) id,
+      ];
+    }
+    _store.removeMatching<ChatThread>(
+      siteUrl,
+      (thread) => thread.channelId == channelId,
+    );
+    _store.removeMatching<ChatMessage>(
+      siteUrl,
+      (message) => message.channelId == channelId,
+    );
+    _threadDetailRuns.removeWhere((key, _) => key.startsWith(threadPrefix));
+    _threadDetailRequests.removeWhere((key, _) => key.startsWith(threadPrefix));
+    _threadDetailDirty.removeWhere((key) => key.startsWith(threadPrefix));
+
     final unavailableStreams = _streams.keys
         .where(
           (targetKey) => targetKey == key || targetKey.startsWith(threadPrefix),
@@ -3615,6 +3645,9 @@ class ChatController extends FrameSafeNotifier {
     for (final targetKey in unavailableStreams) {
       final target = _retainedTargets[targetKey]?.target;
       if (target == null) continue;
+      _streamGenerations.remove(targetKey);
+      _loading.remove(targetKey);
+      _pageRequests.remove(targetKey);
       final current = _streams[targetKey]!;
       _setStream(
         siteUrl,
@@ -5194,10 +5227,13 @@ class ChatController extends FrameSafeNotifier {
     if (current != null) return current;
 
     late final Future<ChatThread?> request;
-    request = _drainThreadDetail(siteUrl, target, key).whenComplete(() {
+    final run = Object();
+    _threadDetailRuns[key] = run;
+    request = _drainThreadDetail(siteUrl, target, key, run).whenComplete(() {
       if (identical(_threadDetailRequests[key], request)) {
         final _ = _threadDetailRequests.remove(key);
         _threadDetailDirty.remove(key);
+        _threadDetailRuns.remove(key);
       }
     });
     _threadDetailRequests[key] = request;
@@ -5208,8 +5244,10 @@ class ChatController extends FrameSafeNotifier {
     String siteUrl,
     ChatThreadTarget target,
     String key,
+    Object run,
   ) async {
     final lease = _requests.capture(siteUrl);
+    bool ownsRequest() => identical(_threadDetailRuns[key], run);
     _setStream(
       siteUrl,
       target,
@@ -5222,9 +5260,9 @@ class ChatController extends FrameSafeNotifier {
       try {
         final requestCredentials = await _requests.credentialsFor(siteUrl);
         final apiKey = requestCredentials.apiKey;
-        if (!lease.isCurrent || isDisposed) return null;
+        if (!_requestIsCurrent(lease, ownsRequest)) return null;
         final clientId = requestCredentials.clientId;
-        if (!lease.isCurrent || isDisposed) return null;
+        if (!_requestIsCurrent(lease, ownsRequest)) return null;
         final detail = await api.chatThread(
           siteUrl: siteUrl,
           channelId: target.channelId,
@@ -5232,7 +5270,7 @@ class ChatController extends FrameSafeNotifier {
           apiKey: apiKey,
           clientId: clientId,
         );
-        if (!lease.isCurrent || isDisposed) return null;
+        if (!_requestIsCurrent(lease, ownsRequest)) return null;
         if (detail.id != target.threadId ||
             detail.channelId != target.channelId) {
           throw StateError('Thread detail did not match its requested target.');
@@ -5268,7 +5306,7 @@ class ChatController extends FrameSafeNotifier {
         _liveSync.ensureThreadSubscription(siteUrl, target);
         return stored;
       } catch (error, stackTrace) {
-        if (!lease.isCurrent || isDisposed) return null;
+        if (!_requestIsCurrent(lease, ownsRequest)) return null;
         if (_threadDetailDirty.contains(key)) continue;
 
         final terminal =
@@ -6267,6 +6305,7 @@ class ChatController extends FrameSafeNotifier {
     _reactorErrors.removeWhere((key, _) => key.siteUrl == siteUrl);
     _bookmarkVersions.remove(siteUrl);
     _threadDetailRequests.removeWhere((key, _) => key.startsWith('$siteUrl~'));
+    _threadDetailRuns.removeWhere((key, _) => key.startsWith('$siteUrl~'));
     _threadDetailDirty.removeWhere((key) => key.startsWith('$siteUrl~'));
     _loading.removeWhere((key) => key.startsWith('$siteUrl~'));
     _channelRequests.removeWhere((key, _) => key.startsWith('$siteUrl~'));
@@ -6354,6 +6393,7 @@ class ChatController extends FrameSafeNotifier {
     _messagePins.clear();
     _retainedTargets.clear();
     _threadDetailRequests.clear();
+    _threadDetailRuns.clear();
     _threadDetailDirty.clear();
     _channelDetailRequests.clear();
     _channelDetailRuns.clear();

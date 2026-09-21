@@ -184,6 +184,22 @@ class Store {
     if (cell != null && !cell._isObserved) _removeRef(key);
   }
 
+  /// Clears matching records, including refs retained by mounted readers.
+  void removeMatching<T extends Storable<T>>(
+    String siteUrl,
+    bool Function(T) matches,
+  ) {
+    final ids = [
+      for (final entry in _refs.entries)
+        if (entry.key.$1 == siteUrl && entry.key.$2 == T)
+          if (entry.value.value case final T record)
+            if (matches(record)) entry.key.$3,
+    ];
+    for (final id in ids) {
+      remove<T>(siteUrl, id);
+    }
+  }
+
   void _touch((String, Type, Object) key, Ref<Object> ref) {
     _refs.remove(key);
     _refs[key] = ref;

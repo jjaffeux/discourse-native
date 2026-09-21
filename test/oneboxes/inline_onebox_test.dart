@@ -52,6 +52,48 @@ RichText paragraphContaining(WidgetTester tester, String text) => tester
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
+  for (final classes in [
+    '',
+    'onebox',
+    'inline-onebox-loading',
+    'inline-onebox',
+  ]) {
+    testWidgets('unavailable chat preview ($classes) preserves its URL link', (
+      tester,
+    ) async {
+      const url = 'https://forum.example/chat/c/-/9/t/22';
+      const launcher = MethodChannel('plugins.flutter.io/url_launcher');
+      final messenger =
+          TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+      final launched = <String>[];
+      messenger.setMockMethodCallHandler(launcher, (call) async {
+        if (call.method == 'launch') {
+          launched.add((call.arguments as Map)['url'] as String);
+        }
+        return true;
+      });
+      addTearDown(() => messenger.setMockMethodCallHandler(launcher, null));
+      await pumpCooked(
+        tester,
+        '<p><a class="$classes" href="$url">$url</a></p>',
+      );
+      final paragraph = paragraphContaining(tester, url);
+      expect(paragraph.text.toPlainText(), url);
+      final render = tester.renderObject<RenderParagraph>(
+        find.byWidget(paragraph),
+      );
+      final box = render
+          .getBoxesForSelection(
+            const TextSelection(baseOffset: 0, extentOffset: 5),
+          )
+          .first;
+      await tester.tapAt(render.localToGlobal(box.toRect().center));
+      await tester.pumpAndSettle();
+      expect(launched, [url]);
+      expect(tester.takeException(), isNull);
+    });
+  }
+
   testWidgets('ordinary inline oneboxes remain flowing anchor text', (
     tester,
   ) async {

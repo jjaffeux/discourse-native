@@ -5056,6 +5056,34 @@ void main() {
       expect(subject.store.read<ChatMessage>(site, 14)?.isDeleted, isTrue);
     });
 
+    test(
+      'rejects a move containing a cached message from another channel',
+      () async {
+        final subject = build(currentUser: currentUser);
+        addTearDown(subject.chat.dispose);
+        subject.store
+          ..put(site, channel(9, canModerate: true))
+          ..put(site, message(12))
+          ..put(
+            site,
+            ChatMessage(
+              id: 14,
+              channelId: 10,
+              cooked: '<p>private</p>',
+              author: const ChatMessageAuthor(id: 2, username: 'sam'),
+              createdAt: DateTime.utc(2026),
+            ),
+          );
+
+        expect(subject.chat.canMoveMessages(site, 9, [12, 14]), isFalse);
+        final result = await subject.chat.moveMessages(site, 9, 10, [12, 14]);
+        expect(result.error, 'One or more messages can no longer be moved.');
+        expect(subject.api.chatMessageMoves, isEmpty);
+        expect(subject.store.read<ChatMessage>(site, 12)?.isDeleted, isFalse);
+        expect(subject.store.read<ChatMessage>(site, 14)?.isDeleted, isFalse);
+      },
+    );
+
     test('does not offer moving from an ordinary or direct channel', () async {
       final held = message(12);
       final subject = build(currentUser: currentUser);

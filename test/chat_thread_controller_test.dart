@@ -471,6 +471,142 @@ FakeSiteTracker attachTracker(ChatController chat) {
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
+  test(
+    'a kick clears cached previews and rejects a late my-threads page',
+    () async {
+      final api = _SequencedThreadListApi(
+        chatChannelsBySite: {
+          site: ChatChannels(
+            public: [followedChannel()],
+            kickMessageBusLastIds: const {9: 72},
+          ),
+        },
+      );
+      final subject = _controllerFor(api);
+      final tracker = attachTracker(subject.chat);
+      await subject.chat.loadChannels(site);
+      final started = api.nextMyThreadPage();
+      final initial = subject.chat.loadMyThreads(site);
+      await started;
+      api.myThreadPages[0].complete(
+        ChatThreadPage(threads: [listedThread(22)], hasMore: true),
+      );
+      await initial;
+      final preview = subject.store.ref<ChatThread>(site, 22);
+      final lateStarted = api.nextMyThreadPage();
+      final late = subject.chat.loadMyThreads(site, more: true);
+      await lateStarted;
+      tracker.deliverPluginMessage('/chat/9/kick', {'channel_id': 9});
+      expect(subject.chat.myThreads(site), isEmpty);
+      expect(preview.value, isNull);
+      api.myThreadPages[1].complete(
+        ChatThreadPage(
+          threads: [listedThread(23)],
+          channels: [followedChannel()],
+        ),
+      );
+      await late;
+      expect(subject.chat.myThreads(site), isEmpty);
+      expect(subject.chat.channel(site, 9), isNull);
+      expect(subject.chat.thread(site, 23), isNull);
+      expect(subject.chat.myThreadsLoadingMore(site), isFalse);
+    },
+  );
+
+  test(
+    'a kick rejects late thread detail and its cached original preview',
+    () async {
+      final api = _AdversarialThreadApi(
+        detail: threadDetail(),
+        holdDetail: true,
+        channels: {
+          site: ChatChannels(
+            public: [followedChannel()],
+            kickMessageBusLastIds: const {9: 72},
+          ),
+        },
+      );
+      final subject = _controllerFor(api);
+      final tracker = attachTracker(subject.chat);
+      await subject.chat.loadChannels(site);
+      subject.store.put(site, threadMessage(100));
+      final pending = subject.chat.openThread(site, target);
+      await api.detailStarted!.future;
+      tracker.deliverPluginMessage('/chat/9/kick', {'channel_id': 9});
+      api.detailGate!.complete();
+      await pending;
+      expect(subject.chat.thread(site, 22), isNull);
+      expect(subject.store.read<ChatMessage>(site, 100), isNull);
+      expect(subject.chat.streamFor(site, target).messageIds, isEmpty);
+      expect(
+        subject.chat.streamFor(site, target).error,
+        'You no longer have access to this channel.',
+      );
+      expect(api.callOrder, ['detail']);
+    },
+  );
+
+  test(
+    'a kick rejects a late thread window without restoring cached messages',
+    () async {
+      final api = _AdversarialThreadApi(
+        detail: threadDetail(),
+        holdMessages: true,
+        pages: {
+          'thread-9-22': threadPage([101]),
+        },
+        channels: {
+          site: ChatChannels(
+            public: [followedChannel()],
+            kickMessageBusLastIds: const {9: 72},
+          ),
+        },
+      );
+      final subject = _controllerFor(api);
+      final tracker = attachTracker(subject.chat);
+      await subject.chat.loadChannels(site);
+      final pending = subject.chat.openThread(site, target);
+      await api.messagesStarted!.future;
+      tracker.deliverPluginMessage('/chat/9/kick', {'channel_id': 9});
+      api.messagesGate!.complete();
+      await pending;
+      expect(subject.chat.streamFor(site, target).messageIds, isEmpty);
+      expect(
+        subject.chat.streamFor(site, target).error,
+        'You no longer have access to this channel.',
+      );
+      expect(subject.store.read<ChatMessage>(site, 101), isNull);
+      expect(subject.chat.thread(site, 22), isNull);
+    },
+  );
+
+  test(
+    'refresh replaces my threads with authorized unfollowed results',
+    () async {
+      final api = _SequencedThreadListApi();
+      final subject = _controllerFor(api);
+      for (final id in [22, 23]) {
+        final started = api.nextMyThreadPage();
+        final request = subject.chat.loadMyThreads(site, force: true);
+        await started;
+        api.myThreadPages.last.complete(
+          ChatThreadPage(
+            threads: [listedThread(id)],
+            channels: [
+              followedChannel(
+                membership: const ChatMembership(following: false),
+              ),
+            ],
+          ),
+        );
+        await request;
+        expect(subject.chat.myThreads(site).map((thread) => thread.id), [id]);
+      }
+      expect(subject.chat.publicChannels(site), isEmpty);
+      expect(subject.chat.channel(site, 9)?.membership.following, isFalse);
+    },
+  );
+
   test('my threads caches and appends core account pages', () async {
     final secondThread = threadDetail(
       replyCount: 1,

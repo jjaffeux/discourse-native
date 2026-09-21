@@ -40,6 +40,28 @@ class _MergingRecord with Storable<_MergingRecord> {
 
 void main() {
   group('Store', () {
+    test('removes matching records only from the selected site and type', () {
+      final store = Store();
+      store.put(_site, const _Record(1, 'private'));
+      store.put(_site, const _Record(2, 'public'));
+      store.put(_otherSite, const _Record(1, 'private'));
+      store.put(_site, const _OtherRecord(1));
+      final ref = store.ref<_Record>(_site, 1);
+      var notifications = 0;
+      void listener() => notifications++;
+      ref.addListener(listener);
+      addTearDown(() => ref.removeListener(listener));
+      store.removeMatching<_Record>(
+        _site,
+        (record) => record.label == 'private',
+      );
+      expect(ref.value, isNull);
+      expect(notifications, 1);
+      expect(store.read<_Record>(_site, 2)?.label, 'public');
+      expect(store.read<_Record>(_otherSite, 1)?.label, 'private');
+      expect(store.read<_OtherRecord>(_site, 1)?.id, 1);
+    });
+
     test('keeps one stable ref through put, update, and remove', () {
       final store = Store();
       final ref = store.ref<_Record>(_site, 1);
