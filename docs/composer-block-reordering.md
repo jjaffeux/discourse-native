@@ -7,6 +7,8 @@ Implemented September 21, 2026 in the existing topic/post composer.
 On desktop, hover a paragraph, heading or component to reveal its gutter handle.
 Drag the handle to an insertion line, or click it for **Move up**, **Move down**
 and **Move to…**. Alt+Shift+Up/Down moves the block at the caret.
+The insertion line shows the destination during dragging; the handle's action
+label stays in its hover tooltip rather than following the pointer in a card.
 
 The toolbar's **Arrange blocks** button opens an outline on desktop or mobile.
 On touch devices this dismisses the keyboard, while keeping the original editor

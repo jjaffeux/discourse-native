@@ -9,6 +9,7 @@ final dragExamples = ComponentExamples(
       'Typed drag handles and insertion boundaries for movable content.',
   notes:
       'Keep text outside the handle. Always provide a tap or keyboard action. '
+      'Dragging shows the destination indicator without a floating label card. '
       'The application validates the snapshot and commits the move once on drop.',
   examples: [
     StyleguideExample(

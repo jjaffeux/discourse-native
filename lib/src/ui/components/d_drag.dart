@@ -2,12 +2,12 @@ import 'package:flutter/material.dart';
 
 import '../foundation/tokens.dart';
 import 'd_button.dart';
-import 'd_card.dart';
 
 /// A draggable action with the same focus and touch targets as Native buttons.
 ///
 /// Only the handle starts a drag; its surrounding content remains selectable
 /// and scrollable. Supply a tap action for an accessible, non-drag alternative.
+/// Use [DDropIndicator] at the destination for feedback during the drag.
 /// Data should be an immutable snapshot validated again by the drop recipient.
 class DDragHandle<T extends Object> extends StatelessWidget {
   const DDragHandle({
@@ -47,24 +47,7 @@ class DDragHandle<T extends Object> extends StatelessWidget {
       data: data,
       maxSimultaneousDrags: enabled ? 1 : 0,
       dragAnchorStrategy: pointerDragAnchorStrategy,
-      feedback: InheritedTheme.captureAll(
-        context,
-        IgnorePointer(
-          child: DefaultTextStyle(
-            style: DefaultTextStyle.of(context).style,
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 240),
-              child: DCard(
-                child: Text(
-                  label,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
+      feedback: const SizedBox.shrink(),
       onDragStarted: onDragStarted,
       // These callbacks also run when a scrolling source handle unmounts.
       onDragCompleted: onDragEnd,
