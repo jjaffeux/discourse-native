@@ -25,6 +25,66 @@ void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
   group('editor layout and controls', () {
+    testWidgets('topic scrollbar aligns with the title separator endpoint', (
+      tester,
+    ) async {
+      await _withTargetPlatform(TargetPlatform.macOS, () async {
+        final composer = ComposerController(_newTopicTarget);
+        final shell = await _shell();
+        addTearDown(composer.dispose);
+        addTearDown(shell.dispose);
+        composer.text.value = TextEditingValue(
+          text: List.generate(80, (i) => 'Paragraph $i').join('\n\n'),
+          selection: const TextSelection.collapsed(offset: 0),
+        );
+
+        for (final width in [900.0, 450.0]) {
+          await _pumpPanel(tester, shell, composer, size: Size(width, 650));
+          final separator = find.byWidgetPredicate(
+            (widget) => widget is DSeparator && widget.endIndent == 16,
+          );
+          final separatorEnd =
+              tester.getRect(separator).right -
+              tester.widget<DSeparator>(separator).endIndent;
+          final scrollbar = find.descendant(
+            of: find.byType(ComposerEditor),
+            matching: find.byType(RawScrollbar),
+          );
+          expect(scrollbar, findsOneWidget);
+          final bounds = tester.getRect(scrollbar);
+          final bar = tester.widget<RawScrollbar>(scrollbar);
+          final thumbRight = bounds.right - bar.crossAxisMargin;
+          expect(thumbRight, closeTo(separatorEnd, 0.001));
+
+          final editable = find.byWidgetPredicate(
+            (widget) =>
+                widget is EditableText && widget.controller == composer.text,
+          );
+          final render = tester
+              .state<EditableTextState>(editable)
+              .renderEditable;
+          final contentRight = render
+              .localToGlobal(Offset(render.size.width, 0))
+              .dx;
+          expect(
+            thumbRight - bar.thickness! - contentRight,
+            greaterThanOrEqualTo(12),
+          );
+
+          bar.controller!.jumpTo(0);
+          await tester.pump();
+          await tester.dragFrom(
+            Offset(thumbRight - bar.thickness! / 2, bounds.top + 8),
+            const Offset(0, 100),
+            kind: PointerDeviceKind.mouse,
+          );
+          await tester.pumpAndSettle();
+          expect(bar.controller!.offset, greaterThan(0));
+          expect(tester.takeException(), isNull);
+        }
+      });
+    });
+
     testWidgets(
       'formatting toolbar applies a mark and returns focus to the live editor',
       (tester) async {
