@@ -7,6 +7,7 @@ import 'package:flutter/scheduler.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
 
+import '../../data/discourse_api_contracts.dart' show WriteFailure;
 import '../../models/bookmark.dart';
 import '../../models/post_flag.dart';
 import '../../plugin_api/plugin_scope.dart';
@@ -33,6 +34,7 @@ import 'chat_preview.dart';
 import 'chat_preview_body.dart';
 import 'chat_services.dart';
 import 'chat_shell_service.dart';
+import 'chat_stream_target.dart';
 import 'chat_uploads.dart';
 import 'chat_user_avatar.dart';
 
@@ -1045,6 +1047,12 @@ class _Tile extends StatelessWidget {
         messageReaction ??
         pendingAction(DIcons.farFaceSmile, DButtonSize.regular, 'Add reaction');
     final bubbleAlign = outgoing ? DBubbleAlign.end : DBubbleAlign.start;
+    final target = message.threadId == null
+        ? ChatChannelTarget(message.channelId)
+        : ChatThreadTarget(
+            channelId: message.channelId,
+            threadId: message.threadId!,
+          );
     final hasBody = message.canonicalReceived
         ? message.cooked.isNotEmpty
         : message.provisionalCooked?.isNotEmpty ??
@@ -1095,6 +1103,29 @@ class _Tile extends StatelessWidget {
                 label: message.sendError == null || message.sendError!.isEmpty
                     ? null
                     : 'Failed to send: ${message.sendError}',
+              ),
+            if (message.delivery == ChatMessageDelivery.failed &&
+                message.stagedId != null &&
+                message.sendFailure?.failure == WriteFailure.rateLimited)
+              PluginServiceSelector<ChatController, bool>(
+                service: chatControllerService,
+                select: (controller) =>
+                    controller.canSendMessageTo(siteUrl, target),
+                builder: (context, canSend, _) => DButton(
+                  size: DButtonSize.small,
+                  variant: DButtonVariant.transparentBackground,
+                  label: Text(
+                    message.retryWaiting ? 'Retry after cooldown' : 'Retry',
+                  ),
+                  onPressed: message.retryWaiting || !canSend
+                      ? null
+                      : () {
+                          PluginUiScope.require(
+                            context,
+                            chatControllerService,
+                          ).retryMessage(siteUrl, target, message.stagedId!);
+                        },
+                ),
               ),
           ],
         ),

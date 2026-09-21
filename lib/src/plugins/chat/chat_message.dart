@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 
+import '../../data/discourse_api_contracts.dart' show WriteException;
 import '../../data/store.dart';
 import '../../models/bookmark.dart';
 import '../../models/composer_upload.dart';
@@ -572,6 +573,8 @@ class ChatMessage with Storable<ChatMessage> {
     this.canonicalReceived = true,
     this.delivery = ChatMessageDelivery.sent,
     this.sendError,
+    this.sendFailure,
+    this.retryWaiting = false,
     this.deliveryUncertain = false,
   });
 
@@ -806,6 +809,10 @@ class ChatMessage with Storable<ChatMessage> {
   final ChatMessageDelivery delivery;
   final String? sendError;
 
+  /// Transient structured refusal; only confirmed rate limits permit a retry.
+  final WriteException? sendFailure;
+  final bool retryWaiting;
+
   /// Informational only: Discourse does not make `staged_id` idempotent.
   final bool deliveryUncertain;
 
@@ -846,6 +853,8 @@ class ChatMessage with Storable<ChatMessage> {
       canonicalReceived: canonicalReceived,
       delivery: delivery,
       sendError: sendError,
+      sendFailure: sendFailure,
+      retryWaiting: retryWaiting,
       deliveryUncertain: deliveryUncertain,
     );
   }
@@ -909,6 +918,8 @@ class ChatMessage with Storable<ChatMessage> {
     canonicalReceived: canonicalReceived,
     delivery: delivery,
     sendError: sendError,
+    sendFailure: sendFailure,
+    retryWaiting: retryWaiting,
     deliveryUncertain: deliveryUncertain,
   );
 
@@ -916,6 +927,8 @@ class ChatMessage with Storable<ChatMessage> {
     required ChatMessageDelivery delivery,
     int? serverId,
     String? error,
+    WriteException? failure,
+    bool retryWaiting = false,
     bool deliveryUncertain = false,
   }) => ChatMessage(
     id: id,
@@ -947,6 +960,8 @@ class ChatMessage with Storable<ChatMessage> {
     canonicalReceived: canonicalReceived,
     delivery: delivery,
     sendError: error,
+    sendFailure: failure,
+    retryWaiting: retryWaiting,
     deliveryUncertain: deliveryUncertain,
   );
 
@@ -1011,6 +1026,8 @@ class ChatMessage with Storable<ChatMessage> {
     canonicalReceived: canonicalReceived,
     delivery: delivery,
     sendError: sendError,
+    sendFailure: sendFailure,
+    retryWaiting: retryWaiting,
     deliveryUncertain: deliveryUncertain,
   );
 
@@ -1044,6 +1061,8 @@ class ChatMessage with Storable<ChatMessage> {
     canonicalReceived: canonicalReceived,
     delivery: delivery,
     sendError: sendError,
+    sendFailure: sendFailure,
+    retryWaiting: retryWaiting,
     deliveryUncertain: deliveryUncertain,
   );
 
@@ -1081,6 +1100,8 @@ class ChatMessage with Storable<ChatMessage> {
     canonicalReceived: canonicalReceived,
     delivery: delivery,
     sendError: sendError,
+    sendFailure: sendFailure,
+    retryWaiting: retryWaiting,
     deliveryUncertain: deliveryUncertain,
   );
 
@@ -1117,6 +1138,8 @@ class ChatMessage with Storable<ChatMessage> {
     canonicalReceived: false,
     delivery: delivery,
     sendError: sendError,
+    sendFailure: sendFailure,
+    retryWaiting: retryWaiting,
     deliveryUncertain: deliveryUncertain,
   );
 
@@ -1153,6 +1176,8 @@ class ChatMessage with Storable<ChatMessage> {
     canonicalReceived: source.canonicalReceived,
     delivery: delivery,
     sendError: sendError,
+    sendFailure: sendFailure,
+    retryWaiting: retryWaiting,
     deliveryUncertain: deliveryUncertain,
   );
 
@@ -1186,6 +1211,8 @@ class ChatMessage with Storable<ChatMessage> {
     canonicalReceived: canonicalReceived,
     delivery: delivery,
     sendError: sendError,
+    sendFailure: sendFailure,
+    retryWaiting: retryWaiting,
     deliveryUncertain: deliveryUncertain,
   );
 
@@ -1221,6 +1248,8 @@ class ChatMessage with Storable<ChatMessage> {
     canonicalReceived: canonicalReceived,
     delivery: delivery,
     sendError: sendError,
+    sendFailure: sendFailure,
+    retryWaiting: retryWaiting,
     deliveryUncertain: deliveryUncertain,
   );
 
@@ -1254,6 +1283,8 @@ class ChatMessage with Storable<ChatMessage> {
     canonicalReceived: canonicalReceived,
     delivery: delivery,
     sendError: sendError,
+    sendFailure: sendFailure,
+    retryWaiting: retryWaiting,
     deliveryUncertain: deliveryUncertain,
   );
 
@@ -1287,6 +1318,8 @@ class ChatMessage with Storable<ChatMessage> {
     canonicalReceived: canonicalReceived,
     delivery: delivery,
     sendError: sendError,
+    sendFailure: sendFailure,
+    retryWaiting: retryWaiting,
     deliveryUncertain: deliveryUncertain,
   );
 
@@ -1334,6 +1367,8 @@ class ChatMessage with Storable<ChatMessage> {
       canonicalReceived: canonicalReceived,
       delivery: delivery,
       sendError: sendError,
+      sendFailure: sendFailure,
+      retryWaiting: retryWaiting,
       deliveryUncertain: deliveryUncertain,
     );
   }
@@ -1375,6 +1410,8 @@ class ChatMessage with Storable<ChatMessage> {
           other.canonicalReceived == canonicalReceived &&
           other.delivery == delivery &&
           other.sendError == sendError &&
+          other.sendFailure == sendFailure &&
+          other.retryWaiting == retryWaiting &&
           other.deliveryUncertain == deliveryUncertain;
 
   @override
@@ -1407,7 +1444,14 @@ class ChatMessage with Storable<ChatMessage> {
     provisionalCooked,
     stagedId,
     serverId,
-    Object.hash(canonicalReceived, delivery, sendError, deliveryUncertain),
+    Object.hash(
+      canonicalReceived,
+      delivery,
+      sendError,
+      sendFailure,
+      retryWaiting,
+      deliveryUncertain,
+    ),
   ]);
 
   @override

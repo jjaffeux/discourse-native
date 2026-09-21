@@ -7,6 +7,7 @@ import 'package:flutter/foundation.dart';
 
 import '../../data/discourse_api_contracts.dart'
     show WriteException, WriteFailure;
+import '../../data/origin_cooldown.dart';
 import '../../diagnostics/diagnostics_controller.dart';
 import '../../models/discourse_user.dart';
 import '../../plugin_api/core_plugin_host.dart';
@@ -37,6 +38,8 @@ final class ChatSendCoordinatorHost {
     required this.stage,
     required this.markSent,
     required this.markFailed,
+    required this.outgoing,
+    required this.setRetryState,
     required this.onSent,
     required this.hasUnsettledMessages,
     required this.reconcileSentEvent,
@@ -69,6 +72,20 @@ final class ChatSendCoordinatorHost {
     WriteException failure,
   )
   markFailed;
+  final ChatMessage? Function(
+    String siteUrl,
+    ChatStreamTarget target,
+    String stagedId,
+  )
+  outgoing;
+  final void Function(
+    String siteUrl,
+    ChatStreamTarget target,
+    String stagedId, {
+    required bool sending,
+    required bool waiting,
+  })
+  setRetryState;
   final void Function(String siteUrl, ChatStreamTarget target) onSent;
   final bool Function(String siteUrl, ChatStreamTarget target)
   hasUnsettledMessages;
@@ -97,6 +114,12 @@ abstract interface class ChatSendCoordinator {
     OutgoingChatMessage message,
   );
 
+  ChatSendHandle? retryMessage(
+    String siteUrl,
+    ChatStreamTarget target,
+    String stagedId,
+  );
+
   void attachTracker(String siteUrl, PluginLiveChannelHandle channels);
 
   void reconcileSentEvent(
@@ -121,15 +144,19 @@ final class DefaultChatSendCoordinator implements ChatSendCoordinator {
     required PluginRequestHost requests,
     required ChatSendCoordinatorHost host,
     DateTime Function()? clock,
+    OriginCooldown Function()? cooldownFactory,
   }) : _api = api,
        _requests = requests,
        _host = host,
-       _clock = clock ?? DateTime.now;
+       _clock = clock ?? DateTime.now,
+       _cooldownFactory = cooldownFactory ?? OriginCooldown.new;
 
   final ChatApi _api;
   final PluginRequestHost _requests;
   final ChatSendCoordinatorHost _host;
   final DateTime Function() _clock;
+  final OriginCooldown Function() _cooldownFactory;
+  final Map<String, _RetryChatSend> _retries = {};
 
   final Map<String, _ChatSendQueue> _queues = {};
   final Map<String, PluginLiveChannelHandle> _trackers = {};
@@ -236,6 +263,117 @@ final class DefaultChatSendCoordinator implements ChatSendCoordinator {
     return handle;
   }
 
+  @override
+  ChatSendHandle? retryMessage(
+    String siteUrl,
+    ChatStreamTarget target,
+    String stagedId,
+  ) {
+    final retry = _retries[stagedId];
+    if (retry == null ||
+        retry.siteUrl != siteUrl ||
+        retry.target != target ||
+        _disposed ||
+        _host.isDisposed() ||
+        !retry.item.lease.isCurrent ||
+        retry.cooldown.remaining != null) {
+      return null;
+    }
+    final held = _host.outgoing(siteUrl, target, stagedId);
+    if (held == null ||
+        held.delivery != ChatMessageDelivery.failed ||
+        held.serverId != null ||
+        held.canonicalReceived ||
+        !_host.canSend(siteUrl, target) ||
+        !retry.item.lease.isCurrent ||
+        !identical(_retries[stagedId], retry)) {
+      return null;
+    }
+
+    // Consume admission before notifying observers: a second click cannot queue
+    // another POST, and retry never visits composer draft ownership.
+    _retries.remove(stagedId);
+    retry.cooldown.cancel();
+    final key = _targetKey(siteUrl, target);
+    final queue = _queues.putIfAbsent(
+      key,
+      () => _ChatSendQueue(siteUrl: siteUrl, target: target, key: key),
+    );
+    final settlement = Completer<ChatSendResult>();
+    final item = _QueuedChatSend(
+      local: retry.item.local,
+      uploadIds: retry.item.uploadIds,
+      settlement: settlement,
+      lease: retry.item.lease,
+      context: retry.item.context,
+      isRetry: true,
+    );
+    queue.pending.add(item);
+    _schedule(queue);
+    _host.setRetryState(
+      siteUrl,
+      target,
+      stagedId,
+      sending: true,
+      waiting: false,
+    );
+    return ChatSendHandle.internal(
+      localId: item.local.id,
+      stagedId: stagedId,
+      settled: settlement.future,
+    );
+  }
+
+  void _retainRetry(
+    _ChatSendQueue queue,
+    _QueuedChatSend item,
+    WriteException failure,
+  ) {
+    final stagedId = item.local.stagedId!;
+    final retry = _RetryChatSend(
+      queue.siteUrl,
+      queue.target,
+      item,
+      _cooldownFactory(),
+    );
+    _retries.remove(stagedId)?.cooldown.cancel();
+    _retries[stagedId] = retry;
+    final advertised = failure.retryAfter ?? const Duration(seconds: 1);
+    final remaining = retry.cooldown.extend(
+      advertised.isNegative ? Duration.zero : advertised,
+      onExpired: () {
+        if (_disposed ||
+            _host.isDisposed() ||
+            !item.lease.isCurrent ||
+            !identical(_retries[stagedId], retry)) {
+          return;
+        }
+        _host.setRetryState(
+          queue.siteUrl,
+          queue.target,
+          stagedId,
+          sending: false,
+          waiting: false,
+        );
+      },
+    );
+    _host.setRetryState(
+      queue.siteUrl,
+      queue.target,
+      stagedId,
+      sending: false,
+      waiting: remaining != null,
+    );
+  }
+
+  void _cancelRetries(bool Function(_RetryChatSend) matches) {
+    _retries.removeWhere((_, retry) {
+      if (!matches(retry)) return false;
+      retry.cooldown.cancel();
+      return true;
+    });
+  }
+
   void _schedule(_ChatSendQueue queue) {
     if (queue.scheduled || queue.cancelled) return;
     queue.scheduled = true;
@@ -337,6 +475,15 @@ final class DefaultChatSendCoordinator implements ChatSendCoordinator {
         item.complete(ChatSendResult.cancelled);
         return;
       }
+      if (item.isRetry) {
+        final held = _host.outgoing(siteUrl, target, local.stagedId!);
+        if (held == null || held.serverId != null || held.canonicalReceived) {
+          item.complete(
+            held == null ? ChatSendResult.cancelled : ChatSendResult.sent,
+          );
+          return;
+        }
+      }
       final serverId = await _api.sendChatMessage(
         siteUrl: siteUrl,
         apiKey: apiKey,
@@ -382,6 +529,11 @@ final class DefaultChatSendCoordinator implements ChatSendCoordinator {
             failure,
           );
         });
+        if (!canonicalAlreadyArrived &&
+            failure.failure == WriteFailure.rateLimited &&
+            _requestIsCurrent(item.lease, queue, item)) {
+          _retainRetry(queue, item, failure);
+        }
         item.lease.commit(
           () => releaseReconciliationIfSettled(siteUrl, target),
         );
@@ -475,6 +627,11 @@ final class DefaultChatSendCoordinator implements ChatSendCoordinator {
 
   @override
   void releaseReconciliationIfSettled(String siteUrl, ChatStreamTarget target) {
+    _cancelRetries((retry) {
+      if (retry.siteUrl != siteUrl || retry.target != target) return false;
+      final held = _host.outgoing(siteUrl, target, retry.item.local.stagedId!);
+      return held == null || held.canonicalReceived || held.serverId != null;
+    });
     if (_host.hasUnsettledMessages(siteUrl, target)) return;
 
     final key = _targetKey(siteUrl, target);
@@ -487,6 +644,10 @@ final class DefaultChatSendCoordinator implements ChatSendCoordinator {
 
   @override
   void cancelChannel(String siteUrl, int channelId) {
+    _cancelRetries(
+      (retry) =>
+          retry.siteUrl == siteUrl && retry.target.channelId == channelId,
+    );
     _cancelQueues(
       (queue) =>
           queue.siteUrl == siteUrl && queue.target.channelId == channelId,
@@ -508,6 +669,7 @@ final class DefaultChatSendCoordinator implements ChatSendCoordinator {
 
   @override
   void forget(String siteUrl) {
+    _cancelRetries((retry) => retry.siteUrl == siteUrl);
     _cancelQueues((queue) => queue.siteUrl == siteUrl);
     _cancelSubscriptions(siteUrl);
     _trackers.remove(siteUrl);
@@ -561,6 +723,7 @@ final class DefaultChatSendCoordinator implements ChatSendCoordinator {
   void dispose() {
     if (_disposed) return;
     _disposed = true;
+    _cancelRetries((_) => true);
     _cancelQueues((_) => true);
     for (final subscription in _subscriptions.values) {
       try {
@@ -598,6 +761,7 @@ final class _QueuedChatSend {
     required this.settlement,
     required this.lease,
     required this.context,
+    this.isRetry = false,
   });
 
   final ChatMessage local;
@@ -605,8 +769,17 @@ final class _QueuedChatSend {
   final Completer<ChatSendResult> settlement;
   final PluginSiteLease lease;
   final ChatMessageContext? context;
+  final bool isRetry;
 
   void complete(ChatSendResult result) {
     if (!settlement.isCompleted) settlement.complete(result);
   }
+}
+
+final class _RetryChatSend {
+  _RetryChatSend(this.siteUrl, this.target, this.item, this.cooldown);
+  final String siteUrl;
+  final ChatStreamTarget target;
+  final _QueuedChatSend item;
+  final OriginCooldown cooldown;
 }
