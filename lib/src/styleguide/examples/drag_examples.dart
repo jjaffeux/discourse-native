@@ -9,12 +9,14 @@ final dragExamples = ComponentExamples(
       'Typed drag handles and insertion boundaries for movable content.',
   notes:
       'Keep text outside the handle. Always provide a tap or keyboard action. '
-      'Dragging shows the destination indicator without a floating label card. '
+      'Handles show an open hand on hover and a fist while pressed or dragging. '
+      'DDragHighlight tints the source while DDropIndicator marks its destination. '
       'The application validates the snapshot and commits the move once on drop.',
   examples: [
     StyleguideExample(
       title: 'Drag and tap',
-      description: 'Drag into the target, or activate the handle to place it.',
+      description:
+          'Drag either handle into the target, or activate it to place the block.',
       states: const ['Light', 'Dark', 'Touch', 'Keyboard', 'RTL'],
       code:
           'DDragHandle<int>(data: 1, label: "Move paragraph", onPressed: place)',
@@ -45,6 +47,7 @@ class _DragExample extends StatefulWidget {
 class _DragExampleState extends State<_DragExample> {
   bool _over = false;
   bool _placed = false;
+  bool _dragging = false;
   void _place() => setState(() {
     _placed = true;
     _over = false;
@@ -53,13 +56,19 @@ class _DragExampleState extends State<_DragExample> {
   Widget build(BuildContext context) => Column(
     crossAxisAlignment: CrossAxisAlignment.stretch,
     children: [
-      Row(
+      Stack(
         children: [
-          DDragHandle<int>(data: 1, label: 'Move paragraph', onPressed: _place),
-          const Expanded(
-            child: Text(
-              'A paragraph remains selectable while its handle moves.',
-            ),
+          if (_dragging) const Positioned.fill(child: DDragHighlight()),
+          Row(
+            children: [
+              _handle(),
+              const Expanded(
+                child: Text(
+                  'A paragraph remains selectable while its handle moves.',
+                ),
+              ),
+              _handle(),
+            ],
           ),
         ],
       ),
@@ -84,5 +93,15 @@ class _DragExampleState extends State<_DragExample> {
           onPressed: () => setState(() => _placed = false),
         ),
     ],
+  );
+
+  Widget _handle() => DDragHandle<int>(
+    data: 1,
+    label: 'Move paragraph',
+    onPressed: _place,
+    onDragStarted: () => setState(() => _dragging = true),
+    onDragEnd: () {
+      if (mounted) setState(() => _dragging = false);
+    },
   );
 }

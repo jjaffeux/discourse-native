@@ -363,6 +363,7 @@ class DButton extends StatelessWidget {
     this.shortcut,
     this.semanticLabel,
     this.focusNode,
+    this.mouseCursor,
     this.autofocus = false,
     this.alignment = Alignment.center,
     this.shape = DButtonShape.rounded,
@@ -386,6 +387,7 @@ class DButton extends StatelessWidget {
     this.shortcut,
     this.semanticLabel,
     this.focusNode,
+    this.mouseCursor,
     this.autofocus = false,
     this.alignment = Alignment.center,
     this.shape = DButtonShape.rounded,
@@ -440,6 +442,10 @@ class DButton extends StatelessWidget {
   final DShortcut? shortcut;
   final String? semanticLabel;
   final FocusNode? focusNode;
+
+  /// Cursor for enabled actions, e.g. an open hand on a drag handle.
+  /// Disabled actions retain the default arrow.
+  final MouseCursor? mouseCursor;
   final bool autofocus;
   final AlignmentGeometry alignment;
 
@@ -738,7 +744,7 @@ class DButton extends StatelessWidget {
       mouseCursor: WidgetStateProperty.resolveWith(
         (states) => states.contains(WidgetState.disabled)
             ? SystemMouseCursors.basic
-            : SystemMouseCursors.click,
+            : mouseCursor ?? SystemMouseCursors.click,
       ),
       alignment: alignment,
       backgroundBuilder: (context, states, child) {
