@@ -498,7 +498,7 @@ class _ChannelSettings extends StatelessWidget {
                                     onPressed: () =>
                                         unawaited(_leave(context, channel)),
                                     icon: const DIcon(DIcons.rightFromBracket),
-                                    variant: DButtonVariant.destructive,
+                                    variant: DButtonVariant.outline,
                                     size: DButtonSize.small,
                                     loading: followingBusy,
                                     loadingLabel: const Text('Leaving…'),

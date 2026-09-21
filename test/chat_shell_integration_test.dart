@@ -5576,6 +5576,14 @@ void _registerChatShellTests() {
         final leaveButton = find.byKey(const ValueKey('chat-channel-leave'));
         await tester.ensureVisible(leaveButton);
         await tester.pumpAndSettle();
+        expect(
+          find.widgetWithText(DButton, 'Leave channel').hitTestable(),
+          findsOneWidget,
+        );
+        expect(
+          tester.widget<DButton>(leaveButton).variant,
+          DButtonVariant.outline,
+        );
         await tester.tap(leaveButton);
         await tester.pumpAndSettle();
 
