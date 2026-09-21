@@ -702,6 +702,23 @@ class _MobileComposerViewportState extends State<_MobileComposerViewport> {
   }
 }
 
+LinearGradient _composerEdgeGradient(
+  BuildContext context, {
+  bool bottom = false,
+}) {
+  final surface = Theme.of(context).shell.content;
+  return LinearGradient(
+    begin: bottom ? Alignment.bottomCenter : Alignment.topCenter,
+    end: bottom ? Alignment.topCenter : Alignment.bottomCenter,
+    colors: [
+      surface,
+      surface.withValues(alpha: 0.94),
+      surface.withValues(alpha: 0),
+    ],
+    stops: const [0, 0.65, 1],
+  );
+}
+
 class _ComposerPinnedHeader extends SliverPersistentHeaderDelegate {
   _ComposerPinnedHeader({required this.extent, required this.child});
 
@@ -719,20 +736,8 @@ class _ComposerPinnedHeader extends SliverPersistentHeaderDelegate {
     double shrinkOffset,
     bool overlapsContent,
   ) {
-    final surface = Theme.of(context).shell.content;
     return DecoratedBox(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            surface,
-            surface.withValues(alpha: 0.94),
-            surface.withValues(alpha: 0),
-          ],
-          stops: const [0, 0.65, 1],
-        ),
-      ),
+      decoration: BoxDecoration(gradient: _composerEdgeGradient(context)),
       child: child,
     );
   }
@@ -3834,9 +3839,10 @@ class _Footer extends StatelessWidget {
     return Container(
       key: const ValueKey('composer-footer'),
       decoration: BoxDecoration(
-        color: context.isTouch
-            ? Colors.transparent
-            : _composerFooterColor(context),
+        color: context.isTouch ? null : _composerFooterColor(context),
+        gradient: context.isTouch
+            ? _composerEdgeGradient(context, bottom: true)
+            : null,
         border: context.isTouch
             ? null
             : Border(top: BorderSide(color: theme.shell.divider)),
