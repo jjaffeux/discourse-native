@@ -120,10 +120,27 @@ class _ComposerPresentationHostState extends State<ComposerPresentationHost> {
     super.didChangeDependencies();
     final shell = ShellScope.read(context);
     if (identical(shell, _shell)) return;
+    _detachReplacementConfirmation();
     _shell?.removeListener(_shellChanged);
     _shell = shell..addListener(_shellChanged);
+    shell.confirmComposerReplacement = _confirmReplacement;
     _knownComposers = shell.liveComposers.toList();
     _knownVisibleComposer = shell.visibleComposer;
+  }
+
+  Future<void> _confirmReplacement(ComposerController composer) async {
+    if (!mounted) return;
+    await requestComposerDiscard(
+      context: context,
+      composer: composer,
+      controller: _shell,
+    );
+  }
+
+  void _detachReplacementConfirmation() {
+    if (_shell?.confirmComposerReplacement == _confirmReplacement) {
+      _shell?.confirmComposerReplacement = null;
+    }
   }
 
   void _shellChanged() {
@@ -238,6 +255,7 @@ class _ComposerPresentationHostState extends State<ComposerPresentationHost> {
 
   @override
   void dispose() {
+    _detachReplacementConfirmation();
     _shell?.removeListener(_shellChanged);
     _presentation.removeListener(_changed);
     if (widget.controller == null) _presentation.dispose();

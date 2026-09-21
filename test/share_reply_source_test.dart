@@ -138,7 +138,7 @@ void main() {
       expect(harness.shell.visibleComposer, isNull);
     });
 
-    testWidgets('$kind share restores a draft before prepending continuation', (
+    testWidgets('$kind share starts fresh with only its continuation', (
       tester,
     ) async {
       final harness = await _Harness.create(
@@ -157,9 +157,10 @@ void main() {
       final composer = harness.shell.visibleComposer!;
       expect(composer.target.isNewTopic, isTrue);
       expect(composer.target.originTopicId, 7);
-      expect(composer.title.text, 'An unfinished topic');
-      expect(composer.categoryId, 6);
-      expect(composer.raw, '${harness.continuation}\n\nKeep my draft body');
+      expect(composer.title.text, isEmpty);
+      expect(composer.categoryId, 5);
+      expect(composer.raw, harness.continuation);
+      expect(harness.api.draftsRequested, isEmpty);
     });
   }
 

@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math' as math;
 import 'dart:ui' show Color, Rect;
 
 import 'package:discourse_cooking/discourse_cooking.dart';
@@ -44,6 +45,7 @@ import '../models/bookmark.dart';
 import '../models/bookmark_feed.dart';
 import '../models/category_feed.dart';
 import '../models/category_sidebar.dart';
+import '../models/composer_draft.dart';
 import '../models/composer_upload.dart';
 import '../models/content_route.dart';
 import '../models/discourse_instance.dart';
@@ -7869,6 +7871,45 @@ class ShellController extends FrameSafeNotifier
   Future<void> openNewTopic() =>
       _openNewTopic(permitted: canCreateTopicHere, revealContent: false);
 
+  /// Installed by the presentation host to confirm discarding an active draft.
+  Future<void> Function(ComposerController composer)?
+  confirmComposerReplacement;
+
+  int _lastNewTopicDraftId = 0;
+
+  String _newTopicDraftKey() {
+    _lastNewTopicDraftId = math.max(
+      _clock().millisecondsSinceEpoch,
+      _lastNewTopicDraftId + 1,
+    );
+    return '${ComposerDraft.newTopicDraftKey}_$_lastNewTopicDraftId';
+  }
+
+  Future<bool> _prepareNewTopicComposer() async {
+    final existing = _composer;
+    if (existing == null) return true;
+    if (existing.closing || _composerHasPendingOperation(existing)) {
+      return false;
+    }
+    if (existing.canSaveDraft && !await finishComposerDraftRestore(existing)) {
+      return false;
+    }
+    if (!identical(_composer, existing) ||
+        existing.closing ||
+        _composerHasPendingOperation(existing)) {
+      return false;
+    }
+    if (!existing.hasChanges &&
+        !existing.metadataChanged &&
+        !existing.hasUnappliedDraft) {
+      return true;
+    }
+    final confirm = confirmComposerReplacement;
+    if (confirm == null) return false;
+    await confirm(existing);
+    return existing.isDisposed && _composer == null;
+  }
+
   Future<void> openNewTopicFromList() => _openNewTopic(
     permitted: canCreateTopicFromList,
     revealContent: false,
@@ -7896,6 +7937,17 @@ class ShellController extends FrameSafeNotifier
         feedId == null ||
         tabId == null ||
         !permitted) {
+      return;
+    }
+    final lease = lifecycle.capture(instance.url);
+    final content = currentContent;
+    if (!await _prepareNewTopicComposer() ||
+        isDisposed ||
+        !lease.isCurrent ||
+        currentInstance?.url != instance.url ||
+        activeTabId != tabId ||
+        currentFeedId != feedId ||
+        currentContent != content) {
       return;
     }
     final originFeedId = revealContent && !canCreateTopicHere
@@ -7937,7 +7989,7 @@ class ShellController extends FrameSafeNotifier
       slug: '',
       topicTitle: 'New topic',
       mode: ComposerMode.newTopic,
-      draftKey: listedDraft?.key,
+      draftKey: listedDraft?.key ?? _newTopicDraftKey(),
       originFeedId: originFeedId,
       initialCategoryId: categoryId,
     );
@@ -7948,7 +8000,11 @@ class ShellController extends FrameSafeNotifier
     );
     _setComposer(composer);
     if (revealContent) _mobilePane = MobilePane.content;
-    _composerDrafts.startRestore(composer, listedDraft: listedDraft);
+    if (listedDraft == null) {
+      _composerDrafts.startNewDraft(composer);
+    } else {
+      _composerDrafts.startRestore(composer, listedDraft: listedDraft);
+    }
     final enrichment = _enrichNewTopicComposer(
       composer,
       instance: instance,
@@ -8085,6 +8141,14 @@ class ShellController extends FrameSafeNotifier
         currentTopic?.canReplyAsNewTopic != true) {
       return;
     }
+    if (!await _prepareNewTopicComposer() ||
+        !lease.isCurrent ||
+        activeTabId != tabId ||
+        currentInstance?.url != siteUrl ||
+        currentContent?.topicId != sourceTopicId ||
+        currentTopic?.canReplyAsNewTopic != true) {
+      return;
+    }
 
     final category = topicComposerCategories(siteUrl)
         .where((item) => item.id == detail.categoryId && item.canCreateTopic)
@@ -8098,6 +8162,7 @@ class ShellController extends FrameSafeNotifier
       topicTitle: 'New topic',
       mode: ComposerMode.newTopic,
       originTopicId: sourceTopicId,
+      draftKey: _newTopicDraftKey(),
       initialCategoryId: category?.id,
     );
     final composer = _buildTextComposer(
@@ -8107,11 +8172,7 @@ class ShellController extends FrameSafeNotifier
     );
     _setComposer(composer);
     _notify();
-    _composerDrafts.startRestore(composer);
-
-    try {
-      await _composerDrafts.restoreTaskFor(composer);
-    } catch (_) {}
+    _composerDrafts.startNewDraft(composer);
     if (!lease.isCurrent ||
         !_ownsComposer(composer) ||
         activeTabId != tabId ||
@@ -8175,6 +8236,18 @@ class ShellController extends FrameSafeNotifier
         composer.target.siteUrl == siteUrl &&
         composer.target.originFeedId == feedId;
     if (!reusable) {
+      if (!await _prepareNewTopicComposer()) {
+        return OpenComposerResult.unavailable;
+      }
+      if (!forumActive ||
+          !lease.isCurrent ||
+          currentInstance?.url != siteUrl ||
+          currentContent?.id != sourceRouteId ||
+          !sourceIsCurrent() ||
+          activeTabId != tabId ||
+          currentFeedId != feedId) {
+        return OpenComposerResult.sourceChanged;
+      }
       if (!_replaceComposer()) return OpenComposerResult.unavailable;
       final target = ComposerTarget(
         siteUrl: siteUrl,
@@ -8184,6 +8257,7 @@ class ShellController extends FrameSafeNotifier
         topicTitle: 'New topic',
         mode: ComposerMode.newTopic,
         originFeedId: feedId,
+        draftKey: _newTopicDraftKey(),
         initialCategoryId: category?.id,
       );
       composer = _buildTextComposer(
@@ -8193,7 +8267,7 @@ class ShellController extends FrameSafeNotifier
       );
       _setComposer(composer);
       _notify();
-      _composerDrafts.startRestore(composer);
+      _composerDrafts.startNewDraft(composer);
     }
 
     try {

@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:discourse_native/src/models/composer_draft.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/post.dart';
@@ -16,6 +17,12 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   test('opens a new-topic composer with an opaque seed unchanged', () async {
+    final drafts = FakeDraftStore();
+    await drafts.write(
+      _siteUrl,
+      'new_topic',
+      const ComposerDraft(reply: 'An unrelated saved topic').encode(),
+    );
     final shell = ShellController(
       instanceStore: FakeInstanceStore([
         instance(
@@ -27,7 +34,7 @@ void main() {
         creatableFeedPaths: const {'/latest.json'},
       ),
       authenticator: FakeAuthenticator()..keys[_siteUrl] = 'api-key',
-      drafts: FakeDraftStore(),
+      drafts: drafts,
       trackers: FakeSiteTracker.reset(),
     );
     addTearDown(shell.dispose);

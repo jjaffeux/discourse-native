@@ -1759,7 +1759,14 @@ void _registerComposerAndDraftTests() {
       );
       final shell = ShellScope.read(tester.element(find.byType(MainContent)));
 
-      await shell.openNewTopic();
+      await shell.resumeDraft(
+        'https://meta.discourse.org',
+        UserDraft(
+          key: 'new_topic',
+          sequence: 0,
+          data: api.draftToRestore.draft,
+        ),
+      );
       await tester.pumpAndSettle();
       await _saveAndClose(tester);
       await tester.pumpAndSettle();
@@ -2091,7 +2098,14 @@ void _registerComposerAndDraftTests() {
       );
       final shell = ShellScope.read(tester.element(find.byType(MainContent)));
 
-      await shell.openNewTopic();
+      await shell.resumeDraft(
+        'https://meta.discourse.org',
+        UserDraft(
+          key: 'new_topic',
+          sequence: 0,
+          data: api.draftToRestore.draft,
+        ),
+      );
       await tester.pump();
       final composer = shell.visibleComposer!;
       composer.title.text = 'A topic title';
@@ -2157,7 +2171,14 @@ void _registerComposerAndDraftTests() {
       );
       final shell = ShellScope.read(tester.element(find.byType(MainContent)));
 
-      await shell.openNewTopic();
+      await shell.resumeDraft(
+        'https://meta.discourse.org',
+        UserDraft(
+          key: 'new_topic',
+          sequence: 0,
+          data: api.draftToRestore.draft,
+        ),
+      );
       await tester.pump();
       final composer = shell.visibleComposer!;
       composer.setCategory(99);
