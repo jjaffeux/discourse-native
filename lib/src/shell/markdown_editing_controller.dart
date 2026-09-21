@@ -20,6 +20,7 @@ import 'composer_link.dart';
 import 'composer_pills.dart';
 import 'composer_quotes.dart';
 import 'composer_source_projection.dart';
+import 'composer_text_scaling.dart';
 import 'emoji.dart';
 import 'hashtag.dart';
 import 'markdown_highlight.dart';
@@ -1177,7 +1178,9 @@ class MarkdownEditingController extends TextEditingController {
     _renderedEmojiDocument = source;
     _renderedEmojiRanges = Set.unmodifiable(renderedEmojiRanges);
 
-    final span = TextSpan(style: base, children: children);
+    final span =
+        normalizeComposerTextScaling(TextSpan(style: base, children: children))
+            as TextSpan;
     // Length, not contents: projected widgets flatten to `0xFFFC`, and image
     // tokens also lend some of their hidden characters to transparent line
     // breaks. What everything downstream depends on — the caret, hit testing,

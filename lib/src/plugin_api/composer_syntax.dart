@@ -148,6 +148,8 @@ abstract interface class ComposerSyntaxProjection {
 
   bool get protectsAdjacentDelete;
 
+  /// Builds content at its unscaled size. The composer normalizes every widget
+  /// span so Flutter scales it once, including nested text and editors.
   List<InlineSpan> buildCollapsedSpans(ComposerSyntaxRenderContext context);
 
   FutureOr<void> edit(BuildContext context, ComposerEditorHost editor);

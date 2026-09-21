@@ -109,15 +109,10 @@ final class _DetailsProjection implements ComposerInteractiveSyntaxProjection {
         style: context.baseStyle,
         child: ComposerBlockSelection(
           selected: context.highlighted,
-          // WidgetSpan already scales its whole child with the surrounding text.
-          // Applying the inherited scaler again compounds it in every nested
-          // editor, shrinking media space and enlarging text relative to prose.
-          child: MediaQuery.withNoTextScaling(
-            child: ComposerDetailsEditor(
-              key: context.pillKey,
-              composer: composer,
-              block: block,
-            ),
+          child: ComposerDetailsEditor(
+            key: context.pillKey,
+            composer: composer,
+            block: block,
           ),
         ),
       ),
