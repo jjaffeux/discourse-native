@@ -441,10 +441,15 @@ final class _RoomAdapter implements VoiceLiveKitRoomAdapter {
   void listen({
     required void Function() onChanged,
     required void Function() onDisconnected,
+    void Function(lk.RoomEvent)? onRoomEvent,
   }) {}
 
   @override
-  Future<void> connect(String endpoint, String token) async {
+  Future<void> connect(
+    String endpoint,
+    String token, {
+    required lk.ConnectOptions connectOptions,
+  }) async {
     // Exercise the real participant's publication reuse and capture defaults.
     // Only the signaling connection is replaced by this adapter.
     // ignore: invalid_use_of_internal_member

@@ -417,7 +417,8 @@ VoiceRole? _stageRoleChange(
   if (call == null ||
       !call.room.canManage ||
       call.room.type != VoiceRoomType.stage ||
-      participant.id == currentUserId) {
+      participant.id == currentUserId ||
+      participant.isAgent) {
     return null;
   }
   return switch (participant.role) {

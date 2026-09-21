@@ -5721,6 +5721,61 @@ void main() {
   });
 
   group('stage role changes', () {
+    test(
+      'agent roster fields survive lightweight events and agent role edits make no requests',
+      () async {
+        await controller.ensureLoaded(firstSite);
+        await controller.join(
+          siteUrl: firstSite,
+          siteName: 'One',
+          room: controller.room(firstSite, 7)!,
+        );
+        firstTracker.deliver('/voice/rooms/7', {
+          'type': 'participants',
+          'participants': [
+            {'id': 1, 'username': 'sam', 'role': 'moderator'},
+            {
+              'id': -1400,
+              'username': 'bot',
+              'role': 'speaker',
+              'external_agent': true,
+              'livekit_identity': 'agent-dashboard',
+            },
+            {
+              'id': 42,
+              'username': 'flagged_bot',
+              'role': 'speaker',
+              'external_agent': true,
+              'livekit_identity': 'another-agent',
+            },
+          ],
+        });
+        await pumpEventQueue();
+        for (final event in [
+          {'type': 'role_change', 'user_id': -1400, 'role': 'participant'},
+          {
+            'type': 'hand_raise',
+            'user_id': -1400,
+            'raised': true,
+            'raised_at': '2026-09-21T10:00:00Z',
+          },
+        ]) {
+          firstTracker.deliver('/voice/rooms/7', event);
+          await pumpEventQueue();
+          final agent = controller.call!.room.participants.firstWhere(
+            (p) => p.id == -1400,
+          );
+          expect(agent.externalAgent, isTrue);
+          expect(agent.livekitIdentity, 'agent-dashboard');
+          expect(agent.role, VoiceRole.participant);
+        }
+        final previousWrites = transport.writes.length;
+        await controller.setParticipantRole(-1400, VoiceRole.speaker);
+        await controller.setParticipantRole(42, VoiceRole.participant);
+        expect(transport.writes.length, previousWrites);
+      },
+    );
+
     test('write a membership for the active room', () async {
       transport.responses['POST /voice/rooms/7/memberships.json'] = {};
       await controller.ensureLoaded(firstSite);

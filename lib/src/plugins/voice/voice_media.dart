@@ -85,8 +85,13 @@ abstract interface class VoiceLiveKitRoomAdapter {
   void listen({
     required VoidCallback onChanged,
     required VoidCallback onDisconnected,
+    ValueChanged<lk.RoomEvent>? onRoomEvent,
   });
-  Future<void> connect(String endpoint, String token);
+  Future<void> connect(
+    String endpoint,
+    String token, {
+    required lk.ConnectOptions connectOptions,
+  });
   Future<void> cancelListener();
   Future<void> disconnect();
   Future<void> disposeRoom();
@@ -2200,25 +2205,29 @@ final class _NativeVoiceLiveKitRoomAdapter implements VoiceLiveKitRoomAdapter {
   final lk.Room room;
   lk.EventsListener<lk.RoomEvent>? _listener;
 
-  void listenToRoomEvents(ValueChanged<lk.RoomEvent> onEvent) {
-    _listener = room.createListener()..on<lk.RoomEvent>(onEvent);
-  }
-
   @override
   void listen({
     required VoidCallback onChanged,
     required VoidCallback onDisconnected,
+    ValueChanged<lk.RoomEvent>? onRoomEvent,
   }) {
     _listener = room.createListener()
       ..on<lk.RoomEvent>((event) {
+        if (onRoomEvent != null) {
+          onRoomEvent(event);
+          return;
+        }
         onChanged();
         if (event is lk.RoomDisconnectedEvent) onDisconnected();
       });
   }
 
   @override
-  Future<void> connect(String endpoint, String token) =>
-      room.connect(endpoint, token);
+  Future<void> connect(
+    String endpoint,
+    String token, {
+    required lk.ConnectOptions connectOptions,
+  }) => room.connect(endpoint, token, connectOptions: connectOptions);
 
   @override
   Future<void> cancelListener() async {
@@ -2251,9 +2260,11 @@ final class LiveKitVoiceMediaSession extends _VoiceMediaNotifier {
     VoiceLiveKitRawStatsCollector? collectRawStats,
     VoiceMediaDeviceEnumerator? enumerateDevices,
     VoiceLiveKitRoomAdapter? roomAdapter,
+    VoiceTrackVolumeSetter? setTrackVolume,
     Future<lk.LocalVideoTrack> Function(lk.CameraCaptureOptions)?
     createCameraTrack,
-  }) : _collectRawStats = collectRawStats ?? _collectLiveKitRawStats,
+  }) : _setTrackVolume = setTrackVolume ?? rtc.Helper.setVolume,
+       _collectRawStats = collectRawStats ?? _collectLiveKitRawStats,
        _createCameraTrack =
            createCameraTrack ?? lk.LocalVideoTrack.createCameraTrack,
        _enumerateDevices =
@@ -2264,6 +2275,7 @@ final class LiveKitVoiceMediaSession extends _VoiceMediaNotifier {
         _NativeVoiceLiveKitRoomAdapter(
           lk.Room(roomOptions: _roomOptions(join.room)),
         );
+    _replaceRoster(join.room.participants);
     _reconnect = VoiceReconnectCoordinator(
       attempt: _reconnectOnce,
       onStateChanged: (state) {
@@ -2395,7 +2407,72 @@ final class LiveKitVoiceMediaSession extends _VoiceMediaNotifier {
   bool get screenSharing =>
       _room.localParticipant?.isScreenShareEnabled() ?? false;
 
-  lk.Participant? _participant(int id) => _room.remoteParticipants['$id'];
+  final Map<int, VoiceParticipant> _roster = {};
+  final Map<String, int> _agentIds = {};
+  final Set<String> _knownAgentIdentities = {};
+  final Map<int, double> _participantVolumes = {};
+  final VoiceTrackVolumeSetter _setTrackVolume;
+  Future<void> _remoteMediaTail = Future<void>.value();
+  final Expando<bool> _rejectedTracks = Expando('rejected Voice track');
+
+  void _replaceRoster(List<VoiceParticipant> participants) {
+    _roster
+      ..clear()
+      ..addEntries(participants.map((p) => MapEntry(p.id, p)));
+    _agentIds.clear();
+    final ambiguous = <String>{};
+    for (final participant in participants.where((p) => p.isAgent)) {
+      final identity = participant.livekitIdentity;
+      final effective = identity == null || identity.isEmpty
+          ? '${participant.id}'
+          : identity;
+      _knownAgentIdentities.add(effective);
+      if (_agentIds.containsKey(effective)) ambiguous.add(effective);
+      _agentIds[effective] = participant.id;
+    }
+    for (final identity in ambiguous) {
+      _agentIds.remove(identity);
+    }
+  }
+
+  int? _userId(String identity) {
+    final agentId = _agentIds[identity];
+    if (agentId != null) return agentId;
+    if (_knownAgentIdentities.contains(identity)) return null;
+    final id = int.tryParse(identity);
+    if (id == null ||
+        id <= 0 ||
+        '$id' != identity ||
+        _roster[id]?.isAgent == true) {
+      return null;
+    }
+    return id;
+  }
+
+  bool _canReceive(lk.Participant providerParticipant) {
+    final identity = providerParticipant.identity;
+    // Provider kind may reject the human fallback, but only the authenticated
+    // roster can admit an agent or associate it with a Discourse user.
+    if (providerParticipant.kind == lk.ParticipantKind.AGENT &&
+        !_agentIds.containsKey(identity)) {
+      return false;
+    }
+    final id = _userId(identity);
+    if (id == null) return false;
+    final participant = _roster[id];
+    return participant?.isAgent != true ||
+        participant!.role == VoiceRole.speaker ||
+        participant.role == VoiceRole.moderator;
+  }
+
+  lk.Participant? _participant(int id) {
+    final participant = _roster[id];
+    final identity = participant?.isAgent == true
+        ? _agentIds.entries.where((entry) => entry.value == id).firstOrNull?.key
+        : '$id';
+    final remote = _room.remoteParticipants[identity];
+    return remote != null && _canReceive(remote) ? remote : null;
+  }
 
   @override
   Object? get localVideoTrack => _videoTrack(_room.localParticipant);
@@ -2418,8 +2495,8 @@ final class LiveKitVoiceMediaSession extends _VoiceMediaNotifier {
   Set<int> get speakingParticipantIds {
     final result = <int>{};
     for (final participant in _room.activeSpeakers) {
-      final id = int.tryParse(participant.identity);
-      if (id != null) result.add(id);
+      final id = _userId(participant.identity);
+      if (id != null && _canReceive(participant)) result.add(id);
     }
     return result;
   }
@@ -2453,33 +2530,34 @@ final class LiveKitVoiceMediaSession extends _VoiceMediaNotifier {
       correlationId: correlationId,
       data: {'audioPublishingAllowed': audioPublishingAllowed},
     );
-    final adapter = _roomAdapter;
-    if (adapter is _NativeVoiceLiveKitRoomAdapter) {
-      adapter.listenToRoomEvents((event) {
+    _roomAdapter.listen(
+      onChanged: _remoteMediaChanged,
+      onDisconnected: () {
+        if (!_closing) _startReconnect();
+      },
+      onRoomEvent: (event) {
+        if (_closing || disposed) return;
         _recordRoomEvent(event);
         changed();
-        // Auto-subscribe means a new publication arrives audible, so a
-        // deafened reader has to refuse each one as it appears.
-        if (_deafened &&
-            (event is lk.TrackPublishedEvent ||
-                event is lk.TrackSubscribedEvent ||
-                event is lk.ParticipantConnectedEvent)) {
-          unawaited(_applyDeafened());
+        if (event is lk.TrackSubscribedEvent &&
+            !_wantsPublication(event.participant, event.publication)) {
+          _rejectTrack(event.track);
+        }
+        if (event is lk.TrackPublishedEvent ||
+            event is lk.TrackSubscribedEvent ||
+            event is lk.ParticipantConnectedEvent ||
+            event is lk.RoomReconnectedEvent) {
+          _remoteMediaChanged();
         }
         if (event is lk.RoomDisconnectedEvent && !_closing) {
           _startReconnect(reason: event.reason);
         }
-      });
-    } else {
-      adapter.listen(
-        onChanged: changed,
-        onDisconnected: () {
-          if (!_closing) _startReconnect();
-        },
-      );
-    }
+      },
+    );
     try {
       await _connectRoom(credentials);
+      if (_closing || disposed) return;
+      await _applyRemoteMedia();
       if (_closing || disposed) return;
       // A mute can land while connect is in flight, before a local participant
       // exists; apply the latest state once the room is ready.
@@ -2617,10 +2695,17 @@ final class LiveKitVoiceMediaSession extends _VoiceMediaNotifier {
     StackTrace stackTrace,
   ) => _reportUnexpectedReconnectFailure(error, stackTrace);
 
-  void _reportUnexpectedReconnectFailure(Object error, StackTrace stackTrace) {
+  void _reportUnexpectedReconnectFailure(Object error, StackTrace stackTrace) =>
+      _reportLiveKitFailure(error, stackTrace, 'reconnect');
+
+  void _reportLiveKitFailure(
+    Object error,
+    StackTrace stackTrace,
+    String operation,
+  ) {
     _recordDiagnostic(
       diagnostics,
-      'livekit.reconnect.unhandled_failure',
+      'livekit.$operation.unhandled_failure',
       component: 'livekit',
       correlationId: correlationId,
       severity: DiagnosticSeverity.error,
@@ -2628,7 +2713,7 @@ final class LiveKitVoiceMediaSession extends _VoiceMediaNotifier {
     );
     _recordRawDiagnostic(
       diagnostics,
-      'livekit.reconnect.unhandled_failure_detail',
+      'livekit.$operation.unhandled_failure_detail',
       component: 'livekit',
       correlationId: correlationId,
       severity: DiagnosticSeverity.error,
@@ -2637,10 +2722,10 @@ final class LiveKitVoiceMediaSession extends _VoiceMediaNotifier {
     );
     FlutterError.reportError(
       FlutterErrorDetails(
-        exception: const _VoiceMediaDiagnosticFailure('livekit.reconnect'),
+        exception: _VoiceMediaDiagnosticFailure('livekit.$operation'),
         stack: stackTrace,
         library: 'Voice media',
-        context: ErrorDescription('while reconnecting a LiveKit room'),
+        context: ErrorDescription('during LiveKit $operation'),
       ),
     );
   }
@@ -2666,9 +2751,7 @@ final class LiveKitVoiceMediaSession extends _VoiceMediaNotifier {
     if (shouldPublishMicrophone) {
       await _room.localParticipant?.setMicrophoneEnabled(true);
     }
-    // The rebuilt room subscribes everything again, so a reader who was
-    // deafened before the drop would come back hearing the room.
-    await _applyDeafened();
+    await _applyRemoteMedia();
     if (_cameraEnabled && cameraRevision == _cameraRevision) {
       await _setCameraEnabled(
         true,
@@ -2692,6 +2775,7 @@ final class LiveKitVoiceMediaSession extends _VoiceMediaNotifier {
     final connection = _roomAdapter.connect(
       endpoint.toString(),
       credentials.token,
+      connectOptions: const lk.ConnectOptions(autoSubscribe: false),
     );
     _roomConnections.add(connection);
     try {
@@ -2958,7 +3042,12 @@ final class LiveKitVoiceMediaSession extends _VoiceMediaNotifier {
   };
 
   @override
-  Future<void> syncParticipants(List<VoiceParticipant> participants) async {}
+  Future<void> syncParticipants(List<VoiceParticipant> participants) {
+    if (_closing || disposed) return Future<void>.value();
+    _replaceRoster(participants);
+    changed();
+    return _applyRemoteMedia();
+  }
 
   @override
   Future<void> handleSignal(int senderId, Map<String, dynamic> data) async {}
@@ -3004,21 +3093,103 @@ final class LiveKitVoiceMediaSession extends _VoiceMediaNotifier {
   @override
   Future<void> setDeafened(bool deafened) async {
     _deafened = deafened;
-    await _applyDeafened();
+    await _applyRemoteMedia();
     changed();
   }
 
-  /// Reapply whenever publications change because LiveKit auto-subscribes them.
-  Future<void> _applyDeafened() async {
+  bool _wantsPublication(
+    lk.Participant participant,
+    lk.TrackPublication publication,
+  ) =>
+      !_closing &&
+      !disposed &&
+      identical(_room.remoteParticipants[participant.identity], participant) &&
+      participant.trackPublications.values.any(
+        (held) => identical(held, publication),
+      ) &&
+      _canReceive(participant) &&
+      !(publication.kind == lk.TrackType.AUDIO && _deafened);
+
+  void _rejectTrack(lk.Track track) {
+    final mediaTrack = track.mediaStreamTrack;
+    if (_rejectedTracks[mediaTrack] == true) return;
+    _rejectedTracks[mediaTrack] = true;
+    // A late RemoteTrack.start re-enables the native track. Darwin's remote
+    // trackDispose does not end playback, so source volume must also be zero;
+    // unlike enabled, LiveKit does not reset it when starting a track.
+    if (track is lk.RemoteAudioTrack) {
+      unawaited(
+        _setTrackVolume(0, mediaTrack).catchError((
+          Object error,
+          StackTrace stack,
+        ) {
+          _reportLiveKitFailure(error, stack, 'remote_media');
+        }),
+      );
+    }
+    mediaTrack.enabled = false;
+    unawaited(mediaTrack.stop().catchError((Object _) {}));
+  }
+
+  void _remoteMediaChanged() {
+    unawaited(
+      _applyRemoteMedia().catchError((Object error, StackTrace stack) {
+        _reportLiveKitFailure(error, stack, 'remote_media');
+      }),
+    );
+    changed();
+  }
+
+  Future<void> _applyRemoteMedia() {
+    if (_closing || disposed) return Future<void>.value();
+    // Withdraw playback before waiting behind any in-flight subscription.
     for (final participant in _room.remoteParticipants.values) {
-      for (final publication in participant.audioTrackPublications) {
-        if (_deafened) {
-          await publication.unsubscribe();
-        } else {
-          await publication.subscribe();
+      for (final publication in participant.trackPublications.values) {
+        if (!_wantsPublication(participant, publication)) {
+          if (publication.track case final track?) _rejectTrack(track);
         }
       }
     }
+    final operation = _remoteMediaTail.then((_) async {
+      if (_closing || disposed) return;
+      for (final participant in _room.remoteParticipants.values.toList()) {
+        for (final publication
+            in participant.trackPublications.values.toList()) {
+          if (_closing || disposed) return;
+          final previousTrack = publication.track;
+          if (previousTrack != null &&
+              _rejectedTracks[previousTrack.mediaStreamTrack] == true) {
+            // Admission can return before this queued operation runs. The
+            // rejected track must still be detached before resubscribing.
+            await publication.unsubscribe();
+          }
+          if (_closing || disposed) return;
+          if (_wantsPublication(participant, publication)) {
+            await publication.subscribe();
+            if (_closing || disposed) return;
+            final track = publication.track;
+            final volume =
+                _participantVolumes[_userId(participant.identity)] ?? 1;
+            if (track is lk.RemoteAudioTrack &&
+                _rejectedTracks[track.mediaStreamTrack] != true &&
+                _wantsPublication(participant, publication)) {
+              await _setTrackVolume(volume, track.mediaStreamTrack);
+              if (_rejectedTracks[track.mediaStreamTrack] == true ||
+                  !_wantsPublication(participant, publication)) {
+                await _setTrackVolume(0, track.mediaStreamTrack);
+              }
+            }
+          } else {
+            await publication.unsubscribe();
+          }
+        }
+      }
+    });
+    _remoteMediaTail = operation.then<void>(
+      (_) {},
+      onError: (Object _, StackTrace _) {},
+    );
+    return operation;
   }
 
   @override
@@ -3127,14 +3298,9 @@ final class LiveKitVoiceMediaSession extends _VoiceMediaNotifier {
 
   @override
   Future<void> setParticipantVolume(int participantId, double volume) async {
-    final participant = _participant(participantId);
-    if (participant == null) return;
-    for (final publication in participant.audioTrackPublications) {
-      final track = publication.track;
-      if (track is lk.RemoteAudioTrack) {
-        await rtc.Helper.setVolume(volume.clamp(0, 1), track.mediaStreamTrack);
-      }
-    }
+    if (_closing || disposed) return;
+    _participantVolumes[participantId] = volume.clamp(0, 1);
+    await _applyRemoteMedia();
   }
 
   @override
@@ -3179,6 +3345,7 @@ final class LiveKitVoiceMediaSession extends _VoiceMediaNotifier {
     await clean(_roomAdapter.cancelListener);
     await clean(_roomAdapter.disconnect);
     await _cameraTail;
+    await _remoteMediaTail;
     for (final connection in pendingConnections) {
       try {
         await connection;

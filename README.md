@@ -2189,6 +2189,15 @@ call's own roster and ring state, and stops video the room no longer allows.
 The lightweight `hand_raise` and `ringing` events land at once rather than
 waiting for the roster that follows them.
 
+**External agent media waits for roster admission.** LiveKit subscriptions are
+explicit: negative-ID bots and provider-marked agents cannot use the human
+identity fallback. Only the authenticated roster's `livekit_identity` maps a
+provider identity to its bot, and the bot must retain speaker or moderator
+permission even in an open room. Removal, demotion, and identity replacement
+stop playback locally; re-admission restores subscriptions with the held deafen
+and volume choices. Agent participant menus retain removal but omit human stage
+role changes.
+
 **Shared updates preserve user-specific room fields when omitted.** Management,
 invitation, membership, chat, and LiveKit configuration retain their held
 values until a payload supplies them. Authenticated room responses update
