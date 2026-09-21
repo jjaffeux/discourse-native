@@ -144,7 +144,10 @@ void main() {
   testWidgets('topic and list headers independently follow scroll distance', (
     tester,
   ) async {
-    final setup = await _setup(tester);
+    final setup = await _setup(
+      tester,
+      theme: AppTheme.light.copyWith(platform: TargetPlatform.macOS),
+    );
     setup.controller.openTopicFromList(setup.rows.first);
     await tester.pumpAndSettle();
     await _scrollReaderToTop(tester);
@@ -170,7 +173,7 @@ void main() {
           scrollDelta: Offset(0, delta),
         ),
       );
-      await tester.pumpAndSettle();
+      await tester.pump();
     }
 
     await wheel(reader, 240);

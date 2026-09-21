@@ -1,4 +1,5 @@
 import 'package:flutter/rendering.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter/widgets.dart';
 
 import 'd_card.dart';
@@ -72,8 +73,14 @@ class _DPageSurfaceState extends State<DPageSurface> {
       return;
     }
     _hiddenExtent = extent;
-    // Notifications can arrive during layout. Coalesce scroll updates into
-    // one rebuild per frame while retaining the body widget and its viewport.
+    // Pointer input and ballistic ticks arrive before build. Update in that
+    // frame so the header stays in step with the content, including reversals.
+    // Only notifications raised during build/layout need to wait for a frame.
+    if (SchedulerBinding.instance.schedulerPhase !=
+        SchedulerPhase.persistentCallbacks) {
+      setState(() {});
+      return;
+    }
     if (_updateScheduled) return;
     _updateScheduled = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {

@@ -57,10 +57,37 @@ Future<void> _wheel(WidgetTester tester, double delta) async {
     ),
   );
   await tester.pump();
-  await tester.pump();
 }
 
 void main() {
+  testWidgets(
+    'desktop trackpad header follows each frame of changing velocity',
+    (tester) async {
+      final controller = ScrollController(initialScrollOffset: 600);
+      addTearDown(controller.dispose);
+      await _mount(tester, controller: controller);
+      final body = find.byKey(_body);
+      final location = tester.getCenter(body);
+      final gesture = await tester.createGesture(
+        kind: PointerDeviceKind.trackpad,
+      );
+      await gesture.panZoomStart(location);
+      var pan = 0.0;
+      var hidden = 0.0;
+      for (final delta in [4.0, 8.0, 16.0, 24.0, -3.0, -7.0, -15.0]) {
+        final before = controller.offset;
+        pan -= delta;
+        await gesture.panZoomUpdate(location, pan: Offset(0, pan));
+        hidden = (hidden + controller.offset - before).clamp(0.0, 80.0);
+        await tester.pump(const Duration(milliseconds: 16));
+        expect(tester.getTopLeft(body).dy, closeTo(80 - hidden, 0.001));
+      }
+      expect(hidden, greaterThan(0));
+      await gesture.panZoomEnd();
+      await tester.pumpAndSettle();
+    },
+  );
+
   testWidgets('wheel retracts smoothly, reverses, and retains the viewport', (
     tester,
   ) async {
