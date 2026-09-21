@@ -33,6 +33,9 @@ class ComposerQuoteBlock {
   final int? topicId;
   final bool full;
 
+  /// The closing tag boundary, before any owned separator whitespace.
+  int get contentEnd => start + source.trimRight().length;
+
   int get length => end - start;
   String? get title => displayName ?? username;
 
@@ -152,7 +155,7 @@ TextSelection quoteSafeSelection(
   if (selection.isCollapsed) {
     final offset = selection.extentOffset;
     for (final block in blocks) {
-      if (offset <= block.start || offset >= block.end) continue;
+      if (offset <= block.start || offset >= block.contentEnd) continue;
       final oldOffset = previous.isValid ? previous.extentOffset : block.end;
       final boundary = oldOffset <= block.start
           ? block.end
@@ -226,10 +229,10 @@ class ComposerQuoteInputFormatter extends TextInputFormatter {
 
     for (final block in blocks) {
       if (prefix == replacedEnd) {
-        if (prefix > block.start && prefix < block.end) return oldValue;
+        if (prefix > block.start && prefix < block.contentEnd) return oldValue;
         continue;
       }
-      if (prefix >= block.end || replacedEnd <= block.start) continue;
+      if (prefix >= block.contentEnd || replacedEnd <= block.start) continue;
       final coversWholeBlock =
           prefix <= block.start && replacedEnd >= block.end;
       if (!coversWholeBlock) return oldValue;

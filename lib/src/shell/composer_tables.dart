@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
+import 'composer_images.dart';
 import 'markdown_highlight.dart';
 
 /// A Markdown pipe table, retaining each authored line and cell range.
@@ -146,6 +147,12 @@ List<ComposerTableBlock> parseComposerTables(String source) {
     while (next < lines.length) {
       final row = lines[next];
       if (row == null || code.contains(row.start)) break;
+      final nextLine = lines.elementAtOrNull(next + 1);
+      if (nextLine != null &&
+          row.cells.length == nextLine.cells.length &&
+          nextLine.cells.every((cell) => _delimiter.hasMatch(cell.text))) {
+        break;
+      }
       rows.add(row);
       next++;
     }
@@ -171,11 +178,16 @@ _TableLine? _parseLine(String line, int start) {
       RegExp(r'^(?:[-+*]|\d+[.)])\s').hasMatch(trimmed)) {
     return null;
   }
+  final images = parseComposerImages(line);
   final pipes = <int>[];
   var slashes = 0;
   for (var index = 0; index < line.length; index++) {
     final char = line[index];
-    if (char == '|' && slashes.isEven) pipes.add(index);
+    if (char == '|' &&
+        slashes.isEven &&
+        !images.any((image) => index >= image.start && index < image.end)) {
+      pipes.add(index);
+    }
     slashes = char == '\\' ? slashes + 1 : 0;
   }
   if (pipes.isEmpty) return null;

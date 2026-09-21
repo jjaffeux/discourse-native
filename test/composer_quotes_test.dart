@@ -102,7 +102,7 @@ void main() {
     expect(
       quoteSafeSelection(
         [quote],
-        TextSelection.collapsed(offset: quote.end - 1),
+        TextSelection.collapsed(offset: quote.contentEnd - 1),
         TextSelection.collapsed(offset: quote.end),
       ),
       TextSelection.collapsed(offset: quote.start),
@@ -115,6 +115,36 @@ void main() {
       ),
       TextSelection(baseOffset: quote.start, extentOffset: source.length),
     );
+  });
+
+  test('quote trailing separators remain editable', () {
+    final quote = parseComposerQuotes(
+      '[quote="sam"]\nwords\n[/quote]\n\nAfter',
+    ).single;
+    final caret = TextSelection.collapsed(offset: quote.contentEnd + 1);
+    expect(
+      quoteSafeSelection(
+        [quote],
+        caret,
+        TextSelection.collapsed(offset: quote.end),
+      ),
+      caret,
+    );
+  });
+
+  test('native text input can edit the line after a quote', () {
+    const quote = '[quote="sam"]\nwords\n[/quote]';
+    const formatter = ComposerQuoteInputFormatter();
+    const before = TextEditingValue(
+      text: '$quote\n\nAfter',
+      selection: TextSelection.collapsed(offset: quote.length + 1),
+    );
+    const after = TextEditingValue(
+      text: '$quote\nAfter',
+      selection: TextSelection.collapsed(offset: quote.length),
+    );
+    expect(formatter.formatEditUpdate(before, after), after);
+    expect(formatter.formatEditUpdate(after, before), before);
   });
 
   test('text input can remove a whole quote but cannot rewrite its body', () {
