@@ -250,6 +250,48 @@ void main() {
     expect(gallery.images, hasLength(3));
   });
 
+  testWidgets('a pending upload separator stays removed after completion', (
+    tester,
+  ) async {
+    final request = Completer<ComposerUploadResult>();
+    final composer = ComposerController(
+      _target,
+      imageUploader: (file, {required onProgress, required abortTrigger}) =>
+          request.future,
+    );
+    addTearDown(composer.dispose);
+    await _pump(tester, composer);
+    composer.addImages([_file], 0);
+    await tester.pump();
+    final token = composer.uploadPlaceholders.values.single;
+    const second = '![Second|100x100](upload://second)';
+    composer.text.value = TextEditingValue(
+      text: '$token\n\n$second',
+      selection: TextSelection.collapsed(offset: token.length + 1),
+    );
+    await tester.pump();
+    await tester.sendKeyEvent(LogicalKeyboardKey.backspace);
+    await tester.pump();
+    expect(composer.text.text, '$token\n$second');
+    expect(composer.text.keyboardSelectedSyntax?.kind.name, 'upload');
+    request.complete(_result);
+    await tester.pumpAndSettle();
+    expect(composer.text.imageBlocks, hasLength(2));
+    final first = composer.text.imageBlocks.first;
+    expect(composer.text.text.substring(first.end), '\n$second');
+    final rendered = tester
+        .state<EditableTextState>(find.byType(EditableText))
+        .renderEditable;
+    expect(
+      '\n'.allMatches(
+        rendered.text!
+            .toPlainText(includeSemanticsLabels: false)
+            .substring(0, composer.text.imageBlocks.last.start),
+      ),
+      hasLength(1),
+    );
+  });
+
   testWidgets('Backspace selects a pending upload before cancelling it', (
     tester,
   ) async {

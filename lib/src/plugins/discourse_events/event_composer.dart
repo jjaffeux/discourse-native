@@ -58,8 +58,11 @@ final class EventProjection implements ComposerBlockSyntaxProjection {
   @override
   bool get protectsAdjacentDelete => true;
   @override
-  int caretAfter(String document) =>
-      end < document.length && document[end] == '\n' ? end + 1 : end;
+  int caretAfter(String document) {
+    if (document.startsWith('\r\n', end)) return end + 2;
+    return document.startsWith('\n', end) ? end + 1 : end;
+  }
+
   @override
   TextEditingValue moveCaretAfter(TextEditingValue document) =>
       document.copyWith(
@@ -97,6 +100,19 @@ final class EventProjection implements ComposerBlockSyntaxProjection {
           maxLines: 2,
           overflow: TextOverflow.ellipsis,
         ),
+      ),
+    ),
+    TextSpan(
+      text: '\n',
+      style: context.baseStyle.copyWith(color: Colors.transparent),
+    ),
+    TextSpan(
+      text: source.substring(2),
+      style: const TextStyle(
+        fontSize: 0,
+        height: 0,
+        letterSpacing: 0,
+        color: Colors.transparent,
       ),
     ),
   ];

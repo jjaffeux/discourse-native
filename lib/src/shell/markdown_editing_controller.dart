@@ -1168,7 +1168,7 @@ class MarkdownEditingController extends TextEditingController {
       for (final block in collapsedQuotes)
         _SpanProjection(
           block.start,
-          block.end,
+          block.contentEnd,
           () => _buildQuoteSpans(block, _displayedContentsFor(block), base),
         ),
       for (final block in collapsedSyntax)
@@ -1311,7 +1311,7 @@ class MarkdownEditingController extends TextEditingController {
           ),
         ),
       ),
-      ..._buildCollapsedBlockSourceTail(block.start, block.end, base),
+      ..._buildCollapsedBlockSourceTail(block.start, block.contentEnd, base),
     ];
   }
 

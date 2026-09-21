@@ -1,5 +1,8 @@
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/plugin_api/composer_syntax.dart';
+import 'package:discourse_native/src/plugin_api/plugin_data.dart';
+import 'package:discourse_native/src/plugins/discourse_events/event_composer.dart';
+import 'package:discourse_native/src/plugins/discourse_events/event_data.dart';
 import 'package:discourse_native/src/plugins/discourse_mermaid/mermaid_composer.dart';
 import 'package:discourse_native/src/plugins/poll/poll_plugin.dart';
 import 'package:discourse_native/src/shell/composer_controller.dart';
@@ -18,6 +21,7 @@ const _target = ComposerTarget(
 const _table = '| Name | Cost |\n| --- | --- |\n| Tea | 12 |';
 const _blocks = {
   'table': _table,
+  'event': '[event start="2026-09-22 12:00" name="Meeting"]\nAgenda\n[/event]',
   'mermaid': '```mermaid\nflowchart TD\n  A --> B\n```',
   'details': '[details="Summary"]\nBody\n[/details]',
   'quote': '[quote="sam, post:1, topic:1"]\nQuoted text\n[/quote]',
@@ -25,6 +29,18 @@ const _blocks = {
   'gallery': '[grid]\n![Photo|100x100](upload://photo)\n[/grid]',
   'poll': '[poll]\n* Tea\n* Coffee\n[/poll]',
 };
+
+final _eventState = ComposerPluginState(
+  createsTopic: true,
+  siteSettings: PluginData.none.withValue(
+    eventSettingsKey,
+    const EventSettings(enabled: true),
+  ),
+  freshCurrentUser: PluginData.none.withValue(
+    eventUserKey,
+    const EventUserPermissions(true),
+  ),
+);
 
 Finder _field(ComposerController composer) => find.byWidgetPredicate(
   (widget) => widget is EditableText && widget.controller == composer.text,
@@ -40,6 +56,15 @@ Future<ComposerController> _pump(
     _target,
     syntaxPolicies: [
       const PollComposerSyntaxPolicy(),
+      EventSyntaxPolicy(
+        ComposerSyntaxPolicyContext(
+          siteUrl: _target.siteUrl,
+          isPluginTarget: false,
+          isEdit: false,
+          initialState: _eventState,
+          readState: () => _eventState,
+        ),
+      ),
       MermaidComposerPolicy(() => composer),
     ],
   );
@@ -129,7 +154,97 @@ void main() {
     );
   }
 
+  for (final first in _blocks.entries) {
+    for (final second in _blocks.entries) {
+      testWidgets(
+        '${first.key} followed by ${second.key} has one editable separator',
+        (tester) async {
+          final composer = await _pump(
+            tester,
+            '${first.value}\n${second.value}',
+          );
+          expect(composer.blocks.index.blocks, hasLength(2));
+          final rendered = tester
+              .state<EditableTextState>(_field(composer))
+              .renderEditable;
+          final painted = rendered.text!.toPlainText(
+            includeSemanticsLabels: false,
+          );
+          expect(painted[0], '\uFFFC');
+          expect(painted[first.value.length + 1], '\uFFFC');
+          expect(composer.blocks.index.blocks.map((block) => block.source), [
+            first.value,
+            second.value,
+          ]);
+          expect(
+            '\n'.allMatches(painted.substring(0, first.value.length + 1)),
+            hasLength(1),
+          );
+          expect(
+            rendered
+                .getLineAtOffset(TextPosition(offset: first.value.length))
+                .start,
+            0,
+          );
+          expect(tester.takeException(), isNull);
+        },
+      );
+    }
+  }
+
   for (final entry in _blocks.entries) {
+    for (final newline in ['\n', '\r\n']) {
+      testWidgets(
+        '${entry.key} removes a visible separator before another component (${newline.length})',
+        (tester) async {
+          const second = '![Second|100x100](upload://second)';
+          final composer = await _pump(
+            tester,
+            '${entry.value}$newline$newline$second',
+          );
+          final rendered = tester
+              .state<EditableTextState>(_field(composer))
+              .renderEditable;
+          double secondTop() => rendered
+              .getBoxesForSelection(
+                TextSelection(
+                  baseOffset: composer.text.text.indexOf(second),
+                  extentOffset: composer.text.text.indexOf(second) + 1,
+                ),
+              )
+              .last
+              .top;
+          final before = secondTop();
+          composer.text.selection = TextSelection.collapsed(
+            offset: entry.value.length + newline.length,
+          );
+          await tester.pump();
+          await tester.sendKeyEvent(LogicalKeyboardKey.backspace);
+          await tester.pump();
+          expect(composer.text.text, '${entry.value}$newline$second');
+          expect(composer.text.keyboardSelectedProjection, isNotNull);
+          expect(
+            secondTop(),
+            closeTo(before - rendered.preferredLineHeight, 0.01),
+          );
+          composer.text.clearKeyboardPillSelection();
+          composer.text.selection = TextSelection.collapsed(
+            offset: composer.text.text.length,
+          );
+          await tester.pump();
+          final painted = rendered.text!.toPlainText(
+            includeSemanticsLabels: false,
+          );
+          expect(
+            '\n'.allMatches(
+              painted.substring(0, composer.text.text.indexOf(second)),
+            ),
+            hasLength(1),
+          );
+          expect(tester.takeException(), isNull);
+        },
+      );
+    }
     for (final suffix in ['', '\n', '\r\n']) {
       testWidgets(
         '${entry.key} Backspace selects before deleting after ${suffix.length} line-ending characters',
@@ -182,17 +297,12 @@ void main() {
           final source = 'Before\n\n${entry.value}${gap}After';
           final composer = await _pump(tester, source);
           composer.text.selection = TextSelection.collapsed(
-            offset: entry.key == 'quote'
-                ? composer.text.quoteBlocks.single.end
-                : 8 + entry.value.length + 1,
+            offset: 8 + entry.value.length + 1,
           );
           await tester.pump();
           await tester.sendKeyEvent(LogicalKeyboardKey.backspace);
           await tester.pump();
-          expect(
-            composer.raw,
-            entry.key == 'quote' ? source : 'Before\n\n${entry.value}\nAfter',
-          );
+          expect(composer.raw, 'Before\n\n${entry.value}\nAfter');
           expect(composer.text.keyboardSelectedProjection, isNotNull);
           final painted = tester
               .state<EditableTextState>(_field(composer))
