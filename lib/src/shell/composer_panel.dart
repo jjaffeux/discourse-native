@@ -22,7 +22,9 @@ import '../theme/app_theme.dart';
 import '../theme/d_icons.dart';
 import 'anchored_layout.dart';
 import 'composer_autocomplete.dart';
+import 'composer_block_surface.dart';
 import 'composer_blockquote.dart';
+import 'composer_blocks.dart';
 import 'composer_clipboard.dart';
 import 'composer_controller.dart';
 import 'composer_details.dart';
@@ -30,6 +32,7 @@ import 'composer_discard.dart';
 import 'composer_drop.dart';
 import 'composer_galleries.dart';
 import 'composer_header.dart';
+import 'composer_history_scope.dart';
 import 'composer_images.dart';
 import 'composer_link.dart';
 import 'composer_marks.dart';
@@ -1581,9 +1584,8 @@ class _ComposerEditorState extends State<ComposerEditor> {
                         ? Colors.transparent
                         : null,
                     child: TextField(
-                      // Not decoration: a new key builds a new editable, and with it
-                      // a new undo stack. It is the only way to stop undo reaching
-                      // back into a reply that has already been sent.
+                      // New documents also get a fresh native input session.
+                      // ComposerController resets the shared source history.
                       key: ValueKey(widget.composer.fieldGeneration),
                       controller: widget.composer.text,
                       readOnly: !widget.composer.isEditing,
@@ -2011,13 +2013,31 @@ class _ComposerEditorState extends State<ComposerEditor> {
         ((hasCommandModifier && event.logicalKey == LogicalKeyboardKey.keyZ) ||
             (keyboard.isControlPressed &&
                 event.logicalKey == LogicalKeyboardKey.keyY));
-    if (isUndoOrRedo &&
-        (_keyboardSelectedPill != null || _media.hasSelectedMediaProjection)) {
-      // UndoHistory must be able to install its exact recorded value. A
-      // selected projection makes _SelectedPillInputFormatter return the
-      // current value instead, which violates that contract. Leave projection
-      // mode before the shortcut reaches EditableText.
+    if (isUndoOrRedo) {
       _clearKeyboardPillSelection();
+      if (keyboard.isShiftPressed ||
+          event.logicalKey == LogicalKeyboardKey.keyY) {
+        widget.composer.history.redo();
+      } else {
+        widget.composer.history.undo();
+      }
+      return KeyEventResult.handled;
+    }
+    if (event is KeyDownEvent &&
+        keyboard.isAltPressed &&
+        keyboard.isShiftPressed &&
+        (event.logicalKey == LogicalKeyboardKey.arrowUp ||
+            event.logicalKey == LogicalKeyboardKey.arrowDown)) {
+      final blocks = widget.composer.blocks;
+      final block = blocks.selected;
+      if (block != null) {
+        final position = blocks.index.blocks.indexOf(block);
+        blocks.moveTo(
+          position + (event.logicalKey == LogicalKeyboardKey.arrowUp ? -1 : 2),
+          expectedRevision: blocks.revision,
+        );
+      }
+      return KeyEventResult.handled;
     }
     final hasModifier =
         keyboard.isMetaPressed ||
@@ -2525,7 +2545,66 @@ class _ComposerEditorState extends State<ComposerEditor> {
   }
 
   @override
-  Widget build(BuildContext context) => LayoutBuilder(
+  Widget build(BuildContext context) => ComposerHistoryScope(
+    composer: widget.composer,
+    child: _parentEditor == null
+        ? ComposerBlockSurface(
+            composer: widget.composer,
+            expands: widget.expands,
+            blockRect: _blockRect,
+            geometryChanges: _mediaLayoutRevision,
+            editorScroll: () =>
+                _ancestorScroll ??
+                (_scroll.hasClients ? _scroll.position : null),
+            child: _editorBody(),
+          )
+        : _editorBody(),
+  );
+
+  Rect? _blockRect(ComposerBodyBlock block) {
+    final editable = _renderEditable;
+    if (editable == null ||
+        !editable.hasSize ||
+        block.end > widget.composer.text.text.length) {
+      return null;
+    }
+    final text = widget.composer.text;
+    for (final syntax in text.syntaxBlocks) {
+      if (syntax.start == block.start) {
+        final rect = text.collapsedSyntaxGlobalRect(syntax);
+        if (rect != null) return rect;
+      }
+    }
+    for (final quote in text.quoteBlocks) {
+      if (quote.start == block.start) {
+        final rect = text.collapsedQuoteGlobalRect(quote);
+        if (rect != null) return rect;
+      }
+    }
+    for (final gallery in text.galleryBlocks) {
+      if (gallery.start == block.start) {
+        final rect = text.collapsedGalleryGlobalRect(gallery);
+        if (rect != null) return rect;
+      }
+    }
+    for (final image in text.imageBlocks) {
+      if (image.start == block.start) {
+        final rect = text.collapsedImageGlobalRect(image);
+        if (rect != null) return rect;
+      }
+    }
+    final boxes = editable.getBoxesForSelection(
+      TextSelection(baseOffset: block.start, extentOffset: block.end),
+    );
+    if (boxes.isEmpty) return null;
+    var rect = boxes.first.toRect();
+    for (final box in boxes.skip(1)) {
+      rect = rect.expandToInclude(box.toRect());
+    }
+    return rect.shift(editable.localToGlobal(Offset.zero));
+  }
+
+  Widget _editorBody() => LayoutBuilder(
     builder: (context, constraints) {
       _scheduleMediaLayoutRefresh();
       return OverlayPortal(
@@ -3285,7 +3364,17 @@ class _Toolbar extends StatelessWidget {
       controller.siteConfigFor(composer.target.siteUrl),
       controller.freshCurrentUserFor(composer.target.siteUrl),
     ),
-    builder: (context, _, _) => _buildToolbar(context),
+    builder: (context, _, _) => ListenableBuilder(
+      listenable: composer.blocks,
+      builder: (context, _) => composer.blocks.arranging
+          ? Row(
+              children: [
+                ComposerArrangeButton(composer: composer),
+                const Text('Arrange blocks'),
+              ],
+            )
+          : _buildToolbar(context),
+    ),
   );
 
   Widget _buildToolbar(BuildContext context) {
@@ -3302,6 +3391,7 @@ class _Toolbar extends StatelessWidget {
     final uploadsEnabled = composer.imageUploader != null;
     return _ComposerToolbarOverflow(
       children: [
+        ComposerArrangeButton(composer: this.composer),
         _FormattingToolbar(composer: this.composer),
         const DSeparator(orientation: Axis.vertical, length: 20),
         if (uploadsEnabled)

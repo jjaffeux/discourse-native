@@ -12,6 +12,41 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  testWidgets('a pending upload completes at its reordered block position', (
+    tester,
+  ) async {
+    final request = Completer<ComposerUploadResult>();
+    final composer = ComposerController(
+      _target,
+      imageUploader: (file, {required onProgress, required abortTrigger}) =>
+          request.future,
+    );
+    addTearDown(composer.dispose);
+    composer.text.text = 'Before\n\nAfter';
+    await _pump(tester, composer);
+    composer.addImages([_file], 8);
+    await tester.pump();
+    final upload = composer.blocks.index.blocks.singleWhere(
+      (block) => block.label == 'Upload',
+    );
+    expect(
+      composer.blocks.moveTo(
+        composer.blocks.index.blocks.length,
+        blockId: upload.id,
+        expectedRevision: composer.blocks.revision,
+      ),
+      isTrue,
+    );
+    request.complete(_result);
+    await tester.pumpAndSettle();
+    expect(
+      composer.raw.indexOf('After'),
+      lessThan(composer.raw.indexOf('upload://photo')),
+    );
+    expect('upload://photo'.allMatches(composer.raw), hasLength(1));
+    expect(composer.hasActiveUploads, isFalse);
+  });
+
   for (final scrolled in [false, true]) {
     testWidgets('file drag keeps existing image rendered (scrolled: $scrolled)', (
       tester,

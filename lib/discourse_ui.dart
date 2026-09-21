@@ -32,6 +32,7 @@ export 'src/ui/components/d_data_table.dart';
 export 'src/ui/components/d_date_picker.dart';
 export 'src/ui/components/d_dialog.dart';
 export 'src/ui/components/d_direction.dart';
+export 'src/ui/components/d_drag.dart';
 export 'src/ui/components/d_drawer.dart';
 export 'src/ui/components/d_dropdown_menu.dart';
 export 'src/ui/components/d_empty.dart';

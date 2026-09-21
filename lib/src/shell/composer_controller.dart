@@ -18,7 +18,9 @@ import '../plugin_api/emoji_usage.dart';
 import '../plugin_api/hashtag_kind.dart';
 import '../plugin_api/plugin_data.dart';
 import 'composer_autocomplete.dart';
+import 'composer_block_controller.dart';
 import 'composer_details.dart';
+import 'composer_edit_history.dart';
 import 'composer_galleries.dart';
 import 'composer_images.dart';
 import 'composer_marks.dart';
@@ -365,6 +367,18 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
       text.syntaxPolicies.add(ComposerTablePolicy(this));
       text.syntaxPolicies.add(ComposerDetailsPolicy(this));
     }
+    history = ComposerEditHistory(
+      text,
+      beforeRestore: text.clearKeyboardPillSelection,
+      deferUntilSession: true,
+    );
+    blocks = ComposerBlockController(
+      text: text,
+      history: history,
+      canEdit: () =>
+          isEditing && !loadingBody && !activeEditor.history.composing,
+      notice: showNotice,
+    );
     text.addListener(_onTextChanged);
     focus.addListener(_activateMainEditor);
     title.addListener(_onMetadataChanged);
@@ -418,6 +432,8 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
   final bool Function()? isCurrentComposer;
 
   final MarkdownEditingController text;
+  late final ComposerEditHistory history;
+  late final ComposerBlockController blocks;
   final TextEditingController title;
 
   ComposerController? _activeEmbeddedEditor;
@@ -2733,6 +2749,8 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
     } finally {
       _replacingDocument = false;
     }
+    history.reset();
+    blocks.reset();
   }
 
   void _replaceMetadata({
@@ -2887,6 +2905,8 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
     _draftTimer?.cancel();
     text.removeListener(_onTextChanged);
     title.removeListener(_onMetadataChanged);
+    blocks.dispose();
+    history.dispose();
     text.dispose();
     title.dispose();
     autocomplete.dispose();

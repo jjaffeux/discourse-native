@@ -24,6 +24,7 @@ import 'examples/data_table_examples.dart';
 import 'examples/date_picker_examples.dart';
 import 'examples/dialog_examples.dart';
 import 'examples/direction_examples.dart';
+import 'examples/drag_examples.dart';
 import 'examples/drawer_examples.dart';
 import 'examples/dropdown_menu_examples.dart';
 import 'examples/empty_examples.dart';
@@ -77,6 +78,7 @@ import 'styleguide_example.dart';
 
 /// Each component task replaces its baseline or adds its own example file.
 final componentExamples = <String, ComponentExamples>{
+  'drag': dragExamples,
   'history-transition': historyTransitionExamples,
   'color-picker': colorPickerExamples,
   'pull-to-refresh': pullToRefreshExamples,
