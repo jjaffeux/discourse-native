@@ -412,7 +412,7 @@ class _Scan {
       final level = heading.group(1)!.length;
       _mark(offset, offset + heading.end, Md.marker);
       _close(offset, offset + heading.end);
-      _mark(offset + heading.end, offset + line.length, Md.heading, '$level');
+      _mark(offset, offset + line.length, Md.heading, '$level');
       return;
     }
 
