@@ -93,6 +93,8 @@ class MarkdownEditingController extends TextEditingController {
   ComposerImageBlock? _caretSuppressedImage;
   Object? _keyboardSelectedProjection;
   String? _keyboardSelectionDocument;
+  Object? _boundaryCaretProjection;
+  int? _boundaryCaretOffset;
   final Map<int, GlobalKey> _imageKeys = {};
   final Map<String, String> _imageUrls = {};
   final Set<String> _resolvingImageUrls = {};
@@ -116,6 +118,13 @@ class MarkdownEditingController extends TextEditingController {
   @override
   set value(TextEditingValue newValue) {
     final current = super.value;
+    if (newValue.text != current.text ||
+        !newValue.selection.isCollapsed ||
+        newValue.selection.extentOffset != _boundaryCaretOffset) {
+      if (_boundaryCaretProjection != null) _cachedSpan = null;
+      _boundaryCaretProjection = null;
+      _boundaryCaretOffset = null;
+    }
     final wasSelectedBlock =
         _keyboardSelectedProjection != null && !current.selection.isCollapsed;
     if (newValue.text != current.text) {
@@ -147,9 +156,11 @@ class MarkdownEditingController extends TextEditingController {
       );
     }
     // A block's first source position paints in front of its widget, not in
-    // an editable paragraph. Select its complete range instead. Retain that
-    // selection when an upload slot is replaced by its finished component.
+    // an editable paragraph. Select its complete range unless a keyboard
+    // command explicitly placed a boundary caret there. Retain selection when
+    // an upload slot is replaced by its finished component.
     if (_keyboardSelectedProjection == null &&
+        _boundaryCaretProjection == null &&
         newValue.selection.isValid &&
         (newValue.selection.isCollapsed ||
             (newValue.text != current.text && wasSelectedBlock)) &&
@@ -239,7 +250,7 @@ class MarkdownEditingController extends TextEditingController {
           (text[contentEnd - 1] == '\n' || text[contentEnd - 1] == '\r')) {
         contentEnd--;
       }
-      if (caret < contentEnd) continue;
+      if (caret <= contentEnd) continue;
       final gap = text.substring(contentEnd, caret);
       if (gap.isNotEmpty &&
           gap != '\n' &&
@@ -266,7 +277,29 @@ class MarkdownEditingController extends TextEditingController {
     return false;
   }
 
-  /// The preceding text position, skipping the block's selection boundary.
+  /// A caret explicitly placed beside a component, on its rendered line.
+  Object? get boundaryCaretProjection => _boundaryCaretProjection;
+
+  void moveCaretBesideComponent(Object component, {required bool before}) {
+    clearKeyboardPillSelection();
+    _boundaryCaretProjection = component;
+    _boundaryCaretOffset = before
+        ? _blockRange(component).$1
+        : componentContentEnd(component);
+    _cachedSpan = null;
+    value = value.copyWith(
+      selection: TextSelection.collapsed(offset: _boundaryCaretOffset!),
+      composing: TextRange.empty,
+    );
+  }
+
+  /// The boundary after the component, excluding consumed line separators.
+  int componentContentEnd(Object component) {
+    final (start, end) = _blockRange(component);
+    return start + text.substring(start, end).trimRight().length;
+  }
+
+  /// The preceding ordinary text position, skipping a complete grapheme.
   int caretBeforeBlock(int start) {
     final offset = start.clamp(0, text.length);
     if (offset == 0) return 0;
@@ -353,6 +386,8 @@ class MarkdownEditingController extends TextEditingController {
         _sameProjection(_keyboardSelectedProjection, projection)) {
       return;
     }
+    _boundaryCaretProjection = null;
+    _boundaryCaretOffset = null;
     _keyboardSelectedProjection = projection;
     _keyboardSelectionDocument = text;
     artworkArrived();
@@ -1223,12 +1258,14 @@ class MarkdownEditingController extends TextEditingController {
         normalizeCollapsedComponentSourceSpans(
           source: source.substring(projection.start, projection.end),
           spans: projection.build(),
-          // A real separator already ends the component's line. Projecting
-          // another break creates a blank line that cannot be edited away.
-          // At EOF, only an unselected component needs a virtual caret line.
+          // Real separators end the component line. A selected component or
+          // an explicit boundary caret also needs no virtual trailing line.
           suppressSyntheticLineBreaks:
               source.startsWith('\n', projection.end) ||
               source.startsWith('\r\n', projection.end) ||
+              (_boundaryCaretProjection != null &&
+                  _blockRange(_boundaryCaretProjection!).$1 ==
+                      projection.start) ||
               (projection.end == source.length &&
                   keyboardSelectedProjection != null &&
                   _blockRange(keyboardSelectedProjection!).$1 ==

@@ -193,6 +193,137 @@ void main() {
   }
 
   for (final entry in _blocks.entries) {
+    testWidgets(
+      '${entry.key} boundary carets can reselect a component at the start of the document',
+      (tester) async {
+        final composer = await _pump(tester, entry.value);
+        composer.text.selection = const TextSelection.collapsed(offset: 0);
+        await tester.pump();
+        for (final direction in [
+          LogicalKeyboardKey.arrowLeft,
+          LogicalKeyboardKey.arrowRight,
+        ]) {
+          await tester.sendKeyEvent(direction);
+          await tester.pump();
+          expect(composer.text.keyboardSelectedProjection, isNull);
+          expect(composer.text.selection.isCollapsed, isTrue);
+          await tester.sendKeyEvent(
+            direction == LogicalKeyboardKey.arrowLeft
+                ? LogicalKeyboardKey.arrowRight
+                : LogicalKeyboardKey.arrowLeft,
+          );
+          await tester.pump();
+          expect(composer.text.keyboardSelectedProjection, isNotNull);
+          expect(composer.text.text, entry.value);
+        }
+      },
+    );
+    for (final suffix in ['', '\n\nAfter']) {
+      for (final before in [true, false]) {
+        testWidgets(
+          '${entry.key} arrow ${before ? 'left' : 'right'} places a same-line caret and Enter inserts beside it ($suffix)',
+          (tester) async {
+            final source = 'Before\n\n${entry.value}$suffix';
+            final composer = await _pump(tester, source);
+            composer.text.selection = const TextSelection.collapsed(offset: 8);
+            await tester.pump();
+            final selected = composer.text.selection;
+            final offset = before
+                ? selected.start
+                : selected.start +
+                      selected.textInside(source).trimRight().length;
+            await tester.sendKeyEvent(
+              before
+                  ? LogicalKeyboardKey.arrowLeft
+                  : LogicalKeyboardKey.arrowRight,
+            );
+            await tester.pump();
+            expect(composer.text.text, source);
+            expect(composer.text.keyboardSelectedProjection, isNull);
+            expect(
+              composer.text.selection,
+              TextSelection.collapsed(offset: offset),
+            );
+            expect(
+              tester.widget<EditableText>(_field(composer)).showCursor,
+              isTrue,
+            );
+            final render = tester
+                .state<EditableTextState>(_field(composer))
+                .renderEditable;
+            expect(
+              render.getLineAtOffset(TextPosition(offset: offset)).start,
+              8,
+            );
+            expect(
+              render.getLocalRectForCaret(TextPosition(offset: offset)).height,
+              greaterThan(0),
+            );
+            if (suffix.isNotEmpty) {
+              expect(
+                render
+                    .getLineAtOffset(TextPosition(offset: source.length - 1))
+                    .start,
+                greaterThan(offset),
+              );
+            }
+            await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+            await tester.pump();
+            expect(
+              composer.text.text,
+              source.replaceRange(offset, offset, '\n'),
+            );
+            expect(composer.text.keyboardSelectedProjection, isNull);
+            expect(
+              composer.text.selection,
+              TextSelection.collapsed(offset: before ? offset : offset + 1),
+            );
+            expect(tester.takeException(), isNull);
+          },
+        );
+      }
+      testWidgets(
+        '${entry.key} Backspace immediately deletes from its trailing caret ($suffix)',
+        (tester) async {
+          final source = 'Before\n\n${entry.value}$suffix';
+          final composer = await _pump(tester, source);
+          composer.text.selection = const TextSelection.collapsed(offset: 8);
+          await tester.pump();
+          final selected = composer.text.selection;
+          await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+          await tester.pump();
+          await tester.sendKeyEvent(LogicalKeyboardKey.backspace);
+          await tester.pump();
+          expect(
+            composer.raw,
+            source.replaceRange(selected.start, selected.end, '').trim(),
+          );
+          expect(composer.text.keyboardSelectedProjection, isNull);
+          expect(tester.takeException(), isNull);
+        },
+      );
+    }
+
+    testWidgets(
+      '${entry.key} Backspace at the source boundary removes the whole component',
+      (tester) async {
+        final composer = await _pump(
+          tester,
+          'Before\n\n${entry.value}\n\nAfter',
+        );
+        composer.text.selection = TextSelection.collapsed(
+          offset: 8 + entry.value.length,
+        );
+        await tester.pump();
+        await tester.sendKeyEvent(LogicalKeyboardKey.backspace);
+        await tester.pump();
+        expect(
+          composer.raw,
+          entry.key == 'quote' ? 'Before\n\nAfter' : 'Before\n\n\n\nAfter',
+        );
+        expect(composer.text.keyboardSelectedProjection, isNull);
+      },
+    );
     for (final newline in ['\n', '\r\n']) {
       testWidgets(
         '${entry.key} removes a visible separator before another component (${newline.length})',
@@ -245,7 +376,7 @@ void main() {
         },
       );
     }
-    for (final suffix in ['', '\n', '\r\n']) {
+    for (final suffix in ['\n', '\r\n']) {
       testWidgets(
         '${entry.key} Backspace selects before deleting after ${suffix.length} line-ending characters',
         (tester) async {
@@ -473,7 +604,7 @@ void main() {
     variant: TargetPlatformVariant.only(TargetPlatform.macOS),
   );
 
-  testWidgets('arrows traverse a block without stopping at its leading caret', (
+  testWidgets('arrows traverse a block through its boundary carets', (
     tester,
   ) async {
     const prefix = 'Before\n\n';
@@ -494,7 +625,7 @@ void main() {
     expect(composer.text.keyboardSelectedProjection, isNull);
     expect(
       composer.text.selection,
-      const TextSelection.collapsed(offset: prefix.length - 1),
+      const TextSelection.collapsed(offset: prefix.length),
     );
 
     await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
@@ -503,7 +634,7 @@ void main() {
     expect(composer.text.keyboardSelectedProjection, isNull);
     expect(
       composer.text.selection,
-      const TextSelection.collapsed(offset: prefix.length + _table.length + 1),
+      const TextSelection.collapsed(offset: prefix.length + _table.length),
     );
   });
 
@@ -527,7 +658,7 @@ void main() {
     expect(composer.raw, 'After');
   });
 
-  testWidgets('leaving an image skips a complete preceding grapheme', (
+  testWidgets('leaving an image preserves the preceding grapheme', (
     tester,
   ) async {
     const prefix = '👩‍💻';
@@ -536,7 +667,10 @@ void main() {
     composer.text.selection = TextSelection.collapsed(offset: image.start);
     await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
     await tester.pump();
-    expect(composer.text.selection, const TextSelection.collapsed(offset: 0));
+    expect(
+      composer.text.selection,
+      const TextSelection.collapsed(offset: prefix.length),
+    );
   });
 
   testWidgets('inline links retain an editable leading caret', (tester) async {

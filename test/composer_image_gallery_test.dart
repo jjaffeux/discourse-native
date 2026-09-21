@@ -1143,7 +1143,7 @@ void main() {
       await tester.pump();
       await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
       await tester.pump();
-      expect(composer.text.selection.extentOffset, gallery.start - 1);
+      expect(composer.text.selection.extentOffset, gallery.start);
       expect(
         find.byKey(const ValueKey('composer-gallery-toolbar')),
         findsNothing,

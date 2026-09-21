@@ -2060,6 +2060,47 @@ class _ComposerEditorState extends State<ComposerEditor> {
         keyboard.isShiftPressed;
     final selectedComponent =
         _media.value.selectedGallery ?? _keyboardSelectedPill;
+    final text = widget.composer.text;
+    final boundaryComponent = text.boundaryCaretProjection;
+    if (boundaryComponent != null &&
+        (event is KeyDownEvent || event is KeyRepeatEvent) &&
+        !hasModifier) {
+      final before =
+          text.selection.extentOffset == _pillStart(boundaryComponent);
+      if ((before && event.logicalKey == LogicalKeyboardKey.arrowRight) ||
+          (!before && event.logicalKey == LogicalKeyboardKey.arrowLeft)) {
+        _selectPillForKeyboard(boundaryComponent);
+        return KeyEventResult.handled;
+      }
+      if (isEnter && event is KeyDownEvent) {
+        final offset = text.selection.extentOffset;
+        text.value = TextEditingValue(
+          text: text.text.replaceRange(offset, offset, '\n'),
+          selection: TextSelection.collapsed(
+            offset: before ? offset : offset + 1,
+          ),
+        );
+        return KeyEventResult.handled;
+      }
+      if (event is KeyDownEvent &&
+          ((!before && event.logicalKey == LogicalKeyboardKey.backspace) ||
+              (before && event.logicalKey == LogicalKeyboardKey.delete))) {
+        _removePill(boundaryComponent);
+        return KeyEventResult.handled;
+      }
+    }
+    if (selectedComponent != null &&
+        (event is KeyDownEvent || event is KeyRepeatEvent) &&
+        !hasModifier &&
+        (event.logicalKey == LogicalKeyboardKey.arrowLeft ||
+            event.logicalKey == LogicalKeyboardKey.arrowRight)) {
+      _clearKeyboardPillSelection();
+      text.moveCaretBesideComponent(
+        selectedComponent,
+        before: event.logicalKey == LogicalKeyboardKey.arrowLeft,
+      );
+      return KeyEventResult.handled;
+    }
     if (selectedComponent != null &&
         event is KeyDownEvent &&
         isEnter &&
@@ -2072,6 +2113,20 @@ class _ComposerEditorState extends State<ComposerEditor> {
         selection: TextSelection.collapsed(offset: start),
       );
       return KeyEventResult.handled;
+    }
+    if (selectedComponent == null &&
+        event is KeyDownEvent &&
+        event.logicalKey == LogicalKeyboardKey.backspace &&
+        !hasModifier &&
+        text.selection.isValid &&
+        text.selection.isCollapsed &&
+        text.value.composing.isCollapsed) {
+      final component = _collapsedPillEndingAt(text.selection.extentOffset);
+      if (component != null &&
+          text.componentContentEnd(component) == text.selection.extentOffset) {
+        _removePill(component);
+        return KeyEventResult.handled;
+      }
     }
     if (selectedComponent == null &&
         event is KeyDownEvent &&
@@ -2289,6 +2344,17 @@ class _ComposerEditorState extends State<ComposerEditor> {
 
   Object? _collapsedPillEndingAt(int caret) {
     final text = widget.composer.text;
+    for (final quote in text.quoteBlocks) {
+      if ((quote.end == caret || text.componentContentEnd(quote) == caret) &&
+          text.isQuoteCollapsed(quote)) {
+        return quote;
+      }
+    }
+    for (final gallery in text.galleryBlocks) {
+      if (gallery.end == caret && text.isGalleryCollapsed(gallery)) {
+        return gallery;
+      }
+    }
     for (final image in text.imageBlocks) {
       if (image.end == caret && text.isImageCollapsed(image)) return image;
     }
@@ -2303,6 +2369,14 @@ class _ComposerEditorState extends State<ComposerEditor> {
 
   Object? _collapsedPillStartingAt(int caret) {
     final text = widget.composer.text;
+    for (final quote in text.quoteBlocks) {
+      if (quote.start == caret && text.isQuoteCollapsed(quote)) return quote;
+    }
+    for (final gallery in text.galleryBlocks) {
+      if (gallery.start == caret && text.isGalleryCollapsed(gallery)) {
+        return gallery;
+      }
+    }
     for (final image in text.imageBlocks) {
       if (image.start == caret && text.isImageCollapsed(image)) return image;
     }

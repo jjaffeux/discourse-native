@@ -646,7 +646,7 @@ void main() {
       expect(composer.text.text, source);
     });
 
-    testWidgets('Backspace selects a quote before atomic deletion', (
+    testWidgets('Backspace deletes a quote from its trailing caret', (
       tester,
     ) async {
       final composer = ComposerController(_target);
@@ -663,10 +663,7 @@ void main() {
       await tester.pump();
       await tester.sendKeyEvent(LogicalKeyboardKey.backspace);
       await tester.pump();
-      expect(composer.text.text, _quote);
-      expect(composer.text.keyboardSelectedProjection, isNotNull);
-      await tester.sendKeyEvent(LogicalKeyboardKey.backspace);
-      await tester.pump();
+      expect(composer.text.keyboardSelectedProjection, isNull);
       expect(composer.text.text, isEmpty);
 
       composer.text.text = _quote;
