@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:ui' show CheckedState;
 
 import 'package:discourse_native/discourse_ui.dart';
@@ -429,6 +430,110 @@ void main() {
     expect(channelScroll.pixels, greaterThan(0));
     expect(threadScroll.pixels, 0);
   });
+
+  for (final width in [390.0, 1400.0]) {
+    testWidgets(
+      'rename controls track silence while settings are open at $width pixels',
+      (tester) async {
+        final fixture = await _fixture(editableThread: true);
+        addTearDown(fixture.shell.dispose);
+        await _pumpWorkspace(tester, fixture.shell, width: width);
+        void silence(bool value) => fixture.shell.chatRecords.put(
+          _siteUrl,
+          ChatChannel(
+            id: _channelId,
+            title: _channelTitle,
+            kind: ChatChannelKind.category,
+            membership: const ChatMembership(following: true),
+            threadingEnabled: true,
+            userSilenced: value,
+          ),
+        );
+        final openSettings = tester
+            .widget<DButton>(
+              find.byWidgetPredicate(
+                (widget) =>
+                    widget is DButton && widget.tooltip == 'Thread settings',
+              ),
+            )
+            .onPressed!;
+        silence(true);
+        openSettings();
+        await tester.pumpAndSettle();
+        expect(find.text('Thread settings'), findsNothing);
+        expect(find.byTooltip('Thread settings'), findsNothing);
+        silence(false);
+        await tester.pumpAndSettle();
+        await tester.tap(find.byTooltip('Thread settings'));
+        await tester.pumpAndSettle();
+        final field = find.byKey(const ValueKey('chat-thread-title-field'));
+        final save = find.byKey(const ValueKey('chat-thread-title-save'));
+        await tester.enterText(field, 'Retained draft');
+        silence(true);
+        await tester.pumpAndSettle();
+        expect(tester.widget<DInput>(field).enabled, isFalse);
+        expect(tester.widget<DButton>(save).onPressed, isNull);
+        expect(
+          find.text('You can no longer edit this thread title.'),
+          findsOneWidget,
+        );
+        expect(fixture.api.chatThreadTitlesUpdated, isEmpty);
+        silence(false);
+        await tester.pumpAndSettle();
+        expect(tester.widget<DInput>(field).enabled, isTrue);
+        expect(tester.widget<DInput>(field).controller!.text, 'Retained draft');
+        await tester.tap(save);
+        await tester.pumpAndSettle();
+        expect(fixture.api.chatThreadTitlesUpdated, const [
+          (channelId: _channelId, threadId: _threadId, title: 'Retained draft'),
+        ]);
+      },
+    );
+  }
+
+  testWidgets(
+    'a late forbidden rename keeps the title and draft and allows retry',
+    (tester) async {
+      final fixture = await _fixture(editableThread: true);
+      addTearDown(fixture.shell.dispose);
+      await _pumpWorkspace(tester, fixture.shell, width: 1000);
+      await tester.tap(find.byTooltip('Thread settings'));
+      await tester.pumpAndSettle();
+      final field = find.byKey(const ValueKey('chat-thread-title-field'));
+      final save = find.byKey(const ValueKey('chat-thread-title-save'));
+      await tester.enterText(field, 'Retry title');
+      final response = Completer<void>();
+      fixture.api.titleResponse = response;
+      await tester.tap(save);
+      await tester.pump();
+      expect(fixture.api.chatThreadTitlesUpdated, const [
+        (channelId: _channelId, threadId: _threadId, title: 'Retry title'),
+      ]);
+      response.completeError(const WriteException(WriteFailure.forbidden));
+      await tester.pumpAndSettle();
+      expect(
+        find.text('Could not save the thread title. Try again.'),
+        findsOneWidget,
+      );
+      expect(
+        fixture.shell.chat.thread(_siteUrl, _threadId)?.title,
+        _threadTitle,
+      );
+      expect(tester.widget<DInput>(field).controller!.text, 'Retry title');
+      fixture.api.titleResponse = null;
+      await tester.tap(save);
+      await tester.pumpAndSettle();
+      expect(find.text('Thread settings'), findsNothing);
+      expect(
+        fixture.shell.chat.thread(_siteUrl, _threadId)?.title,
+        'Retry title',
+      );
+      expect(fixture.api.chatThreadTitlesUpdated, const [
+        (channelId: _channelId, threadId: _threadId, title: 'Retry title'),
+        (channelId: _channelId, threadId: _threadId, title: 'Retry title'),
+      ]);
+    },
+  );
 
   testWidgets('thread notification choices use an anchored descriptive menu', (
     tester,
@@ -899,6 +1004,28 @@ final class _WorkspaceApi extends FakeDiscourseApi {
          chatMessagesByKey: {'9': channelPage, 'thread-9-3': threadPage},
          chatThreadsByKey: {'9~3': thread},
        );
+
+  Completer<void>? titleResponse;
+
+  @override
+  Future<void> updateChatThreadTitle({
+    required String siteUrl,
+    required String apiKey,
+    required int channelId,
+    required int threadId,
+    required String title,
+    String? clientId,
+  }) async {
+    await super.updateChatThreadTitle(
+      siteUrl: siteUrl,
+      apiKey: apiKey,
+      channelId: channelId,
+      threadId: threadId,
+      title: title,
+      clientId: clientId,
+    );
+    await titleResponse?.future;
+  }
 
   final bool terminalThread;
   final ChatThread thread;
