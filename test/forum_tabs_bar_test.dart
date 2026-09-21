@@ -1028,6 +1028,37 @@ void main() {
 
   group('overflow layout', () {
     testWidgets(
+      'crowded tabs keep the selected close action inside its surface',
+      (tester) async {
+        final items = [
+          for (var index = 0; index < 20; index++)
+            ForumTabItem(id: 'crowded-$index', title: 'Forum tab $index'),
+        ];
+        final closed = <String>[];
+        for (final selected in [items.first, items.last]) {
+          await _pumpBar(
+            tester,
+            items: items,
+            selectedId: selected.id,
+            width: 249.84,
+            onClose: closed.add,
+          );
+          expect(tester.takeException(), isNull);
+          final surface = tester.getRect(
+            find.byKey(ValueKey('forum-tab-item-${selected.id}')),
+          );
+          final close = find.byKey(ValueKey('forum-tab-close-${selected.id}'));
+          final closeRect = tester.getRect(close);
+          expect(closeRect.width, ForumTabsBar.closeTargetWidth);
+          expect(closeRect.left, greaterThanOrEqualTo(surface.left));
+          expect(closeRect.right, lessThanOrEqualTo(surface.right));
+          await tester.tap(close);
+          expect(closed.last, selected.id);
+        }
+      },
+    );
+
+    testWidgets(
       'narrow tabs reserve their label space for visible title text',
       (tester) async {
         await _pumpBar(
