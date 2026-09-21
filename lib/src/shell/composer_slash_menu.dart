@@ -10,14 +10,18 @@ import 'markdown_highlight.dart';
 class ComposerSlashAction {
   const ComposerSlashAction({
     required this.label,
-    required this.icon,
+    this.icon,
+    this.leadingText,
+    this.hint,
     required this.onInvoke,
     this.group = 'Insert',
     this.keywords = const [],
   });
 
   final String label;
-  final DIconData icon;
+  final DIconData? icon;
+  final String? leadingText;
+  final String? hint;
   final VoidCallback onInvoke;
   final String group;
   final List<String> keywords;
@@ -37,7 +41,7 @@ ComposerSlashQuery? composerSlashQuery(TextEditingValue value) {
     return null;
   }
   final before = value.text.substring(0, selection.end);
-  final match = RegExp(r'(?:^|\s)/([a-zA-Z-]{0,40})$').firstMatch(before);
+  final match = RegExp(r'(?:^|\s)/([a-zA-Z0-9-]{0,40})$').firstMatch(before);
   if (match == null) return null;
   final start = before.lastIndexOf('/');
   if (selection.end < value.text.length &&
@@ -293,7 +297,14 @@ class ComposerSlashMenuState extends State<ComposerSlashMenu> {
                                 value: action.label,
                                 searchValue: action.label,
                                 keywords: action.keywords,
-                                leading: DIcon(action.icon),
+                                leading: action.leadingText != null
+                                    ? Text(action.leadingText!)
+                                    : action.icon != null
+                                    ? DIcon(action.icon!)
+                                    : null,
+                                trailing: action.hint == null
+                                    ? null
+                                    : DCommandShortcut(Text(action.hint!)),
                                 child: Text(action.label),
                               ),
                           ],

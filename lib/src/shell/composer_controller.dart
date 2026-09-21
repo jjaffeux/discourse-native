@@ -1415,6 +1415,28 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
     toggleMark(ComposerMark.inlineCode);
   }
 
+  /// Applies an ATX heading to the caret's line, preserving its text.
+  void setHeading(int level) {
+    if (!isEditing || level < 1 || level > 4) return;
+    final old = text.value;
+    final caret = old.selection.isValid
+        ? old.selection.extentOffset
+        : old.text.length;
+    final start = caret == 0 ? 0 : old.text.lastIndexOf('\n', caret - 1) + 1;
+    final prefix = RegExp(
+      r'^ {0,3}#{1,6}(?:[ \t]+|$)',
+    ).firstMatch(old.text.substring(start));
+    final end = start + (prefix?.end ?? 0);
+    final marker = '${'#' * level} ';
+    text.value = old.copyWith(
+      text: old.text.replaceRange(start, end, marker),
+      selection: TextSelection.collapsed(
+        offset: (caret < end ? start : caret - (end - start)) + marker.length,
+      ),
+      composing: TextRange.empty,
+    );
+  }
+
   void insertText(String insertion) {
     if (!isEditing || insertion.isEmpty) return;
     final old = text.value;

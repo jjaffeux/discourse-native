@@ -1452,6 +1452,15 @@ class _ComposerEditorState extends State<ComposerEditor> {
           showComposerLinkDialog(context: context, composer: composer),
         ),
       ),
+      for (var level = 1; level <= 4; level++)
+        ComposerSlashAction(
+          label: 'Heading $level',
+          leadingText: 'H${const ['₁', '₂', '₃', '₄'][level - 1]}',
+          hint: '#' * level,
+          group: 'Formatting',
+          keywords: ['h$level', 'heading$level'],
+          onInvoke: () => composer.setHeading(level),
+        ),
       if (!composer.target.isPlugin) ...[
         ComposerSlashAction(
           label: 'Table',

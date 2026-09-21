@@ -120,6 +120,33 @@ void main() {
     await tester.pumpAndSettle();
   }
 
+  for (var level = 1; level <= 4; level++) {
+    testWidgets('heading $level filters and inserts from the keyboard', (
+      tester,
+    ) async {
+      final composer = await pump(tester);
+      await type(tester, '/h$level');
+      expect(find.text('Heading $level'), findsOneWidget);
+      expect(find.text('#' * level), findsOneWidget);
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pumpAndSettle();
+      expect(composer.text.text, '${'#' * level} ');
+      expect(composer.text.selection.extentOffset, level + 1);
+      expect(composer.focus.hasFocus, isTrue);
+    });
+  }
+
+  testWidgets('heading preserves the line and replaces its existing level', (
+    tester,
+  ) async {
+    final composer = await pump(tester);
+    await type(tester, 'Previous paragraph\n\n### Existing /h2');
+    await tester.tap(find.text('Heading 2'));
+    await tester.pumpAndSettle();
+    expect(composer.text.text, 'Previous paragraph\n\n## Existing ');
+    expect(composer.text.selection.extentOffset, composer.text.text.length);
+  });
+
   testWidgets(
     'plugin callbacks resolve source offsets after removing slash query',
     (tester) async {
