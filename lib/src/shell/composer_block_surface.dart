@@ -80,10 +80,14 @@ class _ComposerBlockSurfaceState extends State<ComposerBlockSurface> {
   Timer? _autoScroll;
   bool _wasArranging = false;
   bool _refreshScheduled = false;
-  double? _handleTop;
+  Rect? _handleRect;
   double? _dropTop;
 
   ComposerController get composer => widget.composer;
+
+  ComposerBodyBlock? get _activeBlock =>
+      composer.blocks.index.byId(_drag?.id ?? _hoveredId ?? -1) ??
+      composer.blocks.selected;
 
   @override
   void initState() {
@@ -138,20 +142,21 @@ class _ComposerBlockSurfaceState extends State<ComposerBlockSurface> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _refreshScheduled = false;
       if (!mounted) return;
-      final block =
-          composer.blocks.index.byId(_hoveredId ?? -1) ??
-          composer.blocks.selected;
+      final block = _activeBlock;
       final rect = block == null || composer.blocks.arranging
           ? null
           : widget.blockRect(block);
       final box = _bounds.currentContext?.findRenderObject();
-      final top = rect == null || box is! RenderBox || !box.hasSize
+      final localRect = rect == null || box is! RenderBox || !box.hasSize
           ? null
-          : box.globalToLocal(rect.topLeft).dy;
+          : Rect.fromPoints(
+              box.globalToLocal(rect.topLeft),
+              box.globalToLocal(rect.bottomRight),
+            );
       final dropTop = composer.blocks.arranging ? null : _dropY();
-      if (top != _handleTop || dropTop != _dropTop) {
+      if (localRect != _handleRect || dropTop != _dropTop) {
         setState(() {
-          _handleTop = top;
+          _handleRect = localRect;
           _dropTop = dropTop;
         });
       }
@@ -201,9 +206,14 @@ class _ComposerBlockSurfaceState extends State<ComposerBlockSurface> {
     if (!_accepts(drag)) return;
     _pointer = position;
     final candidate = _gapAt(position);
+    final source = composer.blocks.index.blocks.indexWhere(
+      (block) => block.id == drag.id,
+    );
     final gap =
         candidate != null &&
-            composer.blocks.index.move(drag.id, candidate) != null
+            (candidate == source ||
+                candidate == source + 1 ||
+                composer.blocks.index.move(drag.id, candidate) != null)
         ? candidate
         : null;
     if (_gap != gap) {
@@ -366,7 +376,7 @@ class _ComposerBlockSurfaceState extends State<ComposerBlockSurface> {
     return KeyEventResult.ignored;
   }
 
-  Widget _handle(ComposerBodyBlock block) {
+  Widget _handle(ComposerBodyBlock block, {bool trailing = false}) {
     final position = composer.blocks.index.blocks.indexOf(block);
     // Only the selected handle can have an open menu. Avoid reparsing the
     // entire draft for both actions on every row of a long outline.
@@ -417,7 +427,9 @@ class _ComposerBlockSurfaceState extends State<ComposerBlockSurface> {
       ),
       child: DDropdownMenuTrigger(
         builder: (context, trigger) => DDragHandle<_BlockDrag>(
-          key: ValueKey('composer-block-handle-${block.id}'),
+          key: ValueKey(
+            'composer-block-handle-${block.id}${trailing ? '-end' : ''}',
+          ),
           data: drag,
           label: '${block.label} actions',
           enabled:
@@ -585,11 +597,12 @@ class _ComposerBlockSurfaceState extends State<ComposerBlockSurface> {
     if (gap == null || blocks.isEmpty || box is! RenderBox || !box.hasSize) {
       return null;
     }
-    final rect = _rect(blocks[gap == blocks.length ? gap - 1 : gap]);
-    if (rect == null) return null;
-    return box
-        .globalToLocal(Offset(0, gap == blocks.length ? rect.bottom : rect.top))
-        .dy;
+    final before = gap > 0 ? _rect(blocks[gap - 1]) : null;
+    final after = gap < blocks.length ? _rect(blocks[gap]) : null;
+    final y = before != null && after != null
+        ? (before.bottom + after.top) / 2
+        : after?.top ?? before?.bottom;
+    return y == null ? null : box.globalToLocal(Offset(0, y)).dy;
   }
 
   @override
@@ -597,16 +610,18 @@ class _ComposerBlockSurfaceState extends State<ComposerBlockSurface> {
     _scheduleGeometry();
     final arranging = composer.blocks.arranging;
     final desktop = !context.isTouch;
-    final block =
-        composer.blocks.index.byId(_hoveredId ?? -1) ??
-        composer.blocks.selected;
+    final block = _activeBlock;
+    final handleRect = _handleRect;
     final line = arranging || _dropTop == null
         ? null
         : PositionedDirectional(
             start: DSpacing.xxl,
-            end: 0,
+            end: DSpacing.xxl,
             top: _dropTop,
-            child: const DDropIndicator(),
+            child: const FractionalTranslation(
+              translation: Offset(0, -.5),
+              child: DDropIndicator(),
+            ),
           );
     return Focus(
       focusNode: _arrangeFocus,
@@ -622,7 +637,7 @@ class _ComposerBlockSurfaceState extends State<ComposerBlockSurface> {
           onDrop: _drop,
           onLeave: _leaveDrag,
           child: MouseRegion(
-            onHover: desktop && !arranging
+            onHover: desktop && !arranging && _drag == null
                 ? (event) {
                     for (final item in composer.blocks.index.blocks) {
                       final rect = widget.blockRect(item);
@@ -645,23 +660,37 @@ class _ComposerBlockSurfaceState extends State<ComposerBlockSurface> {
                 Offstage(
                   offstage: arranging,
                   child: Padding(
-                    padding: EdgeInsetsDirectional.only(
-                      start: desktop ? DSpacing.xxl : 0,
+                    padding: EdgeInsets.symmetric(
+                      horizontal: desktop ? DSpacing.xxl : 0,
                     ),
                     child: widget.child,
                   ),
                 ),
                 if (arranging) _outline(),
+                if (!arranging && _drag != null && handleRect != null)
+                  Positioned(
+                    left: 0,
+                    right: 0,
+                    top: handleRect.top - DSpacing.xs,
+                    height: handleRect.height + DSpacing.xs * 2,
+                    child: const DDragHighlight(),
+                  ),
                 if (!arranging &&
                     desktop &&
                     block != null &&
-                    _handleTop != null &&
-                    _handleTop! >= 0)
+                    handleRect != null &&
+                    handleRect.top >= 0) ...[
                   PositionedDirectional(
                     start: 0,
-                    top: _handleTop,
+                    top: handleRect.top,
                     child: _handle(block),
                   ),
+                  PositionedDirectional(
+                    end: 0,
+                    top: handleRect.top,
+                    child: _handle(block, trailing: true),
+                  ),
+                ],
                 ?line,
               ],
             ),
