@@ -15,17 +15,25 @@ Future<void> showChatThreadSettings({
   required String siteUrl,
   required ChatThreadTarget target,
   required ChatThread thread,
-}) => showShellSheet<void>(
-  context: context,
-  title: 'Thread settings',
-  dialogOnDesktop: true,
-  builder: (context) => _ChatThreadSettingsEditor(
-    chat: chat,
-    siteUrl: siteUrl,
-    target: target,
-    thread: thread,
-  ),
-);
+}) async {
+  if (!chat.canEditThreadTitle(
+    siteUrl,
+    chat.thread(siteUrl, target.threadId),
+  )) {
+    return;
+  }
+  await showShellSheet<void>(
+    context: context,
+    title: 'Thread settings',
+    dialogOnDesktop: true,
+    builder: (context) => _ChatThreadSettingsEditor(
+      chat: chat,
+      siteUrl: siteUrl,
+      target: target,
+      thread: thread,
+    ),
+  );
+}
 
 class _ChatThreadSettingsEditor extends StatefulWidget {
   const _ChatThreadSettingsEditor({
@@ -59,7 +67,7 @@ class _ChatThreadSettingsEditorState extends State<_ChatThreadSettingsEditor> {
   }
 
   Future<void> _save() async {
-    if (_saving) return;
+    if (_saving || !_canEdit) return;
     setState(() {
       _saving = true;
       _error = null;
@@ -80,9 +88,18 @@ class _ChatThreadSettingsEditorState extends State<_ChatThreadSettingsEditor> {
     });
   }
 
+  bool get _canEdit => widget.chat.canEditThreadTitle(
+    widget.siteUrl,
+    widget.chat.thread(widget.siteUrl, widget.target.threadId),
+  );
+
   @override
-  Widget build(BuildContext context) {
-    return Column(
+  Widget build(BuildContext context) => ListenableBuilder(
+    listenable: Listenable.merge([
+      widget.chat.threadRef(widget.siteUrl, widget.target.threadId),
+      widget.chat.channelRef(widget.siteUrl, widget.target.channelId),
+    ]),
+    builder: (context, _) => Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -90,7 +107,7 @@ class _ChatThreadSettingsEditorState extends State<_ChatThreadSettingsEditor> {
           key: const ValueKey('chat-thread-title-field'),
           controller: _title,
           autofocus: true,
-          enabled: !_saving,
+          enabled: !_saving && _canEdit,
           maxLength: 100,
           maxLengthEnforcement: MaxLengthEnforcement.enforced,
           textInputAction: TextInputAction.done,
@@ -98,6 +115,10 @@ class _ChatThreadSettingsEditorState extends State<_ChatThreadSettingsEditor> {
           labelText: 'Title',
           hintText: 'Give this thread a title',
         ),
+        if (!_canEdit) ...[
+          const SizedBox(height: 8),
+          const Text('You can no longer edit this thread title.'),
+        ],
         if (_error case final error?) ...[
           const SizedBox(height: 8),
           Semantics(
@@ -114,12 +135,12 @@ class _ChatThreadSettingsEditorState extends State<_ChatThreadSettingsEditor> {
           child: DButton(
             key: const ValueKey('chat-thread-title-save'),
             label: const Text('Save'),
-            onPressed: () => unawaited(_save()),
+            onPressed: _canEdit && !_saving ? () => unawaited(_save()) : null,
             variant: DButtonVariant.primary,
             loading: _saving,
           ),
         ),
       ],
-    );
-  }
+    ),
+  );
 }
