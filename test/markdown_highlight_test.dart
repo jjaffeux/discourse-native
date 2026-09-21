@@ -479,7 +479,7 @@ void main() {
 
   group('blocks', () {
     test('dims the hashes and lifts the heading', () {
-      expect(annotate('# A heading'), '<m># </><h>A heading</>');
+      expect(annotate('# A heading'), '<m+h># </><h>A heading</>');
     });
 
     test('carries the level, so six is not drawn like one', () {
@@ -629,14 +629,14 @@ void main() {
     });
 
     test('a heading is not a hashtag', () {
-      expect(annotate('# Heading'), '<m># </><h>Heading</>');
+      expect(annotate('# Heading'), '<m+h># </><h>Heading</>');
       expect(annotate('#Heading'), '<hash>#Heading</>');
     });
 
     test('a hashtag inside a heading is still a hashtag', () {
       expect(
         annotate('# See #support'),
-        '<m># </><h>See </><h+hash>#support</>',
+        '<m+h># </><h>See </><h+hash>#support</>',
       );
     });
 
