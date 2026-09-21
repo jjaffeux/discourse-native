@@ -16,8 +16,8 @@ import 'package:flutter/material.dart';
 /// This normalization happens at the shared controller boundary rather than
 /// in individual component renderers. Core components and plugin syntax
 /// projections therefore receive the same baseline behavior.
-/// [suppressSyntheticLineBreaks] also removes the virtual caret line supplied
-/// by a terminal component while that component is selected.
+/// [suppressSyntheticLineBreaks] removes the virtual caret line when a real
+/// separator follows, or when a terminal component is selected.
 List<InlineSpan> normalizeCollapsedComponentSourceSpans({
   required String source,
   required List<InlineSpan> spans,
@@ -66,7 +66,6 @@ final class _CollapsedComponentSourceNormalizer {
   InlineSpan _normalizeSpan(InlineSpan span, [TextStyle? inheritedStyle]) {
     if (span is WidgetSpan) {
       offset++;
-      if (!suppressSyntheticLineBreaks) return span;
       return WidgetSpan(
         alignment: span.alignment,
         baseline: span.baseline,
@@ -83,10 +82,10 @@ final class _CollapsedComponentSourceNormalizer {
                 1;
             return ConstrainedBox(
               constraints: BoxConstraints(
-                maxWidth: (constraints.maxWidth - caretMargin).clamp(
-                  0,
-                  double.infinity,
-                ),
+                maxWidth:
+                    (constraints.maxWidth -
+                            (suppressSyntheticLineBreaks ? caretMargin : 0))
+                        .clamp(0, double.infinity),
               ),
               child: span.child,
             );

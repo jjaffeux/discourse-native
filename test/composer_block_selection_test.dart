@@ -194,6 +194,17 @@ void main() {
             entry.key == 'quote' ? source : 'Before\n\n${entry.value}\nAfter',
           );
           expect(composer.text.keyboardSelectedProjection, isNotNull);
+          final painted = tester
+              .state<EditableTextState>(_field(composer))
+              .renderEditable
+              .text!
+              .toPlainText(includeSemanticsLabels: false);
+          expect(
+            '\n'.allMatches(
+              painted.substring(8, composer.text.text.indexOf('After')),
+            ),
+            hasLength(1),
+          );
           expect(tester.takeException(), isNull);
         },
       );
@@ -258,6 +269,53 @@ void main() {
       expect(composer.text.keyboardSelectedProjection, isNull);
     });
   }
+
+  testWidgets('Backspace removes the visible blank line between two uploads', (
+    tester,
+  ) async {
+    const first = '![First|100x100](upload://first)';
+    const second = '![Second|100x100](upload://second)';
+    final composer = await _pump(tester, '$first\n\n$second');
+    final rendered = tester
+        .state<EditableTextState>(_field(composer))
+        .renderEditable;
+    double secondTop() => rendered
+        .getBoxesForSelection(
+          TextSelection(
+            baseOffset: composer.text.imageBlocks.last.start,
+            extentOffset: composer.text.imageBlocks.last.start + 1,
+          ),
+        )
+        .single
+        .top;
+    final before = secondTop();
+    composer.text.selection = const TextSelection.collapsed(
+      offset: first.length + 1,
+    );
+    await tester.pump();
+    await tester.sendKeyEvent(LogicalKeyboardKey.backspace);
+    await tester.pump();
+    expect(composer.text.text, '$first\n$second');
+    expect(composer.text.keyboardSelectedImage?.start, 0);
+    expect(secondTop(), closeTo(before - rendered.preferredLineHeight, 0.01));
+    composer.text.clearKeyboardPillSelection();
+    composer.text.selection = TextSelection.collapsed(
+      offset: composer.text.text.length,
+    );
+    await tester.pump();
+    final painted = rendered.text!.toPlainText(includeSemanticsLabels: false);
+    expect(
+      '\n'.allMatches(
+        painted.substring(0, composer.text.imageBlocks.last.start),
+      ),
+      hasLength(1),
+      reason: 'Only the actual separator may occupy a line between uploads',
+    );
+    expect(
+      rendered.getLineAtOffset(const TextPosition(offset: first.length)).start,
+      0,
+    );
+  });
 
   testWidgets('undo restores the line removed after a component', (
     tester,
