@@ -649,6 +649,39 @@ void main() {
       expect(find.byType(ComposerLinkPill), findsOneWidget);
     });
 
+    for (final scale in [0.8, 1.0, 1.4, 2.0]) {
+      for (final link in ['[test](https://example.test)', 'google.fr']) {
+        testWidgets('link $link matches prose at text scale $scale', (
+          tester,
+        ) async {
+          tester.platformDispatcher.textScaleFactorTestValue = scale;
+          addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+          await pumpField(tester, 'Before $link after');
+
+          final pillFinder = find.byType(ComposerLinkPill);
+          final pill = tester.widget<ComposerLinkPill>(pillFinder);
+          final label = find.descendant(
+            of: pillFinder,
+            matching: find.byType(RichText),
+          );
+          final box = tester.renderObject<RenderBox>(label);
+          final renderedWidth =
+              (box.localToGlobal(Offset(box.size.width, 0)) -
+                      box.localToGlobal(Offset.zero))
+                  .distance;
+          final prose = TextPainter(
+            text: TextSpan(text: pill.anchor, style: pill.baseStyle),
+            textDirection: TextDirection.ltr,
+            textScaler: editable(tester).renderEditable.textScaler,
+          )..layout();
+          addTearDown(prose.dispose);
+
+          expect(renderedWidth, closeTo(prose.width, 0.01));
+          expect(tester.takeException(), isNull);
+        });
+      }
+    }
+
     testWidgets('a fuzzy domain is projected as a source-preserving link', (
       tester,
     ) async {
