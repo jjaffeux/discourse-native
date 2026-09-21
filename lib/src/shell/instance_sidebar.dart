@@ -883,13 +883,22 @@ class _SidebarLoadingSkeleton extends StatelessWidget {
 class _SectionState extends State<_Section> {
   bool _collapsed = false;
   bool _reordering = false;
+  List<SidebarDestination>? _pendingDestinations;
 
   Future<void> _reorder(int oldIndex, int newIndex) async {
     if (_reordering || newIndex == oldIndex || newIndex == oldIndex + 1) return;
     final controller = ShellScope.read(context);
     final section = widget.section;
     final siteUrl = widget.siteUrl;
-    setState(() => _reordering = true);
+    final destinations = section.destinations.toList();
+    final moved = destinations.removeAt(oldIndex);
+    destinations.insert(newIndex > oldIndex ? newIndex - 1 : newIndex, moved);
+    // Keep the dropped order visible while confirming and saving. The
+    // controller retains the saved order until the server accepts the change.
+    setState(() {
+      _reordering = true;
+      _pendingDestinations = destinations;
+    });
     try {
       if (section.public) {
         final confirmed = await showDiscourseAlertDialog<bool>(
@@ -924,7 +933,12 @@ class _SectionState extends State<_Section> {
         );
       }
     } finally {
-      if (mounted) setState(() => _reordering = false);
+      if (mounted) {
+        setState(() {
+          _reordering = false;
+          _pendingDestinations = null;
+        });
+      }
     }
   }
 
@@ -942,6 +956,10 @@ class _SectionState extends State<_Section> {
   @override
   void didUpdateWidget(_Section oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (oldWidget.siteUrl != widget.siteUrl ||
+        !identical(oldWidget.section, widget.section)) {
+      _pendingDestinations = null;
+    }
     if (oldWidget.siteUrl != widget.siteUrl ||
         oldWidget.section.id != widget.section.id ||
         oldWidget.section.collapsible != widget.section.collapsible ||
@@ -970,8 +988,13 @@ class _SectionState extends State<_Section> {
   @override
   Widget build(BuildContext context) {
     final section = widget.section;
+    final canReorder = ShellScope.read(
+      context,
+    ).canReorderSidebarLinks(widget.siteUrl, section);
     final destinations = <SidebarDestination>[
-      ...section.destinations,
+      ...canReorder
+          ? _pendingDestinations ?? section.destinations
+          : section.destinations,
       ...widget.appendedDestinations,
       for (final destination in section.moreDestinations)
         if (destination.id == widget.selectedId) destination,
@@ -1039,9 +1062,7 @@ class _SectionState extends State<_Section> {
       final reorderable =
           runs.length == 1 &&
           rows.length == section.destinations.length &&
-          ShellScope.read(
-            context,
-          ).canReorderSidebarLinks(widget.siteUrl, section);
+          canReorder;
       final menu = submenu
           ? DSidebarMenuSub.sliverBuilder(
               itemCount: run.length,

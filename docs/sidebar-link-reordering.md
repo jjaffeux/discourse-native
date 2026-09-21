@@ -4,16 +4,20 @@ Desktop users can drag links within a custom sidebar section. The Native
 `DSidebarReorderableMenu.sliverBuilder` owns the drag proxy, insertion gap,
 shared-viewport auto-scroll, Alt+Up/Down shortcuts and Flutter's accessible
 reorder actions. Its caller supplies stable row keys and persists the order.
-A null callback disables reordering. Touch retains scrolling and long presses,
-matching Core's touch-first behavior.
+A null callback disables reordering. Touch uses a long press to start dragging;
+ordinary swipes still scroll and taps open links.
 
 The app saves with `PUT /sidebar_sections/:id/reorder.json` and a JSON
 `links_order` array containing every SidebarUrl ID in the resulting order.
 It replaces only the affected section with `sidebar_section` from the response.
-The old order stays visible until saving succeeds; failures show a retryable
-error, with no optimistic state to roll back. Same-position drops do not write,
-and another reorder is disabled while saving or confirming. Site lifecycle
-leases prevent a response from restoring an account's sidebar after sign-out.
+The dropped order stays visible while confirming and saving, so links do not
+jump back between the drag animation and the response. This preview belongs to
+the displayed section; the controller retains the saved order until success.
+Cancellation or failure restores that order, and failures show a retryable error.
+Replacing the section or losing reorder permission discards its preview.
+Same-position drops do not write, and another reorder is disabled while saving
+or confirming. Site lifecycle leases prevent a response from restoring an
+account's sidebar after sign-out.
 
 Only signed-in users can reorder. Public sections require an administrator and
 confirmation that the change affects everyone. Built-in sections and incomplete
@@ -36,7 +40,10 @@ Core references inspected in `/Users/joffreyjaffeux/Code/pr-discourse`:
 - `test/sidebar_reorder_test.dart`: real request method, path, credentials and
   JSON body; returned order; incomplete sections; mouse drags in both directions;
   unchanged drops; pending/failed saves; public confirmation/cancellation;
-  anonymous, non-admin and touch exclusions; late response after sign-out.
+  anonymous and non-admin exclusions; mobile long-press dragging; late response
+  after sign-out. Frame-by-frame drop checks cover a delayed successful save on
+  macOS, iOS and Android platform overrides; failed saves restore the old order
+  and can be retried.
 - `test/d_sidebar_reorder_test.dart`: keyboard movement with retained focus,
   boundaries and shared-viewport drag scrolling in light/dark at 200% text.
 - Existing Sidebar, lazy Sidebar, styleguide examples, sidebar icons, API,

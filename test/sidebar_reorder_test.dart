@@ -63,12 +63,13 @@ Future<FakeDiscourseApi> _pump(
   return api;
 }
 
+// The dragged label lives in the overlay until its drop animation completes.
 List<String> _order(WidgetTester tester) => (_names.values.toList()
   ..sort(
     (a, b) => tester
-        .getTopLeft(sidebarDestination(a))
+        .getTopLeft(find.text(a))
         .dy
-        .compareTo(tester.getTopLeft(sidebarDestination(b)).dy),
+        .compareTo(tester.getTopLeft(find.text(b)).dy),
   ));
 
 Future<void> _drag(
@@ -77,6 +78,7 @@ Future<void> _drag(
   String to, {
   bool after = true,
   bool touch = false,
+  VoidCallback? onDropFrame,
 }) async {
   final start = tester.getCenter(sidebarDestination(from));
   final end =
@@ -94,6 +96,13 @@ Future<void> _drag(
   await gesture.moveTo(end);
   await tester.pump(const Duration(milliseconds: 400));
   await gesture.up();
+  // Include the proxy's drop animation and the handoff back to the list.
+  if (onDropFrame != null) {
+    for (var frame = 0; frame < 30; frame++) {
+      await tester.pump(const Duration(milliseconds: 16));
+      onDropFrame();
+    }
+  }
   await tester.pumpAndSettle();
 }
 
@@ -174,14 +183,49 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  for (final platform in [
+    TargetPlatform.macOS,
+    TargetPlatform.iOS,
+    TargetPlatform.android,
+  ]) {
+    platformTest(
+      'retains dropped position until saving completes on $platform',
+      (tester) async {
+        final touch = platform != TargetPlatform.macOS;
+        final api = await _pump(tester, size: touch ? phone : desktop);
+        api.sidebarReorderGate = Completer<void>();
+        await tester.ensureVisible(sidebarDestination('Support'));
+        await tester.pumpAndSettle();
+        await _drag(
+          tester,
+          'Handbook',
+          'Support',
+          touch: touch,
+          onDropFrame: () =>
+              expect(_order(tester), ['Roadmap', 'Support', 'Handbook']),
+        );
+        expect(_order(tester), ['Roadmap', 'Support', 'Handbook']);
+        expect(api.sidebarReorders.single.ids, [22, 33, 11]);
+        api.sidebarReorderGate!.complete();
+        for (var frame = 0; frame < 5; frame++) {
+          await tester.pump(const Duration(milliseconds: 16));
+          expect(_order(tester), ['Roadmap', 'Support', 'Handbook']);
+        }
+        await tester.pumpAndSettle();
+        expect(tester.takeException(), isNull);
+      },
+      platform: platform,
+    );
+  }
+
   platformTest(
-    'keeps order during save, disables repeated writes, reports failure',
+    'shows dropped order during save, disables repeated writes, restores on failure',
     (tester) async {
       final api = await _pump(tester);
       api.sidebarReorderGate = Completer<void>();
       api.sidebarReorderFailure = const WriteException(WriteFailure.forbidden);
       await _drag(tester, 'Handbook', 'Support');
-      expect(_order(tester), ['Handbook', 'Roadmap', 'Support']);
+      expect(_order(tester), ['Roadmap', 'Support', 'Handbook']);
       expect(
         tester
             .widget<DSidebarReorderableMenu>(
@@ -202,6 +246,11 @@ void main() {
             .onReorder,
         isNotNull,
       );
+      api.sidebarReorderGate = null;
+      api.sidebarReorderFailure = null;
+      await _drag(tester, 'Handbook', 'Support');
+      expect(api.sidebarReorders, hasLength(2));
+      expect(_order(tester), ['Roadmap', 'Support', 'Handbook']);
     },
   );
 
@@ -211,6 +260,7 @@ void main() {
       final api = await _pump(tester, public: true, admin: true);
       await _drag(tester, 'Handbook', 'Support');
       expect(find.text('Reorder public links?'), findsOneWidget);
+      expect(_order(tester), ['Roadmap', 'Support', 'Handbook']);
       expect(api.sidebarReorders, isEmpty);
       await tester.tap(find.text('Cancel'));
       await tester.pumpAndSettle();
