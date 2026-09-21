@@ -377,13 +377,17 @@ final class ComposerLinkSyntaxProjection implements ComposerSyntaxProjection {
       alignment: PlaceholderAlignment.middle,
       style: context.baseStyle,
       child: IgnorePointer(
-        child: ComposerLinkPill(
-          key: context.pillKey,
-          anchor: block.anchor,
-          url: block.url,
-          baseStyle: context.baseStyle,
-          highlighted: context.highlighted,
-          hovered: context.hovered,
+        // WidgetSpan scales the whole child to match the surrounding prose.
+        // Do not apply the inherited text scaler a second time to the label.
+        child: MediaQuery.withNoTextScaling(
+          child: ComposerLinkPill(
+            key: context.pillKey,
+            anchor: block.anchor,
+            url: block.url,
+            baseStyle: context.baseStyle,
+            highlighted: context.highlighted,
+            hovered: context.hovered,
+          ),
         ),
       ),
     ),
