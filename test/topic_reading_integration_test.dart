@@ -184,7 +184,7 @@ void _registerTopicReadingTests() {
     }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets(
-      'a category list keeps its off-page category through draft restore',
+      'a category list starts a fresh topic with its off-page category',
       (tester) async {
         const categoryPath = '/c/discourse-native-app/features/5.json';
         const parent = TopicCategory(
@@ -230,8 +230,9 @@ void _registerTopicReadingTests() {
         await tester.tap(find.byKey(TopicCreateButton.buttonKey));
         await tester.pumpAndSettle();
 
-        expect(controller.visibleComposer?.title.text, 'Saved draft title');
-        expect(controller.visibleComposer?.text.text, 'Saved draft body');
+        expect(controller.visibleComposer?.title.text, isEmpty);
+        expect(controller.visibleComposer?.text.text, isEmpty);
+        expect(api.draftsRequested, isEmpty);
         expect(controller.visibleComposer?.categoryId, category.id);
         expect(
           find.descendant(

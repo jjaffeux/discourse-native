@@ -1323,6 +1323,13 @@ the topic's one draft key for both replies and edits here, so a changed edit's
 header close goes through the same discard confirmation instead of silently
 throwing the edit away or overwriting an unfinished reply.
 
+**New topic** starts a fresh draft with its own `new_topic_<timestamp>` key,
+matching the web app. Saved drafts, including the legacy `new_topic` draft,
+resume only when selected from the drafts menu or page. Starting another topic
+while a changed composer is open or minimized uses the same discard confirmation;
+Cancel keeps the current composer. Saving and closing first keeps that draft
+available for later and lets the next topic start empty.
+
 The floating topic composer can be minimized to its header without closing its
 draft. The minimized bar stays at the bottom of the content pane; restoring it
 returns to the previous position and size with the title and body intact.

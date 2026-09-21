@@ -7,6 +7,7 @@ import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/found_user.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/topic.dart';
+import 'package:discourse_native/src/models/user_draft.dart';
 import 'package:discourse_native/src/shell/composer_controller.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/topic_viewport_coordinator.dart';
@@ -94,7 +95,7 @@ void main() {
   );
 
   test(
-    'invalidating a pending new-topic draft credential sends no read',
+    'invalidating a pending resumed-topic draft credential sends no read',
     () async {
       final drafts = _GatedDraftStore();
       final fixture = await _fixture(drafts: drafts, canCreateTopic: true);
@@ -102,7 +103,14 @@ void main() {
       expect(fixture.shell.canCreateTopicHere, isTrue);
 
       final localRead = drafts.gateNextRead();
-      await fixture.shell.openNewTopic();
+      await fixture.shell.resumeDraft(
+        _siteUrl,
+        const UserDraft(
+          key: 'new_topic',
+          sequence: 0,
+          data: ComposerDraft(reply: 'A saved topic draft'),
+        ),
+      );
       await localRead.started.future;
       // Let the other composer-owned best-effort reads finish before selecting
       // exactly the credential lookup that follows the local draft read.

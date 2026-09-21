@@ -229,6 +229,11 @@ final class ComposerDraftCoordinator {
     unawaited(restore);
   }
 
+  void startNewDraft(ComposerController composer) {
+    // A newly allocated key has no saved snapshot, including when closing it.
+    _restoreTasks[composer] = Future<bool>.value(true);
+  }
+
   Future<bool> finishRestore(ComposerController composer) async {
     if (!_isCurrent(composer)) return false;
     var restore = _restoreTasks[composer];

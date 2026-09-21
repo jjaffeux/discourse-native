@@ -103,6 +103,85 @@ void main() {
   }
 
   group('topic creation controls', () {
+    testWidgets('start a fresh topic while saved drafts stay in the menu', (
+      tester,
+    ) async {
+      final fixture = await _pump(tester);
+      await tester.tap(find.byKey(TopicCreateButton.buttonKey));
+      await tester.pumpAndSettle();
+      final shell = ShellScope.read(tester.element(find.byType(ComposerPanel)));
+      final fresh = shell.visibleComposer!;
+
+      expect(fresh.title.text, isEmpty);
+      expect(fresh.raw, isEmpty);
+      expect(fresh.target.draftKey, isNot(_draft.key));
+      expect(fixture.api.draftsRequested, isEmpty);
+
+      await tester.tap(find.byKey(TopicCreateButton.draftsButtonKey));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(ValueKey('recent-draft-${_draft.key}')));
+      await tester.pumpAndSettle();
+
+      expect(shell.visibleComposer!.target.draftKey, _draft.key);
+      expect(shell.visibleComposer!.raw, _draft.data!.reply);
+      expect(shell.visibleComposer!.title.text, _draft.data!.title);
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
+
+    for (final minimized in [false, true]) {
+      testWidgets(
+        'confirm before replacing ${minimized ? 'a minimized' : 'an open'} topic draft',
+        (tester) async {
+          final fixture = await _pump(tester);
+          await tester.tap(find.byKey(TopicCreateButton.buttonKey));
+          await tester.pumpAndSettle();
+          final shell = ShellScope.read(
+            tester.element(find.byType(ComposerPanel)),
+          );
+          final first = shell.visibleComposer!;
+          first.title.text = 'Do not silently replace this topic';
+          first.text.text = 'Keep this unfinished body';
+          await tester.pumpAndSettle();
+          if (minimized) {
+            await tester.tap(find.byKey(const ValueKey('composer-minimize')));
+            await tester.pumpAndSettle();
+          }
+
+          await tester.tap(find.byKey(TopicCreateButton.buttonKey));
+          await tester.pumpAndSettle();
+          expect(
+            find.byKey(const ValueKey('composer-discard-dialog')),
+            findsOneWidget,
+          );
+          await tester.tap(
+            find.byKey(const ValueKey('composer-cancel-discard')),
+          );
+          await tester.pumpAndSettle();
+          expect(shell.visibleComposer, same(first));
+          expect(first.raw, 'Keep this unfinished body');
+          expect(fixture.api.userDraftsDeleted, isEmpty);
+
+          await tester.tap(find.byKey(TopicCreateButton.buttonKey));
+          await tester.pumpAndSettle();
+          await tester.tap(
+            find.byKey(const ValueKey('composer-confirm-discard')),
+          );
+          await tester.pumpAndSettle();
+
+          expect(first.isDisposed, isTrue);
+          expect(
+            shell.visibleComposer!.target.draftKey,
+            isNot(first.target.draftKey),
+          );
+          expect(shell.visibleComposer!.raw, isEmpty);
+          expect(
+            fixture.api.userDraftsDeleted.single.draftKey,
+            first.target.draftKey,
+          );
+        },
+        variant: TargetPlatformVariant.only(TargetPlatform.linux),
+      );
+    }
+
     testWidgets('show the core label, icon, colors, and shortcut when wide', (
       tester,
     ) async {
